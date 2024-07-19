@@ -30,12 +30,12 @@ fn test_create_dtao_and_stao_subnets() {
         assert_eq!(pallet_subtensor::Alpha::<Test>::get( (hotkey, coldkey, netuid_d) ), 1_200_000_000_000); // 800k lock --> 1200k alpha.
         assert_eq!(pallet_subtensor::SubnetTAO::<Test>::get( netuid_d ), 800_000_000_000); // 800k lock
         assert_eq!(pallet_subtensor::SubnetAlpha::<Test>::get( netuid_d ), 1_200_000_000_000); // 800k --> 1200k tao -> alpha
-        assert_eq!(SubtensorModule::get_dynamic_for_hotkey( &hotkey ), 1_500_000_000_000); // 100k + 200K + 400K + 800K (these are the lock costs.)
-        assert_eq!(SubtensorModule::get_dynamic_for_hotkey_on_subnet( &hotkey, netuid_a ), 100_000_000_000); // 100k lock
-        assert_eq!(SubtensorModule::get_dynamic_for_hotkey_on_subnet( &hotkey, netuid_b ), 200_000_000_000); // 200k lock
-        assert_eq!(SubtensorModule::get_dynamic_for_hotkey_on_subnet( &hotkey, netuid_c ), 400_000_000_000); // 400k lock
-        assert_eq!(SubtensorModule::get_dynamic_for_hotkey_on_subnet( &hotkey, netuid_d ), 800_000_000_000); // 800k lock
-        assert_eq!(SubtensorModule::get_dynamic_for_hotkey_and_coldkey( &hotkey, &coldkey ), 1_500_000_000_000); // 100k + 200K + 400K + 800K (these are the lock costs.)
+        assert_eq!(SubtensorModule::get_global_for_hotkey( &hotkey ), 1_500_000_000_000); // 100k + 200K + 400K + 800K (these are the lock costs.)
+        assert_eq!(SubtensorModule::get_global_for_hotkey_on_subnet( &hotkey, netuid_a ), 100_000_000_000); // 100k lock
+        assert_eq!(SubtensorModule::get_global_for_hotkey_on_subnet( &hotkey, netuid_b ), 200_000_000_000); // 200k lock
+        assert_eq!(SubtensorModule::get_global_for_hotkey_on_subnet( &hotkey, netuid_c ), 400_000_000_000); // 400k lock
+        assert_eq!(SubtensorModule::get_global_for_hotkey_on_subnet( &hotkey, netuid_d ), 800_000_000_000); // 800k lock
+        assert_eq!(SubtensorModule::get_global_for_hotkey_and_coldkey( &hotkey, &coldkey ), 1_500_000_000_000); // 100k + 200K + 400K + 800K (these are the lock costs.)
     });
 }
 

@@ -62,7 +62,7 @@ impl<T: Config> Pallet<T> {
 
         // Ensure that the hotkey has enough stake to withdraw.
         ensure!(
-            Self::has_enough_stake(&coldkey, &hotkey, alpha_unstaked),
+            Self::has_enough_stake_on_subnet(&hotkey, &coldkey, netuid, alpha_unstaked),
             Error::<T>::NotEnoughStakeToWithdraw
         );
 

@@ -543,7 +543,7 @@ impl<T: Config> Pallet<T> {
                     root_netuid,
                 )
             {
-                let stake_i: u64 = Self::get_dynamic_for_hotkey(&hotkey_i);
+                let stake_i: u64 = Self::get_global_for_hotkey(&hotkey_i);
                 if stake_i < lowest_stake {
                     lowest_stake = stake_i;
                     lowest_uid = uid_i;
@@ -555,7 +555,7 @@ impl<T: Config> Pallet<T> {
 
             // --- 13.1.2 The new account has a higher stake than the one being replaced.
             ensure!(
-                lowest_stake < Self::get_dynamic_for_hotkey(&hotkey),
+                lowest_stake < Self::get_global_for_hotkey(&hotkey),
                 Error::<T>::StakeTooLowForRoot
             );
 
@@ -692,7 +692,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 3. Grab the hotkey's stake.
-        let current_stake = Self::get_dynamic_for_hotkey(hotkey);
+        let current_stake = Self::get_global_for_hotkey(hotkey);
 
         // Add the hotkey to the Senate.
         // If we're full, we'll swap out the lowest stake member.
@@ -701,14 +701,14 @@ impl<T: Config> Pallet<T> {
         if (members.len() as u32) == T::SenateMembers::max_members() {
             let mut sorted_members = members.clone();
             sorted_members.sort_by(|a, b| {
-                let a_stake = Self::get_dynamic_for_hotkey(a);
-                let b_stake = Self::get_dynamic_for_hotkey(b);
+                let a_stake = Self::get_global_for_hotkey(a);
+                let b_stake = Self::get_global_for_hotkey(b);
 
                 b_stake.cmp(&a_stake)
             });
 
             if let Some(last) = sorted_members.last() {
-                let last_stake = Self::get_dynamic_for_hotkey(last);
+                let last_stake = Self::get_global_for_hotkey(last);
 
                 if last_stake < current_stake {
                     // Swap the member with the lowest stake.

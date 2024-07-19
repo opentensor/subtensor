@@ -1127,7 +1127,7 @@ fn test_can_remove_balance_from_coldkey_account_err_insufficient_balance() {
     });
 }
 /************************************************************
-    staking::has_enough_stake() tests
+    staking::has_enough_stake_on_subnet() tests
 ************************************************************/
 #[test]
 fn test_has_enough_stake_yes() {
@@ -1149,9 +1149,10 @@ fn test_has_enough_stake_yes() {
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_id, &hotkey_id),
             10000
         );
-        assert!(SubtensorModule::has_enough_stake(
+        assert!(SubtensorModule::has_enough_stake_on_subnet(
             &coldkey_id,
             &hotkey_id,
+            netuid,
             5000
         ));
     });
@@ -1169,9 +1170,10 @@ fn test_has_enough_stake_no() {
         add_network(netuid, tempo, 0);
         register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, intial_amount);
-        assert!(!SubtensorModule::has_enough_stake(
+        assert!(!SubtensorModule::has_enough_stake_on_subnet(
             &coldkey_id,
             &hotkey_id,
+            netuid,
             5000
         ));
     });

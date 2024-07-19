@@ -1,14 +1,14 @@
-// DEPRECATED mod mock;
-// use frame_support::{
-//     assert_ok,
-//     dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays},
-//     sp_std::vec,
-// };
-// use frame_system::Config;
-// use frame_system::{EventRecord, Phase};
-// use mock::*;
-// use pallet_subtensor::Error;
-// use sp_core::{H256, U256};
+// DEPRECATED 
+mod mock;
+use frame_support::{
+    assert_ok,
+    dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays},
+};
+use frame_system::Config;
+use frame_system::{EventRecord, Phase};
+use mock::*;
+use pallet_subtensor::Error;
+use sp_core::{H256, U256};
 
 // #[allow(dead_code)]
 // fn record(event: RuntimeEvent) -> EventRecord<RuntimeEvent, H256> {
@@ -43,72 +43,30 @@
 //     });
 // }
 
-// #[test]
-// fn test_add_network() {
-//     new_test_ext().execute_with(|| {
-//         let modality = 0;
-//         let tempo: u16 = 13;
-//         add_network(10, tempo, modality);
-//         assert_eq!(SubtensorModule::get_number_of_subnets(), 1);
-//         add_network(20, tempo, modality);
-//         assert_eq!(SubtensorModule::get_number_of_subnets(), 2);
-//     });
-// }
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test networks test_add_network -- --nocapture
+#[test]
+fn test_add_network() {
+    new_test_ext(1).execute_with(|| {
+        let modality = 0;
+        let tempo: u16 = 13;
+        add_network(10, tempo, modality);
+        assert_eq!(SubtensorModule::get_number_of_subnets(), 1);
+        add_network(20, tempo, modality);
+        assert_eq!(SubtensorModule::get_number_of_subnets(), 2);
+    });
+}
 
-// #[test]
-// fn test_add_network_check_tempo() {
-//     new_test_ext().execute_with(|| {
-//         let modality = 0;
-//         let tempo: u16 = 13;
-//         assert_eq!(SubtensorModule::get_tempo(1), 0);
-//         add_network(1, tempo, modality);
-//         assert_eq!(SubtensorModule::get_tempo(1), 13);
-//     });
-// }
-
-// #[test]
-// fn test_clear_min_allowed_weight_for_network() {
-//     new_test_ext().execute_with(|| {
-//         let netuid: u16 = 1;
-//         let min_allowed_weight = 2;
-//         let tempo: u16 = 13;
-//         add_network(netuid, tempo, 0);
-//         register_ok_neuron(1, U256::from(55), U256::from(66), 0);
-//         SubtensorModule::set_min_allowed_weights(netuid, min_allowed_weight);
-//         assert_eq!(SubtensorModule::get_min_allowed_weights(netuid), 2);
-//         assert_ok!(SubtensorModule::do_remove_network(
-//             <<Test as Config>::RuntimeOrigin>::root(),
-//             netuid
-//         ));
-//         assert_eq!(SubtensorModule::get_min_allowed_weights(netuid), 0);
-//     });
-// }
-
-// #[test]
-// fn test_remove_uid_for_network() {
-//     new_test_ext().execute_with(|| {
-//         let netuid: u16 = 1;
-//         let tempo: u16 = 13;
-//         add_network(netuid, tempo, 0);
-//         register_ok_neuron(1, U256::from(55), U256::from(66), 0);
-//         let neuron_id;
-//         match SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(55)) {
-//             Ok(k) => neuron_id = k,
-//             Err(e) => panic!("Error: {:?}", e),
-//         }
-//         assert!(SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(55)).is_ok());
-//         assert_eq!(neuron_id, 0);
-//         register_ok_neuron(1, U256::from(56), U256::from(67), 300000);
-//         let neuron_uid =
-//             SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(56)).unwrap();
-//         assert_eq!(neuron_uid, 1);
-//         assert_ok!(SubtensorModule::do_remove_network(
-//             <<Test as Config>::RuntimeOrigin>::root(),
-//             netuid
-//         ));
-//         assert!(SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(55)).is_err());
-//     });
-// }
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test networks test_add_network_check_tempo -- --nocapture
+#[test]
+fn test_add_network_check_tempo() {
+    new_test_ext(1).execute_with(|| {
+        let modality = 0;
+        let tempo: u16 = 13;
+        assert_eq!(SubtensorModule::get_tempo(1), 0);
+        add_network(1, tempo, modality);
+        assert_eq!(SubtensorModule::get_tempo(1), 13);
+    });
+}
 
 // #[test]
 // fn test_remove_difficulty_for_network() {

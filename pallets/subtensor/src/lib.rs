@@ -499,6 +499,8 @@ pub mod pallet {
     /// ==========================
     /// ==== Staking Counters ====
     /// ==========================
+    #[pallet::storage] // --- ITEM ( dynamic_weight )
+    pub type DynamicWeight<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( hot ) --> stake | Returns the total amount of stake under a hotkey.
     pub type TotalHotkeyStake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
@@ -522,17 +524,6 @@ pub mod pallet {
     >;
     #[pallet::storage] // --- DMAP ( hot, netuid ) --> alpha | Returns the total amount of alpha a hotkey owns.
     pub type TotalHotkeyAlpha<T: Config> = StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    // pub type Alpha<T: Config> = StorageNMap<
-    //     _,
-    //     Blake2_128Concat,
-    //     T::AccountId,
-    //     Identity,
-    //     T::AccountId,
-    //     u16,
-    //     u64,
-    //     ValueQuery,
-    //     DefaultZeroU64<T>,
-    // >;
     #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> alpha | Returns the alpha for an account on a subnet.
     pub type Alpha<T: Config> = StorageNMap<
         _,
@@ -947,7 +938,7 @@ pub mod pallet {
         pub fn get_priority_set_weights(hotkey: &T::AccountId, netuid: u16) -> u64 {
             if let Ok(uid) = Self::get_uid_for_net_and_hotkey(netuid, hotkey) {
                 // TODO rethink this.
-                let _stake = Self::get_dynamic_for_hotkey( hotkey );
+                let _stake = Self::get_global_for_hotkey( hotkey );
                 let current_block_number: u64 = Self::get_current_block_as_u64();
                 let default_priority: u64 =
                     current_block_number.saturating_sub(Self::get_last_update_for_uid(netuid, uid));

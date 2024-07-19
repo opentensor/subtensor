@@ -223,22 +223,24 @@ impl<T: Config> Pallet<T> {
         let hotkey_take: I96F32 = take_proportion * validating_emission;
 
         // Distribute to parents.
-        let split: I96F32 = I96F32::from_num( 0.5 );
+        let dynamic_weight: I96F32 = Self::get_dynamic_weight();
+        let alpha_weight: I96F32 = I96F32::from_num( 1.0 ) - dynamic_weight;
+
         let mut remainder: I96F32 = validating_emission - hotkey_take;
         let parnet_emission: I96F32 = validating_emission - hotkey_take;
         let hotkey_alpha: I96F32 = I96F32::from_num( Self::get_stake_for_hotkey_on_subnet( hotkey, netuid ) );
-        let hotkey_dynamic: I96F32 = I96F32::from_num( Self::get_dynamic_for_hotkey( hotkey ) );
+        let hotkey_dynamic: I96F32 = I96F32::from_num( Self::get_global_for_hotkey( hotkey ) );
 
         // Iterate over parents.
         for (proportion, parent) in Self::get_parents(hotkey, netuid) {
             // Proportion from parent.
             let parent_proportion: I96F32 = I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
-            let parent_dynamic: I96F32 = I96F32::from_num( Self::get_dynamic_for_hotkey( &parent ) );
+            let parent_dynamic: I96F32 = I96F32::from_num( Self::get_global_for_hotkey( &parent ) );
             let parent_alpha: I96F32 = I96F32::from_num( Self::get_stake_for_hotkey_on_subnet( &parent, netuid ) );
 
             // Compute dynamic proportion due.
-            let parent_alpha_emission: I96F32 = split * parnet_emission * (parent_alpha * parent_proportion).checked_div(hotkey_alpha).unwrap_or(I96F32::from_num(0.0));
-            let parent_dynamic_emission: I96F32 = split * parnet_emission * (parent_dynamic * parent_proportion).checked_div(hotkey_dynamic).unwrap_or(I96F32::from_num(0.0));
+            let parent_alpha_emission: I96F32 = alpha_weight * parnet_emission * (parent_alpha * parent_proportion).checked_div(hotkey_alpha).unwrap_or(I96F32::from_num(0.0));
+            let parent_dynamic_emission: I96F32 = dynamic_weight * parnet_emission * (parent_dynamic * parent_proportion).checked_div(hotkey_dynamic).unwrap_or(I96F32::from_num(0.0));
             let total_parent_emission: I96F32 = parent_alpha_emission + parent_dynamic_emission;
             hotkey_emission_tuples.push((parent, netuid, total_parent_emission.to_num::<u64>()));
 
@@ -275,21 +277,23 @@ impl<T: Config> Pallet<T> {
         let hotkey_take: I96F32 = take_proportion * emission;
         
         // Distribute the remainder to nominators.
-        let split: I96F32 = I96F32::from_num( 0.5 );
+        let dynamic_weight: I96F32 = Self::get_dynamic_weight();
+        let alpha_weight: I96F32 = I96F32::from_num( 1.0 ) - dynamic_weight;
+
         let mut remainder: I96F32 = emission - hotkey_take;
         let nominator_emission: I96F32 = emission - hotkey_take;
-        let hotkey_dynamic: I96F32 = I96F32::from_num( Self::get_dynamic_for_hotkey( hotkey ) );
+        let hotkey_dynamic: I96F32 = I96F32::from_num( Self::get_global_for_hotkey( hotkey ) );
         let hotkey_alpha: I96F32 = I96F32::from_num( Self::get_stake_for_hotkey_on_subnet( hotkey, netuid ) );
 
         // Iterate over all nominators to this hotkey.
         for (nominator, _) in Stake::<T>::iter_prefix(hotkey) {
             // Get the nominator alpha and dynamic.
             let nominator_alpha: I96F32 = I96F32::from_num( Alpha::<T>::get( (&hotkey, nominator.clone(), netuid) ));
-            let nominator_dynamic: I96F32 = I96F32::from_num( Self::get_dynamic_for_hotkey_and_coldkey( hotkey, &nominator ) );  
+            let nominator_dynamic: I96F32 = I96F32::from_num( Self::get_global_for_hotkey_and_coldkey( hotkey, &nominator ) );  
 
             // Compute contributions to nominators and alpha holders.
-            let nominator_emission_from_alpha: I96F32 = nominator_emission * ( nominator_alpha.checked_div(hotkey_alpha).unwrap_or(I96F32::from_num(0)) ) * split;
-            let nominator_emission_from_dynamic: I96F32 = nominator_emission * ( nominator_dynamic.checked_div(hotkey_dynamic).unwrap_or(I96F32::from_num(0)) ) * split;
+            let nominator_emission_from_alpha: I96F32 = alpha_weight * nominator_emission * ( nominator_alpha.checked_div(hotkey_alpha).unwrap_or(I96F32::from_num(0)) );
+            let nominator_emission_from_dynamic: I96F32 = dynamic_weight * nominator_emission * ( nominator_dynamic.checked_div(hotkey_dynamic).unwrap_or(I96F32::from_num(0)) ) ;
 
             // Append the emission tuple.
             let nominator_emission_total: I96F32 = nominator_emission_from_alpha + nominator_emission_from_dynamic;

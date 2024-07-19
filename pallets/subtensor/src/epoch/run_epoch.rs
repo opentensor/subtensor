@@ -261,6 +261,8 @@ impl<T: Config> Pallet<T> {
         // ===================
         // == Value storage ==
         // ===================
+        log::debug!("SW: {:?}", &stake);
+
         let cloned_emission: Vec<u64> = combined_emission.clone();
         let cloned_stake_weight: Vec<u16> = stake
             .iter()

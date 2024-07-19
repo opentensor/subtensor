@@ -2105,6 +2105,7 @@ fn test_fixed_proportion_to_u16() {
     assert_eq!(fixed_proportion_to_u16(input), expected);
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test math test_fixed_proportion_to_u16_panics -- --nocapture
 #[test]
 #[should_panic(expected = "overflow")]
 fn test_fixed_proportion_to_u16_panics() {
@@ -2114,6 +2115,7 @@ fn test_fixed_proportion_to_u16_panics() {
     let result = fixed_proportion_to_u16(input);
     log::trace!("Testing with result: {:?}", result); // Debug output
 }
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test math test_vec_fixed64_to_fixed32 -- --nocapture
 #[test]
 fn test_vec_fixed64_to_fixed32() {
     let input = vec![I64F64::from_num(i32::MIN)];
@@ -2124,7 +2126,7 @@ fn test_vec_fixed64_to_fixed32() {
     let expected = vec![I32F32::from_num(i32::MAX)];
     assert_eq!(vec_fixed64_to_fixed32(input), expected);
 }
-
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test math test_vec_fixed64_to_fixed32_panics -- --nocapture
 #[test]
 #[should_panic(expected = "overflow")]
 fn test_vec_fixed64_to_fixed32_panics() {
@@ -2132,6 +2134,7 @@ fn test_vec_fixed64_to_fixed32_panics() {
     vec_fixed64_to_fixed32(bad_input);
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test math test_checked_sum -- --nocapture
 #[test]
 #[allow(arithmetic_overflow)]
 fn test_checked_sum() {
@@ -2152,6 +2155,7 @@ fn test_checked_sum() {
     assert_eq!(checked_sum(&single_input), Some(1));
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test math test_mat_ema_alpha_vec_sparse_empty -- --nocapture
 #[test]
 fn test_mat_ema_alpha_vec_sparse_empty() {
     let new: Vec<Vec<(u16, I32F32)>> = Vec::new();
@@ -2161,6 +2165,7 @@ fn test_mat_ema_alpha_vec_sparse_empty() {
     assert_eq!(result, Vec::<Vec<(u16, I32F32)>>::new());
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test math test_mat_ema_alpha_vec_sparse_single_element -- --nocapture
 #[test]
 fn test_mat_ema_alpha_vec_sparse_single_element() {
     let new: Vec<Vec<(u16, I32F32)>> = vec![vec![(0, I32F32::from_num(1.0))]];
@@ -2170,6 +2175,7 @@ fn test_mat_ema_alpha_vec_sparse_single_element() {
     assert_eq!(result, vec![vec![(0, I32F32::from_num(1.5))]]);
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test math test_mat_ema_alpha_vec_sparse_multiple_elements -- --nocapture
 #[test]
 fn test_mat_ema_alpha_vec_sparse_multiple_elements() {
     let new: Vec<Vec<(u16, I32F32)>> = vec![
@@ -2189,6 +2195,7 @@ fn test_mat_ema_alpha_vec_sparse_multiple_elements() {
     assert_sparse_mat_compare(&result, &expected, I32F32::from_num(0.000001));
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test math test_mat_ema_alpha_vec_sparse_zero_alpha -- --nocapture
 #[test]
 fn test_mat_ema_alpha_vec_sparse_zero_alpha() {
     let new: Vec<Vec<(u16, I32F32)>> = vec![vec![(0, I32F32::from_num(1.0))]];
@@ -2198,6 +2205,7 @@ fn test_mat_ema_alpha_vec_sparse_zero_alpha() {
     assert_eq!(result, vec![vec![(0, I32F32::from_num(2.0))]]);
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test math test_mat_ema_alpha_vec_sparse_one_alpha -- --nocapture
 #[test]
 fn test_mat_ema_alpha_vec_sparse_one_alpha() {
     let new: Vec<Vec<(u16, I32F32)>> = vec![vec![(0, I32F32::from_num(1.0))]];
@@ -2207,6 +2215,7 @@ fn test_mat_ema_alpha_vec_sparse_one_alpha() {
     assert_eq!(result, vec![vec![(0, I32F32::from_num(1.0))]]);
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test math test_mat_ema_alpha_vec_sparse_mixed_alpha -- --nocapture
 #[test]
 fn test_mat_ema_alpha_vec_sparse_mixed_alpha() {
     let new: Vec<Vec<(u16, I32F32)>> = vec![
@@ -2229,6 +2238,7 @@ fn test_mat_ema_alpha_vec_sparse_mixed_alpha() {
     );
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test math test_mat_ema_alpha_vec_sparse_sparse_matrix -- --nocapture
 #[test]
 fn test_mat_ema_alpha_vec_sparse_sparse_matrix() {
     let new: Vec<Vec<(u16, I32F32)>> = vec![
@@ -2250,6 +2260,7 @@ fn test_mat_ema_alpha_vec_sparse_sparse_matrix() {
     );
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test math test_mat_ema_alpha_vec_basic -- --nocapture
 #[test]
 fn test_mat_ema_alpha_vec_basic() {
     let new = mat_to_fixed(&[vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]]);
@@ -2264,6 +2275,7 @@ fn test_mat_ema_alpha_vec_basic() {
     assert_eq!(result, expected);
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test math test_mat_ema_alpha_vec_varying_alpha -- --nocapture
 #[test]
 fn test_mat_ema_alpha_vec_varying_alpha() {
     let new = mat_to_fixed(&[vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]]);
@@ -2278,6 +2290,7 @@ fn test_mat_ema_alpha_vec_varying_alpha() {
     assert_mat_approx_eq(&result, &expected, I32F32::from_num(1e-6));
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test math test_mat_ema_alpha_vec_empty_matrices -- --nocapture
 #[test]
 fn test_mat_ema_alpha_vec_empty_matrices() {
     let new: Vec<Vec<I32F32>> = vec![];
@@ -2288,6 +2301,7 @@ fn test_mat_ema_alpha_vec_empty_matrices() {
     assert_eq!(result, expected);
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test math test_mat_ema_alpha_vec_single_element -- --nocapture
 #[test]
 fn test_mat_ema_alpha_vec_single_element() {
     let new = mat_to_fixed(&[vec![1.0]]);
@@ -2298,6 +2312,7 @@ fn test_mat_ema_alpha_vec_single_element() {
     assert_eq!(result, expected);
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test math test_mat_ema_alpha_vec_mismatched_dimensions -- --nocapture
 // TODO: (@sd): Should these be non panicking?
 #[test]
 #[should_panic(expected = "assertion failed")]
@@ -2312,6 +2327,7 @@ fn test_mat_ema_alpha_vec_mismatched_dimensions() {
     let _result = mat_ema_alpha_vec(&new, &old, &alpha);
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test math test_quantile -- --nocapture
 #[test]
 fn test_quantile() {
     // Test with a non-empty vector and valid quantile values

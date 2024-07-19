@@ -41,22 +41,12 @@ impl<T: Config> Pallet<T> {
         TotalStake::<T>::put(Self::get_total_stake().saturating_sub(decrement));
     }
 
-    // Returns the total amount of stake under a hotkey (delegative or otherwise)
-    //
-    pub fn get_total_stake_for_hotkey(hotkey: &T::AccountId) -> u64 {
-        TotalHotkeyStake::<T>::get(hotkey)
-    }
+
 
     // // Returns the total amount of stake held by the coldkey (delegative or otherwise)
     // //
     pub fn get_total_stake_for_coldkey(coldkey: &T::AccountId) -> u64 {
         TotalColdkeyStake::<T>::get(coldkey)
-    }
-
-    // Returns the stake under the cold - hot pairing in the staking table.
-    //
-    pub fn get_stake_for_coldkey_and_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
-        Stake::<T>::get(hotkey, coldkey)
     }
 
     // Retrieves the total stakes for a given hotkey (account ID) for the current staking interval.
@@ -169,19 +159,6 @@ impl<T: Config> Pallet<T> {
         } else {
             false
         }
-    }
-
-    /// Returns true if the cold-hot staking account has enough balance to fulfill the decrement.
-    ///
-    /// # Arguments
-    /// * `coldkey` - The coldkey account ID.
-    /// * `hotkey` - The hotkey account ID.
-    /// * `decrement` - The amount to be decremented.
-    ///
-    /// # Returns
-    /// True if the account has enough balance, false otherwise.
-    pub fn has_enough_stake(coldkey: &T::AccountId, hotkey: &T::AccountId, decrement: u64) -> bool {
-        Self::get_stake_for_coldkey_and_hotkey(coldkey, hotkey) >= decrement
     }
 
     /// Increases the stake on the hotkey account under its owning coldkey.

@@ -6,6 +6,13 @@ use substrate_fixed::types::{I96F32, I64F64, I32F32};
 
 impl<T: Config> Pallet<T> {
 
+    pub fn get_dynamic_weight() -> I96F32 {
+        I96F32::from_num(DynamicWeight::<T>::get())/I96F32::from_num(u64::MAX)
+    }
+    pub fn set_dynamic_weight( weight: u64 ) {
+        DynamicWeight::<T>::put( weight );
+    }
+
     /// Calculates the weighted combination between alpha and dynamic tao for hotkeys on a subnet.
     ///
     /// # Arguments
@@ -41,12 +48,13 @@ impl<T: Config> Pallet<T> {
         log::trace!("Dynamic TAO Stake:\n{:?}\n", &dynamic_tao_stake);
 
         // Average local and global weights.
-        let ratio: I64F64 = I64F64::from_num(0.5);
-        let stake_weights: Vec<I64F64> = alpha_stake
+        let dynamic_weight: I64F64 = I64F64::from_num( Self::get_dynamic_weight() );
+        let mut stake_weights: Vec<I64F64> = alpha_stake
             .iter()
             .zip(dynamic_tao_stake.iter())
-            .map(|(alpha, dynamic)| (I64F64::from_num(1.0) - ratio) * (*alpha) + ratio * (*dynamic))
+            .map(|(alpha, dynamic)| (I64F64::from_num(1.0) - dynamic_weight) * (*alpha) + dynamic_weight * (*dynamic))
             .collect();
+        inplace_normalize_64(&mut stake_weights);
 
         // Convert the averaged stake values from 64-bit fixed-point to 32-bit fixed-point representation.
         let converted_stake_weights: Vec<I32F32> = vec_fixed64_to_fixed32(stake_weights);
@@ -78,7 +86,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_dynamic_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
 
         // Get the initial dynamic tao for the hotkey.
-        let initial_dynamic_tao: u64 = Self::get_dynamic_for_hotkey( hotkey );
+        let initial_dynamic_tao: u64 = Self::get_global_for_hotkey( hotkey );
         let mut dynamic_tao_to_children: u64 = 0;
         let mut dynamic_tao_from_parents: u64 = 0;
         let parents: Vec<(u64, T::AccountId)> = Self::get_parents(hotkey, netuid);
@@ -93,7 +101,7 @@ impl<T: Config> Pallet<T> {
         }
         // Iterate over parents to calculate the total stake received from them.
         for (proportion, parent) in parents {
-            let parent_dynamic_tao: u64 = Self::get_dynamic_for_hotkey( &parent );
+            let parent_dynamic_tao: u64 = Self::get_global_for_hotkey( &parent );
             let normalized_proportion: I96F32 =
                 I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
             let dynamic_tao_proportion_from_parent: I96F32 =
@@ -177,8 +185,8 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     /// * `u64` - The total dynamic value for the hotkey and coldkey across all subnets.
-    pub fn get_dynamic_for_hotkey_and_coldkey( hotkey: &T::AccountId, coldkey: &T::AccountId ) -> u64 {
-        log::trace!(target: "subtensor", "Entering get_dynamic_for_hotkey_and_coldkey. hotkey: {:?}, coldkey: {:?}", hotkey, coldkey);
+    pub fn get_global_for_hotkey_and_coldkey( hotkey: &T::AccountId, coldkey: &T::AccountId ) -> u64 {
+        log::trace!(target: "subtensor", "Entering get_global_for_hotkey_and_coldkey. hotkey: {:?}, coldkey: {:?}", hotkey, coldkey);
 
         // Initialize the total tao equivalent to zero.
         let mut total_tao_equivalent: I96F32 = I96F32::from_num( 0 );
@@ -189,7 +197,7 @@ impl<T: Config> Pallet<T> {
             log::trace!(target: "subtensor", "Processing netuid: {}", netuid);
 
             // Accumulate the dynamic value for the hotkey and coldkey on each subnet.
-            let subnet_dynamic = Self::get_dynamic_for_hotkey_and_coldey_on_subnet( hotkey, coldkey, netuid );
+            let subnet_dynamic = Self::get_global_for_hotkey_and_coldey_on_subnet( hotkey, coldkey, netuid );
             log::trace!(target: "subtensor", "Subnet {} dynamic value: {}", netuid, subnet_dynamic);
 
             total_tao_equivalent = total_tao_equivalent.saturating_add(I96F32::from_num(subnet_dynamic));
@@ -198,7 +206,7 @@ impl<T: Config> Pallet<T> {
 
         // Return the total tao equivalent as a u64 value.
         let result = total_tao_equivalent.to_num::<u64>();
-        log::trace!(target: "subtensor", "Exiting get_dynamic_for_hotkey_and_coldkey. Result: {}", result);
+        log::trace!(target: "subtensor", "Exiting get_global_for_hotkey_and_coldkey. Result: {}", result);
         result
     }
 
@@ -209,8 +217,8 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     /// * `u64` - The total dynamic value for the hotkey across all subnets.
-    pub fn get_dynamic_for_hotkey( hotkey: &T::AccountId ) -> u64 {
-        log::trace!(target: "subtensor", "Entering get_dynamic_for_hotkey. hotkey: {:?}", hotkey);
+    pub fn get_global_for_hotkey( hotkey: &T::AccountId ) -> u64 {
+        log::trace!(target: "subtensor", "Entering get_global_for_hotkey. hotkey: {:?}", hotkey);
 
         // Initialize the total tao equivalent to zero.
         let mut total_tao_equivalent: I96F32 = I96F32::from_num( 0 );
@@ -221,7 +229,7 @@ impl<T: Config> Pallet<T> {
             log::trace!(target: "subtensor", "Processing netuid: {}", netuid);
 
             // Accumulate the dynamic value for the hotkey on each subnet.
-            let subnet_dynamic = Self::get_dynamic_for_hotkey_on_subnet( hotkey, netuid );
+            let subnet_dynamic = Self::get_global_for_hotkey_on_subnet( hotkey, netuid );
             log::trace!(target: "subtensor", "Subnet {} dynamic value: {}", netuid, subnet_dynamic);
 
             total_tao_equivalent = total_tao_equivalent.saturating_add(I96F32::from_num(subnet_dynamic));
@@ -230,7 +238,7 @@ impl<T: Config> Pallet<T> {
 
         // Return the total tao equivalent as a u64 value.
         let result = total_tao_equivalent.to_num::<u64>();
-        log::trace!(target: "subtensor", "Exiting get_dynamic_for_hotkey. Result: {}", result);
+        log::trace!(target: "subtensor", "Exiting get_global_for_hotkey. Result: {}", result);
         result
     }
 
@@ -242,8 +250,8 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     /// * `u64` - The dynamic value for the hotkey on the specified subnet.
-    pub fn get_dynamic_for_hotkey_on_subnet( hotkey: &T::AccountId, netuid: u16 ) -> u64 {
-        log::trace!(target: "subtensor", "Entering get_dynamic_for_hotkey_on_subnet. hotkey: {:?}, netuid: {}", hotkey, netuid);
+    pub fn get_global_for_hotkey_on_subnet( hotkey: &T::AccountId, netuid: u16 ) -> u64 {
+        log::trace!(target: "subtensor", "Entering get_global_for_hotkey_on_subnet. hotkey: {:?}, netuid: {}", hotkey, netuid);
 
         // Get the hotkey's alpha value on this subnet.
         let alpha: u64 = Self::get_stake_for_hotkey_on_subnet( hotkey, netuid );
@@ -253,7 +261,7 @@ impl<T: Config> Pallet<T> {
         let dynamic_value = Self::alpha_to_dynamic( alpha, netuid );
         log::trace!(target: "subtensor", "Converted dynamic value: {}", dynamic_value);
 
-        log::trace!(target: "subtensor", "Exiting get_dynamic_for_hotkey_on_subnet");
+        log::trace!(target: "subtensor", "Exiting get_global_for_hotkey_on_subnet");
         return dynamic_value;
     }
 
@@ -266,7 +274,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     /// * `u64` - The dynamic value for the hotkey and coldkey on the specified subnet.
-    pub fn get_dynamic_for_hotkey_and_coldey_on_subnet( hotkey: &T::AccountId, coldkey: &T::AccountId, netuid: u16 ) -> u64 {
+    pub fn get_global_for_hotkey_and_coldey_on_subnet( hotkey: &T::AccountId, coldkey: &T::AccountId, netuid: u16 ) -> u64 {
         // Get the hotkey's alpha value on this subnet.
         let alpha: u64 = Alpha::<T>::get( ( hotkey, coldkey, netuid) );
         // Convert the alpha value to dynamic value and return it.
@@ -359,6 +367,32 @@ impl<T: Config> Pallet<T> {
     pub fn get_stake_for_hotkey_on_subnet( hotkey: &T::AccountId, netuid: u16 ) -> u64 {
         // Return the alpha this hotkey owns on this subnet.
         TotalHotkeyAlpha::<T>::get( hotkey, netuid )
+    }
+
+    /// Returns true if the cold-hot staking account has enough balance to fulfill the decrement.
+    ///
+    /// # Arguments
+    /// * `coldkey` - The coldkey account ID.
+    /// * `hotkey` - The hotkey account ID.
+    /// * `decrement` - The amount to be decremented.
+    ///
+    /// # Returns
+    /// True if the account has enough balance, false otherwise.
+    pub fn has_enough_stake_on_subnet(hotkey: &T::AccountId, coldkey: &T::AccountId, netuid: u16, decrement: u64) -> bool {
+        Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid) >= decrement
+    }
+
+    /// Retrieves the alpha value for a given hotkey on a specific subnet.
+    ///
+    /// # Arguments
+    /// * `hotkey` - The account ID of the hotkey.
+    /// * `netuid` - The unique identifier of the subnet.
+    ///
+    /// # Returns
+    /// * `u64` - The alpha value for the hotkey on the specified subnet.
+    pub fn get_stake_for_hotkey_and_coldkey_on_subnet( hotkey: &T::AccountId, coldkey: &T::AccountId, netuid: u16 ) -> u64 {
+        // Return the alpha this hotkey owns on this subnet.
+        Alpha::<T>::get( (hotkey, coldkey, netuid ))
     }
 
     /// Stakes TAO into a subnet for a given hotkey and coldkey pair.

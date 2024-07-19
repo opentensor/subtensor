@@ -617,9 +617,8 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(164_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(23))
 		.saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Normal, Pays::No))]
-        pub fn root_register(_origin: OriginFor<T>, _hotkey: T::AccountId) -> DispatchResult {
-            // Self::do_root_register(origin, hotkey)
-            Ok(())
+        pub fn root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+            Self::do_root_register(origin, hotkey)
         }
 
         /// Attempt to adjust the senate membership to include a hotkey

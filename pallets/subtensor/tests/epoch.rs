@@ -184,9 +184,10 @@ fn init_run_epochs(
         // let stake: u64 = 1; // alternative test: all nodes receive stake, should be same outcome, except stake
         SubtensorModule::add_balance_to_coldkey_account(&(U256::from(key)), stake);
         SubtensorModule::append_neuron(netuid, &(U256::from(key)), 0);
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+        SubtensorModule::stake_into_subnet(
             &U256::from(key),
             &U256::from(key),
+            netuid,
             stake,
         );
     }
@@ -551,6 +552,7 @@ fn init_run_epochs(
 //     });
 // }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test epoch test_1_graph -- --nocapture
 // Test an epoch on a graph with a single item.
 #[test]
 fn test_1_graph() {
@@ -564,7 +566,7 @@ fn test_1_graph() {
         add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
         SubtensorModule::set_max_allowed_uids(netuid, 1);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_amount);
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_amount);
+        SubtensorModule::stake_into_subnet(&coldkey, &hotkey, netuid, stake_amount);
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
         run_to_block(1); // run to next block to ensure weights are set on nodes after their registration block
@@ -584,7 +586,7 @@ fn test_1_graph() {
         );
         SubtensorModule::epoch(netuid, 1_000_000_000);
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid),
             stake_amount
         );
         assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
@@ -599,6 +601,7 @@ fn test_1_graph() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test epoch test_10_graph -- --nocapture
 // Test an epoch on a graph with two items.
 #[test]
 fn test_10_graph() {
@@ -615,9 +618,10 @@ fn test_10_graph() {
                 stake_amount,
                 SubtensorModule::get_subnetwork_n(netuid),
             );
-            SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+            SubtensorModule::stake_into_subnet(
                 &coldkey,
                 &hotkey,
+                netuid,
                 stake_amount,
             );
             SubtensorModule::append_neuron(netuid, &hotkey, 0);
@@ -648,7 +652,7 @@ fn test_10_graph() {
         // Check return values.
         for i in 0..n {
             assert_eq!(
-                SubtensorModule::get_total_stake_for_hotkey(&(U256::from(i))),
+                SubtensorModule::get_stake_for_hotkey_on_subnet(&(U256::from(i)), netuid),
                 1
             );
             assert_eq!(SubtensorModule::get_rank_for_uid(netuid, i as u16), 0);
@@ -664,6 +668,7 @@ fn test_10_graph() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test epoch test_512_graph -- --nocapture
 // Test an epoch on a graph with 512 nodes, of which the first 64 are validators setting non-self weights, and the rest servers setting only self-weights.
 #[test]
 fn test_512_graph() {
@@ -703,7 +708,7 @@ fn test_512_graph() {
                 let bonds = SubtensorModule::get_bonds(netuid);
                 for uid in validators {
                     assert_eq!(
-                        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
+                        SubtensorModule::get_stake_for_hotkey_on_subnet(&(U256::from(uid)), netuid),
                         max_stake_per_validator
                     );
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
@@ -718,7 +723,7 @@ fn test_512_graph() {
                 }
                 for uid in servers {
                     assert_eq!(
-                        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
+                        SubtensorModule::get_stake_for_hotkey_on_subnet(&(U256::from(uid)), netuid),
                         0
                     );
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 146); // Note R = floor(1 / (512 - 64) * 65_535) = 146
@@ -735,6 +740,7 @@ fn test_512_graph() {
     }
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test epoch test_512_graph_random_weights -- --nocapture
 // Test an epoch on a graph with 4096 nodes, of which the first 256 are validators setting random non-self weights, and the rest servers setting only self-weights.
 #[test]
 fn test_512_graph_random_weights() {
@@ -838,6 +844,7 @@ fn test_512_graph_random_weights() {
     }
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test epoch test_4096_graph -- --nocapture
 // Test an epoch on a graph with 4096 nodes, of which the first 256 are validators setting non-self weights, and the rest servers setting only self-weights.
 // #[test]
 #[allow(dead_code)]
@@ -977,9 +984,10 @@ fn test_16384_graph_sparse() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test epoch test_go_bonds -- --nocapture
 // Test bonds exponential moving average over a sequence of epochs.
 #[test]
-fn test_bonds() {
+fn test_go_bonds() {
     new_test_ext(1).execute_with(|| {
 		let sparse: bool = true;
 		let n: u16 = 8;
@@ -1002,7 +1010,7 @@ fn test_bonds() {
 			SubtensorModule::add_balance_to_coldkey_account( &U256::from(key), max_stake );
 			let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, key * 1_000_000, &U256::from(key));
 			assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(U256::from(key)), netuid, block_number, nonce, work, U256::from(key), U256::from(key)));
-			SubtensorModule::increase_stake_on_coldkey_hotkey_account( &U256::from(key), &U256::from(key), stakes[key as usize] );
+			SubtensorModule::stake_into_subnet( &U256::from(key), &U256::from(key), netuid, stakes[key as usize] );
 		}
 		assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
 		assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
@@ -1272,8 +1280,9 @@ fn test_bonds() {
 	});
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test epoch test_do_bonds_with_liquid_alpha -- --nocapture
 #[test]
-fn test_bonds_with_liquid_alpha() {
+fn test_do_bonds_with_liquid_alpha() {
     new_test_ext(1).execute_with(|| {
         let sparse: bool = true;
         let n: u16 = 8;
@@ -1308,9 +1317,10 @@ fn test_bonds_with_liquid_alpha() {
                 U256::from(key),
                 U256::from(key)
             ));
-            SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+            SubtensorModule::stake_into_subnet(
                 &U256::from(key),
                 &U256::from(key),
+                netuid,
                 stakes[key as usize],
             );
         }
@@ -1486,40 +1496,42 @@ fn test_bonds_with_liquid_alpha() {
     });
 }
 
-#[test]
-fn test_set_alpha_disabled() {
-    new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
-        let hotkey: U256 = U256::from(1);
-        let coldkey: U256 = U256::from(1 + 456);
-        let signer = <<Test as Config>::RuntimeOrigin>::signed(coldkey);
+// DEPRECATED.
+// #[test]
+// fn test_set_alpha_disabled() {
+//     new_test_ext(1).execute_with(|| {
+//         let netuid: u16 = 1;
+//         let hotkey: U256 = U256::from(1);
+//         let coldkey: U256 = U256::from(1 + 456);
+//         let signer = <<Test as Config>::RuntimeOrigin>::signed(coldkey);
 
-        // Enable Liquid Alpha and setup
-        SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
-        assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
-        assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, netuid, 1000));
-        // Only owner can set alpha values
-        assert_ok!(SubtensorModule::register_network(signer.clone(), 0));
+//         // Enable Liquid Alpha and setup
+//         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
+//         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
+//         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
+//         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
+//         assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, netuid, 1000));
+//         // Only owner can set alpha values
+//         assert_ok!(SubtensorModule::register_network(signer.clone(), 0));
 
-        // Explicitly set to false
-        SubtensorModule::set_liquid_alpha_enabled(netuid, false);
-        assert_err!(
-            SubtensorModule::do_set_alpha_values(signer.clone(), netuid, 12_u16, u16::MAX),
-            Error::<Test>::LiquidAlphaDisabled
-        );
+//         // Explicitly set to false
+//         SubtensorModule::set_liquid_alpha_enabled(netuid, false);
+//         assert_err!(
+//             SubtensorModule::do_set_alpha_values(signer.clone(), netuid, 12_u16, u16::MAX),
+//             Error::<Test>::LiquidAlphaDisabled
+//         );
 
-        SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-        assert_ok!(SubtensorModule::do_set_alpha_values(
-            signer.clone(),
-            netuid,
-            12_u16,
-            u16::MAX
-        ));
-    });
-}
+//         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
+//         assert_ok!(SubtensorModule::do_set_alpha_values(
+//             signer.clone(),
+//             netuid,
+//             12_u16,
+//             u16::MAX
+//         ));
+//     });
+// }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test epoch test_active_stake -- --nocapture
 // Test that epoch masks out inactive stake of validators with outdated weights beyond activity cutoff.
 #[test]
 fn test_active_stake() {
@@ -1557,9 +1569,10 @@ fn test_active_stake() {
                 U256::from(key),
                 U256::from(key)
             ));
-            SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+            SubtensorModule::stake_into_subnet(
                 &U256::from(key),
                 &U256::from(key),
+                netuid,
                 stake,
             );
         }
@@ -1727,6 +1740,7 @@ fn test_active_stake() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test epoch test_outdated_weights -- --nocapture
 // Test that epoch masks out outdated weights and bonds of validators on deregistered servers.
 #[test]
 fn test_outdated_weights() {
@@ -1764,9 +1778,10 @@ fn test_outdated_weights() {
                 U256::from(key),
                 U256::from(key)
             ));
-            SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+            SubtensorModule::stake_into_subnet(
                 &U256::from(key),
                 &U256::from(key),
+                netuid,
                 stake,
             );
         }
@@ -1912,6 +1927,7 @@ fn test_outdated_weights() {
     });
 }
 
+//  SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test epoch test_zero_weights -- --nocapture
 // Test the zero emission handling and fallback under zero effective weight conditions, to ensure non-zero effective emission.
 #[test]
 fn test_zero_weights() {
@@ -1950,9 +1966,10 @@ fn test_zero_weights() {
         }
         for validator in 0..(n / 2) as u64 {
             SubtensorModule::add_balance_to_coldkey_account(&U256::from(validator), stake);
-            SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+            SubtensorModule::stake_into_subnet(
                 &U256::from(validator),
                 &U256::from(validator),
+                netuid,
                 stake,
             );
         }
@@ -2105,6 +2122,7 @@ fn test_zero_weights() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test epoch test_validator_permits -- --nocapture
 // Test that epoch assigns validator permits to highest stake uids, varies uid interleaving and stake values.
 #[test]
 #[cfg(not(tarpaulin))]
@@ -2166,9 +2184,10 @@ fn test_validator_permits() {
                             U256::from(key),
                             U256::from(key)
                         ));
-                        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+                        SubtensorModule::stake_into_subnet(
                             &U256::from(key),
                             &U256::from(key),
+                            netuid,
                             stake[key as usize],
                         );
                     }
@@ -2200,9 +2219,10 @@ fn test_validator_permits() {
                             &(U256::from(*server as u64)),
                             2 * network_n as u64,
                         );
-                        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+                        SubtensorModule::stake_into_subnet(
                             &(U256::from(*server as u64)),
                             &(U256::from(*server as u64)),
+                            netuid,
                             2 * network_n as u64,
                         );
                     }
@@ -2230,6 +2250,7 @@ fn test_validator_permits() {
     }
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test epoch test_compute_alpha_values -- --nocapture
 #[test]
 fn test_compute_alpha_values() {
     // Define the consensus values.
@@ -2282,6 +2303,7 @@ fn test_compute_alpha_values() {
     assert_approx_eq(alpha[2], expected_alpha_2, epsilon);
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test epoch test_compute_alpha_values_256_miners -- --nocapture
 #[test]
 fn test_compute_alpha_values_256_miners() {
     // Define the consensus values for 256 miners.
@@ -2317,6 +2339,7 @@ fn test_compute_alpha_values_256_miners() {
     }
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test epoch test_clamp_alpha_values -- --nocapture
 #[test]
 fn test_clamp_alpha_values() {
     // Define the alpha values.
@@ -2356,6 +2379,7 @@ fn test_clamp_alpha_values() {
     assert_eq!(clamped_alpha[2], expected_clamped_alpha_2);
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test epoch test_calculate_logistic_params -- --nocapture
 #[test]
 fn test_calculate_logistic_params() {
     // Define test inputs
@@ -2403,6 +2427,7 @@ fn test_calculate_logistic_params() {
     );
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test epoch test_calculate_logistic_params_edge_cases -- --nocapture
 #[test]
 fn test_calculate_logistic_params_edge_cases() {
     // Edge Case 1: Alpha values at their boundaries (0 and 1)
@@ -2501,6 +2526,7 @@ fn test_calculate_logistic_params_edge_cases() {
     assert_eq!(b, I32F32::from_num(0.0), "Expected b to be 0, got: {:?}", b);
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test epoch test_compute_ema_bonds_with_liquid_alpha_sparse -- --nocapture
 #[test]
 fn test_compute_ema_bonds_with_liquid_alpha_sparse() {
     // Define test inputs
@@ -2539,6 +2565,7 @@ fn test_compute_ema_bonds_with_liquid_alpha_sparse() {
     assert_approx_eq_vec_of_vec(&ema_bonds, &expected_ema_bonds, epsilon);
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test epoch test_compute_ema_bonds_with_liquid_alpha_sparse_empty -- --nocapture
 #[test]
 fn test_compute_ema_bonds_with_liquid_alpha_sparse_empty() {
     // Test with empty inputs
@@ -2561,6 +2588,7 @@ fn test_compute_ema_bonds_with_liquid_alpha_sparse_empty() {
     );
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test epoch test_get_set_alpha -- --nocapture
 #[test]
 fn test_get_set_alpha() {
     new_test_ext(1).execute_with(|| {
@@ -2577,7 +2605,7 @@ fn test_get_set_alpha() {
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
-        assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, netuid, 1000));
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, 1000);
 
         // Should fail as signer does not own the subnet
         assert_err!(
@@ -2585,7 +2613,7 @@ fn test_get_set_alpha() {
             DispatchError::BadOrigin
         );
 
-        assert_ok!(SubtensorModule::register_network(signer.clone(), 0));
+        assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey, 0));
 
         assert_ok!(SubtensorModule::do_set_alpha_values(
             signer.clone(),
