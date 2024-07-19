@@ -948,11 +948,20 @@ pub mod pallet {
         }
 
         /// Is the caller allowed to set weights
-        pub fn check_weights_min_stake(_hotkey: &T::AccountId) -> bool {
+        pub fn check_weights_min_stake(hotkey: &T::AccountId, netuid: u16) -> bool {
             // Blacklist weights transactions for low stake peers.
-            //Self::get_total_stake_for_hotkey(hotkey) >= Self::get_weights_min_stake()
-            // TODO rethink this/
-            true
+            let min_stake = Self::get_weights_min_stake();
+            let hotkey_stake = Self::get_stake_for_hotkey_on_subnet(hotkey, netuid);
+            let result = hotkey_stake >= min_stake;
+            log::info!(
+                "Checking weights min stake for hotkey: {:?}, netuid: {}, min_stake: {}, hotkey_stake: {}, result: {}",
+                hotkey,
+                netuid,
+                min_stake,
+                hotkey_stake,
+                result
+            );
+            result
         }
 
         /// Helper function to check if register is allowed
@@ -1030,8 +1039,8 @@ where
         Pallet::<T>::get_priority_set_weights(who, netuid)
     }
 
-    pub fn check_weights_min_stake(who: &T::AccountId) -> bool {
-        Pallet::<T>::check_weights_min_stake(who)
+    pub fn check_weights_min_stake(who: &T::AccountId, netuid: u16) -> bool {
+        Pallet::<T>::check_weights_min_stake(who, netuid)
     }
 }
 
@@ -1068,7 +1077,7 @@ where
     ) -> TransactionValidity {
         match call.is_sub_type() {
             Some(Call::commit_weights { netuid, .. }) => {
-                if Self::check_weights_min_stake(who) {
+                if Self::check_weights_min_stake(who, *netuid) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
                     Ok(ValidTransaction {
                         priority,
@@ -1080,7 +1089,7 @@ where
                 }
             }
             Some(Call::reveal_weights { netuid, .. }) => {
-                if Self::check_weights_min_stake(who) {
+                if Self::check_weights_min_stake(who, *netuid) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
                     Ok(ValidTransaction {
                         priority,
@@ -1092,7 +1101,7 @@ where
                 }
             }
             Some(Call::set_weights { netuid, .. }) => {
-                if Self::check_weights_min_stake(who) {
+                if Self::check_weights_min_stake(who, *netuid) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
                     Ok(ValidTransaction {
                         priority,
@@ -1104,7 +1113,7 @@ where
                 }
             }
             Some(Call::set_root_weights { netuid, hotkey, .. }) => {
-                if Self::check_weights_min_stake(hotkey) {
+                if Self::check_weights_min_stake(hotkey, *netuid) {
                     let priority: u64 = Self::get_priority_set_weights(hotkey, *netuid);
                     Ok(ValidTransaction {
                         priority,

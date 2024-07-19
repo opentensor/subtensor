@@ -26,9 +26,9 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         commit_hash: H256,
     ) -> DispatchResult {
-        let who = ensure_signed(origin)?;
+        let hotkey = ensure_signed(origin)?;
 
-        log::info!("do_commit_weights( hotkey:{:?} netuid:{:?})", who, netuid);
+        log::info!("do_commit_weights( hotkey:{:?} netuid:{:?})", hotkey, netuid);
 
         ensure!(
             Self::get_commit_reveal_weights_enabled(netuid),
@@ -36,13 +36,18 @@ impl<T: Config> Pallet<T> {
         );
 
         ensure!(
-            Self::can_commit(netuid, &who),
+            Self::check_weights_min_stake(&hotkey, netuid),
+            Error::<T>::NotEnoughStakeToSetWeights
+        );
+
+        ensure!(
+            Self::can_commit(netuid, &hotkey),
             Error::<T>::WeightsCommitNotAllowed
         );
 
         WeightCommits::<T>::insert(
             netuid,
-            &who,
+            &hotkey,
             (commit_hash, Self::get_current_block_as_u64()),
         );
         Ok(())
@@ -454,8 +459,8 @@ impl<T: Config> Pallet<T> {
     }
 
     #[allow(clippy::arithmetic_side_effects)]
-    pub fn can_commit(netuid: u16, who: &T::AccountId) -> bool {
-        if let Some((_hash, commit_block)) = WeightCommits::<T>::get(netuid, who) {
+    pub fn can_commit(netuid: u16, hotkey: &T::AccountId) -> bool {
+        if let Some((_hash, commit_block)) = WeightCommits::<T>::get(netuid, hotkey) {
             let interval: u64 = Self::get_commit_reveal_weights_interval(netuid);
             if interval == 0 {
                 return true; //prevent division by 0

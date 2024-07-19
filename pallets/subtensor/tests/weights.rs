@@ -63,6 +63,7 @@ fn test_set_rootweights_dispatch_info_ok() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test weights -- test_set_rootweights_validate --exact --nocapture
 #[test]
 fn test_set_rootweights_validate() {
     // Testing the signed extension validate function
@@ -98,7 +99,7 @@ fn test_set_rootweights_validate() {
         SubtensorModule::set_weights_min_stake(min_stake);
 
         // Verify stake is less than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
+        assert!(SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid) < min_stake);
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
@@ -113,11 +114,11 @@ fn test_set_rootweights_validate() {
         );
 
         // Increase the stake to be equal to the minimum
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, min_stake);
 
         // Verify stake is equal to minimum
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid),
             min_stake
         );
 
@@ -127,10 +128,10 @@ fn test_set_rootweights_validate() {
         assert_ok!(result_min_stake);
 
         // Try with more stake than minimum
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 1);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, 1);
 
         // Verify stake is more than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
+        assert!(SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid) > min_stake);
 
         let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
         // The call should still pass
@@ -162,6 +163,7 @@ fn test_commit_weights_dispatch_info_ok() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test weights -- test_commit_weights_validate --exact --nocapture
 #[test]
 fn test_commit_weights_validate() {
     // Testing the signed extension validate function
@@ -198,7 +200,7 @@ fn test_commit_weights_validate() {
         SubtensorModule::set_weights_min_stake(min_stake);
 
         // Verify stake is less than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
+        assert!(SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid) < min_stake);
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
@@ -213,11 +215,11 @@ fn test_commit_weights_validate() {
         );
 
         // Increase the stake to be equal to the minimum
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, min_stake);
 
         // Verify stake is equal to minimum
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid),
             min_stake
         );
 
@@ -227,10 +229,10 @@ fn test_commit_weights_validate() {
         assert_ok!(result_min_stake);
 
         // Try with more stake than minimum
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 1);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, 1);
 
         // Verify stake is more than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
+        assert!(SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid) > min_stake);
 
         let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
         // The call should still pass
@@ -297,7 +299,7 @@ fn test_reveal_weights_validate() {
         SubtensorModule::set_weights_min_stake(min_stake);
 
         // Verify stake is less than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
+        assert!(SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid) < min_stake);
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
@@ -312,11 +314,11 @@ fn test_reveal_weights_validate() {
         );
 
         // Increase the stake to be equal to the minimum
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, min_stake);
 
         // Verify stake is equal to minimum
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid),
             min_stake
         );
 
@@ -326,10 +328,10 @@ fn test_reveal_weights_validate() {
         assert_ok!(result_min_stake);
 
         // Try with more stake than minimum
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 1);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, 1);
 
         // Verify stake is more than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
+        assert!(SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid) > min_stake);
 
         let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
         // The call should still pass
@@ -402,7 +404,7 @@ fn test_weights_err_no_validator_permit() {
     });
 }
 
-// To execute this test: cargo test --package pallet-subtensor --test weights test_set_weights_min_stake_failed -- --nocapture`
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test weights -- test_set_weights_min_stake_failed --exact --nocapture
 #[test]
 #[cfg(not(tarpaulin))]
 fn test_set_weights_min_stake_failed() {
@@ -420,11 +422,11 @@ fn test_set_weights_min_stake_failed() {
 
         // Check the signed extension function.
         assert_eq!(SubtensorModule::get_weights_min_stake(), 20_000_000_000_000);
-        assert!(!SubtensorModule::check_weights_min_stake(&hotkey));
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 19_000_000_000_000);
-        assert!(!SubtensorModule::check_weights_min_stake(&hotkey));
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 20_000_000_000_000);
-        assert!(SubtensorModule::check_weights_min_stake(&hotkey));
+        assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, 19_000_000_000_000);
+        assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, 20_000_000_000_000);
+        assert!(SubtensorModule::check_weights_min_stake(&hotkey, netuid));
 
         // Check that it fails at the pallet level.
         SubtensorModule::set_weights_min_stake(100_000_000_000_000);
@@ -440,7 +442,7 @@ fn test_set_weights_min_stake_failed() {
             Err(Error::<Test>::NotEnoughStakeToSetWeights.into())
         );
         // Now passes
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 100_000_000_000_000);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, 1_000_000_000_000_000);
         assert_ok!(commit_reveal_set_weights(
             hotkey,
             netuid,
