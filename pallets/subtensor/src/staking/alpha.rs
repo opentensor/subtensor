@@ -361,6 +361,108 @@ impl<T: Config> Pallet<T> {
         TotalHotkeyAlpha::<T>::get( hotkey, netuid )
     }
 
+    /// Stakes TAO into a subnet for a given hotkey and coldkey pair.
+    ///
+    /// This function performs the following operations:
+    /// 1. Computes the stake operation based on the subnet's mechanism.
+    /// 2. Increments the subnet's total TAO.
+    /// 3. Increments the total TAO staked for the hotkey-coldkey pair.
+    /// 4. Converts TAO to alpha based on the subnet's mechanism.
+    /// 5. Increases the subnet alpha for the hotkey-coldkey pair.
+    /// 6. Updates the staking hotkeys map for the coldkey.
+    ///
+    /// # Arguments
+    ///
+    /// * `hotkey` - The account ID of the hotkey.
+    /// * `coldkey` - The account ID of the coldkey.
+    /// * `netuid` - The unique identifier of the subnet.
+    /// * `tao` - The amount of TAO to stake.
+    ///
+    /// # Returns
+    ///
+    /// * `u64` - The amount of alpha staked.
+    ///
+    /// # Effects
+    ///
+    /// This function mutates the following storage items:
+    /// - `SubnetMechanism`
+    /// - `SubnetTAO`
+    /// - `Stake`
+    /// - `StakingHotkeys`
+    pub fn stake_into_subnet( hotkey: &T::AccountId, coldkey: &T::AccountId, netuid: u16, tao_staked: u64 ) -> u64{
+        // Compute the stake operation based on the mechanism.
+        let mechid: u16 = SubnetMechanism::<T>::get( netuid );
+        // Increment the subnet tao.
+        SubnetTAO::<T>::mutate(netuid, |total| { *total = total.saturating_add( tao_staked );});
+        // Increment the total tao staked
+        Stake::<T>::mutate(&hotkey, &coldkey, |stake| {*stake = stake.saturating_add( tao_staked );});
+        // Convert tao to alpha.
+        let alpha_staked: u64 = Self::tao_to_alpha( tao_staked, netuid );
+        // Increment the alpha on the account.
+        SubnetAlpha::<T>::mutate( netuid, |total| { *total = total.saturating_add(alpha_staked); });
+        // Increment the hotkey total.
+        TotalHotkeyAlpha::<T>::mutate(hotkey, netuid, |total| { *total = total.saturating_add(alpha_staked); });
+        // Increment the hotkey alpha.
+        Alpha::<T>::mutate((hotkey, coldkey, netuid), |alpha| { *alpha = alpha.saturating_add(alpha_staked);});
+        // Update Staking hotkeys map.
+        let mut staking_hotkeys = StakingHotkeys::<T>::get(&coldkey);
+        if !staking_hotkeys.contains(&hotkey) {
+            staking_hotkeys.push(hotkey.clone());
+            StakingHotkeys::<T>::insert(&coldkey, staking_hotkeys);
+        }
+        // Return the converted alpha.
+        alpha_staked
+    }
+    /// Unstakes alpha from a subnet for a given hotkey and coldkey pair.
+    ///
+    /// This function performs the following operations:
+    /// 1. Decreases the subnet's total alpha.
+    /// 2. Decreases the total alpha for the hotkey on the subnet.
+    /// 3. Decreases the alpha for the hotkey-coldkey pair on the subnet.
+    /// 4. Converts alpha to TAO based on the subnet's mechanism.
+    /// 5. Decrements the total stake counter.
+    /// 6. Decrements the subnet's total TAO.
+    ///
+    /// # Arguments
+    ///
+    /// * `hotkey` - The account ID of the hotkey.
+    /// * `coldkey` - The account ID of the coldkey.
+    /// * `netuid` - The unique identifier of the subnet.
+    /// * `alpha` - The amount of alpha to unstake.
+    ///
+    /// # Returns
+    ///
+    /// * `u64` - The amount of TAO unstaked.
+    ///
+    /// # Effects
+    ///
+    /// This function mutates the following storage items:
+    /// - `SubnetMechanism`
+    /// - `SubnetAlpha`
+    /// - `TotalHotkeyAlpha`
+    /// - `Alpha`
+    /// - `TotalStake`
+    /// - `SubnetTAO`
+    pub fn unstake_from_subnet( hotkey: &T::AccountId, coldkey: &T::AccountId, netuid: u16, alpha_unstaked: u64 ) -> u64 {
+        let mechid: u16 = SubnetMechanism::<T>::get( netuid );
+        // Mutate remove the alpha
+        SubnetAlpha::<T>::mutate( netuid, |total| { *total = total.saturating_sub( alpha_unstaked ); });
+        // Decrease the totals.
+        TotalHotkeyAlpha::<T>::mutate(hotkey, netuid, |total| { *total = total.saturating_sub( alpha_unstaked ); });
+        // Decrease the account value.
+        Alpha::<T>::mutate((hotkey, coldkey, netuid), |total| { *total = total.saturating_sub( alpha_unstaked ); });
+        // Convert the alpha to tao.
+        let tao_unstaked = Self::alpha_to_tao( alpha_unstaked, netuid );
+        // Decrement the total stake counter.
+        TotalStake::<T>::put( TotalStake::<T>::get().saturating_sub( tao_unstaked ) );
+        // Decrement the subnet tao.
+        SubnetTAO::<T>::mutate(netuid, |total| { *total = total.saturating_sub(tao_unstaked); });
+        // Decrement the coldkey stake.
+        // TODO remove this map.
+        // Stake::<T>::mutate( &coldkey, &hotkey, |stake| { *stake = stake.saturating_sub(tao_unstaked); });
+        tao_unstaked
+    }
+
 
 
 }

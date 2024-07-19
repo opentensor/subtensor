@@ -109,15 +109,15 @@ impl<T: Config> Pallet<T> {
             // 7. Convert TAO emission to alpha emission
             let alpha_emission: u64 = Self::tao_to_alpha(tao_emission, *netuid);
             // 8. Update total issuance: I_new = I_old + E_s
-            TotalIssuance::<T>::mutate(|issuance| { *issuance = issuance.saturating_add(tao_emission) });
+            TotalIssuance::<T>::mutate(|total| { *total = total.saturating_add(tao_emission) });
             // 9. Update subnet TAO: T_s_new = T_s_old + E_s
-            SubnetTAO::<T>::mutate(*netuid, |subtao| { *subtao = subtao.saturating_add(tao_emission) });
+            SubnetTAO::<T>::mutate(*netuid, |total| { *total = total.saturating_add(tao_emission) });
             // 10. Update subnet alpha: A_s_new = A_s_old + E_α
-            SubnetAlpha::<T>::mutate(*netuid, |alpha| { *alpha = alpha.saturating_add(alpha_emission) });
+            SubnetAlpha::<T>::mutate(*netuid, |total| { *total = total.saturating_add(alpha_emission) });
             // 11. Store alpha emission for this subnet
             EmissionValues::<T>::insert(*netuid, alpha_emission);
             // 12. Accumulate pending emission: P_e_new = P_e_old + E_α
-            PendingEmission::<T>::mutate(netuid, |emission| { *emission = emission.saturating_add(alpha_emission) });
+            PendingEmission::<T>::mutate(netuid, |total| { *total = total.saturating_add(alpha_emission) });
         }
         log::debug!("Emission per subnet: {:?}", EmissionValues::<T>::iter().collect::<Vec<_>>());
         log::debug!("Pending Emission per subnet: {:?}", PendingEmission::<T>::iter().collect::<Vec<_>>());
@@ -347,12 +347,7 @@ impl<T: Config> Pallet<T> {
     ///   - `u64`: The emission value to be added
     pub fn accumulate_nominator_emission( nominator_tuples: &mut Vec<(T::AccountId, T::AccountId, u16, u64)> ) {
         for (hotkey, coldkey, netuid, emission) in nominator_tuples {
-            TotalHotkeyAlpha::<T>::mutate(hotkey.clone(), *netuid, |total_hotkey_alpha| {
-                *total_hotkey_alpha = total_hotkey_alpha.saturating_add(*emission);
-            });
-            Alpha::<T>::mutate((hotkey.clone(), coldkey, *netuid), |alpha| {
-                *alpha = alpha.saturating_add(*emission);
-            });
+            Self::increase_subnet_alpha_for_hotkey_and_coldkey(hotkey, coldkey, netuid, emission);
         }
     }
 

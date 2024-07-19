@@ -34,15 +34,15 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
         netuid: u16,
-        alpha_to_be_removed: u64,
+        alpha_unstaked: u64,
     ) -> dispatch::DispatchResult {
         // We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::info!(
-            "do_remove_stake( origin:{:?} hotkey:{:?}, alpha_to_be_removed:{:?} )",
+            "do_remove_stake( origin:{:?} hotkey:{:?}, alpha_unstaked:{:?} )",
             coldkey,
             hotkey,
-            alpha_to_be_removed
+            alpha_unstaked
         );
 
         // Ensure that the hotkey account exists this is only possible through registration.
@@ -58,11 +58,11 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure that the stake amount to be removed is above zero.
-        ensure!(alpha_to_be_removed > 0, Error::<T>::StakeToWithdrawIsZero);
+        ensure!(alpha_unstaked > 0, Error::<T>::StakeToWithdrawIsZero);
 
         // Ensure that the hotkey has enough stake to withdraw.
         ensure!(
-            Self::has_enough_stake(&coldkey, &hotkey, alpha_to_be_removed),
+            Self::has_enough_stake(&coldkey, &hotkey, alpha_unstaked),
             Error::<T>::NotEnoughStakeToWithdraw
         );
 
@@ -74,49 +74,8 @@ impl<T: Config> Pallet<T> {
             Error::<T>::UnstakeRateLimitExceeded
         );
 
-        let mechid: u16 = SubnetMechanism::<T>::get( netuid );
-        let tao_unstaked: u64;
-        if mechid == 2 { // STAO
-            tao_unstaked = Self::alpha_to_tao( alpha_to_be_removed, netuid );
-        } else { // ROOT and other.
-            tao_unstaked = alpha_to_be_removed
-        }
-
-        // Increment counters.
-        TotalStake::<T>::put(
-            TotalStake::<T>::get().saturating_sub( tao_unstaked )
-        );
-        SubnetAlpha::<T>::insert(
-            netuid,
-            SubnetAlpha::<T>::get(netuid).saturating_sub( alpha_to_be_removed ),
-        );
-        SubnetTAO::<T>::insert(
-            netuid,
-            SubnetTAO::<T>::get(netuid).saturating_sub( tao_unstaked ),
-        );
-        // TotalColdkeyStake::<T>::insert(
-        //     coldkey,
-        //     TotalColdkeyStake::<T>::get(coldkey).saturating_sub( tao_unstaked ),
-        // );
-        // TotalHotkeyStake::<T>::insert(
-        //     hotkey,
-        //     TotalHotkeyStake::<T>::get(hotkey).saturating_sub( tao_unstaked ),
-        // );
-        Stake::<T>::insert(
-            &hotkey,
-            &coldkey,
-            Stake::<T>::get( &hotkey, &coldkey ).saturating_sub( tao_unstaked ),
-        );
-        TotalHotkeyAlpha::<T>::insert(
-            &hotkey,
-            &netuid,
-            TotalHotkeyAlpha::<T>::get( &hotkey, netuid ).saturating_sub( alpha_to_be_removed ),
-        );
-        Alpha::<T>::insert(
-            (&hotkey, &coldkey, netuid),
-            Alpha::<T>::get((&hotkey, &coldkey, netuid)).saturating_sub( alpha_to_be_removed ),
-        );
-
+        // Convert and unstake from the subnet.
+        let tao_unstaked: u64  = Self::unstake_from_subnet( &hotkey, &coldkey, netuid, alpha_unstaked );
 
         // We add the balance to the coldkey.  If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
@@ -140,11 +99,11 @@ impl<T: Config> Pallet<T> {
             block,
         );
         log::info!(
-            "StakeRemoved( hotkey:{:?}, stake_to_be_removed:{:?} )",
+            "StakeRemoved( hotkey:{:?}, tao_unstaked:{:?} )",
             hotkey.clone(),
-            alpha_to_be_removed
+            tao_unstaked
         );
-        Self::deposit_event(Event::StakeRemoved(hotkey.clone(), alpha_to_be_removed));
+        Self::deposit_event(Event::StakeRemoved(hotkey.clone(), tao_unstaked));
 
         // Done and ok.
         Ok(())

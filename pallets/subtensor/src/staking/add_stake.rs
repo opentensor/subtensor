@@ -87,56 +87,10 @@ impl<T: Config> Pallet<T> {
         }
 
         // Ensure the remove operation from the coldkey is a success.
-        let amount_tao_staked = Self::remove_balance_from_coldkey_account(&coldkey, stake_to_be_added)?;
+        let tao_staked: u64 = Self::remove_balance_from_coldkey_account(&coldkey, stake_to_be_added)?;
 
-        // Compute the stake operation based on the mechanism.
-        let mechid: u16 = SubnetMechanism::<T>::get( netuid );
-        let alpha_amount_staked: u64;
-        if mechid == 2 { // STAO
-            // Compute dynamic stake.
-            let total_subnet_tao: u64 = SubnetTAO::<T>::get( netuid );
-            let total_mechanism_tao: u64 = Self::get_total_mechanism_tao( SubnetMechanism::<T>::get( netuid ) );
-            alpha_amount_staked = amount_tao_staked * ((total_mechanism_tao + amount_tao_staked) / (total_subnet_tao + amount_tao_staked));
-        } else { // ROOT and other.
-            alpha_amount_staked = amount_tao_staked;
-        }
-        // Increment counters.
-        SubnetAlpha::<T>::insert(
-            netuid,
-            SubnetAlpha::<T>::get(netuid).saturating_add(alpha_amount_staked),
-        );
-        SubnetTAO::<T>::insert(
-            netuid,
-            SubnetTAO::<T>::get(netuid).saturating_add( amount_tao_staked ),
-        );
-        // TotalColdkeyStake::<T>::insert(
-        //     coldkey,
-        //     TotalColdkeyStake::<T>::get(coldkey).saturating_add( amount_tao_staked ),
-        // );
-        // TotalHotkeyStake::<T>::insert(
-        //     hotkey,
-        //     TotalHotkeyStake::<T>::get(hotkey).saturating_add( amount_tao_staked ),
-        // );
-        Stake::<T>::insert(
-            &hotkey,
-            &coldkey,
-            Stake::<T>::get( &hotkey, &coldkey ).saturating_add( amount_tao_staked ),
-        );
-        TotalHotkeyAlpha::<T>::insert(
-            &hotkey,
-            netuid,
-            TotalHotkeyAlpha::<T>::get( &hotkey, netuid ).saturating_add( alpha_amount_staked ),
-        );
-        Alpha::<T>::insert(
-            (&hotkey, &coldkey, netuid),
-            Alpha::<T>::get((&hotkey, &coldkey, netuid)).saturating_add( alpha_amount_staked ),
-        );
-        // Update Staking hotkeys map.
-        let mut staking_hotkeys = StakingHotkeys::<T>::get(&coldkey);
-        if !staking_hotkeys.contains(&hotkey) {
-            staking_hotkeys.push(hotkey.clone());
-            StakingHotkeys::<T>::insert(&coldkey, staking_hotkeys);
-        }
+        // Convert and stake to alpha on the subnet.
+        let alpha_staked: u64 = Self::stake_into_subnet( hotkey, netuid, tao_staked );
 
         // Set last block for rate limiting
         let block: u64 = Self::get_current_block_as_u64();
@@ -150,11 +104,11 @@ impl<T: Config> Pallet<T> {
             block,
         );
         log::info!(
-            "StakeAdded( hotkey:{:?}, stake_to_be_added:{:?} )",
+            "StakeAdded( hotkey:{:?}, alpha_staked:{:?} )",
             hotkey.clone(),
-            alpha_amount_staked
+            alpha_staked
         );
-        Self::deposit_event(Event::StakeAdded(hotkey.clone(), alpha_amount_staked));
+        Self::deposit_event(Event::StakeAdded(hotkey.clone(), alpha_staked));
 
         // Ok and return.
         Ok(())
