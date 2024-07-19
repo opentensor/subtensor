@@ -6,100 +6,6 @@ use substrate_fixed::types::{I96F32, I64F64, I32F32};
 
 impl<T: Config> Pallet<T> {
 
-
-    /// Calculates the weighted combination between alpha and dynamic tao for hotkeys on a subnet.
-    ///
-    /// # Arguments
-    /// * `netuid` - Network unique identifier specifying the network context over which we will determine the stake weight.
-    ///
-    /// # Returns
-    /// * `Vec<I32F32>` - The stake weights for each hotkey on the network.
-    ///
-    pub fn distribute_to_nominators( hotkey: &T::AccountId, netuid: u16, emission: u64 ) -> u64 {
-
-        // Iterate over all nominators.
-        // TODO add the last stake increase term here.
-        let mut total_distributed_to_nominators: I96F32 = I96F32::from_num(0.0);
-        let hotkey_dynamic: I96F32 =I96F32::from_num( Self::get_dynamic_for_hotkey( hotkey ) );
-        let hotkey_alpha: I96F32 = I96F32::from_num( Self::get_alpha_for_hotkey_on_subnet( hotkey, netuid ) );
-        let alpha_emission: I96F32 = I96F32::from_num( emission ).saturating_mul( I96F32::from_num(0.5) );
-        let dynamic_emission: I96F32 = I96F32::from_num( emission ).saturating_mul( I96F32::from_num(0.5) );
-
-        // Iterate over all nominators to this hotkey.
-        for (nominator, _) in Stake::<T>::iter_prefix(hotkey) {
-
-            // Get the nominator alpha
-            let nominator_alpha: I96F32 = I96F32::from_num(Alpha::<T>::get( (&hotkey, nominator.clone(), netuid) ));
-            let nominator_dynamic: I96F32 = I96F32::from_num(Self::get_dynamic_for_hotkey_and_coldkey( hotkey, &nominator ));  
-
-            // Compute contributions to nominators and alpha holders.
-            let nominator_emission_from_alpha: I96F32 = alpha_emission.saturating_mul(nominator_alpha).saturating_div(hotkey_alpha);
-            let nominator_emission_from_dynamic: I96F32 = dynamic_emission.saturating_mul(nominator_dynamic).saturating_div(hotkey_dynamic);
-            let nominator_emission_total: I96F32 = nominator_emission_from_alpha.saturating_add(nominator_emission_from_dynamic);
-
-            // Increment the nominator's account.
-            Alpha::<T>::insert(
-                (&hotkey, nominator.clone(), netuid),
-                Alpha::<T>::get(( &hotkey, nominator.clone(), netuid) ).saturating_add( nominator_emission_total.to_num::<u64>() ),
-            );
-
-            // Add the nominator's emission to the total.
-            total_distributed_to_nominators = total_distributed_to_nominators.saturating_add( nominator_emission_total );
-        }
-
-        // Return the total emission distributed.
-        total_distributed_to_nominators.to_num::<u64>()
-    }
-
-
-    /// Calculates the weighted combination between alpha and dynamic tao for hotkeys on a subnet.
-    ///
-    /// # Arguments
-    /// * `netuid` - Network unique identifier specifying the network context over which we will determine the stake weight.
-    ///
-    /// # Returns
-    /// * `Vec<I32F32>` - The stake weights for each hotkey on the network.
-    ///
-    pub fn distribute_to_parents( hotkey: &T::AccountId, netuid: u16, emission: u64 ) -> u64 {
-
-        // Get alpha emission due to each parent from dynamic contributions.
-        let mut total_distributed_to_parents: I96F32 = I96F32::from_num(0.0);
-        let alpha_emission: I96F32 = I96F32::from_num( emission ).saturating_mul( I96F32::from_num(0.5) );
-        let dynamic_emission: I96F32 = I96F32::from_num( emission ).saturating_mul( I96F32::from_num(0.5) );
-        let hotkey_alpha: I96F32 = I96F32::from_num( Self::get_alpha_for_hotkey_on_subnet( hotkey, netuid ) );
-        let hotkey_dynamic: I96F32 = I96F32::from_num( Self::get_dynamic_for_hotkey( hotkey ) );
-        // TODO add the last stake increase term here.
-        for (proportion, parent) in Self::get_parents(hotkey, netuid) {
-            // Proportion from parent.
-            let parent_proportion: I96F32 = I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
-
-            // Compute dynamic proportion due.
-            let parent_dynamic_tao: I96F32 = I96F32::from_num( Self::get_dynamic_for_hotkey( &parent ) );
-            let parent_dynamic_contribution: I96F32 = parent_dynamic_tao.saturating_mul(parent_proportion);
-            let parent_dynamic_proportion: I96F32 = parent_dynamic_contribution.saturating_div(hotkey_dynamic);
-            let parent_emission_from_dynamic: I96F32 = parent_dynamic_proportion.saturating_mul(I96F32::from_num(dynamic_emission));
-
-            // Compute alpha proportion due.
-            let parent_alpha: I96F32 = I96F32::from_num( Self::get_alpha_for_hotkey_on_subnet( &parent, netuid ) );
-            let parent_alpha_contribution: I96F32 = parent_alpha.saturating_mul(parent_proportion);
-            let parent_alpha_proportion: I96F32 = parent_alpha_contribution.saturating_div( hotkey_alpha );
-            let parent_emission_from_alpha: I96F32 = parent_alpha_proportion.saturating_mul(I96F32::from_num(alpha_emission));
-
-            // Compute total due to parent.
-            let parent_emission_total: I96F32 = parent_emission_from_dynamic.saturating_add(parent_emission_from_alpha);
-            PendingdHotkeyEmissionOnNetuid::<T>::mutate( parent, netuid, |parent_accumulated| {
-                *parent_accumulated = parent_accumulated.saturating_add( parent_emission_total.to_num::<u64>() )
-            });
-            // Account for total distributed.
-            total_distributed_to_parents = total_distributed_to_parents.saturating_add( parent_emission_total );
-        }
-
-        // Return total distributed.
-        total_distributed_to_parents.to_num::<u64>()
-    }
-
-
-
     /// Calculates the weighted combination between alpha and dynamic tao for hotkeys on a subnet.
     ///
     /// # Arguments
@@ -272,15 +178,28 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `u64` - The total dynamic value for the hotkey and coldkey across all subnets.
     pub fn get_dynamic_for_hotkey_and_coldkey( hotkey: &T::AccountId, coldkey: &T::AccountId ) -> u64 {
+        log::trace!(target: "subtensor", "Entering get_dynamic_for_hotkey_and_coldkey. hotkey: {:?}, coldkey: {:?}", hotkey, coldkey);
+
         // Initialize the total tao equivalent to zero.
-        let total_tao_equivalent: I96F32 = I96F32::from_num( 0 );
+        let mut total_tao_equivalent: I96F32 = I96F32::from_num( 0 );
+        log::trace!(target: "subtensor", "Initial total_tao_equivalent: {:?}", total_tao_equivalent);
+
         // Iterate over all subnet netuids.
         for netuid in Self::get_all_subnet_netuids() {
+            log::trace!(target: "subtensor", "Processing netuid: {}", netuid);
+
             // Accumulate the dynamic value for the hotkey and coldkey on each subnet.
-            total_tao_equivalent.saturating_add(I96F32::from_num(Self::get_dynamic_for_hotkey_and_coldey_on_subnet( hotkey, coldkey, netuid )));
+            let subnet_dynamic = Self::get_dynamic_for_hotkey_and_coldey_on_subnet( hotkey, coldkey, netuid );
+            log::trace!(target: "subtensor", "Subnet {} dynamic value: {}", netuid, subnet_dynamic);
+
+            total_tao_equivalent = total_tao_equivalent.saturating_add(I96F32::from_num(subnet_dynamic));
+            log::trace!(target: "subtensor", "Updated total_tao_equivalent: {:?}", total_tao_equivalent);
         }
+
         // Return the total tao equivalent as a u64 value.
-        total_tao_equivalent.to_num::<u64>()
+        let result = total_tao_equivalent.to_num::<u64>();
+        log::trace!(target: "subtensor", "Exiting get_dynamic_for_hotkey_and_coldkey. Result: {}", result);
+        result
     }
 
     /// Retrieves the dynamic value for a given hotkey across all subnets.
@@ -291,15 +210,28 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `u64` - The total dynamic value for the hotkey across all subnets.
     pub fn get_dynamic_for_hotkey( hotkey: &T::AccountId ) -> u64 {
+        log::trace!(target: "subtensor", "Entering get_dynamic_for_hotkey. hotkey: {:?}", hotkey);
+
         // Initialize the total tao equivalent to zero.
-        let total_tao_equivalent: I96F32 = I96F32::from_num( 0 );
+        let mut total_tao_equivalent: I96F32 = I96F32::from_num( 0 );
+        log::trace!(target: "subtensor", "Initial total_tao_equivalent: {:?}", total_tao_equivalent);
+
         // Iterate over all subnet netuids.
         for netuid in Self::get_all_subnet_netuids() {
+            log::trace!(target: "subtensor", "Processing netuid: {}", netuid);
+
             // Accumulate the dynamic value for the hotkey on each subnet.
-            total_tao_equivalent.saturating_add(I96F32::from_num(Self::get_dynamic_for_hotkey_on_subnet( hotkey, netuid )));
+            let subnet_dynamic = Self::get_dynamic_for_hotkey_on_subnet( hotkey, netuid );
+            log::trace!(target: "subtensor", "Subnet {} dynamic value: {}", netuid, subnet_dynamic);
+
+            total_tao_equivalent = total_tao_equivalent.saturating_add(I96F32::from_num(subnet_dynamic));
+            log::trace!(target: "subtensor", "Updated total_tao_equivalent: {:?}", total_tao_equivalent);
         }
+
         // Return the total tao equivalent as a u64 value.
-        total_tao_equivalent.to_num::<u64>()
+        let result = total_tao_equivalent.to_num::<u64>();
+        log::trace!(target: "subtensor", "Exiting get_dynamic_for_hotkey. Result: {}", result);
+        result
     }
 
     /// Retrieves the dynamic value for a given hotkey on a specific subnet.
@@ -311,10 +243,18 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `u64` - The dynamic value for the hotkey on the specified subnet.
     pub fn get_dynamic_for_hotkey_on_subnet( hotkey: &T::AccountId, netuid: u16 ) -> u64 {
+        log::trace!(target: "subtensor", "Entering get_dynamic_for_hotkey_on_subnet. hotkey: {:?}, netuid: {}", hotkey, netuid);
+
         // Get the hotkey's alpha value on this subnet.
         let alpha: u64 = Self::get_alpha_for_hotkey_on_subnet( hotkey, netuid );
+        log::trace!(target: "subtensor", "Alpha value for hotkey on subnet: {}", alpha);
+
         // Convert the alpha value to dynamic value and return it.
-        return Self::alpha_to_dynamic( alpha, netuid );
+        let dynamic_value = Self::alpha_to_dynamic( alpha, netuid );
+        log::trace!(target: "subtensor", "Converted dynamic value: {}", dynamic_value);
+
+        log::trace!(target: "subtensor", "Exiting get_dynamic_for_hotkey_on_subnet");
+        return dynamic_value;
     }
 
     /// Retrieves the dynamic value for a given hotkey and coldkey on a specific subnet.

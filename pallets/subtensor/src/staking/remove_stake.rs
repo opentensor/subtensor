@@ -1,5 +1,4 @@
 use super::*;
-use substrate_fixed::types::I96F32;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
