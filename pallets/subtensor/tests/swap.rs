@@ -1903,7 +1903,10 @@ fn test_do_swap_hotkey_with_initial_delegate_stake() {
         add_network(netuid, tempo, 0);
         register_ok_neuron(netuid, old_hotkey, coldkey, 0);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, swap_cost);
-        SubtensorModule::add_balance_to_coldkey_account(&new_hotkey, stake + ExistentialDeposit::get());
+        SubtensorModule::add_balance_to_coldkey_account(
+            &new_hotkey,
+            stake + ExistentialDeposit::get(),
+        );
 
         // Old hotkey allows delegation
         assert_ok!(SubtensorModule::do_become_delegate(
