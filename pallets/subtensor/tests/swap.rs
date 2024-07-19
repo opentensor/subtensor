@@ -1,5 +1,7 @@
 #![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
 
+use std::collections::BTreeMap;
+
 use codec::Encode;
 use frame_support::weights::Weight;
 use frame_support::{assert_err, assert_noop, assert_ok};
@@ -9,6 +11,8 @@ use mock::*;
 use pallet_subtensor::*;
 use sp_core::U256;
 
+// The intention of this test is to call high level swap function (do_swap_hotkey) and make sure all
+// low level swaps (e.g. swap_owned, swap_stake, etc. ) are called by it 
 #[test]
 fn test_do_swap_hotkey_ok() {
     new_test_ext(1).execute_with(|| {
@@ -18,11 +22,55 @@ fn test_do_swap_hotkey_ok() {
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
         let swap_cost = 1_000_000_000u64;
+        let stake = 1_000_000_000;
 
-        // Setup initial state
+        // Setup initial state, which includes:
+        //   - Subnet
+        //   - Registered old_hotkey on it as a neuron
+        //   - Stake
+        //   - TotalHotkeyStake
+        //   - Delegate
+        //   - Uids
+        //   - Prometheus
+        //   - LoadedEmission
+        //   - IsNetworkMember
+        //   - Axons
+        //   - TotalHotkeyColdkeyStakesThisInterval
         add_network(netuid, tempo, 0);
         register_ok_neuron(netuid, old_hotkey, coldkey, 0);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, swap_cost);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, swap_cost + stake + ExistentialDeposit::get());
+
+        // Old hotkey allows delegation (sets Delegates map)
+        assert_ok!(SubtensorModule::do_become_delegate(
+            RuntimeOrigin::signed(coldkey),
+            old_hotkey,
+            SubtensorModule::get_default_take()
+        ));
+
+        // Add a stake (sets Stake and TotalHotkeyStake maps)
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(coldkey),
+            old_hotkey,
+            stake
+        ));
+
+        // Uids
+        Uids::<Test>::insert(netuid, old_hotkey, 123);
+
+        // Prometheus
+        Prometheus::<Test>::insert(netuid, old_hotkey, PrometheusInfoOf::default());
+
+        // LoadedEmission
+        LoadedEmission::<Test>::insert(netuid, vec![(old_hotkey, 1234, 4321)]);
+
+        // IsNetworkMember
+        IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
+
+        // Axons
+        Axons::<Test>::insert(netuid, old_hotkey, AxonInfoOf::default());
+
+        // TotalHotkeyColdkeyStakesThisInterval
+        TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(old_hotkey, coldkey, (42, 42));
 
         // Perform the swap
         assert_ok!(SubtensorModule::do_swap_hotkey(
@@ -31,7 +79,7 @@ fn test_do_swap_hotkey_ok() {
             &new_hotkey
         ));
 
-        // Verify the swap
+        // Verify the swap - coldkey owner is set for both old and new hotkey - swap_owner
         assert_eq!(
             SubtensorModule::get_owning_coldkey_for_hotkey(&new_hotkey),
             coldkey
@@ -41,91 +89,56 @@ fn test_do_swap_hotkey_ok() {
             coldkey
         );
 
-        // Verify other storage changes
+        // Verify map is swapped: Stake
+        assert_eq!(
+            Stake::<Test>::get(new_hotkey, coldkey),
+            stake
+        );
+        assert_eq!(
+            Stake::<Test>::get(old_hotkey, coldkey),
+            0
+        );
+
+        // Verify map is swapped: TotalHotkeyStake
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&new_hotkey),
-            SubtensorModule::get_total_stake_for_hotkey(&old_hotkey)
+            stake
         );
         assert_eq!(
-            SubtensorModule::get_delegate(new_hotkey.encode()),
-            SubtensorModule::get_delegate(old_hotkey.encode())
+            SubtensorModule::get_total_stake_for_hotkey(&old_hotkey),
+            0
         );
+
+        // Verify map is swapped: Delegate
+        assert!(pallet_subtensor::Delegates::<Test>::contains_key(&new_hotkey));
+        assert!(!pallet_subtensor::Delegates::<Test>::contains_key(&old_hotkey));
+
+        // Verify map is swapped: Uids
+        assert!(pallet_subtensor::Uids::<Test>::contains_key(netuid, &new_hotkey));
+        assert!(!pallet_subtensor::Uids::<Test>::contains_key(netuid, &old_hotkey));
+        
+        // Verify map is swapped: Prometheus
+        assert!(pallet_subtensor::Prometheus::<Test>::contains_key(netuid, &new_hotkey));
+        assert!(!pallet_subtensor::Prometheus::<Test>::contains_key(netuid, &old_hotkey));
+
+        // Verify map is swapped: LoadedEmission
+        let (expected_loaded_emission_hotkey, _, _) = pallet_subtensor::LoadedEmission::<Test>::get(netuid).unwrap()[0];
         assert_eq!(
-            SubtensorModule::get_last_tx_block(&new_hotkey),
-            SubtensorModule::get_last_tx_block(&old_hotkey)
+            expected_loaded_emission_hotkey,
+            new_hotkey
         );
+        
+        // Verify map is swapped: IsNetworkMember
+        assert!(pallet_subtensor::IsNetworkMember::<Test>::contains_key(&new_hotkey, netuid));
+        assert!(!pallet_subtensor::IsNetworkMember::<Test>::contains_key(&old_hotkey, netuid));
 
-        // Verify raw storage maps
-        // Stake
-        for (coldkey, stake_amount) in Stake::<Test>::iter_prefix(old_hotkey) {
-            assert_eq!(Stake::<Test>::get(new_hotkey, coldkey), stake_amount);
-        }
-
-        let mut weight = Weight::zero();
-        // UIDs
-        for netuid in SubtensorModule::get_netuid_is_member(&old_hotkey, &mut weight) {
-            assert_eq!(
-                Uids::<Test>::get(netuid, new_hotkey),
-                Uids::<Test>::get(netuid, old_hotkey)
-            );
-        }
-
-        // Prometheus
-        for netuid in SubtensorModule::get_netuid_is_member(&old_hotkey, &mut weight) {
-            assert_eq!(
-                Prometheus::<Test>::get(netuid, new_hotkey),
-                Prometheus::<Test>::get(netuid, old_hotkey)
-            );
-        }
-
-        // LoadedEmission
-        for netuid in SubtensorModule::get_netuid_is_member(&old_hotkey, &mut weight) {
-            assert_eq!(
-                LoadedEmission::<Test>::get(netuid).unwrap(),
-                LoadedEmission::<Test>::get(netuid).unwrap()
-            );
-        }
-
-        // IsNetworkMember
-        for netuid in SubtensorModule::get_netuid_is_member(&old_hotkey, &mut weight) {
-            assert!(IsNetworkMember::<Test>::contains_key(new_hotkey, netuid));
-            assert!(!IsNetworkMember::<Test>::contains_key(old_hotkey, netuid));
-        }
-
-        // Owner
-        assert_eq!(Owner::<Test>::get(new_hotkey), coldkey);
-
-        // TotalHotkeyStake
-        assert_eq!(
-            TotalHotkeyStake::<Test>::get(new_hotkey),
-            TotalHotkeyStake::<Test>::get(old_hotkey)
-        );
-
-        // Delegates
-        assert_eq!(
-            Delegates::<Test>::get(new_hotkey),
-            Delegates::<Test>::get(old_hotkey)
-        );
-
-        // LastTxBlock
-        assert_eq!(
-            LastTxBlock::<Test>::get(new_hotkey),
-            LastTxBlock::<Test>::get(old_hotkey)
-        );
-
-        // Axons
-        for netuid in SubtensorModule::get_netuid_is_member(&old_hotkey, &mut weight) {
-            assert_eq!(
-                Axons::<Test>::get(netuid, new_hotkey),
-                Axons::<Test>::get(netuid, old_hotkey)
-            );
-        }
-
-        // TotalHotkeyColdkeyStakesThisInterval
-        assert_eq!(
-            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(new_hotkey, coldkey),
-            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(old_hotkey, coldkey)
-        );
+        // Verify map is swapped: Axons
+        assert!(pallet_subtensor::Axons::<Test>::contains_key(netuid, &new_hotkey));
+        assert!(!pallet_subtensor::Axons::<Test>::contains_key(netuid, &old_hotkey));
+        
+        // Verify map is swapped: TotalHotkeyColdkeyStakesThisInterval
+        assert!(pallet_subtensor::TotalHotkeyColdkeyStakesThisInterval::<Test>::contains_key(&new_hotkey, &coldkey));
+        assert!(!pallet_subtensor::TotalHotkeyColdkeyStakesThisInterval::<Test>::contains_key(&old_hotkey, &coldkey));        
     });
 }
 
