@@ -1887,3 +1887,57 @@ fn test_coldkey_delegations() {
         assert_eq!(Stake::<Test>::get(delegate, coldkey), 0);
     });
 }
+
+#[test]
+fn test_do_swap_hotkey_with_initial_delegate_stake() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let swap_cost = 1_000_000_000u64;
+        let stake = 1_000_000_000;
+
+        // Setup initial state
+        add_network(netuid, tempo, 0);
+        register_ok_neuron(netuid, old_hotkey, coldkey, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, swap_cost);
+        SubtensorModule::add_balance_to_coldkey_account(&new_hotkey, stake + ExistentialDeposit::get());
+
+        // Old hotkey allows delegation
+        assert_ok!(SubtensorModule::do_become_delegate(
+            RuntimeOrigin::signed(coldkey),
+            old_hotkey,
+            SubtensorModule::get_default_take()
+        ));
+
+        // Delegate stake from new_hotkey to old_hotkey
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(new_hotkey),
+            old_hotkey,
+            stake
+        ));
+
+        // Perform the swap
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            &old_hotkey,
+            &new_hotkey
+        ));
+
+        // Verify that new_hotkey retained its delegated stake
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&new_hotkey, &coldkey),
+            stake
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&old_hotkey, &coldkey),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&new_hotkey),
+            stake
+        );
+    });
+}
