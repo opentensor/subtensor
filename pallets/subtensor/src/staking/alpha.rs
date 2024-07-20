@@ -499,8 +499,13 @@ impl<T: Config> Pallet<T> {
         Alpha::<T>::mutate_exists((hotkey, coldkey, netuid), |maybe_total| {
             if let Some(total) = maybe_total {
                 let new_total = total.saturating_sub(alpha_unstaked);
+                // We actually remove the entry here.
                 if new_total == 0 {
                     *maybe_total = None;
+                    // Remove hotkey from StakingHotkeys if it's fully unstaked
+                    let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
+                    staking_hotkeys.retain(|h| h != hotkey);
+                    StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
                 } else {
                     *total = new_total;
                 }
@@ -508,10 +513,28 @@ impl<T: Config> Pallet<T> {
         });
         // Mutate remove the alpha
         SubnetAlpha::<T>::mutate( netuid, |total| { *total = total.saturating_sub( alpha_unstaked ); });
-        // Increment the coldkey total.
-        TotalColdkeyAlpha::<T>::mutate(coldkey, netuid, |total| { *total = total.saturating_sub(alpha_unstaked); });
-        // Decrease the totals.
-        TotalHotkeyAlpha::<T>::mutate(hotkey, netuid, |total| { *total = total.saturating_sub( alpha_unstaked ); });
+        // Decrement the coldkey total and remove if zero
+        TotalColdkeyAlpha::<T>::mutate_exists(coldkey, netuid, |maybe_total| {
+            if let Some(total) = maybe_total {
+                let new_total = total.saturating_sub(alpha_unstaked);
+                if new_total == 0 {
+                    *maybe_total = None;
+                } else {
+                    *total = new_total;
+                }
+            }
+        });
+        // Decrease the totals and remove if zero.
+        TotalHotkeyAlpha::<T>::mutate_exists(hotkey, netuid, |maybe_total| {
+            if let Some(total) = maybe_total {
+                let new_total = total.saturating_sub(alpha_unstaked);
+                if new_total == 0 {
+                    *maybe_total = None;
+                } else {
+                    *total = new_total;
+                }
+            }
+        });
         // Convert the alpha to tao.
         let tao_unstaked = Self::alpha_to_tao( alpha_unstaked, netuid );
         // Decrement the total stake counter.

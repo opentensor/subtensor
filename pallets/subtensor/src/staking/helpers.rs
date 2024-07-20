@@ -2,7 +2,7 @@ use super::*;
 use frame_support::{
     traits::{
         tokens::{
-            fungible::{Balanced as _, Inspect as _, Mutate as _},
+            fungible::{Balanced as _, Inspect as _},
             Fortitude, Precision, Preservation,
         },
         Imbalance,
@@ -152,73 +152,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-
-    /// Decreases the stake on the hotkey account under its owning coldkey.
-    ///
-    /// # Arguments
-    /// * `hotkey` - The hotkey account ID.
-    /// * `decrement` - The amount to be decremented.
-    pub fn decrease_stake_on_hotkey_account(hotkey: &T::AccountId, decrement: u64) {
-        Self::decrease_stake_on_coldkey_hotkey_account(
-            &Self::get_owning_coldkey_for_hotkey(hotkey),
-            hotkey,
-            decrement,
-        );
-    }
-
-    // Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
-    //
-    pub fn decrease_stake_on_coldkey_hotkey_account(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-        decrement: u64,
-    ) {
-        TotalColdkeyStake::<T>::mutate(coldkey, |old| *old = old.saturating_sub(decrement));
-        TotalHotkeyStake::<T>::insert(
-            hotkey,
-            TotalHotkeyStake::<T>::get(hotkey).saturating_sub(decrement),
-        );
-        Stake::<T>::insert(
-            hotkey,
-            coldkey,
-            Stake::<T>::get(hotkey, coldkey).saturating_sub(decrement),
-        );
-        TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(decrement));
-
-        // TODO: Tech debt: Remove StakingHotkeys entry if stake goes to 0
-    }
-
-    /// Empties the stake associated with a given coldkey-hotkey account pairing.
-    /// This function retrieves the current stake for the specified coldkey-hotkey pairing,
-    /// then subtracts this stake amount from both the TotalColdkeyStake and TotalHotkeyStake.
-    /// It also removes the stake entry for the hotkey-coldkey pairing and adjusts the TotalStake
-    /// and TotalIssuance by subtracting the removed stake amount.
-    ///
-    /// Returns the amount of stake that was removed.
-    ///
-    /// # Arguments
-    ///
-    /// * `coldkey` - A reference to the AccountId of the coldkey involved in the staking.
-    /// * `hotkey` - A reference to the AccountId of the hotkey associated with the coldkey.
-    pub fn empty_stake_on_coldkey_hotkey_account(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-    ) -> u64 {
-        let current_stake: u64 = Stake::<T>::get(hotkey, coldkey);
-        TotalColdkeyStake::<T>::mutate(coldkey, |old| *old = old.saturating_sub(current_stake));
-        TotalHotkeyStake::<T>::mutate(hotkey, |stake| *stake = stake.saturating_sub(current_stake));
-        Stake::<T>::remove(hotkey, coldkey);
-        TotalStake::<T>::mutate(|stake| *stake = stake.saturating_sub(current_stake));
-        TotalIssuance::<T>::mutate(|issuance| *issuance = issuance.saturating_sub(current_stake));
-
-        // Update StakingHotkeys map
-        let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
-        staking_hotkeys.retain(|h| h != hotkey);
-        StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
-
-        current_stake
-    }
-
     /// Clears the nomination for an account, if it is a nominator account and the stake is below the minimum required threshold.
     pub fn clear_small_nomination_if_required(
         hotkey: &T::AccountId,
@@ -259,14 +192,7 @@ impl<T: Config> Pallet<T> {
         // infallible
         let _ = T::Currency::deposit(coldkey, amount, Precision::BestEffort);
     }
-
-    pub fn set_balance_on_coldkey_account(
-        coldkey: &T::AccountId,
-        amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
-    ) {
-        T::Currency::set_balance(coldkey, amount);
-    }
-
+    
     pub fn can_remove_balance_from_coldkey_account(
         coldkey: &T::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,

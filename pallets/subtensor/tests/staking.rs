@@ -1016,41 +1016,6 @@ fn test_remove_stake_from_hotkey_account_registered_in_various_networks() {
 }
 
 // /************************************************************
-// 	staking::increase_total_stake() tests
-// ************************************************************/
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_increase_total_stake_ok --exact --nocapture
-#[test]
-fn test_increase_total_stake_ok() {
-    new_test_ext(1).execute_with(|| {
-        let increment = 10000;
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
-        SubtensorModule::increase_total_stake(increment);
-        assert_eq!(SubtensorModule::get_total_stake(), increment);
-    });
-}
-
-// /************************************************************
-// 	staking::decrease_total_stake() tests
-// ************************************************************/
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_decrease_total_stake_ok --exact --nocapture
-#[test]
-fn test_decrease_total_stake_ok() {
-    new_test_ext(1).execute_with(|| {
-        let initial_total_stake = 10000;
-        let decrement = 5000;
-
-        SubtensorModule::increase_total_stake(initial_total_stake);
-        SubtensorModule::decrease_total_stake(decrement);
-
-        // The total stake remaining should be the difference between the initial stake and the decrement
-        assert_eq!(
-            SubtensorModule::get_total_stake(),
-            initial_total_stake - decrement
-        );
-    });
-}
-
-// /************************************************************
 // 	staking::add_balance_to_coldkey_account() tests
 // ************************************************************/
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_add_balance_to_coldkey_account_ok --exact --nocapture
@@ -1771,10 +1736,7 @@ fn test_remove_stake_below_minimum_threshold() {
         // Stake map entry is removed
         assert!(Alpha::<Test>::try_get((hotkey1, coldkey2, netuid)).is_err(),);
         // Stake tracking is updated
-        assert_eq!(
-            TotalColdkeyAlpha::<Test>::try_get(coldkey2, netuid).unwrap(),
-            0 // Did not have any stake before; Entry is NOT removed
-        );
+        assert!(TotalColdkeyAlpha::<Test>::try_get(coldkey2, netuid).is_err());
         assert_eq!(
             TotalHotkeyAlpha::<Test>::try_get(hotkey1, netuid).unwrap(),
             total_hotkey_stake_before - stake_removed // Stake was removed from hotkey1 tracker
