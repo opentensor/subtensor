@@ -369,6 +369,30 @@ impl<T: Config> Pallet<T> {
         TotalHotkeyAlpha::<T>::get( hotkey, netuid )
     }
 
+    /// Retrieves the total stake (alpha) for a given coldkey on a specific subnet.
+    ///
+    /// This function iterates through all hotkeys associated with the given coldkey
+    /// and sums up their individual stakes on the specified subnet.
+    ///
+    /// # Arguments
+    ///
+    /// * `coldkey` - The account ID of the coldkey.
+    /// * `netuid` - The unique identifier of the subnet.
+    ///
+    /// # Returns
+    ///
+    /// * `u64` - The total stake (alpha) for the coldkey on the specified subnet.
+    pub fn get_stake_for_coldkey_on_subnet( coldkey: &T::AccountId, netuid: u16 ) -> u64 {
+        let mut total: u64 = 0;
+        let staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
+        for hotkey in staking_hotkeys {
+            // Sum up the alpha this hotkey owns on this subnet.
+            let hotkey_stake = Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, coldkey, netuid);
+            total += hotkey_stake;
+        }
+        total
+    }
+
     /// Returns true if the cold-hot staking account has enough balance to fulfill the decrement.
     ///
     /// # Arguments

@@ -173,38 +173,36 @@ impl<T: Config> Pallet<T> {
         new_coldkey: &T::AccountId,
         weight: &mut Weight,
     ) {
+        log::info!("Transferring stake for old coldkey {:?}", old_coldkey);
+
         // Retrieve the list of hotkeys owned by the old coldkey
         let old_owned_hotkeys: Vec<T::AccountId> = OwnedHotkeys::<T>::get(old_coldkey);
-
+        log::info!("Old owned hotkeys: {:?}", old_owned_hotkeys);
         // Initialize the total transferred stake to zero
         let mut total_transferred_stake: u64 = 0u64;
 
-        // Log the total stake of old and new coldkeys before the swap
-        log::info!(
-            "Before swap - Old coldkey total stake: {}",
-            TotalColdkeyStake::<T>::get(old_coldkey)
-        );
-        log::info!(
-            "Before swap - New coldkey total stake: {}",
-            TotalColdkeyStake::<T>::get(new_coldkey)
-        );
-
         // Iterate over each hotkey owned by the old coldkey
         for hotkey in old_owned_hotkeys.iter() {
-            // Retrieve and remove the stake associated with the hotkey and old coldkey
-            let stake: u64 = Stake::<T>::take(hotkey, old_coldkey);
-            log::info!("Transferring stake for hotkey {:?}: {}", hotkey, stake);
-            if stake > 0 {
-                // Insert the stake for the hotkey and new coldkey
-                let old_stake = Stake::<T>::get(hotkey, new_coldkey);
-                Stake::<T>::insert(hotkey, new_coldkey, stake.saturating_add(old_stake));
-                total_transferred_stake = total_transferred_stake.saturating_add(stake);
+            log::info!("Transferring stake for hotkey {:?}", hotkey);
+            for netuid_i in Self::get_all_subnet_netuids() {
 
-                // Update the owner of the hotkey to the new coldkey
-                Owner::<T>::insert(hotkey, new_coldkey);
+                // Retrieve and remove the stake associated with the hotkey and old coldkey
+                let stake: u64 = Alpha::<T>::get( (hotkey, old_coldkey, netuid_i) );
+                Alpha::<T>::remove( (hotkey, old_coldkey, netuid_i) );
+                log::info!("Transferring stake for hotkey {:?}: on subnet {:?} stake: {}", hotkey, netuid_i, stake);
 
-                // Update the transaction weight
-                weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+                if stake > 0 {
+                    // Insert the stake for the hotkey and new coldkey
+                    let old_stake = Alpha::<T>::get( (hotkey, new_coldkey, netuid_i) );
+                    Alpha::<T>::insert( (hotkey, new_coldkey, netuid_i), stake.saturating_add(old_stake) );
+                    total_transferred_stake = total_transferred_stake.saturating_add(stake);
+
+                    // Update the owner of the hotkey to the new coldkey
+                    Owner::<T>::insert(hotkey, new_coldkey);
+
+                    // Update the transaction weight
+                    weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+                }
             }
         }
         log::info!(
@@ -212,13 +210,14 @@ impl<T: Config> Pallet<T> {
             old_coldkey
         );
 
+        // Transfer the staking hotkeys..
         for staking_hotkey in StakingHotkeys::<T>::get(old_coldkey) {
             log::info!("Processing staking hotkey: {:?}", staking_hotkey);
-            if Stake::<T>::contains_key(staking_hotkey.clone(), old_coldkey) {
+            for netuid_i in Self::get_all_subnet_netuids() {
                 let hotkey = &staking_hotkey;
                 // Retrieve and remove the stake associated with the hotkey and old coldkey
-                let stake: u64 = Stake::<T>::get(hotkey, old_coldkey);
-                Stake::<T>::remove(hotkey, old_coldkey);
+                let stake: u64 = Alpha::<T>::get( (hotkey, old_coldkey, netuid_i) );
+                Alpha::<T>::remove( (hotkey, old_coldkey, netuid_i) );
                 log::info!(
                     "Transferring delegated stake for hotkey {:?}: {}",
                     hotkey,
@@ -226,26 +225,20 @@ impl<T: Config> Pallet<T> {
                 );
                 if stake > 0 {
                     // Insert the stake for the hotkey and new coldkey
-                    let old_stake = Stake::<T>::get(hotkey, new_coldkey);
-                    Stake::<T>::insert(hotkey, new_coldkey, stake.saturating_add(old_stake));
+                    let old_stake = Alpha::<T>::get( (hotkey, new_coldkey, netuid_i) );
+                    Alpha::<T>::insert( (hotkey, new_coldkey, netuid_i), stake.saturating_add(old_stake) );
                     total_transferred_stake = total_transferred_stake.saturating_add(stake);
                     log::info!(
-                        "Updated stake for hotkey {:?} under new coldkey {:?}: {}",
+                        "Updated stake for hotkey {:?} under new coldkey {:?} on subnet {:?}: {}",
                         hotkey,
                         new_coldkey,
+                        netuid_i,
                         stake.saturating_add(old_stake)
                     );
 
                     // Update the transaction weight
                     weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 1));
                 }
-            } else {
-                log::info!(
-                    "No stake found for staking hotkey {:?} under old coldkey {:?}",
-                    staking_hotkey,
-                    old_coldkey
-                );
-                weight.saturating_accrue(T::DbWeight::get().reads(1));
             }
         }
 
@@ -305,7 +298,7 @@ impl<T: Config> Pallet<T> {
         StakingHotkeys::<T>::remove(old_coldkey);
         StakingHotkeys::<T>::insert(new_coldkey, existing_staking_hotkeys);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-
+        
         // Log the total stake of old and new coldkeys after the swap
         log::info!(
             "After swap - Old coldkey total stake: {}",

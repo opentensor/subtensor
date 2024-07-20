@@ -9,6 +9,7 @@ mod mock;
 use mock::*;
 use sp_core::U256;
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_do_swap_hotkey_ok --exact --nocapture
 #[test]
 fn test_do_swap_hotkey_ok() {
     new_test_ext(1).execute_with(|| {
@@ -43,8 +44,8 @@ fn test_do_swap_hotkey_ok() {
 
         // Verify other storage changes
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&new_hotkey),
-            SubtensorModule::get_total_stake_for_hotkey(&old_hotkey)
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&new_hotkey, netuid),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&old_hotkey, netuid)
         );
         assert_eq!(
             SubtensorModule::get_delegate(new_hotkey.encode()),
@@ -218,8 +219,8 @@ fn test_do_swap_hotkey_ok_robust() {
 
                     // Verify other storage changes
                     assert_eq!(
-                        SubtensorModule::get_total_stake_for_hotkey(&new_hotkeys[i]),
-                        SubtensorModule::get_total_stake_for_hotkey(&old_hotkeys[i])
+                        SubtensorModule::get_stake_for_hotkey_on_subnet(&new_hotkeys[i], netuid),
+                        SubtensorModule::get_stake_for_hotkey_on_subnet(&old_hotkeys[i], netuid)
                     );
 
                     assert_eq!(
@@ -1246,7 +1247,7 @@ fn test_do_swap_coldkey_success() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_stake_for_coldkey --exact --nocaptur
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_stake_for_coldkey --exact --nocapture
 #[test]
 fn test_swap_stake_for_coldkey() {
     new_test_ext(1).execute_with(|| {
@@ -1327,6 +1328,8 @@ fn test_swap_stake_for_coldkey() {
     });
 }
 
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_staking_hotkeys_for_coldkey --exact --nocapture
 #[test]
 fn test_swap_staking_hotkeys_for_coldkey() {
     new_test_ext(1).execute_with(|| {
@@ -1364,9 +1367,11 @@ fn test_swap_staking_hotkeys_for_coldkey() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_delegated_stake_for_coldkey --exact --nocapture
 #[test]
 fn test_swap_delegated_stake_for_coldkey() {
     new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
         let hotkey1 = U256::from(3);
@@ -1375,17 +1380,15 @@ fn test_swap_delegated_stake_for_coldkey() {
         let stake_amount2 = 2000u64;
         let total_stake = stake_amount1 + stake_amount2;
         let mut weight = Weight::zero();
+        add_network(netuid, 13, 0);
 
         // Notice hotkey1 and hotkey2 are not in OwnedHotkeys
         // coldkey therefore delegates stake to them
 
         // Setup initial state
         StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
-        Stake::<Test>::insert(hotkey1, old_coldkey, stake_amount1);
-        Stake::<Test>::insert(hotkey2, old_coldkey, stake_amount2);
-        TotalHotkeyStake::<Test>::insert(hotkey1, stake_amount1);
-        TotalHotkeyStake::<Test>::insert(hotkey2, stake_amount2);
-        TotalColdkeyStake::<Test>::insert(old_coldkey, total_stake);
+        Alpha::<Test>::insert((hotkey1, old_coldkey, netuid), stake_amount1);
+        Alpha::<Test>::insert((hotkey2, old_coldkey, netuid), stake_amount2);
 
         // Set up total issuance
         TotalIssuance::<Test>::put(total_stake);
@@ -1399,18 +1402,10 @@ fn test_swap_delegated_stake_for_coldkey() {
         SubtensorModule::swap_stake_for_coldkey(&old_coldkey, &new_coldkey, &mut weight);
 
         // Verify stake transfer
-        assert_eq!(Stake::<Test>::get(hotkey1, new_coldkey), stake_amount1);
-        assert_eq!(Stake::<Test>::get(hotkey2, new_coldkey), stake_amount2);
-        assert_eq!(Stake::<Test>::get(hotkey1, old_coldkey), 0);
-        assert_eq!(Stake::<Test>::get(hotkey2, old_coldkey), 0);
-
-        // Verify TotalColdkeyStake
-        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), total_stake);
-        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
-
-        // Verify TotalHotkeyStake remains unchanged
-        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey1), stake_amount1);
-        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey2), stake_amount2);
+        assert_eq!(Alpha::<Test>::get((hotkey1, new_coldkey, netuid)), stake_amount1);
+        assert_eq!(Alpha::<Test>::get((hotkey2, new_coldkey, netuid)), stake_amount2);
+        assert_eq!(Alpha::<Test>::get((hotkey1, old_coldkey, netuid)), 0);
+        assert_eq!(Alpha::<Test>::get((hotkey2, old_coldkey, netuid)), 0);
 
         // Verify total stake and issuance remain unchanged
         assert_eq!(
@@ -1426,6 +1421,7 @@ fn test_swap_delegated_stake_for_coldkey() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_total_hotkey_coldkey_stakes_this_interval_for_coldkey --exact --nocapture
 #[test]
 fn test_swap_total_hotkey_coldkey_stakes_this_interval_for_coldkey() {
     new_test_ext(1).execute_with(|| {
@@ -1436,6 +1432,7 @@ fn test_swap_total_hotkey_coldkey_stakes_this_interval_for_coldkey() {
         let stake1 = (1000u64, 100u64);
         let stake2 = (2000u64, 200u64);
         let mut weight = Weight::zero();
+        
 
         // Initialize TotalHotkeyColdkeyStakesThisInterval for old_coldkey
         TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(hotkey1, old_coldkey, stake1);
@@ -1475,6 +1472,7 @@ fn test_swap_total_hotkey_coldkey_stakes_this_interval_for_coldkey() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_subnet_owner_for_coldkey --exact --nocapture
 #[test]
 fn test_swap_subnet_owner_for_coldkey() {
     new_test_ext(1).execute_with(|| {
@@ -1504,6 +1502,7 @@ fn test_swap_subnet_owner_for_coldkey() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_do_swap_coldkey_with_subnet_ownership --exact --nocapture
 #[test]
 fn test_do_swap_coldkey_with_subnet_ownership() {
     new_test_ext(1).execute_with(|| {
@@ -1538,6 +1537,7 @@ fn test_do_swap_coldkey_with_subnet_ownership() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_coldkey_has_associated_hotkeys --exact --nocapture
 #[test]
 fn test_coldkey_has_associated_hotkeys() {
     new_test_ext(1).execute_with(|| {
@@ -1866,6 +1866,7 @@ fn test_coldkey_has_associated_hotkeys() {
 //     });
 // }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_senate_member --exact --nocapture
 #[test]
 fn test_swap_senate_member() {
     new_test_ext(1).execute_with(|| {
@@ -1934,17 +1935,16 @@ fn test_coldkey_delegations() {
             netuid,
             100
         ));
+        assert_eq!(SubtensorModule::get_stake_for_coldkey_on_subnet(&coldkey, netuid), 100);
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &coldkey,
             &new_coldkey
         ));
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate), 100);
-        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey), 0);
+        assert_eq!(SubtensorModule::get_stake_for_hotkey_on_subnet(&delegate, netuid), 100);
+        assert_eq!(SubtensorModule::get_stake_for_coldkey_on_subnet(&coldkey, netuid), 0);
         assert_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
+            SubtensorModule::get_stake_for_coldkey_on_subnet(&new_coldkey, netuid),
             100
         );
-        assert_eq!(Stake::<Test>::get(delegate, new_coldkey), 100);
-        assert_eq!(Stake::<Test>::get(delegate, coldkey), 0);
     });
 }

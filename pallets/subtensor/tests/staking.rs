@@ -1279,7 +1279,7 @@ fn test_unstake_all_coldkeys_from_hotkey_account() {
         );
 
         // Run unstake_all_coldkeys_from_hotkey_account
-        SubtensorModule::unstake_all_coldkeys_from_hotkey_account(&hotkey_id);
+        SubtensorModule::unstake_all_coldkeys_from_hotkey_account_on_network(&hotkey_id, netuid);
 
         // Verify total stake is 0
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);

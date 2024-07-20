@@ -1,6 +1,5 @@
 use super::*;
 use frame_support::{
-    storage::IterableStorageDoubleMap,
     traits::{
         tokens::{
             fungible::{Balanced as _, Inspect as _, Mutate as _},
@@ -390,18 +389,17 @@ impl<T: Config> Pallet<T> {
         Ok(credit)
     }
 
-    pub fn unstake_all_coldkeys_from_hotkey_account(hotkey: &T::AccountId) {
+    pub fn unstake_all_coldkeys_from_hotkey_account_on_network(hotkey: &T::AccountId, netuid: u16) {
         // Iterate through all coldkeys that have a stake on this hotkey account.
-        for (delegate_coldkey_i, stake_i) in
-            <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(
-                hotkey,
-            )
-        {
-            // Remove the stake from the coldkey - hotkey pairing.
-            Self::decrease_stake_on_coldkey_hotkey_account(&delegate_coldkey_i, hotkey, stake_i);
-
-            // Add the balance to the coldkey account.
-            Self::add_balance_to_coldkey_account(&delegate_coldkey_i, stake_i);
+        for (nominator, _) in Stake::<T>::iter_prefix(hotkey) {
+            for netuid_i in Self::get_all_subnet_netuids() {
+                if netuid_i != netuid {
+                    continue;
+                }
+                let alpha: u64 = Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, &nominator, netuid_i);
+                let tao: u64 = Self::unstake_from_subnet(hotkey, &nominator, netuid_i, alpha);
+                Self::add_balance_to_coldkey_account(&nominator, tao);    
+            }
         }
     }
 }
