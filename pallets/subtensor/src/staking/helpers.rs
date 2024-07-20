@@ -152,18 +152,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Increases the stake on the hotkey account under its owning coldkey.
-    ///
-    /// # Arguments
-    /// * `hotkey` - The hotkey account ID.
-    /// * `increment` - The amount to be incremented.
-    pub fn increase_stake_on_hotkey_account(hotkey: &T::AccountId, increment: u64) {
-        Self::increase_stake_on_coldkey_hotkey_account(
-            &Self::get_owning_coldkey_for_hotkey(hotkey),
-            hotkey,
-            increment,
-        );
-    }
 
     /// Decreases the stake on the hotkey account under its owning coldkey.
     ///
@@ -176,37 +164,6 @@ impl<T: Config> Pallet<T> {
             hotkey,
             decrement,
         );
-    }
-
-    // Increases the stake on the cold - hot pairing by increment while also incrementing other counters.
-    // This function should be called rather than set_stake under account.
-    //
-    pub fn increase_stake_on_coldkey_hotkey_account(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-        increment: u64,
-    ) {
-        TotalColdkeyStake::<T>::insert(
-            coldkey,
-            TotalColdkeyStake::<T>::get(coldkey).saturating_add(increment),
-        );
-        TotalHotkeyStake::<T>::insert(
-            hotkey,
-            TotalHotkeyStake::<T>::get(hotkey).saturating_add(increment),
-        );
-        Stake::<T>::insert(
-            hotkey,
-            coldkey,
-            Stake::<T>::get(hotkey, coldkey).saturating_add(increment),
-        );
-        TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(increment));
-
-        // Update StakingHotkeys map
-        let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
-        if !staking_hotkeys.contains(hotkey) {
-            staking_hotkeys.push(hotkey.clone());
-            StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
-        }
     }
 
     // Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.

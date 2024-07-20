@@ -491,60 +491,6 @@ fn init_run_epochs(
 
 // Test an epoch on an empty graph.
 // #[test]
-// fn test_overflow() {
-//     new_test_ext(1).execute_with(|| {
-//         log::info!("test_overflow:");
-//         let netuid: u16 = 1;
-//         add_network(netuid, 0, 0);
-//         SubtensorModule::set_max_allowed_uids(netuid, 3);
-//         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-//             &U256::from(0),
-//             &U256::from(0),
-//             10,
-//         );
-//         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-//             &U256::from(1),
-//             &U256::from(1),
-//             10,
-//         );
-//         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-//             &U256::from(2),
-//             &U256::from(2),
-//             10,
-//         );
-//         SubtensorModule::append_neuron(netuid, &U256::from(0), 0);
-//         SubtensorModule::append_neuron(netuid, &U256::from(1), 0);
-//         SubtensorModule::append_neuron(netuid, &U256::from(2), 0);
-//         SubtensorModule::set_validator_permit_for_uid(0, 0, true);
-//         SubtensorModule::set_validator_permit_for_uid(0, 1, true);
-//         SubtensorModule::set_validator_permit_for_uid(0, 2, true);
-//         assert_ok!(SubtensorModule::set_weights(
-//             RuntimeOrigin::signed(U256::from(0)),
-//             netuid,
-//             vec![0, 1, 2],
-//             vec![u16::MAX / 3, u16::MAX / 3, u16::MAX],
-//             0
-//         ));
-//         assert_ok!(SubtensorModule::set_weights(
-//             RuntimeOrigin::signed(U256::from(1)),
-//             netuid,
-//             vec![1, 2],
-//             vec![u16::MAX / 2, u16::MAX / 2],
-//             0
-//         ));
-//         assert_ok!(SubtensorModule::set_weights(
-//             RuntimeOrigin::signed(U256::from(2)),
-//             netuid,
-//             vec![2],
-//             vec![u16::MAX],
-//             0
-//         ));
-//         SubtensorModule::epoch(0, u64::MAX);
-//     });
-// }
-
-// Test an epoch on an empty graph.
-// #[test]
 // fn test_nill_epoch_subtensor() {
 //     new_test_ext(1).execute_with(|| {
 //         log::info!("test_nill_epoch:");

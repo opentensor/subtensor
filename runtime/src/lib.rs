@@ -1035,14 +1035,6 @@ impl
         SubtensorModule::coldkey_owns_hotkey(coldkey, hotkey)
     }
 
-    fn increase_stake_on_coldkey_hotkey_account(
-        coldkey: &AccountId,
-        hotkey: &AccountId,
-        increment: u64,
-    ) {
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(coldkey, hotkey, increment);
-    }
-
     fn add_balance_to_coldkey_account(coldkey: &AccountId, amount: Balance) {
         SubtensorModule::add_balance_to_coldkey_account(coldkey, amount);
     }

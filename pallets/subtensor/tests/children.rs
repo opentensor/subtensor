@@ -1184,68 +1184,68 @@ fn test_set_network_max_stake_update() {
     });
 }
 
-// DEPRECATED
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_children_stake_values --exact --nocapture
-// #[test]
-// fn test_children_stake_values() {
-//     new_test_ext(1).execute_with(|| {
-//         let coldkey = U256::from(1);
-//         let hotkey = U256::from(2);
-//         let child1 = U256::from(3);
-//         let child2 = U256::from(4);
-//         let child3 = U256::from(5);
-//         let netuid: u16 = 1;
-//         let proportion1: u64 = u64::MAX / 4;
-//         let proportion2: u64 = u64::MAX / 4;
-//         let proportion3: u64 = u64::MAX / 4;
+#[test]
+fn test_children_stake_values() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let child1 = U256::from(3);
+        let child2 = U256::from(4);
+        let child3 = U256::from(5);
+        let netuid: u16 = 1;
+        let proportion1: u64 = u64::MAX / 4;
+        let proportion2: u64 = u64::MAX / 4;
+        let proportion3: u64 = u64::MAX / 4;
 
-//         // Add network and register hotkey
-//         add_network(netuid, 13, 0);
-//         SubtensorModule::set_max_registrations_per_block(netuid, 4);
-//         SubtensorModule::set_target_registrations_per_interval(netuid, 4);
-//         register_ok_neuron(netuid, hotkey, coldkey, 0);
-//         register_ok_neuron(netuid, child1, coldkey, 0);
-//         register_ok_neuron(netuid, child2, coldkey, 0);
-//         register_ok_neuron(netuid, child3, coldkey, 0);
-//         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-//             &coldkey,
-//             &hotkey,
-//             100_000_000_000_000,
-//         );
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        SubtensorModule::set_max_registrations_per_block(netuid, 4);
+        SubtensorModule::set_target_registrations_per_interval(netuid, 4);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        register_ok_neuron(netuid, child1, coldkey, 0);
+        register_ok_neuron(netuid, child2, coldkey, 0);
+        register_ok_neuron(netuid, child3, coldkey, 0);
+        SubtensorModule::stake_into_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            100_000_000_000_000,
+        );
 
-//         // Set multiple children with proportions.
-//         assert_ok!(SubtensorModule::do_set_children(
-//             RuntimeOrigin::signed(coldkey),
-//             hotkey,
-//             netuid,
-//             vec![
-//                 (proportion1, child1),
-//                 (proportion2, child2),
-//                 (proportion3, child3)
-//             ]
-//         ));
-//         assert_eq!(
-//             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid),
-//             25_000_000_069_852
-//         );
-//         assert_eq!(
-//             SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid),
-//             24_999_999_976_716
-//         );
-//         assert_eq!(
-//             SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid),
-//             24_999_999_976_716
-//         );
-//         assert_eq!(
-//             SubtensorModule::get_stake_for_hotkey_on_subnet(&child3, netuid),
-//             24_999_999_976_716
-//         );
-//         assert_eq!(
-//             SubtensorModule::get_stake_for_hotkey_on_subnet(&child3, netuid)
-//                 + SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid)
-//                 + SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid)
-//                 + SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid),
-//             100_000_000_000_000
-//         );
-//     });
-// }
+        // Set multiple children with proportions.
+        assert_ok!(SubtensorModule::do_set_children(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            vec![
+                (proportion1, child1),
+                (proportion2, child2),
+                (proportion3, child3)
+            ]
+        ));
+        assert_eq!(
+            SubtensorModule::get_inherited_stake_for_hotkey_on_subnet(&hotkey, netuid),
+            25_000_000_069_852
+        );
+        assert_eq!(
+            SubtensorModule::get_inherited_stake_for_hotkey_on_subnet(&child1, netuid),
+            24_999_999_976_716
+        );
+        assert_eq!(
+            SubtensorModule::get_inherited_stake_for_hotkey_on_subnet(&child2, netuid),
+            24_999_999_976_716
+        );
+        assert_eq!(
+            SubtensorModule::get_inherited_stake_for_hotkey_on_subnet(&child3, netuid),
+            24_999_999_976_716
+        );
+        assert_eq!(
+            SubtensorModule::get_inherited_stake_for_hotkey_on_subnet(&child3, netuid)
+                + SubtensorModule::get_inherited_stake_for_hotkey_on_subnet(&child2, netuid)
+                + SubtensorModule::get_inherited_stake_for_hotkey_on_subnet(&child1, netuid)
+                + SubtensorModule::get_inherited_stake_for_hotkey_on_subnet(&hotkey, netuid),
+            100_000_000_000_000
+        );
+    });
+}
