@@ -138,6 +138,7 @@ fn test_do_swap_hotkey_ok() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_do_swap_hotkey_ok_robust --exact --nocapture
 #[test]
 fn test_do_swap_hotkey_ok_robust() {
     new_test_ext(1).execute_with(|| {
@@ -328,6 +329,7 @@ fn test_do_swap_hotkey_ok_robust() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_hotkey_tx_rate_limit_exceeded --exact --nocapture
 #[test]
 fn test_swap_hotkey_tx_rate_limit_exceeded() {
     new_test_ext(1).execute_with(|| {
@@ -382,6 +384,7 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_do_swap_hotkey_err_not_owner --exact --nocapture
 #[test]
 fn test_do_swap_hotkey_err_not_owner() {
     new_test_ext(1).execute_with(|| {
@@ -410,6 +413,7 @@ fn test_do_swap_hotkey_err_not_owner() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_owner_success --exact --nocapture
 #[test]
 fn test_swap_owner_success() {
     new_test_ext(1).execute_with(|| {
@@ -430,6 +434,7 @@ fn test_swap_owner_success() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_owner_old_hotkey_not_exist --exact --nocapture
 #[test]
 fn test_swap_owner_old_hotkey_not_exist() {
     new_test_ext(1).execute_with(|| {
@@ -450,6 +455,7 @@ fn test_swap_owner_old_hotkey_not_exist() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_owner_new_hotkey_already_exists --exact --nocapture
 #[test]
 fn test_swap_owner_new_hotkey_already_exists() {
     new_test_ext(1).execute_with(|| {
@@ -472,6 +478,7 @@ fn test_swap_owner_new_hotkey_already_exists() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_owner_weight_update --exact --nocapture
 #[test]
 fn test_swap_owner_weight_update() {
     new_test_ext(1).execute_with(|| {
@@ -492,6 +499,7 @@ fn test_swap_owner_weight_update() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_total_hotkey_stake_success --exact --nocapture
 #[test]
 fn test_swap_total_hotkey_stake_success() {
     new_test_ext(1).execute_with(|| {
@@ -512,6 +520,7 @@ fn test_swap_total_hotkey_stake_success() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_total_hotkey_stake_old_hotkey_not_exist --exact --nocapture
 #[test]
 fn test_swap_total_hotkey_stake_old_hotkey_not_exist() {
     new_test_ext(1).execute_with(|| {
@@ -530,6 +539,7 @@ fn test_swap_total_hotkey_stake_old_hotkey_not_exist() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_total_hotkey_stake_weight_update --exact --nocapture
 #[test]
 fn test_swap_total_hotkey_stake_weight_update() {
     new_test_ext(1).execute_with(|| {
@@ -550,6 +560,7 @@ fn test_swap_total_hotkey_stake_weight_update() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_delegates_success --exact --nocapture
 #[test]
 fn test_swap_delegates_success() {
     new_test_ext(1).execute_with(|| {
@@ -570,6 +581,7 @@ fn test_swap_delegates_success() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_delegates_old_hotkey_not_exist --exact --nocapture
 #[test]
 fn test_swap_delegates_old_hotkey_not_exist() {
     new_test_ext(1).execute_with(|| {
@@ -588,6 +600,7 @@ fn test_swap_delegates_old_hotkey_not_exist() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_delegates_weight_update --exact --nocapture
 #[test]
 fn test_swap_delegates_weight_update() {
     new_test_ext(1).execute_with(|| {
@@ -608,6 +621,7 @@ fn test_swap_delegates_weight_update() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_stake_success --exact --nocapture
 #[test]
 fn test_swap_stake_success() {
     new_test_ext(1).execute_with(|| {
@@ -629,6 +643,7 @@ fn test_swap_stake_success() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_stake_old_hotkey_not_exist --exact --nocapture
 #[test]
 fn test_swap_stake_old_hotkey_not_exist() {
     new_test_ext(1).execute_with(|| {
@@ -653,6 +668,7 @@ fn test_swap_stake_old_hotkey_not_exist() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_stake_weight_update --exact --nocapture
 #[test]
 fn test_swap_stake_weight_update() {
     new_test_ext(1).execute_with(|| {
@@ -674,6 +690,7 @@ fn test_swap_stake_weight_update() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_is_network_member_success --exact --nocapture
 #[test]
 fn test_swap_is_network_member_success() {
     new_test_ext(1).execute_with(|| {
@@ -703,6 +720,7 @@ fn test_swap_is_network_member_success() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_is_network_member_weight_update --exact --nocapture
 #[test]
 fn test_swap_is_network_member_weight_update() {
     new_test_ext(1).execute_with(|| {
@@ -730,6 +748,7 @@ fn test_swap_is_network_member_weight_update() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_axons_success --exact --nocapture
 #[test]
 fn test_swap_axons_success() {
     new_test_ext(1).execute_with(|| {
@@ -769,6 +788,7 @@ fn test_swap_axons_success() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_axons_weight_update --exact --nocapture
 #[test]
 fn test_swap_axons_weight_update() {
     new_test_ext(1).execute_with(|| {
@@ -802,6 +822,7 @@ fn test_swap_axons_weight_update() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_keys_success --exact --nocapture
 #[test]
 fn test_swap_keys_success() {
     new_test_ext(1).execute_with(|| {
@@ -833,6 +854,7 @@ fn test_swap_keys_success() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_keys_weight_update --exact --nocapture
 #[test]
 fn test_swap_keys_weight_update() {
     new_test_ext(1).execute_with(|| {
@@ -856,6 +878,7 @@ fn test_swap_keys_weight_update() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_loaded_emission_success --exact --nocapture
 #[test]
 fn test_swap_loaded_emission_success() {
     new_test_ext(1).execute_with(|| {
@@ -894,6 +917,7 @@ fn test_swap_loaded_emission_success() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_loaded_emission_weight_update --exact --nocapture
 #[test]
 fn test_swap_loaded_emission_weight_update() {
     new_test_ext(1).execute_with(|| {
@@ -930,6 +954,7 @@ fn test_swap_loaded_emission_weight_update() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_uids_success --exact --nocapture
 #[test]
 fn test_swap_uids_success() {
     new_test_ext(1).execute_with(|| {
@@ -960,6 +985,7 @@ fn test_swap_uids_success() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_uids_weight_update --exact --nocapture
 #[test]
 fn test_swap_uids_weight_update() {
     new_test_ext(1).execute_with(|| {
@@ -983,6 +1009,7 @@ fn test_swap_uids_weight_update() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_prometheus_success --exact --nocapture
 #[test]
 fn test_swap_prometheus_success() {
     new_test_ext(1).execute_with(|| {
@@ -1023,6 +1050,7 @@ fn test_swap_prometheus_success() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_prometheus_weight_update --exact --nocapture
 #[test]
 fn test_swap_prometheus_weight_update() {
     new_test_ext(1).execute_with(|| {
@@ -1057,6 +1085,7 @@ fn test_swap_prometheus_weight_update() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_total_hotkey_coldkey_stakes_this_interval_success --exact --nocapture
 #[test]
 fn test_swap_total_hotkey_coldkey_stakes_this_interval_success() {
     new_test_ext(1).execute_with(|| {
@@ -1087,6 +1116,7 @@ fn test_swap_total_hotkey_coldkey_stakes_this_interval_success() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_total_hotkey_coldkey_stakes_this_interval_weight_update --exact --nocapture
 #[test]
 fn test_swap_total_hotkey_coldkey_stakes_this_interval_weight_update() {
     new_test_ext(1).execute_with(|| {
@@ -1113,6 +1143,7 @@ fn test_swap_total_hotkey_coldkey_stakes_this_interval_weight_update() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_do_swap_coldkey_success --exact --nocapture
 #[test]
 fn test_do_swap_coldkey_success() {
     new_test_ext(1).execute_with(|| {
@@ -1205,15 +1236,10 @@ fn test_do_swap_coldkey_success() {
         // Verify the swap
         assert_eq!(Owner::<Test>::get(hotkey1), new_coldkey);
         assert_eq!(Owner::<Test>::get(hotkey2), new_coldkey);
-        assert_eq!(
-            TotalColdkeyStake::<Test>::get(new_coldkey),
-            stake_amount1 + stake_amount2
-        );
-        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
-        assert_eq!(Stake::<Test>::get(hotkey1, new_coldkey), stake_amount1);
-        assert_eq!(Stake::<Test>::get(hotkey2, new_coldkey), stake_amount2);
-        assert!(!Stake::<Test>::contains_key(hotkey1, old_coldkey));
-        assert!(!Stake::<Test>::contains_key(hotkey2, old_coldkey));
+        assert_eq!(Alpha::<Test>::get((hotkey1, new_coldkey, netuid)), stake_amount1);
+        assert_eq!(Alpha::<Test>::get((hotkey2, new_coldkey, netuid)), stake_amount2);
+        assert!(!Alpha::<Test>::contains_key((hotkey1, old_coldkey, netuid)));
+        assert!(!Alpha::<Test>::contains_key((hotkey2, old_coldkey, netuid)));
 
         // Verify OwnedHotkeys
         let new_owned_hotkeys = OwnedHotkeys::<Test>::get(new_coldkey);
@@ -1251,6 +1277,7 @@ fn test_do_swap_coldkey_success() {
 #[test]
 fn test_swap_stake_for_coldkey() {
     new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 0;
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
         let hotkey1 = U256::from(3);
@@ -1260,22 +1287,19 @@ fn test_swap_stake_for_coldkey() {
         let stake_amount3 = 3000u64;
         let total_stake = stake_amount1 + stake_amount2;
         let mut weight = Weight::zero();
+        add_network(netuid, 13, 0);
 
         // Setup initial state
         OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
         StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
-        Stake::<Test>::insert(hotkey1, old_coldkey, stake_amount1);
-        Stake::<Test>::insert(hotkey2, old_coldkey, stake_amount2);
-        assert_eq!(Stake::<Test>::get(hotkey1, old_coldkey), stake_amount1);
-        assert_eq!(Stake::<Test>::get(hotkey1, old_coldkey), stake_amount1);
+        Alpha::<Test>::insert((hotkey1, old_coldkey, netuid), stake_amount1);
+        Alpha::<Test>::insert((hotkey2, old_coldkey, netuid), stake_amount2);
+        assert_eq!(Alpha::<Test>::get((hotkey1, old_coldkey, netuid)), stake_amount1);
+        assert_eq!(Alpha::<Test>::get((hotkey2, old_coldkey, netuid)), stake_amount2);
 
         // Insert existing for same hotkey1
-        Stake::<Test>::insert(hotkey1, new_coldkey, stake_amount3);
+        Alpha::<Test>::insert((hotkey1, new_coldkey, netuid), stake_amount3);
         StakingHotkeys::<Test>::insert(new_coldkey, vec![hotkey1]);
-
-        TotalHotkeyStake::<Test>::insert(hotkey1, stake_amount1);
-        TotalHotkeyStake::<Test>::insert(hotkey2, stake_amount2);
-        TotalColdkeyStake::<Test>::insert(old_coldkey, total_stake);
 
         // Set up total issuance
         TotalIssuance::<Test>::put(total_stake);
@@ -1290,10 +1314,9 @@ fn test_swap_stake_for_coldkey() {
 
         // Verify stake is additive, not replaced
         assert_eq!(
-            Stake::<Test>::get(hotkey1, new_coldkey),
+            Alpha::<Test>::get((hotkey1, new_coldkey, netuid)),
             stake_amount1 + stake_amount3
         );
-
         // Verify ownership transfer
         assert_eq!(
             SubtensorModule::get_owned_hotkeys(&new_coldkey),
@@ -1302,17 +1325,9 @@ fn test_swap_stake_for_coldkey() {
         assert_eq!(SubtensorModule::get_owned_hotkeys(&old_coldkey), vec![]);
 
         // Verify stake transfer
-        assert_eq!(Stake::<Test>::get(hotkey2, new_coldkey), stake_amount2);
-        assert_eq!(Stake::<Test>::get(hotkey1, old_coldkey), 0);
-        assert_eq!(Stake::<Test>::get(hotkey2, old_coldkey), 0);
-
-        // Verify TotalColdkeyStake
-        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), total_stake);
-        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
-
-        // Verify TotalHotkeyStake remains unchanged
-        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey1), stake_amount1);
-        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey2), stake_amount2);
+        assert_eq!(Alpha::<Test>::get((hotkey2, new_coldkey, netuid)), stake_amount2);
+        assert_eq!(Alpha::<Test>::get((hotkey1, old_coldkey, netuid)), 0);
+        assert_eq!(Alpha::<Test>::get((hotkey2, old_coldkey, netuid)), 0);
 
         // Verify total stake and issuance remain unchanged
         assert_eq!(
