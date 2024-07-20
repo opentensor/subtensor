@@ -74,7 +74,8 @@ impl<T: Config> Pallet<T> {
         Self::swap_is_network_member(old_hotkey, new_hotkey, &netuid_is_member, &mut weight);
         Self::swap_axons(old_hotkey, new_hotkey, &netuid_is_member, &mut weight);
         Self::swap_keys(old_hotkey, new_hotkey, &netuid_is_member, &mut weight);
-        Self::swap_loaded_emission(old_hotkey, new_hotkey, &netuid_is_member, &mut weight);
+        // DEPRECATED.
+        // Self::swap_loaded_emission(old_hotkey, new_hotkey, &netuid_is_member, &mut weight);
         Self::swap_uids(old_hotkey, new_hotkey, &netuid_is_member, &mut weight);
         Self::swap_prometheus(old_hotkey, new_hotkey, &netuid_is_member, &mut weight);
         Self::swap_senate_member(old_hotkey, new_hotkey, &mut weight)?;
@@ -157,6 +158,16 @@ impl<T: Config> Pallet<T> {
         new_hotkey: &T::AccountId,
         weight: &mut Weight,
     ) {
+        // Remove the hotkey subnet specific stake.
+        for netuid in Self::get_all_subnet_netuids() {
+            if let Ok(total_hotkey_stake) = TotalHotkeyAlpha::<T>::try_get(old_hotkey, netuid) {
+                TotalHotkeyAlpha::<T>::remove(old_hotkey, netuid);
+                TotalHotkeyAlpha::<T>::insert(new_hotkey, netuid, total_hotkey_stake);
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+            } else {
+                weight.saturating_accrue(T::DbWeight::get().reads(1));
+            }
+        }
         if let Ok(total_hotkey_stake) = TotalHotkeyStake::<T>::try_get(old_hotkey) {
             TotalHotkeyStake::<T>::remove(old_hotkey);
             TotalHotkeyStake::<T>::insert(new_hotkey, total_hotkey_stake);
@@ -200,10 +211,22 @@ impl<T: Config> Pallet<T> {
     /// * `new_hotkey` - The new hotkey.
     /// * `weight` - The weight of the transaction.
     pub fn swap_stake(old_hotkey: &T::AccountId, new_hotkey: &T::AccountId, weight: &mut Weight) {
+
+        // Swap Alpha:
+        // Iterate over all nominators
+        for (nominator, _) in Stake::<T>::iter_prefix(old_hotkey) {
+            // Iterate over all networks.
+            for netuid_i in Self::get_all_subnet_netuids() {
+                let alpha = Alpha::<T>::get(( old_hotkey, &nominator, netuid_i) );
+                Alpha::<T>::remove( ( old_hotkey, &nominator, netuid_i) );
+                Alpha::<T>::insert( ( new_hotkey, &nominator, netuid_i), alpha);
+            }
+        }
+
+        // Swap stake map.
         let mut writes: u64 = 0;
         let stakes: Vec<(T::AccountId, u64)> = Stake::<T>::iter_prefix(old_hotkey).collect();
         let stake_count = stakes.len() as u32;
-
         for (coldkey, stake_amount) in stakes {
             Stake::<T>::insert(new_hotkey, &coldkey, stake_amount);
             writes = writes.saturating_add(1u64); // One write for insert
@@ -227,7 +250,6 @@ impl<T: Config> Pallet<T> {
         writes = writes.saturating_add(1); // One write for insert; // One write for clear_prefix
 
         // TODO: Remove all entries for old hotkey from StakingHotkeys map
-
         weight.saturating_accrue(T::DbWeight::get().writes(writes));
     }
 

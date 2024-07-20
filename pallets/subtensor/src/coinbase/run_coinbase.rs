@@ -15,6 +15,18 @@ impl<T: Config> Pallet<T> {
         }
         total_mechanism_tao
     }
+
+    /// Returns the emission value for the given subnet.
+    ///
+    /// This function retrieves the emission value for the given subnet.
+    ///
+    /// # Returns:
+    /// * 'u64': The emission value for the given subnet.
+    ///
+    pub fn get_subnet_emission_value(netuid: u16) -> u64 {
+        EmissionValues::<T>::get(netuid)
+    }
+
         
     /// The `coinbase` function performs a four-part emission distribution process involving
     /// subnets, epochs, hotkeys, and nominators.
