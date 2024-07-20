@@ -124,7 +124,7 @@ fn distribute_nodes(
 fn uid_stats(netuid: u16, uid: u16) {
     log::info!(
         "stake: {:?}",
-        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid)))
+        SubtensorModule::get_stake_for_hotkey_on_subnet( &(U256::from(uid)), netuid)
     );
     log::info!("rank: {:?}", SubtensorModule::get_rank_for_uid(netuid, uid));
     log::info!(
@@ -886,7 +886,7 @@ fn test_4096_graph() {
                 let bonds = SubtensorModule::get_bonds(netuid);
                 for uid in &validators {
                     assert_eq!(
-                        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(*uid as u64))),
+                        SubtensorModule::get_stake_for_hotkey_on_subnet(&(U256::from(*uid as u64)), netuid),
                         max_stake_per_validator
                     );
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, *uid), 0);
@@ -903,7 +903,7 @@ fn test_4096_graph() {
                 }
                 for uid in &servers {
                     assert_eq!(
-                        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(*uid as u64))),
+                        SubtensorModule::get_stake_for_hotkey_on_subnet(&(U256::from(*uid as u64)), netuid),
                         0
                     );
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, *uid), 17); // Note R = floor(1 / (4096 - 256) * 65_535) = 17
@@ -952,7 +952,7 @@ fn test_16384_graph_sparse() {
         let bonds = SubtensorModule::get_bonds(netuid);
         for uid in validators {
             assert_eq!(
-                SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
+                SubtensorModule::get_stake_for_hotkey_on_subnet(&(U256::from(uid)), netuid),
                 1
             );
             assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
@@ -969,7 +969,7 @@ fn test_16384_graph_sparse() {
         }
         for uid in servers {
             assert_eq!(
-                SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
+                SubtensorModule::get_stake_for_hotkey_on_subnet(&(U256::from(uid)), netuid),
                 0
             );
             assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 4); // Note R = floor(1 / (16384 - 512) * 65_535) = 4

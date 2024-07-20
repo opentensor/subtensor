@@ -252,6 +252,13 @@ impl<T: Config> Pallet<T> {
 
         // Update the total stake for both old and new coldkeys if any stake was transferred
         if total_transferred_stake > 0 {
+            for netuid in Self::get_all_subnet_netuids() {
+                let old_coldkey_stake: u64 = TotalColdkeyAlpha::<T>::get(old_coldkey, netuid);
+                let new_coldkey_stake: u64 = TotalColdkeyAlpha::<T>::get(new_coldkey, netuid);
+
+                TotalColdkeyAlpha::<T>::remove(old_coldkey, netuid);
+                TotalColdkeyAlpha::<T>::insert(new_coldkey, netuid, old_coldkey_stake.saturating_add(new_coldkey_stake));
+            }
             let old_coldkey_stake: u64 = TotalColdkeyStake::<T>::take(old_coldkey); // Remove it here.
             let new_coldkey_stake: u64 = TotalColdkeyStake::<T>::get(new_coldkey);
 

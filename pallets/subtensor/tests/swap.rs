@@ -1175,11 +1175,11 @@ fn test_do_swap_coldkey_success() {
         );
         log::info!(
             "Initial old coldkey stake: {}",
-            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey)
+            SubtensorModule::get_stake_for_coldkey_on_subnet(&old_coldkey, netuid)
         );
         log::info!(
             "Initial new coldkey stake: {}",
-            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey)
+            SubtensorModule::get_stake_for_coldkey_on_subnet(&new_coldkey, netuid)
         );
 
         // Add stake to the neurons
@@ -1203,11 +1203,11 @@ fn test_do_swap_coldkey_success() {
         );
         log::info!(
             "Old coldkey stake after adding: {}",
-            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey)
+            SubtensorModule::get_stake_for_coldkey_on_subnet(&old_coldkey, netuid)
         );
         log::info!(
             "New coldkey stake after adding: {}",
-            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey)
+            SubtensorModule::get_stake_for_coldkey_on_subnet(&new_coldkey, netuid)
         );
 
         // Record total stake before swap
@@ -1226,11 +1226,11 @@ fn test_do_swap_coldkey_success() {
         );
         log::info!(
             "Old coldkey stake after swap: {}",
-            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey)
+            SubtensorModule::get_stake_for_coldkey_on_subnet(&old_coldkey, netuid)
         );
         log::info!(
             "New coldkey stake after swap: {}",
-            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey)
+            SubtensorModule::get_stake_for_coldkey_on_subnet(&new_coldkey, netuid)
         );
 
         // Verify the swap
