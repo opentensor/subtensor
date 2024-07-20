@@ -132,6 +132,7 @@ impl<T: Config> Pallet<T> {
         delegates
     }
 
+    /// NEVER CALL THIS CODE IN PRODUCTION, THIS IS SIMPLY A HELPER.
     pub fn get_total_delegated_stake(coldkey: &T::AccountId) -> u64 {
         let mut total_delegated = 0u64;
 
@@ -141,8 +142,8 @@ impl<T: Config> Pallet<T> {
         for hotkey in hotkeys {
             let owner = Owner::<T>::get(&hotkey);
 
-            for (delegator, stake) in Stake::<T>::iter_prefix(&hotkey) {
-                if delegator != owner {
+            for ((delegate, delegator, _), stake) in Alpha::<T>::iter() {
+                if hotkey == delegate && delegator != owner {
                     total_delegated = total_delegated.saturating_add(stake);
                 }
             }

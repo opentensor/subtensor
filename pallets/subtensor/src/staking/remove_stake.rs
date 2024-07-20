@@ -83,9 +83,8 @@ impl<T: Config> Pallet<T> {
         // If the stake is below the minimum, we clear the nomination from storage.
         // This only applies to nominator stakes.
         // If the coldkey does not own the hotkey, it's a nominator stake.
-        // TODO: add back in.
-        // let new_stake = Self::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey);
-        // Self::clear_small_nomination_if_required(&hotkey, &coldkey, new_stake);
+        let new_stake = Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid, new_stake);
 
         // Set last block for rate limiting
         let block: u64 = Self::get_current_block_as_u64();

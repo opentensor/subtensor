@@ -40,14 +40,6 @@ impl<T: Config> Pallet<T> {
         TotalStake::<T>::put(Self::get_total_stake().saturating_sub(decrement));
     }
 
-
-
-    // // Returns the total amount of stake held by the coldkey (delegative or otherwise)
-    // //
-    pub fn get_total_stake_for_coldkey(coldkey: &T::AccountId) -> u64 {
-        TotalColdkeyStake::<T>::get(coldkey)
-    }
-
     // Retrieves the total stakes for a given hotkey (account ID) for the current staking interval.
     pub fn get_stakes_this_interval_for_coldkey_hotkey(
         coldkey: &T::AccountId,
@@ -274,15 +266,18 @@ impl<T: Config> Pallet<T> {
     pub fn clear_small_nomination_if_required(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
+        netuid: u16,
         stake: u64,
     ) {
         // Verify if the account is a nominator account by checking ownership of the hotkey by the coldkey.
         if !Self::coldkey_owns_hotkey(coldkey, hotkey) {
             // If the stake is below the minimum required, it's considered a small nomination and needs to be cleared.
+            // Log if the stake is below the minimum required
             if stake < Self::get_nominator_min_required_stake() {
+                // Log the clearing of a small nomination
                 // Remove the stake from the nominator account. (this is a more forceful unstake operation which )
                 // Actually deletes the staking account.
-                let cleared_stake = Self::empty_stake_on_coldkey_hotkey_account(coldkey, hotkey);
+                let cleared_stake = Self::unstake_from_subnet(hotkey, coldkey, netuid, stake);
                 // Add the stake to the coldkey account.
                 Self::add_balance_to_coldkey_account(coldkey, cleared_stake);
             }
@@ -295,8 +290,8 @@ impl<T: Config> Pallet<T> {
     /// used with caution.
     pub fn clear_small_nominations() {
         // Loop through all staking accounts to identify and clear nominations below the minimum stake.
-        for (hotkey, coldkey, stake) in Stake::<T>::iter() {
-            Self::clear_small_nomination_if_required(&hotkey, &coldkey, stake);
+        for ((hotkey, coldkey, netuid), stake) in Alpha::<T>::iter() {
+            Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid, stake);
         }
     }
 

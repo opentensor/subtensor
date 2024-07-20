@@ -522,6 +522,8 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroU64<T>,
     >;
+    #[pallet::storage] // --- DMAP ( cold, netuid ) --> alpha | Returns the total amount of alpha a coldkey owns.
+    pub type TotalColdkeyAlpha<T: Config> = StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- DMAP ( hot, netuid ) --> alpha | Returns the total amount of alpha a hotkey owns.
     pub type TotalHotkeyAlpha<T: Config> = StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> alpha | Returns the alpha for an account on a subnet.
