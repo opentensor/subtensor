@@ -1398,8 +1398,11 @@ fn test_drain_hotkey_emission_division_by_zero() {
             step_block(1);
             let block = SubtensorModule::get_current_block_as_u64();
 
-            println!("block = {}, should drain = {}", block, SubtensorModule::should_drain_hotkey(&validator2, block, 10u64));
-
+            println!(
+                "block = {}, should drain = {}",
+                block,
+                SubtensorModule::should_drain_hotkey(&validator2, block, 10u64)
+            );
 
             if SubtensorModule::should_drain_hotkey(&validator2, block, tempo as u64) {
                 break;
