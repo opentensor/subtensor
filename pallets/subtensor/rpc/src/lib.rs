@@ -161,7 +161,7 @@ where
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_delegate_identitities(at).map_err(|e| {
+        api.get_delegate_identities(at).map_err(|e| {
             Error::RuntimeError(format!("Unable to get delegates info: {:?}", e)).into()
         })
     }

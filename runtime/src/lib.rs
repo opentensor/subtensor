@@ -21,7 +21,8 @@ use pallet_commitments::CanCommit;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
-use pallet_registry::CanRegisterIdentity;
+use pallet_registry::{CanRegisterIdentity, IdentityInfo};
+use pallet_subtensor::RegistryInterface;
 use scale_info::TypeInfo;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
@@ -30,10 +31,11 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata, RuntimeDebug};
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     traits::{
-        AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, One, Verify,
+        AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, One,
+        PhantomData, Verify,
     },
     transaction_validity::{TransactionSource, TransactionValidity},
-    ApplyExtrinsicResult, MultiSignature,
+    AccountId32, ApplyExtrinsicResult, DispatchResult, MultiSignature,
 };
 use sp_std::cmp::Ordering;
 use sp_std::prelude::*;
@@ -819,6 +821,37 @@ parameter_types! {
     pub const SubtensorInitialTargetStakesPerInterval: u16 = 1;
 }
 
+pub struct RegistryPalletImpl<T>(PhantomData<T>);
+
+impl<T> RegistryInterface<T::AccountId, MaxAdditionalFields> for RegistryPalletImpl<T>
+where
+    T: pallet_subtensor::Config<MaxAdditionalFields = MaxAdditionalFields>,
+    T::AccountId: Clone + Into<AccountId32>,
+{
+    /// Retrieves the identity information of a given delegate account.
+    fn get_identity_of_delegate(
+        account: &T::AccountId,
+    ) -> Option<IdentityInfo<MaxAdditionalFields>> {
+        Registry::get_identity_of_delegate(&account.clone().into())
+    }
+
+    /// Retrieves the identity information of all delegates.
+    fn get_delegate_identities() -> Option<Vec<IdentityInfo<MaxAdditionalFields>>> {
+        Registry::get_delegate_identities()
+    }
+
+    /// Swaps the hotkey of a delegate identity from an old account ID to a new account ID.
+    fn swap_delegate_identity_hotkey(
+        old_hotkey: &T::AccountId,
+        new_hotkey: &T::AccountId,
+    ) -> DispatchResult {
+        Registry::swap_delegate_identity_hotkey(
+            &old_hotkey.clone().into(),
+            &new_hotkey.clone().into(),
+        )
+    }
+}
+
 impl pallet_subtensor::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type SudoRuntimeCall = RuntimeCall;
@@ -826,6 +859,8 @@ impl pallet_subtensor::Config for Runtime {
     type CouncilOrigin = EnsureMajoritySenate;
     type SenateMembers = ManageSenateMembers;
     type TriumvirateInterface = TriumvirateVotes;
+    type RegistryPallet = RegistryPalletImpl<Runtime>;
+    type MaxAdditionalFields = MaxAdditionalFields;
 
     type InitialRho = SubtensorInitialRho;
     type InitialKappa = SubtensorInitialKappa;
@@ -1502,13 +1537,13 @@ impl_runtime_apis! {
             result.encode()
         }
 
-        fn get_delegate_identitities() -> Vec<u8> {
-            let result = SubtensorModule::get_delegate_identities();
+        fn get_delegate_identities() -> Vec<u8> {
+            let result = SubtensorModule::get_delegate_identities::<Runtime, Runtime>();
             result.encode()
         }
 
         fn get_identity_of_delegate(delegatee_account_vec: Vec<u8>) -> Vec<u8> {
-            let result = SubtensorModule::get_identity_of_delegate(delegatee_account_vec);
+            let result = SubtensorModule::get_identity_of_delegate::<Runtime, Runtime>(delegatee_account_vec);
             result.encode()
         }
     }

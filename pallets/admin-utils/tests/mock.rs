@@ -1,13 +1,19 @@
+use codec::MaxEncodedLen;
 use frame_support::{
     assert_ok, derive_impl, parameter_types,
-    traits::{Everything, Hooks},
+    traits::{Everything, Hooks, VariantCount},
     weights,
 };
 use frame_system as system;
 use frame_system::{limits, EnsureNever};
+use pallet_registry::IdentityInfo;
+use pallet_subtensor::RegistryInterface;
+use scale_info::TypeInfo;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::U256;
 use sp_core::{ConstU64, H256};
+use sp_core::{Decode, Encode, Get, RuntimeDebug, U256};
+use sp_runtime::traits::PhantomData;
+use sp_runtime::DispatchResult;
 use sp_runtime::{
     traits::{BlakeTwo256, ConstU32, IdentityLookup},
     BuildStorage, DispatchError,
@@ -20,9 +26,10 @@ frame_support::construct_runtime!(
     pub enum Test
     {
         System: frame_system,
-        Balances: pallet_balances,
+        Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
         AdminUtils: pallet_admin_utils,
         SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>},
+        Registry: pallet_registry::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -57,6 +64,53 @@ pub type Balance = u64;
 // An index to a block.
 #[allow(dead_code)]
 pub type BlockNumber = u64;
+
+#[derive(Encode, Decode, RuntimeDebug, PartialEq, Eq, Clone, Copy, Default, TypeInfo)]
+pub struct CustomHoldReason;
+
+impl From<pallet_registry::HoldReason> for CustomHoldReason {
+    fn from(_: pallet_registry::HoldReason) -> Self {
+        CustomHoldReason
+    }
+}
+
+impl VariantCount for CustomHoldReason {
+    const VARIANT_COUNT: u32 = 1; // Since CustomHoldReason is a single variant
+}
+
+impl MaxEncodedLen for CustomHoldReason {
+    fn max_encoded_len() -> usize {
+        1 // The maximum encoded length of CustomHoldReason is 1 byte.
+    }
+}
+
+impl Get<u32> for CustomHoldReason {
+    fn get() -> u32 {
+        0
+    }
+}
+
+pub struct MockMaxAdditionalFields;
+impl Get<u32> for MockMaxAdditionalFields {
+    fn get() -> u32 {
+        1
+    }
+}
+parameter_types! {
+    pub const InitialDeposit: u32 = 10_000;
+    pub const FieldDeposit: u32 = 1_000;
+}
+
+impl pallet_registry::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
+    type WeightInfo = ();
+    type CanRegister = ();
+    type MaxAdditionalFields = MockMaxAdditionalFields;
+    type InitialDeposit = InitialDeposit;
+    type FieldDeposit = FieldDeposit;
+    type RuntimeHoldReason = CustomHoldReason;
+}
 
 parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
@@ -111,6 +165,37 @@ parameter_types! {
 
 }
 
+pub struct RegistryPalletImpl<T>(PhantomData<T>);
+
+impl<T> RegistryInterface<T::AccountId, MockMaxAdditionalFields> for RegistryPalletImpl<T>
+where
+    T: pallet_subtensor::Config<MaxAdditionalFields = MockMaxAdditionalFields>,
+    T::AccountId: Into<sp_core::U256> + Clone,
+{
+    /// Retrieves the identity information of a given delegate account.
+    fn get_identity_of_delegate(
+        account: &T::AccountId,
+    ) -> Option<IdentityInfo<MockMaxAdditionalFields>> {
+        Registry::get_identity_of_delegate(&account.clone().into())
+    }
+
+    /// Retrieves the identity information of all delegates.
+    fn get_delegate_identities() -> Option<Vec<IdentityInfo<MockMaxAdditionalFields>>> {
+        Registry::get_delegate_identities()
+    }
+
+    /// Swaps the hotkey of a delegate identity from an old account ID to a new account ID.
+    fn swap_delegate_identity_hotkey(
+        old_hotkey: &T::AccountId,
+        new_hotkey: &T::AccountId,
+    ) -> DispatchResult {
+        Registry::swap_delegate_identity_hotkey(
+            &old_hotkey.clone().into(),
+            &new_hotkey.clone().into(),
+        )
+    }
+}
+
 impl pallet_subtensor::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
@@ -119,6 +204,8 @@ impl pallet_subtensor::Config for Test {
     type CouncilOrigin = EnsureNever<AccountId>;
     type SenateMembers = ();
     type TriumvirateInterface = ();
+    type MaxAdditionalFields = MockMaxAdditionalFields;
+    type RegistryPallet = RegistryPalletImpl<Self>;
 
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;
@@ -202,7 +289,7 @@ impl pallet_balances::Config for Test {
     type WeightInfo = ();
     type FreezeIdentifier = ();
     type MaxFreezes = ();
-    type RuntimeHoldReason = ();
+    type RuntimeHoldReason = CustomHoldReason;
 }
 
 pub struct SubtensorIntrf;

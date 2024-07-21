@@ -714,6 +714,10 @@ impl<T: Config> Pallet<T> {
             }
         }
 
+        if T::RegistryPallet::get_identity_of_delegate(old_hotkey).is_some() {
+            T::RegistryPallet::swap_delegate_identity_hotkey(old_hotkey, new_hotkey)?;
+        }
+
         Self::set_last_tx_block(&coldkey, block);
         weight.saturating_accrue(T::DbWeight::get().writes(1));
 

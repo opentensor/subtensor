@@ -26,7 +26,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// - `Option<Vec<IdentityInfo<T::MaxAdditionalFields>>>`: An `Option` containing a vector of identity information
     /// of all delegates if any exist, otherwise `None`.
-    pub fn get_delegate_identitities() -> Option<Vec<IdentityInfo<T::MaxAdditionalFields>>> {
+    pub fn get_delegate_identities() -> Option<Vec<IdentityInfo<T::MaxAdditionalFields>>> {
         let mut identities = Vec::<IdentityInfo<T::MaxAdditionalFields>>::new();
         for id in IdentityOf::<T>::iter_keys() {
             let identity_info = Self::get_identity_of_delegate(&id);

@@ -18,7 +18,9 @@ use frame_support::{
 use codec::{Decode, Encode};
 use frame_support::sp_runtime::transaction_validity::InvalidTransaction;
 use frame_support::sp_runtime::transaction_validity::ValidTransaction;
+use pallet_registry::IdentityInfo;
 use scale_info::TypeInfo;
+use sp_core::Get;
 use sp_runtime::{
     traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
     transaction_validity::{TransactionValidity, TransactionValidityError},
@@ -110,6 +112,12 @@ pub mod pallet {
 
         /// Interface to allow other pallets to control who can register identities
         type TriumvirateInterface: crate::CollectiveInterface<Self::AccountId, Self::Hash, u32>;
+
+        /// Docs
+        type MaxAdditionalFields: Get<u32>;
+
+        /// Implementation of
+        type RegistryPallet: crate::RegistryInterface<Self::AccountId, Self::MaxAdditionalFields>;
 
         /// =================================
         /// ==== Initial Value Constants ====
@@ -2421,4 +2429,13 @@ impl<T, H, P> CollectiveInterface<T, H, P> for () {
     fn add_vote(_: &T, _: H, _: P, _: bool) -> Result<bool, DispatchError> {
         Ok(true)
     }
+}
+
+pub trait RegistryInterface<AccountId, MaxAdditionalFields: Get<u32>> {
+    fn get_identity_of_delegate(account: &AccountId) -> Option<IdentityInfo<MaxAdditionalFields>>;
+    fn get_delegate_identities() -> Option<Vec<IdentityInfo<MaxAdditionalFields>>>;
+    fn swap_delegate_identity_hotkey(
+        old_hotkey: &AccountId,
+        new_hotkey: &AccountId,
+    ) -> DispatchResult;
 }

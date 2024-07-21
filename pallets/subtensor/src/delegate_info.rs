@@ -134,21 +134,32 @@ impl<T: Config + pallet_registry::Config> Pallet<T> {
 
     /// Get all delegate identity info for a given delegate
     ///
-    pub fn get_delegate_identities() -> Option<Vec<IdentityInfo<T::MaxAdditionalFields>>> {
-        RegistryPallet::<T>::get_delegate_identitities()
+    pub fn get_delegate_identities<C, R>() -> Option<Vec<IdentityInfo<R::MaxAdditionalFields>>>
+    where
+        C: pallet::Config,
+        R: pallet_registry::Config<MaxAdditionalFields = C::MaxAdditionalFields>,
+    {
+        RegistryPallet::<R>::get_delegate_identities()
     }
 
     /// Get all delegate identities
     ///
-    pub fn get_identity_of_delegate(
+    pub fn get_identity_of_delegate<C, R>(
         delegate_account_vec: Vec<u8>,
-    ) -> Option<IdentityInfo<T::MaxAdditionalFields>> {
+    ) -> Option<IdentityInfo<R::MaxAdditionalFields>>
+    where
+        C: pallet::Config,
+        R: pallet_registry::Config<
+            MaxAdditionalFields = C::MaxAdditionalFields,
+            AccountId = C::AccountId,
+        >,
+    {
         if delegate_account_vec.len() != 32 {
             return None;
         }
-        let account: AccountIdOf<T> =
-            T::AccountId::decode(&mut delegate_account_vec.as_bytes_ref()).ok()?;
+        let account: AccountIdOf<R> =
+            R::AccountId::decode(&mut delegate_account_vec.as_bytes_ref()).ok()?;
 
-        RegistryPallet::<T>::get_identity_of_delegate(&account)
+        RegistryPallet::<R>::get_identity_of_delegate(&account)
     }
 }

@@ -2156,7 +2156,118 @@ fn test_set_identity_for_delegate_identity_already_exists() {
     });
 }
 
-fn create_identity_info(display: Vec<u8>) -> IdentityInfo<()> {
+#[test]
+fn test_hotkey_swap_fail_same_hotkey() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey_account_id = U256::from(667);
+        let old_hotkey = U256::from(1);
+
+        let netuid = 1;
+        let burn_cost = 10;
+        let tempo = 1;
+
+        SubtensorModule::set_burn(netuid, burn_cost);
+        add_network(netuid, tempo, 0);
+
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 100_000_000u64);
+
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            netuid,
+            old_hotkey
+        ));
+
+        assert_noop!(
+            SubtensorModule::swap_hotkey(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                old_hotkey,
+                old_hotkey
+            ),
+            Error::<Test>::NewHotKeyIsSameWithOld
+        );
+    });
+}
+
+#[test]
+fn test_hotkey_swap_fail_not_enough_balance() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey_account_id = U256::from(667);
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+
+        let netuid = 1;
+        let burn_cost = 10;
+        let tempo = 1;
+
+        SubtensorModule::set_burn(netuid, burn_cost);
+        add_network(netuid, tempo, 0);
+
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 100_000_000u64);
+
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            netuid,
+            old_hotkey
+        ));
+
+        assert_err!(
+            SubtensorModule::swap_hotkey(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                old_hotkey,
+                new_hotkey
+            ),
+            Error::<Test>::NotEnoughBalanceToPaySwapHotKey
+        );
+    });
+}
+
+#[test]
+fn test_hotkey_swap_delegate_identity_updated() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey_account_id = U256::from(667);
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+
+        let netuid = 1;
+        let burn_cost = 10;
+        let tempo = 1;
+
+        SubtensorModule::set_burn(netuid, burn_cost);
+        add_network(netuid, tempo, 0);
+
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 100_000_000_000);
+
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            netuid,
+            old_hotkey
+        ));
+
+        let display = b"The Display".to_vec();
+        let identity_info: IdentityInfo<MockMaxAdditionalFields> =
+            create_identity_info(display.clone());
+
+        assert_ok!(Registry::set_identity_for_delegate(
+            &old_hotkey,
+            identity_info.clone()
+        ));
+
+        assert_ok!(SubtensorModule::swap_hotkey(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            old_hotkey,
+            new_hotkey
+        ));
+
+        assert!(Registry::get_identity_of_delegate(&old_hotkey).is_none());
+        assert!(Registry::get_identity_of_delegate(&new_hotkey).is_some());
+        assert_eq!(
+            Registry::get_identity_of_delegate(&new_hotkey).unwrap(),
+            identity_info
+        );
+    });
+}
+
+fn create_identity_info(display: Vec<u8>) -> IdentityInfo<MockMaxAdditionalFields> {
     let display_data = Data::Raw(BoundedVec::try_from(display).unwrap());
     IdentityInfo {
         additional: Default::default(),

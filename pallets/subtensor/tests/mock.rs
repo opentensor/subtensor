@@ -10,16 +10,19 @@ use frame_system as system;
 use frame_system::{limits, EnsureNever, EnsureRoot, RawOrigin};
 use sp_core::{Get, H256, U256};
 use sp_runtime::{
-    traits::{BlakeTwo256, IdentityLookup},
-    BuildStorage,
+    traits::{BlakeTwo256, IdentityLookup, PhantomData},
+    BuildStorage, DispatchResult,
 };
 
-use pallet_collective::MemberCount;
-type Block = frame_system::mocking::MockBlock<Test>;
 use codec::MaxEncodedLen;
 use frame_support::pallet_prelude::TypeInfo;
 use frame_support::traits::VariantCount;
+use pallet_collective::MemberCount;
+use pallet_registry::IdentityInfo;
+use pallet_subtensor::RegistryInterface;
 use sp_core::RuntimeDebug;
+
+type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -96,12 +99,19 @@ impl Get<u32> for CustomHoldReason {
     }
 }
 
+pub struct MockMaxAdditionalFields;
+impl Get<u32> for MockMaxAdditionalFields {
+    fn get() -> u32 {
+        1
+    }
+}
+
 impl pallet_registry::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type WeightInfo = ();
     type CanRegister = ();
-    type MaxAdditionalFields = ();
+    type MaxAdditionalFields = MockMaxAdditionalFields;
     type InitialDeposit = InitialDeposit;
     type FieldDeposit = FieldDeposit;
     type RuntimeHoldReason = CustomHoldReason;
@@ -352,6 +362,37 @@ impl pallet_membership::Config<SenateMembership> for Test {
     type WeightInfo = pallet_membership::weights::SubstrateWeight<Test>;
 }
 
+pub struct RegistryPalletImpl<T>(PhantomData<T>);
+
+impl<T> RegistryInterface<T::AccountId, MockMaxAdditionalFields> for RegistryPalletImpl<T>
+where
+    T: pallet_subtensor::Config<MaxAdditionalFields = MockMaxAdditionalFields>,
+    T::AccountId: Into<sp_core::U256> + Clone,
+{
+    /// Retrieves the identity information of a given delegate account.
+    fn get_identity_of_delegate(
+        account: &T::AccountId,
+    ) -> Option<IdentityInfo<MockMaxAdditionalFields>> {
+        Registry::get_identity_of_delegate(&account.clone().into())
+    }
+
+    /// Retrieves the identity information of all delegates.
+    fn get_delegate_identities() -> Option<Vec<IdentityInfo<MockMaxAdditionalFields>>> {
+        Registry::get_delegate_identities()
+    }
+
+    /// Swaps the hotkey of a delegate identity from an old account ID to a new account ID.
+    fn swap_delegate_identity_hotkey(
+        old_hotkey: &T::AccountId,
+        new_hotkey: &T::AccountId,
+    ) -> DispatchResult {
+        Registry::swap_delegate_identity_hotkey(
+            &old_hotkey.clone().into(),
+            &new_hotkey.clone().into(),
+        )
+    }
+}
+
 impl pallet_subtensor::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
@@ -360,6 +401,8 @@ impl pallet_subtensor::Config for Test {
     type CouncilOrigin = frame_system::EnsureSigned<AccountId>;
     type SenateMembers = ManageSenateMembers;
     type TriumvirateInterface = TriumvirateVotes;
+    type RegistryPallet = RegistryPalletImpl<Test>;
+    type MaxAdditionalFields = MockMaxAdditionalFields;
 
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;

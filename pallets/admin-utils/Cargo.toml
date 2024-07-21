@@ -27,7 +27,7 @@ sp-runtime = { workspace = true }
 log = { workspace = true }
 pallet-subtensor = { version = "4.0.0-dev", default-features = false, path = "../subtensor" }
 sp-weights = { workspace = true }
-
+pallet-registry= { default-features = false,  path = "../registry" }
 
 [dev-dependencies]
 sp-core = { workspace = true }
