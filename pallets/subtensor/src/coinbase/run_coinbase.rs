@@ -270,6 +270,11 @@ impl<T: Config> Pallet<T> {
         // --- 4 Retrieve the total stake for the hotkey from all nominations.
         let total_hotkey_stake: u64 = Self::get_total_stake_for_hotkey(hotkey);
 
+        if total_hotkey_stake == 0 {
+            // If there's no stake, we can't distribute any emission
+            return 0;
+        }
+
         // --- 5 Calculate the emission take for the hotkey.
         let take_proportion: I64F64 = I64F64::from_num(Delegates::<T>::get(hotkey))
             .saturating_div(I64F64::from_num(u16::MAX));
