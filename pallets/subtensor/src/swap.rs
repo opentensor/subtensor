@@ -633,17 +633,4 @@ impl<T: Config> Pallet<T> {
         }
         weight.saturating_accrue(T::DbWeight::get().reads(TotalNetworks::<T>::get() as u64));
     }
-
-    pub fn swap_senate_member(
-        old_hotkey: &T::AccountId,
-        new_hotkey: &T::AccountId,
-        weight: &mut Weight,
-    ) -> DispatchResult {
-        weight.saturating_accrue(T::DbWeight::get().reads(1));
-        if T::SenateMembers::is_member(old_hotkey) {
-            T::SenateMembers::swap_member(old_hotkey, new_hotkey).map_err(|e| e.error)?;
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
-        }
-        Ok(())
-    }
 }
