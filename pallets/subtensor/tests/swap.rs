@@ -6,9 +6,9 @@ use frame_support::{assert_err, assert_noop, assert_ok, BoundedVec};
 use frame_system::{Config, RawOrigin};
 mod mock;
 use mock::*;
+use pallet_registry::{Data, Error as RegistryError, IdentityInfo};
 use pallet_subtensor::*;
 use sp_core::U256;
-use pallet_registry::{Data, Error as RegistryError, IdentityInfo};
 
 #[test]
 fn test_do_swap_hotkey_ok() {
@@ -1888,7 +1888,6 @@ fn test_coldkey_delegations() {
         assert_eq!(Stake::<Test>::get(delegate, coldkey), 0);
     });
 }
-
 
 #[test]
 fn test_swap_delegate_identity_hotkey_successful() {
