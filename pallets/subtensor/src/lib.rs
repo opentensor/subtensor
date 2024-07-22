@@ -367,7 +367,7 @@ pub mod pallet {
     pub type TotalColdkeyStake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
     #[pallet::storage]
-    ///  MAP (hot, cold) --> stake | Returns a tuple (u64: stakes, u64: block_number)
+    ///  MAP (hot, cold) --> u64, u64) | Returns a tuple (u64: stakes, u64: block_number)
     pub type TotalHotkeyColdkeyStakesThisInterval<T: Config> = StorageDoubleMap<
         _,
         Identity,
