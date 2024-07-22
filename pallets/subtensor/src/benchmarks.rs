@@ -80,7 +80,7 @@ benchmarks! {
     // This is a whitelisted caller who can make transaction without weights.
     let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
     let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
-    let netuid: u16 = 1;
+    let netuid: u16 = 0;
     let version_key: u64 = 1;
     let tempo: u16 = 1;
     let modality: u16 = 0;
