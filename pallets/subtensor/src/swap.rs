@@ -6,7 +6,6 @@ use frame_support::{storage::IterableStorageDoubleMap, weights::Weight};
 use sp_core::{Get, U256};
 
 impl<T: Config> Pallet<T> {
-
     /// Swaps the coldkey associated with a set of hotkeys from an old coldkey to a new coldkey.
     ///
     /// # Arguments
@@ -378,7 +377,6 @@ impl<T: Config> Pallet<T> {
         netuid_is_member
     }
 
-
     /// Swaps the total stake associated with a coldkey from the old coldkey to the new coldkey.
     ///
     /// # Arguments
@@ -635,6 +633,4 @@ impl<T: Config> Pallet<T> {
         }
         weight.saturating_accrue(T::DbWeight::get().reads(TotalNetworks::<T>::get() as u64));
     }
-
-
 }

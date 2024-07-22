@@ -9,7 +9,6 @@ use mock::*;
 use pallet_subtensor::*;
 use sp_core::U256;
 
-
 #[test]
 fn test_do_swap_coldkey_success() {
     new_test_ext(1).execute_with(|| {
