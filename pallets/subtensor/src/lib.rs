@@ -45,6 +45,7 @@ mod root;
 mod serving;
 mod staking;
 mod swap;
+mod swap_hotkey;
 mod uids;
 mod utils;
 mod weights;
@@ -272,7 +273,7 @@ pub mod pallet {
     }
 
     #[pallet::storage]
-    pub(super) type SenateRequiredStakePercentage<T> =
+    pub type SenateRequiredStakePercentage<T> =
         StorageValue<_, u64, ValueQuery, DefaultSenateRequiredStakePercentage<T>>;
 
     /// ============================
@@ -367,7 +368,7 @@ pub mod pallet {
     pub type TotalColdkeyStake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
     #[pallet::storage]
-    ///  MAP (hot, cold) --> stake | Returns a tuple (u64: stakes, u64: block_number)
+    ///  MAP (hot, cold) --> u64, u64) | Returns a tuple (u64: stakes, u64: block_number)
     pub type TotalHotkeyColdkeyStakesThisInterval<T: Config> = StorageDoubleMap<
         _,
         Identity,
@@ -796,15 +797,15 @@ pub mod pallet {
     }
 
     #[pallet::storage] // --- ITEM ( tx_rate_limit )
-    pub(super) type TxRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultTxRateLimit<T>>;
+    pub type TxRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultTxRateLimit<T>>;
     #[pallet::storage] // --- ITEM ( tx_rate_limit )
-    pub(super) type TxDelegateTakeRateLimit<T> =
+    pub type TxDelegateTakeRateLimit<T> =
         StorageValue<_, u64, ValueQuery, DefaultTxDelegateTakeRateLimit<T>>;
     #[pallet::storage] // --- MAP ( key ) --> last_block
     pub type LastTxBlock<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
     #[pallet::storage] // --- MAP ( key ) --> last_block
-    pub(super) type LastTxBlockDelegateTake<T: Config> =
+    pub type LastTxBlockDelegateTake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
 
     /// Default value for serving rate limit.
@@ -1084,41 +1085,39 @@ pub mod pallet {
         StorageMap<_, Identity, u16, Vec<(T::AccountId, u64, u64)>, OptionQuery>;
 
     #[pallet::storage] // --- DMAP ( netuid ) --> active
-    pub(super) type Active<T: Config> =
+    pub type Active<T: Config> =
         StorageMap<_, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> rank
-    pub(super) type Rank<T: Config> =
-        StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+    pub type Rank<T: Config> = StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> trust
-    pub(super) type Trust<T: Config> =
-        StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+    pub type Trust<T: Config> = StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> consensus
-    pub(super) type Consensus<T: Config> =
+    pub type Consensus<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> incentive
-    pub(super) type Incentive<T: Config> =
+    pub type Incentive<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> dividends
-    pub(super) type Dividends<T: Config> =
+    pub type Dividends<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> emission
-    pub(super) type Emission<T: Config> =
+    pub type Emission<T: Config> =
         StorageMap<_, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> last_update
-    pub(super) type LastUpdate<T: Config> =
+    pub type LastUpdate<T: Config> =
         StorageMap<_, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> validator_trust
-    pub(super) type ValidatorTrust<T: Config> =
+    pub type ValidatorTrust<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> pruning_scores
-    pub(super) type PruningScores<T: Config> =
+    pub type PruningScores<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> validator_permit
-    pub(super) type ValidatorPermit<T: Config> =
+    pub type ValidatorPermit<T: Config> =
         StorageMap<_, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T>>;
 
     #[pallet::storage] // --- DMAP ( netuid, uid ) --> weights
-    pub(super) type Weights<T: Config> = StorageDoubleMap<
+    pub type Weights<T: Config> = StorageDoubleMap<
         _,
         Identity,
         u16,
@@ -1129,7 +1128,7 @@ pub mod pallet {
         DefaultWeights<T>,
     >;
     #[pallet::storage] // --- DMAP ( netuid, uid ) --> bonds
-    pub(super) type Bonds<T: Config> = StorageDoubleMap<
+    pub type Bonds<T: Config> = StorageDoubleMap<
         _,
         Identity,
         u16,
@@ -2066,17 +2065,17 @@ pub mod pallet {
         }
 
         /// The extrinsic for user to change its hotkey
-        ///#[pallet::call_index(70)]
-        ///#[pallet::weight((Weight::from_parts(1_940_000_000, 0)
-        ///.saturating_add(T::DbWeight::get().reads(272))
-        ///.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
-        ///pub fn swap_hotkey(
-        ///    origin: OriginFor<T>,
-        ///    hotkey: T::AccountId,
-        ///    new_hotkey: T::AccountId,
-        ///) -> DispatchResultWithPostInfo {
-        ///    Self::do_swap_hotkey(origin, &hotkey, &new_hotkey)
-        ///}
+        #[pallet::call_index(70)]
+        #[pallet::weight((Weight::from_parts(1_940_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(272))
+        .saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
+        pub fn swap_hotkey(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            new_hotkey: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey)
+        }
 
         /// The extrinsic for user to change the coldkey associated with their account.
         ///
