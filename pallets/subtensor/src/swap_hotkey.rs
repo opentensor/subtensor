@@ -1,9 +1,6 @@
 use super::*;
-use crate::MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP;
-use frame_support::traits::fungible::Mutate;
-use frame_support::traits::tokens::Preservation;
-use frame_support::{storage::IterableStorageDoubleMap, weights::Weight};
-use sp_core::{Get, U256};
+use frame_support::weights::Weight;
+use sp_core::Get;
 
 impl<T: Config> Pallet<T> {
     /// Swaps the hotkey of a coldkey account.
@@ -86,7 +83,7 @@ impl<T: Config> Pallet<T> {
         Self::burn_tokens(actual_burn_amount);
 
         // Perform the hotkey swap
-        Self::perform_hotkey_swap(old_hotkey, new_hotkey, &coldkey, &mut weight);
+        let _ = Self::perform_hotkey_swap(old_hotkey, new_hotkey, &coldkey, &mut weight);
 
         // Update the last transaction block for the coldkey
         Self::set_last_tx_block(&coldkey, block);
@@ -143,10 +140,9 @@ impl<T: Config> Pallet<T> {
 
         // Swap LastTxBlock
         // LastTxBlock( hotkey ) --> u64 -- the last transaction block for the hotkey.
-        let old_last_tx_block: u64 = LastTxBlock::<T>::get( old_hotkey );
         LastTxBlock::<T>::remove( old_hotkey );
         LastTxBlock::<T>::insert( new_hotkey, Self::get_current_block_as_u64() );
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 2));
 
         // Swap LastTxBlockDelegateTake
         // LastTxBlockDelegateTake( hotkey ) --> u64 -- the last transaction block for the hotkey delegate take.
