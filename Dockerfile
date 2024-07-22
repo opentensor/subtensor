@@ -38,15 +38,16 @@ COPY Cargo.lock Cargo.toml /subtensor/
 
 # Specs
 COPY ./snapshot.json /subtensor/snapshot.json
-COPY ./raw_spec.json /subtensor/raw_spec.json
-COPY ./raw_testspec.json /subtensor/raw_testspec.json
+COPY ./raw_spec_testfinney.json /subtensor/raw_spec_testfinney.json
+COPY ./raw_spec_finney.json /subtensor/raw_spec_finney.json
 
 # Copy our sources
 COPY ./node /subtensor/node
 COPY ./pallets /subtensor/pallets
 COPY ./runtime /subtensor/runtime
+COPY ./support /subtensor/support
 
-# Update to nightly toolchain
+# Copy our toolchain
 COPY rust-toolchain.toml /subtensor/
 RUN /subtensor/scripts/init.sh
 
@@ -59,6 +60,6 @@ EXPOSE 30333 9933 9944
 FROM $BASE_IMAGE AS subtensor
 
 COPY --from=builder /subtensor/snapshot.json /
-COPY --from=builder /subtensor/raw_spec.json /
-COPY --from=builder /subtensor/raw_testspec.json /
+COPY --from=builder /subtensor/raw_spec_testfinney.json /
+COPY --from=builder /subtensor/raw_spec_finney.json /
 COPY --from=builder /subtensor/target/production/node-subtensor /usr/local/bin

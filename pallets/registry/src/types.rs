@@ -30,6 +30,7 @@ use sp_runtime::{
     RuntimeDebug,
 };
 use sp_std::{fmt::Debug, iter::once, ops::Add, prelude::*};
+use subtensor_macros::freeze_struct;
 
 /// Either underlying data blob if it is at most 32 bytes, or a hash of it. If the data is greater
 /// than 32-bytes then it will be truncated when encoding.
@@ -67,7 +68,7 @@ impl Decode for Data {
         Ok(match b {
             0 => Data::None,
             n @ 1..=65 => {
-                let mut r: BoundedVec<_, _> = vec![0u8; n as usize - 1]
+                let mut r: BoundedVec<_, _> = vec![0u8; (n as usize).saturating_sub(1)]
                     .try_into()
                     .expect("bound checked in match arm condition; qed");
                 input.read(&mut r[..])?;
@@ -87,8 +88,8 @@ impl Encode for Data {
         match self {
             Data::None => vec![0u8; 1],
             Data::Raw(ref x) => {
-                let l = x.len().min(64);
-                let mut r = vec![l as u8 + 1];
+                let l = x.len().min(64) as u8;
+                let mut r = vec![l.saturating_add(1)];
                 r.extend_from_slice(&x[..]);
                 r
             }
@@ -278,11 +279,12 @@ impl TypeInfo for IdentityFields {
 ///
 /// NOTE: This should be stored at the end of the storage item to facilitate the addition of extra
 /// fields in a backwards compatible way through a specialized `Decode` impl.
+#[freeze_struct("98e2d7fc7536226b")]
 #[derive(
     CloneNoBound, Encode, Decode, Eq, MaxEncodedLen, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
 )]
 #[codec(mel_bound())]
-#[cfg_attr(test, derive(frame_support::DefaultNoBound))]
+#[derive(frame_support::DefaultNoBound)]
 #[scale_info(skip_type_params(FieldLimit))]
 pub struct IdentityInfo<FieldLimit: Get<u32>> {
     /// Additional fields of the identity that are not catered for with the struct's explicit
@@ -403,6 +405,7 @@ impl<
 }
 
 #[cfg(test)]
+#[allow(clippy::indexing_slicing, clippy::unwrap_used)]
 mod tests {
     use super::*;
 

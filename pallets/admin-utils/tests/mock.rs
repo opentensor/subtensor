@@ -1,3 +1,5 @@
+#![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
+
 use codec::MaxEncodedLen;
 use frame_support::{
     assert_ok, derive_impl, parameter_types,
@@ -28,7 +30,7 @@ frame_support::construct_runtime!(
         System: frame_system,
         Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
         AdminUtils: pallet_admin_utils,
-        SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>},
+        SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>, Error<T>},
         Registry: pallet_registry::{Pallet, Call, Storage, Event<T>},
     }
 );
@@ -162,7 +164,42 @@ parameter_types! {
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialTargetStakesPerInterval: u16 = 1;
+    pub const InitialKeySwapCost: u64 = 1_000_000_000;
+    pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
+    pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
+    pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
+    pub const InitialBaseDifficulty: u64 = 10_000; // Base difficulty
+}
 
+pub struct RegistryPalletImpl<T>(PhantomData<T>);
+
+impl<T> RegistryInterface<T::AccountId, MockMaxAdditionalFields> for RegistryPalletImpl<T>
+where
+    T: pallet_subtensor::Config<MaxAdditionalFields = MockMaxAdditionalFields>,
+    T::AccountId: Into<sp_core::U256> + Clone,
+{
+    /// Retrieves the identity information of a given delegate account.
+    fn get_identity_of_delegate(
+        account: &T::AccountId,
+    ) -> Option<IdentityInfo<MockMaxAdditionalFields>> {
+        Registry::get_identity_of_delegate(&account.clone().into())
+    }
+
+    /// Retrieves the identity information of all delegates.
+    fn get_delegate_identities() -> Option<Vec<IdentityInfo<MockMaxAdditionalFields>>> {
+        Registry::get_delegate_identities()
+    }
+
+    /// Swaps the hotkey of a delegate identity from an old account ID to a new account ID.
+    fn swap_delegate_identity_hotkey(
+        old_hotkey: &T::AccountId,
+        new_hotkey: &T::AccountId,
+    ) -> DispatchResult {
+        Registry::swap_delegate_identity_hotkey(
+            &old_hotkey.clone().into(),
+            &new_hotkey.clone().into(),
+        )
+    }
 }
 
 pub struct RegistryPalletImpl<T>(PhantomData<T>);
@@ -247,6 +284,11 @@ impl pallet_subtensor::Config for Test {
     type InitialSubnetLimit = InitialSubnetLimit;
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = InitialTargetStakesPerInterval;
+    type KeySwapCost = InitialKeySwapCost;
+    type AlphaHigh = InitialAlphaHigh;
+    type AlphaLow = InitialAlphaLow;
+    type LiquidAlphaOn = InitialLiquidAlphaOn;
+    type InitialBaseDifficulty = InitialBaseDifficulty;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -548,6 +590,18 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
 
     fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, enabled);
+    }
+
+    fn set_liquid_alpha_enabled(netuid: u16, enabled: bool) {
+        SubtensorModule::set_liquid_alpha_enabled(netuid, enabled);
+    }
+    fn do_set_alpha_values(
+        origin: RuntimeOrigin,
+        netuid: u16,
+        alpha_low: u16,
+        alpha_high: u16,
+    ) -> Result<(), DispatchError> {
+        SubtensorModule::do_set_alpha_values(origin, netuid, alpha_low, alpha_high)
     }
 }
 

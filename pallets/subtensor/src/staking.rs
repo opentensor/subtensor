@@ -44,6 +44,10 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // --- 1. We check the coldkey signuture.
         let coldkey = ensure_signed(origin)?;
+        ensure!(
+            !Self::coldkey_in_arbitration(&coldkey),
+            Error::<T>::ColdkeyIsInArbitration
+        );
         log::info!(
             "do_become_delegate( origin:{:?} hotkey:{:?}, take:{:?} )",
             coldkey,
@@ -133,6 +137,10 @@ impl<T: Config> Pallet<T> {
             hotkey,
             take
         );
+        ensure!(
+            !Self::coldkey_in_arbitration(&coldkey),
+            Error::<T>::ColdkeyIsInArbitration
+        );
 
         // --- 2. Ensure we are delegating a known key.
         //        Ensure that the coldkey is the owner.
@@ -204,6 +212,10 @@ impl<T: Config> Pallet<T> {
             coldkey,
             hotkey,
             take
+        );
+        ensure!(
+            !Self::coldkey_in_arbitration(&coldkey),
+            Error::<T>::ColdkeyIsInArbitration
         );
 
         // --- 2. Ensure we are delegating a known key.
@@ -290,6 +302,10 @@ impl<T: Config> Pallet<T> {
             hotkey,
             stake_to_be_added
         );
+        ensure!(
+            !Self::coldkey_in_arbitration(&coldkey),
+            Error::<T>::ColdkeyIsInArbitration
+        );
 
         // Ensure the callers coldkey has enough stake to perform the transaction.
         ensure!(
@@ -346,7 +362,7 @@ impl<T: Config> Pallet<T> {
         Self::set_stakes_this_interval_for_coldkey_hotkey(
             &coldkey,
             &hotkey,
-            stakes_this_interval + 1,
+            stakes_this_interval.saturating_add(1),
             block,
         );
         log::info!(
@@ -402,6 +418,10 @@ impl<T: Config> Pallet<T> {
             hotkey,
             stake_to_be_removed
         );
+        ensure!(
+            !Self::coldkey_in_arbitration(&coldkey),
+            Error::<T>::ColdkeyIsInArbitration
+        );
 
         // Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
@@ -452,7 +472,7 @@ impl<T: Config> Pallet<T> {
         Self::set_stakes_this_interval_for_coldkey_hotkey(
             &coldkey,
             &hotkey,
-            unstakes_this_interval + 1,
+            unstakes_this_interval.saturating_add(1),
             block,
         );
         log::info!(
@@ -530,7 +550,7 @@ impl<T: Config> Pallet<T> {
             TotalHotkeyColdkeyStakesThisInterval::<T>::get(coldkey, hotkey);
 
         // Calculate the block number after which the stakes for the hotkey should be reset.
-        let block_to_reset_after = block_last_staked_at + stake_interval;
+        let block_to_reset_after = block_last_staked_at.saturating_add(stake_interval);
 
         // If the current block number is beyond the reset point,
         // it indicates the end of the staking interval for the hotkey.
@@ -560,6 +580,20 @@ impl<T: Config> Pallet<T> {
         if !Self::hotkey_account_exists(hotkey) {
             Stake::<T>::insert(hotkey, coldkey, 0);
             Owner::<T>::insert(hotkey, coldkey);
+
+            // Update OwnedHotkeys map
+            let mut hotkeys = OwnedHotkeys::<T>::get(coldkey);
+            if !hotkeys.contains(hotkey) {
+                hotkeys.push(hotkey.clone());
+                OwnedHotkeys::<T>::insert(coldkey, hotkeys);
+            }
+
+            // Update StakingHotkeys map
+            let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
+            if !staking_hotkeys.contains(hotkey) {
+                staking_hotkeys.push(hotkey.clone());
+                StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
+            }
         }
     }
 
@@ -639,6 +673,13 @@ impl<T: Config> Pallet<T> {
             Stake::<T>::get(hotkey, coldkey).saturating_add(increment),
         );
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(increment));
+
+        // Update StakingHotkeys map
+        let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
+        if !staking_hotkeys.contains(hotkey) {
+            staking_hotkeys.push(hotkey.clone());
+            StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
+        }
     }
 
     // Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
@@ -659,6 +700,8 @@ impl<T: Config> Pallet<T> {
             Stake::<T>::get(hotkey, coldkey).saturating_sub(decrement),
         );
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(decrement));
+
+        // TODO: Tech debt: Remove StakingHotkeys entry if stake goes to 0
     }
 
     /// Empties the stake associated with a given coldkey-hotkey account pairing.
@@ -683,6 +726,11 @@ impl<T: Config> Pallet<T> {
         Stake::<T>::remove(hotkey, coldkey);
         TotalStake::<T>::mutate(|stake| *stake = stake.saturating_sub(current_stake));
         TotalIssuance::<T>::mutate(|issuance| *issuance = issuance.saturating_sub(current_stake));
+
+        // Update StakingHotkeys map
+        let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
+        staking_hotkeys.retain(|h| h != hotkey);
+        StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
 
         current_stake
     }
@@ -770,6 +818,31 @@ impl<T: Config> Pallet<T> {
             Precision::BestEffort,
             Preservation::Preserve,
             Fortitude::Polite,
+        )
+        .map_err(|_| Error::<T>::BalanceWithdrawalError)?
+        .peek();
+
+        if credit == 0 {
+            return Err(Error::<T>::ZeroBalanceAfterWithdrawn.into());
+        }
+
+        Ok(credit)
+    }
+
+    pub fn kill_coldkey_account(
+        coldkey: &T::AccountId,
+        amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
+    ) -> Result<u64, DispatchError> {
+        if amount == 0 {
+            return Ok(0);
+        }
+
+        let credit = T::Currency::withdraw(
+            coldkey,
+            amount,
+            Precision::Exact,
+            Preservation::Expendable,
+            Fortitude::Force,
         )
         .map_err(|_| Error::<T>::BalanceWithdrawalError)?
         .peek();
