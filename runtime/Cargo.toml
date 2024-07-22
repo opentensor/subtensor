@@ -41,7 +41,6 @@ pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-utility = { workspace = true }
 frame-executive = { workspace = true }
-frame-metadata-hash-extension = { workspace = true }
 sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
@@ -112,7 +111,6 @@ std = [
 	"codec/std",
 	"scale-info/std",
 	"frame-executive/std",
-	"frame-metadata-hash-extension/std",
 	"frame-support/std",
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
@@ -206,4 +204,3 @@ try-runtime = [
 	"pallet-commitments/try-runtime",
 	"pallet-registry/try-runtime"
 ]
-metadata-hash = ["substrate-wasm-builder/metadata-hash"]

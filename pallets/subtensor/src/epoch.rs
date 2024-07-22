@@ -188,6 +188,8 @@ impl<T: Config> Pallet<T> {
         // =================================
 
         // Compute emission scores.
+
+        // Compute normalized emission scores. range: I32F32(0, 1)
         // Compute normalized emission scores. range: I32F32(0, 1)
         let combined_emission: Vec<I32F32> = incentive
             .iter()
