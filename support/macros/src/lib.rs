@@ -37,6 +37,9 @@ fn freeze_struct_impl(
     let item = parse2::<ItemStruct>(tokens)?;
     let mut item_clone = item.clone();
 
+    let mut visitor = CleanDocComments::new();
+    visit_item_struct_mut(&mut visitor, &mut item_clone);
+
     let calculated_hash = generate_hash(&item_clone);
     let calculated_hash_hex = format!("{:x}", calculated_hash);
 
@@ -49,9 +52,6 @@ fn freeze_struct_impl(
 
     let parsed_attr = parse2::<LitStr>(attr)?;
     let provided_hash_hex = parsed_attr.value().to_lowercase();
-
-    let mut visitor = CleanDocComments::new();
-    visit_item_struct_mut(&mut visitor, &mut item_clone);
 
     if provided_hash_hex != calculated_hash_hex {
         return Err(Error::new_spanned(item,

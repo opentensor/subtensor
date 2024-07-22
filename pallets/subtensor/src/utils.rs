@@ -616,6 +616,13 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::SubnetOwnerCutSet(subnet_owner_cut));
     }
 
+    pub fn get_owned_hotkeys(coldkey: &T::AccountId) -> Vec<T::AccountId> {
+        OwnedHotkeys::<T>::get(coldkey)
+    }
+    pub fn get_all_staked_hotkeys(coldkey: &T::AccountId) -> Vec<T::AccountId> {
+        StakingHotkeys::<T>::get(coldkey)
+    }
+
     pub fn set_total_issuance(total_issuance: u64) {
         TotalIssuance::<T>::put(total_issuance);
     }
@@ -664,8 +671,8 @@ impl<T: Config> Pallet<T> {
         NominatorMinRequiredStake::<T>::put(min_stake);
     }
 
-    pub fn get_hotkey_swap_cost() -> u64 {
-        T::HotkeySwapCost::get()
+    pub fn get_key_swap_cost() -> u64 {
+        T::KeySwapCost::get()
     }
 
     pub fn get_alpha_values(netuid: u16) -> (u16, u16) {
@@ -677,6 +684,7 @@ impl<T: Config> Pallet<T> {
         let converted_low = I32F32::from_num(alpha_low).saturating_div(I32F32::from_num(u16::MAX));
         let converted_high =
             I32F32::from_num(alpha_high).saturating_div(I32F32::from_num(u16::MAX));
+
         (converted_low, converted_high)
     }
 

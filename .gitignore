@@ -41,3 +41,6 @@ specs/*.json
 
 # Runtime upgrade snapshot
 bt.snap
+
+# localnet spec
+scripts/specs/local.json
