@@ -6,7 +6,7 @@ use frame_support::{
             fungible::{Balanced as _, Inspect as _, Mutate as _},
             Fortitude, Precision, Preservation,
         },
-        Imbalance,
+        Defensive, Imbalance,
     },
 };
 
@@ -704,11 +704,14 @@ impl<T: Config> Pallet<T> {
         // TODO: Tech debt: Remove StakingHotkeys entry if stake goes to 0
     }
 
-    /// Empties the stake associated with a given coldkey-hotkey account pairing.
+    /// Empties the stake associated with a given coldkey-hotkey account pairing, and moves it to
+    /// the coldkey free balance.
+    ///
     /// This function retrieves the current stake for the specified coldkey-hotkey pairing,
     /// then subtracts this stake amount from both the TotalColdkeyStake and TotalHotkeyStake.
-    /// It also removes the stake entry for the hotkey-coldkey pairing and adjusts the TotalStake
-    /// and TotalIssuance by subtracting the removed stake amount.
+    ///
+    /// It also removes the stake entry for the hotkey-coldkey pairing and increases the coldkey
+    /// free balance by the amount of stake removed.
     ///
     /// Returns the amount of stake that was removed.
     ///
@@ -725,12 +728,14 @@ impl<T: Config> Pallet<T> {
         TotalHotkeyStake::<T>::mutate(hotkey, |stake| *stake = stake.saturating_sub(current_stake));
         Stake::<T>::remove(hotkey, coldkey);
         TotalStake::<T>::mutate(|stake| *stake = stake.saturating_sub(current_stake));
-        TotalIssuance::<T>::mutate(|issuance| *issuance = issuance.saturating_sub(current_stake));
 
         // Update StakingHotkeys map
         let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
         staking_hotkeys.retain(|h| h != hotkey);
         StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
+
+        // Add the amount to the coldkey free balance
+        Self::add_balance_to_coldkey_account(coldkey, current_stake);
 
         current_stake
     }
@@ -745,11 +750,9 @@ impl<T: Config> Pallet<T> {
         if !Self::coldkey_owns_hotkey(coldkey, hotkey) {
             // If the stake is below the minimum required, it's considered a small nomination and needs to be cleared.
             if stake < Self::get_nominator_min_required_stake() {
-                // Remove the stake from the nominator account. (this is a more forceful unstake operation which )
-                // Actually deletes the staking account.
-                let cleared_stake = Self::empty_stake_on_coldkey_hotkey_account(coldkey, hotkey);
-                // Add the stake to the coldkey account.
-                Self::add_balance_to_coldkey_account(coldkey, cleared_stake);
+                // Remove the stake from the nominator account, and moves it to the free balance.
+                // This is a more forceful unstake operation which actually deletes the staking account.
+                Self::empty_stake_on_coldkey_hotkey_account(coldkey, hotkey);
             }
         }
     }
@@ -769,8 +772,8 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) {
-        // infallible
-        let _ = T::Currency::deposit(coldkey, amount, Precision::BestEffort);
+        let _ = T::Currency::deposit(coldkey, amount, Precision::BestEffort)
+            .defensive_proof("Account balance should never exceed max balance");
     }
 
     pub fn set_balance_on_coldkey_account(
