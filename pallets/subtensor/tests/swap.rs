@@ -2,12 +2,13 @@
 
 use codec::Encode;
 use frame_support::weights::Weight;
-use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_support::{assert_err, assert_noop, assert_ok, BoundedVec};
 use frame_system::{Config, RawOrigin};
 mod mock;
 use mock::*;
 use pallet_subtensor::*;
 use sp_core::U256;
+use pallet_registry::{Data, Error as RegistryError, IdentityInfo};
 
 #[test]
 fn test_do_swap_hotkey_ok() {
@@ -1886,4 +1887,307 @@ fn test_coldkey_delegations() {
         assert_eq!(Stake::<Test>::get(delegate, new_coldkey), 100);
         assert_eq!(Stake::<Test>::get(delegate, coldkey), 0);
     });
+}
+
+
+#[test]
+fn test_swap_delegate_identity_hotkey_successful() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+
+        let display = b"Old Display".to_vec();
+        let old_identity_info = create_identity_info(display.clone());
+
+        // Set identity for the old hotkey
+        assert_ok!(Registry::set_identity_for_delegate(
+            &old_hotkey,
+            old_identity_info
+        ));
+
+        // Swap the hotkey
+        assert_ok!(Registry::swap_delegate_identity_hotkey(
+            &old_hotkey,
+            &new_hotkey
+        ));
+        assert!(Registry::get_identity_of_delegate(&new_hotkey).is_some());
+        assert!(Registry::get_identity_of_delegate(&old_hotkey).is_none());
+
+        // Verify the identity information is correctly swapped
+        let identity_info = Registry::get_identity_of_delegate(&new_hotkey);
+        assert_eq!(
+            identity_info.unwrap().display,
+            Data::Raw(BoundedVec::try_from(display).unwrap())
+        );
+    });
+}
+
+#[test]
+fn test_swap_delegate_identity_hotkey_new_hotkey_already_exists() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+
+        let old_display = b"Old Display".to_vec();
+        let new_display = b"New Display".to_vec();
+
+        let old_identity_info = create_identity_info(old_display.clone());
+        let new_identity_info = create_identity_info(new_display.clone());
+
+        // Add identity for old hotkey and new hotkey
+        assert_ok!(Registry::set_identity_for_delegate(
+            &old_hotkey,
+            old_identity_info
+        ));
+        assert_ok!(Registry::set_identity_for_delegate(
+            &new_hotkey,
+            new_identity_info
+        ));
+
+        // Attempt to swap hotkey to one that is already in use
+        assert_err!(
+            Registry::swap_delegate_identity_hotkey(&old_hotkey, &new_hotkey),
+            RegistryError::<Test>::NewHotkeyInUse
+        );
+
+        // Verify both identities remain unchanged
+        let stored_old_identity = Registry::get_identity_of_delegate(&old_hotkey).unwrap();
+        assert_eq!(
+            stored_old_identity.display,
+            Data::Raw(BoundedVec::try_from(old_display).unwrap())
+        );
+
+        let stored_new_identity = Registry::get_identity_of_delegate(&new_hotkey).unwrap();
+        assert_eq!(
+            stored_new_identity.display,
+            Data::Raw(BoundedVec::try_from(new_display).unwrap())
+        );
+    });
+}
+
+#[test]
+fn test_swap_delegate_identity_hotkey_old_hotkey_does_not_exist() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+
+        // Ensure old hotkey does not exist
+        assert!(Registry::get_identity_of_delegate(&old_hotkey).is_none());
+
+        assert_err!(
+            Registry::swap_delegate_identity_hotkey(&old_hotkey, &new_hotkey),
+            RegistryError::<Test>::OldHotkeyNotFound
+        );
+        assert!(Registry::get_identity_of_delegate(&new_hotkey).is_none());
+    });
+}
+
+#[test]
+fn test_set_identity_for_delegate_success() {
+    new_test_ext(1).execute_with(|| {
+        let account = U256::from(1);
+        let identity_info = create_identity_info(b"Test Display".to_vec());
+
+        // Initially, the account should not have any identity set
+        assert!(Registry::get_identity_of_delegate(&account).is_none());
+
+        // Set identity for the account
+        assert_ok!(Registry::set_identity_for_delegate(
+            &account,
+            identity_info.clone()
+        ));
+
+        // Verify the identity is set correctly
+        let stored_identity = Registry::get_identity_of_delegate(&account).unwrap();
+        assert_eq!(stored_identity.display, identity_info.display);
+    });
+}
+
+#[test]
+fn test_set_identity_for_delegate_identity_already_exists() {
+    new_test_ext(1).execute_with(|| {
+        let account = U256::from(1);
+        let identity_info = create_identity_info(b"Test Display".to_vec());
+
+        // Set identity for the account
+        assert_ok!(Registry::set_identity_for_delegate(
+            &account,
+            identity_info.clone()
+        ));
+
+        // Attempt to set another identity for the same account
+        let new_identity_info = create_identity_info(b"New Display".to_vec());
+        assert_err!(
+            Registry::set_identity_for_delegate(&account, new_identity_info),
+            RegistryError::<Test>::IdentityAlreadyExists
+        );
+
+        // Verify the original identity remains unchanged
+        let stored_identity = Registry::get_identity_of_delegate(&account).unwrap();
+        assert_eq!(stored_identity.display, identity_info.display);
+    });
+}
+
+#[test]
+fn test_hotkey_swap_fail_same_hotkey() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey_account_id = U256::from(667);
+        let old_hotkey = U256::from(1);
+
+        let netuid = 1;
+        let burn_cost = 10;
+        let tempo = 1;
+
+        SubtensorModule::set_burn(netuid, burn_cost);
+        add_network(netuid, tempo, 0);
+
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 100_000_000u64);
+
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            netuid,
+            old_hotkey
+        ));
+
+        assert_noop!(
+            SubtensorModule::do_swap_hotkey(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                &old_hotkey,
+                &old_hotkey
+            ),
+            Error::<Test>::NewHotKeyIsSameWithOld
+        );
+    });
+}
+
+#[test]
+fn test_hotkey_swap_fail_not_enough_balance() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey_account_id = U256::from(667);
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+
+        let netuid = 1;
+        let burn_cost = 10;
+        let tempo = 1;
+
+        SubtensorModule::set_burn(netuid, burn_cost);
+        add_network(netuid, tempo, 0);
+
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 100_000_000u64);
+
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            netuid,
+            old_hotkey
+        ));
+
+        assert_err!(
+            SubtensorModule::do_swap_hotkey(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                &old_hotkey,
+                &new_hotkey
+            ),
+            Error::<Test>::NotEnoughBalanceToPaySwapHotKey
+        );
+    });
+}
+
+#[test]
+fn test_hotkey_swap_delegate_identity_updated() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey_account_id = U256::from(667);
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+
+        let netuid = 1;
+        let burn_cost = 10;
+        let tempo = 1;
+
+        SubtensorModule::set_burn(netuid, burn_cost);
+        add_network(netuid, tempo, 0);
+
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 100_000_000_000);
+
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            netuid,
+            old_hotkey
+        ));
+
+        let display = b"The Display".to_vec();
+        let identity_info: IdentityInfo<MockMaxAdditionalFields> =
+            create_identity_info(display.clone());
+
+        assert_ok!(Registry::set_identity_for_delegate(
+            &old_hotkey,
+            identity_info.clone()
+        ));
+
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            &old_hotkey,
+            &new_hotkey
+        ));
+
+        assert!(Registry::get_identity_of_delegate(&old_hotkey).is_none());
+        assert!(Registry::get_identity_of_delegate(&new_hotkey).is_some());
+        assert_eq!(
+            Registry::get_identity_of_delegate(&new_hotkey).unwrap(),
+            identity_info
+        );
+    });
+}
+
+#[test]
+fn test_hotkey_swap_no_identity_no_changes() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey_account_id = U256::from(667);
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+
+        let netuid = 1;
+        let burn_cost = 10;
+        let tempo = 1;
+
+        SubtensorModule::set_burn(netuid, burn_cost);
+        add_network(netuid, tempo, 0);
+
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 100_000_000_000);
+
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            netuid,
+            old_hotkey
+        ));
+
+        // Ensure the old hotkey does not have an identity before the swap
+        assert!(Registry::get_identity_of_delegate(&old_hotkey).is_none());
+
+        // Perform the hotkey swap
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            &old_hotkey,
+            &new_hotkey
+        ));
+
+        // Ensure no identities have been changed
+        assert!(Registry::get_identity_of_delegate(&old_hotkey).is_none());
+        assert!(Registry::get_identity_of_delegate(&new_hotkey).is_none());
+    });
+}
+
+fn create_identity_info(display: Vec<u8>) -> IdentityInfo<MockMaxAdditionalFields> {
+    let display_data = Data::Raw(BoundedVec::try_from(display).unwrap());
+    IdentityInfo {
+        additional: Default::default(),
+        display: display_data,
+        legal: Default::default(),
+        web: Default::default(),
+        riot: Default::default(),
+        email: Default::default(),
+        pgp_fingerprint: None,
+        image: Default::default(),
+        twitter: Default::default(),
+    }
 }
