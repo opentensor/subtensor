@@ -27,79 +27,118 @@ impl<T: Config> Pallet<T> {
         old_hotkey: &T::AccountId,
         new_hotkey: &T::AccountId,
     ) -> DispatchResultWithPostInfo {
-        // Ensure the origin is signed and get the coldkey
+        // 1. Ensure the origin is signed and get the coldkey
         let coldkey = ensure_signed(origin)?;
 
-        // Check if the coldkey is in arbitration
+        // 2. Check if the coldkey is in arbitration
         ensure!(
             !Self::coldkey_in_arbitration(&coldkey),
             Error::<T>::ColdkeyIsInArbitration
         );
 
-        // Initialize the weight for this operation
+        // 3. Initialize the weight for this operation
         let mut weight = T::DbWeight::get().reads(2);
 
-        // Ensure the new hotkey is different from the old one
+        // 4. Ensure the new hotkey is different from the old one
         ensure!(old_hotkey != new_hotkey, Error::<T>::NewHotKeyIsSameWithOld);
-        // Ensure the new hotkey is not already registered on any network
+
+        // 5. Ensure the new hotkey is not already registered on any network
         ensure!(
             !Self::is_hotkey_registered_on_any_network(new_hotkey),
             Error::<T>::HotKeyAlreadyRegisteredInSubNet
         );
 
-        // Update the weight for the checks above
+        // 6. Update the weight for the checks above
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 0));
-        // Ensure the coldkey owns the old hotkey
+
+        // 7. Ensure the coldkey owns the old hotkey
         ensure!(
             Self::coldkey_owns_hotkey(&coldkey, old_hotkey),
             Error::<T>::NonAssociatedColdKey
         );
 
-        // Get the current block number
+        // 8. Get the current block number
         let block: u64 = Self::get_current_block_as_u64();
-        // Ensure the transaction rate limit is not exceeded
+
+        // 9. Ensure the transaction rate limit is not exceeded
         ensure!(
             !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
             Error::<T>::HotKeySetTxRateLimitExceeded
         );
 
-        // Update the weight for reading the total networks
+        // 10. Update the weight for reading the total networks
         weight.saturating_accrue(
             T::DbWeight::get().reads((TotalNetworks::<T>::get().saturating_add(1u16)) as u64),
         );
 
-        // Get the cost for swapping the key
+        // 11. Get the cost for swapping the key
         let swap_cost = Self::get_key_swap_cost();
         log::debug!("Swap cost: {:?}", swap_cost);
 
-        // Ensure the coldkey has enough balance to pay for the swap
+        // 12. Ensure the coldkey has enough balance to pay for the swap
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost),
             Error::<T>::NotEnoughBalanceToPaySwapHotKey
         );
-        // Remove the swap cost from the coldkey's account
+
+        // 13. Remove the swap cost from the coldkey's account
         let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, swap_cost)?;
-        // Burn the tokens
+
+        // 14. Burn the tokens
         Self::burn_tokens(actual_burn_amount);
 
-        // Perform the hotkey swap
+        // 15. Perform the hotkey swap
         let _ = Self::perform_hotkey_swap(old_hotkey, new_hotkey, &coldkey, &mut weight);
 
-        // Update the last transaction block for the coldkey
+        // 16. Update the last transaction block for the coldkey
         Self::set_last_tx_block(&coldkey, block);
         weight.saturating_accrue(T::DbWeight::get().writes(1));
 
-        // Emit an event for the hotkey swap
+        // 17. Emit an event for the hotkey swap
         Self::deposit_event(Event::HotkeySwapped {
             coldkey,
             old_hotkey: old_hotkey.clone(),
             new_hotkey: new_hotkey.clone(),
         });
 
-        // Return the weight of the operation
+        // 18. Return the weight of the operation
         Ok(Some(weight).into())
     }
 
+    /// Performs the hotkey swap operation, transferring all associated data and state from the old hotkey to the new hotkey.
+    ///
+    /// This function executes a series of steps to ensure a complete transfer of all relevant information:
+    /// 1. Swaps the owner of the hotkey.
+    /// 2. Updates the list of owned hotkeys for the coldkey.
+    /// 3. Transfers the total hotkey stake.
+    /// 4. Moves all stake-related data for the interval.
+    /// 5. Updates the last transaction block for the new hotkey.
+    /// 6. Transfers the delegate take information.
+    /// 7. Swaps Senate membership if applicable.
+    /// 8. Updates delegate information.
+    /// 9. For each subnet:
+    ///    - Updates network membership status.
+    ///    - Transfers UID and key information.
+    ///    - Moves Prometheus data.
+    ///    - Updates axon information.
+    ///    - Transfers weight commits.
+    ///    - Updates loaded emission data.
+    /// 10. Transfers all stake information, including updating staking hotkeys for each coldkey.
+    ///
+    /// Throughout the process, the function accumulates the computational weight of operations performed.
+    ///
+    /// # Arguments
+    /// * `old_hotkey` - The AccountId of the current hotkey to be replaced.
+    /// * `new_hotkey` - The AccountId of the new hotkey to replace the old one.
+    /// * `coldkey` - The AccountId of the coldkey that owns both hotkeys.
+    /// * `weight` - A mutable reference to the Weight, updated as operations are performed.
+    ///
+    /// # Returns
+    /// * `DispatchResult` - Ok(()) if the swap was successful, or an error if any operation failed.
+    ///
+    /// # Note
+    /// This function performs extensive storage reads and writes, which can be computationally expensive.
+    /// The accumulated weight should be carefully considered in the context of block limits.
     pub fn perform_hotkey_swap( old_hotkey: &T::AccountId, new_hotkey: &T::AccountId, coldkey: &T::AccountId, weight: &mut Weight ) -> DispatchResult {
 
         // 1. Swap owner.
@@ -128,7 +167,7 @@ impl<T: Config> Pallet<T> {
         TotalHotkeyStake::<T>::insert( new_hotkey, old_total_hotkey_stake.saturating_add( new_total_hotkey_stake ) ); // Insert the new total hotkey stake via the addition.
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
 
-        // Swap total hotkey stakes.
+        // 4. Swap total hotkey stakes.
         // TotalHotkeyColdkeyStakesThisInterval( hotkey ) --> (u64: stakes, u64: block_number)
         let stake_tuples: Vec<(T::AccountId, (u64, u64))> = TotalHotkeyColdkeyStakesThisInterval::<T>::iter_prefix(old_hotkey).collect();
         for (coldkey, stake_tup) in stake_tuples {
@@ -138,59 +177,59 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
         }
 
-        // Swap LastTxBlock
+        // 5. Swap LastTxBlock
         // LastTxBlock( hotkey ) --> u64 -- the last transaction block for the hotkey.
         LastTxBlock::<T>::remove( old_hotkey );
         LastTxBlock::<T>::insert( new_hotkey, Self::get_current_block_as_u64() );
         weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 2));
 
-        // Swap LastTxBlockDelegateTake
+        // 6. Swap LastTxBlockDelegateTake
         // LastTxBlockDelegateTake( hotkey ) --> u64 -- the last transaction block for the hotkey delegate take.
         LastTxBlockDelegateTake::<T>::remove( old_hotkey );
         LastTxBlockDelegateTake::<T>::insert( new_hotkey, Self::get_current_block_as_u64() );
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
-        // Swap Senate members.
+        // 7. Swap Senate members.
         // Senate( hotkey ) --> ?
         if T::SenateMembers::is_member(old_hotkey) {
             T::SenateMembers::swap_member(old_hotkey, new_hotkey).map_err(|e| e.error)?;
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
         }
 
-        // 4. Swap delegates.
+        // 8. Swap delegates.
         // Delegates( hotkey ) -> take value -- the hotkey delegate take value.
         let old_delegate_take = Delegates::<T>::get( old_hotkey );
         Delegates::<T>::remove( old_hotkey ); // Remove the old delegate take.
         Delegates::<T>::insert( new_hotkey, old_delegate_take ); // Insert the new delegate take.
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
-        // Swap all subnet specific info.
+        // 9. Swap all subnet specific info.
         let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
         for netuid in all_netuids { 
-            // 7.1 Remove the previous hotkey and insert the new hotkey from membership.
+            // 9.1 Remove the previous hotkey and insert the new hotkey from membership.
             // IsNetworkMember( hotkey, netuid ) -> bool -- is the hotkey a subnet member.
             let is_network_member: bool = IsNetworkMember::<T>::get( old_hotkey, netuid );
             IsNetworkMember::<T>::remove( old_hotkey, netuid );
             IsNetworkMember::<T>::insert( new_hotkey, netuid, is_network_member );
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
-            // 7.2 Swap Uids + Keys.
+            // 9.2 Swap Uids + Keys.
             // Keys( netuid, hotkey ) -> uid -- the uid the hotkey has in the network if it is a member.
             // Uids( netuid, hotkey ) -> uid -- the uids that the hotkey has.
             if is_network_member {
-                // 7.2.1 Swap the UIDS
+                // 9.2.1 Swap the UIDS
                 if let Ok(old_uid) = Uids::<T>::try_get(netuid, old_hotkey) {
                     Uids::<T>::remove(netuid, old_hotkey);
                     Uids::<T>::insert(netuid, new_hotkey, old_uid);
                     weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
-                    // 7.2.2 Swap the keys.
+                    // 9.2.2 Swap the keys.
                     Keys::<T>::insert(netuid, old_uid, new_hotkey.clone());
                     weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
                 }
             }
 
-            // 7.3 Swap Prometheus.
+            // 9.3 Swap Prometheus.
             // Prometheus( netuid, hotkey ) -> prometheus -- the prometheus data that a hotkey has in the network.
             if is_network_member {
                 if let Ok(old_prometheus_info) = Prometheus::<T>::try_get(netuid, old_hotkey) {
@@ -200,7 +239,7 @@ impl<T: Config> Pallet<T> {
                 }
             }
 
-            // 7.4. Swap axons.
+            // 9.4. Swap axons.
             // Axons( netuid, hotkey ) -> axon -- the axon that the hotkey has.
             if is_network_member {
                 if let Ok(old_axon_info) = Axons::<T>::try_get(netuid, old_hotkey) {
@@ -210,7 +249,7 @@ impl<T: Config> Pallet<T> {
                 }
             }
 
-            // 7.5 Swap WeightCommits     
+            // 9.5 Swap WeightCommits     
             // WeightCommits( hotkey ) --> Vec<u64> -- the weight commits for the hotkey.
             if is_network_member {
                 if let Ok(old_weight_commits) = WeightCommits::<T>::try_get(netuid, old_hotkey) {
@@ -220,7 +259,7 @@ impl<T: Config> Pallet<T> {
                 }
             }
 
-            // 7.5. Swap the subnet loaded emission.
+            // 9.6. Swap the subnet loaded emission.
             // LoadedEmission( netuid ) --> Vec<(hotkey, u64)> -- the loaded emission for the subnet.
             if is_network_member {
                 if let Some(mut old_loaded_emission) = LoadedEmission::<T>::get(netuid) {
@@ -237,7 +276,7 @@ impl<T: Config> Pallet<T> {
 
         }
 
-        // Swap Stake.
+        // 10. Swap Stake.
         // Stake( hotkey, coldkey ) -> stake -- the stake that the hotkey controls on behalf of the coldkey.
         let stakes: Vec<(T::AccountId, u64)> = Stake::<T>::iter_prefix(old_hotkey).collect();
         // Clear the entire old prefix here.
@@ -263,6 +302,7 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
         }
 
+        // Return successful after swapping all the relevant terms.
         Ok(())
     }
 

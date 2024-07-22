@@ -173,6 +173,15 @@ pub mod pallet {
 
             Ok(())
         }
+
+        pub fn swap_commitment( netuid: u16, new_hotkey: T::AccountId, old_hotkey: T::AccountId ) {
+            if let Some(commitment) = <CommitmentOf<T>>::take(netuid, &old_hotkey) {
+                <CommitmentOf<T>>::insert(netuid, &new_hotkey, commitment);
+            }
+            if let Some(last_commit) = <LastCommitment<T>>::take(netuid, &old_hotkey) {
+                <LastCommitment<T>>::insert(netuid, &new_hotkey, last_commit);
+            }
+        }
     }
 }
 
