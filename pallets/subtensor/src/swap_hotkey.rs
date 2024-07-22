@@ -103,7 +103,7 @@ impl<T: Config> Pallet<T> {
         Ok(Some(weight).into())
     }
 
-    pub fn perform_hotkey_swap( old_hotkey: &T::AccountId, new_hotkey: &T::AccountId, coldkey: &T::AccountId, weight: &mut Weight ) {
+    pub fn perform_hotkey_swap( old_hotkey: &T::AccountId, new_hotkey: &T::AccountId, coldkey: &T::AccountId, weight: &mut Weight ) -> DispatchResult {
 
         // 1. Swap owner.
         // Owner( hotkey ) -> coldkey -- the coldkey that owns the hotkey.
@@ -169,7 +169,7 @@ impl<T: Config> Pallet<T> {
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
         // Swap all subnet specific info.
-        let all_netuid: Vec<u16> = Self::get_all_subnet_netuids();
+        let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
         for netuid in all_netuids { 
             // 7.1 Remove the previous hotkey and insert the new hotkey from membership.
             // IsNetworkMember( hotkey, netuid ) -> bool -- is the hotkey a subnet member.
@@ -183,40 +183,43 @@ impl<T: Config> Pallet<T> {
             // Uids( netuid, hotkey ) -> uid -- the uids that the hotkey has.
             if is_network_member {
                 // 7.2.1 Swap the UIDS
-                let old_uid: u16 = Uids::<T>::get(netuid, old_hotkey);
-                Uids::<T>::remove(netuid, old_hotkey);
-                Uids::<T>::insert(netuid, new_hotkey, old_uid);
-                weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+                if let Ok(old_uid) = Uids::<T>::try_get(netuid, old_hotkey) {
+                    Uids::<T>::remove(netuid, old_hotkey);
+                    Uids::<T>::insert(netuid, new_hotkey, old_uid);
+                    weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
-                // 7.2.2 Swap the keys.
-                Keys::<T>::insert(netuid, old_uid, new_hotkey.clone());
-                weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
+                    // 7.2.2 Swap the keys.
+                    Keys::<T>::insert(netuid, old_uid, new_hotkey.clone());
+                    weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
+                }
             }
 
             // 7.3 Swap Prometheus.
             // Prometheus( netuid, hotkey ) -> prometheus -- the prometheus data that a hotkey has in the network.
             if is_network_member {
-                let old_prometheus_info: PrometheusInfo = Prometheus::<T>::get(netuid, old_hotkey);
-                Prometheus::<T>::remove(netuid, old_hotkey);
-                Prometheus::<T>::insert(netuid, new_hotkey, old_prometheus_info);
-                weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+                if let Ok(old_prometheus_info) = Prometheus::<T>::try_get(netuid, old_hotkey) {
+                    Prometheus::<T>::remove(netuid, old_hotkey);
+                    Prometheus::<T>::insert(netuid, new_hotkey, old_prometheus_info);
+                    weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+                }
             }
 
             // 7.4. Swap axons.
             // Axons( netuid, hotkey ) -> axon -- the axon that the hotkey has.
             if is_network_member {
-                let old_axon_info: AxonInfo = Axons::<T>::get(netuid, old_hotkey);
-                Axons::<T>::remove(netuid, old_hotkey);
-                Axons::<T>::insert(netuid, new_hotkey, old_axon_info);
-                weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+                if let Ok(old_axon_info) = Axons::<T>::try_get(netuid, old_hotkey) {
+                    Axons::<T>::remove(netuid, old_hotkey);
+                    Axons::<T>::insert(netuid, new_hotkey, old_axon_info);
+                    weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+                }
             }
 
             // 7.5 Swap WeightCommits     
             // WeightCommits( hotkey ) --> Vec<u64> -- the weight commits for the hotkey.
             if is_network_member {
-                if let Ok(old_weight_commits) = WeightCommits::<T>::try_get(old_hotkey) {
-                    WeightCommits::<T>::remove(old_hotkey);
-                    WeightCommits::<T>::insert(new_hotkey, old_weight_commits);
+                if let Ok(old_weight_commits) = WeightCommits::<T>::try_get(netuid, old_hotkey) {
+                    WeightCommits::<T>::remove(netuid, old_hotkey);
+                    WeightCommits::<T>::insert(netuid, new_hotkey, old_weight_commits);
                     weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
                 }
             }
@@ -263,6 +266,8 @@ impl<T: Config> Pallet<T> {
             StakingHotkeys::<T>::insert(coldkey.clone(), staking_hotkeys);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
         }
+
+        Ok(())
     }
 
     pub fn swap_senate_member(
