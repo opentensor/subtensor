@@ -89,6 +89,11 @@ impl<T: Config> Pallet<T> {
 
         Self::swap_total_hotkey_coldkey_stakes_this_interval(old_hotkey, new_hotkey, &mut weight);
 
+        // Swap identity if the old hotkey has one.
+        if T::RegistryPallet::get_identity_of_delegate(old_hotkey).is_some() {
+            T::RegistryPallet::swap_delegate_identity_hotkey(old_hotkey, new_hotkey)?;
+        }
+
         Self::set_last_tx_block(&coldkey, block);
         weight.saturating_accrue(T::DbWeight::get().writes(1));
 
