@@ -145,6 +145,7 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         weight: &mut Weight,
     ) -> DispatchResult {
+        
         // 1. Swap owner.
         // Owner( hotkey ) -> coldkey -- the coldkey that owns the hotkey.
         Owner::<T>::remove(old_hotkey);

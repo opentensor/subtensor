@@ -44,7 +44,7 @@ mod registration;
 mod root;
 mod serving;
 mod staking;
-mod swap;
+mod swap_coldkey;
 mod swap_hotkey;
 mod uids;
 mod utils;
@@ -726,7 +726,7 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> last_mechanism_step_block
     pub type LastMechansimStepBlock<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultLastMechanismStepBlock<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> subnet_owner
+    #[pallet::storage] // --- MAP ( netuid ) --> (cold) subnet_owner
     pub type SubnetOwner<T: Config> =
         StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> subnet_locked
@@ -801,10 +801,10 @@ pub mod pallet {
     #[pallet::storage] // --- ITEM ( tx_rate_limit )
     pub type TxDelegateTakeRateLimit<T> =
         StorageValue<_, u64, ValueQuery, DefaultTxDelegateTakeRateLimit<T>>;
-    #[pallet::storage] // --- MAP ( key ) --> last_block
+    #[pallet::storage] // --- MAP ( hotkey ) --> last_block
     pub type LastTxBlock<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
-    #[pallet::storage] // --- MAP ( key ) --> last_block
+    #[pallet::storage] // --- MAP ( hotkey ) --> last_block
     pub type LastTxBlockDelegateTake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
 
