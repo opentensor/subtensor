@@ -202,37 +202,6 @@ where
     }
 }
 
-pub struct RegistryPalletImpl<T>(PhantomData<T>);
-
-impl<T> RegistryInterface<T::AccountId, MockMaxAdditionalFields> for RegistryPalletImpl<T>
-where
-    T: pallet_subtensor::Config<MaxAdditionalFields = MockMaxAdditionalFields>,
-    T::AccountId: Into<sp_core::U256> + Clone,
-{
-    /// Retrieves the identity information of a given delegate account.
-    fn get_identity_of_delegate(
-        account: &T::AccountId,
-    ) -> Option<IdentityInfo<MockMaxAdditionalFields>> {
-        Registry::get_identity_of_delegate(&account.clone().into())
-    }
-
-    /// Retrieves the identity information of all delegates.
-    fn get_delegate_identities() -> Option<Vec<IdentityInfo<MockMaxAdditionalFields>>> {
-        Registry::get_delegate_identities()
-    }
-
-    /// Swaps the hotkey of a delegate identity from an old account ID to a new account ID.
-    fn swap_delegate_identity_hotkey(
-        old_hotkey: &T::AccountId,
-        new_hotkey: &T::AccountId,
-    ) -> DispatchResult {
-        Registry::swap_delegate_identity_hotkey(
-            &old_hotkey.clone().into(),
-            &new_hotkey.clone().into(),
-        )
-    }
-}
-
 impl pallet_subtensor::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;

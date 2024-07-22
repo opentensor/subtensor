@@ -2180,10 +2180,10 @@ fn test_hotkey_swap_fail_same_hotkey() {
         ));
 
         assert_noop!(
-            SubtensorModule::swap_hotkey(
+            SubtensorModule::do_swap_hotkey(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-                old_hotkey,
-                old_hotkey
+                &old_hotkey,
+                &old_hotkey
             ),
             Error::<Test>::NewHotKeyIsSameWithOld
         );
@@ -2213,10 +2213,10 @@ fn test_hotkey_swap_fail_not_enough_balance() {
         ));
 
         assert_err!(
-            SubtensorModule::swap_hotkey(
+            SubtensorModule::do_swap_hotkey(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-                old_hotkey,
-                new_hotkey
+                &old_hotkey,
+                &new_hotkey
             ),
             Error::<Test>::NotEnoughBalanceToPaySwapHotKey
         );
@@ -2254,10 +2254,10 @@ fn test_hotkey_swap_delegate_identity_updated() {
             identity_info.clone()
         ));
 
-        assert_ok!(SubtensorModule::swap_hotkey(
+        assert_ok!(SubtensorModule::do_swap_hotkey(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            old_hotkey,
-            new_hotkey
+            &old_hotkey,
+            &new_hotkey
         ));
 
         assert!(Registry::get_identity_of_delegate(&old_hotkey).is_none());

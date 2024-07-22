@@ -22,7 +22,6 @@ use sp_runtime::{
 use codec::MaxEncodedLen;
 use frame_support::pallet_prelude::TypeInfo;
 use frame_support::traits::VariantCount;
-use pallet_collective::MemberCount;
 use pallet_registry::IdentityInfo;
 use pallet_subtensor::RegistryInterface;
 use sp_core::RuntimeDebug;

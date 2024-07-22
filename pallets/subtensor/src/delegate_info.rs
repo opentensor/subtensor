@@ -21,7 +21,7 @@ pub struct DelegateInfo<T: Config> {
     total_daily_return: Compact<u64>, // Delegators current daily return
 }
 
-impl<T: Config + pallet_registry::Config> Pallet<T> {
+impl<T: Config> Pallet<T> {
     fn get_delegate_by_existing_account(delegate: AccountIdOf<T>) -> DelegateInfo<T> {
         let mut nominators = Vec::<(T::AccountId, Compact<u64>)>::new();
 
