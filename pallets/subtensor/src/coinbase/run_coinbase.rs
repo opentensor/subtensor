@@ -267,8 +267,11 @@ impl<T: Config> Pallet<T> {
         // --- 3 Update the block value to the current block number.
         LastHotkeyEmissionDrain::<T>::insert(hotkey, block_number);
 
-        // --- 4 Retrieve the total stake for the hotkey from all nominations.
-        let total_hotkey_stake: u64 = Self::get_total_stake_for_hotkey(hotkey);
+        // --- 4 Retrieve the total stake for the hotkey from all nominations with parents and children from all subnets
+        let total_hotkey_stake: u64 = Self::get_all_subnet_netuids()
+            .iter()
+            .map(|&netuid| Self::get_stake_for_hotkey_on_subnet(hotkey, netuid))
+            .sum();
 
         if total_hotkey_stake == 0 {
             // If there's no stake, we can't distribute any emission

@@ -1260,8 +1260,10 @@ fn test_children_stake_values() {
     });
 }
 
+// This test sets us a childkey-validator that has zero own or delegated stake and has only become
+// a validator because of his parents' stake.
 #[test]
-fn test_drain_hotkey_emission_division_by_zero() {
+fn test_drain_hotkey_emission_no_division_by_zero_with_zero_stake() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo = 10;
