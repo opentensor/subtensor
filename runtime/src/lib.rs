@@ -1282,7 +1282,6 @@ pub type SignedExtra = (
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
     pallet_subtensor::SubtensorSignedExtension<Runtime>,
     pallet_commitments::CommitmentsSignedExtension<Runtime>,
-    frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
 type Migrations = pallet_grandpa::migrations::MigrateV4ToV5<Runtime>;
