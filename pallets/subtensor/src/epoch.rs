@@ -175,7 +175,6 @@ impl<T: Config> Pallet<T> {
         log::trace!("ΔB:\n{:?}\n", &bonds_delta);
         // Compute the Exponential Moving Average (EMA) of bonds.
         let mut ema_bonds = Self::compute_ema_bonds(netuid, consensus.clone(), bonds_delta, bonds);
-
         inplace_col_normalize(&mut ema_bonds); // sum_i b_ij = 1
         log::trace!("emaB:\n{:?}\n", &ema_bonds);
 
@@ -189,6 +188,8 @@ impl<T: Config> Pallet<T> {
         // =================================
 
         // Compute emission scores.
+
+        // Compute normalized emission scores. range: I32F32(0, 1)
         // Compute normalized emission scores. range: I32F32(0, 1)
         let combined_emission: Vec<I32F32> = incentive
             .iter()

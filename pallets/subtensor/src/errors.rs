@@ -64,7 +64,7 @@ mod errors {
         MaxWeightExceeded,
         /// The hotkey is attempting to become a delegate when the hotkey is already a delegate.
         HotKeyAlreadyDelegate,
-        /// The hotkey is attempting to set weights twice within the duration of net_tempo/2 blocks.
+        /// A transactor exceeded the rate limit for setting weights.
         SettingWeightsTooFast,
         /// A validator is attempting to set weights from a validator with incorrect weight version.
         IncorrectWeightVersionKey,
@@ -126,13 +126,37 @@ mod errors {
         CommitRevealEnabled,
         /// Attemtping to commit/reveal weights when disabled.
         CommitRevealDisabled,
+        /// Not able to join the senate.
+        CouldNotJoinSenate,
         /// Attempting to set alpha high/low while disabled
         LiquidAlphaDisabled,
         /// Alpha high is too low: alpha_high > 0.8
         AlphaHighTooLow,
         /// Alpha low is out of range: alpha_low > 0 && alpha_low < 0.8
         AlphaLowOutOfRange,
-        /// Not able to join the senate.
-        CouldNotJoinSenate,
+        /// The coldkey has already been swapped
+        ColdKeyAlreadyAssociated,
+        /// The coldkey swap transaction rate limit exceeded
+        ColdKeySwapTxRateLimitExceeded,
+        /// The new coldkey is the same as the old coldkey
+        NewColdKeyIsSameWithOld,
+        /// The coldkey does not exist
+        NotExistColdkey,
+        /// The coldkey balance is not enough to pay for the swap
+        NotEnoughBalanceToPaySwapColdKey,
+        /// No balance to transfer
+        NoBalanceToTransfer,
+        /// Same coldkey
+        SameColdkey,
+        /// The coldkey is in arbitration
+        ColdkeyIsInArbitration,
+        /// The new coldkey is already registered for the drain
+        DuplicateColdkey,
+        /// Error thrown on a coldkey swap.
+        ColdkeySwapError,
+        /// Insufficient Balance to Schedule coldkey swap
+        InsufficientBalanceToPerformColdkeySwap,
+        /// The maximum number of coldkey destinations has been reached
+        MaxColdkeyDestinationsReached,
     }
 }

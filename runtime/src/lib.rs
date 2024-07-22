@@ -139,7 +139,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 186,
+    spec_version: 188,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -292,8 +292,9 @@ parameter_types! {
     pub const DisallowPermissionlessEnterDuration: BlockNumber = 0;
     pub const DisallowPermissionlessExtendDuration: BlockNumber = 0;
 
-    pub const RootEnterDuration: BlockNumber = 5 * 60 * 3; // 3 hours
-    pub const RootExtendDuration: BlockNumber = 5 * 60 * 3; // 3 hours
+    pub const RootEnterDuration: BlockNumber = 5 * 60 * 24; // 24 hours
+
+    pub const RootExtendDuration: BlockNumber = 5 * 60 * 12; // 12 hours
 
     pub const DisallowPermissionlessEntering: Option<Balance> = None;
     pub const DisallowPermissionlessExtending: Option<Balance> = None;
@@ -306,9 +307,16 @@ impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
         matches!(
             call,
             RuntimeCall::Sudo(_)
+                | RuntimeCall::Multisig(_)
                 | RuntimeCall::System(_)
                 | RuntimeCall::SafeMode(_)
                 | RuntimeCall::Timestamp(_)
+                | RuntimeCall::SubtensorModule(
+                    pallet_subtensor::Call::set_weights { .. }
+                        | pallet_subtensor::Call::set_root_weights { .. }
+                        | pallet_subtensor::Call::serve_axon { .. }
+                )
+                | RuntimeCall::Commitments(pallet_commitments::Call::set_commitment { .. })
         )
     }
 }
@@ -868,10 +876,11 @@ parameter_types! {
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
     pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
     pub const SubtensorInitialTargetStakesPerInterval: u16 = 1;
-    pub const SubtensorInitialHotkeySwapCost: u64 = 1_000_000_000;
+    pub const SubtensorInitialKeySwapCost: u64 = 1_000_000_000;
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
+    pub const SubtensorInitialBaseDifficulty: u64 = 10_000_000; // Base difficulty
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -923,10 +932,11 @@ impl pallet_subtensor::Config for Runtime {
     type InitialSubnetLimit = SubtensorInitialSubnetLimit;
     type InitialNetworkRateLimit = SubtensorInitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = SubtensorInitialTargetStakesPerInterval;
-    type HotkeySwapCost = SubtensorInitialHotkeySwapCost;
+    type KeySwapCost = SubtensorInitialKeySwapCost;
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;
+    type InitialBaseDifficulty = SubtensorInitialBaseDifficulty;
 }
 
 use sp_runtime::BoundedVec;
