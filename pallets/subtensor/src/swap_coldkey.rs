@@ -224,9 +224,7 @@ impl<T: Config> Pallet<T> {
         // Transfer any remaining balance from old_coldkey to new_coldkey
         let remaining_balance = Self::get_coldkey_balance(old_coldkey);
         if remaining_balance > 0 {
-            if let Err(e) = Self::kill_coldkey_account(old_coldkey, remaining_balance) {
-                return Err(e);
-            }
+            Self::kill_coldkey_account(old_coldkey, remaining_balance)?;
             Self::add_balance_to_coldkey_account(new_coldkey, remaining_balance);
         }
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
