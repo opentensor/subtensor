@@ -30,78 +30,72 @@ impl<T: Config> Pallet<T> {
         // 1. Ensure the origin is signed and get the coldkey
         let coldkey = ensure_signed(origin)?;
 
-        // 2. Check if the coldkey is in arbitration
-        ensure!(
-            !Self::coldkey_in_arbitration(&coldkey),
-            Error::<T>::ColdkeyIsInArbitration
-        );
-
-        // 3. Initialize the weight for this operation
+        // 2. Initialize the weight for this operation
         let mut weight = T::DbWeight::get().reads(2);
 
-        // 4. Ensure the new hotkey is different from the old one
+        // 3. Ensure the new hotkey is different from the old one
         ensure!(old_hotkey != new_hotkey, Error::<T>::NewHotKeyIsSameWithOld);
 
-        // 5. Ensure the new hotkey is not already registered on any network
+        // 4. Ensure the new hotkey is not already registered on any network
         ensure!(
             !Self::is_hotkey_registered_on_any_network(new_hotkey),
             Error::<T>::HotKeyAlreadyRegisteredInSubNet
         );
 
-        // 6. Update the weight for the checks above
+        // 5. Update the weight for the checks above
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 0));
 
-        // 7. Ensure the coldkey owns the old hotkey
+        // 6. Ensure the coldkey owns the old hotkey
         ensure!(
             Self::coldkey_owns_hotkey(&coldkey, old_hotkey),
             Error::<T>::NonAssociatedColdKey
         );
 
-        // 8. Get the current block number
+        // 7. Get the current block number
         let block: u64 = Self::get_current_block_as_u64();
 
-        // 9. Ensure the transaction rate limit is not exceeded
+        // 8. Ensure the transaction rate limit is not exceeded
         ensure!(
             !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
             Error::<T>::HotKeySetTxRateLimitExceeded
         );
 
-        // 10. Update the weight for reading the total networks
+        // 9. Update the weight for reading the total networks
         weight.saturating_accrue(
             T::DbWeight::get().reads((TotalNetworks::<T>::get().saturating_add(1u16)) as u64),
         );
 
-        // 11. Get the cost for swapping the key
+        // 10. Get the cost for swapping the key
         let swap_cost = Self::get_key_swap_cost();
         log::debug!("Swap cost: {:?}", swap_cost);
 
-        // 12. Ensure the coldkey has enough balance to pay for the swap
+        // 11. Ensure the coldkey has enough balance to pay for the swap
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost),
             Error::<T>::NotEnoughBalanceToPaySwapHotKey
         );
 
-        // 13. Remove the swap cost from the coldkey's account
+        // 12. Remove the swap cost from the coldkey's account
         let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, swap_cost)?;
 
-        // 14. Burn the tokens
+        // 13. Burn the tokens
         Self::burn_tokens(actual_burn_amount);
 
-        // 15. Perform the hotkey swap
+        // 14. Perform the hotkey swap
         let _ = Self::perform_hotkey_swap(old_hotkey, new_hotkey, &coldkey, &mut weight);
 
-        // 16. Update the last transaction block for the coldkey
+        // 15. Update the last transaction block for the coldkey
         Self::set_last_tx_block(&coldkey, block);
         weight.saturating_accrue(T::DbWeight::get().writes(1));
 
-        // 17. Emit an event for the hotkey swap
+        // 16. Emit an event for the hotkey swap
         Self::deposit_event(Event::HotkeySwapped {
             coldkey,
             old_hotkey: old_hotkey.clone(),
             new_hotkey: new_hotkey.clone(),
         });
 
-        // 18. Return the weight of the operation
+        // 17. Return the weight of the operation
         Ok(Some(weight).into())
     }
 

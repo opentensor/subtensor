@@ -7,7 +7,7 @@
 use crate::mock::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
-use pallet_subtensor::math::safe_exp;
+use pallet_subtensor::epoch::math::safe_exp;
 use pallet_subtensor::*;
 use rand::{distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
 use sp_core::U256;
@@ -1496,7 +1496,7 @@ fn test_set_alpha_disabled() {
 
         // Enable Liquid Alpha and setup
         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-        migration::migrate_create_root_network::<Test>();
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
         assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, 1000));
@@ -2574,7 +2574,7 @@ fn test_get_set_alpha() {
 
         // Enable Liquid Alpha and setup
         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-        migration::migrate_create_root_network::<Test>();
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
         assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, 1000));
