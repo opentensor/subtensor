@@ -44,7 +44,7 @@ mod registration;
 mod root;
 mod serving;
 mod staking;
-mod swap;
+mod swap_coldkey;
 mod swap_hotkey;
 mod uids;
 mod utils;
@@ -726,7 +726,7 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> last_mechanism_step_block
     pub type LastMechansimStepBlock<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultLastMechanismStepBlock<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> subnet_owner
+    #[pallet::storage] // --- MAP ( netuid ) --> (cold) subnet_owner
     pub type SubnetOwner<T: Config> =
         StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> subnet_locked
@@ -801,10 +801,10 @@ pub mod pallet {
     #[pallet::storage] // --- ITEM ( tx_rate_limit )
     pub type TxDelegateTakeRateLimit<T> =
         StorageValue<_, u64, ValueQuery, DefaultTxDelegateTakeRateLimit<T>>;
-    #[pallet::storage] // --- MAP ( key ) --> last_block
+    #[pallet::storage] // --- MAP ( hotkey ) --> last_block
     pub type LastTxBlock<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
-    #[pallet::storage] // --- MAP ( key ) --> last_block
+    #[pallet::storage] // --- MAP ( hotkey ) --> last_block
     pub type LastTxBlockDelegateTake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
 
@@ -2065,17 +2065,17 @@ pub mod pallet {
         }
 
         /// The extrinsic for user to change its hotkey
-        ///#[pallet::call_index(70)]
-        ///#[pallet::weight((Weight::from_parts(1_940_000_000, 0)
-        ///.saturating_add(T::DbWeight::get().reads(272))
-        ///.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
-        ///pub fn swap_hotkey(
-        ///    origin: OriginFor<T>,
-        ///    hotkey: T::AccountId,
-        ///    new_hotkey: T::AccountId,
-        ///) -> DispatchResultWithPostInfo {
-        ///    Self::do_swap_hotkey(origin, &hotkey, &new_hotkey)
-        ///}
+        #[pallet::call_index(70)]
+        #[pallet::weight((Weight::from_parts(1_940_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(272))
+        .saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
+        pub fn swap_hotkey(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            new_hotkey: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey)
+        }
 
         /// The extrinsic for user to change the coldkey associated with their account.
         ///
