@@ -1440,39 +1440,7 @@ pub mod pallet {
 
         #[cfg(feature = "try-runtime")]
         fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
-            use frame_support::traits::fungible::Inspect;
-            use sp_runtime::Saturating;
-
-            // Assert [`TotalStake`] accounting is correct
-            let mut total_staked = 0;
-            for stake in Stake::<T>::iter() {
-                total_staked.saturating_accrue(stake.2);
-            }
-            ensure!(
-                total_staked == TotalStake::<T>::get(),
-                "TotalStake does not match total staked"
-            );
-
-            // Assert [`TotalSubnetLocked`] accounting is correct
-            let mut total_subnet_locked: u64 = 0;
-            for (_, locked) in SubnetLocked::<T>::iter() {
-                total_subnet_locked.saturating_accrue(locked);
-            }
-            ensure!(
-                total_subnet_locked == TotalSubnetLocked::<T>::get(),
-                "TotalSubnetLocked does not match total subnet locked"
-            );
-
-            // Assert [`TotalIssuance`] accounting is correct
-            let currency_issuance = T::Currency::total_issuance();
-            ensure!(
-                TotalIssuance::<T>::get()
-                    == currency_issuance
-                        .saturating_add(total_staked)
-                        .saturating_add(total_subnet_locked),
-                "TotalIssuance accounting discrepancy"
-            );
-
+            Self::check_accounting_invariants()?;
             Ok(())
         }
     }
@@ -2307,39 +2275,14 @@ pub mod pallet {
             Self::user_remove_network(origin, netuid)
         }
 
-        /// Set the [`TotalIssuance`] storage value to the total account balances issued + the
-        /// total amount staked + the total amount locked in subnets.
+        /// Sets values for liquid alpha
         #[pallet::call_index(64)]
-        #[pallet::weight((
-            Weight::default()
-                .saturating_add(T::DbWeight::get().reads(3))
-                .saturating_add(T::DbWeight::get().writes(1)),
-            DispatchClass::Normal,
-            Pays::Yes
-        ))]
-        pub fn rejig_total_issuance(origin: OriginFor<T>) -> DispatchResult {
-            let who = ensure_signed_or_root(origin)?;
-
-            let total_account_balances =
-                <T::Currency as fungible::Inspect<T::AccountId>>::total_issuance();
-            let total_stake = TotalStake::<T>::get();
-            let total_subnet_locked = TotalSubnetLocked::<T>::get();
-
-            let prev_total_issuance = TotalIssuance::<T>::get();
-            let new_total_issuance = total_account_balances
-                .saturating_add(total_stake)
-                .saturating_add(total_subnet_locked);
-            TotalIssuance::<T>::put(new_total_issuance);
-
-            Self::deposit_event(Event::TotalIssuanceRejigged {
-                who,
-                prev_total_issuance,
-                new_total_issuance,
-                total_stake,
-                total_account_balances,
-                total_subnet_locked,
-            });
-
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_hotfix_swap_coldkey_delegates(
+            _origin: OriginFor<T>,
+            _old_coldkey: T::AccountId,
+            _new_coldkey: T::AccountId,
+        ) -> DispatchResult {
             Ok(())
         }
     }
@@ -2386,6 +2329,46 @@ pub mod pallet {
                 return false;
             }
             true
+        }
+
+        #[cfg(feature = "try-runtime")]
+        /// Assets [`TotalStake`], [`TotalSubnetLocked`], and [`TotalIssuance`] accounting invariants
+        /// are correct.
+        pub fn check_accounting_invariants() -> Result<(), sp_runtime::TryRuntimeError> {
+            use frame_support::traits::fungible::Inspect;
+            use sp_runtime::Saturating;
+
+            // Assert [`TotalStake`] accounting is correct
+            let mut total_staked = 0;
+            for stake in Stake::<T>::iter() {
+                total_staked.saturating_accrue(stake.2);
+            }
+            ensure!(
+                total_staked == TotalStake::<T>::get(),
+                "TotalStake does not match total staked"
+            );
+
+            // Assert [`TotalSubnetLocked`] accounting is correct
+            let mut total_subnet_locked = 0;
+            for (_, locked) in SubnetLocked::<T>::iter() {
+                total_subnet_locked.saturating_accrue(locked);
+            }
+            ensure!(
+                total_subnet_locked == TotalSubnetLocked::<T>::get(),
+                "TotalSubnetLocked does not match total subnet locked"
+            );
+
+            // Assert [`TotalIssuance`] accounting is correct
+            let currency_issuance = T::Currency::total_issuance();
+            ensure!(
+                TotalIssuance::<T>::get()
+                    == currency_issuance
+                        .saturating_add(total_staked)
+                        .saturating_add(total_subnet_locked),
+                "TotalIssuance accounting discrepancy"
+            );
+
+            Ok(())
         }
     }
 }

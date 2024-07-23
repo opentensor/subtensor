@@ -1,7 +1,6 @@
 #![allow(clippy::indexing_slicing, clippy::unwrap_used)]
 
 use crate::mock::*;
-use frame_support::traits::fungible::Mutate;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use frame_system::{EventRecord, Phase};
@@ -973,57 +972,6 @@ fn test_dissolve_network_does_not_exist_err() {
             SubtensorModule::dissolve_network(RuntimeOrigin::signed(coldkey), netuid),
             Error::<Test>::SubNetworkDoesNotExist
         );
-    });
-}
-
-#[test]
-fn test_rejig_total_issuance_ok() {
-    new_test_ext(1).execute_with(|| {
-        // Setup
-        let who = U256::from(1);
-        Balances::set_balance(&who, 100);
-        let balances_total_issuance = Balances::total_issuance();
-        assert!(balances_total_issuance > 0);
-        let total_stake = 100;
-        let total_subnet_locked = 1000;
-        pallet_subtensor::TotalSubnetLocked::<Test>::put(total_subnet_locked);
-        pallet_subtensor::TotalStake::<Test>::put(total_stake);
-
-        let expected_total_issuance = balances_total_issuance + total_stake + total_subnet_locked;
-
-        // Rejig total issuance
-        let total_issuance_before = pallet_subtensor::TotalIssuance::<Test>::get();
-        assert_ne!(total_issuance_before, expected_total_issuance);
-        assert_ok!(SubtensorModule::rejig_total_issuance(
-            RuntimeOrigin::signed(who)
-        ));
-        let total_issuance_after = pallet_subtensor::TotalIssuance::<Test>::get();
-
-        // Rejigged
-        assert_eq!(total_issuance_after, expected_total_issuance);
-        System::assert_last_event(RuntimeEvent::SubtensorModule(
-            pallet_subtensor::Event::TotalIssuanceRejigged {
-                who: Some(who),
-                new_total_issuance: total_issuance_after,
-                prev_total_issuance: total_issuance_before,
-                total_account_balances: balances_total_issuance,
-                total_stake,
-                total_subnet_locked,
-            },
-        ));
-
-        // Works with root
-        assert_ok!(SubtensorModule::rejig_total_issuance(RuntimeOrigin::root()));
-        System::assert_last_event(RuntimeEvent::SubtensorModule(
-            pallet_subtensor::Event::TotalIssuanceRejigged {
-                who: None,
-                new_total_issuance: total_issuance_after,
-                prev_total_issuance: total_issuance_after,
-                total_account_balances: balances_total_issuance,
-                total_stake,
-                total_subnet_locked,
-            },
-        ));
     });
 }
 

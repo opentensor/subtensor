@@ -276,3 +276,28 @@ fn test_migration_delete_subnet_21() {
         assert!(!SubtensorModule::if_subnet_exist(21));
     })
 }
+
+#[test]
+fn test_initialise_ti() {
+    use frame_support::traits::OnRuntimeUpgrade;
+
+    new_test_ext(1).execute_with(|| {
+        pallet_subtensor::SubnetLocked::<Test>::insert(1, 100);
+        pallet_subtensor::SubnetLocked::<Test>::insert(2, 5);
+        pallet_balances::TotalIssuance::<Test>::put(1000);
+        pallet_subtensor::TotalStake::<Test>::put(25);
+
+        // Ensure values are NOT initialized prior to running migration
+        assert!(pallet_subtensor::TotalIssuance::<Test>::get() == 0);
+        assert!(pallet_subtensor::TotalSubnetLocked::<Test>::get() == 0);
+
+        pallet_subtensor::migration::initialise_total_issuance::Migration::<Test>::on_runtime_upgrade();
+
+        // Ensure values were initialized correctly
+        assert!(pallet_subtensor::TotalSubnetLocked::<Test>::get() == 105);
+        assert!(
+            pallet_subtensor::TotalIssuance::<Test>::get()
+                == 105u64.saturating_add(1000).saturating_add(25)
+        );
+    });
+}

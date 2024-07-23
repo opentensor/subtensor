@@ -1035,18 +1035,6 @@ pub mod pallet {
             T::Subtensor::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
             T::Subtensor::do_set_alpha_values(origin, netuid, alpha_low, alpha_high)
         }
-
-        /// Sets the [`pallet_subtensor::TotalSubnetLocked`] value.
-        #[pallet::call_index(52)]
-        #[pallet::weight(T::WeightInfo::sudo_set_commit_reveal_weights_enabled())]
-        pub fn sudo_set_total_subnet_locked(origin: OriginFor<T>, amount: u64) -> DispatchResult {
-            ensure_root(origin)?;
-
-            pallet_subtensor::TotalSubnetLocked::<T>::put(amount);
-
-            log::info!("Set pallet_subtensor::TotalSubnetLocked to {}", amount);
-            Ok(())
-        }
     }
 }
 
