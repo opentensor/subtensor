@@ -1298,7 +1298,7 @@ pub type SignedExtra = (
     pallet_commitments::CommitmentsSignedExtension<Runtime>,
 );
 
-type Migrations = pallet_grandpa::migrations::MigrateV4ToV5<Runtime>;
+type Migrations = migrations::initialise_ti::Migration;
 
 // Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
