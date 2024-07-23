@@ -1265,153 +1265,74 @@ fn test_children_stake_values() {
 #[test]
 fn test_drain_hotkey_emission_no_division_by_zero_with_zero_stake() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
-        let tempo = 10;
-        let coldkey = U256::from(1);
-        let nominator = U256::from(2);
-        let validator1 = U256::from(3);
-        let validator2 = U256::from(4);
-        let childkey = U256::from(5);
-        let stake: u64 = 1_000_000_000;
-
-        // Remove limitations that are not needed for this test
-        SubtensorModule::set_max_registrations_per_block(netuid, 4);
-        SubtensorModule::set_max_allowed_uids(netuid, 2);
-        SubtensorModule::set_target_stakes_per_interval(10);
-        pallet_subtensor::WeightsSetRateLimit::<Test>::insert(netuid, 0);
-
-        // Add balances
-        SubtensorModule::add_balance_to_coldkey_account(
-            &coldkey,
-            2 * stake + ExistentialDeposit::get(),
-        );
-        SubtensorModule::add_balance_to_coldkey_account(
-            &nominator,
-            stake + ExistentialDeposit::get(),
-        );
-
-        // Register a subnet and neurons to the new network.
-        add_network(netuid, tempo, 0);
-        register_ok_neuron(netuid, validator1, coldkey, 124124);
-        register_ok_neuron(netuid, validator2, coldkey, 456456);
-        register_ok_neuron(netuid, childkey, coldkey, 987987);
-        assert!(SubtensorModule::coldkey_owns_hotkey(&coldkey, &validator1));
-        assert!(SubtensorModule::coldkey_owns_hotkey(&coldkey, &validator2));
-        assert!(SubtensorModule::coldkey_owns_hotkey(&coldkey, &childkey));
+        let emission = 1_000_000_000;
+        setup_childkey_test(3);
 
         // Bump current block by 1 so that weights don't get masked for neurons as deregistered
         // (last update block needs to be different from block of registration)
         step_block(1);
 
-        // Add validator stakes and permits
-        assert_ok!(SubtensorModule::add_stake(
-            RuntimeOrigin::signed(coldkey),
-            validator1,
-            stake
-        ));
-        assert_ok!(SubtensorModule::add_stake(
-            RuntimeOrigin::signed(coldkey),
-            validator2,
-            stake
-        ));
-        pallet_subtensor::MaxAllowedValidators::<Test>::insert(netuid, 3);
-        SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
-        SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
-        SubtensorModule::set_validator_permit_for_uid(netuid, 2, true);
-
-        // Validator2 becomes delegate
-        assert_ok!(SubtensorModule::do_become_delegate(
-            RuntimeOrigin::signed(coldkey),
-            validator2,
-            SubtensorModule::get_default_take()
-        ));
-        assert!(SubtensorModule::hotkey_is_delegate(&validator2));
-
-        // Staking:
-        //   Validators already have their stake
-        //   Nominator delegates stake to validator2
-        assert_ok!(SubtensorModule::add_stake(
-            RuntimeOrigin::signed(nominator),
-            validator2,
-            stake
-        ));
+        // Add stakes
+        become_delegate(VALIDATOR2);
+        add_stake(COLDKEY, VALIDATOR1, STAKE);
+        add_stake(COLDKEY, VALIDATOR2, STAKE);
+        add_stake(NOMINATOR1, VALIDATOR2, STAKE);
 
         // Validators set weights
-        assert_ok!(SubtensorModule::do_set_weights(
-            RuntimeOrigin::signed(validator1),
-            netuid,
-            vec![0, 1, 2],
-            vec![u16::MAX, u16::MAX, u16::MAX],
-            0
-        ));
-        assert_ok!(SubtensorModule::do_set_weights(
-            RuntimeOrigin::signed(validator2),
-            netuid,
-            vec![0, 1, 2],
-            vec![u16::MAX, u16::MAX, u16::MAX],
-            0
-        ));
-        assert_ok!(SubtensorModule::do_set_weights(
-            RuntimeOrigin::signed(childkey),
-            netuid,
-            vec![0, 1, 2],
-            vec![u16::MAX, u16::MAX, u16::MAX],
-            0
-        ));
+        set_weights(VALIDATOR1, vec![u16::MAX, u16::MAX, u16::MAX]);
+        set_weights(VALIDATOR2, vec![u16::MAX, u16::MAX, u16::MAX]);
+        set_weights(CHILDKEY, vec![u16::MAX, u16::MAX, u16::MAX]);
 
         // Set child relationships
-        assert_ok!(SubtensorModule::do_set_children(
-            RuntimeOrigin::signed(coldkey),
-            validator1,
-            netuid,
-            vec![(u64::MAX, childkey)]
-        ));
-        assert_ok!(SubtensorModule::do_set_children(
-            RuntimeOrigin::signed(coldkey),
-            validator2,
-            netuid,
-            vec![(u64::MAX, childkey)]
-        ));
+        set_children(VALIDATOR1, vec![(u64::MAX, CHILDKEY)]);
+        set_children(VALIDATOR2, vec![(u64::MAX, CHILDKEY)]);
 
         // Simulate subnet emission
-        PendingEmission::<Test>::insert(netuid, 1_000_000_000);
+        PendingEmission::<Test>::insert(NETUID1, emission);
 
-        // Check that we don't have PendingdHotkeyEmission yet
-        assert!(PendingdHotkeyEmission::<Test>::get(validator1) == 0);
-        assert!(PendingdHotkeyEmission::<Test>::get(validator2) == 0);
-        assert!(PendingdHotkeyEmission::<Test>::get(childkey) == 0);
+        // Take snapshot of stakes before running epoch and drain
+        let stake_c_v1_before = get_stake(COLDKEY, VALIDATOR1);
+        let stake_c_v2_before = get_stake(COLDKEY, VALIDATOR2);
+        let stake_c_ch_before = get_stake(COLDKEY, CHILDKEY);
+        let stake_n_v1_before = get_stake(NOMINATOR1, VALIDATOR1);
+        let stake_n_v2_before = get_stake(NOMINATOR1, VALIDATOR2);
+        let stake_n_ch_before = get_stake(NOMINATOR1, CHILDKEY);
+        let total_stake_before = pallet_subtensor::TotalStake::<Test>::get();
 
         // Run blocks until the end of epoch
-        loop {
-            step_block(1);
-            let block = SubtensorModule::get_current_block_as_u64();
-
-            if SubtensorModule::should_run_epoch(netuid, block) {
-                break;
-            }
-
-            // Shouldn't be more than 100 blocks
-            assert!(block < 100);
-        }
+        helper_wait_until_end_of_epoch(NETUID1, 100);
 
         // Run blocks until we hit drain_hotkey_emission in run_coinbase
-        HotkeyEmissionTempo::<Test>::set(tempo as u64);
-        loop {
-            step_block(1);
-            let block = SubtensorModule::get_current_block_as_u64();
+        HotkeyEmissionTempo::<Test>::set(HOTKEY_TEMPO);
+        helper_wait_hotkey_drained(VALIDATOR1, HOTKEY_TEMPO, 2 * HOTKEY_TEMPO);
+        helper_wait_hotkey_drained(VALIDATOR2, HOTKEY_TEMPO, 2 * HOTKEY_TEMPO);
+        helper_wait_hotkey_drained(CHILDKEY, HOTKEY_TEMPO, 2 * HOTKEY_TEMPO);
 
-            println!(
-                "block = {}, should drain = {}",
-                block,
-                SubtensorModule::should_drain_hotkey(&validator2, block, 10u64)
-            );
+        // Verify emission distribution
+        let stake_c_v1_after = get_stake(COLDKEY, VALIDATOR1);
+        let stake_c_v2_after = get_stake(COLDKEY, VALIDATOR2);
+        let stake_c_ch_after = get_stake(COLDKEY, CHILDKEY);
+        let stake_n_v1_after = get_stake(NOMINATOR1, VALIDATOR1);
+        let stake_n_v2_after = get_stake(NOMINATOR1, VALIDATOR2);
+        let stake_n_ch_after = get_stake(NOMINATOR1, CHILDKEY);
+        let total_stake_after = pallet_subtensor::TotalStake::<Test>::get();
 
-            if SubtensorModule::should_drain_hotkey(&validator2, block, tempo as u64) {
-                break;
-            }
+        let nominator_reward = stake_n_v1_after - stake_n_v1_before + stake_n_v2_after
+            - stake_n_v2_before
+            + stake_n_ch_after
+            - stake_n_ch_before;
+        let coldkey_reward = stake_c_v1_after - stake_c_v1_before + stake_c_v2_after
+            - stake_c_v2_before
+            + stake_c_ch_after
+            - stake_c_ch_before;
 
-            // Shouldn't be more than 100 blocks
-            assert!(block < 100);
-        }
+        // Total stake increased by emission amount
+        assert_eq!(total_stake_before + emission, total_stake_after);
+
+        // Childkey didn't have any stake, it's not a delegate => it didn't receive anything
+        assert_eq!(stake_c_ch_before, stake_c_ch_after);
+
+        // Parents and nominators received full emission all together
+        assert_eq!(nominator_reward + coldkey_reward, emission);
     });
 }

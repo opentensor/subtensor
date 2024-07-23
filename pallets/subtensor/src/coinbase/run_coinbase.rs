@@ -267,16 +267,8 @@ impl<T: Config> Pallet<T> {
         // --- 3 Update the block value to the current block number.
         LastHotkeyEmissionDrain::<T>::insert(hotkey, block_number);
 
-        // --- 4 Retrieve the total stake for the hotkey from all nominations with parents and children from all subnets
-        let total_hotkey_stake: u64 = Self::get_all_subnet_netuids()
-            .iter()
-            .map(|&netuid| Self::get_stake_for_hotkey_on_subnet(hotkey, netuid))
-            .sum();
-
-        if total_hotkey_stake == 0 {
-            // If there's no stake, we can't distribute any emission
-            return 0;
-        }
+        // --- 4 Retrieve the total stake for the hotkey from all nominations
+        let total_hotkey_stake = Self::get_total_stake_for_hotkey(hotkey);
 
         // --- 5 Calculate the emission take for the hotkey.
         let take_proportion: I64F64 = I64F64::from_num(Delegates::<T>::get(hotkey))
@@ -291,34 +283,37 @@ impl<T: Config> Pallet<T> {
         let mut remainder: u64 = emission_minus_take;
 
         // --- 8 Iterate over each nominator.
-        for (nominator, nominator_stake) in
-            <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(
-                hotkey,
-            )
-        {
-            // --- 9 Check if the stake was manually increased by the user since the last emission drain for this hotkey.
-            // If it was, skip this nominator as they will not receive their proportion of the emission.
-            if LastAddStakeIncrease::<T>::get(hotkey, nominator.clone())
-                > last_hotkey_emission_drain
+        if total_hotkey_stake != 0 {
+            for (nominator, nominator_stake) in <Stake<T> as IterableStorageDoubleMap<
+                T::AccountId,
+                T::AccountId,
+                u64,
+            >>::iter_prefix(hotkey)
             {
-                continue;
+                // --- 9 Check if the stake was manually increased by the user since the last emission drain for this hotkey.
+                // If it was, skip this nominator as they will not receive their proportion of the emission.
+                if LastAddStakeIncrease::<T>::get(hotkey, nominator.clone())
+                    > last_hotkey_emission_drain
+                {
+                    continue;
+                }
+
+                // --- 10 Calculate this nominator's share of the emission.
+                let nominator_emission: I64F64 = I64F64::from_num(emission_minus_take)
+                    .saturating_mul(I64F64::from_num(nominator_stake))
+                    .saturating_div(I64F64::from_num(total_hotkey_stake));
+
+                // --- 11 Increase the stake for the nominator.
+                Self::increase_stake_on_coldkey_hotkey_account(
+                    &nominator,
+                    hotkey,
+                    nominator_emission.to_num::<u64>(),
+                );
+
+                // --- 11* Record event and Subtract the nominator's emission from the remainder.
+                total_new_tao = total_new_tao.saturating_add(nominator_emission.to_num::<u64>());
+                remainder = remainder.saturating_sub(nominator_emission.to_num::<u64>());
             }
-
-            // --- 10 Calculate this nominator's share of the emission.
-            let nominator_emission: I64F64 = I64F64::from_num(emission_minus_take)
-                .saturating_mul(I64F64::from_num(nominator_stake))
-                .saturating_div(I64F64::from_num(total_hotkey_stake));
-
-            // --- 11 Increase the stake for the nominator.
-            Self::increase_stake_on_coldkey_hotkey_account(
-                &nominator,
-                hotkey,
-                nominator_emission.to_num::<u64>(),
-            );
-
-            // --- 11* Record event and Subtract the nominator's emission from the remainder.
-            total_new_tao = total_new_tao.saturating_add(nominator_emission.to_num::<u64>());
-            remainder = remainder.saturating_sub(nominator_emission.to_num::<u64>());
         }
 
         // --- 13 Finally, add the stake to the hotkey itself, including its take and the remaining emission.

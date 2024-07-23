@@ -95,6 +95,9 @@ impl<T: Config> Pallet<T> {
         let block: u64 = Self::get_current_block_as_u64();
         Self::set_last_tx_block(&coldkey, block);
 
+        // Set LastAddStakeIncrease to prevent staking too soon before hotkey tempos
+        LastAddStakeIncrease::<T>::insert(&hotkey, &coldkey, block);
+
         // Emit the staking event.
         Self::set_stakes_this_interval_for_coldkey_hotkey(
             &coldkey,

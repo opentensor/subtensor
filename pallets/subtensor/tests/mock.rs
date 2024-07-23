@@ -497,3 +497,178 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
 }
+
+pub const NETUID1: u16 = 1;
+pub const TEMPO: u64 = 10;
+#[allow(dead_code)]
+pub const HOTKEY_TEMPO: u64 = 1000;
+pub const COLDKEY: u16 = 1;
+pub const NOMINATOR1: u16 = 2;
+#[allow(dead_code)]
+pub const NOMINATOR2: u16 = 3;
+pub const VALIDATOR1: u16 = 4;
+pub const VALIDATOR2: u16 = 5;
+pub const CHILDKEY: u16 = 6;
+pub const STAKE: u64 = 1_000_000_000;
+
+#[allow(dead_code)]
+pub fn setup_childkey_test(validators: u16) {
+    let netuid: u16 = NETUID1;
+    let tempo = TEMPO;
+    let coldkey = U256::from(COLDKEY);
+    let nominator = U256::from(NOMINATOR1);
+    let validator1 = U256::from(VALIDATOR1);
+    let validator2 = U256::from(VALIDATOR2);
+    let childkey = U256::from(CHILDKEY);
+    let stake: u64 = STAKE;
+
+    // Remove limitations that are not needed for this test
+    SubtensorModule::set_max_registrations_per_block(netuid, 4);
+    SubtensorModule::set_max_allowed_uids(netuid, 2);
+    SubtensorModule::set_target_stakes_per_interval(10);
+    pallet_subtensor::WeightsSetRateLimit::<Test>::insert(netuid, 0);
+
+    // Add balances
+    SubtensorModule::add_balance_to_coldkey_account(
+        &coldkey,
+        100 * stake + ExistentialDeposit::get(),
+    );
+    SubtensorModule::add_balance_to_coldkey_account(
+        &nominator,
+        100 * stake + ExistentialDeposit::get(),
+    );
+
+    // Register a subnet and neurons to the new network.
+    add_network(netuid, tempo as u16, 0);
+    register_ok_neuron(netuid, validator1, coldkey, 124124);
+    register_ok_neuron(netuid, validator2, coldkey, 456456);
+    register_ok_neuron(netuid, childkey, coldkey, 987987);
+    assert!(SubtensorModule::coldkey_owns_hotkey(&coldkey, &validator1));
+    assert!(SubtensorModule::coldkey_owns_hotkey(&coldkey, &validator2));
+    assert!(SubtensorModule::coldkey_owns_hotkey(&coldkey, &childkey));
+
+    // Add validator permits
+    pallet_subtensor::MaxAllowedValidators::<Test>::insert(NETUID1, validators);
+    for uid in 0..validators {
+        SubtensorModule::set_validator_permit_for_uid(netuid, uid, true);
+    }
+}
+
+#[allow(dead_code)]
+pub fn add_stake(coldkey: u16, hotkey: u16, stake: u64) {
+    assert_ok!(SubtensorModule::add_stake(
+        RuntimeOrigin::signed(U256::from(coldkey)),
+        U256::from(hotkey),
+        stake
+    ));
+}
+
+#[allow(dead_code)]
+pub fn become_delegate(hotkey: u16) {
+    let hotkey = U256::from(hotkey);
+    assert_ok!(SubtensorModule::do_become_delegate(
+        RuntimeOrigin::signed(U256::from(COLDKEY)),
+        hotkey,
+        SubtensorModule::get_default_take()
+    ));
+    assert!(SubtensorModule::hotkey_is_delegate(&hotkey));
+}
+
+#[allow(dead_code)]
+pub fn set_weights(hotkey: u16, weights: Vec<u16>) {
+    let hotkey = U256::from(hotkey);
+    let neuron_count = weights.len();
+    let uid_vec: Vec<u16> = (0..neuron_count)
+        .into_iter()
+        .map(|uid| uid as u16)
+        .collect();
+    assert_ok!(SubtensorModule::do_set_weights(
+        RuntimeOrigin::signed(hotkey),
+        NETUID1,
+        uid_vec,
+        weights,
+        0
+    ));
+}
+
+#[allow(dead_code)]
+pub fn set_children(hotkey: u16, child_vec: Vec<(u64, u16)>) {
+    let hotkey = U256::from(hotkey);
+    let child_vec_u256 = child_vec
+        .iter()
+        .map(|(weight, child_id)| (*weight, U256::from(*child_id)))
+        .collect();
+    assert_ok!(SubtensorModule::do_set_children(
+        RuntimeOrigin::signed(U256::from(COLDKEY)),
+        hotkey,
+        NETUID1,
+        child_vec_u256
+    ));
+}
+
+#[allow(dead_code)]
+pub fn get_stake(coldkey: u16, hotkey: u16) -> u64 {
+    let coldkey = U256::from(coldkey);
+    let hotkey = U256::from(hotkey);
+    SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey)
+}
+
+#[allow(dead_code)]
+pub fn get_balance(coldkey: u16) -> u64 {
+    let coldkey = U256::from(coldkey);
+    pallet_balances::Account::<Test>::get(coldkey).free
+}
+
+#[allow(dead_code)]
+pub fn helper_wait_until_end_of_epoch(netuid: u16, timeout: u64) {
+    let mut block_count = 0;
+    loop {
+        step_block(1);
+
+        let block = SubtensorModule::get_current_block_as_u64();
+        if SubtensorModule::should_run_epoch(netuid, block) {
+            break;
+        }
+
+        // Shouldn't be more than X blocks
+        block_count += 1;
+        assert!(block_count < timeout);
+    }
+}
+
+#[allow(dead_code)]
+pub fn helper_wait_x_blocks_before_hotkey_drained(
+    hotkey: u16,
+    tempo: u64,
+    blocks_prior_to_drain: u64,
+    timeout: u64,
+) {
+    let hotkey = U256::from(hotkey);
+
+    // Otherwise wait until end of hotkey draining tempo
+    let mut block_count = 0;
+    loop {
+        step_block(1);
+
+        let block = SubtensorModule::get_current_block_as_u64() + blocks_prior_to_drain;
+        if SubtensorModule::should_drain_hotkey(&hotkey, block, tempo as u64) {
+            break;
+        }
+
+        // Shouldn't be more than X blocks
+        block_count += 1;
+        assert!(block_count < timeout);
+    }
+}
+
+#[allow(dead_code)]
+pub fn helper_wait_hotkey_drained(hotkey: u16, tempo: u64, timeout: u64) {
+    let hotkey_u256 = U256::from(hotkey);
+
+    // If hotkey emission is already drained, don't wait
+    if pallet_subtensor::PendingdHotkeyEmission::<Test>::get(hotkey_u256) == 0 {
+        return;
+    }
+
+    helper_wait_x_blocks_before_hotkey_drained(hotkey, tempo, 0, timeout);
+}

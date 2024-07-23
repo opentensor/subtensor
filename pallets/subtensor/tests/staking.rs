@@ -9,6 +9,7 @@ use frame_support::sp_runtime::DispatchError;
 use mock::*;
 use pallet_subtensor::*;
 use sp_core::{H256, U256};
+use substrate_fixed::types::I64F64;
 
 /***********************************************************
     staking::add_stake() tests
@@ -2306,5 +2307,129 @@ fn test_get_total_delegated_stake_exclude_owner_stake() {
             "Delegated stake should exclude owner's stake. Expected: {}, Actual: {}",
             expected_delegated_stake, actual_delegated_stake
         );
+    });
+}
+
+#[test]
+fn test_staking_at_block_7198_does_not_affect_others_rewards() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = NETUID1;
+        let tempo = TEMPO;
+        let coldkey = U256::from(COLDKEY);
+        let nominator1 = U256::from(NOMINATOR1);
+        let nominator2 = U256::from(NOMINATOR2);
+        let validator1 = U256::from(VALIDATOR1);
+        let stake: u64 = STAKE;
+        let emission = 1_000_000_000;
+        let malicious_nominator = true;
+
+        // Remove limitations that are not needed for this test
+        SubtensorModule::set_max_registrations_per_block(netuid, 4);
+        SubtensorModule::set_max_allowed_uids(netuid, 2);
+        SubtensorModule::set_target_stakes_per_interval(10);
+        pallet_subtensor::WeightsSetRateLimit::<Test>::insert(netuid, 0);
+
+        // Add balances
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey,
+            100 * stake + ExistentialDeposit::get(),
+        );
+        SubtensorModule::add_balance_to_coldkey_account(
+            &nominator1,
+            100 * stake + ExistentialDeposit::get(),
+        );
+        SubtensorModule::add_balance_to_coldkey_account(
+            &nominator2,
+            100 * stake + ExistentialDeposit::get(),
+        );
+
+        // Register a subnet and neurons to the new network.
+        add_network(netuid, tempo as u16, 0);
+        register_ok_neuron(netuid, validator1, coldkey, 124124);
+        assert!(SubtensorModule::coldkey_owns_hotkey(&coldkey, &validator1));
+
+        // Add validator permits
+        pallet_subtensor::MaxAllowedValidators::<Test>::insert(netuid, 1);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
+
+        // Bump current block by 1 so that weights don't get masked for neurons as deregistered
+        // (last update block needs to be different from block of registration)
+        step_block(1);
+
+        // Add stakes
+        become_delegate(VALIDATOR1);
+        add_stake(NOMINATOR1, VALIDATOR1, STAKE);
+
+        // Validator sets weights
+        set_weights(VALIDATOR1, vec![u16::MAX]);
+
+        // Run blocks until we are at block of calling drain_hotkey_emission in run_coinbase for Validator 1
+        HotkeyEmissionTempo::<Test>::set(HOTKEY_TEMPO);
+        helper_wait_x_blocks_before_hotkey_drained(VALIDATOR1, HOTKEY_TEMPO, 0, 2 * HOTKEY_TEMPO);
+
+        // Simulate subnet emission
+        PendingEmission::<Test>::insert(NETUID1, emission);
+
+        // Take snapshot of stakes before running epoch and drain
+        let stake_c_v1_before = get_stake(COLDKEY, VALIDATOR1);
+        let stake_n1_v1_before = get_stake(NOMINATOR1, VALIDATOR1);
+        let total_stake_before = pallet_subtensor::TotalStake::<Test>::get();
+
+        // Run blocks until the end of epoch
+        helper_wait_until_end_of_epoch(NETUID1, 100);
+        LastHotkeyEmissionDrain::<Test>::insert(
+            validator1,
+            SubtensorModule::get_current_block_as_u64(),
+        );
+
+        // Run blocks until we are 2 blocks before calling drain_hotkey_emission in run_coinbase for Validator 1
+        helper_wait_x_blocks_before_hotkey_drained(VALIDATOR1, HOTKEY_TEMPO, 2, 2 * HOTKEY_TEMPO);
+
+        // Ensure there's pending hotkey emission for Validator 1
+        assert!(pallet_subtensor::PendingdHotkeyEmission::<Test>::get(validator1) > 0);
+
+        if malicious_nominator {
+            // Stake from the malicious nominator2 (who is secretly controlled by Coldkey - owner of Validator 1)
+            add_stake(NOMINATOR2, VALIDATOR1, STAKE);
+
+            // Check that LastAddStakeIncrease was set
+            assert_eq!(
+                pallet_subtensor::LastAddStakeIncrease::<Test>::get(validator1, nominator2),
+                SubtensorModule::get_current_block_as_u64()
+            );
+        }
+
+        // Take staking snapshot for nominator 2
+        let stake_n2_v1_before = get_stake(NOMINATOR2, VALIDATOR1);
+
+        // Run two more blocks
+        helper_wait_hotkey_drained(VALIDATOR1, HOTKEY_TEMPO, 2 * HOTKEY_TEMPO);
+
+        // Verify emission distribution
+        let stake_c_v1_after = get_stake(COLDKEY, VALIDATOR1);
+        let stake_n1_v1_after = get_stake(NOMINATOR1, VALIDATOR1);
+        let stake_n2_v1_after = get_stake(NOMINATOR2, VALIDATOR1);
+        let total_stake_after = pallet_subtensor::TotalStake::<Test>::get();
+
+        // Total stake increased by emission amount and Nominator 2 stake
+        let mut expected_total_stake = total_stake_before + emission;
+        if malicious_nominator {
+            expected_total_stake += STAKE;
+        }
+        assert_eq!(expected_total_stake, total_stake_after);
+
+        // Nominator 2 gets nothing because he was too late to stake (probably playing the system)
+        assert_eq!(stake_n2_v1_before, stake_n2_v1_after);
+
+        // Validator 1 gets its 18% take
+        let val1_reward: I64F64 = I64F64::from_num(emission)
+            * I64F64::from_num(SubtensorModule::get_default_take())
+            / I64F64::from_num(u16::MAX);
+        let expected_val1_stake: I64F64 = I64F64::from_num(stake_c_v1_before) + val1_reward;
+        assert_eq!(expected_val1_stake.to_num::<u64>(), stake_c_v1_after);
+
+        // Nominator 1 gets stake reward
+        let expected_nom1_stake = stake_n1_v1_before + emission - val1_reward.to_num::<u64>();
+        assert_eq!(expected_nom1_stake, stake_n1_v1_after);
     });
 }
