@@ -1,11 +1,11 @@
 use super::*;
+use alloc::string::String;
 use frame_support::{
     pallet_prelude::{Identity, OptionQuery},
     storage_alias,
     traits::{Get, StorageVersion},
     weights::Weight,
 };
-use alloc::string::String;
 use sp_std::vec::Vec;
 
 // TODO (camfairchild): TEST MIGRATION

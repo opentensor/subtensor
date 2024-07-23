@@ -1,6 +1,6 @@
 use super::*;
 use frame_support::weights::Weight;
-use sp_core::{Get};
+use sp_core::Get;
 
 impl<T: Config> Pallet<T> {
     /// Swaps the coldkey associated with a set of hotkeys from an old coldkey to a new coldkey.

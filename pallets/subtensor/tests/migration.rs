@@ -1,5 +1,4 @@
-#![allow(clippy::unwrap_used)]
-
+#![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
 mod mock;
 use frame_support::{assert_ok, weights::Weight};
 use frame_system::Config;
@@ -283,7 +282,7 @@ fn test_migration_delete_subnet_21() {
 #[test]
 fn test_migrate_fix_total_coldkey_stake() {
     new_test_ext(1).execute_with(|| {
-        let migration_name = "fix_total_coldkey_stake_v7";
+        let _migration_name = "fix_total_coldkey_stake_v7";
         let coldkey = U256::from(0);
         TotalColdkeyStake::<Test>::insert(coldkey, 0);
         StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
@@ -299,7 +298,7 @@ fn test_migrate_fix_total_coldkey_stake() {
 #[test]
 fn test_migrate_fix_total_coldkey_stake_value_already_in_total() {
     new_test_ext(1).execute_with(|| {
-        let migration_name = "fix_total_coldkey_stake_v7";
+        let _migration_name = "fix_total_coldkey_stake_v7";
         let coldkey = U256::from(0);
         TotalColdkeyStake::<Test>::insert(coldkey, 100000000);
         StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
@@ -315,7 +314,7 @@ fn test_migrate_fix_total_coldkey_stake_value_already_in_total() {
 #[test]
 fn test_migrate_fix_total_coldkey_stake_no_entry() {
     new_test_ext(1).execute_with(|| {
-        let migration_name = "fix_total_coldkey_stake_v7";
+        let _migration_name = "fix_total_coldkey_stake_v7";
         let coldkey = U256::from(0);
         StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
         Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
@@ -330,7 +329,7 @@ fn test_migrate_fix_total_coldkey_stake_no_entry() {
 #[test]
 fn test_migrate_fix_total_coldkey_stake_no_entry_in_hotkeys() {
     new_test_ext(1).execute_with(|| {
-        let migration_name = "fix_total_coldkey_stake_v7";
+        let _migration_name = "fix_total_coldkey_stake_v7";
         let coldkey = U256::from(0);
         TotalColdkeyStake::<Test>::insert(coldkey, 100000000);
         StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
@@ -343,7 +342,7 @@ fn test_migrate_fix_total_coldkey_stake_no_entry_in_hotkeys() {
 #[test]
 fn test_migrate_fix_total_coldkey_stake_one_hotkey_stake_missing() {
     new_test_ext(1).execute_with(|| {
-        let migration_name = "fix_total_coldkey_stake_v7";
+        let _migration_name = "fix_total_coldkey_stake_v7";
         let coldkey = U256::from(0);
         TotalColdkeyStake::<Test>::insert(coldkey, 100000000);
         StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
