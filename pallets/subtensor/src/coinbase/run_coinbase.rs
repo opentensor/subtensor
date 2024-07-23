@@ -299,7 +299,8 @@ impl<T: Config> Pallet<T> {
             // --- 10 Calculate this nominator's share of the emission.
             let nominator_emission: I64F64 = I64F64::from_num(emission_minus_take)
                 .saturating_mul(I64F64::from_num(nominator_stake))
-                .saturating_div(I64F64::from_num(total_hotkey_stake));
+                .check_div(I64F64::from_num(total_hotkey_stake))
+                .unwrap_or(I64F64::from_num(0));
 
             // --- 11 Increase the stake for the nominator.
             Self::increase_stake_on_coldkey_hotkey_account(
