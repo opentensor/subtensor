@@ -132,21 +132,6 @@ mod events {
         MinDelegateTakeSet(u16),
         /// the target stakes per interval is set by sudo/admin transaction
         TargetStakesPerIntervalSet(u64),
-        /// Total issuance was rejigged
-        TotalIssuanceRejigged {
-            /// If Some a signed account, or root
-            who: Option<T::AccountId>,
-            /// The previous pallet total issuance
-            prev_total_issuance: u64,
-            /// The new pallet total issuance
-            new_total_issuance: u64,
-            /// The total amount of tokens staked
-            total_stake: u64,
-            /// The total amount of tokens in accounts
-            total_account_balances: u64,
-            /// The total amount of tokens locked in subnets
-            total_subnet_locked: u64,
-        },
         /// a member of the senate is adjusted
         SenateAdjusted {
             /// the account ID of the old senate member, if any

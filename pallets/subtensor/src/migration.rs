@@ -690,3 +690,53 @@ pub fn migrate_populate_staking_hotkeys<T: Config>() -> Weight {
         Weight::zero()
     }
 }
+
+pub mod initialise_total_issuance {
+    use frame_support::pallet_prelude::Weight;
+    use frame_support::traits::{fungible, OnRuntimeUpgrade};
+    use sp_core::Get;
+
+    use crate::*;
+
+    pub struct Migration<T: Config>(PhantomData<T>);
+
+    impl<T: Config> OnRuntimeUpgrade for Migration<T> {
+        fn on_runtime_upgrade() -> Weight {
+            // First, we need to initialize the TotalSubnetLocked
+            let subnets_len = crate::SubnetLocked::<T>::iter().count() as u64;
+            let total_subnet_locked: u64 =
+                crate::SubnetLocked::<T>::iter().fold(0, |acc, (_, v)| acc.saturating_add(v));
+            crate::TotalSubnetLocked::<T>::put(total_subnet_locked);
+
+            // Now, we can rejig the total issuance
+            let total_account_balances = <<T as crate::Config>::Currency as fungible::Inspect<
+                <T as frame_system::Config>::AccountId,
+            >>::total_issuance();
+            let total_stake = crate::TotalStake::<T>::get();
+            let total_subnet_locked = crate::TotalSubnetLocked::<T>::get();
+
+            let prev_total_issuance = crate::TotalIssuance::<T>::get();
+            let new_total_issuance = total_account_balances
+                .saturating_add(total_stake)
+                .saturating_add(total_subnet_locked);
+            crate::TotalIssuance::<T>::put(new_total_issuance);
+
+            log::info!(
+                "Subtensor Pallet TI Rejigged: previously: {:?}, new: {:?}",
+                prev_total_issuance,
+                new_total_issuance
+            );
+
+            <T as frame_system::Config>::DbWeight::get()
+                .reads_writes(subnets_len.saturating_add(5), 1)
+        }
+
+        #[cfg(feature = "try-runtime")]
+        fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+            // These are usually checked anyway by try-runtime-cli, but just in case check them again
+            // explicitly here.
+            crate::Pallet::<T>::check_accounting_invariants()?;
+            Ok(())
+        }
+    }
+}
