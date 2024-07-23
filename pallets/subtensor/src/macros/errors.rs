@@ -166,5 +166,7 @@ mod errors {
         ProportionOverflow,
         /// Too many children MAX 5.
         TooManyChildren,
+        /// Default transaction rate limit exceeded.
+        TxRateLimitExceeded,
     }
 }

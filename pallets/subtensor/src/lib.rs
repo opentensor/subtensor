@@ -44,6 +44,7 @@ pub mod staking;
 pub mod subnets;
 pub mod swap;
 pub mod utils;
+use crate::utils::TransactionType;
 use macros::{config, dispatches, errors, events, genesis, hooks};
 
 // apparently this is stabilized since rust 1.36
@@ -1051,6 +1052,17 @@ pub mod pallet {
     /// =================================
     /// ==== Axon / Promo Endpoints =====
     /// =================================
+    #[pallet::storage] // --- NMAP ( hot, netuid, name ) --> last_block | Returns the last block of a transaction for a given key, netuid, and name.
+    pub type TransactionKeyLastBlock<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Identity, u16>,                  // netuid
+            NMapKey<Identity, u16>,                  // extrinsic enum.
+        ),
+        u64,
+        ValueQuery,
+    >;
     #[pallet::storage]
     /// --- MAP ( key ) --> last_block
     pub type LastTxBlock<T: Config> =

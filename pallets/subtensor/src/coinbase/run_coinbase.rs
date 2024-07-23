@@ -1,5 +1,4 @@
 use super::*;
-use frame_support::storage::IterableStorageDoubleMap;
 use substrate_fixed::types::I64F64;
 use substrate_fixed::types::I96F32;
 
@@ -262,7 +261,7 @@ impl<T: Config> Pallet<T> {
         PendingdHotkeyEmission::<T>::insert(hotkey, 0);
 
         // --- 2 Retrieve the last time this hotkey's emissions were drained.
-        let last_hotkey_emission_drain: u64 = LastHotkeyEmissionDrain::<T>::get(hotkey);
+        let last_emission_drain: u64 = LastHotkeyEmissionDrain::<T>::get(hotkey);
 
         // --- 3 Update the block value to the current block number.
         LastHotkeyEmissionDrain::<T>::insert(hotkey, block_number);
@@ -282,43 +281,48 @@ impl<T: Config> Pallet<T> {
         // --- 7 Calculate the remaining emission after the hotkey's take.
         let mut remainder: u64 = emission_minus_take;
 
-        // --- 8 Iterate over each nominator.
-        for (nominator, nominator_stake) in
-            <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(
-                hotkey,
-            )
-        {
-            // --- 9 Check if the stake was manually increased by the user since the last emission drain for this hotkey.
-            // If it was, skip this nominator as they will not receive their proportion of the emission.
-            if LastAddStakeIncrease::<T>::get(hotkey, nominator.clone())
-                > last_hotkey_emission_drain
-            {
-                continue;
+        // --- 8 Iterate over each nominator and get all viable stake.
+        let mut total_viable_nominator_stake: u64 = total_hotkey_stake;
+        for (nominator, nominator_stake) in Stake::<T>::iter_prefix(hotkey) {
+            if LastAddStakeIncrease::<T>::get(hotkey, nominator) > last_emission_drain {
+                total_viable_nominator_stake =
+                    total_viable_nominator_stake.saturating_sub(nominator_stake);
             }
-
-            // --- 10 Calculate this nominator's share of the emission.
-            let nominator_emission: I64F64 = I64F64::from_num(emission_minus_take)
-                .saturating_mul(I64F64::from_num(nominator_stake))
-                .checked_div(I64F64::from_num(total_hotkey_stake))
-                .unwrap_or(I64F64::from_num(0));
-
-            // --- 11 Increase the stake for the nominator.
-            Self::increase_stake_on_coldkey_hotkey_account(
-                &nominator,
-                hotkey,
-                nominator_emission.to_num::<u64>(),
-            );
-
-            // --- 11* Record event and Subtract the nominator's emission from the remainder.
-            total_new_tao = total_new_tao.saturating_add(nominator_emission.to_num::<u64>());
-            remainder = remainder.saturating_sub(nominator_emission.to_num::<u64>());
         }
 
-        // --- 13 Finally, add the stake to the hotkey itself, including its take and the remaining emission.
+        // --- 9 Iterate over each nominator.
+        if total_viable_nominator_stake != 0 {
+            for (nominator, nominator_stake) in Stake::<T>::iter_prefix(hotkey) {
+                // --- 10 Check if the stake was manually increased by the user since the last emission drain for this hotkey.
+                // If it was, skip this nominator as they will not receive their proportion of the emission.
+                if LastAddStakeIncrease::<T>::get(hotkey, nominator.clone()) > last_emission_drain {
+                    continue;
+                }
+
+                // --- 11 Calculate this nominator's share of the emission.
+                let nominator_emission: I64F64 = I64F64::from_num(emission_minus_take)
+                    .saturating_mul(I64F64::from_num(nominator_stake))
+                    .checked_div(I64F64::from_num(total_viable_nominator_stake))
+                    .unwrap_or(I64F64::from_num(0));
+
+                // --- 12 Increase the stake for the nominator.
+                Self::increase_stake_on_coldkey_hotkey_account(
+                    &nominator,
+                    hotkey,
+                    nominator_emission.to_num::<u64>(),
+                );
+
+                // --- 13* Record event and Subtract the nominator's emission from the remainder.
+                total_new_tao = total_new_tao.saturating_add(nominator_emission.to_num::<u64>());
+                remainder = remainder.saturating_sub(nominator_emission.to_num::<u64>());
+            }
+        }
+
+        // --- 14 Finally, add the stake to the hotkey itself, including its take and the remaining emission.
         let hotkey_new_tao: u64 = hotkey_take.saturating_add(remainder);
         Self::increase_stake_on_hotkey_account(hotkey, hotkey_new_tao);
 
-        // --- 14 Record new tao creation event and return the amount created.
+        // --- 15 Record new tao creation event and return the amount created.
         total_new_tao = total_new_tao.saturating_add(hotkey_new_tao);
         total_new_tao
     }
