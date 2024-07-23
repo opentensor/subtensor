@@ -96,8 +96,7 @@ fn test_swap_total_hotkey_coldkey_stakes_this_interval() {
         ));
 
         assert!(!TotalHotkeyColdkeyStakesThisInterval::<Test>::contains_key(
-            old_hotkey,
-            coldkey
+            old_hotkey, coldkey
         ));
         assert_eq!(
             TotalHotkeyColdkeyStakesThisInterval::<Test>::get(new_hotkey, coldkey),
@@ -957,9 +956,6 @@ fn test_swap_hotkey_error_cases() {
         ));
 
         // Check balance after swap
-        assert_eq!(
-            Balances::free_balance(coldkey),
-            initial_balance - swap_cost
-        );
+        assert_eq!(Balances::free_balance(coldkey), initial_balance - swap_cost);
     });
 }
