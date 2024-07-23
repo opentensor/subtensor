@@ -19,8 +19,8 @@ fn test_swap_total_hotkey_coldkey_stakes_this_interval() {
         let stake = 100;
         let block = 42;
 
-        OwnedHotkeys::<Test>::insert(&old_coldkey, vec![hotkey]);
-        TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(&hotkey, &old_coldkey, (stake, block));
+        OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
+        TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(hotkey, old_coldkey, (stake, block));
 
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
@@ -30,11 +30,11 @@ fn test_swap_total_hotkey_coldkey_stakes_this_interval() {
         ));
 
         assert!(!TotalHotkeyColdkeyStakesThisInterval::<Test>::contains_key(
-            &hotkey,
-            &old_coldkey
+            hotkey,
+            old_coldkey
         ));
         assert_eq!(
-            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(&hotkey, &new_coldkey),
+            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(hotkey, new_coldkey),
             (stake, block)
         );
     });
@@ -71,8 +71,8 @@ fn test_swap_stake() {
         let hotkey = U256::from(3);
         let stake = 100;
 
-        StakingHotkeys::<Test>::insert(&old_coldkey, vec![hotkey]);
-        Stake::<Test>::insert(&hotkey, &old_coldkey, stake);
+        StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
+        Stake::<Test>::insert(hotkey, old_coldkey, stake);
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &old_coldkey,
@@ -80,8 +80,8 @@ fn test_swap_stake() {
             &mut weight
         ));
 
-        assert!(!Stake::<Test>::contains_key(&hotkey, &old_coldkey));
-        assert_eq!(Stake::<Test>::get(&hotkey, &new_coldkey), stake);
+        assert!(!Stake::<Test>::contains_key(hotkey, old_coldkey));
+        assert_eq!(Stake::<Test>::get(hotkey, new_coldkey), stake);
     });
 }
 
@@ -93,7 +93,7 @@ fn test_swap_total_coldkey_stake() {
         let new_coldkey = U256::from(2);
         let stake = 100;
 
-        TotalColdkeyStake::<Test>::insert(&old_coldkey, stake);
+        TotalColdkeyStake::<Test>::insert(old_coldkey, stake);
 
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
@@ -102,8 +102,8 @@ fn test_swap_total_coldkey_stake() {
             &mut weight
         ));
 
-        assert_eq!(TotalColdkeyStake::<Test>::get(&old_coldkey), 0);
-        assert_eq!(TotalColdkeyStake::<Test>::get(&new_coldkey), stake);
+        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
+        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), stake);
     });
 }
 
@@ -115,7 +115,7 @@ fn test_swap_staking_hotkeys() {
         let new_coldkey = U256::from(2);
         let hotkey = U256::from(3);
 
-        StakingHotkeys::<Test>::insert(&old_coldkey, vec![hotkey]);
+        StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
 
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
@@ -124,8 +124,8 @@ fn test_swap_staking_hotkeys() {
             &mut weight
         ));
 
-        assert!(StakingHotkeys::<Test>::get(&old_coldkey).is_empty());
-        assert_eq!(StakingHotkeys::<Test>::get(&new_coldkey), vec![hotkey]);
+        assert!(StakingHotkeys::<Test>::get(old_coldkey).is_empty());
+        assert_eq!(StakingHotkeys::<Test>::get(new_coldkey), vec![hotkey]);
     });
 }
 
@@ -137,8 +137,8 @@ fn test_swap_hotkey_owners() {
         let new_coldkey = U256::from(2);
         let hotkey = U256::from(3);
 
-        Owner::<Test>::insert(&hotkey, &old_coldkey);
-        OwnedHotkeys::<Test>::insert(&old_coldkey, vec![hotkey]);
+        Owner::<Test>::insert(hotkey, old_coldkey);
+        OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
 
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
@@ -147,9 +147,9 @@ fn test_swap_hotkey_owners() {
             &mut weight
         ));
 
-        assert_eq!(Owner::<Test>::get(&hotkey), new_coldkey);
-        assert!(OwnedHotkeys::<Test>::get(&old_coldkey).is_empty());
-        assert_eq!(OwnedHotkeys::<Test>::get(&new_coldkey), vec![hotkey]);
+        assert_eq!(Owner::<Test>::get(hotkey), new_coldkey);
+        assert!(OwnedHotkeys::<Test>::get(old_coldkey).is_empty());
+        assert_eq!(OwnedHotkeys::<Test>::get(new_coldkey), vec![hotkey]);
     });
 }
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_transfer_remaining_balance --exact --nocapture
@@ -188,8 +188,8 @@ fn test_swap_with_no_stake() {
             &mut weight
         ));
 
-        assert_eq!(TotalColdkeyStake::<Test>::get(&old_coldkey), 0);
-        assert_eq!(TotalColdkeyStake::<Test>::get(&new_coldkey), 0);
+        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
+        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), 0);
     });
 }
 
@@ -202,7 +202,7 @@ fn test_swap_with_multiple_hotkeys() {
         let hotkey1 = U256::from(3);
         let hotkey2 = U256::from(4);
 
-        OwnedHotkeys::<Test>::insert(&old_coldkey, vec![hotkey1, hotkey2]);
+        OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
 
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
@@ -211,9 +211,9 @@ fn test_swap_with_multiple_hotkeys() {
             &mut weight
         ));
 
-        assert!(OwnedHotkeys::<Test>::get(&old_coldkey).is_empty());
+        assert!(OwnedHotkeys::<Test>::get(old_coldkey).is_empty());
         assert_eq!(
-            OwnedHotkeys::<Test>::get(&new_coldkey),
+            OwnedHotkeys::<Test>::get(new_coldkey),
             vec![hotkey1, hotkey2]
         );
     });
@@ -230,8 +230,8 @@ fn test_swap_with_multiple_subnets() {
 
         add_network(netuid1, 1, 0);
         add_network(netuid2, 1, 0);
-        SubnetOwner::<Test>::insert(netuid1, &old_coldkey);
-        SubnetOwner::<Test>::insert(netuid2, &old_coldkey);
+        SubnetOwner::<Test>::insert(netuid1, old_coldkey);
+        SubnetOwner::<Test>::insert(netuid2, old_coldkey);
 
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
@@ -259,8 +259,8 @@ fn test_swap_with_zero_balance() {
             &mut weight
         ));
 
-        assert_eq!(Balances::free_balance(&old_coldkey), 0);
-        assert_eq!(Balances::free_balance(&new_coldkey), 0);
+        assert_eq!(Balances::free_balance(old_coldkey), 0);
+        assert_eq!(Balances::free_balance(new_coldkey), 0);
     });
 }
 
@@ -272,7 +272,7 @@ fn test_swap_idempotency() {
         let new_coldkey = U256::from(2);
         let stake = 100;
 
-        TotalColdkeyStake::<Test>::insert(&old_coldkey, stake);
+        TotalColdkeyStake::<Test>::insert(old_coldkey, stake);
 
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
@@ -286,8 +286,8 @@ fn test_swap_idempotency() {
             &mut weight
         ));
 
-        assert_eq!(TotalColdkeyStake::<Test>::get(&old_coldkey), 0);
-        assert_eq!(TotalColdkeyStake::<Test>::get(&new_coldkey), stake);
+        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
+        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), stake);
     });
 }
 
@@ -299,7 +299,7 @@ fn test_swap_with_max_values() {
         let new_coldkey = U256::from(2);
         let max_stake = u64::MAX;
 
-        TotalColdkeyStake::<Test>::insert(&old_coldkey, max_stake);
+        TotalColdkeyStake::<Test>::insert(old_coldkey, max_stake);
 
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
@@ -308,8 +308,8 @@ fn test_swap_with_max_values() {
             &mut weight
         ));
 
-        assert_eq!(TotalColdkeyStake::<Test>::get(&old_coldkey), 0);
-        assert_eq!(TotalColdkeyStake::<Test>::get(&new_coldkey), max_stake);
+        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
+        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), max_stake);
     });
 }
 
@@ -321,7 +321,7 @@ fn test_swap_with_non_existent_new_coldkey() {
         let new_coldkey = U256::from(2);
         let stake = 100;
 
-        TotalColdkeyStake::<Test>::insert(&old_coldkey, stake);
+        TotalColdkeyStake::<Test>::insert(old_coldkey, stake);
 
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
@@ -330,8 +330,8 @@ fn test_swap_with_non_existent_new_coldkey() {
             &mut weight
         ));
 
-        assert_eq!(TotalColdkeyStake::<Test>::get(&old_coldkey), 0);
-        assert_eq!(TotalColdkeyStake::<Test>::get(&new_coldkey), stake);
+        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
+        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), stake);
     });
 }
 
@@ -343,8 +343,8 @@ fn test_swap_with_overflow_in_stake_addition() {
         let new_coldkey = U256::from(2);
         let max_stake = u64::MAX;
 
-        TotalColdkeyStake::<Test>::insert(&old_coldkey, max_stake);
-        TotalColdkeyStake::<Test>::insert(&new_coldkey, 1);
+        TotalColdkeyStake::<Test>::insert(old_coldkey, max_stake);
+        TotalColdkeyStake::<Test>::insert(new_coldkey, 1);
 
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
@@ -353,8 +353,8 @@ fn test_swap_with_overflow_in_stake_addition() {
             &mut weight
         ));
 
-        assert_eq!(TotalColdkeyStake::<Test>::get(&old_coldkey), 0);
-        assert_eq!(TotalColdkeyStake::<Test>::get(&new_coldkey), max_stake);
+        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
+        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), max_stake);
     });
 }
 
@@ -367,7 +367,7 @@ fn test_swap_with_max_hotkeys() {
         let max_hotkeys = 1000;
         let hotkeys: Vec<U256> = (0..max_hotkeys).map(U256::from).collect();
 
-        OwnedHotkeys::<Test>::insert(&old_coldkey, hotkeys.clone());
+        OwnedHotkeys::<Test>::insert(old_coldkey, hotkeys.clone());
 
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
@@ -376,8 +376,8 @@ fn test_swap_with_max_hotkeys() {
             &mut weight
         ));
 
-        assert!(OwnedHotkeys::<Test>::get(&old_coldkey).is_empty());
-        assert_eq!(OwnedHotkeys::<Test>::get(&new_coldkey), hotkeys);
+        assert!(OwnedHotkeys::<Test>::get(old_coldkey).is_empty());
+        assert_eq!(OwnedHotkeys::<Test>::get(new_coldkey), hotkeys);
     });
 }
 
@@ -391,10 +391,10 @@ fn test_swap_effect_on_delegated_stake() {
         let hotkey = U256::from(4);
         let stake = 100;
 
-        StakingHotkeys::<Test>::insert(&old_coldkey, vec![hotkey]);
-        StakingHotkeys::<Test>::insert(&delegator, vec![hotkey]);
-        Stake::<Test>::insert(&hotkey, &old_coldkey, stake);
-        Stake::<Test>::insert(&hotkey, &delegator, stake);
+        StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
+        StakingHotkeys::<Test>::insert(delegator, vec![hotkey]);
+        Stake::<Test>::insert(hotkey, old_coldkey, stake);
+        Stake::<Test>::insert(hotkey, delegator, stake);
 
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
@@ -403,9 +403,9 @@ fn test_swap_effect_on_delegated_stake() {
             &mut weight
         ));
 
-        assert_eq!(Stake::<Test>::get(&hotkey, &new_coldkey), stake);
-        assert_eq!(Stake::<Test>::get(&hotkey, &delegator), stake);
-        assert_eq!(Stake::<Test>::get(&hotkey, &old_coldkey), 0);
+        assert_eq!(Stake::<Test>::get(hotkey, new_coldkey), stake);
+        assert_eq!(Stake::<Test>::get(hotkey, delegator), stake);
+        assert_eq!(Stake::<Test>::get(hotkey, old_coldkey), 0);
     });
 }
 
@@ -420,8 +420,8 @@ fn test_swap_concurrent_modifications() {
         let initial_stake = 100;
         let additional_stake = 50;
 
-        StakingHotkeys::<Test>::insert(&old_coldkey, vec![hotkey]);
-        Stake::<Test>::insert(&hotkey, &old_coldkey, initial_stake);
+        StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
+        Stake::<Test>::insert(hotkey, old_coldkey, initial_stake);
 
         // Simulate concurrent stake addition
         add_network(netuid, 1, 1);
@@ -441,10 +441,10 @@ fn test_swap_concurrent_modifications() {
         ));
 
         assert_eq!(
-            Stake::<Test>::get(&hotkey, &new_coldkey),
+            Stake::<Test>::get(hotkey, new_coldkey),
             initial_stake + additional_stake - 1
         );
-        assert!(!Stake::<Test>::contains_key(&hotkey, &old_coldkey));
+        assert!(!Stake::<Test>::contains_key(hotkey, old_coldkey));
     });
 }
 
