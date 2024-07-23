@@ -1,3 +1,4 @@
+#![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
 use crate::mock::*;
 mod mock;
 // use frame_support::{assert_err, assert_ok};

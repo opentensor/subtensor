@@ -445,6 +445,10 @@ impl<T: Config> Pallet<T> {
         SubnetTAO::<T>::mutate(netuid, |total| { *total = total.saturating_add( tao_staked );});
         // Increment the total tao staked
         Stake::<T>::mutate(&hotkey, &coldkey, |stake| {*stake = stake.saturating_add( tao_staked );});
+        // Increment the total hotkey stake
+        TotalHotkeyStake::<T>::mutate(hotkey, |stake| {*stake = stake.saturating_add(tao_staked)});
+        // Increment the total coldkey stake
+        TotalColdkeyStake::<T>::mutate(coldkey, |stake| {*stake = stake.saturating_add(tao_staked)});
         // Convert tao to alpha.
         let alpha_staked: u64 = Self::tao_to_alpha( tao_staked, netuid );
         // Increment the alpha on the account.
@@ -537,6 +541,12 @@ impl<T: Config> Pallet<T> {
         });
         // Convert the alpha to tao.
         let tao_unstaked = Self::alpha_to_tao( alpha_unstaked, netuid );
+        // Decrement the total hotkey stake
+        TotalHotkeyStake::<T>::mutate(hotkey, |stake| { *stake = stake.saturating_sub(tao_unstaked);});
+        // Decrement the total coldkey stake
+        TotalColdkeyStake::<T>::mutate(coldkey, |stake| { *stake = stake.saturating_sub(tao_unstaked);});
+        // Decrement the total tao staked
+        Stake::<T>::mutate(&hotkey, &coldkey, |stake| {*stake = stake.saturating_sub(tao_unstaked);});
         // Decrement the total stake counter.
         TotalStake::<T>::put( TotalStake::<T>::get().saturating_sub( tao_unstaked ) );
         // Decrement the subnet tao.

@@ -72,8 +72,8 @@ impl<T: Config> Pallet<T> {
             Error::<T>::StakeRateLimitExceeded
         );
 
-        // If this is a nomination stake, check if total stake after adding will be above
-        // the minimum required stake.
+        // Set the last time the stake increased for nominator drain protection.
+        LastAddStakeIncrease::<T>::insert(&hotkey, &coldkey, Self::get_current_block_as_u64());
 
         // If coldkey is not owner of the hotkey, it's a nomination stake.
         if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {

@@ -44,6 +44,7 @@ pub mod staking;
 pub mod subnets;
 pub mod swap;
 pub mod utils;
+use crate::utils::TransactionType;
 use macros::{config, dispatches, errors, events, genesis, hooks};
 
 // apparently this is stabilized since rust 1.36
@@ -80,7 +81,7 @@ pub mod pallet {
 
     /// Tracks version for migrations. Should be monotonic with respect to the
     /// order of migrations. (i.e. always increasing)
-    const STORAGE_VERSION: StorageVersion = StorageVersion::new(6);
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(7);
 
     /// Minimum balance required to perform a coldkey swap
     pub const MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP: u64 = 100_000_000; // 0.1 TAO in RAO
@@ -895,7 +896,19 @@ pub mod pallet {
     /// =================================
     /// ==== Axon / Promo Endpoints =====
     /// =================================
-    #[pallet::storage] // --- MAP ( key ) --> last_block
+    #[pallet::storage] // --- NMAP ( hot, netuid, name ) --> last_block | Returns the last block of a transaction for a given key, netuid, and name.
+    pub type TransactionKeyLastBlock<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Identity, u16>,                  // netuid
+            NMapKey<Identity, u16>,                  // extrinsic enum.
+        ),
+        u64,
+        ValueQuery,
+    >;
+    #[pallet::storage]
+    /// --- MAP ( key ) --> last_block
     pub type LastTxBlock<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( key ) --> last_block
@@ -913,9 +926,12 @@ pub mod pallet {
         (H256, u64),
         OptionQuery,
     >;
+
     /// ==================
     /// ==== Genesis =====
     /// ==================
+    #[pallet::storage] // --- Storage for migration run status
+    pub type HasMigrationRun<T: Config> = StorageMap<_, Identity, Vec<u8>, bool, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {

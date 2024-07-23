@@ -58,6 +58,15 @@ impl<T: Config> Pallet<T> {
             children
         );
 
+        // Ensure the hotkey passes the rate limit.
+        ensure!(
+            Self::passes_rate_limit_globally(
+                &TransactionType::SetChildren, // Set children.
+                &hotkey,                       // Specific to a hotkey.
+            ),
+            Error::<T>::TxRateLimitExceeded
+        );
+
         // --- 2. Check that this delegation is not on the root network. Child hotkeys are not valid on root.
         ensure!(
             netuid != Self::get_root_netuid(),

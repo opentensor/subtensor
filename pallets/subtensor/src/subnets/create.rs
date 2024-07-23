@@ -1,6 +1,6 @@
 
 use super::*;
-use frame_support::storage::{IterableStorageDoubleMap};
+use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap};
 use sp_runtime::Saturating;
 use sp_std::vec;
 use substrate_fixed::{
