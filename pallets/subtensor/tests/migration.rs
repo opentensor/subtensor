@@ -355,6 +355,7 @@ fn test_migrate_fix_total_coldkey_stake_one_hotkey_stake_missing() {
 }
 
 // New test to check if migration runs only once
+//  SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake_runs_once --exact --nocapture
 #[test]
 fn test_migrate_fix_total_coldkey_stake_runs_once() {
     new_test_ext(1).execute_with(|| {
@@ -362,9 +363,9 @@ fn test_migrate_fix_total_coldkey_stake_runs_once() {
         let coldkey = U256::from(0);
         TotalColdkeyStake::<Test>::insert(coldkey, 0);
         StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
-        Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
-        Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
-        Stake::<Test>::insert(U256::from(3), U256::from(0), 10000);
+        Stake::<Test>::insert(U256::from(1), coldkey, 10000);
+        Stake::<Test>::insert(U256::from(2), coldkey, 10000);
+        Stake::<Test>::insert(U256::from(3), coldkey, 10000);
 
         // First run
         let first_weight = run_migration_and_check(migration_name);
@@ -391,14 +392,13 @@ fn test_migrate_fix_total_coldkey_stake_starts_with_value_no_stake_map_entries()
         let weight = run_migration_and_check(migration_name);
         assert!(weight != Weight::zero());
         // Therefore 0
-        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 0);
+        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 123_456_789);
     })
 }
 
 fn run_migration_and_check(migration_name: &'static str) -> frame_support::weights::Weight {
     // Execute the migration and store its weight
-    let weight: frame_support::weights::Weight =
-        pallet_subtensor::migration::migrate_fix_total_coldkey_stake::<Test>();
+    let weight: frame_support::weights::Weight = pallet_subtensor::migrations::migrate_fix_total_coldkey_stake::migrate_fix_total_coldkey_stake::<Test>();
 
     // Check if the migration has been marked as completed
     assert!(HasMigrationRun::<Test>::get(

@@ -1073,9 +1073,12 @@ pub mod pallet {
         (H256, u64),
         OptionQuery,
     >;
+    
     /// ==================
     /// ==== Genesis =====
     /// ==================
+    #[pallet::storage] // --- Storage for migration run status
+    pub type HasMigrationRun<T: Config> = StorageMap<_, Identity, Vec<u8>, bool, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
