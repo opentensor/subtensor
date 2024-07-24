@@ -133,6 +133,25 @@ pub mod pallet {
         pub ip_type: u8,
     }
 
+    ///  Struct for Prometheus.
+    pub type ChainIdentityOf = ChainIdentity;
+    /// Data structure for Prometheus information.
+    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    pub struct ChainIdentity {
+        /// The name of the chain identity
+        pub name: Vec<u8>,
+        /// The URL associated with the chain identity
+        pub url: Vec<u8>,
+        /// The image representation of the chain identity
+        pub image: Vec<u8>,
+        /// The Discord information for the chain identity
+        pub discord: Vec<u8>,
+        /// A description of the chain identity
+        pub description: Vec<u8>,
+        /// Additional information about the chain identity
+        pub additional: Vec<u8>,
+    }
+
     /// ============================
     /// ==== Staking + Accounts ====
     /// ============================
@@ -1057,6 +1076,9 @@ pub mod pallet {
         PrometheusInfoOf,
         OptionQuery,
     >;
+    #[pallet::storage] // --- MAP ( coldkey ) --> identity
+    pub type Identities<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, ChainIdentityOf, OptionQuery>;
 
     /// =================================
     /// ==== Axon / Promo Endpoints =====
