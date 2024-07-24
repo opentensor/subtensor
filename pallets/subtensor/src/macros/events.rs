@@ -171,5 +171,11 @@ mod events {
             /// The account ID of the coldkey
             coldkey: T::AccountId,
         },
+        /// The children of a hotkey have been set
+        SetChildren(T::AccountId, u16, Vec<(u64, T::AccountId)>),
+        /// The hotkey emission tempo has been set
+        HotkeyEmissionTempoSet(u64),
+        /// The network maximum stake has been set
+        NetworkMaxStakeSet(u16, u64),
     }
 }
