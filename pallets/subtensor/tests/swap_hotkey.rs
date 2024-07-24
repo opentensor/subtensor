@@ -959,3 +959,130 @@ fn test_swap_hotkey_error_cases() {
         assert_eq!(Balances::free_balance(coldkey), initial_balance - swap_cost);
     });
 }
+
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_child_keys --exact --nocapture
+#[test]
+fn test_swap_child_keys() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let netuid = 0u16;
+        let children = vec![(100u64, U256::from(4)), (200u64, U256::from(5))];
+        let mut weight = Weight::zero();
+
+        // Initialize ChildKeys for old_hotkey
+        add_network(netuid, 1, 0);
+        ChildKeys::<Test>::insert(old_hotkey, netuid, children.clone());
+
+        // Perform the swap
+        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
+
+        // Verify the swap
+        assert_eq!(ChildKeys::<Test>::get(new_hotkey, netuid), children);
+        assert!(ChildKeys::<Test>::get(old_hotkey, netuid).is_empty());
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_parent_keys --exact --nocapture
+#[test]
+fn test_swap_parent_keys() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let netuid = 0u16;
+        let parents = vec![(100u64, U256::from(4)), (200u64, U256::from(5))];
+        let mut weight = Weight::zero();
+
+        // Initialize ParentKeys for old_hotkey
+        add_network(netuid, 1, 0);
+        ParentKeys::<Test>::insert(old_hotkey, netuid, parents.clone());
+
+        // Initialize ChildKeys for parent
+        ChildKeys::<Test>::insert(U256::from(4), netuid, vec![(100u64, old_hotkey)]);
+        ChildKeys::<Test>::insert(U256::from(5), netuid, vec![(200u64, old_hotkey)]);
+
+        // Perform the swap
+        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
+
+        // Verify ParentKeys swap
+        assert_eq!(ParentKeys::<Test>::get(new_hotkey, netuid), parents);
+        assert!(ParentKeys::<Test>::get(old_hotkey, netuid).is_empty());
+
+        // Verify ChildKeys update for parents
+        assert_eq!(ChildKeys::<Test>::get(U256::from(4), netuid), vec![(100u64, new_hotkey)]);
+        assert_eq!(ChildKeys::<Test>::get(U256::from(5), netuid), vec![(200u64, new_hotkey)]);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_multiple_subnets --exact --nocapture
+#[test]
+fn test_swap_multiple_subnets() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let netuid1 = 0u16;
+        let netuid2 = 1u16;
+        let children1 = vec![(100u64, U256::from(4)), (200u64, U256::from(5))];
+        let children2 = vec![(300u64, U256::from(6))];
+        let mut weight = Weight::zero();
+
+        add_network(netuid1, 1, 0);
+        add_network(netuid2, 1, 0);
+
+        // Initialize ChildKeys for old_hotkey in multiple subnets
+        ChildKeys::<Test>::insert(old_hotkey, netuid1, children1.clone());
+        ChildKeys::<Test>::insert(old_hotkey, netuid2, children2.clone());
+
+        // Perform the swap
+        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
+
+        // Verify the swap for both subnets
+        assert_eq!(ChildKeys::<Test>::get(new_hotkey, netuid1), children1);
+        assert_eq!(ChildKeys::<Test>::get(new_hotkey, netuid2), children2);
+        assert!(ChildKeys::<Test>::get(old_hotkey, netuid1).is_empty());
+        assert!(ChildKeys::<Test>::get(old_hotkey, netuid2).is_empty());
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_complex_parent_child_structure --exact --nocapture
+#[test]
+fn test_swap_complex_parent_child_structure() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let netuid = 0u16;
+        let parent1 = U256::from(4);
+        let parent2 = U256::from(5);
+        let child1 = U256::from(6);
+        let child2 = U256::from(7);
+        let mut weight = Weight::zero();
+
+        add_network(netuid, 1, 0);
+
+        // Set up complex parent-child structure
+        ParentKeys::<Test>::insert(old_hotkey, netuid, vec![(100u64, parent1), (200u64, parent2)]);
+        ChildKeys::<Test>::insert(old_hotkey, netuid, vec![(300u64, child1), (400u64, child2)]);
+        ChildKeys::<Test>::insert(parent1, netuid, vec![(100u64, old_hotkey), (500u64, U256::from(8))]);
+        ChildKeys::<Test>::insert(parent2, netuid, vec![(200u64, old_hotkey), (600u64, U256::from(9))]);
+
+        // Perform the swap
+        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
+
+        // Verify ParentKeys swap
+        assert_eq!(ParentKeys::<Test>::get(new_hotkey, netuid), vec![(100u64, parent1), (200u64, parent2)]);
+        assert!(ParentKeys::<Test>::get(old_hotkey, netuid).is_empty());
+
+        // Verify ChildKeys swap
+        assert_eq!(ChildKeys::<Test>::get(new_hotkey, netuid), vec![(300u64, child1), (400u64, child2)]);
+        assert!(ChildKeys::<Test>::get(old_hotkey, netuid).is_empty());
+
+        // Verify parent's ChildKeys update
+        assert_eq!(ChildKeys::<Test>::get(parent1, netuid), vec![(100u64, new_hotkey), (500u64, U256::from(8))]);
+        assert_eq!(ChildKeys::<Test>::get(parent2, netuid), vec![(200u64, new_hotkey), (600u64, U256::from(9))]);
+    });
+}
