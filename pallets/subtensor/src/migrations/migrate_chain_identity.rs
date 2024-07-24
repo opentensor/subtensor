@@ -140,9 +140,7 @@ pub fn migrate_set_hotkey_identities<T: Config>() -> Weight {
                 && identity.description.len() <= 1024
                 && identity.additional.len() <= 1024;
             if !is_valid {
-                log::info!(
-                    "Bytes not correct"
-                );
+                log::info!("Bytes not correct");
                 continue;
             }
 
@@ -157,9 +155,7 @@ pub fn migrate_set_hotkey_identities<T: Config>() -> Weight {
             weight = weight.saturating_add(T::DbWeight::get().writes(1));
         }
     } else {
-        log::info!(
-            "Failed to decode JSON"
-        );
+        log::info!("Failed to decode JSON");
     }
     // Mark the migration as completed
     HasMigrationRun::<T>::insert(&migration_name, true);
