@@ -44,7 +44,7 @@ pub mod staking;
 pub mod subnets;
 pub mod swap;
 pub mod utils;
-use crate::utils::TransactionType;
+use crate::utils::rate_limiting::TransactionType;
 use macros::{config, dispatches, errors, events, genesis, hooks};
 
 // apparently this is stabilized since rust 1.36
@@ -563,6 +563,15 @@ pub mod pallet {
     /// ============================
     /// ==== Staking Variables ====
     /// ============================
+    /// The Subtensor [`TotalIssuance`] represents the total issuance of tokens on the Bittensor network.
+    ///
+    /// It is comprised of three parts:
+    /// - The total amount of issued tokens, tracked in the TotalIssuance of the Balances pallet
+    /// - The total amount of tokens staked in the system, tracked in [`TotalStake`]
+    /// - The total amount of tokens locked up for subnet reg, tracked in [`TotalSubnetLocked`] attained by iterating over subnet lock.
+    ///
+    /// Eventually, Bittensor should migrate to using Holds afterwhich time we will not require this
+    /// separate accounting.
     #[pallet::storage] // --- ITEM ( total_issuance )
     pub type TotalIssuance<T> = StorageValue<_, u64, ValueQuery, DefaultTotalIssuance<T>>;
     #[pallet::storage] // --- ITEM ( total_stake )
