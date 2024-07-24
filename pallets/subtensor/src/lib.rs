@@ -44,7 +44,7 @@ pub mod staking;
 pub mod subnets;
 pub mod swap;
 pub mod utils;
-use crate::utils::TransactionType;
+use crate::utils::rate_limiting::TransactionType;
 use macros::{config, dispatches, errors, events, genesis, hooks};
 
 // apparently this is stabilized since rust 1.36
@@ -133,6 +133,25 @@ pub mod pallet {
         pub port: u16,
         /// Prometheus ip type, 4 for ipv4 and 6 for ipv6.
         pub ip_type: u8,
+    }
+
+    ///  Struct for Prometheus.
+    pub type ChainIdentityOf = ChainIdentity;
+    /// Data structure for Prometheus information.
+    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    pub struct ChainIdentity {
+        /// The name of the chain identity
+        pub name: Vec<u8>,
+        /// The URL associated with the chain identity
+        pub url: Vec<u8>,
+        /// The image representation of the chain identity
+        pub image: Vec<u8>,
+        /// The Discord information for the chain identity
+        pub discord: Vec<u8>,
+        /// A description of the chain identity
+        pub description: Vec<u8>,
+        /// Additional information about the chain identity
+        pub additional: Vec<u8>,
     }
 
     /// ============================
@@ -458,10 +477,6 @@ pub mod pallet {
     /// ==================
     /// ==== Coinbase ====
     /// ==================
-    #[pallet::storage] // --- ITEM ( total_stake )
-    pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
-    #[pallet::storage] // --- ITEM ( total_issuance )
-    pub type TotalIssuance<T> = StorageValue<_, u64, ValueQuery, DefaultTotalIssuance<T>>;
     #[pallet::storage] // --- ITEM ( global_block_emission )
     pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
     #[pallet::storage] // --- ITEM ( hotkey_emission_tempo )
@@ -542,6 +557,19 @@ pub mod pallet {
     /// ============================
     /// ==== Staking Variables ====
     /// ============================
+    /// The Subtensor [`TotalIssuance`] represents the total issuance of tokens on the Bittensor network.
+    ///
+    /// It is comprised of three parts:
+    /// - The total amount of issued tokens, tracked in the TotalIssuance of the Balances pallet
+    /// - The total amount of tokens staked in the system, tracked in [`TotalStake`]
+    /// - The total amount of tokens locked up for subnet reg, tracked in [`TotalSubnetLocked`] attained by iterating over subnet lock.
+    ///
+    /// Eventually, Bittensor should migrate to using Holds afterwhich time we will not require this
+    /// separate accounting.
+    #[pallet::storage] // --- ITEM ( total_issuance )
+    pub type TotalIssuance<T> = StorageValue<_, u64, ValueQuery, DefaultTotalIssuance<T>>;
+    #[pallet::storage] // --- ITEM ( total_stake )
+    pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
     #[pallet::storage] // --- ITEM ( default_take )
     pub type MaxTake<T> = StorageValue<_, u16, ValueQuery, DefaultDefaultTake<T>>;
     #[pallet::storage] // --- ITEM ( min_take )
@@ -892,6 +920,9 @@ pub mod pallet {
         PrometheusInfoOf,
         OptionQuery,
     >;
+    #[pallet::storage] // --- MAP ( coldkey ) --> identity
+    pub type Identities<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, ChainIdentityOf, OptionQuery>;
 
     /// =================================
     /// ==== Axon / Promo Endpoints =====

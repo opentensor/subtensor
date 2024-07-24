@@ -5273,6 +5273,7 @@ dependencies = [
  "serde",
  "serde-tuple-vec-map",
  "serde_bytes",
+ "serde_json",
  "serde_with",
  "sp-core",
  "sp-io",

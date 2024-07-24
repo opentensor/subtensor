@@ -168,5 +168,7 @@ mod errors {
         TooManyChildren,
         /// Default transaction rate limit exceeded.
         TxRateLimitExceeded,
+        /// Invalid identity.
+        InvalidIdentity,
     }
 }

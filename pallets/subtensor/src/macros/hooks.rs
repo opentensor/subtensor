@@ -71,5 +71,11 @@ mod hooks {
             //     .saturating_add(migrations::migrate_fix_total_coldkey_stake::migrate_fix_total_coldkey_stake::<T>());
             weight
         }
+
+        #[cfg(feature = "try-runtime")]
+        fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+            Self::check_accounting_invariants()?;
+            Ok(())
+        }
     }
 }
