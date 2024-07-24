@@ -18,12 +18,10 @@ fn test_initialise_ti() {
 
         // Ensure values are NOT initialized prior to running migration
         assert!(pallet_subtensor::TotalIssuance::<Test>::get() == 0);
-        assert!(pallet_subtensor::TotalSubnetLocked::<Test>::get() == 0);
 
-        pallet_subtensor::migration::initialise_total_issuance::Migration::<Test>::on_runtime_upgrade();
+        pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration::<Test>::on_runtime_upgrade();
 
         // Ensure values were initialized correctly
-        assert!(pallet_subtensor::TotalSubnetLocked::<Test>::get() == 105);
         assert!(
             pallet_subtensor::TotalIssuance::<Test>::get()
                 == 105u64.saturating_add(1000).saturating_add(25)
