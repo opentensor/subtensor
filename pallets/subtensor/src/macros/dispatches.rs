@@ -901,5 +901,41 @@ mod dispatches {
             Self::do_set_children(origin, hotkey, netuid, children)?;
             Ok(().into())
         }
+
+        /// ---- Set prometheus information for the neuron.
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the calling hotkey.
+        ///
+        /// * 'netuid' (u16):
+        /// 	- The u16 network identifier.
+        ///
+        /// * 'version' (u16):
+        /// 	-  The bittensor version identifier.
+        ///
+        /// * 'ip' (u128):
+        /// 	- The prometheus ip information as a u128 encoded integer.
+        ///
+        /// * 'port' (u16):
+        /// 	- The prometheus port information as a u16 encoded integer.
+        ///
+        /// * 'ip_type' (u8):
+        /// 	- The ip type v4 or v6.
+        ///
+        #[pallet::call_index(68)]
+        #[pallet::weight((Weight::from_parts(45_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(4))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::Yes))]
+        pub fn set_identity(
+            origin: OriginFor<T>,
+            name: Vec<u8>,
+            url: Vec<u8>,
+            image: Vec<u8>,
+            discord: Vec<u8>,
+            description: Vec<u8>,
+            additional: Vec<u8>,
+        ) -> DispatchResult {
+            Self::do_set_identity(origin, name, url, image, discord, description, additional)
+        }
     }
 }

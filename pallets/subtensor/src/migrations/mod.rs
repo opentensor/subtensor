@@ -1,4 +1,5 @@
 use super::*;
+pub mod migrate_chain_identity;
 pub mod migrate_create_root_network;
 pub mod migrate_delete_subnet_21;
 pub mod migrate_delete_subnet_3;
