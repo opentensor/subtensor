@@ -3,6 +3,7 @@ pub mod migrate_create_root_network;
 pub mod migrate_delete_subnet_21;
 pub mod migrate_delete_subnet_3;
 pub mod migrate_fix_total_coldkey_stake;
+pub mod migrate_init_total_issuance;
 pub mod migrate_populate_owned_hotkeys;
 pub mod migrate_populate_staking_hotkeys;
 pub mod migrate_to_v1_separate_emission;
