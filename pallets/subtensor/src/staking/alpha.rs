@@ -308,28 +308,50 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `u64` - The dynamic value equivalent to the given alpha value on the specified subnet.
     pub fn alpha_to_tao( alpha: u64, netuid: u16 ) -> u64 {
+        log::debug!(target: "subtensor", "Entering alpha_to_tao with alpha: {}, netuid: {}", alpha, netuid);
         let mechid: u16 = SubnetMechanism::<T>::get( netuid );
+        log::debug!(target: "subtensor", "Subnet mechanism: {}", mechid);
         if mechid == 2 { 
             // Dynamic
             let alpha_in: I96F32 = I96F32::from_num( alpha );
+            log::debug!(target: "subtensor", "Alpha input: {:?}", alpha_in);
 
-            let total_mechanism_tao: I96F32 = I96F32::from_num( Self::get_total_mechanism_tao( mechid ) );
-            let total_alpha: I96F32 = I96F32::from_num( SubnetAlpha::<T>::get( netuid ) );
-            let total_tao: I96F32 = I96F32::from_num( SubnetTAO::<T>::get( netuid ) );
+            let subnet_alpha: I96F32 = I96F32::from_num( SubnetAlpha::<T>::get( netuid ) );
+            let subnet_tao: I96F32 = I96F32::from_num( SubnetTAO::<T>::get( netuid ) );
+            let mechanism_tao: I96F32 = I96F32::from_num( Self::get_total_mechanism_tao( mechid ) );
+            log::debug!(target: "subtensor", "subnet_alpha: {:?}, subnet_tao: {:?}, mechanism_tao: {:?}", subnet_alpha, subnet_tao, mechanism_tao);
 
-            // Compute alpha proportion in tao.
-            let alpha_proportion: I96F32 = alpha_in.checked_div(total_alpha).unwrap_or(I96F32::from_num(0.0));
-            let alpha_proportion_in_tao: I96F32 = alpha_proportion * total_tao;
+            log::debug!(target: "subtensor", "Step 1: Calculating alpha_over_supply");
+            let alpha_over_supply: I96F32 = alpha_in / subnet_alpha;
+            log::debug!(target: "subtensor", "alpha_over_supply: {:?}", alpha_over_supply);
 
-            // Compute price per alpha with slipapge.
-            let numerator: I96F32 = total_tao.saturating_sub(alpha_proportion_in_tao);
-            let denominator: I96F32 = total_mechanism_tao.saturating_sub(alpha_proportion_in_tao);
-            let price_per_alpha: I96F32 = numerator.checked_div(denominator).unwrap_or(I96F32::from_num(1.0));
+            log::debug!(target: "subtensor", "Step 2: Calculating alpha_over_supply_tao");
+            let alpha_over_supply_tao: I96F32 = alpha_over_supply * subnet_tao;
+            log::debug!(target: "subtensor", "alpha_over_supply_tao: {:?}", alpha_over_supply_tao);
 
-            // Compute unstake amount in TAO.
-            (price_per_alpha * alpha_in).to_num::<u64>()
+            log::debug!(target: "subtensor", "Step 3: Calculating numerator");
+            let numerator: I96F32 = subnet_tao.saturating_sub(alpha_over_supply_tao);
+            log::debug!(target: "subtensor", "numerator: {:?}", numerator);
+
+            log::debug!(target: "subtensor", "Step 4: Calculating denominator");
+            let denominator: I96F32 = mechanism_tao.saturating_sub(alpha_over_supply_tao);
+            log::debug!(target: "subtensor", "denominator: {:?}", denominator);
+
+            log::debug!(target: "subtensor", "Step 5: Calculating multiplier");
+            let multiplier: I96F32 = numerator.checked_div(denominator).unwrap_or(I96F32::from_num(0.0));
+            log::debug!(target: "subtensor", "multiplier: {:?}", multiplier);
+
+            log::debug!(target: "subtensor", "Step 6: Calculating final result");
+            let result: I96F32 = alpha_in * multiplier;
+            log::debug!(target: "subtensor", "result: {:?}", result);
+
+            log::debug!(target: "subtensor", "Step 7: Converting result to u64 and returning");
+            let final_result = result.to_num::<u64>();
+            log::debug!(target: "subtensor", "final_result: {:?}", final_result);
+            return final_result;
         } else {
             // Stable.
+            log::debug!(target: "subtensor", "Stable mechanism, returning alpha: {}", alpha);
             return alpha;
         }
     }
@@ -343,14 +365,21 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `u64` - The dynamic value equivalent to the given alpha value on the specified subnet.
     pub fn tao_to_alpha( tao: u64, netuid: u16 ) -> u64 {
+        log::debug!("Entering tao_to_alpha with tao: {}, netuid: {}", tao, netuid);
         let mechid: u16 = SubnetMechanism::<T>::get( netuid );
+        log::debug!("Subnet mechanism: {}", mechid);
         if mechid == 2 { 
             // Dynamic
-            let total_subnet_tao: u64 = SubnetTAO::<T>::get( netuid );
-            let total_mechanism_tao: u64 = Self::get_total_mechanism_tao( mechid );
-            return tao * ((total_mechanism_tao + tao) / (total_subnet_tao + tao));
+            let float_tao: I96F32 = I96F32::from_num( tao );
+            let total_subnet_tao: I96F32 = I96F32::from_num( SubnetTAO::<T>::get( netuid ) );
+            let total_mechanism_tao: I96F32 = I96F32::from_num( Self::get_total_mechanism_tao( mechid ) );
+            log::debug!("Total subnet TAO: {}, Total mechanism TAO: {}", total_subnet_tao, total_mechanism_tao);
+            let result = float_tao * ((total_mechanism_tao + float_tao) / (total_subnet_tao + float_tao));
+            log::debug!("Computed alpha: {}", result);
+            return result.to_num::<u64>();
         } else {
             // Stable.
+            log::debug!("Stable mechanism, returning tao: {}", tao);
             return tao;
         }
     }
@@ -410,6 +439,39 @@ impl<T: Config> Pallet<T> {
         Alpha::<T>::get( (hotkey, coldkey, netuid ))
     }
 
+    /// Calculates and returns the price for a given subnet.
+    ///
+    /// This function determines the price based on the subnet's mechanism:
+    /// - For dynamic mechanisms (mechid == 2), it calculates the ratio of the subnet's TAO
+    ///   to the total TAO in the mechanism.
+    /// - For stable mechanisms (mechid != 2), it returns a fixed price of 1.
+    ///
+    /// # Arguments
+    ///
+    /// * `netuid` - The unique identifier of the subnet.
+    ///
+    /// # Returns
+    ///
+    /// * `I96F32` - The calculated price for the subnet.
+    ///
+    /// # Note
+    ///
+    /// The price calculation for dynamic mechanisms uses fixed-point arithmetic
+    /// with I96F32 to handle potential fractional results accurately.
+    pub fn get_price_for_subnet( netuid: u16 ) -> I96F32 {
+        let mechid: u16 = SubnetMechanism::<T>::get( netuid );
+        if mechid == 2 {
+            // Dynamic pricing
+            let total_subnet_tao: I96F32 = I96F32::from_num( SubnetTAO::<T>::get( netuid ) );
+            let total_mechanism_tao: I96F32 = I96F32::from_num( Self::get_total_mechanism_tao( mechid ) );
+            let result = total_subnet_tao.checked_div(total_mechanism_tao).unwrap_or(I96F32::from_num(0.0));
+            return result;
+        } else {
+            // Stable pricing
+            return I96F32::from_num(1);
+        }
+    }
+
     /// Stakes TAO into a subnet for a given hotkey and coldkey pair.
     ///
     /// This function performs the following operations:
@@ -439,6 +501,8 @@ impl<T: Config> Pallet<T> {
     /// - `Stake`
     /// - `StakingHotkeys`
     pub fn stake_into_subnet( hotkey: &T::AccountId, coldkey: &T::AccountId, netuid: u16, tao_staked: u64 ) -> u64{
+        // Convert tao to alpha.
+        let alpha_staked: u64 = Self::tao_to_alpha( tao_staked, netuid );
         // Increment total stake.
         TotalStake::<T>::mutate(|total| { *total = total.saturating_add( tao_staked );});
         // Increment the subnet tao.
@@ -449,8 +513,6 @@ impl<T: Config> Pallet<T> {
         TotalHotkeyStake::<T>::mutate(hotkey, |stake| {*stake = stake.saturating_add(tao_staked)});
         // Increment the total coldkey stake
         TotalColdkeyStake::<T>::mutate(coldkey, |stake| {*stake = stake.saturating_add(tao_staked)});
-        // Convert tao to alpha.
-        let alpha_staked: u64 = Self::tao_to_alpha( tao_staked, netuid );
         // Increment the alpha on the account.
         SubnetAlpha::<T>::mutate( netuid, |total| { *total = total.saturating_add(alpha_staked); });
         // Increment the coldkey total.
@@ -499,6 +561,8 @@ impl<T: Config> Pallet<T> {
     /// - `TotalStake`
     /// - `SubnetTAO`
     pub fn unstake_from_subnet( hotkey: &T::AccountId, coldkey: &T::AccountId, netuid: u16, alpha_unstaked: u64 ) -> u64 {
+        // Convert the alpha to tao.
+        let tao_unstaked = Self::alpha_to_tao( alpha_unstaked, netuid );
         // Decrease the account value and remove if zero
         Alpha::<T>::mutate_exists((hotkey, coldkey, netuid), |maybe_total| {
             if let Some(total) = maybe_total {
@@ -539,8 +603,6 @@ impl<T: Config> Pallet<T> {
                 }
             }
         });
-        // Convert the alpha to tao.
-        let tao_unstaked = Self::alpha_to_tao( alpha_unstaked, netuid );
         // Decrement the total hotkey stake
         TotalHotkeyStake::<T>::mutate(hotkey, |stake| { *stake = stake.saturating_sub(tao_unstaked);});
         // Decrement the total coldkey stake

@@ -550,7 +550,7 @@ pub mod pallet {
             NMapKey<Blake2_128Concat, T::AccountId>, // cold
             NMapKey<Identity, u16>,                  // subnet
         ),
-        u64,
+        u64,                                         // Stake
         ValueQuery,
     >;
 
@@ -676,6 +676,10 @@ pub mod pallet {
     /// ============================
     /// ==== Subnet Parameters =====
     /// ============================
+    #[pallet::storage] // --- MAP ( netuid ) --> mechanism_n (Number of mechanisms)
+    pub type MechanismN<T: Config> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultZeroU16<T>>;
+    #[pallet::storage] // --- MAP ( netuid ) --> network_is_added
+    pub type MechanismsAdded<T: Config> = StorageMap<_, Identity, u16, bool, ValueQuery, DefaultFalse<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> subnet mechanism
     pub type SubnetMechanism<T: Config> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultZeroU16<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> subnetwork_n (Number of UIDs in the network).

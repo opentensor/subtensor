@@ -179,5 +179,7 @@ mod events {
         NetworkMaxStakeSet(u16, u64),
         /// The identity of a coldkey has been set
         ChainIdentitySet(T::AccountId),
+        /// Mechanism added
+        MechanismAdded(u16),
     }
 }

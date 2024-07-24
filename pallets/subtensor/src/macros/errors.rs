@@ -170,5 +170,7 @@ mod errors {
         TxRateLimitExceeded,
         /// Invalid identity.
         InvalidIdentity,
+        /// Trying to register a subnet into a mechanism that does not exist.
+        MechanismDoesNotExist,
     }
 }

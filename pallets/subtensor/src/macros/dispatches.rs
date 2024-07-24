@@ -941,5 +941,25 @@ mod dispatches {
         ) -> DispatchResult {
             Self::do_set_identity(origin, name, url, image, discord, description, additional)
         }
+
+        /// ---- Create a new mechanism for the network.
+        /// # Args:
+        /// * 'origin': OriginFor<T>:
+        ///     - The origin of the transaction. Must be sudo.
+        ///
+        /// # Returns:
+        /// * DispatchResult:
+        ///     - The result of the mechanism creation operation.
+        ///
+        #[pallet::call_index(69)]
+        #[pallet::weight((Weight::from_parts(45_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(4))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn sudo_create_mechanism(
+            origin: OriginFor<T>,
+        ) -> DispatchResult {
+            Self::do_sudo_create_mechanism(origin)
+        }
+
     }
 }

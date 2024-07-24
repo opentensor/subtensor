@@ -83,6 +83,9 @@ impl<T: Config> Pallet<T> {
         // --- 0. Ensure the caller is a signed user.
         let coldkey = ensure_signed(origin)?;
 
+        // --- 0.1. Ensure the mechanism exists.
+        ensure!( Self::mechanism_exists( mechid ), Error::<T>::MechanismDoesNotExist );
+
         // --- 1. Rate limit for network registrations.
         let current_block = Self::get_current_block_as_u64();
         let last_lock_block = Self::get_network_last_lock_block();
@@ -128,11 +131,11 @@ impl<T: Config> Pallet<T> {
         };
 
         // --- 5. Perform the lock operation.
-        let actual_lock_amount = Self::remove_balance_from_coldkey_account(&coldkey, lock_amount)?;
-        log::debug!("actual_lock_amount: {:?}", actual_lock_amount);
+        let actual_tao_lock_amount = Self::remove_balance_from_coldkey_account(&coldkey, lock_amount)?;
+        log::debug!("actual_tao_lock_amount: {:?}", actual_tao_lock_amount);
 
-        // Self::set_subnet_locked_balance(netuid_to_register, actual_lock_amount);
-        Self::set_network_last_lock(actual_lock_amount);
+        // Self::set_subnet_locked_balance(netuid_to_register, actual_tao_lock_amount);
+        Self::set_network_last_lock(actual_tao_lock_amount);
 
         // --- 6. Set initial and custom parameters for the network.
         Self::init_new_network(netuid_to_register, 360);
@@ -141,6 +144,9 @@ impl<T: Config> Pallet<T> {
         // --- 7. Set netuid storage.
         let current_block_number: u64 = Self::get_current_block_as_u64();
         log::debug!("Current block number: {:?}", current_block_number);
+
+        Self::append_neuron( netuid_to_register, hotkey, current_block_number );
+        log::debug!("Appended neuron for netuid {:?}, hotkey: {:?}", netuid_to_register, hotkey);
 
         NetworkLastRegistered::<T>::set(current_block_number);
         log::debug!("NetworkLastRegistered set to: {:?}", current_block_number);
@@ -154,58 +160,14 @@ impl<T: Config> Pallet<T> {
         SubnetMechanism::<T>::insert( netuid_to_register, mechid );
         log::debug!("SubnetMechanism for netuid {:?} set to: {:?}", netuid_to_register, mechid);
 
-        Self::append_neuron( netuid_to_register, hotkey, current_block_number );
-        log::debug!("Appended neuron for netuid {:?}, hotkey: {:?}", netuid_to_register, hotkey);
-
-        // Compute the stake operation based on the mechanism.
-        let mechid: u16 = SubnetMechanism::<T>::get( netuid_to_register );
-        log::debug!("Mechanism ID: {:?}", mechid);
-
-        let alpha_amount_staked: u64;
-        if mechid == 2 { // STAO
-            // Compute dynamic stake.
-            let total_subnet_tao: u64 = SubnetTAO::<T>::get( netuid_to_register );
-            log::debug!("Total subnet TAO: {:?}", total_subnet_tao);
-
-            let total_mechanism_tao: u64 = Self::get_total_mechanism_tao( SubnetMechanism::<T>::get( netuid_to_register ) );
-            log::debug!("Total mechanism TAO: {:?}", total_mechanism_tao);
-
-            let price: I96F32 = I96F32::from_num(total_mechanism_tao + actual_lock_amount).checked_div(I96F32::from_num(total_subnet_tao + actual_lock_amount)).unwrap_or(I96F32::from_num(1));
-            log::debug!("price: {:?}", price);
-
-            alpha_amount_staked = (I96F32::from_num(actual_lock_amount) * price).to_num::<u64>();
-            log::debug!("Computed alpha amount staked (STAO): {:?}", alpha_amount_staked);
-        } else { // ROOT and other.
-            alpha_amount_staked = actual_lock_amount;
-            log::debug!("Alpha amount staked (ROOT/other): {:?}", alpha_amount_staked);
-        }
-
-        // Increment counters.
-        let new_subnet_alpha = SubnetAlpha::<T>::get(netuid_to_register).saturating_add(alpha_amount_staked);
-        SubnetAlpha::<T>::insert(netuid_to_register, new_subnet_alpha);
-        log::debug!("Updated SubnetAlpha for netuid {:?}: {:?}", netuid_to_register, new_subnet_alpha);
-
-        let new_subnet_tao = SubnetTAO::<T>::get(netuid_to_register).saturating_add( actual_lock_amount );
-        SubnetTAO::<T>::insert(netuid_to_register, actual_lock_amount);
-        log::debug!("Updated SubnetTAO for netuid {:?}: {:?} vs lock {:?}", netuid_to_register, new_subnet_tao, actual_lock_amount);
-
-        let new_stake = Stake::<T>::get( &hotkey, &coldkey ).saturating_add( actual_lock_amount );
-        Stake::<T>::insert(hotkey, &coldkey, new_stake);
-        log::debug!("Updated Stake for hotkey {:?}, coldkey {:?}: {:?}", hotkey, coldkey, new_stake);
-
-        let new_total_hotkey_alpha = TotalHotkeyAlpha::<T>::get( &hotkey, netuid_to_register ).saturating_add( alpha_amount_staked );
-        TotalHotkeyAlpha::<T>::insert(&hotkey, netuid_to_register, new_total_hotkey_alpha);
-        log::debug!("Updated TotalHotkeyAlpha for hotkey {:?}, netuid {:?}: {:?}", hotkey, netuid_to_register, new_total_hotkey_alpha);
-
-        let new_alpha = Alpha::<T>::get((&hotkey, &coldkey, netuid_to_register)).saturating_add( alpha_amount_staked );
-        Alpha::<T>::insert((&hotkey, &coldkey, netuid_to_register), new_alpha);
-        log::debug!("Updated Alpha for hotkey {:?}, coldkey {:?}, netuid {:?}: {:?}", hotkey, coldkey, netuid_to_register, new_alpha);
+        // --- 7.1. Compute the stake operation based on the mechanism.
+        let _ = Self::stake_into_subnet( hotkey, &coldkey, netuid_to_register, actual_tao_lock_amount );
 
         // --- 8. Emit the NetworkAdded event.
         log::info!(
-            "NetworkAdded( netuid:{:?}, modality:{:?} )",
+            "NetworkAdded( netuid:{:?}, mechanism:{:?} )",
             netuid_to_register,
-            0
+            mechid
         );
         Self::deposit_event(Event::NetworkAdded(netuid_to_register, 0));
 
