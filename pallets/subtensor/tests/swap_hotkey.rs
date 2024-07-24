@@ -960,7 +960,6 @@ fn test_swap_hotkey_error_cases() {
     });
 }
 
-
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_child_keys --exact --nocapture
 #[test]
 fn test_swap_child_keys() {
@@ -1012,8 +1011,14 @@ fn test_swap_parent_keys() {
         assert!(ParentKeys::<Test>::get(old_hotkey, netuid).is_empty());
 
         // Verify ChildKeys update for parents
-        assert_eq!(ChildKeys::<Test>::get(U256::from(4), netuid), vec![(100u64, new_hotkey)]);
-        assert_eq!(ChildKeys::<Test>::get(U256::from(5), netuid), vec![(200u64, new_hotkey)]);
+        assert_eq!(
+            ChildKeys::<Test>::get(U256::from(4), netuid),
+            vec![(100u64, new_hotkey)]
+        );
+        assert_eq!(
+            ChildKeys::<Test>::get(U256::from(5), netuid),
+            vec![(200u64, new_hotkey)]
+        );
     });
 }
 
@@ -1065,24 +1070,48 @@ fn test_swap_complex_parent_child_structure() {
         add_network(netuid, 1, 0);
 
         // Set up complex parent-child structure
-        ParentKeys::<Test>::insert(old_hotkey, netuid, vec![(100u64, parent1), (200u64, parent2)]);
+        ParentKeys::<Test>::insert(
+            old_hotkey,
+            netuid,
+            vec![(100u64, parent1), (200u64, parent2)],
+        );
         ChildKeys::<Test>::insert(old_hotkey, netuid, vec![(300u64, child1), (400u64, child2)]);
-        ChildKeys::<Test>::insert(parent1, netuid, vec![(100u64, old_hotkey), (500u64, U256::from(8))]);
-        ChildKeys::<Test>::insert(parent2, netuid, vec![(200u64, old_hotkey), (600u64, U256::from(9))]);
+        ChildKeys::<Test>::insert(
+            parent1,
+            netuid,
+            vec![(100u64, old_hotkey), (500u64, U256::from(8))],
+        );
+        ChildKeys::<Test>::insert(
+            parent2,
+            netuid,
+            vec![(200u64, old_hotkey), (600u64, U256::from(9))],
+        );
 
         // Perform the swap
         SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
 
         // Verify ParentKeys swap
-        assert_eq!(ParentKeys::<Test>::get(new_hotkey, netuid), vec![(100u64, parent1), (200u64, parent2)]);
+        assert_eq!(
+            ParentKeys::<Test>::get(new_hotkey, netuid),
+            vec![(100u64, parent1), (200u64, parent2)]
+        );
         assert!(ParentKeys::<Test>::get(old_hotkey, netuid).is_empty());
 
         // Verify ChildKeys swap
-        assert_eq!(ChildKeys::<Test>::get(new_hotkey, netuid), vec![(300u64, child1), (400u64, child2)]);
+        assert_eq!(
+            ChildKeys::<Test>::get(new_hotkey, netuid),
+            vec![(300u64, child1), (400u64, child2)]
+        );
         assert!(ChildKeys::<Test>::get(old_hotkey, netuid).is_empty());
 
         // Verify parent's ChildKeys update
-        assert_eq!(ChildKeys::<Test>::get(parent1, netuid), vec![(100u64, new_hotkey), (500u64, U256::from(8))]);
-        assert_eq!(ChildKeys::<Test>::get(parent2, netuid), vec![(200u64, new_hotkey), (600u64, U256::from(9))]);
+        assert_eq!(
+            ChildKeys::<Test>::get(parent1, netuid),
+            vec![(100u64, new_hotkey), (500u64, U256::from(8))]
+        );
+        assert_eq!(
+            ChildKeys::<Test>::get(parent2, netuid),
+            vec![(200u64, new_hotkey), (600u64, U256::from(9))]
+        );
     });
 }
