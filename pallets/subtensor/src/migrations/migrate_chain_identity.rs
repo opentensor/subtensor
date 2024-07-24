@@ -31,7 +31,7 @@ fn string_to_bounded_vec(input: &str) -> Result<BoundedVec<u8, ConstU32<1024>>, 
 }
 
 pub fn migrate_set_hotkey_identities<T: Config>() -> Weight {
-    let migration_name = b"fix_total_coldkey_stake_v7".to_vec();
+    let migration_name = b"migrate_identities".to_vec();
 
     // Initialize the weight with one read operation.
     let mut weight = T::DbWeight::get().reads(1);
@@ -140,17 +140,26 @@ pub fn migrate_set_hotkey_identities<T: Config>() -> Weight {
                 && identity.description.len() <= 1024
                 && identity.additional.len() <= 1024;
             if !is_valid {
+                log::info!(
+                    "Bytes not correct"
+                );
                 continue;
             }
 
             // Get the owning coldkey.
             let coldkey = Owner::<T>::get(decoded_hotkey.clone());
+            log::info!("ColdKey: {:?}", decoded_hotkey);
+
             weight = weight.saturating_add(T::DbWeight::get().reads(1));
 
             // Sink into the map.
             Identities::<T>::insert(coldkey.clone(), identity.clone());
             weight = weight.saturating_add(T::DbWeight::get().writes(1));
         }
+    } else {
+        log::info!(
+            "Failed to decode JSON"
+        );
     }
     // Mark the migration as completed
     HasMigrationRun::<T>::insert(&migration_name, true);
