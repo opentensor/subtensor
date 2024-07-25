@@ -117,7 +117,6 @@ jobs:
       - name: Execute baedeker
         run: |
           chmod +x bin/baedeker
-          BDK_DIR=$(dirname $(readlink -f "$0"))
           RUST_LOG=info bin/baedeker --spec=docker -J.baedeker/vendor/ --generator=docker_compose=.baedeker/.bdk-env --generator=docker_compose_discover=.baedeker/.bdk-env/discover.env --secret=file=.baedeker/.bdk-env/secret  --tla-str=relay_spec=rococo-local --input-modules='lib:baedeker-library/ops/nginx.libsonnet' --input-modules='lib:baedeker-library/ops/devtools.libsonnet' --tla-str=repoDir=$(realpath .baedeker/..) .baedeker/forkless-data.jsonnet --tla-str=forked_spec=subtensor --tla-str=fork_source=wss://entrypoint-finney.opentensor.ai .baedeker/rewrites.jsonnet
 
       - name: Prepare genesis with data for artifact upload
@@ -170,7 +169,7 @@ jobs:
 
       - name: Test2
         run: |
-          cp /finney-state/subtensor.json .baedeker/.bdk-env/specs
+          cp finney-state/subtensor.json .baedeker/.bdk-env/specs
           ls -la .baedeker/.bdk-env/specs
 
 
