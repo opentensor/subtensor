@@ -169,7 +169,7 @@ jobs:
 
       - name: Test2
         run: |
-          cp finney-state/subtensor.json .baedeker/.bdk-env/specs
+          cp finney-spec/subtensor.json .baedeker/.bdk-env/specs
           ls -la .baedeker/.bdk-env/specs
 
 
