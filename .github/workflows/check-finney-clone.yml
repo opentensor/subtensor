@@ -1,4 +1,4 @@
-name: Check Rust
+name: Test with Finney Data
 
 concurrency:
   group: check-rust-${{ github.ref }}
