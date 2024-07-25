@@ -83,12 +83,41 @@ jobs:
   download-finney-state:
     needs: install-baedeker
     runs-on: SubtensorCI
+    strategy:
+      matrix:
+        rust-branch:
+          - stable
+        rust-target:
+          - x86_64-unknown-linux-gnu
+          # - x86_64-apple-darwin
+        os:
+          - ubuntu-latest
+          # - macos-latest
+        include:
+          - os: ubuntu-latest
+          # - os: macos-latest
+    env:
+      RELEASE_NAME: development
+      # RUSTFLAGS: -A warnings
+      RUSTV: ${{ matrix.rust-branch }}
+      RUST_BACKTRACE: full
+      RUST_BIN_DIR: target/${{ matrix.rust-target }}
+      SKIP_WASM_BUILD: 1
+      TARGET: ${{ matrix.rust-target }}
     steps:
+      - name: Check-out repository under $GITHUB_WORKSPACE
+        uses: actions/checkout@v4
+
       - name: Download baedeker binary
         uses: actions/download-artifact@v3
         with:
           name: baedeker-binary
           path: bin
+
+      - name: Test1
+        run: |
+          ls -la
+          ls -la .baedeker
 
       - name: Execute baedeker
         run: |
