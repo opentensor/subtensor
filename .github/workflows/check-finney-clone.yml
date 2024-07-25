@@ -16,7 +16,9 @@ on:
         description: "Output more information when triggered manually"
         required: false
         default: ""
-
+  push:
+    branches:
+      - testtest
 env:
   CARGO_TERM_COLOR: always
   VERBOSE: ${{ github.events.input.verbose }}
