@@ -133,7 +133,6 @@ jobs:
   # runs localnet with finney state
   run-local-chain:
     name: run local chain
-    name: cargo test w/benchmarks
     runs-on: SubtensorCI
     strategy:
       matrix:
