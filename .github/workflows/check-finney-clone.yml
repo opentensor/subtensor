@@ -123,7 +123,7 @@ jobs:
       - name: Prepare genesis with data for artifact upload
         run: |
           mkdir -p ${{ github.workspace }}/finney-spec
-          cp ./baedeker/.bdk-env/specs/subtensor.json ${{ github.workspace }}/finney-spec/
+          cp .baedeker/.bdk-env/specs/subtensor.json ${{ github.workspace }}/finney-spec/
     
       - name: Upload genesis with data as an artifact
         uses: actions/upload-artifact@v3
