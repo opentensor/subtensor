@@ -117,7 +117,7 @@ jobs:
       - name: Execute baedeker
         run: |
           chmod +x bin/baedeker
-          ./bin/baedeker .baedeker/up.sh .baedeker/forkless-data.jsonnet --tla-str=forked_spec=subtensor --tla-str=fork_source=wss://entrypoint-finney.opentensor.ai
+          .baedeker/up.sh .baedeker/forkless-data.jsonnet --tla-str=forked_spec=subtensor --tla-str=fork_source=wss://entrypoint-finney.opentensor.ai
 
       - name: Prepare genesis with data for artifact upload
         run: |
@@ -132,6 +132,7 @@ jobs:
 
   # runs localnet with finney state
   run-local-chain:
+    needs: download-finney-state
     name: run local chain
     runs-on: SubtensorCI
     strategy:
