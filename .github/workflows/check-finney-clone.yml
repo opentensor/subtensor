@@ -123,12 +123,18 @@ jobs:
         run: |
           mkdir -p ${{ github.workspace }}/finney-spec
           cp .baedeker/.bdk-env/specs/subtensor.json ${{ github.workspace }}/finney-spec/
-    
-      - name: Upload genesis with data as an artifact
+
+      - name: Prepare secrets for artifact upload
+        run: |
+          mkdir -p ${{ github.workspace }}/finney-spec
+          mkdir -p ${{ github.workspace }}/finney-spec/secret
+          cp -r .baedeker/.bdk-env/secret/* ${{ github.workspace }}/finney-spec/secret
+
+      - name: Upload spec and secrets as an artifact
         uses: actions/upload-artifact@v3
         with:
           name: finney-state
-          path: ${{ github.workspace }}/finney-spec/subtensor.json
+          path: ${{ github.workspace }}/finney-spec/
 
   # runs localnet with finney state
   run-local-chain:
@@ -161,7 +167,7 @@ jobs:
       - name: Check-out repository under $GITHUB_WORKSPACE
         uses: actions/checkout@v4
 
-      - name: Download finney clone genesis
+      - name: Download finney clone genesis and secrets
         uses: actions/download-artifact@v3
         with:
           name: finney-state
@@ -169,9 +175,13 @@ jobs:
 
       - name: Test2
         run: |
+          mkdir -p .baedeker/.bdk-env
+          mkdir -p .baedeker/.bdk-env/specs
+          mkdir -p .baedeker/.bdk-env/secret
           cp finney-spec/subtensor.json .baedeker/.bdk-env/specs
+          cp -r finney-spec/secret/* .baedeker/.bdk-env/secret
           ls -la .baedeker/.bdk-env/specs
-
+          ls -la .baedeker/.bdk-env/secret
 
 
   # cargo-test-benchmarks:
