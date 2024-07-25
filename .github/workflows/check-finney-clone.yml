@@ -1,13 +1,21 @@
 name: Finney Data Genesis
 
 concurrency:
-#   group: check-rust-${{ github.ref }}
+  group: check-rust-${{ github.ref }}
   cancel-in-progress: true
 
 on:
-  push:
-    branches:
-      - ci/add-baedeker-job
+  ## Allow running workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      javascriptCode:
+        description: "Enter JavaScript code to execute"
+        required: false
+        type: "textarea"
+      verbose:
+        description: "Output more information when triggered manually"
+        required: false
+        default: ""
 
 env:
   CARGO_TERM_COLOR: always
