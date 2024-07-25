@@ -1,7 +1,7 @@
-name: Test with Finney Data
+name: Finney Data Genesis
 
 concurrency:
-  group: check-rust-${{ github.ref }}
+#   group: check-rust-${{ github.ref }}
   cancel-in-progress: true
 
 on:
