@@ -808,7 +808,7 @@ fn test_migrate_set_hotkey_identities() {
 
         // Assert that the migration has run
         assert!(HasMigrationRun::<Test>::get(
-            b"fix_total_coldkey_stake_v7".to_vec()
+            b"migrate_identities".to_vec()
         ));
 
         // Verify that some identities were set
