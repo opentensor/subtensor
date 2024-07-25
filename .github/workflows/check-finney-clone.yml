@@ -18,7 +18,8 @@ on:
         default: ""
   push:
     branches:
-      - testtest
+      - ci/add-baedeker-job
+
 env:
   CARGO_TERM_COLOR: always
   VERBOSE: ${{ github.events.input.verbose }}
