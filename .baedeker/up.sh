@@ -5,7 +5,4 @@ RUST_LOG=info baedeker --spec=docker -J$BDK_DIR/vendor/ --generator=docker_compo
 cd $BDK_DIR/.bdk-env
 #docker compose up -d --wait --remove-orphans
 
-
-
-
 # .baedeker/up.sh .baedeker/forkless-data.jsonnet --tla-str=forked_spec=subtensor --tla-str=fork_source=wss://entrypoint-finney.opentensor.ai
