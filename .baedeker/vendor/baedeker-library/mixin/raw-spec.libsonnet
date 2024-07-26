@@ -63,7 +63,7 @@ local
 						providers: super?.providers ?? 1,
 						sufficients: super?.sufficients ?? 0,
 						data+: {
-							free+: std.bigint(1000000000),
+							free: std.bigint(1000000000),
 							reserved: super?.reserved ?? std.bigint(0),
 							frozen: super?.reserved ?? std.bigint(0),
 							flags: super?.flags ?? std.bigint(0),
