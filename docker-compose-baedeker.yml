@@ -6,3 +6,4 @@ services:
       context: .
       dockerfile: ./.baedeker/Dockerfile
     restart: "unless-stopped"
+    network_mode: "bridge"
