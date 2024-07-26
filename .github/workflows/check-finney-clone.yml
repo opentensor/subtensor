@@ -206,8 +206,8 @@ jobs:
       - name: Runtime upgrade
         working-directory: .baedeker/util
         run: |
-          yarn
-          ../../scripts/wait_for_first_block.sh
+          yarn install
+          ../../scripts/wait_first_block_local.sh
           echo "Executing runtime upgrade"
           yarn ts-node --esm util/runtimeUpgrade.ts
 
