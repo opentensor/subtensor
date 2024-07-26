@@ -1,4 +1,5 @@
-ARG BASE_IMAGE=ubuntu:20.04
+FROM ubuntu:20.04
+WORKDIR /substrate
 
 # show backtraces
 ENV RUST_BACKTRACE 1
