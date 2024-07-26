@@ -586,7 +586,7 @@ fn test_do_set_identity() {
         ));
 
         // Check if identity is set correctly
-        let stored_identity = Identities::<Test>::get(coldkey).unwrap();
+        let stored_identity = Identities::<Test>::get(coldkey).expect("Identity should be set");
         assert_eq!(stored_identity.name, name);
         assert_eq!(stored_identity.url, url);
         assert_eq!(stored_identity.image, image);
@@ -622,7 +622,8 @@ fn test_do_set_identity() {
             additional.clone()
         ));
 
-        let updated_identity = Identities::<Test>::get(coldkey).unwrap();
+        let updated_identity =
+            Identities::<Test>::get(coldkey).expect("Updated identity should be set");
         assert_eq!(updated_identity.name, new_name);
         assert_eq!(updated_identity.url, new_url);
 
@@ -760,7 +761,7 @@ fn test_set_and_get_identity() {
         ));
 
         // Get and verify identity
-        let stored_identity = Identities::<Test>::get(coldkey).unwrap();
+        let stored_identity = Identities::<Test>::get(coldkey).expect("Identity should be set");
         assert_eq!(stored_identity.name, name);
         assert_eq!(stored_identity.url, url);
         assert_eq!(stored_identity.image, image);
@@ -782,7 +783,8 @@ fn test_set_and_get_identity() {
         ));
 
         // Get and verify updated identity
-        let updated_identity = Identities::<Test>::get(coldkey).unwrap();
+        let updated_identity =
+            Identities::<Test>::get(coldkey).expect("Updated identity should be set");
         assert_eq!(updated_identity.name, new_name);
         assert_eq!(updated_identity.url, new_url);
         assert_eq!(updated_identity.image, image);
