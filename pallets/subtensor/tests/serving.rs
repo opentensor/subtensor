@@ -807,9 +807,7 @@ fn test_migrate_set_hotkey_identities() {
             >();
 
         // Assert that the migration has run
-        assert!(HasMigrationRun::<Test>::get(
-            b"migrate_identities".to_vec()
-        ));
+        assert!(HasMigrationRun::<Test>::get(b"migrate_identities".to_vec()));
 
         // Verify that some identities were set
         // Note: This assumes that at least one valid identity was in the JSON file
