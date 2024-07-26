@@ -1,12 +1,23 @@
-FROM ubuntu:20.04
+ARG BASE_IMAGE=ubuntu:20.04
 
+# show backtraces
+ENV RUST_BACKTRACE 1
+
+# Necessary libraries for Rust execution
+RUN apt-get update && \
+  apt-get install -y curl build-essential protobuf-compiler clang git && \
+  rm -rf /var/lib/apt/lists/*
+
+# Install cargo and Rust
+RUN set -o pipefail && curl https://sh.rustup.rs -sSf | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Capture dependencies
+COPY . .
+
+# Cargo build
 WORKDIR /subtensor
-
-COPY target/release/node-subtensor ./target/release/node-subtensor
-COPY scripts ./scripts
-COPY .baedeker ./.baedeker
-
-# Expose the port the node will run on
+RUN cargo build --release
 EXPOSE 9946
 
 # Run the Substrate node binary
