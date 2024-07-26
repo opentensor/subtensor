@@ -207,6 +207,7 @@ jobs:
 
       - name: Run localnet with docker compose
         run: |
+          rm .dockerignore
           docker-compose -f docker-compose-baedeker.yml up -d
 
       - name: Runtime upgrade
