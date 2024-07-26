@@ -138,7 +138,7 @@ jobs:
 
   # runs localnet with finney state
   run-local-chain:
-    needs: download-finney-state
+    # needs: download-finney-state
     name: run local chain
     runs-on: SubtensorCI
     strategy:
