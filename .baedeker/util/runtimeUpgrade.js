@@ -1,12 +1,12 @@
-import { ApiPromise, WsProvider } from '@polkadot/api';
-import { Keyring } from '@polkadot/keyring';
-import * as fs from 'fs';
+const { ApiPromise, WsProvider } = require('@polkadot/api');
+const { Keyring } = require('@polkadot/keyring');
+const fs = require('fs');
 
 const NODE_URL = 'ws://127.0.0.1:9946';
 const SUDO_ACCOUNT_SEED = '//Alice';
-const WASM_FILE_PATH = './path/to/your/runtime.wasm';
+const WASM_FILE_PATH = '../../target/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm';
 
-async function main(): Promise<void> {
+async function main() {
   // Create a provider connected to the local node
   const provider = new WsProvider(NODE_URL);
   
