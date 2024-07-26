@@ -173,15 +173,22 @@ jobs:
           name: finney-state
           path: finney-spec
 
-      - name: Test2
+      - name: Run localnet
         run: |
           mkdir -p .baedeker/.bdk-env
           mkdir -p .baedeker/.bdk-env/specs
           mkdir -p .baedeker/.bdk-env/secret
           cp finney-spec/subtensor.json .baedeker/.bdk-env/specs
           cp -r finney-spec/secret/* .baedeker/.bdk-env/secret
-          ls -la .baedeker/.bdk-env/specs
-          ls -la .baedeker/.bdk-env/secret
+          ./scripts/localnet-baedeker.sh
+
+      - name: Runtime upgrade
+        working-directory: js-packages/tests
+        run: |
+          yarn
+          ./scripts/wait_for_first_block.sh
+          echo "Executing runtime upgrade"
+          # yarn ts-node --esm util/authorizeEnactUpgrade.ts ${{ steps.wasms.outputs.dir }}/${{ matrix.wasm_name }}-runtime/${{ matrix.wasm_name }}_runtime.compact.compressed.wasm
 
 
   # cargo-test-benchmarks:
