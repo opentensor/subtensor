@@ -11,7 +11,7 @@ on:
       javascriptCode:
         description: "Enter JavaScript code to execute"
         required: false
-        type: "textarea"
+        type: textarea
       verbose:
         description: "Output more information when triggered manually"
         required: false
