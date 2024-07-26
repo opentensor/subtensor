@@ -190,14 +190,13 @@ jobs:
           name: finney-state
           path: finney-spec
 
-      - name: Run localnet
+      - name: Copy secrets and spec from artifacts
         run: |
           mkdir -p .baedeker/.bdk-env
           mkdir -p .baedeker/.bdk-env/specs
           mkdir -p .baedeker/.bdk-env/secret
           cp finney-spec/subtensor.json .baedeker/.bdk-env/specs
           cp -r finney-spec/secret/* .baedeker/.bdk-env/secret
-          ./scripts/localnet-baedeker.sh
 
       - name: Set up Docker Compose
         run: |
