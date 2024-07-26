@@ -10,14 +10,13 @@ RUN apt-get update && \
   rm -rf /var/lib/apt/lists/*
 
 # Install cargo and Rust
-RUN set -o pipefail && curl https://sh.rustup.rs -sSf | sh -s -- -y
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Capture dependencies
 COPY . .
 
 # Cargo build
-WORKDIR /subtensor
 RUN cargo build --release
 EXPOSE 9946
 
