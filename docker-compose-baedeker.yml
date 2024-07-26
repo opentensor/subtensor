@@ -5,4 +5,4 @@ services:
     build:
       context: .
       dockerfile: ./.baedeker/Dockerfile
-    restart: no
+    restart: "unless-stopped"
