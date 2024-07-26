@@ -183,12 +183,12 @@ jobs:
           ./scripts/localnet-baedeker.sh
 
       - name: Runtime upgrade
-        working-directory: js-packages/tests
+        working-directory: .baedeker/util
         run: |
           yarn
-          ./scripts/wait_for_first_block.sh
+          ../../scripts/wait_for_first_block.sh
           echo "Executing runtime upgrade"
-          # yarn ts-node --esm util/authorizeEnactUpgrade.ts ${{ steps.wasms.outputs.dir }}/${{ matrix.wasm_name }}-runtime/${{ matrix.wasm_name }}_runtime.compact.compressed.wasm
+          yarn ts-node --esm util/runtimeUpgrade.ts
 
 
   # cargo-test-benchmarks:
