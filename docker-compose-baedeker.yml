@@ -1,0 +1,8 @@
+services:
+  localnet:
+    ports:
+      - 9946:9946
+    build:
+      context: .
+      dockerfile: ./.baedeker/Dockerfile
+    restart: never
