@@ -211,7 +211,7 @@ jobs:
       - name: Runtime upgrade
         working-directory: .baedeker/util
         run: |
-          ls -la
+          ls -la ../..
           yarn install
           ../../scripts/wait_first_block_local.sh
           echo "Executing runtime upgrade"

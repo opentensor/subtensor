@@ -17,7 +17,7 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 COPY . .
 
 # Cargo build
-RUN cargo build --release --target-dir /target && cp /target/release/node-subtensor ./target/release
+RUN cargo build --release --target-dir /target && mkdir -p ./target && mkdir -p ./target/release && cp /target/release/node-subtensor ./target/release
 EXPOSE 9946
 
 # Run the Substrate node binary
