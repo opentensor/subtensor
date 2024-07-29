@@ -2,6 +2,10 @@ services:
   localnet:
     ports:
       - 9946:9946
+    volumes:
+      - type: bind
+        source: ./target
+        target: /target
     build:
       context: .
       dockerfile: ./.baedeker/Dockerfile

@@ -28,21 +28,18 @@ async function main() {
   );
 
   // Send the transaction using the sudo account
-  const unsub = await sudoCall.signAndSend(sudoAccount, ({ status }) => {
+  await sudoCall.signAndSend(sudoAccount, ({ status }) => {
     if (status.isInBlock) {
       console.log(`Transaction included at blockHash ${status.asInBlock}`);
-    } else if (status.isFinalized) {
-      console.log(`Transaction finalized at blockHash ${status.asFinalized}`);
-      unsub();
       process.exit(0);
     }
   });
-
-  // Disconnect from the provider on error or completion
-  // provider.disconnect();
 
   // We miss disconnect/unref for some reason, so we need explicit successful exit here
   process.exit(0);
 }
 
-main().catch(console.error);
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
