@@ -167,23 +167,6 @@ jobs:
       - name: Check-out repository under $GITHUB_WORKSPACE
         uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update &&
-          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
-
-      - name: Install Rust ${{ matrix.rust-branch }}
-        uses: actions-rs/toolchain@v1.0.6
-        with:
-          toolchain: ${{ matrix.rust-branch }}
-          components: rustfmt, clippy
-          profile: minimal
-
-      - name: Utilize Rust shared cached
-        uses: Swatinem/rust-cache@v2.2.1
-        with:
-          key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
-
       # - name: Download finney clone genesis and secrets
       #   uses: actions/download-artifact@v3
       #   with:

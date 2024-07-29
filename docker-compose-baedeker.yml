@@ -3,9 +3,7 @@ services:
     ports:
       - 9946:9946
     volumes:
-      - type: bind
-        source: ./target
-        target: /target
+      - ./target:/substrate
     build:
       context: .
       dockerfile: ./.baedeker/Dockerfile
