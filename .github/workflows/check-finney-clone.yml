@@ -134,7 +134,7 @@ jobs:
   #       uses: actions/upload-artifact@v3
   #       with:
   #         name: finney-state
-          path: ${{ github.workspace }}/finney-spec/
+  #         path: ${{ github.workspace }}/finney-spec/
 
   # runs localnet with finney state
   run-local-chain:
