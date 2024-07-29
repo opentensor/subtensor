@@ -4,7 +4,7 @@ const fs = require('fs');
 
 const NODE_URL = 'ws://127.0.0.1:9946';
 const SUDO_ACCOUNT_SEED = '//Alice';
-const WASM_FILE_PATH = '../../target/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm';
+const WASM_FILE_PATH = '../../target/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.wasm';
 
 async function main() {
   // Create a provider connected to the local node

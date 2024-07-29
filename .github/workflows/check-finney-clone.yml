@@ -215,3 +215,18 @@ jobs:
           ../../scripts/wait_first_block_local.sh
           echo "Executing runtime upgrade"
           node runtimeUpgrade.js
+
+# check that runtime upgrade happened (spec version updated)
+# Wait for new blocks after upgrade
+# Balance transfer test 
+
+# need process exit from JS, it's not exiting 
+
+# see how to run custom JS with this job (msg from Sam J.)
+
+# epoch test: Set subnet1 tempo to 10 blocks
+#   - wait for OTF hotkey to receive rewards 
+#   - check block times 
+
+# feature for testing hotkey tempos (talk to Samuel - maybe add to fast-blocks)
+#   - add childkey test
