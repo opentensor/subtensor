@@ -16,7 +16,7 @@
 // DEALINGS IN THE SOFTWARE.
 
 use super::*;
-use crate::math::*;
+use crate::epoch::math::*;
 use frame_support::dispatch::Pays;
 use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap};
 use frame_support::traits::Get;
@@ -391,6 +391,9 @@ impl<T: Config> Pallet<T> {
 
         // --- 9. Calculates the trust of networks. Trust is a sum of all stake with weights > 0.
         // Trust will have shape k, a score for each subnet.
+        log::debug!("Subnets:\n{:?}\n", Self::get_all_subnet_netuids());
+        log::debug!("N Subnets:\n{:?}\n", Self::get_num_subnets());
+
         let total_networks = Self::get_num_subnets();
         let mut trust = vec![I64F64::from_num(0); total_networks as usize];
         let mut total_stake: I64F64 = I64F64::from_num(0);
@@ -483,10 +486,6 @@ impl<T: Config> Pallet<T> {
 
         // --- 1. Ensure that the call originates from a signed source and retrieve the caller's account ID (coldkey).
         let coldkey = ensure_signed(origin)?;
-        ensure!(
-            !Self::coldkey_in_arbitration(&coldkey),
-            Error::<T>::ColdkeyIsInArbitration
-        );
         log::info!(
             "do_root_register( coldkey: {:?}, hotkey: {:?} )",
             coldkey,
@@ -734,10 +733,6 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // Check the caller's signature. This is the coldkey of a registered account.
         let coldkey = ensure_signed(origin)?;
-        ensure!(
-            !Self::coldkey_in_arbitration(&coldkey),
-            Error::<T>::ColdkeyIsInArbitration
-        );
         log::info!(
             "do_set_root_weights( origin:{:?} netuid:{:?}, uids:{:?}, values:{:?})",
             coldkey,
@@ -859,10 +854,6 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResultWithPostInfo {
         // --- 1. Ensure that the caller has signed with their coldkey.
         let coldkey = ensure_signed(origin.clone())?;
-        ensure!(
-            !Self::coldkey_in_arbitration(&coldkey),
-            Error::<T>::ColdkeyIsInArbitration
-        );
 
         // --- 2. Ensure that the calling coldkey owns the associated hotkey.
         ensure!(
@@ -916,10 +907,6 @@ impl<T: Config> Pallet<T> {
     pub fn user_add_network(origin: T::RuntimeOrigin) -> dispatch::DispatchResult {
         // --- 0. Ensure the caller is a signed user.
         let coldkey = ensure_signed(origin)?;
-        ensure!(
-            !Self::coldkey_in_arbitration(&coldkey),
-            Error::<T>::ColdkeyIsInArbitration
-        );
 
         // --- 1. Rate limit for network registrations.
         let current_block = Self::get_current_block_as_u64();
@@ -1008,10 +995,6 @@ impl<T: Config> Pallet<T> {
     pub fn user_remove_network(origin: T::RuntimeOrigin, netuid: u16) -> dispatch::DispatchResult {
         // --- 1. Ensure the function caller is a signed user.
         let coldkey = ensure_signed(origin)?;
-        ensure!(
-            !Self::coldkey_in_arbitration(&coldkey),
-            Error::<T>::ColdkeyIsInArbitration
-        );
 
         // --- 2. Ensure this subnet exists.
         ensure!(
@@ -1051,7 +1034,7 @@ impl<T: Config> Pallet<T> {
         NetworkModality::<T>::insert(netuid, 0);
 
         // --- 5. Increase total network count.
-        TotalNetworks::<T>::mutate(|n| n.saturating_inc());
+        TotalNetworks::<T>::mutate(|n| *n = n.saturating_add(1));
 
         // --- 6. Set all default values **explicitly**.
         Self::set_network_registration_allowed(netuid, true);
@@ -1143,7 +1126,7 @@ impl<T: Config> Pallet<T> {
         NetworksAdded::<T>::remove(netuid);
 
         // --- 6. Decrement the network counter.
-        TotalNetworks::<T>::mutate(|n| n.saturating_dec());
+        TotalNetworks::<T>::mutate(|n| *n = n.saturating_sub(1));
 
         // --- 7. Remove various network-related storages.
         NetworkRegisteredAt::<T>::remove(netuid);

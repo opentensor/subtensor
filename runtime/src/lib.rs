@@ -139,7 +139,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 190,
+    spec_version: 191,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -516,6 +516,7 @@ impl pallet_collective::Config<TriumvirateCollective> for Runtime {
 }
 
 // We call council members Triumvirate
+#[allow(dead_code)]
 type TriumvirateMembership = pallet_membership::Instance1;
 impl pallet_membership::Config<TriumvirateMembership> for Runtime {
     type RuntimeEvent = RuntimeEvent;
@@ -531,6 +532,7 @@ impl pallet_membership::Config<TriumvirateMembership> for Runtime {
 }
 
 // We call our top K delegates membership Senate
+#[allow(dead_code)]
 type SenateMembership = pallet_membership::Instance2;
 impl pallet_membership::Config<SenateMembership> for Runtime {
     type RuntimeEvent = RuntimeEvent;
@@ -880,7 +882,8 @@ parameter_types! {
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
-    pub const SubtensorInitialBaseDifficulty: u64 = 10_000_000; // Base difficulty
+    pub const SubtensorInitialHotkeyEmissionTempo: u64 = 7200; // Drain every day.
+    pub const SubtensorInitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -936,7 +939,8 @@ impl pallet_subtensor::Config for Runtime {
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;
-    type InitialBaseDifficulty = SubtensorInitialBaseDifficulty;
+    type InitialHotkeyEmissionTempo = SubtensorInitialHotkeyEmissionTempo;
+    type InitialNetworkMaxStake = SubtensorInitialNetworkMaxStake;
 }
 
 use sp_runtime::BoundedVec;
@@ -1216,6 +1220,14 @@ impl
         SubtensorModule::set_liquid_alpha_enabled(netuid, enabled);
     }
 
+    fn set_hotkey_emission_tempo(emission_tempo: u64) {
+        SubtensorModule::set_hotkey_emission_tempo(emission_tempo);
+    }
+
+    fn set_network_max_stake(netuid: u16, max_stake: u64) {
+        SubtensorModule::set_network_max_stake(netuid, max_stake);
+    }
+
     fn do_set_alpha_values(
         origin: RuntimeOrigin,
         netuid: u16,
@@ -1282,6 +1294,7 @@ pub type SignedExtra = (
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
     pallet_subtensor::SubtensorSignedExtension<Runtime>,
     pallet_commitments::CommitmentsSignedExtension<Runtime>,
+    frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
 type Migrations = pallet_grandpa::migrations::MigrateV4ToV5<Runtime>;
