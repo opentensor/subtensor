@@ -206,6 +206,7 @@ jobs:
 
       - name: Run localnet with docker compose
         run: |
+          mkdir -p target
           docker-compose -f docker-compose-baedeker.yml up -d
 
       - name: Runtime upgrade
