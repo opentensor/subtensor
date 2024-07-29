@@ -25,120 +25,120 @@ env:
   VERBOSE: ${{ github.events.input.verbose }}
 
 jobs:
-  install-baedeker:
-    name: install-baedeker
-    runs-on: SubtensorCI
-    strategy:
-      matrix:
-        rust-branch:
-          - stable
-        rust-target:
-          - x86_64-unknown-linux-gnu
-          # - x86_64-apple-darwin
-        os:
-          - ubuntu-latest
-          # - macos-latest
-        include:
-          - os: ubuntu-latest
-          # - os: macos-latest
-    env:
-      RELEASE_NAME: development
-      # RUSTFLAGS: -A warnings
-      RUSTV: ${{ matrix.rust-branch }}
-      RUST_BACKTRACE: full
-      RUST_BIN_DIR: target/${{ matrix.rust-target }}
-      SKIP_WASM_BUILD: 1
-      TARGET: ${{ matrix.rust-target }}
-    steps:
-      - name: Checkout Baedeker repository
-        uses: actions/checkout@v3
-        with:
-          repository: 'UniqueNetwork/baedeker'
-          path: 'baedeker'
+  # install-baedeker:
+  #   name: install-baedeker
+  #   runs-on: SubtensorCI
+  #   strategy:
+  #     matrix:
+  #       rust-branch:
+  #         - stable
+  #       rust-target:
+  #         - x86_64-unknown-linux-gnu
+  #         # - x86_64-apple-darwin
+  #       os:
+  #         - ubuntu-latest
+  #         # - macos-latest
+  #       include:
+  #         - os: ubuntu-latest
+  #         # - os: macos-latest
+  #   env:
+  #     RELEASE_NAME: development
+  #     # RUSTFLAGS: -A warnings
+  #     RUSTV: ${{ matrix.rust-branch }}
+  #     RUST_BACKTRACE: full
+  #     RUST_BIN_DIR: target/${{ matrix.rust-target }}
+  #     SKIP_WASM_BUILD: 1
+  #     TARGET: ${{ matrix.rust-target }}
+  #   steps:
+  #     - name: Checkout Baedeker repository
+  #       uses: actions/checkout@v3
+  #       with:
+  #         repository: 'UniqueNetwork/baedeker'
+  #         path: 'baedeker'
 
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
+  #     - name: Install Rust toolchain
+  #       uses: actions-rs/toolchain@v1
+  #       with:
+  #         toolchain: stable
+  #         profile: minimal
+  #         override: true
     
-      - name: Build baedeker
-        run: |
-          cd baedeker
-          cargo build --release
+  #     - name: Build baedeker
+  #       run: |
+  #         cd baedeker
+  #         cargo build --release
     
-      - name: Prepare binary for artifact upload
-        run: |
-          mkdir -p ${{ github.workspace }}/bin
-          cp ./baedeker/target/release/baedeker ${{ github.workspace }}/bin/
-          chmod +x ${{ github.workspace }}/bin/baedeker
+  #     - name: Prepare binary for artifact upload
+  #       run: |
+  #         mkdir -p ${{ github.workspace }}/bin
+  #         cp ./baedeker/target/release/baedeker ${{ github.workspace }}/bin/
+  #         chmod +x ${{ github.workspace }}/bin/baedeker
     
-      - name: Upload baedeker binary as an artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: baedeker-binary
-          path: ${{ github.workspace }}/bin/baedeker
+  #     - name: Upload baedeker binary as an artifact
+  #       uses: actions/upload-artifact@v3
+  #       with:
+  #         name: baedeker-binary
+  #         path: ${{ github.workspace }}/bin/baedeker
 
-  download-finney-state:
-    needs: install-baedeker
-    runs-on: SubtensorCI
-    strategy:
-      matrix:
-        rust-branch:
-          - stable
-        rust-target:
-          - x86_64-unknown-linux-gnu
-          # - x86_64-apple-darwin
-        os:
-          - ubuntu-latest
-          # - macos-latest
-        include:
-          - os: ubuntu-latest
-          # - os: macos-latest
-    env:
-      RELEASE_NAME: development
-      # RUSTFLAGS: -A warnings
-      RUSTV: ${{ matrix.rust-branch }}
-      RUST_BACKTRACE: full
-      RUST_BIN_DIR: target/${{ matrix.rust-target }}
-      SKIP_WASM_BUILD: 1
-      TARGET: ${{ matrix.rust-target }}
-    steps:
-      - name: Check-out repository under $GITHUB_WORKSPACE
-        uses: actions/checkout@v4
+  # download-finney-state:
+  #   needs: install-baedeker
+  #   runs-on: SubtensorCI
+  #   strategy:
+  #     matrix:
+  #       rust-branch:
+  #         - stable
+  #       rust-target:
+  #         - x86_64-unknown-linux-gnu
+  #         # - x86_64-apple-darwin
+  #       os:
+  #         - ubuntu-latest
+  #         # - macos-latest
+  #       include:
+  #         - os: ubuntu-latest
+  #         # - os: macos-latest
+  #   env:
+  #     RELEASE_NAME: development
+  #     # RUSTFLAGS: -A warnings
+  #     RUSTV: ${{ matrix.rust-branch }}
+  #     RUST_BACKTRACE: full
+  #     RUST_BIN_DIR: target/${{ matrix.rust-target }}
+  #     SKIP_WASM_BUILD: 1
+  #     TARGET: ${{ matrix.rust-target }}
+  #   steps:
+  #     - name: Check-out repository under $GITHUB_WORKSPACE
+  #       uses: actions/checkout@v4
 
-      - name: Download baedeker binary
-        uses: actions/download-artifact@v3
-        with:
-          name: baedeker-binary
-          path: bin
+  #     - name: Download baedeker binary
+  #       uses: actions/download-artifact@v3
+  #       with:
+  #         name: baedeker-binary
+  #         path: bin
 
-      - name: Execute baedeker
-        run: |
-          chmod +x bin/baedeker
-          RUST_LOG=info bin/baedeker --spec=docker -J.baedeker/vendor/ --generator=docker_compose=.baedeker/.bdk-env --generator=docker_compose_discover=.baedeker/.bdk-env/discover.env --secret=file=.baedeker/.bdk-env/secret  --tla-str=relay_spec=rococo-local --input-modules='lib:baedeker-library/ops/nginx.libsonnet' --input-modules='lib:baedeker-library/ops/devtools.libsonnet' --tla-str=repoDir=$(realpath .baedeker/..) .baedeker/forkless-data.jsonnet --tla-str=forked_spec=subtensor --tla-str=fork_source=wss://entrypoint-finney.opentensor.ai .baedeker/rewrites.jsonnet
+  #     - name: Execute baedeker
+  #       run: |
+  #         chmod +x bin/baedeker
+  #         RUST_LOG=info bin/baedeker --spec=docker -J.baedeker/vendor/ --generator=docker_compose=.baedeker/.bdk-env --generator=docker_compose_discover=.baedeker/.bdk-env/discover.env --secret=file=.baedeker/.bdk-env/secret  --tla-str=relay_spec=rococo-local --input-modules='lib:baedeker-library/ops/nginx.libsonnet' --input-modules='lib:baedeker-library/ops/devtools.libsonnet' --tla-str=repoDir=$(realpath .baedeker/..) .baedeker/forkless-data.jsonnet --tla-str=forked_spec=subtensor --tla-str=fork_source=wss://entrypoint-finney.opentensor.ai .baedeker/rewrites.jsonnet
 
-      - name: Prepare genesis with data for artifact upload
-        run: |
-          mkdir -p ${{ github.workspace }}/finney-spec
-          cp .baedeker/.bdk-env/specs/subtensor.json ${{ github.workspace }}/finney-spec/
+  #     - name: Prepare genesis with data for artifact upload
+  #       run: |
+  #         mkdir -p ${{ github.workspace }}/finney-spec
+  #         cp .baedeker/.bdk-env/specs/subtensor.json ${{ github.workspace }}/finney-spec/
 
-      - name: Prepare secrets for artifact upload
-        run: |
-          mkdir -p ${{ github.workspace }}/finney-spec
-          mkdir -p ${{ github.workspace }}/finney-spec/secret
-          cp -r .baedeker/.bdk-env/secret/* ${{ github.workspace }}/finney-spec/secret
+  #     - name: Prepare secrets for artifact upload
+  #       run: |
+  #         mkdir -p ${{ github.workspace }}/finney-spec
+  #         mkdir -p ${{ github.workspace }}/finney-spec/secret
+  #         cp -r .baedeker/.bdk-env/secret/* ${{ github.workspace }}/finney-spec/secret
 
-      - name: Upload spec and secrets as an artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: finney-state
+  #     - name: Upload spec and secrets as an artifact
+  #       uses: actions/upload-artifact@v3
+  #       with:
+  #         name: finney-state
           path: ${{ github.workspace }}/finney-spec/
 
   # runs localnet with finney state
   run-local-chain:
-    needs: download-finney-state
+    # needs: download-finney-state
     name: run local chain
     runs-on: SubtensorCI
     strategy:
@@ -184,19 +184,19 @@ jobs:
         with:
           key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
 
-      - name: Download finney clone genesis and secrets
-        uses: actions/download-artifact@v3
-        with:
-          name: finney-state
-          path: finney-spec
+      # - name: Download finney clone genesis and secrets
+      #   uses: actions/download-artifact@v3
+      #   with:
+      #     name: finney-state
+      #     path: finney-spec
 
-      - name: Copy secrets and spec from artifacts
-        run: |
-          mkdir -p .baedeker/.bdk-env
-          mkdir -p .baedeker/.bdk-env/specs
-          mkdir -p .baedeker/.bdk-env/secret
-          cp finney-spec/subtensor.json .baedeker/.bdk-env/specs
-          cp -r finney-spec/secret/* .baedeker/.bdk-env/secret
+      # - name: Copy secrets and spec from artifacts
+      #   run: |
+      #     mkdir -p .baedeker/.bdk-env
+      #     mkdir -p .baedeker/.bdk-env/specs
+      #     mkdir -p .baedeker/.bdk-env/secret
+      #     cp finney-spec/subtensor.json .baedeker/.bdk-env/specs
+      #     cp -r finney-spec/secret/* .baedeker/.bdk-env/secret
 
       - name: Set up Docker Compose
         run: |
@@ -215,6 +215,7 @@ jobs:
           ls -la
           ls -la ..
           ls -la ../..
+          ls -la ../../target
           ls -la ../../target/release
           yarn install
           ../../scripts/wait_first_block_local.sh
