@@ -1,7 +1,6 @@
 #![allow(clippy::crate_in_macro_def)]
 
 use frame_support::pallet_macros::pallet_section;
-
 /// A [`pallet_section`] that defines the errors for a pallet.
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
@@ -30,6 +29,18 @@ mod config {
 
         /// Interface to allow other pallets to control who can register identities
         type TriumvirateInterface: crate::CollectiveInterface<Self::AccountId, Self::Hash, u32>;
+
+        /// The scheduler type used for scheduling delayed calls.
+        type Scheduler: ScheduleNamed<BlockNumberFor<Self>, Call<Self>, Self::RuntimeOrigin>;
+
+        /// The hashing system (algorithm) being used in the runtime, matching the Scheduler's Hasher.
+        type Hasher: Hash<
+            Output = <<Self::Scheduler as ScheduleNamed<
+                BlockNumberFor<Self>,
+                Call<Self>,
+                Self::RuntimeOrigin,
+            >>::Hasher as Hash>::Output,
+        >;
 
         /// =================================
         /// ==== Initial Value Constants ====

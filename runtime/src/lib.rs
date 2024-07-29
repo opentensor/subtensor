@@ -12,6 +12,7 @@ pub mod check_nonce;
 mod migrations;
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::traits::schedule::v3::Named as ScheduleNamed;
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     genesis_builder_helper::{build_config, create_default_config},
@@ -68,6 +69,7 @@ pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
 // Subtensor module
+pub use pallet_scheduler;
 pub use pallet_subtensor;
 
 // An index to a block.
@@ -93,6 +95,10 @@ pub type Hash = sp_core::H256;
 type MemberCount = u32;
 
 pub type Nonce = u32;
+
+/// The scheduler type used for scheduling delayed calls.
+// With something like this:
+// type Scheduler = pallet_subtensor::Scheduler<self::Runtime>;
 
 // Method used to calculate the fee of an extrinsic
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
@@ -834,6 +840,19 @@ impl pallet_commitments::Config for Runtime {
     type RateLimit = CommitmentRateLimit;
 }
 
+impl pallet_scheduler::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeOrigin = RuntimeOrigin;
+    type PalletsOrigin = OriginCaller;
+    type RuntimeCall = RuntimeCall;
+    type MaximumWeight = MaximumSchedulerWeight;
+    type ScheduleOrigin = EnsureRoot<AccountId>;
+    type MaxScheduledPerBlock = ConstU32<50>;
+    type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Runtime>;
+    type OriginPrivilegeCmp = EqualPrivilegeOnly;
+    type Preimages = Preimage;
+}
+
 // Configure the pallet subtensor.
 parameter_types! {
     pub const SubtensorInitialRho: u16 = 10;
@@ -883,6 +902,7 @@ parameter_types! {
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const SubtensorInitialHotkeyEmissionTempo: u64 = 7200; // Drain every day.
     pub const SubtensorInitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
+
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -892,6 +912,8 @@ impl pallet_subtensor::Config for Runtime {
     type CouncilOrigin = EnsureMajoritySenate;
     type SenateMembers = ManageSenateMembers;
     type TriumvirateInterface = TriumvirateVotes;
+    type Scheduler = pallet_scheduler::Pallet<Runtime>;
+    type Hasher = BlakeTwo256;
 
     type InitialRho = SubtensorInitialRho;
     type InitialKappa = SubtensorInitialKappa;
@@ -1266,12 +1288,12 @@ construct_runtime!(
         Sudo: pallet_sudo,
         Multisig: pallet_multisig,
         Preimage: pallet_preimage,
-        Scheduler: pallet_scheduler,
         Proxy: pallet_proxy,
         Registry: pallet_registry,
         Commitments: pallet_commitments,
         AdminUtils: pallet_admin_utils,
         SafeMode: pallet_safe_mode,
+        Scheduler: pallet_scheduler,
     }
 );
 

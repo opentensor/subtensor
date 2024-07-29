@@ -4,7 +4,7 @@ use codec::Encode;
 use frame_support::{assert_ok, traits::InstanceFilter, BoundedVec};
 use node_subtensor_runtime::{
     AccountId, BalancesCall, BuildStorage, Proxy, ProxyType, Runtime, RuntimeCall, RuntimeEvent,
-    RuntimeGenesisConfig, RuntimeOrigin, SubtensorModule, System, SystemCall,
+    RuntimeGenesisConfig, RuntimeOrigin, SchedulerCall, SubtensorModule, System, SystemCall,
 };
 
 const ACCOUNT: [u8; 32] = [1_u8; 32];
