@@ -951,9 +951,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     ///
     /// If not `approved`:
     /// - one event deposited.
-    ///  Two removals, one mutation.
-    ///  Computation and i/o `O(P)` where:
-    /// - `P` is number of active proposals
+    /// - two removals, one mutation.
+    /// - computation and i/o `O(P)` where:
+    ///   - `P` is number of active proposals
     fn do_approve_proposal(
         seats: MemberCount,
         yes_votes: MemberCount,
