@@ -84,6 +84,7 @@ std = [
 	"serde_with/std",
 	"substrate-fixed/std",
 	"num-traits/std",
+	"serde_json/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
