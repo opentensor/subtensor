@@ -44,3 +44,6 @@ bt.snap
 
 # localnet spec
 scripts/specs/local.json
+
+# Copied wasm files
+wasm

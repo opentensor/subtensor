@@ -3,7 +3,7 @@ services:
     ports:
       - 9946:9946
     volumes:
-      - ./target:/substrate
+      - ./wasm:/substrate/wasm
     build:
       context: .
       dockerfile: ./.baedeker/Dockerfile

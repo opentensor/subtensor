@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Copy wasm runtime 
+ls -la ./target/release/wbuild/node-subtensor-runtime/
+mkdir -p ./wasm
+cp ./target/release/wbuild/node-subtensor-runtime/*.wasm ./wasm
+
 : "${BUILD_BINARY:=1}"
 # : "${FEATURES:=pow-faucet}"
 
