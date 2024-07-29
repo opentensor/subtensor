@@ -39,7 +39,10 @@ async function main() {
   });
 
   // Disconnect from the provider on error or completion
-  provider.disconnect();
+  // provider.disconnect();
+
+  // We miss disconnect/unref for some reason, so we need explicit successful exit here
+  process.exit(0);
 }
 
 main().catch(console.error);
