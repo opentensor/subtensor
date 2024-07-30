@@ -161,7 +161,7 @@ fn test_serving_set_metadata_update() {
 }
 
 #[test]
-#[cfg(not(tarpaulin))]
+
 fn test_axon_serving_rate_limit_exceeded() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
@@ -379,7 +379,7 @@ fn test_prometheus_serving_set_metadata_update() {
 }
 
 #[test]
-#[cfg(not(tarpaulin))]
+
 fn test_prometheus_serving_rate_limit_exceeded() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);

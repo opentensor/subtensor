@@ -539,7 +539,7 @@ fn test_burn_adjustment() {
 }
 
 #[test]
-#[cfg(not(tarpaulin))]
+
 fn test_registration_too_many_registrations_per_block() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;

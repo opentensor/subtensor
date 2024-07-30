@@ -522,6 +522,7 @@ impl pallet_collective::Config<TriumvirateCollective> for Runtime {
 }
 
 // We call council members Triumvirate
+#[allow(dead_code)]
 type TriumvirateMembership = pallet_membership::Instance1;
 impl pallet_membership::Config<TriumvirateMembership> for Runtime {
     type RuntimeEvent = RuntimeEvent;
