@@ -7,3 +7,4 @@ pub mod helpers;
 pub mod increase_take;
 pub mod remove_stake;
 pub mod set_children;
+pub mod lock;

@@ -78,11 +78,6 @@ fn test_migration_fix_total_stake_maps() {
             100_000_000 + 1_123_000_000
         );
 
-        // Mess up the total coldkey stake
-        pallet_subtensor::TotalColdkeyStake::<Test>::insert(ck1, 0);
-        // Verify that the total coldkey stake is now 0 for ck1
-        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&ck1), 0);
-
         // Mess up the total stake
         pallet_subtensor::TotalStake::<Test>::put(123_456_789);
         // Verify that the total stake is now wrong
@@ -300,123 +295,6 @@ fn test_migration_delete_subnet_21() {
     })
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake --exact --nocapture
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake --exact --nocapture
-#[test]
-fn test_migrate_fix_total_coldkey_stake() {
-    new_test_ext(1).execute_with(|| {
-        let _migration_name = "fix_total_coldkey_stake_v7";
-        let coldkey = U256::from(0);
-        TotalColdkeyStake::<Test>::insert(coldkey, 0);
-        StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
-        Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
-        Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
-        Stake::<Test>::insert(U256::from(3), U256::from(0), 10000);
-        pallet_subtensor::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<Test>();
-        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
-    })
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake_value_already_in_total --exact --nocapture
-#[test]
-fn test_migrate_fix_total_coldkey_stake_value_already_in_total() {
-    new_test_ext(1).execute_with(|| {
-        let _migration_name = "fix_total_coldkey_stake_v7";
-        let coldkey = U256::from(0);
-        TotalColdkeyStake::<Test>::insert(coldkey, 100000000);
-        StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
-        Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
-        Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
-        Stake::<Test>::insert(U256::from(3), U256::from(0), 10000);
-        pallet_subtensor::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<Test>();
-        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
-    })
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake_no_entry --exact --nocapture
-#[test]
-fn test_migrate_fix_total_coldkey_stake_no_entry() {
-    new_test_ext(1).execute_with(|| {
-        let _migration_name = "fix_total_coldkey_stake_v7";
-        let coldkey = U256::from(0);
-        StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
-        Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
-        Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
-        Stake::<Test>::insert(U256::from(3), U256::from(0), 10000);
-        pallet_subtensor::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<Test>();
-        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
-    })
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake_no_entry_in_hotkeys --exact --nocapture
-#[test]
-fn test_migrate_fix_total_coldkey_stake_no_entry_in_hotkeys() {
-    new_test_ext(1).execute_with(|| {
-        let _migration_name = "fix_total_coldkey_stake_v7";
-        let coldkey = U256::from(0);
-        TotalColdkeyStake::<Test>::insert(coldkey, 100000000);
-        StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
-        pallet_subtensor::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<Test>();
-        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 0);
-    })
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake_one_hotkey_stake_missing --exact --nocapture
-#[test]
-fn test_migrate_fix_total_coldkey_stake_one_hotkey_stake_missing() {
-    new_test_ext(1).execute_with(|| {
-        let _migration_name = "fix_total_coldkey_stake_v7";
-        let coldkey = U256::from(0);
-        TotalColdkeyStake::<Test>::insert(coldkey, 100000000);
-        StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
-        Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
-        Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
-        pallet_subtensor::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<Test>();
-        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 20000);
-    })
-}
-
-// New test to check if migration runs only once
-//  SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake_runs_once --exact --nocapture
-#[test]
-fn test_migrate_fix_total_coldkey_stake_runs_once() {
-    new_test_ext(1).execute_with(|| {
-        let migration_name = "fix_total_coldkey_stake_v7";
-        let coldkey = U256::from(0);
-        TotalColdkeyStake::<Test>::insert(coldkey, 0);
-        StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
-        Stake::<Test>::insert(U256::from(1), coldkey, 10000);
-        Stake::<Test>::insert(U256::from(2), coldkey, 10000);
-        Stake::<Test>::insert(U256::from(3), coldkey, 10000);
-
-        // First run
-        let first_weight = run_migration_and_check(migration_name);
-        assert!(first_weight != Weight::zero());
-        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
-
-        // Second run
-        let second_weight = run_migration_and_check(migration_name);
-        assert_eq!(second_weight, Weight::zero());
-        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
-    })
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake_starts_with_value_no_stake_map_entries --exact --nocapture
-#[test]
-fn test_migrate_fix_total_coldkey_stake_starts_with_value_no_stake_map_entries() {
-    new_test_ext(1).execute_with(|| {
-        let migration_name = "fix_total_coldkey_stake_v7";
-        let coldkey = U256::from(0);
-        TotalColdkeyStake::<Test>::insert(coldkey, 123_456_789);
-
-        // Notably, coldkey has no stake map or staking_hotkeys map entries
-
-        let weight = run_migration_and_check(migration_name);
-        assert!(weight != Weight::zero());
-        // Therefore 0
-        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 123_456_789);
-    })
-}
 
 fn run_migration_and_check(migration_name: &'static str) -> frame_support::weights::Weight {
     // Execute the migration and store its weight

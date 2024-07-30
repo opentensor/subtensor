@@ -833,7 +833,8 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
         pub fn dissolve_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
-            Self::user_remove_network(origin, netuid)
+            Ok(())
+            // Self::user_remove_network(origin, netuid)
         }
 
         /// Sets values for liquid alpha
@@ -942,24 +943,39 @@ mod dispatches {
             Self::do_set_identity(origin, name, url, image, discord, description, additional)
         }
 
-        /// ---- Create a new mechanism for the network.
-        /// # Args:
-        /// * 'origin': OriginFor<T>:
-        ///     - The origin of the transaction. Must be sudo.
+        /// Locks a specified amount of alpha for a given hotkey on a specific subnet.
         ///
-        /// # Returns:
-        /// * DispatchResult:
-        ///     - The result of the mechanism creation operation.
+        /// This function allows a user to lock a certain amount of alpha (stake) for a hotkey
+        /// on a particular subnet. Locking alpha can be used to increase the influence or
+        /// participation of the hotkey in the subnet's operations.
         ///
+        /// # Arguments
+        ///
+        /// * `origin` - The origin of the call, typically representing the account initiating the lock.
+        /// * `hotkey` - The account ID of the hotkey for which alpha is being locked.
+        /// * `netuid` - The unique identifier of the subnet where the alpha is being locked.
+        /// * `alpha_locked` - The amount of alpha to be locked, represented as a u64.
+        ///
+        /// # Returns
+        ///
+        /// Returns a `DispatchResult` indicating success or failure of the operation.
+        ///
+        /// # Weight
+        ///
+        /// - Base Weight: 124,000,000 + 10 DB Reads + 7 DB Writes
+        /// - Dispatch Class: Normal
+        /// - Pays Fee: No
         #[pallet::call_index(69)]
-        #[pallet::weight((Weight::from_parts(45_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(4))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        pub fn sudo_create_mechanism(
+        #[pallet::weight((Weight::from_parts(124_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(10))
+		.saturating_add(T::DbWeight::get().writes(7)), DispatchClass::Normal, Pays::No))]
+        pub fn lock(
             origin: OriginFor<T>,
-            n: u16,
+            hotkey: T::AccountId,
+            netuid: u16,
+            alpha_locked: u64,
         ) -> DispatchResult {
-            Self::do_sudo_create_mechanism(origin, n)
+            Self::do_lock(origin, hotkey, netuid, alpha_locked)
         }
 
     }

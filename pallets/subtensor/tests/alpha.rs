@@ -2,23 +2,18 @@ mod mock;
 use mock::*;
 use sp_core::U256;
 use substrate_fixed::types::I96F32;
+use frame_support::assert_ok;
 // use pallet_subtensor::*;
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test alpha -- test_create_mechanism --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test alpha -- test_create_network --exact --nocapture
 #[test]
-fn test_create_mechanism() {
+fn test_create_network() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        create_mechanism( 2, 32 );
-        assert_eq!(SubtensorModule::get_num_mechanisms(), 1);
-        assert_eq!(SubtensorModule::get_num_subnets(), 32);
-        assert_eq!(SubtensorModule::get_mechanism_netuids(2).len(), 32);
-        let netuids = SubtensorModule::get_mechanism_netuids(2);
-        for netuid in netuids {
-            SubtensorModule::stake_into_subnet( &hotkey, &coldkey, netuid, 100_000_000_000_000 );
-            log::info!( "Stake for hotkey and coldkey on subnet {}: {}", netuid, SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet( &hotkey, &coldkey, netuid ) );
-        }
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 100_000_000_000);
+        let netuid = create_network(coldkey, hotkey, 1);
+        assert_eq!( SubtensorModule::stake_into_subnet( &hotkey, &coldkey, netuid, 100_000_000_000 ), 500_000_000 ); // With huge slippage because of the initial price.
     });
 }
 

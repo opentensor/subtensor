@@ -157,18 +157,7 @@ impl<T: Config> Pallet<T> {
         OwnedHotkeys::<T>::insert(coldkey, hotkeys);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
-        // 3. Swap total hotkey stake.
-        // TotalHotkeyStake( hotkey ) -> stake -- the total stake that the hotkey has across all delegates.
-        let old_total_hotkey_stake = TotalHotkeyStake::<T>::get(old_hotkey); // Get the old total hotkey stake.
-        let new_total_hotkey_stake = TotalHotkeyStake::<T>::get(new_hotkey); // Get the new total hotkey stake.
-        TotalHotkeyStake::<T>::remove(old_hotkey); // Remove the old total hotkey stake.
-        TotalHotkeyStake::<T>::insert(
-            new_hotkey,
-            old_total_hotkey_stake.saturating_add(new_total_hotkey_stake),
-        ); // Insert the new total hotkey stake via the addition.
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
-
-        // 3.1 Swap total hotkey alpha for all subnets.
+        // 3. Swap total hotkey alpha for all subnets.
         // TotalHotkeyAlpha( hotkey, netuid ) -> alpha -- the total alpha that the hotkey has on a specific subnet.
         let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
         for netuid in all_netuids {

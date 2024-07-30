@@ -55,8 +55,8 @@ impl<T: Config> Pallet<T> {
         log::debug!(
             "append_neuron( netuid: {:?} | next_uid: {:?} | new_hotkey: {:?} ) ",
             netuid,
+            next_uid,
             new_hotkey,
-            next_uid
         );
 
         // 2. Get and increase the uid count.

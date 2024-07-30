@@ -85,27 +85,6 @@ fn test_swap_stake() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_total_coldkey_stake --exact --nocapture
-#[test]
-fn test_swap_total_coldkey_stake() {
-    new_test_ext(1).execute_with(|| {
-        let old_coldkey = U256::from(1);
-        let new_coldkey = U256::from(2);
-        let stake = 100;
-
-        TotalColdkeyStake::<Test>::insert(old_coldkey, stake);
-
-        let mut weight = Weight::zero();
-        assert_ok!(SubtensorModule::perform_swap_coldkey(
-            &old_coldkey,
-            &new_coldkey,
-            &mut weight
-        ));
-
-        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
-        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), stake);
-    });
-}
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_staking_hotkeys --exact --nocapture
 #[test]
@@ -174,24 +153,6 @@ fn test_transfer_remaining_balance() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_with_no_stake --exact --nocapture
-#[test]
-fn test_swap_with_no_stake() {
-    new_test_ext(1).execute_with(|| {
-        let old_coldkey = U256::from(1);
-        let new_coldkey = U256::from(2);
-
-        let mut weight = Weight::zero();
-        assert_ok!(SubtensorModule::perform_swap_coldkey(
-            &old_coldkey,
-            &new_coldkey,
-            &mut weight
-        ));
-
-        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
-        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), 0);
-    });
-}
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_with_multiple_hotkeys --exact --nocapture
 #[test]
@@ -264,99 +225,7 @@ fn test_swap_with_zero_balance() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_idempotency --exact --nocapture
-#[test]
-fn test_swap_idempotency() {
-    new_test_ext(1).execute_with(|| {
-        let old_coldkey = U256::from(1);
-        let new_coldkey = U256::from(2);
-        let stake = 100;
 
-        TotalColdkeyStake::<Test>::insert(old_coldkey, stake);
-
-        let mut weight = Weight::zero();
-        assert_ok!(SubtensorModule::perform_swap_coldkey(
-            &old_coldkey,
-            &new_coldkey,
-            &mut weight
-        ));
-        assert_ok!(SubtensorModule::perform_swap_coldkey(
-            &old_coldkey,
-            &new_coldkey,
-            &mut weight
-        ));
-
-        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
-        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), stake);
-    });
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_with_max_values --exact --nocapture
-#[test]
-fn test_swap_with_max_values() {
-    new_test_ext(1).execute_with(|| {
-        let old_coldkey = U256::from(1);
-        let new_coldkey = U256::from(2);
-        let max_stake = u64::MAX;
-
-        TotalColdkeyStake::<Test>::insert(old_coldkey, max_stake);
-
-        let mut weight = Weight::zero();
-        assert_ok!(SubtensorModule::perform_swap_coldkey(
-            &old_coldkey,
-            &new_coldkey,
-            &mut weight
-        ));
-
-        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
-        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), max_stake);
-    });
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_with_non_existent_new_coldkey --exact --nocapture
-#[test]
-fn test_swap_with_non_existent_new_coldkey() {
-    new_test_ext(1).execute_with(|| {
-        let old_coldkey = U256::from(1);
-        let new_coldkey = U256::from(2);
-        let stake = 100;
-
-        TotalColdkeyStake::<Test>::insert(old_coldkey, stake);
-
-        let mut weight = Weight::zero();
-        assert_ok!(SubtensorModule::perform_swap_coldkey(
-            &old_coldkey,
-            &new_coldkey,
-            &mut weight
-        ));
-
-        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
-        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), stake);
-    });
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_with_overflow_in_stake_addition --exact --nocapture
-#[test]
-fn test_swap_with_overflow_in_stake_addition() {
-    new_test_ext(1).execute_with(|| {
-        let old_coldkey = U256::from(1);
-        let new_coldkey = U256::from(2);
-        let max_stake = u64::MAX;
-
-        TotalColdkeyStake::<Test>::insert(old_coldkey, max_stake);
-        TotalColdkeyStake::<Test>::insert(new_coldkey, 1);
-
-        let mut weight = Weight::zero();
-        assert_ok!(SubtensorModule::perform_swap_coldkey(
-            &old_coldkey,
-            &new_coldkey,
-            &mut weight
-        ));
-
-        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
-        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), max_stake);
-    });
-}
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_with_max_hotkeys --exact --nocapture
 #[test]
@@ -567,11 +436,6 @@ fn test_do_swap_coldkey_success() {
         // Verify the swap
         assert_eq!(Owner::<Test>::get(hotkey1), new_coldkey);
         assert_eq!(Owner::<Test>::get(hotkey2), new_coldkey);
-        assert_eq!(
-            TotalColdkeyStake::<Test>::get(new_coldkey),
-            stake_amount1 + stake_amount2
-        );
-        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
         assert_eq!(Stake::<Test>::get(hotkey1, new_coldkey), stake_amount1);
         assert_eq!(Stake::<Test>::get(hotkey2, new_coldkey), stake_amount2);
         assert!(!Stake::<Test>::contains_key(hotkey1, old_coldkey));
@@ -637,7 +501,6 @@ fn test_swap_stake_for_coldkey() {
 
         TotalHotkeyStake::<Test>::insert(hotkey1, stake_amount1);
         TotalHotkeyStake::<Test>::insert(hotkey2, stake_amount2);
-        TotalColdkeyStake::<Test>::insert(old_coldkey, total_stake);
 
         // Set up total issuance
         TotalIssuance::<Test>::put(total_stake);
@@ -667,10 +530,6 @@ fn test_swap_stake_for_coldkey() {
         assert_eq!(Stake::<Test>::get(hotkey2, new_coldkey), stake_amount2);
         assert_eq!(Stake::<Test>::get(hotkey1, old_coldkey), 0);
         assert_eq!(Stake::<Test>::get(hotkey2, old_coldkey), 0);
-
-        // Verify TotalColdkeyStake
-        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), total_stake);
-        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
 
         // Verify TotalHotkeyStake remains unchanged
         assert_eq!(TotalHotkeyStake::<Test>::get(hotkey1), stake_amount1);
@@ -710,7 +569,6 @@ fn test_swap_staking_hotkeys_for_coldkey() {
         StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
         TotalHotkeyStake::<Test>::insert(hotkey1, stake_amount1);
         TotalHotkeyStake::<Test>::insert(hotkey2, stake_amount2);
-        TotalColdkeyStake::<Test>::insert(old_coldkey, total_stake);
 
         // Set up total issuance
         TotalIssuance::<Test>::put(total_stake);
@@ -750,7 +608,6 @@ fn test_swap_delegated_stake_for_coldkey() {
         Stake::<Test>::insert(hotkey2, old_coldkey, stake_amount2);
         TotalHotkeyStake::<Test>::insert(hotkey1, stake_amount1);
         TotalHotkeyStake::<Test>::insert(hotkey2, stake_amount2);
-        TotalColdkeyStake::<Test>::insert(old_coldkey, total_stake);
 
         // Set up total issuance
         TotalIssuance::<Test>::put(total_stake);
@@ -769,9 +626,6 @@ fn test_swap_delegated_stake_for_coldkey() {
         assert_eq!(Stake::<Test>::get(hotkey1, old_coldkey), 0);
         assert_eq!(Stake::<Test>::get(hotkey2, old_coldkey), 0);
 
-        // Verify TotalColdkeyStake
-        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), total_stake);
-        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
 
         // Verify TotalHotkeyStake remains unchanged
         assert_eq!(TotalHotkeyStake::<Test>::get(hotkey1), stake_amount1);

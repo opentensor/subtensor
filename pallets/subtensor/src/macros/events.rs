@@ -181,5 +181,7 @@ mod events {
         ChainIdentitySet(T::AccountId),
         /// Mechanism added
         MechanismAdded(u16),
+        /// Lock increased
+        LockIncreased(T::AccountId, T::AccountId, u16, u64),
     }
 }

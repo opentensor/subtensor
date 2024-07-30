@@ -355,6 +355,17 @@ impl<T: Config> Pallet<T> {
         Alpha::<T>::get( (hotkey, coldkey, netuid ))
     }
 
+    pub fn emit_into_subnet( hotkey: &T::AccountId, coldkey: &T::AccountId, netuid: u16, emitted_alpha: u64 ) {
+        // Increment the hotkey alpha.
+        Alpha::<T>::mutate((hotkey, coldkey, netuid), |alpha| { *alpha = alpha.saturating_add( emitted_alpha );});
+        // Increment the subnet alpha outstanding in the subnet.
+        SubnetAlphaOut::<T>::mutate( netuid, |total| { *total = total.saturating_add( emitted_alpha ); });
+        // Increment the coldkey total.
+        TotalColdkeyAlpha::<T>::mutate(coldkey, netuid, |total| { *total = total.saturating_add( emitted_alpha ); });
+        // Increment the hotkey total.
+        TotalHotkeyAlpha::<T>::mutate(hotkey, netuid, |total| { *total = total.saturating_add( emitted_alpha ); });
+    }
+
     /// Stakes TAO into a subnet for a given hotkey and coldkey pair.
     ///
     /// This function performs the following operations:
@@ -384,59 +395,103 @@ impl<T: Config> Pallet<T> {
     /// - `Stake`
     /// - `StakingHotkeys`
     pub fn stake_into_subnet( hotkey: &T::AccountId, coldkey: &T::AccountId, netuid: u16, tao_staked: u64 ) -> u64{
+        // Log: Starting stake_into_subnet function
+        log::info!("Starting stake_into_subnet for hotkey: {:?}, coldkey: {:?}, netuid: {}, tao_staked: {}", hotkey, coldkey, netuid, tao_staked);
+
         // Get the mechanism type.
         let mechid: u16 = SubnetMechanism::<T>::get( netuid );
+        log::info!("Mechanism ID for subnet {}: {}", netuid, mechid);
+
         let alpha_staked: I96F32;
         let new_subnet_alpha: I96F32;
         let float_tao_staked: I96F32 = I96F32::from_num(tao_staked);
-        if mechid == 2 {
-            // Dynamic.
+
+        if mechid == 1 {
+            // Dynamic, get the tao and alpha in the pool.
             let subnet_tao: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(netuid));
-            // Second get the amount of TAO in the pool.
             let subnet_alpha: I96F32 = I96F32::from_num(SubnetAlphaIn::<T>::get(netuid));
-            // Third compute the constant product.
+            // Compute the constant product.
             let k: I96F32 = subnet_alpha * subnet_tao;
-            // Fourth compute the amount of alpha bought.
+            // Compute the amount of alpha bought.
             alpha_staked = subnet_alpha - (k / (subnet_tao + float_tao_staked));
             // Subtract the alpha from the pool.
             new_subnet_alpha = subnet_alpha - alpha_staked;
         } else {
             // Stable.
+            log::info!("Using stable mechanism for subnet {}", netuid);
             alpha_staked = float_tao_staked;
+            log::info!("Alpha staked (equal to TAO staked): {}", alpha_staked);
+
             // Set the new subnet alpha.
             new_subnet_alpha = I96F32::from_num(0.0); // Always zero in the pool.
+            log::info!("New subnet Alpha (always 0 for stable): {}", new_subnet_alpha);
         }
+
         // Convert to u64.
         let alpha_staked_u64: u64 = alpha_staked.to_num::<u64>();
+        log::info!("Alpha staked (u64): {}", alpha_staked_u64);
+
         // Increment the hotkey alpha.
-        Alpha::<T>::mutate((hotkey, coldkey, netuid), |alpha| { *alpha = alpha.saturating_add( alpha_staked_u64 );});
+        Alpha::<T>::mutate((hotkey, coldkey, netuid), |alpha| { 
+            *alpha = alpha.saturating_add( alpha_staked_u64 );
+            log::info!("Updated Alpha for (hotkey, coldkey, netuid): {}", *alpha);
+        });
+
         // Convert new_subnet_alpha to u64.
         let new_subnet_alpha_u64: u64 = new_subnet_alpha.to_num::<u64>();
+        log::info!("New subnet Alpha (u64): {}", new_subnet_alpha_u64);
+
         // Set the new subnet alpha.
         SubnetAlphaIn::<T>::insert( netuid, new_subnet_alpha_u64 );
+        log::info!("Updated SubnetAlphaIn for netuid {}: {}", netuid, new_subnet_alpha_u64);
+
         // Increment the subnet alpha outstanding in the subnet.
-        SubnetAlphaOut::<T>::mutate( netuid, |total| { *total = total.saturating_add( alpha_staked_u64 ); });
+        SubnetAlphaOut::<T>::mutate( netuid, |total| { 
+            *total = total.saturating_add( alpha_staked_u64 );
+            log::info!("Updated SubnetAlphaOut for netuid {}: {}", netuid, *total);
+        });
+
         // Increment the subnet tao.
-        SubnetTAO::<T>::mutate(netuid, |total| { *total = total.saturating_add( tao_staked );});
+        SubnetTAO::<T>::mutate(netuid, |total| { 
+            *total = total.saturating_add( tao_staked );
+            log::info!("Updated SubnetTAO for netuid {}: {}", netuid, *total);
+        });
+
         // Increment total stake.
-        TotalStake::<T>::mutate(|total| { *total = total.saturating_add( tao_staked );});
+        TotalStake::<T>::mutate(|total| { 
+            *total = total.saturating_add( tao_staked );
+            log::info!("Updated TotalStake: {}", *total);
+        });
+
         // Increment the total tao staked
-        Stake::<T>::mutate(&hotkey, &coldkey, |stake| {*stake = stake.saturating_add( tao_staked );});
-        // Increment the total hotkey stake
-        TotalHotkeyStake::<T>::mutate(hotkey, |stake| {*stake = stake.saturating_add( tao_staked )});
-        // Increment the total coldkey stake
-        TotalColdkeyStake::<T>::mutate(coldkey, |stake| {*stake = stake.saturating_add( tao_staked )});
+        Stake::<T>::mutate(&hotkey, &coldkey, |stake| {
+            *stake = stake.saturating_add( tao_staked );
+            log::info!("Updated Stake for (hotkey, coldkey): {}", *stake);
+        });
+
+
         // Increment the coldkey total.
-        TotalColdkeyAlpha::<T>::mutate(coldkey, netuid, |total| { *total = total.saturating_add( alpha_staked_u64 ); });
+        TotalColdkeyAlpha::<T>::mutate(coldkey, netuid, |total| { 
+            *total = total.saturating_add( alpha_staked_u64 );
+            log::info!("Updated TotalColdkeyAlpha for (coldkey, netuid): {}", *total);
+        });
+
         // Increment the hotkey total.
-        TotalHotkeyAlpha::<T>::mutate(hotkey, netuid, |total| { *total = total.saturating_add( alpha_staked_u64 ); });
+        TotalHotkeyAlpha::<T>::mutate(hotkey, netuid, |total| { 
+            *total = total.saturating_add( alpha_staked_u64 );
+            log::info!("Updated TotalHotkeyAlpha for (hotkey, netuid): {}", *total);
+        });
+
         // Update Staking hotkeys map.
         let mut staking_hotkeys = StakingHotkeys::<T>::get(&coldkey);
         if !staking_hotkeys.contains(&hotkey) {
             staking_hotkeys.push(hotkey.clone());
             StakingHotkeys::<T>::insert(&coldkey, staking_hotkeys);
+            log::info!("Added hotkey to StakingHotkeys for coldkey");
         }
+
         // Return the converted alpha.
+        log::info!("Finished stake_into_subnet. Returning alpha_staked_u64: {}", alpha_staked_u64);
         alpha_staked_u64
     }
 
@@ -476,7 +531,7 @@ impl<T: Config> Pallet<T> {
         let tao_unstaked: I96F32;
         let new_subnet_alpha: I96F32;
         let float_alpha_unstaked: I96F32 = I96F32::from_num(alpha_unstaked);
-        if mechid == 2 {
+        if mechid == 1 {
             // Stable.
             tao_unstaked = float_alpha_unstaked;
             // Set the new subnet tao.
@@ -541,10 +596,6 @@ impl<T: Config> Pallet<T> {
                 }
             }
         });
-        // Decrement the total hotkey stake
-        TotalHotkeyStake::<T>::mutate(hotkey, |stake| { *stake = stake.saturating_sub( tao_unstaked_u64 );});
-        // Decrement the total coldkey stake
-        TotalColdkeyStake::<T>::mutate(coldkey, |stake| { *stake = stake.saturating_sub( tao_unstaked_u64 );});
         // Decrement the total tao staked
         Stake::<T>::mutate(&hotkey, &coldkey, |stake| {*stake = stake.saturating_sub( tao_unstaked_u64 );});
         // Decrement the total stake counter.

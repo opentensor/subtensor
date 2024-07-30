@@ -44,6 +44,9 @@ impl<T: Config> Pallet<T> {
             hotkey,
             alpha_unstaked
         );
+        
+        // Ensure that the subnet exists.
+        ensure!( Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
         // Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
@@ -59,6 +62,16 @@ impl<T: Config> Pallet<T> {
 
         // Ensure that the stake amount to be removed is above zero.
         ensure!(alpha_unstaked > 0, Error::<T>::StakeToWithdrawIsZero);
+
+        // Check if this is the owner hotkey unstaking.
+        if hotkey == SubnetOwnerHotkey::<T>::get(netuid) {
+            // Get the committed lock.
+            let alpha_locked: u64 = SubnetLocked::<T>::get(netuid);
+            // Get current staked.
+            let alpha_staked: u64 = Alpha::<T>::get((hotkey.clone(), coldkey.clone(), netuid));
+            // Ensure we are not unstaking the lock.
+            ensure!( alpha_staked.saturating_sub( alpha_unstaked) < alpha_locked, Error::<T>::CannotUnstakeLock );
+        }
 
         // Ensure that the hotkey has enough stake to withdraw.
         ensure!(

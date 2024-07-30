@@ -517,12 +517,6 @@ pub mod pallet {
     /// ==========================
     #[pallet::storage] // --- ITEM ( global_weight )
     pub type GlobalWeight<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- MAP ( hot ) --> stake | Returns the total amount of stake under a hotkey.
-    pub type TotalHotkeyStake<T: Config> =
-        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- MAP ( cold ) --> stake | Returns the total amount of stake under a coldkey.
-    pub type TotalColdkeyStake<T: Config> =
-        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> tao_in_subnet | Returns the amount of TAO in the subnet.
     pub type SubnetTAO<T: Config> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the subnet.
@@ -678,10 +672,6 @@ pub mod pallet {
     /// ============================
     /// ==== Subnet Parameters =====
     /// ============================
-    #[pallet::storage] // --- MAP ( netuid ) --> mechanism_n (Number of mechanisms)
-    pub type MechanismN<T: Config> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultZeroU16<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> network_is_added
-    pub type MechanismsAdded<T: Config> = StorageMap<_, Identity, u16, bool, ValueQuery, DefaultFalse<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> subnet mechanism
     pub type SubnetMechanism<T: Config> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultZeroU16<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> subnetwork_n (Number of UIDs in the network).
@@ -728,6 +718,8 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> subnet_owner
     pub type SubnetOwner<T: Config> =
         StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
+    #[pallet::storage] // --- MAP ( netuid ) --> subnet_owner_hotkey
+    pub type SubnetOwnerHotkey<T: Config> = StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> subnet_locked
     pub type SubnetLocked<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;

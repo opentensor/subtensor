@@ -46,6 +46,9 @@ impl<T: Config> Pallet<T> {
             stake_to_be_added
         );
 
+        // Ensure that the subnet exists.
+        ensure!( Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+
         // Ensure the callers coldkey has enough stake to perform the transaction.
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, stake_to_be_added),
@@ -77,9 +80,7 @@ impl<T: Config> Pallet<T> {
 
         // If coldkey is not owner of the hotkey, it's a nomination stake.
         if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
-            let total_stake_after_add =
-                Stake::<T>::get(&hotkey, &coldkey).saturating_add(stake_to_be_added);
-
+            let total_stake_after_add:u64 = Alpha::<T>::get((&hotkey, &coldkey, netuid)).saturating_add(stake_to_be_added);
             ensure!(
                 total_stake_after_add >= NominatorMinRequiredStake::<T>::get(),
                 Error::<T>::NomStakeBelowMinimumThreshold

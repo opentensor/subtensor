@@ -4,29 +4,6 @@ use alloc::collections::BTreeMap;
 
 impl<T: Config> Pallet<T> {
 
-    pub fn get_total_mechanism_tao(mechid: u16) -> u64 {
-        let mut total_mechanism_tao: u64 = 0;
-        for netuid in Self::get_all_subnet_netuids().iter() {
-            let other_mechid: u16 = SubnetMechanism::<T>::get( *netuid );
-            if mechid == other_mechid {
-                let subnet_tao: u64 = SubnetTAO::<T>::get( *netuid );
-                total_mechanism_tao += subnet_tao;
-            }
-        }
-        total_mechanism_tao
-    }
-
-    /// Returns the emission value for the given subnet.
-    ///
-    /// This function retrieves the emission value for the given subnet.
-    ///
-    /// # Returns:
-    /// * 'u64': The emission value for the given subnet.
-    ///
-    pub fn get_subnet_emission_value(netuid: u16) -> u64 {
-        EmissionValues::<T>::get(netuid)
-    }
-
         
     /// The `coinbase` function performs a four-part emission distribution process involving
     /// subnets, epochs, hotkeys, and nominators.
@@ -65,35 +42,11 @@ impl<T: Config> Pallet<T> {
         let block_emission: I96F32 = I96F32::from_num( Self::get_block_emission().unwrap_or(0) );
         log::debug!("Block emission: {:?}", block_emission);
 
-        // -- 2. Count tao per mechanism
-        // This loop calculates the total TAO for each mechanism:
-        // For each subnet s with mechanism m:
-        //   T_m = Σ T_s
-        // Where T_m is the total TAO for mechanism m, and T_s is the TAO for subnet s.
-        let mut tao_per_mechanism: BTreeMap<u16, u64> = BTreeMap::new();
-        for netuid in subnets.clone().iter() {
-            let mechid: u16 = SubnetMechanism::<T>::get( *netuid );
-            let subnet_tao: u64 = SubnetTAO::<T>::get( *netuid );
-            *tao_per_mechanism.entry(mechid).or_insert(0) += subnet_tao;
-        }
-        log::debug!("TAO per mechanism: {:?}", tao_per_mechanism);
-
-        // --- 3. Compute emission per mechanism.
-        // This loop calculates the emission for each mechanism based on its proportion of total TAO.
-        // For each mechanism m:
-        // 1. Calculate mechanism's proportion of total TAO: P_m = T_m / T_total
-        // 2. Calculate mechanism's emission: E_m = P_m * E_total * block_emission
-        // Where T_m is the total TAO for mechanism m, T_total is the total TAO across all mechanisms,
-        // and E_total is implicitly 1 (representing 100% of the emission).
-        let total_tao_on_mechanisms: u64 = tao_per_mechanism.values().sum();
-        log::debug!("Total TAO on mechanisms: {:?}", total_tao_on_mechanisms);
-        let mut emission_per_mechanism: BTreeMap<u16, u64> = BTreeMap::new();
-        for (mechid, total_mechanism_tao) in tao_per_mechanism.iter() {
-            let mechanism_emission: I96F32 = block_emission * I96F32::from_num( *total_mechanism_tao ).checked_div( I96F32::from_num( total_tao_on_mechanisms ) ).unwrap_or(I96F32::from_num(0));
-            log::debug!("Emission for mechanism {:?}: {:?}", *mechid, mechanism_emission);
-            emission_per_mechanism.insert(*mechid, mechanism_emission.to_num::<u64>());
-        }
-        log::debug!("Emission per mechanism: {:?}", emission_per_mechanism);
+        // --- 3. Total subnet TAO.
+        let total_subnet_tao: I96F32 = subnets.iter().fold(I96F32::from_num(0), |acc, netuid| {
+            acc + I96F32::from_num(SubnetTAO::<T>::get(*netuid))
+        });
+        log::debug!("Total subnet TAO: {:?}", total_subnet_tao);
 
         // --- 4. Compute EmissionValues per subnet.
         // This loop calculates the emission for each subnet based on its mechanism and proportion of TAO.
@@ -108,20 +61,27 @@ impl<T: Config> Pallet<T> {
         for netuid in subnets.clone().iter() {
             // 1. Get subnet mechanism ID
             let mechid: u16 = SubnetMechanism::<T>::get(*netuid);
-            // 2. Get mechanism emission (E_m)
-            let mechanism_emission: I96F32 = I96F32::from_num(*emission_per_mechanism.get(&mechid).unwrap());
-            // 3. Get mechanism TAO (T_m)
-            let mechanism_tao: I96F32 = I96F32::from_num(*tao_per_mechanism.get(&mechid).unwrap());
             // 4. Get subnet TAO (T_s)
             let subnet_tao: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(*netuid));
             // 5. Calculate subnet's proportion of mechanism TAO: P_s = T_s / T_m
-            let subnet_proportion: I96F32 = subnet_tao.checked_div(mechanism_tao).unwrap_or(I96F32::from_num(0));
+            let subnet_proportion: I96F32 = subnet_tao.checked_div(total_subnet_tao).unwrap_or(I96F32::from_num(0));
             // 6. Calculate subnet's TAO emission: E_s = P_s * E_m
-            let emission: u64 = subnet_proportion.checked_mul(mechanism_emission).unwrap_or(I96F32::from_num(0)).to_num::<u64>();
-            // 11. Store the block emission for this subnet
-            EmissionValues::<T>::insert(*netuid, emission);
-            // 12. Accumulate pending emission: P_e_new = P_e_old + E_α
-            PendingEmission::<T>::mutate(netuid, |total| { *total = total.saturating_add(emission) });
+            let tao_emission: u64 = subnet_proportion.checked_mul(block_emission).unwrap_or(I96F32::from_num(0)).to_num::<u64>();
+            // 7. Store the block emission for this subnet
+            EmissionValues::<T>::insert(*netuid, tao_emission);
+            // Add the TAO into the subnet immediatetly.
+            SubnetTAO::<T>::mutate(*netuid, |total| { *total = total.saturating_add(tao_emission) });
+            // Switch on dynamic or Stable.
+            if mechid == 1 {
+                // Dynamic.
+                // Add the SubnetAlpha directly into the pool immediately.
+                SubnetAlphaIn::<T>::mutate(*netuid, |total| { *total = total.saturating_add(block_emission.to_num::<u64>())});
+                // Set the pending emission directly as alpha always block emission total
+                PendingEmission::<T>::mutate(netuid, |total| { *total = total.saturating_add(block_emission.to_num::<u64>())});
+            } else {
+                // Set the pending emission as tao emission.
+                PendingEmission::<T>::mutate(netuid, |total| { *total = total.saturating_add(tao_emission)});
+            }
         }
         log::debug!("Emission per subnet: {:?}", EmissionValues::<T>::iter().collect::<Vec<_>>());
         log::debug!("Pending Emission per subnet: {:?}", PendingEmission::<T>::iter().collect::<Vec<_>>());
@@ -147,8 +107,17 @@ impl<T: Config> Pallet<T> {
                 Self::set_blocks_since_last_step(*netuid, 0);
                 Self::set_last_mechanism_step_block(*netuid, current_block);
 
+                // 5.3 Give 18% cut to the owner immediately as a lock.
+                let owner_hotkey: T::AccountId = SubnetOwnerHotkey::<T>::get(*netuid);
+                let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(*netuid);
+                let owner_cut: u64 = subnet_emission.saturating_mul(18).saturating_div(100);
+                Self::emit_into_subnet(&owner_hotkey, &owner_coldkey, *netuid, owner_cut);
+
+                // Decrement the emission by the owner cut.
+                let remaining_emission: u64 = subnet_emission.saturating_sub(owner_cut);
+
                 // 5.3 Pass emission through epoch() --> hotkey emission.
-                let hotkey_emission: Vec<(T::AccountId, u64, u64)> = Self::epoch(*netuid, subnet_emission);
+                let mut hotkey_emission: Vec<(T::AccountId, u64, u64)> = Self::epoch(*netuid, remaining_emission);
                 log::debug!(
                     "Hotkey emission results for netuid {:?}: {:?}",
                     *netuid,
@@ -355,7 +324,7 @@ impl<T: Config> Pallet<T> {
     ///   - `u64`: The emission value to be added
     pub fn accumulate_nominator_emission( nominator_tuples: &mut Vec<(T::AccountId, T::AccountId, u16, u64)> ) {
         for (hotkey, coldkey, netuid, emission) in nominator_tuples {
-            Self::stake_into_subnet( hotkey, coldkey, *netuid, *emission );
+            Self::emit_into_subnet( hotkey, coldkey, *netuid, *emission );
         }
     }
 
@@ -409,4 +378,16 @@ impl<T: Config> Pallet<T> {
         let remainder = block_plus_netuid.rem_euclid(tempo_plus_one);
         (tempo as u64).saturating_sub(remainder)
     }
+
+    /// Returns the emission value for the given subnet.
+    ///
+    /// This function retrieves the emission value for the given subnet.
+    ///
+    /// # Returns:
+    /// * 'u64': The emission value for the given subnet.
+    ///
+    pub fn get_subnet_emission_value(netuid: u16) -> u64 {
+        EmissionValues::<T>::get(netuid)
+    }
+
 }
