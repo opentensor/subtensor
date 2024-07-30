@@ -2403,16 +2403,14 @@ where
         _len: usize,
     ) -> TransactionValidity {
         // Check if the call is one of the balance transfer types we want to reject
-        if let Some(balances_call) = call.is_sub_type() {
-            match balances_call {
-                BalancesCall::transfer_allow_death { .. }
-                | BalancesCall::transfer_keep_alive { .. }
-                | BalancesCall::transfer_all { .. } => {
-                    if Pallet::<T>::coldkey_in_arbitration(who) {
-                        return Err(TransactionValidityError::Invalid(InvalidTransaction::Call));
-                    }
-                }
-                _ => {} // Other Balances calls are allowed
+        if let Some(
+            BalancesCall::transfer_allow_death { .. }
+            | BalancesCall::transfer_keep_alive { .. }
+            | BalancesCall::transfer_all { .. },
+        ) = call.is_sub_type()
+        {
+            if Pallet::<T>::coldkey_in_arbitration(who) {
+                return Err(InvalidTransaction::Custom(7).into());
             }
         }
         match call.is_sub_type() {
