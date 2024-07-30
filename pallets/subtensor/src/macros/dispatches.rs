@@ -972,7 +972,12 @@ mod dispatches {
             )
                 .using_encoded(sp_io::hashing::blake2_256);
 
-            let hash = T::Hasher::hash(&call.encode());
+            let hash = <T::Scheduler as ScheduleNamed<
+                BlockNumberFor<T>,
+                CallOf<T>,
+                PalletsOriginOf<T>,
+            >>::Hasher::hash_of(&call);
+
             let len = call.using_encoded(|e| e.len() as u32);
 
             T::Scheduler::schedule_named(

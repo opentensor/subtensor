@@ -37,7 +37,8 @@ sp-io = { workspace = true }
 sp-tracing = { workspace = true }
 sp-consensus-aura = { workspace = true }
 pallet-balances = { workspace = true, features = ["std"] }
-
+pallet-scheduler = { workspace = true }
+sp-std = { workspace = true }
 
 [features]
 default = ["std"]
