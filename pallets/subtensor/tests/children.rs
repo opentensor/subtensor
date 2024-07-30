@@ -969,6 +969,58 @@ fn test_childkey_take_rate_limiting() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_multiple_networks_childkey_take --exact --nocapture
+#[test]
+fn test_multiple_networks_childkey_take() {
+    new_test_ext(1).execute_with(|| {
+        const NUM_NETWORKS: u16 = 10;
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+
+        // Create 10 networks and set up neurons (skip network 0)
+        for netuid in 1..NUM_NETWORKS {
+            // Add network
+            add_network(netuid, 13, 0);
+
+            // Register neuron
+            register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+            // Set a unique childkey take value for each network
+            let take_value = (netuid as u16 + 1) * 1000; // Values will be 1000, 2000, ..., 10000
+            assert_ok!(SubtensorModule::set_childkey_take(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                take_value
+            ));
+
+            // Verify the childkey take was set correctly
+            let stored_take = SubtensorModule::get_childkey_take(&hotkey, netuid);
+            assert_eq!(
+                stored_take, take_value,
+                "Childkey take not set correctly for network {}",
+                netuid
+            );
+
+            // Log the set value
+            log::info!("Network {}: Childkey take set to {}", netuid, take_value);
+        }
+
+        // Verify all networks have different childkey take values
+        for i in 1..NUM_NETWORKS {
+            for j in (i + 1)..NUM_NETWORKS {
+                let take_i = SubtensorModule::get_childkey_take(&hotkey, i);
+                let take_j = SubtensorModule::get_childkey_take(&hotkey, j);
+                assert_ne!(
+                    take_i, take_j,
+                    "Childkey take values should be different for networks {} and {}",
+                    i, j
+                );
+            }
+        }
+    });
+}
+
 #[test]
 fn test_do_set_children_multiple_empty_list() {
     new_test_ext(1).execute_with(|| {
