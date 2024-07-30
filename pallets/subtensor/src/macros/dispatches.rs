@@ -770,7 +770,6 @@ mod dispatches {
         /// # Errors:
         /// * `BadOrigin` - If the origin is not root.
         ///
-        // TODO: Benchmark this call
         #[pallet::call_index(69)]
         #[pallet::weight((
             Weight::from_parts(6_000, 0)
