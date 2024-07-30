@@ -990,7 +990,7 @@ fn test_swap_hotkey_does_not_become_delegate() {
         // Check that old_hotkey is still not a delegate
         assert!(!Delegates::<Test>::contains_key(old_hotkey));
 
-        // Check that new_hotkey is now a delegate with the correct take value
+        // Check that new_hotkey is NOT a delegate either
         assert!(!Delegates::<Test>::contains_key(new_hotkey));
     });
 }
