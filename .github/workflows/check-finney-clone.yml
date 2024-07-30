@@ -167,19 +167,19 @@ jobs:
       - name: Check-out repository under $GITHUB_WORKSPACE
         uses: actions/checkout@v4
 
-      # - name: Download finney clone genesis and secrets
-      #   uses: actions/download-artifact@v3
-      #   with:
-      #     name: finney-state
-      #     path: finney-spec
+      - name: Download finney clone genesis and secrets
+        uses: actions/download-artifact@v3
+        with:
+          name: finney-state
+          path: finney-spec
 
-      # - name: Copy secrets and spec from artifacts
-      #   run: |
-      #     mkdir -p .baedeker/.bdk-env
-      #     mkdir -p .baedeker/.bdk-env/specs
-      #     mkdir -p .baedeker/.bdk-env/secret
-      #     cp finney-spec/subtensor.json .baedeker/.bdk-env/specs
-      #     cp -r finney-spec/secret/* .baedeker/.bdk-env/secret
+      - name: Copy secrets and spec from artifacts
+        run: |
+          mkdir -p .baedeker/.bdk-env
+          mkdir -p .baedeker/.bdk-env/specs
+          mkdir -p .baedeker/.bdk-env/secret
+          cp finney-spec/subtensor.json .baedeker/.bdk-env/specs
+          cp -r finney-spec/secret/* .baedeker/.bdk-env/secret
 
       - name: Set up Docker Compose
         run: |
@@ -191,6 +191,8 @@ jobs:
         run: |
           mkdir -p target
           docker-compose -f docker-compose-baedeker.yml up -d
+          sleep 5
+          docker logs localnet
 
       - name: Runtime upgrade
         working-directory: .baedeker/util

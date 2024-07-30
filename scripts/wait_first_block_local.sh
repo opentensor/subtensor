@@ -28,7 +28,7 @@ function reset_check {
 	block_id=0
 }
 
-max_attempts=10
+max_attempts=20
 attempt=0
 while ! had_new_block; do
 	echo "Waiting for next block..."
