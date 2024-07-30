@@ -168,5 +168,9 @@ mod errors {
         TooManyChildren,
         /// Default transaction rate limit exceeded.
         TxRateLimitExceeded,
+        /// Childkey take is invalid.
+        InvalidChildkeyTake,
+        /// Childkey take rate limit exceeded.
+        TxChildkeyTakeRateLimitExceeded,
     }
 }

@@ -218,6 +218,13 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         increment: u64,
     ) {
+        log::debug!(
+            "Increasing stake: coldkey: {:?}, hotkey: {:?}, amount: {}",
+            coldkey,
+            hotkey,
+            increment
+        );
+
         TotalColdkeyStake::<T>::insert(
             coldkey,
             TotalColdkeyStake::<T>::get(coldkey).saturating_add(increment),

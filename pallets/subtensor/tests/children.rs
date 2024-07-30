@@ -1,7 +1,7 @@
 use crate::mock::*;
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_err, assert_noop, assert_ok};
 mod mock;
-use pallet_subtensor::*;
+use pallet_subtensor::{utils::TransactionType, *};
 use sp_core::U256;
 
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_child_singular_success --exact --nocapture
@@ -791,7 +791,184 @@ fn test_do_set_children_multiple_overwrite_existing() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_children_multiple_empty_list --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_childkey_take_functionality --exact --nocapture
+#[test]
+fn test_childkey_take_functionality() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid: u16 = 1;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Test default and max childkey take
+        let default_take = SubtensorModule::get_default_childkey_take();
+        let max_take = SubtensorModule::get_max_childkey_take();
+        log::info!("Default take: {}, Max take: {}", default_take, max_take);
+
+        // Check if default take and max take are the same
+        assert_eq!(
+            default_take, max_take,
+            "Default take should be equal to max take"
+        );
+
+        // Log the actual value of MaxChildkeyTake
+        log::info!(
+            "MaxChildkeyTake value: {:?}",
+            MaxChildkeyTake::<Test>::get()
+        );
+
+        // Test setting childkey take
+        let new_take: u16 = max_take / 2; // 50% of max_take
+        assert_ok!(SubtensorModule::set_childkey_take(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            new_take
+        ));
+
+        // Verify childkey take was set correctly
+        let stored_take = SubtensorModule::get_childkey_take(&hotkey, netuid);
+        log::info!("Stored take: {}", stored_take);
+        assert_eq!(stored_take, new_take);
+
+        // Test setting childkey take outside of allowed range
+        let invalid_take: u16 = max_take + 1;
+        assert_noop!(
+            SubtensorModule::set_childkey_take(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                invalid_take
+            ),
+            Error::<Test>::InvalidChildkeyTake
+        );
+
+        // Test setting childkey take with non-associated coldkey
+        let non_associated_coldkey = U256::from(999);
+        assert_noop!(
+            SubtensorModule::set_childkey_take(
+                RuntimeOrigin::signed(non_associated_coldkey),
+                hotkey,
+                netuid,
+                new_take
+            ),
+            Error::<Test>::NonAssociatedColdKey
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_childkey_take_rate_limiting --exact --nocapture
+#[test]
+fn test_childkey_take_rate_limiting() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid: u16 = 1;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Set a rate limit for childkey take changes
+        let rate_limit: u64 = 100;
+        SubtensorModule::set_tx_childkey_take_rate_limit(rate_limit.into());
+
+        log::info!(
+            "TxChildkeyTakeRateLimit: {:?}",
+            TxChildkeyTakeRateLimit::<Test>::get()
+        );
+
+        // First transaction (should succeed)
+        assert_ok!(SubtensorModule::set_childkey_take(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            500
+        ));
+
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        let last_block = SubtensorModule::get_last_transaction_block(
+            &hotkey,
+            netuid,
+            &TransactionType::SetChildkeyTake,
+        );
+        log::info!(
+            "After first transaction: current_block: {}, last_block: {}",
+            current_block,
+            last_block
+        );
+
+        // Second transaction (should fail due to rate limit)
+        let result =
+            SubtensorModule::set_childkey_take(RuntimeOrigin::signed(coldkey), hotkey, netuid, 600);
+        log::info!("Second transaction result: {:?}", result);
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        let last_block = SubtensorModule::get_last_transaction_block(
+            &hotkey,
+            netuid,
+            &TransactionType::SetChildkeyTake,
+        );
+        log::info!(
+            "After second transaction attempt: current_block: {}, last_block: {}",
+            current_block,
+            last_block
+        );
+
+        assert_noop!(result, Error::<Test>::TxChildkeyTakeRateLimitExceeded);
+
+        // Advance the block number to just before the rate limit
+        run_to_block(rate_limit);
+
+        // Third transaction (should still fail)
+        let result =
+            SubtensorModule::set_childkey_take(RuntimeOrigin::signed(coldkey), hotkey, netuid, 650);
+        log::info!("Third transaction result: {:?}", result);
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        let last_block = SubtensorModule::get_last_transaction_block(
+            &hotkey,
+            netuid,
+            &TransactionType::SetChildkeyTake,
+        );
+        log::info!(
+            "After third transaction attempt: current_block: {}, last_block: {}",
+            current_block,
+            last_block
+        );
+
+        assert_noop!(result, Error::<Test>::TxChildkeyTakeRateLimitExceeded);
+
+        // Advance the block number to just after the rate limit
+        run_to_block(rate_limit * 2);
+
+        // Fourth transaction (should succeed)
+        assert_ok!(SubtensorModule::set_childkey_take(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            700
+        ));
+
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        let last_block = SubtensorModule::get_last_transaction_block(
+            &hotkey,
+            netuid,
+            &TransactionType::SetChildkeyTake,
+        );
+        log::info!(
+            "After fourth transaction: current_block: {}, last_block: {}",
+            current_block,
+            last_block
+        );
+
+        // Verify the final take was set
+        let stored_take = SubtensorModule::get_childkey_take(&hotkey, netuid);
+        assert_eq!(stored_take, 700);
+    });
+}
+
 #[test]
 fn test_do_set_children_multiple_empty_list() {
     new_test_ext(1).execute_with(|| {

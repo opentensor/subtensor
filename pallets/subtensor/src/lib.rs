@@ -143,15 +143,27 @@ pub mod pallet {
         21_000_000_000_000_000
     }
     #[pallet::type_value]
-    /// Default total stake.
-    pub fn DefaultDefaultTake<T: Config>() -> u16 {
-        T::InitialDefaultTake::get()
+    /// Default Delegate Take.
+    pub fn DefaultDelegateTake<T: Config>() -> u16 {
+        T::InitialDefaultDelegateTake::get()
+    }
+
+    #[pallet::type_value]
+    /// Default childkey take.
+    pub fn DefaultChildKeyTake<T: Config>() -> u16 {
+        T::InitialDefaultChildKeyTake::get()
     }
     #[pallet::type_value]
-    /// Default minimum take.
-    pub fn DefaultMinTake<T: Config>() -> u16 {
-        T::InitialMinTake::get()
+    /// Default minimum delegate take.
+    pub fn DefaultMinDelegateTake<T: Config>() -> u16 {
+        T::InitialMinDelegateTake::get()
     }
+    #[pallet::type_value]
+    /// Default minimum childkey take.
+    pub fn DefaultMinChildKeyTake<T: Config>() -> u16 {
+        T::InitialMinChildKeyTake::get()
+    }
+
     #[pallet::type_value]
     /// Default account take.
     pub fn DefaultAccountTake<T: Config>() -> u64 {
@@ -516,6 +528,11 @@ pub mod pallet {
         T::InitialTxDelegateTakeRateLimit::get()
     }
     #[pallet::type_value]
+    /// Default value for chidlkey take rate limiting
+    pub fn DefaultTxChildKeyTakeRateLimit<T: Config>() -> u64 {
+        T::InitialTxChildKeyTakeRateLimit::get()
+    }
+    #[pallet::type_value]
     /// Default value for last extrinsic block.
     pub fn DefaultLastTxBlock<T: Config>() -> u64 {
         0
@@ -567,10 +584,15 @@ pub mod pallet {
     pub type TotalIssuance<T> = StorageValue<_, u64, ValueQuery, DefaultTotalIssuance<T>>;
     #[pallet::storage] // --- ITEM ( total_stake )
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
-    #[pallet::storage] // --- ITEM ( default_take )
-    pub type MaxTake<T> = StorageValue<_, u16, ValueQuery, DefaultDefaultTake<T>>;
-    #[pallet::storage] // --- ITEM ( min_take )
-    pub type MinTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinTake<T>>;
+    #[pallet::storage] // --- ITEM ( default_delegate_take )
+    pub type MaxDelegateTake<T> = StorageValue<_, u16, ValueQuery, DefaultDelegateTake<T>>;
+    #[pallet::storage] // --- ITEM ( min_delegate_take )
+    pub type MinDelegateTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinDelegateTake<T>>;
+    #[pallet::storage] // --- ITEM ( default_childkey_take )
+    pub type MaxChildkeyTake<T> = StorageValue<_, u16, ValueQuery, DefaultChildKeyTake<T>>;
+    #[pallet::storage] // --- ITEM ( min_childkey_take )
+    pub type MinChildkeyTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinChildKeyTake<T>>;
+
     #[pallet::storage] // --- ITEM ( global_block_emission )
     pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
     #[pallet::storage] // --- ITEM (target_stakes_per_interval)
@@ -603,7 +625,12 @@ pub mod pallet {
     #[pallet::storage]
     /// MAP ( hot ) --> take | Returns the hotkey delegation take. And signals that this key is open for delegation.
     pub type Delegates<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, u16, ValueQuery, DefaultDefaultTake<T>>;
+        StorageMap<_, Blake2_128Concat, T::AccountId, u16, ValueQuery, DefaultDelegateTake<T>>;
+    #[pallet::storage]
+    /// DMAP ( hot, netuid ) --> take | Returns the hotkey childkey take for a specific subnet
+    pub type ChildkeyTake<T: Config> =
+        StorageMap<_, Blake2_128Concat, (T::AccountId, u16), u16, ValueQuery>;
+
     #[pallet::storage]
     /// DMAP ( hot, cold ) --> stake | Returns the stake under a coldkey prefixed by hotkey.
     pub type Stake<T: Config> = StorageDoubleMap<
@@ -921,9 +948,13 @@ pub mod pallet {
     /// --- ITEM ( tx_rate_limit )
     pub type TxRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultTxRateLimit<T>>;
     #[pallet::storage]
-    /// --- ITEM ( tx_rate_limit )
+    /// --- ITEM ( tx_delegate_take_rate_limit )
     pub type TxDelegateTakeRateLimit<T> =
         StorageValue<_, u64, ValueQuery, DefaultTxDelegateTakeRateLimit<T>>;
+    #[pallet::storage]
+    /// --- ITEM ( tx_childkey_take_rate_limit )
+    pub type TxChildkeyTakeRateLimit<T> =
+        StorageValue<_, u64, ValueQuery, DefaultTxChildKeyTakeRateLimit<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Whether or not Liquid Alpha is enabled
     pub type LiquidAlphaOn<T> =

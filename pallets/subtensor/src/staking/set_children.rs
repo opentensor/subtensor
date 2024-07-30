@@ -190,4 +190,102 @@ impl<T: Config> Pallet<T> {
     pub fn get_parents(child: &T::AccountId, netuid: u16) -> Vec<(u64, T::AccountId)> {
         ParentKeys::<T>::get(child, netuid)
     }
+
+    /// Sets the childkey take for a given hotkey.
+    ///
+    /// This function allows a coldkey to set the childkey take for a given hotkey.
+    /// The childkey take determines the proportion of stake that the hotkey keeps for itself
+    /// when distributing stake to its children.
+    ///
+    /// # Arguments:
+    /// * `coldkey` (T::AccountId):
+    ///     - The coldkey that owns the hotkey.
+    ///
+    /// * `hotkey` (T::AccountId):
+    ///     - The hotkey for which the childkey take will be set.
+    ///
+    /// * `take` (u16):
+    ///     - The new childkey take value. This is a percentage represented as a value between 0 and 10000,
+    ///       where 10000 represents 100%.
+    ///
+    /// # Returns:
+    /// * `DispatchResult` - The result of the operation.
+    ///
+    /// # Errors:
+    /// * `NonAssociatedColdKey`:
+    ///     - The coldkey does not own the hotkey.
+    /// * `InvalidChildkeyTake`:
+    ///     - The provided take value is invalid (greater than the maximum allowed take).
+    /// * `TxChildkeyTakeRateLimitExceeded`:
+    ///     - The rate limit for changing childkey take has been exceeded.
+    pub fn do_set_childkey_take(
+        coldkey: T::AccountId,
+        hotkey: T::AccountId,
+        netuid: u16,
+        take: u16,
+    ) -> DispatchResult {
+        // Ensure the coldkey owns the hotkey
+        ensure!(
+            Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+            Error::<T>::NonAssociatedColdKey
+        );
+
+        // Ensure the take value is valid
+        ensure!(
+            take <= Self::get_max_childkey_take(),
+            Error::<T>::InvalidChildkeyTake
+        );
+
+        // Ensure the hotkey passes the rate limit
+        ensure!(
+            Self::passes_rate_limit_on_subnet(&TransactionType::SetChildkeyTake, &hotkey, netuid),
+            Error::<T>::TxChildkeyTakeRateLimitExceeded
+        );
+
+        // Set the new childkey take value for the given hotkey and network
+        ChildkeyTake::<T>::insert((hotkey.clone(), netuid), take);
+
+        // TODO: Consider adding a check to ensure the hotkey is registered on the specified network (netuid)
+        // before setting the childkey take. This could prevent setting takes for non-existent or
+        // unregistered hotkeys.
+
+        // NOTE: The childkey take is now associated with both the hotkey and the network ID.
+        // This allows for different take values across different networks for the same hotkey.
+
+        // Update the last transaction block
+        let current_block: u64 = <frame_system::Pallet<T>>::block_number()
+            .try_into()
+            .unwrap_or_else(|_| 0);
+        Self::set_last_transaction_block(
+            &hotkey,
+            netuid,
+            &TransactionType::SetChildkeyTake,
+            current_block,
+        );
+
+        // Emit the event
+        Self::deposit_event(Event::ChildKeyTakeSet(hotkey.clone(), take));
+        log::debug!(
+            "Childkey take set for hotkey: {:?} and take: {:?}",
+            hotkey,
+            take
+        );
+        Ok(())
+    }
+
+    /// Gets the childkey take for a given hotkey.
+    ///
+    /// This function retrieves the current childkey take value for a specified hotkey.
+    /// If no specific take value has been set, it returns the default childkey take.
+    ///
+    /// # Arguments:
+    /// * `hotkey` (&T::AccountId):
+    ///     - The hotkey for which to retrieve the childkey take.
+    ///
+    /// # Returns:
+    /// * `u16` - The childkey take value. This is a percentage represented as a value between 0 and 10000,
+    ///           where 10000 represents 100%.
+    pub fn get_childkey_take(hotkey: &T::AccountId, netuid: u16) -> u16 {
+        ChildkeyTake::<T>::get((hotkey, netuid))
+    }
 }

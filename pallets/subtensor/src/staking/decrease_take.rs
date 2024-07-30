@@ -50,8 +50,8 @@ impl<T: Config> Pallet<T> {
             ensure!(take < current_take, Error::<T>::DelegateTakeTooLow);
         }
 
-        // --- 3.1 Ensure take is within the min ..= InitialDefaultTake (18%) range
-        let min_take = MinTake::<T>::get();
+        // --- 3.1 Ensure take is within the min ..= InitialDefaultDelegateTake (18%) range
+        let min_take = MinDelegateTake::<T>::get();
         ensure!(take >= min_take, Error::<T>::DelegateTakeTooLow);
 
         // --- 4. Set the new take value.
