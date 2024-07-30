@@ -2,19 +2,20 @@
 
 use frame_support::{
     assert_ok, derive_impl, parameter_types,
-    traits::{Everything, Hooks},
+    traits::{Everything, Hooks, PrivilegeCmp},
     weights,
 };
 use frame_system as system;
-use frame_system::{limits, EnsureNever};
+use frame_system::{limits, EnsureNever, EnsureRoot};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::U256;
 use sp_core::{ConstU64, H256};
 use sp_runtime::{
     traits::{BlakeTwo256, ConstU32, IdentityLookup},
-    BuildStorage, DispatchError,
+    BuildStorage, DispatchError, Perbill,
 };
-
+use sp_std::cmp::Ordering;
+use sp_weights::Weight;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
@@ -25,6 +26,7 @@ frame_support::construct_runtime!(
         Balances: pallet_balances,
         AdminUtils: pallet_admin_utils,
         SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>, Error<T>},
+        Scheduler: pallet_scheduler,
     }
 );
 
@@ -126,7 +128,7 @@ impl pallet_subtensor::Config for Test {
     type CouncilOrigin = EnsureNever<AccountId>;
     type SenateMembers = ();
     type TriumvirateInterface = ();
-
+    type Scheduler = Scheduler;
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;
     type InitialMaxWeightsLimit = InitialMaxWeightsLimit;
@@ -216,6 +218,34 @@ impl pallet_balances::Config for Test {
     type FreezeIdentifier = ();
     type MaxFreezes = ();
     type RuntimeHoldReason = ();
+}
+
+pub struct OriginPrivilegeCmp;
+
+impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
+    fn cmp_privilege(_left: &OriginCaller, _right: &OriginCaller) -> Option<Ordering> {
+        None
+    }
+}
+
+parameter_types! {
+    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
+        BlockWeights::get().max_block;
+    pub const MaxScheduledPerBlock: u32 = 50;
+    pub const NoPreimagePostponement: Option<u32> = Some(10);
+}
+
+impl pallet_scheduler::Config for Test {
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeEvent = RuntimeEvent;
+    type PalletsOrigin = OriginCaller;
+    type RuntimeCall = RuntimeCall;
+    type MaximumWeight = MaximumSchedulerWeight;
+    type ScheduleOrigin = EnsureRoot<AccountId>;
+    type MaxScheduledPerBlock = MaxScheduledPerBlock;
+    type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Test>;
+    type OriginPrivilegeCmp = OriginPrivilegeCmp;
+    type Preimages = ();
 }
 
 pub struct SubtensorIntrf;

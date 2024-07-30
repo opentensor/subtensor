@@ -6,7 +6,7 @@ use frame_support::weights::constants::RocksDbWeight;
 use frame_support::weights::Weight;
 use frame_support::{
     assert_ok, parameter_types,
-    traits::{Everything, Hooks},
+    traits::{Everything, Hooks, PrivilegeCmp},
 };
 use frame_system as system;
 use frame_system::{limits, EnsureNever, EnsureRoot, RawOrigin};
@@ -17,6 +17,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
     BuildStorage,
 };
+use sp_std::cmp::Ordering;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -32,6 +33,7 @@ frame_support::construct_runtime!(
         SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
         SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>},
         Utility: pallet_utility::{Pallet, Call, Storage, Event},
+        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -336,7 +338,7 @@ impl pallet_subtensor::Config for Test {
     type CouncilOrigin = frame_system::EnsureSigned<AccountId>;
     type SenateMembers = ManageSenateMembers;
     type TriumvirateInterface = TriumvirateVotes;
-
+    type Scheduler = Scheduler;
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;
     type InitialMaxWeightsLimit = InitialMaxWeightsLimit;
@@ -383,6 +385,34 @@ impl pallet_subtensor::Config for Test {
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     type InitialHotkeyEmissionTempo = InitialHotkeyEmissionTempo;
     type InitialNetworkMaxStake = InitialNetworkMaxStake;
+}
+
+pub struct OriginPrivilegeCmp;
+
+impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
+    fn cmp_privilege(_left: &OriginCaller, _right: &OriginCaller) -> Option<Ordering> {
+        None
+    }
+}
+
+parameter_types! {
+    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
+        BlockWeights::get().max_block;
+    pub const MaxScheduledPerBlock: u32 = 50;
+    pub const NoPreimagePostponement: Option<u32> = Some(10);
+}
+
+impl pallet_scheduler::Config for Test {
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeEvent = RuntimeEvent;
+    type PalletsOrigin = OriginCaller;
+    type RuntimeCall = RuntimeCall;
+    type MaximumWeight = MaximumSchedulerWeight;
+    type ScheduleOrigin = EnsureRoot<AccountId>;
+    type MaxScheduledPerBlock = MaxScheduledPerBlock;
+    type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Test>;
+    type OriginPrivilegeCmp = OriginPrivilegeCmp;
+    type Preimages = ();
 }
 
 impl pallet_utility::Config for Test {
