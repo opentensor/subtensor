@@ -452,9 +452,5 @@ benchmark_set_childkey_take {
   let amount_to_be_staked = 1_000_000u32.into();
   Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, amount_to_be_staked);
   assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
-
-  // Ensure the coldkey owns the hotkey
-  // Subtensor::<T>::set_coldkey_ownership(coldkey.clone(), hotkey.clone(), true);
-
 }: set_childkey_take(RawOrigin::Signed(coldkey), hotkey, netuid, take)
 }
