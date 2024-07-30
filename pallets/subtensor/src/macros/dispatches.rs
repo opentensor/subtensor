@@ -987,7 +987,14 @@ mod dispatches {
                 63,
                 frame_system::RawOrigin::Root.into(),
                 Bounded::Lookup { hash, len },
-            )?;
+            )
+            .map_err(|_| Error::<T>::FailedToSchedule)?;
+            // Emit the SwapScheduled event
+            Self::deposit_event(Event::ColdkeySwapScheduled {
+                old_coldkey: who.clone(),
+                new_coldkey: new_coldkey.clone(),
+                execution_block: when,
+            });
 
             Ok(().into())
         }
