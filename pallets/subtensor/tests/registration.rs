@@ -276,7 +276,7 @@ fn test_registration_rate_limit_exceeded() {
         let result = extension.validate(&who, &call.into(), &info, 10);
 
         // Expectation: The transaction should be rejected
-        assert_err!(result, InvalidTransaction::ExhaustsResources);
+        assert_err!(result, InvalidTransaction::Custom(5));
 
         let current_registrants = SubtensorModule::get_registrations_this_interval(netuid);
         assert!(current_registrants <= max_registrants);
@@ -362,7 +362,7 @@ fn test_burned_registration_rate_limit_exceeded() {
         // Expectation: The transaction should be rejected
         assert_err!(
             burned_register_result,
-            InvalidTransaction::ExhaustsResources
+            InvalidTransaction::Custom(5)
         );
 
         let current_registrants = SubtensorModule::get_registrations_this_interval(netuid);
