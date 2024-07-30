@@ -82,10 +82,10 @@ impl<T: Config> Pallet<T> {
         // Ensure we don't exceed stake rate limit
         let unstakes_this_interval =
             Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey);
-        ensure!(
-            unstakes_this_interval < Self::get_target_stakes_per_interval(),
-            Error::<T>::UnstakeRateLimitExceeded
-        );
+        // ensure!(
+        //     unstakes_this_interval < Self::get_target_stakes_per_interval(),
+        //     Error::<T>::UnstakeRateLimitExceeded
+        // );
 
         // Convert and unstake from the subnet.
         let tao_unstaked: u64 = Self::unstake_from_subnet( &hotkey, &coldkey, netuid, alpha_unstaked );

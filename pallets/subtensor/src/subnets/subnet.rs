@@ -97,11 +97,12 @@ impl<T: Config> Pallet<T> {
         let coldkey = ensure_signed(origin)?;
 
         // Ensure this is a new hotkey cannot be owned by anyone else.
-        ensure!(
-            !Self::hotkey_account_exists(&hotkey),
-            Error::<T>::HotKeyAccountNotExists
-        );
-
+        if Self::hotkey_account_exists(&hotkey) {
+            ensure!(
+                Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+                Error::<T>::NonAssociatedColdKey
+            );
+        }
         // --- 0.1. Ensure the mechanism exists either Stable or Dynamic.
         ensure!( mechid == 0 || mechid == 1, Error::<T>::MechanismDoesNotExist );
 
@@ -136,6 +137,7 @@ impl<T: Config> Pallet<T> {
         log::debug!("init_new_network: {:?}", netuid_to_register);
 
         // --- 7. Add the caller to the neuron set.
+        Self::create_account_if_non_existent(&coldkey, &hotkey);
         Self::append_neuron( netuid_to_register, hotkey, current_block );
         log::debug!("Appended neuron for netuid {:?}, hotkey: {:?}", netuid_to_register, hotkey);
 

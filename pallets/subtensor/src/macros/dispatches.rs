@@ -832,7 +832,7 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(119_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
-        pub fn dissolve_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
+        pub fn dissolve_network(_origin: OriginFor<T>, _netuid: u16) -> DispatchResult {
             Ok(())
             // Self::user_remove_network(origin, netuid)
         }

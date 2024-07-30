@@ -119,7 +119,7 @@ impl<T: Config> Pallet<T> {
                 let remaining_emission: u64 = subnet_emission.saturating_sub(owner_cut);
 
                 // 5.3 Pass emission through epoch() --> hotkey emission.
-                let mut hotkey_emission: Vec<(T::AccountId, u64, u64)> = Self::epoch(*netuid, remaining_emission);
+                let hotkey_emission: Vec<(T::AccountId, u64, u64)> = Self::epoch(*netuid, remaining_emission);
                 log::debug!(
                     "Hotkey emission results for netuid {:?}: {:?}",
                     *netuid,
@@ -343,9 +343,10 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `bool` - True if the hotkey emission should be drained, false otherwise.
     pub fn should_drain_hotkey(hotkey: &T::AccountId, block: u64, emit_tempo: u64) -> bool {
-        let hotkey_idx: u64 = Self::hash_hotkey_to_u64(hotkey);
-        block.rem_euclid(emit_tempo.saturating_add(1))
-            == hotkey_idx.rem_euclid(emit_tempo.saturating_add(1))
+        true
+        // let hotkey_idx: u64 = Self::hash_hotkey_to_u64(hotkey);
+        // block.rem_euclid(emit_tempo.saturating_add(1))
+        //     == hotkey_idx.rem_euclid(emit_tempo.saturating_add(1))
     }
 
     /// Checks if the epoch should run for a given subnet based on the current block.
