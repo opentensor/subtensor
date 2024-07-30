@@ -986,7 +986,7 @@ fn test_multiple_networks_childkey_take() {
             register_ok_neuron(netuid, hotkey, coldkey, 0);
 
             // Set a unique childkey take value for each network
-            let take_value = (netuid as u16 + 1) * 1000; // Values will be 1000, 2000, ..., 10000
+            let take_value = (netuid + 1) * 1000; // Values will be 1000, 2000, ..., 10000
             assert_ok!(SubtensorModule::set_childkey_take(
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
