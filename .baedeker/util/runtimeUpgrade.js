@@ -34,9 +34,6 @@ async function main() {
       process.exit(0);
     }
   });
-
-  // We miss disconnect/unref for some reason, so we need explicit successful exit here
-  process.exit(0);
 }
 
 main().catch((error) => {
