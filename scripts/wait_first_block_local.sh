@@ -28,17 +28,30 @@ function reset_check {
 	block_id=0
 }
 
+max_attempts=10
+attempt=0
 while ! had_new_block; do
 	echo "Waiting for next block..."
 	sleep 6
+    ((attempt++))
+    if (( attempt >= max_attempts )); then
+        echo "Reached maximum number of attempts, exiting..."
+        exit 1
+    fi
 done
 reset_check
 
 echo "Chain is running"
 
+attempt=0
 while ! had_new_block; do
 	echo "Waiting for another block..."
 	sleep 6
+    ((attempt++))
+    if (( attempt >= max_attempts )); then
+        echo "Reached maximum number of attempts, exiting..."
+        exit 1
+    fi	
 done
 
 echo "Chain is definitely running!"
