@@ -874,7 +874,7 @@ fn test_childkey_take_rate_limiting() {
 
         // Set a rate limit for childkey take changes
         let rate_limit: u64 = 100;
-        SubtensorModule::set_tx_childkey_take_rate_limit(rate_limit.into());
+        SubtensorModule::set_tx_childkey_take_rate_limit(rate_limit);
 
         log::info!(
             "TxChildkeyTakeRateLimit: {:?}",

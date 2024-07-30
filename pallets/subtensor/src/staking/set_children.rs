@@ -255,7 +255,7 @@ impl<T: Config> Pallet<T> {
         // Update the last transaction block
         let current_block: u64 = <frame_system::Pallet<T>>::block_number()
             .try_into()
-            .unwrap_or_else(|_| 0);
+            .unwrap_or(0);
         Self::set_last_transaction_block(
             &hotkey,
             netuid,

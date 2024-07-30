@@ -312,7 +312,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_rate_limit(tx_type: &TransactionType) -> u64 {
         match tx_type {
             TransactionType::SetChildren => (DefaultTempo::<T>::get().saturating_mul(2)).into(), // Cannot set children twice within the default tempo period.
-            TransactionType::SetChildkeyTake => (TxChildkeyTakeRateLimit::<T>::get()).into(),
+            TransactionType::SetChildkeyTake => TxChildkeyTakeRateLimit::<T>::get(),
             TransactionType::Unknown => 0, // Default to no limit for unknown types (no limit)
         }
     }
