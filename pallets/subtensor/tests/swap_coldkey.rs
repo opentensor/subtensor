@@ -499,9 +499,6 @@ fn test_swap_stake_for_coldkey() {
         Stake::<Test>::insert(hotkey1, new_coldkey, stake_amount3);
         StakingHotkeys::<Test>::insert(new_coldkey, vec![hotkey1]);
 
-        TotalHotkeyStake::<Test>::insert(hotkey1, stake_amount1);
-        TotalHotkeyStake::<Test>::insert(hotkey2, stake_amount2);
-
         // Set up total issuance
         TotalIssuance::<Test>::put(total_stake);
         TotalStake::<Test>::put(total_stake);
@@ -530,10 +527,6 @@ fn test_swap_stake_for_coldkey() {
         assert_eq!(Stake::<Test>::get(hotkey2, new_coldkey), stake_amount2);
         assert_eq!(Stake::<Test>::get(hotkey1, old_coldkey), 0);
         assert_eq!(Stake::<Test>::get(hotkey2, old_coldkey), 0);
-
-        // Verify TotalHotkeyStake remains unchanged
-        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey1), stake_amount1);
-        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey2), stake_amount2);
 
         // Verify total stake and issuance remain unchanged
         assert_eq!(
@@ -567,8 +560,6 @@ fn test_swap_staking_hotkeys_for_coldkey() {
         Stake::<Test>::insert(hotkey1, old_coldkey, stake_amount1);
         Stake::<Test>::insert(hotkey2, old_coldkey, stake_amount2);
         StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
-        TotalHotkeyStake::<Test>::insert(hotkey1, stake_amount1);
-        TotalHotkeyStake::<Test>::insert(hotkey2, stake_amount2);
 
         // Set up total issuance
         TotalIssuance::<Test>::put(total_stake);
@@ -606,8 +597,6 @@ fn test_swap_delegated_stake_for_coldkey() {
         StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
         Stake::<Test>::insert(hotkey1, old_coldkey, stake_amount1);
         Stake::<Test>::insert(hotkey2, old_coldkey, stake_amount2);
-        TotalHotkeyStake::<Test>::insert(hotkey1, stake_amount1);
-        TotalHotkeyStake::<Test>::insert(hotkey2, stake_amount2);
 
         // Set up total issuance
         TotalIssuance::<Test>::put(total_stake);
@@ -626,10 +615,6 @@ fn test_swap_delegated_stake_for_coldkey() {
         assert_eq!(Stake::<Test>::get(hotkey1, old_coldkey), 0);
         assert_eq!(Stake::<Test>::get(hotkey2, old_coldkey), 0);
 
-
-        // Verify TotalHotkeyStake remains unchanged
-        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey1), stake_amount1);
-        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey2), stake_amount2);
 
         // Verify total stake and issuance remain unchanged
         assert_eq!(

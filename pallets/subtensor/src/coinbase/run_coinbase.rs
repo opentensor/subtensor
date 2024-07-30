@@ -71,6 +71,8 @@ impl<T: Config> Pallet<T> {
             EmissionValues::<T>::insert(*netuid, tao_emission);
             // Add the TAO into the subnet immediatetly.
             SubnetTAO::<T>::mutate(*netuid, |total| { *total = total.saturating_add(tao_emission) });
+            // Increase total stake here.
+            TotalStake::<T>::mutate(|total| { *total = total.saturating_add(tao_emission) });
             // Switch on dynamic or Stable.
             if mechid == 1 {
                 // Dynamic.

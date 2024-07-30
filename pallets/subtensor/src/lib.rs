@@ -515,8 +515,19 @@ pub mod pallet {
     /// ==========================
     /// ==== Staking Counters ====
     /// ==========================
-    #[pallet::storage] // --- ITEM ( global_weight )
-    pub type GlobalWeight<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
+    /// The Subtensor [`TotalIssuance`] represents the total issuance of tokens on the Bittensor network.
+    ///
+    /// It is comprised of three parts:
+    /// - The total amount of issued tokens, tracked in the TotalIssuance of the Balances pallet
+    /// - The total amount of tokens staked in the system, tracked in [`TotalStake`]
+    /// - The total amount of tokens locked up for subnet reg, tracked in [`TotalSubnetLocked`] attained by iterating over subnet lock.
+    ///
+    /// Eventually, Bittensor should migrate to using Holds afterwhich time we will not require this
+    /// separate accounting.
+    #[pallet::storage] // --- ITEM ( total_issuance )
+    pub type TotalIssuance<T> = StorageValue<_, u64, ValueQuery, DefaultTotalIssuance<T>>;
+    #[pallet::storage] // --- ITEM ( total_stake )
+    pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
     #[pallet::storage] // --- DMAP ( netuid ) --> tao_in_subnet | Returns the amount of TAO in the subnet.
     pub type SubnetTAO<T: Config> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the subnet.
@@ -553,19 +564,8 @@ pub mod pallet {
     /// ============================
     /// ==== Staking Variables ====
     /// ============================
-    /// The Subtensor [`TotalIssuance`] represents the total issuance of tokens on the Bittensor network.
-    ///
-    /// It is comprised of three parts:
-    /// - The total amount of issued tokens, tracked in the TotalIssuance of the Balances pallet
-    /// - The total amount of tokens staked in the system, tracked in [`TotalStake`]
-    /// - The total amount of tokens locked up for subnet reg, tracked in [`TotalSubnetLocked`] attained by iterating over subnet lock.
-    ///
-    /// Eventually, Bittensor should migrate to using Holds afterwhich time we will not require this
-    /// separate accounting.
-    #[pallet::storage] // --- ITEM ( total_issuance )
-    pub type TotalIssuance<T> = StorageValue<_, u64, ValueQuery, DefaultTotalIssuance<T>>;
-    #[pallet::storage] // --- ITEM ( total_stake )
-    pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
+    #[pallet::storage] // --- ITEM ( global_weight )
+    pub type GlobalWeight<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- ITEM ( default_take )
     pub type MaxTake<T> = StorageValue<_, u16, ValueQuery, DefaultDefaultTake<T>>;
     #[pallet::storage] // --- ITEM ( min_take )
