@@ -960,9 +960,9 @@ fn test_swap_hotkey_error_cases() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_hotkey_becomes_delegate --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_hotkey_does_not_become_delegate --exact --nocapture
 #[test]
-fn test_swap_hotkey_becomes_delegate() {
+fn test_swap_hotkey_does_not_become_delegate() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
