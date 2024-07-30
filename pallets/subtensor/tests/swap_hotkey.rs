@@ -959,3 +959,38 @@ fn test_swap_hotkey_error_cases() {
         assert_eq!(Balances::free_balance(coldkey), initial_balance - swap_cost);
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_hotkey_becomes_delegate --exact --nocapture
+#[test]
+fn test_swap_hotkey_becomes_delegate() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let swap_cost = 1_000_000_000u64 * 2;
+        let delegate_take = 10u16;
+
+        // Setup initial state
+        add_network(netuid, tempo, 0);
+        register_ok_neuron(netuid, old_hotkey, coldkey, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, swap_cost);
+
+        // Ensure old_hotkey is not a delegate
+        assert!(!Delegates::<Test>::contains_key(old_hotkey));
+
+        // Perform the swap
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            &old_hotkey,
+            &new_hotkey
+        ));
+
+        // Check that old_hotkey is no longer a delegate
+        assert!(!Delegates::<Test>::contains_key(old_hotkey));
+
+        // Check that new_hotkey is now a delegate with the correct take value
+        assert!(!Delegates::<Test>::contains_key(new_hotkey));
+    });
+}
