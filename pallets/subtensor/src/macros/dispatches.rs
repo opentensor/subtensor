@@ -739,9 +739,9 @@ mod dispatches {
         ///
         #[pallet::call_index(68)]
         #[pallet::weight((
-    Weight::from_parts(10_000_000, 0)
-        .saturating_add(T::DbWeight::get().reads(2))
-        .saturating_add(T::DbWeight::get().writes(1)),
+            Weight::from_parts(34_000, 0)
+            .saturating_add(T::DbWeight::get().reads(4))
+            .saturating_add(T::DbWeight::get().writes(2)),
     DispatchClass::Normal,
     Pays::Yes
 ))]
@@ -757,6 +757,8 @@ mod dispatches {
             Self::do_set_childkey_take(coldkey, hotkey, netuid, take)
         }
 
+        // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------
+
         /// Sets the transaction rate limit for changing childkey take.
         ///
         /// This function can only be called by the root origin.
@@ -771,8 +773,7 @@ mod dispatches {
         // TODO: Benchmark this call
         #[pallet::call_index(69)]
         #[pallet::weight((
-    Weight::from_parts(10_000_000, 0)
-        .saturating_add(T::DbWeight::get().reads(1))
+            Weight::from_parts(6_000, 0)
         .saturating_add(T::DbWeight::get().writes(1)),
     DispatchClass::Operational,
     Pays::No
@@ -785,8 +786,6 @@ mod dispatches {
             Self::set_tx_childkey_take_rate_limit(tx_rate_limit);
             Ok(())
         }
-
-        // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------
 
         // ==================================
         // ==== Parameter Sudo calls ========
