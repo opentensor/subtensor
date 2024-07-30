@@ -1487,3 +1487,99 @@ fn test_children_stake_values() {
         );
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_get_parents_chain --exact --nocapture
+#[test]
+fn test_get_parents_chain() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let coldkey = U256::from(1);
+        let num_keys: usize = 5;
+        let proportion = u64::MAX / 2; // 50% stake allocation
+
+        log::info!("Test setup: netuid={}, coldkey={}, num_keys={}, proportion={}", netuid, coldkey, num_keys, proportion);
+
+        // Create a vector of hotkeys
+        let hotkeys: Vec<U256> = (0..num_keys).map(|i| U256::from(i as u64 + 2)).collect();
+        log::info!("Created hotkeys: {:?}", hotkeys);
+
+        // Add network
+        add_network(netuid, 13, 0);
+        SubtensorModule::set_max_registrations_per_block(netuid, 1000);
+        SubtensorModule::set_target_registrations_per_interval(netuid, 1000);
+        log::info!("Network added and parameters set: netuid={}", netuid);
+
+        // Register all neurons
+        for hotkey in &hotkeys {
+            register_ok_neuron(netuid, *hotkey, coldkey, 0);
+            log::info!("Registered neuron: hotkey={}, coldkey={}, netuid={}", hotkey, coldkey, netuid);
+        }
+
+        // Set up parent-child relationships
+        for i in 0..num_keys - 1 {
+            assert_ok!(SubtensorModule::do_set_children(
+                RuntimeOrigin::signed(coldkey),
+                hotkeys[i],
+                netuid,
+                vec![(proportion, hotkeys[i + 1])]
+            ));
+            log::info!("Set parent-child relationship: parent={}, child={}, proportion={}", hotkeys[i], hotkeys[i + 1], proportion);
+        }
+
+        // Test get_parents for each hotkey
+        for i in 1..num_keys {
+            let parents = SubtensorModule::get_parents(&hotkeys[i], netuid);
+            log::info!("Testing get_parents for hotkey {}: {:?}", hotkeys[i], parents);
+            assert_eq!(
+                parents.len(),
+                1,
+                "Hotkey {} should have exactly one parent",
+                i
+            );
+            assert_eq!(
+                parents[0],
+                (proportion, hotkeys[i - 1]),
+                "Incorrect parent for hotkey {}",
+                i
+            );
+        }
+
+        // Test get_parents for the root (should be empty)
+        let root_parents = SubtensorModule::get_parents(&hotkeys[0], netuid);
+        log::info!("Testing get_parents for root hotkey {}: {:?}", hotkeys[0], root_parents);
+        assert!(
+            root_parents.is_empty(),
+            "Root hotkey should have no parents"
+        );
+
+        // Test multiple parents
+        let last_hotkey = hotkeys[num_keys - 1];
+        let new_parent = U256::from(num_keys as u64 + 2);
+        register_ok_neuron(netuid, new_parent, coldkey, 0);
+        log::info!("Registered new parent neuron: new_parent={}, coldkey={}, netuid={}", new_parent, coldkey, netuid);
+
+        assert_ok!(SubtensorModule::do_set_children(
+            RuntimeOrigin::signed(coldkey),
+            new_parent,
+            netuid,
+            vec![(proportion / 2, last_hotkey)]
+        ));
+        log::info!("Set additional parent-child relationship: parent={}, child={}, proportion={}", new_parent, last_hotkey, proportion / 2);
+
+        let last_hotkey_parents = SubtensorModule::get_parents(&last_hotkey, netuid);
+        log::info!("Testing get_parents for last hotkey {} with multiple parents: {:?}", last_hotkey, last_hotkey_parents);
+        assert_eq!(
+            last_hotkey_parents.len(),
+            2,
+            "Last hotkey should have two parents"
+        );
+        assert!(
+            last_hotkey_parents.contains(&(proportion, hotkeys[num_keys - 2])),
+            "Last hotkey should still have its original parent"
+        );
+        assert!(
+            last_hotkey_parents.contains(&(proportion / 2, new_parent)),
+            "Last hotkey should have the new parent"
+        );
+    });
+}
