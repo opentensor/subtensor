@@ -1247,7 +1247,7 @@ fn test_sudo_get_set_alpha() {
             DispatchError::BadOrigin
         );
 
-        assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey, 0));
+        assert_ok!(SubtensorModule::create_mechanism(signer.clone(), hotkey, 0, 1));
 
         assert_ok!(AdminUtils::sudo_set_alpha_values(
             signer.clone(),

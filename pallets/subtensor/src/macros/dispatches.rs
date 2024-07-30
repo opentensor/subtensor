@@ -957,8 +957,9 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_create_mechanism(
             origin: OriginFor<T>,
+            n: u16,
         ) -> DispatchResult {
-            Self::do_sudo_create_mechanism(origin)
+            Self::do_sudo_create_mechanism(origin, n)
         }
 
     }

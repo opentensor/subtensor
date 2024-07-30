@@ -9,63 +9,6 @@ use substrate_fixed::{
 
 impl<T: Config> Pallet<T> {
 
-     /// Fetches the total count of subnets.
-    ///
-    /// This function retrieves the total number of subnets present on the chain.
-    ///
-    /// # Returns:
-    /// * 'u16': The total number of subnets.
-    ///
-    pub fn get_num_subnets() -> u16 {
-        TotalNetworks::<T>::get()
-    }
-
-    /// Fetches the max number of subnet
-    ///
-    /// This function retrieves the max number of subnet.
-    ///
-    /// # Returns:
-    /// * 'u16': The max number of subnet
-    ///
-    pub fn get_max_subnets() -> u16 {
-        SubnetLimit::<T>::get()
-    }
-
-    /// Sets the max number of subnet
-    ///
-    /// This function sets the max number of subnet.
-    ///
-    pub fn set_max_subnets(limit: u16) {
-        SubnetLimit::<T>::put(limit);
-        Self::deposit_event(Event::SubnetLimitSet(limit));
-    }
-
-
-    /// Returns true if the subnetwork exists.
-    ///
-    /// This function checks if a subnetwork with the given UID exists.
-    ///
-    /// # Returns:
-    /// * 'bool': Whether the subnet exists.
-    ///
-    pub fn if_subnet_exist(netuid: u16) -> bool {
-        NetworksAdded::<T>::get(netuid)
-    }
-
-    /// Returns a list of subnet netuid equal to total networks.
-    ///
-    ///
-    /// This iterates through all the networks and returns a list of netuids.
-    ///
-    /// # Returns:
-    /// * 'Vec<u16>': Netuids of all subnets.
-    ///
-    pub fn get_all_subnet_netuids() -> Vec<u16> {
-        <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter()
-            .map(|(netuid, _)| netuid)
-            .collect()
-    }
-
     /// Facilitates user registration of a new subnetwork.
     ///
     /// # Args:

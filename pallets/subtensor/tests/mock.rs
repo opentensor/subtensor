@@ -500,12 +500,12 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
 
 
 #[allow(dead_code)]
-pub fn register_network(coldkey: U256, hotkey: U256, mechid: u16) -> u16 {
-    SubtensorModule::create_mechanism(mechid);
-    let result = SubtensorModule::user_add_network(<<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey), &hotkey, mechid);
-    assert_ok!(result);
-    let netuid = *SubtensorModule::get_all_subnet_netuids().iter().max().unwrap_or(&0);
-    SubtensorModule::set_network_registration_allowed(netuid, true);
-    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
-    netuid
+pub fn create_mechanism( mechid: u16, n: u16 ) -> Vec<u16> {
+    SubtensorModule::create_mechanism(mechid, n);
+    let netuids: Vec<u16> = SubtensorModule::get_mechanism_netuids(mechid);
+    for netuid in netuids.clone() {
+        SubtensorModule::set_network_registration_allowed(netuid, true);
+        SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+    }
+    netuids
 }

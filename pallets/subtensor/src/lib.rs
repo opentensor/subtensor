@@ -515,8 +515,8 @@ pub mod pallet {
     /// ==========================
     /// ==== Staking Counters ====
     /// ==========================
-    #[pallet::storage] // --- ITEM ( dynamic_weight )
-    pub type DynamicWeight<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage] // --- ITEM ( global_weight )
+    pub type GlobalWeight<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( hot ) --> stake | Returns the total amount of stake under a hotkey.
     pub type TotalHotkeyStake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
@@ -525,8 +525,10 @@ pub mod pallet {
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> tao_in_subnet | Returns the amount of TAO in the subnet.
     pub type SubnetTAO<T: Config> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage] // --- DMAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the subnet.
+    pub type SubnetAlphaIn<T: Config> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
-    pub type SubnetAlpha<T: Config> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+    pub type SubnetAlphaOut<T: Config> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- DMAP ( hot, cold ) --> stake | Returns the stake under a coldkey prefixed by hotkey.
     pub type Stake<T: Config> = StorageDoubleMap<
         _,
@@ -836,7 +838,7 @@ pub mod pallet {
     /// ==== Subnetwork Consensus Storage  ====
     /// =======================================
     #[pallet::storage] // --- DMAP ( netuid ) --> stake_weight | weight for stake used in YC.
-    pub(super) type StakeWeight<T: Config> =
+    pub type StakeWeight<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage] // --- DMAP ( netuid, hotkey ) --> uid
     pub type Uids<T: Config> =
