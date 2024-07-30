@@ -65,7 +65,7 @@ pub mod pallet {
     use frame_support::{
         dispatch::GetDispatchInfo,
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
-        traits::{tokens::fungible, UnfilteredDispatchable},
+        traits::{tokens::fungible, OriginTrait, UnfilteredDispatchable},
     };
     use frame_system::pallet_prelude::*;
     use sp_core::H256;
@@ -77,6 +77,13 @@ pub mod pallet {
     use alloc::boxed::Box;
     #[cfg(feature = "std")]
     use sp_std::prelude::Box;
+
+    /// Origin for the pallet
+    pub type PalletsOriginOf<T> =
+        <<T as frame_system::Config>::RuntimeOrigin as OriginTrait>::PalletsOrigin;
+
+    /// Call type for the pallet
+    pub type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
     /// Tracks version for migrations. Should be monotonic with respect to the
     /// order of migrations. (i.e. always increasing)

@@ -31,16 +31,7 @@ mod config {
         type TriumvirateInterface: crate::CollectiveInterface<Self::AccountId, Self::Hash, u32>;
 
         /// The scheduler type used for scheduling delayed calls.
-        type Scheduler: ScheduleNamed<BlockNumberFor<Self>, Call<Self>, Self::RuntimeOrigin>;
-
-        /// The hashing system (algorithm) being used in the runtime, matching the Scheduler's Hasher.
-        type Hasher: Hash<
-            Output = <<Self::Scheduler as ScheduleNamed<
-                BlockNumberFor<Self>,
-                Call<Self>,
-                Self::RuntimeOrigin,
-            >>::Hasher as Hash>::Output,
-        >;
+        type Scheduler: ScheduleNamed<BlockNumberFor<Self>, CallOf<Self>, PalletsOriginOf<Self>>;
 
         /// =================================
         /// ==== Initial Value Constants ====

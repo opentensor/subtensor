@@ -972,17 +972,18 @@ mod dispatches {
             )
                 .using_encoded(sp_io::hashing::blake2_256);
 
-            let hash = T::Hasher::hash(&call.encode());
+            let hash = sp_runtime::traits::BlakeTwo256::hash_of(&call);
+
             let len = call.using_encoded(|e| e.len() as u32);
 
-            T::Scheduler::schedule_named(
-                unique_id,
-                DispatchTime::At(when),
-                None,
-                63,
-                frame_system::RawOrigin::Root.into(),
-                Bounded::Lookup { hash, len },
-            )?;
+            // T::Scheduler::schedule_named(
+            //     unique_id,
+            //     DispatchTime::At(when),
+            //     None,
+            //     63,
+            //     frame_system::RawOrigin::Root.into(),
+            //     Bounded::Lookup { hash, len },
+            // )?;
 
             Ok(().into())
         }
