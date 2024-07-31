@@ -36,13 +36,10 @@ mod hooks {
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             // --- Migrate storage
-            let weight = frame_support::weights::Weight::from_parts(0, 0);
+            let mut weight = frame_support::weights::Weight::from_parts(0, 0);
 
-            // Hex encoded foundation coldkey
-            // let hex = hex_literal::hex![
-            //     "feabaafee293d3b76dae304e2f9d885f77d2b17adab9e17e921b321eccd61c77"
-            // ];
-            // weight = weight
+            // Migrate the chain to RAO.
+            weight = weight.saturating_add(migrations::migrate_rao::migrate_rao::<T>());
             //     // Initializes storage version (to 1)
             //     .saturating_add(migrations::migrate_to_v1_separate_emission::migrate_to_v1_separate_emission::<T>())
             //     // Storage version v1 -> v2

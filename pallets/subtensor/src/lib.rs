@@ -62,7 +62,7 @@ pub mod pallet {
 
     // removed all migrations
     // TODO add back.
-    // use crate::migrations;
+    use crate::migrations;
     use frame_support::{
         dispatch::GetDispatchInfo,
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
