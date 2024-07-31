@@ -1099,7 +1099,7 @@ fn test_swap_hotkey_with_delegate_and_stakes() {
 
         log::info!("new_hotkey_stakers: {:?}", new_hotkey_stakers);
 
-        assert_eq!(new_hotkey_stakers.len(), 2);
+        assert_eq!(new_hotkey_stakers.len(), 3);
         assert!(new_hotkey_stakers.contains(&staker1));
         assert!(new_hotkey_stakers.contains(&staker2));
 
