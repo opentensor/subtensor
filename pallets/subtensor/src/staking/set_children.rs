@@ -130,6 +130,11 @@ impl<T: Config> Pallet<T> {
         // --- 7.1. Insert my new children + proportion list into the map.
         ChildKeys::<T>::insert(hotkey.clone(), netuid, children.clone());
 
+        if children.is_empty() {
+            // If there are no children, remove the ChildkeyTake value
+            ChildkeyTake::<T>::remove(hotkey.clone(), netuid);
+        }
+
         // --- 7.2. Update the parents list for my new children.
         for (proportion, new_child_i) in children.clone().iter() {
             // --- 8.2.1. Get the child's parents on this network.
@@ -243,7 +248,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Set the new childkey take value for the given hotkey and network
-        ChildkeyTake::<T>::insert((hotkey.clone(), netuid), take);
+        ChildkeyTake::<T>::insert(hotkey.clone(), netuid, take);
 
         // TODO: Consider adding a check to ensure the hotkey is registered on the specified network (netuid)
         // before setting the childkey take. This could prevent setting takes for non-existent or
@@ -286,6 +291,6 @@ impl<T: Config> Pallet<T> {
     /// * `u16` - The childkey take value. This is a percentage represented as a value between 0 and 10000,
     ///           where 10000 represents 100%.
     pub fn get_childkey_take(hotkey: &T::AccountId, netuid: u16) -> u16 {
-        ChildkeyTake::<T>::get((hotkey, netuid))
+        ChildkeyTake::<T>::get(hotkey, netuid)
     }
 }

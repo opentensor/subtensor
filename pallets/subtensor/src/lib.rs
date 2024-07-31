@@ -628,8 +628,15 @@ pub mod pallet {
         StorageMap<_, Blake2_128Concat, T::AccountId, u16, ValueQuery, DefaultDelegateTake<T>>;
     #[pallet::storage]
     /// DMAP ( hot, netuid ) --> take | Returns the hotkey childkey take for a specific subnet
-    pub type ChildkeyTake<T: Config> =
-        StorageMap<_, Blake2_128Concat, (T::AccountId, u16), u16, ValueQuery>;
+    pub type ChildkeyTake<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId, // First key: hotkey
+        Identity,
+        u16, // Second key: netuid
+        u16, // Value: take
+        ValueQuery,
+    >;
 
     #[pallet::storage]
     /// DMAP ( hot, cold ) --> stake | Returns the stake under a coldkey prefixed by hotkey.

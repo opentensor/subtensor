@@ -1497,7 +1497,13 @@ fn test_get_parents_chain() {
         let num_keys: usize = 5;
         let proportion = u64::MAX / 2; // 50% stake allocation
 
-        log::info!("Test setup: netuid={}, coldkey={}, num_keys={}, proportion={}", netuid, coldkey, num_keys, proportion);
+        log::info!(
+            "Test setup: netuid={}, coldkey={}, num_keys={}, proportion={}",
+            netuid,
+            coldkey,
+            num_keys,
+            proportion
+        );
 
         // Create a vector of hotkeys
         let hotkeys: Vec<U256> = (0..num_keys).map(|i| U256::from(i as u64 + 2)).collect();
@@ -1512,7 +1518,12 @@ fn test_get_parents_chain() {
         // Register all neurons
         for hotkey in &hotkeys {
             register_ok_neuron(netuid, *hotkey, coldkey, 0);
-            log::info!("Registered neuron: hotkey={}, coldkey={}, netuid={}", hotkey, coldkey, netuid);
+            log::info!(
+                "Registered neuron: hotkey={}, coldkey={}, netuid={}",
+                hotkey,
+                coldkey,
+                netuid
+            );
         }
 
         // Set up parent-child relationships
@@ -1523,13 +1534,22 @@ fn test_get_parents_chain() {
                 netuid,
                 vec![(proportion, hotkeys[i + 1])]
             ));
-            log::info!("Set parent-child relationship: parent={}, child={}, proportion={}", hotkeys[i], hotkeys[i + 1], proportion);
+            log::info!(
+                "Set parent-child relationship: parent={}, child={}, proportion={}",
+                hotkeys[i],
+                hotkeys[i + 1],
+                proportion
+            );
         }
 
         // Test get_parents for each hotkey
         for i in 1..num_keys {
             let parents = SubtensorModule::get_parents(&hotkeys[i], netuid);
-            log::info!("Testing get_parents for hotkey {}: {:?}", hotkeys[i], parents);
+            log::info!(
+                "Testing get_parents for hotkey {}: {:?}",
+                hotkeys[i],
+                parents
+            );
             assert_eq!(
                 parents.len(),
                 1,
@@ -1546,7 +1566,11 @@ fn test_get_parents_chain() {
 
         // Test get_parents for the root (should be empty)
         let root_parents = SubtensorModule::get_parents(&hotkeys[0], netuid);
-        log::info!("Testing get_parents for root hotkey {}: {:?}", hotkeys[0], root_parents);
+        log::info!(
+            "Testing get_parents for root hotkey {}: {:?}",
+            hotkeys[0],
+            root_parents
+        );
         assert!(
             root_parents.is_empty(),
             "Root hotkey should have no parents"
@@ -1556,7 +1580,12 @@ fn test_get_parents_chain() {
         let last_hotkey = hotkeys[num_keys - 1];
         let new_parent = U256::from(num_keys as u64 + 2);
         register_ok_neuron(netuid, new_parent, coldkey, 0);
-        log::info!("Registered new parent neuron: new_parent={}, coldkey={}, netuid={}", new_parent, coldkey, netuid);
+        log::info!(
+            "Registered new parent neuron: new_parent={}, coldkey={}, netuid={}",
+            new_parent,
+            coldkey,
+            netuid
+        );
 
         assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
@@ -1564,10 +1593,19 @@ fn test_get_parents_chain() {
             netuid,
             vec![(proportion / 2, last_hotkey)]
         ));
-        log::info!("Set additional parent-child relationship: parent={}, child={}, proportion={}", new_parent, last_hotkey, proportion / 2);
+        log::info!(
+            "Set additional parent-child relationship: parent={}, child={}, proportion={}",
+            new_parent,
+            last_hotkey,
+            proportion / 2
+        );
 
         let last_hotkey_parents = SubtensorModule::get_parents(&last_hotkey, netuid);
-        log::info!("Testing get_parents for last hotkey {} with multiple parents: {:?}", last_hotkey, last_hotkey_parents);
+        log::info!(
+            "Testing get_parents for last hotkey {} with multiple parents: {:?}",
+            last_hotkey,
+            last_hotkey_parents
+        );
         assert_eq!(
             last_hotkey_parents.len(),
             2,
@@ -1581,5 +1619,57 @@ fn test_get_parents_chain() {
             last_hotkey_parents.contains(&(proportion / 2, new_parent)),
             "Last hotkey should have the new parent"
         );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_childkey_take_removal_on_empty_children --exact --nocapture
+#[test]
+fn test_childkey_take_removal_on_empty_children() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let child = U256::from(3);
+        let netuid: u16 = 1;
+        let proportion: u64 = 1000;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Set a child and childkey take
+        assert_ok!(SubtensorModule::do_set_children(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            vec![(proportion, child)]
+        ));
+
+        let take: u16 = u16::MAX / 10; // 10% take
+        assert_ok!(SubtensorModule::set_childkey_take(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            take
+        ));
+
+        // Verify childkey take is set
+        assert_eq!(SubtensorModule::get_childkey_take(&hotkey, netuid), take);
+
+        // Remove all children
+        assert_ok!(SubtensorModule::do_set_children(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            vec![]
+        ));
+
+        // Verify children are removed
+        let children = SubtensorModule::get_children(&hotkey, netuid);
+        assert!(children.is_empty());
+
+        // Verify childkey take is removed
+        assert_eq!(SubtensorModule::get_childkey_take(&hotkey, netuid), 0);
+        // Verify childkey take storage is empty
+        assert_eq!(ChildkeyTake::<Test>::get(hotkey, netuid), 0);
     });
 }
