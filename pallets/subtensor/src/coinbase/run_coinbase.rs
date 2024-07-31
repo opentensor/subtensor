@@ -1,6 +1,5 @@
 use super::*;
 use substrate_fixed::types::I96F32;
-use alloc::collections::BTreeMap;
 
 impl<T: Config> Pallet<T> {
 
@@ -343,10 +342,9 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `bool` - True if the hotkey emission should be drained, false otherwise.
     pub fn should_drain_hotkey(hotkey: &T::AccountId, block: u64, emit_tempo: u64) -> bool {
-        true
-        // let hotkey_idx: u64 = Self::hash_hotkey_to_u64(hotkey);
-        // block.rem_euclid(emit_tempo.saturating_add(1))
-        //     == hotkey_idx.rem_euclid(emit_tempo.saturating_add(1))
+        let hotkey_idx: u64 = Self::hash_hotkey_to_u64(hotkey);
+        block.rem_euclid(emit_tempo.saturating_add(1))
+            == hotkey_idx.rem_euclid(emit_tempo.saturating_add(1))
     }
 
     /// Checks if the epoch should run for a given subnet based on the current block.

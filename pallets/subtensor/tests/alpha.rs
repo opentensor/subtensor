@@ -1,7 +1,6 @@
 mod mock;
 use mock::*;
 use sp_core::U256;
-use substrate_fixed::types::I96F32;
 use frame_support::assert_ok;
 // use pallet_subtensor::*;
 

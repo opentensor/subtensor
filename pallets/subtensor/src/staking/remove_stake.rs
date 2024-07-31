@@ -68,9 +68,9 @@ impl<T: Config> Pallet<T> {
             // Get the committed lock.
             let alpha_locked: u64 = SubnetLocked::<T>::get(netuid);
             // Get current staked.
-            let alpha_staked: u64 = Alpha::<T>::get((hotkey.clone(), coldkey.clone(), netuid));
+            let current_stake: u64 = Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
             // Ensure we are not unstaking the lock.
-            ensure!( alpha_staked.saturating_sub( alpha_unstaked) < alpha_locked, Error::<T>::CannotUnstakeLock );
+            ensure!( current_stake.saturating_sub( alpha_unstaked ) > alpha_locked, Error::<T>::CannotUnstakeLock );
         }
 
         // Ensure that the hotkey has enough stake to withdraw.
@@ -82,10 +82,10 @@ impl<T: Config> Pallet<T> {
         // Ensure we don't exceed stake rate limit
         let unstakes_this_interval =
             Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey);
-        // ensure!(
-        //     unstakes_this_interval < Self::get_target_stakes_per_interval(),
-        //     Error::<T>::UnstakeRateLimitExceeded
-        // );
+        ensure!(
+            unstakes_this_interval < Self::get_target_stakes_per_interval(),
+            Error::<T>::UnstakeRateLimitExceeded
+        );
 
         // Convert and unstake from the subnet.
         let tao_unstaked: u64 = Self::unstake_from_subnet( &hotkey, &coldkey, netuid, alpha_unstaked );

@@ -1,5 +1,4 @@
 use super::*;
-use crate::system::ensure_root;
 use frame_support::IterableStorageMap;
 
 impl<T: Config> Pallet<T> {

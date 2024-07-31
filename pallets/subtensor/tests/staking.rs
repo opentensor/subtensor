@@ -164,6 +164,7 @@ fn test_add_stake_not_registered_key_pair() {
         let hotkey_account_id = U256::from(54544);
         let amount = 1337;
         let netuid: u16 = 1;
+        add_network(netuid, 13, 0);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1800);
         assert_eq!(
             SubtensorModule::add_stake(

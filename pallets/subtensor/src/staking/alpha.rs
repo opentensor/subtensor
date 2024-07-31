@@ -532,11 +532,6 @@ impl<T: Config> Pallet<T> {
         let new_subnet_alpha: I96F32;
         let float_alpha_unstaked: I96F32 = I96F32::from_num(alpha_unstaked);
         if mechid == 1 {
-            // Stable.
-            tao_unstaked = float_alpha_unstaked;
-            // Set the new subnet tao.
-            new_subnet_alpha = I96F32::from_num(0.0); // Always zero in the pool.
-        } else {
             // Dynamic.
             let subnet_tao: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(netuid));
             // Second get the amount of alpha in the pool.
@@ -547,6 +542,11 @@ impl<T: Config> Pallet<T> {
             tao_unstaked = subnet_tao - (k / (subnet_alpha + float_alpha_unstaked));
             // Subtract the alpha from the pool.
             new_subnet_alpha = subnet_alpha - float_alpha_unstaked;
+        } else {
+            // Stable.
+            tao_unstaked = float_alpha_unstaked;
+            // Set the new subnet tao.
+            new_subnet_alpha = I96F32::from_num(0.0); // Always zero in the pool.
         }
         // Convert to u64.
         let tao_unstaked_u64: u64 = tao_unstaked.to_num::<u64>();
