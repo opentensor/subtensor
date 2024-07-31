@@ -4,599 +4,587 @@ use frame_support::IterableStorageDoubleMap;
 use substrate_fixed::types::{I32F32, I64F64, I96F32};
 
 impl<T: Config> Pallet<T> {
-
     /// Retrieves the global dynamic weight as a normalized value between 0 and 1.
     ///
-    /// This function fetches the global weight from storage and normalizes it
-    /// by dividing by the maximum possible u64 value.
+    /// This function performs the following steps:
+    /// 1. Fetches the global weight from storage using the GlobalWeight storage item.
+    /// 2. Converts the retrieved u64 value to a fixed-point number (I96F32).
+    /// 3. Normalizes the weight by dividing it by the maximum possible u64 value.
+    /// 4. Returns the normalized weight as an I96F32 fixed-point number.
+    ///
+    /// The normalization ensures that the returned value is always between 0 and 1,
+    /// regardless of the actual stored weight value.
     ///
     /// # Returns
-    /// * `I96F32` - The normalized global dynamic weight as a fixed-point number.
+    /// * `I96F32` - The normalized global dynamic weight as a fixed-point number between 0 and 1.
+    ///
+    /// # Note
+    /// This function uses saturating division to prevent potential overflow errors.
     pub fn get_dynamic_weight() -> I96F32 {
-        I96F32::from_num(GlobalWeight::<T>::get()).saturating_div(I96F32::from_num(u64::MAX))
+        // Step 1: Fetch the global weight from storage
+        let stored_weight = GlobalWeight::<T>::get();
+
+        // Step 2: Convert the u64 weight to I96F32
+        let weight_fixed = I96F32::from_num(stored_weight);
+
+        // Step 3: Normalize the weight by dividing by u64::MAX
+        // This ensures the result is always between 0 and 1
+        weight_fixed.saturating_div(I96F32::from_num(u64::MAX))
     }
 
-    /// Sets the global dynamic weight.
+    /// Sets the global dynamic weight in storage.
     ///
-    /// This function updates the global weight in storage with the provided value.
+    /// This function performs the following steps:
+    /// 1. Takes the provided weight value as a u64.
+    /// 2. Updates the GlobalWeight storage item with the new value.
     ///
     /// # Arguments
-    /// * `weight` - The new global weight value to be set.
+    /// * `weight` - The new global weight value to be set, as a u64.
+    ///
+    /// # Effects
+    /// This function modifies the following storage item:
+    /// - `GlobalWeight`: Updates it with the new weight value.
+    ///
+    /// # Note
+    /// The weight is stored as a raw u64 value. To get the normalized weight between 0 and 1,
+    /// use the `get_dynamic_weight()` function.
     pub fn set_dynamic_weight(weight: u64) {
+        // Update the GlobalWeight storage with the new weight value
         GlobalWeight::<T>::put(weight);
     }
 
-    /// Calculates the weighted combination between alpha and dynamic tao for hotkeys on a subnet.
+    /// Calculates the weighted combination of alpha and dynamic tao for hotkeys on a subnet.
+    ///
+    /// This function performs the following steps:
+    /// 1. Retrieves the subnet size (number of neurons).
+    /// 2. Fetches all hotkeys (neuron keys) on the specified subnet.
+    /// 3. Calculates the alpha stake vector:
+    ///    a. Initializes a vector with zeros.
+    ///    b. For each hotkey, retrieves its inherited stake and stores it in the vector.
+    ///    c. Normalizes the alpha stake vector.
+    /// 4. Calculates the dynamic tao stake vector:
+    ///    a. Initializes a vector with zeros.
+    ///    b. For each hotkey, retrieves its dynamic stake and stores it in the vector.
+    ///    c. Normalizes the dynamic tao stake vector.
+    /// 5. Combines alpha and dynamic tao stakes:
+    ///    a. Retrieves the global dynamic weight.
+    ///    b. For each neuron, calculates a weighted average of its alpha and dynamic tao stakes.
+    ///    c. Normalizes the combined stake vector.
+    /// 6. Converts the combined stake vector from 64-bit to 32-bit fixed-point representation.
+    /// 7. Returns the final stake weights for each neuron on the subnet.
     ///
     /// # Arguments
-    /// * `netuid` - Network unique identifier specifying the network context over which we will determine the stake weight.
+    /// * `netuid` - Network unique identifier specifying the subnet context for stake weight calculation.
     ///
     /// # Returns
-    /// * `Vec<I32F32>` - The stake weights for each hotkey on the network.
-    ///
+    /// * `Vec<I32F32>` - A vector of stake weights for each hotkey (neuron) on the specified subnet,
+    ///                   represented as 32-bit fixed-point numbers.
     pub fn get_stake_weights_for_network(netuid: u16) -> Vec<I32F32> {
-        // Get the subnet size.
+        // Step 1: Get the subnet size (number of neurons).
         let n: u16 = Self::get_subnetwork_n(netuid);
 
-        // First retrieve all the hotkeys on this network
+        // Step 2: Retrieve all hotkeys (neuron keys) on this subnet.
         let hotkeys: Vec<(u16, T::AccountId)> =
             <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(netuid)
                 .collect();
 
-        // Attain the alpha stake vector.
+        // Step 3: Calculate the alpha stake vector.
+        // Initialize a vector to store alpha stakes for each neuron.
         let mut alpha_stake: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
         for (uid_i, hotkey) in &hotkeys {
             if let Some(stake) = alpha_stake.get_mut(*uid_i as usize) {
-                *stake = I64F64::from_num(Self::get_inherited_stake_for_hotkey_on_subnet(hotkey, netuid));
+                // Retrieve and store the inherited stake for each hotkey.
+                *stake = I64F64::from_num(Self::get_inherited_stake_for_hotkey_on_subnet(
+                    hotkey, netuid,
+                ));
             } else {
-                log::warn!("Invalid index {} when setting alpha stake for hotkey {:?}", *uid_i, hotkey);
+                // Log a warning if the index is out of bounds (should not happen if n is correct).
+                log::warn!(
+                    "Invalid index {} when setting alpha stake for hotkey {:?}",
+                    *uid_i,
+                    hotkey
+                );
             }
         }
+        // Normalize the alpha stake vector.
         inplace_normalize_64(&mut alpha_stake);
 
-        // Attain the dynamic tao stake vector.
+        // Step 4: Calculate the dynamic tao stake vector.
+        // Initialize a vector to store dynamic tao stakes for each neuron.
         let mut dynamic_tao_stake: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
         for (uid_i, hotkey) in &hotkeys {
             if let Some(stake) = dynamic_tao_stake.get_mut(*uid_i as usize) {
-                *stake = I64F64::from_num(Self::get_dynamic_stake_for_hotkey_on_subnet(hotkey, netuid));
+                // Retrieve and store the dynamic stake for each hotkey.
+                *stake =
+                    I64F64::from_num(Self::get_dynamic_stake_for_hotkey_on_subnet(hotkey, netuid));
             } else {
-                log::warn!("Invalid index {} when setting dynamic stake for hotkey {:?}", *uid_i, hotkey);
+                // Log a warning if the index is out of bounds (should not happen if n is correct).
+                log::warn!(
+                    "Invalid index {} when setting dynamic stake for hotkey {:?}",
+                    *uid_i,
+                    hotkey
+                );
             }
         }
+        // Normalize the dynamic tao stake vector.
         inplace_normalize_64(&mut dynamic_tao_stake);
 
-        // Average local and global weights.
+        // Step 5: Combine alpha and dynamic tao stakes.
+        // Retrieve the global dynamic weight.
         let dynamic_weight: I64F64 = I64F64::from_num(Self::get_dynamic_weight());
+        // Calculate the weighted average of alpha and dynamic tao stakes for each neuron.
         let mut stake_weights: Vec<I64F64> = alpha_stake
             .iter()
             .zip(dynamic_tao_stake.iter())
             .map(|(alpha, dynamic)| {
-                (I64F64::from_num(1.0).saturating_sub(dynamic_weight)).saturating_mul(*alpha)
+                // Weighted average: (1 - dynamic_weight) * alpha + dynamic_weight * dynamic
+                (I64F64::from_num(1.0).saturating_sub(dynamic_weight))
+                    .saturating_mul(*alpha)
                     .saturating_add(dynamic_weight.saturating_mul(*dynamic))
             })
             .collect();
+        // Normalize the combined stake weights.
         inplace_normalize_64(&mut stake_weights);
 
-        // Convert the averaged stake values from 64-bit fixed-point to 32-bit fixed-point representation.
-        let converted_stake_weights: Vec<I32F32> = vec_fixed64_to_fixed32(stake_weights);
-
-        // Normalized the two and combine.
-        converted_stake_weights
+        // Step 6: Convert the combined stake values from 64-bit to 32-bit fixed-point representation.
+        vec_fixed64_to_fixed32(stake_weights)
     }
 
-    /// Calculates the total dynamic stake held by a hotkey on a network, considering child/parent relationships.
+    /// Calculates the total dynamic stake held by a hotkey on a subnet, considering child/parent relationships.
     ///
     /// This function performs the following steps:
-    /// 1. Retrieves the initial dynamic for the hotkey on the network.
-    /// 2. Calculates the dynamic allocated to children.
-    /// 3. Calculates the dynamic received from parents.
-    /// 4. Computes the final dynamic by adjusting the initial dynamic with child and parent contributions.
+    /// 1. Retrieves the initial global dynamic stake for the hotkey.
+    /// 2. Retrieves the list of children and parents for the hotkey on the subnet.
+    /// 3. Calculates the dynamic stake allocated to children:
+    ///    a. For each child, computes the proportion of stake to be allocated.
+    ///    b. Accumulates the total stake allocated to all children.
+    /// 4. Calculates the dynamic stake received from parents:
+    ///    a. For each parent, retrieves the parent's global stake.
+    ///    b. Computes the proportion of the parent's stake to be inherited.
+    ///    c. Accumulates the total stake inherited from all parents.
+    /// 5. Computes the final dynamic stake by adjusting the initial stake:
+    ///    a. Subtracts the stake allocated to children.
+    ///    b. Adds the stake inherited from parents.
+    /// 6. Returns the final dynamic stake value.
     ///
     /// # Arguments
-    /// * `hotkey` - AccountId of the hotkey whose total network stake is to be calculated.
-    /// * `netuid` - Network unique identifier specifying the network context.
+    /// * `hotkey` - AccountId of the hotkey whose total dynamic stake is to be calculated.
+    /// * `netuid` - Network unique identifier specifying the subnet context.
     ///
     /// # Returns
-    /// * `u64` - The total dynamic for the hotkey on the network after considering the stakes
-    ///           from children and parents.
+    /// * `u64` - The total dynamic stake for the hotkey on the subnet after considering the stakes
+    ///           allocated to children and inherited from parents.
     ///
-    /// # Panics
-    /// This function does not explicitly panic, but underlying arithmetic operations
-    /// use saturating arithmetic to prevent overflows.
+    /// # Note
+    /// This function uses saturating arithmetic to prevent overflows.
     pub fn get_dynamic_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
-        // Get the initial dynamic tao for the hotkey.
+        // Step 1: Retrieve the initial global dynamic stake for the hotkey.
+        // This represents the hotkey's stake across all subnets.
         let initial_dynamic_tao: u64 = Self::get_global_for_hotkey(hotkey);
+
+        // Initialize variables to track stake allocated to children and inherited from parents.
         let mut dynamic_tao_to_children: u64 = 0;
         let mut dynamic_tao_from_parents: u64 = 0;
+
+        // Step 2: Retrieve the lists of parents and children for the hotkey on the subnet.
         let parents: Vec<(u64, T::AccountId)> = Self::get_parents(hotkey, netuid);
         let children: Vec<(u64, T::AccountId)> = Self::get_children(hotkey, netuid);
+
+        // Step 3: Calculate the total dynamic stake allocated to children.
         for (proportion, _) in children {
-            // Calculate the stake proportion allocated to the child based on the initial stake.
+            // Convert the proportion to a normalized value between 0 and 1.
             let normalized_proportion: I96F32 =
                 I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
+
+            // Calculate the amount of stake to be allocated to this child.
             let dynamic_tao_proportion_to_child: I96F32 =
                 I96F32::from_num(initial_dynamic_tao).saturating_mul(normalized_proportion);
+
+            // Accumulate the total stake allocated to children.
             dynamic_tao_to_children = dynamic_tao_to_children
                 .saturating_add(dynamic_tao_proportion_to_child.to_num::<u64>());
         }
-        // Iterate over parents to calculate the total stake received from them.
+
+        // Step 4: Calculate the total dynamic stake received from parents.
         for (proportion, parent) in parents {
+            // Retrieve the parent's global stake.
             let parent_dynamic_tao: u64 = Self::get_global_for_hotkey(&parent);
+
+            // Convert the proportion to a normalized value between 0 and 1.
             let normalized_proportion: I96F32 =
                 I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
+
+            // Calculate the amount of stake inherited from this parent.
             let dynamic_tao_proportion_from_parent: I96F32 =
                 I96F32::from_num(parent_dynamic_tao).saturating_mul(normalized_proportion);
+
+            // Accumulate the total stake inherited from parents.
             dynamic_tao_from_parents = dynamic_tao_from_parents
                 .saturating_add(dynamic_tao_proportion_from_parent.to_num::<u64>());
         }
+
+        // Step 5: Compute the final dynamic stake.
+        // Subtract the stake allocated to children and add the stake inherited from parents.
         let finalized_dynamic: u64 = initial_dynamic_tao
             .saturating_sub(dynamic_tao_to_children)
             .saturating_add(dynamic_tao_from_parents);
 
+        // Step 6: Return the final dynamic stake value.
         finalized_dynamic
     }
 
-    /// Calculates the total alpha held by a hotkey on a network, considering child/parent relationships.
+    /// Calculates the total inherited stake (alpha) held by a hotkey on a network, considering child/parent relationships.
     ///
     /// This function performs the following steps:
-    /// 1. Retrieves the initial alpha for the hotkey on the network.
-    /// 2. Calculates the alpha allocated to children.
-    /// 3. Calculates the alpha received from parents.
-    /// 4. Computes the final alpha by adjusting the initial alpha with child and parent contributions.
+    /// 1. Retrieves the initial alpha (stake) for the hotkey on the specified subnet.
+    /// 2. Retrieves the list of children and parents for the hotkey on the subnet.
+    /// 3. Calculates the alpha allocated to children:
+    ///    a. For each child, computes the proportion of alpha to be allocated.
+    ///    b. Accumulates the total alpha allocated to all children.
+    /// 4. Calculates the alpha received from parents:
+    ///    a. For each parent, retrieves the parent's stake on the subnet.
+    ///    b. Computes the proportion of the parent's stake to be inherited.
+    ///    c. Accumulates the total alpha inherited from all parents.
+    /// 5. Computes the final inherited alpha by adjusting the initial alpha:
+    ///    a. Subtracts the alpha allocated to children.
+    ///    b. Adds the alpha inherited from parents.
+    /// 6. Returns the final inherited alpha value.
     ///
     /// # Arguments
-    /// * `hotkey` - AccountId of the hotkey whose total network stake is to be calculated.
-    /// * `netuid` - Network unique identifier specifying the network context.
+    /// * `hotkey` - AccountId of the hotkey whose total inherited stake is to be calculated.
+    /// * `netuid` - Network unique identifier specifying the subnet context.
     ///
     /// # Returns
-    /// * `u64` - The total alpha for the hotkey on the network after considering the stakes
-    ///           from children and parents.
+    /// * `u64` - The total inherited alpha for the hotkey on the subnet after considering the stakes
+    ///           allocated to children and inherited from parents.
     ///
-    /// # Panics
-    /// This function does not explicitly panic, but underlying arithmetic operations
-    /// use saturating arithmetic to prevent overflows.
+    /// # Note
+    /// This function uses saturating arithmetic to prevent overflows.
     pub fn get_inherited_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
-        // Retrieve the initial total stake for the hotkey without any child/parent adjustments.
+        // Step 1: Retrieve the initial total stake (alpha) for the hotkey on the specified subnet.
         let initial_alpha: u64 = Self::get_stake_for_hotkey_on_subnet(hotkey, netuid);
+
+        // Initialize variables to track alpha allocated to children and inherited from parents.
         let mut alpha_to_children: u64 = 0;
         let mut alpha_from_parents: u64 = 0;
+
+        // Step 2: Retrieve the lists of parents and children for the hotkey on the subnet.
         let parents: Vec<(u64, T::AccountId)> = Self::get_parents(hotkey, netuid);
         let children: Vec<(u64, T::AccountId)> = Self::get_children(hotkey, netuid);
-        // Iterate over children to calculate the total alpha allocated to them.
-        // We only allocated alpha to children, not the entire stake.
+
+        // Step 3: Calculate the total alpha allocated to children.
         for (proportion, _) in children {
-            // Calculate the stake proportion allocated to the child based on the initial stake.
+            // Convert the proportion to a normalized value between 0 and 1.
             let normalized_proportion: I96F32 =
                 I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
+
+            // Calculate the amount of alpha to be allocated to this child.
             let alpha_proportion_to_child: I96F32 =
                 I96F32::from_num(initial_alpha).saturating_mul(normalized_proportion);
-            // Accumulate the total stake given to children.
+
+            // Add this child's allocation to the total alpha allocated to children.
             alpha_to_children =
                 alpha_to_children.saturating_add(alpha_proportion_to_child.to_num::<u64>());
         }
-        // Iterate over parents to calculate the total stake received from them.
+
+        // Step 4: Calculate the total alpha inherited from parents.
         for (proportion, parent) in parents {
-            // Retrieve the parent's total stake.
+            // Retrieve the parent's total stake on this subnet.
             let parent_alpha: u64 = Self::get_stake_for_hotkey_on_subnet(&parent, netuid);
-            // Calculate the stake proportion received from the parent.
+
+            // Convert the proportion to a normalized value between 0 and 1.
             let normalized_proportion: I96F32 =
                 I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
+
+            // Calculate the amount of alpha to be inherited from this parent.
             let alpha_proportion_from_parent: I96F32 =
                 I96F32::from_num(parent_alpha).saturating_mul(normalized_proportion);
-            // Accumulate the total stake received from parents.
+
+            // Add this parent's contribution to the total alpha inherited from parents.
             alpha_from_parents =
                 alpha_from_parents.saturating_add(alpha_proportion_from_parent.to_num::<u64>());
         }
 
-        // Calculate the final stake for the hotkey by adjusting the initial stake with the stakes
-        // to/from children and parents.
+        // Step 5: Calculate the final inherited alpha for the hotkey.
         let finalized_alpha: u64 = initial_alpha
-            .saturating_sub(alpha_to_children)
-            .saturating_add(alpha_from_parents);
+            .saturating_sub(alpha_to_children) // Subtract alpha allocated to children
+            .saturating_add(alpha_from_parents); // Add alpha inherited from parents
 
-        // Return the finalized stake value for the hotkey.
+        // Step 6: Return the final inherited alpha value.
         finalized_alpha
     }
 
-    /// Retrieves the dynamic value for a given hotkey and coldkey across all subnets.
+    /// Retrieves the dynamic value (TAO equivalent) for a given hotkey and coldkey pair across all subnets.
+    ///
+    /// This function performs the following steps:
+    /// 1. Initializes a variable to accumulate the total TAO equivalent.
+    /// 2. Iterates over all subnet network IDs (netuids).
+    /// 3. For each subnet:
+    ///    a. Calculates the dynamic value for the hotkey and coldkey pair on that subnet.
+    ///    b. Adds this value to the total TAO equivalent.
+    /// 4. Converts the accumulated fixed-point total to a u64 value.
+    /// 5. Returns the final total TAO equivalent.
     ///
     /// # Arguments
-    /// * `hotkey` - The account ID of the hotkey.
-    /// * `coldkey` - The account ID of the coldkey.
+    /// * `hotkey` - The account ID of the hotkey (neuron).
+    /// * `coldkey` - The account ID of the coldkey (owner).
     ///
     /// # Returns
-    /// * `u64` - The total dynamic value for the hotkey and coldkey across all subnets.
+    /// * `u64` - The total dynamic value (TAO equivalent) for the hotkey and coldkey pair across all subnets.
     pub fn get_global_for_hotkey_and_coldkey(hotkey: &T::AccountId, coldkey: &T::AccountId) -> u64 {
-        // Initialize the total tao equivalent to zero.
+        // Initialize the total TAO equivalent to zero using fixed-point arithmetic for precision
         let mut total_tao_equivalent: I96F32 = I96F32::from_num(0);
-        // Iterate over all subnet netuids.
+
+        // Iterate over all subnet network IDs (netuids)
         for netuid in Self::get_all_subnet_netuids() {
-            // Accumulate the dynamic value for the hotkey and coldkey on each subnet.
+            // Calculate the dynamic value for the hotkey and coldkey pair on this subnet
             let subnet_dynamic =
                 Self::get_global_for_hotkey_and_coldey_on_subnet(hotkey, coldkey, netuid);
+
+            // Add the subnet's dynamic value to the total, using saturating addition to prevent overflow
             total_tao_equivalent =
                 total_tao_equivalent.saturating_add(I96F32::from_num(subnet_dynamic));
         }
-        // Return the total tao equivalent as a u64 value.
+
+        // Convert the total TAO equivalent from fixed-point to u64 and return
         total_tao_equivalent.to_num::<u64>()
     }
 
-    /// Retrieves the dynamic value for a given hotkey across all subnets.
+    /// Retrieves the dynamic value (TAO equivalent) for a given hotkey across all subnets.
+    ///
+    /// This function performs the following steps:
+    /// 1. Initializes a variable to accumulate the total TAO equivalent.
+    /// 2. Iterates over all subnet network IDs (netuids).
+    /// 3. For each subnet:
+    ///    a. Calculates the dynamic value for the hotkey on that subnet.
+    ///    b. Adds this value to the total TAO equivalent.
+    /// 4. Converts the accumulated fixed-point total to a u64 value.
+    /// 5. Returns the final total TAO equivalent.
     ///
     /// # Arguments
-    /// * `hotkey` - The account ID of the hotkey.
+    /// * `hotkey` - The account ID of the hotkey (neuron).
     ///
     /// # Returns
-    /// * `u64` - The total dynamic value for the hotkey across all subnets.
+    /// * `u64` - The total dynamic value (TAO equivalent) for the hotkey across all subnets.
     pub fn get_global_for_hotkey(hotkey: &T::AccountId) -> u64 {
-        // Initialize the total tao equivalent to zero.
+        // Initialize the total TAO equivalent to zero using fixed-point arithmetic for precision
         let mut total_tao_equivalent: I96F32 = I96F32::from_num(0);
-        // Iterate over all subnet netuids.
+
+        // Iterate over all subnet network IDs (netuids)
         for netuid in Self::get_all_subnet_netuids() {
-            // Accumulate the dynamic value for the hotkey on each subnet.
+            // Calculate the dynamic value for the hotkey on this subnet
             let subnet_dynamic = Self::get_global_for_hotkey_on_subnet(hotkey, netuid);
+
+            // Add the subnet's dynamic value to the total, using saturating addition to prevent overflow
             total_tao_equivalent =
                 total_tao_equivalent.saturating_add(I96F32::from_num(subnet_dynamic));
         }
-        // Return the total tao equivalent as a u64 value.
+
+        // Convert the total TAO equivalent from fixed-point to u64 and return
         total_tao_equivalent.to_num::<u64>()
     }
 
-    /// Retrieves the dynamic value for a given hotkey on a specific subnet.
+    /// Retrieves the dynamic value (TAO equivalent) for a given hotkey on a specific subnet.
+    ///
+    /// This function performs the following steps:
+    /// 1. Retrieves the total stake (alpha) for the hotkey on the specified subnet.
+    /// 2. Converts the alpha value to its TAO equivalent using the subnet's current state.
     ///
     /// # Arguments
-    /// * `hotkey` - The account ID of the hotkey.
+    /// * `hotkey` - The account ID of the hotkey (neuron).
     /// * `netuid` - The unique identifier of the subnet.
     ///
     /// # Returns
-    /// * `u64` - The dynamic value for the hotkey on the specified subnet.
+    /// * `u64` - The dynamic value (TAO equivalent) for the hotkey on the specified subnet.
+    ///
+    /// # Note
+    /// This function considers the total stake of the hotkey across all coldkeys on the subnet.
     pub fn get_global_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
-        // Get the hotkey's alpha value on this subnet.
+        // Step 1: Retrieve the total stake (alpha) for the hotkey on this subnet.
+        // This includes stakes from all coldkeys associated with this hotkey.
         let alpha: u64 = Self::get_stake_for_hotkey_on_subnet(hotkey, netuid);
-        // Convert the alpha value to dynamic value and return it.
+
+        // Step 2: Convert the alpha value to its TAO equivalent.
+        // This conversion takes into account the current state of the subnet,
+        // including the total outstanding alpha and total TAO in the subnet.
         Self::alpha_to_global(alpha, netuid)
     }
 
-    /// Retrieves the dynamic value for a given hotkey and coldkey on a specific subnet.
+    /// Retrieves the dynamic value (TAO equivalent) for a specific hotkey and coldkey pair on a subnet.
+    ///
+    /// This function performs the following steps:
+    /// 1. Retrieves the stake (alpha) for the specific hotkey and coldkey pair on the subnet.
+    /// 2. Converts the alpha value to its TAO equivalent using the subnet's current state.
     ///
     /// # Arguments
-    /// * `hotkey` - The account ID of the hotkey.
-    /// * `coldkey` - The account ID of the coldkey.
+    /// * `hotkey` - The account ID of the hotkey (neuron).
+    /// * `coldkey` - The account ID of the coldkey (owner).
     /// * `netuid` - The unique identifier of the subnet.
     ///
     /// # Returns
-    /// * `u64` - The dynamic value for the hotkey and coldkey on the specified subnet.
+    /// * `u64` - The dynamic value (TAO equivalent) for the hotkey and coldkey pair on the specified subnet.
+    ///
+    /// # Note
+    /// This function considers only the stake associated with the specific hotkey-coldkey pair,
+    /// not the total stake of the hotkey across all coldkeys.
     pub fn get_global_for_hotkey_and_coldey_on_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: u16,
     ) -> u64 {
-        // Get the hotkey's alpha value on this subnet.
+        // Step 1: Retrieve the stake (alpha) for the specific hotkey-coldkey pair on this subnet.
+        // This value represents the stake associated only with this particular combination.
         let alpha: u64 = Alpha::<T>::get((hotkey, coldkey, netuid));
-        // Convert the alpha value to dynamic value and return it.
+
+        // Step 2: Convert the alpha value to its TAO equivalent.
+        // This conversion takes into account the current state of the subnet,
+        // including the total outstanding alpha and total TAO in the subnet.
         Self::alpha_to_global(alpha, netuid)
     }
 
-    /// Converts an alpha value to a dynamic value on a specific subnet.
+    /// Converts an alpha value to its global TAO equivalent on a specific subnet.
+    ///
+    /// This function performs the following steps:
+    /// 1. Retrieves the total outstanding alpha for the subnet.
+    /// 2. Retrieves the total TAO for the subnet.
+    /// 3. Calculates the proportion of the given alpha to the total outstanding alpha.
+    /// 4. Multiplies this proportion by the total subnet TAO to get the TAO equivalent.
+    /// 5. Converts the result to a u64 value and returns it.
     ///
     /// # Arguments
     /// * `alpha` - The alpha value to be converted.
     /// * `netuid` - The unique identifier of the subnet.
     ///
     /// # Returns
-    /// * `u64` - The dynamic value equivalent to the given alpha value on the specified subnet.
+    /// * `u64` - The TAO equivalent of the given alpha value on the specified subnet.
+    ///
+    /// # Note
+    /// This function uses fixed-point arithmetic (I96F32) for precise calculations.
+    /// If the division by alpha_outstanding results in an error (e.g., division by zero),
+    /// the function returns 0 as a fallback.
     pub fn alpha_to_global(alpha: u64, netuid: u16) -> u64 {
-        // Retrieve the total alpha and total tao values for the subnet.
+        // Step 1: Retrieve the total outstanding alpha for the subnet.
+        // This represents the sum of all alpha values in the subnet.
         let alpha_outstanding: I96F32 = I96F32::from_num(SubnetAlphaOut::<T>::get(netuid));
-        // Get subnet toa.
+
+        // Step 2: Retrieve the total TAO for the subnet.
+        // This represents the total stake in TAO units for the subnet.
         let subnet_tao: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(netuid));
-        // Calculate the tao equivalent for the given alpha value.
+
+        // Step 3 & 4: Calculate the TAO equivalent for the given alpha value.
+        // This is done by:
+        // a) Converting the input alpha to I96F32 for precise calculation
+        // b) Dividing it by the total outstanding alpha to get the proportion
+        // c) Multiplying this proportion by the total subnet TAO
         let tao_equivalent: u64 = (I96F32::from_num(alpha)
             .checked_div(alpha_outstanding)
-            .unwrap_or(I96F32::from_num(0.0))
+            .unwrap_or(I96F32::from_num(0.0)) // If division fails, use 0 as fallback
             .saturating_mul(subnet_tao))
-            .to_num::<u64>();
-        // Return the tao equivalent as a u64 value.
+        .to_num::<u64>(); // Step 5: Convert the result back to u64
+
+        // Return the calculated TAO equivalent
         tao_equivalent
     }
 
-    /// Retrieves the alpha value for a given hotkey on a specific subnet.
+    /// Retrieves the total stake (alpha) for a given hotkey on a specific subnet.
+    ///
+    /// This function performs the following step:
+    /// 1. Retrieves and returns the total alpha value associated with the hotkey on the specified subnet.
     ///
     /// # Arguments
     /// * `hotkey` - The account ID of the hotkey.
     /// * `netuid` - The unique identifier of the subnet.
     ///
     /// # Returns
-    /// * `u64` - The alpha value for the hotkey on the specified subnet.
+    /// * `u64` - The total alpha value for the hotkey on the specified subnet.
+    ///
+    /// # Note
+    /// This function returns the cumulative stake across all coldkeys associated with this hotkey on the subnet.
     pub fn get_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
-        // Return the alpha this hotkey owns on this subnet.
+        // Retrieve and return the total alpha this hotkey owns on this subnet.
+        // This value represents the sum of stakes from all coldkeys associated with this hotkey.
         TotalHotkeyAlpha::<T>::get(hotkey, netuid)
     }
 
     /// Retrieves the total stake (alpha) for a given coldkey on a specific subnet.
     ///
-    /// # Arguments
+    /// This function performs the following step:
+    /// 1. Retrieves and returns the total alpha value associated with the coldkey on the specified subnet.
     ///
+    /// # Arguments
     /// * `coldkey` - The account ID of the coldkey.
     /// * `netuid` - The unique identifier of the subnet.
     ///
     /// # Returns
-    ///
     /// * `u64` - The total stake (alpha) for the coldkey on the specified subnet.
+    ///
+    /// # Note
+    /// This function returns the cumulative stake across all hotkeys associated with this coldkey on the subnet.
     pub fn get_stake_for_coldkey_on_subnet(coldkey: &T::AccountId, netuid: u16) -> u64 {
-        // Return the alpha this coldkey owns on this subnet.
+        // Retrieve and return the total alpha this coldkey owns on this subnet.
+        // This value represents the sum of stakes across all hotkeys associated with this coldkey.
         TotalColdkeyAlpha::<T>::get(coldkey, netuid)
     }
 
-    /// Returns true if the cold-hot staking account has enough balance to fulfill the decrement.
+    /// Checks if a specific hotkey-coldkey pair has enough stake on a subnet to fulfill a given decrement.
+    ///
+    /// This function performs the following steps:
+    /// 1. Retrieves the current stake for the hotkey-coldkey pair on the specified subnet.
+    /// 2. Compares this stake with the requested decrement amount.
     ///
     /// # Arguments
-    /// * `coldkey` - The coldkey account ID.
-    /// * `hotkey` - The hotkey account ID.
-    /// * `decrement` - The amount to be decremented.
+    /// * `hotkey` - The account ID of the hotkey.
+    /// * `coldkey` - The account ID of the coldkey.
+    /// * `netuid` - The unique identifier of the subnet.
+    /// * `decrement` - The amount of stake to be potentially decremented.
     ///
     /// # Returns
-    /// True if the account has enough balance, false otherwise.
+    /// * `bool` - True if the account has enough stake to fulfill the decrement, false otherwise.
+    ///
+    /// # Note
+    /// This function only checks the stake for the specific hotkey-coldkey pair, not the total stake of the hotkey or coldkey individually.
     pub fn has_enough_stake_on_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: u16,
         decrement: u64,
     ) -> bool {
-        Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid) >= decrement
+        // Retrieve the current stake for this hotkey-coldkey pair on the subnet
+        let current_stake =
+            Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
+
+        // Compare the current stake with the requested decrement
+        // Return true if the current stake is greater than or equal to the decrement
+        current_stake >= decrement
     }
 
-    /// Retrieves the alpha value for a given hotkey on a specific subnet.
+    /// Retrieves the alpha (stake) value for a given hotkey and coldkey pair on a specific subnet.
+    ///
+    /// This function performs the following steps:
+    /// 1. Takes the hotkey, coldkey, and subnet ID as input parameters.
+    /// 2. Accesses the Alpha storage map to retrieve the stake value.
+    /// 3. Returns the retrieved stake value as a u64.
     ///
     /// # Arguments
-    /// * `hotkey` - The account ID of the hotkey.
+    /// * `hotkey` - The account ID of the hotkey (neuron).
+    /// * `coldkey` - The account ID of the coldkey (owner).
     /// * `netuid` - The unique identifier of the subnet.
     ///
     /// # Returns
-    /// * `u64` - The alpha value for the hotkey on the specified subnet.
+    /// * `u64` - The alpha (stake) value for the specified hotkey-coldkey pair on the given subnet.
+    ///
+    /// # Note
+    /// This function retrieves the stake specific to the hotkey-coldkey pair, not the total stake of the hotkey or coldkey individually.
     pub fn get_stake_for_hotkey_and_coldkey_on_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: u16,
     ) -> u64 {
-        // Return the alpha this hotkey owns on this subnet.
+        // Step 1: Access the Alpha storage map
+        // The Alpha map stores stake values for each (hotkey, coldkey, netuid) combination
+
+        // Step 2: Retrieve the stake value using the provided parameters
+        // If no stake exists for this combination, the default value of 0 will be returned
         Alpha::<T>::get((hotkey, coldkey, netuid))
-    }
-
-    pub fn emit_into_subnet(
-        hotkey: &T::AccountId,
-        coldkey: &T::AccountId,
-        netuid: u16,
-        emitted_alpha: u64,
-    ) {
-        // Increment the hotkey alpha.
-        Alpha::<T>::mutate((hotkey, coldkey, netuid), |alpha| {
-            *alpha = alpha.saturating_add(emitted_alpha);
-        });
-        // Increment the subnet alpha outstanding in the subnet.
-        SubnetAlphaOut::<T>::mutate(netuid, |total| {
-            *total = total.saturating_add(emitted_alpha);
-        });
-        // Increment the coldkey total.
-        TotalColdkeyAlpha::<T>::mutate(coldkey, netuid, |total| {
-            *total = total.saturating_add(emitted_alpha);
-        });
-        // Increment the hotkey total.
-        TotalHotkeyAlpha::<T>::mutate(hotkey, netuid, |total| {
-            *total = total.saturating_add(emitted_alpha);
-        });
-    }
-
-    /// Stakes TAO into a subnet for a given hotkey and coldkey pair.
-    ///
-    /// This function performs the following operations:
-    /// 1. Computes the stake operation based on the subnet's mechanism.
-    /// 2. Increments the subnet's total TAO.
-    /// 3. Increments the total TAO staked for the hotkey-coldkey pair.
-    /// 4. Converts TAO to alpha based on the subnet's mechanism.
-    /// 5. Increases the subnet alpha for the hotkey-coldkey pair.
-    /// 6. Updates the staking hotkeys map for the coldkey.
-    ///
-    /// # Arguments
-    ///
-    /// * `hotkey` - The account ID of the hotkey.
-    /// * `coldkey` - The account ID of the coldkey.
-    /// * `netuid` - The unique identifier of the subnet.
-    /// * `tao` - The amount of TAO to stake.
-    ///
-    /// # Returns
-    ///
-    /// * `u64` - The amount of alpha staked.
-    ///
-    /// # Effects
-    ///
-    /// This function mutates the following storage items:
-    /// - `SubnetMechanism`
-    /// - `SubnetTAO`
-    /// - `Stake`
-    /// - `StakingHotkeys`
-    pub fn stake_into_subnet(
-        hotkey: &T::AccountId,
-        coldkey: &T::AccountId,
-        netuid: u16,
-        tao_staked: u64,
-    ) -> u64 {
-        // Get the mechanism type.
-        let mechid: u16 = SubnetMechanism::<T>::get(netuid);
-        let alpha_staked: I96F32;
-        let new_subnet_alpha: I96F32;
-        let float_tao_staked: I96F32 = I96F32::from_num(tao_staked);
-
-        if mechid == 1 {
-            // Dynamic, get the tao and alpha in the pool.
-            let subnet_tao: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(netuid));
-            let subnet_alpha: I96F32 = I96F32::from_num(SubnetAlphaIn::<T>::get(netuid));
-            // Compute the constant product.
-            let k: I96F32 = subnet_alpha.saturating_mul(subnet_tao);
-            // Compute the amount of alpha bought.
-            alpha_staked = subnet_alpha.saturating_sub(k.checked_div(subnet_tao.saturating_add(float_tao_staked)).unwrap_or(I96F32::from_num(0)));
-            // Subtract the alpha from the pool.
-            new_subnet_alpha = subnet_alpha.saturating_sub(alpha_staked);
-        } else {
-            // Stable.
-            alpha_staked = float_tao_staked;
-            // Set the new subnet alpha.
-            new_subnet_alpha = I96F32::from_num(0); // Always zero in the pool.
-        }
-
-        // Convert to u64.
-        let alpha_staked_u64: u64 = alpha_staked.to_num::<u64>();
-
-        // Increment the hotkey alpha.
-        Alpha::<T>::mutate((hotkey, coldkey, netuid), |alpha| {
-            *alpha = alpha.saturating_add(alpha_staked_u64);
-        });
-
-        // Convert new_subnet_alpha to u64.
-        let new_subnet_alpha_u64: u64 = new_subnet_alpha.to_num::<u64>();
-
-        // Set the new subnet alpha.
-        SubnetAlphaIn::<T>::insert(netuid, new_subnet_alpha_u64);
-        // Increment the subnet alpha outstanding in the subnet.
-        SubnetAlphaOut::<T>::mutate(netuid, |total| { *total = total.saturating_add(alpha_staked_u64)});
-        // Increment the subnet tao.
-        SubnetTAO::<T>::mutate(netuid, |total| {*total = total.saturating_add(tao_staked)});
-        // Increment total stake.
-        TotalStake::<T>::mutate(|total| {*total = total.saturating_add(tao_staked)});
-        // Increment the total tao staked
-        Stake::<T>::mutate(&hotkey, &coldkey, |stake| {*stake = stake.saturating_add(tao_staked)});
-        // Increment the coldkey total.
-        TotalColdkeyAlpha::<T>::mutate(coldkey, netuid, |total| {*total = total.saturating_add(alpha_staked_u64)});
-        // Increment the hotkey total.
-        TotalHotkeyAlpha::<T>::mutate(hotkey, netuid, |total| {*total = total.saturating_add(alpha_staked_u64)});
-
-        // Update Staking hotkeys map.
-        let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
-        if !staking_hotkeys.contains(hotkey) {
-            staking_hotkeys.push(hotkey.clone());
-            StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
-        }
-        // Return the converted alpha.
-        alpha_staked_u64
-    }
-
-    /// Unstakes alpha from a subnet for a given hotkey and coldkey pair.
-    ///
-    /// This function performs the following operations:
-    /// 1. Decreases the subnet's total alpha.
-    /// 2. Decreases the total alpha for the hotkey on the subnet.
-    /// 3. Decreases the alpha for the hotkey-coldkey pair on the subnet.
-    /// 4. Converts alpha to TAO based on the subnet's mechanism.
-    /// 5. Decrements the total stake counter.
-    /// 6. Decrements the subnet's total TAO.
-    ///
-    /// # Arguments
-    ///
-    /// * `hotkey` - The account ID of the hotkey.
-    /// * `coldkey` - The account ID of the coldkey.
-    /// * `netuid` - The unique identifier of the subnet.
-    /// * `alpha` - The amount of alpha to unstake.
-    ///
-    /// # Returns
-    ///
-    /// * `u64` - The amount of TAO unstaked.
-    ///
-    /// # Effects
-    ///
-    /// This function mutates the following storage items:
-    /// - `SubnetMechanism`
-    /// - `SubnetAlphaIn`
-    /// - `TotalHotkeyAlpha`
-    /// - `Alpha`
-    /// - `TotalStake`
-    /// - `SubnetTAO`
-    pub fn unstake_from_subnet(
-        hotkey: &T::AccountId,
-        coldkey: &T::AccountId,
-        netuid: u16,
-        alpha_unstaked: u64,
-    ) -> u64 {
-        // First get the mechanism type.
-        let mechid: u16 = SubnetMechanism::<T>::get(netuid);
-        let tao_unstaked: I96F32;
-        let new_subnet_alpha: I96F32;
-        let float_alpha_unstaked: I96F32 = I96F32::from_num(alpha_unstaked);
-        if mechid == 1 {
-            // Dynamic.
-            let subnet_tao: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(netuid));
-            // Second get the amount of alpha in the pool.
-            let subnet_alpha: I96F32 = I96F32::from_num(SubnetAlphaIn::<T>::get(netuid));
-            // Third compute the constant product.
-            let k: I96F32 = subnet_alpha.saturating_mul(subnet_tao);
-            // Fourth compute the amount of tao bought.
-            tao_unstaked = subnet_tao.saturating_sub(k.checked_div(subnet_alpha.saturating_add(float_alpha_unstaked)).unwrap_or(I96F32::from_num(0)));
-            // Subtract the alpha from the pool.
-            new_subnet_alpha = subnet_alpha.saturating_sub(float_alpha_unstaked);
-        } else {
-            // Stable.
-            tao_unstaked = float_alpha_unstaked;
-            // Set the new subnet tao.
-            new_subnet_alpha = I96F32::from_num(0.0); // Always zero in the pool.
-        }
-        // Convert to u64.
-        let tao_unstaked_u64: u64 = tao_unstaked.to_num::<u64>();
-        // Convert new_subnet_alpha to u64.
-        let new_subnet_alpha_u64: u64 = new_subnet_alpha.to_num::<u64>();
-        // Set the new subnet alpha.
-        SubnetAlphaIn::<T>::insert(netuid, new_subnet_alpha_u64);
-        // Decrement the alpha outstanding.
-        SubnetAlphaOut::<T>::mutate(netuid, |total| {
-            *total = total.saturating_sub(alpha_unstaked);
-        });
-        // Decrement the subnet tao.
-        SubnetTAO::<T>::mutate(netuid, |total| {
-            *total = total.saturating_sub(tao_unstaked_u64);
-        });
-        // Decrease account alpha.
-        Alpha::<T>::mutate_exists((hotkey, coldkey, netuid), |maybe_total| {
-            if let Some(total) = maybe_total {
-                let new_total = total.saturating_sub(alpha_unstaked);
-                // We actually remove the entry here.
-                if new_total == 0 {
-                    *maybe_total = None;
-                    // Remove hotkey from StakingHotkeys if it's fully unstaked
-                    let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
-                    staking_hotkeys.retain(|h| h != hotkey);
-                    StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
-                } else {
-                    *total = new_total;
-                }
-            }
-        });
-        // Decrement the coldkey total and remove if zero
-        TotalColdkeyAlpha::<T>::mutate_exists(coldkey, netuid, |maybe_total| {
-            if let Some(total) = maybe_total {
-                let new_total = total.saturating_sub(alpha_unstaked);
-                if new_total == 0 {
-                    *maybe_total = None;
-                } else {
-                    *total = new_total;
-                }
-            }
-        });
-        // Decrease the totals and remove if zero.
-        TotalHotkeyAlpha::<T>::mutate_exists(hotkey, netuid, |maybe_total| {
-            if let Some(total) = maybe_total {
-                let new_total = total.saturating_sub(alpha_unstaked);
-                if new_total == 0 {
-                    *maybe_total = None;
-                } else {
-                    *total = new_total;
-                }
-            }
-        });
-        // Decrement the total tao staked
-        Stake::<T>::mutate(&hotkey, &coldkey, |stake| {
-            *stake = stake.saturating_sub(tao_unstaked_u64);
-        });
-        // Decrement the total stake counter.
-        TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(tao_unstaked_u64));
-        // Return the tao unstaked.
-        tao_unstaked_u64
     }
 }

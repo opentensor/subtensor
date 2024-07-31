@@ -151,7 +151,8 @@ impl<T: Config> Pallet<T> {
                         mining_emission,    // Amount recieved from mining.
                         &mut hotkey_emission_tuples,
                     );
-                    hotkey_emission_limit = hotkey_emission_limit.saturating_add(validator_emission.saturating_add(mining_emission));
+                    hotkey_emission_limit = hotkey_emission_limit
+                        .saturating_add(validator_emission.saturating_add(mining_emission));
                     log::debug!("Accumulated emissions on hotkey {:?} for netuid {:?}: mining {:?}, validator {:?}", hotkey, *netuid, mining_emission, validator_emission);
                 }
             } else {
@@ -269,14 +270,20 @@ impl<T: Config> Pallet<T> {
                 I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(&parent, netuid));
 
             // Compute dynamic proportion due.
-            let parent_alpha_emission: I96F32 = alpha_weight.saturating_mul(parnet_emission).saturating_mul(parent_alpha).saturating_mul(parent_proportion).checked_div(hotkey_alpha).unwrap_or(I96F32::from_num(0.0));
+            let parent_alpha_emission: I96F32 = alpha_weight
+                .saturating_mul(parnet_emission)
+                .saturating_mul(parent_alpha)
+                .saturating_mul(parent_proportion)
+                .checked_div(hotkey_alpha)
+                .unwrap_or(I96F32::from_num(0.0));
             let parent_dynamic_emission: I96F32 = dynamic_weight
                 .saturating_mul(parnet_emission)
                 .saturating_mul(parent_dynamic)
                 .saturating_mul(parent_proportion)
                 .checked_div(hotkey_dynamic)
                 .unwrap_or(I96F32::from_num(0.0));
-            let total_parent_emission: I96F32 = parent_alpha_emission.saturating_add(parent_dynamic_emission);
+            let total_parent_emission: I96F32 =
+                parent_alpha_emission.saturating_add(parent_dynamic_emission);
             hotkey_emission_tuples.push((parent, netuid, total_parent_emission.to_num::<u64>()));
 
             // Decrement the remainder.
@@ -287,7 +294,10 @@ impl<T: Config> Pallet<T> {
         hotkey_emission_tuples.push((
             hotkey.clone(),
             netuid,
-            hotkey_take.to_num::<u64>().saturating_add(remainder.to_num::<u64>()).saturating_add(mining_emission),
+            hotkey_take
+                .to_num::<u64>()
+                .saturating_add(remainder.to_num::<u64>())
+                .saturating_add(mining_emission),
         ));
     }
 
@@ -337,14 +347,18 @@ impl<T: Config> Pallet<T> {
             // Compute contributions to nominators and alpha holders.
             let nominator_emission_from_alpha: I96F32 = alpha_weight
                 .saturating_mul(nominator_emission)
-                .saturating_mul(nominator_alpha
-                    .checked_div(hotkey_alpha)
-                    .unwrap_or(I96F32::from_num(0)));
+                .saturating_mul(
+                    nominator_alpha
+                        .checked_div(hotkey_alpha)
+                        .unwrap_or(I96F32::from_num(0)),
+                );
             let nominator_emission_from_dynamic: I96F32 = dynamic_weight
                 .saturating_mul(nominator_emission)
-                .saturating_mul(nominator_dynamic
-                    .checked_div(hotkey_dynamic)
-                    .unwrap_or(I96F32::from_num(0)));
+                .saturating_mul(
+                    nominator_dynamic
+                        .checked_div(hotkey_dynamic)
+                        .unwrap_or(I96F32::from_num(0)),
+                );
 
             // Append the emission tuple.
             let nominator_emission_total: I96F32 =
