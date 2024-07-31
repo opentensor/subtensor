@@ -1,7 +1,6 @@
 mod mock;
 use mock::*;
 use sp_core::U256;
-use frame_support::assert_ok;
 // use pallet_subtensor::*;
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test alpha -- test_create_network --exact --nocapture
