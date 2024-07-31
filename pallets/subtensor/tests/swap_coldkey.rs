@@ -1395,6 +1395,15 @@ fn test_schedule_swap_coldkey_execution() {
         println!("Current block: {}", current_block);
         println!("Execution block: {}", execution_block);
 
+        System::assert_last_event(
+            Event::ColdkeySwapScheduled {
+                old_coldkey,
+                new_coldkey,
+                execution_block,
+            }
+            .into(),
+        );
+
         // Fast forward to the execution block
         // System::set_block_number(execution_block);
         run_to_block(execution_block);
@@ -1427,14 +1436,6 @@ fn test_schedule_swap_coldkey_execution() {
         // );
 
         // Check for the SwapExecuted event
-        System::assert_last_event(
-            Event::ColdkeySwapScheduled {
-                old_coldkey,
-                new_coldkey,
-                execution_block,
-            }
-            .into(),
-        );
     });
 }
 

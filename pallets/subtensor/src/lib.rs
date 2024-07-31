@@ -691,6 +691,10 @@ pub mod pallet {
     pub type OwnedHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
 
+    #[pallet::storage] // --- DMAP ( cold ) --> () | Maps coldkey to if a coldkey swap is scheduled.
+    pub type ColdkeySwapScheduled<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, (), ValueQuery>;
+
     /// ============================
     /// ==== Global Parameters =====
     /// ============================

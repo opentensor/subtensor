@@ -953,6 +953,10 @@ mod dispatches {
             new_coldkey: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
+            ensure!(
+                !ColdkeySwapScheduled::<T>::contains_key(&who),
+                Error::<T>::SwapAlreadyScheduled
+            );
 
             // Calculate the number of blocks in 5 days
             let blocks_in_5_days: u32 = 5 * 24 * 60 * 60 / 12;
@@ -989,6 +993,8 @@ mod dispatches {
                 Bounded::Lookup { hash, len },
             )
             .map_err(|_| Error::<T>::FailedToSchedule)?;
+
+            ColdkeySwapScheduled::<T>::insert(&who, ());
             // Emit the SwapScheduled event
             Self::deposit_event(Event::ColdkeySwapScheduled {
                 old_coldkey: who.clone(),
