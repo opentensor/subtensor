@@ -7,12 +7,11 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         alpha_locked: u64,
     ) -> dispatch::DispatchResult {
-
         // Ensure the origin is valid.
         let coldkey = ensure_signed(origin)?;
 
         // Ensure that the subnet exists.
-        ensure!( Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
         // Ensure that the hotkey account exists.
         ensure!(
@@ -42,21 +41,27 @@ impl<T: Config> Pallet<T> {
         ensure!(alpha_locked > 0, Error::<T>::NotEnoughStakeToWithdraw);
 
         // Ensure that the caller has enough stake to unstake.
-        ensure!(alpha_locked <= alpha_staked, Error::<T>::NotEnoughStakeToWithdraw);
+        ensure!(
+            alpha_locked <= alpha_staked,
+            Error::<T>::NotEnoughStakeToWithdraw
+        );
 
         // Ensure the the lock is above zero.
-        ensure!(alpha_locked > current_alpha_locked, Error::<T>::NotEnoughStakeToWithdraw);
+        ensure!(
+            alpha_locked > current_alpha_locked,
+            Error::<T>::NotEnoughStakeToWithdraw
+        );
 
         // Insert the new locked
-        SubnetLocked::<T>::insert( netuid, alpha_locked );
+        SubnetLocked::<T>::insert(netuid, alpha_locked);
 
         // Get current owner of the subnet.
         let current_owner: T::AccountId = SubnetOwnerHotkey::<T>::get(netuid);
         if current_owner != hotkey {
             // Insert the new owner coldkey.
-            SubnetOwner::<T>::insert( netuid, coldkey.clone() );
+            SubnetOwner::<T>::insert(netuid, coldkey.clone());
             // Insert the new owner hotkey.
-            SubnetOwnerHotkey::<T>::insert( netuid, hotkey.clone() );
+            SubnetOwnerHotkey::<T>::insert(netuid, hotkey.clone());
         }
 
         // Lock increased event.
@@ -67,10 +72,14 @@ impl<T: Config> Pallet<T> {
             netuid,
             alpha_locked
         );
-        Self::deposit_event(Event::LockIncreased( coldkey.clone(), hotkey.clone(), netuid, alpha_locked ));
+        Self::deposit_event(Event::LockIncreased(
+            coldkey.clone(),
+            hotkey.clone(),
+            netuid,
+            alpha_locked,
+        ));
 
         // Ok and return.
         Ok(())
-
     }
 }

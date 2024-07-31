@@ -47,7 +47,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure that the subnet exists.
-        ensure!( Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
         // Ensure the callers coldkey has enough stake to perform the transaction.
         ensure!(
@@ -81,7 +81,8 @@ impl<T: Config> Pallet<T> {
 
         // If coldkey is not owner of the hotkey, it's a nomination stake.
         if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
-            let total_stake_after_add:u64 = Alpha::<T>::get((&hotkey, &coldkey, netuid)).saturating_add(stake_to_be_added);
+            let total_stake_after_add: u64 =
+                Alpha::<T>::get((&hotkey, &coldkey, netuid)).saturating_add(stake_to_be_added);
             ensure!(
                 total_stake_after_add >= NominatorMinRequiredStake::<T>::get(),
                 Error::<T>::NomStakeBelowMinimumThreshold
@@ -89,10 +90,11 @@ impl<T: Config> Pallet<T> {
         }
 
         // Ensure the remove operation from the coldkey is a success.
-        let tao_staked: u64 = Self::remove_balance_from_coldkey_account(&coldkey, stake_to_be_added)?;
+        let tao_staked: u64 =
+            Self::remove_balance_from_coldkey_account(&coldkey, stake_to_be_added)?;
 
         // Convert and stake to alpha on the subnet.
-        let alpha_staked: u64 = Self::stake_into_subnet( &hotkey, &coldkey, netuid, tao_staked );
+        let alpha_staked: u64 = Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked);
 
         // Set last block for rate limiting
         let block: u64 = Self::get_current_block_as_u64();

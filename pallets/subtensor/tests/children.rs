@@ -360,13 +360,19 @@ fn test_get_stake_for_hotkey_on_subnet() {
         SubtensorModule::create_account_if_non_existent(&coldkey0, &hotkey0);
         SubtensorModule::create_account_if_non_existent(&coldkey1, &hotkey1);
 
-        SubtensorModule::stake_into_subnet( &hotkey0, &coldkey0, netuid, 1000);
-        SubtensorModule::stake_into_subnet( &hotkey1, &coldkey0, netuid, 1000);
-        SubtensorModule::stake_into_subnet( &hotkey0, &coldkey1, netuid, 1000);
-        SubtensorModule::stake_into_subnet( &hotkey1, &coldkey1, netuid, 1000);
+        SubtensorModule::stake_into_subnet(&hotkey0, &coldkey0, netuid, 1000);
+        SubtensorModule::stake_into_subnet(&hotkey1, &coldkey0, netuid, 1000);
+        SubtensorModule::stake_into_subnet(&hotkey0, &coldkey1, netuid, 1000);
+        SubtensorModule::stake_into_subnet(&hotkey1, &coldkey1, netuid, 1000);
 
-        assert_eq!( SubtensorModule::get_inherited_stake_for_hotkey_on_subnet(&hotkey0, netuid), 2000 );
-        assert_eq!( SubtensorModule::get_inherited_stake_for_hotkey_on_subnet(&hotkey1, netuid), 2000 );
+        assert_eq!(
+            SubtensorModule::get_inherited_stake_for_hotkey_on_subnet(&hotkey0, netuid),
+            2000
+        );
+        assert_eq!(
+            SubtensorModule::get_inherited_stake_for_hotkey_on_subnet(&hotkey1, netuid),
+            2000
+        );
 
         // Set child relationship
         assert_ok!(SubtensorModule::do_set_children(
@@ -1205,12 +1211,7 @@ fn test_children_stake_values() {
         register_ok_neuron(netuid, child1, coldkey, 0);
         register_ok_neuron(netuid, child2, coldkey, 0);
         register_ok_neuron(netuid, child3, coldkey, 0);
-        SubtensorModule::stake_into_subnet(
-            &hotkey,
-            &coldkey,
-            netuid,
-            100_000_000_000_000,
-        );
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, 100_000_000_000_000);
 
         // Set multiple children with proportions.
         assert_ok!(SubtensorModule::do_set_children(

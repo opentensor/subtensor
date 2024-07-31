@@ -118,10 +118,7 @@ impl<T: Config> Pallet<T> {
             })
             .collect::<Vec<(Compact<u16>, Compact<u16>)>>();
         let stake_weight: u64 = Self::get_stake_weight(netuid, uid) as u64;
-        let stake: Vec<(T::AccountId, Compact<u64>)> = vec![(
-            coldkey.clone(),
-            stake_weight.into(),
-        )];
+        let stake: Vec<(T::AccountId, Compact<u64>)> = vec![(coldkey.clone(), stake_weight.into())];
         let neuron = NeuronInfo {
             hotkey: hotkey.clone(),
             coldkey: coldkey.clone(),

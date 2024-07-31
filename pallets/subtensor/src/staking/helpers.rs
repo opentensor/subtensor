@@ -1,12 +1,10 @@
 use super::*;
-use frame_support::{
-    traits::{
-        tokens::{
-            fungible::{Balanced as _, Inspect as _},
-            Fortitude, Precision, Preservation,
-        },
-        Imbalance,
+use frame_support::traits::{
+    tokens::{
+        fungible::{Balanced as _, Inspect as _},
+        Fortitude, Precision, Preservation,
     },
+    Imbalance,
 };
 
 impl<T: Config> Pallet<T> {
@@ -192,7 +190,7 @@ impl<T: Config> Pallet<T> {
         // infallible
         let _ = T::Currency::deposit(coldkey, amount, Precision::BestEffort);
     }
-    
+
     pub fn can_remove_balance_from_coldkey_account(
         coldkey: &T::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
@@ -274,9 +272,10 @@ impl<T: Config> Pallet<T> {
                 if netuid_i != netuid {
                     continue;
                 }
-                let alpha: u64 = Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, &nominator, netuid_i);
+                let alpha: u64 =
+                    Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, &nominator, netuid_i);
                 let tao: u64 = Self::unstake_from_subnet(hotkey, &nominator, netuid_i, alpha);
-                Self::add_balance_to_coldkey_account(&nominator, tao);    
+                Self::add_balance_to_coldkey_account(&nominator, tao);
             }
         }
     }

@@ -309,7 +309,10 @@ impl<T: Config> Pallet<T> {
                 // Get the stake on the new (hot,coldkey) account.
                 let new_alpha: u64 = Alpha::<T>::get((&new_hotkey, coldkey.clone(), netuid));
                 // Add the stake to new account.
-                Alpha::<T>::insert((&new_hotkey, coldkey.clone(), netuid), new_alpha.saturating_add(old_alpha));
+                Alpha::<T>::insert(
+                    (&new_hotkey, coldkey.clone(), netuid),
+                    new_alpha.saturating_add(old_alpha),
+                );
                 // Remove the value from the old account.
                 Alpha::<T>::remove((&old_hotkey, coldkey.clone(), netuid));
             }

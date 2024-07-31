@@ -44,9 +44,9 @@ impl<T: Config> Pallet<T> {
             hotkey,
             alpha_unstaked
         );
-        
+
         // Ensure that the subnet exists.
-        ensure!( Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
         // Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
@@ -68,9 +68,13 @@ impl<T: Config> Pallet<T> {
             // Get the committed lock.
             let alpha_locked: u64 = SubnetLocked::<T>::get(netuid);
             // Get current staked.
-            let current_stake: u64 = Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+            let current_stake: u64 =
+                Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
             // Ensure we are not unstaking the lock.
-            ensure!( current_stake.saturating_sub( alpha_unstaked ) > alpha_locked, Error::<T>::CannotUnstakeLock );
+            ensure!(
+                current_stake.saturating_sub(alpha_unstaked) > alpha_locked,
+                Error::<T>::CannotUnstakeLock
+            );
         }
 
         // Ensure that the hotkey has enough stake to withdraw.
@@ -88,7 +92,8 @@ impl<T: Config> Pallet<T> {
         );
 
         // Convert and unstake from the subnet.
-        let tao_unstaked: u64 = Self::unstake_from_subnet( &hotkey, &coldkey, netuid, alpha_unstaked );
+        let tao_unstaked: u64 =
+            Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha_unstaked);
 
         // We add the balance to the coldkey.  If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);

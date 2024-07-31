@@ -124,7 +124,7 @@ fn distribute_nodes(
 fn uid_stats(netuid: u16, uid: u16) {
     log::info!(
         "stake: {:?}",
-        SubtensorModule::get_stake_for_hotkey_on_subnet( &(U256::from(uid)), netuid)
+        SubtensorModule::get_stake_for_hotkey_on_subnet(&(U256::from(uid)), netuid)
     );
     log::info!("rank: {:?}", SubtensorModule::get_rank_for_uid(netuid, uid));
     log::info!(
@@ -184,12 +184,7 @@ fn init_run_epochs(
         // let stake: u64 = 1; // alternative test: all nodes receive stake, should be same outcome, except stake
         SubtensorModule::add_balance_to_coldkey_account(&(U256::from(key)), stake);
         SubtensorModule::append_neuron(netuid, &(U256::from(key)), 0);
-        SubtensorModule::stake_into_subnet(
-            &U256::from(key),
-            &U256::from(key),
-            netuid,
-            stake,
-        );
+        SubtensorModule::stake_into_subnet(&U256::from(key), &U256::from(key), netuid, stake);
     }
     assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
 
@@ -564,12 +559,7 @@ fn test_10_graph() {
                 stake_amount,
                 SubtensorModule::get_subnetwork_n(netuid),
             );
-            SubtensorModule::stake_into_subnet(
-                &coldkey,
-                &hotkey,
-                netuid,
-                stake_amount,
-            );
+            SubtensorModule::stake_into_subnet(&coldkey, &hotkey, netuid, stake_amount);
             SubtensorModule::append_neuron(netuid, &hotkey, 0);
             assert_eq!(SubtensorModule::get_subnetwork_n(netuid) - 1, uid);
         }
@@ -832,7 +822,10 @@ fn test_4096_graph() {
                 let bonds = SubtensorModule::get_bonds(netuid);
                 for uid in &validators {
                     assert_eq!(
-                        SubtensorModule::get_stake_for_hotkey_on_subnet(&(U256::from(*uid as u64)), netuid),
+                        SubtensorModule::get_stake_for_hotkey_on_subnet(
+                            &(U256::from(*uid as u64)),
+                            netuid
+                        ),
                         max_stake_per_validator
                     );
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, *uid), 0);
@@ -849,7 +842,10 @@ fn test_4096_graph() {
                 }
                 for uid in &servers {
                     assert_eq!(
-                        SubtensorModule::get_stake_for_hotkey_on_subnet(&(U256::from(*uid as u64)), netuid),
+                        SubtensorModule::get_stake_for_hotkey_on_subnet(
+                            &(U256::from(*uid as u64)),
+                            netuid
+                        ),
                         0
                     );
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, *uid), 17); // Note R = floor(1 / (4096 - 256) * 65_535) = 17
@@ -1515,12 +1511,7 @@ fn test_active_stake() {
                 U256::from(key),
                 U256::from(key)
             ));
-            SubtensorModule::stake_into_subnet(
-                &U256::from(key),
-                &U256::from(key),
-                netuid,
-                stake,
-            );
+            SubtensorModule::stake_into_subnet(&U256::from(key), &U256::from(key), netuid, stake);
         }
         assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
@@ -1724,12 +1715,7 @@ fn test_outdated_weights() {
                 U256::from(key),
                 U256::from(key)
             ));
-            SubtensorModule::stake_into_subnet(
-                &U256::from(key),
-                &U256::from(key),
-                netuid,
-                stake,
-            );
+            SubtensorModule::stake_into_subnet(&U256::from(key), &U256::from(key), netuid, stake);
         }
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
         assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 4);
@@ -2558,7 +2544,7 @@ fn test_get_set_alpha() {
             DispatchError::BadOrigin
         );
 
-        create_network(coldkey, hotkey, 0 );
+        create_network(coldkey, hotkey, 0);
 
         assert_ok!(SubtensorModule::do_set_alpha_values(
             signer.clone(),

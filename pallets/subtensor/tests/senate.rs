@@ -54,7 +54,6 @@ fn record(event: RuntimeEvent) -> EventRecord<RuntimeEvent, H256> {
     }
 }
 
-
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test senate test_senate_join_works -- --nocapture
 #[test]
 fn test_senate_join_works() {
@@ -108,7 +107,11 @@ fn test_senate_join_works() {
             100_000
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey_account_id, &coldkey_account_id, netuid),
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey_account_id,
+                &coldkey_account_id,
+                netuid
+            ),
             100_000
         );
         assert_eq!(
@@ -180,7 +183,11 @@ fn test_senate_vote_works() {
             100_000
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet( &hotkey_account_id, &staker_coldkey, netuid),
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey_account_id,
+                &staker_coldkey,
+                netuid
+            ),
             99_999
         );
         assert_eq!(
@@ -351,7 +358,11 @@ fn test_senate_leave_works() {
             100_000
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey_account_id, &staker_coldkey, netuid),
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey_account_id,
+                &staker_coldkey,
+                netuid
+            ),
             99_999
         );
         assert_eq!(
@@ -367,7 +378,7 @@ fn test_senate_leave_works() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test senate test_senate_leave_vote_removal -- --nocapture 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test senate test_senate_leave_vote_removal -- --nocapture
 #[test]
 fn test_senate_leave_vote_removal() {
     new_test_ext().execute_with(|| {
@@ -423,7 +434,11 @@ fn test_senate_leave_vote_removal() {
             100_000
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey_account_id, &staker_coldkey, netuid),
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey_account_id,
+                &staker_coldkey,
+                netuid
+            ),
             99_999
         );
         assert_eq!(
@@ -509,8 +524,7 @@ fn test_senate_leave_vote_removal() {
     });
 }
 
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test senate test_senate_not_leave_when_stake_removed -- --nocapture 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test senate test_senate_not_leave_when_stake_removed -- --nocapture
 #[test]
 fn test_senate_not_leave_when_stake_removed() {
     new_test_ext().execute_with(|| {
@@ -567,7 +581,11 @@ fn test_senate_not_leave_when_stake_removed() {
             stake_amount
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey_account_id, &staker_coldkey, netuid),
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey_account_id,
+                &staker_coldkey,
+                netuid
+            ),
             stake_amount - 1 // Need to account for ED
         );
         assert_eq!(
@@ -593,7 +611,7 @@ fn test_senate_not_leave_when_stake_removed() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test senate test_senate_join_current_delegate -- --nocapture 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test senate test_senate_join_current_delegate -- --nocapture
 #[test]
 fn test_senate_join_current_delegate() {
     // Test that a current delegate can join the senate
@@ -668,7 +686,7 @@ fn test_senate_join_current_delegate() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test senate test_adjust_senate_events -- --nocapture 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test senate test_adjust_senate_events -- --nocapture
 #[test]
 fn test_adjust_senate_events() {
     // Test the events emitted after adjusting the senate successfully

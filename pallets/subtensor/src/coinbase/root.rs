@@ -58,7 +58,6 @@ impl<T: Config> Pallet<T> {
         Self::get_max_allowed_uids(Self::get_root_netuid())
     }
 
-
     /// Checks for any UIDs in the given list that are either equal to the root netuid or exceed the total number of subnets.
     ///
     /// It's important to check for invalid UIDs to ensure data integrity and avoid referencing nonexistent subnets.

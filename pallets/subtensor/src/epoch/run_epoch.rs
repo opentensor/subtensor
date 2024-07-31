@@ -5,8 +5,6 @@ use sp_std::vec;
 use substrate_fixed::types::{I32F32, I64F64, I96F32};
 
 impl<T: Config> Pallet<T> {
-
-
     /// Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.
     /// (Dense version used only for testing purposes.)
     #[allow(clippy::indexing_slicing)]
@@ -67,7 +65,7 @@ impl<T: Config> Pallet<T> {
         log::trace!("hotkeys: {:?}", &hotkeys);
 
         // Access network stake as normalized vector.
-        let stake: Vec<I32F32> = Self::get_stake_weights_for_network( netuid );
+        let stake: Vec<I32F32> = Self::get_stake_weights_for_network(netuid);
         log::trace!("S:\n{:?}\n", &stake);
 
         // =======================
@@ -397,7 +395,7 @@ impl<T: Config> Pallet<T> {
         log::trace!("hotkeys: {:?}", &hotkeys);
 
         // Access network stake as normalized vector.
-        let stake: Vec<I32F32> = Self::get_stake_weights_for_network( netuid );
+        let stake: Vec<I32F32> = Self::get_stake_weights_for_network(netuid);
         log::trace!("Normalised Stake: {:?}", &stake);
 
         // =======================
@@ -715,9 +713,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_normalized_stake(netuid: u16) -> Vec<I32F32> {
         let n = Self::get_subnetwork_n(netuid);
         let mut stake_64: Vec<I64F64> = (0..n)
-            .map(|neuron_uid| {
-                I64F64::from_num(Self::get_stake_weight(netuid, neuron_uid))
-            })
+            .map(|neuron_uid| I64F64::from_num(Self::get_stake_weight(netuid, neuron_uid)))
             .collect();
         inplace_normalize_64(&mut stake_64);
         let stake: Vec<I32F32> = vec_fixed64_to_fixed32(stake_64);

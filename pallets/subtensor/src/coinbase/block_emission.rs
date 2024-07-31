@@ -1,10 +1,9 @@
 use super::*;
 use frame_support::traits::Get;
-use substrate_fixed::types::I96F32;
 use substrate_fixed::transcendental::log2;
+use substrate_fixed::types::I96F32;
 
 impl<T: Config> Pallet<T> {
-
     /// Calculates the block emission based on the total issuance.
     ///
     /// This function computes the block emission by applying a logarithmic function

@@ -85,7 +85,6 @@ fn test_swap_stake() {
     });
 }
 
-
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_staking_hotkeys --exact --nocapture
 #[test]
 fn test_swap_staking_hotkeys() {
@@ -152,7 +151,6 @@ fn test_transfer_remaining_balance() {
         assert_eq!(SubtensorModule::get_coldkey_balance(&new_coldkey), balance);
     });
 }
-
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_with_multiple_hotkeys --exact --nocapture
 #[test]
@@ -224,8 +222,6 @@ fn test_swap_with_zero_balance() {
         assert_eq!(Balances::free_balance(new_coldkey), 0);
     });
 }
-
-
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_with_max_hotkeys --exact --nocapture
 #[test]
@@ -615,7 +611,6 @@ fn test_swap_delegated_stake_for_coldkey() {
         assert_eq!(Stake::<Test>::get(hotkey1, old_coldkey), 0);
         assert_eq!(Stake::<Test>::get(hotkey2, old_coldkey), 0);
 
-
         // Verify total stake and issuance remain unchanged
         assert_eq!(
             SubtensorModule::get_total_stake(),
@@ -824,8 +819,14 @@ fn test_coldkey_delegations() {
             &new_coldkey,
             &mut weight
         ));
-        assert_eq!(SubtensorModule::get_stake_for_hotkey_on_subnet(&delegate, netuid), 100);
-        assert_eq!(SubtensorModule::get_stake_for_coldkey_on_subnet(&coldkey, netuid), 0);
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&delegate, netuid),
+            100
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_on_subnet(&coldkey, netuid),
+            0
+        );
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_on_subnet(&new_coldkey, netuid),
             100

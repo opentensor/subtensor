@@ -11,10 +11,12 @@ fn test_create_network() {
         let hotkey = U256::from(2);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 100_000_000_000);
         let netuid = create_network(coldkey, hotkey, 1);
-        assert_eq!( SubtensorModule::stake_into_subnet( &hotkey, &coldkey, netuid, 100_000_000_000 ), 500_000_000 ); // With huge slippage because of the initial price.
+        assert_eq!(
+            SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, 100_000_000_000),
+            500_000_000
+        ); // With huge slippage because of the initial price.
     });
 }
-
 
 // // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test alpha -- test_create_run_blocks_with_one_coldkey_and_hotkey --exact --nocapture
 // #[test]
@@ -51,7 +53,6 @@ fn test_create_network() {
 //     });
 // }
 
-
 // // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test alpha -- test_run_steps --exact --nocapture
 // #[test]
 // fn test_run_steps() {
@@ -70,7 +71,6 @@ fn test_create_network() {
 //         step_block( 4 );
 //     });
 // }
-
 
 // // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test alpha -- test_run_steps_different_coldkeys --exact --nocapture
 // #[test]
@@ -130,7 +130,6 @@ fn test_create_network() {
 //     });
 // }
 
-
 // // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test alpha -- test_run_steps_same_cold_different_hot --exact --nocapture
 // #[test]
 // fn test_create_mechanisms() {
@@ -146,7 +145,6 @@ fn test_create_network() {
 
 //     });
 // }
-
 
 // // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test alpha -- test_create_rao_subnet --exact --nocapture
 // #[test]
@@ -168,20 +166,20 @@ fn test_create_network() {
 //         assert_eq!(SubtensorModule::get_total_mechanism_tao( mechid ), 100_000_000_000); // 1 TAO lock
 //         // Get the price.
 //         assert_eq!( SubtensorModule::get_price_for_subnet( netuidA ), I96F32::from_num(1) );
-//         assert_eq!( SubtensorModule::alpha_to_tao( 10, netuidA), 10 ); // floor(10 * 1) = 10 
+//         assert_eq!( SubtensorModule::alpha_to_tao( 10, netuidA), 10 ); // floor(10 * 1) = 10
 
-//         // 2. Create a new network with 2 TAO lock. 
+//         // 2. Create a new network with 2 TAO lock.
 //         let netuidB = register_network( U256::from(1), U256::from(6), mechid);
 //         let alpha_B: u64 = pallet_subtensor::Alpha::<Test>::get((&U256::from(6), &U256::from(1), netuidB));
-//         // The conversion is 2 * ( 1 + 2 ) /( 0 + 2 ) = 3 
+//         // The conversion is 2 * ( 1 + 2 ) /( 0 + 2 ) = 3
 //         assert_eq!(alpha_B, 300_000_000_000); // This is my TAO lock converted into ALPHA.
 //         // Check that the lock is correctly added.
 //         assert_eq!(pallet_subtensor::SubnetTAO::<Test>::get( netuidB ), 200_000_000_000); // 2 TAO lock
 //         // Check that the lock is correctly added.
-//         assert_eq!(SubtensorModule::get_total_mechanism_tao( mechid ), 300_000_000_000); // 3 TAO lock on all subnets. 
+//         assert_eq!(SubtensorModule::get_total_mechanism_tao( mechid ), 300_000_000_000); // 3 TAO lock on all subnets.
 //         // Get the price.
 //         assert_eq!( SubtensorModule::get_price_for_subnet( netuidB ), I96F32::from_num(0.6666666665) );
-//         assert_eq!( SubtensorModule::alpha_to_tao( 10, netuidB), 6 ); // floor(10 * 0.66) = 6 
+//         assert_eq!( SubtensorModule::alpha_to_tao( 10, netuidB), 6 ); // floor(10 * 0.66) = 6
 
 //         // 3. Create a new network with 4 TAO lock.
 //         let netuidC = register_network( U256::from(1), U256::from(6), mechid);
@@ -191,14 +189,12 @@ fn test_create_network() {
 //         // Check that the lock is correctly added.
 //         assert_eq!(pallet_subtensor::SubnetTAO::<Test>::get( netuidC ), 400_000_000_000); // 4 TAO lock
 //         // Check that the lock is correctly added.
-//         assert_eq!(SubtensorModule::get_total_mechanism_tao( mechid ), 700_000_000_000); // 7 TAO lock on all subnets. 
+//         assert_eq!(SubtensorModule::get_total_mechanism_tao( mechid ), 700_000_000_000); // 7 TAO lock on all subnets.
 //         // Get the price.
 //         assert_eq!( SubtensorModule::get_price_for_subnet( netuidC ), I96F32::from_num(0.5714285714) );
-//         assert_eq!( SubtensorModule::alpha_to_tao( 10, netuidC), 5 ); // floor(10 * 0.57) = 5 
+//         assert_eq!( SubtensorModule::alpha_to_tao( 10, netuidC), 5 ); // floor(10 * 0.57) = 5
 
 //         log::debug!("alpha_A: {}", SubtensorModule::alpha_to_tao( 10, netuidA));
 
 //     });
 // }
-
-

@@ -60,13 +60,19 @@ fn test_coinbase_basic() {
         next_block();
         assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0); // Hotkey not pending yet.
         assert_eq!(SubtensorModule::get_pending_emission(netuid), 1_000_000_000); // Subnet gets all pending emission.
-        assert_eq!(SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid), 1000);
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid),
+            1000
+        );
 
         // Step block
         next_block();
         assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
         assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
-        assert_eq!(SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid), 2_000_000_998); //1000 + 2 x block emission.
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid),
+            2_000_000_998
+        ); //1000 + 2 x block emission.
     });
 }
 

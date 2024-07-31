@@ -1,8 +1,6 @@
-
 use super::*;
 
 impl<T: Config> Pallet<T> {
-    
     #[allow(clippy::arithmetic_side_effects)]
     /// This function calculates the lock cost for a network based on the last lock amount, minimum lock cost, last lock block, and current block.
     /// The lock cost is calculated using the formula:

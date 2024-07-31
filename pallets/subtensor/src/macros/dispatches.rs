@@ -802,7 +802,11 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(157_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))
 		.saturating_add(T::DbWeight::get().writes(30)), DispatchClass::Operational, Pays::No))]
-        pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId, mechid: u16) -> DispatchResult {
+        pub fn register_network(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            mechid: u16,
+        ) -> DispatchResult {
             Self::user_add_network(origin, &hotkey, mechid)
         }
 
@@ -977,6 +981,5 @@ mod dispatches {
         ) -> DispatchResult {
             Self::do_lock(origin, hotkey, netuid, alpha_locked)
         }
-
     }
 }

@@ -503,10 +503,12 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
 }
 
 #[allow(dead_code)]
-pub fn create_network( coldkey: U256, hotkey: U256, mechid: u16 ) -> u16 {
+pub fn create_network(coldkey: U256, hotkey: U256, mechid: u16) -> u16 {
     let netuid: u16 = SubtensorModule::get_next_netuid();
-    assert_ok!(SubtensorModule::user_add_network(<<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey), &hotkey, mechid));
+    assert_ok!(SubtensorModule::user_add_network(
+        <<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey),
+        &hotkey,
+        mechid
+    ));
     netuid
 }
-
-

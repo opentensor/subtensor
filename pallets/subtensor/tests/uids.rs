@@ -172,4 +172,3 @@ fn test_replace_neuron_multiple_subnets() {
         ));
     });
 }
-

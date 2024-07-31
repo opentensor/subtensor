@@ -28,7 +28,11 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         let hotkey = ensure_signed(origin)?;
 
-        log::info!("do_commit_weights( hotkey:{:?} netuid:{:?})", hotkey, netuid);
+        log::info!(
+            "do_commit_weights( hotkey:{:?} netuid:{:?})",
+            hotkey,
+            netuid
+        );
 
         ensure!(
             Self::get_commit_reveal_weights_enabled(netuid),
