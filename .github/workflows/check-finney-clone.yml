@@ -192,7 +192,7 @@ jobs:
           mkdir -p target
           docker-compose -f docker-compose-baedeker.yml up -d
           sleep 5
-          docker logs localnet
+          docker logs subtensor-localnet-1
 
       - name: Runtime upgrade
         working-directory: .baedeker/util
