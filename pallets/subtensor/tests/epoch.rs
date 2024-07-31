@@ -2071,7 +2071,6 @@ fn test_zero_weights() {
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test epoch test_validator_permits -- --nocapture
 // Test that epoch assigns validator permits to highest stake uids, varies uid interleaving and stake values.
 #[test]
-#[cfg(not(tarpaulin))]
 fn test_validator_permits() {
     let netuid: u16 = 1;
     let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead

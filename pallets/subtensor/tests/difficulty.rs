@@ -6,7 +6,6 @@ use sp_core::U256;
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test difficulty test_registration_difficulty_adjustment -- --nocapture
 #[test]
-#[cfg(not(tarpaulin))]
 fn test_registration_difficulty_adjustment() {
     new_test_ext(1).execute_with(|| {
         // Create Net 1

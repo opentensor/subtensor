@@ -21,7 +21,6 @@ use substrate_fixed::types::I32F32;
 
 // Test the call passes through the subtensor module.
 #[test]
-#[cfg(not(tarpaulin))]
 fn test_set_weights_dispatch_info_ok() {
     new_test_ext(0).execute_with(|| {
         let dests = vec![1, 1];
@@ -41,7 +40,6 @@ fn test_set_weights_dispatch_info_ok() {
     });
 }
 #[test]
-#[cfg(not(tarpaulin))]
 fn test_set_rootweights_dispatch_info_ok() {
     new_test_ext(0).execute_with(|| {
         let dests = vec![1, 1];
@@ -406,7 +404,6 @@ fn test_weights_err_no_validator_permit() {
 
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test weights -- test_set_weights_min_stake_failed --exact --nocapture
 #[test]
-#[cfg(not(tarpaulin))]
 fn test_set_weights_min_stake_failed() {
     new_test_ext(0).execute_with(|| {
         let dests = vec![0];

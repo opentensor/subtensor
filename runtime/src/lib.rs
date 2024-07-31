@@ -141,7 +141,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 191,
+    spec_version: 192,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -529,6 +529,7 @@ impl pallet_collective::Config<TriumvirateCollective> for Runtime {
 }
 
 // We call council members Triumvirate
+#[allow(dead_code)]
 type TriumvirateMembership = pallet_membership::Instance1;
 impl pallet_membership::Config<TriumvirateMembership> for Runtime {
     type RuntimeEvent = RuntimeEvent;
@@ -544,6 +545,7 @@ impl pallet_membership::Config<TriumvirateMembership> for Runtime {
 }
 
 // We call our top K delegates membership Senate
+#[allow(dead_code)]
 type SenateMembership = pallet_membership::Instance2;
 impl pallet_membership::Config<SenateMembership> for Runtime {
     type RuntimeEvent = RuntimeEvent;

@@ -15,7 +15,6 @@ use sp_core::{H256, U256};
 ************************************************************/
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_add_stake_dispatch_info_ok --exact --nocapture
 #[test]
-#[cfg(not(tarpaulin))]
 fn test_add_stake_dispatch_info_ok() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
@@ -554,7 +553,6 @@ fn test_remove_stake_rate_limit_exceeded() {
 
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_remove_stake_dispatch_info_ok --exact --nocapture
 #[test]
-#[cfg(not(tarpaulin))]
 fn test_remove_stake_dispatch_info_ok() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;

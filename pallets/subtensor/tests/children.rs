@@ -297,7 +297,6 @@ fn test_do_set_child_singular_multiple_children() {
 
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_add_singular_child --exact --nocapture
 #[test]
-#[cfg(not(tarpaulin))]
 fn test_add_singular_child() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;

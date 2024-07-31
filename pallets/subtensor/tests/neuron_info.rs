@@ -15,7 +15,6 @@ fn test_get_neuron_none() {
 }
 
 #[test]
-#[cfg(not(tarpaulin))]
 fn test_get_neuron_some() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
