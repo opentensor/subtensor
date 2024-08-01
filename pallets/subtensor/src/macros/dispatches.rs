@@ -7,9 +7,7 @@ mod dispatches {
     use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
     use frame_support::traits::schedule::v3::Named as ScheduleNamed;
     use frame_support::traits::schedule::DispatchTime;
-    use frame_support::traits::Bounded;
     use frame_system::pallet_prelude::BlockNumberFor;
-    use sp_runtime::traits::Hash;
     use sp_runtime::traits::Saturating;
     /// Dispatchable functions allow users to interact with the pallet and invoke state changes.
     /// These functions materialize as "extrinsics", which are often compared to transactions.
@@ -680,13 +678,14 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
+            old_coldkey: T::AccountId,
             new_coldkey: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             // Ensure it's called with root privileges (scheduler has root privileges)
-            // ensure_root(origin.clone())?;
+            ensure_root(origin.clone())?;
+            log::info!("swap_coldkey: {:?} -> {:?}", old_coldkey, new_coldkey);
 
-            let who = ensure_signed(origin)?;
-            Self::do_swap_coldkey(&who, &new_coldkey)
+            Self::do_swap_coldkey(&old_coldkey, &new_coldkey)
         }
 
         /// Unstakes all tokens associated with a hotkey and transfers them to a new coldkey.
@@ -960,81 +959,27 @@ mod dispatches {
             );
 
             // Calculate the number of blocks in 5 days
-            let blocks_in_5_days: u32 = 2;
+            let blocks_in_5_days: u32 = 5 * 24 * 60 * 60 / 12;
 
             let current_block = <frame_system::Pallet<T>>::block_number();
             let when = current_block.saturating_add(BlockNumberFor::<T>::from(blocks_in_5_days));
 
             let call = Call::<T>::swap_coldkey {
+                old_coldkey: who.clone(),
                 new_coldkey: new_coldkey.clone(),
             };
 
             let bound_call = T::Preimages::bound(LocalCallOf::<T>::from(call.clone()))
                 .map_err(|_| Error::<T>::FailedToSchedule)?;
 
-            // let unique_id = (
-            //     b"schedule_swap_coldkey",
-            //     who.clone(),
-            //     new_coldkey.clone(),
-            //     when,
-            // )
-            //     .using_encoded(sp_io::hashing::blake2_256);
-
-            // let hash = <T::Scheduler as ScheduleNamed<
-            //     BlockNumberFor<T>,
-            //     CallOf<T>,
-            //     PalletsOriginOf<T>,
-            // >>::Hasher::hash_of(&call);
-
-            // let len = call.using_encoded(|e| e.len() as u32);
-
-            // fn schedule(
-            //     when: DispatchTime<BlockNumber>,
-            //     maybe_periodic: Option<Period<BlockNumber>>,
-            //     priority: Priority,
-            //     origin: Origin,
-            //     call: Bounded<Call, Self::Hasher>,
-            // ) -> Result<Self::Address, DispatchError>;
-
-            // T::Scheduler::schedule_named(
-            //     unique_id,
-            //     DispatchTime::At(when),
-            //     None,
-            //     63,
-            //     frame_system::RawOrigin::Root.into(),
-            //     // bound_call,
-            //     Bounded::Lookup { hash, len },
-            // )
-            // .map_err(|_| Error::<T>::FailedToSchedule)?;
-
-            // let result = T::Scheduler::schedule(
-            // 	DispatchTime::At(when),
-            // 	None,
-            // 	128u8,
-            // 	frame_system::RawOrigin::Root.into(),
-            // 	call,
-            // );
-
             T::Scheduler::schedule(
                 DispatchTime::At(when),
                 None,
                 63,
-                // frame_system::RawOrigin::Root.into(),
-                frame_system::RawOrigin::Signed(who.clone()).into(),
-                // frame_system::RawOrigin::Signed(&who).into(),
+                frame_system::RawOrigin::Root.into(),
                 bound_call,
             )
             .map_err(|_| Error::<T>::FailedToSchedule)?;
-
-            // T::Scheduler::schedule_named(
-            //     unique_id,
-            //     DispatchTime::At(when),
-            //     None,
-            //     63,
-            //     frame_system::RawOrigin::Root.into(),
-            //     Bounded::Lookup { hash, len },
-            // )
-            // .map_err(|_| Error::<T>::FailedToSchedule)?;
 
             ColdkeySwapScheduled::<T>::insert(&who, ());
             // Emit the SwapScheduled event

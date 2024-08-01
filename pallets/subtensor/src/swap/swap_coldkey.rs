@@ -39,17 +39,22 @@ impl<T: Config> Pallet<T> {
         // 2. Initialize the weight for this operation
         let mut weight: Weight = T::DbWeight::get().reads(2);
 
+        log::info!("do_swap_coldkey old_coldkey: {:?}", old_coldkey);
+
         // 3. Ensure the new coldkey is not associated with any hotkeys
         ensure!(
             StakingHotkeys::<T>::get(new_coldkey).is_empty(),
             Error::<T>::ColdKeyAlreadyAssociated
         );
 
+        log::info!("do_swap_coldkey ColdKeyAlreadyAssociated");
+
         // 4. Ensure the new coldkey is not a hotkey
         ensure!(
             !Self::hotkey_account_exists(new_coldkey),
             Error::<T>::ColdKeyAlreadyAssociated
         );
+        log::info!("do_swap_coldkey ColdKeyAlreadyAssociated 2");
 
         // 5. Calculate the swap cost and ensure sufficient balance
         let swap_cost = Self::get_key_swap_cost();
@@ -58,6 +63,7 @@ impl<T: Config> Pallet<T> {
             Self::can_remove_balance_from_coldkey_account(&old_coldkey, swap_cost),
             Error::<T>::NotEnoughBalanceToPaySwapColdKey
         );
+        log::info!("do_swap_coldkey NotEnoughBalanceToPaySwapColdKey");
 
         // 6. Remove and burn the swap cost from the old coldkey's account
         let actual_burn_amount =
@@ -69,6 +75,7 @@ impl<T: Config> Pallet<T> {
 
         // 8. Perform the actual coldkey swap
         let _ = Self::perform_swap_coldkey(&old_coldkey, new_coldkey, &mut weight);
+        log::info!("do_swap_coldkey perform_swap_coldkey");
 
         // 9. Update the last transaction block for the new coldkey
         Self::set_last_tx_block(new_coldkey, Self::get_current_block_as_u64());

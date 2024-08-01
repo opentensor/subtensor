@@ -1352,7 +1352,7 @@ fn test_schedule_swap_coldkey_duplicate() {
                 <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
                 new_coldkey
             ),
-            Error::<Test>::FailedToSchedule
+            Error::<Test>::SwapAlreadyScheduled
         );
     });
 }
@@ -1369,7 +1369,7 @@ fn test_schedule_swap_coldkey_execution() {
 
         add_network(netuid, 13, 0);
         register_ok_neuron(netuid, hotkey, old_coldkey, 0);
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 1000);
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 1000000000000000);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
             hotkey,
@@ -1391,11 +1391,8 @@ fn test_schedule_swap_coldkey_execution() {
 
         // Get the scheduled execution block
         let current_block = System::block_number();
-        let blocks_in_5_days = 2;
+        let blocks_in_5_days = 5 * 24 * 60 * 60 / 12;
         let execution_block = current_block + blocks_in_5_days;
-
-        println!("Current block: {}", current_block);
-        println!("Execution block: {}", execution_block);
 
         System::assert_last_event(
             Event::ColdkeySwapScheduled {
@@ -1406,16 +1403,7 @@ fn test_schedule_swap_coldkey_execution() {
             .into(),
         );
 
-        // Fast forward to the execution block
-        // System::set_block_number(execution_block);
-        for block_number in current_block..(execution_block + 3) {
-            log::info!("+++++ Block number: {}", block_number);
-            // System::events().iter().for_each(|event| {
-            //     log::info!("Event: {:?}", event.event);
-            // });
-            // Preimage::len();
-            run_to_block(block_number + 1);
-        }
+        run_to_block(execution_block);
 
         // Run on_initialize for the execution block
         SubtensorModule::on_initialize(execution_block);
@@ -1427,7 +1415,6 @@ fn test_schedule_swap_coldkey_execution() {
 
         // Check if the swap has occurred
         let new_owner = Owner::<Test>::get(hotkey);
-        println!("New owner after swap: {:?}", new_owner);
         assert_eq!(
             new_owner, new_coldkey,
             "Ownership was not updated as expected"
@@ -1445,6 +1432,13 @@ fn test_schedule_swap_coldkey_execution() {
         );
 
         // Check for the SwapExecuted event
+        System::assert_last_event(
+            Event::ColdkeySwapped {
+                old_coldkey,
+                new_coldkey,
+            }
+            .into(),
+        );
     });
 }
 
@@ -1458,6 +1452,7 @@ fn test_direct_swap_coldkey_call_fails() {
         assert_noop!(
             SubtensorModule::swap_coldkey(
                 <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+                old_coldkey,
                 new_coldkey
             ),
             BadOrigin

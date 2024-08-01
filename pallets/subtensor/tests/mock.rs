@@ -14,7 +14,7 @@ use frame_support::{
 use frame_system as system;
 use frame_system::{limits, EnsureNever, EnsureRoot, RawOrigin};
 use pallet_collective::MemberCount;
-use pallet_parameters;
+// use pallet_parameters;
 use pallet_preimage;
 use sp_core::{Get, H256, U256};
 use sp_runtime::Perbill;
@@ -40,7 +40,7 @@ frame_support::construct_runtime!(
         Utility: pallet_utility::{Pallet, Call, Storage, Event},
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
-        Parameters: pallet_parameters::{Pallet, Call, Storage, Event<T>},
+        // Parameters: pallet_parameters::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -76,35 +76,35 @@ pub type Balance = u64;
 #[allow(dead_code)]
 pub type BlockNumber = u64;
 
-#[dynamic_params(RuntimeParameters, pallet_parameters::Parameters::<Test>)]
-pub mod dynamic_params {
-    use super::*;
+// #[dynamic_params(RuntimeParameters, pallet_parameters::Parameters::<Test>)]
+// pub mod dynamic_params {
+//     use super::*;
 
-    #[dynamic_pallet_params]
-    #[codec(index = 0)]
-    pub mod storage {
-        /// Configures the base deposit of storing some data.
-        #[codec(index = 0)]
-        pub static BaseDeposit: Balance = 1;
+//     #[dynamic_pallet_params]
+//     #[codec(index = 0)]
+//     pub mod storage {
+//         /// Configures the base deposit of storing some data.
+//         #[codec(index = 0)]
+//         pub static BaseDeposit: Balance = 1;
 
-        /// Configures the per-byte deposit of storing some data.
-        #[codec(index = 1)]
-        pub static ByteDeposit: Balance = 1;
-    }
+//         /// Configures the per-byte deposit of storing some data.
+//         #[codec(index = 1)]
+//         pub static ByteDeposit: Balance = 1;
+//     }
 
-    #[dynamic_pallet_params]
-    #[codec(index = 1)]
-    pub mod contracts {
-        #[codec(index = 0)]
-        pub static DepositPerItem: Balance = 1;
+//     #[dynamic_pallet_params]
+//     #[codec(index = 1)]
+//     pub mod contracts {
+//         #[codec(index = 0)]
+//         pub static DepositPerItem: Balance = 1;
 
-        #[codec(index = 1)]
-        pub static DepositPerByte: Balance = 1;
+//         #[codec(index = 1)]
+//         pub static DepositPerByte: Balance = 1;
 
-        #[codec(index = 2)]
-        pub static DefaultDepositLimit: Balance = 1;
-    }
-}
+//         #[codec(index = 2)]
+//         pub static DefaultDepositLimit: Balance = 1;
+//     }
+// }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
@@ -486,12 +486,12 @@ impl pallet_preimage::Config for Test {
     // >;
 }
 
-impl pallet_parameters::Config for Test {
-    type RuntimeParameters = RuntimeParameters;
-    type RuntimeEvent = RuntimeEvent;
-    type AdminOrigin = EnsureRoot<AccountId>;
-    type WeightInfo = ();
-}
+// impl pallet_parameters::Config for Test {
+//     type RuntimeParameters = RuntimeParameters;
+//     type RuntimeEvent = RuntimeEvent;
+//     type AdminOrigin = EnsureRoot<AccountId>;
+//     type WeightInfo = ();
+// }
 
 #[allow(dead_code)]
 // Build genesis storage according to the mock runtime.
