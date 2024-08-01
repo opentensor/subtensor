@@ -1005,3 +1005,50 @@ fn test_coldkey_swap_no_identity_no_changes() {
         assert!(Identities::<Test>::get(new_coldkey).is_none());
     });
 }
+
+#[test]
+fn test_coldkey_swap_no_identity_no_changes_newcoldkey_exists() {
+    new_test_ext(1).execute_with(|| {
+        let old_coldkey_2 = U256::from(3);
+        let new_coldkey_2 = U256::from(4);
+
+        let netuid = 1;
+        let burn_cost = 10;
+        let tempo = 1;
+
+        SubtensorModule::set_burn(netuid, burn_cost);
+        add_network(netuid, tempo, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey_2, 100_000_000_000);
+
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(old_coldkey_2),
+            netuid,
+            old_coldkey_2
+        ));
+
+        let name: Vec<u8> = b"The Coolest Identity".to_vec();
+        let identity: ChainIdentity = ChainIdentity {
+            name: name.clone(),
+            url: vec![],
+            image: vec![],
+            discord: vec![],
+            description: vec![],
+            additional: vec![],
+        };
+
+        Identities::<Test>::insert(new_coldkey_2, identity.clone());
+        // Ensure the new coldkey does have an identity before the swap
+        assert!(Identities::<Test>::get(new_coldkey_2).is_some());
+        assert!(Identities::<Test>::get(old_coldkey_2).is_none());
+
+        // Perform the coldkey swap
+        assert_ok!(SubtensorModule::do_swap_coldkey(
+            <<Test as Config>::RuntimeOrigin>::signed(old_coldkey_2),
+            &new_coldkey_2,
+        ));
+
+        // Ensure no identities have been changed
+        assert!(Identities::<Test>::get(old_coldkey_2).is_none());
+        assert!(Identities::<Test>::get(new_coldkey_2).is_some());
+    });
+}
