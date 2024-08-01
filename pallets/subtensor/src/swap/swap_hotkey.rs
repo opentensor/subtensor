@@ -200,11 +200,12 @@ impl<T: Config> Pallet<T> {
 
         // 8. Swap delegates.
         // Delegates( hotkey ) -> take value -- the hotkey delegate take value.
-        let old_delegate_take = Delegates::<T>::get(old_hotkey);
-        Delegates::<T>::remove(old_hotkey); // Remove the old delegate take.
-        Delegates::<T>::insert(new_hotkey, old_delegate_take); // Insert the new delegate take.
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
-
+        if Delegates::<T>::contains_key(old_hotkey) {
+            let old_delegate_take = Delegates::<T>::get(old_hotkey);
+            Delegates::<T>::remove(old_hotkey);
+            Delegates::<T>::insert(new_hotkey, old_delegate_take);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+        }
         // 9. Swap all subnet specific info.
         let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
         for netuid in all_netuids {

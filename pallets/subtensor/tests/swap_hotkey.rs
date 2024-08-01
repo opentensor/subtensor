@@ -959,3 +959,165 @@ fn test_swap_hotkey_error_cases() {
         assert_eq!(Balances::free_balance(coldkey), initial_balance - swap_cost);
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_hotkey_does_not_become_delegate --exact --nocapture
+#[test]
+fn test_swap_hotkey_does_not_become_delegate() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let swap_cost = 1_000_000_000u64 * 2;
+        let delegate_take = 10u16;
+
+        // Setup initial state
+        add_network(netuid, tempo, 0);
+        register_ok_neuron(netuid, old_hotkey, coldkey, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, swap_cost);
+
+        // Ensure old_hotkey is not a delegate
+        assert!(!Delegates::<Test>::contains_key(old_hotkey));
+
+        // Perform the swap
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            &old_hotkey,
+            &new_hotkey
+        ));
+
+        // Check that old_hotkey is still not a delegate
+        assert!(!Delegates::<Test>::contains_key(old_hotkey));
+
+        // Check that new_hotkey is NOT a delegate either
+        assert!(!Delegates::<Test>::contains_key(new_hotkey));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_hotkey_with_delegate_and_stakes --exact --nocapture
+#[test]
+fn test_swap_hotkey_with_delegate_and_stakes() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let staker1 = U256::from(4);
+        let staker2 = U256::from(5);
+        let swap_cost = 1_000_000_000u64;
+        let delegate_take = 11_796;
+        let stake_amount1 = 100u64;
+        let stake_amount2 = 200u64;
+
+        // Setup initial state
+        add_network(netuid, tempo, 0);
+        register_ok_neuron(netuid, old_hotkey, coldkey, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, swap_cost);
+        SubtensorModule::add_balance_to_coldkey_account(&staker1, stake_amount1);
+        SubtensorModule::add_balance_to_coldkey_account(&staker2, stake_amount2);
+
+        // Make old_hotkey a delegate
+        assert_ok!(SubtensorModule::become_delegate(
+            RuntimeOrigin::signed(coldkey),
+            old_hotkey,
+        ));
+
+        // Add stakes to the delegate
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(staker1),
+            old_hotkey,
+            stake_amount1
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(staker2),
+            old_hotkey,
+            stake_amount2
+        ));
+
+        // Assert initial stake amounts
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&old_hotkey),
+            stake_amount1 + stake_amount2 - (ExistentialDeposit::get() * 2)
+        );
+
+        // Print entire staking hotkeys map
+        log::info!(
+            "StakingHotkeys before swap: {:?}",
+            StakingHotkeys::<Test>::iter().collect::<Vec<_>>()
+        );
+
+        // Perform the swap
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            &old_hotkey,
+            &new_hotkey
+        ));
+
+        // Check that new_hotkey is now a delegate with the same take
+        assert_eq!(Delegates::<Test>::get(new_hotkey), delegate_take);
+        assert!(!Delegates::<Test>::contains_key(old_hotkey));
+
+        // Check that stakes have been transferred to the new hotkey
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&new_hotkey),
+            stake_amount1 + stake_amount2 - (ExistentialDeposit::get() * 2)
+        );
+
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&old_hotkey), 0);
+
+        // Check that the total stake for the new hotkey is correct
+        assert_eq!(
+            TotalHotkeyStake::<Test>::get(new_hotkey),
+            stake_amount1 + stake_amount2 - (ExistentialDeposit::get() * 2)
+        );
+        assert!(!TotalHotkeyStake::<Test>::contains_key(old_hotkey));
+
+        // Print entire staking hotkeys map
+        log::info!(
+            "StakingHotkeys after swap: {:?}",
+            StakingHotkeys::<Test>::iter().collect::<Vec<_>>()
+        );
+
+        // Check that the staking hotkeys for the stakers have been updated
+        assert!(StakingHotkeys::<Test>::get(staker1).contains(&new_hotkey));
+        assert!(StakingHotkeys::<Test>::get(staker2).contains(&new_hotkey));
+        assert!(!StakingHotkeys::<Test>::get(staker1).contains(&old_hotkey));
+        assert!(!StakingHotkeys::<Test>::get(staker2).contains(&old_hotkey));
+
+        // Check staking hotkeys for new hotkey
+        // Retrieve all stakers associated with the new hotkey
+        let new_hotkey_stakers = StakingHotkeys::<Test>::iter()
+            // Iterate through all entries in the StakingHotkeys storage map
+            .filter(|(_, hotkeys)| hotkeys.contains(&new_hotkey))
+            // Keep only entries where the new_hotkey is in the list of hotkeys
+            .map(|(staker, _)| staker)
+            // Extract just the staker (coldkey) from each matching entry
+            .collect::<Vec<_>>();
+        // Collect the results into a vector
+
+        log::info!("new_hotkey_stakers: {:?}", new_hotkey_stakers);
+
+        assert_eq!(new_hotkey_stakers.len(), 3);
+        assert!(new_hotkey_stakers.contains(&staker1));
+        assert!(new_hotkey_stakers.contains(&staker2));
+
+        // Verify that old_hotkey is not in any staker's StakingHotkeys
+        let old_hotkey_stakers = StakingHotkeys::<Test>::iter()
+            .filter(|(_, hotkeys)| hotkeys.contains(&old_hotkey))
+            .count();
+
+        assert_eq!(old_hotkey_stakers, 0);
+
+        // Check that the total balances of stakers haven't changed
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&staker1),
+            ExistentialDeposit::get()
+        );
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&staker2),
+            ExistentialDeposit::get()
+        );
+    });
+}
