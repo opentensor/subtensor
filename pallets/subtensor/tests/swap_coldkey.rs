@@ -1389,7 +1389,7 @@ fn test_schedule_swap_coldkey_execution() {
 
         // Get the scheduled execution block
         let current_block = System::block_number();
-        let blocks_in_5_days = 5 * 24 * 60 * 60 / 12;
+        let blocks_in_5_days = 2;
         let execution_block = current_block + blocks_in_5_days;
 
         println!("Current block: {}", current_block);
@@ -1406,34 +1406,41 @@ fn test_schedule_swap_coldkey_execution() {
 
         // Fast forward to the execution block
         // System::set_block_number(execution_block);
-        run_to_block(execution_block);
+        for block_number in current_block..(execution_block + 3) {
+            log::info!("+++++ Block number: {}", block_number);
+            // System::events().iter().for_each(|event| {
+            //     log::info!("Event: {:?}", event.event);
+            // });
+            // Preimage::len();
+            run_to_block(block_number + 1);
+        }
 
         // Run on_initialize for the execution block
         SubtensorModule::on_initialize(execution_block);
 
-        // // Also run Scheduler's on_initialize
-        // <pallet_scheduler::Pallet<Test> as OnInitialize<BlockNumber>>::on_initialize(
-        //     execution_block,
-        // );
+        // Also run Scheduler's on_initialize
+        <pallet_scheduler::Pallet<Test> as OnInitialize<BlockNumber>>::on_initialize(
+            execution_block,
+        );
 
-        // // Check if the swap has occurred
-        // let new_owner = Owner::<Test>::get(hotkey);
-        // println!("New owner after swap: {:?}", new_owner);
-        // assert_eq!(
-        //     new_owner, new_coldkey,
-        //     "Ownership was not updated as expected"
-        // );
+        // Check if the swap has occurred
+        let new_owner = Owner::<Test>::get(hotkey);
+        println!("New owner after swap: {:?}", new_owner);
+        assert_eq!(
+            new_owner, new_coldkey,
+            "Ownership was not updated as expected"
+        );
 
-        // assert_eq!(
-        //     Stake::<Test>::get(hotkey, new_coldkey),
-        //     stake_amount,
-        //     "Stake was not transferred to new coldkey"
-        // );
-        // assert_eq!(
-        //     Stake::<Test>::get(hotkey, old_coldkey),
-        //     0,
-        //     "Old coldkey still has stake"
-        // );
+        assert_eq!(
+            Stake::<Test>::get(hotkey, new_coldkey),
+            stake_amount,
+            "Stake was not transferred to new coldkey"
+        );
+        assert_eq!(
+            Stake::<Test>::get(hotkey, old_coldkey),
+            0,
+            "Old coldkey still has stake"
+        );
 
         // Check for the SwapExecuted event
     });

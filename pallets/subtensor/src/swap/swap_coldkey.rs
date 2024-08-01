@@ -33,6 +33,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         new_coldkey: &T::AccountId,
     ) -> DispatchResultWithPostInfo {
+        log::info!("+++ do_swap_coldkey +++");
         // 1. Ensure the origin is signed and get the old coldkey
         let old_coldkey = ensure_signed(origin)?;
 

@@ -4,6 +4,7 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod dispatches {
+    use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
     use frame_support::traits::schedule::v3::Named as ScheduleNamed;
     use frame_support::traits::schedule::DispatchTime;
     use frame_support::traits::Bounded;
@@ -959,7 +960,7 @@ mod dispatches {
             );
 
             // Calculate the number of blocks in 5 days
-            let blocks_in_5_days: u32 = 5 * 24 * 60 * 60 / 12;
+            let blocks_in_5_days: u32 = 2;
 
             let current_block = <frame_system::Pallet<T>>::block_number();
             let when = current_block.saturating_add(BlockNumberFor::<T>::from(blocks_in_5_days));
@@ -976,7 +977,7 @@ mod dispatches {
             )
                 .using_encoded(sp_io::hashing::blake2_256);
 
-            let hash = <T::Scheduler as ScheduleNamed<
+            let hash = <T::Scheduler as ScheduleAnon<
                 BlockNumberFor<T>,
                 CallOf<T>,
                 PalletsOriginOf<T>,
@@ -984,15 +985,33 @@ mod dispatches {
 
             let len = call.using_encoded(|e| e.len() as u32);
 
-            T::Scheduler::schedule_named(
-                unique_id,
+            // fn schedule(
+            //     when: DispatchTime<BlockNumber>,
+            //     maybe_periodic: Option<Period<BlockNumber>>,
+            //     priority: Priority,
+            //     origin: Origin,
+            //     call: Bounded<Call, Self::Hasher>,
+            // ) -> Result<Self::Address, DispatchError>;
+
+            T::Scheduler::schedule(
                 DispatchTime::At(when),
                 None,
-                63,
+                0,
+                // T::RuntimeOrigin::root(),
                 frame_system::RawOrigin::Root.into(),
                 Bounded::Lookup { hash, len },
             )
             .map_err(|_| Error::<T>::FailedToSchedule)?;
+
+            // T::Scheduler::schedule_named(
+            //     unique_id,
+            //     DispatchTime::At(when),
+            //     None,
+            //     63,
+            //     frame_system::RawOrigin::Root.into(),
+            //     Bounded::Lookup { hash, len },
+            // )
+            // .map_err(|_| Error::<T>::FailedToSchedule)?;
 
             ColdkeySwapScheduled::<T>::insert(&who, ());
             // Emit the SwapScheduled event
