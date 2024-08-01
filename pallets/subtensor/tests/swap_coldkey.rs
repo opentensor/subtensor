@@ -1432,7 +1432,7 @@ fn test_schedule_swap_coldkey_execution() {
         );
 
         // Check for the SwapExecuted event
-        System::assert_last_event(
+        System::assert_has_event(
             Event::ColdkeySwapped {
                 old_coldkey,
                 new_coldkey,
