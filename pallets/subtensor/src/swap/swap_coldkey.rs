@@ -64,23 +64,28 @@ impl<T: Config> Pallet<T> {
             Self::remove_balance_from_coldkey_account(&old_coldkey, swap_cost)?;
         Self::burn_tokens(actual_burn_amount);
 
-        // 7. Update the weight for the balance operations
+        // 7. Swap identity if the old coldkey has one.
+        if Identities::<T>::contains_key(&old_coldkey) {
+            Self::swap_delegate_identity_coldkey(&old_coldkey, new_coldkey)?;
+        }
+
+        // 8. Update the weight for the balance operations
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
-        // 8. Perform the actual coldkey swap
+        // 9. Perform the actual coldkey swap
         let _ = Self::perform_swap_coldkey(&old_coldkey, new_coldkey, &mut weight);
 
-        // 9. Update the last transaction block for the new coldkey
+        // 10. Update the last transaction block for the new coldkey
         Self::set_last_tx_block(new_coldkey, Self::get_current_block_as_u64());
         weight.saturating_accrue(T::DbWeight::get().writes(1));
 
-        // 10. Emit the ColdkeySwapped event
+        // 11. Emit the ColdkeySwapped event
         Self::deposit_event(Event::ColdkeySwapped {
             old_coldkey: old_coldkey.clone(),
             new_coldkey: new_coldkey.clone(),
         });
 
-        // 11. Return the result with the updated weight
+        // 12. Return the result with the updated weight
         Ok(Some(weight).into())
     }
 

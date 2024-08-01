@@ -170,5 +170,9 @@ mod errors {
         TxRateLimitExceeded,
         /// Invalid identity.
         InvalidIdentity,
+        /// The old coldkey does not have an identity.
+        OldColdkeyNotFound,
+        /// The new coldkey already has an identity.
+        NewColdkeyInUse,
     }
 }
