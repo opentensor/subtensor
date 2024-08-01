@@ -2,20 +2,14 @@
 use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
 use frame_support::weights::constants::RocksDbWeight;
-// use frame_support::weights::constants::WEIGHT_PER_SECOND;
 use frame_support::weights::Weight;
 use frame_support::{
-    assert_ok,
-    dynamic_params::{dynamic_pallet_params, dynamic_params},
-    parameter_types,
-    traits::fungible::HoldConsideration,
-    traits::{Everything, Hooks, LinearStoragePrice, PrivilegeCmp},
+    assert_ok, parameter_types,
+    traits::{Everything, Hooks, PrivilegeCmp},
 };
 use frame_system as system;
 use frame_system::{limits, EnsureNever, EnsureRoot, RawOrigin};
 use pallet_collective::MemberCount;
-// use pallet_parameters;
-use pallet_preimage;
 use sp_core::{Get, H256, U256};
 use sp_runtime::Perbill;
 use sp_runtime::{
