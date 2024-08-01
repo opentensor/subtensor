@@ -889,11 +889,7 @@ fn test_do_swap_coldkey_with_subnet_ownership() {
         OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
 
         // Perform the swap
-        assert_ok!(SubtensorModule::do_swap_coldkey(
-            // <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
-            &old_coldkey,
-            &new_coldkey
-        ));
+        assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey));
 
         // Verify subnet ownership transfer
         assert_eq!(SubnetOwner::<Test>::get(netuid), new_coldkey);

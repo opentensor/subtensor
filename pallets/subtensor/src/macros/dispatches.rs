@@ -5,7 +5,6 @@ use frame_support::pallet_macros::pallet_section;
 #[pallet_section]
 mod dispatches {
     use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
-    use frame_support::traits::schedule::v3::Named as ScheduleNamed;
     use frame_support::traits::schedule::DispatchTime;
     use frame_system::pallet_prelude::BlockNumberFor;
     use sp_runtime::traits::Saturating;
