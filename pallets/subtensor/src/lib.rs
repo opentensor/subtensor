@@ -677,6 +677,26 @@ pub mod pallet {
     pub type NominatorMinRequiredStake<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
 
     /// ============================
+    /// ==== Subnet Locks =====
+    /// ============================
+    #[pallet::storage] // --- MAP ( netuid ) --> subnet_owner
+    pub type SubnetOwner<T: Config> = StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
+    // DEPRECATED
+    #[pallet::storage] // --- MAP ( netuid ) --> subnet_locked
+    pub type SubnetLocked<T: Config> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage] // --- NMAP ( netuid, cold, hot, owner ) --> (amount, start, end) | Returns the lock associated with a hotkey.
+    pub type Locks<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Identity, u16>,                  // subnet
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+        ),
+        (u64, u64, u64), // Amount, Start, End
+        ValueQuery,
+    >;
+
+    /// ============================
     /// ==== Subnet Parameters =====
     /// ============================
     #[pallet::storage] // --- MAP ( netuid ) --> subnet mechanism
@@ -721,15 +741,6 @@ pub mod pallet {
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> last_mechanism_step_block
     pub type LastMechansimStepBlock<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> subnet_owner
-    pub type SubnetOwner<T: Config> =
-        StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> subnet_owner_hotkey
-    pub type SubnetOwnerHotkey<T: Config> =
-        StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> subnet_locked
-    pub type SubnetLocked<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> serving_rate_limit
     pub type ServingRateLimit<T> =

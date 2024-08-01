@@ -63,17 +63,15 @@ impl<T: Config> Pallet<T> {
         // Ensure that the stake amount to be removed is above zero.
         ensure!(alpha_unstaked > 0, Error::<T>::StakeToWithdrawIsZero);
 
-        // Check if this is the owner hotkey unstaking.
-        if hotkey == SubnetOwnerHotkey::<T>::get(netuid) {
-            // Get the committed lock.
-            let alpha_locked: u64 = SubnetLocked::<T>::get(netuid);
-            // Get current staked.
-            let current_stake: u64 =
-                Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
-            // Ensure we are not unstaking the lock.
+        // Ensure we are not unstaking more than allowed
+        let current_block = Self::get_current_block_as_u64();
+        if Locks::<T>::contains_key((netuid, hotkey.clone(), coldkey.clone())) {
+            // Ensure we are not unstaking more than allowed
+            let (alpha_locked, start_block, end_block) = Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone()));
+            let max_unstakeable = Self::calculate_max_allowed_unstakable(alpha_locked, start_block, current_block);
             ensure!(
-                current_stake.saturating_sub(alpha_unstaked) > alpha_locked,
-                Error::<T>::CannotUnstakeLock
+                alpha_unstaked >= max_unstakeable,
+                Error::<T>::NotEnoughStakeToWithdraw
             );
         }
 

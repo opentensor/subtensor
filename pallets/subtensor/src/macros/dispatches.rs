@@ -977,9 +977,10 @@ mod dispatches {
             origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: u16,
+            duration: u64,
             alpha_locked: u64,
         ) -> DispatchResult {
-            Self::do_lock(origin, hotkey, netuid, alpha_locked)
+            Self::do_lock(origin, hotkey, netuid, duration, alpha_locked)
         }
     }
 }

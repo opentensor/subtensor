@@ -40,10 +40,8 @@ impl<T: Config> Pallet<T> {
         log::debug!("Block emission: {:?}", block_emission);
 
         // --- 3. Total subnet TAO.
-        let total_subnet_tao: I96F32 = subnets.iter().fold(I96F32::from_num(0), |acc, netuid| {
-            acc.saturating_add(I96F32::from_num(SubnetTAO::<T>::get(*netuid)))
-        });
-        log::debug!("Total subnet TAO: {:?}", total_subnet_tao);
+        let total_issuance: I96F32 = I96F32::from_num(Self::get_total_issuance());
+        log::debug!("Total issuance: {:?}", total_issuance);
 
         // --- 4. Compute EmissionValues per subnet.
         // This loop calculates the emission for each subnet based on its mechanism and proportion of TAO.
@@ -62,7 +60,7 @@ impl<T: Config> Pallet<T> {
             let subnet_tao: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(*netuid));
             // 5. Calculate subnet's proportion of mechanism TAO: P_s = T_s / T_m
             let subnet_proportion: I96F32 = subnet_tao
-                .checked_div(total_subnet_tao)
+                .checked_div(total_issuance)
                 .unwrap_or(I96F32::from_num(0));
             // 6. Calculate subnet's TAO emission: E_s = P_s * E_m
             let tao_emission: u64 = subnet_proportion
@@ -123,13 +121,9 @@ impl<T: Config> Pallet<T> {
                 Self::set_blocks_since_last_step(*netuid, 0);
                 Self::set_last_mechanism_step_block(*netuid, current_block);
 
-                // 5.3 Give 18% cut to the owner immediately as a lock.
-                let owner_hotkey: T::AccountId = SubnetOwnerHotkey::<T>::get(*netuid);
-                let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(*netuid);
-                let owner_cut: u64 = subnet_emission.saturating_mul(18).saturating_div(100);
-                Self::emit_into_subnet(&owner_hotkey, &owner_coldkey, *netuid, owner_cut);
-
                 // Decrement the emission by the owner cut.
+                let owner_cut: u64 = subnet_emission.saturating_mul(9).saturating_div(100);
+                Self::distribute_owner_cut(*netuid, owner_cut);
                 let remaining_emission: u64 = subnet_emission.saturating_sub(owner_cut);
 
                 // 5.3 Pass emission through epoch() --> hotkey emission.

@@ -150,15 +150,6 @@ impl<T: Config> Pallet<T> {
             hotkey
         );
 
-        // --- 8. Set the owner.
-        SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone()); // Set the coldkey as the owner.
-        SubnetOwnerHotkey::<T>::insert(netuid_to_register, hotkey.clone()); // Set the hotkey as the validator.
-        log::debug!(
-            "SubnetOwner for netuid {:?} set to: {:?}",
-            netuid_to_register,
-            coldkey
-        );
-
         // --- 9. Set the mechanism.
         SubnetMechanism::<T>::insert(netuid_to_register, mechid);
         log::debug!(
@@ -180,12 +171,16 @@ impl<T: Config> Pallet<T> {
             &coldkey,
             netuid_to_register,
             actual_tao_lock_amount.saturating_sub(tao_init),
-        ); // Stake into the subnet with the remainder.
-        SubnetLocked::<T>::insert(netuid_to_register, alpha_locked); // Set the locked alpha_locked as the initial collateral.
-                                                                     // NOTE: This pulls out about 99% of the ALPHA in the pool, initializing the pool with (LOCK TAO, ~0 ALPHA) and LOCK ALPHA outstanding.
-                                                                     // It is now very hard to aquire ALPHA in this pool since the price is 1/LOCK ALPHA per TAO.
-                                                                     // This slowly changes through emission and through people unstaking. However the expected price for the subnet becomes the convergence point.
-                                                                     // At this point the initial ALPHA is given the correct pricing.
+        ); 
+
+        // --- 8. Set the owner.
+        // Set the coldkey as the current owner
+        SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone()); 
+        // Set the hotkey as the lock.
+        Locks::<T>::insert(
+            (netuid_to_register, coldkey.clone(), hotkey.clone()), 
+            (alpha_locked, current_block, current_block.saturating_add(7200 * 30 * 6))
+        );
 
         // --- 12. Emit the NetworkAdded event.
         log::info!(

@@ -34,10 +34,14 @@ pub fn migrate_rao<T: Config>() -> Weight {
 
         // Set the owner hotkey.
         if netuid != 0 && SubnetOwner::<T>::contains_key( netuid ) {
-            // Set the owner hotkey to the coldkey
-            SubnetOwnerHotkey::<T>::insert(netuid, SubnetOwner::<T>::get(netuid));
+            // Owning coldkey
+            let owner_coldkey = SubnetOwner::<T>::get(netuid);
+            // Get the previous lock
+            let locked_tao = SubnetLocked::<T>::get(netuid);
+            // Set the lock to the new owner.
+            Locks::<T>::insert((netuid, owner_coldkey.clone(), owner_coldkey.clone()), (locked_tao, 0, 7200 * 30 * 6));
             // 1 read and 1 write.
-            weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 1));
+            weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 1));
         }
         
     }

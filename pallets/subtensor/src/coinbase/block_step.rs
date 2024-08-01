@@ -9,7 +9,9 @@ impl<T: Config> Pallet<T> {
         log::debug!("block_step for block: {:?} ", block_number);
         // --- 1. Adjust difficulties.
         Self::adjust_registration_terms_for_networks();
-        // --- 2. Run emission through network.
+        // --- 2. Update owners.
+        Self::update_all_subnet_owners();
+        // --- 3. Run emission through network.
         Self::run_coinbase();
         // Return ok.
         Ok(())

@@ -291,7 +291,7 @@ impl<T: Config> Pallet<T> {
                     .unwrap_or(I96F32::from_num(0)),
             );
             // Step 4e: Calculate new subnet alpha
-            new_subnet_alpha = subnet_alpha.saturating_sub(float_alpha_unstaked);
+            new_subnet_alpha = subnet_alpha.saturating_add(float_alpha_unstaked);
         } else {
             // Step 5: Stable mechanism
             // Step 5a: TAO unstaked is equal to alpha unstaked
