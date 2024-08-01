@@ -24,7 +24,7 @@ sp-core = { workspace = true }
 pallet-balances = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 frame-benchmarking = { workspace = true, optional = true }
-frame-support = { workspace = true , features = ["experimental", "tuples-96"]}
+frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-io = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
