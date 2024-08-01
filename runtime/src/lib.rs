@@ -894,6 +894,7 @@ parameter_types! {
 
 impl pallet_subtensor::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
     type SudoRuntimeCall = RuntimeCall;
     type Currency = Balances;
     type CouncilOrigin = EnsureMajoritySenate;
@@ -947,6 +948,7 @@ impl pallet_subtensor::Config for Runtime {
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     type InitialHotkeyEmissionTempo = SubtensorInitialHotkeyEmissionTempo;
     type InitialNetworkMaxStake = SubtensorInitialNetworkMaxStake;
+    type Preimages = Preimage;
 }
 
 use sp_runtime::BoundedVec;

@@ -683,10 +683,10 @@ mod dispatches {
             new_coldkey: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             // Ensure it's called with root privileges (scheduler has root privileges)
-            ensure_root(origin.clone())?;
+            // ensure_root(origin.clone())?;
 
             let who = ensure_signed(origin)?;
-            Self::do_swap_coldkey(frame_system::RawOrigin::Signed(who).into(), &new_coldkey)
+            Self::do_swap_coldkey(&who, &new_coldkey)
         }
 
         /// Unstakes all tokens associated with a hotkey and transfers them to a new coldkey.
@@ -969,21 +969,24 @@ mod dispatches {
                 new_coldkey: new_coldkey.clone(),
             };
 
-            let unique_id = (
-                b"schedule_swap_coldkey",
-                who.clone(),
-                new_coldkey.clone(),
-                when,
-            )
-                .using_encoded(sp_io::hashing::blake2_256);
+            let bound_call = T::Preimages::bound(LocalCallOf::<T>::from(call.clone()))
+                .map_err(|_| Error::<T>::FailedToSchedule)?;
 
-            let hash = <T::Scheduler as ScheduleAnon<
-                BlockNumberFor<T>,
-                CallOf<T>,
-                PalletsOriginOf<T>,
-            >>::Hasher::hash_of(&call);
+            // let unique_id = (
+            //     b"schedule_swap_coldkey",
+            //     who.clone(),
+            //     new_coldkey.clone(),
+            //     when,
+            // )
+            //     .using_encoded(sp_io::hashing::blake2_256);
 
-            let len = call.using_encoded(|e| e.len() as u32);
+            // let hash = <T::Scheduler as ScheduleNamed<
+            //     BlockNumberFor<T>,
+            //     CallOf<T>,
+            //     PalletsOriginOf<T>,
+            // >>::Hasher::hash_of(&call);
+
+            // let len = call.using_encoded(|e| e.len() as u32);
 
             // fn schedule(
             //     when: DispatchTime<BlockNumber>,
@@ -993,13 +996,33 @@ mod dispatches {
             //     call: Bounded<Call, Self::Hasher>,
             // ) -> Result<Self::Address, DispatchError>;
 
+            // T::Scheduler::schedule_named(
+            //     unique_id,
+            //     DispatchTime::At(when),
+            //     None,
+            //     63,
+            //     frame_system::RawOrigin::Root.into(),
+            //     // bound_call,
+            //     Bounded::Lookup { hash, len },
+            // )
+            // .map_err(|_| Error::<T>::FailedToSchedule)?;
+
+            // let result = T::Scheduler::schedule(
+            // 	DispatchTime::At(when),
+            // 	None,
+            // 	128u8,
+            // 	frame_system::RawOrigin::Root.into(),
+            // 	call,
+            // );
+
             T::Scheduler::schedule(
                 DispatchTime::At(when),
                 None,
-                0,
-                // T::RuntimeOrigin::root(),
-                frame_system::RawOrigin::Root.into(),
-                Bounded::Lookup { hash, len },
+                63,
+                // frame_system::RawOrigin::Root.into(),
+                frame_system::RawOrigin::Signed(who.clone()).into(),
+                // frame_system::RawOrigin::Signed(&who).into(),
+                bound_call,
             )
             .map_err(|_| Error::<T>::FailedToSchedule)?;
 

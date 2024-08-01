@@ -65,11 +65,13 @@ pub mod pallet {
     use frame_support::{
         dispatch::GetDispatchInfo,
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
-        traits::{tokens::fungible, OriginTrait, UnfilteredDispatchable},
+        traits::{
+            tokens::fungible, OriginTrait, QueryPreimage, StorePreimage, UnfilteredDispatchable,
+        },
     };
     use frame_system::pallet_prelude::*;
     use sp_core::H256;
-    use sp_runtime::traits::TrailingZeroInput;
+    use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::vec;
     use sp_std::vec::Vec;
 
@@ -102,6 +104,9 @@ pub mod pallet {
 
     /// Struct for Axon.
     pub type AxonInfoOf = AxonInfo;
+
+    /// local one
+    pub type LocalCallOf<T> = <T as Config>::RuntimeCall;
 
     /// Data structure for Axon information.
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
@@ -1189,7 +1194,8 @@ pub struct SubtensorSignedExtension<T: Config + Send + Sync + TypeInfo>(pub Phan
 
 impl<T: Config + Send + Sync + TypeInfo> Default for SubtensorSignedExtension<T>
 where
-    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as frame_system::Config>::RuntimeCall:
+        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
     fn default() -> Self {
@@ -1199,7 +1205,8 @@ where
 
 impl<T: Config + Send + Sync + TypeInfo> SubtensorSignedExtension<T>
 where
-    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as frame_system::Config>::RuntimeCall:
+        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
     pub fn new() -> Self {
@@ -1230,14 +1237,15 @@ impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for SubtensorSignedE
 impl<T: Config + Send + Sync + TypeInfo + pallet_balances::Config> SignedExtension
     for SubtensorSignedExtension<T>
 where
-    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as frame_system::Config>::RuntimeCall:
+        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<BalancesCall<T>>,
 {
     const IDENTIFIER: &'static str = "SubtensorSignedExtension";
 
     type AccountId = T::AccountId;
-    type Call = T::RuntimeCall;
+    type Call = <T as frame_system::Config>::RuntimeCall;
     type AdditionalSigned = ();
     type Pre = (CallType, u64, Self::AccountId);
 

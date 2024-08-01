@@ -9,6 +9,13 @@ mod config {
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
     pub trait Config: frame_system::Config {
+        /// call type
+        type RuntimeCall: Parameter
+            + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+            + From<Call<Self>>
+            + IsType<<Self as frame_system::Config>::RuntimeCall>
+            + From<frame_system::Call<Self>>;
+
         /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -31,7 +38,16 @@ mod config {
         type TriumvirateInterface: crate::CollectiveInterface<Self::AccountId, Self::Hash, u32>;
 
         /// The scheduler type used for scheduling delayed calls.
-        type Scheduler: ScheduleAnon<BlockNumberFor<Self>, CallOf<Self>, PalletsOriginOf<Self>>;
+        type Scheduler: ScheduleNamed<BlockNumberFor<Self>, LocalCallOf<Self>, PalletsOriginOf<Self>>
+            + ScheduleAnon<
+                BlockNumberFor<Self>,
+                LocalCallOf<Self>,
+                PalletsOriginOf<Self>,
+                Hasher = Self::Hashing,
+            >;
+
+        /// the preimage to store the call data.
+        type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 
         /// =================================
         /// ==== Initial Value Constants ====
