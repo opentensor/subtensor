@@ -114,7 +114,7 @@ impl<T: Config> Pallet<T> {
     /// - `new_hotkey`: A reference to the new account ID (new hotkey) to be assigned to the delegate identity.
     ///
     /// # Returns
-    /// - `Result<(), SwapError>`: Returns `Ok(())` if the swap is successful. Returns `Err(SwapError)` otherwise.
+    /// - `DispatchResult`: Returns `Ok(())` if the swap is successful. Returns an error variant of `DispatchResult` otherwise.
     pub fn swap_delegate_identity_coldkey(
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
