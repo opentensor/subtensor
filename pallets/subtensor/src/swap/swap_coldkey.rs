@@ -51,20 +51,18 @@ impl<T: Config> Pallet<T> {
             Error::<T>::ColdKeyAlreadyAssociated
         );
 
-        // 5. Calculate the swap cost and ensure sufficient balance
+        // 5. Swap the identity if the old coldkey has one
+        if let Some(identity) = Identities::<T>::take(&old_coldkey) {
+            Identities::<T>::insert(new_coldkey, identity);
+        }
+
+        // 6. Calculate the swap cost and ensure sufficient balance
         let swap_cost = Self::get_key_swap_cost();
         log::debug!("Coldkey swap cost: {:?}", swap_cost);
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&old_coldkey, swap_cost),
             Error::<T>::NotEnoughBalanceToPaySwapColdKey
         );
-
-        // 6. Swap identity if the old coldkey has one.
-        if Identities::<T>::contains_key(&old_coldkey)
-            && !Identities::<T>::contains_key(new_coldkey)
-        {
-            Self::swap_delegate_identity_coldkey(&old_coldkey, new_coldkey)?;
-        }
 
         // 7. Remove and burn the swap cost from the old coldkey's account
         let actual_burn_amount =

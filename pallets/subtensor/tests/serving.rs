@@ -1,7 +1,7 @@
 use crate::mock::*;
 mod mock;
+use frame_support::assert_noop;
 use frame_support::pallet_prelude::Weight;
-use frame_support::{assert_err, assert_noop};
 use frame_support::{
     assert_ok,
     dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays},
@@ -829,101 +829,6 @@ fn test_migrate_set_hotkey_identities() {
 }
 
 #[test]
-fn test_swap_delegate_identity_coldkey_successful() {
-    new_test_ext(1).execute_with(|| {
-        let old_coldkey = U256::from(1);
-        let new_coldkey = U256::from(2);
-
-        let name = b"Second Coolest Identity".to_vec();
-        let old_identity = ChainIdentity {
-            name: name.clone(),
-            url: vec![],
-            image: vec![],
-            discord: vec![],
-            description: vec![],
-            additional: vec![],
-        };
-
-        // Set identity for the old coldkey
-        Identities::<Test>::insert(old_coldkey, old_identity.clone());
-
-        // Swap the coldkey
-        assert_ok!(SubtensorModule::swap_delegate_identity_coldkey(
-            &old_coldkey,
-            &new_coldkey
-        ));
-        assert!(Identities::<Test>::get(new_coldkey).is_some());
-        assert!(Identities::<Test>::get(old_coldkey).is_none());
-
-        // Verify the identity information is correctly swapped
-        let identity: ChainIdentity =
-            Identities::<Test>::get(new_coldkey).expect("Expected an Identity");
-        assert_eq!(identity.name, name);
-    });
-}
-
-#[test]
-fn test_swap_delegate_identity_coldkey_new_coldkey_already_exists() {
-    new_test_ext(1).execute_with(|| {
-        let old_coldkey = U256::from(1);
-        let new_coldkey = U256::from(2);
-
-        let old_identity = ChainIdentity {
-            name: b"Old Identity".to_vec(),
-            url: vec![],
-            image: vec![],
-            discord: vec![],
-            description: vec![],
-            additional: vec![],
-        };
-        let new_identity = ChainIdentity {
-            name: b"New Identity".to_vec(),
-            url: vec![],
-            image: vec![],
-            discord: vec![],
-            description: vec![],
-            additional: vec![],
-        };
-
-        // Add identity for old coldkey and new coldkey
-        Identities::<Test>::insert(old_coldkey, old_identity.clone());
-        Identities::<Test>::insert(new_coldkey, new_identity.clone());
-
-        // Attempt to swap coldkey to one that is already in use
-        assert_err!(
-            SubtensorModule::swap_delegate_identity_coldkey(&old_coldkey, &new_coldkey),
-            Error::<Test>::NewColdkeyInUse
-        );
-
-        // Verify both identities remain unchanged
-        let stored_old_identity: ChainIdentity =
-            Identities::<Test>::get(old_coldkey).expect("Expected an Identity");
-        assert_eq!(stored_old_identity.name, old_identity.name);
-
-        let stored_new_identity: ChainIdentity =
-            Identities::<Test>::get(new_coldkey).expect("Expected an Identity");
-        assert_eq!(stored_new_identity.name, new_identity.name);
-    });
-}
-
-#[test]
-fn test_swap_delegate_identity_coldkey_old_coldkey_does_not_exist() {
-    new_test_ext(1).execute_with(|| {
-        let old_coldkey = U256::from(1);
-        let new_coldkey = U256::from(2);
-
-        // Ensure old coldkey does not exist
-        assert!(Identities::<Test>::get(old_coldkey).is_none());
-
-        assert_err!(
-            SubtensorModule::swap_delegate_identity_coldkey(&old_coldkey, &new_coldkey),
-            Error::<Test>::OldColdkeyNotFound
-        );
-        assert!(Identities::<Test>::get(new_coldkey).is_none());
-    });
-}
-
-#[test]
 fn test_coldkey_swap_delegate_identity_updated() {
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
@@ -955,6 +860,9 @@ fn test_coldkey_swap_delegate_identity_updated() {
         };
 
         Identities::<Test>::insert(old_coldkey, identity.clone());
+
+        assert!(Identities::<Test>::get(old_coldkey).is_some());
+        assert!(Identities::<Test>::get(new_coldkey).is_none());
 
         assert_ok!(SubtensorModule::do_swap_coldkey(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),

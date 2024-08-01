@@ -106,32 +106,4 @@ impl<T: Config> Pallet<T> {
             && identity.description.len() <= 1024
             && identity.additional.len() <= 1024
     }
-
-    /// Swaps the hotkey of a delegate identity from an old account ID to a new account ID.
-    ///
-    /// # Parameters
-    /// - `old_hotkey`: A reference to the current account ID (old hotkey) of the delegate identity.
-    /// - `new_hotkey`: A reference to the new account ID (new hotkey) to be assigned to the delegate identity.
-    ///
-    /// # Returns
-    /// - `DispatchResult`: Returns `Ok(())` if the swap is successful. Returns an error variant of `DispatchResult` otherwise.
-    pub fn swap_delegate_identity_coldkey(
-        old_coldkey: &T::AccountId,
-        new_coldkey: &T::AccountId,
-    ) -> DispatchResult {
-        // Attempt to remove the identity associated with the old hotkey.
-        let identity: ChainIdentity =
-            Identities::<T>::take(old_coldkey).ok_or(Error::<T>::OldColdkeyNotFound)?;
-
-        // Ensure the new hotkey is not already in use.
-        if Identities::<T>::contains_key(new_coldkey) {
-            // Reinsert the identity back with the old hotkey to maintain consistency.
-            Identities::<T>::insert(old_coldkey, identity);
-            return Err(Error::<T>::NewColdkeyInUse.into());
-        }
-
-        // Insert the identity with the new hotkey.
-        Identities::<T>::insert(new_coldkey, identity);
-        Ok(())
-    }
 }
