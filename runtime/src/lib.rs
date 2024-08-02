@@ -538,6 +538,7 @@ impl pallet_membership::Config<TriumvirateMembership> for Runtime {
 }
 
 // We call our top K delegates membership Senate
+#[allow(dead_code)]
 type SenateMembership = pallet_membership::Instance2;
 impl pallet_membership::Config<SenateMembership> for Runtime {
     type RuntimeEvent = RuntimeEvent;
