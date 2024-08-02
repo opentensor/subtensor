@@ -4,6 +4,34 @@ use alloc::collections::BTreeMap;
 use substrate_fixed::types::I96F32;
 
 impl<T: Config> Pallet<T> {
+
+    /// Sets the lock interval in blocks.
+    ///
+    /// This function allows setting the lock interval, which determines the minimum duration
+    /// for which stakes can be locked.
+    ///
+    /// # Arguments
+    ///
+    /// * `new_interval` - The new lock interval in blocks.
+    ///
+    /// # Errors
+    ///
+    /// * `BadOrigin` - If the caller is not authorized to make this change.
+    pub fn set_lock_interval_blocks( new_interval: u64 ) {
+        <LockIntervalBlocks<T>>::put(new_interval);
+    }
+
+    /// Gets the current lock interval in blocks.
+    ///
+    /// This function retrieves the current value of the lock interval.
+    ///
+    /// # Returns
+    ///
+    /// * `u64` - The current lock interval in blocks.
+    pub fn get_lock_interval_blocks() -> u64 {
+        <LockIntervalBlocks<T>>::get()
+    }
+
     /// Locks a specified amount of stake for a given duration on a subnet.
     ///
     /// This function allows a user to lock their stake, increasing their conviction score.
@@ -381,32 +409,39 @@ impl<T: Config> Pallet<T> {
     /// - e is the mathematical constant (base of natural logarithm)
     pub fn calculate_conviction(lock_amount: u64, end_block: u64, current_block: u64) -> u64 {
         let lock_duration = end_block.saturating_sub(current_block);
-        let time_factor = -I96F32::from_num(lock_duration).saturating_div(I96F32::from_num(7200 * 30)); // Convert days to blocks
+        let time_factor = -I96F32::from_num(lock_duration).saturating_div(I96F32::from_num(Self::get_lock_interval_blocks())); // Convert days to blocks
         let exp_term = I96F32::from_num(1) - exp_safe_F96(I96F32::from_num(time_factor));
         let conviction_score = I96F32::from_num(lock_amount).saturating_mul(exp_term);
-        conviction_score.to_num::<u64>()
+        let final_score = conviction_score.to_num::<u64>();
+        final_score
     }
 
 
+    /// Calculates the maximum amount of stake that can be unlocked for a given neuron.
+    ///
+    /// This function determines the maximum amount of stake that can be unlocked based on
+    /// the current lock status and conviction of the stake. If there's no lock, the entire
+    /// stake can be unlocked.
+    ///
+    /// # Arguments
+    ///
+    /// * `netuid` - The network UID.
+    /// * `hotkey` - The hotkey of the neuron.
+    /// * `coldkey` - The coldkey associated with the neuron.
+    ///
+    /// # Returns
+    ///
+    /// * `u64` - The maximum amount of stake that can be unlocked.
     pub fn max_unlockable_stake(netuid: u16, hotkey: &T::AccountId, coldkey: &T::AccountId) -> u64 {
-        // Ensure we are not unstaking more than allowed
         let current_block = Self::get_current_block_as_u64();
-        let total_stake: u64 = Self::get_stake_for_hotkey_and_coldkey_on_subnet( hotkey, coldkey, netuid );
+        let total_stake: u64 = Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
+        
         if Locks::<T>::contains_key((netuid, hotkey, coldkey)) {
-            // Retrieve the lock information for the given netuid, hotkey, and coldkey
-            let (alpha_locked, start_block, end_block) = Locks::<T>::get((netuid, hotkey, coldkey));
-            
-            // Calculate the maximum amount that can be unstaked based on the conviction
-            let current_conviction: u64 = Self::calculate_conviction(alpha_locked, end_block, current_block);
-            log::debug!("current_conviction: {:?}", current_conviction);
-            log::debug!("alpha_locked: {:?}", alpha_locked);
-            log::debug!("total_stake: {:?}", total_stake);
-            let max_unstakeable = total_stake.saturating_sub(alpha_locked.saturating_sub(current_conviction)); 
-
-            return max_unstakeable;
+            let (alpha_locked, _, end_block) = Locks::<T>::get((netuid, hotkey, coldkey));
+            let conviction = Self::calculate_conviction(alpha_locked, end_block, current_block);
+            total_stake.saturating_sub(conviction)
         } else {
-
-            return total_stake;
+            total_stake
         }
     }
 }

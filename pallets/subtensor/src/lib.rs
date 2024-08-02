@@ -469,6 +469,11 @@ pub mod pallet {
     pub fn DefaultNetworkMaxStake<T: Config>() -> u64 {
         T::InitialNetworkMaxStake::get()
     }
+    #[pallet::type_value]
+    /// Default value for lock interval blocks.
+    pub fn DefaultLockIntervalBlocks<T: Config>() -> u64 {
+        7200 * 30 // 30 days.
+    }
 
     #[pallet::storage]
     pub type SenateRequiredStakePercentage<T> =
@@ -684,6 +689,8 @@ pub mod pallet {
     // DEPRECATED
     #[pallet::storage] // --- MAP ( netuid ) --> subnet_locked
     pub type SubnetLocked<T: Config> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage] // --- ITEM( last_network_lock_cost )
+    pub type LockIntervalBlocks<T> = StorageValue<_, u64, ValueQuery, DefaultLockIntervalBlocks<T>>;
     #[pallet::storage] // --- NMAP ( netuid, cold, hot, owner ) --> (amount, start, end) | Returns the lock associated with a hotkey.
     pub type Locks<T: Config> = StorageNMap<
         _,

@@ -83,32 +83,20 @@ impl<T: Config> Pallet<T> {
 
         // Ensure we are not unstaking more than allowed
         let current_block = Self::get_current_block_as_u64();
+        log::debug!("here");
+
         if Locks::<T>::contains_key((netuid, hotkey.clone(), coldkey.clone())) {
             // Retrieve the lock information for the given netuid, hotkey, and coldkey
             let (alpha_locked, start_block, end_block) = Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone()));
-            
-            // Calculate the maximum amount that can be unstaked based on the conviction
-            let max_unstakeable = total_stake - (alpha_locked - Self::calculate_conviction(alpha_locked, end_block, current_block)); 
-            log::debug!("max_unstakeable: {:?}", max_unstakeable);
-            log::debug!("alpha_unstaked: {:?}", alpha_unstaked);
+            let conviction = Self::calculate_conviction(alpha_locked, end_block, current_block);
+            let stake_after_unstake = total_stake.saturating_sub(alpha_unstaked);
             // Ensure the requested unstake amount is not more than what's allowed
             ensure!(
-                alpha_unstaked <= max_unstakeable,
+                stake_after_unstake >= conviction,
                 Error::<T>::NotEnoughStakeToWithdraw
             );
-            log::debug!("allowed");
-
-            // Calculate the new locked amount after unstaking
-            let new_alpha_locked = alpha_locked.saturating_sub(alpha_unstaked);
-            
-            if new_alpha_locked > 0 {
-                // If there's still some stake locked, update the lock information
-                Locks::<T>::insert(
-                    (netuid, hotkey.clone(), coldkey.clone()),
-                    (new_alpha_locked, start_block, end_block)
-                );
-            } else {
-                // If all stake is unstaked, remove the lock entirely
+            // If conviction is 0, remove the lock
+            if conviction==0 {
                 Locks::<T>::remove((netuid, hotkey.clone(), coldkey.clone()));
             }
         }

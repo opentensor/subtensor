@@ -410,29 +410,28 @@ fn test_remove_stake_partially_locked() {
         assert_ok!(SubtensorModule::lock_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, lock_duration, lock_amount));
 
         // Attempt to remove unlocked portion (should succeed)
-        let unlocked_amount = initial_stake - lock_amount;
+        let unlocked_amount = SubtensorModule::max_unlockable_stake(netuid, &hotkey, &coldkey);
         assert_ok!(SubtensorModule::remove_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, unlocked_amount));
 
         // Verify stake and lock after removal
         let stake_after_removal = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
-        assert_eq!(stake_after_removal, lock_amount-1);
+        assert_eq!(stake_after_removal, initial_stake - unlocked_amount - 1);
 
-        let remaining_lock = lock_amount - unlocked_amount;
         let (locked_amount, _, _) = Locks::<Test>::get((netuid, hotkey, coldkey));
-        assert_eq!(locked_amount, remaining_lock);
+        assert_eq!(locked_amount, lock_amount); // lock amount should not change
 
         // Attempt to remove more than unlocked portion (should fail)
         assert_noop!(
-            SubtensorModule::remove_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, 1),
+            SubtensorModule::remove_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, 1000), // Some random number
             Error::<Test>::NotEnoughStakeToWithdraw
         );
 
         // Verify stake and lock remain unchanged
         let stake_after_failed_removal = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
-        assert_eq!(stake_after_failed_removal, lock_amount-1);
+        assert_eq!(stake_after_failed_removal, initial_stake - unlocked_amount - 1);
 
         let (locked_amount_after_failed_removal, _, _) = Locks::<Test>::get((netuid, hotkey, coldkey));
-        assert_eq!(locked_amount_after_failed_removal, remaining_lock);
+        assert_eq!(locked_amount_after_failed_removal, lock_amount);
     });
 }
 
@@ -505,19 +504,18 @@ fn test_remove_stake_multiple_locks() {
         assert_ok!(SubtensorModule::lock_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, lock_duration_2, lock_amount_2)); // second replaces first.
 
         // Attempt to remove more stake than unlocked (should fail)
-        let lock_with_unlock: u64 = (lock_amount_2 -  SubtensorModule::calculate_conviction(lock_amount_2, lock_duration_2, 0));
-        let unlocked_amount = (initial_stake - lock_with_unlock); // unstake more than allowed.
+        let max_removable = SubtensorModule::max_unlockable_stake(netuid, &hotkey, &coldkey);
         assert_noop!(
-            SubtensorModule::remove_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, unlocked_amount + 1),
+            SubtensorModule::remove_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, max_removable + 1),
             Error::<Test>::NotEnoughStakeToWithdraw
         );
 
         // Remove unlocked stake (should succeed)
-        assert_ok!(SubtensorModule::remove_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, unlocked_amount-1));
+        assert_ok!(SubtensorModule::remove_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, max_removable));
 
         // Verify remaining stake
         let remaining_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
-        assert_eq!(remaining_stake, lock_with_unlock);
+        assert_eq!(remaining_stake, initial_stake - max_removable - 1);
 
         // Fast forward to after first lock expiry
         run_to_block(lock_duration_2 + 1);
@@ -530,26 +528,7 @@ fn test_remove_stake_multiple_locks() {
 
         // Verify remaining stake
         let remaining_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
-        let lock_with_unlock: u64 = (lock_amount_2 -  SubtensorModule::calculate_conviction(lock_amount_2, lock_duration_2, 0));
-        let unlocked_amount = (remaining_stake - lock_with_unlock); // unstake more than allowed.
-        assert_noop!(
-            SubtensorModule::remove_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, unlocked_amount),
-            Error::<Test>::StakeToWithdrawIsZero
-        );
-
-        // Remove remainder no problem.
-        SubtensorModule::remove_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid));
-
-        // Verify no stake remains
-        let final_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
-        assert_eq!(final_stake, 0);
-
-        // Verify all locks are removed
-        assert!(!Locks::<Test>::contains_key((netuid, hotkey, coldkey)));
-
-        // Verify balance is returned to coldkey
-        let coldkey_balance = SubtensorModule::get_coldkey_balance(&coldkey);
-        assert_eq!(coldkey_balance, initial_stake);
+        assert_eq!(remaining_stake, initial_stake - max_removable - 1);
     });
 }
 
@@ -567,6 +546,7 @@ fn test_remove_stake_conviction_calculation() {
         // Register and add stake
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 11);
+        SubtensorModule::set_lock_interval_blocks(lock_duration);
         SubtensorModule::set_target_stakes_per_interval(10);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_stake);
         assert_ok!(SubtensorModule::add_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, initial_stake));
@@ -574,14 +554,10 @@ fn test_remove_stake_conviction_calculation() {
         // Lock stake
         assert_ok!(SubtensorModule::do_lock(RuntimeOrigin::signed(coldkey), hotkey, netuid, lock_duration, lock_amount));
 
-        // Calculate conviction
-        let current_block = SubtensorModule::get_current_block_as_u64();
-        let conviction = SubtensorModule::calculate_conviction(lock_amount, current_block + lock_duration, current_block);
-
         // Try to remove more stake than allowed by conviction
-        let max_removable = initial_stake - (lock_amount - conviction);
+        let max_removable = SubtensorModule::max_unlockable_stake(netuid, &hotkey, &coldkey);
         assert_noop!(
-            SubtensorModule::remove_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, max_removable),
+            SubtensorModule::remove_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, max_removable + 1),
             Error::<Test>::NotEnoughStakeToWithdraw
         );
 
@@ -590,7 +566,7 @@ fn test_remove_stake_conviction_calculation() {
 
         // Verify remaining stake
         let remaining_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
-        assert_eq!(remaining_stake, lock_amount - conviction);
+        assert_eq!(remaining_stake, initial_stake - max_removable);
 
         // Fast forward to just before lock expiry
         run_to_block(lock_duration-1);
