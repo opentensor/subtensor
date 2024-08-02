@@ -15,7 +15,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     genesis_builder_helper::{build_config, create_default_config},
-    pallet_prelude::{DispatchError, Get},
+    pallet_prelude::Get,
     traits::{fungible::HoldConsideration, Contains, LinearStoragePrice},
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
