@@ -70,6 +70,8 @@ std = [
 	"pallet-membership/std",
 	"substrate-fixed/std",
 	"pallet-balances/std",
+	"pallet-preimage/std",
+	"pallet-scheduler/std",
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
 	"sp-core/std",
