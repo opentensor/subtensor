@@ -973,7 +973,7 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(124_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(10))
 		.saturating_add(T::DbWeight::get().writes(7)), DispatchClass::Normal, Pays::No))]
-        pub fn lock(
+        pub fn lock_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: u16,

@@ -4,6 +4,40 @@ use alloc::collections::BTreeMap;
 use substrate_fixed::types::I96F32;
 
 impl<T: Config> Pallet<T> {
+    /// Locks a specified amount of stake for a given duration on a subnet.
+    ///
+    /// This function allows a user to lock their stake, increasing their conviction score.
+    /// The locked stake cannot be withdrawn until the lock period expires, and the new lock
+    /// must not decrease the current conviction score.
+    ///
+    /// # Arguments
+    ///
+    /// * `origin` - The origin of the call, must be signed by the coldkey.
+    /// * `hotkey` - The hotkey associated with the stake to be locked.
+    /// * `netuid` - The ID of the subnet where the stake is locked.
+    /// * `duration` - The duration (in blocks) for which the stake will be locked.
+    /// * `alpha_locked` - The amount of stake to be locked.
+    ///
+    /// # Returns
+    ///
+    /// * `DispatchResult` - The result of the lock operation.
+    ///
+    /// # Errors
+    ///
+    /// * `SubnetNotExists` - If the specified subnet does not exist.
+    /// * `HotKeyAccountNotExists` - If the hotkey account does not exist.
+    /// * `HotKeyNotRegisteredInSubNet` - If the hotkey is not registered on the specified subnet.
+    /// * `NotEnoughStakeToWithdraw` - If the user doesn't have enough stake to lock, or if the new lock would decrease the current conviction.
+    ///
+    /// # Events
+    ///
+    /// * `LockIncreased` - Emitted when the lock is successfully increased.
+    ///
+    /// # TODO
+    ///
+    /// * Consider implementing a maximum lock duration to prevent excessively long locks.
+    /// * Implement a mechanism to partially unlock stakes as the lock period progresses.
+    /// * Add more granular error handling for different failure scenarios.
     pub fn do_lock(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
@@ -11,6 +45,7 @@ impl<T: Config> Pallet<T> {
         duration: u64,
         alpha_locked: u64,
     ) -> dispatch::DispatchResult {
+        // Step 1: Validate inputs and check conditions
         // Ensure the origin is valid.
         let coldkey = ensure_signed(origin)?;
 
@@ -35,21 +70,42 @@ impl<T: Config> Pallet<T> {
         // Get the lockers current stake.
         let current_alpha_stake = Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
 
-        // Ensure that the caller has enough stake to unstake.
+        // Ensure that the caller has enough stake to lock.
         ensure!(
             alpha_locked <= current_alpha_stake,
             Error::<T>::NotEnoughStakeToWithdraw
         );
-
+        
+        // Step 2: Calculate and compare convictions
         // Get the current block.
         let current_block = Self::get_current_block_as_u64();
+        let new_end_block = current_block.saturating_add(duration);
 
-        // Set the new lock.
+        // Check that we are not decreasing the current conviction.
+        if Locks::<T>::contains_key((netuid, hotkey.clone(), coldkey.clone())) {
+            // Get the current lock.
+            let (current_locked, current_start, current_end) = Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone()));
+
+            // Calculate the current conviction.
+            let current_conviction = Self::calculate_conviction(current_locked, current_end, current_block);
+            
+            // Calculate the new conviction.
+            let new_conviction = Self::calculate_conviction(alpha_locked, new_end_block, current_block);
+
+            // Ensure the new lock does not decrease the current conviction
+            ensure!(
+                new_conviction >= current_conviction,
+                Error::<T>::NotEnoughStakeToWithdraw
+            );
+        } 
+
+        // Step 3: Set the new lock
         Locks::<T>::insert(
-            (netuid, hotkey.clone(), coldkey.clone()), 
-            (alpha_locked, current_block, current_block.saturating_add(duration) )
+        (netuid, hotkey.clone(), coldkey.clone()), 
+            (alpha_locked, current_block, current_block.saturating_add(duration))
         );
-
+    
+        // Step 4: Emit event and return
         // Lock increased event.
         log::info!(
             "LockIncreased( coldkey:{:?}, hotkey:{:?}, netuid:{:?}, alpha_locked:{:?} )",
@@ -69,34 +125,50 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Calculates the maximum allowed unstakable amount for a given lock.
+    /// Calculates the "lion's share" distribution for a given set of convictions.
     ///
-    /// This function determines how much of a locked stake can be unstaked based on
-    /// the time elapsed since the lock was created. It uses an exponential decay
-    /// function to gradually increase the unstakable amount over time.
+    /// This function applies an exponential function to create a sharp drop-off in the
+    /// distribution, favoring higher conviction scores more heavily.
     ///
     /// # Arguments
     ///
-    /// * `alpha_locked` - The total amount of stake that was locked.
-    /// * `start_block` - The block number when the lock was created.
-    /// * `current_block` - The current block number.
+    /// * `convictions` - A vector of conviction scores.
+    /// * `sharpness` - The sharpness parameter for the exponential function (default: 20).
     ///
     /// # Returns
     ///
-    /// * `u64` - The maximum amount that can be unstaked at the current block.
-    pub fn calculate_max_allowed_unstakable(alpha_locked: u64, start_block: u64, current_block: u64) -> u64 {
-        let lock_interval_blocks = 7200 * 30 * 6; // Approximately half a year.
-        
-        let exponent = -I96F32::from_num(current_block.saturating_sub(start_block))
-            .checked_div(I96F32::from_num(lock_interval_blocks))
-            .unwrap_or(I96F32::from_num(0));
-        
-        let unlockable_fraction = I96F32::from_num(1) - exp_safe_F96( exponent.checked_neg().unwrap_or(I96F32::from_num(0)));
-        
-        I96F32::from_num(alpha_locked)
-            .checked_mul(unlockable_fraction)
-            .unwrap_or(I96F32::from_num(0))
-            .to_num::<u64>()
+    /// * `Vec<I96F32>` - A vector of shares, represented as fixed-point numbers with 96 integer bits and 32 fractional bits.
+    pub fn calculate_lions_share(convictions: Vec<u64>, sharpness: u32) -> Vec<I96F32> {
+        // Handle empty convictions vector
+        if convictions.is_empty() {
+            return Vec::new();
+        }
+
+        // Find the maximum conviction
+        let max_conviction = convictions.iter().max().cloned().unwrap_or(1);
+
+        // Normalize convictions and apply exponential function
+        let mut powered_convictions: Vec<I96F32> = Vec::with_capacity(convictions.len());
+        for i in 0..convictions.len() {
+            let c = convictions[i];
+            let normalized = I96F32::from_num(c) / I96F32::from_num(max_conviction);
+            // Use checked_mul to prevent overflow in exponentiation
+            let powered = exp_safe_F96(I96F32::from_num(sharpness)).checked_mul(normalized - I96F32::from_num(1));
+            powered_convictions.push(powered.unwrap_or(I96F32::from_num(0)));
+        }
+
+        // Calculate total powered conviction
+        let total_powered: I96F32 = powered_convictions.iter().sum();
+
+        // Handle case where total_powered is zero to avoid division by zero
+        if total_powered == I96F32::from_num(0) {
+            return vec![I96F32::from_num(0); convictions.len()];
+        }
+
+        // Calculate shares
+        powered_convictions.into_iter().map(|pc| {
+            pc / total_powered
+        }).collect()
     }
 
     /// Distributes the owner payment among hotkeys based on their conviction scores.
@@ -139,27 +211,33 @@ impl<T: Config> Pallet<T> {
             return amount;
         }
 
+        // Convert convictions to a vector for the lion's share calculation
+        let convictions: Vec<u64> = hotkey_convictions.values().cloned().collect();
+
+        // Calculate shares using the lion's share distribution
+        let shares: Vec<I96F32> = Self::calculate_lions_share(convictions, 20);
+
         // Initialize variable to track remaining amount to distribute
         let mut remaining_amount = amount;
 
-        // Distribute the owner cut based on conviction scores
-        for (hotkey, conviction) in hotkey_convictions.iter() {
-            // Calculate the share for this hotkey based on its conviction
-            let share = u64::from(amount)
-                .saturating_mul(u64::from(*conviction))
-                .checked_div(u64::from(total_conviction))
-                .unwrap_or(0) as u64;
+        // Distribute the owner cut based on calculated shares
+        for ((hotkey, _), share) in hotkey_convictions.iter().zip(shares.iter()) {
+            // Calculate the share for this hotkey
+            let share_amount = I96F32::from_num(amount)
+                .checked_mul(*share)
+                .unwrap_or(I96F32::from_num(0))
+                .to_num::<u64>();
 
             // Get the coldkey associated with this hotkey
             let owner_coldkey = Self::get_owning_coldkey_for_hotkey(&hotkey);
 
             // Emit the calculated share into the subnet for this hotkey
-            Self::emit_into_subnet(&hotkey, &owner_coldkey, netuid, share);
+            Self::emit_into_subnet(&hotkey, &owner_coldkey, netuid, share_amount);
             
             // Add the share to the lock.
             if Locks::<T>::contains_key((netuid, hotkey.clone(), owner_coldkey.clone())) {
                 let (current_lock, start_block, end_block) = Locks::<T>::get((netuid, hotkey.clone(), owner_coldkey.clone()));
-                let new_lock = current_lock.saturating_add(share);
+                let new_lock = current_lock.saturating_add(share_amount);
                 Locks::<T>::insert(
                 (netuid, hotkey.clone(), owner_coldkey.clone()),
                     (new_lock, start_block, end_block)
@@ -167,7 +245,7 @@ impl<T: Config> Pallet<T> {
             }
 
             // Subtract the distributed share from the remaining amount
-            remaining_amount = remaining_amount.saturating_sub(share);
+            remaining_amount = remaining_amount.saturating_sub(share_amount);
         }
 
         // Return any undistributed amount
@@ -190,7 +268,7 @@ impl<T: Config> Pallet<T> {
     ///   potentially changing the owner of each subnet based on conviction scores.
     pub fn update_all_subnet_owners() {
         let current_block = Self::get_current_block_as_u64();
-        let update_interval = 7200 * 15;
+        let update_interval = 7200 * 15; // Approx 15 days.
         if current_block % (update_interval * 2) == 0 {
             for netuid in Self::get_all_subnet_netuids() {
                 Self::update_subnet_owner(netuid);
@@ -237,10 +315,42 @@ impl<T: Config> Pallet<T> {
         // Set the total subnet Conviction.
         SubnetLocked::<T>::insert(netuid, max_total_conviction.to_num::<u64>());
 
+        // Handle the case where no locks exist for the subnet
+        if hotkey_convictions.is_empty() {
+            log::warn!("No locks found for subnet {}", netuid);
+            return;
+        }
+
+        // Implement a minimum conviction threshold for becoming a subnet owner
+        let min_conviction_threshold = I96F32::from_num(1000); // Example threshold, adjust as needed
+        if max_total_conviction < min_conviction_threshold {
+            log::info!("No hotkey meets the minimum conviction threshold for subnet {}", netuid);
+            return;
+        }
+
         // Set the subnet owner to the coldkey of the hotkey with highest conviction
         if let Some(hotkey) = max_conviction_hotkey {
             let owning_coldkey = Self::get_owning_coldkey_for_hotkey(&hotkey);
             SubnetOwner::<T>::insert(netuid, owning_coldkey);
+        }
+
+        // Implement a tie-breaking mechanism for equal conviction scores
+        let tied_hotkeys: Vec<_> = hotkey_convictions
+            .iter()
+            .filter(|(_, &conviction)| conviction == max_total_conviction)
+            .collect();
+
+        if tied_hotkeys.len() > 1 {
+            // Use a deterministic method to break ties, e.g., lowest hotkey value
+            if let Some((winning_hotkey, _)) = tied_hotkeys.iter().min_by_key(|(&ref hotkey, _)| hotkey) {
+                let owning_coldkey = Self::get_owning_coldkey_for_hotkey(winning_hotkey);
+                SubnetOwner::<T>::insert(netuid, owning_coldkey);
+            }
+        }
+
+        // Log performance metrics for large subnets
+        if hotkey_convictions.len() > 1000 {
+            log::warn!("Large subnet {} processed with {} hotkeys", netuid, hotkey_convictions.len());
         }
     }
 
@@ -271,9 +381,32 @@ impl<T: Config> Pallet<T> {
     /// - e is the mathematical constant (base of natural logarithm)
     pub fn calculate_conviction(lock_amount: u64, end_block: u64, current_block: u64) -> u64 {
         let lock_duration = end_block.saturating_sub(current_block);
-        let time_factor = -I96F32::from_num(lock_duration).saturating_div(I96F32::from_num(365 * 24 * 60 * 60)); // Convert days to blocks
-        let exp_term = I96F32::from_num(1) - I96F32::from_num(time_factor);
+        let time_factor = -I96F32::from_num(lock_duration).saturating_div(I96F32::from_num(7200 * 30)); // Convert days to blocks
+        let exp_term = I96F32::from_num(1) - exp_safe_F96(I96F32::from_num(time_factor));
         let conviction_score = I96F32::from_num(lock_amount).saturating_mul(exp_term);
         conviction_score.to_num::<u64>()
+    }
+
+
+    pub fn max_unlockable_stake(netuid: u16, hotkey: &T::AccountId, coldkey: &T::AccountId) -> u64 {
+        // Ensure we are not unstaking more than allowed
+        let current_block = Self::get_current_block_as_u64();
+        let total_stake: u64 = Self::get_stake_for_hotkey_and_coldkey_on_subnet( hotkey, coldkey, netuid );
+        if Locks::<T>::contains_key((netuid, hotkey, coldkey)) {
+            // Retrieve the lock information for the given netuid, hotkey, and coldkey
+            let (alpha_locked, start_block, end_block) = Locks::<T>::get((netuid, hotkey, coldkey));
+            
+            // Calculate the maximum amount that can be unstaked based on the conviction
+            let current_conviction: u64 = Self::calculate_conviction(alpha_locked, end_block, current_block);
+            log::debug!("current_conviction: {:?}", current_conviction);
+            log::debug!("alpha_locked: {:?}", alpha_locked);
+            log::debug!("total_stake: {:?}", total_stake);
+            let max_unstakeable = total_stake.saturating_sub(alpha_locked.saturating_sub(current_conviction)); 
+
+            return max_unstakeable;
+        } else {
+
+            return total_stake;
+        }
     }
 }

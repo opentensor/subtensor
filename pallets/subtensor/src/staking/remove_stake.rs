@@ -63,17 +63,6 @@ impl<T: Config> Pallet<T> {
         // Ensure that the stake amount to be removed is above zero.
         ensure!(alpha_unstaked > 0, Error::<T>::StakeToWithdrawIsZero);
 
-        // Ensure we are not unstaking more than allowed
-        let current_block = Self::get_current_block_as_u64();
-        if Locks::<T>::contains_key((netuid, hotkey.clone(), coldkey.clone())) {
-            // Ensure we are not unstaking more than allowed
-            let (alpha_locked, start_block, end_block) = Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone()));
-            let max_unstakeable = Self::calculate_max_allowed_unstakable(alpha_locked, start_block, current_block);
-            ensure!(
-                alpha_unstaked >= max_unstakeable,
-                Error::<T>::NotEnoughStakeToWithdraw
-            );
-        }
 
         // Ensure that the hotkey has enough stake to withdraw.
         ensure!(
@@ -88,6 +77,42 @@ impl<T: Config> Pallet<T> {
             unstakes_this_interval < Self::get_target_stakes_per_interval(),
             Error::<T>::UnstakeRateLimitExceeded
         );
+
+        // Ensure we can unstake this with locks.
+        let total_stake: u64 = Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+
+        // Ensure we are not unstaking more than allowed
+        let current_block = Self::get_current_block_as_u64();
+        if Locks::<T>::contains_key((netuid, hotkey.clone(), coldkey.clone())) {
+            // Retrieve the lock information for the given netuid, hotkey, and coldkey
+            let (alpha_locked, start_block, end_block) = Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone()));
+            
+            // Calculate the maximum amount that can be unstaked based on the conviction
+            let max_unstakeable = total_stake - (alpha_locked - Self::calculate_conviction(alpha_locked, end_block, current_block)); 
+            log::debug!("max_unstakeable: {:?}", max_unstakeable);
+            log::debug!("alpha_unstaked: {:?}", alpha_unstaked);
+            // Ensure the requested unstake amount is not more than what's allowed
+            ensure!(
+                alpha_unstaked <= max_unstakeable,
+                Error::<T>::NotEnoughStakeToWithdraw
+            );
+            log::debug!("allowed");
+
+            // Calculate the new locked amount after unstaking
+            let new_alpha_locked = alpha_locked.saturating_sub(alpha_unstaked);
+            
+            if new_alpha_locked > 0 {
+                // If there's still some stake locked, update the lock information
+                Locks::<T>::insert(
+                    (netuid, hotkey.clone(), coldkey.clone()),
+                    (new_alpha_locked, start_block, end_block)
+                );
+            } else {
+                // If all stake is unstaked, remove the lock entirely
+                Locks::<T>::remove((netuid, hotkey.clone(), coldkey.clone()));
+            }
+        }
+
 
         // Convert and unstake from the subnet.
         let tao_unstaked: u64 =
