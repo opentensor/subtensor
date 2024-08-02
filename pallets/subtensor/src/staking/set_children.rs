@@ -130,11 +130,6 @@ impl<T: Config> Pallet<T> {
         // --- 7.1. Insert my new children + proportion list into the map.
         ChildKeys::<T>::insert(hotkey.clone(), netuid, children.clone());
 
-        if children.is_empty() {
-            // If there are no children, remove the ChildkeyTake value
-            ChildkeyTake::<T>::remove(hotkey.clone(), netuid);
-        }
-
         // --- 7.2. Update the parents list for my new children.
         for (proportion, new_child_i) in children.clone().iter() {
             // --- 8.2.1. Get the child's parents on this network.

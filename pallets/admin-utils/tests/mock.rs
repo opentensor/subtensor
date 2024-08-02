@@ -79,9 +79,8 @@ parameter_types! {
     pub const InitialFoundationDistribution: u64 = 0;
     pub const InitialDefaultDelegateTake: u16 = 11_796; // 18% honest number.
     pub const InitialMinDelegateTake: u16 = 5_898; // 9%;
-    pub const InitialDefaultChildKeyTake: u16 = 11_796; // 18% honest number.
-    pub const InitialMinChildKeyTake: u16 = 5_898; // 9%;
-    pub const InitialMinTake: u16 = 5_898; // 9%;
+    pub const InitialDefaultChildKeyTake: u16 = 0; // Allow 0 %
+    pub const InitialMinChildKeyTake: u16 = 0; // Allow 0 %
     pub const InitialWeightsVersionKey: u16 = 0;
     pub const InitialServingRateLimit: u64 = 0; // No limit.
     pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
