@@ -214,7 +214,7 @@ pub fn exp_safe(input: I32F32) -> I32F32 {
 
 // Exp safe function with I32F32 output of I32F32 input.
 #[allow(dead_code)]
-pub fn exp_safe_F96(input: I96F32) -> I96F32 {
+pub fn exp_safe_f96(input: I96F32) -> I96F32 {
     let min_input: I96F32 = I96F32::from_num(-20); // <= 1/exp(-20) = 485 165 195,4097903
     let max_input: I96F32 = I96F32::from_num(20); // <= exp(20) = 485 165 195,4097903
     let mut safe_input: I96F32 = input;

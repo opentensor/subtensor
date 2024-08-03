@@ -982,5 +982,44 @@ mod dispatches {
         ) -> DispatchResult {
             Self::do_lock(origin, hotkey, netuid, duration, alpha_locked)
         }
+
+        /// Sets the lock interval in blocks.
+        ///
+        /// This function allows setting the lock interval, which determines the minimum duration
+        /// for which stakes can be locked. Only callable by the root origin.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - The origin of the call, must be root.
+        /// * `new_interval` - The new lock interval in blocks.
+        ///
+        /// # Returns
+        ///
+        /// Returns a `DispatchResult` indicating success or failure of the operation.
+        ///
+        /// # Errors
+        ///
+        /// * `BadOrigin` - If the caller is not the root origin.
+        ///
+        /// # Weight
+        ///
+        /// - Base Weight: 3,000,000 + 1 DB Write
+        /// - Dispatch Class: Operational
+        /// - Pays Fee: Yes
+        #[pallet::call_index(74)]
+        #[pallet::weight((Weight::from_parts(3_000_000, 0)
+    .saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_lock_interval_blocks(
+            origin: OriginFor<T>,
+            new_interval: u64,
+        ) -> DispatchResult {
+            // Ensure the caller is root
+            ensure_root(origin)?;
+
+            // Call the internal function to set the lock interval
+            Self::set_lock_interval_blocks(new_interval);
+
+            Ok(())
+        }
     }
 }
