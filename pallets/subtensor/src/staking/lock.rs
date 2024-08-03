@@ -172,17 +172,25 @@ impl<T: Config> Pallet<T> {
             return Vec::new();
         }
 
+        // For a single conviction, return a vector with a single element of value 1
+        if convictions.len() == 1 {
+            return vec![I96F32::from_num(1)];
+        }
+
         // Find the maximum conviction
         let max_conviction = convictions.iter().max().cloned().unwrap_or(1);
+        // If the maximum conviction is zero, return a vector of zeros
+        if max_conviction == 0 {
+            return vec![I96F32::from_num(0); convictions.len()];
+        }
 
         // Normalize convictions and apply exponential function
         let mut powered_convictions: Vec<I96F32> = Vec::with_capacity(convictions.len());
-        for i in 0..convictions.len() {
-            let c = convictions[i];
-            let normalized = I96F32::from_num(c) / I96F32::from_num(max_conviction);
+        for c in convictions.iter() {
+            let normalized = I96F32::from_num(*c) / I96F32::from_num(max_conviction);
             // Use checked_mul to prevent overflow in exponentiation
-            let powered = exp_safe_F96(I96F32::from_num(sharpness)).checked_mul(normalized - I96F32::from_num(1));
-            powered_convictions.push(powered.unwrap_or(I96F32::from_num(0)));
+            let powered = exp_safe_F96(I96F32::from_num(sharpness).saturating_mul(normalized - I96F32::from_num(1)));
+            powered_convictions.push(powered);
         }
 
         // Calculate total powered conviction
@@ -194,9 +202,11 @@ impl<T: Config> Pallet<T> {
         }
 
         // Calculate shares
-        powered_convictions.into_iter().map(|pc| {
+        let shares: Vec<I96F32> = powered_convictions.into_iter().map(|pc| {
             pc / total_powered
-        }).collect()
+        }).collect();
+
+        shares
     }
 
     /// Distributes the owner payment among hotkeys based on their conviction scores.
@@ -216,6 +226,7 @@ impl<T: Config> Pallet<T> {
     /// * Adds the distributed share to each hotkey's balance.
     /// * Emits an `OwnerPaymentDistributed` event for each distribution.
     pub fn distribute_owner_cut(netuid: u16, amount: u64) -> u64 {
+
         // Get the current block number
         let current_block = Self::get_current_block_as_u64();
 
@@ -229,13 +240,14 @@ impl<T: Config> Pallet<T> {
             // Calculate conviction for each lock
             let conviction = Self::calculate_conviction(lock_amount, end_block, current_block);
             // Add conviction to the hotkey's total
-            *hotkey_convictions.entry(hotkey).or_default() += conviction;
+            *hotkey_convictions.entry(hotkey.clone()).or_default() += conviction;
             // Add to the total conviction
             total_conviction = total_conviction.saturating_add(conviction);
         }
 
         // If there's no conviction, return the full amount
         if total_conviction == 0 {
+            log::debug!("No conviction, returning full amount: {}", amount);
             return amount;
         }
 
@@ -249,7 +261,7 @@ impl<T: Config> Pallet<T> {
         let mut remaining_amount = amount;
 
         // Distribute the owner cut based on calculated shares
-        for ((hotkey, _), share) in hotkey_convictions.iter().zip(shares.iter()) {
+        for ((hotkey, conviction), share) in hotkey_convictions.iter().zip(shares.iter()) {
             // Calculate the share for this hotkey
             let share_amount = I96F32::from_num(amount)
                 .checked_mul(*share)
@@ -352,14 +364,13 @@ impl<T: Config> Pallet<T> {
         // Implement a minimum conviction threshold for becoming a subnet owner
         let min_conviction_threshold = I96F32::from_num(1000); // Example threshold, adjust as needed
         if max_total_conviction < min_conviction_threshold {
-            log::info!("No hotkey meets the minimum conviction threshold for subnet {}", netuid);
             return;
         }
 
         // Set the subnet owner to the coldkey of the hotkey with highest conviction
         if let Some(hotkey) = max_conviction_hotkey {
             let owning_coldkey = Self::get_owning_coldkey_for_hotkey(&hotkey);
-            SubnetOwner::<T>::insert(netuid, owning_coldkey);
+            SubnetOwner::<T>::insert(netuid, owning_coldkey.clone());
         }
 
         // Implement a tie-breaking mechanism for equal conviction scores
@@ -372,7 +383,7 @@ impl<T: Config> Pallet<T> {
             // Use a deterministic method to break ties, e.g., lowest hotkey value
             if let Some((winning_hotkey, _)) = tied_hotkeys.iter().min_by_key(|(&ref hotkey, _)| hotkey) {
                 let owning_coldkey = Self::get_owning_coldkey_for_hotkey(winning_hotkey);
-                SubnetOwner::<T>::insert(netuid, owning_coldkey);
+                SubnetOwner::<T>::insert(netuid, owning_coldkey.clone());
             }
         }
 

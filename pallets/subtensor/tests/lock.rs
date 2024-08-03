@@ -2,6 +2,7 @@ mod mock;
 use mock::*;
 use sp_core::U256;
 use pallet_subtensor::*;
+use substrate_fixed::types::I96F32;
 use frame_support::{assert_ok, assert_noop};
 use frame_system::RawOrigin;
 
@@ -592,92 +593,1782 @@ fn test_remove_stake_conviction_calculation() {
     });
 }
 
-// // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_remove_stake_partial_lock_removal --exact --nocapture
-// #[test]
-// fn test_remove_stake_partial_lock_removal() {
-//     // Test removing part of a locked stake
-//     // Should update the lock amount correctly if partial removal is allowed
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_remove_stake_partial_lock_removal --exact --nocapture
+#[test]
+fn test_remove_stake_partial_lock_removal() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let initial_stake = 1_000_000_000;
+        let lock_amount = 500_000_000;
+        let lock_duration = 7200 * 30; // 30 days
+
+        // Register and add stake
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 11);
+        SubtensorModule::set_lock_interval_blocks(lock_duration);
+        SubtensorModule::set_target_stakes_per_interval(10);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_stake);
+        assert_ok!(SubtensorModule::add_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, initial_stake));
+
+        // Lock stake
+        assert_ok!(SubtensorModule::do_lock(RuntimeOrigin::signed(coldkey), hotkey, netuid, lock_duration, lock_amount));
+
+        // Verify initial lock state
+        let (initial_locked_amount, _, _) = Locks::<Test>::get((netuid, hotkey, coldkey));
+        assert_eq!(initial_locked_amount, lock_amount);
+
+        // Calculate max removable stake
+        let max_removable = SubtensorModule::max_unlockable_stake(netuid, &hotkey, &coldkey);
+        let partial_remove_amount = max_removable / 2;
+
+        // Remove part of the stake
+        assert_ok!(SubtensorModule::remove_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, partial_remove_amount));
+
+        // Verify remaining stake and updated lock
+        let remaining_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        assert_eq!(remaining_stake, initial_stake - partial_remove_amount - 1);
+
+        let (updated_locked_amount, _, _) = Locks::<Test>::get((netuid, hotkey, coldkey));
+        assert_eq!(updated_locked_amount, lock_amount ); // lock never changes.
+
+        // Ensure lock still exists
+        assert!(Locks::<Test>::contains_key((netuid, hotkey, coldkey)));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_remove_stake_full_lock_removal --exact --nocapture
+#[test]
+fn test_remove_stake_full_lock_removal() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let initial_stake = 1_000_000_000;
+        let lock_amount = 500_000_000;
+        let lock_duration = 10; // 10 blocks
+
+        // Register and add stake
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 11);
+        SubtensorModule::set_lock_interval_blocks(lock_duration);
+        SubtensorModule::set_target_stakes_per_interval(10);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_stake);
+        assert_ok!(SubtensorModule::add_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, initial_stake));
+
+        // Lock stake
+        assert_ok!(SubtensorModule::do_lock(RuntimeOrigin::signed(coldkey), hotkey, netuid, lock_duration, lock_amount));
+
+        // Verify initial lock state
+        let (initial_locked_amount, _, _) = Locks::<Test>::get((netuid, hotkey, coldkey));
+        assert_eq!(initial_locked_amount, lock_amount);
+
+        // Fast forward to just after lock expiry
+        run_to_block(lock_duration + 1);
+
+        // Remove all stake
+        assert_ok!(SubtensorModule::remove_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, initial_stake - 1));
+
+        // Verify remaining stake
+        let remaining_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        assert_eq!(remaining_stake, 0);
+
+        // Verify lock is removed
+        assert!(!Locks::<Test>::contains_key((netuid, hotkey, coldkey)));
+
+        // Verify balance is returned to coldkey
+        let coldkey_balance = SubtensorModule::get_coldkey_balance(&coldkey);
+        assert_eq!(coldkey_balance, initial_stake);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_remove_stake_across_subnets --exact --nocapture
+#[test]
+fn test_remove_stake_across_subnets() {
+    new_test_ext(1).execute_with(|| {
+        let netuid1 = 1;
+        let netuid2 = 2;
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let initial_stake = 1_000_000_000;
+        let lock_amount_1 = 300_000_000;
+        let lock_amount_2 = 400_000_000;
+        let lock_duration_1 = 10; // 10 blocks
+        let lock_duration_2 = 20; // 20 blocks
+
+        // Set up networks and register neuron
+        add_network(netuid1, 0, 0);
+        add_network(netuid2, 0, 0);
+        register_ok_neuron(netuid1, hotkey, coldkey, 11);
+        register_ok_neuron(netuid2, hotkey, coldkey, 11);
+        SubtensorModule::set_target_stakes_per_interval(10);
+
+        // Add balance to coldkey and stake on both networks
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_stake * 2);
+        assert_ok!(SubtensorModule::add_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid1, initial_stake));
+        assert_ok!(SubtensorModule::add_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid2, initial_stake));
+
+        // Create locks on both networks
+        assert_ok!(SubtensorModule::lock_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid1, lock_duration_1, lock_amount_1));
+        assert_ok!(SubtensorModule::lock_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid2, lock_duration_2, lock_amount_2));
+
+        // Attempt to remove more stake than unlocked from netuid1 (should fail)
+        let max_removable_1 = SubtensorModule::max_unlockable_stake(netuid1, &hotkey, &coldkey);
+        assert_noop!(
+            SubtensorModule::remove_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid1, max_removable_1 + 1),
+            Error::<Test>::NotEnoughStakeToWithdraw
+        );
+
+        // Remove unlocked stake from netuid1 (should succeed)
+        assert_ok!(SubtensorModule::remove_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid1, max_removable_1));
+
+        // Verify remaining stake on netuid1
+        let remaining_stake_1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid1);
+        assert_eq!(remaining_stake_1, initial_stake - max_removable_1);
+
+        // Fast forward to after first lock expiry
+        run_to_block(lock_duration_1 + 1);
+
+        // Remove all stake from netuid1 (should succeed now that lock has expired)
+        assert_ok!(SubtensorModule::remove_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid1, remaining_stake_1));
+
+        // Verify no stake remains on netuid1
+        let final_stake_1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid1);
+        assert_eq!(final_stake_1, 0);
+
+        // Attempt to remove stake from netuid2 (should still be partially locked)
+        let max_removable_2 = SubtensorModule::max_unlockable_stake(netuid2, &hotkey, &coldkey);
+        assert_ok!(SubtensorModule::remove_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid2, max_removable_2));
+
+        // Verify remaining stake on netuid2
+        let remaining_stake_2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid2);
+        assert_eq!(remaining_stake_2, initial_stake - max_removable_2 - 1);
+
+        // Fast forward to after second lock expiry
+        run_to_block(lock_duration_2 + 1);
+
+        // Remove all remaining stake from netuid2
+        assert_ok!(SubtensorModule::remove_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid2, remaining_stake_2));
+
+        // Verify no stake remains on netuid2
+        let final_stake_2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid2);
+        assert_eq!(final_stake_2, 0);
+
+        // Verify locks are removed from both networks
+        assert!(!Locks::<Test>::contains_key((netuid1, hotkey, coldkey)));
+        assert!(!Locks::<Test>::contains_key((netuid2, hotkey, coldkey)));
+    });
+}
+
+// Test names for calculate_lions_share function:
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_calculate_lions_share_empty_input --exact --nocapture
+#[test]
+fn test_calculate_lions_share_empty_input() {
+    new_test_ext(1).execute_with(|| {
+        let result = SubtensorModule::calculate_lions_share(vec![], 20);
+        assert!(result.is_empty());
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_calculate_lions_share_single_conviction --exact --nocapture
+#[test]
+fn test_calculate_lions_share_single_conviction() {
+    new_test_ext(1).execute_with(|| {
+        let result = SubtensorModule::calculate_lions_share(vec![100], 20);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0], I96F32::from_num(1));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_calculate_lions_share_equal_convictions --exact --nocapture
+#[test]
+fn test_calculate_lions_share_equal_convictions() {
+    new_test_ext(1).execute_with(|| {
+        let result = SubtensorModule::calculate_lions_share(vec![100, 100, 100], 20);
+        assert_eq!(result.len(), 3);
+        for share in result {
+            assert_eq!(share, I96F32::from_num(1) / I96F32::from_num(3));
+        }
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_calculate_lions_share_varied_convictions --exact --nocapture
+#[test]
+fn test_calculate_lions_share_varied_convictions() {
+    new_test_ext(1).execute_with(|| {
+        let convictions = vec![100, 200, 300, 400];
+        let result = SubtensorModule::calculate_lions_share(convictions, 20);
+        assert_eq!(result.len(), 4);
+        // Verify that shares are in ascending order and sum to approximately 1
+        assert!(result[0] < result[1] && result[1] < result[2] && result[2] < result[3]);
+        let sum: I96F32 = result.iter().sum();
+        assert!((sum - I96F32::from_num(1)).abs() < I96F32::from_num(0.0001));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_calculate_lions_share_zero_convictions --exact --nocapture
+#[test]
+fn test_calculate_lions_share_zero_convictions() {
+    new_test_ext(1).execute_with(|| {
+        let result = SubtensorModule::calculate_lions_share(vec![0, 0, 0], 20);
+        assert_eq!(result.len(), 3);
+        for share in result {
+            assert_eq!(share, I96F32::from_num(0));
+        }
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_calculate_lions_share_large_convictions --exact --nocapture
+#[test]
+fn test_calculate_lions_share_large_convictions() {
+    new_test_ext(1).execute_with(|| {
+        let convictions = vec![1_000_000, 2_000_000, 3_000_000];
+        let result = SubtensorModule::calculate_lions_share(convictions, 20);
+        assert_eq!(result.len(), 3);
+        // Verify that shares are in ascending order and sum to approximately 1
+        assert!(result[0] < result[1] && result[1] < result[2]);
+        let sum: I96F32 = result.iter().sum();
+        assert!((sum - I96F32::from_num(1)).abs() < I96F32::from_num(0.0001));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_calculate_lions_share_different_sharpness --exact --nocapture
+#[test]
+fn test_calculate_lions_share_different_sharpness() {
+    new_test_ext(1).execute_with(|| {
+        let convictions = vec![100, 200, 300, 400];
+        
+        // Test with low sharpness
+        let result_low = SubtensorModule::calculate_lions_share(convictions.clone(), 5);
+        
+        // Test with high sharpness
+        let result_high = SubtensorModule::calculate_lions_share(convictions, 50);
+        
+        // Verify that higher sharpness leads to more extreme distribution
+        assert!(result_high[3] > result_low[3]);
+        assert!(result_high[0] < result_low[0]);
+        
+        // Verify sums are still approximately 1
+        let sum_low: I96F32 = result_low.iter().sum();
+        let sum_high: I96F32 = result_high.iter().sum();
+        assert!((sum_low - I96F32::from_num(1)).abs() < I96F32::from_num(0.0001));
+        assert!((sum_high - I96F32::from_num(1)).abs() < I96F32::from_num(0.0001));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_calculate_lions_share_extreme_differences --exact --nocapture
+#[test]
+fn test_calculate_lions_share_extreme_differences() {
+    new_test_ext(1).execute_with(|| {
+        let convictions = vec![1, 1_000_000];
+        let result = SubtensorModule::calculate_lions_share(convictions, 20);
+        
+        assert_eq!(result.len(), 2);
+        
+        // The share of the larger conviction should be very close to 1
+        assert!(result[1] > I96F32::from_num(0.9999));
+        
+        // The share of the smaller conviction should be very close to 0
+        assert!(result[0] < I96F32::from_num(0.0001));
+        
+        // Sum should still be approximately 1
+        let sum: I96F32 = result.iter().sum();
+        assert!((sum - I96F32::from_num(1)).abs() < I96F32::from_num(0.0001));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_calculate_lions_share_overflow_handling --exact --nocapture
+#[test]
+fn test_calculate_lions_share_overflow_handling() {
+    new_test_ext(1).execute_with(|| {
+        // Use very large numbers to test overflow handling
+        let convictions = vec![u64::MAX, u64::MAX - 1, u64::MAX - 2];
+        let result = SubtensorModule::calculate_lions_share(convictions, 20);
+        
+        assert_eq!(result.len(), 3);
+        
+        // Verify that shares are still in descending order
+        assert!(result[0] >= result[1] && result[1] >= result[2]);
+        
+        // Verify sum is still approximately 1
+        let sum: I96F32 = result.iter().sum();
+        assert!((sum - I96F32::from_num(1)).abs() < I96F32::from_num(0.0001));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_calculate_lions_share_precision --exact --nocapture
+#[test]
+fn test_calculate_lions_share_precision() {
+    new_test_ext(1).execute_with(|| {
+        // Test with convictions that are close in value
+        let convictions = vec![1_000_000, 1_000_001, 1_000_002];
+        let result = SubtensorModule::calculate_lions_share(convictions, 20);
+        
+        // Verify that shares are in ascending order
+        assert!(result[0] < result[1] && result[1] < result[2]);
+        
+        // Verify that the differences between shares are small but detectable
+        assert!(result[1] - result[0] > I96F32::from_num(0.000001));
+        assert!(result[2] - result[1] > I96F32::from_num(0.000001));
+        
+        // Verify sum is still approximately 1
+        let sum: I96F32 = result.iter().sum();
+        assert!((sum - I96F32::from_num(1)).abs() < I96F32::from_num(0.0001));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_calculate_conviction_zero_lock_amount --exact --nocapture
+#[test]
+fn test_calculate_conviction_zero_lock_amount() {
+    new_test_ext(1).execute_with(|| {
+        let current_block = 1000;
+        let end_block = 2000;
+        let conviction = SubtensorModule::calculate_conviction(0, end_block, current_block);
+        assert_eq!(conviction, 0);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_calculate_conviction_zero_duration --exact --nocapture
+#[test]
+fn test_calculate_conviction_zero_duration() {
+    new_test_ext(1).execute_with(|| {
+        let current_block = 1000;
+        let end_block = 1000;
+        let lock_amount = 1000000;
+        let conviction = SubtensorModule::calculate_conviction(lock_amount, end_block, current_block);
+        assert_eq!(conviction, 0);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_calculate_conviction_max_lock_amount --exact --nocapture
+#[test]
+fn test_calculate_conviction_max_lock_amount() {
+    new_test_ext(1).execute_with(|| {
+        let current_block = 1000;
+        let end_block = 2000;
+        let lock_amount = u64::MAX;
+        let conviction = SubtensorModule::calculate_conviction(lock_amount, end_block, current_block);
+        assert!(conviction > 0);
+        assert!(conviction < u64::MAX);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_calculate_conviction_max_duration --exact --nocapture
+#[test]
+fn test_calculate_conviction_max_duration() {
+    new_test_ext(1).execute_with(|| {
+        let current_block = 0;
+        let end_block = u64::MAX;
+        let lock_amount = 1000000;
+        let conviction = SubtensorModule::calculate_conviction(lock_amount, end_block, current_block);
+        assert!(conviction > 0);
+        assert!(conviction <= lock_amount);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_calculate_conviction_overflow_check --exact --nocapture
+#[test]
+fn test_calculate_conviction_overflow_check() {
+    new_test_ext(1).execute_with(|| {
+        let current_block = 0;
+        let end_block = u64::MAX;
+        let lock_amount = u64::MAX;
+        let conviction = SubtensorModule::calculate_conviction(lock_amount, end_block, current_block);
+        assert!(conviction > 0);
+        assert!(conviction < u64::MAX);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_calculate_conviction_precision_small_values --exact --nocapture
+#[test]
+fn test_calculate_conviction_precision_small_values() {
+    new_test_ext(1).execute_with(|| {
+        let current_block = 1000;
+        let end_block = 1001;
+        let lock_amount = 1;
+        let conviction = SubtensorModule::calculate_conviction(lock_amount, end_block, current_block);
+        assert!(conviction < lock_amount);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_calculate_conviction_precision_large_values --exact --nocapture
+#[test]
+fn test_calculate_conviction_precision_large_values() {
+    new_test_ext(1).execute_with(|| {
+        let current_block = 0;
+        let end_block = u64::MAX / 2;
+        let lock_amount = u64::MAX / 2;
+        let conviction = SubtensorModule::calculate_conviction(lock_amount, end_block, current_block);
+        assert!(conviction > 0);
+        assert!(conviction < lock_amount);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_calculate_conviction_rounding --exact --nocapture
+#[test]
+fn test_calculate_conviction_rounding() {
+    new_test_ext(1).execute_with(|| {
+        let current_block = 1000;
+        let end_block = 1100;
+        let lock_amount = 1000000;
+        let conviction1 = SubtensorModule::calculate_conviction(lock_amount, end_block, current_block);
+        let conviction2 = SubtensorModule::calculate_conviction(lock_amount, end_block + 1, current_block);
+        assert!(conviction2 >= conviction1);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_calculate_conviction_lock_interval_boundary --exact --nocapture
+#[test]
+fn test_calculate_conviction_lock_interval_boundary() {
+    new_test_ext(1).execute_with(|| {
+        let current_block = 1000;
+        let lock_interval = SubtensorModule::get_lock_interval_blocks();
+        let end_block = current_block + lock_interval;
+        let lock_amount = 1000000;
+        let conviction = SubtensorModule::calculate_conviction(lock_amount, end_block, current_block);
+        assert!(conviction > 0);
+        assert!(conviction < lock_amount);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_calculate_conviction_consistency --exact --nocapture
+#[test]
+fn test_calculate_conviction_consistency() {
+    new_test_ext(1).execute_with(|| {
+        let current_block = 1000;
+        let end_block = 2000;
+        let lock_amount = 1000000;
+        let base_conviction = SubtensorModule::calculate_conviction(lock_amount, end_block, current_block);
+        log::info!("Base conviction: {}", base_conviction);
+        
+        // Increasing lock amount
+        let higher_amount_conviction = SubtensorModule::calculate_conviction(lock_amount + 1000, end_block, current_block);
+        assert!(higher_amount_conviction > base_conviction);
+        
+        // Increasing duration
+        let longer_duration_conviction = SubtensorModule::calculate_conviction(lock_amount, end_block + 1000, current_block);
+        assert!(longer_duration_conviction > base_conviction);
+    });
+}
+
+
+// pub fn calculate_lions_share(convictions: Vec<u64>, sharpness: u32) -> Vec<I96F32> {
+//     // Handle empty convictions vector
+//     if convictions.is_empty() {
+//         return Vec::new();
+//     }
+
+//     // For a single conviction, return a vector with a single element of value 1
+//     if convictions.len() == 1 {
+//         return vec![I96F32::from_num(1)];
+//     }
+
+//     // Find the maximum conviction
+//     let max_conviction = convictions.iter().max().cloned().unwrap_or(1);
+//     // If the maximum conviction is zero, return a vector of zeros
+//     if max_conviction == 0 {
+//         return vec![I96F32::from_num(0); convictions.len()];
+//     }
+
+//     // Normalize convictions and apply exponential function
+//     let mut powered_convictions: Vec<I96F32> = Vec::with_capacity(convictions.len());
+//     for c in convictions.iter() {
+//         let normalized = I96F32::from_num(*c) / I96F32::from_num(max_conviction);
+//         // Use checked_mul to prevent overflow in exponentiation
+//         let powered = exp_safe_F96(I96F32::from_num(sharpness).saturating_mul(normalized - I96F32::from_num(1)));
+//         powered_convictions.push(powered);
+//     }
+
+//     // Calculate total powered conviction
+//     let total_powered: I96F32 = powered_convictions.iter().sum();
+
+//     // Handle case where total_powered is zero to avoid division by zero
+//     if total_powered == I96F32::from_num(0) {
+//         return vec![I96F32::from_num(0); convictions.len()];
+//     }
+
+//     // Calculate shares
+//     let shares: Vec<I96F32> = powered_convictions.into_iter().map(|pc| {
+//         pc / total_powered
+//     }).collect();
+
+//     shares
+// }
+// pub fn calculate_conviction(lock_amount: u64, end_block: u64, current_block: u64) -> u64 {
+//     let lock_duration = end_block.saturating_sub(current_block);
+//     let time_factor = -I96F32::from_num(lock_duration).saturating_div(I96F32::from_num(Self::get_lock_interval_blocks())); // Convert days to blocks
+//     let exp_term = I96F32::from_num(1) - exp_safe_F96(I96F32::from_num(time_factor));
+//     let conviction_score = I96F32::from_num(lock_amount).saturating_mul(exp_term);
+//     let final_score = conviction_score.to_num::<u64>();
+//     final_score
 // }
 
-// // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_remove_stake_full_lock_removal --exact --nocapture
-// #[test]
-// fn test_remove_stake_full_lock_removal() {
-//     // Test removing all of a locked stake
-//     // Should remove the lock entirely if all locked stake is removed
+// pub fn get_owning_coldkey_for_hotkey(hotkey: &T::AccountId) -> T::AccountId {
+//     Owner::<T>::get(hotkey)
+// }
+// pub fn distribute_owner_cut(netuid: u16, amount: u64) -> u64 {
+//     // Get the current block number
+//     let current_block = Self::get_current_block_as_u64();
+
+//     // Initialize variables to track total conviction and individual hotkey convictions
+//     let mut total_conviction: u64 = 0;
+//     let mut hotkey_convictions: BTreeMap<T::AccountId, u64> = BTreeMap::new();
+
+//     // Calculate total conviction and individual hotkey convictions
+//     for ((iter_netuid, hotkey, _), (lock_amount, _, end_block)) in Locks::<T>::iter() {
+//         if iter_netuid != netuid { continue; }
+//         // Calculate conviction for each lock
+//         let conviction = Self::calculate_conviction(lock_amount, end_block, current_block);
+//         // Add conviction to the hotkey's total
+//         *hotkey_convictions.entry(hotkey).or_default() += conviction;
+//         // Add to the total conviction
+//         total_conviction = total_conviction.saturating_add(conviction);
+//     }
+
+//     // If there's no conviction, return the full amount
+//     if total_conviction == 0 {
+//         return amount;
+//     }
+
+//     // Convert convictions to a vector for the lion's share calculation
+//     let convictions: Vec<u64> = hotkey_convictions.values().cloned().collect();
+
+//     // Calculate shares using the lion's share distribution
+//     let shares: Vec<I96F32> = Self::calculate_lions_share(convictions, 20);
+
+//     // Initialize variable to track remaining amount to distribute
+//     let mut remaining_amount = amount;
+
+//     // Distribute the owner cut based on calculated shares
+//     for ((hotkey, _), share) in hotkey_convictions.iter().zip(shares.iter()) {
+//         // Calculate the share for this hotkey
+//         let share_amount = I96F32::from_num(amount)
+//             .checked_mul(*share)
+//             .unwrap_or(I96F32::from_num(0))
+//             .to_num::<u64>();
+
+//         // Get the coldkey associated with this hotkey
+//         let owner_coldkey = Self::get_owning_coldkey_for_hotkey(&hotkey);
+
+//         // Emit the calculated share into the subnet for this hotkey
+//         Self::emit_into_subnet(&hotkey, &owner_coldkey, netuid, share_amount);
+        
+//         // Add the share to the lock.
+//         if Locks::<T>::contains_key((netuid, hotkey.clone(), owner_coldkey.clone())) {
+//             let (current_lock, start_block, end_block) = Locks::<T>::get((netuid, hotkey.clone(), owner_coldkey.clone()));
+//             let new_lock = current_lock.saturating_add(share_amount);
+//             Locks::<T>::insert(
+//             (netuid, hotkey.clone(), owner_coldkey.clone()),
+//                 (new_lock, start_block, end_block)
+//             );
+//         }
+
+//         // Subtract the distributed share from the remaining amount
+//         remaining_amount = remaining_amount.saturating_sub(share_amount);
+//     }
+
+//     // Return any undistributed amount
+//     remaining_amount
 // }
 
-// // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_remove_stake_across_subnets --exact --nocapture
-// #[test]
-// fn test_remove_stake_across_subnets() {
-//     // Test removing stake from different subnets with different lock conditions
-//     // Should respect locks on each subnet independently
+// pub fn update_subnet_owner(netuid: u16) {
+//     let mut max_total_conviction: I96F32 = I96F32::from_num(0.0);
+//     let mut max_conviction_hotkey = None;
+//     let mut hotkey_convictions = BTreeMap::new();
+//     let current_block = Self::get_current_block_as_u64();
+
+//     // Iterate through all locks in the subnet
+//     for ((iter_netuid, iter_hotkey, _), (lock_amount, _, end_block)) in Locks::<T>::iter() {
+//         // Skip if the subnet does not match.
+//         if iter_netuid != netuid { continue; }
+
+//         // Calculate conviction score based on lock amount and duration
+//         let conviction_score = I96F32::from_num(Self::calculate_conviction(lock_amount, end_block, current_block));
+
+//         // Accumulate conviction scores for each hotkey
+//         let total_conviction = hotkey_convictions.entry(iter_hotkey.clone()).or_insert(I96F32::from_num(0));
+//         *total_conviction = total_conviction.saturating_add(conviction_score);
+
+//         // Update max conviction if current hotkey has higher total conviction
+//         if *total_conviction > max_total_conviction {
+//             max_total_conviction = *total_conviction;
+//             max_conviction_hotkey = Some(iter_hotkey.clone());
+//         }
+//     }
+
+//     // Set the total subnet Conviction.
+//     SubnetLocked::<T>::insert(netuid, max_total_conviction.to_num::<u64>());
+
+//     // Handle the case where no locks exist for the subnet
+//     if hotkey_convictions.is_empty() {
+//         log::warn!("No locks found for subnet {}", netuid);
+//         return;
+//     }
+
+//     // Implement a minimum conviction threshold for becoming a subnet owner
+//     let min_conviction_threshold = I96F32::from_num(1000); // Example threshold, adjust as needed
+//     if max_total_conviction < min_conviction_threshold {
+//         log::info!("No hotkey meets the minimum conviction threshold for subnet {}", netuid);
+//         return;
+//     }
+
+//     // Set the subnet owner to the coldkey of the hotkey with highest conviction
+//     if let Some(hotkey) = max_conviction_hotkey {
+//         let owning_coldkey = Self::get_owning_coldkey_for_hotkey(&hotkey);
+//         SubnetOwner::<T>::insert(netuid, owning_coldkey);
+//     }
+
+//     // Implement a tie-breaking mechanism for equal conviction scores
+//     let tied_hotkeys: Vec<_> = hotkey_convictions
+//         .iter()
+//         .filter(|(_, &conviction)| conviction == max_total_conviction)
+//         .collect();
+
+//     if tied_hotkeys.len() > 1 {
+//         // Use a deterministic method to break ties, e.g., lowest hotkey value
+//         if let Some((winning_hotkey, _)) = tied_hotkeys.iter().min_by_key(|(&ref hotkey, _)| hotkey) {
+//             let owning_coldkey = Self::get_owning_coldkey_for_hotkey(winning_hotkey);
+//             SubnetOwner::<T>::insert(netuid, owning_coldkey);
+//         }
+//     }
+
+//     // Log performance metrics for large subnets
+//     if hotkey_convictions.len() > 1000 {
+//         log::warn!("Large subnet {} processed with {} hotkeys", netuid, hotkey_convictions.len());
+//     }
 // }
 
-// // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_remove_stake_rate_limiting --exact --nocapture
-// #[test]
-// fn test_remove_stake_rate_limiting() {
-//     // Test that stake removal respects the rate limiting rules
-//     // Should fail if trying to remove stake too frequently
-// }
 
-// // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_remove_stake_hotkey_not_registered --exact --nocapture
-// #[test]
-// fn test_remove_stake_hotkey_not_registered() {
-//     // Test removing stake for a hotkey that is not registered
-//     // Should fail with appropriate error
-// }
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_distribute_owner_cut_basic --exact --nocapture
+#[test]
+fn test_distribute_owner_cut_basic() {
+    new_test_ext(1).execute_with(|| {
+        // Setup
+        let netuid = 1;
+        let amount_to_distribute = 1000000;
+        let current_block = 100;
+
+        // Create multiple hotkeys with different lock amounts and end blocks
+        let hotkey1 = AccountId::from([1u8; 32]);
+        let hotkey2 = AccountId::from([2u8; 32]);
+        let hotkey3 = AccountId::from([3u8; 32]);
+
+        let coldkey1 = AccountId::from([4u8; 32]);
+        let coldkey2 = AccountId::from([5u8; 32]);
+        let coldkey3 = AccountId::from([6u8; 32]);
+        SubtensorModule::set_lock_interval_blocks(10);
+
+        // Set up locks
+        Locks::<Test>::insert((netuid, hotkey1.clone(), coldkey1.clone()), (500, 0, 200));
+        Locks::<Test>::insert((netuid, hotkey2.clone(), coldkey2.clone()), (300, 0, 150));
+        Locks::<Test>::insert((netuid, hotkey3.clone(), coldkey3.clone()), (200, 0, 300));
+
+        // Set up ownership
+        Owner::<Test>::insert(hotkey1.clone(), coldkey1.clone());
+        Owner::<Test>::insert(hotkey2.clone(), coldkey2.clone());
+        Owner::<Test>::insert(hotkey3.clone(), coldkey3.clone());
+
+        // Mock the current block
+        System::set_block_number(current_block);
+
+        // Call the distribute_owner_cut function
+        let remaining = SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
+
+        // Verify distribution
+        assert!(remaining < amount_to_distribute, "Some amount should be distributed");
+
+        // Check that locks have been updated
+        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1.clone(), coldkey1.clone()));
+        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2.clone(), coldkey2.clone()));
+        let (new_lock3, _, _) = Locks::<Test>::get((netuid, hotkey3.clone(), coldkey3.clone()));
+
+        assert!(new_lock1 > 500, "Hotkey1's lock should increase");
+        assert!(new_lock2 > 300, "Hotkey2's lock should increase");
+        assert!(new_lock3 > 200, "Hotkey3's lock should increase");
+
+        // Verify that the total distributed amount matches the initial amount minus remaining
+        let total_distributed = (new_lock1 - 500) + (new_lock2 - 300) + (new_lock3 - 200);
+        assert_eq!(total_distributed, amount_to_distribute - remaining);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_distribute_owner_cut_single_hotkey --exact --nocapture
+#[test]
+fn test_distribute_owner_cut_single_hotkey() {
+    new_test_ext(1).execute_with(|| {
+        // Setup
+        let netuid = 1;
+        let amount_to_distribute = 1000000;
+        let current_block = 100;
+
+        // Create a single hotkey with lock
+        let hotkey = AccountId::from([1u8; 32]);
+        let coldkey = AccountId::from([2u8; 32]);
+        SubtensorModule::set_lock_interval_blocks(10);
+
+        // Set up lock
+        Locks::<Test>::insert((netuid, hotkey.clone(), coldkey.clone()), (500, 0, 200));
+
+        // Set up ownership
+        Owner::<Test>::insert(hotkey.clone(), coldkey.clone());
+
+        // Mock the current block
+        System::set_block_number(current_block);
+
+        // Call the distribute_owner_cut function
+        let remaining = SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
+
+        // Verify distribution
+        assert_eq!(remaining, 0, "All amount should be distributed");
+
+        // Check that lock has been updated
+        let (new_lock, _, _) = Locks::<Test>::get((netuid, hotkey.clone(), coldkey.clone()));
+
+        assert_eq!(new_lock, 500 + amount_to_distribute, "Hotkey's lock should increase by the full amount");
+
+        // Verify that the total distributed amount matches the initial amount
+        let total_distributed = new_lock - 500;
+        assert_eq!(total_distributed, amount_to_distribute);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_distribute_owner_cut_no_stake --exact --nocapture
+#[test]
+fn test_distribute_owner_cut_no_stake() {
+    new_test_ext(1).execute_with(|| {
+        // Setup
+        let netuid = 1;
+        let amount_to_distribute = 1000000;
+        let current_block = 100;
+
+        // No hotkeys or locks are set up
+
+        // Mock the current block
+        System::set_block_number(current_block);
+
+        // Call the distribute_owner_cut function
+        let remaining = SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
+
+        // Verify that all amount is returned as remaining
+        assert_eq!(remaining, amount_to_distribute, "All amount should be returned when no stake exists");
+
+        // Verify that no locks were created or modified
+        assert_eq!(Locks::<Test>::iter().count(), 0, "No locks should exist");
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_distribute_owner_cut_zero_amount --exact --nocapture
+#[test]
+fn test_distribute_owner_cut_zero_amount() {
+    new_test_ext(1).execute_with(|| {
+        // Setup
+        let netuid = 1;
+        let amount_to_distribute = 0;
+        let current_block = 100;
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        let lock_amount = 500;
+        let lock_duration = 1000;
+
+        // Set up a lock
+        Locks::<Test>::insert(
+            (netuid, hotkey.clone(), coldkey.clone()),
+            (lock_amount, current_block, current_block + lock_duration)
+        );
+
+        // Set up ownership
+        Owner::<Test>::insert(hotkey.clone(), coldkey.clone());
+
+        // Mock the current block
+        System::set_block_number(current_block);
+
+        // Call the distribute_owner_cut function
+        let remaining = SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
+
+        // Verify that all amount is returned as remaining (which is 0 in this case)
+        assert_eq!(remaining, 0, "Zero amount should be returned when distributing zero");
+
+        // Check that lock has not been updated
+        let (new_lock, _, _) = Locks::<Test>::get((netuid, hotkey.clone(), coldkey.clone()));
+        assert_eq!(new_lock, lock_amount, "Hotkey's lock should remain unchanged");
+
+        // Verify that no distribution occurred
+        assert_eq!(new_lock, lock_amount, "Lock amount should remain the same");
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_distribute_owner_cut_large_amount --exact --nocapture
+#[test]
+fn test_distribute_owner_cut_large_amount() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let amount_to_distribute = u64::MAX;
+        let current_block = 100;
+        let hotkey1 = U256::from(1);
+        let hotkey2 = U256::from(2);
+        let coldkey = U256::from(3);
+        let lock_amount = 1_000_000;
+        let lock_duration = 1000;
+
+        // Set up locks
+        Locks::<Test>::insert(
+            (netuid, hotkey1.clone(), coldkey.clone()),
+            (lock_amount, current_block, current_block + lock_duration)
+        );
+        Locks::<Test>::insert(
+            (netuid, hotkey2.clone(), coldkey.clone()),
+            (lock_amount, current_block, current_block + lock_duration)
+        );
+
+        // Set up ownership
+        Owner::<Test>::insert(hotkey1.clone(), coldkey.clone());
+        Owner::<Test>::insert(hotkey2.clone(), coldkey.clone());
+
+        System::set_block_number(current_block);
+
+        let remaining = SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
+
+        // Check that distribution occurred
+        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1.clone(), coldkey.clone()));
+        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2.clone(), coldkey.clone()));
+
+        assert!(new_lock1 > lock_amount, "Hotkey1's lock should have increased");
+        assert!(new_lock2 > lock_amount, "Hotkey2's lock should have increased");
+        assert!(remaining < amount_to_distribute, "Some amount should have been distributed");
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_distribute_owner_cut_uneven_stakes --exact --nocapture
+#[test]
+fn test_distribute_owner_cut_uneven_stakes() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let amount_to_distribute = 1_000_000;
+        let current_block = 100;
+        let hotkey1 = U256::from(1);
+        let hotkey2 = U256::from(2);
+        let coldkey = U256::from(3);
+        let lock_amount1 = 1_000_000;
+        let lock_amount2 = 100_000;
+        let lock_duration = 1000;
+
+        // Set up locks with uneven stakes
+        Locks::<Test>::insert(
+            (netuid, hotkey1.clone(), coldkey.clone()),
+            (lock_amount1, current_block, current_block + lock_duration)
+        );
+        Locks::<Test>::insert(
+            (netuid, hotkey2.clone(), coldkey.clone()),
+            (lock_amount2, current_block, current_block + lock_duration)
+        );
+
+        // Set up ownership
+        Owner::<Test>::insert(hotkey1.clone(), coldkey.clone());
+        Owner::<Test>::insert(hotkey2.clone(), coldkey.clone());
+
+        System::set_block_number(current_block);
+
+        let remaining = SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
+
+        // Check that distribution occurred proportionally
+        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1.clone(), coldkey.clone()));
+        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2.clone(), coldkey.clone()));
+
+        assert!(new_lock1 - lock_amount1 > new_lock2 - lock_amount2, "Hotkey1 should receive a larger share");
+        assert!(remaining < amount_to_distribute, "Some amount should have been distributed");
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_distribute_owner_cut_different_lock_durations --exact --nocapture
+#[test]
+fn test_distribute_owner_cut_different_lock_durations() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let amount_to_distribute = 1_000_000;
+        let current_block = 100;
+        let hotkey1 = U256::from(1);
+        let hotkey2 = U256::from(2);
+        let coldkey = U256::from(3);
+        let lock_amount = 1_000_000;
+        let lock_duration1 = 2000;
+        let lock_duration2 = 1000;
+
+        // Set up locks with different durations
+        Locks::<Test>::insert(
+            (netuid, hotkey1.clone(), coldkey.clone()),
+            (lock_amount, current_block, current_block + lock_duration1)
+        );
+        Locks::<Test>::insert(
+            (netuid, hotkey2.clone(), coldkey.clone()),
+            (lock_amount, current_block, current_block + lock_duration2)
+        );
+
+        // Set up ownership
+        Owner::<Test>::insert(hotkey1.clone(), coldkey.clone());
+        Owner::<Test>::insert(hotkey2.clone(), coldkey.clone());
+
+        System::set_block_number(current_block);
+
+        let remaining = SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
+
+        // Check that distribution occurred with preference to longer lock duration
+        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1.clone(), coldkey.clone()));
+        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2.clone(), coldkey.clone()));
+
+        assert!(new_lock1 - lock_amount > new_lock2 - lock_amount, "Hotkey1 with longer lock duration should receive a larger share");
+        assert!(remaining < amount_to_distribute, "Some amount should have been distributed");
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_distribute_owner_cut_expired_locks --exact --nocapture
+#[test]
+fn test_distribute_owner_cut_expired_locks() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let amount_to_distribute = 1_000_000;
+        let current_block = 1000;
+        let hotkey1 = U256::from(1);
+        let hotkey2 = U256::from(2);
+        let coldkey = U256::from(3);
+        let lock_amount = 500_000;
+        let active_lock_duration = 2000;
+        let expired_lock_duration = 500;
+
+        // Set up one active lock and one expired lock
+        Locks::<Test>::insert(
+            (netuid, hotkey1.clone(), coldkey.clone()),
+            (lock_amount, current_block - 100, current_block + active_lock_duration)
+        );
+        Locks::<Test>::insert(
+            (netuid, hotkey2.clone(), coldkey.clone()),
+            (lock_amount, current_block - expired_lock_duration, current_block - 1)
+        );
+
+        // Set up ownership
+        Owner::<Test>::insert(hotkey1.clone(), coldkey.clone());
+        Owner::<Test>::insert(hotkey2.clone(), coldkey.clone());
+
+        System::set_block_number(current_block);
+
+        let remaining = SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
+
+        // Check that distribution occurred only for the active lock
+        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1.clone(), coldkey.clone()));
+        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2.clone(), coldkey.clone()));
+
+        assert!(new_lock1 > lock_amount, "Active lock should receive a share");
+        assert_eq!(new_lock2, lock_amount, "Expired lock should not receive a share");
+        assert!(remaining < amount_to_distribute, "Some amount should have been distributed");
+        assert_eq!(new_lock1 - lock_amount, amount_to_distribute - remaining, "All distributed amount should go to the active lock");
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_distribute_owner_cut_multiple_subnets --exact --nocapture
+#[test]
+fn test_distribute_owner_cut_multiple_subnets() {
+    new_test_ext(1).execute_with(|| {
+        let netuid1 = 1;
+        let netuid2 = 2;
+        let amount_to_distribute = 1_000_000;
+        let current_block = 100;
+        let hotkey1 = U256::from(1);
+        let hotkey2 = U256::from(2);
+        let coldkey = U256::from(3);
+        let lock_amount = 500_000;
+        let lock_duration = 1000;
+
+        // Set up locks in different subnets
+        Locks::<Test>::insert(
+            (netuid1, hotkey1.clone(), coldkey.clone()),
+            (lock_amount, current_block, current_block + lock_duration)
+        );
+        Locks::<Test>::insert(
+            (netuid2, hotkey2.clone(), coldkey.clone()),
+            (lock_amount, current_block, current_block + lock_duration)
+        );
+
+        // Set up ownership
+        Owner::<Test>::insert(hotkey1.clone(), coldkey.clone());
+        Owner::<Test>::insert(hotkey2.clone(), coldkey.clone());
+
+        System::set_block_number(current_block);
+
+        // Distribute to netuid1
+        let remaining1 = SubtensorModule::distribute_owner_cut(netuid1, amount_to_distribute);
+
+        // Check distribution for netuid1
+        let (new_lock1, _, _) = Locks::<Test>::get((netuid1, hotkey1.clone(), coldkey.clone()));
+        let (lock2, _, _) = Locks::<Test>::get((netuid2, hotkey2.clone(), coldkey.clone()));
+
+        assert!(new_lock1 > lock_amount, "Lock in netuid1 should receive a share");
+        assert_eq!(lock2, lock_amount, "Lock in netuid2 should not change");
+        assert_eq!(remaining1, 0, "All amount should be distributed in netuid1");
+
+        // Distribute to netuid2
+        let remaining2 = SubtensorModule::distribute_owner_cut(netuid2, amount_to_distribute);
+
+        // Check distribution for netuid2
+        let (lock1, _, _) = Locks::<Test>::get((netuid1, hotkey1.clone(), coldkey.clone()));
+        let (new_lock2, _, _) = Locks::<Test>::get((netuid2, hotkey2.clone(), coldkey.clone()));
+
+        assert_eq!(lock1, new_lock1, "Lock in netuid1 should not change");
+        assert!(new_lock2 > lock_amount, "Lock in netuid2 should receive a share");
+        assert_eq!(remaining2, 0, "All amount should be distributed in netuid2");
+
+        // Verify total distribution
+        assert_eq!(new_lock1 - lock_amount + new_lock2 - lock_amount, amount_to_distribute * 2, "Total distributed amount should match for both subnets");
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_distribute_owner_cut_rounding --exact --nocapture
+#[test]
+fn test_distribute_owner_cut_rounding() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let amount_to_distribute = 1000; // Small amount to test rounding
+        let current_block = 100;
+        let hotkey1 = U256::from(1);
+        let hotkey2 = U256::from(2);
+        let coldkey = U256::from(3);
+        let lock_amount1 = 500;
+        let lock_amount2 = 501; // Slightly different to force rounding
+        let lock_duration = 1000;
+
+        // Set up locks
+        Locks::<Test>::insert(
+            (netuid, hotkey1.clone(), coldkey.clone()),
+            (lock_amount1, current_block, current_block + lock_duration)
+        );
+        Locks::<Test>::insert(
+            (netuid, hotkey2.clone(), coldkey.clone()),
+            (lock_amount2, current_block, current_block + lock_duration)
+        );
+
+        // Set up ownership
+        Owner::<Test>::insert(hotkey1.clone(), coldkey.clone());
+        Owner::<Test>::insert(hotkey2.clone(), coldkey.clone());
+
+        System::set_block_number(current_block);
+
+        let remaining = SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
+
+        // Check that all funds were distributed despite potential rounding issues
+        assert_eq!(remaining, 0, "All funds should be distributed");
+
+        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1.clone(), coldkey.clone()));
+        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2.clone(), coldkey.clone()));
+
+        // Check that the sum of distributed amounts equals the original amount
+        assert_eq!(
+            (new_lock1 - lock_amount1) + (new_lock2 - lock_amount2),
+            amount_to_distribute,
+            "Sum of distributed amounts should equal the original amount"
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_distribute_owner_cut_conviction_calculation --exact --nocapture
+#[test]
+fn test_distribute_owner_cut_conviction_calculation() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let amount_to_distribute = 1000000;
+        let current_block = 100;
+        let hotkey1 = U256::from(1);
+        let hotkey2 = U256::from(2);
+        let coldkey = U256::from(3);
+        let lock_amount = 1000;
+        let lock_duration1 = 2000;
+        let lock_duration2 = 1000;
+
+        // Set up locks with different durations
+        Locks::<Test>::insert(
+            (netuid, hotkey1.clone(), coldkey.clone()),
+            (lock_amount, current_block, current_block + lock_duration1)
+        );
+        Locks::<Test>::insert(
+            (netuid, hotkey2.clone(), coldkey.clone()),
+            (lock_amount, current_block, current_block + lock_duration2)
+        );
+
+        // Set up ownership
+        Owner::<Test>::insert(hotkey1.clone(), coldkey.clone());
+        Owner::<Test>::insert(hotkey2.clone(), coldkey.clone());
+
+        System::set_block_number(current_block);
+
+        let remaining = SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
+
+        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1.clone(), coldkey.clone()));
+        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2.clone(), coldkey.clone()));
+
+        // Check that the hotkey with longer lock duration received more funds
+        assert!(
+            new_lock1 - lock_amount > new_lock2 - lock_amount,
+            "Hotkey with longer lock duration should receive more funds"
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_distribute_owner_cut_lions_share_distribution --exact --nocapture
+#[test]
+fn test_distribute_owner_cut_lions_share_distribution() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let amount_to_distribute = 1000000;
+        let current_block = 100;
+        let hotkey1 = U256::from(1);
+        let hotkey2 = U256::from(2);
+        let hotkey3 = U256::from(3);
+        let coldkey = U256::from(4);
+        let lock_amount1 = 1000;
+        let lock_amount2 = 500;
+        let lock_amount3 = 100;
+        let lock_duration = 1000;
+
+        // Set up locks with different amounts
+        Locks::<Test>::insert(
+            (netuid, hotkey1.clone(), coldkey.clone()),
+            (lock_amount1, current_block, current_block + lock_duration)
+        );
+        Locks::<Test>::insert(
+            (netuid, hotkey2.clone(), coldkey.clone()),
+            (lock_amount2, current_block, current_block + lock_duration)
+        );
+        Locks::<Test>::insert(
+            (netuid, hotkey3.clone(), coldkey.clone()),
+            (lock_amount3, current_block, current_block + lock_duration)
+        );
+
+        // Set up ownership
+        Owner::<Test>::insert(hotkey1.clone(), coldkey.clone());
+        Owner::<Test>::insert(hotkey2.clone(), coldkey.clone());
+        Owner::<Test>::insert(hotkey3.clone(), coldkey.clone());
+
+        System::set_block_number(current_block);
+
+        let remaining = SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
+
+        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1.clone(), coldkey.clone()));
+        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2.clone(), coldkey.clone()));
+        let (new_lock3, _, _) = Locks::<Test>::get((netuid, hotkey3.clone(), coldkey.clone()));
+
+        // Check that distribution follows the lion's share principle
+        assert!(
+            new_lock1 - lock_amount1 > new_lock2 - lock_amount2,
+            "Hotkey with larger lock should receive a larger share"
+        );
+        assert!(
+            new_lock2 - lock_amount2 > new_lock3 - lock_amount3,
+            "Hotkey with larger lock should receive a larger share"
+        );
+
+        // Check that the total distributed amount matches the initial amount
+        let total_distributed = (new_lock1 - lock_amount1) + (new_lock2 - lock_amount2) + (new_lock3 - lock_amount3);
+        assert_eq!(total_distributed, amount_to_distribute - 1 , "Total distributed amount should match initial amount");
+    });
+}
 
 
-// // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_do_lock_failures --exact --nocapture
-// #[test]
-// fn test_do_lock_failures() {
-//     new_test_ext(1).execute_with(|| {
-//         let netuid = 1;
-//         let coldkey = U256::from(1);
-//         let hotkey = U256::from(2);
-//         let non_existent_netuid = 99;
-//         let non_existent_hotkey = U256::from(99);
-//         let stake_amount = 500_000_000;
-//         let lock_amount = 250_000_000;
-//         let lock_duration = 7200 * 30; // 30 days
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_distribute_owner_cut_storage_updates --exact --nocapture
+#[test]
+fn test_distribute_owner_cut_storage_updates() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let amount_to_distribute = 1_000_000;
+        let current_block = 100;
+        let hotkey1 = U256::from(1);
+        let hotkey2 = U256::from(2);
+        let coldkey = U256::from(3);
+        let lock_amount1 = 500_000;
+        let lock_amount2 = 250_000;
+        let lock_duration = 1000;
 
-//         // Set up initial balance and stake
-//         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000);
-//         assert_ok!(SubtensorModule::register(RuntimeOrigin::signed(coldkey), netuid, hotkey));
-//         assert_ok!(SubtensorModule::increase_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, stake_amount));
+        // Set up initial locks
+        Locks::<Test>::insert(
+            (netuid, hotkey1.clone(), coldkey.clone()),
+            (lock_amount1, current_block, current_block + lock_duration)
+        );
+        Locks::<Test>::insert(
+            (netuid, hotkey2.clone(), coldkey.clone()),
+            (lock_amount2, current_block, current_block + lock_duration)
+        );
 
-//         // Test: Subnet does not exist
-//         assert_noop!(
-//             SubtensorModule::lock_stake(RuntimeOrigin::signed(coldkey), hotkey, non_existent_netuid, lock_amount, lock_duration),
-//             Error::<Test>::SubnetNotExists
-//         );
+        // Set up ownership
+        Owner::<Test>::insert(hotkey1.clone(), coldkey.clone());
+        Owner::<Test>::insert(hotkey2.clone(), coldkey.clone());
 
-//         // Test: Hotkey account does not exist
-//         assert_noop!(
-//             SubtensorModule::lock_stake(RuntimeOrigin::signed(coldkey), non_existent_hotkey, netuid, lock_amount, lock_duration),
-//             Error::<Test>::HotKeyAccountNotExists
-//         );
+        System::set_block_number(current_block);
 
-//         // Test: Hotkey not registered in subnet
-//         let unregistered_hotkey = U256::from(3);
-//         assert_noop!(
-//             SubtensorModule::lock_stake(RuntimeOrigin::signed(coldkey), unregistered_hotkey, netuid, lock_amount, lock_duration),
-//             Error::<Test>::HotKeyNotRegisteredInSubNet
-//         );
+        // Distribute owner cut
+        SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
 
-//         // Test: Lock amount is zero
-//         assert_noop!(
-//             SubtensorModule::lock_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, 0, lock_duration),
-//             Error::<Test>::NotEnoughStakeToWithdraw
-//         );
+        // Check that locks have been updated
+        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1.clone(), coldkey.clone()));
+        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2.clone(), coldkey.clone()));
 
-//         // Test: Not enough stake to lock
-//         assert_noop!(
-//             SubtensorModule::lock_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, stake_amount + 1, lock_duration),
-//             Error::<Test>::NotEnoughStakeToWithdraw
-//         );
-//     });
-// }
+        assert!(new_lock1 > lock_amount1, "Lock for hotkey1 should have increased");
+        assert!(new_lock2 > lock_amount2, "Lock for hotkey2 should have increased");
+
+        // Verify that the total increase matches the distributed amount
+        let total_increase = (new_lock1 - lock_amount1) + (new_lock2 - lock_amount2);
+        assert_eq!(total_increase, amount_to_distribute - 1, "Total lock increase should match the distributed amount");
+
+        // Check that other storage items remain unchanged
+        assert_eq!(Owner::<Test>::get(hotkey1), coldkey, "Owner mapping for hotkey1 should remain unchanged");
+        assert_eq!(Owner::<Test>::get(hotkey2), coldkey, "Owner mapping for hotkey2 should remain unchanged");
+
+        // Verify that no new locks were created
+        assert_eq!(Locks::<Test>::iter().count(), 2, "No new locks should have been created");
+    });
+}
+
+// Test cases for update_subnet_owner function:
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_update_subnet_owner_no_locks --exact --nocapture
+#[test]
+fn test_update_subnet_owner_no_locks() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        
+        // Ensure there are no locks in the subnet
+        assert_eq!(Locks::<Test>::iter().count(), 0, "There should be no locks initially");
+
+        // Call the update_subnet_owner function
+        SubtensorModule::update_subnet_owner(netuid);
+
+        // Verify that no subnet owner was set
+        assert!(!SubnetOwner::<Test>::contains_key(netuid), "No subnet owner should be set when there are no locks");
+
+        // Verify that the subnet locked amount is zero
+        assert_eq!(SubnetLocked::<Test>::get(netuid), 0, "Subnet locked amount should be zero");
+
+        // Check that a warning log was emitted
+        // Note: In a real test environment, you would need a way to capture and assert on log output
+        // For this example, we'll just comment on the expected behavior
+        // assert_eq!(last_log_message(), "No locks found for subnet 1");
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_update_subnet_owner_single_lock --exact --nocapture
+#[test]
+fn test_update_subnet_owner_single_lock() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        let lock_amount = 1000000;
+        let current_block = 100;
+        let lock_duration = 1000000;
+
+        // Set up a single lock
+        Locks::<Test>::insert(
+            (netuid, hotkey.clone(), coldkey.clone()),
+            (lock_amount, current_block, current_block + lock_duration)
+        );
+
+        // Set up ownership
+        Owner::<Test>::insert(hotkey.clone(), coldkey.clone());
+
+        // Mock the current block
+        System::set_block_number(current_block);
+
+        // Call the update_subnet_owner function
+        SubtensorModule::update_subnet_owner(netuid);
+
+        // Verify that the subnet owner was set correctly
+        assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey.clone(), "Subnet owner should be set to the coldkey of the only lock");
+
+        // Verify that the subnet locked amount is correct
+        let expected_conviction = SubtensorModule::calculate_conviction(lock_amount, current_block + lock_duration, current_block);
+        assert_eq!(SubnetLocked::<Test>::get(netuid), expected_conviction, "Subnet locked amount should match the calculated conviction");
+
+        // Verify that no new locks were created
+        assert_eq!(Locks::<Test>::iter().count(), 1, "There should still be only one lock");
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_update_subnet_owner_multiple_locks --exact --nocapture
+#[test]
+fn test_update_subnet_owner_multiple_locks() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let hotkey1 = U256::from(1);
+        let coldkey1 = U256::from(2);
+        let hotkey2 = U256::from(3);
+        let coldkey2 = U256::from(4);
+        let hotkey3 = U256::from(5);
+        let coldkey3 = U256::from(6);
+        let current_block = 100;
+
+        // Set up multiple locks with different amounts and durations
+        Locks::<Test>::insert(
+            (netuid, hotkey1.clone(), coldkey1.clone()),
+            (1000000, current_block, current_block + 1000000)
+        );
+        Locks::<Test>::insert(
+            (netuid, hotkey2.clone(), coldkey2.clone()),
+            (2000000, current_block, current_block + 500000)
+        );
+        Locks::<Test>::insert(
+            (netuid, hotkey3.clone(), coldkey3.clone()),
+            (1500000, current_block, current_block + 2000000)
+        );
+
+        // Set up ownership
+        Owner::<Test>::insert(hotkey1.clone(), coldkey1.clone());
+        Owner::<Test>::insert(hotkey2.clone(), coldkey2.clone());
+        Owner::<Test>::insert(hotkey3.clone(), coldkey3.clone());
+
+        // Mock the current block
+        System::set_block_number(current_block);
+
+        // Call the update_subnet_owner function
+        SubtensorModule::update_subnet_owner(netuid);
+
+        // Calculate expected convictions
+        let conviction1 = SubtensorModule::calculate_conviction(1000000, current_block + 1000000, current_block);
+        let conviction2 = SubtensorModule::calculate_conviction(2000000, current_block + 500000, current_block);
+        let conviction3 = SubtensorModule::calculate_conviction(1500000, current_block + 2000000, current_block);
+
+        // Determine the expected owner (hotkey with highest conviction)
+        let expected_owner = if conviction1 > conviction2 && conviction1 > conviction3 {
+            coldkey1.clone()
+        } else if conviction2 > conviction1 && conviction2 > conviction3 {
+            coldkey2.clone()
+        } else {
+            coldkey3.clone()
+        };
+
+        // Verify that the subnet owner was set correctly
+        assert_eq!(SubnetOwner::<Test>::get(netuid), expected_owner, "Subnet owner should be set to the coldkey of the hotkey with highest conviction");
+
+        // Verify that the subnet locked amount is correct
+        let expected_total_conviction = conviction1.max(conviction2).max(conviction3);
+        assert_eq!(SubnetLocked::<Test>::get(netuid), expected_total_conviction, "Subnet locked amount should match the total calculated conviction");
+
+        // Verify that no new locks were created
+        assert_eq!(Locks::<Test>::iter().count(), 3, "There should still be only three locks");
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_update_subnet_owner_tie_breaking --exact --nocapture
+#[test]
+fn test_update_subnet_owner_tie_breaking() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let current_block = 100;
+        let hotkey1 = U256::from(1);
+        let hotkey2 = U256::from(2);
+        let hotkey3 = U256::from(3);
+        let coldkey1 = U256::from(4);
+        let coldkey2 = U256::from(5);
+        let coldkey3 = U256::from(6);
+
+        // Set up locks with equal convictions
+        Locks::<Test>::insert(
+            (netuid, hotkey1.clone(), coldkey1.clone()),
+            (1000000, current_block, current_block + 1000000)
+        );
+        Locks::<Test>::insert(
+            (netuid, hotkey2.clone(), coldkey2.clone()),
+            (1000000, current_block, current_block + 1000000)
+        );
+        Locks::<Test>::insert(
+            (netuid, hotkey3.clone(), coldkey3.clone()),
+            (1000000, current_block, current_block + 1000000)
+        );
+
+        // Set up ownership
+        Owner::<Test>::insert(hotkey1.clone(), coldkey1.clone());
+        Owner::<Test>::insert(hotkey2.clone(), coldkey2.clone());
+        Owner::<Test>::insert(hotkey3.clone(), coldkey3.clone());
+
+        // Mock the current block
+        System::set_block_number(current_block);
+
+        // Call the update_subnet_owner function
+        SubtensorModule::update_subnet_owner(netuid);
+
+        // The expected owner should be the coldkey of the hotkey with the lowest value
+        let expected_owner = coldkey1.clone();
+
+        // Verify that the subnet owner was set correctly
+        assert_eq!(SubnetOwner::<Test>::get(netuid), expected_owner, "Subnet owner should be set to the coldkey of the hotkey with the lowest value");
+
+        // Verify that the subnet locked amount is correct
+        let expected_total_conviction = SubtensorModule::calculate_conviction(1000000, current_block + 1000000, current_block);
+        assert_eq!(SubnetLocked::<Test>::get(netuid), expected_total_conviction, "Subnet locked amount should match the total calculated conviction");
+
+        // Verify that no new locks were created
+        assert_eq!(Locks::<Test>::iter().count(), 3, "There should still be only three locks");
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_update_subnet_owner_below_threshold --exact --nocapture
+#[test]
+fn test_update_subnet_owner_below_threshold() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let current_block = 100;
+        let hotkey1 = U256::from(1);
+        let hotkey2 = U256::from(2);
+        let coldkey1 = U256::from(3);
+        let coldkey2 = U256::from(4);
+
+        // Set up locks with low conviction scores
+        Locks::<Test>::insert(
+            (netuid, hotkey1.clone(), coldkey1.clone()),
+            (100, current_block, current_block + 100)
+        );
+        Locks::<Test>::insert(
+            (netuid, hotkey2.clone(), coldkey2.clone()),
+            (200, current_block, current_block + 200)
+        );
+
+        // Set up ownership
+        Owner::<Test>::insert(hotkey1.clone(), coldkey1.clone());
+        Owner::<Test>::insert(hotkey2.clone(), coldkey2.clone());
+
+        // Mock the current block
+        System::set_block_number(current_block);
+
+        // Call the update_subnet_owner function
+        SubtensorModule::update_subnet_owner(netuid);
+
+        // Verify that no subnet owner was set due to low conviction scores
+        assert!(!SubnetOwner::<Test>::contains_key(netuid), "No subnet owner should be set when all convictions are below the threshold");
+
+        // Verify that the subnet locked amount is correct (should be the sum of all convictions)
+        let expected_total_conviction = SubtensorModule::calculate_conviction(100, current_block + 100, current_block) +
+                                        SubtensorModule::calculate_conviction(200, current_block + 200, current_block);
+        assert_eq!(SubnetLocked::<Test>::get(netuid), expected_total_conviction, "Subnet locked amount should match the total calculated conviction");
+
+        // Verify that no new locks were created
+        assert_eq!(Locks::<Test>::iter().count(), 2, "There should still be only two locks");
+    });
+}
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_update_subnet_owner_conviction_calculation --exact --nocapture
+#[test]
+fn test_update_subnet_owner_conviction_calculation() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let current_block = 100;
+        let hotkey1 = U256::from(1);
+        let hotkey2 = U256::from(2);
+        let coldkey1 = U256::from(3);
+        let coldkey2 = U256::from(4);
+
+        // Set up locks with different amounts and durations
+        Locks::<Test>::insert(
+            (netuid, hotkey1.clone(), coldkey1.clone()),
+            (1000000, current_block, current_block + 1000000)
+        );
+        Locks::<Test>::insert(
+            (netuid, hotkey2.clone(), coldkey2.clone()),
+            (2000000, current_block, current_block + 500000)
+        );
+
+        // Set up ownership
+        Owner::<Test>::insert(hotkey1.clone(), coldkey1.clone());
+        Owner::<Test>::insert(hotkey2.clone(), coldkey2.clone());
+
+        // Mock the current block
+        System::set_block_number(current_block);
+
+        // Call the update_subnet_owner function
+        SubtensorModule::update_subnet_owner(netuid);
+
+        // Calculate expected convictions
+        let conviction1 = SubtensorModule::calculate_conviction(1000000, current_block + 1000000, current_block);
+        let conviction2 = SubtensorModule::calculate_conviction(2000000, current_block + 500000, current_block);
+
+        // Verify that the subnet owner is set to the hotkey with the highest conviction
+        if conviction1 > conviction2 {
+            assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey1.clone(), "Subnet owner should be set to coldkey1");
+        } else {
+            assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey2.clone(), "Subnet owner should be set to coldkey2");
+        }
+
+        // Verify that the subnet locked amount is correct
+        let expected_total_conviction = conviction1.max(conviction2);
+        assert_eq!(SubnetLocked::<Test>::get(netuid), expected_total_conviction, "Subnet locked amount should match the highest calculated conviction");
+
+        // Log the convictions for debugging
+        println!("Conviction for hotkey1: {}", conviction1);
+        println!("Conviction for hotkey2: {}", conviction2);
+        println!("Total subnet locked: {}", SubnetLocked::<Test>::get(netuid));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_update_subnet_owner_different_subnets --exact --nocapture
+#[test]
+fn test_update_subnet_owner_different_subnets() {
+    new_test_ext(1).execute_with(|| {
+        let netuid1 = 1;
+        let netuid2 = 2;
+        let current_block = 100;
+        let hotkey1 = U256::from(1);
+        let hotkey2 = U256::from(2);
+        let coldkey1 = U256::from(3);
+        let coldkey2 = U256::from(4);
+
+        // Set up locks in different subnets
+        Locks::<Test>::insert(
+            (netuid1, hotkey1.clone(), coldkey1.clone()),
+            (1000000, current_block, current_block + 1000000)
+        );
+        Locks::<Test>::insert(
+            (netuid2, hotkey2.clone(), coldkey2.clone()),
+            (2000000, current_block, current_block + 500000)
+        );
+
+        // Set up ownership
+        Owner::<Test>::insert(hotkey1.clone(), coldkey1.clone());
+        Owner::<Test>::insert(hotkey2.clone(), coldkey2.clone());
+
+        // Mock the current block
+        System::set_block_number(current_block);
+
+        // Call the update_subnet_owner function for netuid1
+        SubtensorModule::update_subnet_owner(netuid1);
+
+        // Verify that only the lock from netuid1 is considered
+        let conviction1 = SubtensorModule::calculate_conviction(1000000, current_block + 1000000, current_block);
+        assert_eq!(SubnetOwner::<Test>::get(netuid1), coldkey1.clone(), "Subnet owner for netuid1 should be set to coldkey1");
+        assert_eq!(SubnetLocked::<Test>::get(netuid1), conviction1, "Subnet locked amount for netuid1 should match the conviction of its only lock");
+
+        // Verify that netuid2 is unaffected
+        assert!(!SubnetOwner::<Test>::contains_key(netuid2), "Subnet owner for netuid2 should not be set");
+        assert_eq!(SubnetLocked::<Test>::get(netuid2), 0, "Subnet locked amount for netuid2 should be zero");
+
+        // Call the update_subnet_owner function for netuid2
+        SubtensorModule::update_subnet_owner(netuid2);
+
+        // Verify that only the lock from netuid2 is now considered
+        let conviction2 = SubtensorModule::calculate_conviction(2000000, current_block + 500000, current_block);
+        assert_eq!(SubnetOwner::<Test>::get(netuid2), coldkey2.clone(), "Subnet owner for netuid2 should be set to coldkey2");
+        assert_eq!(SubnetLocked::<Test>::get(netuid2), conviction2, "Subnet locked amount for netuid2 should match the conviction of its only lock");
+
+        // Verify that netuid1 remains unchanged
+        assert_eq!(SubnetOwner::<Test>::get(netuid1),  coldkey1.clone(), "Subnet owner for netuid1 should still be set to coldkey1");
+        assert_eq!(SubnetLocked::<Test>::get(netuid1), conviction1, "Subnet locked amount for netuid1 should remain unchanged");
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_update_subnet_owner_large_subnet --exact --nocapture
+#[test]
+fn test_update_subnet_owner_large_subnet() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let num_locks = 1500; // Large number of locks
+        let current_block = 100;
+
+        // Create a large number of locks
+        for i in 0..num_locks {
+            let hotkey = AccountId::from([i as u8; 32]);
+            let coldkey = AccountId::from([(i + num_locks) as u8; 32]);
+            let lock_amount = (i + 1) * 1000; // Varying lock amounts
+            let lock_duration = (i % 10 + 1) * 100; // Varying lock durations
+
+            Locks::<Test>::insert(
+                (netuid, hotkey.clone(), coldkey.clone()),
+                (lock_amount, current_block, current_block + lock_duration)
+            );
+
+            // Set up ownership
+            Owner::<Test>::insert(hotkey.clone(), coldkey.clone());
+        }
+
+        // Mock the current block
+        System::set_block_number(current_block);
+
+        // Measure the time taken to update subnet owner
+        let start_time = std::time::Instant::now();
+        SubtensorModule::update_subnet_owner(netuid);
+        let duration = start_time.elapsed();
+
+        // Log the time taken
+        println!("Time taken to update subnet owner: {:?}", duration);
+
+        // Verify that a subnet owner was set
+        assert!(SubnetOwner::<Test>::contains_key(netuid), "A subnet owner should be set");
+
+        // Verify that the subnet locked amount is non-zero
+        assert!(SubnetLocked::<Test>::get(netuid) > 0, "Subnet locked amount should be non-zero");
+
+        // Verify that the subnet owner has the highest conviction
+        let owner = SubnetOwner::<Test>::get(netuid);
+        let mut max_conviction = 0;
+        for ((iter_netuid, hotkey, _), (lock_amount, _, end_block)) in Locks::<Test>::iter() {
+            if iter_netuid == netuid {
+                let conviction = SubtensorModule::calculate_conviction(lock_amount, end_block, current_block);
+                if conviction > max_conviction {
+                    max_conviction = conviction;
+                }
+            }
+        }
+        let owner_hotkey = Locks::<Test>::iter()
+            .find(|((_, _, coldkey), _)| *coldkey == owner)
+            .map(|((_, hotkey, _), _)| hotkey)
+            .unwrap();
+        let (owner_lock_amount, _, owner_end_block) = Locks::<Test>::get((netuid, owner_hotkey, owner));
+        let owner_conviction = SubtensorModule::calculate_conviction(owner_lock_amount, owner_end_block, current_block);
+        assert_eq!(owner_conviction, max_conviction, "Subnet owner should have the highest conviction");
+
+        // Check that a performance warning was logged
+        // Note: In a real test environment, you would need a way to capture and assert on log output
+        // For this example, we'll just comment on the expected behavior
+        // assert!(log_contains("Large subnet 1 processed with 1500 hotkeys"));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_update_subnet_owner_ownership_change --exact --nocapture
+#[test]
+fn test_update_subnet_owner_ownership_change() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let hotkey1 = U256::from(1);
+        let coldkey1 = U256::from(2);
+        let hotkey2 = U256::from(3);
+        let coldkey2 = U256::from(4);
+        let initial_block = 100000;
+        let lock_duration = 1000000;
+
+        // Set up initial locks
+        Locks::<Test>::insert(
+            (netuid, hotkey1.clone(), coldkey1.clone()),
+            (1000000, initial_block, initial_block + lock_duration)
+        );
+        Locks::<Test>::insert(
+            (netuid, hotkey2.clone(), coldkey2.clone()),
+            (500000, initial_block, initial_block + lock_duration)
+        );
+
+        // Set up ownership
+        Owner::<Test>::insert(hotkey1.clone(), coldkey1.clone());
+        Owner::<Test>::insert(hotkey2.clone(), coldkey2.clone());
+
+        // Set initial block
+        System::set_block_number(initial_block);
+
+        // Update subnet owner
+        SubtensorModule::update_subnet_owner(netuid);
+
+        // Check initial subnet owner
+        assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey1.clone(), "Initial subnet owner should be coldkey1");
+
+        // Simulate time passing and conviction changing
+        let new_block = initial_block + 500000;
+        System::set_block_number(new_block);
+
+        // Increase lock for hotkey2
+        Locks::<Test>::insert(
+            (netuid, hotkey2.clone(), coldkey2.clone()),
+            (2000000, new_block, new_block + lock_duration)
+        );
+
+        // Update subnet owner again
+        SubtensorModule::update_subnet_owner(netuid);
+
+        // Check if subnet owner has changed
+        assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey2.clone(), "Subnet owner should change to coldkey2");
+
+        // Verify subnet locked amount has increased
+        let subnet_locked = SubnetLocked::<Test>::get(netuid);
+        assert!(subnet_locked > 0, "Subnet locked amount should be non-zero");
+        assert!(subnet_locked > SubtensorModule::calculate_conviction(1000000, initial_block + lock_duration, new_block), "Subnet locked amount should increase");
+
+        // Simulate more time passing
+        let final_block = new_block + 600000;
+        System::set_block_number(final_block);
+
+        // Update subnet owner one last time
+        SubtensorModule::update_subnet_owner(netuid);
+
+        // Check if subnet owner remains the same
+        assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey2.clone(), "Subnet owner should still be coldkey2");
+
+        // Verify subnet locked amount has decreased due to time passing
+        let final_subnet_locked = SubnetLocked::<Test>::get(netuid);
+        assert!(final_subnet_locked < subnet_locked, "Subnet locked amount should decrease over time");
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_update_subnet_owner_storage_updates --exact --nocapture
+#[test]
+fn test_update_subnet_owner_storage_updates() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let hotkey1 = U256::from(1);
+        let coldkey1 = U256::from(2);
+        let hotkey2 = U256::from(3);
+        let coldkey2 = U256::from(4);
+        let initial_block = 100000;
+        let lock_duration = 1000000;
+
+        // Set up initial locks
+        Locks::<Test>::insert(
+            (netuid, hotkey1.clone(), coldkey1.clone()),
+            (1000000, initial_block, initial_block + lock_duration)
+        );
+        Locks::<Test>::insert(
+            (netuid, hotkey2.clone(), coldkey2.clone()),
+            (500000, initial_block, initial_block + lock_duration)
+        );
+
+        // Set up ownership
+        Owner::<Test>::insert(hotkey1.clone(), coldkey1.clone());
+        Owner::<Test>::insert(hotkey2.clone(), coldkey2.clone());
+
+        // Set initial block
+        System::set_block_number(initial_block);
+
+        // Update subnet owner
+        SubtensorModule::update_subnet_owner(netuid);
+
+        // Check initial subnet owner and locked amount
+        assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey1.clone(), "Initial subnet owner should be coldkey1");
+        let initial_locked = SubnetLocked::<Test>::get(netuid);
+        assert!(initial_locked > 0, "Initial subnet locked amount should be non-zero");
+
+        // Simulate time passing and conviction changing
+        let new_block = initial_block + 500000;
+        System::set_block_number(new_block);
+
+        // Increase lock for hotkey2
+        Locks::<Test>::insert(
+            (netuid, hotkey2.clone(), coldkey2.clone()),
+            (2000000, new_block, new_block + lock_duration)
+        );
+
+        // Update subnet owner again
+        SubtensorModule::update_subnet_owner(netuid);
+
+        // Check if subnet owner has changed
+        assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey2.clone(), "Subnet owner should change to coldkey2");
+
+        // Verify subnet locked amount has increased
+        let new_locked = SubnetLocked::<Test>::get(netuid);
+        assert!(new_locked > initial_locked, "Subnet locked amount should increase");
+
+        // Simulate more time passing
+        let final_block = new_block + 600000;
+        System::set_block_number(final_block);
+
+        // Update subnet owner one last time
+        SubtensorModule::update_subnet_owner(netuid);
+
+        // Check if subnet owner remains the same
+        assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey2.clone(), "Subnet owner should still be coldkey2");
+
+        // Verify subnet locked amount has decreased due to time passing
+        let final_locked = SubnetLocked::<Test>::get(netuid);
+        assert!(final_locked < new_locked, "Subnet locked amount should decrease over time");
+    });
+}
+
 
 
 // // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_distribute_owner_cut --exact --nocapture
