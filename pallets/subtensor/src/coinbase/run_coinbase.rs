@@ -218,19 +218,30 @@ impl<T: Config> Pallet<T> {
         Self::accumulate_nominator_emission(&mut nominator_emission);
     }
 
-    /// Accumulates the mining and validator emissions on a hotkey and distributes the validator emission among its parents.
+    /// Accumulates and distributes mining and validator emissions for a hotkey.
     ///
-    /// This function is responsible for accumulating the mining and validator emissions associated with a hotkey onto a hotkey.
-    /// It first calculates the total stake of the hotkey, considering the stakes contributed by its parents and reduced by its children.
-    /// It then retrieves the list of parents of the hotkey and distributes the validator emission proportionally based on the stake contributed by each parent.
-    /// The remaining validator emission, after distribution to the parents, along with the mining emission, is then added to the hotkey's own accumulated emission.
+    /// This function performs the following key operations:
+    /// 1. Calculates the hotkey's share of the validator emission based on its delegation status.
+    /// 2. Computes the remaining validator emission to be distributed among parents.
+    /// 3. Retrieves the list of parents and their stake contributions.
+    /// 4. Calculates the total global and alpha (subnet-specific) stakes from parents.
+    /// 5. Distributes the remaining validator emission to parents based on their contributions.
+    /// 6. Allocates any undistributed validator emission, the hotkey's take, and the mining emission to the hotkey itself.
     ///
     /// # Arguments
     /// * `hotkey` - The account ID of the hotkey for which emissions are being calculated.
-    /// * `netuid` - The unique identifier of the network to which the hotkey belongs.
+    /// * `netuid` - The unique identifier of the subnet to which the hotkey belongs.
+    /// * `validating_emission` - The amount of validator emission allocated to the hotkey.
     /// * `mining_emission` - The amount of mining emission allocated to the hotkey.
-    /// * `validator_emission` - The amount of validator emission allocated to the hotkey.
+    /// * `hotkey_emission_tuples` - A mutable reference to a vector that will be populated with emission distribution data.
     ///
+    /// # Effects
+    /// - Modifies `hotkey_emission_tuples` by adding entries for each parent receiving emission and the hotkey itself.
+    /// - Does not directly modify any storage; all changes are recorded in `hotkey_emission_tuples` for later processing.
+    ///
+    /// # Note
+    /// This function ensures fair distribution of emissions based on stake proportions and delegation agreements.
+    /// It handles edge cases such as zero contributions and potential overflows using saturating arithmetic.
     pub fn source_hotkey_emission(
         hotkey: &T::AccountId,
         netuid: u16,
@@ -238,51 +249,82 @@ impl<T: Config> Pallet<T> {
         mining_emission: u64,
         hotkey_emission_tuples: &mut Vec<(T::AccountId, u16, u64)>,
     ) {
-        // Append the take emission tuple.
+        // Calculate the hotkey's share of the validator emission based on its delegation status
         let validating_emission: I96F32 = I96F32::from_num(validating_emission);
         let take_proportion: I96F32 = I96F32::from_num(Delegates::<T>::get(hotkey))
             .saturating_div(I96F32::from_num(u16::MAX));
         let hotkey_take: I96F32 = take_proportion.saturating_mul(validating_emission);
 
+        // Initialize variables to track emission distribution
         let mut to_parents: u64 = 0;
         let parent_emission: I96F32 = validating_emission.saturating_sub(hotkey_take);
+
+        // Retrieve the hotkey's inherited stakes (not used in this function, consider removing)
         let hotkey_inherited_alpha: I96F32 = I96F32::from_num(Self::get_inherited_alpha_for_hotkey_on_subnet(hotkey, netuid));
         let hotkey_inherited_global: I96F32 = I96F32::from_num(Self::get_inherited_global_for_hotkey_on_subnet(hotkey, netuid));  
 
-        // Iterate over parents and get their contributions
-        // Initialize total global and total alpha
+        // Initialize variables to calculate total stakes from parents
         let mut total_global: I96F32 = I96F32::from_num(0);
         let mut total_alpha: I96F32 = I96F32::from_num(0);
         let mut contributions: Vec<(T::AccountId, I96F32, I96F32)> = Vec::new();
 
-        // Calculate total global and total alpha
+        // Calculate total global and alpha (subnet-specific) stakes from all parents
         for (proportion, parent) in Self::get_parents(hotkey, netuid) {
+            // Convert the parent's stake proportion to a fractional value
             let parent_proportion: I96F32 = I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
+            
+            // Get the parent's global and subnet-specific (alpha) stakes
             let parent_global: I96F32 = I96F32::from_num(Self::get_global_for_hotkey(&parent));
             let parent_alpha: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(&parent, netuid));
+            
+            // Calculate the parent's contribution to the hotkey's stakes
             let parent_alpha_contribution: I96F32 = parent_alpha.saturating_mul(parent_proportion);
             let parent_global_contribution: I96F32 = parent_global.saturating_mul(parent_proportion);
+            
+            // Add to the total stakes
             total_global = total_global.saturating_add(parent_global_contribution);
             total_alpha = total_alpha.saturating_add(parent_alpha_contribution);
+            
+            // Store the parent's contributions for later use
             contributions.push((parent.clone(), parent_alpha_contribution, parent_global_contribution));
         }
-        
-        // Distribute to parents.
+
+        // Get the weights for global and alpha stakes in emission distribution
         let global_weight: I96F32 = Self::get_global_weight();
         let alpha_weight: I96F32 = I96F32::from_num(1.0).saturating_sub(global_weight);
 
-        // Iterate over parents and distribute emission.
+        // Distribute emission to parents based on their contributions
         for (parent, alpha_contribution, global_contribution) in contributions {
-            let alpha_emission: I96F32 = alpha_weight.saturating_mul(parent_emission).saturating_mul(alpha_contribution).checked_div(total_alpha).unwrap_or(I96F32::from_num(0.0));
-            let global_emission: I96F32 = global_weight.saturating_mul(parent_emission).saturating_mul(global_contribution).checked_div(total_global).unwrap_or(I96F32::from_num(0.0));
+            // Calculate emission based on alpha (subnet-specific) stake
+            let alpha_emission: I96F32 = alpha_weight
+                .saturating_mul(parent_emission)
+                .saturating_mul(alpha_contribution)
+                .checked_div(total_alpha)
+                .unwrap_or(I96F32::from_num(0.0));
+            
+            // Calculate emission based on global stake
+            let global_emission: I96F32 = global_weight
+                .saturating_mul(parent_emission)
+                .saturating_mul(global_contribution)
+                .checked_div(total_global)
+                .unwrap_or(I96F32::from_num(0.0));
+            
+            // Sum up the total emission for this parent
             let total_emission: u64 = alpha_emission.saturating_add(global_emission).to_num::<u64>();
+            
+            // Add the parent's emission to the distribution list
             hotkey_emission_tuples.push((parent, netuid, total_emission));
-            to_parents += total_emission;// Decrement the remainder.
+            
+            // Keep track of total emission distributed to parents
+            to_parents += total_emission;
         }
-        // Append the hotkey take, remainder and mining emission
+        
+        // Calculate the final emission for the hotkey itself
         let remainder: u64 = validating_emission.to_num::<u64>().saturating_sub(to_parents).saturating_sub(hotkey_take.to_num::<u64>());
         let hotkey_take_u64 = hotkey_take.to_num::<u64>();
         let final_hotkey_emission = hotkey_take_u64.saturating_add(remainder).saturating_add(mining_emission);
+        
+        // Add the hotkey's own emission to the distribution list
         hotkey_emission_tuples.push((
             hotkey.clone(),
             netuid,
@@ -290,18 +332,30 @@ impl<T: Config> Pallet<T> {
         ));
     }
 
-    //. --- 4. Drains the accumulated hotkey emission through to the nominators. The hotkey takes a proportion of the emission.
-    /// The remainder is drained through to the nominators keeping track of the last stake increase event to ensure that the hotkey does not
-    /// gain more emission than it's stake since the last drain.
-    /// hotkeys --> nominators.
+    /// Distributes emission to nominators and the hotkey owner based on their contributions and delegation status.
     ///
-    /// 1. It resets the accumulated emissions for the hotkey to zero.
-    /// 4. It calculates the total stake for the hotkey and determines the hotkey's own take from the emissions based on its delegation status.
-    /// 5. It then calculates the remaining emissions after the hotkey's take and distributes this remaining amount proportionally among the hotkey's nominators.
-    /// 6. Each nominator's share of the emissions is added to their stake, but only if their stake was not manually increased since the last emission drain.
-    /// 7. Finally, the hotkey's own take and any undistributed emissions are added to the hotkey's total stake.
+    /// This function performs the following steps:
+    /// 1. Calculates the hotkey's share of the emission based on its delegation status.
+    /// 2. Computes the remaining emission to be distributed among nominators.
+    /// 3. Retrieves global and alpha scores for the hotkey.
+    /// 4. Iterates over all nominators, calculating their individual contributions based on alpha and global scores.
+    /// 5. Distributes the emission to nominators proportionally based on their contributions.
+    /// 6. Allocates any remaining emission and the hotkey's take to the hotkey owner.
     ///
-    /// This function ensures that emissions are fairly distributed according to stake proportions and delegation agreements, and it updates the necessary records to reflect these changes.    
+    /// # Arguments
+    /// * `hotkey` - The AccountId of the hotkey.
+    /// * `netuid` - The subnet ID.
+    /// * `emission` - The total emission to be distributed.
+    /// * `_block_number` - The current block number (unused in this function).
+    /// * `emission_tuples` - A mutable reference to a vector that will be populated with emission distribution data.
+    ///
+    /// # Effects
+    /// - Modifies `emission_tuples` by adding entries for each nominator receiving emission and the hotkey owner.
+    /// - Does not directly modify any storage; all changes are recorded in `emission_tuples` for later processing.
+    ///
+    /// # Note
+    /// This function ensures fair distribution of emissions based on stake proportions and delegation agreements.
+    /// It handles edge cases such as zero contributions and potential overflows using saturating arithmetic.
     pub fn source_nominator_emission(
         hotkey: &T::AccountId,
         netuid: u16,
@@ -309,64 +363,58 @@ impl<T: Config> Pallet<T> {
         _block_number: u64,
         emission_tuples: &mut Vec<(T::AccountId, T::AccountId, u16, u64)>,
     ) {
-        // Append the hotkey take here.
+        // Calculate the hotkey's share of the emission based on its delegation status
         let emission: I96F32 = I96F32::from_num(emission);
-        let take_proportion: I96F32 = I96F32::from_num(Delegates::<T>::get(hotkey))
-            .saturating_div(I96F32::from_num(u16::MAX));
+        let take_proportion: I96F32 = I96F32::from_num(Delegates::<T>::get(hotkey)).saturating_div(I96F32::from_num(u16::MAX));
         let hotkey_take: I96F32 = take_proportion.saturating_mul(emission);
 
-        // Distribute the remainder to nominators.
-        let global_weight: I96F32 = Self::get_global_weight();
-        let alpha_weight: I96F32 = I96F32::from_num(1.0).saturating_sub(global_weight);
-
-        // Initialize the remainder and the hotkey take.
+        // Initialize variables to track emission distribution
         let mut to_nominators: u64 = 0;
         let nominator_emission: I96F32 = emission.saturating_sub(hotkey_take);
         let hotkey_global: I96F32 = I96F32::from_num(Self::get_global_for_hotkey(hotkey));
         let hotkey_alpha: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
 
-        // Iterate over all nominators to this hotkey.
+        // Prepare to calculate contributions from nominators
+        let mut total_global: I96F32 = I96F32::from_num(0);
+        let mut total_alpha: I96F32 = I96F32::from_num(0);
+        let mut contributions: Vec<(T::AccountId, I96F32, I96F32)> = Vec::new();
+
+        // Calculate total global and alpha scores for all nominators
         for (nominator, _) in Stake::<T>::iter_prefix(hotkey) {
-            // Get the nominator alpha and global.
-            let nominator_alpha: I96F32 = I96F32::from_num(Alpha::<T>::get((&hotkey, nominator.clone(), netuid)));
-            let nominator_global: I96F32 = I96F32::from_num(Self::get_global_for_hotkey_and_coldkey(hotkey, &nominator));
+            let alpha_contribution: I96F32 = I96F32::from_num(Alpha::<T>::get((&hotkey, nominator.clone(), netuid)));
+            let global_contribution: I96F32 = I96F32::from_num(Self::get_global_for_hotkey_and_coldkey(hotkey, &nominator));
+            total_global += global_contribution;
+            total_alpha += alpha_contribution;
+            contributions.push((nominator.clone(), alpha_contribution, global_contribution));
+        }
 
-            // Compute contributions to nominators and alpha holders.
-            let nominator_emission_from_alpha: I96F32 = alpha_weight
-                .saturating_mul(nominator_emission)
-                .saturating_mul(
-                    nominator_alpha
-                        .checked_div(hotkey_alpha)
-                        .unwrap_or(I96F32::from_num(0)),
-                );
-            let nominator_emission_from_global: I96F32 = global_weight
-                .saturating_mul(nominator_emission)
-                .saturating_mul(
-                    nominator_global
-                        .checked_div(hotkey_global)
-                        .unwrap_or(I96F32::from_num(0)),
-                );
+        // Get the weights for global and alpha scores
+        let global_weight: I96F32 = Self::get_global_weight();
+        let alpha_weight: I96F32 = I96F32::from_num(1.0).saturating_sub(global_weight);
 
-            // Append the emission tuple.
-            let nominator_emission_total: u64 =
-                nominator_emission_from_alpha.saturating_add(nominator_emission_from_global).to_num::<u64>();
-            if nominator_emission_total > 0 {
-                emission_tuples.push((
-                    hotkey.clone(),
-                    nominator.clone(),
-                    netuid,
-                    nominator_emission_total,
-                ));
-
-                // Decrement remainder.
-                to_nominators += nominator_emission_total;
+        // Distribute emission to nominators based on their contributions
+        if total_alpha > I96F32::from_num(0) || total_global > I96F32::from_num(0) {
+            for (nominator, alpha_contribution, global_contribution) in contributions {
+                // Calculate emission for this nominator based on alpha and global scores
+                let alpha_emission: I96F32 = nominator_emission.saturating_mul(alpha_weight).saturating_mul(alpha_contribution).checked_div(total_alpha).unwrap_or(I96F32::from_num(0));
+                let global_emission: I96F32 = nominator_emission.saturating_mul(global_weight).saturating_mul(global_contribution).checked_div(total_global).unwrap_or(I96F32::from_num(0));
+                let total_emission: u64 = alpha_emission.saturating_add(global_emission).to_num::<u64>();
+                if total_emission > 0 {
+                    // Record the emission for this nominator
+                    to_nominators += total_emission;
+                    emission_tuples.push((
+                        hotkey.clone(),
+                        nominator.clone(),
+                        netuid,
+                        total_emission,
+                    ));
+                }
             }
         }
 
-        // Distribute the remainder and the hotkey take to the hotkey.
-        let remainder: u64 = emission.to_num::<u64>().saturating_sub(hotkey_take.to_num::<u64>()).saturating_sub(to_nominators);
-        log::debug!("Remainder: {:?}", remainder);
+        // Calculate and distribute the remaining emission to the hotkey
         let hotkey_owner: T::AccountId = Owner::<T>::get(hotkey);
+        let remainder: u64 = emission.to_num::<u64>().saturating_sub(hotkey_take.to_num::<u64>()).saturating_sub(to_nominators);
         let final_hotkey_emission:u64 = hotkey_take.to_num::<u64>() + remainder;
         emission_tuples.push((
             hotkey.clone(),
@@ -374,9 +422,8 @@ impl<T: Config> Pallet<T> {
             netuid,
             final_hotkey_emission
         ));
-
-        log::debug!("Final hotkey emission: {:?}", final_hotkey_emission);
     }
+    
     /// Accumulates emissions for hotkeys across different subnets.
     ///
     /// This function takes a vector of tuples, each containing a hotkey account ID,
