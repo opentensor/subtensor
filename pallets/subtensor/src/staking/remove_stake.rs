@@ -101,7 +101,6 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-
         // Convert and unstake from the subnet.
         let tao_unstaked: u64 =
             Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha_unstaked);

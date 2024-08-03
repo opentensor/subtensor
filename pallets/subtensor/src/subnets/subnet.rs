@@ -179,7 +179,7 @@ impl<T: Config> Pallet<T> {
         // Set the hotkey as the lock.
         Locks::<T>::insert(
             (netuid_to_register, coldkey.clone(), hotkey.clone()), 
-            (alpha_locked, current_block, current_block.saturating_add(7200 * 30 * 6))
+            (alpha_locked, current_block, current_block.saturating_add(Self::get_lock_interval_blocks()))
         );
 
         // --- 12. Emit the NetworkAdded event.

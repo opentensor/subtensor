@@ -32,6 +32,8 @@ impl<T: Config> Pallet<T> {
         // 6. Update subnet alpha: A_s_new = A_s_old + E_α
         // 7. Accumulate pending emission: P_e_new = P_e_old + E_α
         for netuid in subnets.clone().iter() {
+            // Do not emit into root network.
+            if *netuid == 0 { continue }
             // 1. Get subnet mechanism ID
             let mechid: u16 = SubnetMechanism::<T>::get(*netuid);
             // 4. Get subnet TAO (T_s)
@@ -102,7 +104,7 @@ impl<T: Config> Pallet<T> {
                 Self::set_last_mechanism_step_block(*netuid, current_block);
 
                 // Decrement the emission by the owner cut.
-                let owner_cut: u64 = subnet_emission.saturating_mul(9).saturating_div(100);
+                let owner_cut: u64 = I96F32::from_num(subnet_emission).saturating_mul(I96F32::from_num(Self::get_subnet_owner_cut())).saturating_div(I96F32::from_num(u16::MAX)).to_num::<u64>();
                 Self::distribute_owner_cut(*netuid, owner_cut);
                 let remaining_emission: u64 = subnet_emission.saturating_sub(owner_cut);
 

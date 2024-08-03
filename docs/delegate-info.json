@@ -390,5 +390,12 @@
         "url": "https://cortex.foundation/",
         "description": "Cortex Foundation is committed to advancing the integration of decentralized AI. Our validator is designed for transparency, reliability, and community engagement.",
         "signature": "7a6274ff6b0f7ddca97e37ef4a9b90781012ff3cf7baa3159f6feaafc43c557975aad324ea608d6b8abeb21f8f3ca2595e54b81a7564574d0242b803d969618a"
+    },
+    {
+        "address":"5F27Eqz2PhyMtGMEce898x31DokNqRVxkm5AhDDe6rDGNvoY",
+        "name": "Love",
+        "url": "https://love.cosimo.fund",
+        "description": "Love validator exists to accelerate open source AI and be good stewards of the Bittensorr network",
+        "signature": "c221a3de3be031c149a7be912b3b75e0355605f041dc975153302b23b4d93e45e9cc7453532491e92076ccd333a4c1f95f4a2229aae8f4fcfb88e5dec3f14c87"
     }
 ]

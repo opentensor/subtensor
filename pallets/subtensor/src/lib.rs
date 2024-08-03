@@ -472,7 +472,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for lock interval blocks.
     pub fn DefaultLockIntervalBlocks<T: Config>() -> u64 {
-        7200 * 30 // 30 days.
+        7200 * 180 // 180 days.  
     }
 
     #[pallet::storage]
