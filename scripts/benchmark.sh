@@ -27,7 +27,7 @@ done
 # Ensure binary exists before node-subtensor executions
 if [ ! -f $BIN_PATH ]; then
     if [[ "$DEFAULT_BIN_PATH" == "$BIN_PATH" ]]; then
-        cargo build --profile production --features runtime-benchmarks
+        cargo build --profile production --features "runtime-benchmarks metadata-hash"
     else
         echo "Binary '$BIN_PATH' does not exist. You can use -p or --bin-path to specify a different location."
         exit 1
@@ -40,7 +40,7 @@ $BIN_PATH build-spec --disable-default-bootnode --raw --chain local >$TMP_SPEC
 # Run benchmark
 $BIN_PATH benchmark pallet \
 --chain=$TMP_SPEC \
---pallet pallet-subtensor --extrinsic 'schedule_coldkey_swap' \
+--pallet pallet-subtensor --extrinsic 'benchmark_sudo_set_lock_interval_blocks' \
 --output $OUTPUT_FILE
 
 rm $TMP_SPEC
