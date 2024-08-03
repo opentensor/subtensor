@@ -114,20 +114,25 @@ impl<T: Config> Pallet<T> {
     ) -> u64 {
         // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
         let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
+        log::debug!(target: "subtensor", "Stake into subnet: mechanism_id = {}", mechanism_id);
+
         let alpha_staked: I96F32;
         let new_subnet_alpha: I96F32;
         // Step 2: Convert tao_staked to a fixed-point number for precise calculations
         let tao_staked_float: I96F32 = I96F32::from_num(tao_staked);
+        log::debug!(target: "subtensor", "Stake into subnet: tao_staked_float = {:?}", tao_staked_float);
 
         if mechanism_id == 1 {
             // Step 3: Dynamic mechanism calculations
             // Step 3a: Get current TAO and Alpha in the subnet
             let subnet_tao: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(netuid));
             let subnet_alpha: I96F32 = I96F32::from_num(SubnetAlphaIn::<T>::get(netuid));
+            log::debug!(target: "subtensor", "Dynamic mechanism: subnet_tao = {:?}, subnet_alpha = {:?}", subnet_tao, subnet_alpha);
 
             // Step 3b: Compute constant product k = alpha * tao
             // This is the key to the dynamic mechanism: k remains constant
             let k: I96F32 = subnet_alpha.saturating_mul(subnet_tao);
+            log::debug!(target: "subtensor", "Dynamic mechanism: k = {:?}", k);
 
             // Step 3c: Calculate alpha staked using the constant product formula
             // alpha_staked = current_alpha - (k / (current_tao + new_tao))
@@ -136,16 +141,19 @@ impl<T: Config> Pallet<T> {
                 k.checked_div(subnet_tao.saturating_add(tao_staked_float))
                     .unwrap_or(I96F32::from_num(0)),
             );
+            log::debug!(target: "subtensor", "Dynamic mechanism: alpha_staked = {:?}", alpha_staked);
 
             // Step 3d: Calculate new subnet alpha after staking
             // This is the remaining alpha in the subnet after staking
             new_subnet_alpha = subnet_alpha.saturating_sub(alpha_staked);
+            log::debug!(target: "subtensor", "Dynamic mechanism: new_subnet_alpha = {:?}", new_subnet_alpha);
         } else {
             // Step 4: Stable mechanism calculations
             // Step 4a: In stable mechanism, alpha staked is equal to TAO staked
             alpha_staked = tao_staked_float;
-            // Step 4b: Always zero in the pool for stable mechanism
-            new_subnet_alpha = I96F32::from_num(0);
+            // Step 4b: Does not change for stable mechanism.
+            new_subnet_alpha = I96F32::from_num(SubnetAlphaIn::<T>::get(netuid));
+            log::debug!(target: "subtensor", "Stable mechanism: alpha_staked = {:?}, new_subnet_alpha = {:?}", alpha_staked, new_subnet_alpha);
         }
 
         // Step 5: Convert alpha_staked from I96F32 to u64 for storage
@@ -274,8 +282,19 @@ impl<T: Config> Pallet<T> {
         let tao_unstaked: I96F32;
         let new_subnet_alpha: I96F32;
 
-        // Step 3: Convert alpha_unstaked to fixed-point number
-        let float_alpha_unstaked: I96F32 = I96F32::from_num(alpha_unstaked);
+        // Step 3a: Get the current stake for the hotkey-coldkey pair in this subnet
+        let current_stake = Alpha::<T>::get((hotkey, coldkey, netuid));
+
+        // Step 3b: Calculate the actual amount to unstake (minimum of requested and available)
+        let actual_unstake = alpha_unstaked.min(current_stake);
+
+        // Step 3c: Update the alpha_unstaked value
+        let float_alpha_unstaked: I96F32 = I96F32::from_num(actual_unstake);
+
+        // No operation.
+        if actual_unstake == 0 {
+            return 0;
+        }
 
         if mechid == 1 {
             // Step 4: Dynamic mechanism
@@ -300,10 +319,10 @@ impl<T: Config> Pallet<T> {
             new_subnet_alpha = I96F32::from_num(0.0);
         }
 
-        // Step 6: Convert TAO unstaked to u64
-        let tao_unstaked_u64: u64 = tao_unstaked.to_num::<u64>();
-        // Step 7: Convert new subnet alpha to u64
-        let new_subnet_alpha_u64: u64 = new_subnet_alpha.to_num::<u64>();
+        // Step 6: Cap TAO unstaked at u64::MAX and convert to u64
+        let tao_unstaked_u64: u64 = tao_unstaked.min(I96F32::from_num(u64::MAX)).to_num::<u64>();
+        // Step 7: Cap new subnet alpha at u64::MAX and convert to u64
+        let new_subnet_alpha_u64: u64 = new_subnet_alpha.min(I96F32::from_num(u64::MAX)).to_num::<u64>();
 
         // Step 8: Update subnet alpha
         SubnetAlphaIn::<T>::insert(netuid, new_subnet_alpha_u64);

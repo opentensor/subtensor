@@ -112,7 +112,7 @@ impl<T: Config> Pallet<T> {
         // Check that we are not decreasing the current conviction.
         if Locks::<T>::contains_key((netuid, hotkey.clone(), coldkey.clone())) {
             // Get the current lock.
-            let (current_locked, current_start, current_end) = Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone()));
+            let (current_locked, _current_start, current_end) = Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone()));
 
             // Calculate the current conviction.
             let current_conviction = Self::calculate_conviction(current_locked, current_end, current_block);
@@ -261,7 +261,7 @@ impl<T: Config> Pallet<T> {
         let mut remaining_amount = amount;
 
         // Distribute the owner cut based on calculated shares
-        for ((hotkey, conviction), share) in hotkey_convictions.iter().zip(shares.iter()) {
+        for ((hotkey, _conviction), share) in hotkey_convictions.iter().zip(shares.iter()) {
             // Calculate the share for this hotkey
             let share_amount = I96F32::from_num(amount)
                 .checked_mul(*share)

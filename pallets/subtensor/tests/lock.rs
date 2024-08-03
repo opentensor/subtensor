@@ -4,7 +4,7 @@ use sp_core::U256;
 use pallet_subtensor::*;
 use substrate_fixed::types::I96F32;
 use frame_support::{assert_ok, assert_noop};
-use frame_system::RawOrigin;
+
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_do_lock_success --exact --nocapture
 #[test]
@@ -180,7 +180,7 @@ fn test_do_lock_increase_conviction() {
         assert_ok!(SubtensorModule::lock_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, new_lock_duration, new_lock_amount));
 
         // Verify the new lock
-        let (locked_amount, start_block, end_block) = Locks::<Test>::get((netuid, hotkey, coldkey));
+        let (locked_amount, _start_block, end_block) = Locks::<Test>::get((netuid, hotkey, coldkey));
         assert_eq!(locked_amount, new_lock_amount);
         assert_eq!(end_block, SubtensorModule::get_current_block_as_u64() + new_lock_duration);
 
@@ -249,7 +249,7 @@ fn test_do_lock_max_duration() {
         assert_ok!(SubtensorModule::lock_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, max_lock_duration, lock_amount));
 
         // Verify the lock
-        let (locked_amount, start_block, end_block) = Locks::<Test>::get((netuid, hotkey, coldkey));
+        let (locked_amount, _start_block, end_block) = Locks::<Test>::get((netuid, hotkey, coldkey));
         assert_eq!(locked_amount, lock_amount);
         assert_eq!(end_block, SubtensorModule::get_current_block_as_u64() + max_lock_duration);
 
@@ -1699,7 +1699,7 @@ fn test_distribute_owner_cut_conviction_calculation() {
 
         System::set_block_number(current_block);
 
-        let remaining = SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
+        let _remaining = SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
 
         let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1.clone(), coldkey.clone()));
         let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2.clone(), coldkey.clone()));
@@ -1749,7 +1749,7 @@ fn test_distribute_owner_cut_lions_share_distribution() {
 
         System::set_block_number(current_block);
 
-        let remaining = SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
+        let _remaining = SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
 
         let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1.clone(), coldkey.clone()));
         let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2.clone(), coldkey.clone()));
@@ -2201,7 +2201,7 @@ fn test_update_subnet_owner_large_subnet() {
         // Verify that the subnet owner has the highest conviction
         let owner = SubnetOwner::<Test>::get(netuid);
         let mut max_conviction = 0;
-        for ((iter_netuid, hotkey, _), (lock_amount, _, end_block)) in Locks::<Test>::iter() {
+        for ((iter_netuid, _hotkey, _), (lock_amount, _, end_block)) in Locks::<Test>::iter() {
             if iter_netuid == netuid {
                 let conviction = SubtensorModule::calculate_conviction(lock_amount, end_block, current_block);
                 if conviction > max_conviction {

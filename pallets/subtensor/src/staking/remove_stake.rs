@@ -87,7 +87,7 @@ impl<T: Config> Pallet<T> {
 
         if Locks::<T>::contains_key((netuid, hotkey.clone(), coldkey.clone())) {
             // Retrieve the lock information for the given netuid, hotkey, and coldkey
-            let (alpha_locked, start_block, end_block) = Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone()));
+            let (alpha_locked, _start_block, end_block) = Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone()));
             let conviction = Self::calculate_conviction(alpha_locked, end_block, current_block);
             let stake_after_unstake = total_stake.saturating_sub(alpha_unstaked);
             // Ensure the requested unstake amount is not more than what's allowed

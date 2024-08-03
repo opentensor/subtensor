@@ -4,7 +4,7 @@ use frame_support::IterableStorageDoubleMap;
 use substrate_fixed::types::{I32F32, I64F64, I96F32};
 
 impl<T: Config> Pallet<T> {
-    /// Retrieves the global dynamic weight as a normalized value between 0 and 1.
+    /// Retrieves the global global weight as a normalized value between 0 and 1.
     ///
     /// This function performs the following steps:
     /// 1. Fetches the global weight from storage using the GlobalWeight storage item.
@@ -16,11 +16,11 @@ impl<T: Config> Pallet<T> {
     /// regardless of the actual stored weight value.
     ///
     /// # Returns
-    /// * `I96F32` - The normalized global dynamic weight as a fixed-point number between 0 and 1.
+    /// * `I96F32` - The normalized global global weight as a fixed-point number between 0 and 1.
     ///
     /// # Note
     /// This function uses saturating division to prevent potential overflow errors.
-    pub fn get_dynamic_weight() -> I96F32 {
+    pub fn get_global_weight() -> I96F32 {
         // Step 1: Fetch the global weight from storage
         let stored_weight = GlobalWeight::<T>::get();
 
@@ -32,7 +32,7 @@ impl<T: Config> Pallet<T> {
         weight_fixed.saturating_div(I96F32::from_num(u64::MAX))
     }
 
-    /// Sets the global dynamic weight in storage.
+    /// Sets the global global weight in storage.
     ///
     /// This function performs the following steps:
     /// 1. Takes the provided weight value as a u64.
@@ -47,13 +47,13 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Note
     /// The weight is stored as a raw u64 value. To get the normalized weight between 0 and 1,
-    /// use the `get_dynamic_weight()` function.
-    pub fn set_dynamic_weight(weight: u64) {
+    /// use the `get_global_weight()` function.
+    pub fn set_global_weight(weight: u64) {
         // Update the GlobalWeight storage with the new weight value
         GlobalWeight::<T>::put(weight);
     }
 
-    /// Calculates the weighted combination of alpha and dynamic tao for hotkeys on a subnet.
+    /// Calculates the weighted combination of alpha and global tao for hotkeys on a subnet.
     ///
     /// This function performs the following steps:
     /// 1. Retrieves the subnet size (number of neurons).
@@ -62,13 +62,13 @@ impl<T: Config> Pallet<T> {
     ///    a. Initializes a vector with zeros.
     ///    b. For each hotkey, retrieves its inherited stake and stores it in the vector.
     ///    c. Normalizes the alpha stake vector.
-    /// 4. Calculates the dynamic tao stake vector:
+    /// 4. Calculates the global tao stake vector:
     ///    a. Initializes a vector with zeros.
-    ///    b. For each hotkey, retrieves its dynamic stake and stores it in the vector.
-    ///    c. Normalizes the dynamic tao stake vector.
-    /// 5. Combines alpha and dynamic tao stakes:
-    ///    a. Retrieves the global dynamic weight.
-    ///    b. For each neuron, calculates a weighted average of its alpha and dynamic tao stakes.
+    ///    b. For each hotkey, retrieves its global stake and stores it in the vector.
+    ///    c. Normalizes the global tao stake vector.
+    /// 5. Combines alpha and global tao stakes:
+    ///    a. Retrieves the global global weight.
+    ///    b. For each neuron, calculates a weighted average of its alpha and global tao stakes.
     ///    c. Normalizes the combined stake vector.
     /// 6. Converts the combined stake vector from 64-bit to 32-bit fixed-point representation.
     /// 7. Returns the final stake weights for each neuron on the subnet.
@@ -109,38 +109,38 @@ impl<T: Config> Pallet<T> {
         // Normalize the alpha stake vector.
         inplace_normalize_64(&mut alpha_stake);
 
-        // Step 4: Calculate the dynamic tao stake vector.
-        // Initialize a vector to store dynamic tao stakes for each neuron.
-        let mut dynamic_tao_stake: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
+        // Step 4: Calculate the global tao stake vector.
+        // Initialize a vector to store global tao stakes for each neuron.
+        let mut global_tao_stake: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
         for (uid_i, hotkey) in &hotkeys {
-            if let Some(stake) = dynamic_tao_stake.get_mut(*uid_i as usize) {
-                // Retrieve and store the dynamic stake for each hotkey.
+            if let Some(stake) = global_tao_stake.get_mut(*uid_i as usize) {
+                // Retrieve and store the global stake for each hotkey.
                 *stake =
-                    I64F64::from_num(Self::get_dynamic_stake_for_hotkey_on_subnet(hotkey, netuid));
+                    I64F64::from_num(Self::get_global_stake_for_hotkey_on_subnet(hotkey, netuid));
             } else {
                 // Log a warning if the index is out of bounds (should not happen if n is correct).
                 log::warn!(
-                    "Invalid index {} when setting dynamic stake for hotkey {:?}",
+                    "Invalid index {} when setting global stake for hotkey {:?}",
                     *uid_i,
                     hotkey
                 );
             }
         }
-        // Normalize the dynamic tao stake vector.
-        inplace_normalize_64(&mut dynamic_tao_stake);
+        // Normalize the global tao stake vector.
+        inplace_normalize_64(&mut global_tao_stake);
 
-        // Step 5: Combine alpha and dynamic tao stakes.
-        // Retrieve the global dynamic weight.
-        let dynamic_weight: I64F64 = I64F64::from_num(Self::get_dynamic_weight());
-        // Calculate the weighted average of alpha and dynamic tao stakes for each neuron.
+        // Step 5: Combine alpha and global tao stakes.
+        // Retrieve the global global weight.
+        let global_weight: I64F64 = I64F64::from_num(Self::get_global_weight());
+        // Calculate the weighted average of alpha and global tao stakes for each neuron.
         let mut stake_weights: Vec<I64F64> = alpha_stake
             .iter()
-            .zip(dynamic_tao_stake.iter())
-            .map(|(alpha, dynamic)| {
-                // Weighted average: (1 - dynamic_weight) * alpha + dynamic_weight * dynamic
-                (I64F64::from_num(1.0).saturating_sub(dynamic_weight))
+            .zip(global_tao_stake.iter())
+            .map(|(alpha, global)| {
+                // Weighted average: (1 - global_weight) * alpha + global_weight * global
+                (I64F64::from_num(1.0).saturating_sub(global_weight))
                     .saturating_mul(*alpha)
-                    .saturating_add(dynamic_weight.saturating_mul(*dynamic))
+                    .saturating_add(global_weight.saturating_mul(*global))
             })
             .collect();
         // Normalize the combined stake weights.
@@ -150,87 +150,87 @@ impl<T: Config> Pallet<T> {
         vec_fixed64_to_fixed32(stake_weights)
     }
 
-    /// Calculates the total dynamic stake held by a hotkey on a subnet, considering child/parent relationships.
+    /// Calculates the total global stake held by a hotkey on a subnet, considering child/parent relationships.
     ///
     /// This function performs the following steps:
-    /// 1. Retrieves the initial global dynamic stake for the hotkey.
+    /// 1. Retrieves the initial global global stake for the hotkey.
     /// 2. Retrieves the list of children and parents for the hotkey on the subnet.
-    /// 3. Calculates the dynamic stake allocated to children:
+    /// 3. Calculates the global stake allocated to children:
     ///    a. For each child, computes the proportion of stake to be allocated.
     ///    b. Accumulates the total stake allocated to all children.
-    /// 4. Calculates the dynamic stake received from parents:
+    /// 4. Calculates the global stake received from parents:
     ///    a. For each parent, retrieves the parent's global stake.
     ///    b. Computes the proportion of the parent's stake to be inherited.
     ///    c. Accumulates the total stake inherited from all parents.
-    /// 5. Computes the final dynamic stake by adjusting the initial stake:
+    /// 5. Computes the final global stake by adjusting the initial stake:
     ///    a. Subtracts the stake allocated to children.
     ///    b. Adds the stake inherited from parents.
-    /// 6. Returns the final dynamic stake value.
+    /// 6. Returns the final global stake value.
     ///
     /// # Arguments
-    /// * `hotkey` - AccountId of the hotkey whose total dynamic stake is to be calculated.
+    /// * `hotkey` - AccountId of the hotkey whose total global stake is to be calculated.
     /// * `netuid` - Network unique identifier specifying the subnet context.
     ///
     /// # Returns
-    /// * `u64` - The total dynamic stake for the hotkey on the subnet after considering the stakes
+    /// * `u64` - The total global stake for the hotkey on the subnet after considering the stakes
     ///           allocated to children and inherited from parents.
     ///
     /// # Note
     /// This function uses saturating arithmetic to prevent overflows.
-    pub fn get_dynamic_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
-        // Step 1: Retrieve the initial global dynamic stake for the hotkey.
+    pub fn get_global_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
+        // Step 1: Retrieve the initial global global stake for the hotkey.
         // This represents the hotkey's stake across all subnets.
-        let initial_dynamic_tao: u64 = Self::get_global_for_hotkey(hotkey);
+        let initial_global_tao: u64 = Self::get_global_for_hotkey(hotkey);
 
         // Initialize variables to track stake allocated to children and inherited from parents.
-        let mut dynamic_tao_to_children: u64 = 0;
-        let mut dynamic_tao_from_parents: u64 = 0;
+        let mut global_tao_to_children: u64 = 0;
+        let mut global_tao_from_parents: u64 = 0;
 
         // Step 2: Retrieve the lists of parents and children for the hotkey on the subnet.
         let parents: Vec<(u64, T::AccountId)> = Self::get_parents(hotkey, netuid);
         let children: Vec<(u64, T::AccountId)> = Self::get_children(hotkey, netuid);
 
-        // Step 3: Calculate the total dynamic stake allocated to children.
+        // Step 3: Calculate the total global stake allocated to children.
         for (proportion, _) in children {
             // Convert the proportion to a normalized value between 0 and 1.
             let normalized_proportion: I96F32 =
                 I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
 
             // Calculate the amount of stake to be allocated to this child.
-            let dynamic_tao_proportion_to_child: I96F32 =
-                I96F32::from_num(initial_dynamic_tao).saturating_mul(normalized_proportion);
+            let global_tao_proportion_to_child: I96F32 =
+                I96F32::from_num(initial_global_tao).saturating_mul(normalized_proportion);
 
             // Accumulate the total stake allocated to children.
-            dynamic_tao_to_children = dynamic_tao_to_children
-                .saturating_add(dynamic_tao_proportion_to_child.to_num::<u64>());
+            global_tao_to_children = global_tao_to_children
+                .saturating_add(global_tao_proportion_to_child.to_num::<u64>());
         }
 
-        // Step 4: Calculate the total dynamic stake received from parents.
+        // Step 4: Calculate the total global stake received from parents.
         for (proportion, parent) in parents {
             // Retrieve the parent's global stake.
-            let parent_dynamic_tao: u64 = Self::get_global_for_hotkey(&parent);
+            let parent_global_tao: u64 = Self::get_global_for_hotkey(&parent);
 
             // Convert the proportion to a normalized value between 0 and 1.
             let normalized_proportion: I96F32 =
                 I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
 
             // Calculate the amount of stake inherited from this parent.
-            let dynamic_tao_proportion_from_parent: I96F32 =
-                I96F32::from_num(parent_dynamic_tao).saturating_mul(normalized_proportion);
+            let global_tao_proportion_from_parent: I96F32 =
+                I96F32::from_num(parent_global_tao).saturating_mul(normalized_proportion);
 
             // Accumulate the total stake inherited from parents.
-            dynamic_tao_from_parents = dynamic_tao_from_parents
-                .saturating_add(dynamic_tao_proportion_from_parent.to_num::<u64>());
+            global_tao_from_parents = global_tao_from_parents
+                .saturating_add(global_tao_proportion_from_parent.to_num::<u64>());
         }
 
-        // Step 5: Compute the final dynamic stake.
+        // Step 5: Compute the final global stake.
         // Subtract the stake allocated to children and add the stake inherited from parents.
-        let finalized_dynamic: u64 = initial_dynamic_tao
-            .saturating_sub(dynamic_tao_to_children)
-            .saturating_add(dynamic_tao_from_parents);
+        let finalized_global: u64 = initial_global_tao
+            .saturating_sub(global_tao_to_children)
+            .saturating_add(global_tao_from_parents);
 
-        // Step 6: Return the final dynamic stake value.
-        finalized_dynamic
+        // Step 6: Return the final global stake value.
+        finalized_global
     }
 
     /// Calculates the total inherited stake (alpha) held by a hotkey on a network, considering child/parent relationships.
@@ -314,13 +314,13 @@ impl<T: Config> Pallet<T> {
         finalized_alpha
     }
 
-    /// Retrieves the dynamic value (TAO equivalent) for a given hotkey and coldkey pair across all subnets.
+    /// Retrieves the global value (TAO equivalent) for a given hotkey and coldkey pair across all subnets.
     ///
     /// This function performs the following steps:
     /// 1. Initializes a variable to accumulate the total TAO equivalent.
     /// 2. Iterates over all subnet network IDs (netuids).
     /// 3. For each subnet:
-    ///    a. Calculates the dynamic value for the hotkey and coldkey pair on that subnet.
+    ///    a. Calculates the global value for the hotkey and coldkey pair on that subnet.
     ///    b. Adds this value to the total TAO equivalent.
     /// 4. Converts the accumulated fixed-point total to a u64 value.
     /// 5. Returns the final total TAO equivalent.
@@ -330,33 +330,33 @@ impl<T: Config> Pallet<T> {
     /// * `coldkey` - The account ID of the coldkey (owner).
     ///
     /// # Returns
-    /// * `u64` - The total dynamic value (TAO equivalent) for the hotkey and coldkey pair across all subnets.
+    /// * `u64` - The total global value (TAO equivalent) for the hotkey and coldkey pair across all subnets.
     pub fn get_global_for_hotkey_and_coldkey(hotkey: &T::AccountId, coldkey: &T::AccountId) -> u64 {
         // Initialize the total TAO equivalent to zero using fixed-point arithmetic for precision
         let mut total_tao_equivalent: I96F32 = I96F32::from_num(0);
 
         // Iterate over all subnet network IDs (netuids)
         for netuid in Self::get_all_subnet_netuids() {
-            // Calculate the dynamic value for the hotkey and coldkey pair on this subnet
-            let subnet_dynamic =
+            // Calculate the global value for the hotkey and coldkey pair on this subnet
+            let subnet_global =
                 Self::get_global_for_hotkey_and_coldey_on_subnet(hotkey, coldkey, netuid);
 
-            // Add the subnet's dynamic value to the total, using saturating addition to prevent overflow
+            // Add the subnet's global value to the total, using saturating addition to prevent overflow
             total_tao_equivalent =
-                total_tao_equivalent.saturating_add(I96F32::from_num(subnet_dynamic));
+                total_tao_equivalent.saturating_add(I96F32::from_num(subnet_global));
         }
 
         // Convert the total TAO equivalent from fixed-point to u64 and return
         total_tao_equivalent.to_num::<u64>()
     }
 
-    /// Retrieves the dynamic value (TAO equivalent) for a given hotkey across all subnets.
+    /// Retrieves the global value (TAO equivalent) for a given hotkey across all subnets.
     ///
     /// This function performs the following steps:
     /// 1. Initializes a variable to accumulate the total TAO equivalent.
     /// 2. Iterates over all subnet network IDs (netuids).
     /// 3. For each subnet:
-    ///    a. Calculates the dynamic value for the hotkey on that subnet.
+    ///    a. Calculates the global value for the hotkey on that subnet.
     ///    b. Adds this value to the total TAO equivalent.
     /// 4. Converts the accumulated fixed-point total to a u64 value.
     /// 5. Returns the final total TAO equivalent.
@@ -365,26 +365,26 @@ impl<T: Config> Pallet<T> {
     /// * `hotkey` - The account ID of the hotkey (neuron).
     ///
     /// # Returns
-    /// * `u64` - The total dynamic value (TAO equivalent) for the hotkey across all subnets.
+    /// * `u64` - The total global value (TAO equivalent) for the hotkey across all subnets.
     pub fn get_global_for_hotkey(hotkey: &T::AccountId) -> u64 {
         // Initialize the total TAO equivalent to zero using fixed-point arithmetic for precision
         let mut total_tao_equivalent: I96F32 = I96F32::from_num(0);
 
         // Iterate over all subnet network IDs (netuids)
         for netuid in Self::get_all_subnet_netuids() {
-            // Calculate the dynamic value for the hotkey on this subnet
-            let subnet_dynamic = Self::get_global_for_hotkey_on_subnet(hotkey, netuid);
+            // Calculate the global value for the hotkey on this subnet
+            let subnet_global = Self::get_global_for_hotkey_on_subnet(hotkey, netuid);
 
-            // Add the subnet's dynamic value to the total, using saturating addition to prevent overflow
+            // Add the subnet's global value to the total, using saturating addition to prevent overflow
             total_tao_equivalent =
-                total_tao_equivalent.saturating_add(I96F32::from_num(subnet_dynamic));
+                total_tao_equivalent.saturating_add(I96F32::from_num(subnet_global));
         }
 
         // Convert the total TAO equivalent from fixed-point to u64 and return
         total_tao_equivalent.to_num::<u64>()
     }
 
-    /// Retrieves the dynamic value (TAO equivalent) for a given hotkey on a specific subnet.
+    /// Retrieves the global value (TAO equivalent) for a given hotkey on a specific subnet.
     ///
     /// This function performs the following steps:
     /// 1. Retrieves the total stake (alpha) for the hotkey on the specified subnet.
@@ -395,7 +395,7 @@ impl<T: Config> Pallet<T> {
     /// * `netuid` - The unique identifier of the subnet.
     ///
     /// # Returns
-    /// * `u64` - The dynamic value (TAO equivalent) for the hotkey on the specified subnet.
+    /// * `u64` - The global value (TAO equivalent) for the hotkey on the specified subnet.
     ///
     /// # Note
     /// This function considers the total stake of the hotkey across all coldkeys on the subnet.
@@ -410,7 +410,7 @@ impl<T: Config> Pallet<T> {
         Self::alpha_to_global(alpha, netuid)
     }
 
-    /// Retrieves the dynamic value (TAO equivalent) for a specific hotkey and coldkey pair on a subnet.
+    /// Retrieves the global value (TAO equivalent) for a specific hotkey and coldkey pair on a subnet.
     ///
     /// This function performs the following steps:
     /// 1. Retrieves the stake (alpha) for the specific hotkey and coldkey pair on the subnet.
@@ -422,7 +422,7 @@ impl<T: Config> Pallet<T> {
     /// * `netuid` - The unique identifier of the subnet.
     ///
     /// # Returns
-    /// * `u64` - The dynamic value (TAO equivalent) for the hotkey and coldkey pair on the specified subnet.
+    /// * `u64` - The global value (TAO equivalent) for the hotkey and coldkey pair on the specified subnet.
     ///
     /// # Note
     /// This function considers only the stake associated with the specific hotkey-coldkey pair,

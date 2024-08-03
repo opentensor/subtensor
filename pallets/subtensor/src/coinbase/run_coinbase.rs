@@ -245,39 +245,39 @@ impl<T: Config> Pallet<T> {
         let hotkey_take: I96F32 = take_proportion.saturating_mul(validating_emission);
 
         // Distribute to parents.
-        let dynamic_weight: I96F32 = Self::get_dynamic_weight();
-        let alpha_weight: I96F32 = I96F32::from_num(1.0).saturating_sub(dynamic_weight);
+        let global_weight: I96F32 = Self::get_global_weight();
+        let alpha_weight: I96F32 = I96F32::from_num(1.0).saturating_sub(global_weight);
 
         let mut remainder: I96F32 = validating_emission.saturating_sub(hotkey_take);
         let parnet_emission: I96F32 = validating_emission.saturating_sub(hotkey_take);
         let hotkey_alpha: I96F32 =
             I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
-        let hotkey_dynamic: I96F32 = I96F32::from_num(Self::get_global_for_hotkey(hotkey));
+        let hotkey_global: I96F32 = I96F32::from_num(Self::get_global_for_hotkey(hotkey));
 
         // Iterate over parents.
         for (proportion, parent) in Self::get_parents(hotkey, netuid) {
             // Proportion from parent.
             let parent_proportion: I96F32 =
                 I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
-            let parent_dynamic: I96F32 = I96F32::from_num(Self::get_global_for_hotkey(&parent));
+            let parent_global: I96F32 = I96F32::from_num(Self::get_global_for_hotkey(&parent));
             let parent_alpha: I96F32 =
                 I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(&parent, netuid));
 
-            // Compute dynamic proportion due.
+            // Compute global proportion due.
             let parent_alpha_emission: I96F32 = alpha_weight
                 .saturating_mul(parnet_emission)
                 .saturating_mul(parent_alpha)
                 .saturating_mul(parent_proportion)
                 .checked_div(hotkey_alpha)
                 .unwrap_or(I96F32::from_num(0.0));
-            let parent_dynamic_emission: I96F32 = dynamic_weight
+            let parent_global_emission: I96F32 = global_weight
                 .saturating_mul(parnet_emission)
-                .saturating_mul(parent_dynamic)
+                .saturating_mul(parent_global)
                 .saturating_mul(parent_proportion)
-                .checked_div(hotkey_dynamic)
+                .checked_div(hotkey_global)
                 .unwrap_or(I96F32::from_num(0.0));
             let total_parent_emission: I96F32 =
-                parent_alpha_emission.saturating_add(parent_dynamic_emission);
+                parent_alpha_emission.saturating_add(parent_global_emission);
             hotkey_emission_tuples.push((parent, netuid, total_parent_emission.to_num::<u64>()));
 
             // Decrement the remainder.
@@ -319,24 +319,31 @@ impl<T: Config> Pallet<T> {
         let take_proportion: I96F32 = I96F32::from_num(Delegates::<T>::get(hotkey))
             .saturating_div(I96F32::from_num(u16::MAX));
         let hotkey_take: I96F32 = take_proportion.saturating_mul(emission);
+        log::debug!("Emission: {:?}, Take proportion: {:?}, Hotkey take: {:?}", emission, take_proportion, hotkey_take);
 
         // Distribute the remainder to nominators.
-        let dynamic_weight: I96F32 = Self::get_dynamic_weight();
-        let alpha_weight: I96F32 = I96F32::from_num(1.0).saturating_sub(dynamic_weight);
+        let global_weight: I96F32 = Self::get_global_weight();
+        let alpha_weight: I96F32 = I96F32::from_num(1.0).saturating_sub(global_weight);
 
-        let mut remainder: I96F32 = emission.saturating_sub(hotkey_take);
+        log::debug!("Global weight: {:?}, Alpha weight: {:?}", global_weight, alpha_weight);
+
+        let mut to_nominators: u64 = 0;
         let nominator_emission: I96F32 = emission.saturating_sub(hotkey_take);
-        let hotkey_dynamic: I96F32 = I96F32::from_num(Self::get_global_for_hotkey(hotkey));
+        let hotkey_global: I96F32 = I96F32::from_num(Self::get_global_for_hotkey(hotkey));
         let hotkey_alpha: I96F32 =
             I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
 
+        log::debug!("Initial Nominator emission: {:?}, Hotkey global: {:?}, Hotkey alpha: {:?}", nominator_emission, hotkey_global, hotkey_alpha);
+
         // Iterate over all nominators to this hotkey.
         for (nominator, _) in Stake::<T>::iter_prefix(hotkey) {
-            // Get the nominator alpha and dynamic.
+            // Get the nominator alpha and global.
             let nominator_alpha: I96F32 =
                 I96F32::from_num(Alpha::<T>::get((&hotkey, nominator.clone(), netuid)));
-            let nominator_dynamic: I96F32 =
+            let nominator_global: I96F32 =
                 I96F32::from_num(Self::get_global_for_hotkey_and_coldkey(hotkey, &nominator));
+
+            log::debug!("Nominator: {:?}, Alpha: {:?}, Global: {:?}", nominator, nominator_alpha, nominator_global);
 
             // Compute contributions to nominators and alpha holders.
             let nominator_emission_from_alpha: I96F32 = alpha_weight
@@ -346,36 +353,46 @@ impl<T: Config> Pallet<T> {
                         .checked_div(hotkey_alpha)
                         .unwrap_or(I96F32::from_num(0)),
                 );
-            let nominator_emission_from_dynamic: I96F32 = dynamic_weight
+            let nominator_emission_from_global: I96F32 = global_weight
                 .saturating_mul(nominator_emission)
                 .saturating_mul(
-                    nominator_dynamic
-                        .checked_div(hotkey_dynamic)
+                    nominator_global
+                        .checked_div(hotkey_global)
                         .unwrap_or(I96F32::from_num(0)),
                 );
 
-            // Append the emission tuple.
-            let nominator_emission_total: I96F32 =
-                nominator_emission_from_alpha.saturating_add(nominator_emission_from_dynamic);
-            emission_tuples.push((
-                hotkey.clone(),
-                nominator.clone(),
-                netuid,
-                nominator_emission_total.to_num::<u64>(),
-            ));
+            log::debug!("Nominator emission from alpha: {:?}, from global: {:?}", nominator_emission_from_alpha, nominator_emission_from_global);
 
-            // Decrement remainder.
-            remainder = remainder.saturating_sub(nominator_emission_total);
+            // Append the emission tuple.
+            let nominator_emission_total: u64 =
+                nominator_emission_from_alpha.saturating_add(nominator_emission_from_global).to_num::<u64>();
+            if nominator_emission_total > 0 {
+                emission_tuples.push((
+                    hotkey.clone(),
+                    nominator.clone(),
+                    netuid,
+                    nominator_emission_total,
+                ));
+
+                // Decrement remainder.
+                to_nominators += nominator_emission_total;
+                log::debug!("Updated remainder: {:?}", to_nominators);
+            }
         }
 
         // Distribute the remainder and the hotkey take to the hotkey.
+        let remainder: u64 = emission.to_num::<u64>() - hotkey_take.to_num::<u64>() - to_nominators;
+        log::debug!("Remainder: {:?}", remainder);
         let hotkey_owner: T::AccountId = Owner::<T>::get(hotkey);
+        let final_hotkey_emission:u64 = hotkey_take.to_num::<u64>() + remainder;
         emission_tuples.push((
             hotkey.clone(),
             hotkey_owner.clone(),
             netuid,
-            hotkey_take.saturating_add(remainder).to_num::<u64>(),
+            final_hotkey_emission
         ));
+
+        log::debug!("Final hotkey emission: {:?}", final_hotkey_emission);
     }
     /// Accumulates emissions for hotkeys across different subnets.
     ///
@@ -464,9 +481,9 @@ impl<T: Config> Pallet<T> {
             return u64::MAX;
         }
         let netuid_plus_one = (netuid as u64).saturating_add(1);
-        let block_plus_netuid = block_number.saturating_add(netuid_plus_one);
         let tempo_plus_one = (tempo as u64).saturating_add(1);
-        let remainder = block_plus_netuid.rem_euclid(tempo_plus_one);
+        let adjusted_block = block_number.wrapping_add(netuid_plus_one);
+        let remainder = adjusted_block % tempo_plus_one;
         (tempo as u64).saturating_sub(remainder)
     }
 
