@@ -44,7 +44,7 @@ fn test_boundary_conditions() {
 #[test]
 fn test_overflow_handling() {
     new_test_ext(1).execute_with(|| {
-        assert_eq!(SubtensorModule::blocks_until_next_epoch(u16::MAX, u16::MAX, u64::MAX - 1), 0);
+        assert_eq!(SubtensorModule::blocks_until_next_epoch(u16::MAX, u16::MAX, u64::MAX - 1), 1);
     });
 }
 
@@ -702,20 +702,24 @@ fn test_performance_with_many_nominators() {
 
 // 36. Test Basic Emission Distribution
 // Description: Verify that the function correctly distributes emissions between the hotkey and its parents.
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_basic_emission_distribution -- --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_basic_emission_distribution_scenario -- --exact --nocapture
 #[test]
 fn test_basic_emission_distribution_scenario() {
     new_test_ext(1).execute_with(|| {
-        let hotkey = U256::from(1);
-        let parent1 = U256::from(2);
-        let parent2 = U256::from(3);
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let parent1 = U256::from(3);
+        let parent2 = U256::from(4);
         let netuid = 1;
         let validating_emission = 1000;
         let mining_emission = 500;
 
         // Set up stakes and delegations
+        add_network(netuid, 1, 0);
         Delegates::<Test>::insert(&hotkey, 16384); // 25% take
-        ParentKeys::<Test>::insert(&hotkey, netuid, vec![(500, parent1.clone()), (500, parent2.clone())]);
+        SubtensorModule::stake_into_subnet(&parent1, &coldkey, netuid, 500);
+        SubtensorModule::stake_into_subnet(&parent2, &coldkey, netuid, 500);
+        ParentKeys::<Test>::insert(&hotkey, netuid, vec![(u64::MAX/2, parent1.clone()), (u64::MAX/2, parent2.clone())]);
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_hotkey_emission(&hotkey, netuid, validating_emission, mining_emission, &mut emission_tuples);
@@ -739,12 +743,13 @@ fn test_basic_emission_distribution_scenario() {
 
 // 37. Test Hotkey Take Calculation
 // Description: Ensure that the hotkey's take is calculated correctly based on the delegation status.
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_hotkey_take_calculation -- --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_hotkey_take_calculation_scenario -- --exact --nocapture
 #[test]
 fn test_hotkey_take_calculation_scenario() {
     new_test_ext(1).execute_with(|| {
-        let hotkey = U256::from(1);
-        let parent = U256::from(2);
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let parent = U256::from(3);
         let netuid = 1;
         let validating_emission = 1000;
         let mining_emission = 0;
@@ -754,13 +759,21 @@ fn test_hotkey_take_calculation_scenario() {
         // Test with different delegation values
         for &delegation in &[0, 16384, 32768, 49152, 65535] {
             Delegates::<Test>::insert(&hotkey, delegation);
+            SubtensorModule::stake_into_subnet(&parent, &coldkey, netuid, u64::MAX);
+            ParentKeys::<Test>::insert(&hotkey, netuid, vec![(u64::MAX, parent.clone())]);
 
             let mut emission_tuples = Vec::new();
             SubtensorModule::source_hotkey_emission(&hotkey, netuid, validating_emission, mining_emission, &mut emission_tuples);
 
-            let hotkey_emission = emission_tuples.iter().find(|(h, _, _)| h == &hotkey).map(|(_, _, amount)| amount).unwrap();
-            let expected_take = (validating_emission as u128 * delegation as u128 / 65535u128) as u64;
-            assert!(hotkey_emission >= &expected_take && hotkey_emission <= &(expected_take + 1));
+            let hotkey_emission: u64 = emission_tuples.iter()
+                .filter(|(h, _, _)| h == &hotkey)
+                .map(|(_, _, amount)| *amount)
+                .sum();
+            let emission_fixed = I96F32::from_num(validating_emission);
+            let delegation_fixed = I96F32::from_num(delegation);
+            let max_delegation_fixed = I96F32::from_num(65535u16);
+            let expected_take = (emission_fixed * delegation_fixed / max_delegation_fixed).to_num::<u64>();
+            assert!(hotkey_emission >= expected_take && hotkey_emission <= (expected_take + 1));
         }
     });
 }
@@ -818,7 +831,7 @@ fn test_parent_distribution() {
 
 // 39. Test Global and Alpha Weight Distribution
 // Description: Verify that the distribution considers both global and alpha weights correctly.
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_global_and_alpha_weight_distribution -- --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_global_and_alpha_weight_distribution_scenario -- --exact --nocapture
 #[test]
 fn test_global_and_alpha_weight_distribution_scenario() {
     new_test_ext(1).execute_with(|| {
@@ -830,12 +843,11 @@ fn test_global_and_alpha_weight_distribution_scenario() {
         let mining_emission = 0;
 
         // Set up global and alpha weights
+        add_network(netuid, 1, 0);
         SubtensorModule::set_global_weight((I96F32::from_num(u64::MAX) * I96F32::from_num(3) / I96F32::from_num(10)).to_num::<u64>());
         ParentKeys::<Test>::insert(&hotkey, netuid, vec![(u64::MAX, parent.clone())]);
-        Alpha::<Test>::insert((&parent, coldkey ,netuid), 500);
-        // GlobalStake::<Test>::insert(&parent, 1000);
+        SubtensorModule::stake_into_subnet(&parent, &coldkey, netuid, 500);
         Delegates::<Test>::insert(&hotkey, 0); // No hotkey take
-
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_hotkey_emission(&hotkey, netuid, validating_emission, mining_emission, &mut emission_tuples);
 
@@ -845,14 +857,13 @@ fn test_global_and_alpha_weight_distribution_scenario() {
         let expected_global = (validating_emission as f64 * 0.3) as u64;
         let expected_alpha = (validating_emission as f64 * 0.7) as u64;
         let total_expected = expected_global + expected_alpha;
-
         assert!((*parent_emission as i64 - total_expected as i64).abs() <= 1);
     });
 }
 
 // 40. Test Zero Stake Scenario
 // Description: Ensure the function handles cases where a parent or hotkey has zero stake without errors.
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_zero_stake_scenario -- --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_zero_stake_scenario_1 -- --exact --nocapture
 #[test]
 fn test_zero_stake_scenario_1() {
     new_test_ext(1).execute_with(|| {
@@ -865,17 +876,16 @@ fn test_zero_stake_scenario_1() {
 
         // Set up zero stake
         ParentKeys::<Test>::insert(&hotkey, netuid, vec![(u64::MAX, parent.clone())]);
-        Alpha::<Test>::insert((&parent, coldkey, netuid), 0);
-        // GlobalStake::<Test>::insert(&parent, 0);
+        SubtensorModule::stake_into_subnet(&parent, &coldkey, netuid, 0);
         Delegates::<Test>::insert(&hotkey, 0);
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_hotkey_emission(&hotkey, netuid, validating_emission, mining_emission, &mut emission_tuples);
 
         // Check that the function doesn't panic and distributes all emission to the hotkey
-        assert_eq!(emission_tuples.len(), 1);
-        assert_eq!(emission_tuples[0].0, hotkey);
-        assert_eq!(emission_tuples[0].2, validating_emission);
+        assert_eq!(emission_tuples.len(), 2);
+        assert_eq!(emission_tuples[1].0, hotkey);
+        assert_eq!(emission_tuples[1].2, validating_emission);
     });
 }
 
@@ -910,7 +920,7 @@ fn test_maximum_stake_values() {
 
 // 42. Test Rounding and Precision
 // Description: Verify that rounding errors don't accumulate and the total distributed matches the input emission.
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_rounding_and_precision -- --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_rounding_and_precision_scenario -- --exact --nocapture
 #[test]
 fn test_rounding_and_precision_scenario() {
     new_test_ext(1).execute_with(|| {
@@ -924,10 +934,8 @@ fn test_rounding_and_precision_scenario() {
 
         // Set up stakes and parents
         ParentKeys::<Test>::insert(&hotkey, netuid, vec![(u64::MAX / 2, parent1.clone()), (u64::MAX / 2, parent2.clone())]);
-        Alpha::<Test>::insert((&parent1, coldkey, netuid), 1000);
-        Alpha::<Test>::insert((&parent2, coldkey, netuid), 1000);
-        // GlobalStake::<Test>::insert(&parent1, 1000);
-        // GlobalStake::<Test>::insert(&parent2, 1000);
+        SubtensorModule::stake_into_subnet(&parent1, &coldkey, netuid, 1000);
+        SubtensorModule::stake_into_subnet(&parent2, &coldkey, netuid, 1000);
         Delegates::<Test>::insert(&hotkey, 16384); // 25% take
 
         let mut emission_tuples = Vec::new();

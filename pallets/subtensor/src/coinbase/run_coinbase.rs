@@ -266,7 +266,7 @@ impl<T: Config> Pallet<T> {
             total_alpha = total_alpha.saturating_add(parent_alpha_contribution);
             contributions.push((parent.clone(), parent_alpha_contribution, parent_global_contribution));
         }
-
+        
         // Distribute to parents.
         let global_weight: I96F32 = Self::get_global_weight();
         let alpha_weight: I96F32 = I96F32::from_num(1.0).saturating_sub(global_weight);
