@@ -490,9 +490,6 @@ pub mod pallet {
     #[pallet::storage] // --- Map ( hot ) --> last_hotkey_emission_drain | Last block we drained this hotkey's emission.
     pub type LastHotkeyEmissionDrain<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- Map ( hot ) --> emission | Accumulated hotkey emission.
-    pub type PendingdHotkeyEmission<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- DMap ( hot, netuid ) --> emission | Accumulated hotkey emission.
     pub type PendingdHotkeyEmissionOnNetuid<T: Config> = StorageDoubleMap<
         _,
