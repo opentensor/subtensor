@@ -548,7 +548,8 @@ fn test_do_swap_coldkey_success() {
 
         // Perform the swap
         assert_ok!(SubtensorModule::do_swap_coldkey(
-            <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+            // <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+            &old_coldkey,
             &new_coldkey
         ));
 
@@ -888,10 +889,7 @@ fn test_do_swap_coldkey_with_subnet_ownership() {
         OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
 
         // Perform the swap
-        assert_ok!(SubtensorModule::do_swap_coldkey(
-            <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
-            &new_coldkey
-        ));
+        assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey));
 
         // Verify subnet ownership transfer
         assert_eq!(SubnetOwner::<Test>::get(netuid), new_coldkey);
@@ -1350,7 +1348,7 @@ fn test_schedule_swap_coldkey_duplicate() {
                 <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
                 new_coldkey
             ),
-            Error::<Test>::FailedToSchedule
+            Error::<Test>::SwapAlreadyScheduled
         );
     });
 }
@@ -1367,7 +1365,7 @@ fn test_schedule_swap_coldkey_execution() {
 
         add_network(netuid, 13, 0);
         register_ok_neuron(netuid, hotkey, old_coldkey, 0);
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 1000);
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 1000000000000000);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
             hotkey,
@@ -1392,46 +1390,48 @@ fn test_schedule_swap_coldkey_execution() {
         let blocks_in_5_days = 5 * 24 * 60 * 60 / 12;
         let execution_block = current_block + blocks_in_5_days;
 
-        println!("Current block: {}", current_block);
-        println!("Execution block: {}", execution_block);
-
-        // Fast forward to the execution block
-        // System::set_block_number(execution_block);
-        run_to_block(execution_block);
-
-        // Run on_initialize for the execution block
-        SubtensorModule::on_initialize(execution_block);
-
-        // // Also run Scheduler's on_initialize
-        // <pallet_scheduler::Pallet<Test> as OnInitialize<BlockNumber>>::on_initialize(
-        //     execution_block,
-        // );
-
-        // // Check if the swap has occurred
-        // let new_owner = Owner::<Test>::get(hotkey);
-        // println!("New owner after swap: {:?}", new_owner);
-        // assert_eq!(
-        //     new_owner, new_coldkey,
-        //     "Ownership was not updated as expected"
-        // );
-
-        // assert_eq!(
-        //     Stake::<Test>::get(hotkey, new_coldkey),
-        //     stake_amount,
-        //     "Stake was not transferred to new coldkey"
-        // );
-        // assert_eq!(
-        //     Stake::<Test>::get(hotkey, old_coldkey),
-        //     0,
-        //     "Old coldkey still has stake"
-        // );
-
-        // Check for the SwapExecuted event
         System::assert_last_event(
             Event::ColdkeySwapScheduled {
                 old_coldkey,
                 new_coldkey,
                 execution_block,
+            }
+            .into(),
+        );
+
+        run_to_block(execution_block);
+
+        // Run on_initialize for the execution block
+        SubtensorModule::on_initialize(execution_block);
+
+        // Also run Scheduler's on_initialize
+        <pallet_scheduler::Pallet<Test> as OnInitialize<BlockNumber>>::on_initialize(
+            execution_block,
+        );
+
+        // Check if the swap has occurred
+        let new_owner = Owner::<Test>::get(hotkey);
+        assert_eq!(
+            new_owner, new_coldkey,
+            "Ownership was not updated as expected"
+        );
+
+        assert_eq!(
+            Stake::<Test>::get(hotkey, new_coldkey),
+            stake_amount,
+            "Stake was not transferred to new coldkey"
+        );
+        assert_eq!(
+            Stake::<Test>::get(hotkey, old_coldkey),
+            0,
+            "Old coldkey still has stake"
+        );
+
+        // Check for the SwapExecuted event
+        System::assert_has_event(
+            Event::ColdkeySwapped {
+                old_coldkey,
+                new_coldkey,
             }
             .into(),
         );
@@ -1448,6 +1448,7 @@ fn test_direct_swap_coldkey_call_fails() {
         assert_noop!(
             SubtensorModule::swap_coldkey(
                 <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+                old_coldkey,
                 new_coldkey
             ),
             BadOrigin

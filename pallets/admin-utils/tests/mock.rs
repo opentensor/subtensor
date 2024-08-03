@@ -122,6 +122,7 @@ parameter_types! {
 
 impl pallet_subtensor::Config for Test {
     type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type InitialIssuance = InitialIssuance;
     type SudoRuntimeCall = TestRuntimeCall;
@@ -175,6 +176,7 @@ impl pallet_subtensor::Config for Test {
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     type InitialHotkeyEmissionTempo = InitialHotkeyEmissionTempo;
     type InitialNetworkMaxStake = InitialNetworkMaxStake;
+    type Preimages = ();
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]

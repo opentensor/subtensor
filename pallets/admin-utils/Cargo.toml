@@ -51,12 +51,14 @@ std = [
 	"pallet-subtensor/std",
 	"sp-consensus-aura/std",
 	"pallet-balances/std",
+	"pallet-scheduler/std",
 	"sp-runtime/std",
 	"sp-tracing/std",
 	"sp-weights/std",
 	"log/std",
 	"sp-core/std",
 	"sp-io/std",
+	"sp-std/std",
 	"substrate-fixed/std",
 ]
 runtime-benchmarks = [
@@ -65,12 +67,14 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"pallet-subtensor/runtime-benchmarks"
+	"pallet-subtensor/runtime-benchmarks",
+	"pallet-scheduler/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-scheduler/try-runtime",
 	"sp-runtime/try-runtime",
 	"pallet-subtensor/try-runtime"
 ]

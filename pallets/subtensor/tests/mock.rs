@@ -2,7 +2,6 @@
 use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
 use frame_support::weights::constants::RocksDbWeight;
-// use frame_support::weights::constants::WEIGHT_PER_SECOND;
 use frame_support::weights::Weight;
 use frame_support::{
     assert_ok, parameter_types,
@@ -34,6 +33,7 @@ frame_support::construct_runtime!(
         SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>},
         Utility: pallet_utility::{Pallet, Call, Storage, Event},
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
+        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -80,7 +80,6 @@ impl pallet_balances::Config for Test {
     type WeightInfo = ();
     type MaxReserves = ();
     type ReserveIdentifier = ();
-
     type RuntimeHoldReason = ();
     type FreezeIdentifier = ();
     type MaxFreezes = ();
@@ -336,6 +335,7 @@ impl pallet_membership::Config<SenateMembership> for Test {
 
 impl pallet_subtensor::Config for Test {
     type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type InitialIssuance = InitialIssuance;
     type SudoRuntimeCall = TestRuntimeCall;
@@ -389,13 +389,14 @@ impl pallet_subtensor::Config for Test {
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     type InitialHotkeyEmissionTempo = InitialHotkeyEmissionTempo;
     type InitialNetworkMaxStake = InitialNetworkMaxStake;
+    type Preimages = Preimage;
 }
 
 pub struct OriginPrivilegeCmp;
 
 impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
     fn cmp_privilege(_left: &OriginCaller, _right: &OriginCaller) -> Option<Ordering> {
-        None
+        Some(Ordering::Less)
     }
 }
 
@@ -416,7 +417,7 @@ impl pallet_scheduler::Config for Test {
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
     type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Test>;
     type OriginPrivilegeCmp = OriginPrivilegeCmp;
-    type Preimages = ();
+    type Preimages = Preimage;
 }
 
 impl pallet_utility::Config for Test {
@@ -424,6 +425,20 @@ impl pallet_utility::Config for Test {
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type WeightInfo = pallet_utility::weights::SubstrateWeight<Test>;
+}
+
+parameter_types! {
+    pub const PreimageMaxSize: u32 = 4096 * 1024;
+    pub const PreimageBaseDeposit: Balance = 1;
+    pub const PreimageByteDeposit: Balance = 1;
+}
+
+impl pallet_preimage::Config for Test {
+    type WeightInfo = pallet_preimage::weights::SubstrateWeight<Test>;
+    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
+    type ManagerOrigin = EnsureRoot<AccountId>;
+    type Consideration = ();
 }
 
 #[allow(dead_code)]
@@ -460,22 +475,30 @@ pub fn test_ext_with_balances(balances: Vec<(U256, u128)>) -> sp_io::TestExterna
 #[allow(dead_code)]
 pub(crate) fn step_block(n: u16) {
     for _ in 0..n {
+        Scheduler::on_finalize(System::block_number());
         SubtensorModule::on_finalize(System::block_number());
         System::on_finalize(System::block_number());
         System::set_block_number(System::block_number() + 1);
         System::on_initialize(System::block_number());
         SubtensorModule::on_initialize(System::block_number());
+        Scheduler::on_initialize(System::block_number());
     }
 }
 
 #[allow(dead_code)]
 pub(crate) fn run_to_block(n: u64) {
     while System::block_number() < n {
+        Scheduler::on_finalize(System::block_number());
         SubtensorModule::on_finalize(System::block_number());
         System::on_finalize(System::block_number());
         System::set_block_number(System::block_number() + 1);
         System::on_initialize(System::block_number());
+        System::events().iter().for_each(|event| {
+            log::info!("Event: {:?}", event.event);
+        });
+        System::reset_events();
         SubtensorModule::on_initialize(System::block_number());
+        Scheduler::on_initialize(System::block_number());
     }
 }
 
