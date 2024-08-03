@@ -22,50 +22,59 @@ impl<T: Config> Pallet<T> {
 
     /// Returns the block emission for an issuance value.
     pub fn get_block_emission_for_issuance(issuance: u64) -> Result<u64, &'static str> {
-        // Convert issuance to a float for calculations below.
+        // Convert issuance to a fixed-point number for precise calculations
         let total_issuance: I96F32 = I96F32::from_num(issuance);
-        // Check to prevent division by zero when the total supply is reached
-        // and creating an issuance greater than the total supply.
+
+        // Check if the total issuance has reached or exceeded the total supply
+        // If so, return 0 as no more tokens should be emitted
         if total_issuance >= I96F32::from_num(TotalSupply::<T>::get()) {
             return Ok(0);
         }
-        // Calculate the logarithmic residual of the issuance against half the total supply.
-        let residual: I96F32 = log2(
-            I96F32::from_num(1.0)
-                .checked_div(
-                    I96F32::from_num(1.0)
-                        .checked_sub(
-                            total_issuance
-                                .checked_div(
-                                    I96F32::from_num(2.0)
-                                        .saturating_mul(I96F32::from_num(10_500_000_000_000_000.0)),
-                                )
-                                .ok_or("Logarithm calculation failed")?,
-                        )
-                        .ok_or("Logarithm calculation failed")?,
-                )
-                .ok_or("Logarithm calculation failed")?,
-        )
-        .map_err(|_| "Logarithm calculation failed")?;
-        // Floor the residual to smooth out the emission rate.
+
+        // Calculate half of the total supply (10.5 billion * 10^6)
+        let half_total_supply = I96F32::from_num(2.0).saturating_mul(I96F32::from_num(10_500_000_000_000_000.0));
+
+        // Calculate the ratio of total issuance to half of the total supply
+        let division_result = total_issuance.checked_div(half_total_supply).ok_or("Division failed")?;
+
+        // Calculate 1 minus the division result
+        let subtraction_result = I96F32::from_num(1.0).checked_sub(division_result).ok_or("Subtraction failed")?;
+
+        // Calculate the reciprocal of the subtraction result
+        let division_result_2 = I96F32::from_num(1.0).checked_div(subtraction_result).ok_or("Division failed")?;
+
+        // Calculate the logarithm base 2 of the reciprocal
+        let residual: I96F32 = log2(division_result_2).map_err(|_| "Logarithm calculation failed")?;
+
+        // Floor the residual to smooth out the emission rate
         let floored_residual: I96F32 = residual.floor();
-        // Calculate the final emission rate using the floored residual.
-        // Convert floored_residual to an integer
+
+        // Convert floored_residual to an integer for use in the power calculation
         let floored_residual_int: u64 = floored_residual.to_num::<u64>();
-        // Multiply 2.0 by itself floored_residual times to calculate the power of 2.
+
+        // Calculate 2^floored_residual
         let mut multiplier: I96F32 = I96F32::from_num(1.0);
         for _ in 0..floored_residual_int {
             multiplier = multiplier.saturating_mul(I96F32::from_num(2.0));
         }
+
+        // Calculate the block emission percentage as 1 / 2^floored_residual
         let block_emission_percentage: I96F32 = I96F32::from_num(1.0).saturating_div(multiplier);
-        // Calculate the actual emission based on the emission rate
+
+        // Calculate the actual emission by multiplying the percentage with the default block emission
         let block_emission: I96F32 = block_emission_percentage
             .saturating_mul(I96F32::from_num(DefaultBlockEmission::<T>::get()));
-        // Convert to u64
+
+        // Convert the calculated emission to u64
         let block_emission_u64: u64 = block_emission.to_num::<u64>();
+
+        // Update the BlockEmission storage if the calculated emission is different from the current value
         if BlockEmission::<T>::get() != block_emission_u64 {
+            log::debug!("Updating BlockEmission storage");
             BlockEmission::<T>::put(block_emission_u64);
         }
+
+        // Return the calculated block emission
         Ok(block_emission_u64)
     }
 }
