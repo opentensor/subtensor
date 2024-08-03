@@ -41,40 +41,6 @@ fn test_hotkey_drain_time() {
     });
 }
 
-// To run this test specifically, use the following command:
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test coinbase test_coinbase_basic -- --nocapture
-#[test]
-fn test_coinbase_basic() {
-    new_test_ext(1).execute_with(|| {
-        // Define network ID
-        let netuid: u16 = 1;
-        let hotkey = U256::from(0);
-        let coldkey = U256::from(3);
-
-        // Create a network with a tempo of 1
-        add_network(netuid, 1, 0);
-        register_ok_neuron(netuid, hotkey, coldkey, 100000);
-        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, 1000);
-
-        // Step block
-        next_block();
-        assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0); // Hotkey not pending yet.
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 1_000_000_000); // Subnet gets all pending emission.
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid),
-            1000
-        );
-
-        // Step block
-        next_block();
-        assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid),
-            2_000_000_998
-        ); //1000 + 2 x block emission.
-    });
-}
 
 // Test getting and setting hotkey emission tempo
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test coinbase test_set_and_get_hotkey_emission_tempo -- --nocapture

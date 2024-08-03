@@ -94,7 +94,7 @@ impl<T: Config> Pallet<T> {
         for (uid_i, hotkey) in &hotkeys {
             if let Some(stake) = alpha_stake.get_mut(*uid_i as usize) {
                 // Retrieve and store the inherited stake for each hotkey.
-                *stake = I64F64::from_num(Self::get_inherited_stake_for_hotkey_on_subnet(
+                *stake = I64F64::from_num(Self::get_inherited_alpha_for_hotkey_on_subnet(
                     hotkey, netuid,
                 ));
             } else {
@@ -116,7 +116,7 @@ impl<T: Config> Pallet<T> {
             if let Some(stake) = global_tao_stake.get_mut(*uid_i as usize) {
                 // Retrieve and store the global stake for each hotkey.
                 *stake =
-                    I64F64::from_num(Self::get_global_stake_for_hotkey_on_subnet(hotkey, netuid));
+                    I64F64::from_num(Self::get_inherited_global_for_hotkey_on_subnet(hotkey, netuid));
             } else {
                 // Log a warning if the index is out of bounds (should not happen if n is correct).
                 log::warn!(
@@ -144,7 +144,7 @@ impl<T: Config> Pallet<T> {
             })
             .collect();
         // Normalize the combined stake weights.
-        inplace_normalize_64(&mut stake_weights);
+        inplace_normalize_64(&mut stake_weights);// no need to normalize
 
         // Step 6: Convert the combined stake values from 64-bit to 32-bit fixed-point representation.
         vec_fixed64_to_fixed32(stake_weights)
@@ -177,14 +177,14 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Note
     /// This function uses saturating arithmetic to prevent overflows.
-    pub fn get_global_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
+    pub fn get_inherited_global_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
         // Step 1: Retrieve the initial global global stake for the hotkey.
         // This represents the hotkey's stake across all subnets.
-        let initial_global_tao: u64 = Self::get_global_for_hotkey(hotkey);
+        let initial_global_tao: I96F32 = I96F32::from_num(Self::get_global_for_hotkey(hotkey));
 
         // Initialize variables to track stake allocated to children and inherited from parents.
-        let mut global_tao_to_children: u64 = 0;
-        let mut global_tao_from_parents: u64 = 0;
+        let mut global_tao_to_children: I96F32 = I96F32::from_num(0);
+        let mut global_tao_from_parents: I96F32 = I96F32::from_num(0);
 
         // Step 2: Retrieve the lists of parents and children for the hotkey on the subnet.
         let parents: Vec<(u64, T::AccountId)> = Self::get_parents(hotkey, netuid);
@@ -202,13 +202,13 @@ impl<T: Config> Pallet<T> {
 
             // Accumulate the total stake allocated to children.
             global_tao_to_children = global_tao_to_children
-                .saturating_add(global_tao_proportion_to_child.to_num::<u64>());
+                .saturating_add(global_tao_proportion_to_child);
         }
 
         // Step 4: Calculate the total global stake received from parents.
         for (proportion, parent) in parents {
             // Retrieve the parent's global stake.
-            let parent_global_tao: u64 = Self::get_global_for_hotkey(&parent);
+            let parent_global_tao: I96F32 = I96F32::from_num(Self::get_global_for_hotkey(&parent));
 
             // Convert the proportion to a normalized value between 0 and 1.
             let normalized_proportion: I96F32 =
@@ -220,17 +220,17 @@ impl<T: Config> Pallet<T> {
 
             // Accumulate the total stake inherited from parents.
             global_tao_from_parents = global_tao_from_parents
-                .saturating_add(global_tao_proportion_from_parent.to_num::<u64>());
+                .saturating_add(global_tao_proportion_from_parent);
         }
 
         // Step 5: Compute the final global stake.
         // Subtract the stake allocated to children and add the stake inherited from parents.
-        let finalized_global: u64 = initial_global_tao
+        let finalized_global: I96F32 = initial_global_tao
             .saturating_sub(global_tao_to_children)
             .saturating_add(global_tao_from_parents);
 
         // Step 6: Return the final global stake value.
-        finalized_global
+        finalized_global.to_num::<u64>()
     }
 
     /// Calculates the total inherited stake (alpha) held by a hotkey on a network, considering child/parent relationships.
@@ -260,20 +260,20 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Note
     /// This function uses saturating arithmetic to prevent overflows.
-    pub fn get_inherited_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
+    pub fn get_inherited_alpha_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
         // Step 1: Retrieve the initial total stake (alpha) for the hotkey on the specified subnet.
-        let initial_alpha: u64 = Self::get_stake_for_hotkey_on_subnet(hotkey, netuid);
+        let initial_alpha: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
 
         // Initialize variables to track alpha allocated to children and inherited from parents.
-        let mut alpha_to_children: u64 = 0;
-        let mut alpha_from_parents: u64 = 0;
+        let mut alpha_to_children: I96F32 = I96F32::from_num(0);
+        let mut alpha_from_parents: I96F32 = I96F32::from_num(0);
 
         // Step 2: Retrieve the lists of parents and children for the hotkey on the subnet.
         let parents: Vec<(u64, T::AccountId)> = Self::get_parents(hotkey, netuid);
         let children: Vec<(u64, T::AccountId)> = Self::get_children(hotkey, netuid);
 
         // Step 3: Calculate the total alpha allocated to children.
-        for (proportion, _) in children {
+        for (proportion, child) in children {
             // Convert the proportion to a normalized value between 0 and 1.
             let normalized_proportion: I96F32 =
                 I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
@@ -284,13 +284,13 @@ impl<T: Config> Pallet<T> {
 
             // Add this child's allocation to the total alpha allocated to children.
             alpha_to_children =
-                alpha_to_children.saturating_add(alpha_proportion_to_child.to_num::<u64>());
+                alpha_to_children.saturating_add(alpha_proportion_to_child);
         }
 
         // Step 4: Calculate the total alpha inherited from parents.
         for (proportion, parent) in parents {
             // Retrieve the parent's total stake on this subnet.
-            let parent_alpha: u64 = Self::get_stake_for_hotkey_on_subnet(&parent, netuid);
+            let parent_alpha: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(&parent, netuid));
 
             // Convert the proportion to a normalized value between 0 and 1.
             let normalized_proportion: I96F32 =
@@ -302,16 +302,16 @@ impl<T: Config> Pallet<T> {
 
             // Add this parent's contribution to the total alpha inherited from parents.
             alpha_from_parents =
-                alpha_from_parents.saturating_add(alpha_proportion_from_parent.to_num::<u64>());
+                alpha_from_parents.saturating_add(alpha_proportion_from_parent);
         }
 
         // Step 5: Calculate the final inherited alpha for the hotkey.
-        let finalized_alpha: u64 = initial_alpha
+        let finalized_alpha: I96F32 = initial_alpha
             .saturating_sub(alpha_to_children) // Subtract alpha allocated to children
             .saturating_add(alpha_from_parents); // Add alpha inherited from parents
 
         // Step 6: Return the final inherited alpha value.
-        finalized_alpha
+        finalized_alpha.to_num::<u64>()
     }
 
     /// Retrieves the global value (TAO equivalent) for a given hotkey and coldkey pair across all subnets.

@@ -771,29 +771,38 @@ fn test_hotkey_take_calculation_scenario() {
 #[test]
 fn test_parent_distribution() {
     new_test_ext(1).execute_with(|| {
-        let hotkey = U256::from(1);
-        let parent1 = U256::from(2);
-        let parent2 = U256::from(3);
-        let parent3 = U256::from(4);
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let parent1 = U256::from(3);
+        let parent2 = U256::from(4);
+        let parent3 = U256::from(5);
         let netuid = 1;
         let validating_emission = 10000;
         let mining_emission = 0;
 
         // Set up parent proportions
-        ParentKeys::<Test>::insert(&hotkey, netuid, vec![(500, parent1.clone()), (300, parent2.clone()), (200, parent3.clone())]);
+        add_network(netuid, 1, 0);
+        SubtensorModule::stake_into_subnet(&parent1, &coldkey, netuid, 500);
+        SubtensorModule::stake_into_subnet(&parent2, &coldkey, netuid, 300);
+        SubtensorModule::stake_into_subnet(&parent3, &coldkey, netuid, 200);
+        ParentKeys::<Test>::insert(&hotkey, netuid, vec![(u64::MAX, parent1.clone()), (u64::MAX, parent2.clone()), (u64::MAX, parent3.clone())]);
         Delegates::<Test>::insert(&hotkey, 0); // No hotkey take
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_hotkey_emission(&hotkey, netuid, validating_emission, mining_emission, &mut emission_tuples);
 
-        let parent1_emission = emission_tuples.iter().find(|(p, _, _)| p == &parent1).map(|(_, _, amount)| amount).unwrap();
-        let parent2_emission = emission_tuples.iter().find(|(p, _, _)| p == &parent2).map(|(_, _, amount)| amount).unwrap();
-        let parent3_emission = emission_tuples.iter().find(|(p, _, _)| p == &parent3).map(|(_, _, amount)| amount).unwrap();
+        let parent1_emission = emission_tuples.iter().find(|(p, _, _)| p == &parent1).map(|(_, _, amount)| *amount).unwrap();
+        let parent2_emission = emission_tuples.iter().find(|(p, _, _)| p == &parent2).map(|(_, _, amount)| *amount).unwrap();
+        let parent3_emission = emission_tuples.iter().find(|(p, _, _)| p == &parent3).map(|(_, _, amount)| *amount).unwrap();
+        let all_hotkey_emission: u64 = emission_tuples.iter()
+                .filter(|(h, _, _)| h == &hotkey)
+                .map(|(_, _, amount)| *amount)
+                .sum();
 
         // Check proportional distribution
         assert!(parent1_emission > parent2_emission);
         assert!(parent2_emission > parent3_emission);
-        assert_eq!(*parent1_emission + *parent2_emission + *parent3_emission, validating_emission);
+        assert_eq!(parent1_emission + parent2_emission + parent3_emission, validating_emission - all_hotkey_emission);
 
         // Check approximate proportions
         let total_proportion = 500 + 300 + 200;
@@ -1081,8 +1090,7 @@ fn test_edge_cases_parent_proportions() {
         ]);
 
         for parent in [&parent1, &parent2, &parent3] {
-            Alpha::<Test>::insert((&parent, coldkey, netuid), 1000);
-            // GlobalStake::<Test>::insert(parent, 1000);
+            SubtensorModule::stake_into_subnet(parent, &coldkey, netuid, 1000);
         }
         Delegates::<Test>::insert(&hotkey, 0);
 
@@ -1117,15 +1125,14 @@ fn test_overflow_handling_in_emission() {
         let mining_emission = u64::MAX;
 
         ParentKeys::<Test>::insert(&hotkey, netuid, vec![(u64::MAX, parent.clone())]);
-        Alpha::<Test>::insert((&parent, coldkey, netuid), u64::MAX);
-        // GlobalStake::<Test>::insert(&parent, u64::MAX);
+        SubtensorModule::stake_into_subnet(&parent, &coldkey, netuid, u64::MAX);
         Delegates::<Test>::insert(&hotkey, u16::MAX);
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_hotkey_emission(&hotkey, netuid, validating_emission, mining_emission, &mut emission_tuples);
 
         // Check that the function doesn't panic and produces some output
-        assert!(!emission_tuples.is_empty());
+        assert!(emission_tuples.len() == 2);
 
         // Check that the total distributed emission doesn't exceed the input
         let total_distributed: u128 = emission_tuples.iter().map(|(_, _, amount)| *amount as u128).sum();
@@ -1177,7 +1184,7 @@ fn test_maximum_emission_value() {
         let mining_emission = u64::MAX;
 
         ParentKeys::<Test>::insert(&hotkey, netuid, vec![(u64::MAX / 2, parent.clone())]);
-        Alpha::<Test>::insert((&parent, coldkey, netuid), 1000);
+        SubtensorModule::stake_into_subnet(&parent, &coldkey, netuid, u64::MAX);
         // GlobalStake::<Test>::insert(&parent, 1000);
         Delegates::<Test>::insert(&hotkey, 0);
 
