@@ -1,9 +1,6 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::arithmetic_side_effects)]
 
-use frame_support::pallet_prelude::{InvalidTransaction, TransactionValidity};
-use frame_support::traits::{OnFinalize, OnIdle, OnInitialize};
-use frame_support::weights::Weight;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
 use frame_system::Config;
 mod mock;

@@ -1347,20 +1347,10 @@ where
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
             }),
-<<<<<<< HEAD
-     
-                    Ok(ValidTransaction {
-                        priority: Self::get_priority_vanilla(),
-                        ..Default::default()
-                    })
-                }
-            }
-=======
             Some(Call::dissolve_network { .. }) => Ok(ValidTransaction {
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
             }),
->>>>>>> origin/devnet-ready
             _ => Ok(ValidTransaction {
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()

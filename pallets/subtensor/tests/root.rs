@@ -7,10 +7,6 @@ use frame_system::{EventRecord, Phase};
 use pallet_subtensor::migrations;
 use pallet_subtensor::Error;
 use sp_core::{Get, H256, U256};
-use sp_runtime::{
-    traits::{DispatchInfoOf, SignedExtension},
-    transaction_validity::{InvalidTransaction, TransactionValidityError},
-};
 
 mod mock;
 
@@ -980,106 +976,6 @@ fn test_dissolve_network_does_not_exist_err() {
         assert_err!(
             SubtensorModule::dissolve_network(RuntimeOrigin::signed(coldkey), netuid),
             Error::<Test>::SubNetworkDoesNotExist
-        );
-    });
-}
-
-#[test]
-fn test_dissolve_network_validate() {
-    fn generate_valid_pow(coldkey: &U256, block_number: u64, difficulty: U256) -> (H256, u64) {
-        let mut nonce: u64 = 0;
-        loop {
-            let work = SubtensorModule::create_seal_hash(block_number, nonce, coldkey);
-            if SubtensorModule::hash_meets_difficulty(&work, difficulty) {
-                return (work, nonce);
-            }
-            nonce += 1;
-        }
-    }
-    // Testing the signed extension validate function
-    // correctly filters the `dissolve_network` transaction.
-
-    new_test_ext(0).execute_with(|| {
-        let netuid: u16 = 1;
-        let delegate_coldkey = U256::from(1);
-        let delegate_hotkey = U256::from(2);
-        let new_coldkey = U256::from(3);
-        let current_block = 0u64;
-
-        add_network(netuid, 0, 0);
-        register_ok_neuron(netuid, delegate_hotkey, delegate_coldkey, 0);
-
-        // Make delegate a delegate
-        assert_ok!(SubtensorModule::become_delegate(
-            RuntimeOrigin::signed(delegate_coldkey),
-            delegate_hotkey
-        ));
-
-        // Add more than 500 TAO of stake to the delegate's hotkey
-        let stake_amount = 501_000_000_000; // 501 TAO in RAO
-        let delegator = U256::from(4);
-        SubtensorModule::add_balance_to_coldkey_account(&delegator, stake_amount);
-        assert_ok!(SubtensorModule::add_stake(
-            RuntimeOrigin::signed(delegator),
-            delegate_hotkey,
-            stake_amount
-        ));
-
-        // Ensure the delegate's coldkey has less than minimum balance
-        assert!(
-            SubtensorModule::get_coldkey_balance(&delegate_coldkey)
-                < MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP,
-            "Delegate coldkey balance should be less than minimum required"
-        );
-
-        // Ensure the delegate's hotkey has more than 500 TAO delegated
-        assert!(
-            SubtensorModule::get_total_delegated_stake(&delegate_coldkey) >= 500_000_000_000,
-            "Delegate hotkey should have at least 500 TAO delegated"
-        );
-
-        // Generate valid PoW
-        let (work, nonce) = generate_valid_pow(
-            &delegate_coldkey,
-            current_block,
-            U256::from(4) * U256::from(BaseDifficulty::<Test>::get()),
-        );
-
-        // Schedule coldkey swap
-        assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
-            &delegate_coldkey,
-            &new_coldkey,
-            work.to_fixed_bytes().to_vec(),
-            current_block,
-            nonce,
-        ));
-
-        // Verify that the swap was scheduled
-        assert_eq!(
-            ColdkeySwapDestinations::<Test>::get(delegate_coldkey),
-            vec![new_coldkey]
-        );
-
-        // Check if the coldkey is in arbitration
-        assert!(
-            SubtensorModule::coldkey_in_arbitration(&delegate_coldkey),
-            "Delegate coldkey should be in arbitration after swap"
-        );
-
-        let who = delegate_coldkey; // The coldkey signs this transaction
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::dissolve_network { netuid });
-
-        let info: DispatchInfo =
-            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-
-        let extension = pallet_subtensor::SubtensorSignedExtension::<Test>::new();
-
-        // Submit to the signed extension validate function
-        let result_in_arbitration = extension.validate(&who, &call.clone(), &info, 10);
-        // Should fail with InvalidTransaction::Custom(6) because coldkey is in arbitration
-        assert_err!(
-            result_in_arbitration,
-            TransactionValidityError::Invalid(InvalidTransaction::Custom(6))
         );
     });
 }
