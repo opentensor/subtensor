@@ -2,17 +2,46 @@ use super::*;
 use alloc::collections::BTreeMap;
 use substrate_fixed::types::I96F32;
 
-impl<T: Config> Pallet<T> {
-    
+#[derive(Debug)]
+pub struct SubnetInfo {
+    pub tao: I96F32,
+    pub alpha_in: I96F32,
+    pub alpha_out: I96F32,
+    pub mechanism: u16,
+}
 
+impl<T: Config> Pallet<T> {
+
+    /// Retrieves subnet information for all subnets and returns it as a BTreeMap.
+    ///
+    /// This function iterates through all subnets, collects their TAO, Alpha In, Alpha Out,
+    /// and mechanism information, and stores it in a BTreeMap with the subnet ID as the key.
+    ///
+    /// # Returns
+    ///
+    /// Returns a BTreeMap where the key is the subnet ID (u16) and the value is a SubnetInfo struct
+    /// containing the subnet's TAO, Alpha In, Alpha Out, and mechanism.
+    pub fn get_subnet_info_structs() -> BTreeMap<u16, SubnetInfo> {
+        let mut subnet_info: BTreeMap<u16, SubnetInfo> = BTreeMap::new();
+        for netuid in Self::get_all_subnet_netuids() {
+            let tao = I96F32::from_num(SubnetTAO::<T>::get(netuid));
+            let alpha_in = I96F32::from_num(SubnetAlphaIn::<T>::get(netuid));
+            let alpha_out = I96F32::from_num(SubnetAlphaOut::<T>::get(netuid));
+            let mechanism = SubnetMechanism::<T>::get(netuid);
+            subnet_info.insert(netuid, SubnetInfo {
+                tao,
+                alpha_in,
+                alpha_out,
+                mechanism,
+            });
+        }
+        subnet_info
+    }
+    
     pub fn run_coinbase() {
         // --- 0. Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
         log::debug!("Current block: {:?}", current_block);
-
-        // --- 1. Get all netuids.
-        let subnets: Vec<u16> = Self::get_all_subnet_netuids();
-        log::debug!("All subnet netuids: {:?}", subnets);
 
         // --- 2. Get the current coinbase emission.
         let block_emission: I96F32 = I96F32::from_num(Self::get_block_emission().unwrap_or(0));
@@ -22,68 +51,95 @@ impl<T: Config> Pallet<T> {
         let total_issuance: I96F32 = I96F32::from_num(Self::get_total_issuance());
         log::debug!("Total issuance: {:?}", total_issuance);
 
+        // --- 4. Get subnet info.
+        let subnet_info: BTreeMap<u16, SubnetInfo> = Self::get_subnet_info_structs();
+        log::debug!( "All Subnet info: {:?}", subnet_info );
+
         // --- 4. Sum all the SubnetTAO associated with the same mechanism
         let mut total_active_tao: I96F32 = I96F32::from_num(0);
         let mut mechanism_tao: BTreeMap<u16, I96F32> = BTreeMap::new();
-        for netuid in subnets.iter() {
-            if *netuid == 0 { continue } // Skip root network
-            let mechid = SubnetMechanism::<T>::get(*netuid);
-            let subnet_tao = I96F32::from_num(SubnetTAO::<T>::get(*netuid));
+        for (netuid, info) in subnet_info.iter() {
+            // Skip root network
+            if *netuid == 0 { continue }
+            // Get the mechanism ID.
+            let mechid = info.mechanism;
+            // Get the subnet TAO.
+            let subnet_tao = info.tao;
+            // Add the subnet TAO to the mechanism TAO.
             *mechanism_tao.entry(mechid).or_insert(I96F32::from_num(0)) += subnet_tao;
+            // Add the subnet TAO to the total active TAO.
             total_active_tao = total_active_tao.saturating_add(subnet_tao);
         }
-        log::debug!("Mechanism TAO sums: {:?}", mechanism_tao);
+        log::debug!(
+            "Total TAO per mechanism: {:?}",
+            mechanism_tao
+        );
 
-        // --- 5. Compute EmissionValues per subnet.
-        // This loop calculates the emission for each subnet based on its mechanism and proportion of TAO.
-        // For each subnet s in a mechanism m:
-        // 1. Calculate subnet's proportion of mechanism TAO: P_s = T_s / T_m
-        // 2. Calculate subnet's TAO emission: E_s = P_s * E_m
-        // 3. Convert TAO emission to alpha emission: E_α = tao_to_alpha(E_s)
-        // 4. Update total issuance: I_new = I_old + E_s
-        // 5. Update subnet TAO: T_s_new = T_s_old + E_s
-        // 6. Update subnet alpha: A_s_new = A_s_old + E_α
-        // 7. Accumulate pending emission: P_e_new = P_e_old + E_α
-        for netuid in subnets.clone().iter() {
+        // --- 5. Compute Mechanism Emission per subnet.
+        let mut mechanism_emission: BTreeMap<u16, I96F32> = BTreeMap::new();
+        for (netuid, info) in subnet_info.iter() {
             // Do not emit into root network.
             if *netuid == 0 { continue }
-            // 1. Get subnet mechanism ID
-            let mechid: u16 = SubnetMechanism::<T>::get(*netuid);
-            // 2. Get subnet TAO (T_s)
-            let subnet_tao: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(*netuid));
-            // 3. Get the denominator as the sum of all TAO associated with a specific mechanism
+            // Get the mechanism ID.
+            let mechid = info.mechanism;
+            // Get the denominator as the sum of all TAO associated with a specific mechanism
             let mech_tao: I96F32 = *mechanism_tao.get(&mechid).unwrap_or(&I96F32::from_num(0));
-            // 4. Compute the mechanism emission proportion
+            // Compute the mechanism emission proportion
             let mech_proportion: I96F32 = mech_tao.checked_div(total_active_tao).unwrap_or(I96F32::from_num(0));
-            // 4. Compute the mechanism emission proportion
-            let mech_emission: I96F32 = mech_proportion.saturating_mul( block_emission );
-            // 4. Calculate subnet's proportion of mechanism TAO: P_s = T_s / T_m
-            let subnet_proportion: I96F32 = subnet_tao.checked_div(mech_tao).unwrap_or(I96F32::from_num(0));
-            // 5. Calculate subnet's TAO emission: E_s = P_s * E_m
-            let subnet_emission: u64 = mech_emission.checked_mul(subnet_proportion).unwrap_or(I96F32::from_num(0)).to_num::<u64>();
-            // 6. Store the block emission for this subnet
-            EmissionValues::<T>::insert(*netuid, subnet_emission);
-            // 7. Add the TAO into the subnet immediatetly.
-            SubnetTAO::<T>::mutate(*netuid, |total| *total = total.saturating_add( subnet_emission ));
-            // 8. Increase total stake here.
-            TotalStake::<T>::mutate(|total| *total = total.saturating_add( subnet_emission ));
-            // 9. Increase total issuance.
-            TotalIssuance::<T>::mutate(|total| *total = total.saturating_add( subnet_emission ));
-            // 10. Switch on dynamic or Stable.
-            if mechid == 1 {
-                // 10a Dynamic: Add the SubnetAlpha directly into the pool immediately.
-                SubnetAlphaIn::<T>::mutate( *netuid, |total| { *total = total.saturating_add( mech_emission.to_num::<u64>() ) });
-                // 10a Dynamic: Set the pending emission directly as alpha always block emission total
-                PendingEmission::<T>::mutate( *netuid, |total| {*total = total.saturating_add( mech_emission.to_num::<u64>() ) });
-            } else {
-                // 10b Stable: Set the pending emission as tao emission.
-                PendingEmission::<T>::mutate( *netuid, |total| { *total = total.saturating_add( subnet_emission )});
-            }
+            // Compute the mechanism emission
+            let mech_emission: I96F32 = mech_proportion.saturating_mul(block_emission);
+            // Sink the mechanism emission.
+            *mechanism_emission.entry(mechid).or_insert(I96F32::from_num(0)) += mech_emission;
         }
         log::debug!(
-            "Emission per subnet: {:?}",
+            "TAO Emission per mechanism: {:?}",
+            mechanism_emission
+        );
+
+        // Distribute mechanism emission on subnets.
+        let mut subnet_emission: BTreeMap<u16, I96F32> = BTreeMap::new();
+        for (netuid, info) in subnet_info.iter() {
+            // Skip root network
+            if *netuid == 0 { continue }
+            // Get the mechanism ID.
+            let mechid = info.mechanism;
+            // Get the denominator as the sum of all TAO associated with a specific mechanism
+            let mech_tao:I96F32 = *mechanism_tao.get(&mechid).unwrap_or(&I96F32::from_num(0));
+            // Get subnet TAO (T_s)
+            let subnet_tao:I96F32 = info.tao;
+            // Get the emission for the mechanism.
+            let mech_emission:I96F32 = *mechanism_emission.get(&mechid).unwrap_or(&I96F32::from_num(0));
+            // Calculate subnet's proportion of mechanism TAO: P_s = T_s / T_m
+            let subnet_proportion:I96F32 = subnet_tao.checked_div(mech_tao).unwrap_or(I96F32::from_num(0));
+            // Calculate subnet's TAO emission: E_s = P_s * E_m
+            let subnet_emission_value:I96F32 = mech_emission.saturating_mul(subnet_proportion);
+            // Sink the subnet emission.
+            subnet_emission.insert(*netuid, subnet_emission_value);
+            // Set the emission for the subnet.
+            EmissionValues::<T>::insert(*netuid, subnet_emission_value.to_num::<u64>() );
+            // Add the TAO into the subnet immediatetly.
+            SubnetTAO::<T>::mutate(*netuid, |total| *total = total.saturating_add( subnet_emission_value.to_num::<u64>() ));
+            // Increase total stake here.
+            TotalStake::<T>::mutate(|total| *total = total.saturating_add( subnet_emission_value.to_num::<u64>() ));
+            // Increase total issuance.
+            TotalIssuance::<T>::mutate(|total| *total = total.saturating_add( subnet_emission_value.to_num::<u64>() ));
+        }
+        log::debug!(
+            "TAO Emission per subnet: {:?}",
             EmissionValues::<T>::iter().collect::<Vec<_>>()
         );
+
+        // Translate tao emission to alpha emission and source pending.
+        for (netuid, info) in subnet_info.iter() {
+            let mechid = info.mechanism;
+            let mech_emission = *mechanism_emission.get(&mechid).unwrap_or(&I96F32::from_num(0));
+            let subnet_emission = *subnet_emission.get(netuid).unwrap_or(&I96F32::from_num(0));    
+            match mechid {
+                2 => Self::sink_rao_emission( *netuid, block_emission, mech_emission, subnet_emission, &subnet_info),
+                1 => Self::sink_dtao_emission( *netuid, block_emission, mech_emission, subnet_emission, &subnet_info),
+                _ => Self::sink_stao_emission( *netuid, block_emission, mech_emission, subnet_emission, &subnet_info),
+            }
+        }
         log::debug!(
             "Pending Emission per subnet: {:?}",
             PendingEmission::<T>::iter().collect::<Vec<_>>()
@@ -94,7 +150,7 @@ impl<T: Config> Pallet<T> {
         // subnet_emission --> epoch() --> hotkey_emission --> (hotkey + parent hotkeys)
         let mut hotkey_emission_limit: u64 = 0;
         let mut hotkey_emission_tuples: Vec<(T::AccountId, u16, u64)> = vec![];
-        for netuid in subnets.clone().iter() {
+        for (netuid, _) in subnet_info.iter() {
             // --- 6.1 Check to see if the subnet should run its epoch.
             if Self::should_run_epoch(*netuid, current_block) {
                 // --- 6.2 Drain the subnet emission.
@@ -248,10 +304,6 @@ impl<T: Config> Pallet<T> {
         let mut to_parents: u64 = 0;
         let parent_emission: I96F32 = validating_emission.saturating_sub(hotkey_take);
 
-        // Retrieve the hotkey's inherited stakes (not used in this function, consider removing)
-        let hotkey_inherited_alpha: I96F32 = I96F32::from_num(Self::get_inherited_alpha_for_hotkey_on_subnet(hotkey, netuid));
-        let hotkey_inherited_global: I96F32 = I96F32::from_num(Self::get_inherited_global_for_hotkey_on_subnet(hotkey, netuid));  
-
         // Initialize variables to calculate total stakes from parents
         let mut total_global: I96F32 = I96F32::from_num(0);
         let mut total_alpha: I96F32 = I96F32::from_num(0);
@@ -360,8 +412,6 @@ impl<T: Config> Pallet<T> {
         // Initialize variables to track emission distribution
         let mut to_nominators: u64 = 0;
         let nominator_emission: I96F32 = emission.saturating_sub(hotkey_take);
-        let hotkey_global: I96F32 = I96F32::from_num(Self::get_global_for_hotkey(hotkey));
-        let hotkey_alpha: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
 
         // Prepare to calculate contributions from nominators
         let mut total_global: I96F32 = I96F32::from_num(0);

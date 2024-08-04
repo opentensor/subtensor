@@ -273,7 +273,7 @@ impl<T: Config> Pallet<T> {
         let children: Vec<(u64, T::AccountId)> = Self::get_children(hotkey, netuid);
 
         // Step 3: Calculate the total alpha allocated to children.
-        for (proportion, child) in children {
+        for (proportion, _) in children {
             // Convert the proportion to a normalized value between 0 and 1.
             let normalized_proportion: I96F32 =
                 I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
