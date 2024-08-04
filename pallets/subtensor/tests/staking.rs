@@ -15,7 +15,6 @@ use sp_core::{H256, U256};
 ************************************************************/
 
 #[test]
-
 fn test_add_stake_dispatch_info_ok() {
     new_test_ext(1).execute_with(|| {
         let hotkey = U256::from(0);
@@ -521,7 +520,6 @@ fn test_remove_stake_rate_limit_exceeded() {
 }
 
 #[test]
-
 fn test_remove_stake_dispatch_info_ok() {
     new_test_ext(1).execute_with(|| {
         let hotkey = U256::from(0);

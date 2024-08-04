@@ -68,8 +68,16 @@ mod hooks {
                 .saturating_add(migrations::migrate_populate_staking_hotkeys::migrate_populate_staking_hotkeys::<T>())
                 // Fix total coldkey stake.
                 // Storage version v8 -> v9
-                .saturating_add(migrations::migrate_fix_total_coldkey_stake::migrate_fix_total_coldkey_stake::<T>());
+                .saturating_add(migrations::migrate_fix_total_coldkey_stake::migrate_fix_total_coldkey_stake::<T>())
+                // Migrate Delegate Ids on chain
+                .saturating_add(migrations::migrate_chain_identity::migrate_set_hotkey_identities::<T>());
             weight
+        }
+
+        #[cfg(feature = "try-runtime")]
+        fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+            Self::check_accounting_invariants()?;
+            Ok(())
         }
     }
 }

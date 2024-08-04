@@ -28,6 +28,7 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-io = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 serde-tuple-vec-map = { workspace = true }
 serde_bytes = { workspace = true, features = ["alloc"] }
 serde_with = { workspace = true, features = ["macros"] }
@@ -88,6 +89,7 @@ std = [
 	"serde_with/std",
 	"substrate-fixed/std",
 	"num-traits/std",
+	"serde_json/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

@@ -178,5 +178,7 @@ mod errors {
         NewColdKeyIsHotkey,
         /// New coldkey is in arbitration
         NewColdkeyIsInArbitration,
+        /// Invalid identity.
+        InvalidIdentity,
     }
 }
