@@ -16,7 +16,7 @@ use frame_support::traits::Imbalance;
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     genesis_builder_helper::{build_config, create_default_config},
-    pallet_prelude::{DispatchError, Get},
+    pallet_prelude::Get,
     traits::{fungible::HoldConsideration, Contains, LinearStoragePrice, OnUnbalanced},
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
@@ -141,7 +141,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 192,
+    spec_version: 193,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,

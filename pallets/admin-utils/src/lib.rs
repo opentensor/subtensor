@@ -1128,7 +1128,7 @@ pub mod pallet {
 
             Ok(())
         }
-  }
+    }
 }
 
 impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Pallet<T> {
