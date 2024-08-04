@@ -33,14 +33,14 @@ pub fn migrate_rao<T: Config>() -> Weight {
         weight = weight.saturating_add(T::DbWeight::get().reads_writes(0, 1));
 
         // Set the owner hotkey.
-        // FIX ina  hUGE WAY.
+        // FIX in a hUGE WAY.
         if netuid != 0 && SubnetOwner::<T>::contains_key( netuid ) {
             // Owning coldkey
             let owner_coldkey = SubnetOwner::<T>::get(netuid);
             // Get the previous lock
             let locked_tao = SubnetLocked::<T>::get(netuid);
             // Set the lock to the new owner.
-            Locks::<T>::insert((netuid, owner_coldkey.clone(), owner_coldkey.clone()), (locked_tao, 0, Self::get_lock_interval_blocks()));
+            Locks::<T>::insert((netuid, owner_coldkey.clone(), owner_coldkey.clone()), (locked_tao, 0, LockIntervalBlocks::<T>::get()));
             // 1 read and 1 write.
             weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 1));
         }
@@ -51,10 +51,10 @@ pub fn migrate_rao<T: Config>() -> Weight {
     // potentialls reset total stake.
     // potentially create new StakingColdkeys map.
     Stake::<T>::iter().for_each(|(hotkey, coldkey, stake)| {
-        // Increase SubnetTAO
-        SubnetTAO::<T>::mutate(netuid, |total| { *total = total.saturating_add(stake); });
-        // INcrease SubnetAlphaOut
-        SubnetAlphaOut::<T>::mutate(netuid, |total| { *total = total.saturating_add(stake); });
+        // Increase SubnetTAO on root.
+        SubnetTAO::<T>::mutate( 0, |total| { *total = total.saturating_add(stake); });
+        // Increase SubnetAlphaOut on root.
+        SubnetAlphaOut::<T>::mutate( 0, |total| { *total = total.saturating_add(stake); });
         // Set all the stake on root 0 subnet.
         Alpha::<T>::mutate( (hotkey.clone(), coldkey.clone(), 0), |root| *root = stake);
         // Set the total stake on the coldkey
