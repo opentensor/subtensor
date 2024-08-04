@@ -174,5 +174,9 @@ mod errors {
         SwapAlreadyScheduled,
         /// failed to swap coldkey
         FailedToSchedule,
+        /// New coldkey is hotkey
+        NewColdKeyIsHotkey,
+        /// New coldkey is in arbitration
+        NewColdkeyIsInArbitration,
     }
 }
