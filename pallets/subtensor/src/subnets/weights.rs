@@ -1,5 +1,5 @@
 use super::*;
-use crate::math::*;
+use crate::epoch::math::*;
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, Hash};
 use sp_std::vec;

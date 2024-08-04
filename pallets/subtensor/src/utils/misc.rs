@@ -5,7 +5,35 @@ use crate::{
 };
 use sp_core::Get;
 use sp_core::U256;
+use sp_runtime::Saturating;
 use substrate_fixed::types::I32F32;
+
+/// Enum representing different types of transactions
+#[derive(Copy, Clone)]
+pub enum TransactionType {
+    SetChildren,
+    Unknown,
+}
+
+/// Implement conversion from TransactionType to u16
+impl From<TransactionType> for u16 {
+    fn from(tx_type: TransactionType) -> Self {
+        match tx_type {
+            TransactionType::SetChildren => 0,
+            TransactionType::Unknown => 1,
+        }
+    }
+}
+
+/// Implement conversion from u16 to TransactionType
+impl From<u16> for TransactionType {
+    fn from(value: u16) -> Self {
+        match value {
+            0 => TransactionType::SetChildren,
+            _ => TransactionType::Unknown,
+        }
+    }
+}
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
@@ -276,38 +304,6 @@ impl<T: Config> Pallet<T> {
     }
 
     // ========================
-    // ==== Rate Limiting =====
-    // ========================
-    pub fn set_last_tx_block(key: &T::AccountId, block: u64) {
-        LastTxBlock::<T>::insert(key, block)
-    }
-    pub fn get_last_tx_block(key: &T::AccountId) -> u64 {
-        LastTxBlock::<T>::get(key)
-    }
-    pub fn set_last_tx_block_delegate_take(key: &T::AccountId, block: u64) {
-        LastTxBlockDelegateTake::<T>::insert(key, block)
-    }
-    pub fn get_last_tx_block_delegate_take(key: &T::AccountId) -> u64 {
-        LastTxBlockDelegateTake::<T>::get(key)
-    }
-    pub fn exceeds_tx_rate_limit(prev_tx_block: u64, current_block: u64) -> bool {
-        let rate_limit: u64 = Self::get_tx_rate_limit();
-        if rate_limit == 0 || prev_tx_block == 0 {
-            return false;
-        }
-
-        current_block.saturating_sub(prev_tx_block) <= rate_limit
-    }
-    pub fn exceeds_tx_delegate_take_rate_limit(prev_tx_block: u64, current_block: u64) -> bool {
-        let rate_limit: u64 = Self::get_tx_delegate_take_rate_limit();
-        if rate_limit == 0 || prev_tx_block == 0 {
-            return false;
-        }
-
-        current_block.saturating_sub(prev_tx_block) <= rate_limit
-    }
-
-    // ========================
     // === Token Management ===
     // ========================
     pub fn burn_tokens(amount: u64) {
@@ -327,13 +323,18 @@ impl<T: Config> Pallet<T> {
     pub fn get_min_take() -> u16 {
         MinTake::<T>::get()
     }
-
     pub fn set_subnet_locked_balance(netuid: u16, amount: u64) {
         SubnetLocked::<T>::insert(netuid, amount);
     }
-
     pub fn get_subnet_locked_balance(netuid: u16) -> u64 {
         SubnetLocked::<T>::get(netuid)
+    }
+    pub fn get_total_subnet_locked() -> u64 {
+        let mut total_subnet_locked: u64 = 0;
+        for (_, locked) in SubnetLocked::<T>::iter() {
+            total_subnet_locked.saturating_accrue(locked);
+        }
+        total_subnet_locked
     }
 
     // ========================
@@ -694,5 +695,58 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_liquid_alpha_enabled(netuid: u16) -> bool {
         LiquidAlphaOn::<T>::get(netuid)
+    }
+
+    /// Gets the current hotkey emission tempo.
+    ///
+    /// # Returns
+    /// * `u64` - The current emission tempo value.
+    pub fn get_hotkey_emission_tempo() -> u64 {
+        HotkeyEmissionTempo::<T>::get()
+    }
+
+    /// Sets the hotkey emission tempo.
+    ///
+    /// # Arguments
+    /// * `emission_tempo` - The new emission tempo value to set.
+    pub fn set_hotkey_emission_tempo(emission_tempo: u64) {
+        HotkeyEmissionTempo::<T>::set(emission_tempo);
+        Self::deposit_event(Event::HotkeyEmissionTempoSet(emission_tempo));
+    }
+
+    pub fn get_pending_hotkey_emission(hotkey: &T::AccountId) -> u64 {
+        PendingdHotkeyEmission::<T>::get(hotkey)
+    }
+
+    /// Retrieves the maximum stake allowed for a given network.
+    ///
+    /// # Arguments
+    ///
+    /// * `netuid` - The unique identifier of the network.
+    ///
+    /// # Returns
+    ///
+    /// * `u64` - The maximum stake allowed for the specified network.
+    pub fn get_network_max_stake(netuid: u16) -> u64 {
+        NetworkMaxStake::<T>::get(netuid)
+    }
+
+    /// Sets the maximum stake allowed for a given network.
+    ///
+    /// # Arguments
+    ///
+    /// * `netuid` - The unique identifier of the network.
+    /// * `max_stake` - The new maximum stake value to set.
+    ///
+    /// # Effects
+    ///
+    /// * Updates the NetworkMaxStake storage.
+    /// * Emits a NetworkMaxStakeSet event.
+    pub fn set_network_max_stake(netuid: u16, max_stake: u64) {
+        // Update the NetworkMaxStake storage with the new max_stake value
+        NetworkMaxStake::<T>::insert(netuid, max_stake);
+
+        // Emit an event to notify listeners about the change
+        Self::deposit_event(Event::NetworkMaxStakeSet(netuid, max_stake));
     }
 }

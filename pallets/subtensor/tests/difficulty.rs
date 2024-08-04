@@ -5,7 +5,6 @@ mod mock;
 use sp_core::U256;
 
 #[test]
-#[cfg(not(tarpaulin))]
 fn test_registration_difficulty_adjustment() {
     new_test_ext(1).execute_with(|| {
         // Create Net 1

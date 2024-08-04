@@ -12,13 +12,15 @@ pub mod check_nonce;
 mod migrations;
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::traits::Imbalance;
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     genesis_builder_helper::{build_config, create_default_config},
-    pallet_prelude::Get,
-    traits::{fungible::HoldConsideration, Contains, LinearStoragePrice},
+    pallet_prelude::{DispatchError, Get},
+    traits::{fungible::HoldConsideration, Contains, LinearStoragePrice, OnUnbalanced},
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
+use pallet_balances::NegativeImbalance;
 use pallet_commitments::CanCommit;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -139,7 +141,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 165,
+    spec_version: 192,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -388,11 +390,22 @@ parameter_types! {
     pub FeeMultiplier: Multiplier = Multiplier::one();
 }
 
+/// Deduct the transaction fee from the Subtensor Pallet TotalIssuance when dropping the transaction
+/// fee.
+pub struct TransactionFeeHandler;
+impl OnUnbalanced<NegativeImbalance<Runtime>> for TransactionFeeHandler {
+    fn on_nonzero_unbalanced(credit: NegativeImbalance<Runtime>) {
+        let ti_before = pallet_subtensor::TotalIssuance::<Runtime>::get();
+        pallet_subtensor::TotalIssuance::<Runtime>::put(ti_before.saturating_sub(credit.peek()));
+        drop(credit);
+    }
+}
+
 impl pallet_transaction_payment::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
 
-    type OnChargeTransaction = CurrencyAdapter<Balances, ()>;
     //type TransactionByteFee = TransactionByteFee;
+    type OnChargeTransaction = CurrencyAdapter<Balances, TransactionFeeHandler>;
 
     // Convert dispatch weight to a chargeable fee.
     type WeightToFee = LinearWeightToFee<FeeWeightRatio>;
@@ -516,6 +529,7 @@ impl pallet_collective::Config<TriumvirateCollective> for Runtime {
 }
 
 // We call council members Triumvirate
+#[allow(dead_code)]
 type TriumvirateMembership = pallet_membership::Instance1;
 impl pallet_membership::Config<TriumvirateMembership> for Runtime {
     type RuntimeEvent = RuntimeEvent;
@@ -531,6 +545,7 @@ impl pallet_membership::Config<TriumvirateMembership> for Runtime {
 }
 
 // We call our top K delegates membership Senate
+#[allow(dead_code)]
 type SenateMembership = pallet_membership::Instance2;
 impl pallet_membership::Config<SenateMembership> for Runtime {
     type RuntimeEvent = RuntimeEvent;
@@ -880,7 +895,8 @@ parameter_types! {
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
-    pub const SubtensorInitialBaseDifficulty: u64 = 10_000_000; // Base difficulty
+    pub const SubtensorInitialHotkeyEmissionTempo: u64 = 7200; // Drain every day.
+    pub const SubtensorInitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -936,7 +952,8 @@ impl pallet_subtensor::Config for Runtime {
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;
-    type InitialBaseDifficulty = SubtensorInitialBaseDifficulty;
+    type InitialHotkeyEmissionTempo = SubtensorInitialHotkeyEmissionTempo;
+    type InitialNetworkMaxStake = SubtensorInitialNetworkMaxStake;
 }
 
 use sp_runtime::BoundedVec;
@@ -1003,9 +1020,13 @@ pub type SignedExtra = (
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
     pallet_subtensor::SubtensorSignedExtension<Runtime>,
     pallet_commitments::CommitmentsSignedExtension<Runtime>,
+    frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
-type Migrations = pallet_grandpa::migrations::MigrateV4ToV5<Runtime>;
+type Migrations =
+    pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
+        Runtime,
+    >;
 
 // Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
@@ -1246,10 +1267,7 @@ impl_runtime_apis! {
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
 
-            #[allow(non_local_definitions)]
             impl frame_system_benchmarking::Config for Runtime {}
-
-            #[allow(non_local_definitions)]
             impl baseline::Config for Runtime {}
 
             use frame_support::traits::WhitelistedStorageKeys;
