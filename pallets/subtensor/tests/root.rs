@@ -1,11 +1,11 @@
 #![allow(clippy::indexing_slicing, clippy::unwrap_used)]
 
 use crate::mock::*;
-use frame_support::{assert_err, assert_ok, dispatch::DispatchInfo};
-use frame_system::{Config, EventRecord, Phase};
-use pallet_subtensor::{
-    migration, BaseDifficulty, ColdkeySwapDestinations, Error, MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP,
-};
+use frame_support::{assert_err, assert_ok};
+use frame_system::Config;
+use frame_system::{EventRecord, Phase};
+use pallet_subtensor::migrations;
+use pallet_subtensor::Error;
 use sp_core::{Get, H256, U256};
 use sp_runtime::{
     traits::{DispatchInfoOf, SignedExtension},
@@ -26,7 +26,7 @@ fn record(event: RuntimeEvent) -> EventRecord<RuntimeEvent, H256> {
 #[test]
 fn test_root_register_network_exist() {
     new_test_ext(1).execute_with(|| {
-        migration::migrate_create_root_network::<Test>();
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
         let hotkey_account_id: U256 = U256::from(1);
         let coldkey_account_id = U256::from(667);
         assert_ok!(SubtensorModule::root_register(
@@ -36,6 +36,7 @@ fn test_root_register_network_exist() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test root -- test_set_weights_not_root_error --exact --nocapture
 #[test]
 fn test_set_weights_not_root_error() {
     new_test_ext(0).execute_with(|| {
@@ -64,10 +65,11 @@ fn test_set_weights_not_root_error() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test root -- test_root_register_normal_on_root_fails --exact --nocapture
 #[test]
 fn test_root_register_normal_on_root_fails() {
     new_test_ext(1).execute_with(|| {
-        migration::migrate_create_root_network::<Test>();
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
         // Test fails because normal registrations are not allowed
         // on the root network.
         let root_netuid: u16 = 0;
@@ -108,10 +110,11 @@ fn test_root_register_normal_on_root_fails() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test root -- test_root_register_stake_based_pruning_works --exact --nocapture
 #[test]
 fn test_root_register_stake_based_pruning_works() {
     new_test_ext(1).execute_with(|| {
-        migration::migrate_create_root_network::<Test>();
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
         // Add two networks.
         let root_netuid: u16 = 0;
         let other_netuid: u16 = 1;
@@ -196,11 +199,12 @@ fn test_root_register_stake_based_pruning_works() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test root -- test_root_set_weights --exact --nocapture
 #[test]
 fn test_root_set_weights() {
     new_test_ext(1).execute_with(|| {
         System::set_block_number(0);
-        migration::migrate_create_root_network::<Test>();
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
         let n: usize = 10;
         let root_netuid: u16 = 0;
@@ -338,11 +342,12 @@ fn test_root_set_weights() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test root -- test_root_set_weights --exact --nocapture
 #[test]
 fn test_root_set_weights_out_of_order_netuids() {
     new_test_ext(1).execute_with(|| {
         System::set_block_number(0);
-        migration::migrate_create_root_network::<Test>();
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
         let n: usize = 10;
         let root_netuid: u16 = 0;
@@ -462,7 +467,7 @@ fn test_root_set_weights_out_of_order_netuids() {
 fn test_root_subnet_creation_deletion() {
     new_test_ext(1).execute_with(|| {
         System::set_block_number(0);
-        migration::migrate_create_root_network::<Test>();
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
         // Owner of subnets.
         let owner: U256 = U256::from(0);
 
@@ -542,7 +547,7 @@ fn test_root_subnet_creation_deletion() {
 fn test_network_pruning() {
     new_test_ext(1).execute_with(|| {
         System::set_block_number(0);
-        migration::migrate_create_root_network::<Test>();
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
         assert_eq!(SubtensorModule::get_total_issuance(), 0);
 
@@ -634,7 +639,7 @@ fn test_network_pruning() {
 #[test]
 fn test_network_prune_results() {
     new_test_ext(1).execute_with(|| {
-        migration::migrate_create_root_network::<Test>();
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
         SubtensorModule::set_network_immunity_period(3);
         SubtensorModule::set_network_min_lock(0);
@@ -675,7 +680,7 @@ fn test_network_prune_results() {
 #[test]
 fn test_weights_after_network_pruning() {
     new_test_ext(1).execute_with(|| {
-        migration::migrate_create_root_network::<Test>();
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
         assert_eq!(SubtensorModule::get_total_issuance(), 0);
 

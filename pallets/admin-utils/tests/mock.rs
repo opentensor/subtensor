@@ -114,7 +114,8 @@ parameter_types! {
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
-    pub const InitialBaseDifficulty: u64 = 10_000; // Base difficulty
+    pub const InitialHotkeyEmissionTempo: u64 = 1;
+    pub const InitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
 }
 
 impl pallet_subtensor::Config for Test {
@@ -170,7 +171,8 @@ impl pallet_subtensor::Config for Test {
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;
-    type InitialBaseDifficulty = InitialBaseDifficulty;
+    type InitialHotkeyEmissionTempo = InitialHotkeyEmissionTempo;
+    type InitialNetworkMaxStake = InitialNetworkMaxStake;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -477,6 +479,13 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
     fn set_liquid_alpha_enabled(netuid: u16, enabled: bool) {
         SubtensorModule::set_liquid_alpha_enabled(netuid, enabled);
     }
+    fn set_hotkey_emission_tempo(emission_tempo: u64) {
+        SubtensorModule::set_hotkey_emission_tempo(emission_tempo)
+    }
+    fn set_network_max_stake(netuid: u16, max_stake: u64) {
+        SubtensorModule::set_network_max_stake(netuid, max_stake)
+    }
+
     fn do_set_alpha_values(
         origin: RuntimeOrigin,
         netuid: u16,

@@ -168,7 +168,9 @@ parameter_types! {
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
-    pub const SubtensorInitialBaseDifficulty: u64 = 10_000; // Base difficulty
+    pub const InitialHotkeyEmissionTempo: u64 = 0; // Defaults to draining every block.
+    pub const InitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500,000 TAO
+
 }
 
 // Configure collective pallet for council
@@ -383,7 +385,8 @@ impl pallet_subtensor::Config for Test {
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;
-    type InitialBaseDifficulty = SubtensorInitialBaseDifficulty;
+    type InitialHotkeyEmissionTempo = InitialHotkeyEmissionTempo;
+    type InitialNetworkMaxStake = InitialNetworkMaxStake;
 }
 
 impl pallet_utility::Config for Test {
