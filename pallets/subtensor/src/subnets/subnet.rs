@@ -76,6 +76,9 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// Convert to dynamic.
+    /// TODO implement StakingColdkeys.
+
     /// Facilitates user registration of a new subnetwork.
     ///
     /// # Args:

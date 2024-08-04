@@ -26,7 +26,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
     let netuids: Vec<u16> = <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter().map(|(netuid, _)| netuid).collect();
     weight = weight.saturating_add(T::DbWeight::get().reads_writes(netuids.len() as u64, 0));
 
-    // Set the mechanism to 0
+    // Set the mechanism to 0 (stable).
     for netuid in netuids {
         // Set all subnets to Stable.
         SubnetMechanism::<T>::insert(netuid, 0);
