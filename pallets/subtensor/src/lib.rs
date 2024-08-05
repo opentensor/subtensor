@@ -1137,7 +1137,11 @@ pub mod pallet {
     pub type LastTxBlock<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
     #[pallet::storage]
-    /// --- MAP ( key ) --> last_block
+    /// --- MAP ( key ) --> last_tx_block_childkey_take
+    pub type LastTxBlockChildKeyTake<T: Config> =
+        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
+    #[pallet::storage]
+    /// --- MAP ( key ) --> last_tx_block_delegate_take
     pub type LastTxBlockDelegateTake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
     #[pallet::storage]

@@ -737,7 +737,7 @@ mod dispatches {
         /// * `TxChildkeyTakeRateLimitExceeded`:
         ///     - The rate limit for changing childkey take has been exceeded.
         ///
-        #[pallet::call_index(68)]
+        #[pallet::call_index(75)]
         #[pallet::weight((
             Weight::from_parts(34_000, 0)
             .saturating_add(T::DbWeight::get().reads(4))

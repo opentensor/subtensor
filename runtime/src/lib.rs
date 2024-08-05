@@ -873,7 +873,7 @@ parameter_types! {
     pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
     pub const SubtensorInitialMinDelegateTake: u16 = 0; // Allow 0% delegate take
     pub const SubtensorInitialDefaultChildKeyTake: u16 = 0; // Allow 0% childkey take
-    pub const SubtensorInitialMinChildKeyTake: u16 = 5_898; // 9%
+    pub const SubtensorInitialMinChildKeyTake: u16 = 0; // 0 %
     pub const SubtensorInitialWeightsVersionKey: u64 = 0;
     pub const SubtensorInitialMinDifficulty: u64 = 10_000_000;
     pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX / 4;

@@ -2,7 +2,7 @@
 use crate::mock::*;
 use frame_support::{assert_err, assert_noop, assert_ok};
 mod mock;
-use pallet_subtensor::{utils::TransactionType, *};
+use pallet_subtensor::{utils::rate_limiting::TransactionType, *};
 use sp_core::U256;
 
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_child_singular_success --exact --nocapture
@@ -806,12 +806,12 @@ fn test_childkey_take_functionality() {
 
         // Test default and max childkey take
         let default_take = SubtensorModule::get_default_childkey_take();
-        let max_take = SubtensorModule::get_max_childkey_take();
-        log::info!("Default take: {}, Max take: {}", default_take, max_take);
+        let min_take = SubtensorModule::get_min_childkey_take();
+        log::info!("Default take: {}, Max take: {}", default_take, min_take);
 
         // Check if default take and max take are the same
         assert_eq!(
-            default_take, max_take,
+            default_take, min_take,
             "Default take should be equal to max take"
         );
 
@@ -822,7 +822,7 @@ fn test_childkey_take_functionality() {
         );
 
         // Test setting childkey take
-        let new_take: u16 = max_take / 2; // 50% of max_take
+        let new_take: u16 = SubtensorModule::get_max_childkey_take() / 2; // 50% of max_take
         assert_ok!(SubtensorModule::set_childkey_take(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -836,7 +836,7 @@ fn test_childkey_take_functionality() {
         assert_eq!(stored_take, new_take);
 
         // Test setting childkey take outside of allowed range
-        let invalid_take: u16 = max_take + 1;
+        let invalid_take: u16 = SubtensorModule::get_max_childkey_take() + 1;
         assert_noop!(
             SubtensorModule::set_childkey_take(
                 RuntimeOrigin::signed(coldkey),
@@ -878,91 +878,75 @@ fn test_childkey_take_rate_limiting() {
         SubtensorModule::set_tx_childkey_take_rate_limit(rate_limit);
 
         log::info!(
-            "TxChildkeyTakeRateLimit: {:?}",
+            "Set TxChildkeyTakeRateLimit: {:?}",
             TxChildkeyTakeRateLimit::<Test>::get()
         );
 
+        // Helper function to log rate limit information
+        let log_rate_limit_info = || {
+            let current_block = SubtensorModule::get_current_block_as_u64();
+            let last_block = SubtensorModule::get_last_transaction_block(
+                &hotkey,
+                netuid,
+                &TransactionType::SetChildkeyTake,
+            );
+            let passes = SubtensorModule::passes_rate_limit_on_subnet(
+                &TransactionType::SetChildkeyTake,
+                &hotkey,
+                netuid,
+            );
+            let limit = SubtensorModule::get_rate_limit(&TransactionType::SetChildkeyTake);
+            log::info!(
+                "Rate limit info: current_block: {}, last_block: {}, limit: {}, passes: {}, diff: {}",
+                current_block,
+                last_block,
+                limit,
+                passes,
+                current_block.saturating_sub(last_block)
+            );
+        };
+
         // First transaction (should succeed)
+        log_rate_limit_info();
         assert_ok!(SubtensorModule::set_childkey_take(
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
             500
         ));
-
-        let current_block = SubtensorModule::get_current_block_as_u64();
-        let last_block = SubtensorModule::get_last_transaction_block(
-            &hotkey,
-            netuid,
-            &TransactionType::SetChildkeyTake,
-        );
-        log::info!(
-            "After first transaction: current_block: {}, last_block: {}",
-            current_block,
-            last_block
-        );
+        log_rate_limit_info();
 
         // Second transaction (should fail due to rate limit)
-        let result =
-            SubtensorModule::set_childkey_take(RuntimeOrigin::signed(coldkey), hotkey, netuid, 600);
-        log::info!("Second transaction result: {:?}", result);
-        let current_block = SubtensorModule::get_current_block_as_u64();
-        let last_block = SubtensorModule::get_last_transaction_block(
-            &hotkey,
-            netuid,
-            &TransactionType::SetChildkeyTake,
+        log_rate_limit_info();
+        assert_noop!(
+            SubtensorModule::set_childkey_take(RuntimeOrigin::signed(coldkey), hotkey, netuid, 600),
+            Error::<Test>::TxChildkeyTakeRateLimitExceeded
         );
-        log::info!(
-            "After second transaction attempt: current_block: {}, last_block: {}",
-            current_block,
-            last_block
-        );
-
-        assert_noop!(result, Error::<Test>::TxChildkeyTakeRateLimitExceeded);
+        log_rate_limit_info();
 
         // Advance the block number to just before the rate limit
-        run_to_block(rate_limit);
+        run_to_block(rate_limit - 1);
 
         // Third transaction (should still fail)
-        let result =
-            SubtensorModule::set_childkey_take(RuntimeOrigin::signed(coldkey), hotkey, netuid, 650);
-        log::info!("Third transaction result: {:?}", result);
-        let current_block = SubtensorModule::get_current_block_as_u64();
-        let last_block = SubtensorModule::get_last_transaction_block(
-            &hotkey,
-            netuid,
-            &TransactionType::SetChildkeyTake,
+        log_rate_limit_info();
+        assert_noop!(
+            SubtensorModule::set_childkey_take(RuntimeOrigin::signed(coldkey), hotkey, netuid, 650),
+            Error::<Test>::TxChildkeyTakeRateLimitExceeded
         );
-        log::info!(
-            "After third transaction attempt: current_block: {}, last_block: {}",
-            current_block,
-            last_block
-        );
-
-        assert_noop!(result, Error::<Test>::TxChildkeyTakeRateLimitExceeded);
+        log_rate_limit_info();
 
         // Advance the block number to just after the rate limit
-        run_to_block(rate_limit * 2);
+        run_to_block(rate_limit + 1);
 
         // Fourth transaction (should succeed)
+        log_rate_limit_info();
         assert_ok!(SubtensorModule::set_childkey_take(
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
             700
         ));
-
-        let current_block = SubtensorModule::get_current_block_as_u64();
-        let last_block = SubtensorModule::get_last_transaction_block(
-            &hotkey,
-            netuid,
-            &TransactionType::SetChildkeyTake,
-        );
-        log::info!(
-            "After fourth transaction: current_block: {}, last_block: {}",
-            current_block,
-            last_block
-        );
+        log_rate_limit_info();
 
         // Verify the final take was set
         let stored_take = SubtensorModule::get_childkey_take(&hotkey, netuid);
@@ -987,7 +971,7 @@ fn test_multiple_networks_childkey_take() {
             register_ok_neuron(netuid, hotkey, coldkey, 0);
 
             // Set a unique childkey take value for each network
-            let take_value = (netuid + 1) * 1000; // Values will be 1000, 2000, ..., 10000
+            let take_value = (netuid + 1) * 100; // Values will be 200, 300, ..., 1000
             assert_ok!(SubtensorModule::set_childkey_take(
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
@@ -1019,6 +1003,26 @@ fn test_multiple_networks_childkey_take() {
                 );
             }
         }
+
+        // Attempt to set childkey take again (should fail due to rate limit)
+        let result =
+            SubtensorModule::set_childkey_take(RuntimeOrigin::signed(coldkey), hotkey, 1, 1100);
+        assert_noop!(result, Error::<Test>::TxChildkeyTakeRateLimitExceeded);
+
+        // Advance blocks to bypass rate limit
+        run_to_block(SubtensorModule::get_tx_childkey_take_rate_limit() + 1);
+
+        // Now setting childkey take should succeed
+        assert_ok!(SubtensorModule::set_childkey_take(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            1,
+            1100
+        ));
+
+        // Verify the new take value
+        let new_take = SubtensorModule::get_childkey_take(&hotkey, 1);
+        assert_eq!(new_take, 1100, "Childkey take not updated after rate limit");
     });
 }
 
