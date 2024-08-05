@@ -1,9 +1,7 @@
 mod mock;
-use sp_core::U256;
 use sp_core::Get;
 use crate::mock::*;
 use pallet_subtensor::*;
-use substrate_fixed::types::I96F32;
 
 // 1. Test Zero Issuance
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_zero_issuance -- --exact --nocapture
@@ -331,7 +329,6 @@ fn test_extreme_residuals() {
         for issuance in test_cases {
             let emission = SubtensorModule::get_block_emission_for_issuance(issuance).unwrap();
             println!("Issuance: {}, Emission: {}", issuance, emission);
-            assert!(emission >= 0, "Emission should be non-negative");
             assert!(emission <= DefaultBlockEmission::<Test>::get(), "Emission should not exceed DefaultBlockEmission");
         }
     });

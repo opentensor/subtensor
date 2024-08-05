@@ -210,8 +210,8 @@ fn test_run_coinbase_different_mechanisms() {
         assert_eq!(SubnetAlphaIn::<Test>::get(netuid1), 0, "SubnetAlphaIn should be zero for stable mechanism");
 
         // For dynamic mechanism (netuid2)
-        assert_eq!(PendingEmission::<Test>::get(netuid2), block_emission, "Pending emission should equal block_emission for dynamic mechanism");
-        assert_eq!(SubnetAlphaIn::<Test>::get(netuid2), block_emission, "SubnetAlphaIn should equal emission for dynamic mechanism");
+        assert_eq!(PendingEmission::<Test>::get(netuid2), block_emission/2, "Pending emission should be equal to mechanism emission for dynamic mechanism");
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid2), block_emission/2, "SubnetAlphaIn should equal to mechanism emission for dynamic mechanism");
 
         // Check total issuance
         assert_eq!(SubtensorModule::get_total_issuance(), initial_issuance + total_emitted, "Total issuance should increase by total emitted");

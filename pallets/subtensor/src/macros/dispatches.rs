@@ -808,7 +808,7 @@ mod dispatches {
             hotkey: T::AccountId,
             mechid: u16,
         ) -> DispatchResult {
-            Self::user_add_network(origin, &hotkey, mechid)
+            Self::do_register_network(origin, &hotkey, mechid)
         }
 
         /// Facility extrinsic for user to get taken from faucet

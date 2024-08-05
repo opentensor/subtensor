@@ -26,41 +26,20 @@ pub fn migrate_rao<T: Config>() -> Weight {
     let netuids: Vec<u16> = <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter().map(|(netuid, _)| netuid).collect();
     weight = weight.saturating_add(T::DbWeight::get().reads_writes(netuids.len() as u64, 0));
 
-    // Set the mechanism to 0 (stable).
-    for netuid in netuids {
-        // Set all subnets to Stable.
-        SubnetMechanism::<T>::insert(netuid, 0);
-        weight = weight.saturating_add(T::DbWeight::get().reads_writes(0, 1));
-
-        // Set the owner hotkey.
-        // FIX in a hUGE WAY.
-        if netuid != 0 && SubnetOwner::<T>::contains_key( netuid ) {
-            // Owning coldkey
-            let owner_coldkey = SubnetOwner::<T>::get(netuid);
-            // Get the previous lock
-            let locked_tao = SubnetLocked::<T>::get(netuid);
-            // Set the lock to the new owner.
-            Locks::<T>::insert((netuid, owner_coldkey.clone(), owner_coldkey.clone()), (locked_tao, 0, LockIntervalBlocks::<T>::get()));
-            // 1 read and 1 write.
-            weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 1));
-        }
-        
-    }
-
-    // Set all subnet stake to root.
-    // potentialls reset total stake.
-    // potentially create new StakingColdkeys map.
+    // Migrate all TAO to root.
     Stake::<T>::iter().for_each(|(hotkey, coldkey, stake)| {
         // Increase SubnetTAO on root.
         SubnetTAO::<T>::mutate( 0, |total| { *total = total.saturating_add(stake); });
         // Increase SubnetAlphaOut on root.
         SubnetAlphaOut::<T>::mutate( 0, |total| { *total = total.saturating_add(stake); });
+        // Increase SubnetAlphaIn on root.
+        SubnetAlphaIn::<T>::mutate( 0, |total| { *total = total.saturating_add(stake); });
         // Set all the stake on root 0 subnet.
-        Alpha::<T>::mutate( (hotkey.clone(), coldkey.clone(), 0), |root| *root = stake);
+        Alpha::<T>::mutate( (hotkey.clone(), coldkey.clone(), 0), |total| { *total = total.saturating_add(stake) } );
         // Set the total stake on the coldkey
-        TotalColdkeyAlpha::<T>::mutate(coldkey.clone(), 0, |total| *total = stake);
+        TotalColdkeyAlpha::<T>::mutate(coldkey.clone(), 0, |total| { *total = total.saturating_add(stake) } );
         // Set the total stake on the hotkey
-        TotalHotkeyAlpha::<T>::mutate(hotkey.clone(), 0, |total| *total = stake);
+        TotalHotkeyAlpha::<T>::mutate(hotkey.clone(), 0, |total| { *total = total.saturating_add(stake) } );
         // 3 reads and 3 writes.
         weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 3));
     });

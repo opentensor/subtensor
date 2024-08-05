@@ -185,5 +185,7 @@ mod events {
         LockIncreased(T::AccountId, T::AccountId, u16, u64),
         /// Lock interval set        
         LockIntervalSet(u64),
+        /// Network activated
+        NetworkActivated(u16),
     }
 }

@@ -248,10 +248,6 @@ impl<T: Config> Pallet<T> {
         let mut to_parents: u64 = 0;
         let parent_emission: I96F32 = validating_emission.saturating_sub(hotkey_take);
 
-        // Retrieve the hotkey's inherited stakes (not used in this function, consider removing)
-        let hotkey_inherited_alpha: I96F32 = I96F32::from_num(Self::get_inherited_alpha_for_hotkey_on_subnet(hotkey, netuid));
-        let hotkey_inherited_global: I96F32 = I96F32::from_num(Self::get_inherited_global_for_hotkey_on_subnet(hotkey, netuid));  
-
         // Initialize variables to calculate total stakes from parents
         let mut total_global: I96F32 = I96F32::from_num(0);
         let mut total_alpha: I96F32 = I96F32::from_num(0);
@@ -360,8 +356,6 @@ impl<T: Config> Pallet<T> {
         // Initialize variables to track emission distribution
         let mut to_nominators: u64 = 0;
         let nominator_emission: I96F32 = emission.saturating_sub(hotkey_take);
-        let hotkey_global: I96F32 = I96F32::from_num(Self::get_global_for_hotkey(hotkey));
-        let hotkey_alpha: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
 
         // Prepare to calculate contributions from nominators
         let mut total_global: I96F32 = I96F32::from_num(0);

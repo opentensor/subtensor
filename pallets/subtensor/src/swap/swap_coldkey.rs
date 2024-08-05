@@ -65,8 +65,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // 7. Remove and burn the swap cost from the old coldkey's account
-        let actual_burn_amount =
-            Self::remove_balance_from_coldkey_account(&old_coldkey, swap_cost)?;
+        let actual_burn_amount = Self::remove_balance_from_coldkey_account(&old_coldkey, swap_cost)?;
         Self::burn_tokens(actual_burn_amount);
 
         // 8. Update the weight for the balance operations
