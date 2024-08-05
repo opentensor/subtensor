@@ -185,5 +185,7 @@ mod events {
         HotkeyEmissionTempoSet(u64),
         /// The network maximum stake has been set
         NetworkMaxStakeSet(u16, u64),
+        /// The identity of a coldkey has been set
+        ChainIdentitySet(T::AccountId),
     }
 }

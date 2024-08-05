@@ -172,5 +172,7 @@ mod errors {
         InvalidChildkeyTake,
         /// Childkey take rate limit exceeded.
         TxChildkeyTakeRateLimitExceeded,
+        /// Invalid identity.
+        InvalidIdentity,
     }
 }
