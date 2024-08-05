@@ -168,7 +168,9 @@ parameter_types! {
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
-    pub const SubtensorInitialBaseDifficulty: u64 = 10_000; // Base difficulty
+    pub const InitialHotkeyEmissionTempo: u64 = 0; // Defaults to draining every block.
+    pub const InitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500,000 TAO
+
 }
 
 // Configure collective pallet for council
@@ -262,6 +264,7 @@ impl CollectiveInterface<AccountId, H256, u32> for TriumvirateVotes {
 }
 
 // We call pallet_collective TriumvirateCollective
+#[allow(dead_code)]
 type TriumvirateCollective = pallet_collective::Instance1;
 impl pallet_collective::Config<TriumvirateCollective> for Test {
     type RuntimeOrigin = RuntimeOrigin;
@@ -279,6 +282,7 @@ impl pallet_collective::Config<TriumvirateCollective> for Test {
 }
 
 // We call council members Triumvirate
+#[allow(dead_code)]
 type TriumvirateMembership = pallet_membership::Instance1;
 impl pallet_membership::Config<TriumvirateMembership> for Test {
     type RuntimeEvent = RuntimeEvent;
@@ -295,6 +299,7 @@ impl pallet_membership::Config<TriumvirateMembership> for Test {
 
 // This is a dummy collective instance for managing senate members
 // Probably not the best solution, but fastest implementation
+#[allow(dead_code)]
 type SenateCollective = pallet_collective::Instance2;
 impl pallet_collective::Config<SenateCollective> for Test {
     type RuntimeOrigin = RuntimeOrigin;
@@ -312,6 +317,7 @@ impl pallet_collective::Config<SenateCollective> for Test {
 }
 
 // We call our top K delegates membership Senate
+#[allow(dead_code)]
 type SenateMembership = pallet_membership::Instance2;
 impl pallet_membership::Config<SenateMembership> for Test {
     type RuntimeEvent = RuntimeEvent;
@@ -379,7 +385,8 @@ impl pallet_subtensor::Config for Test {
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;
-    type InitialBaseDifficulty = SubtensorInitialBaseDifficulty;
+    type InitialHotkeyEmissionTempo = InitialHotkeyEmissionTempo;
+    type InitialNetworkMaxStake = InitialNetworkMaxStake;
 }
 
 impl pallet_utility::Config for Test {

@@ -136,6 +136,7 @@ pub fn create_benchmark_extrinsic(
         pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
         pallet_subtensor::SubtensorSignedExtension::<runtime::Runtime>::new(),
         pallet_commitments::CommitmentsSignedExtension::<runtime::Runtime>::new(),
+        frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(true),
     );
 
     let raw_payload = runtime::SignedPayload::from_raw(
@@ -152,6 +153,7 @@ pub fn create_benchmark_extrinsic(
             (),
             (),
             (),
+            None,
         ),
     );
     let signature = raw_payload.using_encoded(|e| sender.sign(e));

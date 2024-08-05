@@ -62,7 +62,6 @@ pub trait WeightInfo {
 	fn sudo_set_tempo() -> Weight;
 	fn sudo_set_commit_reveal_weights_interval() -> Weight;
 	fn sudo_set_commit_reveal_weights_enabled() -> Weight;
-	
 }
 
 /// Weights for `pallet_admin_utils` using the Substrate node and recommended hardware.

@@ -48,3 +48,7 @@ lint:
   just clippy-fix
   @echo "Running cargo clippy..."
   just clippy
+
+production:
+  @echo "Running cargo build with metadata-hash generation..."
+  cargo +{{RUSTV}} build --profile production --features="runtime-benchmarks metadata-hash"
