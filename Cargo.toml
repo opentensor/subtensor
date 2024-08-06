@@ -42,7 +42,7 @@ subtensor-macros = { path = "support/macros" }
 frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "v1.10.0-rc3", default-features = false }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "v1.10.0-rc3" }
 frame-executive = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "v1.10.0-rc3", default-features = false }
-frame-metadata-hash-extension = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "v1.10.0-rc3" , default-features = false }
+frame-metadata-hash-extension = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "v1.10.0-rc3", default-features = false }
 frame-support = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "v1.10.0-rc3", default-features = false }
 frame-system = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "v1.10.0-rc3", default-features = false }
 frame-system-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "v1.10.0-rc3", default-features = false }

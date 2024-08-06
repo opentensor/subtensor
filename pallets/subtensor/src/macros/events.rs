@@ -164,7 +164,7 @@ mod events {
             /// The account ID of the new coldkey
             new_coldkey: T::AccountId,
             /// The arbitration block for the coldkey swap
-            arbitration_block: u64,
+            execution_block: BlockNumberFor<T>,
         },
         /// The arbitration period has been extended
         ArbitrationPeriodExtended {

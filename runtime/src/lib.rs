@@ -70,6 +70,7 @@ pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
 // Subtensor module
+pub use pallet_scheduler;
 pub use pallet_subtensor;
 
 // An index to a block.
@@ -95,6 +96,10 @@ pub type Hash = sp_core::H256;
 type MemberCount = u32;
 
 pub type Nonce = u32;
+
+/// The scheduler type used for scheduling delayed calls.
+// With something like this:
+// type Scheduler = pallet_subtensor::Scheduler<self::Runtime>;
 
 // Method used to calculate the fee of an extrinsic
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
@@ -141,7 +146,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 192,
+    spec_version: 193,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -897,16 +902,18 @@ parameter_types! {
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const SubtensorInitialHotkeyEmissionTempo: u64 = 7200; // Drain every day.
     pub const SubtensorInitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
+
 }
 
 impl pallet_subtensor::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
     type SudoRuntimeCall = RuntimeCall;
     type Currency = Balances;
     type CouncilOrigin = EnsureMajoritySenate;
     type SenateMembers = ManageSenateMembers;
     type TriumvirateInterface = TriumvirateVotes;
-
+    type Scheduler = Scheduler;
     type InitialRho = SubtensorInitialRho;
     type InitialKappa = SubtensorInitialKappa;
     type InitialMaxAllowedUids = SubtensorInitialMaxAllowedUids;
@@ -954,6 +961,7 @@ impl pallet_subtensor::Config for Runtime {
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     type InitialHotkeyEmissionTempo = SubtensorInitialHotkeyEmissionTempo;
     type InitialNetworkMaxStake = SubtensorInitialNetworkMaxStake;
+    type Preimages = Preimage;
 }
 
 use sp_runtime::BoundedVec;
@@ -1280,12 +1288,12 @@ construct_runtime!(
         Sudo: pallet_sudo,
         Multisig: pallet_multisig,
         Preimage: pallet_preimage,
-        Scheduler: pallet_scheduler,
         Proxy: pallet_proxy,
         Registry: pallet_registry,
         Commitments: pallet_commitments,
         AdminUtils: pallet_admin_utils,
         SafeMode: pallet_safe_mode,
+        Scheduler: pallet_scheduler,
     }
 );
 

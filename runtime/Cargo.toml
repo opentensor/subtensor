@@ -155,7 +155,7 @@ std = [
 	"sp-tracing/std",
 	"log/std",
 	"sp-storage/std",
-	"sp-genesis-builder/std"
+	"sp-genesis-builder/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -178,7 +178,7 @@ runtime-benchmarks = [
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
-	"pallet-sudo/runtime-benchmarks"
+	"pallet-sudo/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
@@ -204,6 +204,6 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 	"pallet-admin-utils/try-runtime",
 	"pallet-commitments/try-runtime",
-	"pallet-registry/try-runtime"
+	"pallet-registry/try-runtime",
 ]
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]

@@ -4,6 +4,10 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod dispatches {
+    use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
+    use frame_support::traits::schedule::DispatchTime;
+    use frame_system::pallet_prelude::BlockNumberFor;
+    use sp_runtime::traits::Saturating;
     /// Dispatchable functions allow users to interact with the pallet and invoke state changes.
     /// These functions materialize as "extrinsics", which are often compared to transactions.
     /// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
@@ -673,9 +677,14 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
+            old_coldkey: T::AccountId,
             new_coldkey: T::AccountId,
         ) -> DispatchResultWithPostInfo {
-            Self::do_swap_coldkey(origin, &new_coldkey)
+            // Ensure it's called with root privileges (scheduler has root privileges)
+            ensure_root(origin.clone())?;
+            log::info!("swap_coldkey: {:?} -> {:?}", old_coldkey, new_coldkey);
+
+            Self::do_swap_coldkey(&old_coldkey, &new_coldkey)
         }
 
         /// Unstakes all tokens associated with a hotkey and transfers them to a new coldkey.
@@ -899,6 +908,86 @@ mod dispatches {
             children: Vec<(u64, T::AccountId)>,
         ) -> DispatchResultWithPostInfo {
             Self::do_set_children(origin, hotkey, netuid, children)?;
+            Ok(().into())
+        }
+
+        /// Schedules a coldkey swap operation to be executed at a future block.
+        ///
+        /// This function allows a user to schedule the swapping of their coldkey to a new one
+        /// at a specified future block. The swap is not executed immediately but is scheduled
+        /// to occur at the specified block number.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - The origin of the call, which should be signed by the current coldkey owner.
+        /// * `new_coldkey` - The account ID of the new coldkey that will replace the current one.
+        /// * `when` - The block number at which the coldkey swap should be executed.
+        ///
+        /// # Returns
+        ///
+        /// Returns a `DispatchResultWithPostInfo` indicating whether the scheduling was successful.
+        ///
+        /// # Errors
+        ///
+        /// This function may return an error if:
+        /// * The origin is not signed.
+        /// * The scheduling fails due to conflicts or system constraints.
+        ///
+        /// # Notes
+        ///
+        /// - The actual swap is not performed by this function. It merely schedules the swap operation.
+        /// - The weight of this call is set to a fixed value and may need adjustment based on benchmarking.
+        ///
+        /// # TODO
+        ///
+        /// - Implement proper weight calculation based on the complexity of the operation.
+        /// - Consider adding checks to prevent scheduling too far into the future.
+        /// TODO: Benchmark this call
+        #[pallet::call_index(73)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(6))
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
+        pub fn schedule_swap_coldkey(
+            origin: OriginFor<T>,
+            new_coldkey: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+            ensure!(
+                !ColdkeySwapScheduled::<T>::contains_key(&who),
+                Error::<T>::SwapAlreadyScheduled
+            );
+
+            // Calculate the number of blocks in 5 days
+            let blocks_in_5_days: u32 = 5 * 24 * 60 * 60 / 12;
+
+            let current_block = <frame_system::Pallet<T>>::block_number();
+            let when = current_block.saturating_add(BlockNumberFor::<T>::from(blocks_in_5_days));
+
+            let call = Call::<T>::swap_coldkey {
+                old_coldkey: who.clone(),
+                new_coldkey: new_coldkey.clone(),
+            };
+
+            let bound_call = T::Preimages::bound(LocalCallOf::<T>::from(call.clone()))
+                .map_err(|_| Error::<T>::FailedToSchedule)?;
+
+            T::Scheduler::schedule(
+                DispatchTime::At(when),
+                None,
+                63,
+                frame_system::RawOrigin::Root.into(),
+                bound_call,
+            )
+            .map_err(|_| Error::<T>::FailedToSchedule)?;
+
+            ColdkeySwapScheduled::<T>::insert(&who, ());
+            // Emit the SwapScheduled event
+            Self::deposit_event(Event::ColdkeySwapScheduled {
+                old_coldkey: who.clone(),
+                new_coldkey: new_coldkey.clone(),
+                execution_block: when,
+            });
+
             Ok(().into())
         }
 

@@ -49,12 +49,15 @@ num-traits = { version = "0.2.19", default-features = false, features = ["libm"]
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
+pallet-scheduler = { workspace = true }
 sp-version = { workspace = true }
 # Substrate
 sp-tracing = { workspace = true }
 parity-util-mem = { workspace = true, features = ["primitive-types"] }
 rand = { workspace = true }
 sp-core = { workspace = true }
+sp-std = { workspace = true }
+pallet-preimage = { workspace = true }
 
 [features]
 default = ["std"]
@@ -68,6 +71,8 @@ std = [
 	"pallet-membership/std",
 	"substrate-fixed/std",
 	"pallet-balances/std",
+	"pallet-preimage/std",
+	"pallet-scheduler/std",
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
 	"sp-core/std",
@@ -94,13 +99,17 @@ runtime-benchmarks = [
 	"pallet-membership/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"pallet-collective/runtime-benchmarks"
+	"pallet-collective/runtime-benchmarks",
+	"pallet-preimage/runtime-benchmarks",
+	"pallet-scheduler/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-membership/try-runtime",
+	"pallet-preimage/try-runtime",
+	"pallet-scheduler/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",

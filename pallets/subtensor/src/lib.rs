@@ -19,6 +19,7 @@ use codec::{Decode, Encode};
 use frame_support::sp_runtime::transaction_validity::InvalidTransaction;
 use frame_support::sp_runtime::transaction_validity::ValidTransaction;
 use pallet_balances::Call as BalancesCall;
+// use pallet_scheduler as Scheduler;
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
@@ -64,11 +65,13 @@ pub mod pallet {
     use frame_support::{
         dispatch::GetDispatchInfo,
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
-        traits::{tokens::fungible, UnfilteredDispatchable},
+        traits::{
+            tokens::fungible, OriginTrait, QueryPreimage, StorePreimage, UnfilteredDispatchable,
+        },
     };
     use frame_system::pallet_prelude::*;
     use sp_core::H256;
-    use sp_runtime::traits::TrailingZeroInput;
+    use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::vec;
     use sp_std::vec::Vec;
 
@@ -76,6 +79,13 @@ pub mod pallet {
     use alloc::boxed::Box;
     #[cfg(feature = "std")]
     use sp_std::prelude::Box;
+
+    /// Origin for the pallet
+    pub type PalletsOriginOf<T> =
+        <<T as frame_system::Config>::RuntimeOrigin as OriginTrait>::PalletsOrigin;
+
+    /// Call type for the pallet
+    pub type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
     /// Tracks version for migrations. Should be monotonic with respect to the
     /// order of migrations. (i.e. always increasing)
@@ -94,6 +104,9 @@ pub mod pallet {
 
     /// Struct for Axon.
     pub type AxonInfoOf = AxonInfo;
+
+    /// local one
+    pub type LocalCallOf<T> = <T as Config>::RuntimeCall;
 
     /// Data structure for Axon information.
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
@@ -711,6 +724,10 @@ pub mod pallet {
     pub type OwnedHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
 
+    #[pallet::storage] // --- DMAP ( cold ) --> () | Maps coldkey to if a coldkey swap is scheduled.
+    pub type ColdkeySwapScheduled<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, (), ValueQuery>;
+
     /// ============================
     /// ==== Global Parameters =====
     /// ============================
@@ -1208,7 +1225,8 @@ pub struct SubtensorSignedExtension<T: Config + Send + Sync + TypeInfo>(pub Phan
 
 impl<T: Config + Send + Sync + TypeInfo> Default for SubtensorSignedExtension<T>
 where
-    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as frame_system::Config>::RuntimeCall:
+        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
     fn default() -> Self {
@@ -1218,7 +1236,8 @@ where
 
 impl<T: Config + Send + Sync + TypeInfo> SubtensorSignedExtension<T>
 where
-    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as frame_system::Config>::RuntimeCall:
+        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
     pub fn new() -> Self {
@@ -1249,14 +1268,15 @@ impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for SubtensorSignedE
 impl<T: Config + Send + Sync + TypeInfo + pallet_balances::Config> SignedExtension
     for SubtensorSignedExtension<T>
 where
-    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as frame_system::Config>::RuntimeCall:
+        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<BalancesCall<T>>,
 {
     const IDENTIFIER: &'static str = "SubtensorSignedExtension";
 
     type AccountId = T::AccountId;
-    type Call = T::RuntimeCall;
+    type Call = <T as frame_system::Config>::RuntimeCall;
     type AdditionalSigned = ();
     type Pre = (CallType, u64, Self::AccountId);
 
