@@ -1401,8 +1401,15 @@ where
                 ..Default::default()
             }),
             Some(Call::dissolve_network { .. }) => {
-                InvalidTransaction::Custom(CustomTransactionError::ColdkeyInSwapSchedule.into())
-                    .into()
+                if ColdkeySwapScheduled::<T>::contains_key(who) {
+                    InvalidTransaction::Custom(CustomTransactionError::ColdkeyInSwapSchedule.into())
+                        .into()
+                } else {
+                    Ok(ValidTransaction {
+                        priority: Self::get_priority_vanilla(),
+                        ..Default::default()
+                    })
+                }
             }
             _ => {
                 if let Some(balances_call) = call.is_sub_type() {

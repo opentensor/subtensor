@@ -1036,7 +1036,7 @@ mod dispatches {
             // Emit the SwapScheduled event
             Self::deposit_event(Event::DissolveNetworkScheduled {
                 account: who.clone(),
-                netuid: netuid,
+                netuid,
                 execution_block: when,
             });
 
