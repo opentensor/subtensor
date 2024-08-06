@@ -224,14 +224,16 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(4104))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn set_root_weights(
-            origin: OriginFor<T>,
-            netuid: u16,
-            hotkey: T::AccountId,
-            dests: Vec<u16>,
-            weights: Vec<u16>,
-            version_key: u64,
+            _origin: OriginFor<T>,
+            _netuid: u16,
+            _hotkey: T::AccountId,
+            _dests: Vec<u16>,
+            _weights: Vec<u16>,
+            _version_key: u64,
         ) -> DispatchResult {
-            Self::do_set_root_weights(origin, netuid, hotkey, dests, weights, version_key)
+            // DEPRECATED
+            // Self::do_set_root_weights(origin, netuid, hotkey, dests, weights, version_key)
+            Ok(())
         }
 
         /// --- Sets the key as a delegate.
@@ -385,9 +387,10 @@ mod dispatches {
         pub fn add_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
+            netuid: u16,
             amount_staked: u64,
         ) -> DispatchResult {
-            Self::do_add_stake(origin, hotkey, amount_staked)
+            Self::do_add_stake(origin, hotkey, netuid, amount_staked)
         }
 
         /// Remove stake from the staking account. The call must be made
@@ -426,9 +429,10 @@ mod dispatches {
         pub fn remove_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
+            netuid: u16,
             amount_unstaked: u64,
         ) -> DispatchResult {
-            Self::do_remove_stake(origin, hotkey, amount_unstaked)
+            Self::do_remove_stake(origin, hotkey, netuid, amount_unstaked)
         }
 
         /// Serves or updates axon /promethteus information for the neuron associated with the caller. If the caller is
@@ -668,9 +672,10 @@ mod dispatches {
         ///
         /// Weight is calculated based on the number of database reads and writes.
         #[pallet::call_index(71)]
-        #[pallet::weight((Weight::from_parts(1_940_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(272))
-		.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(127_713_000, 0)
+        .saturating_add(Weight::from_parts(0, 11645))
+        .saturating_add(T::DbWeight::get().reads(18))
+        .saturating_add(T::DbWeight::get().writes(12)), DispatchClass::Operational, Pays::No))]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
             new_coldkey: T::AccountId,
@@ -798,8 +803,12 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(157_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))
 		.saturating_add(T::DbWeight::get().writes(30)), DispatchClass::Operational, Pays::No))]
-        pub fn register_network(origin: OriginFor<T>) -> DispatchResult {
-            Self::user_add_network(origin)
+        pub fn register_network(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            mechid: u16,
+        ) -> DispatchResult {
+            Self::user_add_network(origin, &hotkey, mechid)
         }
 
         /// Facility extrinsic for user to get taken from faucet
@@ -828,8 +837,9 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(119_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
-        pub fn dissolve_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
-            Self::user_remove_network(origin, netuid)
+        pub fn dissolve_network(_origin: OriginFor<T>, _netuid: u16) -> DispatchResult {
+            Ok(())
+            // Self::user_remove_network(origin, netuid)
         }
 
         /// Sets values for liquid alpha
@@ -936,6 +946,81 @@ mod dispatches {
             additional: Vec<u8>,
         ) -> DispatchResult {
             Self::do_set_identity(origin, name, url, image, discord, description, additional)
+        }
+
+        /// Locks a specified amount of alpha for a given hotkey on a specific subnet.
+        ///
+        /// This function allows a user to lock a certain amount of alpha (stake) for a hotkey
+        /// on a particular subnet. Locking alpha can be used to increase the influence or
+        /// participation of the hotkey in the subnet's operations.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - The origin of the call, typically representing the account initiating the lock.
+        /// * `hotkey` - The account ID of the hotkey for which alpha is being locked.
+        /// * `netuid` - The unique identifier of the subnet where the alpha is being locked.
+        /// * `alpha_locked` - The amount of alpha to be locked, represented as a u64.
+        ///
+        /// # Returns
+        ///
+        /// Returns a `DispatchResult` indicating success or failure of the operation.
+        ///
+        /// # Weight
+        ///
+        /// - Base Weight: 124,000,000 + 10 DB Reads + 7 DB Writes
+        /// - Dispatch Class: Normal
+        /// - Pays Fee: No
+        #[pallet::call_index(69)]
+        #[pallet::weight((Weight::from_parts(124_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(10))
+		.saturating_add(T::DbWeight::get().writes(7)), DispatchClass::Normal, Pays::No))]
+        pub fn lock_stake(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: u16,
+            duration: u64,
+            alpha_locked: u64,
+        ) -> DispatchResult {
+            Self::do_lock(origin, hotkey, netuid, duration, alpha_locked)
+        }
+
+        /// Sets the lock interval in blocks.
+        ///
+        /// This function allows setting the lock interval, which determines the minimum duration
+        /// for which stakes can be locked. Only callable by the root origin.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - The origin of the call, must be root.
+        /// * `new_interval` - The new lock interval in blocks.
+        ///
+        /// # Returns
+        ///
+        /// Returns a `DispatchResult` indicating success or failure of the operation.
+        ///
+        /// # Errors
+        ///
+        /// * `BadOrigin` - If the caller is not the root origin.
+        ///
+        /// # Weight
+        ///
+        /// - Base Weight: 3,000,000 + 1 DB Write
+        /// - Dispatch Class: Operational
+        /// - Pays Fee: Yes
+        #[pallet::call_index(74)]
+        #[pallet::weight((Weight::from_parts(3_000_000, 0)
+    .saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_lock_interval_blocks(
+            origin: OriginFor<T>,
+            new_interval: u64,
+        ) -> DispatchResult {
+            // Ensure the caller is root
+            ensure_root(origin)?;
+
+            // Call the internal function to set the lock interval
+            Self::set_lock_interval_blocks(new_interval);
+
+            Ok(())
         }
     }
 }

@@ -105,12 +105,6 @@ mod genesis {
                     // Fill stake information.
                     Owner::<T>::insert(hotkey.clone(), coldkey.clone());
 
-                    TotalHotkeyStake::<T>::insert(hotkey.clone(), stake);
-                    TotalColdkeyStake::<T>::insert(
-                        coldkey.clone(),
-                        TotalColdkeyStake::<T>::get(coldkey).saturating_add(*stake),
-                    );
-
                     // Update total issuance value
                     TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(*stake));
 

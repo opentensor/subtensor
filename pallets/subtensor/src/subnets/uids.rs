@@ -36,7 +36,7 @@ impl<T: Config> Pallet<T> {
             Self::is_hotkey_registered_on_any_network(&old_hotkey.clone());
         if !hotkey_is_registered_on_any_network {
             // If not, unstake all coldkeys under this hotkey.
-            Self::unstake_all_coldkeys_from_hotkey_account(&old_hotkey.clone());
+            Self::unstake_all_coldkeys_from_hotkey_account_on_network(&old_hotkey.clone(), netuid);
         }
 
         // 3. Create new set memberships.
@@ -54,8 +54,8 @@ impl<T: Config> Pallet<T> {
         log::debug!(
             "append_neuron( netuid: {:?} | next_uid: {:?} | new_hotkey: {:?} ) ",
             netuid,
+            next_uid,
             new_hotkey,
-            next_uid
         );
 
         // 2. Get and increase the uid count.
@@ -116,8 +116,8 @@ impl<T: Config> Pallet<T> {
     /// Returns the stake of the uid on network or 0 if it doesnt exist.
     ///
     pub fn get_stake_for_uid_and_subnetwork(netuid: u16, neuron_uid: u16) -> u64 {
-        if let Ok(hotkey) = Self::get_hotkey_for_net_and_uid(netuid, neuron_uid) {
-            Self::get_total_stake_for_hotkey(&hotkey)
+        if let Ok(_hotkey) = Self::get_hotkey_for_net_and_uid(netuid, neuron_uid) {
+            Self::get_stake_weight(netuid, neuron_uid) as u64
         } else {
             0
         }

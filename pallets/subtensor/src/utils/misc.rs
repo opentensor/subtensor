@@ -196,6 +196,10 @@ impl<T: Config> Pallet<T> {
     pub fn set_stake_interval(block: u64) {
         StakeInterval::<T>::set(block);
     }
+    pub fn get_stake_weight(netuid: u16, uid: u16) -> u16 {
+        let vec = StakeWeight::<T>::get(netuid);
+        vec.get(uid as usize).copied().unwrap_or(0)
+    }
     pub fn get_rank_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Rank::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
@@ -714,9 +718,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::HotkeyEmissionTempoSet(emission_tempo));
     }
 
-    pub fn get_pending_hotkey_emission(hotkey: &T::AccountId) -> u64 {
-        PendingdHotkeyEmission::<T>::get(hotkey)
-    }
 
     /// Retrieves the maximum stake allowed for a given network.
     ///

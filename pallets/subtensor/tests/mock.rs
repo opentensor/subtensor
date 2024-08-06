@@ -501,3 +501,14 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
 }
+
+#[allow(dead_code)]
+pub fn create_network(coldkey: U256, hotkey: U256, mechid: u16) -> u16 {
+    let netuid: u16 = SubtensorModule::get_next_netuid();
+    assert_ok!(SubtensorModule::user_add_network(
+        <<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey),
+        &hotkey,
+        mechid
+    ));
+    netuid
+}

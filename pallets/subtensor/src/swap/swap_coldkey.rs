@@ -51,7 +51,12 @@ impl<T: Config> Pallet<T> {
             Error::<T>::ColdKeyAlreadyAssociated
         );
 
-        // 5. Calculate the swap cost and ensure sufficient balance
+        // 5. Swap the identity if the old coldkey has one
+        if let Some(identity) = Identities::<T>::take(&old_coldkey) {
+            Identities::<T>::insert(new_coldkey, identity);
+        }
+
+        // 6. Calculate the swap cost and ensure sufficient balance
         let swap_cost = Self::get_key_swap_cost();
         log::debug!("Coldkey swap cost: {:?}", swap_cost);
         ensure!(
@@ -59,28 +64,28 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotEnoughBalanceToPaySwapColdKey
         );
 
-        // 6. Remove and burn the swap cost from the old coldkey's account
+        // 7. Remove and burn the swap cost from the old coldkey's account
         let actual_burn_amount =
             Self::remove_balance_from_coldkey_account(&old_coldkey, swap_cost)?;
         Self::burn_tokens(actual_burn_amount);
 
-        // 7. Update the weight for the balance operations
+        // 8. Update the weight for the balance operations
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
-        // 8. Perform the actual coldkey swap
+        // 9. Perform the actual coldkey swap
         let _ = Self::perform_swap_coldkey(&old_coldkey, new_coldkey, &mut weight);
 
-        // 9. Update the last transaction block for the new coldkey
+        // 10. Update the last transaction block for the new coldkey
         Self::set_last_tx_block(new_coldkey, Self::get_current_block_as_u64());
         weight.saturating_accrue(T::DbWeight::get().writes(1));
 
-        // 10. Emit the ColdkeySwapped event
+        // 11. Emit the ColdkeySwapped event
         Self::deposit_event(Event::ColdkeySwapped {
             old_coldkey: old_coldkey.clone(),
             new_coldkey: new_coldkey.clone(),
         });
 
-        // 11. Return the result with the updated weight
+        // 12. Return the result with the updated weight
         Ok(Some(weight).into())
     }
 
@@ -161,22 +166,35 @@ impl<T: Config> Pallet<T> {
             Stake::<T>::insert(&hotkey, new_coldkey, new_stake.saturating_add(old_stake));
             // Remove the value from the old account.
             Stake::<T>::remove(&hotkey, old_coldkey);
+            // 3.1 Swap Alpha
+            for netuid in Self::get_all_subnet_netuids() {
+                // Get the stake on the old (hot,coldkey) account.
+                let old_alpha: u64 = Alpha::<T>::get((&hotkey, old_coldkey, netuid));
+                // Get the stake on the new (hot,coldkey) account.
+                let new_alpha: u64 = Alpha::<T>::get((&hotkey, new_coldkey, netuid));
+                // Add the stake to new account.
+                Alpha::<T>::insert(
+                    (&hotkey, new_coldkey, netuid),
+                    new_alpha.saturating_add(old_alpha),
+                );
+                // Remove the value from the old account.
+                Alpha::<T>::remove((&hotkey, old_coldkey, netuid));
+            }
             // Add the weight for the read and write.
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
         }
 
-        // 4. Swap total coldkey stake.
-        // TotalColdkeyStake: MAP ( coldkey ) --> u64 | Total stake of the coldkey.
-        let old_coldkey_stake: u64 = TotalColdkeyStake::<T>::get(old_coldkey);
-        // Get the stake of the new coldkey.
-        let new_coldkey_stake: u64 = TotalColdkeyStake::<T>::get(new_coldkey);
-        // Remove the value from the old account.
-        TotalColdkeyStake::<T>::insert(old_coldkey, 0);
-        // Add the stake to new account.
-        TotalColdkeyStake::<T>::insert(
-            new_coldkey,
-            new_coldkey_stake.saturating_add(old_coldkey_stake),
-        );
+        // 4 Swap TotalColdkeyAlpha
+        for netuid in Self::get_all_subnet_netuids() {
+            let old_alpha_stake: u64 = TotalColdkeyAlpha::<T>::get(old_coldkey, netuid);
+            let new_alpha_stake: u64 = TotalColdkeyAlpha::<T>::get(new_coldkey, netuid);
+            TotalColdkeyAlpha::<T>::insert(
+                new_coldkey,
+                netuid,
+                new_alpha_stake.saturating_add(old_alpha_stake),
+            );
+            TotalColdkeyAlpha::<T>::remove(old_coldkey, netuid);
+        }
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
 
         // 5. Swap StakingHotkeys.

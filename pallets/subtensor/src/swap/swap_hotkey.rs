@@ -157,16 +157,20 @@ impl<T: Config> Pallet<T> {
         OwnedHotkeys::<T>::insert(coldkey, hotkeys);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
-        // 3. Swap total hotkey stake.
-        // TotalHotkeyStake( hotkey ) -> stake -- the total stake that the hotkey has across all delegates.
-        let old_total_hotkey_stake = TotalHotkeyStake::<T>::get(old_hotkey); // Get the old total hotkey stake.
-        let new_total_hotkey_stake = TotalHotkeyStake::<T>::get(new_hotkey); // Get the new total hotkey stake.
-        TotalHotkeyStake::<T>::remove(old_hotkey); // Remove the old total hotkey stake.
-        TotalHotkeyStake::<T>::insert(
-            new_hotkey,
-            old_total_hotkey_stake.saturating_add(new_total_hotkey_stake),
-        ); // Insert the new total hotkey stake via the addition.
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+        // 3. Swap total hotkey alpha for all subnets.
+        // TotalHotkeyAlpha( hotkey, netuid ) -> alpha -- the total alpha that the hotkey has on a specific subnet.
+        let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
+        for netuid in all_netuids {
+            let old_total_hotkey_alpha = TotalHotkeyAlpha::<T>::get(old_hotkey, netuid);
+            let new_total_hotkey_alpha = TotalHotkeyAlpha::<T>::get(new_hotkey, netuid);
+            TotalHotkeyAlpha::<T>::remove(old_hotkey, netuid);
+            TotalHotkeyAlpha::<T>::insert(
+                new_hotkey,
+                netuid,
+                old_total_hotkey_alpha.saturating_add(new_total_hotkey_alpha),
+            );
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+        }
 
         // 4. Swap total hotkey stakes.
         // TotalHotkeyColdkeyStakesThisInterval( hotkey ) --> (u64: stakes, u64: block_number)
@@ -298,9 +302,24 @@ impl<T: Config> Pallet<T> {
             );
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
+            // 3.1 Swap Alpha
+            for netuid in Self::get_all_subnet_netuids() {
+                // Get the stake on the old (hot,coldkey) account.
+                let old_alpha: u64 = Alpha::<T>::get((&old_hotkey, coldkey.clone(), netuid));
+                // Get the stake on the new (hot,coldkey) account.
+                let new_alpha: u64 = Alpha::<T>::get((&new_hotkey, coldkey.clone(), netuid));
+                // Add the stake to new account.
+                Alpha::<T>::insert(
+                    (&new_hotkey, coldkey.clone(), netuid),
+                    new_alpha.saturating_add(old_alpha),
+                );
+                // Remove the value from the old account.
+                Alpha::<T>::remove((&old_hotkey, coldkey.clone(), netuid));
+            }
+
             // Swap StakingHotkeys.
             // StakingHotkeys( coldkey ) --> Vec<hotkey> -- the hotkeys that the coldkey stakes.
-            let mut staking_hotkeys = StakingHotkeys::<T>::get(&coldkey);
+            let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey.clone());
             staking_hotkeys.retain(|hk| *hk != *old_hotkey && *hk != *new_hotkey);
             staking_hotkeys.push(new_hotkey.clone());
             StakingHotkeys::<T>::insert(coldkey.clone(), staking_hotkeys);
