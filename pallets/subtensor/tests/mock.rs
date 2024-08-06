@@ -262,6 +262,7 @@ impl CollectiveInterface<AccountId, H256, u32> for TriumvirateVotes {
 }
 
 // We call pallet_collective TriumvirateCollective
+#[allow(unused)]
 type TriumvirateCollective = pallet_collective::Instance1;
 impl pallet_collective::Config<TriumvirateCollective> for Test {
     type RuntimeOrigin = RuntimeOrigin;
@@ -279,6 +280,7 @@ impl pallet_collective::Config<TriumvirateCollective> for Test {
 }
 
 // We call council members Triumvirate
+#[allow(unused)]
 type TriumvirateMembership = pallet_membership::Instance1;
 impl pallet_membership::Config<TriumvirateMembership> for Test {
     type RuntimeEvent = RuntimeEvent;
@@ -295,6 +297,7 @@ impl pallet_membership::Config<TriumvirateMembership> for Test {
 
 // This is a dummy collective instance for managing senate members
 // Probably not the best solution, but fastest implementation
+#[allow(unused)]
 type SenateCollective = pallet_collective::Instance2;
 impl pallet_collective::Config<SenateCollective> for Test {
     type RuntimeOrigin = RuntimeOrigin;
@@ -312,6 +315,7 @@ impl pallet_collective::Config<SenateCollective> for Test {
 }
 
 // We call our top K delegates membership Senate
+#[allow(unused)]
 type SenateMembership = pallet_membership::Instance2;
 impl pallet_membership::Config<SenateMembership> for Test {
     type RuntimeEvent = RuntimeEvent;
