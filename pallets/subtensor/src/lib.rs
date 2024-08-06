@@ -1412,24 +1412,19 @@ where
                 }
             }
             _ => {
-                if let Some(balances_call) = call.is_sub_type() {
-                    match balances_call {
-                        BalancesCall::transfer_keep_alive { .. }
-                        | BalancesCall::transfer_all { .. }
-                        | BalancesCall::transfer_allow_death { .. } => {
-                            if ColdkeySwapScheduled::<T>::contains_key(who) {
-                                return InvalidTransaction::Custom(
-                                    CustomTransactionError::ColdkeyInSwapSchedule.into(),
-                                )
-                                .into();
-                            }
-                        }
-                        // Add other Balances call validations if needed
-                        _ => {}
+                if let Some(
+                    BalancesCall::transfer_keep_alive { .. }
+                    | BalancesCall::transfer_all { .. }
+                    | BalancesCall::transfer_allow_death { .. },
+                ) = call.is_sub_type()
+                {
+                    if ColdkeySwapScheduled::<T>::contains_key(who) {
+                        return InvalidTransaction::Custom(
+                            CustomTransactionError::ColdkeyInSwapSchedule.into(),
+                        )
+                        .into();
                     }
                 }
-
-                // Default validation for other calls
                 Ok(ValidTransaction {
                     priority: Self::get_priority_vanilla(),
                     ..Default::default()
