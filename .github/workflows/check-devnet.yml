@@ -2,7 +2,7 @@ name: Devnet Deploy Check
 
 on:
   pull_request:
-    branches: [devnet]
+    branches: [devnet, devnet-ready]
 
 env:
   CARGO_TERM_COLOR: always
@@ -37,7 +37,7 @@ jobs:
           echo "network spec_version: $spec_version"
           if (( $(echo "$local_spec_version <= $spec_version" | bc -l) )); then echo "$local_spec_version ≯ $spec_version ❌"; exit 1; fi
           echo "$local_spec_version > $spec_version ✅"
-          
+
   check-devnet-migrations:
     name: check devnet migrations
     runs-on: ubuntu-22.04
