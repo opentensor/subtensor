@@ -440,7 +440,7 @@ reveal_weights {
     }: schedule_swap_coldkey(RawOrigin::Signed(old_coldkey.clone()), new_coldkey.clone())
 
     schedule_dissolve_network {
-        let coldkey: T::AccountId = account("old_cold", 0, 1);
+        let coldkey: T::AccountId = account("coldkey", 0, 1);
         let netuid = 1;
         let _ = Subtensor::<T>::schedule_dissolve_network(
             <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(coldkey.clone())),

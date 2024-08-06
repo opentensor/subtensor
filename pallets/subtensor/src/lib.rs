@@ -599,7 +599,7 @@ pub mod pallet {
         StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapScheduleDuration<T>>;
 
     #[pallet::type_value]
-    /// Default value for coldkey swap schedule duration
+    /// Default value for dissolve network schedule duration
     pub fn DefaultDissolveNetworkScheduleDuration<T: Config>() -> BlockNumberFor<T> {
         T::InitialDissolveNetworkScheduleDuration::get()
     }
