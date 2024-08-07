@@ -38,7 +38,7 @@ impl<'ast> Visit<'ast> for EncodeDecodeVisitor {
 
         if has_encode_decode && !has_freeze_struct {
             self.errors.push(syn::Error::new_spanned(
-                &node.ident,
+                &node,
                 "Struct with Encode/Decode derive must also have #[freeze_struct(..)] attribute.",
             ));
         }

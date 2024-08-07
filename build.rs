@@ -34,7 +34,7 @@ fn main() {
             let Err(error) = result else {
                 return;
             };
-            tx.send((error, file.clone())).unwrap();
+            tx.send((error, file.clone(), content.to_string())).unwrap();
         };
 
         track_lint(DummyLint::lint(&parsed_file));
@@ -44,18 +44,13 @@ fn main() {
     // Collect and print all errors after the parallel processing is done
     drop(tx); // Close the sending end of the channel
 
-    for (error, file) in rx {
+    for (error, file, content) in rx {
         let relative_path = file.strip_prefix(workspace_root).unwrap_or(file.as_path());
-        let start = error.span().start();
-        let end = error.span().end();
-        let start_line = start.line;
-        let start_col = start.column;
-        let _end_line = end.line;
-        let _end_col = end.column;
+        let loc = error.span().location(&content);
         let file_path = relative_path.display();
         println!(
-            "cargo:warning={}:{}:{}: {}",
-            file_path, start_line, start_col, error
+            "cargo:warning={}:{}:{}: {} (ends at {}:{})",
+            file_path, loc.start_line, loc.start_col, error, loc.end_line, loc.end_col
         );
     }
 }

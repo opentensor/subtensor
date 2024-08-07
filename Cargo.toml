@@ -63,7 +63,7 @@ smallvec = "1.13.2"
 litep2p = { git = "https://github.com/paritytech/litep2p", branch = "master" }
 syn = { version = "2", features = ["full", "visit-mut", "extra-traits"] }
 quote = "1"
-proc-macro2 = "1"
+proc-macro2 = { version = "1", features = ["span-locations"] }
 walkdir = "2"
 
 subtensor-macros = { path = "support/macros" }
