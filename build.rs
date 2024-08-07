@@ -1,6 +1,8 @@
+use rayon::prelude::*;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use syn::Result;
 use walkdir::WalkDir;
 
@@ -15,39 +17,43 @@ fn main() {
     // Collect all Rust source files in the workspace
     let rust_files = collect_rust_files(workspace_root);
 
-    let mut found_error = None;
+    let found_error = Mutex::new(None);
 
-    // Parse each Rust file with syn
-    for file in rust_files {
-        if found_error.is_some() {
-            break;
+    // Parse each rust file with syn and run the linting suite on it in parallel
+    rust_files.par_iter().for_each(|file| {
+        if found_error.lock().unwrap().is_some() {
+            return;
         }
         let Ok(content) = fs::read_to_string(&file) else {
-            continue;
+            return;
         };
         let Ok(parsed_file) = syn::parse_file(&content) else {
-            continue;
+            return;
         };
 
         let track_lint = |result: Result<()>| {
             let Err(error) = result else {
                 return;
             };
-            found_error = Some((error, file));
+            *found_error.lock().unwrap() = Some((error, file.clone()));
         };
 
         track_lint(DummyLint::lint(parsed_file));
-    }
+    });
 
-    if let Some((error, file)) = found_error {
-        let start = error.span().start();
-        let end = error.span().end();
-        let start_line = start.line;
-        let start_col = start.column;
-        let _end_line = end.line;
-        let _end_col = end.column;
-        let file_path = file.display();
-        panic!("{}:{}:{}: {}", file_path, start_line, start_col, error);
+    // Use a separate scope to ensure the lock is released before the function exits
+    {
+        let guard = found_error.lock().expect("mutex was poisoned");
+        if let Some((error, file)) = &*guard {
+            let start = error.span().start();
+            let end = error.span().end();
+            let start_line = start.line;
+            let start_col = start.column;
+            let _end_line = end.line;
+            let _end_col = end.column;
+            let file_path = file.display();
+            panic!("{}:{}:{}: {}", file_path, start_line, start_col, error);
+        }
     }
 }
 
