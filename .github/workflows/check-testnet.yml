@@ -2,7 +2,7 @@ name: Testnet Deploy Check
 
 on:
   pull_request:
-    branches: [testnet]
+    branches: [testnet, testnet-ready]
 
 env:
   CARGO_TERM_COLOR: always
