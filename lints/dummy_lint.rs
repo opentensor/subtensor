@@ -1,5 +1,3 @@
-use syn::{spanned::Spanned, Error};
-
 use super::*;
 
 pub struct DummyLint;

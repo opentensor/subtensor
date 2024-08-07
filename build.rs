@@ -1,12 +1,6 @@
-use rayon::prelude::*;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::exit;
-use std::sync::mpsc::channel;
-use syn::spanned::Spanned;
-use syn::Error;
-use syn::File;
 use syn::Result;
 use walkdir::WalkDir;
 
@@ -50,8 +44,8 @@ fn main() {
         let end = error.span().end();
         let start_line = start.line;
         let start_col = start.column;
-        let end_line = end.line;
-        let end_col = end.column;
+        let _end_line = end.line;
+        let _end_col = end.column;
         let file_path = file.display();
         panic!("{}:{}:{}: {}", file_path, start_line, start_col, error);
     }
