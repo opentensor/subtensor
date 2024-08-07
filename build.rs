@@ -17,6 +17,8 @@ fn main() {
     // Collect all Rust source files in the workspace
     let rust_files = collect_rust_files(workspace_root);
 
+    // Channel used to communicate errors back to the main thread from the parallel processing
+    // as we process each Rust file
     let (tx, rx) = channel();
 
     // Parse each rust file with syn and run the linting suite on it in parallel

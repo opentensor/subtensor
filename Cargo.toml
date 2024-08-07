@@ -18,6 +18,7 @@ subtensor-macros = { path = "support/macros", version = "0.1.0" }
 
 [build-dependencies]
 syn.workspace = true
+quote.workspace = true
 proc-macro2.workspace = true
 walkdir.workspace = true
 rayon = "1.10"
