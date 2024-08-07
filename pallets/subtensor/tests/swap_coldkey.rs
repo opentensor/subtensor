@@ -10,7 +10,7 @@ use frame_support::traits::schedule::DispatchTime;
 use frame_support::traits::OnInitialize;
 use mock::*;
 use pallet_subtensor::*;
-use pallet_subtensor::{Call, Error};
+use pallet_subtensor::{Call, ColdkeySwapScheduleDuration, Error};
 use sp_core::H256;
 use sp_core::U256;
 use sp_runtime::DispatchError;
@@ -1387,8 +1387,7 @@ fn test_schedule_swap_coldkey_execution() {
 
         // Get the scheduled execution block
         let current_block = System::block_number();
-        let blocks_in_5_days = 5 * 24 * 60 * 60 / 12;
-        let execution_block = current_block + blocks_in_5_days;
+        let execution_block = current_block + ColdkeySwapScheduleDuration::<Test>::get();
 
         System::assert_last_event(
             Event::ColdkeySwapScheduled {

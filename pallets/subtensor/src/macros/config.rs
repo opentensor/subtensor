@@ -5,7 +5,6 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod config {
-
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
     pub trait Config: frame_system::Config {
@@ -193,5 +192,11 @@ mod config {
         /// Initial hotkey emission tempo.
         #[pallet::constant]
         type InitialHotkeyEmissionTempo: Get<u64>;
+        /// Coldkey swap schedule duartion.
+        #[pallet::constant]
+        type InitialColdkeySwapScheduleDuration: Get<BlockNumberFor<Self>>;
+        /// Dissolve network schedule duration
+        #[pallet::constant]
+        type InitialDissolveNetworkScheduleDuration: Get<BlockNumberFor<Self>>;
     }
 }

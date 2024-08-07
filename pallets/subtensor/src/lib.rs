@@ -588,6 +588,26 @@ pub mod pallet {
         T::InitialNetworkMaxStake::get()
     }
 
+    #[pallet::type_value]
+    /// Default value for coldkey swap schedule duration
+    pub fn DefaultColdkeySwapScheduleDuration<T: Config>() -> BlockNumberFor<T> {
+        T::InitialColdkeySwapScheduleDuration::get()
+    }
+
+    #[pallet::storage]
+    pub type ColdkeySwapScheduleDuration<T: Config> =
+        StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapScheduleDuration<T>>;
+
+    #[pallet::type_value]
+    /// Default value for dissolve network schedule duration
+    pub fn DefaultDissolveNetworkScheduleDuration<T: Config>() -> BlockNumberFor<T> {
+        T::InitialDissolveNetworkScheduleDuration::get()
+    }
+
+    #[pallet::storage]
+    pub type DissolveNetworkScheduleDuration<T: Config> =
+        StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultDissolveNetworkScheduleDuration<T>>;
+
     #[pallet::storage]
     pub type SenateRequiredStakePercentage<T> =
         StorageValue<_, u64, ValueQuery, DefaultSenateRequiredStakePercentage<T>>;
@@ -1219,6 +1239,19 @@ pub enum CallType {
     Other,
 }
 
+#[derive(Debug, PartialEq)]
+pub enum CustomTransactionError {
+    ColdkeyInSwapSchedule,
+}
+
+impl From<CustomTransactionError> for u8 {
+    fn from(variant: CustomTransactionError) -> u8 {
+        match variant {
+            CustomTransactionError::ColdkeyInSwapSchedule => 0,
+        }
+    }
+}
+
 #[freeze_struct("61e2b893d5ce6701")]
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 pub struct SubtensorSignedExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
@@ -1367,14 +1400,36 @@ where
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
             }),
-            Some(Call::dissolve_network { .. }) => Ok(ValidTransaction {
-                priority: Self::get_priority_vanilla(),
-                ..Default::default()
-            }),
-            _ => Ok(ValidTransaction {
-                priority: Self::get_priority_vanilla(),
-                ..Default::default()
-            }),
+            Some(Call::dissolve_network { .. }) => {
+                if ColdkeySwapScheduled::<T>::contains_key(who) {
+                    InvalidTransaction::Custom(CustomTransactionError::ColdkeyInSwapSchedule.into())
+                        .into()
+                } else {
+                    Ok(ValidTransaction {
+                        priority: Self::get_priority_vanilla(),
+                        ..Default::default()
+                    })
+                }
+            }
+            _ => {
+                if let Some(
+                    BalancesCall::transfer_keep_alive { .. }
+                    | BalancesCall::transfer_all { .. }
+                    | BalancesCall::transfer_allow_death { .. },
+                ) = call.is_sub_type()
+                {
+                    if ColdkeySwapScheduled::<T>::contains_key(who) {
+                        return InvalidTransaction::Custom(
+                            CustomTransactionError::ColdkeyInSwapSchedule.into(),
+                        )
+                        .into();
+                    }
+                }
+                Ok(ValidTransaction {
+                    priority: Self::get_priority_vanilla(),
+                    ..Default::default()
+                })
+            }
         }
     }
 
