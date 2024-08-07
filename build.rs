@@ -2,6 +2,7 @@ use rayon::prelude::*;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::sync::mpsc::channel;
 use syn::Result;
 use walkdir::WalkDir;
@@ -26,7 +27,7 @@ fn main() {
         let Ok(content) = fs::read_to_string(&file) else {
             return;
         };
-        let Ok(parsed_file) = syn::parse_file(&content) else {
+        let Ok(parsed_file) = proc_macro2::TokenStream::from_str(&content) else {
             return;
         };
 
@@ -34,7 +35,14 @@ fn main() {
             let Err(error) = result else {
                 return;
             };
-            tx.send((error, file.clone(), content.to_string())).unwrap();
+            let relative_path = file.strip_prefix(workspace_root).unwrap_or(file.as_path());
+            let loc = error.span().location();
+            let file_path = relative_path.display();
+            tx.send(format!(
+                "cargo:warning={}:{}:{}: {} (ends at {}:{})",
+                file_path, loc.start_line, loc.start_col, error, loc.end_line, loc.end_col
+            ))
+            .unwrap();
         };
 
         track_lint(DummyLint::lint(&parsed_file));
@@ -44,15 +52,10 @@ fn main() {
     // Collect and print all errors after the parallel processing is done
     drop(tx); // Close the sending end of the channel
 
-    for (error, file, content) in rx {
-        let relative_path = file.strip_prefix(workspace_root).unwrap_or(file.as_path());
-        let loc = error.span().location(&content);
-        let file_path = relative_path.display();
-        println!(
-            "cargo:warning={}:{}:{}: {} (ends at {}:{})",
-            file_path, loc.start_line, loc.start_col, error, loc.end_line, loc.end_col
-        );
+    for (error) in rx {
+        println!("{error}");
     }
+    panic!("hey");
 }
 
 /// Recursively collects all Rust files in the given directory

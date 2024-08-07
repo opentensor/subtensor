@@ -29,42 +29,19 @@ impl Default for SpanLocation {
 }
 
 pub trait SpanHack {
-    fn location(&self, source: &str) -> SpanLocation;
+    fn location(&self) -> SpanLocation;
 }
 
 impl SpanHack for proc_macro2::Span {
-    fn location(&self, source: &str) -> SpanLocation {
-        let range = self.byte_range();
-
-        let mut start_line = 1;
-        let mut start_col = 0;
-        let mut end_line = 1;
-        let mut end_col = 0;
-        let mut current_col = 0;
-
-        for (i, c) in source.chars().enumerate() {
-            if i == range.start {
-                start_line = end_line;
-                start_col = current_col;
-            }
-            if i == range.end {
-                end_line = end_line;
-                end_col = current_col;
-                break;
-            }
-            if c == '\n' {
-                current_col = 0;
-                end_line += 1;
-            } else {
-                current_col += 1;
-            }
-        }
-
+    fn location(&self) -> SpanLocation {
+        //println!("{:#?}", self);
+        let start = self.start();
+        let end = self.end();
         SpanLocation {
-            start_line,
-            start_col,
-            end_line,
-            end_col,
+            start_line: start.line,
+            start_col: start.column,
+            end_line: end.line,
+            end_col: end.column,
         }
     }
 }
