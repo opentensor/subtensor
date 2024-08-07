@@ -507,3 +507,21 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
 }
+
+// Helper function to set up a neuron with stake
+#[allow(dead_code)]
+pub fn setup_neuron_with_stake(netuid: u16, hotkey: U256, coldkey: U256, stake: u64) {
+    register_ok_neuron(netuid, hotkey, coldkey, stake);
+    SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake);
+}
+
+// Helper function to check if a value is within tolerance of an expected value
+#[allow(dead_code)]
+pub fn is_within_tolerance(actual: u64, expected: u64, tolerance: u64) -> bool {
+    let difference = if actual > expected {
+        actual - expected
+    } else {
+        expected - actual
+    };
+    difference <= tolerance
+}

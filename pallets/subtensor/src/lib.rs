@@ -372,8 +372,6 @@ pub mod pallet {
         }
         T::InitialNetworkRateLimit::get()
     }
-    // #[pallet::type_value] /// Default value for network max stake.
-    // pub fn DefaultNetworkMaxStake<T: Config>() -> u64 { T::InitialNetworkMaxStake::get() }
     #[pallet::type_value]
     /// Default value for emission values.
     pub fn DefaultEmissionValues<T: Config>() -> u64 {
