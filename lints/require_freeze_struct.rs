@@ -48,11 +48,12 @@ impl<'ast> Visit<'ast> for EncodeDecodeVisitor {
 }
 
 fn is_freeze_struct(attr: &Attribute) -> bool {
-    if let Meta::Path(ref path) = attr.meta {
-        path.is_ident("freeze_struct")
-    } else {
-        false
+    if let Meta::List(meta_list) = &attr.meta {
+        if meta_list.path.is_ident("freeze_struct") && !meta_list.tokens.is_empty() {
+            return true;
+        }
     }
+    false
 }
 
 fn is_derive_encode_or_decode(attr: &Attribute) -> bool {
