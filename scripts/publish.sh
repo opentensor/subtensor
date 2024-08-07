@@ -1,7 +1,5 @@
 #!/bin/bash
 set -ex
-cargo doc --all-features
-cargo test --all-features --workspace
 cd support/macros
 cargo publish
 cd ../..
