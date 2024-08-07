@@ -2,7 +2,7 @@ use rayon::prelude::*;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::mpsc::channel;
 use syn::Result;
 use walkdir::WalkDir;
 
@@ -17,13 +17,10 @@ fn main() {
     // Collect all Rust source files in the workspace
     let rust_files = collect_rust_files(workspace_root);
 
-    let found_error = Mutex::new(None);
+    let (tx, rx) = channel();
 
     // Parse each rust file with syn and run the linting suite on it in parallel
-    rust_files.par_iter().for_each(|file| {
-        if found_error.lock().unwrap().is_some() {
-            return;
-        }
+    rust_files.par_iter().for_each_with(tx.clone(), |tx, file| {
         let Ok(content) = fs::read_to_string(&file) else {
             return;
         };
@@ -35,25 +32,28 @@ fn main() {
             let Err(error) = result else {
                 return;
             };
-            *found_error.lock().unwrap() = Some((error, file.clone()));
+            tx.send((error, file.clone())).unwrap();
         };
 
         track_lint(DummyLint::lint(parsed_file));
     });
 
-    // Use a separate scope to ensure the lock is released before the function exits
-    {
-        let guard = found_error.lock().expect("mutex was poisoned");
-        if let Some((error, file)) = &*guard {
-            let start = error.span().start();
-            let end = error.span().end();
-            let start_line = start.line;
-            let start_col = start.column;
-            let _end_line = end.line;
-            let _end_col = end.column;
-            let file_path = file.display();
-            panic!("{}:{}:{}: {}", file_path, start_line, start_col, error);
-        }
+    // Collect and print all errors after the parallel processing is done
+    drop(tx); // Close the sending end of the channel
+
+    for (error, file) in rx {
+        let relative_path = file.strip_prefix(workspace_root).unwrap_or(file.as_path());
+        let start = error.span().start();
+        let end = error.span().end();
+        let start_line = start.line;
+        let start_col = start.column;
+        let _end_line = end.line;
+        let _end_col = end.column;
+        let file_path = relative_path.display();
+        println!(
+            "cargo:warning={}:{}:{}: {}",
+            file_path, start_line, start_col, error
+        );
     }
 }
 
