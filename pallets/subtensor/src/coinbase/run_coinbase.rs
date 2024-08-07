@@ -131,6 +131,11 @@ impl<T: Config> Pallet<T> {
                     log::debug!("Accumulated emissions on hotkey {:?} for netuid {:?}: mining {:?}, validator {:?}", hotkey, *netuid, mining_emission, validator_emission);
                 }
             } else {
+                // No epoch, increase blocks since last step and continue,
+                Self::set_blocks_since_last_step(
+                    *netuid,
+                    Self::get_blocks_since_last_step(*netuid).saturating_add(1),
+                );
                 log::debug!("Tempo not reached for subnet: {:?}", *netuid);
             }
         }
