@@ -57,7 +57,7 @@ fn main() {
     }
 }
 
-// Recursively collects all Rust files in the given directory
+/// Recursively collects all Rust files in the given directory
 fn collect_rust_files(dir: &Path) -> Vec<PathBuf> {
     let mut rust_files = Vec::new();
 
@@ -65,7 +65,12 @@ fn collect_rust_files(dir: &Path) -> Vec<PathBuf> {
         let entry = entry.unwrap();
         let path = entry.path();
 
-        if path.ends_with("target") || path.ends_with("build.rs") {
+        // Skip any path that contains "target" directory
+        if path
+            .components()
+            .any(|component| component.as_os_str() == "target")
+            || path.ends_with("build.rs")
+        {
             continue;
         }
 
