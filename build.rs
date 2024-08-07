@@ -35,7 +35,8 @@ fn main() {
             tx.send((error, file.clone())).unwrap();
         };
 
-        track_lint(DummyLint::lint(parsed_file));
+        track_lint(DummyLint::lint(&parsed_file));
+        track_lint(RequireFreezeStruct::lint(&parsed_file));
     });
 
     // Collect and print all errors after the parallel processing is done

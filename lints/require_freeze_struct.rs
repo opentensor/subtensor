@@ -1,8 +1,8 @@
 use super::*;
 
-pub struct DummyLint;
+pub struct RequireFreezeStruct;
 
-impl Lint for DummyLint {
+impl Lint for RequireFreezeStruct {
     fn lint(_source: &File) -> Result<()> {
         Ok(())
     }
