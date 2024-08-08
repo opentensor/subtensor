@@ -4115,6 +4115,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "linting"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.71",
+]
+
+[[package]]
 name = "linux-raw-sys"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9186,6 +9195,7 @@ dependencies = [
 name = "subtensor"
 version = "0.1.0"
 dependencies = [
+ "linting",
  "node-subtensor",
  "node-subtensor-runtime",
  "pallet-commitments",
