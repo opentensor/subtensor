@@ -854,6 +854,12 @@ pub const INITIAL_SUBNET_TEMPO: u16 = 99;
 #[cfg(feature = "fast-blocks")]
 pub const INITIAL_SUBNET_TEMPO: u16 = 10;
 
+#[cfg(not(feature = "fast-blocks"))]
+pub const INITIAL_CHILDKEY_TAKE_RATELIMIT: u64 = 216000; // 30 days at 12 seconds per block
+
+#[cfg(feature = "fast-blocks")]
+pub const INITIAL_CHILDKEY_TAKE_RATELIMIT: u64 = 5;
+
 // Configure the pallet subtensor.
 parameter_types! {
     pub const SubtensorInitialRho: u16 = 10;
@@ -889,7 +895,7 @@ parameter_types! {
     pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
     pub const SubtensorInitialTxDelegateTakeRateLimit: u64 = 216000; // 30 days at 12 seconds per block
-    pub const SubtensorInitialTxChildKeyTakeRateLimit: u64 = 216000; // 30 days at 12 seconds per block
+    pub const SubtensorInitialTxChildKeyTakeRateLimit: u64 = INITIAL_CHILDKEY_TAKE_RATELIMIT;
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
     pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
     pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
