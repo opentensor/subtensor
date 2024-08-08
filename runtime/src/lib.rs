@@ -620,14 +620,14 @@ pub enum ProxyType {
     Owner, // Subnet owner Calls
     NonCritical,
     NonTransfer,
-    Transfer,
-    SmallTransfer,
     Senate,
     NonFungibile, // Nothing involving moving TAO
     Triumvirate,
     Governance, // Both above governance
     Staking,
     Registration,
+    Transfer,
+    SmallTransfer,
 }
 // Transfers below SMALL_TRANSFER_LIMIT are considered small transfers
 pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
