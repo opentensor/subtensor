@@ -11,6 +11,14 @@ mod lints;
 use lints::*;
 
 fn main() {
+    // need to list all rust directories here
+    println!("cargo:rerun-if-changed=pallets");
+    println!("cargo:rerun-if-changed=node");
+    println!("cargo:rerun-if-changed=runtime");
+    println!("cargo:rerun-if-changed=lints");
+    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=src");
+    println!("cargo:rerun-if-changed=support");
     // Get the root directory of the workspace
     let workspace_root = env::var("CARGO_MANIFEST_DIR").unwrap();
     let workspace_root = Path::new(&workspace_root);
