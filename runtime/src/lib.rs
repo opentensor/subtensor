@@ -620,6 +620,8 @@ pub enum ProxyType {
     Owner, // Subnet owner Calls
     NonCritical,
     NonTransfer,
+    Transfer,
+    SmallTransfer,
     Senate,
     NonFungibile, // Nothing involving moving TAO
     Triumvirate,
@@ -627,6 +629,8 @@ pub enum ProxyType {
     Staking,
     Registration,
 }
+// Transfers below SMALL_TRANSFER_LIMIT are considered small transfers
+pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
 impl Default for ProxyType {
     fn default() -> Self {
         Self::Any
@@ -645,6 +649,22 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
             ),
+            ProxyType::Transfer => matches!(
+                c,
+                RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive { .. })
+                    | RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death { .. })
+                    | RuntimeCall::Balances(pallet_balances::Call::transfer_all { .. })
+            ),
+            ProxyType::SmallTransfer => match c {
+                RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
+                    value, ..
+                }) => *value < SMALL_TRANSFER_LIMIT,
+                RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
+                    value,
+                    ..
+                }) => *value < SMALL_TRANSFER_LIMIT,
+                _ => false,
+            },
             ProxyType::Owner => matches!(c, RuntimeCall::AdminUtils(..)),
             ProxyType::NonCritical => !matches!(
                 c,
