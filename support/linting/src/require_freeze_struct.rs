@@ -75,3 +75,121 @@ fn is_derive_encode_or_decode(attr: &Attribute) -> bool {
     }
     false
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn lint_struct(input: &str) -> Result<()> {
+        let item_struct: ItemStruct = syn::parse_str(input).unwrap();
+        let mut visitor = EncodeDecodeVisitor::default();
+        visitor.visit_item_struct(&item_struct);
+        if visitor.errors.is_empty() {
+            Ok(())
+        } else {
+            Err(visitor.errors[0].clone())
+        }
+    }
+
+    #[test]
+    fn test_no_attributes() {
+        let input = r#"
+            pub struct Test {
+                field: u32,
+            }
+        "#;
+        assert!(lint_struct(input).is_ok());
+    }
+
+    #[test]
+    fn test_freeze_struct_only() {
+        let input = r#"
+            #[freeze_struct("12345")]
+            pub struct Test {
+                field: u32,
+            }
+        "#;
+        assert!(lint_struct(input).is_ok());
+    }
+
+    #[test]
+    fn test_encode_only() {
+        let input = r#"
+            #[derive(Encode)]
+            pub struct Test {
+                field: u32,
+            }
+        "#;
+        assert!(lint_struct(input).is_err());
+    }
+
+    #[test]
+    fn test_decode_only() {
+        let input = r#"
+            #[derive(Decode)]
+            pub struct Test {
+                field: u32,
+            }
+        "#;
+        assert!(lint_struct(input).is_err());
+    }
+
+    #[test]
+    fn test_encode_and_freeze_struct() {
+        let input = r#"
+            #[freeze_struct("12345")]
+            #[derive(Encode)]
+            pub struct Test {
+                field: u32,
+            }
+        "#;
+        assert!(lint_struct(input).is_ok());
+    }
+
+    #[test]
+    fn test_decode_and_freeze_struct() {
+        let input = r#"
+            #[freeze_struct("12345")]
+            #[derive(Decode)]
+            pub struct Test {
+                field: u32,
+            }
+        "#;
+        assert!(lint_struct(input).is_ok());
+    }
+
+    #[test]
+    fn test_encode_decode_without_freeze_struct() {
+        let input = r#"
+            #[derive(Encode, Decode)]
+            pub struct Test {
+                field: u32,
+            }
+        "#;
+        assert!(lint_struct(input).is_err());
+    }
+
+    #[test]
+    fn test_encode_decode_with_freeze_struct() {
+        let input = r#"
+            #[freeze_struct("12345")]
+            #[derive(Encode, Decode)]
+            pub struct Test {
+                field: u32,
+            }
+        "#;
+        assert!(lint_struct(input).is_ok());
+    }
+
+    #[test]
+    fn test_temporary_freeze_struct() {
+        let input = r#"
+            #[freeze_struct]
+            #[derive(Encode, Decode)]
+            pub struct Test {
+                field: u32,
+            }
+        "#;
+        assert!(lint_struct(input).is_err());
+    }
+}

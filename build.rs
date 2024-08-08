@@ -7,7 +7,7 @@ use std::sync::mpsc::channel;
 use syn::Result;
 use walkdir::WalkDir;
 
-use linting::*;
+use subtensor_linting::*;
 
 fn main() {
     // need to list all rust directories here

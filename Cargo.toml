@@ -17,7 +17,7 @@ node-subtensor-runtime = { path = "runtime", version = "4.0.0-dev" }
 subtensor-macros = { path = "support/macros", version = "0.1.0" }
 
 [build-dependencies]
-linting = { path = "support/linting", version = "0.1.0" }
+subtensor-linting = { path = "support/linting", version = "0.1.0" }
 syn.workspace = true
 quote.workspace = true
 proc-macro2.workspace = true
