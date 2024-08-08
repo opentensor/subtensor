@@ -59,7 +59,6 @@ extern crate alloc;
 #[import_section(config::config)]
 #[frame_support::pallet]
 pub mod pallet {
-
     use crate::migrations;
     use frame_support::{
         dispatch::GetDispatchInfo,
@@ -96,6 +95,7 @@ pub mod pallet {
     pub type AxonInfoOf = AxonInfo;
 
     /// Data structure for Axon information.
+    #[crate::freeze_struct("3545cfb0cac4c1f5")]
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct AxonInfo {
         ///  Axon serving block.
