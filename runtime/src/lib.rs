@@ -626,7 +626,11 @@ pub enum ProxyType {
     Governance, // Both above governance
     Staking,
     Registration,
+    Transfer,
+    SmallTransfer,
 }
+// Transfers below SMALL_TRANSFER_LIMIT are considered small transfers
+pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
 impl Default for ProxyType {
     fn default() -> Self {
         Self::Any
@@ -645,6 +649,22 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
             ),
+            ProxyType::Transfer => matches!(
+                c,
+                RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive { .. })
+                    | RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death { .. })
+                    | RuntimeCall::Balances(pallet_balances::Call::transfer_all { .. })
+            ),
+            ProxyType::SmallTransfer => match c {
+                RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
+                    value, ..
+                }) => *value < SMALL_TRANSFER_LIMIT,
+                RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
+                    value,
+                    ..
+                }) => *value < SMALL_TRANSFER_LIMIT,
+                _ => false,
+            },
             ProxyType::Owner => matches!(c, RuntimeCall::AdminUtils(..)),
             ProxyType::NonCritical => !matches!(
                 c,
@@ -681,8 +701,12 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
             (x, y) if x == y => true,
             (ProxyType::Any, _) => true,
             (_, ProxyType::Any) => false,
-            (ProxyType::NonTransfer, _) => true,
+            (ProxyType::NonTransfer, _) => {
+                // NonTransfer is NOT a superset of Transfer or SmallTransfer
+                !matches!(o, ProxyType::Transfer | ProxyType::SmallTransfer)
+            }
             (ProxyType::Governance, ProxyType::Triumvirate | ProxyType::Senate) => true,
+            (ProxyType::Transfer, ProxyType::SmallTransfer) => true,
             _ => false,
         }
     }
