@@ -31,7 +31,7 @@ fn main() {
 
     // Parse each rust file with syn and run the linting suite on it in parallel
     rust_files.par_iter().for_each_with(tx.clone(), |tx, file| {
-        let Ok(content) = fs::read_to_string(&file) else {
+        let Ok(content) = fs::read_to_string(file) else {
             return;
         };
         let Ok(parsed_file) = proc_macro2::TokenStream::from_str(&content) else {

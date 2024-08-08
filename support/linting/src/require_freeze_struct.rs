@@ -32,12 +32,12 @@ struct EncodeDecodeVisitor {
 impl<'ast> Visit<'ast> for EncodeDecodeVisitor {
     fn visit_item_struct(&mut self, node: &'ast ItemStruct) {
         let has_encode_decode = node.attrs.iter().any(|attr| {
-            let result = is_derive_encode_or_decode(attr);
-            result
+            
+            is_derive_encode_or_decode(attr)
         });
         let has_freeze_struct = node.attrs.iter().any(|attr| {
-            let result = is_freeze_struct(attr);
-            result
+            
+            is_freeze_struct(attr)
         });
 
         if has_encode_decode && !has_freeze_struct {
