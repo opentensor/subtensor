@@ -14,6 +14,7 @@ sp_api::decl_runtime_apis! {
     pub trait NeuronInfoRuntimeApi {
         fn get_neurons(netuid: u16) -> Vec<u8>;
         fn get_neuron(netuid: u16, uid: u16) -> Vec<u8>;
+        fn get_neuron_certificate(netuid: u16, uid: u16) -> Vec<u8>;
         fn get_neurons_lite(netuid: u16) -> Vec<u8>;
         fn get_neuron_lite(netuid: u16, uid: u16) -> Vec<u8>;
     }

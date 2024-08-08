@@ -100,6 +100,56 @@ fn test_serving_ok() {
 }
 
 #[test]
+fn test_serving_tls_ok() {
+    new_test_ext().execute_with(|| {
+        let hotkey_account_id = U256::from(1);
+        let uid: u16 = 0;
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+        let version: u32 = 2;
+        let ip: u128 = 1676056785;
+        let port: u16 = 128;
+        let ip_type: u8 = 4;
+        let modality: u16 = 0;
+        let protocol: u8 = 0;
+        let placeholder1: u8 = 0;
+        let placeholder2: u8 = 0;
+        let certificate: Vec<u8> = "CERT".as_bytes().to_vec();
+        add_network(netuid, tempo, modality);
+        register_ok_neuron(netuid, hotkey_account_id, U256::from(66), 0);
+        assert_ok!(SubtensorModule::serve_axon_tls(
+            <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
+            netuid,
+            version,
+            ip,
+            port,
+            ip_type,
+            protocol,
+            placeholder1,
+            placeholder2,
+            certificate.clone()
+        ));
+        let stored_certificate = SubtensorModule::get_neuron_certificate(netuid, uid);
+        assert_eq!(stored_certificate.unwrap().certificate, certificate);
+        let new_certificate = "UPDATED_CERT".as_bytes().to_vec();
+        assert_ok!(SubtensorModule::serve_axon_tls(
+            <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
+            netuid,
+            version,
+            ip,
+            port,
+            ip_type,
+            protocol,
+            placeholder1,
+            placeholder2,
+            new_certificate.clone()
+        ));
+        let stored_certificate = SubtensorModule::get_neuron_certificate(netuid, uid);
+        assert_eq!(stored_certificate.unwrap().certificate, new_certificate)
+    });
+}
+
+#[test]
 fn test_serving_set_metadata_update() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);

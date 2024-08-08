@@ -435,7 +435,7 @@ mod dispatches {
             Self::do_remove_stake(origin, hotkey, amount_unstaked)
         }
 
-        /// Serves or updates axon /promethteus information for the neuron associated with the caller. If the caller is
+        /// Serves or updates axon /prometheus information for the neuron associated with the caller. If the caller is
         /// already registered the metadata is updated. If the caller is not registered this call throws NotRegistered.
         ///
         /// # Args:
@@ -511,6 +511,89 @@ mod dispatches {
                 protocol,
                 placeholder1,
                 placeholder2,
+                None,
+            )
+        }
+
+        /// Same as `serve_axon` but takes a certificate as an extra optional argument.
+        /// Serves or updates axon /prometheus information for the neuron associated with the caller. If the caller is
+        /// already registered the metadata is updated. If the caller is not registered this call throws NotRegistered.
+        ///
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the caller.
+        ///
+        /// * 'netuid' (u16):
+        /// 	- The u16 network identifier.
+        ///
+        /// * 'version' (u64):
+        /// 	- The bittensor version identifier.
+        ///
+        /// * 'ip' (u64):
+        /// 	- The endpoint ip information as a u128 encoded integer.
+        ///
+        /// * 'port' (u16):
+        /// 	- The endpoint port information as a u16 encoded integer.
+        ///
+        /// * 'ip_type' (u8):
+        /// 	- The endpoint ip version as a u8, 4 or 6.
+        ///
+        /// * 'protocol' (u8):
+        /// 	- UDP:1 or TCP:0
+        ///
+        /// * 'placeholder1' (u8):
+        /// 	- Placeholder for further extra params.
+        ///
+        /// * 'placeholder2' (u8):
+        /// 	- Placeholder for further extra params.
+        ///
+        /// # Event:
+        /// * AxonServed;
+        /// 	- On successfully serving the axon info.
+        ///
+        /// # Raises:
+        /// * 'SubNetworkDoesNotExist':
+        /// 	- Attempting to set weights on a non-existent network.
+        ///
+        /// * 'NotRegistered':
+        /// 	- Attempting to set weights from a non registered account.
+        ///
+        /// * 'InvalidIpType':
+        /// 	- The ip type is not 4 or 6.
+        ///
+        /// * 'InvalidIpAddress':
+        /// 	- The numerically encoded ip address does not resolve to a proper ip.
+        ///
+        /// * 'ServingRateLimitExceeded':
+        /// 	- Attempting to set prometheus information withing the rate limit min.
+        ///
+        #[pallet::call_index(40)]
+        #[pallet::weight((Weight::from_parts(46_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(4))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
+        pub fn serve_axon_tls(
+            origin: OriginFor<T>,
+            netuid: u16,
+            version: u32,
+            ip: u128,
+            port: u16,
+            ip_type: u8,
+            protocol: u8,
+            placeholder1: u8,
+            placeholder2: u8,
+            certificate: Vec<u8>,
+        ) -> DispatchResult {
+            Self::do_serve_axon(
+                origin,
+                netuid,
+                version,
+                ip,
+                port,
+                ip_type,
+                protocol,
+                placeholder1,
+                placeholder2,
+                Some(certificate),
             )
         }
 

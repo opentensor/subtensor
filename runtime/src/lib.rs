@@ -142,7 +142,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 195,
+    spec_version: 196,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1363,13 +1363,7 @@ impl_runtime_apis! {
         }
 
         fn get_delegate(delegate_account_vec: Vec<u8>) -> Vec<u8> {
-            let _result = SubtensorModule::get_delegate(delegate_account_vec);
-            if _result.is_some() {
-                let result = _result.expect("Could not get DelegateInfo");
-                result.encode()
-            } else {
-                vec![]
-            }
+            SubtensorModule::get_delegate(delegate_account_vec).map(|r| r.encode()).unwrap_or(vec![])
         }
 
         fn get_delegated(delegatee_account_vec: Vec<u8>) -> Vec<u8> {
@@ -1385,13 +1379,7 @@ impl_runtime_apis! {
         }
 
         fn get_neuron_lite(netuid: u16, uid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_neuron_lite(netuid, uid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get NeuronInfoLite");
-                result.encode()
-            } else {
-                vec![]
-            }
+            SubtensorModule::get_neuron_lite(netuid, uid).map(|r| r.encode()).unwrap_or(vec![])
         }
 
         fn get_neurons(netuid: u16) -> Vec<u8> {
@@ -1400,25 +1388,17 @@ impl_runtime_apis! {
         }
 
         fn get_neuron(netuid: u16, uid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_neuron(netuid, uid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get NeuronInfo");
-                result.encode()
-            } else {
-                vec![]
-            }
+            SubtensorModule::get_neuron(netuid, uid).map(|r| r.encode()).unwrap_or(vec![])
+        }
+
+        fn get_neuron_certificate(netuid: u16, uid: u16) -> Vec<u8> {
+            SubtensorModule::get_neuron_certificate(netuid, uid).map(|r| r.encode()).unwrap_or(vec![])
         }
     }
 
     impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
         fn get_subnet_info(netuid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_subnet_info(netuid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get SubnetInfo");
-                result.encode()
-            } else {
-                vec![]
-            }
+            SubtensorModule::get_subnet_info(netuid).map(|r| r.encode()).unwrap_or(vec![])
         }
 
         fn get_subnets_info() -> Vec<u8> {
@@ -1442,13 +1422,7 @@ impl_runtime_apis! {
         }
 
         fn get_subnet_hyperparams(netuid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_subnet_hyperparams(netuid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get SubnetHyperparams");
-                result.encode()
-            } else {
-                vec![]
-            }
+            SubtensorModule::get_subnet_hyperparams(netuid).map(|r| r.encode()).unwrap_or(vec![])
         }
     }
 

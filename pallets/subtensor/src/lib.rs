@@ -129,6 +129,15 @@ pub mod pallet {
         pub placeholder2: u8,
     }
 
+    /// Struct for NeuronCertificate.
+    pub type NeuronCertificateOf = NeuronCertificate;
+    /// Data structure for NeuronCertificate information.
+    #[derive(Decode, Encode, Default, TypeInfo, PartialEq, Eq, Clone, Debug)]
+    pub struct NeuronCertificate {
+        ///  The neuron certificate.
+        pub certificate: Vec<u8>,
+    }
+
     ///  Struct for Prometheus.
     pub type PrometheusInfoOf = PrometheusInfo;
 
@@ -1162,6 +1171,17 @@ pub mod pallet {
     /// --- MAP ( netuid, hotkey ) --> axon_info
     pub type Axons<T: Config> =
         StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, AxonInfoOf, OptionQuery>;
+    /// --- MAP ( netuid, hotkey ) --> certificate
+    #[pallet::storage]
+    pub(super) type NeuronCertificates<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        u16,
+        Blake2_128Concat,
+        T::AccountId,
+        NeuronCertificateOf,
+        OptionQuery,
+    >;
     #[pallet::storage]
     /// --- MAP ( netuid, hotkey ) --> prometheus_info
     pub type Prometheus<T: Config> = StorageDoubleMap<
@@ -1535,6 +1555,10 @@ where
                 Ok((CallType::Register, transaction_fee, who.clone()))
             }
             Some(Call::serve_axon { .. }) => {
+                let transaction_fee = 0;
+                Ok((CallType::Serve, transaction_fee, who.clone()))
+            }
+            Some(Call::serve_axon_tls { .. }) => {
                 let transaction_fee = 0;
                 Ok((CallType::Serve, transaction_fee, who.clone()))
             }

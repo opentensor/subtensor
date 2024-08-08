@@ -147,6 +147,23 @@ impl<T: Config> Pallet<T> {
         Some(neuron)
     }
 
+    pub fn get_neuron_certificate(netuid: u16, uid: u16) -> Option<NeuronCertificate> {
+        if !Self::if_subnet_exist(netuid) {
+            return None;
+        }
+
+        let hotkey = match Self::get_hotkey_for_net_and_uid(netuid, uid) {
+            Ok(h) => h,
+            Err(_) => return None,
+        };
+
+        if Self::has_neuron_certificate(netuid, &hotkey) {
+            NeuronCertificates::<T>::get(netuid, hotkey)
+        } else {
+            None
+        }
+    }
+
     pub fn get_neuron(netuid: u16, uid: u16) -> Option<NeuronInfo<T>> {
         if !Self::if_subnet_exist(netuid) {
             return None;
