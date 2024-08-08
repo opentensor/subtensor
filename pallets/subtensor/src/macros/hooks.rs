@@ -39,7 +39,7 @@ mod hooks {
             let mut weight = frame_support::weights::Weight::from_parts(0, 0);
 
             // Migrate the chain to RAO.
-            weight = weight.saturating_add(migrations::migrate_rao::migrate_rao::<T>());
+            // weight = weight.saturating_add(migrations::migrate_rao::migrate_rao::<T>());
             //     // Initializes storage version (to 1)
             //     .saturating_add(migrations::migrate_to_v1_separate_emission::migrate_to_v1_separate_emission::<T>())
             //     // Storage version v1 -> v2
