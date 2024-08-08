@@ -460,7 +460,7 @@ impl<T: Config> Pallet<T> {
         ImmunityPeriod::<T>::insert(netuid, immunity_period);
         Self::deposit_event(Event::ImmunityPeriodSet(netuid, immunity_period));
     }
-
+    /// Check if a neuron is in immunity based on the current block
     pub fn get_neuron_is_immune(netuid: u16, uid: u16) -> bool {
         let registered_at = Self::get_neuron_block_at_registration(netuid, uid);
         let current_block = Self::get_current_block_as_u64();

@@ -551,12 +551,11 @@ fn test_burn_registration_pruning_scenarios() {
         let max_allowed_uids = 6;
         let immunity_period = 5000;
 
+        // Initial setup
         SubtensorModule::set_burn(netuid, burn_cost);
         SubtensorModule::set_max_allowed_uids(netuid, max_allowed_uids);
         SubtensorModule::set_target_registrations_per_interval(netuid, max_allowed_uids);
         SubtensorModule::set_immunity_period(netuid, immunity_period);
-
-        // SubtensorModule::set_immunity_period(netuid, immunity_period);
 
         add_network(netuid, tempo, 0);
 
@@ -575,7 +574,7 @@ fn test_burn_registration_pruning_scenarios() {
 
         // Note: pruning score is set to u16::MAX after getting neuron to prune
 
-        // 1. Test all immune neurons
+        // 1. Test if all immune neurons
         assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 0), true);
         assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 1), true);
         assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 2), true);
@@ -591,12 +590,13 @@ fn test_burn_registration_pruning_scenarios() {
         SubtensorModule::set_pruning_score_for_uid(netuid, 1, 50);
         SubtensorModule::set_pruning_score_for_uid(netuid, 2, 50);
 
-        // Should get the oldest neuron
+        // Should get the oldest neuron (i.e., neuron that was registered first)
         assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), 1);
 
-        // 3. Test no immune neurons
+        // 3. Test if no immune neurons
         step_block(immunity_period);
 
+        // ensure all neurons are non-immune
         assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 0), false);
         assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 1), false);
         assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 2), false);
@@ -626,6 +626,7 @@ fn test_burn_registration_pruning_scenarios() {
             step_block(1);
         }
 
+        // Ensure all new neurons are immune
         assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 3), true);
         assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 4), true);
         assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 5), true);

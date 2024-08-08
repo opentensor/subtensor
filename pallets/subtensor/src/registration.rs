@@ -434,6 +434,10 @@ impl<T: Config> Pallet<T> {
         let mut earliest_registration_in_immunity: u64 = u64::MAX;
         let mut uid_to_prune: u16 = 0;
         let mut uid_to_prune_in_immunity: u16 = 0;
+
+        // This boolean is used instead of checking if min_score == u16::MAX, to avoid the case
+        // where all non-immune neurons have pruning score u16::MAX
+        // This may be unlikely in practice.
         let mut found_non_immune = false;
 
         let neurons_n = Self::get_subnetwork_n(netuid);
@@ -448,6 +452,9 @@ impl<T: Config> Pallet<T> {
             let is_immune = Self::get_neuron_is_immune(netuid, neuron_uid);
 
             if is_immune {
+                // if the immune neuron has a lower pruning score than the minimum for immune neurons,
+                // or, if the pruning scores are equal and the immune neuron was registered earlier than the current minimum for immune neurons,
+                // then update the minimum pruning score and the uid to prune for immune neurons
                 if pruning_score < min_score_in_immunity
                     || (pruning_score == min_score_in_immunity
                         && block_at_registration < earliest_registration_in_immunity)
@@ -458,6 +465,9 @@ impl<T: Config> Pallet<T> {
                 }
             } else {
                 found_non_immune = true;
+                // if the non-immune neuron has a lower pruning score than the minimum for non-immune neurons,
+                // or, if the pruning scores are equal and the non-immune neuron was registered earlier than the current minimum for non-immune neurons,
+                // then update the minimum pruning score and the uid to prune for non-immune neurons
                 if pruning_score < min_score
                     || (pruning_score == min_score && block_at_registration < earliest_registration)
                 {
