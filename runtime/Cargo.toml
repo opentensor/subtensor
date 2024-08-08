@@ -21,7 +21,7 @@ path = "src/spec_version.rs"
 
 [dependencies]
 subtensor-macros.workspace = true
-subtensor-custom-rpc-runtime-api = { version = "0.0.2", path = "../pallets/subtensor/runtime-api", default-features = false }
+subtensor-custom-rpc-runtime-api = { path = "../pallets/subtensor/runtime-api", default-features = false }
 smallvec = { workspace = true }
 log = { workspace = true }
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [

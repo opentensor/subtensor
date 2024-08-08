@@ -26,8 +26,8 @@ sp-runtime = { workspace = true }
 
 # local packages
 
-subtensor-custom-rpc-runtime-api = { version = "0.0.2", path = "../runtime-api", default-features = false }
-pallet-subtensor = { version = "4.0.0-dev", path = "../../subtensor", default-features = false }
+subtensor-custom-rpc-runtime-api = { path = "../runtime-api", default-features = false }
+pallet-subtensor = { path = "../../subtensor", default-features = false }
 
 [features]
 default = ["std"]
