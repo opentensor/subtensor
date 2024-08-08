@@ -1,6 +1,9 @@
 use super::*;
 use proc_macro2::TokenStream;
-use syn::{punctuated::Punctuated, parse_quote, visit::Visit, Attribute, ItemStruct, Meta, MetaList, Path, Result, Token};
+use syn::{
+    parse_quote, punctuated::Punctuated, visit::Visit, Attribute, ItemStruct, Meta, MetaList, Path,
+    Result, Token,
+};
 
 pub struct RequireFreezeStruct;
 
@@ -50,7 +53,10 @@ impl<'ast> Visit<'ast> for EncodeDecodeVisitor {
 
 fn is_freeze_struct(attr: &Attribute) -> bool {
     if let Meta::List(meta_list) = &attr.meta {
-        if meta_list.path.is_ident("freeze_struct") && !meta_list.tokens.is_empty() {
+        let Some(seg) = meta_list.path.segments.last() else {
+            return false;
+        };
+        if seg.ident == "freeze_struct" && !meta_list.tokens.is_empty() {
             return true;
         }
     }
