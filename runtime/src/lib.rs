@@ -701,8 +701,12 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
             (x, y) if x == y => true,
             (ProxyType::Any, _) => true,
             (_, ProxyType::Any) => false,
-            (ProxyType::NonTransfer, _) => true,
+            (ProxyType::NonTransfer, _) => {
+                // NonTransfer is NOT a superset of Transfer or SmallTransfer
+                !matches!(o, ProxyType::Transfer | ProxyType::SmallTransfer)
+            }
             (ProxyType::Governance, ProxyType::Triumvirate | ProxyType::Senate) => true,
+            (ProxyType::Transfer, ProxyType::SmallTransfer) => true,
             _ => false,
         }
     }
