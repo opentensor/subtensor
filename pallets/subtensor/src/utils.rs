@@ -461,6 +461,13 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::ImmunityPeriodSet(netuid, immunity_period));
     }
 
+    pub fn get_neuron_is_immune(netuid: u16, uid: u16) -> bool {
+        let registered_at = Self::get_neuron_block_at_registration(netuid, uid);
+        let current_block = Self::get_current_block_as_u64();
+        let immunity_period = Self::get_immunity_period(netuid);
+        current_block.saturating_sub(registered_at) < u64::from(immunity_period)
+    }
+
     pub fn get_min_allowed_weights(netuid: u16) -> u16 {
         MinAllowedWeights::<T>::get(netuid)
     }
