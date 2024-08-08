@@ -36,11 +36,13 @@ fn main() {
                 return;
             };
             let relative_path = file.strip_prefix(workspace_root).unwrap_or(file.as_path());
-            let loc = error.span().location();
+            let loc = error.span().start();
             let file_path = relative_path.display();
+            // note that spans can't go across thread boundaries without losing their location
+            // info so we we serialize here and send a String
             tx.send(format!(
-                "cargo:warning={}:{}:{}: {} (ends at {}:{})",
-                file_path, loc.start_line, loc.start_col, error, loc.end_line, loc.end_col
+                "cargo:warning={}:{}:{}: {}",
+                file_path, loc.line, loc.column, error,
             ))
             .unwrap();
         };
@@ -52,10 +54,9 @@ fn main() {
     // Collect and print all errors after the parallel processing is done
     drop(tx); // Close the sending end of the channel
 
-    for (error) in rx {
+    for error in rx {
         println!("{error}");
     }
-    panic!("hey");
 }
 
 /// Recursively collects all Rust files in the given directory

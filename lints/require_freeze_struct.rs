@@ -1,9 +1,6 @@
 use super::*;
 use proc_macro2::TokenStream;
-use syn::parse_quote;
-use syn::punctuated::Punctuated;
-use syn::spanned::Spanned;
-use syn::{visit::Visit, Attribute, ItemStruct, Meta, MetaList, Path, Result, Token};
+use syn::{punctuated::Punctuated, parse_quote, visit::Visit, Attribute, ItemStruct, Meta, MetaList, Path, Result, Token};
 
 pub struct RequireFreezeStruct;
 
@@ -11,9 +8,7 @@ impl Lint for RequireFreezeStruct {
     fn lint(source: &TokenStream) -> Result<()> {
         let mut visitor = EncodeDecodeVisitor::default();
 
-        //println!("{:#?}", source.span());
         let file = syn::parse2::<syn::File>(source.clone()).unwrap();
-        //println!("{:#?}", file.span());
         visitor.visit_file(&file);
 
         if !visitor.errors.is_empty() {
@@ -44,7 +39,7 @@ impl<'ast> Visit<'ast> for EncodeDecodeVisitor {
 
         if has_encode_decode && !has_freeze_struct {
             self.errors.push(syn::Error::new(
-                node.span(),
+                node.ident.span(),
                 "Struct with Encode/Decode derive must also have #[freeze_struct(..)] attribute.",
             ));
         }
