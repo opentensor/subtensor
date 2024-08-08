@@ -7,8 +7,9 @@ use std::sync::mpsc::channel;
 use syn::Result;
 use walkdir::WalkDir;
 
-mod lints;
-use lints::*;
+// HACK: let's us have tests for our linting framework but still be part of the build script
+mod src;
+use src::lints::*;
 
 fn main() {
     // need to list all rust directories here
