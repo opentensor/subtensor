@@ -39,18 +39,20 @@ pub mod coinbase;
 pub mod epoch;
 pub mod macros;
 pub mod migrations;
+// pub mod outer_storage;
 pub mod rpc_info;
 pub mod staking;
 pub mod subnets;
 pub mod swap;
 pub mod utils;
 use crate::utils::TransactionType;
-use macros::{config, dispatches, errors, events, genesis, hooks};
+use macros::{config, dispatches, errors, events, genesis, hooks, storages};
 
 // apparently this is stabilized since rust 1.36
 extern crate alloc;
 
 #[deny(missing_docs)]
+#[import_section(storages::storages)]
 #[import_section(errors::errors)]
 #[import_section(events::events)]
 #[import_section(dispatches::dispatches)]
