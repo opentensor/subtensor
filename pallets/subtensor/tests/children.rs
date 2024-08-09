@@ -421,8 +421,8 @@ fn test_get_stake_for_hotkey_on_subnet() {
         let parent_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
         let child_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid);
 
-        println!("Parent stake: {}", parent_stake);
-        println!("Child stake: {}", child_stake);
+        log::info!("Parent stake: {}", parent_stake);
+        log::info!("Child stake: {}", child_stake);
 
         // The parent should have 0 stake as it's all allocated to the child
         assert_eq!(parent_stake, 0);
@@ -2233,9 +2233,9 @@ fn test_parent_child_chain_emission() {
         let pending_emission_b = SubtensorModule::get_pending_hotkey_emission(&hotkey_b);
         let pending_emission_c = SubtensorModule::get_pending_hotkey_emission(&hotkey_c);
 
-        println!("Pending Emission for A: {:?}", pending_emission_a);
-        println!("Pending Emission for B: {:?}", pending_emission_b);
-        println!("Pending Emission for C: {:?}", pending_emission_c);
+        log::info!("Pending Emission for A: {:?}", pending_emission_a);
+        log::info!("Pending Emission for B: {:?}", pending_emission_b);
+        log::info!("Pending Emission for C: {:?}", pending_emission_c);
 
         // Assert that pending emissions are non-zero
         // A's pending emission: 2/3 of total emission (due to having 2/3 of total stake)
@@ -2397,10 +2397,10 @@ fn test_dynamic_parent_child_relationships() {
         let child1_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid);
         let child2_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
 
-        println!("Final stakes:");
-        println!("Parent stake: {}", parent_stake);
-        println!("Child1 stake: {}", child1_stake);
-        println!("Child2 stake: {}", child2_stake);
+        log::info!("Final stakes:");
+        log::info!("Parent stake: {}", parent_stake);
+        log::info!("Child1 stake: {}", child1_stake);
+        log::info!("Child2 stake: {}", child2_stake);
 
         const TOLERANCE: u64 = 5; // Allow for a small discrepancy due to potential rounding
 
@@ -2687,9 +2687,9 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_multiple_children() {
         assert_eq!(child2_stake, 999);
 
         // Log the actual stake values
-        println!("Parent stake: {}", parent_stake);
-        println!("Child1 stake: {}", child1_stake);
-        println!("Child2 stake: {}", child2_stake);
+        log::info!("Parent stake: {}", parent_stake);
+        log::info!("Child1 stake: {}", child1_stake);
+        log::info!("Child2 stake: {}", child2_stake);
     });
 }
 
@@ -2737,9 +2737,9 @@ fn test_get_stake_for_hotkey_on_subnet_edge_cases() {
         let child1_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid);
         let child2_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
 
-        println!("Parent stake: {}", parent_stake);
-        println!("Child1 stake: {}", child1_stake);
-        println!("Child2 stake: {}", child2_stake);
+        log::info!("Parent stake: {}", parent_stake);
+        log::info!("Child1 stake: {}", child1_stake);
+        log::info!("Child2 stake: {}", child2_stake);
 
         assert_eq!(parent_stake, 0, "Parent should have 0 stake");
         assert_eq!(child1_stake, 0, "Child1 should have 0 stake");
@@ -2795,20 +2795,20 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
             total_stake,
         );
 
-        println!("Initial stakes:");
-        println!(
+        log::info!("Initial stakes:");
+        log::info!(
             "Parent stake: {}",
             SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid)
         );
-        println!(
+        log::info!(
             "Child1 stake: {}",
             SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid)
         );
-        println!(
+        log::info!(
             "Child2 stake: {}",
             SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid)
         );
-        println!(
+        log::info!(
             "Grandchild stake: {}",
             SubtensorModule::get_stake_for_hotkey_on_subnet(&grandchild, netuid)
         );
@@ -2821,16 +2821,16 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
             vec![(u64::MAX / 2, child1), (u64::MAX / 2, child2)]
         ));
 
-        println!("After setting parent's children:");
-        println!(
+        log::info!("After setting parent's children:");
+        log::info!(
             "Parent's children: {:?}",
             SubtensorModule::get_children(&parent, netuid)
         );
-        println!(
+        log::info!(
             "Child1's parents: {:?}",
             SubtensorModule::get_parents(&child1, netuid)
         );
-        println!(
+        log::info!(
             "Child2's parents: {:?}",
             SubtensorModule::get_parents(&child2, netuid)
         );
@@ -2839,9 +2839,9 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
         let child1_stake_1 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid);
         let child2_stake_1 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
 
-        println!("Parent stake: {}", parent_stake_1);
-        println!("Child1 stake: {}", child1_stake_1);
-        println!("Child2 stake: {}", child2_stake_1);
+        log::info!("Parent stake: {}", parent_stake_1);
+        log::info!("Child1 stake: {}", child1_stake_1);
+        log::info!("Child2 stake: {}", child2_stake_1);
 
         assert_eq!(
             parent_stake_1, 2,
@@ -2858,12 +2858,12 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
             vec![(u64::MAX, grandchild)]
         ));
 
-        println!("After setting child1's children:");
-        println!(
+        log::info!("After setting child1's children:");
+        log::info!(
             "Child1's children: {:?}",
             SubtensorModule::get_children(&child1, netuid)
         );
-        println!(
+        log::info!(
             "Grandchild's parents: {:?}",
             SubtensorModule::get_parents(&grandchild, netuid)
         );
@@ -2873,10 +2873,10 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
         let child2_stake_2 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
         let grandchild_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&grandchild, netuid);
 
-        println!("Parent stake: {}", parent_stake_2);
-        println!("Child1 stake: {}", child1_stake_2);
-        println!("Child2 stake: {}", child2_stake_2);
-        println!("Grandchild stake: {}", grandchild_stake);
+        log::info!("Parent stake: {}", parent_stake_2);
+        log::info!("Child1 stake: {}", child1_stake_2);
+        log::info!("Child2 stake: {}", child2_stake_2);
+        log::info!("Grandchild stake: {}", grandchild_stake);
 
         assert_eq!(parent_stake_2, 2, "Parent stake should remain 2");
         assert_eq!(
@@ -2897,24 +2897,24 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
         );
 
         // Additional checks
-        println!("Final parent-child relationships:");
-        println!(
+        log::info!("Final parent-child relationships:");
+        log::info!(
             "Parent's children: {:?}",
             SubtensorModule::get_children(&parent, netuid)
         );
-        println!(
+        log::info!(
             "Child1's parents: {:?}",
             SubtensorModule::get_parents(&child1, netuid)
         );
-        println!(
+        log::info!(
             "Child2's parents: {:?}",
             SubtensorModule::get_parents(&child2, netuid)
         );
-        println!(
+        log::info!(
             "Child1's children: {:?}",
             SubtensorModule::get_children(&child1, netuid)
         );
-        println!(
+        log::info!(
             "Grandchild's parents: {:?}",
             SubtensorModule::get_parents(&grandchild, netuid)
         );
@@ -3237,3 +3237,226 @@ fn test_rank_trust_incentive_calculation_with_parent_child() {
 
     });
 }
+
+/// Test normal operation of childkey take
+///
+/// This test verifies the correct distribution of rewards between child and parents.
+///
+/// # Test Steps:
+/// 1. Initialize test environment with a child and multiple parents
+/// 2. Set childkey take to 9% (4915 when normalized to u16::MAX)
+/// 3. Set up network parameters and register all neurons
+/// 4. Set initial stakes for all neurons
+/// 5. Run an epoch and process emissions
+/// 6. Calculate expected reward distribution
+/// 7. Compare actual distribution with expected distribution
+///
+/// # Expected Results:
+/// - Child should keep 9% of the rewards
+/// - Remaining 91% should be distributed among parents proportional to their stake
+/// - Total distributed rewards should equal total emissions
+
+///     SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test children -- test_normal_childkey_take_operation --exact --nocapture
+
+// #[test]
+// fn test_normal_childkey_take_operation() {
+//     new_test_ext(1).execute_with(|| {
+//         let netuid: u16 = 1;
+//         let num_neurons: u16 = 5;
+
+//         // Create hotkeys and coldkeys
+//         let child_coldkey = U256::from(100);
+//         let child_hotkey = U256::from(0);
+//         let parent_coldkey = U256::from(101);
+//         let parent_hotkey = U256::from(1);
+//         let validator_coldkeys: Vec<U256> = (102..105).map(U256::from).collect();
+//         let validator_hotkeys: Vec<U256> = (2..5).map(U256::from).collect();
+
+//         // Set childkey take to 9% (4915 when normalized to u16::MAX)
+//         let childkey_take: u16 = 4915;
+
+//         // Set up network parameters and register neurons
+//         add_network(netuid, num_neurons, 0);
+//         SubtensorModule::set_max_registrations_per_block(netuid, 1000);
+//         SubtensorModule::set_target_registrations_per_interval(netuid, 1000);
+//         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+//         SubtensorModule::set_hotkey_emission_tempo(10);
+
+//         register_ok_neuron(netuid, child_hotkey, child_coldkey, 0);
+//         register_ok_neuron(netuid, parent_hotkey, parent_coldkey, 0);
+//         for (&hotkey, &coldkey) in validator_hotkeys.iter().zip(validator_coldkeys.iter()) {
+//             register_ok_neuron(netuid, hotkey, coldkey, 0);
+//         }
+
+//         // Set initial stakes
+//         let child_stake: u64 = 1_000_000;
+//         let parent_stake: u64 = 2_000_000;
+//         let validator_stakes: Vec<u64> = vec![3_000_000, 4_000_000, 5_000_000];
+
+//         SubtensorModule::add_balance_to_coldkey_account(&child_coldkey, child_stake);
+//         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+//             &child_coldkey,
+//             &child_hotkey,
+//             child_stake,
+//         );
+
+//         SubtensorModule::add_balance_to_coldkey_account(&parent_coldkey, parent_stake);
+//         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+//             &parent_coldkey,
+//             &parent_hotkey,
+//             parent_stake,
+//         );
+
+//         for (i, (&hotkey, &coldkey)) in validator_hotkeys
+//             .iter()
+//             .zip(validator_coldkeys.iter())
+//             .enumerate()
+//         {
+//             SubtensorModule::add_balance_to_coldkey_account(&coldkey, validator_stakes[i]);
+//             SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+//                 &coldkey,
+//                 &hotkey,
+//                 validator_stakes[i],
+//             );
+//         }
+
+//         // Set up parent-child relationship
+//         assert_ok!(SubtensorModule::do_set_children(
+//             RuntimeOrigin::signed(parent_coldkey),
+//             parent_hotkey,
+//             netuid,
+//             vec![(u64::MAX, child_hotkey)]
+//         ));
+
+//         // Set childkey take
+//         assert_ok!(SubtensorModule::do_set_childkey_take(
+//             child_coldkey,
+//             child_hotkey,
+//             childkey_take,
+//             netuid
+//         ));
+
+//         // Set weights
+//         let all_uids: Vec<u16> = (0..num_neurons).collect();
+//         let weights: Vec<u16> = vec![u16::MAX / num_neurons; num_neurons as usize];
+
+//         step_block(2); // Step to ensure weights are set
+
+//         for &hotkey in std::iter::once(&parent_hotkey).chain(validator_hotkeys.iter()) {
+//             assert_ok!(SubtensorModule::set_weights(
+//                 RuntimeOrigin::signed(hotkey),
+//                 netuid,
+//                 all_uids.clone(),
+//                 weights.clone(),
+//                 0
+//             ));
+//         }
+
+//         // Run epoch and process emissions
+//         let rao_emission: u64 = 1_000_000_000;
+//         let emission = SubtensorModule::epoch(netuid, rao_emission);
+
+//         // Store initial stakes
+//         let initial_stakes: Vec<u64> = [child_hotkey, parent_hotkey]
+//             .iter()
+//             .chain(validator_hotkeys.iter())
+//             .map(|&hotkey| SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid))
+//             .collect();
+
+//         log::info!("Initial stakes:");
+//         log::info!("Child: {}", initial_stakes[0]);
+//         log::info!("Parent: {}", initial_stakes[1]);
+//         for (i, &stake) in initial_stakes.iter().skip(2).enumerate() {
+//             log::info!("Validator {}: {}", i, stake);
+//         }
+
+//         // Accumulate emissions
+//         for (hotkey, mining_emission, validator_emission) in emission {
+//             SubtensorModule::accumulate_hotkey_emission(
+//                 &hotkey,
+//                 netuid,
+//                 validator_emission,
+//                 mining_emission,
+//             );
+//         }
+
+//         // Check pending emissions before distribution
+//         log::info!("\nPending emissions before distribution:");
+//         let pending_emissions: Vec<u64> = [child_hotkey, parent_hotkey]
+//             .iter()
+//             .chain(validator_hotkeys.iter())
+//             .map(|&hotkey| SubtensorModule::get_pending_hotkey_emission(&hotkey))
+//             .collect();
+
+//         log::info!("Child: {}", pending_emissions[0]);
+//         log::info!("Parent: {}", pending_emissions[1]);
+//         for (i, &emission) in pending_emissions.iter().skip(2).enumerate() {
+//             log::info!("Validator {}: {}", i, emission);
+//         }
+
+//         let total_pending_emission: u64 = pending_emissions.iter().sum();
+//         log::info!("Total pending emission: {}", total_pending_emission);
+
+//         log::info!("\nChildkey take: {}", childkey_take);
+
+//         // Step block to trigger emission distribution
+//         step_block(11);
+
+//         // Calculate actual rewards
+//         let final_stakes: Vec<u64> = [child_hotkey, parent_hotkey]
+//             .iter()
+//             .chain(validator_hotkeys.iter())
+//             .map(|&hotkey| SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid))
+//             .collect();
+
+//         let rewards: Vec<u64> = final_stakes
+//             .iter()
+//             .zip(initial_stakes.iter())
+//             .map(|(&final_stake, &initial_stake)| final_stake - initial_stake)
+//             .collect();
+
+//         log::info!("\nRewards:");
+//         log::info!("Child reward: {}", rewards[0]);
+//         log::info!("Parent reward: {}", rewards[1]);
+//         for (i, &reward) in rewards.iter().skip(2).enumerate() {
+//             log::info!("Validator {} reward: {}", i, reward);
+//         }
+
+//         // Verify total distributed rewards
+//         let total_distributed: u64 = rewards.iter().sum();
+//         log::info!("\nTotal distributed: {}", total_distributed);
+//         log::info!("Total emission: {}", total_pending_emission);
+
+//         assert!(
+//             (total_distributed as i64 - total_pending_emission as i64).abs() <= 10,
+//             "Total distributed rewards mismatch: distributed {} vs emission {}",
+//             total_distributed,
+//             total_pending_emission
+//         );
+
+//         // Check that PendingdHotkeyEmission is cleared after distribution
+//         for &hotkey in [child_hotkey, parent_hotkey]
+//             .iter()
+//             .chain(validator_hotkeys.iter())
+//         {
+//             assert_eq!(
+//                 SubtensorModule::get_pending_hotkey_emission(&hotkey),
+//                 0,
+//                 "Pending emission not cleared for hotkey {:?}",
+//                 hotkey
+//             );
+//         }
+
+//         // Verify childkey take
+//         let child_reward = rewards[0];
+//         let expected_child_reward =
+//             (total_pending_emission as u128 * childkey_take as u128 / u16::MAX as u128) as u64;
+//         log::info!("\nExpected child reward: {}", expected_child_reward);
+//         assert!(
+//             (child_reward as i64 - expected_child_reward as i64).abs() <= 1,
+//             "Child reward mismatch: actual {} vs expected {}",
+//             child_reward,
+//             expected_child_reward
+//         );
+//     });
+// }
