@@ -163,7 +163,7 @@ jobs:
         # which will nevertheless check the whole workspace
         run: |
           set -o pipefail  # Ensure the pipeline fails if any command in the pipeline fails
-          cargo check 2>&1 | build_output.log
+          cargo check 2>&1 | tee build_output.log
           cat build_output.log
           if grep -q "^warning:" build_output.log; then
             echo "Build emitted the following warnings:"
