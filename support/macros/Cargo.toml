@@ -12,9 +12,9 @@ homepage = "https://bittensor.com/"
 proc-macro = true
 
 [dependencies]
-syn = { version = "2", features = ["full", "visit-mut", "extra-traits"] }
-proc-macro2 = "1"
-quote = "1"
+syn.workspace = true
+proc-macro2.workspace = true
+quote.workspace = true
 ahash = "0.8"
 
 [lints]

@@ -367,6 +367,7 @@ impl<FieldLimit: Get<u32>> IdentityInfo<FieldLimit> {
 ///
 /// NOTE: This is stored separately primarily to facilitate the addition of extra fields in a
 /// backwards compatible way through a specialized `Decode` impl.
+#[freeze_struct("797b69e82710bb21")]
 #[derive(
     CloneNoBound, Encode, Eq, MaxEncodedLen, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
 )]
