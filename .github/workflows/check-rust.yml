@@ -163,14 +163,14 @@ jobs:
         # which will nevertheless check the whole workspace
         run: |
           set -e  # Fail the script if any command fails
-          cargo check | tee build_output.log
-          warnings=$(grep "warning: " build_output.log || true)
+          cargo check 2>&1 | tee build_output.log
+          warnings=$(grep "^warning:" build_output.log || true)
           if [ -n "$warnings" ]; then
-            echo "The following custom lints have failed ❌:"
+            echo "Build emitted the following warnings:"
             echo "$warnings"
             exit 1
           else
-            echo "All custom lints passed ✅"
+            echo "No warnings found."
           fi
 
   cargo-clippy-all-features:
