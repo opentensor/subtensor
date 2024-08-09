@@ -118,7 +118,7 @@ parameter_types! {
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const InitialHotkeyEmissionTempo: u64 = 1;
-    pub const InitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
+    pub const InitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64, this make the make stake infinity
 }
 
 impl pallet_subtensor::Config for Test {
