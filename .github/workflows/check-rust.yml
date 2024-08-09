@@ -164,7 +164,8 @@ jobs:
         run: |
           set -o pipefail  # Ensure the pipeline fails if any command in the pipeline fails
           cargo check 2>&1 | tee build_output.log
-          cat build_output.log
+          # Strip ANSI color codes
+          sed -r "s/\x1B\[[0-9;]*[mK]//g" build_output.log > clean_output.log
           if grep -q "^warning:" build_output.log; then
             echo "Build emitted the following warnings:"
             >&2 echo `grep "^warning:" build_output.log`
