@@ -34,8 +34,8 @@ impl<'ast> Visit<'ast> for EncodeDecodeVisitor {
         let has_encode_decode = node
             .attrs
             .iter()
-            .any(|attr| is_derive_encode_or_decode(attr));
-        let has_freeze_struct = node.attrs.iter().any(|attr| is_freeze_struct(attr));
+            .any(is_derive_encode_or_decode);
+        let has_freeze_struct = node.attrs.iter().any(is_freeze_struct);
 
         if has_encode_decode && !has_freeze_struct {
             self.errors.push(syn::Error::new(
