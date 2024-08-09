@@ -169,6 +169,7 @@ jobs:
           if grep -q "^warning:" clean_output.log; then
             echo "Build emitted the following warnings:"
             >&2 echo `grep "^warning:" clean_output.log`
+            exit "Some custom lints failed, see above for details."
           else
             echo "No warnings found."
           fi
