@@ -3,7 +3,6 @@
 use std::u16;
 
 use frame_support::traits::Currency;
-use substrate_fixed::types::extra::True;
 
 use crate::mock::*;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
@@ -551,6 +550,9 @@ fn test_burn_registration_pruning_scenarios() {
         let max_allowed_uids = 6;
         let immunity_period = 5000;
 
+        const IS_IMMUNE: bool = true;
+        const NOT_IMMUNE: bool = false;
+
         // Initial setup
         SubtensorModule::set_burn(netuid, burn_cost);
         SubtensorModule::set_max_allowed_uids(netuid, max_allowed_uids);
@@ -575,9 +577,9 @@ fn test_burn_registration_pruning_scenarios() {
         // Note: pruning score is set to u16::MAX after getting neuron to prune
 
         // 1. Test if all immune neurons
-        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 0), true);
-        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 1), true);
-        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 2), true);
+        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 0), IS_IMMUNE);
+        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 1), IS_IMMUNE);
+        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 2), IS_IMMUNE);
 
         SubtensorModule::set_pruning_score_for_uid(netuid, 0, 100);
         SubtensorModule::set_pruning_score_for_uid(netuid, 1, 75);
@@ -597,9 +599,9 @@ fn test_burn_registration_pruning_scenarios() {
         step_block(immunity_period);
 
         // ensure all neurons are non-immune
-        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 0), false);
-        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 1), false);
-        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 2), false);
+        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 0), NOT_IMMUNE);
+        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 1), NOT_IMMUNE);
+        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 2), NOT_IMMUNE);
 
         SubtensorModule::set_pruning_score_for_uid(netuid, 0, 100);
         SubtensorModule::set_pruning_score_for_uid(netuid, 1, 50);
@@ -627,9 +629,9 @@ fn test_burn_registration_pruning_scenarios() {
         }
 
         // Ensure all new neurons are immune
-        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 3), true);
-        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 4), true);
-        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 5), true);
+        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 3), IS_IMMUNE);
+        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 4), IS_IMMUNE);
+        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 5), IS_IMMUNE);
 
         // Set pruning scores for all neurons
         SubtensorModule::set_pruning_score_for_uid(netuid, 0, 75); // non-immune
