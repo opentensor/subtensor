@@ -7,8 +7,6 @@ use syn::{
 
 pub struct RequireFreezeStruct;
 
-fn meh() {}
-
 impl Lint for RequireFreezeStruct {
     fn lint(source: &TokenStream) -> Result<()> {
         let mut visitor = EncodeDecodeVisitor::default();

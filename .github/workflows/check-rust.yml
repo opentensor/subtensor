@@ -114,7 +114,7 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
 
   cargo-check-lints:
-    name: no warnings or custom lint failures
+    name: check custom lints
     runs-on: SubtensorCI
     strategy:
       matrix:
@@ -158,8 +158,20 @@ jobs:
         with:
           key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
 
-      - name: cargo check --workspace (no warnings allowed)
-        run: cargo check --workspace
+      - name: check lints
+        # regular cargo check is sufficient here as we only need to trigger the build script
+        # which will nevertheless check the whole workspace
+        run: |
+          set -e  # Fail the script if any command fails
+          cargo check 2>&1 | tee build_output.log
+          warnings=$(grep "cargo:warning=" build_output.log || true)
+          if [ -n "$warnings" ]; then
+            echo "The following custom lints have failed ❌:"
+            echo "$warnings"
+            exit 1
+          else
+            echo "All custom lints passed ✅"
+          fi
 
   cargo-clippy-all-features:
     name: cargo clippy --all-features
