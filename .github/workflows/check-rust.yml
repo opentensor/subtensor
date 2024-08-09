@@ -122,13 +122,10 @@ jobs:
           - stable
         rust-target:
           - x86_64-unknown-linux-gnu
-          # - x86_64-apple-darwin
+        # - x86_64-apple-darwin
         os:
           - ubuntu-latest
           # - macos-latest
-        include:
-          - os: ubuntu-latest
-          # - os: macos-latest
     env:
       RELEASE_NAME: development
       RUSTV: ${{ matrix.rust-branch }}
@@ -159,20 +156,10 @@ jobs:
           key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
 
       - name: check lints
-        # regular cargo check is sufficient here as we only need to trigger the build script
-        # which will nevertheless check the whole workspace
         run: |
           set -o pipefail  # Ensure the pipeline fails if any command in the pipeline fails
-          cargo check 2>&1 | tee build_output.log
-          # Strip ANSI color codes
-          sed -r "s/\x1B\[[0-9;]*[mK]//g" build_output.log > clean_output.log
-          if grep -q "^warning:" clean_output.log; then
-            echo "Build emitted the following warnings:"
-            >&2 echo `grep "^warning:" clean_output.log`
-            exit "Some custom lints failed, see above for details."
-          else
-            echo "No warnings found."
-          fi
+          cargo check 2>&1 | sed -r "s/\x1B\[[0-9;]*[mK]//g" | tee /dev/tty | grep -q "^warning:" && \
+          (echo "Build emitted the following warnings:" >&2 && exit 1) || echo "No warnings found."
 
   cargo-clippy-all-features:
     name: cargo clippy --all-features
