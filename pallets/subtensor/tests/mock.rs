@@ -131,12 +131,15 @@ parameter_types! {
     pub const InitialBondsMovingAverage: u64 = 900_000;
     pub const InitialStakePruningMin: u16 = 0;
     pub const InitialFoundationDistribution: u64 = 0;
-    pub const InitialDefaultTake: u16 = 11_796; // 18%, same as in production
-    pub const InitialMinTake: u16 =5_898; // 9%;
+    pub const InitialDefaultDelegateTake: u16 = 11_796; // 18%, same as in production
+    pub const InitialMinDelegateTake: u16 = 5_898; // 9%;
+    pub const InitialDefaultChildKeyTake: u16 = 11_796; // 18%, same as in production
+    pub const InitialMinChildKeyTake: u16 = 0; // 0 %;
     pub const InitialWeightsVersionKey: u16 = 0;
     pub const InitialServingRateLimit: u64 = 0; // No limit.
     pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
     pub const InitialTxDelegateTakeRateLimit: u64 = 1; // 1 block take rate limit for testing
+    pub const InitialTxChildKeyTakeRateLimit: u64 = 1; // 1 block take rate limit for testing
     pub const InitialBurn: u64 = 0;
     pub const InitialMinBurn: u64 = 0;
     pub const InitialMaxBurn: u64 = 1_000_000_000;
@@ -360,8 +363,11 @@ impl pallet_subtensor::Config for Test {
     type InitialPruningScore = InitialPruningScore;
     type InitialBondsMovingAverage = InitialBondsMovingAverage;
     type InitialMaxAllowedValidators = InitialMaxAllowedValidators;
-    type InitialDefaultTake = InitialDefaultTake;
-    type InitialMinTake = InitialMinTake;
+    type InitialDefaultDelegateTake = InitialDefaultDelegateTake;
+    type InitialMinDelegateTake = InitialMinDelegateTake;
+    type InitialDefaultChildKeyTake = InitialDefaultChildKeyTake;
+    type InitialMinChildKeyTake = InitialMinChildKeyTake;
+    type InitialTxChildKeyTakeRateLimit = InitialTxChildKeyTakeRateLimit;
     type InitialWeightsVersionKey = InitialWeightsVersionKey;
     type InitialMaxDifficulty = InitialMaxDifficulty;
     type InitialMinDifficulty = InitialMinDifficulty;
@@ -500,4 +506,22 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+}
+
+// Helper function to set up a neuron with stake
+#[allow(dead_code)]
+pub fn setup_neuron_with_stake(netuid: u16, hotkey: U256, coldkey: U256, stake: u64) {
+    register_ok_neuron(netuid, hotkey, coldkey, stake);
+    SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake);
+}
+
+// Helper function to check if a value is within tolerance of an expected value
+#[allow(dead_code)]
+pub fn is_within_tolerance(actual: u64, expected: u64, tolerance: u64) -> bool {
+    let difference = if actual > expected {
+        actual - expected
+    } else {
+        expected - actual
+    };
+    difference <= tolerance
 }

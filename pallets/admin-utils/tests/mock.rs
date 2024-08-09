@@ -77,12 +77,15 @@ parameter_types! {
     pub const InitialBondsMovingAverage: u64 = 900_000;
     pub const InitialStakePruningMin: u16 = 0;
     pub const InitialFoundationDistribution: u64 = 0;
-    pub const InitialDefaultTake: u16 = 11_796; // 18% honest number.
-    pub const InitialMinTake: u16 = 5_898; // 9%;
+    pub const InitialDefaultDelegateTake: u16 = 11_796; // 18% honest number.
+    pub const InitialMinDelegateTake: u16 = 5_898; // 9%;
+    pub const InitialDefaultChildKeyTake: u16 = 0; // Allow 0 %
+    pub const InitialMinChildKeyTake: u16 = 0; // Allow 0 %
     pub const InitialWeightsVersionKey: u16 = 0;
     pub const InitialServingRateLimit: u64 = 0; // No limit.
     pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
     pub const InitialTxDelegateTakeRateLimit: u64 = 0; // Disable rate limit for testing
+    pub const InitialTxChildKeyTakeRateLimit: u64 = 0; // Disable rate limit for testing
     pub const InitialBurn: u64 = 0;
     pub const InitialMinBurn: u64 = 0;
     pub const InitialMaxBurn: u64 = 1_000_000_000;
@@ -115,7 +118,7 @@ parameter_types! {
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const InitialHotkeyEmissionTempo: u64 = 1;
-    pub const InitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
+    pub const InitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64, this make the make stake infinity
 }
 
 impl pallet_subtensor::Config for Test {
@@ -146,14 +149,17 @@ impl pallet_subtensor::Config for Test {
     type InitialPruningScore = InitialPruningScore;
     type InitialBondsMovingAverage = InitialBondsMovingAverage;
     type InitialMaxAllowedValidators = InitialMaxAllowedValidators;
-    type InitialDefaultTake = InitialDefaultTake;
-    type InitialMinTake = InitialMinTake;
+    type InitialDefaultDelegateTake = InitialDefaultDelegateTake;
+    type InitialMinDelegateTake = InitialMinDelegateTake;
+    type InitialDefaultChildKeyTake = InitialDefaultChildKeyTake;
+    type InitialMinChildKeyTake = InitialMinChildKeyTake;
     type InitialWeightsVersionKey = InitialWeightsVersionKey;
     type InitialMaxDifficulty = InitialMaxDifficulty;
     type InitialMinDifficulty = InitialMinDifficulty;
     type InitialServingRateLimit = InitialServingRateLimit;
     type InitialTxRateLimit = InitialTxRateLimit;
     type InitialTxDelegateTakeRateLimit = InitialTxDelegateTakeRateLimit;
+    type InitialTxChildKeyTakeRateLimit = InitialTxChildKeyTakeRateLimit;
     type InitialBurn = InitialBurn;
     type InitialMaxBurn = InitialMaxBurn;
     type InitialMinBurn = InitialMinBurn;

@@ -83,6 +83,14 @@ mod events {
         TxRateLimitSet(u64),
         /// setting the delegate take transaction rate limit.
         TxDelegateTakeRateLimitSet(u64),
+        /// setting the childkey take transaction rate limit.
+        TxChildKeyTakeRateLimitSet(u64),
+        /// minimum childkey take set
+        MinChildKeyTakeSet(u16),
+        /// maximum childkey take set
+        MaxChildKeyTakeSet(u16),
+        /// childkey take set
+        ChildKeyTakeSet(T::AccountId, u16),
         /// a sudo call is done.
         Sudid(DispatchResult),
         /// registration is allowed/disallowed for a subnet.

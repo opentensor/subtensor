@@ -262,7 +262,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
         pub fn become_delegate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-            Self::do_become_delegate(origin, hotkey, Self::get_default_take())
+            Self::do_become_delegate(origin, hotkey, Self::get_default_delegate_take())
         }
 
         /// --- Allows delegates to decrease its take value.
@@ -708,8 +708,131 @@ mod dispatches {
             Ok(())
         }
 
+        /// Sets the childkey take for a given hotkey.
+        ///
+        /// This function allows a coldkey to set the childkey take for a given hotkey.
+        /// The childkey take determines the proportion of stake that the hotkey keeps for itself
+        /// when distributing stake to its children.
+        ///
+        /// # Arguments:
+        /// * `origin` (<T as frame_system::Config>::RuntimeOrigin):
+        ///     - The signature of the calling coldkey. Setting childkey take can only be done by the coldkey.
+        ///
+        /// * `hotkey` (T::AccountId):
+        ///     - The hotkey for which the childkey take will be set.
+        ///
+        /// * `take` (u16):
+        ///     - The new childkey take value. This is a percentage represented as a value between 0 and 10000,
+        ///       where 10000 represents 100%.
+        ///
+        /// # Events:
+        /// * `ChildkeyTakeSet`:
+        ///     - On successfully setting the childkey take for a hotkey.
+        ///
+        /// # Errors:
+        /// * `NonAssociatedColdKey`:
+        ///     - The coldkey does not own the hotkey.
+        /// * `InvalidChildkeyTake`:
+        ///     - The provided take value is invalid (greater than the maximum allowed take).
+        /// * `TxChildkeyTakeRateLimitExceeded`:
+        ///     - The rate limit for changing childkey take has been exceeded.
+        ///
+        #[pallet::call_index(75)]
+        #[pallet::weight((
+            Weight::from_parts(34_000, 0)
+            .saturating_add(T::DbWeight::get().reads(4))
+            .saturating_add(T::DbWeight::get().writes(2)),
+    DispatchClass::Normal,
+    Pays::Yes
+))]
+        pub fn set_childkey_take(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: u16,
+            take: u16,
+        ) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+
+            // Call the utility function to set the childkey take
+            Self::do_set_childkey_take(coldkey, hotkey, netuid, take)
+        }
+
         // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------
 
+        /// Sets the transaction rate limit for changing childkey take.
+        ///
+        /// This function can only be called by the root origin.
+        ///
+        /// # Arguments:
+        /// * `origin` - The origin of the call, must be root.
+        /// * `tx_rate_limit` - The new rate limit in blocks.
+        ///
+        /// # Errors:
+        /// * `BadOrigin` - If the origin is not root.
+        ///
+        #[pallet::call_index(69)]
+        #[pallet::weight((
+            Weight::from_parts(6_000, 0)
+        .saturating_add(T::DbWeight::get().writes(1)),
+    DispatchClass::Operational,
+    Pays::No
+))]
+        pub fn sudo_set_tx_childkey_take_rate_limit(
+            origin: OriginFor<T>,
+            tx_rate_limit: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            Self::set_tx_childkey_take_rate_limit(tx_rate_limit);
+            Ok(())
+        }
+
+        /// Sets the minimum allowed childkey take.
+        ///
+        /// This function can only be called by the root origin.
+        ///
+        /// # Arguments:
+        /// * `origin` - The origin of the call, must be root.
+        /// * `take` - The new minimum childkey take value.
+        ///
+        /// # Errors:
+        /// * `BadOrigin` - If the origin is not root.
+        ///
+        #[pallet::call_index(76)]
+        #[pallet::weight((
+            Weight::from_parts(6_000, 0)
+            .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
+        pub fn sudo_set_min_childkey_take(origin: OriginFor<T>, take: u16) -> DispatchResult {
+            ensure_root(origin)?;
+            Self::set_min_childkey_take(take);
+            Ok(())
+        }
+
+        /// Sets the maximum allowed childkey take.
+        ///
+        /// This function can only be called by the root origin.
+        ///
+        /// # Arguments:
+        /// * `origin` - The origin of the call, must be root.
+        /// * `take` - The new maximum childkey take value.
+        ///
+        /// # Errors:
+        /// * `BadOrigin` - If the origin is not root.
+        ///
+        #[pallet::call_index(77)]
+        #[pallet::weight((
+            Weight::from_parts(6_000, 0)
+            .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
+        pub fn sudo_set_max_childkey_take(origin: OriginFor<T>, take: u16) -> DispatchResult {
+            ensure_root(origin)?;
+            Self::set_max_childkey_take(take);
+            Ok(())
+        }
         // ==================================
         // ==== Parameter Sudo calls ========
         // ==================================

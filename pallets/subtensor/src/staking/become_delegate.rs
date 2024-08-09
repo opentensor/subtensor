@@ -58,9 +58,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::DelegateTxRateLimitExceeded
         );
 
-        // --- 5.1 Ensure take is within the min ..= InitialDefaultTake (18%) range
-        let min_take = MinTake::<T>::get();
-        let max_take = MaxTake::<T>::get();
+        // --- 5.1 Ensure take is within the min ..= InitialDefaultDelegateTake (18%) range
+        let min_take = MinDelegateTake::<T>::get();
+        let max_take = MaxDelegateTake::<T>::get();
         ensure!(take >= min_take, Error::<T>::DelegateTakeTooLow);
         ensure!(take <= max_take, Error::<T>::DelegateTakeTooHigh);
 
