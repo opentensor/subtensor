@@ -164,7 +164,7 @@ jobs:
         run: |
           set -e  # Fail the script if any command fails
           cargo check 2>&1 | tee build_output.log
-          warnings=$(grep "cargo:warning=" build_output.log || true)
+          warnings=$(grep "warning: " build_output.log || true)
           if [ -n "$warnings" ]; then
             echo "The following custom lints have failed ❌:"
             echo "$warnings"
