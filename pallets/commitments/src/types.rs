@@ -299,7 +299,7 @@ pub struct CommitmentInfo<FieldLimit: Get<u32>> {
 ///
 /// NOTE: This is stored separately primarily to facilitate the addition of extra fields in a
 /// backwards compatible way through a specialized `Decode` impl.
-// #[freeze_struct("632f12850e51c420")]
+#[freeze_struct("632f12850e51c420")]
 #[derive(
     CloneNoBound, Encode, Eq, MaxEncodedLen, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
 )]
