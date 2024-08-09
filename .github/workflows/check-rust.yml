@@ -162,12 +162,11 @@ jobs:
         # regular cargo check is sufficient here as we only need to trigger the build script
         # which will nevertheless check the whole workspace
         run: |
-          set -e  # Fail the script if any command fails
+          set -o pipefail  # Ensure the pipeline fails if any command in the pipeline fails
           cargo check 2>&1 | tee build_output.log
-          warnings=$(grep "^warning:" build_output.log || true)
-          if [ -n "$warnings" ]; then
+          if grep -q "^warning:" build_output.log; then
             echo "Build emitted the following warnings:"
-            echo "$warnings"
+            grep "^warning:" build_output.log
             exit 1
           else
             echo "No warnings found."
