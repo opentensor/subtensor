@@ -31,10 +31,7 @@ struct EncodeDecodeVisitor {
 
 impl<'ast> Visit<'ast> for EncodeDecodeVisitor {
     fn visit_item_struct(&mut self, node: &'ast ItemStruct) {
-        let has_encode_decode = node
-            .attrs
-            .iter()
-            .any(is_derive_encode_or_decode);
+        let has_encode_decode = node.attrs.iter().any(is_derive_encode_or_decode);
         let has_freeze_struct = node.attrs.iter().any(is_freeze_struct);
 
         if has_encode_decode && !has_freeze_struct {
@@ -78,7 +75,7 @@ mod tests {
     use super::*;
 
     fn lint_struct(input: &str) -> Result<()> {
-        let item_struct: ItemStruct = syn::parse_str(input).unwrap();
+        let item_struct: ItemStruct = syn::parse_str(input).expect("should only use on a struct");
         let mut visitor = EncodeDecodeVisitor::default();
         visitor.visit_item_struct(&item_struct);
         if visitor.errors.is_empty() {
