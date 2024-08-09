@@ -78,11 +78,10 @@ mod tests {
         let item_struct: ItemStruct = syn::parse_str(input).expect("should only use on a struct");
         let mut visitor = EncodeDecodeVisitor::default();
         visitor.visit_item_struct(&item_struct);
-        if visitor.errors.is_empty() {
-            Ok(())
-        } else {
-            Err(visitor.errors[0].clone())
+        if let Some(error) = visitor.errors.first() {
+            return Err(error.clone());
         }
+        Ok(())
     }
 
     #[test]
