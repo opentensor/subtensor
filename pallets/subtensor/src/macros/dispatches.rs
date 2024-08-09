@@ -786,6 +786,53 @@ mod dispatches {
             Ok(())
         }
 
+        /// Sets the minimum allowed childkey take.
+        ///
+        /// This function can only be called by the root origin.
+        ///
+        /// # Arguments:
+        /// * `origin` - The origin of the call, must be root.
+        /// * `take` - The new minimum childkey take value.
+        ///
+        /// # Errors:
+        /// * `BadOrigin` - If the origin is not root.
+        ///
+        #[pallet::call_index(76)]
+        #[pallet::weight((
+            Weight::from_parts(6_000, 0)
+            .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
+        pub fn sudo_set_min_childkey_take(origin: OriginFor<T>, take: u16) -> DispatchResult {
+            ensure_root(origin)?;
+            Self::set_min_childkey_take(take);
+            Ok(())
+        }
+
+        /// Sets the maximum allowed childkey take.
+        ///
+        /// This function can only be called by the root origin.
+        ///
+        /// # Arguments:
+        /// * `origin` - The origin of the call, must be root.
+        /// * `take` - The new maximum childkey take value.
+        ///
+        /// # Errors:
+        /// * `BadOrigin` - If the origin is not root.
+        ///
+        #[pallet::call_index(77)]
+        #[pallet::weight((
+            Weight::from_parts(6_000, 0)
+            .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
+        pub fn sudo_set_max_childkey_take(origin: OriginFor<T>, take: u16) -> DispatchResult {
+            ensure_root(origin)?;
+            Self::set_max_childkey_take(take);
+            Ok(())
+        }
         // ==================================
         // ==== Parameter Sudo calls ========
         // ==================================
