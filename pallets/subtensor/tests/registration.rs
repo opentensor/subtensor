@@ -1,7 +1,5 @@
 #![allow(clippy::unwrap_used)]
 
-use std::u16;
-
 use frame_support::traits::Currency;
 
 use crate::mock::*;
