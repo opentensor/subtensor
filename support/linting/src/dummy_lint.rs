@@ -5,7 +5,7 @@ use super::*;
 pub struct DummyLint;
 
 impl Lint for DummyLint {
-    fn lint(_source: &TokenStream) -> Result<()> {
+    fn lint(_source: &TokenStream) -> Result {
         Ok(())
     }
 }

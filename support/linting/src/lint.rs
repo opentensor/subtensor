@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
 
-use super::*;
+pub type Result = core::result::Result<(), Vec<syn::Error>>;
 
 /// A trait that defines custom lints that can be run within our workspace.
 ///
@@ -9,5 +9,5 @@ use super::*;
 /// there are no errors.
 pub trait Lint: Send + Sync {
     /// Lints the given Rust source file, returning a compile error if any issues are found.
-    fn lint(source: &TokenStream) -> Result<()>;
+    fn lint(source: &TokenStream) -> Result;
 }

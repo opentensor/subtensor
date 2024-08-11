@@ -1,5 +1,3 @@
-use syn::Result;
-
 pub mod lint;
 pub use lint::*;
 

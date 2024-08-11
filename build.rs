@@ -1,10 +1,10 @@
 use rayon::prelude::*;
-use std::env;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::str::FromStr;
-use std::sync::mpsc::channel;
-use syn::Result;
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+    str::FromStr,
+    sync::mpsc::channel,
+};
 use walkdir::WalkDir;
 
 use subtensor_linting::*;
@@ -38,20 +38,22 @@ fn main() {
             return;
         };
 
-        let track_lint = |result: Result<()>| {
-            let Err(error) = result else {
+        let track_lint = |result: Result| {
+            let Err(errors) = result else {
                 return;
             };
             let relative_path = file.strip_prefix(workspace_root).unwrap_or(file.as_path());
-            let loc = error.span().start();
-            let file_path = relative_path.display();
-            // note that spans can't go across thread boundaries without losing their location
-            // info so we we serialize here and send a String
-            tx.send(format!(
-                "cargo:warning={}:{}:{}: {}",
-                file_path, loc.line, loc.column, error,
-            ))
-            .unwrap();
+            for error in errors {
+                let loc = error.span().start();
+                let file_path = relative_path.display();
+                // note that spans can't go across thread boundaries without losing their location
+                // info so we we serialize here and send a String
+                tx.send(format!(
+                    "cargo:warning={}:{}:{}: {}",
+                    file_path, loc.line, loc.column, error,
+                ))
+                .unwrap();
+            }
         };
 
         track_lint(DummyLint::lint(&parsed_file));

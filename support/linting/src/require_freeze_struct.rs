@@ -2,22 +2,20 @@ use super::*;
 use proc_macro2::TokenStream;
 use syn::{
     parse_quote, punctuated::Punctuated, visit::Visit, Attribute, ItemStruct, Meta, MetaList, Path,
-    Result, Token,
+    Token,
 };
 
 pub struct RequireFreezeStruct;
 
 impl Lint for RequireFreezeStruct {
-    fn lint(source: &TokenStream) -> Result<()> {
+    fn lint(source: &TokenStream) -> Result {
         let mut visitor = EncodeDecodeVisitor::default();
 
         let file = syn::parse2::<syn::File>(source.clone()).unwrap();
         visitor.visit_file(&file);
 
         if !visitor.errors.is_empty() {
-            for error in visitor.errors {
-                return Err(error);
-            }
+            return Err(visitor.errors);
         }
 
         Ok(())
@@ -74,12 +72,12 @@ fn is_derive_encode_or_decode(attr: &Attribute) -> bool {
 mod tests {
     use super::*;
 
-    fn lint_struct(input: &str) -> Result<()> {
+    fn lint_struct(input: &str) -> Result {
         let item_struct: ItemStruct = syn::parse_str(input).expect("should only use on a struct");
         let mut visitor = EncodeDecodeVisitor::default();
         visitor.visit_item_struct(&item_struct);
-        if let Some(error) = visitor.errors.first() {
-            return Err(error.clone());
+        if !visitor.errors.is_empty() {
+            return Err(visitor.errors);
         }
         Ok(())
     }
