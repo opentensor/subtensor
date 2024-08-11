@@ -187,5 +187,7 @@ mod events {
         LockIntervalSet(u64),
         /// Network activated
         NetworkActivated(u16),
+        /// StakeMoved
+        StakeMoved(T::AccountId, T::AccountId, u16, T::AccountId, u16),
     }
 }

@@ -11,14 +11,13 @@ impl<T: Config> Pallet<T> {
         Self::adjust_registration_terms_for_networks();
         // --- 2. Update owners.
         Self::update_all_subnet_owners();
-        // // --- 3. Create networks.
-        // Self::create_new_networks();
+        // --- 3. Create networks.
+        Self::emit_networks(block_number);
         // --- 3. Run emission through network.
         Self::run_coinbase();
         // Return ok.
         Ok(())
     }
-
     /// Adjusts the network difficulties/burns of every active network. Resetting state parameters.
     ///
     pub fn adjust_registration_terms_for_networks() {

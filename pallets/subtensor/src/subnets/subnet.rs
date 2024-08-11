@@ -91,6 +91,26 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// Emits new networks at regular intervals based on the block number.
+    ///
+    /// This function checks if it's time to emit a new network by comparing
+    /// the current block number with the lock reduction interval. If it's time,
+    /// it calls `emit_network` to create a new network with mechanism ID 1.
+    ///
+    /// # Arguments
+    ///
+    /// * `block_number` - The current block number.
+    ///
+    /// # Effects
+    ///
+    /// If the conditions are met, this function will create a new subnet
+    /// by calling `emit_network(1)`.
+    pub fn emit_networks(block_number: u64) {
+        if block_number % Self::get_lock_reduction_interval() == 0 {
+            Self::emit_network(1); // Create a new network.
+        }
+    }
+
     /// Emits a new network with the specified mechanism ID.
     ///
     /// This function creates a new subnet by:
@@ -109,9 +129,12 @@ impl<T: Config> Pallet<T> {
     /// * `u16` - The newly created network ID (netuid).
     pub fn emit_network( mechid: u16 ) -> u16 {
         let netuid: u16 = Self::get_next_netuid();
+        let current_block = Self::get_current_block_as_u64();
         SubnetMechanism::<T>::insert( netuid, mechid ); // set the mechanism
         SubnetTAO::<T>::insert(netuid, 1 );  // mint 1 TAO
         SubnetAlphaIn::<T>::insert(netuid, 1);  // mint 1 alpha
+        NetworkLastRegistered::<T>::set( current_block );
+        NetworkRegisteredAt::<T>::insert( netuid, current_block );
         Self::init_new_network( netuid, 1000 ); // set the tempo to 1000
         Self::deposit_event(Event::NetworkAdded(netuid, mechid));
         netuid

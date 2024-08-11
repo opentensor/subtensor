@@ -992,3 +992,40 @@ fn test_coldkey_swap_no_identity_no_changes_newcoldkey_exists() {
         assert!(Identities::<Test>::get(new_coldkey_2).is_some());
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_coldkey_locks --exact --nocapture
+#[test]
+fn test_swap_coldkey_locks() {
+    new_test_ext(1).execute_with(|| {
+        let old_coldkey = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+        let netuid = 1;
+        let lock_amount = 1000;
+        let start_block = 100;
+        let end_block = 200;
+
+        // Set up initial locks
+        Locks::<Test>::insert((netuid, hotkey, old_coldkey), (lock_amount, start_block, end_block));
+
+        // Ensure the old coldkey has enough balance for the swap
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 100_000_000_000);
+
+        // Perform the coldkey swap
+        assert_ok!(SubtensorModule::do_swap_coldkey(
+            <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+            &new_coldkey,
+        ));
+
+        // Verify that the lock has been transferred to the new coldkey
+        assert!(Locks::<Test>::contains_key((netuid, hotkey, new_coldkey)));
+        assert_eq!(
+            Locks::<Test>::get((netuid, hotkey, new_coldkey)),
+            (lock_amount, start_block, end_block)
+        );
+
+        // Verify that the lock has been removed from the old coldkey
+        assert!(!Locks::<Test>::contains_key((netuid, hotkey, old_coldkey)));
+    });
+}
+

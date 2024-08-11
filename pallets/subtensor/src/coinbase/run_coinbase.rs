@@ -44,6 +44,11 @@ impl<T: Config> Pallet<T> {
         // 5. Update subnet TAO: T_s_new = T_s_old + E_s
         // 6. Update subnet alpha: A_s_new = A_s_old + E_α
         // 7. Accumulate pending emission: P_e_new = P_e_old + E_α
+        // Mathematical notation:
+        // Let s be a subnet, m be a mechanism, T_s be subnet TAO, T_m be mechanism TAO,
+        // E_b be block emission, E_m be mechanism emission, P_s be subnet proportion,
+        // E_s be subnet emission, E_α be alpha emission, I be total issuance,
+        // A_s be subnet alpha, and P_e be pending emission.
         for netuid in subnets.clone().iter() {
             // Do not emit into root network.
             if *netuid == 0 { continue }
@@ -51,33 +56,33 @@ impl<T: Config> Pallet<T> {
             let mechid: u16 = SubnetMechanism::<T>::get(*netuid);
             // 2. Get subnet TAO (T_s)
             let subnet_tao: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(*netuid));
-            // 3. Get the denominator as the sum of all TAO associated with a specific mechanism
+            // 3. Get the denominator as the sum of all TAO associated with a specific mechanism (T_m)
             let mech_tao: I96F32 = *mechanism_tao.get(&mechid).unwrap_or(&I96F32::from_num(0));
-            // 4. Compute the mechanism emission proportion
+            // 4. Compute the mechanism emission proportion: P_m = T_m / T_total
             let mech_proportion: I96F32 = mech_tao.checked_div(total_active_tao).unwrap_or(I96F32::from_num(0));
-            // 4. Compute the mechanism emission proportion
-            let mech_emission: I96F32 = mech_proportion.saturating_mul( block_emission );
-            // 4. Calculate subnet's proportion of mechanism TAO: P_s = T_s / T_m
+            // 5. Compute the mechanism emission: E_m = P_m * E_b
+            let mech_emission: I96F32 = mech_proportion.saturating_mul(block_emission);
+            // 6. Calculate subnet's proportion of mechanism TAO: P_s = T_s / T_m
             let subnet_proportion: I96F32 = subnet_tao.checked_div(mech_tao).unwrap_or(I96F32::from_num(0));
-            // 5. Calculate subnet's TAO emission: E_s = P_s * E_m
+            // 7. Calculate subnet's TAO emission: E_s = P_s * E_m
             let subnet_emission: u64 = mech_emission.checked_mul(subnet_proportion).unwrap_or(I96F32::from_num(0)).to_num::<u64>();
-            // 6. Store the block emission for this subnet
+            // 8. Store the block emission for this subnet
             EmissionValues::<T>::insert(*netuid, subnet_emission);
-            // 7. Add the TAO into the subnet immediatetly.
-            SubnetTAO::<T>::mutate(*netuid, |total| *total = total.saturating_add( subnet_emission ));
-            // 8. Increase total stake here.
-            TotalStake::<T>::mutate(|total| *total = total.saturating_add( subnet_emission ));
-            // 9. Increase total issuance.
-            TotalIssuance::<T>::mutate(|total| *total = total.saturating_add( subnet_emission ));
-            // 10. Switch on dynamic or Stable.
+            // 9. Add the TAO into the subnet immediately: T_s_new = T_s_old + E_s
+            SubnetTAO::<T>::mutate(*netuid, |total| *total = total.saturating_add(subnet_emission));
+            // 10. Increase total stake here: T_total_new = T_total_old + E_s
+            TotalStake::<T>::mutate(|total| *total = total.saturating_add(subnet_emission));
+            // 11. Increase total issuance: I_new = I_old + E_s
+            TotalIssuance::<T>::mutate(|total| *total = total.saturating_add(subnet_emission));
+            // 12. Switch on dynamic or Stable.
             if mechid == 1 {
-                // 10a Dynamic: Add the SubnetAlpha directly into the pool immediately.
-                SubnetAlphaIn::<T>::mutate( *netuid, |total| { *total = total.saturating_add( mech_emission.to_num::<u64>() ) });
-                // 10a Dynamic: Set the pending emission directly as alpha always block emission total
-                PendingEmission::<T>::mutate( *netuid, |total| {*total = total.saturating_add( mech_emission.to_num::<u64>() ) });
+                // 12a Dynamic: Add the SubnetAlpha directly into the pool immediately: A_s_new = A_s_old + E_m
+                SubnetAlphaIn::<T>::mutate(*netuid, |total| { *total = total.saturating_add(mech_emission.to_num::<u64>()) });
+                // 12b Dynamic: Set the pending emission directly as alpha always block emission total: P_e_new = P_e_old + E_m
+                PendingEmission::<T>::mutate(*netuid, |total| {*total = total.saturating_add(mech_emission.to_num::<u64>()) });
             } else {
-                // 10b Stable: Set the pending emission as tao emission.
-                PendingEmission::<T>::mutate( *netuid, |total| { *total = total.saturating_add( subnet_emission )});
+                // 12c Stable: Set the pending emission as tao emission: P_e_new = P_e_old + E_s
+                PendingEmission::<T>::mutate(*netuid, |total| { *total = total.saturating_add(subnet_emission) });
             }
         }
         log::debug!(

@@ -265,18 +265,20 @@ impl<T: Config> Pallet<T> {
         Ok(credit)
     }
 
-    pub fn unstake_all_coldkeys_from_hotkey_account_on_network(hotkey: &T::AccountId, netuid: u16) {
-        // Iterate through all coldkeys that have a stake on this hotkey account.
-        for (nominator, _) in Stake::<T>::iter_prefix(hotkey) {
-            for netuid_i in Self::get_all_subnet_netuids() {
-                if netuid_i != netuid {
-                    continue;
-                }
-                let alpha: u64 =
-                    Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, &nominator, netuid_i);
-                let tao: u64 = Self::unstake_from_subnet(hotkey, &nominator, netuid_i, alpha);
-                Self::add_balance_to_coldkey_account(&nominator, tao);
-            }
-        }
-    }
+    // TODO deprecate this function.
+    // DEPRECATED.
+    // pub fn unstake_all_coldkeys_from_hotkey_account_on_network(hotkey: &T::AccountId, netuid: u16) {
+    //     // Iterate through all coldkeys that have a stake on this hotkey account.
+    //     for (nominator, _) in Stake::<T>::iter_prefix(hotkey) {
+    //         for netuid_i in Self::get_all_subnet_netuids() {
+    //             if netuid_i != netuid {
+    //                 continue;
+    //             }
+    //             let alpha: u64 =
+    //                 Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, &nominator, netuid_i);
+    //             let tao: u64 = Self::unstake_from_subnet(hotkey, &nominator, netuid_i, alpha);
+    //             Self::add_balance_to_coldkey_account(&nominator, tao);
+    //         }
+    //     }
+    // }
 }

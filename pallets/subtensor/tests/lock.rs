@@ -99,38 +99,39 @@ fn test_do_lock_hotkey_not_exists() {
 }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_do_lock_hotkey_not_registered --exact --nocapture
-#[test]
-fn test_do_lock_hotkey_not_registered() {
-    new_test_ext(1).execute_with(|| {
-        let netuid1 = 1;
-        let netuid2 = 2;
-        let coldkey = U256::from(1);
-        let hotkey = U256::from(2);
-        let lock_amount = 250_000_000;
-        let lock_duration = 7200 * 30; // 30 days
+// DEPRECATED.
+// #[test]
+// fn test_do_lock_hotkey_not_registered() {
+//     new_test_ext(1).execute_with(|| {
+//         let netuid1 = 1;
+//         let netuid2 = 2;
+//         let coldkey = U256::from(1);
+//         let hotkey = U256::from(2);
+//         let lock_amount = 250_000_000;
+//         let lock_duration = 7200 * 30; // 30 days
 
-        // Set up network
-        add_network(netuid1, 0, 0);
-        add_network(netuid2, 0, 0);
-        // Make hotkey exist.
-        register_ok_neuron(netuid2, hotkey, coldkey, 11);
+//         // Set up network
+//         add_network(netuid1, 0, 0);
+//         add_network(netuid2, 0, 0);
+//         // Make hotkey exist.
+//         register_ok_neuron(netuid2, hotkey, coldkey, 11);
 
-        // Add balance to coldkey
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000);
+//         // Add balance to coldkey
+//         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000);
 
-        // Attempt to lock stake with an unregistered hotkey
-        assert_noop!(
-            SubtensorModule::lock_stake(
-                RuntimeOrigin::signed(coldkey),
-                hotkey,
-                netuid1,
-                lock_duration,
-                lock_amount
-            ),
-            Error::<Test>::HotKeyNotRegisteredInSubNet
-        );
-    });
-}
+//         // Attempt to lock stake with an unregistered hotkey
+//         assert_noop!(
+//             SubtensorModule::lock_stake(
+//                 RuntimeOrigin::signed(coldkey),
+//                 hotkey,
+//                 netuid1,
+//                 lock_duration,
+//                 lock_amount
+//             ),
+//             Error::<Test>::HotKeyNotRegisteredInSubNet
+//         );
+//     });
+// }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_do_lock_zero_amount --exact --nocapture
 #[test]

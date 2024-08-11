@@ -161,26 +161,27 @@ fn test_add_stake_err_signature() {
 }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_add_stake_not_registered_key_pair --exact --nocapture
-#[test]
-fn test_add_stake_not_registered_key_pair() {
-    new_test_ext(1).execute_with(|| {
-        let coldkey_account_id = U256::from(435445);
-        let hotkey_account_id = U256::from(54544);
-        let amount = 1337;
-        let netuid: u16 = 1;
-        add_network(netuid, 13, 0);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1800);
-        assert_eq!(
-            SubtensorModule::add_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-                hotkey_account_id,
-                netuid,
-                amount
-            ),
-            Err(Error::<Test>::HotKeyAccountNotExists.into())
-        );
-    });
-}
+// DEPRECATED: allowing stake without registering a neuron.
+// #[test]
+// fn test_add_stake_not_registered_key_pair() {
+//     new_test_ext(1).execute_with(|| {
+//         let coldkey_account_id = U256::from(435445);
+//         let hotkey_account_id = U256::from(54544);
+//         let amount = 1337;
+//         let netuid: u16 = 1;
+//         add_network(netuid, 13, 0);
+//         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1800);
+//         assert_eq!(
+//             SubtensorModule::add_stake(
+//                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+//                 hotkey_account_id,
+//                 netuid,
+//                 amount
+//             ),
+//             Err(Error::<Test>::HotKeyAccountNotExists.into())
+//         );
+//     });
+// }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_add_stake_err_neuron_does_not_belong_to_coldkey --exact --nocapture
 #[test]
@@ -1235,159 +1236,161 @@ fn test_delegate_stake_division_by_zero_check() {
 ************************************************************/
 
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_unstake_all_coldkeys_from_hotkey_account --exact --nocapture
-#[test]
-fn test_unstake_all_coldkeys_from_hotkey_account() {
-    new_test_ext(1).execute_with(|| {
-        let hotkey_id = U256::from(123570);
-        let coldkey0_id = U256::from(123560);
+// DEPRECATED.
+// #[test]
+// fn test_unstake_all_coldkeys_from_hotkey_account() {
+//     new_test_ext(1).execute_with(|| {
+//         let hotkey_id = U256::from(123570);
+//         let coldkey0_id = U256::from(123560);
 
-        let coldkey1_id = U256::from(123561);
-        let coldkey2_id = U256::from(123562);
-        let coldkey3_id = U256::from(123563);
+//         let coldkey1_id = U256::from(123561);
+//         let coldkey2_id = U256::from(123562);
+//         let coldkey3_id = U256::from(123563);
 
-        let amount: u64 = 10000;
+//         let amount: u64 = 10000;
 
-        let netuid: u16 = 1;
-        let tempo: u16 = 13;
-        let start_nonce: u64 = 0;
+//         let netuid: u16 = 1;
+//         let tempo: u16 = 13;
+//         let start_nonce: u64 = 0;
 
-        // Make subnet
-        add_network(netuid, tempo, 0);
-        // Register delegate
-        register_ok_neuron(netuid, hotkey_id, coldkey0_id, start_nonce);
+//         // Make subnet
+//         add_network(netuid, tempo, 0);
+//         // Register delegate
+//         register_ok_neuron(netuid, hotkey_id, coldkey0_id, start_nonce);
 
-        match SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_id) {
-            Ok(_k) => (),
-            Err(e) => panic!("Error: {:?}", e),
-        }
+//         match SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_id) {
+//             Ok(_k) => (),
+//             Err(e) => panic!("Error: {:?}", e),
+//         }
 
-        //Add some stake that can be removed
-        SubtensorModule::stake_into_subnet(&hotkey_id, &coldkey0_id, netuid, amount);
-        SubtensorModule::stake_into_subnet(&hotkey_id, &coldkey1_id, netuid, amount + 2);
-        SubtensorModule::stake_into_subnet(&hotkey_id, &coldkey2_id, netuid, amount + 3);
-        SubtensorModule::stake_into_subnet(&hotkey_id, &coldkey3_id, netuid, amount + 4);
+//         //Add some stake that can be removed
+//         SubtensorModule::stake_into_subnet(&hotkey_id, &coldkey0_id, netuid, amount);
+//         SubtensorModule::stake_into_subnet(&hotkey_id, &coldkey1_id, netuid, amount + 2);
+//         SubtensorModule::stake_into_subnet(&hotkey_id, &coldkey2_id, netuid, amount + 3);
+//         SubtensorModule::stake_into_subnet(&hotkey_id, &coldkey3_id, netuid, amount + 4);
 
-        // Verify free balance is 0 for all coldkeys
-        assert_eq!(Balances::free_balance(coldkey0_id), 0);
-        assert_eq!(Balances::free_balance(coldkey1_id), 0);
-        assert_eq!(Balances::free_balance(coldkey2_id), 0);
-        assert_eq!(Balances::free_balance(coldkey3_id), 0);
+//         // Verify free balance is 0 for all coldkeys
+//         assert_eq!(Balances::free_balance(coldkey0_id), 0);
+//         assert_eq!(Balances::free_balance(coldkey1_id), 0);
+//         assert_eq!(Balances::free_balance(coldkey2_id), 0);
+//         assert_eq!(Balances::free_balance(coldkey3_id), 0);
 
-        // Verify total stake is correct
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_id, netuid),
-            amount * 4 + (2 + 3 + 4)
-        );
+//         // Verify total stake is correct
+//         assert_eq!(
+//             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_id, netuid),
+//             amount * 4 + (2 + 3 + 4)
+//         );
 
-        // Run unstake_all_coldkeys_from_hotkey_account
-        SubtensorModule::unstake_all_coldkeys_from_hotkey_account_on_network(&hotkey_id, netuid);
+//         // Run unstake_all_coldkeys_from_hotkey_account
+//         SubtensorModule::unstake_all_coldkeys_from_hotkey_account_on_network(&hotkey_id, netuid);
 
-        // Verify total stake is 0
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_id, netuid),
-            0
-        );
+//         // Verify total stake is 0
+//         assert_eq!(
+//             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_id, netuid),
+//             0
+//         );
 
-        // Vefify stake for all coldkeys is 0
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey_id,
-                &coldkey0_id,
-                netuid
-            ),
-            0
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey_id,
-                &coldkey1_id,
-                netuid
-            ),
-            0
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey_id,
-                &coldkey2_id,
-                netuid
-            ),
-            0
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey_id,
-                &coldkey3_id,
-                netuid
-            ),
-            0
-        );
+//         // Vefify stake for all coldkeys is 0
+//         assert_eq!(
+//             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+//                 &hotkey_id,
+//                 &coldkey0_id,
+//                 netuid
+//             ),
+//             0
+//         );
+//         assert_eq!(
+//             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+//                 &hotkey_id,
+//                 &coldkey1_id,
+//                 netuid
+//             ),
+//             0
+//         );
+//         assert_eq!(
+//             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+//                 &hotkey_id,
+//                 &coldkey2_id,
+//                 netuid
+//             ),
+//             0
+//         );
+//         assert_eq!(
+//             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+//                 &hotkey_id,
+//                 &coldkey3_id,
+//                 netuid
+//             ),
+//             0
+//         );
 
-        // Verify free balance is correct for all coldkeys
-        assert_eq!(Balances::free_balance(coldkey0_id), amount);
-        assert_eq!(Balances::free_balance(coldkey1_id), amount + 2);
-        assert_eq!(Balances::free_balance(coldkey2_id), amount + 3);
-        assert_eq!(Balances::free_balance(coldkey3_id), amount + 4);
-    });
-}
+//         // Verify free balance is correct for all coldkeys
+//         assert_eq!(Balances::free_balance(coldkey0_id), amount);
+//         assert_eq!(Balances::free_balance(coldkey1_id), amount + 2);
+//         assert_eq!(Balances::free_balance(coldkey2_id), amount + 3);
+//         assert_eq!(Balances::free_balance(coldkey3_id), amount + 4);
+//     });
+// }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_unstake_all_coldkeys_from_hotkey_account_single_staker --exact --nocapture
-#[test]
-fn test_unstake_all_coldkeys_from_hotkey_account_single_staker() {
-    new_test_ext(1).execute_with(|| {
-        let hotkey_id = U256::from(123570);
-        let coldkey0_id = U256::from(123560);
+// DEPRECATED.
+// #[test]
+// fn test_unstake_all_coldkeys_from_hotkey_account_single_staker() {
+//     new_test_ext(1).execute_with(|| {
+//         let hotkey_id = U256::from(123570);
+//         let coldkey0_id = U256::from(123560);
 
-        let amount: u64 = 891011;
+//         let amount: u64 = 891011;
 
-        let netuid: u16 = 1;
-        let tempo: u16 = 13;
-        let start_nonce: u64 = 0;
+//         let netuid: u16 = 1;
+//         let tempo: u16 = 13;
+//         let start_nonce: u64 = 0;
 
-        // Make subnet
-        add_network(netuid, tempo, 0);
-        // Register delegate
-        register_ok_neuron(netuid, hotkey_id, coldkey0_id, start_nonce);
+//         // Make subnet
+//         add_network(netuid, tempo, 0);
+//         // Register delegate
+//         register_ok_neuron(netuid, hotkey_id, coldkey0_id, start_nonce);
 
-        match SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_id) {
-            Ok(_) => (),
-            Err(e) => panic!("Error: {:?}", e),
-        }
+//         match SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_id) {
+//             Ok(_) => (),
+//             Err(e) => panic!("Error: {:?}", e),
+//         }
 
-        //Add some stake that can be removed
-        SubtensorModule::stake_into_subnet(&hotkey_id, &coldkey0_id, netuid, amount);
+//         //Add some stake that can be removed
+//         SubtensorModule::stake_into_subnet(&hotkey_id, &coldkey0_id, netuid, amount);
 
-        // Verify free balance is 0 for coldkey
-        assert_eq!(Balances::free_balance(coldkey0_id), 0);
+//         // Verify free balance is 0 for coldkey
+//         assert_eq!(Balances::free_balance(coldkey0_id), 0);
 
-        // Verify total stake is correct
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_id, netuid),
-            amount
-        );
+//         // Verify total stake is correct
+//         assert_eq!(
+//             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_id, netuid),
+//             amount
+//         );
 
-        // Run unstake_all_coldkeys_from_hotkey_account
-        SubtensorModule::unstake_all_coldkeys_from_hotkey_account_on_network(&hotkey_id, netuid);
+//         // Run unstake_all_coldkeys_from_hotkey_account
+//         SubtensorModule::unstake_all_coldkeys_from_hotkey_account_on_network(&hotkey_id, netuid);
 
-        // Verify total stake is 0
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_id, netuid),
-            0
-        );
+//         // Verify total stake is 0
+//         assert_eq!(
+//             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_id, netuid),
+//             0
+//         );
 
-        // Vefify stake for single coldkey is 0
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey_id,
-                &coldkey0_id,
-                netuid
-            ),
-            0
-        );
+//         // Vefify stake for single coldkey is 0
+//         assert_eq!(
+//             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+//                 &hotkey_id,
+//                 &coldkey0_id,
+//                 netuid
+//             ),
+//             0
+//         );
 
-        // Verify free balance is correct for single coldkey
-        assert_eq!(Balances::free_balance(coldkey0_id), amount);
-    });
-}
+//         // Verify free balance is correct for single coldkey
+//         assert_eq!(Balances::free_balance(coldkey0_id), amount);
+//     });
+// }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_faucet_ok --exact --nocapture
 #[test]

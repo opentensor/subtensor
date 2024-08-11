@@ -34,6 +34,25 @@ impl<T: Config> Pallet<T> {
         <LockIntervalBlocks<T>>::get()
     }
 
+    /// Retrieves the amount of locked stake for a specific hotkey and coldkey pair on a given subnet.
+    ///
+    /// This function queries the `Locks` storage to get the locked stake amount for the specified
+    /// hotkey and coldkey combination on the given subnet.
+    ///
+    /// # Arguments
+    ///
+    /// * `hotkey` - The hotkey account ID.
+    /// * `coldkey` - The coldkey account ID.
+    /// * `netuid` - The subnet ID.
+    ///
+    /// # Returns
+    ///
+    /// * `u64` - The amount of locked stake. Returns the first element of the lock tuple,
+    ///           which represents the locked amount.
+    pub fn get_locked_for_hotkey_and_coldkey_on_subnet( hotkey: &T::AccountId, coldkey: &T::AccountId, netuid: u16 ) -> u64 {
+        Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone())).0
+    }
+
     /// Locks a specified amount of stake for a given duration on a subnet.
     ///
     /// This function allows a user to lock their stake, increasing their conviction score.
@@ -89,10 +108,11 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure the hotkey is registered on this subnet.
-        ensure!(
-            Self::is_hotkey_registered_on_network(netuid, &hotkey),
-            Error::<T>::HotKeyNotRegisteredInSubNet
-        );
+        // DEPRECATED.
+        // ensure!(
+        //     Self::is_hotkey_registered_on_network(netuid, &hotkey),
+        //     Error::<T>::HotKeyNotRegisteredInSubNet
+        // );
 
         // Ensure the the lock is above zero.
         ensure!(alpha_locked > 0, Error::<T>::NotEnoughStakeToWithdraw);
