@@ -1,18 +1,16 @@
 use super::*;
-use proc_macro2::TokenStream;
 use syn::{
-    parse_quote, punctuated::Punctuated, visit::Visit, Attribute, ItemStruct, Meta, MetaList, Path,
-    Token,
+    parse_quote, punctuated::Punctuated, visit::Visit, Attribute, File, ItemStruct, Meta, MetaList,
+    Path, Token,
 };
 
 pub struct RequireFreezeStruct;
 
 impl Lint for RequireFreezeStruct {
-    fn lint(source: &TokenStream) -> Result {
+    fn lint(source: &File) -> Result {
         let mut visitor = EncodeDecodeVisitor::default();
 
-        let file = syn::parse2::<syn::File>(source.clone()).unwrap();
-        visitor.visit_file(&file);
+        visitor.visit_file(&source);
 
         if !visitor.errors.is_empty() {
             return Err(visitor.errors);

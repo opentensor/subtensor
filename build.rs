@@ -34,7 +34,10 @@ fn main() {
         let Ok(content) = fs::read_to_string(file) else {
             return;
         };
-        let Ok(parsed_file) = proc_macro2::TokenStream::from_str(&content) else {
+        let Ok(parsed_tokens) = proc_macro2::TokenStream::from_str(&content) else {
+            return;
+        };
+        let Ok(parsed_file) = syn::parse2::<syn::File>(parsed_tokens) else {
             return;
         };
 
