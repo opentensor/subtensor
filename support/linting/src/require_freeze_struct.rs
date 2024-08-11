@@ -10,7 +10,7 @@ impl Lint for RequireFreezeStruct {
     fn lint(source: &File) -> Result {
         let mut visitor = EncodeDecodeVisitor::default();
 
-        visitor.visit_file(&source);
+        visitor.visit_file(source);
 
         if !visitor.errors.is_empty() {
             return Err(visitor.errors);
