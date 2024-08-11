@@ -2030,6 +2030,7 @@ fn test_distribute_owner_cut_multiple_subnets() {
         System::set_block_number(current_block);
 
         // Distribute to netuid1
+        SubtensorModule::set_lock_interval_blocks(10);
         let remaining1 = SubtensorModule::distribute_owner_cut(netuid1, amount_to_distribute);
 
         // Check distribution for netuid1
@@ -2081,6 +2082,8 @@ fn test_distribute_owner_cut_rounding() {
         let lock_duration = 1000;
 
         // Set up locks
+        add_network(netuid, 1, 1);
+        SubtensorModule::set_lock_interval_blocks(10000);
         Locks::<Test>::insert(
             (netuid, hotkey1.clone(), coldkey.clone()),
             (lock_amount1, current_block, current_block + lock_duration),
@@ -2173,6 +2176,7 @@ fn test_distribute_owner_cut_lions_share_distribution() {
         let lock_duration = 1000;
 
         // Set up locks with different amounts
+        SubtensorModule::set_lock_interval_blocks(100);
         Locks::<Test>::insert(
             (netuid, hotkey1.clone(), coldkey.clone()),
             (lock_amount1, current_block, current_block + lock_duration),

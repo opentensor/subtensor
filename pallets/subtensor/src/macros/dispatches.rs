@@ -808,6 +808,8 @@ mod dispatches {
             hotkey: T::AccountId,
             mechid: u16,
         ) -> DispatchResult {
+            // DEPRECATED.
+            // Ok(())
             Self::do_register_network(origin, &hotkey, mechid)
         }
 

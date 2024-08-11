@@ -448,10 +448,11 @@ impl<T: Config> Pallet<T> {
     /// - e is the mathematical constant (base of natural logarithm)
     pub fn calculate_conviction(lock_amount: u64, end_block: u64, current_block: u64) -> u64 {
         let lock_duration = end_block.saturating_sub(current_block);
+        let lock_interval_blocks = Self::get_lock_interval_blocks();
         let time_factor = -I96F32::from_num(lock_duration)
-            .saturating_div(I96F32::from_num(Self::get_lock_interval_blocks())); // Convert days to blocks
+            .saturating_div(I96F32::from_num(lock_interval_blocks));
         let exp_term = I96F32::from_num(1) - exp_safe_f96(I96F32::from_num(time_factor));
-        let conviction_score = I96F32::from_num(lock_amount).saturating_mul(exp_term);
+        let conviction_score = I96F32::from_num(lock_amount).saturating_mul(exp_term);        
         let final_score = conviction_score.to_num::<u64>();
         final_score
     }

@@ -91,59 +91,30 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn do_convert_network(
-        origin: T::RuntimeOrigin,
-        hotkey: &T::AccountId,
-        netuid: u16,
-    ) -> DispatchResult {
-        // --- -1. Get the block number.
-        let block_number: u64 = Self::get_current_block_as_u64() ;
-        // --- 0. Ensure the caller is a signed user.
-        let coldkey = ensure_signed(origin)?;
-        // --- 1. Ensure we are converting an existing subnet.
-        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
-        // --- 2. Ensure the hotkey does not exist or is owned by the coldkey.
-        ensure!(
-            !Self::hotkey_account_exists(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
-            Error::<T>::HotKeyNotDelegateAndSignerNotOwnHotKey
-        );
-        // --- 3. Ensure that the mechanism id associated with the subnet is 0. (Cannot reconvert)
-        ensure!( Self::get_subnet_mechanism( netuid ) == 0, Error::<T>::SubnetNotExists );
-        // --- 4. Ensure that the coldkey is the subnet owner.
-        ensure!( SubnetOwner::<T>::get( netuid ) == coldkey, Error::<T>::NotSubnetOwner );
-        // --- 5. Create the hotkey coldkey account.
-        Self::create_account_if_non_existent( &coldkey, &hotkey );
-        // --- 6. Set the owner on UID = 0.
-        Self::replace_neuron( netuid, 0, &hotkey, block_number );
-        // --- 7. Get the current lock.
-        let lock: u64 = SubnetLocked::<T>::get( netuid );
-        // --- 8. Stake the lock into the subnet and lock it.
-        // First init the pool with 1 TAO.
-        let init_tao: u64 = 1_000_000_000;
-        // Add the init to the subnet.
-        SubnetTAO::<T>::insert(netuid, init_tao ); 
-        // Second Instantiate the pool with the lock amount worth of alpha.
-        SubnetAlphaIn::<T>::insert(netuid, lock); 
-        // Third stake the lock into the subnet.
-        let init_alpha: u64 = Self::stake_into_subnet(
-            hotkey,
-            &coldkey,
-            netuid,
-            lock.saturating_sub(init_tao),
-        ); 
-        // --- 9. Lock the subnet owners ALPHA in the subnet.
-        Locks::<T>::insert(
-            // 9.1: Create the lock around the subnet owner.
-            ( netuid, coldkey.clone(), hotkey.clone() ), 
-            // 9.2: Set the initial lock value.
-            ( init_alpha, block_number, block_number.saturating_add( Self::get_lock_interval_blocks() ))
-        );
-        // --- 10. Emit the Activated event.
-        log::info!( "NetworkActivated( netuid:{:?} )", netuid );
-        // Deposit.
-        Self::deposit_event(Event::NetworkActivated( netuid ));
-        // --- 11. Return success.
-        Ok(())
+    /// Emits a new network with the specified mechanism ID.
+    ///
+    /// This function creates a new subnet by:
+    /// 1. Generating a new unique network ID (netuid).
+    /// 2. Setting the subnet's mechanism.
+    /// 3. Initializing the subnet with 1 TAO and 1 alpha.
+    /// 4. Setting the subnet's tempo to 1000.
+    /// 5. Emitting a NetworkAdded event.
+    ///
+    /// # Arguments
+    ///
+    /// * `mechid` - A u16 representing the mechanism ID for the new subnet.
+    ///
+    /// # Returns
+    ///
+    /// * `u16` - The newly created network ID (netuid).
+    pub fn emit_network( mechid: u16 ) -> u16 {
+        let netuid: u16 = Self::get_next_netuid();
+        SubnetMechanism::<T>::insert( netuid, mechid ); // set the mechanism
+        SubnetTAO::<T>::insert(netuid, 1 );  // mint 1 TAO
+        SubnetAlphaIn::<T>::insert(netuid, 1);  // mint 1 alpha
+        Self::init_new_network( netuid, 1000 ); // set the tempo to 1000
+        Self::deposit_event(Event::NetworkAdded(netuid, mechid));
+        netuid
     }
 
     /// Facilitates user registration of a new subnetwork.
@@ -228,22 +199,21 @@ impl<T: Config> Pallet<T> {
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
 
         // --- 12. Init the pool.
-        // let tao_init: u64 = 1_000_000_000; // 1 TAO to init the pool.
+        let tao_init: u64 = 1_000_000_000; // 1 TAO to init the pool.
         SubnetTAO::<T>::insert(netuid_to_register, 1); // add the TAO to the pool.
         SubnetAlphaIn::<T>::insert(netuid_to_register, 1); // Set the alpha in based on the lock.
-        // let alpha_locked: u64 = Self::stake_into_subnet(
-        //     hotkey,
-        //     &coldkey,
-        //     netuid_to_register,
-        //     actual_tao_lock_amount.saturating_sub(tao_init),
-        // ); 
+        let alpha_locked: u64 = Self::stake_into_subnet(
+            hotkey,
+            &coldkey,
+            netuid_to_register,
+            actual_tao_lock_amount.saturating_sub(tao_init),
+        ); 
 
-
-        // // --- 13. Set the hotkey as the lock.
-        // Locks::<T>::insert(
-        //     (netuid_to_register, coldkey.clone(), hotkey.clone()), 
-        //     (alpha_locked, current_block, current_block.saturating_add(Self::get_lock_interval_blocks()))
-        // );
+        // --- 13. Set the hotkey as the lock.
+        Locks::<T>::insert(
+            (netuid_to_register, coldkey.clone(), hotkey.clone()), 
+            (alpha_locked, current_block, current_block.saturating_add(Self::get_lock_interval_blocks()))
+        );
 
         // --- 14. Set the owner.
         // Set the coldkey as the current owner
