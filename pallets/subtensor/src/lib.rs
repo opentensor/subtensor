@@ -474,6 +474,11 @@ pub mod pallet {
     pub fn DefaultLockIntervalBlocks<T: Config>() -> u64 {
         7200 * 180 // 180 days.  
     }
+    #[pallet::type_value]
+    /// Default value for u16 max.
+    pub fn DefaultMaxU16<T: Config>() -> u16 {
+        u16::MAX
+    }
 
     #[pallet::storage]
     pub type SenateRequiredStakePercentage<T> =
@@ -700,6 +705,17 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    /// =================
+    /// ==== Tempos =====
+    /// =================
+    #[pallet::storage] // --- ITEM( max_tempo )
+    pub type AvgTempo<T> = StorageValue<_, u16, ValueQuery, DefaultTempo<T>>;
+    #[pallet::storage] // --- ITEM( max_tempo )
+    pub type MaxTempo<T> = StorageValue<_, u16, ValueQuery, DefaultMaxU16<T>>;
+    #[pallet::storage] // --- MAP ( netuid ) --> tempo
+    pub type Tempo<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultTempo<T>>;
+
+
     /// ============================
     /// ==== Subnet Parameters =====
     /// ============================
@@ -734,8 +750,6 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> block_created
     pub type NetworkRegisteredAt<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> tempo
-    pub type Tempo<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultTempo<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> emission_values
     pub type EmissionValues<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> pending_emission

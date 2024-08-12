@@ -137,6 +137,7 @@ impl<T: Config> Pallet<T> {
         NetworkRegisteredAt::<T>::insert( netuid, current_block );
         Self::init_new_network( netuid, 1000 ); // set the tempo to 1000
         Self::deposit_event(Event::NetworkAdded(netuid, mechid));
+        Self::adjust_tempos(); // Adjust tempos with new network.
         netuid
     }
 

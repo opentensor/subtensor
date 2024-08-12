@@ -5,3 +5,4 @@ pub mod serving;
 pub mod subnet;
 pub mod uids;
 pub mod weights;
+pub mod tempo;
