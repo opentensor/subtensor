@@ -37,7 +37,7 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
-        log::info!(
+        log::debug!(
             "do_remove_stake( origin:{:?} hotkey:{:?}, stake_to_be_removed:{:?} )",
             coldkey,
             hotkey,
@@ -96,7 +96,7 @@ impl<T: Config> Pallet<T> {
             unstakes_this_interval.saturating_add(1),
             block,
         );
-        log::info!(
+        log::debug!(
             "StakeRemoved( hotkey:{:?}, stake_to_be_removed:{:?} )",
             hotkey,
             stake_to_be_removed

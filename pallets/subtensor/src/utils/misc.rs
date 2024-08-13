@@ -150,12 +150,12 @@ impl<T: Config> Pallet<T> {
         Active::<T>::insert(netuid, updated_active_vec);
     }
     pub fn set_pruning_score_for_uid(netuid: u16, uid: u16, pruning_score: u16) {
-        log::info!("netuid = {:?}", netuid);
-        log::info!(
+        log::debug!("netuid = {:?}", netuid);
+        log::debug!(
             "SubnetworkN::<T>::get( netuid ) = {:?}",
             SubnetworkN::<T>::get(netuid)
         );
-        log::info!("uid = {:?}", uid);
+        log::debug!("uid = {:?}", uid);
         assert!(uid < SubnetworkN::<T>::get(netuid));
         PruningScores::<T>::mutate(netuid, |v| {
             if let Some(s) = v.get_mut(uid as usize) {
