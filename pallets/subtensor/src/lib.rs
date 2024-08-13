@@ -174,6 +174,11 @@ pub mod pallet {
         false
     }
     #[pallet::type_value]
+    /// Default value for false.
+    pub fn DefaultTrue<T: Config>() -> bool {
+        true
+    }
+    #[pallet::type_value]
     /// Total Rao in circulation.
     pub fn TotalSupply<T: Config>() -> u64 {
         21_000_000_000_000_000
@@ -1223,14 +1228,6 @@ where
                     ..Default::default()
                 })
             }
-            Some(Call::register_network { .. }) => Ok(ValidTransaction {
-                priority: Self::get_priority_vanilla(),
-                ..Default::default()
-            }),
-            Some(Call::dissolve_network { .. }) => Ok(ValidTransaction {
-                priority: Self::get_priority_vanilla(),
-                ..Default::default()
-            }),
             _ => Ok(ValidTransaction {
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
@@ -1274,10 +1271,6 @@ where
             Some(Call::serve_axon { .. }) => {
                 let transaction_fee = 0;
                 Ok((CallType::Serve, transaction_fee, who.clone()))
-            }
-            Some(Call::register_network { .. }) => {
-                let transaction_fee = 0;
-                Ok((CallType::RegisterNetwork, transaction_fee, who.clone()))
             }
             _ => {
                 let transaction_fee = 0;

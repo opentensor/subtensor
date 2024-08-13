@@ -126,8 +126,8 @@ impl<T: Config> Pallet<T> {
         // --- 8. Ensure the remove operation from the coldkey is a success.
         let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, registration_cost)?;
 
-        // The burn occurs here.
-        Self::burn_tokens(actual_burn_amount);
+        // Tokens are not burned but instead added to the TAO side of the pool.
+        SubnetTAO::<T>::mutate(netuid, |val| val.saturating_sub(actual_burn_amount));
 
         // --- 9. If the network account does not exist we will create it here.
         Self::create_account_if_non_existent(&coldkey, &hotkey);
@@ -223,7 +223,6 @@ impl<T: Config> Pallet<T> {
         coldkey: T::AccountId,
     ) -> DispatchResult {
         // --- 1. Check that the caller has signed the transaction.
-        // TODO( const ): This not be the hotkey signature or else an exterior actor can register the hotkey and potentially control it?
         let signing_origin = ensure_signed(origin)?;
         log::info!(
             "do_registration( origin:{:?} netuid:{:?} hotkey:{:?}, coldkey:{:?} )",

@@ -1,4 +1,5 @@
 use super::*;
+use substrate_fixed::types::I96F32;
 use frame_support::IterableStorageMap;
 
 impl<T: Config> Pallet<T> {
@@ -91,56 +92,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Emits new networks at regular intervals based on the block number.
-    ///
-    /// This function checks if it's time to emit a new network by comparing
-    /// the current block number with the lock reduction interval. If it's time,
-    /// it calls `emit_network` to create a new network with mechanism ID 1.
-    ///
-    /// # Arguments
-    ///
-    /// * `block_number` - The current block number.
-    ///
-    /// # Effects
-    ///
-    /// If the conditions are met, this function will create a new subnet
-    /// by calling `emit_network(1)`.
-    pub fn emit_networks(block_number: u64) {
-        if block_number % Self::get_lock_reduction_interval() == 0 {
-            Self::emit_network(1); // Create a new network.
-        }
-    }
-
-    /// Emits a new network with the specified mechanism ID.
-    ///
-    /// This function creates a new subnet by:
-    /// 1. Generating a new unique network ID (netuid).
-    /// 2. Setting the subnet's mechanism.
-    /// 3. Initializing the subnet with 1 TAO and 1 alpha.
-    /// 4. Setting the subnet's tempo to 1000.
-    /// 5. Emitting a NetworkAdded event.
-    ///
-    /// # Arguments
-    ///
-    /// * `mechid` - A u16 representing the mechanism ID for the new subnet.
-    ///
-    /// # Returns
-    ///
-    /// * `u16` - The newly created network ID (netuid).
-    pub fn emit_network( mechid: u16 ) -> u16 {
-        let netuid: u16 = Self::get_next_netuid();
-        let current_block = Self::get_current_block_as_u64();
-        SubnetMechanism::<T>::insert( netuid, mechid ); // set the mechanism
-        SubnetTAO::<T>::insert(netuid, 1 );  // mint 1 TAO
-        SubnetAlphaIn::<T>::insert(netuid, 1);  // mint 1 alpha
-        NetworkLastRegistered::<T>::set( current_block );
-        NetworkRegisteredAt::<T>::insert( netuid, current_block );
-        Self::init_new_network( netuid, 1000 ); // set the tempo to 1000
-        Self::deposit_event(Event::NetworkAdded(netuid, mechid));
-        Self::adjust_tempos(); // Adjust tempos with new network.
-        netuid
-    }
-
     /// Facilitates user registration of a new subnetwork.
     ///
     /// # Args:
@@ -169,7 +120,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 3. Ensure the mechanism exists either Stable or Dynamic.
-        ensure!( mechid == 0 || mechid == 1, Error::<T>::MechanismDoesNotExist );
+        ensure!( mechid == 1, Error::<T>::MechanismDoesNotExist );
 
         // --- 4. Rate limit for network registrations.
         let current_block = Self::get_current_block_as_u64();
@@ -191,7 +142,7 @@ impl<T: Config> Pallet<T> {
         let netuid_to_register: u16 = Self::get_next_netuid();
 
         // --- 6. Perform the lock operation.
-        let actual_tao_lock_amount = Self::remove_balance_from_coldkey_account(&coldkey, lock_amount)?;
+        let actual_tao_lock_amount: u64 = Self::remove_balance_from_coldkey_account(&coldkey, lock_amount)?;
         log::debug!("actual_tao_lock_amount: {:?}", actual_tao_lock_amount);
 
         // --- 7. Set the lock amount for use to determine pricing.
@@ -222,26 +173,58 @@ impl<T: Config> Pallet<T> {
         NetworkLastRegistered::<T>::set(current_block);
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
 
-        // --- 12. Init the pool.
-        let tao_init: u64 = 1_000_000_000; // 1 TAO to init the pool.
-        SubnetTAO::<T>::insert(netuid_to_register, 1); // add the TAO to the pool.
-        SubnetAlphaIn::<T>::insert(netuid_to_register, 1); // Set the alpha in based on the lock.
-        let alpha_locked: u64 = Self::stake_into_subnet(
-            hotkey,
-            &coldkey,
-            netuid_to_register,
-            actual_tao_lock_amount.saturating_sub(tao_init),
-        ); 
+        // Retrieve all subnet netuids
+        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
+        // Initialize a vector to collect prices for median calculation
+        let mut prices: Vec<I96F32> = Vec::new(); // Collect all prices to find the median later.
+        
+        // Iterate through each netuid to calculate prices
+        for netuid in netuids.clone().iter() {
+            // Get the total TAO and alpha in for the current subnet
+            let subnet_tao: u64 = SubnetTAO::<T>::get(netuid);
+            let subnet_alpha_in: u64 = SubnetAlphaIn::<T>::get(netuid);
+            
+            // Ensure alpha in is greater than zero to avoid division by zero
+            if subnet_tao > 0 && subnet_alpha_in > 0 { // Avoid division by zero
+                // Calculate the price as TAO divided by alpha in
+                let price: I96F32 = I96F32::from_num(subnet_tao) / I96F32::from_num(subnet_alpha_in);
+                // Add the calculated price to the prices vector
+                prices.push(price);
+            }
+        }
+        
+        // Sort the prices to prepare for median calculation
+        prices.sort(); // Sort prices to find the median
+        
+        // Calculate the median price based on the sorted prices
+        let median_price: I96F32 = if prices.is_empty() {
+            // If no prices, return a default median price
+            I96F32::from_num( 1.0 ) / I96F32::from_num( netuids.len() ) // Get default the median alpha price.
+        } else if prices.len() % 2 == 1 {
+            // If odd number of prices, take the middle one
+            prices[ prices.len() / 2 ] // Odd number of prices
+        } else {
+            // If even number of prices, average the two middle prices
+            (prices[ prices.len() / 2 - 1 ] + prices[prices.len() / 2]) / I96F32::from_num(2) // Even number of prices
+        };
 
-        // --- 13. Set the hotkey as the lock.
-        Locks::<T>::insert(
-            (netuid_to_register, coldkey.clone(), hotkey.clone()), 
-            (alpha_locked, current_block, current_block.saturating_add(Self::get_lock_interval_blocks()))
-        );
-
-        // --- 14. Set the owner.
-        // Set the coldkey as the current owner
+        // --- 14. Init the pool.
+        let tao_init: u64 = actual_tao_lock_amount; // Init the pool with the lock.
+        let alpha_init: u64 =  (I96F32::from_num(actual_tao_lock_amount) / median_price).to_num::<u64>(); // Init the pool with the alpha
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone()); 
+        SubnetTAO::<T>::insert(netuid_to_register, tao_init); // add the TAO to the pool.
+        SubnetAlphaIn::<T>::insert(netuid_to_register, alpha_init); // Set the alpha in based on the lock.
+        SubnetAlphaOut::<T>::insert( netuid_to_register, alpha_init ); // Set AlphaOut to the initial alpha distribution.
+        TotalColdkeyAlpha::<T>::mutate( coldkey.clone(), 0, |total| { *total = total.saturating_add( alpha_init ) } ); // Set the total coldkey alpha.
+        TotalHotkeyAlpha::<T>::mutate( coldkey.clone(), 0, |total| { *total = total.saturating_add( alpha_init ) } ); // Set the total hotkey alpha.
+        Alpha::<T>::mutate( ( hotkey.clone(), coldkey.clone(), netuid_to_register), |total| { *total = total.saturating_add( alpha_init ) } ); // Set the alpha.
+        Stake::<T>::mutate( &hotkey, &coldkey, |total| { *total = total.saturating_add( tao_init );}); // Increase the stake.
+        TotalStake::<T>::put(TotalStake::<T>::get().saturating_add( tao_init )); // Increase the total stake.
+        Locks::<T>::insert( // Lock the initial funds making this key the owner.
+            (netuid_to_register, hotkey.clone(), coldkey.clone()),
+            (alpha_init, current_block, current_block.saturating_add( Self::get_lock_interval_blocks() ) ),
+        );
+        // Note: Ensure that `actual_tao_lock_amount` and `median_price` are valid and non-zero to avoid division errors.
 
         // --- 15. Emit the NetworkAdded event.
         log::info!(

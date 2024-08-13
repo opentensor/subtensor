@@ -116,7 +116,8 @@ impl<T: Config> Pallet<T> {
                 Self::set_last_mechanism_step_block(*netuid, current_block);
 
                 // --- 6.4 Decrement the emission by the owner cut.
-                let owner_cut: u64 = I96F32::from_num(subnet_emission).saturating_mul(I96F32::from_num(Self::get_subnet_owner_cut())).saturating_div(I96F32::from_num(u16::MAX)).to_num::<u64>();
+                // 9% cut for the owner.
+                let owner_cut: u64 = I96F32::from_num(subnet_emission).saturating_mul(I96F32::from_num(9)).saturating_div(100).to_num::<u64>();
                 Self::distribute_owner_cut(*netuid, owner_cut);
                 let remaining_emission: u64 = subnet_emission.saturating_sub(owner_cut);
 

@@ -1437,41 +1437,6 @@ fn test_do_bonds_with_liquid_alpha() {
     });
 }
 
-// DEPRECATED.
-// #[test]
-// fn test_set_alpha_disabled() {
-//     new_test_ext(1).execute_with(|| {
-//         let netuid: u16 = 1;
-//         let hotkey: U256 = U256::from(1);
-//         let coldkey: U256 = U256::from(1 + 456);
-//         let signer = <<Test as Config>::RuntimeOrigin>::signed(coldkey);
-
-//         // Enable Liquid Alpha and setup
-//         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-//         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
-//         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
-//         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
-//         assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, netuid, 1000));
-//         // Only owner can set alpha values
-//         assert_ok!(SubtensorModule::register_network(signer.clone(), 0));
-
-//         // Explicitly set to false
-//         SubtensorModule::set_liquid_alpha_enabled(netuid, false);
-//         assert_err!(
-//             SubtensorModule::do_set_alpha_values(signer.clone(), netuid, 12_u16, u16::MAX),
-//             Error::<Test>::LiquidAlphaDisabled
-//         );
-
-//         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-//         assert_ok!(SubtensorModule::do_set_alpha_values(
-//             signer.clone(),
-//             netuid,
-//             12_u16,
-//             u16::MAX
-//         ));
-//     });
-// }
-
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test epoch test_active_stake -- --nocapture
 // Test that epoch masks out inactive stake of validators with outdated weights beyond activity cutoff.
 #[test]

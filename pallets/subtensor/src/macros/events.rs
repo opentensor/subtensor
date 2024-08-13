@@ -189,5 +189,7 @@ mod events {
         NetworkActivated(u16),
         /// StakeMoved
         StakeMoved(T::AccountId, T::AccountId, u16, T::AccountId, u16),
+        /// SubnetConverted meaning the owner has converted their lock and now the owner position is open.
+        SubnetConverted(u16),
     }
 }

@@ -259,6 +259,7 @@ impl<T: Config> Pallet<T> {
     /// * Adds the distributed share to each hotkey's balance.
     /// * Emits an `OwnerPaymentDistributed` event for each distribution.
     pub fn distribute_owner_cut(netuid: u16, amount: u64) -> u64 {
+
         // Get the current block number
         let current_block = Self::get_current_block_as_u64();
 
@@ -307,17 +308,7 @@ impl<T: Config> Pallet<T> {
 
             // Emit the calculated share into the subnet for this hotkey
             Self::emit_into_subnet(&hotkey, &owner_coldkey, netuid, share_amount);
-
-            // Add the share to the lock.
-            if Locks::<T>::contains_key((netuid, hotkey.clone(), owner_coldkey.clone())) {
-                let (current_lock, start_block, end_block) =
-                    Locks::<T>::get((netuid, hotkey.clone(), owner_coldkey.clone()));
-                let new_lock = current_lock.saturating_add(share_amount);
-                Locks::<T>::insert(
-                    (netuid, hotkey.clone(), owner_coldkey.clone()),
-                    (new_lock, start_block, end_block),
-                );
-            }
+            Self::increase_lock_by_amount(netuid, &hotkey, &owner_coldkey, share_amount);
 
             // Subtract the distributed share from the remaining amount
             remaining_amount = remaining_amount.saturating_sub(share_amount);
@@ -325,6 +316,39 @@ impl<T: Config> Pallet<T> {
 
         // Return any undistributed amount
         remaining_amount
+    }
+
+    /// Increases the lock amount for a given hotkey and coldkey in the specified subnet.
+    ///
+    /// # Arguments
+    /// * `netuid` - The network ID of the subnet.
+    /// * `hotkey` - The account ID of the hotkey.
+    /// * `coldkey` - The account ID of the coldkey.
+    /// * `amount` - The amount to increase the lock by.
+    ///
+    /// # Effects
+    /// - If a lock already exists for the hotkey and coldkey, it increases the lock amount.
+    /// - If no lock exists, it creates a new lock with the specified amount.
+    pub fn increase_lock_by_amount(netuid: u16, hotkey: &T::AccountId, coldkey: &T::AccountId, amount: u64) {
+        // Check if the lock exists for the given hotkey and coldkey
+        let current_block = Self::get_current_block_as_u64();
+        if Locks::<T>::contains_key((netuid, hotkey.clone(), coldkey.clone())) {
+            // Retrieve the current lock details
+            let (current_lock, start_block, end_block) = Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone()));
+            // Calculate the new lock amount by adding the specified amount
+            let new_lock = current_lock.saturating_add(amount);
+            // Update the lock with the new amount
+            Locks::<T>::insert(
+                (netuid, hotkey.clone(), coldkey.clone()),
+                (new_lock, start_block, end_block),
+            );
+        } else {
+            // If the lock does not exist, create a new lock with the specified amount
+            Locks::<T>::insert(
+                (netuid, hotkey.clone(), coldkey.clone()),
+                (amount, current_block, current_block + Self::get_lock_interval_blocks()),
+            );
+        }
     }
 
     /// Updates the owners of all subnets periodically.

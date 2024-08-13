@@ -4,20 +4,6 @@ use sp_core::U256;
 use pallet_subtensor::*;
 use substrate_fixed::types::I96F32;
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test alpha -- test_emit_network --exact --nocapture
-#[test]
-fn test_emit_network() {
-    new_test_ext(1).execute_with(|| {
-        let coldkey = U256::from(1);
-        let hotkey = U256::from(2);
-        let netuid = SubtensorModule::emit_network( 1 );
-        assert_eq!(
-            SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, 1),
-            0 // no amount of staked TAO will recover the 1 alpha in the pool because of slippage.
-        );
-    });
-}
-
 // Test titles and descriptions for exhaustive testing of stake_into_subnet function:
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test alpha -- test_stake_into_subnet_dynamic_mechanism --exact --nocapture

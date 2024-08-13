@@ -1,6 +1,7 @@
 use super::*;
-use frame_support::IterableStorageMap;
 use alloc::string::String;
+use substrate_fixed::types::I96F32;
+use frame_support::IterableStorageMap;
 use frame_support::{traits::Get, weights::Weight};
 use log;
 
@@ -25,6 +26,28 @@ pub fn migrate_rao<T: Config>() -> Weight {
 
     let netuids: Vec<u16> = <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter().map(|(netuid, _)| netuid).collect();
     weight = weight.saturating_add(T::DbWeight::get().reads_writes(netuids.len() as u64, 0));
+
+    // Set the mechanism to 1 for all netuids.
+    let current_block = Pallet::<T>::get_current_block_as_u64();
+    for netuid in netuids.iter().clone() {
+        let owner: T::AccountId = SubnetOwner::<T>::get( netuid );
+        let lock: u64 = SubnetLocked::<T>::get( netuid ); // Get the current locked.
+        let median_alpha_price: I96F32 = I96F32::from_num( 1.0 )/ I96F32::from_num( netuids.len() ); // Get the median alpha price 1/n.
+        let initial_alpha_distribution: u64 = ( I96F32::from_num( lock ) * median_alpha_price).to_num::<u64>(); // Set the initial alpha distribution.
+        SubnetTAO::<T>::insert( netuid, lock ); // Set TAO to the lock.
+        SubnetAlphaIn::<T>::insert( netuid, initial_alpha_distribution ); // Set AlphaIn to the initial alpha distribution.
+        SubnetAlphaOut::<T>::insert( netuid, initial_alpha_distribution ); // Set AlphaOut to the initial alpha distribution.
+        TotalColdkeyAlpha::<T>::mutate(owner.clone(), 0, |total| { *total = total.saturating_add(initial_alpha_distribution) } ); // Set the total coldkey alpha.
+        TotalHotkeyAlpha::<T>::mutate(owner.clone(), 0, |total| { *total = total.saturating_add(initial_alpha_distribution) } ); // Set the total hotkey alpha.
+        Alpha::<T>::mutate( (owner.clone(), owner.clone(), netuid), |total| { *total = total.saturating_add(initial_alpha_distribution) } ); // Set the alpha.
+        Stake::<T>::mutate(&owner, &owner, |total| { *total = total.saturating_add(lock);}); // Increase the stake.
+        TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(lock)); // Increase the total stake.
+        SubnetMechanism::<T>::insert( netuid, 1 ); // Convert to dynamic immediately with initialization.   
+        Locks::<T>::insert( // Lock the initial funds making this key the owner.
+            (netuid, owner.clone(), owner.clone()),
+            (initial_alpha_distribution, current_block, current_block.saturating_add( 7200 * 30 * 2 ) ),
+        );
+    }
 
     // Migrate all TAO to root.
     Stake::<T>::iter().for_each(|(hotkey, coldkey, stake)| {

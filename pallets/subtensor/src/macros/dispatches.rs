@@ -799,6 +799,7 @@ mod dispatches {
         }
 
         /// User register a new subnetwork
+        /// DEPRECATED
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(157_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))
@@ -808,8 +809,6 @@ mod dispatches {
             hotkey: T::AccountId,
             mechid: u16,
         ) -> DispatchResult {
-            // DEPRECATED.
-            // Ok(())
             Self::do_register_network(origin, &hotkey, mechid)
         }
 

@@ -176,5 +176,7 @@ mod errors {
         CannotUnstakeLock,
         /// Trying to perform action on non-existent subnet.
         SubnetNotExists,
+        /// Subnet has already been converted.
+        SubnetAlreadyConverted,
     }
 }
