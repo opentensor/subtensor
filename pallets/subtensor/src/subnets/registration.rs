@@ -419,65 +419,67 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Determine which peer to prune from the network by finding the element with the lowest pruning score out of
-    /// immunity period. If all neurons are in immunity period, return node with lowest prunning score.
-    /// This function will always return an element to prune.
+    /// immunity period. If there is a tie for lowest pruning score, the neuron registered earliest is pruned.
+    /// If all neurons are in immunity period, the neuron with the lowest pruning score is pruned. If there is a tie for
+    /// the lowest pruning score, the immune neuron registered earliest is pruned.
+    /// Ties for earliest registration are broken by the neuron with the lowest uid.
     pub fn get_neuron_to_prune(netuid: u16) -> u16 {
         let mut min_score: u16 = u16::MAX;
-        let mut min_score_in_immunity_period = u16::MAX;
-        let mut uid_with_min_score = 0;
-        let mut uid_with_min_score_in_immunity_period: u16 = 0;
+        let mut min_score_in_immunity: u16 = u16::MAX;
+        let mut earliest_registration: u64 = u64::MAX;
+        let mut earliest_registration_in_immunity: u64 = u64::MAX;
+        let mut uid_to_prune: u16 = 0;
+        let mut uid_to_prune_in_immunity: u16 = 0;
+
+        // This boolean is used instead of checking if min_score == u16::MAX, to avoid the case
+        // where all non-immune neurons have pruning score u16::MAX
+        // This may be unlikely in practice.
+        let mut found_non_immune = false;
 
         let neurons_n = Self::get_subnetwork_n(netuid);
         if neurons_n == 0 {
             return 0; // If there are no neurons in this network.
         }
 
-        let current_block: u64 = Self::get_current_block_as_u64();
-        let immunity_period: u64 = Self::get_immunity_period(netuid) as u64;
-        for neuron_uid_i in 0..neurons_n {
-            let pruning_score: u16 = Self::get_pruning_score_for_uid(netuid, neuron_uid_i);
+        for neuron_uid in 0..neurons_n {
+            let pruning_score: u16 = Self::get_pruning_score_for_uid(netuid, neuron_uid);
             let block_at_registration: u64 =
-                Self::get_neuron_block_at_registration(netuid, neuron_uid_i);
-            #[allow(clippy::comparison_chain)]
-            if min_score == pruning_score {
-                if current_block.saturating_sub(block_at_registration) < immunity_period {
-                    //neuron is in immunity period
-                    if min_score_in_immunity_period > pruning_score {
-                        min_score_in_immunity_period = pruning_score;
-                        uid_with_min_score_in_immunity_period = neuron_uid_i;
-                    }
-                } else {
-                    uid_with_min_score = neuron_uid_i;
+                Self::get_neuron_block_at_registration(netuid, neuron_uid);
+            let is_immune = Self::get_neuron_is_immune(netuid, neuron_uid);
+
+            if is_immune {
+                // if the immune neuron has a lower pruning score than the minimum for immune neurons,
+                // or, if the pruning scores are equal and the immune neuron was registered earlier than the current minimum for immune neurons,
+                // then update the minimum pruning score and the uid to prune for immune neurons
+                if pruning_score < min_score_in_immunity
+                    || (pruning_score == min_score_in_immunity
+                        && block_at_registration < earliest_registration_in_immunity)
+                {
+                    min_score_in_immunity = pruning_score;
+                    earliest_registration_in_immunity = block_at_registration;
+                    uid_to_prune_in_immunity = neuron_uid;
                 }
-            }
-            // Find min pruning score.
-            else if min_score > pruning_score {
-                if current_block.saturating_sub(block_at_registration) < immunity_period {
-                    //neuron is in immunity period
-                    if min_score_in_immunity_period > pruning_score {
-                        min_score_in_immunity_period = pruning_score;
-                        uid_with_min_score_in_immunity_period = neuron_uid_i;
-                    }
-                } else {
+            } else {
+                found_non_immune = true;
+                // if the non-immune neuron has a lower pruning score than the minimum for non-immune neurons,
+                // or, if the pruning scores are equal and the non-immune neuron was registered earlier than the current minimum for non-immune neurons,
+                // then update the minimum pruning score and the uid to prune for non-immune neurons
+                if pruning_score < min_score
+                    || (pruning_score == min_score && block_at_registration < earliest_registration)
+                {
                     min_score = pruning_score;
-                    uid_with_min_score = neuron_uid_i;
+                    earliest_registration = block_at_registration;
+                    uid_to_prune = neuron_uid;
                 }
             }
         }
-        if min_score == u16::MAX {
-            //all neuorns are in immunity period
-            Self::set_pruning_score_for_uid(
-                netuid,
-                uid_with_min_score_in_immunity_period,
-                u16::MAX,
-            );
-            uid_with_min_score_in_immunity_period
+
+        if found_non_immune {
+            Self::set_pruning_score_for_uid(netuid, uid_to_prune, u16::MAX);
+            uid_to_prune
         } else {
-            // We replace the pruning score here with u16 max to ensure that all peers always have a
-            // pruning score. In the event that every peer has been pruned this function will prune
-            // the last element in the network continually.
-            Self::set_pruning_score_for_uid(netuid, uid_with_min_score, u16::MAX);
-            uid_with_min_score
+            Self::set_pruning_score_for_uid(netuid, uid_to_prune_in_immunity, u16::MAX);
+            uid_to_prune_in_immunity
         }
     }
 
