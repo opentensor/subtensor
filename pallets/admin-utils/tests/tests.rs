@@ -6,7 +6,7 @@ use frame_support::{
 use frame_system::Config;
 use pallet_admin_utils::Error;
 use pallet_subtensor::Error as SubtensorError;
-use pallet_subtensor::{migration, Event};
+use pallet_subtensor::{migrations, Event};
 use sp_core::U256;
 
 mod mock;
@@ -1232,7 +1232,7 @@ fn test_sudo_get_set_alpha() {
 
         // Enable Liquid Alpha and setup
         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-        migration::migrate_create_root_network::<Test>();
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
         assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, 1000));
