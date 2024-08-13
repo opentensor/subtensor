@@ -77,12 +77,12 @@ impl<T: Config> Pallet<T> {
             // 12. Switch on dynamic or Stable.
             if mechid == 1 {
                 // 12a Dynamic: Add the SubnetAlpha directly into the pool immediately: A_s_new = A_s_old + E_m
-                SubnetAlphaIn::<T>::mutate(*netuid, |total| { *total = total.saturating_add(mech_emission.to_num::<u64>()) });
+                SubnetAlphaIn::<T>::mutate(*netuid, |total| { *total = total.saturating_add( block_emission.to_num::<u64>() ) });
                 // 12b Dynamic: Set the pending emission directly as alpha always block emission total: P_e_new = P_e_old + E_m
-                PendingEmission::<T>::mutate(*netuid, |total| {*total = total.saturating_add(mech_emission.to_num::<u64>()) });
+                PendingEmission::<T>::mutate(*netuid, |total| {*total = total.saturating_add( block_emission.to_num::<u64>() ) });
             } else {
                 // 12c Stable: Set the pending emission as tao emission: P_e_new = P_e_old + E_s
-                PendingEmission::<T>::mutate(*netuid, |total| { *total = total.saturating_add(subnet_emission) });
+                PendingEmission::<T>::mutate(*netuid, |total| { *total = total.saturating_add( subnet_emission ) });
             }
         }
         log::debug!(
@@ -117,13 +117,12 @@ impl<T: Config> Pallet<T> {
 
                 // --- 6.4 Decrement the emission by the owner cut.
                 // 9% cut for the owner.
-                let owner_cut: u64 = I96F32::from_num(subnet_emission).saturating_mul(I96F32::from_num(9)).saturating_div(100).to_num::<u64>();
+                let owner_cut: u64 = I96F32::from_num(subnet_emission).saturating_mul(I96F32::from_num(18)).saturating_div(I96F32::from_num(100)).to_num::<u64>();
                 Self::distribute_owner_cut(*netuid, owner_cut);
                 let remaining_emission: u64 = subnet_emission.saturating_sub(owner_cut);
 
                 // --- 6.5 Pass emission through epoch() --> hotkey emission.
-                let hotkey_emission: Vec<(T::AccountId, u64, u64)> =
-                    Self::epoch(*netuid, remaining_emission);
+                let hotkey_emission: Vec<(T::AccountId, u64, u64)> = Self::epoch(*netuid, remaining_emission);
                 log::debug!(
                     "Hotkey emission results for netuid {:?}: {:?}",
                     *netuid,

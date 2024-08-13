@@ -1,5 +1,4 @@
 use super::*;
-use substrate_fixed::types::I96F32;
 use frame_support::IterableStorageMap;
 
 impl<T: Config> Pallet<T> {
@@ -119,7 +118,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyNotDelegateAndSignerNotOwnHotKey
         );
 
-        // --- 3. Ensure the mechanism exists either Stable or Dynamic.
+        // --- 3. Ensure the mechanism is Dynamic.
         ensure!( mechid == 1, Error::<T>::MechanismDoesNotExist );
 
         // --- 4. Rate limit for network registrations.
@@ -173,58 +172,14 @@ impl<T: Config> Pallet<T> {
         NetworkLastRegistered::<T>::set(current_block);
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
 
-        // Retrieve all subnet netuids
-        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
-        // Initialize a vector to collect prices for median calculation
-        let mut prices: Vec<I96F32> = Vec::new(); // Collect all prices to find the median later.
-        
-        // Iterate through each netuid to calculate prices
-        for netuid in netuids.clone().iter() {
-            // Get the total TAO and alpha in for the current subnet
-            let subnet_tao: u64 = SubnetTAO::<T>::get(netuid);
-            let subnet_alpha_in: u64 = SubnetAlphaIn::<T>::get(netuid);
-            
-            // Ensure alpha in is greater than zero to avoid division by zero
-            if subnet_tao > 0 && subnet_alpha_in > 0 { // Avoid division by zero
-                // Calculate the price as TAO divided by alpha in
-                let price: I96F32 = I96F32::from_num(subnet_tao) / I96F32::from_num(subnet_alpha_in);
-                // Add the calculated price to the prices vector
-                prices.push(price);
-            }
-        }
-        
-        // Sort the prices to prepare for median calculation
-        prices.sort(); // Sort prices to find the median
-        
-        // Calculate the median price based on the sorted prices
-        let median_price: I96F32 = if prices.is_empty() {
-            // If no prices, return a default median price
-            I96F32::from_num( 1.0 ) / I96F32::from_num( netuids.len() ) // Get default the median alpha price.
-        } else if prices.len() % 2 == 1 {
-            // If odd number of prices, take the middle one
-            prices[ prices.len() / 2 ] // Odd number of prices
-        } else {
-            // If even number of prices, average the two middle prices
-            (prices[ prices.len() / 2 - 1 ] + prices[prices.len() / 2]) / I96F32::from_num(2) // Even number of prices
-        };
-
-        // --- 14. Init the pool.
-        let tao_init: u64 = actual_tao_lock_amount; // Init the pool with the lock.
-        let alpha_init: u64 =  (I96F32::from_num(actual_tao_lock_amount) / median_price).to_num::<u64>(); // Init the pool with the alpha
-        SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone()); 
-        SubnetTAO::<T>::insert(netuid_to_register, tao_init); // add the TAO to the pool.
-        SubnetAlphaIn::<T>::insert(netuid_to_register, alpha_init); // Set the alpha in based on the lock.
-        SubnetAlphaOut::<T>::insert( netuid_to_register, alpha_init ); // Set AlphaOut to the initial alpha distribution.
-        TotalColdkeyAlpha::<T>::mutate( coldkey.clone(), 0, |total| { *total = total.saturating_add( alpha_init ) } ); // Set the total coldkey alpha.
-        TotalHotkeyAlpha::<T>::mutate( coldkey.clone(), 0, |total| { *total = total.saturating_add( alpha_init ) } ); // Set the total hotkey alpha.
-        Alpha::<T>::mutate( ( hotkey.clone(), coldkey.clone(), netuid_to_register), |total| { *total = total.saturating_add( alpha_init ) } ); // Set the alpha.
-        Stake::<T>::mutate( &hotkey, &coldkey, |total| { *total = total.saturating_add( tao_init );}); // Increase the stake.
-        TotalStake::<T>::put(TotalStake::<T>::get().saturating_add( tao_init )); // Increase the total stake.
+        // --- 14. Init the pool by putting the lock as the initial alpha.
+        SubnetTAO::<T>::insert(netuid_to_register, actual_tao_lock_amount); // add the TAO to the pool.
+        SubnetAlphaIn::<T>::insert(netuid_to_register, 1); // Set the alpha in based on the lock.
+        let alpha_out = Self::stake_into_subnet(&hotkey, &coldkey, netuid_to_register, actual_tao_lock_amount);
         Locks::<T>::insert( // Lock the initial funds making this key the owner.
             (netuid_to_register, hotkey.clone(), coldkey.clone()),
-            (alpha_init, current_block, current_block.saturating_add( Self::get_lock_interval_blocks() ) ),
+            (alpha_out, current_block, current_block.saturating_add( Self::get_lock_interval_blocks() ) ),
         );
-        // Note: Ensure that `actual_tao_lock_amount` and `median_price` are valid and non-zero to avoid division errors.
 
         // --- 15. Emit the NetworkAdded event.
         log::info!(

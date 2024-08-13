@@ -127,6 +127,7 @@ impl<T: Config> Pallet<T> {
         let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, registration_cost)?;
 
         // Tokens are not burned but instead added to the TAO side of the pool.
+        // This changes K and increases the price of alpha.
         SubnetTAO::<T>::mutate(netuid, |val| val.saturating_sub(actual_burn_amount));
 
         // --- 9. If the network account does not exist we will create it here.
