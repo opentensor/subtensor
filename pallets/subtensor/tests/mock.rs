@@ -525,3 +525,106 @@ pub fn is_within_tolerance(actual: u64, expected: u64, tolerance: u64) -> bool {
     };
     difference <= tolerance
 }
+
+#[allow(dead_code)]
+pub fn add_stake(coldkey: U256, hotkey: U256, stake: u64) {
+    assert_ok!(SubtensorModule::add_stake(
+        RuntimeOrigin::signed(U256::from(coldkey)),
+        hotkey,
+        stake
+    ));
+}
+
+#[allow(dead_code)]
+pub fn set_weights(netuid: u16, hotkey: U256, weights: Vec<u16>) {
+    let neuron_count = weights.len();
+    let uid_vec: Vec<u16> = (0..neuron_count)
+        .into_iter()
+        .map(|uid| uid as u16)
+        .collect();
+    assert_ok!(SubtensorModule::do_set_weights(
+        RuntimeOrigin::signed(hotkey),
+        netuid,
+        uid_vec,
+        weights,
+        0
+    ));
+}
+
+#[allow(dead_code)]
+pub fn set_children(netuid: u16, coldkey: U256, hotkey: U256, child_vec: Vec<(u64, U256)>) {
+    let hotkey = U256::from(hotkey);
+    assert_ok!(SubtensorModule::do_set_children(
+        RuntimeOrigin::signed(coldkey),
+        hotkey,
+        netuid,
+        child_vec
+    ));
+}
+
+#[allow(dead_code)]
+pub fn get_stake(coldkey: u16, hotkey: u16) -> u64 {
+    let coldkey = U256::from(coldkey);
+    let hotkey = U256::from(hotkey);
+    SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey)
+}
+
+#[allow(dead_code)]
+pub fn get_balance(coldkey: u16) -> u64 {
+    let coldkey = U256::from(coldkey);
+    pallet_balances::Account::<Test>::get(coldkey).free
+}
+
+#[allow(dead_code)]
+pub fn helper_wait_until_end_of_epoch(netuid: u16, timeout: u64) {
+    let mut block_count = 0;
+    loop {
+        step_block(1);
+
+        let block = SubtensorModule::get_current_block_as_u64();
+        if SubtensorModule::should_run_epoch(netuid, block) {
+            break;
+        }
+
+        // Shouldn't be more than X blocks
+        block_count += 1;
+        assert!(block_count < timeout);
+    }
+}
+
+#[allow(dead_code)]
+pub fn helper_wait_x_blocks_before_hotkey_drained(
+    hotkey: u16,
+    tempo: u64,
+    blocks_prior_to_drain: u64,
+    timeout: u64,
+) {
+    let hotkey = U256::from(hotkey);
+
+    // Otherwise wait until end of hotkey draining tempo
+    let mut block_count = 0;
+    loop {
+        step_block(1);
+
+        let block = SubtensorModule::get_current_block_as_u64() + blocks_prior_to_drain;
+        if SubtensorModule::should_drain_hotkey(&hotkey, block, tempo as u64) {
+            break;
+        }
+
+        // Shouldn't be more than X blocks
+        block_count += 1;
+        assert!(block_count < timeout);
+    }
+}
+
+#[allow(dead_code)]
+pub fn helper_wait_hotkey_drained(hotkey: u16, tempo: u64, timeout: u64) {
+    let hotkey_u256 = U256::from(hotkey);
+
+    // If hotkey emission is already drained, don't wait
+    if pallet_subtensor::PendingdHotkeyEmission::<Test>::get(hotkey_u256) == 0 {
+        return;
+    }
+
+    helper_wait_x_blocks_before_hotkey_drained(hotkey, tempo, 0, timeout);
+}

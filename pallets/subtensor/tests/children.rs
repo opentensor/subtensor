@@ -3237,3 +3237,101 @@ fn test_rank_trust_incentive_calculation_with_parent_child() {
 
     });
 }
+
+#[test]
+fn test_childkey_take_hotkey_pending_emission() {
+    new_test_ext(1).execute_with(|| {
+        let parent_coldkey = U256::from(1);
+        let parent_hotkey = U256::from(2);
+        let child1_coldkey = U256::from(3);
+        let child1_hotkey = U256::from(4);
+        let child2_coldkey = U256::from(5);
+        let child2_hotkey = U256::from(6);
+        let netuid: u16 = 1;
+        let subnet_tempo = 10;
+        let hotkey_tempo = 1_000_000; // Never drain
+        let stake = 1_000_000_000;
+        let subnet_emission = 1_000_000_000;
+
+        // Set hotkey tempo
+        pallet_subtensor::HotkeyEmissionTempo::<Test>::set(hotkey_tempo);
+
+        // Remove limitations that are not needed for this test
+        SubtensorModule::set_max_registrations_per_block(netuid, 4);
+        SubtensorModule::set_max_allowed_uids(netuid, 3);
+        SubtensorModule::set_target_stakes_per_interval(10);
+        pallet_subtensor::WeightsSetRateLimit::<Test>::insert(netuid, 0);
+
+        // Add balances
+        SubtensorModule::add_balance_to_coldkey_account(
+            &parent_coldkey,
+            100 * stake + ExistentialDeposit::get(),
+        );
+        SubtensorModule::add_balance_to_coldkey_account(
+            &child1_coldkey,
+            100 * stake + ExistentialDeposit::get(),
+        );
+        SubtensorModule::add_balance_to_coldkey_account(
+            &child2_coldkey,
+            100 * stake + ExistentialDeposit::get(),
+        );
+
+        // Register a subnet and neurons to the new network.
+        add_network(netuid, subnet_tempo as u16, 0);
+        register_ok_neuron(netuid, parent_hotkey, parent_coldkey, 0);
+        register_ok_neuron(netuid, child1_hotkey, child1_coldkey, 0);
+        register_ok_neuron(netuid, child2_hotkey, child2_coldkey, 0);
+
+        // Add validator permits
+        pallet_subtensor::MaxAllowedValidators::<Test>::insert(netuid, 3);
+        for uid in 0..3 {
+            SubtensorModule::set_validator_permit_for_uid(netuid, uid, true);
+        }
+
+        // Bump current block by 1 so that weights don't get masked for neurons as deregistered
+        // (last update block needs to be different from block of registration)
+        step_block(1);
+
+        // Add stakes
+        add_stake(parent_coldkey, parent_hotkey, stake);
+        add_stake(child1_coldkey, child1_hotkey, stake);
+        add_stake(child2_coldkey, child2_hotkey, stake);
+
+        // Set 0 weights to avoid miner emission
+        set_weights(netuid, parent_hotkey, vec![0, 0, 0]);
+        set_weights(netuid, child1_hotkey, vec![0, 0, 0]);
+        set_weights(netuid, child2_hotkey, vec![0, 0, 0]);
+
+        // Set child relationships
+        set_children(netuid, parent_coldkey, parent_hotkey, 
+            vec![(u64::MAX - u64::MAX / 4, child1_hotkey), (u64::MAX / 4, child2_hotkey)]);
+
+        // Simulate subnet emission
+        PendingEmission::<Test>::insert(netuid, subnet_emission);
+
+        // Set max childkey take for both children
+        let max_take: u16 = SubtensorModule::get_max_childkey_take();
+        assert_ok!(SubtensorModule::set_childkey_take(
+            RuntimeOrigin::signed(child1_coldkey),
+            child1_hotkey,
+            netuid,
+            max_take
+        ));
+        assert_ok!(SubtensorModule::set_childkey_take(
+            RuntimeOrigin::signed(child2_coldkey),
+            child2_hotkey,
+            netuid,
+            max_take
+        ));
+
+        step_block(subnet_tempo*2);
+
+        let parent_emission = SubtensorModule::get_pending_hotkey_emission(&parent_hotkey);
+        let child1_emission = SubtensorModule::get_pending_hotkey_emission(&child1_hotkey);
+        let child2_emission = SubtensorModule::get_pending_hotkey_emission(&child2_hotkey);
+
+        println!("Parent emission: {:?}", parent_emission);
+        println!("Child1 emission: {:?}", child1_emission);
+        println!("Child2 emission: {:?}", child2_emission);
+    });
+}
