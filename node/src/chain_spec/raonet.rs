@@ -50,13 +50,9 @@ fn raonet_genesis(
 ) -> serde_json::Value {
     let mut balances = vec![
         (
-            get_account_id_from_seed::<sr25519::Public>("Alice"),
-            1_000_000_000u128,
-        ),
-        (
-            get_account_id_from_seed::<sr25519::Public>("Bob"),
-            1_000_000_000u128,
-        ),
+            <AccountId32 as Ss58Codec>::from_ss58check("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY").unwrap(),
+            100_000_000_000u128,
+        )
     ];
 
     // Check if the environment variable is set

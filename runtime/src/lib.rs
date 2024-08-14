@@ -155,11 +155,17 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 ///
 /// Change this to adjust the block time.
 #[cfg(not(feature = "fast-blocks"))]
+#[cfg(not(feature = "raonet"))]
 pub const MILLISECS_PER_BLOCK: u64 = 12000;
 
 /// Fast blocks for development
 #[cfg(feature = "fast-blocks")]
+#[cfg(not(feature = "raonet"))]
 pub const MILLISECS_PER_BLOCK: u64 = 250;
+
+#[cfg(feature = "raonet")]
+#[cfg(not(feature = "fast-blocks"))]
+pub const MILLISECS_PER_BLOCK: u64 = 1000;
 
 // NOTE: Currently it is not possible to change the slot duration after the chain has started.
 //       Attempting to do so will brick block production.
