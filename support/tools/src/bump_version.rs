@@ -1,3 +1,4 @@
+use clap::Parser;
 use semver::Version;
 use std::{
     fs,
@@ -18,12 +19,15 @@ const TOML_PATHS: [&str; 9] = [
     "node",
 ];
 
+#[derive(Parser)]
+struct CliArgs {
+    #[arg(required = true)]
+    version: Version,
+}
+
 fn main() -> anyhow::Result<()> {
-    let mut version_file = fs::File::options().read(true).write(true).open("VERSION")?;
-    let mut version_str = String::new();
-    version_file.read_to_string(&mut version_str)?;
-    let mut version = Version::parse(&version_str)?;
-    version.minor = version.minor.saturating_add(1);
+    let args = CliArgs::parse();
+    let version = args.version;
 
     for path in TOML_PATHS {
         let cargo_toml_path = format!("{path}/Cargo.toml");
@@ -40,10 +44,6 @@ fn main() -> anyhow::Result<()> {
         toml_file.rewind()?;
         toml_file.write_all(modified_toml_doc.to_string().as_bytes())?;
     }
-
-    version_file.set_len(0)?;
-    version_file.rewind()?;
-    version_file.write_all(version.to_string().as_bytes())?;
 
     Ok(())
 }
