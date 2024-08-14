@@ -3294,8 +3294,6 @@ fn test_childkey_take_hotkey_pending_emission() {
 
         // Add stakes
         add_stake(parent_coldkey, parent_hotkey, stake);
-        add_stake(child1_coldkey, child1_hotkey, stake);
-        add_stake(child2_coldkey, child2_hotkey, stake);
 
         // Set 0 weights to avoid miner emission
         set_weights(netuid, parent_hotkey, vec![0, 0, 0]);
@@ -3306,10 +3304,8 @@ fn test_childkey_take_hotkey_pending_emission() {
         set_children(netuid, parent_coldkey, parent_hotkey, 
             vec![(u64::MAX - u64::MAX / 4, child1_hotkey), (u64::MAX / 4, child2_hotkey)]);
 
-        // Simulate subnet emission
-        PendingEmission::<Test>::insert(netuid, subnet_emission);
-
         // Set max childkey take for both children
+        pallet_subtensor::MaxChildkeyTake::<Test>::set(0xFFFF / 2);
         let max_take: u16 = SubtensorModule::get_max_childkey_take();
         assert_ok!(SubtensorModule::set_childkey_take(
             RuntimeOrigin::signed(child1_coldkey),
@@ -3323,6 +3319,16 @@ fn test_childkey_take_hotkey_pending_emission() {
             netuid,
             max_take
         ));
+
+        step_block(subnet_tempo*2);
+
+        // Clear pending emissions
+        pallet_subtensor::PendingdHotkeyEmission::<Test>::insert(&parent_hotkey, 0);
+        pallet_subtensor::PendingdHotkeyEmission::<Test>::insert(&child1_hotkey, 0);
+        pallet_subtensor::PendingdHotkeyEmission::<Test>::insert(&child2_hotkey, 0);
+
+        // Simulate subnet emission
+        PendingEmission::<Test>::insert(netuid, subnet_emission);
 
         step_block(subnet_tempo*2);
 
