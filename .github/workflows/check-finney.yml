@@ -2,7 +2,7 @@ name: Finney Deploy Check
 
 on:
   pull_request:
-    branches: [finney, main]
+    branches: [finney, main, devnet-ready]
 
 env:
   CARGO_TERM_COLOR: always
