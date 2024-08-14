@@ -1,7 +1,7 @@
 mod mock;
-use sp_core::Get;
 use crate::mock::*;
 use pallet_subtensor::*;
+use sp_core::Get;
 
 // 1. Test Zero Issuance
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_zero_issuance -- --exact --nocapture
@@ -170,7 +170,7 @@ fn test_underflow_handling() {
 fn test_division_by_zero_prevention() {
     new_test_ext(1).execute_with(|| {
         let total_supply = TotalSupply::<Test>::get();
-        
+
         // Test with issuance equal to total supply
         let result = SubtensorModule::get_block_emission_for_issuance(total_supply);
         assert!(result.is_ok());
@@ -193,7 +193,10 @@ fn test_emission_rate_decrease() {
 
         for i in (0..=10).map(|x| x * (total_supply / 10)) {
             let emission = SubtensorModule::get_block_emission_for_issuance(i).unwrap();
-            assert!(emission <= last_emission, "Emission should decrease or stay the same as issuance increases");
+            assert!(
+                emission <= last_emission,
+                "Emission should decrease or stay the same as issuance increases"
+            );
             last_emission = emission;
         }
     });
@@ -206,16 +209,23 @@ fn test_block_emission_storage_update() {
     new_test_ext(1).execute_with(|| {
         let initial_emission = BlockEmission::<Test>::get();
         let new_issuance = TotalSupply::<Test>::get() / 2;
-        
+
         // Call get_block_emission_for_issuance to trigger an update
         let _ = SubtensorModule::get_block_emission_for_issuance(new_issuance).unwrap();
-        
+
         let updated_emission = BlockEmission::<Test>::get();
-        assert_ne!(initial_emission, updated_emission, "BlockEmission should be updated");
-        
+        assert_ne!(
+            initial_emission, updated_emission,
+            "BlockEmission should be updated"
+        );
+
         // Call again with the same issuance to ensure no unnecessary updates
         let _ = SubtensorModule::get_block_emission_for_issuance(new_issuance).unwrap();
-        assert_eq!(updated_emission, BlockEmission::<Test>::get(), "BlockEmission should not change if emission hasn't changed");
+        assert_eq!(
+            updated_emission,
+            BlockEmission::<Test>::get(),
+            "BlockEmission should not change if emission hasn't changed"
+        );
     });
 }
 
@@ -226,9 +236,13 @@ fn test_emission_consistency() {
     new_test_ext(1).execute_with(|| {
         let emission_from_get = SubtensorModule::get_block_emission().unwrap();
         let total_issuance = SubtensorModule::get_total_issuance();
-        let emission_for_issuance = SubtensorModule::get_block_emission_for_issuance(total_issuance).unwrap();
-        
-        assert_eq!(emission_from_get, emission_for_issuance, "Emissions should be consistent between methods");
+        let emission_for_issuance =
+            SubtensorModule::get_block_emission_for_issuance(total_issuance).unwrap();
+
+        assert_eq!(
+            emission_from_get, emission_for_issuance,
+            "Emissions should be consistent between methods"
+        );
     });
 }
 
@@ -238,14 +252,20 @@ fn test_emission_consistency() {
 fn test_performance_large_issuance() {
     new_test_ext(1).execute_with(|| {
         let large_issuance = TotalSupply::<Test>::get() - 1_000_000_000;
-        
+
         let start = std::time::Instant::now();
         let emission = SubtensorModule::get_block_emission_for_issuance(large_issuance).unwrap();
         let duration = start.elapsed();
-        
+
         println!("Time taken for large issuance calculation: {:?}", duration);
-        assert!(duration < std::time::Duration::from_millis(10), "Calculation took too long");
-        assert!(emission > 0, "Emission should be non-zero for large issuance");
+        assert!(
+            duration < std::time::Duration::from_millis(10),
+            "Calculation took too long"
+        );
+        assert!(
+            emission > 0,
+            "Emission should be non-zero for large issuance"
+        );
     });
 }
 // 17. Test Performance with Small Issuance Values
@@ -254,14 +274,20 @@ fn test_performance_large_issuance() {
 fn test_performance_small_issuance() {
     new_test_ext(1).execute_with(|| {
         let small_issuance = 1000; // A small issuance value
-        
+
         let start = std::time::Instant::now();
         let emission = SubtensorModule::get_block_emission_for_issuance(small_issuance).unwrap();
         let duration = start.elapsed();
-        
+
         println!("Time taken for small issuance calculation: {:?}", duration);
-        assert!(duration < std::time::Duration::from_millis(10), "Calculation took too long");
-        assert!(emission > 0, "Emission should be non-zero for small issuance");
+        assert!(
+            duration < std::time::Duration::from_millis(10),
+            "Calculation took too long"
+        );
+        assert!(
+            emission > 0,
+            "Emission should be non-zero for small issuance"
+        );
     });
 }
 
@@ -277,9 +303,16 @@ fn test_emission_at_key_milestones() {
         for milestone in milestones {
             let issuance = (total_supply as f64 * milestone) as u64;
             let emission = SubtensorModule::get_block_emission_for_issuance(issuance).unwrap();
-            
-            println!("Emission at {}% of total supply: {}", milestone * 100.0, emission);
-            assert!(emission < last_emission, "Emission should decrease as issuance increases");
+
+            println!(
+                "Emission at {}% of total supply: {}",
+                milestone * 100.0,
+                emission
+            );
+            assert!(
+                emission < last_emission,
+                "Emission should decrease as issuance increases"
+            );
             last_emission = emission;
         }
     });
@@ -292,15 +325,27 @@ fn test_behavior_near_total_supply() {
     new_test_ext(1).execute_with(|| {
         let total_supply = TotalSupply::<Test>::get();
         let near_total_supply = total_supply - 1_000_000_000; // Very close to total supply
-        
-        let emission_near_limit = SubtensorModule::get_block_emission_for_issuance(near_total_supply).unwrap();
-        assert!(emission_near_limit > 0, "Emission should still be positive near total supply");
-        
-        let emission_at_limit = SubtensorModule::get_block_emission_for_issuance(total_supply).unwrap();
-        assert_eq!(emission_at_limit, 0, "Emission should be zero at total supply");
-        
-        let emission_over_limit = SubtensorModule::get_block_emission_for_issuance(total_supply + 1).unwrap();
-        assert_eq!(emission_over_limit, 0, "Emission should remain zero above total supply");
+
+        let emission_near_limit =
+            SubtensorModule::get_block_emission_for_issuance(near_total_supply).unwrap();
+        assert!(
+            emission_near_limit > 0,
+            "Emission should still be positive near total supply"
+        );
+
+        let emission_at_limit =
+            SubtensorModule::get_block_emission_for_issuance(total_supply).unwrap();
+        assert_eq!(
+            emission_at_limit, 0,
+            "Emission should be zero at total supply"
+        );
+
+        let emission_over_limit =
+            SubtensorModule::get_block_emission_for_issuance(total_supply + 1).unwrap();
+        assert_eq!(
+            emission_over_limit, 0,
+            "Emission should remain zero above total supply"
+        );
     });
 }
 // 20. Test with Maximum u64 Value as Issuance
@@ -310,7 +355,10 @@ fn test_maximum_u64_issuance() {
     new_test_ext(1).execute_with(|| {
         let max_issuance = u64::MAX;
         let emission = SubtensorModule::get_block_emission_for_issuance(max_issuance).unwrap();
-        assert_eq!(emission, 0, "Emission should be zero for maximum u64 issuance");
+        assert_eq!(
+            emission, 0,
+            "Emission should be zero for maximum u64 issuance"
+        );
     });
 }
 
@@ -321,7 +369,7 @@ fn test_extreme_residuals() {
     new_test_ext(1).execute_with(|| {
         let total_supply = TotalSupply::<Test>::get();
         let test_cases = vec![
-            1, // Very small issuance
+            1,                // Very small issuance
             total_supply / 2, // Half of total supply
             total_supply - 1, // Just below total supply
         ];
@@ -329,7 +377,10 @@ fn test_extreme_residuals() {
         for issuance in test_cases {
             let emission = SubtensorModule::get_block_emission_for_issuance(issuance).unwrap();
             println!("Issuance: {}, Emission: {}", issuance, emission);
-            assert!(emission <= DefaultBlockEmission::<Test>::get(), "Emission should not exceed DefaultBlockEmission");
+            assert!(
+                emission <= DefaultBlockEmission::<Test>::get(),
+                "Emission should not exceed DefaultBlockEmission"
+            );
         }
     });
 }
@@ -341,11 +392,15 @@ fn test_output_stability() {
     new_test_ext(1).execute_with(|| {
         let test_issuance = 1_000_000_000; // 1 billion
         let num_calls = 1000;
-        let first_emission = SubtensorModule::get_block_emission_for_issuance(test_issuance).unwrap();
+        let first_emission =
+            SubtensorModule::get_block_emission_for_issuance(test_issuance).unwrap();
 
         for _ in 0..num_calls {
             let emission = SubtensorModule::get_block_emission_for_issuance(test_issuance).unwrap();
-            assert_eq!(emission, first_emission, "Emission should be stable across multiple calls");
+            assert_eq!(
+                emission, first_emission,
+                "Emission should be stable across multiple calls"
+            );
         }
     });
 }
@@ -393,7 +448,11 @@ fn test_emission_calculation_time_complexity() {
             let duration = start.elapsed();
 
             println!("Issuance: {}, Calculation time: {:?}", issuance, duration);
-            assert!(duration.as_micros() < 1000, "Calculation took too long: {:?}", duration);
+            assert!(
+                duration.as_micros() < 1000,
+                "Calculation took too long: {:?}",
+                duration
+            );
         }
     });
 }
@@ -410,10 +469,16 @@ fn test_emission_values_across_issuance_range() {
         for issuance in (0..total_supply).step_by(step as usize) {
             let emission = SubtensorModule::get_block_emission_for_issuance(issuance).unwrap();
             println!("Issuance: {}, Emission: {}", issuance, emission);
-            
-            assert!(emission <= last_emission, "Emission should decrease or stay the same as issuance increases");
-            assert!(emission <= DefaultBlockEmission::<Test>::get(), "Emission should not exceed DefaultBlockEmission");
-            
+
+            assert!(
+                emission <= last_emission,
+                "Emission should decrease or stay the same as issuance increases"
+            );
+            assert!(
+                emission <= DefaultBlockEmission::<Test>::get(),
+                "Emission should not exceed DefaultBlockEmission"
+            );
+
             last_emission = emission;
         }
     });
@@ -432,19 +497,25 @@ fn test_consistency_of_emission_decrease_rate() {
 
         for issuance in (0..total_supply).step_by(step as usize) {
             let emission = SubtensorModule::get_block_emission_for_issuance(issuance).unwrap();
-            
+
             if last_emission != emission {
                 let decrease_rate = (last_emission - emission) as f64 / last_emission as f64;
-                
+
                 if last_decrease_rate != 0.0 {
                     let rate_change = (decrease_rate - last_decrease_rate).abs();
-                    println!("Issuance: {}, Emission: {}, Decrease rate: {}, Rate change: {}", issuance, emission, decrease_rate, rate_change);
-                    assert!(rate_change < 0.1, "Emission decrease rate should change smoothly");
+                    println!(
+                        "Issuance: {}, Emission: {}, Decrease rate: {}, Rate change: {}",
+                        issuance, emission, decrease_rate, rate_change
+                    );
+                    assert!(
+                        rate_change < 0.1,
+                        "Emission decrease rate should change smoothly"
+                    );
                 }
-                
+
                 last_decrease_rate = decrease_rate;
             }
-            
+
             last_emission = emission;
         }
     });
@@ -457,32 +528,49 @@ fn test_floating_point_precision_impact() {
     new_test_ext(1).execute_with(|| {
         let total_supply = TotalSupply::<Test>::get();
         let default_emission = DefaultBlockEmission::<Test>::get();
-        
+
         // Test with very small issuance values
         for i in 1..=10 {
             let issuance = i;
             let emission = SubtensorModule::get_block_emission_for_issuance(issuance).unwrap();
             println!("Small Issuance: {}, Emission: {}", issuance, emission);
-            assert!(emission <= default_emission, "Emission should not exceed default emission");
+            assert!(
+                emission <= default_emission,
+                "Emission should not exceed default emission"
+            );
         }
-        
+
         // Test with issuance values very close to total supply
         for i in 1..=10 {
             let issuance = total_supply.saturating_sub(i * 1_000_000_000);
             let emission = SubtensorModule::get_block_emission_for_issuance(issuance).unwrap();
             println!("Large Issuance: {}, Emission: {}", issuance, emission);
-            assert!(emission > 0, "Emission should be positive when issuance is below total supply");
+            assert!(
+                emission > 0,
+                "Emission should be positive when issuance is below total supply"
+            );
         }
-        
+
         // Test consistency of emission values for small changes in issuance
         let base_issuance = total_supply / 2;
-        let base_emission = SubtensorModule::get_block_emission_for_issuance(base_issuance).unwrap();
+        let base_emission =
+            SubtensorModule::get_block_emission_for_issuance(base_issuance).unwrap();
         for i in 1..=10 {
             let issuance = base_issuance + i;
             let emission = SubtensorModule::get_block_emission_for_issuance(issuance).unwrap();
-            let diff = if base_emission > emission { base_emission - emission } else { 0 };
-            println!("Issuance: {}, Emission: {}, Diff from base: {}", issuance, emission, diff);
-            assert!(diff <= 1, "Emission should not change by more than 1 for small issuance changes");
+            let diff = if base_emission > emission {
+                base_emission - emission
+            } else {
+                0
+            };
+            println!(
+                "Issuance: {}, Emission: {}, Diff from base: {}",
+                issuance, emission, diff
+            );
+            assert!(
+                diff <= 1,
+                "Emission should not change by more than 1 for small issuance changes"
+            );
         }
     });
 }

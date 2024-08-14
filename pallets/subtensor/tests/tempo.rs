@@ -123,7 +123,7 @@ fn test_calculate_subnet_tempos_many_subnets() {
 
         assert_eq!(result.len(), 100);
         for i in 0..99 {
-            assert!(result[i] >= result[i+1]);
+            assert!(result[i] >= result[i + 1]);
         }
         assert!(result[0] <= max_tempo && result[0] >= min_tempo);
         assert!(result[99] <= max_tempo && result[99] >= min_tempo);
@@ -251,8 +251,8 @@ fn test_calculate_subnet_tempos_extreme_tao_differences() {
         let result = SubtensorModule::calculate_tempos(k, tao, min_tempo, max_tempo);
 
         assert_eq!(result.len(), 4);
-        assert_eq!(result[0], max_tempo);    // Very low TAO should get max_tempo
-        assert_eq!(result[2], k);    // Very high TAO should get k
+        assert_eq!(result[0], max_tempo); // Very low TAO should get max_tempo
+        assert_eq!(result[2], k); // Very high TAO should get k
     });
 }
 // 13. test_calculate_subnet_tempos_average_tempo_zero
@@ -268,7 +268,9 @@ fn test_calculate_subnet_tempos_average_tempo_zero() {
 
         let result = SubtensorModule::calculate_tempos(k, tao, min_tempo, max_tempo);
         assert_eq!(result.len(), 3);
-        assert!(result.iter().all(|&tempo| tempo == k || tempo >= min_tempo && tempo <= max_tempo));
+        assert!(result
+            .iter()
+            .all(|&tempo| tempo == k || tempo >= min_tempo && tempo <= max_tempo));
     });
 }
 
@@ -302,7 +304,9 @@ fn test_calculate_subnet_tempos_min_tempo_zero() {
 
         let result = SubtensorModule::calculate_tempos(k, tao, min_tempo, max_tempo);
         assert_eq!(result.len(), 3);
-        assert!(result.iter().all(|&tempo| tempo >= min_tempo && tempo <= max_tempo));
+        assert!(result
+            .iter()
+            .all(|&tempo| tempo >= min_tempo && tempo <= max_tempo));
     });
 }
 
@@ -319,7 +323,9 @@ fn test_calculate_subnet_tempos_max_tempo_very_high() {
 
         let result = SubtensorModule::calculate_tempos(k, tao, min_tempo, max_tempo);
         assert_eq!(result.len(), 3);
-        assert!(result.iter().all(|&tempo| tempo >= min_tempo && tempo <= max_tempo));
+        assert!(result
+            .iter()
+            .all(|&tempo| tempo >= min_tempo && tempo <= max_tempo));
     });
 }
 
@@ -338,7 +344,6 @@ fn test_calculate_subnet_tempos_empty_subnet_list() {
         assert_eq!(result.len(), 0); // No subnets, so result should be empty
     });
 }
-
 
 // 18. test_calculate_subnet_tempos_empty_tao_list
 // Description: Test the behavior when an empty list of TAO values is provided
@@ -404,7 +409,9 @@ fn test_calculate_subnet_tempos_overflow_conditions() {
 
         let result = SubtensorModule::calculate_tempos(k, tao, min_tempo, max_tempo);
         assert_eq!(result.len(), 10);
-        assert!(result.iter().all(|&tempo| tempo >= min_tempo && tempo <= max_tempo));
+        assert!(result
+            .iter()
+            .all(|&tempo| tempo >= min_tempo && tempo <= max_tempo));
     });
 }
 
@@ -421,11 +428,11 @@ fn test_calculate_subnet_tempos_underflow_conditions() {
 
         let result = SubtensorModule::calculate_tempos(k, tao, min_tempo, max_tempo);
         assert_eq!(result.len(), 3);
-        assert!(result.iter().all(|&tempo| tempo >= min_tempo && tempo <= max_tempo));
+        assert!(result
+            .iter()
+            .all(|&tempo| tempo >= min_tempo && tempo <= max_tempo));
     });
 }
-
-
 
 // 23. test_calculate_subnet_tempos_rounding_errors
 // Description: Test the behavior of the function when dealing with potential rounding errors
@@ -440,7 +447,9 @@ fn test_calculate_subnet_tempos_rounding_errors() {
 
         let result = SubtensorModule::calculate_tempos(k, tao, min_tempo, max_tempo);
         assert_eq!(result.len(), 3);
-        assert!(result.iter().all(|&tempo| tempo >= min_tempo && tempo <= max_tempo));
+        assert!(result
+            .iter()
+            .all(|&tempo| tempo >= min_tempo && tempo <= max_tempo));
     });
 }
 
@@ -457,7 +466,9 @@ fn test_calculate_subnet_tempos_precision_loss() {
 
         let result = SubtensorModule::calculate_tempos(k, tao, min_tempo, max_tempo);
         assert_eq!(result.len(), 3);
-        assert!(result.iter().all(|&tempo| tempo >= min_tempo && tempo <= max_tempo));
+        assert!(result
+            .iter()
+            .all(|&tempo| tempo >= min_tempo && tempo <= max_tempo));
     });
 }
 
@@ -474,7 +485,9 @@ fn test_calculate_subnet_tempos_edge_case_tao_values() {
 
         let result = SubtensorModule::calculate_tempos(k, tao, min_tempo, max_tempo);
         assert_eq!(result.len(), 3);
-        assert!(result.iter().all(|&tempo| tempo >= min_tempo && tempo <= max_tempo));
+        assert!(result
+            .iter()
+            .all(|&tempo| tempo >= min_tempo && tempo <= max_tempo));
     });
 }
 
@@ -491,7 +504,9 @@ fn test_calculate_subnet_tempos_non_contiguous_subnet_ids() {
 
         let result = SubtensorModule::calculate_tempos(k, tao, min_tempo, max_tempo);
         assert_eq!(result.len(), 3);
-        assert!(result.iter().all(|&tempo| tempo >= min_tempo && tempo <= max_tempo));
+        assert!(result
+            .iter()
+            .all(|&tempo| tempo >= min_tempo && tempo <= max_tempo));
     });
 }
 
@@ -508,7 +523,9 @@ fn test_calculate_subnet_tempos_very_large_number_of_subnets() {
 
         let result = SubtensorModule::calculate_tempos(k, tao, min_tempo, max_tempo);
         assert_eq!(result.len(), 1000);
-        assert!(result.iter().all(|&tempo| tempo >= min_tempo && tempo <= max_tempo));
+        assert!(result
+            .iter()
+            .all(|&tempo| tempo >= min_tempo && tempo <= max_tempo));
     });
 }
 
@@ -525,7 +542,9 @@ fn test_calculate_subnet_tempos_min_max_tempo_very_close() {
 
         let result = SubtensorModule::calculate_tempos(k, tao, min_tempo, max_tempo);
         assert_eq!(result.len(), 3);
-        assert!(result.iter().all(|&tempo| tempo >= min_tempo && tempo <= max_tempo));
+        assert!(result
+            .iter()
+            .all(|&tempo| tempo >= min_tempo && tempo <= max_tempo));
     });
 }
 
@@ -573,17 +592,17 @@ fn test_adjust_tempos_with_valid_tao_values() {
         let netuid1 = 1;
         let netuid2 = 2;
         let netuid3 = 3;
-        add_network( netuid1, 0, 0 );
-        add_network( netuid2, 0, 0 );
-        add_network( netuid3, 0, 0 );
+        add_network(netuid1, 0, 0);
+        add_network(netuid2, 0, 0);
+        add_network(netuid3, 0, 0);
         AvgTempo::<Test>::put(100);
         SubnetTAO::<Test>::insert(netuid1, 100);
         SubnetTAO::<Test>::insert(netuid2, 200);
         SubnetTAO::<Test>::insert(netuid3, 300);
-        
+
         // Call adjust_tempos and verify the updated tempos
         SubtensorModule::adjust_tempos();
-        
+
         assert_eq!(Tempo::<Test>::get(netuid1), 600);
         assert_eq!(Tempo::<Test>::get(netuid2), 300);
         assert_eq!(Tempo::<Test>::get(netuid3), 200);
@@ -600,17 +619,17 @@ fn test_adjust_tempos_with_zero_tao_values() {
         let netuid1 = 1;
         let netuid2 = 2;
         let netuid3 = 3;
-        add_network( netuid1, 0, 0 );
-        add_network( netuid2, 0, 0 );
-        add_network( netuid3, 0, 0 );
+        add_network(netuid1, 0, 0);
+        add_network(netuid2, 0, 0);
+        add_network(netuid3, 0, 0);
         AvgTempo::<Test>::put(100);
         SubnetTAO::<Test>::insert(netuid1, 0);
         SubnetTAO::<Test>::insert(netuid2, 0);
         SubnetTAO::<Test>::insert(netuid3, 0);
-        
+
         // Call adjust_tempos and verify that all tempos are set to the average tempo
         SubtensorModule::adjust_tempos();
-        
+
         assert_eq!(Tempo::<Test>::get(netuid1), 100); // Assuming average tempo is 100
         assert_eq!(Tempo::<Test>::get(netuid2), 100);
         assert_eq!(Tempo::<Test>::get(netuid3), 100);
@@ -627,20 +646,20 @@ fn test_adjust_tempos_with_min_max_tempo_constraints() {
         let netuid1 = 1;
         let netuid2 = 2;
         let netuid3 = 3;
-        add_network( netuid1, 0, 0 );
-        add_network( netuid2, 0, 0 );
-        add_network( netuid3, 0, 0 );
+        add_network(netuid1, 0, 0);
+        add_network(netuid2, 0, 0);
+        add_network(netuid3, 0, 0);
         SubnetTAO::<Test>::insert(netuid1, 1);
         SubnetTAO::<Test>::insert(netuid2, 2000);
         SubnetTAO::<Test>::insert(netuid3, 3000);
-        
+
         // Set min and max tempos
         let min_tempo = 100;
         let max_tempo = 150;
         AvgTempo::<Test>::put(min_tempo);
         MaxTempo::<Test>::put(max_tempo);
         SubtensorModule::adjust_tempos();
-        
+
         assert_eq!(Tempo::<Test>::get(netuid1), max_tempo);
         assert_eq!(Tempo::<Test>::get(netuid2), max_tempo);
         assert_eq!(Tempo::<Test>::get(netuid3), max_tempo);
@@ -669,15 +688,13 @@ fn test_adjust_tempos_with_single_subnet() {
     new_test_ext(1).execute_with(|| {
         // Setup initial state with a single subnet
         let netuid = 1;
-        add_network( netuid, 0, 0 );
+        add_network(netuid, 0, 0);
         SubnetTAO::<Test>::insert(netuid, 100);
-        
+
         // Call adjust_tempos and verify that the tempo is updated correctly
         AvgTempo::<Test>::put(100);
         SubtensorModule::adjust_tempos();
-        
+
         assert_eq!(Tempo::<Test>::get(netuid), 100); // Assuming the calculation gives 100
     });
 }
-
-

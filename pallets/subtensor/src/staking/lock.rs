@@ -49,7 +49,11 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `u64` - The amount of locked stake. Returns the first element of the lock tuple,
     ///           which represents the locked amount.
-    pub fn get_locked_for_hotkey_and_coldkey_on_subnet( hotkey: &T::AccountId, coldkey: &T::AccountId, netuid: u16 ) -> u64 {
+    pub fn get_locked_for_hotkey_and_coldkey_on_subnet(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        netuid: u16,
+    ) -> u64 {
         Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone())).0
     }
 
@@ -67,7 +71,11 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     ///
     /// * `u64` - The conviction score calculated from the locked stake.
-    pub fn get_conviction_for_hotkey_and_coldkey_on_subnet(hotkey: &T::AccountId, coldkey: &T::AccountId, netuid: u16) -> u64 {
+    pub fn get_conviction_for_hotkey_and_coldkey_on_subnet(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        netuid: u16,
+    ) -> u64 {
         let (locked, _, end) = Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone()));
         let conviction = Self::calculate_conviction(locked, end, Self::get_current_block_as_u64());
         conviction
@@ -279,7 +287,6 @@ impl<T: Config> Pallet<T> {
     /// * Adds the distributed share to each hotkey's balance.
     /// * Emits an `OwnerPaymentDistributed` event for each distribution.
     pub fn distribute_owner_cut(netuid: u16, amount: u64) -> u64 {
-
         // Get the current block number
         let current_block = Self::get_current_block_as_u64();
 
@@ -349,12 +356,18 @@ impl<T: Config> Pallet<T> {
     /// # Effects
     /// - If a lock already exists for the hotkey and coldkey, it increases the lock amount.
     /// - If no lock exists, it creates a new lock with the specified amount.
-    pub fn increase_lock_by_amount(netuid: u16, hotkey: &T::AccountId, coldkey: &T::AccountId, amount: u64) {
+    pub fn increase_lock_by_amount(
+        netuid: u16,
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        amount: u64,
+    ) {
         // Check if the lock exists for the given hotkey and coldkey
         let current_block = Self::get_current_block_as_u64();
         if Locks::<T>::contains_key((netuid, hotkey.clone(), coldkey.clone())) {
             // Retrieve the current lock details
-            let (current_lock, start_block, end_block) = Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone()));
+            let (current_lock, start_block, end_block) =
+                Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone()));
             // Calculate the new lock amount by adding the specified amount
             let new_lock = current_lock.saturating_add(amount);
             // Update the lock with the new amount
@@ -366,7 +379,11 @@ impl<T: Config> Pallet<T> {
             // If the lock does not exist, create a new lock with the specified amount
             Locks::<T>::insert(
                 (netuid, hotkey.clone(), coldkey.clone()),
-                (amount, current_block, current_block + Self::get_lock_interval_blocks()),
+                (
+                    amount,
+                    current_block,
+                    current_block + Self::get_lock_interval_blocks(),
+                ),
             );
         }
     }
@@ -513,10 +530,10 @@ impl<T: Config> Pallet<T> {
     pub fn calculate_conviction(lock_amount: u64, end_block: u64, current_block: u64) -> u64 {
         let lock_duration = end_block.saturating_sub(current_block);
         let lock_interval_blocks = Self::get_lock_interval_blocks();
-        let time_factor = -I96F32::from_num(lock_duration)
-            .saturating_div(I96F32::from_num(lock_interval_blocks));
+        let time_factor =
+            -I96F32::from_num(lock_duration).saturating_div(I96F32::from_num(lock_interval_blocks));
         let exp_term = I96F32::from_num(1) - exp_safe_f96(I96F32::from_num(time_factor));
-        let conviction_score = I96F32::from_num(lock_amount).saturating_mul(exp_term);        
+        let conviction_score = I96F32::from_num(lock_amount).saturating_mul(exp_term);
         let final_score = conviction_score.to_num::<u64>();
         final_score
     }

@@ -1006,7 +1006,10 @@ fn test_swap_coldkey_locks() {
         let end_block = 200;
 
         // Set up initial locks
-        Locks::<Test>::insert((netuid, hotkey, old_coldkey), (lock_amount, start_block, end_block));
+        Locks::<Test>::insert(
+            (netuid, hotkey, old_coldkey),
+            (lock_amount, start_block, end_block),
+        );
 
         // Ensure the old coldkey has enough balance for the swap
         SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 100_000_000_000);
@@ -1028,4 +1031,3 @@ fn test_swap_coldkey_locks() {
         assert!(!Locks::<Test>::contains_key((netuid, hotkey, old_coldkey)));
     });
 }
-

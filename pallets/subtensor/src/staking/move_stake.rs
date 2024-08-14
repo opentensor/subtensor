@@ -35,8 +35,14 @@ impl<T: Config> Pallet<T> {
         let coldkey = ensure_signed(origin)?;
 
         // --- 2. Check that the subnet exists.
-        ensure!(Self::if_subnet_exist(origin_netuid), Error::<T>::SubnetNotExists);
-        ensure!(Self::if_subnet_exist(destination_netuid), Error::<T>::SubnetNotExists);
+        ensure!(
+            Self::if_subnet_exist(origin_netuid),
+            Error::<T>::SubnetNotExists
+        );
+        ensure!(
+            Self::if_subnet_exist(destination_netuid),
+            Error::<T>::SubnetNotExists
+        );
 
         // --- 3. Check that the origin_hotkey exists.
         ensure!(
@@ -53,22 +59,43 @@ impl<T: Config> Pallet<T> {
         // -- 5. Ensure we are not moving locked funds across subnets.
         if origin_netuid != destination_netuid {
             // You cannot move locked funds across subnets.
-            ensure!( !Locks::<T>::contains_key((origin_netuid, origin_hotkey.clone(), coldkey.clone())), Error::<T>::NotEnoughStakeToWithdraw );
-        } 
+            ensure!(
+                !Locks::<T>::contains_key((origin_netuid, origin_hotkey.clone(), coldkey.clone())),
+                Error::<T>::NotEnoughStakeToWithdraw
+            );
+        }
 
         // --- 6. Get the current alpha stake for the origin hotkey-coldkey pair in the origin subnet
         let origin_alpha = Alpha::<T>::get((origin_hotkey.clone(), coldkey.clone(), origin_netuid));
 
         // --- 7. Unstake the full amount of alpha from the origin subnet, converting it to TAO
-        let origin_tao = Self::unstake_from_subnet(&origin_hotkey.clone(), &coldkey.clone(), origin_netuid, origin_alpha);
- 
+        let origin_tao = Self::unstake_from_subnet(
+            &origin_hotkey.clone(),
+            &coldkey.clone(),
+            origin_netuid,
+            origin_alpha,
+        );
+
         // --- 8. Stake the resulting TAO into the destination subnet for the destination hotkey
-        Self::stake_into_subnet(&destination_hotkey.clone(), &coldkey.clone(), destination_netuid, origin_tao);
+        Self::stake_into_subnet(
+            &destination_hotkey.clone(),
+            &coldkey.clone(),
+            destination_netuid,
+            origin_tao,
+        );
 
         // --- 9. Swap the locks.
         if Locks::<T>::contains_key((origin_netuid, origin_hotkey.clone(), coldkey.clone())) {
-            let lock_data = Locks::<T>::take((origin_netuid, origin_hotkey.clone(), coldkey.clone()));
-            Locks::<T>::insert((destination_netuid, destination_hotkey.clone(), coldkey.clone()), lock_data);
+            let lock_data =
+                Locks::<T>::take((origin_netuid, origin_hotkey.clone(), coldkey.clone()));
+            Locks::<T>::insert(
+                (
+                    destination_netuid,
+                    destination_hotkey.clone(),
+                    coldkey.clone(),
+                ),
+                lock_data,
+            );
         }
 
         // --- 10. Log the event.
@@ -80,7 +107,13 @@ impl<T: Config> Pallet<T> {
             destination_hotkey.clone(),
             destination_netuid
         );
-        Self::deposit_event(Event::StakeMoved(coldkey, origin_hotkey, origin_netuid, destination_hotkey, destination_netuid));
+        Self::deposit_event(Event::StakeMoved(
+            coldkey,
+            origin_hotkey,
+            origin_netuid,
+            destination_hotkey,
+            destination_netuid,
+        ));
 
         // -- 11. Ok and return.
         Ok(())

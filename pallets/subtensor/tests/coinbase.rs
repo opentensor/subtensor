@@ -1,8 +1,8 @@
 #![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
 use crate::mock::*;
 mod mock;
-use sp_core::Get;
 use pallet_subtensor::*;
+use sp_core::Get;
 // use frame_support::{assert_err, assert_ok};
 use sp_core::U256;
 
@@ -42,7 +42,6 @@ fn test_hotkey_drain_time() {
         assert!(SubtensorModule::should_drain_hotkey(&U256::from(7), 1, 1));
     });
 }
-
 
 // Test getting and setting hotkey emission tempo
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test coinbase test_set_and_get_hotkey_emission_tempo -- --nocapture
@@ -100,10 +99,16 @@ fn test_run_coinbase_single_subnet() {
         SubtensorModule::run_coinbase();
 
         // Check that emissions were distributed correctly
-        assert_eq!(SubtensorModule::get_total_issuance(), initial_issuance + block_emission);
+        assert_eq!(
+            SubtensorModule::get_total_issuance(),
+            initial_issuance + block_emission
+        );
         assert_eq!(EmissionValues::<Test>::get(netuid), block_emission);
         assert_eq!(PendingEmission::<Test>::get(netuid), block_emission);
-        assert_eq!(SubnetTAO::<Test>::get(netuid), block_emission + initial_issuance);
+        assert_eq!(
+            SubnetTAO::<Test>::get(netuid),
+            block_emission + initial_issuance
+        );
     });
 }
 
@@ -133,13 +138,24 @@ fn test_run_coinbase_multiple_subnets() {
         let total_emitted: u64 = EmissionValues::<Test>::iter().map(|(_, value)| value).sum();
 
         // Check that emissions were distributed correctly
-        assert_eq!(SubtensorModule::get_total_issuance(), initial_issuance + total_emitted);
+        assert_eq!(
+            SubtensorModule::get_total_issuance(),
+            initial_issuance + total_emitted
+        );
 
         for netuid in &netuids {
-            assert!((EmissionValues::<Test>::get(netuid) as i64 - subnet_emission as i64).abs() <= 1000);
-            assert!((PendingEmission::<Test>::get(netuid) as i64 - subnet_emission as i64).abs() <= 1000);
             assert!(
-                (SubnetTAO::<Test>::get(netuid) as i64 - (subnet_emission + initial_issuance / netuids.len() as u64) as i64).abs() <= 1000,
+                (EmissionValues::<Test>::get(netuid) as i64 - subnet_emission as i64).abs() <= 1000
+            );
+            assert!(
+                (PendingEmission::<Test>::get(netuid) as i64 - subnet_emission as i64).abs()
+                    <= 1000
+            );
+            assert!(
+                (SubnetTAO::<Test>::get(netuid) as i64
+                    - (subnet_emission + initial_issuance / netuids.len() as u64) as i64)
+                    .abs()
+                    <= 1000,
                 "SubnetTAO value is not within the expected range"
             );
         }
@@ -171,7 +187,6 @@ fn test_run_coinbase_zero_emission() {
     });
 }
 
-
 // Test run_coinbase with different subnet mechanisms
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test coinbase test_run_coinbase_different_mechanisms -- --exact --nocapture
 #[test]
@@ -199,21 +214,44 @@ fn test_run_coinbase_different_mechanisms() {
 
         // Check that emissions were distributed correctly
         let total_emitted: u64 = EmissionValues::<Test>::iter().map(|(_, value)| value).sum();
-        assert!(total_emitted > 0, "Total emitted should be greater than zero");
+        assert!(
+            total_emitted > 0,
+            "Total emitted should be greater than zero"
+        );
 
         // Check subnet-specific behavior
         let emission1 = EmissionValues::<Test>::get(netuid1);
         let emission2 = EmissionValues::<Test>::get(netuid2);
 
         // For stable mechanism (netuid1)
-        assert_eq!(PendingEmission::<Test>::get(netuid1), emission1, "Pending emission should equal emission for stable mechanism");
-        assert_eq!(SubnetAlphaIn::<Test>::get(netuid1), 0, "SubnetAlphaIn should be zero for stable mechanism");
+        assert_eq!(
+            PendingEmission::<Test>::get(netuid1),
+            emission1,
+            "Pending emission should equal emission for stable mechanism"
+        );
+        assert_eq!(
+            SubnetAlphaIn::<Test>::get(netuid1),
+            0,
+            "SubnetAlphaIn should be zero for stable mechanism"
+        );
 
         // For dynamic mechanism (netuid2)
-        assert_eq!(PendingEmission::<Test>::get(netuid2), block_emission, "Pending emission should be equal to mechanism emission for dynamic mechanism");
-        assert_eq!(SubnetAlphaIn::<Test>::get(netuid2), block_emission, "SubnetAlphaIn should equal to mechanism emission for dynamic mechanism");
+        assert_eq!(
+            PendingEmission::<Test>::get(netuid2),
+            block_emission,
+            "Pending emission should be equal to mechanism emission for dynamic mechanism"
+        );
+        assert_eq!(
+            SubnetAlphaIn::<Test>::get(netuid2),
+            block_emission,
+            "SubnetAlphaIn should equal to mechanism emission for dynamic mechanism"
+        );
 
         // Check total issuance
-        assert_eq!(SubtensorModule::get_total_issuance(), initial_issuance + total_emitted, "Total issuance should increase by total emitted");
+        assert_eq!(
+            SubtensorModule::get_total_issuance(),
+            initial_issuance + total_emitted,
+            "Total issuance should increase by total emitted"
+        );
     });
 }

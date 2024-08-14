@@ -1080,7 +1080,10 @@ fn test_swap_hotkey_locks() {
         let lock_amount = 1000;
         let start_block = 100;
         let end_block = 200;
-        Locks::<Test>::insert((netuid, old_hotkey, coldkey), (lock_amount, start_block, end_block));
+        Locks::<Test>::insert(
+            (netuid, old_hotkey, coldkey),
+            (lock_amount, start_block, end_block),
+        );
 
         // Perform the swap
         assert_ok!(SubtensorModule::perform_hotkey_swap(
@@ -1101,4 +1104,3 @@ fn test_swap_hotkey_locks() {
         assert!(!Locks::<Test>::contains_key((netuid, old_hotkey, coldkey)));
     });
 }
-

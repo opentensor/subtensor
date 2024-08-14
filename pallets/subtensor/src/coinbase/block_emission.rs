@@ -32,19 +32,27 @@ impl<T: Config> Pallet<T> {
         }
 
         // Calculate half of the total supply (10.5 billion * 10^6)
-        let half_total_supply = I96F32::from_num(2.0).saturating_mul(I96F32::from_num(10_500_000_000_000_000.0));
+        let half_total_supply =
+            I96F32::from_num(2.0).saturating_mul(I96F32::from_num(10_500_000_000_000_000.0));
 
         // Calculate the ratio of total issuance to half of the total supply
-        let division_result = total_issuance.checked_div(half_total_supply).ok_or("Division failed")?;
+        let division_result = total_issuance
+            .checked_div(half_total_supply)
+            .ok_or("Division failed")?;
 
         // Calculate 1 minus the division result
-        let subtraction_result = I96F32::from_num(1.0).checked_sub(division_result).ok_or("Subtraction failed")?;
+        let subtraction_result = I96F32::from_num(1.0)
+            .checked_sub(division_result)
+            .ok_or("Subtraction failed")?;
 
         // Calculate the reciprocal of the subtraction result
-        let division_result_2 = I96F32::from_num(1.0).checked_div(subtraction_result).ok_or("Division failed")?;
+        let division_result_2 = I96F32::from_num(1.0)
+            .checked_div(subtraction_result)
+            .ok_or("Division failed")?;
 
         // Calculate the logarithm base 2 of the reciprocal
-        let residual: I96F32 = log2(division_result_2).map_err(|_| "Logarithm calculation failed")?;
+        let residual: I96F32 =
+            log2(division_result_2).map_err(|_| "Logarithm calculation failed")?;
 
         // Floor the residual to smooth out the emission rate
         let floored_residual: I96F32 = residual.floor();
