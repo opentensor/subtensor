@@ -7,6 +7,7 @@ use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::Saturating;
 use substrate_fixed::types::I32F32;
+use substrate_fixed::types::I96F32;
 
 /// Enum representing different types of transactions
 #[derive(Copy, Clone)]
@@ -615,6 +616,9 @@ impl<T: Config> Pallet<T> {
     }
     pub fn get_subnet_owner_cut() -> u16 {
         SubnetOwnerCut::<T>::get()
+    }
+    pub fn get_float_subnet_owner_cut() -> I96F32 {
+        I96F32::from_num(SubnetOwnerCut::<T>::get()) / I96F32::from_num(u16::MAX)
     }
     pub fn set_subnet_owner_cut(subnet_owner_cut: u16) {
         SubnetOwnerCut::<T>::set(subnet_owner_cut);
