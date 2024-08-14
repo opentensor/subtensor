@@ -116,6 +116,10 @@ fn raonet_genesis(
         (
             <AccountId32 as Ss58Codec>::from_ss58check("5HDpGZLNYSxHGWVhsPgKRDKVM6oob7MMnwxdpU8dBP7N51dX").unwrap(), // Michal
             100_000_000_000u128,
+        ),
+        (
+            <AccountId32 as Ss58Codec>::from_ss58check("5GH3haJWuJjcZWuC7iFGtaVajJNEpNg2Guaqyf71y9uDfFrt").unwrap(), // Isa
+            100_000_000_000u128,
         )
     ];
 
