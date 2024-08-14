@@ -176,5 +176,8 @@ mod config {
         /// Initial hotkey emission tempo.
         #[pallet::constant]
         type InitialHotkeyEmissionTempo: Get<u64>;
+        /// Initial global weight.
+        #[pallet::constant]
+        type InitialGlobalWeight: Get<u64>;
     }
 }

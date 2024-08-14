@@ -68,7 +68,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `u64` - The conviction score calculated from the locked stake.
     pub fn get_conviction_for_hotkey_and_coldkey_on_subnet(hotkey: &T::AccountId, coldkey: &T::AccountId, netuid: u16) -> u64 {
-        let (locked, start, end) = Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone()));
+        let (locked, _, end) = Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone()));
         let conviction = Self::calculate_conviction(locked, end, Self::get_current_block_as_u64());
         conviction
     }

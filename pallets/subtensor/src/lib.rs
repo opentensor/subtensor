@@ -484,6 +484,11 @@ pub mod pallet {
     pub fn DefaultMaxU16<T: Config>() -> u16 {
         u16::MAX
     }
+    #[pallet::type_value]
+    /// Default value for global weight.
+    pub fn DefaultGlobalWeight<T: Config>() -> u64 {
+        T::InitialGlobalWeight::get()
+    }
 
     #[pallet::storage]
     pub type SenateRequiredStakePercentage<T> =
@@ -586,7 +591,7 @@ pub mod pallet {
     /// ==== Staking Variables ====
     /// ============================
     #[pallet::storage] // --- ITEM ( global_weight )
-    pub type GlobalWeight<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
+    pub type GlobalWeight<T> = StorageValue<_, u64, ValueQuery, DefaultGlobalWeight<T>>;
     #[pallet::storage] // --- ITEM ( default_take )
     pub type MaxTake<T> = StorageValue<_, u16, ValueQuery, DefaultDefaultTake<T>>;
     #[pallet::storage] // --- ITEM ( min_take )

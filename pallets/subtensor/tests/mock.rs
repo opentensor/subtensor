@@ -170,6 +170,7 @@ parameter_types! {
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const InitialHotkeyEmissionTempo: u64 = 0; // Defaults to draining every block.
     pub const InitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500,000 TAO
+    pub const InitialGlobalWeight: u64 = 0; // zero global weight.
 
 }
 
@@ -387,6 +388,7 @@ impl pallet_subtensor::Config for Test {
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     type InitialHotkeyEmissionTempo = InitialHotkeyEmissionTempo;
     type InitialNetworkMaxStake = InitialNetworkMaxStake;
+    type InitialGlobalWeight = InitialGlobalWeight;
 }
 
 impl pallet_utility::Config for Test {

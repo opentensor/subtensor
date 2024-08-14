@@ -116,6 +116,7 @@ parameter_types! {
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const InitialHotkeyEmissionTempo: u64 = 1;
     pub const InitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
+    pub const InitialGlobalWeight: u64 = u64::MAX/2; // 50% global weight.
 }
 
 impl pallet_subtensor::Config for Test {
@@ -173,6 +174,7 @@ impl pallet_subtensor::Config for Test {
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     type InitialHotkeyEmissionTempo = InitialHotkeyEmissionTempo;
     type InitialNetworkMaxStake = InitialNetworkMaxStake;
+    type InitialGlobalWeight = InitialGlobalWeight;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
