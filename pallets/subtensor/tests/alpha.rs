@@ -64,17 +64,17 @@ fn test_stake_into_subnet_dynamic_mechanism() {
             "Total stake not updated correctly"
         );
         assert_eq!(
-            Stake::<Test>::get(&hotkey, &coldkey),
+            Stake::<Test>::get(hotkey, coldkey),
             tao_to_stake,
             "Stake for hotkey-coldkey pair not updated correctly"
         );
         assert_eq!(
-            TotalHotkeyAlpha::<Test>::get(&hotkey, netuid),
+            TotalHotkeyAlpha::<Test>::get(hotkey, netuid),
             expected_alpha_staked_u64,
             "Total hotkey alpha not updated correctly"
         );
         assert_eq!(
-            TotalColdkeyAlpha::<Test>::get(&coldkey, netuid),
+            TotalColdkeyAlpha::<Test>::get(coldkey, netuid),
             expected_alpha_staked_u64,
             "Total coldkey alpha not updated correctly"
         );
@@ -85,7 +85,7 @@ fn test_stake_into_subnet_dynamic_mechanism() {
         );
 
         // Check StakingHotkeys update
-        let staking_hotkeys = StakingHotkeys::<Test>::get(&coldkey);
+        let staking_hotkeys = StakingHotkeys::<Test>::get(coldkey);
         assert!(
             staking_hotkeys.contains(&hotkey),
             "StakingHotkeys not updated correctly"
@@ -147,17 +147,17 @@ fn test_stake_into_subnet_stable_mechanism() {
             "Total stake not updated correctly"
         );
         assert_eq!(
-            Stake::<Test>::get(&hotkey, &coldkey),
+            Stake::<Test>::get(hotkey, coldkey),
             tao_to_stake,
             "Stake for hotkey-coldkey pair not updated correctly"
         );
         assert_eq!(
-            TotalHotkeyAlpha::<Test>::get(&hotkey, netuid),
+            TotalHotkeyAlpha::<Test>::get(hotkey, netuid),
             alpha_staked,
             "Total hotkey alpha not updated correctly"
         );
         assert_eq!(
-            TotalColdkeyAlpha::<Test>::get(&coldkey, netuid),
+            TotalColdkeyAlpha::<Test>::get(coldkey, netuid),
             alpha_staked,
             "Total coldkey alpha not updated correctly"
         );
@@ -168,7 +168,7 @@ fn test_stake_into_subnet_stable_mechanism() {
         );
 
         // Check StakingHotkeys update
-        let staking_hotkeys = StakingHotkeys::<Test>::get(&coldkey);
+        let staking_hotkeys = StakingHotkeys::<Test>::get(coldkey);
         assert!(
             staking_hotkeys.contains(&hotkey),
             "StakingHotkeys not updated correctly"
@@ -205,11 +205,11 @@ fn test_stake_into_subnet_zero_amount() {
 
         // Record initial values
         let initial_total_stake = TotalStake::<Test>::get();
-        let initial_stake = Stake::<Test>::get(&hotkey, &coldkey);
-        let initial_total_hotkey_alpha = TotalHotkeyAlpha::<Test>::get(&hotkey, netuid);
-        let initial_total_coldkey_alpha = TotalColdkeyAlpha::<Test>::get(&coldkey, netuid);
+        let initial_stake = Stake::<Test>::get(hotkey, coldkey);
+        let initial_total_hotkey_alpha = TotalHotkeyAlpha::<Test>::get(hotkey, netuid);
+        let initial_total_coldkey_alpha = TotalColdkeyAlpha::<Test>::get(coldkey, netuid);
         let initial_alpha = Alpha::<Test>::get((&hotkey, &coldkey, netuid));
-        let _initial_staking_hotkeys = StakingHotkeys::<Test>::get(&coldkey);
+        let _initial_staking_hotkeys = StakingHotkeys::<Test>::get(coldkey);
 
         // Perform staking
         let alpha_staked =
@@ -243,17 +243,17 @@ fn test_stake_into_subnet_zero_amount() {
             "Total stake should not change"
         );
         assert_eq!(
-            Stake::<Test>::get(&hotkey, &coldkey),
+            Stake::<Test>::get(hotkey, coldkey),
             initial_stake,
             "Stake for hotkey-coldkey pair should not change"
         );
         assert_eq!(
-            TotalHotkeyAlpha::<Test>::get(&hotkey, netuid),
+            TotalHotkeyAlpha::<Test>::get(hotkey, netuid),
             initial_total_hotkey_alpha,
             "Total hotkey alpha should not change"
         );
         assert_eq!(
-            TotalColdkeyAlpha::<Test>::get(&coldkey, netuid),
+            TotalColdkeyAlpha::<Test>::get(coldkey, netuid),
             initial_total_coldkey_alpha,
             "Total coldkey alpha should not change"
         );
@@ -264,7 +264,7 @@ fn test_stake_into_subnet_zero_amount() {
         );
         // This changes because we created a new connection.
         assert_eq!(
-            StakingHotkeys::<Test>::get(&coldkey),
+            StakingHotkeys::<Test>::get(coldkey),
             [hotkey],
             "StakingHotkeys should include the hotkey"
         );
@@ -292,9 +292,9 @@ fn test_stake_into_subnet_max_amount() {
 
         // Record initial values
         let initial_total_stake = TotalStake::<Test>::get();
-        let initial_stake = Stake::<Test>::get(&hotkey, &coldkey);
-        let initial_total_hotkey_alpha = TotalHotkeyAlpha::<Test>::get(&hotkey, netuid);
-        let initial_total_coldkey_alpha = TotalColdkeyAlpha::<Test>::get(&coldkey, netuid);
+        let initial_stake = Stake::<Test>::get(hotkey, coldkey);
+        let initial_total_hotkey_alpha = TotalHotkeyAlpha::<Test>::get(hotkey, netuid);
+        let initial_total_coldkey_alpha = TotalColdkeyAlpha::<Test>::get(coldkey, netuid);
         let initial_alpha = Alpha::<Test>::get((&hotkey, &coldkey, netuid));
 
         // Perform staking with maximum amount
@@ -328,17 +328,17 @@ fn test_stake_into_subnet_max_amount() {
             "Total stake should increase by max_tao"
         );
         assert_eq!(
-            Stake::<Test>::get(&hotkey, &coldkey),
+            Stake::<Test>::get(hotkey, coldkey),
             initial_stake.saturating_add(max_tao),
             "Stake for hotkey-coldkey pair should increase by max_tao"
         );
         assert_eq!(
-            TotalHotkeyAlpha::<Test>::get(&hotkey, netuid),
+            TotalHotkeyAlpha::<Test>::get(hotkey, netuid),
             initial_total_hotkey_alpha.saturating_add(max_tao),
             "Total hotkey alpha should increase by max_tao"
         );
         assert_eq!(
-            TotalColdkeyAlpha::<Test>::get(&coldkey, netuid),
+            TotalColdkeyAlpha::<Test>::get(coldkey, netuid),
             initial_total_coldkey_alpha.saturating_add(max_tao),
             "Total coldkey alpha should increase by max_tao"
         );
@@ -349,7 +349,7 @@ fn test_stake_into_subnet_max_amount() {
         );
 
         // Verify StakingHotkeys is updated
-        let staking_hotkeys = StakingHotkeys::<Test>::get(&coldkey);
+        let staking_hotkeys = StakingHotkeys::<Test>::get(coldkey);
         assert!(
             staking_hotkeys.contains(&hotkey),
             "StakingHotkeys should contain the hotkey"
@@ -378,9 +378,9 @@ fn test_stake_into_subnet_multiple_stakes() {
 
         // Record initial values
         let initial_total_stake = TotalStake::<Test>::get();
-        let initial_stake = Stake::<Test>::get(&hotkey, &coldkey);
-        let initial_total_hotkey_alpha = TotalHotkeyAlpha::<Test>::get(&hotkey, netuid);
-        let initial_total_coldkey_alpha = TotalColdkeyAlpha::<Test>::get(&coldkey, netuid);
+        let initial_stake = Stake::<Test>::get(hotkey, coldkey);
+        let initial_total_hotkey_alpha = TotalHotkeyAlpha::<Test>::get(hotkey, netuid);
+        let initial_total_coldkey_alpha = TotalColdkeyAlpha::<Test>::get(coldkey, netuid);
         let initial_alpha = Alpha::<Test>::get((&hotkey, &coldkey, netuid));
 
         // Perform multiple stakes
@@ -415,17 +415,17 @@ fn test_stake_into_subnet_multiple_stakes() {
             "Total stake should increase by total staked amount"
         );
         assert_eq!(
-            Stake::<Test>::get(&hotkey, &coldkey),
+            Stake::<Test>::get(hotkey, coldkey),
             initial_stake + (stake_amount * num_stakes as u64),
             "Stake for hotkey-coldkey pair should increase by total staked amount"
         );
         assert_eq!(
-            TotalHotkeyAlpha::<Test>::get(&hotkey, netuid),
+            TotalHotkeyAlpha::<Test>::get(hotkey, netuid),
             initial_total_hotkey_alpha + total_alpha_staked,
             "Total hotkey alpha should increase by total alpha staked"
         );
         assert_eq!(
-            TotalColdkeyAlpha::<Test>::get(&coldkey, netuid),
+            TotalColdkeyAlpha::<Test>::get(coldkey, netuid),
             initial_total_coldkey_alpha + total_alpha_staked,
             "Total coldkey alpha should increase by total alpha staked"
         );
@@ -436,7 +436,7 @@ fn test_stake_into_subnet_multiple_stakes() {
         );
 
         // Verify StakingHotkeys is updated
-        let staking_hotkeys = StakingHotkeys::<Test>::get(&coldkey);
+        let staking_hotkeys = StakingHotkeys::<Test>::get(coldkey);
         assert!(
             staking_hotkeys.contains(&hotkey),
             "StakingHotkeys should contain the hotkey"
@@ -540,33 +540,33 @@ fn test_stake_into_subnet_different_subnets() {
             "Total stake should increase by total staked amount across both subnets"
         );
         assert_eq!(
-            Stake::<Test>::get(&hotkey, &coldkey),
+            Stake::<Test>::get(hotkey, coldkey),
             stake_amount * 2,
             "Stake for hotkey-coldkey pair should increase by total staked amount"
         );
         assert_eq!(
-            TotalHotkeyAlpha::<Test>::get(&hotkey, netuid1),
+            TotalHotkeyAlpha::<Test>::get(hotkey, netuid1),
             alpha_staked1,
             "Total hotkey alpha for subnet 1 should match alpha staked in subnet 1"
         );
         assert_eq!(
-            TotalHotkeyAlpha::<Test>::get(&hotkey, netuid2),
+            TotalHotkeyAlpha::<Test>::get(hotkey, netuid2),
             alpha_staked2,
             "Total hotkey alpha for subnet 2 should match alpha staked in subnet 2"
         );
         assert_eq!(
-            TotalColdkeyAlpha::<Test>::get(&coldkey, netuid1),
+            TotalColdkeyAlpha::<Test>::get(coldkey, netuid1),
             alpha_staked1,
             "Total coldkey alpha for subnet 1 should match alpha staked in subnet 1"
         );
         assert_eq!(
-            TotalColdkeyAlpha::<Test>::get(&coldkey, netuid2),
+            TotalColdkeyAlpha::<Test>::get(coldkey, netuid2),
             alpha_staked2,
             "Total coldkey alpha for subnet 2 should match alpha staked in subnet 2"
         );
 
         // Verify StakingHotkeys is updated
-        let staking_hotkeys = StakingHotkeys::<Test>::get(&coldkey);
+        let staking_hotkeys = StakingHotkeys::<Test>::get(coldkey);
         assert!(
             staking_hotkeys.contains(&hotkey),
             "StakingHotkeys should contain the hotkey"
@@ -600,28 +600,28 @@ fn test_stake_into_subnet_hotkey_coldkey_combination() {
             "Alpha staked should equal TAO staked for stable mechanism"
         );
         assert_eq!(
-            Alpha::<Test>::get((hotkey1.clone(), coldkey1.clone(), netuid)),
+            Alpha::<Test>::get((hotkey1, coldkey1, netuid)),
             stake_amount,
             "Alpha storage should be updated correctly"
         );
         assert_eq!(
-            Stake::<Test>::get(&hotkey1, &coldkey1),
+            Stake::<Test>::get(hotkey1, coldkey1),
             stake_amount,
             "Stake storage should be updated correctly"
         );
         assert_eq!(
-            TotalHotkeyAlpha::<Test>::get(&hotkey1, netuid),
+            TotalHotkeyAlpha::<Test>::get(hotkey1, netuid),
             stake_amount,
             "TotalHotkeyAlpha should be updated"
         );
         assert_eq!(
-            TotalColdkeyAlpha::<Test>::get(&coldkey1, netuid),
+            TotalColdkeyAlpha::<Test>::get(coldkey1, netuid),
             stake_amount,
             "TotalColdkeyAlpha should be updated"
         );
 
         // Verify StakingHotkeys for coldkey1
-        let staking_hotkeys1 = StakingHotkeys::<Test>::get(&coldkey1);
+        let staking_hotkeys1 = StakingHotkeys::<Test>::get(coldkey1);
         assert!(
             staking_hotkeys1.contains(&hotkey1),
             "StakingHotkeys should contain hotkey1 for coldkey1"
@@ -640,28 +640,28 @@ fn test_stake_into_subnet_hotkey_coldkey_combination() {
             "Alpha staked should equal TAO staked for stable mechanism"
         );
         assert_eq!(
-            Alpha::<Test>::get((hotkey2.clone(), coldkey1.clone(), netuid)),
+            Alpha::<Test>::get((hotkey2, coldkey1, netuid)),
             stake_amount,
             "Alpha storage should be updated correctly"
         );
         assert_eq!(
-            Stake::<Test>::get(&hotkey2, &coldkey1),
+            Stake::<Test>::get(hotkey2, coldkey1),
             stake_amount,
             "Stake storage should be updated correctly"
         );
         assert_eq!(
-            TotalHotkeyAlpha::<Test>::get(&hotkey2, netuid),
+            TotalHotkeyAlpha::<Test>::get(hotkey2, netuid),
             stake_amount,
             "TotalHotkeyAlpha should be updated"
         );
         assert_eq!(
-            TotalColdkeyAlpha::<Test>::get(&coldkey1, netuid),
+            TotalColdkeyAlpha::<Test>::get(coldkey1, netuid),
             stake_amount * 2,
             "TotalColdkeyAlpha should be updated"
         );
 
         // Verify updated StakingHotkeys for coldkey1
-        let updated_staking_hotkeys1 = StakingHotkeys::<Test>::get(&coldkey1);
+        let updated_staking_hotkeys1 = StakingHotkeys::<Test>::get(coldkey1);
         assert!(
             updated_staking_hotkeys1.contains(&hotkey1),
             "StakingHotkeys should still contain hotkey1 for coldkey1"
@@ -684,28 +684,28 @@ fn test_stake_into_subnet_hotkey_coldkey_combination() {
             "Alpha staked should equal TAO staked for stable mechanism"
         );
         assert_eq!(
-            Alpha::<Test>::get((hotkey1.clone(), coldkey2.clone(), netuid)),
+            Alpha::<Test>::get((hotkey1, coldkey2, netuid)),
             stake_amount,
             "Alpha storage should be updated correctly"
         );
         assert_eq!(
-            Stake::<Test>::get(&hotkey1, &coldkey2),
+            Stake::<Test>::get(hotkey1, coldkey2),
             stake_amount,
             "Stake storage should be updated correctly"
         );
         assert_eq!(
-            TotalHotkeyAlpha::<Test>::get(&hotkey1, netuid),
+            TotalHotkeyAlpha::<Test>::get(hotkey1, netuid),
             stake_amount * 2,
             "TotalHotkeyAlpha should be updated"
         );
         assert_eq!(
-            TotalColdkeyAlpha::<Test>::get(&coldkey2, netuid),
+            TotalColdkeyAlpha::<Test>::get(coldkey2, netuid),
             stake_amount,
             "TotalColdkeyAlpha should be updated"
         );
 
         // Verify StakingHotkeys for coldkey2
-        let staking_hotkeys2 = StakingHotkeys::<Test>::get(&coldkey2);
+        let staking_hotkeys2 = StakingHotkeys::<Test>::get(coldkey2);
         assert!(
             staking_hotkeys2.contains(&hotkey1),
             "StakingHotkeys should contain hotkey1 for coldkey2"
@@ -772,7 +772,7 @@ fn test_stake_into_subnet_storage_consistency() {
         let initial_subnet_alpha_out = SubnetAlphaOut::<Test>::get(netuid);
         let initial_total_stake = TotalStake::<Test>::get();
         let initial_alpha = Alpha::<Test>::get((hotkey, coldkey, netuid));
-        let initial_stake = Stake::<Test>::get(&hotkey, &coldkey);
+        let initial_stake = Stake::<Test>::get(hotkey, coldkey);
         let initial_total_coldkey_alpha = TotalColdkeyAlpha::<Test>::get(coldkey, netuid);
         let initial_total_hotkey_alpha = TotalHotkeyAlpha::<Test>::get(hotkey, netuid);
 
@@ -806,7 +806,7 @@ fn test_stake_into_subnet_storage_consistency() {
             "Alpha for hotkey-coldkey pair should be increased by alpha staked"
         );
         assert_eq!(
-            Stake::<Test>::get(&hotkey, &coldkey),
+            Stake::<Test>::get(hotkey, coldkey),
             initial_stake + stake_amount,
             "Stake for hotkey-coldkey pair should be increased by stake amount"
         );
@@ -995,17 +995,17 @@ fn test_unstake_from_subnet_dynamic_mechanism() {
             "Total stake not updated correctly"
         );
         assert_eq!(
-            Stake::<Test>::get(&hotkey, &coldkey),
+            Stake::<Test>::get(hotkey, coldkey),
             0,
             "Stake for hotkey-coldkey pair not updated correctly"
         );
         assert_eq!(
-            TotalHotkeyAlpha::<Test>::get(&hotkey, netuid),
+            TotalHotkeyAlpha::<Test>::get(hotkey, netuid),
             0,
             "Total hotkey alpha not updated correctly"
         );
         assert_eq!(
-            TotalColdkeyAlpha::<Test>::get(&coldkey, netuid),
+            TotalColdkeyAlpha::<Test>::get(coldkey, netuid),
             0,
             "Total coldkey alpha not updated correctly"
         );
@@ -1016,7 +1016,7 @@ fn test_unstake_from_subnet_dynamic_mechanism() {
         );
 
         // Verify StakingHotkeys update
-        let staking_hotkeys = StakingHotkeys::<Test>::get(&coldkey);
+        let staking_hotkeys = StakingHotkeys::<Test>::get(coldkey);
         assert!(
             !staking_hotkeys.contains(&hotkey),
             "Hotkey should be removed from StakingHotkeys"
@@ -1047,7 +1047,7 @@ fn test_unstake_from_subnet_stable_mechanism() {
         Alpha::<Test>::insert((hotkey, coldkey, netuid), alpha_to_stake);
         TotalColdkeyAlpha::<Test>::insert(coldkey, netuid, alpha_to_stake);
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, alpha_to_stake);
-        Stake::<Test>::insert(&hotkey, &coldkey, alpha_to_stake);
+        Stake::<Test>::insert(hotkey, coldkey, alpha_to_stake);
         TotalStake::<Test>::put(alpha_to_stake);
 
         // Perform unstaking
@@ -1080,17 +1080,17 @@ fn test_unstake_from_subnet_stable_mechanism() {
             "Total stake not updated correctly"
         );
         assert_eq!(
-            Stake::<Test>::get(&hotkey, &coldkey),
+            Stake::<Test>::get(hotkey, coldkey),
             0,
             "Stake for hotkey-coldkey pair not updated correctly"
         );
         assert_eq!(
-            TotalHotkeyAlpha::<Test>::get(&hotkey, netuid),
+            TotalHotkeyAlpha::<Test>::get(hotkey, netuid),
             0,
             "Total hotkey alpha not updated correctly"
         );
         assert_eq!(
-            TotalColdkeyAlpha::<Test>::get(&coldkey, netuid),
+            TotalColdkeyAlpha::<Test>::get(coldkey, netuid),
             0,
             "Total coldkey alpha not updated correctly"
         );
@@ -1101,7 +1101,7 @@ fn test_unstake_from_subnet_stable_mechanism() {
         );
 
         // Verify StakingHotkeys update
-        let staking_hotkeys = StakingHotkeys::<Test>::get(&coldkey);
+        let staking_hotkeys = StakingHotkeys::<Test>::get(coldkey);
         assert!(
             !staking_hotkeys.contains(&hotkey),
             "Hotkey should be removed from StakingHotkeys"
@@ -1132,7 +1132,7 @@ fn test_unstake_from_subnet_zero_alpha() {
         Alpha::<Test>::insert((hotkey, coldkey, netuid), alpha_to_stake);
         TotalColdkeyAlpha::<Test>::insert(coldkey, netuid, alpha_to_stake);
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, alpha_to_stake);
-        Stake::<Test>::insert(&hotkey, &coldkey, alpha_to_stake);
+        Stake::<Test>::insert(hotkey, coldkey, alpha_to_stake);
         TotalStake::<Test>::put(alpha_to_stake);
 
         // Perform unstaking of zero alpha
@@ -1171,7 +1171,7 @@ fn test_unstake_from_subnet_zero_alpha() {
             "Total hotkey alpha should not change"
         );
         assert_eq!(
-            Stake::<Test>::get(&hotkey, &coldkey),
+            Stake::<Test>::get(hotkey, coldkey),
             alpha_to_stake,
             "Stake for hotkey-coldkey pair should not change"
         );
@@ -1206,13 +1206,13 @@ fn test_unstake_from_subnet_all_alpha() {
         Alpha::<Test>::insert((hotkey, coldkey, netuid), alpha_to_stake);
         TotalColdkeyAlpha::<Test>::insert(coldkey, netuid, alpha_to_stake);
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, alpha_to_stake);
-        Stake::<Test>::insert(&hotkey, &coldkey, alpha_to_stake);
+        Stake::<Test>::insert(hotkey, coldkey, alpha_to_stake);
         TotalStake::<Test>::put(alpha_to_stake);
 
         // Add hotkey to StakingHotkeys
-        let mut staking_hotkeys = StakingHotkeys::<Test>::get(&coldkey);
+        let mut staking_hotkeys = StakingHotkeys::<Test>::get(coldkey);
         staking_hotkeys.push(hotkey);
-        StakingHotkeys::<Test>::insert(&coldkey, staking_hotkeys);
+        StakingHotkeys::<Test>::insert(coldkey, staking_hotkeys);
 
         // Perform unstaking of all alpha
         let tao_unstaked =
@@ -1245,14 +1245,14 @@ fn test_unstake_from_subnet_all_alpha() {
             "Total hotkey alpha should be zero"
         );
         assert_eq!(
-            Stake::<Test>::get(&hotkey, &coldkey),
+            Stake::<Test>::get(hotkey, coldkey),
             0,
             "Stake for hotkey-coldkey pair should be zero"
         );
         assert_eq!(TotalStake::<Test>::get(), 0, "Total stake should be zero");
 
         // Verify StakingHotkeys update
-        let updated_staking_hotkeys = StakingHotkeys::<Test>::get(&coldkey);
+        let updated_staking_hotkeys = StakingHotkeys::<Test>::get(coldkey);
         assert!(
             !updated_staking_hotkeys.contains(&hotkey),
             "Hotkey should be removed from StakingHotkeys"
@@ -1283,7 +1283,7 @@ fn test_unstake_from_subnet_partial_alpha() {
         Alpha::<Test>::insert((hotkey, coldkey, netuid), alpha_to_stake);
         TotalColdkeyAlpha::<Test>::insert(coldkey, netuid, alpha_to_stake);
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, alpha_to_stake);
-        Stake::<Test>::insert(&hotkey, &coldkey, alpha_to_stake);
+        Stake::<Test>::insert(hotkey, coldkey, alpha_to_stake);
         TotalStake::<Test>::put(alpha_to_stake);
 
         // Perform partial unstaking
@@ -1319,7 +1319,7 @@ fn test_unstake_from_subnet_partial_alpha() {
             "Total hotkey alpha should be updated"
         );
         assert_eq!(
-            Stake::<Test>::get(&hotkey, &coldkey),
+            Stake::<Test>::get(hotkey, coldkey),
             alpha_to_stake - tao_unstaked,
             "Stake for hotkey-coldkey pair should be updated"
         );
@@ -1382,7 +1382,7 @@ fn test_unstake_from_subnet_nonexistent_stake() {
             "Total hotkey alpha should remain zero"
         );
         assert_eq!(
-            Stake::<Test>::get(&hotkey, &coldkey),
+            Stake::<Test>::get(hotkey, coldkey),
             0,
             "Stake for hotkey-coldkey pair should remain zero"
         );
@@ -1420,13 +1420,13 @@ fn test_unstake_from_subnet_multiple_hotkeys() {
         TotalColdkeyAlpha::<Test>::insert(coldkey, netuid, alpha_to_stake * 2);
         TotalHotkeyAlpha::<Test>::insert(hotkey1, netuid, alpha_to_stake);
         TotalHotkeyAlpha::<Test>::insert(hotkey2, netuid, alpha_to_stake);
-        Stake::<Test>::insert(&hotkey1, &coldkey, initial_subnet_tao);
-        Stake::<Test>::insert(&hotkey2, &coldkey, initial_subnet_tao);
+        Stake::<Test>::insert(hotkey1, coldkey, initial_subnet_tao);
+        Stake::<Test>::insert(hotkey2, coldkey, initial_subnet_tao);
         TotalStake::<Test>::put(initial_subnet_tao);
 
         // Add both hotkeys to StakingHotkeys
         let staking_hotkeys = vec![hotkey1, hotkey2];
-        StakingHotkeys::<Test>::insert(&coldkey, staking_hotkeys.clone());
+        StakingHotkeys::<Test>::insert(coldkey, staking_hotkeys.clone());
 
         // Unstake all alpha from hotkey1
         let tao_unstaked =
@@ -1469,12 +1469,12 @@ fn test_unstake_from_subnet_multiple_hotkeys() {
             "Total hotkey2 alpha should remain unchanged"
         );
         assert_eq!(
-            Stake::<Test>::get(&hotkey1, &coldkey),
+            Stake::<Test>::get(hotkey1, coldkey),
             initial_subnet_tao - tao_unstaked,
             "Stake for hotkey1-coldkey pair should be updated"
         );
         assert_eq!(
-            Stake::<Test>::get(&hotkey2, &coldkey),
+            Stake::<Test>::get(hotkey2, coldkey),
             initial_subnet_tao,
             "Stake for hotkey2-coldkey pair should remain unchanged"
         );
@@ -1485,7 +1485,7 @@ fn test_unstake_from_subnet_multiple_hotkeys() {
         );
 
         // Verify StakingHotkeys update
-        let updated_staking_hotkeys = StakingHotkeys::<Test>::get(&coldkey);
+        let updated_staking_hotkeys = StakingHotkeys::<Test>::get(coldkey);
         assert!(
             !updated_staking_hotkeys.contains(&hotkey1),
             "Hotkey1 should be removed from StakingHotkeys"
@@ -1516,7 +1516,7 @@ fn test_unstake_from_subnet_edge_cases() {
         Alpha::<Test>::insert((hotkey, coldkey, netuid), max_u64);
         TotalColdkeyAlpha::<Test>::insert(coldkey, netuid, max_u64);
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, max_u64);
-        Stake::<Test>::insert(&hotkey, &coldkey, max_u64);
+        Stake::<Test>::insert(hotkey, coldkey, max_u64);
         TotalStake::<Test>::put(max_u64);
 
         let unstaked = SubtensorModule::unstake_from_subnet(&hotkey, &coldkey, netuid, max_u64);
@@ -1566,8 +1566,8 @@ fn test_unstake_from_subnet_concurrent_stakes() {
         TotalColdkeyAlpha::<Test>::insert(coldkey, netuid, 10_000);
         TotalHotkeyAlpha::<Test>::insert(hotkey1, netuid, 5000);
         TotalHotkeyAlpha::<Test>::insert(hotkey2, netuid, 5000);
-        Stake::<Test>::insert(&hotkey1, &coldkey, 5000);
-        Stake::<Test>::insert(&hotkey2, &coldkey, 5000);
+        Stake::<Test>::insert(hotkey1, coldkey, 5000);
+        Stake::<Test>::insert(hotkey2, coldkey, 5000);
         TotalStake::<Test>::put(10_000);
 
         // Unstake from hotkey1
@@ -1580,8 +1580,8 @@ fn test_unstake_from_subnet_concurrent_stakes() {
         assert_eq!(TotalColdkeyAlpha::<Test>::get(coldkey, netuid), 7000);
         assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey1, netuid), 2000);
         assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey2, netuid), 5000);
-        assert_eq!(Stake::<Test>::get(&hotkey1, &coldkey), 2000);
-        assert_eq!(Stake::<Test>::get(&hotkey2, &coldkey), 5000);
+        assert_eq!(Stake::<Test>::get(hotkey1, coldkey), 2000);
+        assert_eq!(Stake::<Test>::get(hotkey2, coldkey), 5000);
         assert_eq!(TotalStake::<Test>::get(), 7000);
     });
 }

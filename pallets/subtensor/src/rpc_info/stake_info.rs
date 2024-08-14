@@ -31,7 +31,7 @@ impl<T: Config> Pallet<T> {
                     let alpha: u64 =
                         Alpha::<T>::get((hotkey_i.clone(), coldkey_i.clone(), netuid_i));
                     let conviction: u64 = Self::get_conviction_for_hotkey_and_coldkey_on_subnet(
-                        &hotkey_i, &coldkey_i, *netuid_i,
+                        hotkey_i, coldkey_i, *netuid_i,
                     );
                     stake_info_for_coldkey.push(StakeInfo {
                         hotkey: hotkey_i.clone(),

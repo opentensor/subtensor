@@ -1638,14 +1638,14 @@ fn test_distribute_owner_cut_basic() {
         SubtensorModule::set_lock_interval_blocks(10);
 
         // Set up locks
-        Locks::<Test>::insert((netuid, hotkey1.clone(), coldkey1.clone()), (500, 0, 200));
-        Locks::<Test>::insert((netuid, hotkey2.clone(), coldkey2.clone()), (300, 0, 150));
-        Locks::<Test>::insert((netuid, hotkey3.clone(), coldkey3.clone()), (200, 0, 300));
+        Locks::<Test>::insert((netuid, hotkey1, coldkey1), (500, 0, 200));
+        Locks::<Test>::insert((netuid, hotkey2, coldkey2), (300, 0, 150));
+        Locks::<Test>::insert((netuid, hotkey3, coldkey3), (200, 0, 300));
 
         // Set up ownership
-        Owner::<Test>::insert(hotkey1.clone(), coldkey1.clone());
-        Owner::<Test>::insert(hotkey2.clone(), coldkey2.clone());
-        Owner::<Test>::insert(hotkey3.clone(), coldkey3.clone());
+        Owner::<Test>::insert(hotkey1, coldkey1);
+        Owner::<Test>::insert(hotkey2, coldkey2);
+        Owner::<Test>::insert(hotkey3, coldkey3);
 
         // Mock the current block
         System::set_block_number(current_block);
@@ -1660,9 +1660,9 @@ fn test_distribute_owner_cut_basic() {
         );
 
         // Check that locks have been updated
-        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1.clone(), coldkey1.clone()));
-        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2.clone(), coldkey2.clone()));
-        let (new_lock3, _, _) = Locks::<Test>::get((netuid, hotkey3.clone(), coldkey3.clone()));
+        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1, coldkey1));
+        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2, coldkey2));
+        let (new_lock3, _, _) = Locks::<Test>::get((netuid, hotkey3, coldkey3));
 
         assert!(new_lock1 > 500, "Hotkey1's lock should increase");
         assert!(new_lock2 > 300, "Hotkey2's lock should increase");
@@ -1689,10 +1689,10 @@ fn test_distribute_owner_cut_single_hotkey() {
         SubtensorModule::set_lock_interval_blocks(10);
 
         // Set up lock
-        Locks::<Test>::insert((netuid, hotkey.clone(), coldkey.clone()), (500, 0, 200));
+        Locks::<Test>::insert((netuid, hotkey, coldkey), (500, 0, 200));
 
         // Set up ownership
-        Owner::<Test>::insert(hotkey.clone(), coldkey.clone());
+        Owner::<Test>::insert(hotkey, coldkey);
 
         // Mock the current block
         System::set_block_number(current_block);
@@ -1704,7 +1704,7 @@ fn test_distribute_owner_cut_single_hotkey() {
         assert_eq!(remaining, 0, "All amount should be distributed");
 
         // Check that lock has been updated
-        let (new_lock, _, _) = Locks::<Test>::get((netuid, hotkey.clone(), coldkey.clone()));
+        let (new_lock, _, _) = Locks::<Test>::get((netuid, hotkey, coldkey));
 
         assert_eq!(
             new_lock,
@@ -1761,12 +1761,12 @@ fn test_distribute_owner_cut_zero_amount() {
 
         // Set up a lock
         Locks::<Test>::insert(
-            (netuid, hotkey.clone(), coldkey.clone()),
+            (netuid, hotkey, coldkey),
             (lock_amount, current_block, current_block + lock_duration),
         );
 
         // Set up ownership
-        Owner::<Test>::insert(hotkey.clone(), coldkey.clone());
+        Owner::<Test>::insert(hotkey, coldkey);
 
         // Mock the current block
         System::set_block_number(current_block);
@@ -1781,7 +1781,7 @@ fn test_distribute_owner_cut_zero_amount() {
         );
 
         // Check that lock has not been updated
-        let (new_lock, _, _) = Locks::<Test>::get((netuid, hotkey.clone(), coldkey.clone()));
+        let (new_lock, _, _) = Locks::<Test>::get((netuid, hotkey, coldkey));
         assert_eq!(
             new_lock, lock_amount,
             "Hotkey's lock should remain unchanged"
@@ -1807,25 +1807,25 @@ fn test_distribute_owner_cut_large_amount() {
 
         // Set up locks
         Locks::<Test>::insert(
-            (netuid, hotkey1.clone(), coldkey.clone()),
+            (netuid, hotkey1, coldkey),
             (lock_amount, current_block, current_block + lock_duration),
         );
         Locks::<Test>::insert(
-            (netuid, hotkey2.clone(), coldkey.clone()),
+            (netuid, hotkey2, coldkey),
             (lock_amount, current_block, current_block + lock_duration),
         );
 
         // Set up ownership
-        Owner::<Test>::insert(hotkey1.clone(), coldkey.clone());
-        Owner::<Test>::insert(hotkey2.clone(), coldkey.clone());
+        Owner::<Test>::insert(hotkey1, coldkey);
+        Owner::<Test>::insert(hotkey2, coldkey);
 
         System::set_block_number(current_block);
 
         let remaining = SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
 
         // Check that distribution occurred
-        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1.clone(), coldkey.clone()));
-        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2.clone(), coldkey.clone()));
+        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1, coldkey));
+        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2, coldkey));
 
         assert!(
             new_lock1 > lock_amount,
@@ -1858,25 +1858,25 @@ fn test_distribute_owner_cut_uneven_stakes() {
 
         // Set up locks with uneven stakes
         Locks::<Test>::insert(
-            (netuid, hotkey1.clone(), coldkey.clone()),
+            (netuid, hotkey1, coldkey),
             (lock_amount1, current_block, current_block + lock_duration),
         );
         Locks::<Test>::insert(
-            (netuid, hotkey2.clone(), coldkey.clone()),
+            (netuid, hotkey2, coldkey),
             (lock_amount2, current_block, current_block + lock_duration),
         );
 
         // Set up ownership
-        Owner::<Test>::insert(hotkey1.clone(), coldkey.clone());
-        Owner::<Test>::insert(hotkey2.clone(), coldkey.clone());
+        Owner::<Test>::insert(hotkey1, coldkey);
+        Owner::<Test>::insert(hotkey2, coldkey);
 
         System::set_block_number(current_block);
 
         let remaining = SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
 
         // Check that distribution occurred proportionally
-        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1.clone(), coldkey.clone()));
-        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2.clone(), coldkey.clone()));
+        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1, coldkey));
+        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2, coldkey));
 
         assert!(
             new_lock1 - lock_amount1 > new_lock2 - lock_amount2,
@@ -1905,25 +1905,25 @@ fn test_distribute_owner_cut_different_lock_durations() {
 
         // Set up locks with different durations
         Locks::<Test>::insert(
-            (netuid, hotkey1.clone(), coldkey.clone()),
+            (netuid, hotkey1, coldkey),
             (lock_amount, current_block, current_block + lock_duration1),
         );
         Locks::<Test>::insert(
-            (netuid, hotkey2.clone(), coldkey.clone()),
+            (netuid, hotkey2, coldkey),
             (lock_amount, current_block, current_block + lock_duration2),
         );
 
         // Set up ownership
-        Owner::<Test>::insert(hotkey1.clone(), coldkey.clone());
-        Owner::<Test>::insert(hotkey2.clone(), coldkey.clone());
+        Owner::<Test>::insert(hotkey1, coldkey);
+        Owner::<Test>::insert(hotkey2, coldkey);
 
         System::set_block_number(current_block);
 
         let remaining = SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
 
         // Check that distribution occurred with preference to longer lock duration
-        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1.clone(), coldkey.clone()));
-        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2.clone(), coldkey.clone()));
+        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1, coldkey));
+        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2, coldkey));
 
         assert!(
             new_lock1 - lock_amount > new_lock2 - lock_amount,
@@ -1952,7 +1952,7 @@ fn test_distribute_owner_cut_expired_locks() {
 
         // Set up one active lock and one expired lock
         Locks::<Test>::insert(
-            (netuid, hotkey1.clone(), coldkey.clone()),
+            (netuid, hotkey1, coldkey),
             (
                 lock_amount,
                 current_block - 100,
@@ -1960,7 +1960,7 @@ fn test_distribute_owner_cut_expired_locks() {
             ),
         );
         Locks::<Test>::insert(
-            (netuid, hotkey2.clone(), coldkey.clone()),
+            (netuid, hotkey2, coldkey),
             (
                 lock_amount,
                 current_block - expired_lock_duration,
@@ -1969,16 +1969,16 @@ fn test_distribute_owner_cut_expired_locks() {
         );
 
         // Set up ownership
-        Owner::<Test>::insert(hotkey1.clone(), coldkey.clone());
-        Owner::<Test>::insert(hotkey2.clone(), coldkey.clone());
+        Owner::<Test>::insert(hotkey1, coldkey);
+        Owner::<Test>::insert(hotkey2, coldkey);
 
         System::set_block_number(current_block);
 
         let remaining = SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
 
         // Check that distribution occurred only for the active lock
-        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1.clone(), coldkey.clone()));
-        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2.clone(), coldkey.clone()));
+        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1, coldkey));
+        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2, coldkey));
 
         assert!(
             new_lock1 > lock_amount,
@@ -2016,17 +2016,17 @@ fn test_distribute_owner_cut_multiple_subnets() {
 
         // Set up locks in different subnets
         Locks::<Test>::insert(
-            (netuid1, hotkey1.clone(), coldkey.clone()),
+            (netuid1, hotkey1, coldkey),
             (lock_amount, current_block, current_block + lock_duration),
         );
         Locks::<Test>::insert(
-            (netuid2, hotkey2.clone(), coldkey.clone()),
+            (netuid2, hotkey2, coldkey),
             (lock_amount, current_block, current_block + lock_duration),
         );
 
         // Set up ownership
-        Owner::<Test>::insert(hotkey1.clone(), coldkey.clone());
-        Owner::<Test>::insert(hotkey2.clone(), coldkey.clone());
+        Owner::<Test>::insert(hotkey1, coldkey);
+        Owner::<Test>::insert(hotkey2, coldkey);
 
         System::set_block_number(current_block);
 
@@ -2035,8 +2035,8 @@ fn test_distribute_owner_cut_multiple_subnets() {
         let remaining1 = SubtensorModule::distribute_owner_cut(netuid1, amount_to_distribute);
 
         // Check distribution for netuid1
-        let (new_lock1, _, _) = Locks::<Test>::get((netuid1, hotkey1.clone(), coldkey.clone()));
-        let (lock2, _, _) = Locks::<Test>::get((netuid2, hotkey2.clone(), coldkey.clone()));
+        let (new_lock1, _, _) = Locks::<Test>::get((netuid1, hotkey1, coldkey));
+        let (lock2, _, _) = Locks::<Test>::get((netuid2, hotkey2, coldkey));
 
         assert!(
             new_lock1 > lock_amount,
@@ -2049,8 +2049,8 @@ fn test_distribute_owner_cut_multiple_subnets() {
         let remaining2 = SubtensorModule::distribute_owner_cut(netuid2, amount_to_distribute);
 
         // Check distribution for netuid2
-        let (lock1, _, _) = Locks::<Test>::get((netuid1, hotkey1.clone(), coldkey.clone()));
-        let (new_lock2, _, _) = Locks::<Test>::get((netuid2, hotkey2.clone(), coldkey.clone()));
+        let (lock1, _, _) = Locks::<Test>::get((netuid1, hotkey1, coldkey));
+        let (new_lock2, _, _) = Locks::<Test>::get((netuid2, hotkey2, coldkey));
 
         assert_eq!(lock1, new_lock1, "Lock in netuid1 should not change");
         assert!(
@@ -2086,17 +2086,17 @@ fn test_distribute_owner_cut_rounding() {
         add_network(netuid, 1, 1);
         SubtensorModule::set_lock_interval_blocks(10000);
         Locks::<Test>::insert(
-            (netuid, hotkey1.clone(), coldkey.clone()),
+            (netuid, hotkey1, coldkey),
             (lock_amount1, current_block, current_block + lock_duration),
         );
         Locks::<Test>::insert(
-            (netuid, hotkey2.clone(), coldkey.clone()),
+            (netuid, hotkey2, coldkey),
             (lock_amount2, current_block, current_block + lock_duration),
         );
 
         // Set up ownership
-        Owner::<Test>::insert(hotkey1.clone(), coldkey.clone());
-        Owner::<Test>::insert(hotkey2.clone(), coldkey.clone());
+        Owner::<Test>::insert(hotkey1, coldkey);
+        Owner::<Test>::insert(hotkey2, coldkey);
 
         System::set_block_number(current_block);
 
@@ -2105,8 +2105,8 @@ fn test_distribute_owner_cut_rounding() {
         // Check that all funds were distributed despite potential rounding issues
         assert_eq!(remaining, 0, "All funds should be distributed");
 
-        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1.clone(), coldkey.clone()));
-        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2.clone(), coldkey.clone()));
+        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1, coldkey));
+        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2, coldkey));
 
         // Check that the sum of distributed amounts equals the original amount
         assert_eq!(
@@ -2133,24 +2133,24 @@ fn test_distribute_owner_cut_conviction_calculation() {
 
         // Set up locks with different durations
         Locks::<Test>::insert(
-            (netuid, hotkey1.clone(), coldkey.clone()),
+            (netuid, hotkey1, coldkey),
             (lock_amount, current_block, current_block + lock_duration1),
         );
         Locks::<Test>::insert(
-            (netuid, hotkey2.clone(), coldkey.clone()),
+            (netuid, hotkey2, coldkey),
             (lock_amount, current_block, current_block + lock_duration2),
         );
 
         // Set up ownership
-        Owner::<Test>::insert(hotkey1.clone(), coldkey.clone());
-        Owner::<Test>::insert(hotkey2.clone(), coldkey.clone());
+        Owner::<Test>::insert(hotkey1, coldkey);
+        Owner::<Test>::insert(hotkey2, coldkey);
 
         System::set_block_number(current_block);
 
         let _remaining = SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
 
-        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1.clone(), coldkey.clone()));
-        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2.clone(), coldkey.clone()));
+        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1, coldkey));
+        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2, coldkey));
 
         // Check that the hotkey with longer lock duration received more funds
         assert!(
@@ -2179,30 +2179,30 @@ fn test_distribute_owner_cut_lions_share_distribution() {
         // Set up locks with different amounts
         SubtensorModule::set_lock_interval_blocks(100);
         Locks::<Test>::insert(
-            (netuid, hotkey1.clone(), coldkey.clone()),
+            (netuid, hotkey1, coldkey),
             (lock_amount1, current_block, current_block + lock_duration),
         );
         Locks::<Test>::insert(
-            (netuid, hotkey2.clone(), coldkey.clone()),
+            (netuid, hotkey2, coldkey),
             (lock_amount2, current_block, current_block + lock_duration),
         );
         Locks::<Test>::insert(
-            (netuid, hotkey3.clone(), coldkey.clone()),
+            (netuid, hotkey3, coldkey),
             (lock_amount3, current_block, current_block + lock_duration),
         );
 
         // Set up ownership
-        Owner::<Test>::insert(hotkey1.clone(), coldkey.clone());
-        Owner::<Test>::insert(hotkey2.clone(), coldkey.clone());
-        Owner::<Test>::insert(hotkey3.clone(), coldkey.clone());
+        Owner::<Test>::insert(hotkey1, coldkey);
+        Owner::<Test>::insert(hotkey2, coldkey);
+        Owner::<Test>::insert(hotkey3, coldkey);
 
         System::set_block_number(current_block);
 
         let _remaining = SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
 
-        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1.clone(), coldkey.clone()));
-        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2.clone(), coldkey.clone()));
-        let (new_lock3, _, _) = Locks::<Test>::get((netuid, hotkey3.clone(), coldkey.clone()));
+        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1, coldkey));
+        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2, coldkey));
+        let (new_lock3, _, _) = Locks::<Test>::get((netuid, hotkey3, coldkey));
 
         // Check that distribution follows the lion's share principle
         assert!(
@@ -2241,17 +2241,17 @@ fn test_distribute_owner_cut_storage_updates() {
 
         // Set up initial locks
         Locks::<Test>::insert(
-            (netuid, hotkey1.clone(), coldkey.clone()),
+            (netuid, hotkey1, coldkey),
             (lock_amount1, current_block, current_block + lock_duration),
         );
         Locks::<Test>::insert(
-            (netuid, hotkey2.clone(), coldkey.clone()),
+            (netuid, hotkey2, coldkey),
             (lock_amount2, current_block, current_block + lock_duration),
         );
 
         // Set up ownership
-        Owner::<Test>::insert(hotkey1.clone(), coldkey.clone());
-        Owner::<Test>::insert(hotkey2.clone(), coldkey.clone());
+        Owner::<Test>::insert(hotkey1, coldkey);
+        Owner::<Test>::insert(hotkey2, coldkey);
 
         System::set_block_number(current_block);
 
@@ -2259,8 +2259,8 @@ fn test_distribute_owner_cut_storage_updates() {
         SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
 
         // Check that locks have been updated
-        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1.clone(), coldkey.clone()));
-        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2.clone(), coldkey.clone()));
+        let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1, coldkey));
+        let (new_lock2, _, _) = Locks::<Test>::get((netuid, hotkey2, coldkey));
 
         assert!(
             new_lock1 > lock_amount1,
@@ -2350,12 +2350,12 @@ fn test_update_subnet_owner_single_lock() {
 
         // Set up a single lock
         Locks::<Test>::insert(
-            (netuid, hotkey.clone(), coldkey.clone()),
+            (netuid, hotkey, coldkey),
             (lock_amount, current_block, current_block + lock_duration),
         );
 
         // Set up ownership
-        Owner::<Test>::insert(hotkey.clone(), coldkey.clone());
+        Owner::<Test>::insert(hotkey, coldkey);
 
         // Mock the current block
         System::set_block_number(current_block);
@@ -2406,22 +2406,22 @@ fn test_update_subnet_owner_multiple_locks() {
 
         // Set up multiple locks with different amounts and durations
         Locks::<Test>::insert(
-            (netuid, hotkey1.clone(), coldkey1.clone()),
+            (netuid, hotkey1, coldkey1),
             (1000000, current_block, current_block + 1000000),
         );
         Locks::<Test>::insert(
-            (netuid, hotkey2.clone(), coldkey2.clone()),
+            (netuid, hotkey2, coldkey2),
             (2000000, current_block, current_block + 500000),
         );
         Locks::<Test>::insert(
-            (netuid, hotkey3.clone(), coldkey3.clone()),
+            (netuid, hotkey3, coldkey3),
             (1500000, current_block, current_block + 2000000),
         );
 
         // Set up ownership
-        Owner::<Test>::insert(hotkey1.clone(), coldkey1.clone());
-        Owner::<Test>::insert(hotkey2.clone(), coldkey2.clone());
-        Owner::<Test>::insert(hotkey3.clone(), coldkey3.clone());
+        Owner::<Test>::insert(hotkey1, coldkey1);
+        Owner::<Test>::insert(hotkey2, coldkey2);
+        Owner::<Test>::insert(hotkey3, coldkey3);
 
         // Mock the current block
         System::set_block_number(current_block);
@@ -2439,11 +2439,11 @@ fn test_update_subnet_owner_multiple_locks() {
 
         // Determine the expected owner (hotkey with highest conviction)
         let expected_owner = if conviction1 > conviction2 && conviction1 > conviction3 {
-            coldkey1.clone()
+            coldkey1
         } else if conviction2 > conviction1 && conviction2 > conviction3 {
-            coldkey2.clone()
+            coldkey2
         } else {
-            coldkey3.clone()
+            coldkey3
         };
 
         // Verify that the subnet owner was set correctly
@@ -2485,22 +2485,22 @@ fn test_update_subnet_owner_tie_breaking() {
 
         // Set up locks with equal convictions
         Locks::<Test>::insert(
-            (netuid, hotkey1.clone(), coldkey1.clone()),
+            (netuid, hotkey1, coldkey1),
             (1000000, current_block, current_block + 1000000),
         );
         Locks::<Test>::insert(
-            (netuid, hotkey2.clone(), coldkey2.clone()),
+            (netuid, hotkey2, coldkey2),
             (1000000, current_block, current_block + 1000000),
         );
         Locks::<Test>::insert(
-            (netuid, hotkey3.clone(), coldkey3.clone()),
+            (netuid, hotkey3, coldkey3),
             (1000000, current_block, current_block + 1000000),
         );
 
         // Set up ownership
-        Owner::<Test>::insert(hotkey1.clone(), coldkey1.clone());
-        Owner::<Test>::insert(hotkey2.clone(), coldkey2.clone());
-        Owner::<Test>::insert(hotkey3.clone(), coldkey3.clone());
+        Owner::<Test>::insert(hotkey1, coldkey1);
+        Owner::<Test>::insert(hotkey2, coldkey2);
+        Owner::<Test>::insert(hotkey3, coldkey3);
 
         // Mock the current block
         System::set_block_number(current_block);
@@ -2509,7 +2509,7 @@ fn test_update_subnet_owner_tie_breaking() {
         SubtensorModule::update_subnet_owner(netuid);
 
         // The expected owner should be the coldkey of the hotkey with the lowest value
-        let expected_owner = coldkey1.clone();
+        let expected_owner = coldkey1;
 
         // Verify that the subnet owner was set correctly
         assert_eq!(
@@ -2549,17 +2549,17 @@ fn test_update_subnet_owner_below_threshold() {
 
         // Set up locks with low conviction scores
         Locks::<Test>::insert(
-            (netuid, hotkey1.clone(), coldkey1.clone()),
+            (netuid, hotkey1, coldkey1),
             (100, current_block, current_block + 100),
         );
         Locks::<Test>::insert(
-            (netuid, hotkey2.clone(), coldkey2.clone()),
+            (netuid, hotkey2, coldkey2),
             (200, current_block, current_block + 200),
         );
 
         // Set up ownership
-        Owner::<Test>::insert(hotkey1.clone(), coldkey1.clone());
-        Owner::<Test>::insert(hotkey2.clone(), coldkey2.clone());
+        Owner::<Test>::insert(hotkey1, coldkey1);
+        Owner::<Test>::insert(hotkey2, coldkey2);
 
         // Mock the current block
         System::set_block_number(current_block);
@@ -2604,17 +2604,17 @@ fn test_update_subnet_owner_conviction_calculation() {
 
         // Set up locks with different amounts and durations
         Locks::<Test>::insert(
-            (netuid, hotkey1.clone(), coldkey1.clone()),
+            (netuid, hotkey1, coldkey1),
             (1000000, current_block, current_block + 1000000),
         );
         Locks::<Test>::insert(
-            (netuid, hotkey2.clone(), coldkey2.clone()),
+            (netuid, hotkey2, coldkey2),
             (2000000, current_block, current_block + 500000),
         );
 
         // Set up ownership
-        Owner::<Test>::insert(hotkey1.clone(), coldkey1.clone());
-        Owner::<Test>::insert(hotkey2.clone(), coldkey2.clone());
+        Owner::<Test>::insert(hotkey1, coldkey1);
+        Owner::<Test>::insert(hotkey2, coldkey2);
 
         // Mock the current block
         System::set_block_number(current_block);
@@ -2672,17 +2672,17 @@ fn test_update_subnet_owner_different_subnets() {
 
         // Set up locks in different subnets
         Locks::<Test>::insert(
-            (netuid1, hotkey1.clone(), coldkey1.clone()),
+            (netuid1, hotkey1, coldkey1),
             (1000000, current_block, current_block + 1000000),
         );
         Locks::<Test>::insert(
-            (netuid2, hotkey2.clone(), coldkey2.clone()),
+            (netuid2, hotkey2, coldkey2),
             (2000000, current_block, current_block + 500000),
         );
 
         // Set up ownership
-        Owner::<Test>::insert(hotkey1.clone(), coldkey1.clone());
-        Owner::<Test>::insert(hotkey2.clone(), coldkey2.clone());
+        Owner::<Test>::insert(hotkey1, coldkey1);
+        Owner::<Test>::insert(hotkey2, coldkey2);
 
         // Mock the current block
         System::set_block_number(current_block);
@@ -2762,12 +2762,12 @@ fn test_update_subnet_owner_large_subnet() {
             let lock_duration = (i % 10 + 1) * 100; // Varying lock durations
 
             Locks::<Test>::insert(
-                (netuid, hotkey.clone(), coldkey.clone()),
+                (netuid, hotkey, coldkey),
                 (lock_amount, current_block, current_block + lock_duration),
             );
 
             // Set up ownership
-            Owner::<Test>::insert(hotkey.clone(), coldkey.clone());
+            Owner::<Test>::insert(hotkey, coldkey);
         }
 
         // Mock the current block
@@ -2842,17 +2842,17 @@ fn test_update_subnet_owner_ownership_change() {
 
         // Set up initial locks
         Locks::<Test>::insert(
-            (netuid, hotkey1.clone(), coldkey1.clone()),
+            (netuid, hotkey1, coldkey1),
             (1000000, initial_block, initial_block + lock_duration),
         );
         Locks::<Test>::insert(
-            (netuid, hotkey2.clone(), coldkey2.clone()),
+            (netuid, hotkey2, coldkey2),
             (500000, initial_block, initial_block + lock_duration),
         );
 
         // Set up ownership
-        Owner::<Test>::insert(hotkey1.clone(), coldkey1.clone());
-        Owner::<Test>::insert(hotkey2.clone(), coldkey2.clone());
+        Owner::<Test>::insert(hotkey1, coldkey1);
+        Owner::<Test>::insert(hotkey2, coldkey2);
 
         // Set initial block
         System::set_block_number(initial_block);
@@ -2873,7 +2873,7 @@ fn test_update_subnet_owner_ownership_change() {
 
         // Increase lock for hotkey2
         Locks::<Test>::insert(
-            (netuid, hotkey2.clone(), coldkey2.clone()),
+            (netuid, hotkey2, coldkey2),
             (2000000, new_block, new_block + lock_duration),
         );
 
@@ -2937,17 +2937,17 @@ fn test_update_subnet_owner_storage_updates() {
 
         // Set up initial locks
         Locks::<Test>::insert(
-            (netuid, hotkey1.clone(), coldkey1.clone()),
+            (netuid, hotkey1, coldkey1),
             (1000000, initial_block, initial_block + lock_duration),
         );
         Locks::<Test>::insert(
-            (netuid, hotkey2.clone(), coldkey2.clone()),
+            (netuid, hotkey2, coldkey2),
             (500000, initial_block, initial_block + lock_duration),
         );
 
         // Set up ownership
-        Owner::<Test>::insert(hotkey1.clone(), coldkey1.clone());
-        Owner::<Test>::insert(hotkey2.clone(), coldkey2.clone());
+        Owner::<Test>::insert(hotkey1, coldkey1);
+        Owner::<Test>::insert(hotkey2, coldkey2);
 
         // Set initial block
         System::set_block_number(initial_block);
@@ -2973,7 +2973,7 @@ fn test_update_subnet_owner_storage_updates() {
 
         // Increase lock for hotkey2
         Locks::<Test>::insert(
-            (netuid, hotkey2.clone(), coldkey2.clone()),
+            (netuid, hotkey2, coldkey2),
             (2000000, new_block, new_block + lock_duration),
         );
 

@@ -287,7 +287,7 @@ fn test_basic_emission_distribution() {
         // Set up stakes and delegations
         SubtensorModule::stake_into_subnet(&hotkey, &nominator1, netuid, 500);
         SubtensorModule::stake_into_subnet(&hotkey, &nominator2, netuid, 500);
-        Delegates::<Test>::insert(&hotkey, 16384); // 25% take
+        Delegates::<Test>::insert(hotkey, 16384); // 25% take
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_nominator_emission(
@@ -349,7 +349,7 @@ fn test_hotkey_take_calculation() {
 
         // Test with different delegation values
         for &delegation in &[0, 16384, 32768, 49152, 65535] {
-            Delegates::<Test>::insert(&hotkey, delegation);
+            Delegates::<Test>::insert(hotkey, delegation);
             SubtensorModule::stake_into_subnet(&hotkey, &nominator, netuid, 500);
 
             let mut emission_tuples = Vec::new();
@@ -399,7 +399,7 @@ fn test_nominator_distribution() {
         SubtensorModule::stake_into_subnet(&hotkey, &nominator1, netuid, 500);
         SubtensorModule::stake_into_subnet(&hotkey, &nominator2, netuid, 300);
         SubtensorModule::stake_into_subnet(&hotkey, &nominator3, netuid, 200);
-        Delegates::<Test>::insert(&hotkey, 0); // No hotkey take
+        Delegates::<Test>::insert(hotkey, 0); // No hotkey take
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_nominator_emission(
@@ -470,7 +470,7 @@ fn test_global_and_alpha_weight_distribution() {
                 .to_num::<u64>(),
         ); // 30% global weight
         SubtensorModule::stake_into_subnet(&hotkey, &nominator, netuid, 1000);
-        Delegates::<Test>::insert(&hotkey, 0); // No hotkey take
+        Delegates::<Test>::insert(hotkey, 0); // No hotkey take
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_nominator_emission(
@@ -509,7 +509,7 @@ fn test_zero_stake_scenario() {
 
         // Set up zero stake
         SubtensorModule::stake_into_subnet(&hotkey, &nominator, netuid, 0);
-        Delegates::<Test>::insert(&hotkey, 0);
+        Delegates::<Test>::insert(hotkey, 0);
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_nominator_emission(
@@ -523,7 +523,7 @@ fn test_zero_stake_scenario() {
         // Check that no errors occurred and all emission went to hotkey
         assert_eq!(emission_tuples.len(), 1);
         let (_, recipient, _, amount) = &emission_tuples[0];
-        assert_eq!(recipient, &Owner::<Test>::get(&hotkey));
+        assert_eq!(recipient, &Owner::<Test>::get(hotkey));
         assert_eq!(*amount, emission);
     });
 }
@@ -540,7 +540,7 @@ fn test_single_nominator_scenario() {
         let emission = 10000;
 
         SubtensorModule::stake_into_subnet(&hotkey, &nominator, netuid, 1000);
-        Delegates::<Test>::insert(&hotkey, 0);
+        Delegates::<Test>::insert(hotkey, 0);
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_nominator_emission(
@@ -573,7 +573,7 @@ fn test_maximum_nominators_scenario() {
             let nominator = U256::from(i + 2);
             SubtensorModule::stake_into_subnet(&hotkey, &nominator, netuid, 100);
         }
-        Delegates::<Test>::insert(&hotkey, 0);
+        Delegates::<Test>::insert(hotkey, 0);
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_nominator_emission(
@@ -604,7 +604,7 @@ fn test_rounding_and_precision() {
 
         SubtensorModule::stake_into_subnet(&hotkey, &nominator1, netuid, 333333);
         SubtensorModule::stake_into_subnet(&hotkey, &nominator2, netuid, 666667);
-        Delegates::<Test>::insert(&hotkey, 0);
+        Delegates::<Test>::insert(hotkey, 0);
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_nominator_emission(
@@ -655,7 +655,7 @@ fn test_emission_tuple_generation() {
         let emission = 1000;
 
         SubtensorModule::stake_into_subnet(&hotkey, &nominator, netuid, 1000);
-        Delegates::<Test>::insert(&hotkey, 16384); // 25% take
+        Delegates::<Test>::insert(hotkey, 16384); // 25% take
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_nominator_emission(
@@ -679,7 +679,7 @@ fn test_emission_tuple_generation() {
         let hotkey_tuple = emission_tuples
             .iter()
             .find(|(h, n, net, _)| {
-                h == &hotkey && n == &Owner::<Test>::get(&hotkey) && *net == netuid
+                h == &hotkey && n == &Owner::<Test>::get(hotkey) && *net == netuid
             })
             .expect("Hotkey tuple should exist");
 
@@ -713,7 +713,7 @@ fn test_remainder_distribution() {
 
         SubtensorModule::stake_into_subnet(&hotkey, &nominator1, netuid, 333);
         SubtensorModule::stake_into_subnet(&hotkey, &nominator2, netuid, 666);
-        Delegates::<Test>::insert(&hotkey, 16384); // 25% take
+        Delegates::<Test>::insert(hotkey, 16384); // 25% take
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_nominator_emission(
@@ -726,7 +726,7 @@ fn test_remainder_distribution() {
 
         let hotkey_emission = emission_tuples
             .iter()
-            .find(|(h, n, _, _)| h == &hotkey && n == &Owner::<Test>::get(&hotkey))
+            .find(|(h, n, _, _)| h == &hotkey && n == &Owner::<Test>::get(hotkey))
             .map(|(_, _, _, amount)| amount)
             .unwrap();
         let expected_hotkey_take = (emission as u128 * 16384u128 / 65535u128) as u64;
@@ -760,7 +760,7 @@ fn test_different_network_ids_scenario() {
 
         for netuid in 1..=3 {
             SubtensorModule::stake_into_subnet(&hotkey, &nominator, netuid, 1000);
-            Delegates::<Test>::insert(&hotkey, 16384); // 25% take
+            Delegates::<Test>::insert(hotkey, 16384); // 25% take
 
             let mut emission_tuples = Vec::new();
             SubtensorModule::source_nominator_emission(
@@ -801,7 +801,7 @@ fn test_large_emission_values() {
         let emission = u64::MAX;
 
         SubtensorModule::stake_into_subnet(&hotkey, &nominator, netuid, u64::MAX);
-        Delegates::<Test>::insert(&hotkey, 16384); // 25% take
+        Delegates::<Test>::insert(hotkey, 16384); // 25% take
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_nominator_emission(
@@ -826,7 +826,7 @@ fn test_large_emission_values() {
 
         let hotkey_emission = emission_tuples
             .iter()
-            .find(|(h, n, _, _)| h == &hotkey && n == &Owner::<Test>::get(&hotkey))
+            .find(|(h, n, _, _)| h == &hotkey && n == &Owner::<Test>::get(hotkey))
             .map(|(_, _, _, amount)| amount)
             .unwrap();
         let nominator_emission = emission_tuples
@@ -857,7 +857,7 @@ fn test_small_emission_values() {
         let emission = 1; // Smallest possible non-zero emission
 
         SubtensorModule::stake_into_subnet(&hotkey, &nominator, netuid, 1000);
-        Delegates::<Test>::insert(&hotkey, 16384); // 25% take
+        Delegates::<Test>::insert(hotkey, 16384); // 25% take
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_nominator_emission(
@@ -882,7 +882,7 @@ fn test_small_emission_values() {
 
         let hotkey_emission = emission_tuples
             .iter()
-            .find(|(h, n, _, _)| h == &hotkey && n == &Owner::<Test>::get(&hotkey))
+            .find(|(h, n, _, _)| h == &hotkey && n == &Owner::<Test>::get(hotkey))
             .map(|(_, _, _, amount)| amount)
             .unwrap();
         assert!(
@@ -904,7 +904,7 @@ fn test_consistency_across_multiple_calls() {
         let emission = 1000;
 
         SubtensorModule::stake_into_subnet(&hotkey, &nominator, netuid, 1000);
-        Delegates::<Test>::insert(&hotkey, 16384); // 25% take
+        Delegates::<Test>::insert(hotkey, 16384); // 25% take
 
         let mut first_result = Vec::new();
         SubtensorModule::source_nominator_emission(&hotkey, netuid, emission, 0, &mut first_result);
@@ -942,7 +942,7 @@ fn test_performance_with_many_nominators() {
             let nominator = U256::from(i + 2); // Start from 2 to avoid collision with hotkey
             SubtensorModule::stake_into_subnet(&hotkey, &nominator, netuid, 1000);
         }
-        Delegates::<Test>::insert(&hotkey, 16384); // 25% take
+        Delegates::<Test>::insert(hotkey, 16384); // 25% take
 
         let start_time = std::time::Instant::now();
         let mut emission_tuples = Vec::new();
@@ -992,15 +992,15 @@ fn test_basic_emission_distribution_scenario() {
 
         // Set up stakes and delegations
         add_network(netuid, 1, 0);
-        Delegates::<Test>::insert(&hotkey, 16384); // 25% take
+        Delegates::<Test>::insert(hotkey, 16384); // 25% take
         SubtensorModule::stake_into_subnet(&parent1, &coldkey, netuid, 500);
         SubtensorModule::stake_into_subnet(&parent2, &coldkey, netuid, 500);
         ParentKeys::<Test>::insert(
-            &hotkey,
+            hotkey,
             netuid,
             vec![
-                (u64::MAX / 2, parent1.clone()),
-                (u64::MAX / 2, parent2.clone()),
+                (u64::MAX / 2, parent1),
+                (u64::MAX / 2, parent2),
             ],
         );
 
@@ -1055,13 +1055,13 @@ fn test_hotkey_take_calculation_scenario() {
         let validating_emission = 1000;
         let mining_emission = 0;
 
-        ParentKeys::<Test>::insert(&hotkey, netuid, vec![(1000, parent.clone())]);
+        ParentKeys::<Test>::insert(hotkey, netuid, vec![(1000, parent)]);
 
         // Test with different delegation values
         for &delegation in &[0, 16384, 32768, 49152, 65535] {
-            Delegates::<Test>::insert(&hotkey, delegation);
+            Delegates::<Test>::insert(hotkey, delegation);
             SubtensorModule::stake_into_subnet(&parent, &coldkey, netuid, u64::MAX);
-            ParentKeys::<Test>::insert(&hotkey, netuid, vec![(u64::MAX, parent.clone())]);
+            ParentKeys::<Test>::insert(hotkey, netuid, vec![(u64::MAX, parent)]);
 
             let mut emission_tuples = Vec::new();
             SubtensorModule::source_hotkey_emission(
@@ -1108,15 +1108,15 @@ fn test_parent_distribution() {
         SubtensorModule::stake_into_subnet(&parent2, &coldkey, netuid, 300);
         SubtensorModule::stake_into_subnet(&parent3, &coldkey, netuid, 200);
         ParentKeys::<Test>::insert(
-            &hotkey,
+            hotkey,
             netuid,
             vec![
-                (u64::MAX, parent1.clone()),
-                (u64::MAX, parent2.clone()),
-                (u64::MAX, parent3.clone()),
+                (u64::MAX, parent1),
+                (u64::MAX, parent2),
+                (u64::MAX, parent3),
             ],
         );
-        Delegates::<Test>::insert(&hotkey, 0); // No hotkey take
+        Delegates::<Test>::insert(hotkey, 0); // No hotkey take
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_hotkey_emission(
@@ -1190,9 +1190,9 @@ fn test_global_and_alpha_weight_distribution_scenario() {
             (I96F32::from_num(u64::MAX) * I96F32::from_num(3) / I96F32::from_num(10))
                 .to_num::<u64>(),
         );
-        ParentKeys::<Test>::insert(&hotkey, netuid, vec![(u64::MAX, parent.clone())]);
+        ParentKeys::<Test>::insert(hotkey, netuid, vec![(u64::MAX, parent)]);
         SubtensorModule::stake_into_subnet(&parent, &coldkey, netuid, 500);
-        Delegates::<Test>::insert(&hotkey, 0); // No hotkey take
+        Delegates::<Test>::insert(hotkey, 0); // No hotkey take
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_hotkey_emission(
             &hotkey,
@@ -1230,9 +1230,9 @@ fn test_zero_stake_scenario_1() {
         let mining_emission = 0;
 
         // Set up zero stake
-        ParentKeys::<Test>::insert(&hotkey, netuid, vec![(u64::MAX, parent.clone())]);
+        ParentKeys::<Test>::insert(hotkey, netuid, vec![(u64::MAX, parent)]);
         SubtensorModule::stake_into_subnet(&parent, &coldkey, netuid, 0);
-        Delegates::<Test>::insert(&hotkey, 0);
+        Delegates::<Test>::insert(hotkey, 0);
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_hotkey_emission(
@@ -1264,10 +1264,10 @@ fn test_maximum_stake_values() {
         let mining_emission = 0;
 
         // Set up maximum stake values
-        ParentKeys::<Test>::insert(&hotkey, netuid, vec![(u64::MAX, parent.clone())]);
+        ParentKeys::<Test>::insert(hotkey, netuid, vec![(u64::MAX, parent)]);
         Alpha::<Test>::insert((&parent, coldkey, netuid), u64::MAX);
         // GlobalStake::<Test>::insert(&parent, u64::MAX);
-        Delegates::<Test>::insert(&hotkey, 0);
+        Delegates::<Test>::insert(hotkey, 0);
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_hotkey_emission(
@@ -1301,16 +1301,16 @@ fn test_rounding_and_precision_scenario() {
 
         // Set up stakes and parents
         ParentKeys::<Test>::insert(
-            &hotkey,
+            hotkey,
             netuid,
             vec![
-                (u64::MAX / 2, parent1.clone()),
-                (u64::MAX / 2, parent2.clone()),
+                (u64::MAX / 2, parent1),
+                (u64::MAX / 2, parent2),
             ],
         );
         SubtensorModule::stake_into_subnet(&parent1, &coldkey, netuid, 1000);
         SubtensorModule::stake_into_subnet(&parent2, &coldkey, netuid, 1000);
-        Delegates::<Test>::insert(&hotkey, 16384); // 25% take
+        Delegates::<Test>::insert(hotkey, 16384); // 25% take
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_hotkey_emission(
@@ -1347,10 +1347,10 @@ fn test_different_network_ids_scenario_1() {
         let mining_emission = 0;
 
         for netuid in 0..5 {
-            ParentKeys::<Test>::insert(&hotkey, netuid, vec![(u64::MAX, parent.clone())]);
+            ParentKeys::<Test>::insert(hotkey, netuid, vec![(u64::MAX, parent)]);
             Alpha::<Test>::insert((&parent, coldkey, netuid), 1000);
             // GlobalStake::<Test>::insert(&parent, 1000);
-            Delegates::<Test>::insert(&hotkey, 0);
+            Delegates::<Test>::insert(hotkey, 0);
 
             let mut emission_tuples = Vec::new();
             SubtensorModule::source_hotkey_emission(
@@ -1384,8 +1384,8 @@ fn test_with_no_parents() {
 
         // Set up with no parents
         let empty: Vec<(u64, U256)> = vec![];
-        ParentKeys::<Test>::insert(&hotkey, netuid, empty);
-        Delegates::<Test>::insert(&hotkey, 16384); // 25% take
+        ParentKeys::<Test>::insert(hotkey, netuid, empty);
+        Delegates::<Test>::insert(hotkey, 16384); // 25% take
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_hotkey_emission(
@@ -1422,12 +1422,12 @@ fn test_maximum_parents() {
         let mut parents = Vec::new();
         for i in 0..max_parents {
             let parent = U256::from(i + 2);
-            parents.push((u64::MAX / max_parents as u64, parent.clone()));
+            parents.push((u64::MAX / max_parents as u64, parent));
             Alpha::<Test>::insert((&parent, coldkey, netuid), 1000);
             // GlobalStake::<Test>::insert(&parent, 1000);
         }
-        ParentKeys::<Test>::insert(&hotkey, netuid, parents);
-        Delegates::<Test>::insert(&hotkey, 0);
+        ParentKeys::<Test>::insert(hotkey, netuid, parents);
+        Delegates::<Test>::insert(hotkey, 0);
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_hotkey_emission(
@@ -1458,10 +1458,10 @@ fn test_consistency_across_calls() {
         let validating_emission = 10000;
         let mining_emission = 0;
 
-        ParentKeys::<Test>::insert(&hotkey, netuid, vec![(u64::MAX, parent.clone())]);
+        ParentKeys::<Test>::insert(hotkey, netuid, vec![(u64::MAX, parent)]);
         Alpha::<Test>::insert((&parent, coldkey, netuid), 1000);
         // GlobalStake::<Test>::insert(&parent, 1000);
-        Delegates::<Test>::insert(&hotkey, 16384); // 25% take
+        Delegates::<Test>::insert(hotkey, 16384); // 25% take
 
         let mut first_result = Vec::new();
         SubtensorModule::source_hotkey_emission(
@@ -1502,19 +1502,19 @@ fn test_edge_cases_parent_proportions() {
         let mining_emission = 0;
 
         ParentKeys::<Test>::insert(
-            &hotkey,
+            hotkey,
             netuid,
             vec![
-                (0, parent1.clone()),
-                (u64::MAX, parent2.clone()),
-                (u64::MAX / 2, parent3.clone()),
+                (0, parent1),
+                (u64::MAX, parent2),
+                (u64::MAX / 2, parent3),
             ],
         );
 
         for parent in [&parent1, &parent2, &parent3] {
             SubtensorModule::stake_into_subnet(parent, &coldkey, netuid, 1000);
         }
-        Delegates::<Test>::insert(&hotkey, 0);
+        Delegates::<Test>::insert(hotkey, 0);
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_hotkey_emission(
@@ -1566,9 +1566,9 @@ fn test_overflow_handling_in_emission() {
         let validating_emission = u64::MAX;
         let mining_emission = u64::MAX;
 
-        ParentKeys::<Test>::insert(&hotkey, netuid, vec![(u64::MAX, parent.clone())]);
+        ParentKeys::<Test>::insert(hotkey, netuid, vec![(u64::MAX, parent)]);
         SubtensorModule::stake_into_subnet(&parent, &coldkey, netuid, u64::MAX);
-        Delegates::<Test>::insert(&hotkey, u16::MAX);
+        Delegates::<Test>::insert(hotkey, u16::MAX);
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_hotkey_emission(
@@ -1604,10 +1604,10 @@ fn test_minimum_emission_value() {
         let validating_emission = 1;
         let mining_emission = 0;
 
-        ParentKeys::<Test>::insert(&hotkey, netuid, vec![(u64::MAX / 2, parent.clone())]);
+        ParentKeys::<Test>::insert(hotkey, netuid, vec![(u64::MAX / 2, parent)]);
         Alpha::<Test>::insert((&parent, coldkey, netuid), 1000);
         // GlobalStake::<Test>::insert(&parent, 1000);
-        Delegates::<Test>::insert(&hotkey, 0);
+        Delegates::<Test>::insert(hotkey, 0);
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_hotkey_emission(
@@ -1640,10 +1640,10 @@ fn test_maximum_emission_value() {
         let validating_emission = u64::MAX;
         let mining_emission = u64::MAX;
 
-        ParentKeys::<Test>::insert(&hotkey, netuid, vec![(u64::MAX / 2, parent.clone())]);
+        ParentKeys::<Test>::insert(hotkey, netuid, vec![(u64::MAX / 2, parent)]);
         SubtensorModule::stake_into_subnet(&parent, &coldkey, netuid, u64::MAX);
         // GlobalStake::<Test>::insert(&parent, 1000);
-        Delegates::<Test>::insert(&hotkey, 0);
+        Delegates::<Test>::insert(hotkey, 0);
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_hotkey_emission(

@@ -114,7 +114,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Ensure the hotkey does not exist or is owned by the coldkey.
         ensure!(
-            !Self::hotkey_account_exists(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+            !Self::hotkey_account_exists(hotkey) || Self::coldkey_owns_hotkey(&coldkey, hotkey),
             Error::<T>::HotKeyNotDelegateAndSignerNotOwnHotKey
         );
 
@@ -177,7 +177,7 @@ impl<T: Config> Pallet<T> {
         SubnetTAO::<T>::insert(netuid_to_register, 1); // add the TAO to the pool.
         SubnetAlphaIn::<T>::insert(netuid_to_register, actual_tao_lock_amount); // Set the alpha in based on the lock.
         let alpha_out = Self::stake_into_subnet(
-            &hotkey,
+            hotkey,
             &coldkey,
             netuid_to_register,
             actual_tao_lock_amount,

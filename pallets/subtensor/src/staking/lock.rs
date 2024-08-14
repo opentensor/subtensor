@@ -77,8 +77,8 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
     ) -> u64 {
         let (locked, _, end) = Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone()));
-        let conviction = Self::calculate_conviction(locked, end, Self::get_current_block_as_u64());
-        conviction
+        
+        Self::calculate_conviction(locked, end, Self::get_current_block_as_u64())
     }
 
     /// Locks a specified amount of stake for a given duration on a subnet.
@@ -331,11 +331,11 @@ impl<T: Config> Pallet<T> {
                 .to_num::<u64>();
 
             // Get the coldkey associated with this hotkey
-            let owner_coldkey = Self::get_owning_coldkey_for_hotkey(&hotkey);
+            let owner_coldkey = Self::get_owning_coldkey_for_hotkey(hotkey);
 
             // Emit the calculated share into the subnet for this hotkey
-            Self::emit_into_subnet(&hotkey, &owner_coldkey, netuid, share_amount);
-            Self::increase_lock_by_amount(netuid, &hotkey, &owner_coldkey, share_amount);
+            Self::emit_into_subnet(hotkey, &owner_coldkey, netuid, share_amount);
+            Self::increase_lock_by_amount(netuid, hotkey, &owner_coldkey, share_amount);
 
             // Subtract the distributed share from the remaining amount
             remaining_amount = remaining_amount.saturating_sub(share_amount);
@@ -485,7 +485,7 @@ impl<T: Config> Pallet<T> {
         if tied_hotkeys.len() > 1 {
             // Use a deterministic method to break ties, e.g., lowest hotkey value
             if let Some((winning_hotkey, _)) =
-                tied_hotkeys.iter().min_by_key(|(&ref hotkey, _)| hotkey)
+                tied_hotkeys.iter().min_by_key(|(hotkey, _)| hotkey)
             {
                 let owning_coldkey = Self::get_owning_coldkey_for_hotkey(winning_hotkey);
                 SubnetOwner::<T>::insert(netuid, owning_coldkey.clone());
@@ -534,8 +534,8 @@ impl<T: Config> Pallet<T> {
             -I96F32::from_num(lock_duration).saturating_div(I96F32::from_num(lock_interval_blocks));
         let exp_term = I96F32::from_num(1) - exp_safe_f96(I96F32::from_num(time_factor));
         let conviction_score = I96F32::from_num(lock_amount).saturating_mul(exp_term);
-        let final_score = conviction_score.to_num::<u64>();
-        final_score
+        
+        conviction_score.to_num::<u64>()
     }
 
     /// Calculates the maximum amount of stake that can be unlocked for a given neuron.
