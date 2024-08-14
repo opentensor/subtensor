@@ -3,7 +3,28 @@ use super::*;
 
 impl<T: Config> Pallet<T> {
    
-    pub fn do_move(
+    /// Moves stake from one hotkey to another across subnets.
+    ///
+    /// # Arguments
+    /// * `origin` - The origin of the transaction, which must be signed by the `origin_hotkey`.
+    /// * `origin_hotkey` - The account ID of the hotkey from which the stake is being moved.
+    /// * `destination_hotkey` - The account ID of the hotkey to which the stake is being moved.
+    /// * `origin_netuid` - The network ID of the origin subnet.
+    /// * `destination_netuid` - The network ID of the destination subnet.
+    ///
+    /// # Returns
+    /// * `DispatchResult` - Indicates the success or failure of the operation.
+    ///
+    /// # Errors
+    /// This function will return an error if:
+    /// * The origin is not signed by the `origin_hotkey`.
+    /// * Either the origin or destination subnet does not exist.
+    /// * The `origin_hotkey` or `destination_hotkey` does not exist.
+    /// * There are locked funds that cannot be moved across subnets.
+    /// 
+    /// # Events
+    /// Emits a `StakeMoved` event upon successful completion of the stake movement.
+    pub fn do_move_stake(
         origin: T::RuntimeOrigin,
         origin_hotkey: T::AccountId,
         destination_hotkey: T::AccountId,

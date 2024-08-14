@@ -1023,5 +1023,38 @@ mod dispatches {
 
             Ok(())
         }
+
+        /// Moves stake from one hotkey to another across subnets.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the transaction, which must be signed by the `origin_hotkey`.
+        /// * `origin_hotkey` - The account ID of the hotkey from which the stake is being moved.
+        /// * `destination_hotkey` - The account ID of the hotkey to which the stake is being moved.
+        /// * `origin_netuid` - The network ID of the origin subnet.
+        /// * `destination_netuid` - The network ID of the destination subnet.
+        ///
+        /// # Returns
+        /// * `DispatchResult` - Indicates the success or failure of the operation.
+        ///
+        /// # Errors
+        /// This function will return an error if:
+        /// * The origin is not signed by the `origin_hotkey`.
+        /// * Either the origin or destination subnet does not exist.
+        /// * The `origin_hotkey` or `destination_hotkey` does not exist.
+        /// * There are locked funds that cannot be moved across subnets.
+        ///
+        /// # Events
+        /// Emits a `StakeMoved` event upon successful completion of the stake movement.
+        #[pallet::call_index(75)]
+        #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn move_stake(
+            origin: OriginFor<T>,
+            origin_hotkey: T::AccountId,
+            destination_hotkey: T::AccountId,
+            origin_netuid: u16,
+            destination_netuid: u16,
+        ) -> DispatchResult {
+            Self::do_move_stake(origin, origin_hotkey, destination_hotkey, origin_netuid, destination_netuid)
+        }
     }
 }
