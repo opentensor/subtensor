@@ -152,6 +152,18 @@ pub mod pallet {
         pub additional: Vec<u8>,
     }
 
+    ///  Struct for Prometheus.
+    pub type SubnetIdentityOf = SubnetIdentity;
+    /// Data structure for Prometheus information.
+    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    pub struct SubnetIdentity {
+        /// The name of the subnet
+        pub subnet_name: Vec<u8>,
+        /// The github repository associated with the chain identity
+        pub github_repo: Vec<u8>,
+        /// The subnet's contact
+        pub subnet_contact: Vec<u8>,
+    }
     /// ============================
     /// ==== Staking + Accounts ====
     /// ============================
@@ -1079,6 +1091,10 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( coldkey ) --> identity
     pub type Identities<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, ChainIdentityOf, OptionQuery>;
+
+    #[pallet::storage] // --- MAP ( netuid ) --> identity
+    pub type SubnetIdentities<T: Config> =
+        StorageMap<_, Blake2_128Concat, u16, SubnetIdentityOf, OptionQuery>;
 
     /// =================================
     /// ==== Axon / Promo Endpoints =====

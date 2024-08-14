@@ -1008,14 +1008,17 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotSubnetOwner
         );
 
-        // --- 4. Explicitly erase the network and all its parameters.
+        // --- 4. Remove the subnet identity if it exists.
+        SubnetIdentities::<T>::remove(netuid);
+
+        // --- 5. Explicitly erase the network and all its parameters.
         Self::remove_network(netuid);
 
-        // --- 5. Emit the NetworkRemoved event.
+        // --- 6. Emit the NetworkRemoved event.
         log::info!("NetworkRemoved( netuid:{:?} )", netuid);
         Self::deposit_event(Event::NetworkRemoved(netuid));
 
-        // --- 6. Return success.
+        // --- 7. Return success.
         Ok(())
     }
 
