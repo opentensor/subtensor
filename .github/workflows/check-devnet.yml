@@ -2,7 +2,7 @@ name: Devnet Deploy Check
 
 on:
   pull_request:
-    branches: [devnet]
+    branches: [devnet, devnet-ready]
 
 env:
   CARGO_TERM_COLOR: always
