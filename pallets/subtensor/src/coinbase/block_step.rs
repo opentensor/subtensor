@@ -15,7 +15,7 @@ impl<T: Config> Pallet<T> {
         Self::run_coinbase();
         // --- 4. Adjust tempos every day.
         // TODO(const) make this better.
-        if (block_number + 1) % 100 == 0 {
+        if block_number.saturating_add(1) % 100 == 0 {
             Self::adjust_tempos();
         }
         // Return ok.
