@@ -11,6 +11,7 @@ jobs:
   check-spec-version:
     name: Check spec_version bump
     runs-on: SubtensorCI
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-spec-version-bump') }}
     steps:
       - name: Dependencies
         run: |
