@@ -4,39 +4,41 @@ extern crate alloc;
 use codec::Compact;
 use sp_core::hexdisplay::AsBytesRef;
 
-#[freeze_struct("86d64c14d71d44b9")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct StakeInfo<T: Config> {
     hotkey: T::AccountId,
     coldkey: T::AccountId,
+    netuid: Compact<u16>,
     stake: Compact<u64>,
+    locked: Compact<u64>,
 }
 
 impl<T: Config> Pallet<T> {
-    fn _get_stake_info_for_coldkeys(
-        coldkeys: Vec<T::AccountId>,
-    ) -> Vec<(T::AccountId, Vec<StakeInfo<T>>)> {
+    fn _get_stake_info_for_coldkeys( coldkeys: Vec<T::AccountId> ) -> Vec<(T::AccountId, Vec<StakeInfo<T>>)> {
         if coldkeys.is_empty() {
             return Vec::new(); // No coldkeys to check
         }
-
+        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
         let mut stake_info: Vec<(T::AccountId, Vec<StakeInfo<T>>)> = Vec::new();
-        for coldkey_ in coldkeys {
+        for coldkey_i in coldkeys.clone().iter() {
+            // Get all hotkeys associated with this coldkey.
+            let staking_hotkeys = StakingHotkeys::<T>::get(coldkey_i.clone());
             let mut stake_info_for_coldkey: Vec<StakeInfo<T>> = Vec::new();
-
-            for (hotkey, coldkey, stake) in <Stake<T>>::iter() {
-                if coldkey == coldkey_ {
+            for netuid_i in netuids.clone().iter() {
+                for hotkey_i in staking_hotkeys.clone().iter() {
+                    let alpha: u64 = Alpha::<T>::get((hotkey_i.clone(), coldkey_i.clone(), netuid_i));
+                    let conviction: u64 = Self::get_conviction_for_hotkey_and_coldkey_on_subnet(&hotkey_i, &coldkey_i, *netuid_i);
                     stake_info_for_coldkey.push(StakeInfo {
-                        hotkey,
-                        coldkey,
-                        stake: stake.into(),
+                        hotkey: hotkey_i.clone(),
+                        coldkey: coldkey_i.clone(),
+                        netuid: (*netuid_i).into(),
+                        stake: alpha.into(),
+                        locked: conviction.into(),
                     });
                 }
             }
-
-            stake_info.push((coldkey_, stake_info_for_coldkey));
+            stake_info.push((coldkey_i.clone(), stake_info_for_coldkey));
         }
-
         stake_info
     }
 

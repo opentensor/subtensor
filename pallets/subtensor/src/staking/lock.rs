@@ -53,6 +53,26 @@ impl<T: Config> Pallet<T> {
         Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone())).0
     }
 
+    /// Calculates the conviction score for a specific hotkey and coldkey pair on a given subnet.
+    ///
+    /// This function retrieves the locked stake amount from the `Locks` storage and calculates
+    /// the conviction score based on the locked amount and the lock duration.
+    ///
+    /// # Arguments
+    ///
+    /// * `hotkey` - The hotkey account ID.
+    /// * `coldkey` - The coldkey account ID.
+    /// * `netuid` - The subnet ID.
+    ///
+    /// # Returns
+    ///
+    /// * `u64` - The conviction score calculated from the locked stake.
+    pub fn get_conviction_for_hotkey_and_coldkey_on_subnet(hotkey: &T::AccountId, coldkey: &T::AccountId, netuid: u16) -> u64 {
+        let (locked, start, end) = Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone()));
+        let conviction = Self::calculate_conviction(locked, end, Self::get_current_block_as_u64());
+        conviction
+    }
+
     /// Locks a specified amount of stake for a given duration on a subnet.
     ///
     /// This function allows a user to lock their stake, increasing their conviction score.

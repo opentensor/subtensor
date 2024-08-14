@@ -1,5 +1,4 @@
 //! RPC interface for the custom Subtensor rpc methods
-
 use jsonrpsee::{
     core::RpcResult,
     proc_macros::rpc,
@@ -8,9 +7,7 @@ use jsonrpsee::{
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
-
 use sp_api::ProvideRuntimeApi;
-
 pub use subtensor_custom_rpc_runtime_api::{
     DelegateInfoRuntimeApi, NeuronInfoRuntimeApi, SubnetInfoRuntimeApi,
     SubnetRegistrationRuntimeApi,
@@ -32,7 +29,6 @@ pub trait SubtensorCustomApi<BlockHash> {
         delegatee_account_vec: Vec<u8>,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
-
     #[method(name = "neuronInfo_getNeuronsLite")]
     fn get_neurons_lite(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "neuronInfo_getNeuronLite")]
@@ -41,14 +37,12 @@ pub trait SubtensorCustomApi<BlockHash> {
     fn get_neurons(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "neuronInfo_getNeuron")]
     fn get_neuron(&self, netuid: u16, uid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
-
     #[method(name = "subnetInfo_getSubnetInfo")]
     fn get_subnet_info(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetsInfo")]
     fn get_subnets_info(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetHyperparams")]
     fn get_subnet_hyperparams(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
-
     #[method(name = "subnetInfo_getLockCost")]
     fn get_network_lock_cost(&self, at: Option<BlockHash>) -> RpcResult<u64>;
 }

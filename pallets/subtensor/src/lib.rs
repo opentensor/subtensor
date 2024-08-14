@@ -698,7 +698,7 @@ pub mod pallet {
     pub type SubnetLocked<T: Config> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- ITEM( last_network_lock_cost )
     pub type LockIntervalBlocks<T> = StorageValue<_, u64, ValueQuery, DefaultLockIntervalBlocks<T>>;
-    #[pallet::storage] // --- NMAP ( netuid, cold, hot, owner ) --> (amount, start, end) | Returns the lock associated with a hotkey.
+    #[pallet::storage] // --- NMAP ( netuid, cold, hot ) --> (amount, start, end) | Returns the lock associated with a hotkey.
     pub type Locks<T: Config> = StorageNMap<
         _,
         (
@@ -709,6 +709,7 @@ pub mod pallet {
         (u64, u64, u64), // Amount, Start, End
         ValueQuery,
     >;
+
 
     /// =================
     /// ==== Tempos =====
