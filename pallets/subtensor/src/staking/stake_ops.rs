@@ -318,7 +318,9 @@ impl<T: Config> Pallet<T> {
         // Step 6: Cap TAO unstaked at u64::MAX and convert to u64
         let tao_unstaked_u64: u64 = tao_unstaked.min(I96F32::from_num(u64::MAX)).to_num::<u64>();
         // Step 7: Cap new subnet alpha at u64::MAX and convert to u64
-        let new_subnet_alpha_u64: u64 = new_subnet_alpha.min(I96F32::from_num(u64::MAX)).to_num::<u64>();
+        let new_subnet_alpha_u64: u64 = new_subnet_alpha
+            .min(I96F32::from_num(u64::MAX))
+            .to_num::<u64>();
 
         // Step 8: Update subnet alpha
         SubnetAlphaIn::<T>::insert(netuid, new_subnet_alpha_u64);

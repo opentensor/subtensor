@@ -10,7 +10,7 @@ mod genesis {
         fn build(&self) {
             // Set initial total issuance from balances
             TotalIssuance::<T>::put(self.balances_issuance);
-            
+
             // Get the root network uid.
             let root_netuid: u16 = 0;
 

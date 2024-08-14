@@ -1008,7 +1008,6 @@ parameter_types! {
     pub const SubtensorInitialGlobalWeight: u64 = u64::MAX/2; // 50% global weight.
 }
 
-
 impl pallet_subtensor::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type SudoRuntimeCall = RuntimeCall;

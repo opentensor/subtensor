@@ -4,10 +4,10 @@ use jsonrpsee::{
     proc_macros::rpc,
     types::{error::ErrorObject, ErrorObjectOwned},
 };
+use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
-use sp_api::ProvideRuntimeApi;
 pub use subtensor_custom_rpc_runtime_api::{
     DelegateInfoRuntimeApi, NeuronInfoRuntimeApi, SubnetInfoRuntimeApi,
     SubnetRegistrationRuntimeApi,

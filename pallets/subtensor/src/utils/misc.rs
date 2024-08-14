@@ -718,7 +718,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::HotkeyEmissionTempoSet(emission_tempo));
     }
 
-
     /// Retrieves the maximum stake allowed for a given network.
     ///
     /// # Arguments
