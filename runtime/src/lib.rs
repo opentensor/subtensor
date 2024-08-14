@@ -165,7 +165,7 @@ pub const MILLISECS_PER_BLOCK: u64 = 250;
 
 #[cfg(feature = "raonet")]
 #[cfg(not(feature = "fast-blocks"))]
-pub const MILLISECS_PER_BLOCK: u64 = 1000;
+pub const MILLISECS_PER_BLOCK: u64 = 500;
 
 // NOTE: Currently it is not possible to change the slot duration after the chain has started.
 //       Attempting to do so will brick block production.
@@ -1002,8 +1002,8 @@ parameter_types! {
     pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000; // 1 TAO
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
     pub const SubtensorInitialSubnetLimit: u16 = u16::MAX;
-    pub const SubtensorInitialNetworkLockReductionInterval: u64 = 100; // create a new network every 10 blocks.
-    pub const SubtensorInitialNetworkRateLimit: u64 = 100;
+    pub const SubtensorInitialNetworkLockReductionInterval: u64 = 1; // create a new network every 10 blocks.
+    pub const SubtensorInitialNetworkRateLimit: u64 = 1;
     pub const SubtensorInitialTargetStakesPerInterval: u16 = 1;
     pub const SubtensorInitialKeySwapCost: u64 = 1_000_000_000;
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default

@@ -8,6 +8,11 @@ impl<T: Config> Pallet<T> {
         let current_block: u64 = Self::get_current_block_as_u64();
         log::debug!("Current block: {:?}", current_block);
 
+        // No more emission.
+        if current_block >= 14400 {
+            return;
+        }
+
         // --- 1. Get all netuids.
         let subnets: Vec<u16> = Self::get_all_subnet_netuids();
         log::debug!("All subnet netuids: {:?}", subnets);
