@@ -174,7 +174,6 @@ impl<T: Config> Pallet<T> {
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
 
         // --- 14. Init the pool by putting the lock as the initial alpha.
-        SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone()); // Set the owner.
         SubnetTAO::<T>::insert(netuid_to_register, 1); // add the TAO to the pool.
         SubnetAlphaIn::<T>::insert(netuid_to_register, actual_tao_lock_amount); // Set the alpha in based on the lock.
         let alpha_out = Self::stake_into_subnet(
@@ -183,6 +182,9 @@ impl<T: Config> Pallet<T> {
             netuid_to_register,
             actual_tao_lock_amount,
         );
+        SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
+        SubnetLocked::<T>::insert(netuid_to_register, alpha_out);
+        LargestLocked::<T>::insert(netuid_to_register, alpha_out);
         Locks::<T>::insert(
             // Lock the initial funds making this key the owner.
             (netuid_to_register, hotkey.clone(), coldkey.clone()),

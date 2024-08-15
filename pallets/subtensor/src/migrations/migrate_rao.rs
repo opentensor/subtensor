@@ -50,6 +50,8 @@ pub fn migrate_rao<T: Config>() -> Weight {
         }); // Increase the stake.
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(lock)); // Increase the total stake.
         SubnetMechanism::<T>::insert(netuid, 1); // Convert to dynamic immediately with initialization.
+        SubnetLocked::<T>::insert(netuid, lock);
+        LargestLocked::<T>::insert(netuid, lock);
         Locks::<T>::insert(
             // Lock the initial funds making this key the owner.
             (netuid, owner.clone(), owner.clone()), // Sets owner as initial lock.
