@@ -181,5 +181,7 @@ mod events {
         ChainIdentitySet(T::AccountId),
         /// The identity of a subnet has been set
         SubnetIdentitySet(u16),
+        /// The identity of a subnet has been removed
+        SubnetIdentityRemoved(u16),
     }
 }

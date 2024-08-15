@@ -4,8 +4,9 @@ use crate::mock::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use frame_system::{EventRecord, Phase};
-use pallet_subtensor::migrations;
 use pallet_subtensor::Error;
+use pallet_subtensor::{migrations, SubnetIdentity};
+use pallet_subtensor::{SubnetIdentities, SubnetIdentityOf};
 use sp_core::{Get, H256, U256};
 
 mod mock;
@@ -235,7 +236,8 @@ fn test_root_set_weights() {
         for netuid in 1..n {
             log::debug!("Adding network with netuid: {}", netuid);
             assert_ok!(SubtensorModule::register_network(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(netuid + 456))
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(netuid + 456)),
+                None
             ));
         }
 
@@ -380,7 +382,8 @@ fn test_root_set_weights_out_of_order_netuids() {
 
             if netuid % 2 == 0 {
                 assert_ok!(SubtensorModule::register_network(
-                    <<Test as Config>::RuntimeOrigin>::signed(U256::from(netuid))
+                    <<Test as Config>::RuntimeOrigin>::signed(U256::from(netuid)),
+                    None
                 ));
             } else {
                 add_network(netuid as u16 * 10, 1000, 0)
@@ -471,14 +474,16 @@ fn test_root_subnet_creation_deletion() {
         SubtensorModule::add_balance_to_coldkey_account(&owner, 1_000_000_000_000_000);
         // last_lock: 100000000000, min_lock: 100000000000, last_lock_block: 0, lock_reduction_interval: 2, current_block: 0, mult: 1 lock_cost: 100000000000
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(owner)
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            None
         ));
         // last_lock: 100000000000, min_lock: 100000000000, last_lock_block: 0, lock_reduction_interval: 2, current_block: 0, mult: 1 lock_cost: 100000000000
         assert_eq!(SubtensorModule::get_network_lock_cost(), 100_000_000_000);
         step_block(1);
         // last_lock: 100000000000, min_lock: 100000000000, last_lock_block: 0, lock_reduction_interval: 2, current_block: 1, mult: 1 lock_cost: 100000000000
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(owner)
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            None
         ));
         // last_lock: 100000000000, min_lock: 100000000000, last_lock_block: 1, lock_reduction_interval: 2, current_block: 1, mult: 2 lock_cost: 200000000000
         assert_eq!(SubtensorModule::get_network_lock_cost(), 200_000_000_000); // Doubles from previous subnet creation
@@ -492,38 +497,44 @@ fn test_root_subnet_creation_deletion() {
         // last_lock: 100000000000, min_lock: 100000000000, last_lock_block: 1, lock_reduction_interval: 2, current_block: 4, mult: 2 lock_cost: 100000000000
         assert_eq!(SubtensorModule::get_network_lock_cost(), 100_000_000_000); // Reaches min value
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(owner)
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            None
         ));
         // last_lock: 100000000000, min_lock: 100000000000, last_lock_block: 4, lock_reduction_interval: 2, current_block: 4, mult: 2 lock_cost: 200000000000
         assert_eq!(SubtensorModule::get_network_lock_cost(), 200_000_000_000); // Doubles from previous subnet creation
         step_block(1);
         // last_lock: 100000000000, min_lock: 100000000000, last_lock_block: 4, lock_reduction_interval: 2, current_block: 5, mult: 2 lock_cost: 150000000000
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(owner)
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            None
         ));
         // last_lock: 150000000000, min_lock: 100000000000, last_lock_block: 5, lock_reduction_interval: 2, current_block: 5, mult: 2 lock_cost: 300000000000
         assert_eq!(SubtensorModule::get_network_lock_cost(), 300_000_000_000); // Doubles from previous subnet creation
         step_block(1);
         // last_lock: 150000000000, min_lock: 100000000000, last_lock_block: 5, lock_reduction_interval: 2, current_block: 6, mult: 2 lock_cost: 225000000000
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(owner)
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            None
         ));
         // last_lock: 225000000000, min_lock: 100000000000, last_lock_block: 6, lock_reduction_interval: 2, current_block: 6, mult: 2 lock_cost: 450000000000
         assert_eq!(SubtensorModule::get_network_lock_cost(), 450_000_000_000); // Increasing
         step_block(1);
         // last_lock: 225000000000, min_lock: 100000000000, last_lock_block: 6, lock_reduction_interval: 2, current_block: 7, mult: 2 lock_cost: 337500000000
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(owner)
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            None
         ));
         // last_lock: 337500000000, min_lock: 100000000000, last_lock_block: 7, lock_reduction_interval: 2, current_block: 7, mult: 2 lock_cost: 675000000000
         assert_eq!(SubtensorModule::get_network_lock_cost(), 675_000_000_000); // Increasing.
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(owner)
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            None
         ));
         // last_lock: 337500000000, min_lock: 100000000000, last_lock_block: 7, lock_reduction_interval: 2, current_block: 7, mult: 2 lock_cost: 675000000000
         assert_eq!(SubtensorModule::get_network_lock_cost(), 1_350_000_000_000); // Double increasing.
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(owner)
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            None
         ));
         assert_eq!(SubtensorModule::get_network_lock_cost(), 2_700_000_000_000); // Double increasing again.
 
@@ -572,7 +583,8 @@ fn test_network_pruning() {
                 1_000
             ));
             assert_ok!(SubtensorModule::register_network(
-                <<Test as Config>::RuntimeOrigin>::signed(cold)
+                <<Test as Config>::RuntimeOrigin>::signed(cold),
+                None
             ));
             log::debug!("Adding network with netuid: {}", (i as u16) + 1);
             assert!(SubtensorModule::if_subnet_exist((i as u16) + 1));
@@ -645,17 +657,20 @@ fn test_network_prune_results() {
         SubtensorModule::add_balance_to_coldkey_account(&owner, 1_000_000_000_000_000);
 
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(owner)
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            None
         ));
         step_block(3);
 
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(owner)
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            None
         ));
         step_block(3);
 
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(owner)
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            None
         ));
         step_block(3);
 
@@ -699,7 +714,8 @@ fn test_weights_after_network_pruning() {
 
             // Register a network
             assert_ok!(SubtensorModule::register_network(
-                <<Test as Config>::RuntimeOrigin>::signed(cold)
+                <<Test as Config>::RuntimeOrigin>::signed(cold),
+                None
             ));
 
             log::debug!("Adding network with netuid: {}", (i as u16) + 1);
@@ -759,7 +775,8 @@ fn test_weights_after_network_pruning() {
         assert_eq!(latest_weights[0][1], 21845);
 
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(cold)
+            <<Test as Config>::RuntimeOrigin>::signed(cold),
+            None
         ));
 
         // Subnet should not exist, as it would replace a previous subnet.
@@ -977,5 +994,37 @@ fn test_dissolve_network_does_not_exist_err() {
             SubtensorModule::dissolve_network(RuntimeOrigin::signed(coldkey), netuid),
             Error::<Test>::SubNetworkDoesNotExist
         );
+    });
+}
+
+#[test]
+fn test_user_add_network_with_identity_fields_ok() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let balance = SubtensorModule::get_network_lock_cost() + 10_000;
+
+        let subnet_name: Vec<u8> = b"JesusSubnet".to_vec();
+        let github_repo: Vec<u8> = b"bible.com".to_vec();
+        let subnet_contact: Vec<u8> = b"https://www.vatican.va".to_vec();
+
+        let identity_value: SubnetIdentity = SubnetIdentityOf {
+            subnet_name: subnet_name.clone(),
+            github_repo: github_repo.clone(),
+            subnet_contact: subnet_contact.clone(),
+        };
+
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, balance);
+
+        // Call the function with the identity.
+        assert_ok!(SubtensorModule::user_add_network(
+            RuntimeOrigin::signed(coldkey),
+            Some(identity_value.clone())
+        ));
+
+        // Retrieve and verify the stored identity.
+        let stored_identity: SubnetIdentity = SubnetIdentities::<Test>::get(1).unwrap();
+        assert_eq!(stored_identity.subnet_name, subnet_name);
+        assert_eq!(stored_identity.github_repo, github_repo);
+        assert_eq!(stored_identity.subnet_contact, subnet_contact);
     });
 }

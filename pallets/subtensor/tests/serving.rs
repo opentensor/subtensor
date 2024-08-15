@@ -992,3 +992,25 @@ fn test_set_identity_for_non_existent_subnet() {
         );
     });
 }
+
+#[test]
+fn test_set_subnet_identity_dispatch_info_ok() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let subnet_name: Vec<u8> = b"JesusSubnet".to_vec();
+        let github_repo: Vec<u8> = b"bible.com".to_vec();
+        let subnet_contact: Vec<u8> = b"https://www.vatican.va".to_vec();
+
+        let call: RuntimeCall = RuntimeCall::SubtensorModule(SubtensorCall::set_subnet_identity {
+            netuid,
+            subnet_name,
+            github_repo,
+            subnet_contact,
+        });
+
+        let dispatch_info: DispatchInfo = call.get_dispatch_info();
+
+        assert_eq!(dispatch_info.class, DispatchClass::Normal);
+        assert_eq!(dispatch_info.pays_fee, Pays::Yes);
+    });
+}

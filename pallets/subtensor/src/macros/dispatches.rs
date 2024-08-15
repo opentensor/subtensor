@@ -798,8 +798,11 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(157_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))
 		.saturating_add(T::DbWeight::get().writes(30)), DispatchClass::Operational, Pays::No))]
-        pub fn register_network(origin: OriginFor<T>) -> DispatchResult {
-            Self::user_add_network(origin)
+        pub fn register_network(
+            origin: OriginFor<T>,
+            identity: Option<SubnetIdentityOf>,
+        ) -> DispatchResult {
+            Self::user_add_network(origin, identity)
         }
 
         /// Facility extrinsic for user to get taken from faucet
