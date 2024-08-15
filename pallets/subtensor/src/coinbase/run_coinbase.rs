@@ -415,15 +415,23 @@ impl<T: Config> Pallet<T> {
         }
 
         // Calculate and distribute the remaining emission to the hotkey
-        let hotkey_owner: T::AccountId = Owner::<T>::get(hotkey);
-        let remainder: u64 = emission.to_num::<u64>().saturating_sub(hotkey_take.to_num::<u64>()).saturating_sub(to_nominators);
-        let final_hotkey_emission:u64 = hotkey_take.to_num::<u64>() + remainder;
-        emission_tuples.push((
-            hotkey.clone(),
-            hotkey_owner.clone(),
-            netuid,
-            final_hotkey_emission
-        ));
+
+        // Get the last block the neuron owner added some stake to this hotkey
+        let stake_add_block = LastAddStakeIncrease::<T>::get(&hotkey, Self::get_coldkey_for_hotkey(&hotkey));
+
+        // If the last block this nominator added any stake is old enough (older than one hotkey tempo), 
+        // consider this nominator's contribution
+        if Self::get_current_block_as_u64() - stake_add_block >= HotkeyEmissionTempo::<T>::get() {
+            let hotkey_owner: T::AccountId = Owner::<T>::get(hotkey);
+            let remainder: u64 = emission.to_num::<u64>().saturating_sub(hotkey_take.to_num::<u64>()).saturating_sub(to_nominators);
+            let final_hotkey_emission:u64 = hotkey_take.to_num::<u64>() + remainder;
+            emission_tuples.push((
+                hotkey.clone(),
+                hotkey_owner.clone(),
+                netuid,
+                final_hotkey_emission
+            ));
+        }
     }
     
     /// Accumulates emissions for hotkeys across different subnets.
