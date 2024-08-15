@@ -316,6 +316,11 @@ impl<T: Config> Pallet<T> {
         // Convert convictions to a vector for the lion's share calculation
         let convictions: Vec<u64> = hotkey_convictions.values().cloned().collect();
 
+        // Set the total subnet Conviction.
+        let largest_conviction = convictions.iter().max().cloned().unwrap_or(1);
+        SubnetLocked::<T>::insert( netuid, total_conviction ) ;
+        LargestLocked::<T>::insert( netuid, largest_conviction );
+
         // Calculate shares using the lion's share distribution
         let shares: Vec<I96F32> = Self::calculate_lions_share(convictions, 20);
 
@@ -454,9 +459,6 @@ impl<T: Config> Pallet<T> {
                 max_conviction_hotkey = Some(iter_hotkey.clone());
             }
         }
-
-        // Set the total subnet Conviction.
-        SubnetLocked::<T>::insert(netuid, max_total_conviction.to_num::<u64>());
 
         // Handle the case where no locks exist for the subnet
         if hotkey_convictions.is_empty() {
