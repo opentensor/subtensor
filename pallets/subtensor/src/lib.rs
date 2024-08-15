@@ -133,9 +133,9 @@ pub mod pallet {
         pub ip_type: u8,
     }
 
-    ///  Struct for Prometheus.
+    ///  Struct for ChainIdentities.
     pub type ChainIdentityOf = ChainIdentity;
-    /// Data structure for Prometheus information.
+    /// Data structure for Chain Identities.
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct ChainIdentity {
         /// The name of the chain identity
@@ -152,9 +152,9 @@ pub mod pallet {
         pub additional: Vec<u8>,
     }
 
-    ///  Struct for Prometheus.
+    ///  Struct for SubnetIdentities.
     pub type SubnetIdentityOf = SubnetIdentity;
-    /// Data structure for Prometheus information.
+    /// Data structure for Subnet Identities
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct SubnetIdentity {
         /// The name of the subnet
