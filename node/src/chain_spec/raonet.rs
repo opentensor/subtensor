@@ -3,6 +3,17 @@
 
 use super::*;
 
+/// Generates the configuration for the Raonet chain.
+///
+/// # Returns
+///
+/// * `Result<ChainSpec, String>` - The chain specification or an error message.
+///
+/// # Example
+///
+/// ```rust
+/// let chain_spec = raonet_config().expect("Failed to generate Raonet config");
+/// ```
 pub fn raonet_config() -> Result<ChainSpec, String> {
     let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 
@@ -44,11 +55,34 @@ pub fn raonet_config() -> Result<ChainSpec, String> {
     .build())
 }
 
+/// Generates the genesis configuration for the Raonet chain.
+///
+/// # Arguments
+///
+/// * `initial_authorities` - A vector of initial authorities (AuraId, GrandpaId).
+/// * `_enable_println` - A boolean flag to enable println (currently unused).
+///
+/// # Returns
+///
+/// * `serde_json::Value` - The genesis configuration as a JSON value.
 fn raonet_genesis(
     initial_authorities: Vec<(AuraId, GrandpaId)>,
     _enable_println: bool,
 ) -> serde_json::Value {
     let mut balances = vec![
+        // Add Alice, Bob, and Charlie with 10 trillion tokens each
+        (
+            get_account_id_from_seed::<sr25519::Public>("Alice"),
+            10_000_000_000_000u128,
+        ),
+        (
+            get_account_id_from_seed::<sr25519::Public>("Bob"),
+            10_000_000_000_000u128,
+        ),
+        (
+            get_account_id_from_seed::<sr25519::Public>("Charlie"),
+            10_000_000_000_000u128,
+        ),
         (
             <AccountId32 as Ss58Codec>::from_ss58check("5FRo4vab84LM3aiK4DijnVawGDKagLGLzfn95j9tjDaHja8Z").unwrap(),
             100_000_000_000u128,
