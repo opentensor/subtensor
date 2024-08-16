@@ -2454,10 +2454,9 @@ fn test_update_subnet_owner_multiple_locks() {
         );
 
         // Verify that the subnet locked amount is correct
-        let expected_total_conviction = conviction1.max(conviction2).max(conviction3);
         assert_eq!(
             SubnetLocked::<Test>::get(netuid),
-            expected_total_conviction,
+            conviction1 + conviction2 + conviction3,
             "Subnet locked amount should match the total calculated conviction"
         );
 
@@ -2519,11 +2518,10 @@ fn test_update_subnet_owner_tie_breaking() {
         );
 
         // Verify that the subnet locked amount is correct
-        let expected_total_conviction =
-            SubtensorModule::calculate_conviction(1000000, current_block + 1000000, current_block);
+        let conviction1 = SubtensorModule::calculate_conviction(1000000, current_block + 1000000, current_block);
         assert_eq!(
             SubnetLocked::<Test>::get(netuid),
-            expected_total_conviction,
+            conviction1 * 3,
             "Subnet locked amount should match the total calculated conviction"
         );
 
@@ -2644,10 +2642,9 @@ fn test_update_subnet_owner_conviction_calculation() {
         }
 
         // Verify that the subnet locked amount is correct
-        let expected_total_conviction = conviction1.max(conviction2);
         assert_eq!(
             SubnetLocked::<Test>::get(netuid),
-            expected_total_conviction,
+            conviction1 + conviction2,
             "Subnet locked amount should match the highest calculated conviction"
         );
 
