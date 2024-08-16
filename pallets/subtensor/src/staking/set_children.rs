@@ -60,10 +60,10 @@ impl<T: Config> Pallet<T> {
 
         // Ensure the hotkey passes the rate limit.
         ensure!(
-            Self::passes_rate_limit_globally(
+            Self::passes_rate_limit_on_subnet(
+                &TransactionType::SetChildren, // Set children.
                 &hotkey,                       // Specific to a hotkey.
                 netuid,                        // Specific to a subnet.
-                &TransactionType::SetChildren, // Set children.
             ),
             Error::<T>::TxRateLimitExceeded
         );

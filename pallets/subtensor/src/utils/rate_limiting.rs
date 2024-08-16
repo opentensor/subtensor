@@ -58,11 +58,8 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Check if a transaction should be rate limited globally
-    pub fn passes_rate_limit_globally(
-        hotkey: &T::AccountId,
-        netuid: u16,
-        tx_type: &TransactionType,
-    ) -> bool {
+    pub fn passes_rate_limit_globally(tx_type: &TransactionType, hotkey: &T::AccountId) -> bool {
+        let netuid: u16 = u16::MAX;
         let block: u64 = Self::get_current_block_as_u64();
         let limit: u64 = Self::get_rate_limit(tx_type);
         let last_block: u64 = Self::get_last_transaction_block(hotkey, netuid, tx_type);
