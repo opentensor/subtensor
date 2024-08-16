@@ -1285,7 +1285,7 @@ where
                         ..Default::default()
                     })
                 } else {
-                    Err(InvalidTransaction::Call.into())
+                    Err(InvalidTransaction::Custom(1).into())
                 }
             }
             Some(Call::reveal_weights { netuid, .. }) => {
@@ -1297,7 +1297,7 @@ where
                         ..Default::default()
                     })
                 } else {
-                    Err(InvalidTransaction::Call.into())
+                    Err(InvalidTransaction::Custom(2).into())
                 }
             }
             Some(Call::set_weights { netuid, .. }) => {
@@ -1309,7 +1309,7 @@ where
                         ..Default::default()
                     })
                 } else {
-                    Err(InvalidTransaction::Call.into())
+                    Err(InvalidTransaction::Custom(3).into())
                 }
             }
             Some(Call::set_root_weights { netuid, hotkey, .. }) => {
@@ -1321,7 +1321,7 @@ where
                         ..Default::default()
                     })
                 } else {
-                    Err(InvalidTransaction::Call.into())
+                    Err(InvalidTransaction::Custom(4).into())
                 }
             }
             Some(Call::add_stake { .. }) => Ok(ValidTransaction {
@@ -1340,7 +1340,7 @@ where
                 if registrations_this_interval >= (max_registrations_per_interval.saturating_mul(3))
                 {
                     // If the registration limit for the interval is exceeded, reject the transaction
-                    return InvalidTransaction::ExhaustsResources.into();
+                    return Err(InvalidTransaction::Custom(5).into());
                 }
                 Ok(ValidTransaction {
                     priority: Self::get_priority_vanilla(),
