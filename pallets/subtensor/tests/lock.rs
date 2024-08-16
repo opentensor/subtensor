@@ -1,3 +1,10 @@
+#![allow(
+    clippy::unwrap_used,
+    clippy::panic,
+    clippy::arithmetic_side_effects,
+    clippy::indexing_slicing
+)]
+
 mod mock;
 use frame_support::{assert_noop, assert_ok};
 use mock::*;

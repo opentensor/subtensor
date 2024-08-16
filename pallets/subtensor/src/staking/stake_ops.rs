@@ -1,3 +1,4 @@
+#![allow(clippy::doc_lazy_continuation)]
 use super::*;
 use substrate_fixed::types::I96F32;
 

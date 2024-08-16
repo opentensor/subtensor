@@ -35,7 +35,8 @@ impl<T: Config> Pallet<T> {
             } // Skip root network
             let mechid = SubnetMechanism::<T>::get(*netuid);
             let subnet_tao = I96F32::from_num(SubnetTAO::<T>::get(*netuid));
-            *mechanism_tao.entry(mechid).or_insert(I96F32::from_num(0)) += subnet_tao;
+            let entry = mechanism_tao.entry(mechid).or_insert(I96F32::from_num(0));
+            *entry = entry.saturating_add(subnet_tao);
             total_active_tao = total_active_tao.saturating_add(subnet_tao);
         }
         log::debug!("Mechanism TAO sums: {:?}", mechanism_tao);
@@ -341,7 +342,7 @@ impl<T: Config> Pallet<T> {
             hotkey_emission_tuples.push((parent, netuid, total_emission));
 
             // Keep track of total emission distributed to parents
-            to_parents += total_emission;
+            to_parents = to_parents.saturating_add(total_emission);
         }
 
         // Calculate the final emission for the hotkey itself
@@ -410,8 +411,8 @@ impl<T: Config> Pallet<T> {
                 I96F32::from_num(Alpha::<T>::get((&hotkey, nominator.clone(), netuid)));
             let global_contribution: I96F32 =
                 I96F32::from_num(Self::get_global_for_hotkey_and_coldkey(hotkey, &nominator));
-            total_global += global_contribution;
-            total_alpha += alpha_contribution;
+            total_global = total_global.saturating_add(global_contribution);
+            total_alpha = total_alpha.saturating_add(alpha_contribution);
             contributions.push((nominator.clone(), alpha_contribution, global_contribution));
         }
 
@@ -438,7 +439,7 @@ impl<T: Config> Pallet<T> {
                     .to_num::<u64>();
                 if total_emission > 0 {
                     // Record the emission for this nominator
-                    to_nominators += total_emission;
+                    to_nominators = to_nominators.saturating_add(total_emission);
                     emission_tuples.push((
                         hotkey.clone(),
                         nominator.clone(),
@@ -455,7 +456,7 @@ impl<T: Config> Pallet<T> {
             .to_num::<u64>()
             .saturating_sub(hotkey_take.to_num::<u64>())
             .saturating_sub(to_nominators);
-        let final_hotkey_emission: u64 = hotkey_take.to_num::<u64>() + remainder;
+        let final_hotkey_emission: u64 = hotkey_take.to_num::<u64>().saturating_add(remainder);
         emission_tuples.push((
             hotkey.clone(),
             hotkey_owner.clone(),
@@ -553,7 +554,7 @@ impl<T: Config> Pallet<T> {
         let netuid_plus_one = (netuid as u64).saturating_add(1);
         let tempo_plus_one = (tempo as u64).saturating_add(1);
         let adjusted_block = block_number.wrapping_add(netuid_plus_one);
-        let remainder = adjusted_block % tempo_plus_one;
+        let remainder = adjusted_block.rem_euclid(tempo_plus_one);
         (tempo as u64).saturating_sub(remainder)
     }
 

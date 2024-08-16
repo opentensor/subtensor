@@ -84,89 +84,152 @@ fn raonet_genesis(
             10_000_000_000_000u128,
         ),
         (
-            <AccountId32 as Ss58Codec>::from_ss58check("5FRo4vab84LM3aiK4DijnVawGDKagLGLzfn95j9tjDaHja8Z").unwrap(),
+            <AccountId32 as Ss58Codec>::from_ss58check(
+                "5FRo4vab84LM3aiK4DijnVawGDKagLGLzfn95j9tjDaHja8Z",
+            )
+            .unwrap(),
             100_000_000_000u128,
         ),
         (
-            <AccountId32 as Ss58Codec>::from_ss58check("5H3qhPGzKMNV9fTPuizxzp8azyFRMd4BnheSuwN9Qxb5Cz3u").unwrap(), // Greg
+            <AccountId32 as Ss58Codec>::from_ss58check(
+                "5H3qhPGzKMNV9fTPuizxzp8azyFRMd4BnheSuwN9Qxb5Cz3u",
+            )
+            .unwrap(), // Greg
             100_000_000_000u128,
         ),
         (
-            <AccountId32 as Ss58Codec>::from_ss58check("5H8zkg8K9hkM5PSeumivNXGuK8J8cUjtwEL9PfyqmgWELPka").unwrap(), // William
+            <AccountId32 as Ss58Codec>::from_ss58check(
+                "5H8zkg8K9hkM5PSeumivNXGuK8J8cUjtwEL9PfyqmgWELPka",
+            )
+            .unwrap(), // William
             100_000_000_000u128,
         ),
         (
-            <AccountId32 as Ss58Codec>::from_ss58check("5Ckg2z5NdrfbXpsPtZuVYXxRWh283QWw1gbXfN8CJC3tmxnY").unwrap(), // Dick
+            <AccountId32 as Ss58Codec>::from_ss58check(
+                "5Ckg2z5NdrfbXpsPtZuVYXxRWh283QWw1gbXfN8CJC3tmxnY",
+            )
+            .unwrap(), // Dick
             100_000_000_000u128,
         ),
         (
-            <AccountId32 as Ss58Codec>::from_ss58check("5CiUxGA5dTh1cPdgH67Kt62x4w5aKubnmWZMYSrZzoB4hpQi").unwrap(), // Michal
+            <AccountId32 as Ss58Codec>::from_ss58check(
+                "5CiUxGA5dTh1cPdgH67Kt62x4w5aKubnmWZMYSrZzoB4hpQi",
+            )
+            .unwrap(), // Michal
             100_000_000_000u128,
         ),
         (
-            <AccountId32 as Ss58Codec>::from_ss58check("5FLHD4eZkPStKUG7p9B1VPjD4w93Fxncf6JG5EK2uRcELmJy").unwrap(), // Carlos
+            <AccountId32 as Ss58Codec>::from_ss58check(
+                "5FLHD4eZkPStKUG7p9B1VPjD4w93Fxncf6JG5EK2uRcELmJy",
+            )
+            .unwrap(), // Carlos
             100_000_000_000u128,
         ),
         (
-            <AccountId32 as Ss58Codec>::from_ss58check("5G4FseBtaQd8sqeC98ZEL7xgtF2GSdueMXwUs8vsBENs4Ysn").unwrap(), // Sai
+            <AccountId32 as Ss58Codec>::from_ss58check(
+                "5G4FseBtaQd8sqeC98ZEL7xgtF2GSdueMXwUs8vsBENs4Ysn",
+            )
+            .unwrap(), // Sai
             100_000_000_000u128,
         ),
         (
-            <AccountId32 as Ss58Codec>::from_ss58check("5DiJqQoQdpgKaLz97Fk8ZkChAxMqf2mF2pVa6xDKYH8Cf9Sx").unwrap(), // Xavier
+            <AccountId32 as Ss58Codec>::from_ss58check(
+                "5DiJqQoQdpgKaLz97Fk8ZkChAxMqf2mF2pVa6xDKYH8Cf9Sx",
+            )
+            .unwrap(), // Xavier
             100_000_000_000u128,
         ),
         (
-            <AccountId32 as Ss58Codec>::from_ss58check("5EUJyRh3x9QftnUw7taFk3Xen6fCQgdc9ko8ort51RnR6LCn").unwrap(), // Elo
+            <AccountId32 as Ss58Codec>::from_ss58check(
+                "5EUJyRh3x9QftnUw7taFk3Xen6fCQgdc9ko8ort51RnR6LCn",
+            )
+            .unwrap(), // Elo
             100_000_000_000u128,
         ),
         (
-            <AccountId32 as Ss58Codec>::from_ss58check("5FREUpwG4wJYr1Usyp1i5XmxM3ycGTfvtjJtrSZETPgvh4Hx").unwrap(), // Roman
+            <AccountId32 as Ss58Codec>::from_ss58check(
+                "5FREUpwG4wJYr1Usyp1i5XmxM3ycGTfvtjJtrSZETPgvh4Hx",
+            )
+            .unwrap(), // Roman
             100_000_000_000u128,
         ),
         (
-            <AccountId32 as Ss58Codec>::from_ss58check("5GxREgL1Kvuv1kixbY2oJe36Q2HnWqTcfakBZqTPKWiPpVxf").unwrap(), // Abe
+            <AccountId32 as Ss58Codec>::from_ss58check(
+                "5GxREgL1Kvuv1kixbY2oJe36Q2HnWqTcfakBZqTPKWiPpVxf",
+            )
+            .unwrap(), // Abe
             100_000_000_000u128,
         ),
         (
-            <AccountId32 as Ss58Codec>::from_ss58check("5GsSxM8p1TYrpXfCx7Un5cTp1fr1RwHJczYDUUn8Xjnqj9Sk").unwrap(), // Nico
+            <AccountId32 as Ss58Codec>::from_ss58check(
+                "5GsSxM8p1TYrpXfCx7Un5cTp1fr1RwHJczYDUUn8Xjnqj9Sk",
+            )
+            .unwrap(), // Nico
             100_000_000_000u128,
         ),
         (
-            <AccountId32 as Ss58Codec>::from_ss58check("5HjEUemUaXSkxPcxGYiLykHmi5VfXBh5NCeNXYMbj9akYHbn").unwrap(), // Jip
+            <AccountId32 as Ss58Codec>::from_ss58check(
+                "5HjEUemUaXSkxPcxGYiLykHmi5VfXBh5NCeNXYMbj9akYHbn",
+            )
+            .unwrap(), // Jip
             100_000_000_000u128,
         ),
         (
-            <AccountId32 as Ss58Codec>::from_ss58check("5DUFdkP4rJrkXq9pfrWMHQS8zgiwXBZRgw2MMEAnBot59Taz").unwrap(), // Bob
+            <AccountId32 as Ss58Codec>::from_ss58check(
+                "5DUFdkP4rJrkXq9pfrWMHQS8zgiwXBZRgw2MMEAnBot59Taz",
+            )
+            .unwrap(), // Bob
             100_000_000_000u128,
         ),
         (
-            <AccountId32 as Ss58Codec>::from_ss58check("5CoSC9nRDT4CbnEGLCHcC8PxgpJsWpSdF3RLnTx2aBvX3qPu").unwrap(), // Faybian
+            <AccountId32 as Ss58Codec>::from_ss58check(
+                "5CoSC9nRDT4CbnEGLCHcC8PxgpJsWpSdF3RLnTx2aBvX3qPu",
+            )
+            .unwrap(), // Faybian
             100_000_000_000u128,
         ),
         (
-            <AccountId32 as Ss58Codec>::from_ss58check("5CXgmrp6Ts5igz9uxSdQQy9ERUVaJFtswzaSBUXhb3Ci7drK").unwrap(), // Special K
+            <AccountId32 as Ss58Codec>::from_ss58check(
+                "5CXgmrp6Ts5igz9uxSdQQy9ERUVaJFtswzaSBUXhb3Ci7drK",
+            )
+            .unwrap(), // Special K
             100_000_000_000u128,
         ),
         (
-            <AccountId32 as Ss58Codec>::from_ss58check("5HDpGZLNYSxHGWVhsPgKRDKVM6oob7MMnwxdpU8dBP7N51dX").unwrap(), // Michal
+            <AccountId32 as Ss58Codec>::from_ss58check(
+                "5HDpGZLNYSxHGWVhsPgKRDKVM6oob7MMnwxdpU8dBP7N51dX",
+            )
+            .unwrap(), // Michal
             100_000_000_000u128,
         ),
         (
-            <AccountId32 as Ss58Codec>::from_ss58check("5GH3haJWuJjcZWuC7iFGtaVajJNEpNg2Guaqyf71y9uDfFrt").unwrap(), // Isa
+            <AccountId32 as Ss58Codec>::from_ss58check(
+                "5GH3haJWuJjcZWuC7iFGtaVajJNEpNg2Guaqyf71y9uDfFrt",
+            )
+            .unwrap(), // Isa
             100_000_000_000u128,
         ),
         (
-            <AccountId32 as Ss58Codec>::from_ss58check("5HTukLb2y59rrL5tM9RMw3baziCFZUeSZATWMWHgSrNknc9A").unwrap(), // Gus
+            <AccountId32 as Ss58Codec>::from_ss58check(
+                "5HTukLb2y59rrL5tM9RMw3baziCFZUeSZATWMWHgSrNknc9A",
+            )
+            .unwrap(), // Gus
             100_000_000_000u128,
         ),
         (
-            <AccountId32 as Ss58Codec>::from_ss58check("5CkV7PPFWh8EihTK5uLm7VNF4C9hiKJ9UeJJwQuByn3bx82L").unwrap(), // Carrot
+            <AccountId32 as Ss58Codec>::from_ss58check(
+                "5CkV7PPFWh8EihTK5uLm7VNF4C9hiKJ9UeJJwQuByn3bx82L",
+            )
+            .unwrap(), // Carrot
             100_000_000_000u128,
         ),
         (
-            <AccountId32 as Ss58Codec>::from_ss58check("5DV8tTjq8EXE6KmoCbJ3xaN54HTXsfev5ZyKJEQPyTcm4MmE").unwrap(), // Paul
+            <AccountId32 as Ss58Codec>::from_ss58check(
+                "5DV8tTjq8EXE6KmoCbJ3xaN54HTXsfev5ZyKJEQPyTcm4MmE",
+            )
+            .unwrap(), // Paul
             100_000_000_000u128,
-        )
+        ),
     ];
 
     // Check if the environment variable is set

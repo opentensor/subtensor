@@ -706,9 +706,11 @@ pub mod pallet {
         StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
     // DEPRECATED
     #[pallet::storage] // --- MAP ( netuid ) --> total_subnet_locked
-    pub type SubnetLocked<T: Config> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+    pub type SubnetLocked<T: Config> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> largest_locked
-    pub type LargestLocked<T: Config> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+    pub type LargestLocked<T: Config> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- ITEM( last_network_lock_cost )
     pub type LockIntervalBlocks<T> = StorageValue<_, u64, ValueQuery, DefaultLockIntervalBlocks<T>>;
     #[pallet::storage] // --- NMAP ( netuid, cold, hot ) --> (amount, start, end) | Returns the lock associated with a hotkey.

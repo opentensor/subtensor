@@ -1,6 +1,7 @@
 use super::*;
 use crate::epoch::math::*;
 use alloc::collections::BTreeMap;
+use core::ops::Neg;
 use substrate_fixed::types::I96F32;
 
 impl<T: Config> Pallet<T> {
@@ -77,7 +78,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
     ) -> u64 {
         let (locked, _, end) = Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone()));
-        
+
         Self::calculate_conviction(locked, end, Self::get_current_block_as_u64())
     }
 
@@ -245,10 +246,13 @@ impl<T: Config> Pallet<T> {
         // Normalize convictions and apply exponential function
         let mut powered_convictions: Vec<I96F32> = Vec::with_capacity(convictions.len());
         for c in convictions.iter() {
-            let normalized = I96F32::from_num(*c) / I96F32::from_num(max_conviction);
+            let normalized: I96F32 = I96F32::from_num(*c)
+                .checked_div(I96F32::from_num(max_conviction))
+                .unwrap_or(I96F32::from_num(0));
             // Use checked_mul to prevent overflow in exponentiation
             let powered = exp_safe_f96(
-                I96F32::from_num(sharpness).saturating_mul(normalized - I96F32::from_num(1)),
+                I96F32::from_num(sharpness)
+                    .saturating_mul(normalized.saturating_sub(I96F32::from_num(1))),
             );
             powered_convictions.push(powered);
         }
@@ -264,7 +268,7 @@ impl<T: Config> Pallet<T> {
         // Calculate shares
         let shares: Vec<I96F32> = powered_convictions
             .into_iter()
-            .map(|pc| pc / total_powered)
+            .map(|pc: I96F32| pc.checked_div(total_powered).unwrap_or(I96F32::from_num(0)))
             .collect();
 
         shares
@@ -302,7 +306,10 @@ impl<T: Config> Pallet<T> {
             // Calculate conviction for each lock
             let conviction = Self::calculate_conviction(lock_amount, end_block, current_block);
             // Add conviction to the hotkey's total
-            *hotkey_convictions.entry(hotkey.clone()).or_default() += conviction;
+            hotkey_convictions
+                .entry(hotkey.clone())
+                .and_modify(|e| *e = e.saturating_add(conviction))
+                .or_insert(conviction);
             // Add to the total conviction
             total_conviction = total_conviction.saturating_add(conviction);
         }
@@ -318,8 +325,8 @@ impl<T: Config> Pallet<T> {
 
         // Set the total subnet Conviction.
         let largest_conviction = convictions.iter().max().cloned().unwrap_or(1);
-        SubnetLocked::<T>::insert( netuid, total_conviction ) ;
-        LargestLocked::<T>::insert( netuid, largest_conviction );
+        SubnetLocked::<T>::insert(netuid, total_conviction);
+        LargestLocked::<T>::insert(netuid, largest_conviction);
 
         // Calculate shares using the lion's share distribution
         let shares: Vec<I96F32> = Self::calculate_lions_share(convictions, 20);
@@ -387,7 +394,7 @@ impl<T: Config> Pallet<T> {
                 (
                     amount,
                     current_block,
-                    current_block + Self::get_lock_interval_blocks(),
+                    current_block.saturating_add(Self::get_lock_interval_blocks()),
                 ),
             );
         }
@@ -409,7 +416,11 @@ impl<T: Config> Pallet<T> {
     pub fn update_all_subnet_owners() {
         let current_block = Self::get_current_block_as_u64();
         let update_interval = 7200 * 15; // Approx 15 days.
-        if current_block % (update_interval * 2) == 0 {
+                                         // Use checked_rem to avoid potential arithmetic overflow
+        if current_block
+            .checked_rem(update_interval * 2)
+            .map_or(false, |rem| rem == 0)
+        {
             for netuid in Self::get_all_subnet_netuids() {
                 Self::update_subnet_owner(netuid);
             }
@@ -486,8 +497,7 @@ impl<T: Config> Pallet<T> {
 
         if tied_hotkeys.len() > 1 {
             // Use a deterministic method to break ties, e.g., lowest hotkey value
-            if let Some((winning_hotkey, _)) =
-                tied_hotkeys.iter().min_by_key(|(hotkey, _)| hotkey)
+            if let Some((winning_hotkey, _)) = tied_hotkeys.iter().min_by_key(|(hotkey, _)| hotkey)
             {
                 let owning_coldkey = Self::get_owning_coldkey_for_hotkey(winning_hotkey);
                 SubnetOwner::<T>::insert(netuid, owning_coldkey.clone());
@@ -532,11 +542,14 @@ impl<T: Config> Pallet<T> {
     pub fn calculate_conviction(lock_amount: u64, end_block: u64, current_block: u64) -> u64 {
         let lock_duration = end_block.saturating_sub(current_block);
         let lock_interval_blocks = Self::get_lock_interval_blocks();
-        let time_factor =
-            -I96F32::from_num(lock_duration).saturating_div(I96F32::from_num(lock_interval_blocks));
-        let exp_term = I96F32::from_num(1) - exp_safe_f96(I96F32::from_num(time_factor));
+        let time_factor = I96F32::from_num(lock_duration)
+            .saturating_div(I96F32::from_num(lock_interval_blocks))
+            .neg();
+        let exp_term = I96F32::from_num(1)
+            .checked_sub(exp_safe_f96(time_factor))
+            .unwrap_or(I96F32::from_num(0));
         let conviction_score = I96F32::from_num(lock_amount).saturating_mul(exp_term);
-        
+
         conviction_score.to_num::<u64>()
     }
 

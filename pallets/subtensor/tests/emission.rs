@@ -1,3 +1,9 @@
+#![allow(
+    clippy::unwrap_used,
+    clippy::panic,
+    clippy::arithmetic_side_effects,
+    clippy::indexing_slicing
+)]
 mod mock;
 use crate::mock::*;
 use pallet_subtensor::*;
@@ -998,10 +1004,7 @@ fn test_basic_emission_distribution_scenario() {
         ParentKeys::<Test>::insert(
             hotkey,
             netuid,
-            vec![
-                (u64::MAX / 2, parent1),
-                (u64::MAX / 2, parent2),
-            ],
+            vec![(u64::MAX / 2, parent1), (u64::MAX / 2, parent2)],
         );
 
         let mut emission_tuples = Vec::new();
@@ -1303,10 +1306,7 @@ fn test_rounding_and_precision_scenario() {
         ParentKeys::<Test>::insert(
             hotkey,
             netuid,
-            vec![
-                (u64::MAX / 2, parent1),
-                (u64::MAX / 2, parent2),
-            ],
+            vec![(u64::MAX / 2, parent1), (u64::MAX / 2, parent2)],
         );
         SubtensorModule::stake_into_subnet(&parent1, &coldkey, netuid, 1000);
         SubtensorModule::stake_into_subnet(&parent2, &coldkey, netuid, 1000);
@@ -1504,11 +1504,7 @@ fn test_edge_cases_parent_proportions() {
         ParentKeys::<Test>::insert(
             hotkey,
             netuid,
-            vec![
-                (0, parent1),
-                (u64::MAX, parent2),
-                (u64::MAX / 2, parent3),
-            ],
+            vec![(0, parent1), (u64::MAX, parent2), (u64::MAX / 2, parent3)],
         );
 
         for parent in [&parent1, &parent2, &parent3] {
