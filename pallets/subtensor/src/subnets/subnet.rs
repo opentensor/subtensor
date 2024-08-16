@@ -69,8 +69,8 @@ impl<T: Config> Pallet<T> {
     /// # Returns:
     /// * 'u16': The subnet mechanism
     ///
-    pub fn get_subnet_mechanism( netuid: u16 ) -> u16 {
-        SubnetMechanism::<T>::get( netuid )
+    pub fn get_subnet_mechanism(netuid: u16) -> u16 {
+        SubnetMechanism::<T>::get(netuid)
     }
 
     /// Finds the next available mechanism ID.
@@ -114,12 +114,12 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Ensure the hotkey does not exist or is owned by the coldkey.
         ensure!(
-            !Self::hotkey_account_exists(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+            !Self::hotkey_account_exists(hotkey) || Self::coldkey_owns_hotkey(&coldkey, hotkey),
             Error::<T>::HotKeyNotDelegateAndSignerNotOwnHotKey
         );
 
         // --- 3. Ensure the mechanism is Dynamic.
-        ensure!( mechid == 1, Error::<T>::MechanismDoesNotExist );
+        ensure!(mechid == 1, Error::<T>::MechanismDoesNotExist);
 
         // --- 4. Rate limit for network registrations.
         let current_block = Self::get_current_block_as_u64();
@@ -141,11 +141,12 @@ impl<T: Config> Pallet<T> {
         let netuid_to_register: u16 = Self::get_next_netuid();
 
         // --- 6. Perform the lock operation.
-        let actual_tao_lock_amount: u64 = Self::remove_balance_from_coldkey_account(&coldkey, lock_amount)?;
+        let actual_tao_lock_amount: u64 =
+            Self::remove_balance_from_coldkey_account(&coldkey, lock_amount)?;
         log::debug!("actual_tao_lock_amount: {:?}", actual_tao_lock_amount);
 
         // --- 7. Set the lock amount for use to determine pricing.
-        Self::set_network_last_lock( actual_tao_lock_amount );
+        Self::set_network_last_lock(actual_tao_lock_amount);
 
         // --- 8. Set initial and custom parameters for the network.
         Self::init_new_network(netuid_to_register, 360);
@@ -175,10 +176,23 @@ impl<T: Config> Pallet<T> {
         // --- 14. Init the pool by putting the lock as the initial alpha.
         SubnetTAO::<T>::insert(netuid_to_register, 1); // add the TAO to the pool.
         SubnetAlphaIn::<T>::insert(netuid_to_register, actual_tao_lock_amount); // Set the alpha in based on the lock.
-        let alpha_out = Self::stake_into_subnet(&hotkey, &coldkey, netuid_to_register, actual_tao_lock_amount);
-        Locks::<T>::insert( // Lock the initial funds making this key the owner.
+        let alpha_out = Self::stake_into_subnet(
+            hotkey,
+            &coldkey,
+            netuid_to_register,
+            actual_tao_lock_amount,
+        );
+        SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
+        SubnetLocked::<T>::insert(netuid_to_register, alpha_out);
+        LargestLocked::<T>::insert(netuid_to_register, alpha_out);
+        Locks::<T>::insert(
+            // Lock the initial funds making this key the owner.
             (netuid_to_register, hotkey.clone(), coldkey.clone()),
-            (alpha_out, current_block, current_block.saturating_add( Self::get_lock_interval_blocks() ) ),
+            (
+                alpha_out,
+                current_block,
+                current_block.saturating_add(Self::get_lock_interval_blocks()),
+            ),
         );
 
         // --- 15. Emit the NetworkAdded event.
@@ -271,5 +285,4 @@ impl<T: Config> Pallet<T> {
             );
         }
     }
-
 }

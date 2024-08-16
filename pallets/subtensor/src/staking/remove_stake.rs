@@ -55,14 +55,14 @@ impl<T: Config> Pallet<T> {
         // );
 
         // Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
-        ensure!(
-            Self::hotkey_is_delegate(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
-            Error::<T>::HotKeyNotDelegateAndSignerNotOwnHotKey
-        );
+        // DEPRECATED.
+        // ensure!(
+        //     Self::hotkey_is_delegate(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+        //     Error::<T>::HotKeyNotDelegateAndSignerNotOwnHotKey
+        // );
 
         // Ensure that the stake amount to be removed is above zero.
         ensure!(alpha_unstaked > 0, Error::<T>::StakeToWithdrawIsZero);
-
 
         // Ensure that the hotkey has enough stake to withdraw.
         ensure!(
@@ -79,7 +79,8 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure we can unstake this with locks.
-        let total_stake: u64 = Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        let total_stake: u64 =
+            Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
 
         // Ensure we are not unstaking more than allowed
         let current_block = Self::get_current_block_as_u64();
@@ -87,7 +88,8 @@ impl<T: Config> Pallet<T> {
 
         if Locks::<T>::contains_key((netuid, hotkey.clone(), coldkey.clone())) {
             // Retrieve the lock information for the given netuid, hotkey, and coldkey
-            let (alpha_locked, _start_block, end_block) = Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone()));
+            let (alpha_locked, _start_block, end_block) =
+                Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone()));
             let conviction = Self::calculate_conviction(alpha_locked, end_block, current_block);
             let stake_after_unstake = total_stake.saturating_sub(alpha_unstaked);
             // Ensure the requested unstake amount is not more than what's allowed
@@ -96,7 +98,7 @@ impl<T: Config> Pallet<T> {
                 Error::<T>::NotEnoughStakeToWithdraw
             );
             // If conviction is 0, remove the lock
-            if conviction==0 {
+            if conviction == 0 {
                 Locks::<T>::remove((netuid, hotkey.clone(), coldkey.clone()));
             }
         }

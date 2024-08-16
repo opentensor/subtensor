@@ -77,7 +77,8 @@ alice_start=(
   --rpc-cors=all
   --allow-private-ipv4
   --discover-local
-  --rpc-external
+  --unsafe-rpc-external
+  --rpc-methods=unsafe
 )
 
 bob_start=(

@@ -477,12 +477,17 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for lock interval blocks.
     pub fn DefaultLockIntervalBlocks<T: Config>() -> u64 {
-        7200 * 180 // 180 days.  
+        7200 * 180 // 180 days.
     }
     #[pallet::type_value]
     /// Default value for u16 max.
     pub fn DefaultMaxU16<T: Config>() -> u16 {
         u16::MAX
+    }
+    #[pallet::type_value]
+    /// Default value for u16 max.
+    pub fn DefaultMaxTempo<T: Config>() -> u16 {
+        300 * 4 // 4 hours.
     }
     #[pallet::type_value]
     /// Default value for global weight.
@@ -697,10 +702,13 @@ pub mod pallet {
     /// ==== Subnet Locks =====
     /// ============================
     #[pallet::storage] // --- MAP ( netuid ) --> subnet_owner
-    pub type SubnetOwner<T: Config> = StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
+    pub type SubnetOwner<T: Config> =
+        StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
     // DEPRECATED
-    #[pallet::storage] // --- MAP ( netuid ) --> subnet_locked
+    #[pallet::storage] // --- MAP ( netuid ) --> total_subnet_locked
     pub type SubnetLocked<T: Config> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage] // --- MAP ( netuid ) --> largest_locked
+    pub type LargestLocked<T: Config> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- ITEM( last_network_lock_cost )
     pub type LockIntervalBlocks<T> = StorageValue<_, u64, ValueQuery, DefaultLockIntervalBlocks<T>>;
     #[pallet::storage] // --- NMAP ( netuid, cold, hot ) --> (amount, start, end) | Returns the lock associated with a hotkey.
@@ -715,17 +723,15 @@ pub mod pallet {
         ValueQuery,
     >;
 
-
     /// =================
     /// ==== Tempos =====
     /// =================
     #[pallet::storage] // --- ITEM( max_tempo )
     pub type AvgTempo<T> = StorageValue<_, u16, ValueQuery, DefaultTempo<T>>;
     #[pallet::storage] // --- ITEM( max_tempo )
-    pub type MaxTempo<T> = StorageValue<_, u16, ValueQuery, DefaultMaxU16<T>>;
+    pub type MaxTempo<T> = StorageValue<_, u16, ValueQuery, DefaultMaxTempo<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> tempo
     pub type Tempo<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultTempo<T>>;
-
 
     /// ============================
     /// ==== Subnet Parameters =====

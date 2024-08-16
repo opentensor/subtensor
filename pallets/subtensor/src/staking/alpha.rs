@@ -115,8 +115,9 @@ impl<T: Config> Pallet<T> {
         for (uid_i, hotkey) in &hotkeys {
             if let Some(stake) = global_tao_stake.get_mut(*uid_i as usize) {
                 // Retrieve and store the global stake for each hotkey.
-                *stake =
-                    I64F64::from_num(Self::get_inherited_global_for_hotkey_on_subnet(hotkey, netuid));
+                *stake = I64F64::from_num(Self::get_inherited_global_for_hotkey_on_subnet(
+                    hotkey, netuid,
+                ));
             } else {
                 // Log a warning if the index is out of bounds (should not happen if n is correct).
                 log::warn!(
@@ -144,7 +145,7 @@ impl<T: Config> Pallet<T> {
             })
             .collect();
         // Normalize the combined stake weights.
-        inplace_normalize_64(&mut stake_weights);// no need to normalize
+        inplace_normalize_64(&mut stake_weights); // no need to normalize
 
         // Step 6: Convert the combined stake values from 64-bit to 32-bit fixed-point representation.
         vec_fixed64_to_fixed32(stake_weights)
@@ -201,8 +202,8 @@ impl<T: Config> Pallet<T> {
                 I96F32::from_num(initial_global_tao).saturating_mul(normalized_proportion);
 
             // Accumulate the total stake allocated to children.
-            global_tao_to_children = global_tao_to_children
-                .saturating_add(global_tao_proportion_to_child);
+            global_tao_to_children =
+                global_tao_to_children.saturating_add(global_tao_proportion_to_child);
         }
 
         // Step 4: Calculate the total global stake received from parents.
@@ -219,8 +220,8 @@ impl<T: Config> Pallet<T> {
                 I96F32::from_num(parent_global_tao).saturating_mul(normalized_proportion);
 
             // Accumulate the total stake inherited from parents.
-            global_tao_from_parents = global_tao_from_parents
-                .saturating_add(global_tao_proportion_from_parent);
+            global_tao_from_parents =
+                global_tao_from_parents.saturating_add(global_tao_proportion_from_parent);
         }
 
         // Step 5: Compute the final global stake.
@@ -262,7 +263,8 @@ impl<T: Config> Pallet<T> {
     /// This function uses saturating arithmetic to prevent overflows.
     pub fn get_inherited_alpha_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
         // Step 1: Retrieve the initial total stake (alpha) for the hotkey on the specified subnet.
-        let initial_alpha: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
+        let initial_alpha: I96F32 =
+            I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
 
         // Initialize variables to track alpha allocated to children and inherited from parents.
         let mut alpha_to_children: I96F32 = I96F32::from_num(0);
@@ -283,14 +285,14 @@ impl<T: Config> Pallet<T> {
                 I96F32::from_num(initial_alpha).saturating_mul(normalized_proportion);
 
             // Add this child's allocation to the total alpha allocated to children.
-            alpha_to_children =
-                alpha_to_children.saturating_add(alpha_proportion_to_child);
+            alpha_to_children = alpha_to_children.saturating_add(alpha_proportion_to_child);
         }
 
         // Step 4: Calculate the total alpha inherited from parents.
         for (proportion, parent) in parents {
             // Retrieve the parent's total stake on this subnet.
-            let parent_alpha: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(&parent, netuid));
+            let parent_alpha: I96F32 =
+                I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(&parent, netuid));
 
             // Convert the proportion to a normalized value between 0 and 1.
             let normalized_proportion: I96F32 =
@@ -301,8 +303,7 @@ impl<T: Config> Pallet<T> {
                 I96F32::from_num(parent_alpha).saturating_mul(normalized_proportion);
 
             // Add this parent's contribution to the total alpha inherited from parents.
-            alpha_from_parents =
-                alpha_from_parents.saturating_add(alpha_proportion_from_parent);
+            alpha_from_parents = alpha_from_parents.saturating_add(alpha_proportion_from_parent);
         }
 
         // Step 5: Calculate the final inherited alpha for the hotkey.

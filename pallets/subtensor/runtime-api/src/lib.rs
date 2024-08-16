@@ -22,6 +22,8 @@ sp_api::decl_runtime_apis! {
         fn get_subnet_info(netuid: u16) -> Vec<u8>;
         fn get_subnets_info() -> Vec<u8>;
         fn get_subnet_hyperparams(netuid: u16) -> Vec<u8>;
+        fn get_dynamic_info(netuid: u16) -> Vec<u8>;
+        fn get_all_dynamic_info() -> Vec<u8>;
     }
 
     pub trait StakeInfoRuntimeApi {
