@@ -59,7 +59,6 @@ fn main() {
             }
         };
 
-        track_lint(DummyLint::lint(&parsed_file));
         track_lint(RequireFreezeStruct::lint(&parsed_file));
     });
 
