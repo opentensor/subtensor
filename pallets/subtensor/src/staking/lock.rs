@@ -77,7 +77,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
     ) -> u64 {
         let (locked, _, end) = Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone()));
-        
+
         Self::calculate_conviction(locked, end, Self::get_current_block_as_u64())
     }
 
@@ -318,8 +318,8 @@ impl<T: Config> Pallet<T> {
 
         // Set the total subnet Conviction.
         let largest_conviction = convictions.iter().max().cloned().unwrap_or(1);
-        SubnetLocked::<T>::insert( netuid, total_conviction ) ;
-        LargestLocked::<T>::insert( netuid, largest_conviction );
+        SubnetLocked::<T>::insert(netuid, total_conviction);
+        LargestLocked::<T>::insert(netuid, largest_conviction);
 
         // Calculate shares using the lion's share distribution
         let shares: Vec<I96F32> = Self::calculate_lions_share(convictions, 20);
@@ -463,12 +463,16 @@ impl<T: Config> Pallet<T> {
         // Handle the case where no locks exist for the subnet
         if hotkey_convictions.is_empty() {
             log::warn!("No locks found for subnet {}", netuid);
+            SubnetOwner::<T>::remove(netuid);
+            SubnetLocked::<T>::remove(netuid);
             return;
         }
 
         // Implement a minimum conviction threshold for becoming a subnet owner
         let min_conviction_threshold = I96F32::from_num(1000); // Example threshold, adjust as needed
         if max_total_conviction < min_conviction_threshold {
+            SubnetOwner::<T>::remove(netuid);
+            SubnetLocked::<T>::remove(netuid);
             return;
         }
 
@@ -476,6 +480,8 @@ impl<T: Config> Pallet<T> {
         if let Some(hotkey) = max_conviction_hotkey {
             let owning_coldkey = Self::get_owning_coldkey_for_hotkey(&hotkey);
             SubnetOwner::<T>::insert(netuid, owning_coldkey.clone());
+            // Set the SubnetLocked value to the maximum conviction
+            SubnetLocked::<T>::insert(netuid, max_total_conviction.to_num::<u64>());
         }
 
         // Implement a tie-breaking mechanism for equal conviction scores
@@ -486,8 +492,7 @@ impl<T: Config> Pallet<T> {
 
         if tied_hotkeys.len() > 1 {
             // Use a deterministic method to break ties, e.g., lowest hotkey value
-            if let Some((winning_hotkey, _)) =
-                tied_hotkeys.iter().min_by_key(|(hotkey, _)| hotkey)
+            if let Some((winning_hotkey, _)) = tied_hotkeys.iter().min_by_key(|(hotkey, _)| hotkey)
             {
                 let owning_coldkey = Self::get_owning_coldkey_for_hotkey(winning_hotkey);
                 SubnetOwner::<T>::insert(netuid, owning_coldkey.clone());
@@ -536,7 +541,7 @@ impl<T: Config> Pallet<T> {
             -I96F32::from_num(lock_duration).saturating_div(I96F32::from_num(lock_interval_blocks));
         let exp_term = I96F32::from_num(1) - exp_safe_f96(I96F32::from_num(time_factor));
         let conviction_score = I96F32::from_num(lock_amount).saturating_mul(exp_term);
-        
+
         conviction_score.to_num::<u64>()
     }
 
