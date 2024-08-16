@@ -34,7 +34,7 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // --- 1. We check the coldkey signuture.
         let coldkey = ensure_signed(origin)?;
-        log::info!(
+        log::debug!(
             "do_become_delegate( origin:{:?} hotkey:{:?}, take:{:?} )",
             coldkey,
             hotkey,
@@ -72,7 +72,7 @@ impl<T: Config> Pallet<T> {
         Self::set_last_tx_block_delegate_take(&coldkey, block);
 
         // --- 7. Emit the staking event.
-        log::info!(
+        log::debug!(
             "DelegateAdded( coldkey:{:?}, hotkey:{:?}, take:{:?} )",
             coldkey,
             hotkey,

@@ -150,12 +150,12 @@ impl<T: Config> Pallet<T> {
         Active::<T>::insert(netuid, updated_active_vec);
     }
     pub fn set_pruning_score_for_uid(netuid: u16, uid: u16, pruning_score: u16) {
-        log::info!("netuid = {:?}", netuid);
-        log::info!(
+        log::debug!("netuid = {:?}", netuid);
+        log::debug!(
             "SubnetworkN::<T>::get( netuid ) = {:?}",
             SubnetworkN::<T>::get(netuid)
         );
-        log::info!("uid = {:?}", uid);
+        log::debug!("uid = {:?}", uid);
         assert!(uid < SubnetworkN::<T>::get(netuid));
         PruningScores::<T>::mutate(netuid, |v| {
             if let Some(s) = v.get_mut(uid as usize) {
@@ -460,6 +460,13 @@ impl<T: Config> Pallet<T> {
     pub fn set_immunity_period(netuid: u16, immunity_period: u16) {
         ImmunityPeriod::<T>::insert(netuid, immunity_period);
         Self::deposit_event(Event::ImmunityPeriodSet(netuid, immunity_period));
+    }
+    /// Check if a neuron is in immunity based on the current block
+    pub fn get_neuron_is_immune(netuid: u16, uid: u16) -> bool {
+        let registered_at = Self::get_neuron_block_at_registration(netuid, uid);
+        let current_block = Self::get_current_block_as_u64();
+        let immunity_period = Self::get_immunity_period(netuid);
+        current_block.saturating_sub(registered_at) < u64::from(immunity_period)
     }
 
     pub fn get_min_allowed_weights(netuid: u16) -> u16 {

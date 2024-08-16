@@ -106,7 +106,7 @@ impl<T: Config> Pallet<T> {
         Axons::<T>::insert(netuid, hotkey_id.clone(), prev_axon);
 
         // We deposit axon served event.
-        log::info!("AxonServed( hotkey:{:?} ) ", hotkey_id.clone());
+        log::debug!("AxonServed( hotkey:{:?} ) ", hotkey_id.clone());
         Self::deposit_event(Event::AxonServed(netuid, hotkey_id));
 
         // Return is successful dispatch.
@@ -204,7 +204,7 @@ impl<T: Config> Pallet<T> {
         Prometheus::<T>::insert(netuid, hotkey_id.clone(), prev_prometheus);
 
         // We deposit prometheus served event.
-        log::info!("PrometheusServed( hotkey:{:?} ) ", hotkey_id.clone());
+        log::debug!("PrometheusServed( hotkey:{:?} ) ", hotkey_id.clone());
         Self::deposit_event(Event::PrometheusServed(netuid, hotkey_id));
 
         // Return is successful dispatch.

@@ -79,7 +79,7 @@ pub mod pallet {
 
             T::Aura::change_authorities(new_authorities.clone());
 
-            log::info!("Aura authorities changed: {:?}", new_authorities);
+            log::debug!("Aura authorities changed: {:?}", new_authorities);
 
             // Return a successful DispatchResultWithPostInfo
             Ok(())
@@ -93,7 +93,7 @@ pub mod pallet {
         pub fn sudo_set_default_take(origin: OriginFor<T>, default_take: u16) -> DispatchResult {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_max_delegate_take(default_take);
-            log::info!("DefaultTakeSet( default_take: {:?} ) ", default_take);
+            log::debug!("DefaultTakeSet( default_take: {:?} ) ", default_take);
             Ok(())
         }
 
@@ -105,7 +105,7 @@ pub mod pallet {
         pub fn sudo_set_tx_rate_limit(origin: OriginFor<T>, tx_rate_limit: u64) -> DispatchResult {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_tx_rate_limit(tx_rate_limit);
-            log::info!("TxRateLimitSet( tx_rate_limit: {:?} ) ", tx_rate_limit);
+            log::debug!("TxRateLimitSet( tx_rate_limit: {:?} ) ", tx_rate_limit);
             Ok(())
         }
 
@@ -122,7 +122,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
 
             pallet_subtensor::Pallet::<T>::set_serving_rate_limit(netuid, serving_rate_limit);
-            log::info!(
+            log::debug!(
                 "ServingRateLimitSet( serving_rate_limit: {:?} ) ",
                 serving_rate_limit
             );
@@ -146,7 +146,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_min_difficulty(netuid, min_difficulty);
-            log::info!(
+            log::debug!(
                 "MinDifficultySet( netuid: {:?} min_difficulty: {:?} ) ",
                 netuid,
                 min_difficulty
@@ -171,7 +171,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_max_difficulty(netuid, max_difficulty);
-            log::info!(
+            log::debug!(
                 "MaxDifficultySet( netuid: {:?} max_difficulty: {:?} ) ",
                 netuid,
                 max_difficulty
@@ -196,7 +196,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_weights_version_key(netuid, weights_version_key);
-            log::info!(
+            log::debug!(
                 "WeightsVersionKeySet( netuid: {:?} weights_version_key: {:?} ) ",
                 netuid,
                 weights_version_key
@@ -224,7 +224,7 @@ pub mod pallet {
                 netuid,
                 weights_set_rate_limit,
             );
-            log::info!(
+            log::debug!(
                 "WeightsSetRateLimitSet( netuid: {:?} weights_set_rate_limit: {:?} ) ",
                 netuid,
                 weights_set_rate_limit
@@ -249,7 +249,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_adjustment_interval(netuid, adjustment_interval);
-            log::info!(
+            log::debug!(
                 "AdjustmentIntervalSet( netuid: {:?} adjustment_interval: {:?} ) ",
                 netuid,
                 adjustment_interval
@@ -280,7 +280,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_adjustment_alpha(netuid, adjustment_alpha);
-            log::info!(
+            log::debug!(
                 "AdjustmentAlphaSet( adjustment_alpha: {:?} ) ",
                 adjustment_alpha
             );
@@ -304,7 +304,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_max_weight_limit(netuid, max_weight_limit);
-            log::info!(
+            log::debug!(
                 "MaxWeightLimitSet( netuid: {:?} max_weight_limit: {:?} ) ",
                 netuid,
                 max_weight_limit
@@ -329,7 +329,7 @@ pub mod pallet {
             );
 
             pallet_subtensor::Pallet::<T>::set_immunity_period(netuid, immunity_period);
-            log::info!(
+            log::debug!(
                 "ImmunityPeriodSet( netuid: {:?} immunity_period: {:?} ) ",
                 netuid,
                 immunity_period
@@ -354,7 +354,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_min_allowed_weights(netuid, min_allowed_weights);
-            log::info!(
+            log::debug!(
                 "MinAllowedWeightSet( netuid: {:?} min_allowed_weights: {:?} ) ",
                 netuid,
                 min_allowed_weights
@@ -382,7 +382,7 @@ pub mod pallet {
                 Error::<T>::MaxAllowedUIdsLessThanCurrentUIds
             );
             pallet_subtensor::Pallet::<T>::set_max_allowed_uids(netuid, max_allowed_uids);
-            log::info!(
+            log::debug!(
                 "MaxAllowedUidsSet( netuid: {:?} max_allowed_uids: {:?} ) ",
                 netuid,
                 max_allowed_uids
@@ -403,7 +403,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_kappa(netuid, kappa);
-            log::info!("KappaSet( netuid: {:?} kappa: {:?} ) ", netuid, kappa);
+            log::debug!("KappaSet( netuid: {:?} kappa: {:?} ) ", netuid, kappa);
             Ok(())
         }
 
@@ -420,7 +420,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_rho(netuid, rho);
-            log::info!("RhoSet( netuid: {:?} rho: {:?} ) ", netuid, rho);
+            log::debug!("RhoSet( netuid: {:?} rho: {:?} ) ", netuid, rho);
             Ok(())
         }
 
@@ -441,7 +441,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_activity_cutoff(netuid, activity_cutoff);
-            log::info!(
+            log::debug!(
                 "ActivityCutoffSet( netuid: {:?} activity_cutoff: {:?} ) ",
                 netuid,
                 activity_cutoff
@@ -471,7 +471,7 @@ pub mod pallet {
                 netuid,
                 registration_allowed,
             );
-            log::info!(
+            log::debug!(
                 "NetworkRegistrationAllowed( registration_allowed: {:?} ) ",
                 registration_allowed
             );
@@ -499,7 +499,7 @@ pub mod pallet {
                 netuid,
                 registration_allowed,
             );
-            log::info!(
+            log::debug!(
                 "NetworkPowRegistrationAllowed( registration_allowed: {:?} ) ",
                 registration_allowed
             );
@@ -526,7 +526,7 @@ pub mod pallet {
                 netuid,
                 target_registrations_per_interval,
             );
-            log::info!(
+            log::debug!(
             "RegistrationPerIntervalSet( netuid: {:?} target_registrations_per_interval: {:?} ) ",
             netuid,
             target_registrations_per_interval
@@ -551,7 +551,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_min_burn(netuid, min_burn);
-            log::info!(
+            log::debug!(
                 "MinBurnSet( netuid: {:?} min_burn: {:?} ) ",
                 netuid,
                 min_burn
@@ -576,7 +576,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_max_burn(netuid, max_burn);
-            log::info!(
+            log::debug!(
                 "MaxBurnSet( netuid: {:?} max_burn: {:?} ) ",
                 netuid,
                 max_burn
@@ -600,7 +600,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_difficulty(netuid, difficulty);
-            log::info!(
+            log::debug!(
                 "DifficultySet( netuid: {:?} difficulty: {:?} ) ",
                 netuid,
                 difficulty
@@ -633,7 +633,7 @@ pub mod pallet {
                 netuid,
                 max_allowed_validators,
             );
-            log::info!(
+            log::debug!(
                 "MaxAllowedValidatorsSet( netuid: {:?} max_allowed_validators: {:?} ) ",
                 netuid,
                 max_allowed_validators
@@ -658,7 +658,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_bonds_moving_average(netuid, bonds_moving_average);
-            log::info!(
+            log::debug!(
                 "BondsMovingAverageSet( netuid: {:?} bonds_moving_average: {:?} ) ",
                 netuid,
                 bonds_moving_average
@@ -686,7 +686,7 @@ pub mod pallet {
                 netuid,
                 max_registrations_per_block,
             );
-            log::info!(
+            log::debug!(
                 "MaxRegistrationsPerBlock( netuid: {:?} max_registrations_per_block: {:?} ) ",
                 netuid,
                 max_registrations_per_block
@@ -710,7 +710,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_subnet_owner_cut(subnet_owner_cut);
-            log::info!(
+            log::debug!(
                 "SubnetOwnerCut( subnet_owner_cut: {:?} ) ",
                 subnet_owner_cut
             );
@@ -733,7 +733,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_network_rate_limit(rate_limit);
-            log::info!("NetworkRateLimit( rate_limit: {:?} ) ", rate_limit);
+            log::debug!("NetworkRateLimit( rate_limit: {:?} ) ", rate_limit);
             Ok(())
         }
 
@@ -749,7 +749,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_tempo(netuid, tempo);
-            log::info!("TempoSet( netuid: {:?} tempo: {:?} ) ", netuid, tempo);
+            log::debug!("TempoSet( netuid: {:?} tempo: {:?} ) ", netuid, tempo);
             Ok(())
         }
 
@@ -787,7 +787,7 @@ pub mod pallet {
 
             pallet_subtensor::Pallet::<T>::set_network_immunity_period(immunity_period);
 
-            log::info!("NetworkImmunityPeriod( period: {:?} ) ", immunity_period);
+            log::debug!("NetworkImmunityPeriod( period: {:?} ) ", immunity_period);
 
             Ok(())
         }
@@ -810,7 +810,7 @@ pub mod pallet {
 
             pallet_subtensor::Pallet::<T>::set_network_min_lock(lock_cost);
 
-            log::info!("NetworkMinLockCost( lock_cost: {:?} ) ", lock_cost);
+            log::debug!("NetworkMinLockCost( lock_cost: {:?} ) ", lock_cost);
 
             Ok(())
         }
@@ -829,7 +829,7 @@ pub mod pallet {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_max_subnets(max_subnets);
 
-            log::info!("SubnetLimit( max_subnets: {:?} ) ", max_subnets);
+            log::debug!("SubnetLimit( max_subnets: {:?} ) ", max_subnets);
 
             Ok(())
         }
@@ -852,7 +852,7 @@ pub mod pallet {
 
             pallet_subtensor::Pallet::<T>::set_lock_reduction_interval(interval);
 
-            log::info!("NetworkLockReductionInterval( interval: {:?} ) ", interval);
+            log::debug!("NetworkLockReductionInterval( interval: {:?} ) ", interval);
 
             Ok(())
         }
@@ -920,7 +920,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_tx_delegate_take_rate_limit(tx_rate_limit);
-            log::info!(
+            log::debug!(
                 "TxRateLimitDelegateTakeSet( tx_delegate_take_rate_limit: {:?} ) ",
                 tx_rate_limit
             );
@@ -935,7 +935,7 @@ pub mod pallet {
         pub fn sudo_set_min_delegate_take(origin: OriginFor<T>, take: u16) -> DispatchResult {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_min_delegate_take(take);
-            log::info!("TxMinDelegateTakeSet( tx_min_delegate_take: {:?} ) ", take);
+            log::debug!("TxMinDelegateTakeSet( tx_min_delegate_take: {:?} ) ", take);
             Ok(())
         }
 
@@ -952,7 +952,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::set_target_stakes_per_interval(
                 target_stakes_per_interval,
             );
-            log::info!(
+            log::debug!(
                 "TxTargetStakesPerIntervalSet( set_target_stakes_per_interval: {:?} ) ",
                 target_stakes_per_interval
             );
@@ -977,7 +977,7 @@ pub mod pallet {
             );
 
             pallet_subtensor::Pallet::<T>::set_commit_reveal_weights_interval(netuid, interval);
-            log::info!(
+            log::debug!(
                 "SetWeightCommitInterval( netuid: {:?}, interval: {:?} ) ",
                 netuid,
                 interval
@@ -1003,7 +1003,7 @@ pub mod pallet {
             );
 
             pallet_subtensor::Pallet::<T>::set_commit_reveal_weights_enabled(netuid, enabled);
-            log::info!("ToggleSetWeightsCommitReveal( netuid: {:?} ) ", netuid);
+            log::debug!("ToggleSetWeightsCommitReveal( netuid: {:?} ) ", netuid);
             Ok(())
         }
 
@@ -1025,7 +1025,7 @@ pub mod pallet {
         ) -> DispatchResult {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
             pallet_subtensor::Pallet::<T>::set_liquid_alpha_enabled(netuid, enabled);
-            log::info!(
+            log::debug!(
                 "LiquidAlphaEnableToggled( netuid: {:?}, Enabled: {:?} ) ",
                 netuid,
                 enabled
@@ -1071,7 +1071,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_hotkey_emission_tempo(emission_tempo);
-            log::info!(
+            log::debug!(
                 "HotkeyEmissionTempoSet( emission_tempo: {:?} )",
                 emission_tempo
             );
