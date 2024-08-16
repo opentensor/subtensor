@@ -23,6 +23,7 @@ pub struct SubnetState<T: Config> {
     local_stake: Vec<Compact<u64>>,
     global_stake: Vec<Compact<u64>>,
     stake_weight: Vec<Compact<u16>>,
+    // identities: Vec<ChainIdentityOf>,
     // tao_stake: Compact<u64>,
     // incentive: Compact<u16>,
     // consensus: Compact<u16>,
@@ -39,12 +40,14 @@ impl<T: Config> Pallet<T> {
         let mut hotkeys: Vec<T::AccountId> = vec![];
         let mut coldkeys: Vec<T::AccountId> = vec![];
         let mut block_at_registration: Vec<Compact<u64>> = vec![];
+        // let mut identities: Vec<ChainIdentityOf> = vec![];
         for uid in 0..n {
             let hotkey = Keys::<T>::get(netuid, uid);
             let coldkey = Owner::<T>::get( hotkey.clone() );
             hotkeys.push( hotkey );
             coldkeys.push( coldkey );
             block_at_registration.push( BlockAtRegistration::<T>::get( netuid, uid ).into() );
+            // identities.push( Identities::<T>::get( coldkey.clone() ) );
         }
         let active: Vec<bool> = Active::<T>::get( netuid );
         let validator_permit: Vec<bool> = ValidatorPermit::<T>::get( netuid );
