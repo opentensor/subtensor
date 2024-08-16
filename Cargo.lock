@@ -9217,6 +9217,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "subtensor-tools"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "semver 1.0.23",
+ "toml_edit 0.22.14",
+]
+
+[[package]]
 name = "subtle"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
