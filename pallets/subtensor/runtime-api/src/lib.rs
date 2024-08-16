@@ -19,6 +19,7 @@ sp_api::decl_runtime_apis! {
     }
 
     pub trait SubnetInfoRuntimeApi {
+        fn get_subnet_state(netuid: u16) -> Vec<u8>;
         fn get_subnet_info(netuid: u16) -> Vec<u8>;
         fn get_subnets_info() -> Vec<u8>;
         fn get_subnet_hyperparams(netuid: u16) -> Vec<u8>;

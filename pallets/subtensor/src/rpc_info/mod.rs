@@ -4,3 +4,4 @@ pub mod neuron_info;
 pub mod stake_info;
 pub mod subnet_info;
 pub mod dynamic_info;
+pub mod show_subnet;

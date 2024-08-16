@@ -883,6 +883,12 @@ pub mod pallet {
     /// =======================================
     /// ==== Subnetwork Consensus Storage  ====
     /// =======================================
+    #[pallet::storage] // --- DMAP ( netuid ) --> local_stake_values | weight for stake used in YC.
+    pub type LocalStake<T: Config> =
+        StorageMap<_, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
+    #[pallet::storage] // --- DMAP ( netuid ) --> global_stake_values | weight for stake used in YC.
+    pub type GlobalStake<T: Config> =
+        StorageMap<_, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> stake_weight | weight for stake used in YC.
     pub type StakeWeight<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;

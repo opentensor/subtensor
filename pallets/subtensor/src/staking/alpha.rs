@@ -77,9 +77,11 @@ impl<T: Config> Pallet<T> {
     /// * `netuid` - Network unique identifier specifying the subnet context for stake weight calculation.
     ///
     /// # Returns
-    /// * `Vec<I32F32>` - A vector of stake weights for each hotkey (neuron) on the specified subnet,
-    ///                   represented as 32-bit fixed-point numbers.
-    pub fn get_stake_weights_for_network(netuid: u16) -> Vec<I32F32> {
+    /// * `(Vec<I32F32>, Vec<u64>, Vec<u64>)` - A tuple containing:
+    ///   - A vector of stake weights for each hotkey (neuron) on the specified subnet, represented as 32-bit fixed-point numbers.
+    ///   - A vector of raw alpha stakes for each hotkey (neuron) on the specified subnet.
+    ///   - A vector of raw global tao stakes for each hotkey (neuron) on the specified subnet.
+    pub fn get_stake_weights_for_network(netuid: u16) -> (Vec<I32F32>, Vec<u64>, Vec<u64>) {
         // Step 1: Get the subnet size (number of neurons).
         let n: u16 = Self::get_subnetwork_n(netuid);
 
@@ -91,20 +93,11 @@ impl<T: Config> Pallet<T> {
         // Step 3: Calculate the alpha stake vector.
         // Initialize a vector to store alpha stakes for each neuron.
         let mut alpha_stake: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
+        let mut raw_alpha_stake: Vec<u64> = vec![0; n as usize];
         for (uid_i, hotkey) in &hotkeys {
-            if let Some(stake) = alpha_stake.get_mut(*uid_i as usize) {
-                // Retrieve and store the inherited stake for each hotkey.
-                *stake = I64F64::from_num(Self::get_inherited_alpha_for_hotkey_on_subnet(
-                    hotkey, netuid,
-                ));
-            } else {
-                // Log a warning if the index is out of bounds (should not happen if n is correct).
-                log::warn!(
-                    "Invalid index {} when setting alpha stake for hotkey {:?}",
-                    *uid_i,
-                    hotkey
-                );
-            }
+            let alpha: u64 = Self::get_inherited_alpha_for_hotkey_on_subnet( hotkey, netuid );
+            alpha_stake[ *uid_i as usize ] = I64F64::from_num(alpha);
+            raw_alpha_stake[ *uid_i as usize ] = alpha;
         }
         // Normalize the alpha stake vector.
         inplace_normalize_64(&mut alpha_stake);
@@ -112,20 +105,11 @@ impl<T: Config> Pallet<T> {
         // Step 4: Calculate the global tao stake vector.
         // Initialize a vector to store global tao stakes for each neuron.
         let mut global_tao_stake: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
+        let mut raw_global_tao_stake: Vec<u64> = vec![0; n as usize];
         for (uid_i, hotkey) in &hotkeys {
-            if let Some(stake) = global_tao_stake.get_mut(*uid_i as usize) {
-                // Retrieve and store the global stake for each hotkey.
-                *stake = I64F64::from_num(Self::get_inherited_global_for_hotkey_on_subnet(
-                    hotkey, netuid,
-                ));
-            } else {
-                // Log a warning if the index is out of bounds (should not happen if n is correct).
-                log::warn!(
-                    "Invalid index {} when setting global stake for hotkey {:?}",
-                    *uid_i,
-                    hotkey
-                );
-            }
+            let global: u64 = Self::get_inherited_global_for_hotkey_on_subnet( hotkey, netuid );
+            global_tao_stake[*uid_i as usize] = I64F64::from_num(global);
+            raw_global_tao_stake[*uid_i as usize] = global;
         }
         // Normalize the global tao stake vector.
         inplace_normalize_64(&mut global_tao_stake);
@@ -148,7 +132,9 @@ impl<T: Config> Pallet<T> {
         inplace_normalize_64(&mut stake_weights); // no need to normalize
 
         // Step 6: Convert the combined stake values from 64-bit to 32-bit fixed-point representation.
-        vec_fixed64_to_fixed32(stake_weights)
+        let stake_weights_32 = vec_fixed64_to_fixed32(stake_weights);
+
+        (stake_weights_32, raw_alpha_stake, raw_global_tao_stake)
     }
 
     /// Calculates the total global stake held by a hotkey on a subnet, considering child/parent relationships.

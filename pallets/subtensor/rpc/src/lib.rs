@@ -49,7 +49,8 @@ pub trait SubtensorCustomApi<BlockHash> {
     fn get_dynamic_info(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getAllDynamicInfo")]
     fn get_all_dynamic_info(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
-
+    #[method(name = "subnetInfo_getSubnetState")]
+    fn get_subnet_state(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
 }
 
 pub struct SubtensorCustom<C, P> {
@@ -206,6 +207,11 @@ where
             .map_err(|e| Error::RuntimeError(format!("Unable to get subnet info: {:?}", e)).into())
     }
 
+    fn get_subnet_state(&self, netuid: u16, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+        api.get_subnet_state(at, netuid).map_err(|e| Error::RuntimeError(format!("Unable to get subnet state: {:?}", e)).into())
+    }
     fn get_subnets_info(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
