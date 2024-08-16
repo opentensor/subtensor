@@ -957,11 +957,9 @@ mod dispatches {
                 Error::<T>::SwapAlreadyScheduled
             );
 
-            // Calculate the number of blocks in 5 days
-            let blocks_in_5_days: u32 = 5 * 24 * 60 * 60 / 12;
-
-            let current_block = <frame_system::Pallet<T>>::block_number();
-            let when = current_block.saturating_add(BlockNumberFor::<T>::from(blocks_in_5_days));
+            let current_block: BlockNumberFor<T> = <frame_system::Pallet<T>>::block_number();
+            let duration: BlockNumberFor<T> = ColdkeySwapScheduleDuration::<T>::get();
+            let when: BlockNumberFor<T> = current_block.saturating_add(duration);
 
             let call = Call::<T>::swap_coldkey {
                 old_coldkey: who.clone(),
@@ -985,6 +983,60 @@ mod dispatches {
             Self::deposit_event(Event::ColdkeySwapScheduled {
                 old_coldkey: who.clone(),
                 new_coldkey: new_coldkey.clone(),
+                execution_block: when,
+            });
+
+            Ok(().into())
+        }
+
+        /// Schedule the dissolution of a network at a specified block number.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - The origin of the call, must be signed by the sender.
+        /// * `netuid` - The u16 network identifier to be dissolved.
+        ///
+        /// # Returns
+        ///
+        /// Returns a `DispatchResultWithPostInfo` indicating success or failure of the operation.
+        ///
+        /// # Weight
+        ///
+        /// Weight is calculated based on the number of database reads and writes.
+
+        #[pallet::call_index(74)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(6))
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
+        pub fn schedule_dissolve_network(
+            origin: OriginFor<T>,
+            netuid: u16,
+        ) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+
+            let current_block: BlockNumberFor<T> = <frame_system::Pallet<T>>::block_number();
+            let duration: BlockNumberFor<T> = DissolveNetworkScheduleDuration::<T>::get();
+            let when: BlockNumberFor<T> = current_block.saturating_add(duration);
+
+            let call = Call::<T>::dissolve_network { netuid };
+
+            let bound_call = T::Preimages::bound(LocalCallOf::<T>::from(call.clone()))
+                .map_err(|_| Error::<T>::FailedToSchedule)?;
+
+            T::Scheduler::schedule(
+                DispatchTime::At(when),
+                None,
+                63,
+                frame_system::RawOrigin::Signed(who.clone()).into(),
+                bound_call,
+            )
+            .map_err(|_| Error::<T>::FailedToSchedule)?;
+
+            ColdkeySwapScheduled::<T>::insert(&who, ());
+            // Emit the SwapScheduled event
+            Self::deposit_event(Event::DissolveNetworkScheduled {
+                account: who.clone(),
+                netuid,
                 execution_block: when,
             });
 

@@ -429,4 +429,13 @@ reveal_weights {
 
   }: reveal_weights(RawOrigin::Signed(hotkey.clone()), netuid, uids, weight_values, salt, version_key)
 
+  schedule_swap_coldkey {
+    let old_coldkey: T::AccountId = account("old_cold", 0, 1);
+    let new_coldkey: T::AccountId = account("new_cold", 1, 2);
+    }: schedule_swap_coldkey(RawOrigin::Signed(old_coldkey.clone()), new_coldkey.clone())
+
+    schedule_dissolve_network {
+        let coldkey: T::AccountId = account("coldkey", 0, 1);
+        let netuid = 1;
+    }: schedule_dissolve_network(RawOrigin::Signed(coldkey.clone()), netuid)
 }

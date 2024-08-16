@@ -171,7 +171,8 @@ parameter_types! {
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const InitialHotkeyEmissionTempo: u64 = 0; // Defaults to draining every block.
     pub const InitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500,000 TAO
-
+    pub const InitialColdkeySwapScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
+    pub const InitialDissolveNetworkScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
 }
 
 // Configure collective pallet for council
@@ -390,6 +391,8 @@ impl pallet_subtensor::Config for Test {
     type InitialHotkeyEmissionTempo = InitialHotkeyEmissionTempo;
     type InitialNetworkMaxStake = InitialNetworkMaxStake;
     type Preimages = Preimage;
+    type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
+    type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
 }
 
 pub struct OriginPrivilegeCmp;
