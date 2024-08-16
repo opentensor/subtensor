@@ -973,7 +973,7 @@ impl<T: Config> Pallet<T> {
         Self::init_new_network(netuid_to_register, 360);
         log::debug!("init_new_network: {:?}", netuid_to_register,);
 
-        // --- 7. Remove the identity if it exists
+        // --- 7. Add the identity if it exists
         if let Some(identity_value) = identity {
             ensure!(
                 Self::is_valid_subnet_identity(&identity_value),

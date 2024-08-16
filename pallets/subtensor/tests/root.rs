@@ -1000,31 +1000,72 @@ fn test_dissolve_network_does_not_exist_err() {
 #[test]
 fn test_user_add_network_with_identity_fields_ok() {
     new_test_ext(1).execute_with(|| {
-        let coldkey = U256::from(1);
-        let balance = SubtensorModule::get_network_lock_cost() + 10_000;
+        let coldkey_1 = U256::from(1);
+        let coldkey_2 = U256::from(2);
+        let balance_1 = SubtensorModule::get_network_lock_cost() + 10_000;
 
-        let subnet_name: Vec<u8> = b"JesusSubnet".to_vec();
-        let github_repo: Vec<u8> = b"bible.com".to_vec();
-        let subnet_contact: Vec<u8> = b"https://www.vatican.va".to_vec();
+        let subnet_name_1: Vec<u8> = b"GenericSubnet1".to_vec();
+        let github_repo_1: Vec<u8> = b"GenericSubnet1.com".to_vec();
+        let subnet_contact_1: Vec<u8> = b"https://www.GenericSubnet1.co".to_vec();
 
-        let identity_value: SubnetIdentity = SubnetIdentityOf {
-            subnet_name: subnet_name.clone(),
-            github_repo: github_repo.clone(),
-            subnet_contact: subnet_contact.clone(),
+        let identity_value_1: SubnetIdentity = SubnetIdentityOf {
+            subnet_name: subnet_name_1.clone(),
+            github_repo: github_repo_1.clone(),
+            subnet_contact: subnet_contact_1.clone(),
         };
 
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, balance);
+        let subnet_name_2: Vec<u8> = b"DistinctSubnet2".to_vec();
+        let github_repo_2: Vec<u8> = b"https://github.com/DistinctRepo2".to_vec();
+        let subnet_contact_2: Vec<u8> = b"https://contact2.example.com".to_vec();
 
-        // Call the function with the identity.
+        let identity_value_2: SubnetIdentity = SubnetIdentityOf {
+            subnet_name: subnet_name_2.clone(),
+            github_repo: github_repo_2.clone(),
+            subnet_contact: subnet_contact_2.clone(),
+        };
+
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_1, balance_1);
+
         assert_ok!(SubtensorModule::user_add_network(
-            RuntimeOrigin::signed(coldkey),
-            Some(identity_value.clone())
+            RuntimeOrigin::signed(coldkey_1),
+            Some(identity_value_1.clone())
         ));
 
-        // Retrieve and verify the stored identity.
-        let stored_identity: SubnetIdentity = SubnetIdentities::<Test>::get(1).unwrap();
-        assert_eq!(stored_identity.subnet_name, subnet_name);
-        assert_eq!(stored_identity.github_repo, github_repo);
-        assert_eq!(stored_identity.subnet_contact, subnet_contact);
+        let balance_2 = SubtensorModule::get_network_lock_cost() + 10_000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_2, balance_2);
+
+        assert_ok!(SubtensorModule::user_add_network(
+            RuntimeOrigin::signed(coldkey_2),
+            Some(identity_value_2.clone())
+        ));
+
+        let stored_identity_1: SubnetIdentity = SubnetIdentities::<Test>::get(1).unwrap();
+        assert_eq!(stored_identity_1.subnet_name, subnet_name_1);
+        assert_eq!(stored_identity_1.github_repo, github_repo_1);
+        assert_eq!(stored_identity_1.subnet_contact, subnet_contact_1);
+
+        let stored_identity_2: SubnetIdentity = SubnetIdentities::<Test>::get(2).unwrap();
+        assert_eq!(stored_identity_2.subnet_name, subnet_name_2);
+        assert_eq!(stored_identity_2.github_repo, github_repo_2);
+        assert_eq!(stored_identity_2.subnet_contact, subnet_contact_2);
+
+        // Now remove the first network.
+        assert_ok!(SubtensorModule::user_remove_network(
+            RuntimeOrigin::signed(coldkey_1),
+            1
+        ));
+
+        // Verify that the first network and identity have been removed.
+        assert!(SubnetIdentities::<Test>::get(1).is_none());
+
+        // Ensure the second network and identity are still intact.
+        let stored_identity_2_after_removal: SubnetIdentity =
+            SubnetIdentities::<Test>::get(2).unwrap();
+        assert_eq!(stored_identity_2_after_removal.subnet_name, subnet_name_2);
+        assert_eq!(stored_identity_2_after_removal.github_repo, github_repo_2);
+        assert_eq!(
+            stored_identity_2_after_removal.subnet_contact,
+            subnet_contact_2
+        );
     });
 }
