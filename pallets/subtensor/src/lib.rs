@@ -60,7 +60,7 @@ extern crate alloc;
 #[frame_support::pallet]
 pub mod pallet {
 
-    use crate::{freeze_struct, migrations};
+    use crate::migrations;
     use frame_support::{
         dispatch::GetDispatchInfo,
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
@@ -155,7 +155,7 @@ pub mod pallet {
     ///  Struct for SubnetIdentities.
     pub type SubnetIdentityOf = SubnetIdentity;
     /// Data structure for Subnet Identities
-    #[freeze_struct("f448dc3dad763108")]
+    #[crate::freeze_struct("f448dc3dad763108")]
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct SubnetIdentity {
         /// The name of the subnet
