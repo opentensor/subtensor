@@ -37,7 +37,7 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // --- 1. We check the coldkey signature.
         let coldkey = ensure_signed(origin)?;
-        log::info!(
+        log::debug!(
             "do_increase_take( origin:{:?} hotkey:{:?}, take:{:?} )",
             coldkey,
             hotkey,
@@ -53,8 +53,8 @@ impl<T: Config> Pallet<T> {
             ensure!(take > current_take, Error::<T>::DelegateTakeTooLow);
         }
 
-        // --- 4. Ensure take is within the min ..= InitialDefaultTake (18%) range
-        let max_take = MaxTake::<T>::get();
+        // --- 4. Ensure take is within the min ..= InitialDefaultDelegateTake (18%) range
+        let max_take = MaxDelegateTake::<T>::get();
         ensure!(take <= max_take, Error::<T>::DelegateTakeTooHigh);
 
         // --- 5. Enforce the rate limit (independently on do_add_stake rate limits)
@@ -74,7 +74,7 @@ impl<T: Config> Pallet<T> {
         Delegates::<T>::insert(hotkey.clone(), take);
 
         // --- 7. Emit the take value.
-        log::info!(
+        log::debug!(
             "TakeIncreased( coldkey:{:?}, hotkey:{:?}, take:{:?} )",
             coldkey,
             hotkey,

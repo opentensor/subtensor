@@ -128,10 +128,19 @@ mod config {
         type InitialMaxAllowedValidators: Get<u16>;
         /// Initial default delegation take.
         #[pallet::constant]
-        type InitialDefaultTake: Get<u16>;
+        type InitialDefaultDelegateTake: Get<u16>;
         /// Initial minimum delegation take.
         #[pallet::constant]
-        type InitialMinTake: Get<u16>;
+        type InitialMinDelegateTake: Get<u16>;
+        /// Initial default childkey take.
+        #[pallet::constant]
+        type InitialDefaultChildKeyTake: Get<u16>;
+        /// Initial minimum childkey take.
+        #[pallet::constant]
+        type InitialMinChildKeyTake: Get<u16>;
+        /// Initial maximum childkey take.
+        #[pallet::constant]
+        type InitialMaxChildKeyTake: Get<u16>;
         /// Initial weights version key.
         #[pallet::constant]
         type InitialWeightsVersionKey: Get<u64>;
@@ -144,6 +153,9 @@ mod config {
         /// Initial delegate take transaction rate limit.
         #[pallet::constant]
         type InitialTxDelegateTakeRateLimit: Get<u64>;
+        /// Initial childkey take transaction rate limit.
+        #[pallet::constant]
+        type InitialTxChildKeyTakeRateLimit: Get<u64>;
         /// Initial percentage of total stake required to join senate.
         #[pallet::constant]
         type InitialSenateRequiredStakePercentage: Get<u64>;

@@ -178,6 +178,10 @@ mod errors {
         NewColdKeyIsHotkey,
         /// New coldkey is in arbitration
         NewColdkeyIsInArbitration,
+        /// Childkey take is invalid.
+        InvalidChildkeyTake,
+        /// Childkey take rate limit exceeded.
+        TxChildkeyTakeRateLimitExceeded,
         /// Invalid identity.
         InvalidIdentity,
     }
