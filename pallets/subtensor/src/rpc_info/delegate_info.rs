@@ -148,7 +148,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        log::info!(
+        log::debug!(
             "Total delegated stake for coldkey {:?}: {}",
             coldkey,
             total_delegated

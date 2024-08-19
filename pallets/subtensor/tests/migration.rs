@@ -7,6 +7,29 @@ use pallet_subtensor::*;
 use sp_core::U256;
 
 #[test]
+fn test_initialise_ti() {
+    use frame_support::traits::OnRuntimeUpgrade;
+
+    new_test_ext(1).execute_with(|| {
+        pallet_subtensor::SubnetLocked::<Test>::insert(1, 100);
+        pallet_subtensor::SubnetLocked::<Test>::insert(2, 5);
+        pallet_balances::TotalIssuance::<Test>::put(1000);
+        pallet_subtensor::TotalStake::<Test>::put(25);
+
+        // Ensure values are NOT initialized prior to running migration
+        assert!(pallet_subtensor::TotalIssuance::<Test>::get() == 0);
+
+        pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration::<Test>::on_runtime_upgrade();
+
+        // Ensure values were initialized correctly
+        assert!(
+            pallet_subtensor::TotalIssuance::<Test>::get()
+                == 105u64.saturating_add(1000).saturating_add(25)
+        );
+    });
+}
+
+#[test]
 fn test_migration_fix_total_stake_maps() {
     new_test_ext(1).execute_with(|| {
         let ck1 = U256::from(1);
