@@ -81,6 +81,7 @@ parameter_types! {
     pub const InitialMinDelegateTake: u16 = 5_898; // 9%;
     pub const InitialDefaultChildKeyTake: u16 = 0; // Allow 0 %
     pub const InitialMinChildKeyTake: u16 = 0; // Allow 0 %
+    pub const InitialMaxChildKeyTake: u16 = 11_796; // 18 %;
     pub const InitialWeightsVersionKey: u16 = 0;
     pub const InitialServingRateLimit: u64 = 0; // No limit.
     pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
@@ -153,6 +154,7 @@ impl pallet_subtensor::Config for Test {
     type InitialMinDelegateTake = InitialMinDelegateTake;
     type InitialDefaultChildKeyTake = InitialDefaultChildKeyTake;
     type InitialMinChildKeyTake = InitialMinChildKeyTake;
+    type InitialMaxChildKeyTake = InitialMaxChildKeyTake;
     type InitialWeightsVersionKey = InitialWeightsVersionKey;
     type InitialMaxDifficulty = InitialMaxDifficulty;
     type InitialMinDifficulty = InitialMinDifficulty;

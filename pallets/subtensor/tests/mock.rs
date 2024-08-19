@@ -133,8 +133,9 @@ parameter_types! {
     pub const InitialFoundationDistribution: u64 = 0;
     pub const InitialDefaultDelegateTake: u16 = 11_796; // 18%, same as in production
     pub const InitialMinDelegateTake: u16 = 5_898; // 9%;
-    pub const InitialDefaultChildKeyTake: u16 = 11_796; // 18%, same as in production
+    pub const InitialDefaultChildKeyTake: u16 = 0 ;// 0 %
     pub const InitialMinChildKeyTake: u16 = 0; // 0 %;
+    pub const InitialMaxChildKeyTake: u16 = 11_796; // 18 %;
     pub const InitialWeightsVersionKey: u16 = 0;
     pub const InitialServingRateLimit: u64 = 0; // No limit.
     pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
@@ -172,7 +173,7 @@ parameter_types! {
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const InitialHotkeyEmissionTempo: u64 = 0; // Defaults to draining every block.
-    pub const InitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500,000 TAO
+    pub const InitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64
 
 }
 
@@ -367,6 +368,7 @@ impl pallet_subtensor::Config for Test {
     type InitialMinDelegateTake = InitialMinDelegateTake;
     type InitialDefaultChildKeyTake = InitialDefaultChildKeyTake;
     type InitialMinChildKeyTake = InitialMinChildKeyTake;
+    type InitialMaxChildKeyTake = InitialMaxChildKeyTake;
     type InitialTxChildKeyTakeRateLimit = InitialTxChildKeyTakeRateLimit;
     type InitialWeightsVersionKey = InitialWeightsVersionKey;
     type InitialMaxDifficulty = InitialMaxDifficulty;
