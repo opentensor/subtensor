@@ -66,7 +66,13 @@ serde_json = { version = "1.0.116", default-features = false }
 serde_with = { version = "=2.0.0", default-features = false }
 smallvec = "1.13.2"
 litep2p = { git = "https://github.com/paritytech/litep2p", branch = "master" }
-syn = { version = "2", features = ["full", "visit-mut", "visit", "extra-traits", "parsing"] }
+syn = { version = "2", features = [
+    "full",
+    "visit-mut",
+    "visit",
+    "extra-traits",
+    "parsing",
+] }
 quote = "1"
 proc-macro2 = { version = "1", features = ["span-locations"] }
 walkdir = "2"
@@ -76,7 +82,7 @@ subtensor-macros = { path = "support/macros" }
 frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "v1.10.0-rc3", default-features = false }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "v1.10.0-rc3" }
 frame-executive = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "v1.10.0-rc3", default-features = false }
-frame-metadata-hash-extension = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "v1.10.0-rc3" , default-features = false }
+frame-metadata-hash-extension = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "v1.10.0-rc3", default-features = false }
 frame-support = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "v1.10.0-rc3", default-features = false }
 frame-system = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "v1.10.0-rc3", default-features = false }
 frame-system-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "v1.10.0-rc3", default-features = false }
@@ -145,7 +151,7 @@ sp-version = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "v1
 sp-weights = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "v1.10.0-rc3", default-features = false }
 
 substrate-build-script-utils = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "v1.10.0-rc3" }
-substrate-fixed = { git = "https://github.com/encointer/substrate-fixed.git", tag = "v0.5.9" }
+substrate-fixed = { git = "https://github.com/opentensor/substrate-fixed.git", tag = "v0.5.9" }
 substrate-frame-rpc-system = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "v1.10.0-rc3" }
 substrate-wasm-builder = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "v1.10.0-rc3" }
 frame-metadata = "16"

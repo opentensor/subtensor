@@ -9115,7 +9115,7 @@ source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=v1.10.0-rc3#8d2
 [[package]]
 name = "substrate-fixed"
 version = "0.5.9"
-source = "git+https://github.com/encointer/substrate-fixed.git?tag=v0.5.9#a4fb461aae6205ffc55bed51254a40c52be04e5d"
+source = "git+https://github.com/opentensor/substrate-fixed.git?tag=v0.5.9#a4fb461aae6205ffc55bed51254a40c52be04e5d"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
