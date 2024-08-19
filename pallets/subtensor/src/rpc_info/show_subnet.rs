@@ -23,6 +23,7 @@ pub struct SubnetState<T: Config> {
     local_stake: Vec<Compact<u64>>,
     global_stake: Vec<Compact<u64>>,
     stake_weight: Vec<Compact<u16>>,
+    emission_history: Vec<Vec<Compact<u64>>>,
     // identities: Vec<ChainIdentityOf>,
     // tao_stake: Compact<u64>,
     // incentive: Compact<u16>,
@@ -34,6 +35,48 @@ pub struct SubnetState<T: Config> {
 }
 
 impl<T: Config> Pallet<T> {
+
+    /// Retrieves the emission history for a list of hotkeys across all subnets.
+    ///
+    /// This function iterates over all subnets and collects the last emission value
+    /// for each hotkey in the provided list. The result is a vector of vectors, where
+    /// each inner vector contains the emission values for a specific subnet.
+    ///
+    /// # Arguments
+    ///
+    /// * `hotkeys` - A vector of hotkeys (account IDs) for which the emission history is to be retrieved.
+    ///
+    /// # Returns
+    ///
+    /// * `Vec<Vec<Compact<u64>>>` - A vector of vectors containing the emission history for each hotkey across all subnets.
+    pub fn get_emissions_history(hotkeys: Vec<T::AccountId>) -> Vec<Vec<Compact<u64>>> {
+        let mut result: Vec<Vec<Compact<u64>>> = vec![];
+        for netuid in Self::get_all_subnet_netuids() {
+            let mut hotkeys_emissions: Vec<Compact<u64>> = vec![];
+            for hotkey in hotkeys.clone() {
+                let last_emission: Compact<u64> = LastHotkeyEmissionOnNetuid::<T>::get(hotkey.clone(), netuid).into();
+                hotkeys_emissions.push(last_emission.into());
+            }
+            result.push(hotkeys_emissions.clone());
+        }
+        result
+    }
+
+    /// Retrieves the state of a specific subnet.
+    ///
+    /// This function gathers various metrics and data points for a given subnet, identified by its `netuid`.
+    /// It collects information such as hotkeys, coldkeys, block at registration, active status, validator permits,
+    /// pruning scores, last updates, emissions, dividends, incentives, consensus, trust, rank, local stake, global stake,
+    /// stake weight, and emission history.
+    ///
+    /// # Arguments
+    ///
+    /// * `netuid` - The unique identifier of the subnet for which the state is to be retrieved.
+    ///
+    /// # Returns
+    ///
+    /// * `Option<SubnetState<T>>` - An optional `SubnetState` struct containing the collected data for the subnet.
+    ///   Returns `None` if the subnet does not exist.
     pub fn get_subnet_state(netuid: u16) -> Option<SubnetState<T>> {
         if !Self::if_subnet_exist(netuid) { return None; }
         let n: u16 = Self::get_subnetwork_n(netuid);
@@ -59,9 +102,22 @@ impl<T: Config> Pallet<T> {
         let consensus: Vec<Compact<u16>> = Consensus::<T>::get(netuid).into_iter().map(Compact::from).collect();
         let trust: Vec<Compact<u16>> = Trust::<T>::get(netuid).into_iter().map(Compact::from).collect();
         let rank: Vec<Compact<u16>> = Rank::<T>::get(netuid).into_iter().map(Compact::from).collect();
-        let local_stake: Vec<Compact<u64>> = LocalStake::<T>::get(netuid).into_iter().map(Compact::from).collect();
-        let global_stake: Vec<Compact<u64>> = GlobalStake::<T>::get(netuid).into_iter().map(Compact::from).collect();
-        let stake_weight: Vec<Compact<u16>> = StakeWeight::<T>::get(netuid).into_iter().map(Compact::from).collect();
+        let local_stake: Vec<Compact<u64>> = if LocalStake::<T>::contains_key(netuid) {
+            LocalStake::<T>::get(netuid).into_iter().map(Compact::from).collect()
+        } else {
+            vec![Compact(0); n as usize]
+        };
+        let global_stake: Vec<Compact<u64>> = if GlobalStake::<T>::contains_key(netuid) {
+            GlobalStake::<T>::get(netuid).into_iter().map(Compact::from).collect()
+        } else {
+            vec![Compact(0); n as usize]
+        };
+        let stake_weight: Vec<Compact<u16>> = if StakeWeight::<T>::contains_key(netuid) {
+            StakeWeight::<T>::get(netuid).into_iter().map(Compact::from).collect()
+        } else {
+            vec![Compact(0); n as usize]
+        };
+        let emission_history: Vec<Vec<Compact<u64>>> = Self::get_emissions_history( hotkeys.clone() );
         Some( SubnetState {
             netuid: netuid.into(),
             hotkeys: hotkeys.into(),
@@ -80,6 +136,7 @@ impl<T: Config> Pallet<T> {
             local_stake: local_stake.into(),
             global_stake: global_stake.into(),
             stake_weight: stake_weight.into(),
+            emission_history: emission_history,
         } )
     }
 }

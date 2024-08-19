@@ -521,6 +521,17 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroU64<T>,
     >;
+    #[pallet::storage] // --- DMap ( hot, netuid ) --> emission | last hotkey emission on network.
+    pub type LastHotkeyEmissionOnNetuid<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        u16,
+        u64,
+        ValueQuery,
+        DefaultZeroU64<T>,
+    >;
 
     /// ==========================
     /// ==== Staking Counters ====

@@ -206,6 +206,7 @@ impl<T: Config> Pallet<T> {
                 );
                 // Remove the hotkey emission from the pending emissions.
                 PendingdHotkeyEmissionOnNetuid::<T>::remove(&hotkey, netuid_i);
+                LastHotkeyEmissionOnNetuid::<T>::insert( &hotkey, netuid_i, hotkey_emission );
                 // Drain the hotkey emission.
                 Self::source_nominator_emission(
                     &hotkey,
