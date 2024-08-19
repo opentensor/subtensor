@@ -122,6 +122,9 @@ mod config {
         /// Initial minimum childkey take.
         #[pallet::constant]
         type InitialMinChildKeyTake: Get<u16>;
+        /// Initial maximum childkey take.
+        #[pallet::constant]
+        type InitialMaxChildKeyTake: Get<u16>;
         /// Initial weights version key.
         #[pallet::constant]
         type InitialWeightsVersionKey: Get<u64>;
