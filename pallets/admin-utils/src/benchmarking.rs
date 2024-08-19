@@ -251,7 +251,7 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_hotkey_emission_tempo() {
-        T::Subtensor::init_new_network(1u16 /*netuid*/, 1u16 /*sudo_tempo*/);
+        pallet_subtensor::Pallet::<T>::init_new_network(1u16 /*netuid*/, 1u16 /*sudo_tempo*/);
 
         #[extrinsic_call]
         _(RawOrigin::Root, 1u64/*emission_tempo*/)/*set_hotkey_emission_tempo*/;
@@ -259,7 +259,7 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_network_max_stake() {
-        T::Subtensor::init_new_network(1u16 /*netuid*/, 1u16 /*tempo*/);
+        pallet_subtensor::Pallet::<T>::init_new_network(1u16 /*netuid*/, 1u16 /*tempo*/);
 
         #[extrinsic_call]
         _(RawOrigin::Root, 1u16/*netuid*/, 1_000_000_000_000_000u64/*max_stake*/)/*sudo_set_network_max_stake*/;
