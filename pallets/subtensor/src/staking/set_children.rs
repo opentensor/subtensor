@@ -246,23 +246,24 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidChildkeyTake
         );
 
-        // Check if the rate limit has been exceeded
-        let current_block = Self::get_current_block_as_u64();
-        let last_tx_block =
-            Self::get_last_transaction_block(&hotkey, netuid, &TransactionType::SetChildkeyTake);
-        let rate_limit = TxChildkeyTakeRateLimit::<T>::get();
-        let passes =
-            Self::passes_rate_limit_on_subnet(&TransactionType::SetChildkeyTake, &hotkey, netuid);
-
-        log::info!(
-            "Rate limit check: current_block: {}, last_tx_block: {}, rate_limit: {}, passes: {}",
-            current_block,
-            last_tx_block,
-            rate_limit,
-            passes
+        // Ensure the hotkey passes the rate limit.
+        ensure!(
+            Self::passes_rate_limit_on_subnet(
+                &TransactionType::SetChildkeyTake, // Set childkey take.
+                &hotkey,                           // Specific to a hotkey.
+                netuid,                            // Specific to a subnet.
+            ),
+            Error::<T>::TxChildkeyTakeRateLimitExceeded
         );
 
-        ensure!(passes, Error::<T>::TxChildkeyTakeRateLimitExceeded);
+        // Set last transaction block
+        let current_block = Self::get_current_block_as_u64();
+        Self::set_last_transaction_block(
+            &hotkey,
+            netuid,
+            &TransactionType::SetChildkeyTake,
+            current_block
+        );
 
         // Set the new childkey take value for the given hotkey and network
         ChildkeyTake::<T>::insert(hotkey.clone(), netuid, take);
