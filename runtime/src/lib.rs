@@ -872,6 +872,18 @@ impl pallet_commitments::Config for Runtime {
     type RateLimit = CommitmentRateLimit;
 }
 
+#[cfg(not(feature = "fast-blocks"))]
+pub const INITIAL_SUBNET_TEMPO: u16 = 99;
+
+#[cfg(feature = "fast-blocks")]
+pub const INITIAL_SUBNET_TEMPO: u16 = 10;
+
+#[cfg(not(feature = "fast-blocks"))]
+pub const INITIAL_CHILDKEY_TAKE_RATELIMIT: u64 = 216000; // 30 days at 12 seconds per block
+
+#[cfg(feature = "fast-blocks")]
+pub const INITIAL_CHILDKEY_TAKE_RATELIMIT: u64 = 5;
+
 // Configure the pallet subtensor.
 parameter_types! {
     pub const SubtensorInitialRho: u16 = 10;
@@ -884,7 +896,7 @@ parameter_types! {
     pub const SubtensorInitialValidatorPruneLen: u64 = 1;
     pub const SubtensorInitialScalingLawPower: u16 = 50; // 0.5
     pub const SubtensorInitialMaxAllowedValidators: u16 = 128;
-    pub const SubtensorInitialTempo: u16 = 99;
+    pub const SubtensorInitialTempo: u16 = INITIAL_SUBNET_TEMPO;
     pub const SubtensorInitialDifficulty: u64 = 10_000_000;
     pub const SubtensorInitialAdjustmentInterval: u16 = 100;
     pub const SubtensorInitialAdjustmentAlpha: u64 = 0; // no weight to previous value.
@@ -895,7 +907,9 @@ parameter_types! {
     pub const SubtensorInitialPruningScore : u16 = u16::MAX;
     pub const SubtensorInitialBondsMovingAverage: u64 = 900_000;
     pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
-    pub const SubtensorInitialMinTake: u16 = 5_898; // 9%
+    pub const SubtensorInitialMinDelegateTake: u16 = 0; // Allow 0% delegate take
+    pub const SubtensorInitialDefaultChildKeyTake: u16 = 0; // Allow 0% childkey take
+    pub const SubtensorInitialMinChildKeyTake: u16 = 0; // 0 %
     pub const SubtensorInitialWeightsVersionKey: u64 = 0;
     pub const SubtensorInitialMinDifficulty: u64 = 10_000_000;
     pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX / 4;
@@ -905,6 +919,7 @@ parameter_types! {
     pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
     pub const SubtensorInitialTxDelegateTakeRateLimit: u64 = 216000; // 30 days at 12 seconds per block
+    pub const SubtensorInitialTxChildKeyTakeRateLimit: u64 = INITIAL_CHILDKEY_TAKE_RATELIMIT;
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
     pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
     pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
@@ -920,7 +935,8 @@ parameter_types! {
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const SubtensorInitialHotkeyEmissionTempo: u64 = 7200; // Drain every day.
-    pub const SubtensorInitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
+    pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64, this make the make stake infinity
+
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -951,8 +967,10 @@ impl pallet_subtensor::Config for Runtime {
     type InitialMaxRegistrationsPerBlock = SubtensorInitialMaxRegistrationsPerBlock;
     type InitialPruningScore = SubtensorInitialPruningScore;
     type InitialMaxAllowedValidators = SubtensorInitialMaxAllowedValidators;
-    type InitialDefaultTake = SubtensorInitialDefaultTake;
-    type InitialMinTake = SubtensorInitialMinTake;
+    type InitialDefaultDelegateTake = SubtensorInitialDefaultTake;
+    type InitialDefaultChildKeyTake = SubtensorInitialDefaultChildKeyTake;
+    type InitialMinDelegateTake = SubtensorInitialMinDelegateTake;
+    type InitialMinChildKeyTake = SubtensorInitialMinChildKeyTake;
     type InitialWeightsVersionKey = SubtensorInitialWeightsVersionKey;
     type InitialMaxDifficulty = SubtensorInitialMaxDifficulty;
     type InitialMinDifficulty = SubtensorInitialMinDifficulty;
@@ -962,6 +980,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialMinBurn = SubtensorInitialMinBurn;
     type InitialTxRateLimit = SubtensorInitialTxRateLimit;
     type InitialTxDelegateTakeRateLimit = SubtensorInitialTxDelegateTakeRateLimit;
+    type InitialTxChildKeyTakeRateLimit = SubtensorInitialTxChildKeyTakeRateLimit;
     type InitialRAORecycledForRegistration = SubtensorInitialRAORecycledForRegistration;
     type InitialSenateRequiredStakePercentage = SubtensorInitialSenateRequiredStakePercentage;
     type InitialNetworkImmunityPeriod = SubtensorInitialNetworkImmunity;

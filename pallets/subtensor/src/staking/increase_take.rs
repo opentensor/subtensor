@@ -53,8 +53,8 @@ impl<T: Config> Pallet<T> {
             ensure!(take > current_take, Error::<T>::DelegateTakeTooLow);
         }
 
-        // --- 4. Ensure take is within the min ..= InitialDefaultTake (18%) range
-        let max_take = MaxTake::<T>::get();
+        // --- 4. Ensure take is within the min ..= InitialDefaultDelegateTake (18%) range
+        let max_take = MaxDelegateTake::<T>::get();
         ensure!(take <= max_take, Error::<T>::DelegateTakeTooHigh);
 
         // --- 5. Enforce the rate limit (independently on do_add_stake rate limits)
