@@ -49,14 +49,6 @@ impl<T: Config> Pallet<T> {
         );
         weight = weight.saturating_add(T::DbWeight::get().reads(1));
 
-        // TODO: Consider adding a check to ensure the new coldkey is not in arbitration
-        // ensure!(
-        //     !Self::coldkey_in_arbitration(new_coldkey),
-        //     Error::<T>::NewColdkeyIsInArbitration
-        // );
-
-        // Note: We might want to add a cooldown period for coldkey swaps to prevent abuse
-
         // 5. Calculate the swap cost and ensure sufficient balance
         let swap_cost = Self::get_key_swap_cost();
         ensure!(

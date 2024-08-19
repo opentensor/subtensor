@@ -97,10 +97,6 @@ type MemberCount = u32;
 
 pub type Nonce = u32;
 
-/// The scheduler type used for scheduling delayed calls.
-// With something like this:
-// type Scheduler = pallet_subtensor::Scheduler<self::Runtime>;
-
 // Method used to calculate the fee of an extrinsic
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
     pub const ITEMS_FEE: Balance = 2_000 * 10_000;
