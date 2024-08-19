@@ -9,10 +9,10 @@ impl<T: Config> Pallet<T> {
         log::debug!("Current block: {:?}", current_block);
 
         // No more emission.
-        let timeout: u64 = 7200 * 3;
-        if current_block >= timeout {
-            return;
-        }
+        // let timeout: u64 = 7200 * 7;
+        // if current_block >= timeout {
+        //     return;
+        // }
 
         // --- 1. Get all netuids.
         let subnets: Vec<u16> = Self::get_all_subnet_netuids();
