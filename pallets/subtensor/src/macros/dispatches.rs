@@ -811,17 +811,6 @@ mod dispatches {
             Self::user_remove_network(origin, netuid)
         }
 
-        /// Sets values for liquid alpha
-        #[pallet::call_index(64)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_hotfix_swap_coldkey_delegates(
-            _origin: OriginFor<T>,
-            _old_coldkey: T::AccountId,
-            _new_coldkey: T::AccountId,
-        ) -> DispatchResult {
-            Ok(())
-        }
-
         /// Set a single child for a given hotkey on a specified network.
         ///
         /// This function allows a coldkey to set a single child for a given hotkey on a specified network.
