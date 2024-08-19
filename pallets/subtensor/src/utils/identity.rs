@@ -66,7 +66,7 @@ impl<T: Config> Pallet<T> {
         Identities::<T>::insert(coldkey.clone(), identity.clone());
 
         // Log the identity set event
-        log::info!("ChainIdentitySet( coldkey:{:?} ) ", coldkey.clone());
+        log::debug!("ChainIdentitySet( coldkey:{:?} ) ", coldkey.clone());
 
         // Emit an event to notify that an identity has been set
         Self::deposit_event(Event::ChainIdentitySet(coldkey.clone()));

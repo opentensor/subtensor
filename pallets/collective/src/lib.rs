@@ -165,6 +165,7 @@ pub struct Votes<AccountId, BlockNumber> {
     /// The hard end time of this vote.
     end: BlockNumber,
 }
+
 #[deny(missing_docs)]
 #[frame_support::pallet]
 pub mod pallet {

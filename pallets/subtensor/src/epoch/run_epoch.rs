@@ -1310,7 +1310,7 @@ impl<T: Config> Pallet<T> {
 
         AlphaValues::<T>::insert(netuid, (alpha_low, alpha_high));
 
-        log::info!(
+        log::debug!(
             "AlphaValuesSet( netuid: {:?}, AlphaLow: {:?}, AlphaHigh: {:?} ) ",
             netuid,
             alpha_low,

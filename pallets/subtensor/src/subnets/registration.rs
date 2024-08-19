@@ -41,7 +41,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         // --- 1. Check that the caller has signed the transaction. (the coldkey of the pairing)
         let coldkey = ensure_signed(origin)?;
-        log::info!(
+        log::debug!(
             "do_registration( coldkey:{:?} netuid:{:?} hotkey:{:?} )",
             coldkey,
             netuid,
@@ -131,7 +131,7 @@ impl<T: Config> Pallet<T> {
 
             // --- 12.1.2 Expand subnetwork with new account.
             Self::append_neuron(netuid, &hotkey, current_block_number);
-            log::info!("add new neuron account");
+            log::debug!("add new neuron account");
         } else {
             // --- 13.1.1 Replacement required.
             // We take the neuron with the lowest pruning score here.
@@ -139,7 +139,7 @@ impl<T: Config> Pallet<T> {
 
             // --- 13.1.1 Replace the neuron account with the new info.
             Self::replace_neuron(netuid, subnetwork_uid, &hotkey, current_block_number);
-            log::info!("prune neuron");
+            log::debug!("prune neuron");
         }
 
         // --- 14. Record the registration and increment block and interval counters.
@@ -149,7 +149,7 @@ impl<T: Config> Pallet<T> {
         Self::increase_rao_recycled(netuid, Self::get_burn_as_u64(netuid));
 
         // --- 15. Deposit successful event.
-        log::info!(
+        log::debug!(
             "NeuronRegistered( netuid:{:?} uid:{:?} hotkey:{:?}  ) ",
             netuid,
             subnetwork_uid,
@@ -220,7 +220,7 @@ impl<T: Config> Pallet<T> {
         // --- 1. Check that the caller has signed the transaction.
         // TODO( const ): This not be the hotkey signature or else an exterior actor can register the hotkey and potentially control it?
         let signing_origin = ensure_signed(origin)?;
-        log::info!(
+        log::debug!(
             "do_registration( origin:{:?} netuid:{:?} hotkey:{:?}, coldkey:{:?} )",
             signing_origin,
             netuid,
@@ -326,7 +326,7 @@ impl<T: Config> Pallet<T> {
 
             // --- 11.1.2 Expand subnetwork with new account.
             Self::append_neuron(netuid, &hotkey, current_block_number);
-            log::info!("add new neuron account");
+            log::debug!("add new neuron account");
         } else {
             // --- 11.1.1 Replacement required.
             // We take the neuron with the lowest pruning score here.
@@ -334,7 +334,7 @@ impl<T: Config> Pallet<T> {
 
             // --- 11.1.1 Replace the neuron account with the new info.
             Self::replace_neuron(netuid, subnetwork_uid, &hotkey, current_block_number);
-            log::info!("prune neuron");
+            log::debug!("prune neuron");
         }
 
         // --- 12. Record the registration and increment block and interval counters.
@@ -343,7 +343,7 @@ impl<T: Config> Pallet<T> {
         RegistrationsThisBlock::<T>::mutate(netuid, |val| val.saturating_inc());
 
         // --- 13. Deposit successful event.
-        log::info!(
+        log::debug!(
             "NeuronRegistered( netuid:{:?} uid:{:?} hotkey:{:?}  ) ",
             netuid,
             subnetwork_uid,
@@ -366,7 +366,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 1. Check that the caller has signed the transaction.
         let coldkey = ensure_signed(origin)?;
-        log::info!("do_faucet( coldkey:{:?} )", coldkey);
+        log::debug!("do_faucet( coldkey:{:?} )", coldkey);
 
         // --- 2. Ensure the passed block number is valid, not in the future or too old.
         // Work must have been done within 3 blocks (stops long range attacks).
@@ -400,7 +400,7 @@ impl<T: Config> Pallet<T> {
         Self::add_balance_to_coldkey_account(&coldkey, balance_to_add);
 
         // --- 6. Deposit successful event.
-        log::info!(
+        log::debug!(
             "Faucet( coldkey:{:?} amount:{:?} ) ",
             coldkey,
             balance_to_add
