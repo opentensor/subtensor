@@ -16,7 +16,7 @@ use mock::*;
 fn test_sudo_set_default_take() {
     new_test_ext().execute_with(|| {
         let to_be_set: u16 = 10;
-        let init_value: u16 = SubtensorModule::get_default_take();
+        let init_value: u16 = SubtensorModule::get_default_delegate_take();
         assert_eq!(
             AdminUtils::sudo_set_default_take(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
@@ -24,12 +24,12 @@ fn test_sudo_set_default_take() {
             ),
             Err(DispatchError::BadOrigin)
         );
-        assert_eq!(SubtensorModule::get_default_take(), init_value);
+        assert_eq!(SubtensorModule::get_default_delegate_take(), init_value);
         assert_ok!(AdminUtils::sudo_set_default_take(
             <<Test as Config>::RuntimeOrigin>::root(),
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_default_take(), to_be_set);
+        assert_eq!(SubtensorModule::get_default_delegate_take(), to_be_set);
     });
 }
 
