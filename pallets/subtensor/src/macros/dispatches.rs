@@ -687,36 +687,6 @@ mod dispatches {
             Self::do_swap_coldkey(&old_coldkey, &new_coldkey)
         }
 
-        /// Unstakes all tokens associated with a hotkey and transfers them to a new coldkey.
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - The origin of the call, must be signed by the current coldkey.
-        /// * `hotkey` - The hotkey associated with the stakes to be unstaked.
-        /// * `new_coldkey` - The new coldkey to receive the unstaked tokens.
-        ///
-        /// # Returns
-        ///
-        /// Returns a `DispatchResult` indicating success or failure of the operation.
-        ///
-        /// # Weight
-        ///
-        /// Weight is calculated based on the number of database reads and writes.
-        #[cfg(test)]
-        #[pallet::call_index(72)]
-        #[pallet::weight((Weight::from_parts(21_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(3))
-		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Operational, Pays::No))]
-        pub fn schedule_coldkey_swap(
-            _origin: OriginFor<T>,
-            _new_coldkey: T::AccountId,
-            _work: Vec<u8>,
-            _block_number: u64,
-            _nonce: u64,
-        ) -> DispatchResult {
-            Ok(())
-        }
-
         // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------
 
         // ==================================
@@ -1032,7 +1002,6 @@ mod dispatches {
             )
             .map_err(|_| Error::<T>::FailedToSchedule)?;
 
-            ColdkeySwapScheduled::<T>::insert(&who, ());
             // Emit the SwapScheduled event
             Self::deposit_event(Event::DissolveNetworkScheduled {
                 account: who.clone(),
