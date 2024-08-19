@@ -3237,4 +3237,3 @@ fn test_rank_trust_incentive_calculation_with_parent_child() {
 
     });
 }
-

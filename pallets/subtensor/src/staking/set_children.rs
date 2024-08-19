@@ -74,7 +74,7 @@ impl<T: Config> Pallet<T> {
             &hotkey,
             netuid,
             &TransactionType::SetChildren,
-            current_block
+            current_block,
         );
 
         // --- 2. Check that this delegation is not on the root network. Child hotkeys are not valid on root.
@@ -262,7 +262,7 @@ impl<T: Config> Pallet<T> {
             &hotkey,
             netuid,
             &TransactionType::SetChildkeyTake,
-            current_block
+            current_block,
         );
 
         // Set the new childkey take value for the given hotkey and network
