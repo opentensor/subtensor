@@ -30,51 +30,50 @@ impl<T: Config> Pallet<T> {
     ///
     /// Weight is tracked and updated throughout the function execution.
     pub fn do_swap_coldkey(
-        origin: T::RuntimeOrigin,
+        old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
     ) -> DispatchResultWithPostInfo {
-        // 1. Ensure the origin is signed and get the old coldkey
-        let old_coldkey = ensure_signed(origin)?;
-
         // 2. Initialize the weight for this operation
         let mut weight: Weight = T::DbWeight::get().reads(2);
-
         // 3. Ensure the new coldkey is not associated with any hotkeys
         ensure!(
             StakingHotkeys::<T>::get(new_coldkey).is_empty(),
             Error::<T>::ColdKeyAlreadyAssociated
         );
+        weight = weight.saturating_add(T::DbWeight::get().reads(1));
 
         // 4. Ensure the new coldkey is not a hotkey
         ensure!(
             !Self::hotkey_account_exists(new_coldkey),
-            Error::<T>::ColdKeyAlreadyAssociated
+            Error::<T>::NewColdKeyIsHotkey
         );
+        weight = weight.saturating_add(T::DbWeight::get().reads(1));
 
         // 5. Calculate the swap cost and ensure sufficient balance
         let swap_cost = Self::get_key_swap_cost();
-        log::debug!("Coldkey swap cost: {:?}", swap_cost);
         ensure!(
-            Self::can_remove_balance_from_coldkey_account(&old_coldkey, swap_cost),
+            Self::can_remove_balance_from_coldkey_account(old_coldkey, swap_cost),
             Error::<T>::NotEnoughBalanceToPaySwapColdKey
         );
 
         // 6. Remove and burn the swap cost from the old coldkey's account
-        let actual_burn_amount =
-            Self::remove_balance_from_coldkey_account(&old_coldkey, swap_cost)?;
+        let actual_burn_amount = Self::remove_balance_from_coldkey_account(old_coldkey, swap_cost)?;
         Self::burn_tokens(actual_burn_amount);
 
         // 7. Update the weight for the balance operations
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
         // 8. Perform the actual coldkey swap
-        let _ = Self::perform_swap_coldkey(&old_coldkey, new_coldkey, &mut weight);
+        let _ = Self::perform_swap_coldkey(old_coldkey, new_coldkey, &mut weight);
 
         // 9. Update the last transaction block for the new coldkey
         Self::set_last_tx_block(new_coldkey, Self::get_current_block_as_u64());
         weight.saturating_accrue(T::DbWeight::get().writes(1));
 
-        // 10. Emit the ColdkeySwapped event
+        // 10. Remove the coldkey swap scheduled record
+        ColdkeySwapScheduled::<T>::remove(old_coldkey);
+
+        // 11. Emit the ColdkeySwapped event
         Self::deposit_event(Event::ColdkeySwapped {
             old_coldkey: old_coldkey.clone(),
             new_coldkey: new_coldkey.clone(),

@@ -172,7 +172,7 @@ mod events {
             /// The account ID of the new coldkey
             new_coldkey: T::AccountId,
             /// The arbitration block for the coldkey swap
-            arbitration_block: u64,
+            execution_block: BlockNumberFor<T>,
         },
         /// The arbitration period has been extended
         ArbitrationPeriodExtended {
@@ -187,5 +187,14 @@ mod events {
         NetworkMaxStakeSet(u16, u64),
         /// The identity of a coldkey has been set
         ChainIdentitySet(T::AccountId),
+        /// A dissolve network extrinsic scheduled.
+        DissolveNetworkScheduled {
+            /// The account ID schedule the dissolve network extrisnic
+            account: T::AccountId,
+            /// network ID will be dissolved
+            netuid: u16,
+            /// extrinsic execution block number
+            execution_block: BlockNumberFor<T>,
+        },
     }
 }

@@ -70,6 +70,7 @@ pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
 // Subtensor module
+pub use pallet_scheduler;
 pub use pallet_subtensor;
 
 // An index to a block.
@@ -937,17 +938,20 @@ parameter_types! {
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const SubtensorInitialHotkeyEmissionTempo: u64 = 7200; // Drain every day.
     pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64, this make the make stake infinity
+    pub const  InitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
+    pub const  InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
 
 }
 
 impl pallet_subtensor::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
     type SudoRuntimeCall = RuntimeCall;
     type Currency = Balances;
     type CouncilOrigin = EnsureMajoritySenate;
     type SenateMembers = ManageSenateMembers;
     type TriumvirateInterface = TriumvirateVotes;
-
+    type Scheduler = Scheduler;
     type InitialRho = SubtensorInitialRho;
     type InitialKappa = SubtensorInitialKappa;
     type InitialMaxAllowedUids = SubtensorInitialMaxAllowedUids;
@@ -999,6 +1003,9 @@ impl pallet_subtensor::Config for Runtime {
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     type InitialHotkeyEmissionTempo = SubtensorInitialHotkeyEmissionTempo;
     type InitialNetworkMaxStake = SubtensorInitialNetworkMaxStake;
+    type Preimages = Preimage;
+    type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
+    type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
 }
 
 use sp_runtime::BoundedVec;
@@ -1038,12 +1045,12 @@ construct_runtime!(
         Sudo: pallet_sudo,
         Multisig: pallet_multisig,
         Preimage: pallet_preimage,
-        Scheduler: pallet_scheduler,
         Proxy: pallet_proxy,
         Registry: pallet_registry,
         Commitments: pallet_commitments,
         AdminUtils: pallet_admin_utils,
         SafeMode: pallet_safe_mode,
+        Scheduler: pallet_scheduler,
     }
 );
 

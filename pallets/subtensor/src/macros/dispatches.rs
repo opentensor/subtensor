@@ -4,6 +4,10 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod dispatches {
+    use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
+    use frame_support::traits::schedule::DispatchTime;
+    use frame_system::pallet_prelude::BlockNumberFor;
+    use sp_runtime::traits::Saturating;
     /// Dispatchable functions allow users to interact with the pallet and invoke state changes.
     /// These functions materialize as "extrinsics", which are often compared to transactions.
     /// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
@@ -673,39 +677,14 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
+            old_coldkey: T::AccountId,
             new_coldkey: T::AccountId,
         ) -> DispatchResultWithPostInfo {
-            Self::do_swap_coldkey(origin, &new_coldkey)
-        }
+            // Ensure it's called with root privileges (scheduler has root privileges)
+            ensure_root(origin.clone())?;
+            log::info!("swap_coldkey: {:?} -> {:?}", old_coldkey, new_coldkey);
 
-        /// Unstakes all tokens associated with a hotkey and transfers them to a new coldkey.
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - The origin of the call, must be signed by the current coldkey.
-        /// * `hotkey` - The hotkey associated with the stakes to be unstaked.
-        /// * `new_coldkey` - The new coldkey to receive the unstaked tokens.
-        ///
-        /// # Returns
-        ///
-        /// Returns a `DispatchResult` indicating success or failure of the operation.
-        ///
-        /// # Weight
-        ///
-        /// Weight is calculated based on the number of database reads and writes.
-        #[cfg(test)]
-        #[pallet::call_index(72)]
-        #[pallet::weight((Weight::from_parts(21_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(3))
-		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Operational, Pays::No))]
-        pub fn schedule_coldkey_swap(
-            _origin: OriginFor<T>,
-            _new_coldkey: T::AccountId,
-            _work: Vec<u8>,
-            _block_number: u64,
-            _nonce: u64,
-        ) -> DispatchResult {
-            Ok(())
+            Self::do_swap_coldkey(&old_coldkey, &new_coldkey)
         }
 
         /// Sets the childkey take for a given hotkey.
@@ -955,17 +934,6 @@ mod dispatches {
             Self::user_remove_network(origin, netuid)
         }
 
-        /// Sets values for liquid alpha
-        #[pallet::call_index(64)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_hotfix_swap_coldkey_delegates(
-            _origin: OriginFor<T>,
-            _old_coldkey: T::AccountId,
-            _new_coldkey: T::AccountId,
-        ) -> DispatchResult {
-            Ok(())
-        }
-
         /// Set a single child for a given hotkey on a specified network.
         ///
         /// This function allows a coldkey to set a single child for a given hotkey on a specified network.
@@ -1022,6 +990,137 @@ mod dispatches {
             children: Vec<(u64, T::AccountId)>,
         ) -> DispatchResultWithPostInfo {
             Self::do_set_children(origin, hotkey, netuid, children)?;
+            Ok(().into())
+        }
+
+        /// Schedules a coldkey swap operation to be executed at a future block.
+        ///
+        /// This function allows a user to schedule the swapping of their coldkey to a new one
+        /// at a specified future block. The swap is not executed immediately but is scheduled
+        /// to occur at the specified block number.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - The origin of the call, which should be signed by the current coldkey owner.
+        /// * `new_coldkey` - The account ID of the new coldkey that will replace the current one.
+        /// * `when` - The block number at which the coldkey swap should be executed.
+        ///
+        /// # Returns
+        ///
+        /// Returns a `DispatchResultWithPostInfo` indicating whether the scheduling was successful.
+        ///
+        /// # Errors
+        ///
+        /// This function may return an error if:
+        /// * The origin is not signed.
+        /// * The scheduling fails due to conflicts or system constraints.
+        ///
+        /// # Notes
+        ///
+        /// - The actual swap is not performed by this function. It merely schedules the swap operation.
+        /// - The weight of this call is set to a fixed value and may need adjustment based on benchmarking.
+        ///
+        /// # TODO
+        ///
+        /// - Implement proper weight calculation based on the complexity of the operation.
+        /// - Consider adding checks to prevent scheduling too far into the future.
+        /// TODO: Benchmark this call
+        #[pallet::call_index(73)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(6))
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
+        pub fn schedule_swap_coldkey(
+            origin: OriginFor<T>,
+            new_coldkey: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+            ensure!(
+                !ColdkeySwapScheduled::<T>::contains_key(&who),
+                Error::<T>::SwapAlreadyScheduled
+            );
+
+            let current_block: BlockNumberFor<T> = <frame_system::Pallet<T>>::block_number();
+            let duration: BlockNumberFor<T> = ColdkeySwapScheduleDuration::<T>::get();
+            let when: BlockNumberFor<T> = current_block.saturating_add(duration);
+
+            let call = Call::<T>::swap_coldkey {
+                old_coldkey: who.clone(),
+                new_coldkey: new_coldkey.clone(),
+            };
+
+            let bound_call = T::Preimages::bound(LocalCallOf::<T>::from(call.clone()))
+                .map_err(|_| Error::<T>::FailedToSchedule)?;
+
+            T::Scheduler::schedule(
+                DispatchTime::At(when),
+                None,
+                63,
+                frame_system::RawOrigin::Root.into(),
+                bound_call,
+            )
+            .map_err(|_| Error::<T>::FailedToSchedule)?;
+
+            ColdkeySwapScheduled::<T>::insert(&who, ());
+            // Emit the SwapScheduled event
+            Self::deposit_event(Event::ColdkeySwapScheduled {
+                old_coldkey: who.clone(),
+                new_coldkey: new_coldkey.clone(),
+                execution_block: when,
+            });
+
+            Ok(().into())
+        }
+
+        /// Schedule the dissolution of a network at a specified block number.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - The origin of the call, must be signed by the sender.
+        /// * `netuid` - The u16 network identifier to be dissolved.
+        ///
+        /// # Returns
+        ///
+        /// Returns a `DispatchResultWithPostInfo` indicating success or failure of the operation.
+        ///
+        /// # Weight
+        ///
+        /// Weight is calculated based on the number of database reads and writes.
+
+        #[pallet::call_index(74)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(6))
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
+        pub fn schedule_dissolve_network(
+            origin: OriginFor<T>,
+            netuid: u16,
+        ) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+
+            let current_block: BlockNumberFor<T> = <frame_system::Pallet<T>>::block_number();
+            let duration: BlockNumberFor<T> = DissolveNetworkScheduleDuration::<T>::get();
+            let when: BlockNumberFor<T> = current_block.saturating_add(duration);
+
+            let call = Call::<T>::dissolve_network { netuid };
+
+            let bound_call = T::Preimages::bound(LocalCallOf::<T>::from(call.clone()))
+                .map_err(|_| Error::<T>::FailedToSchedule)?;
+
+            T::Scheduler::schedule(
+                DispatchTime::At(when),
+                None,
+                63,
+                frame_system::RawOrigin::Signed(who.clone()).into(),
+                bound_call,
+            )
+            .map_err(|_| Error::<T>::FailedToSchedule)?;
+
+            // Emit the SwapScheduled event
+            Self::deposit_event(Event::DissolveNetworkScheduled {
+                account: who.clone(),
+                netuid,
+                execution_block: when,
+            });
+
             Ok(().into())
         }
 
