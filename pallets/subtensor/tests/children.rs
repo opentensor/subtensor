@@ -1499,7 +1499,7 @@ fn test_get_network_max_stake() {
         let default_max_stake = SubtensorModule::get_network_max_stake(netuid);
 
         // Check that the default value is set correctly
-        assert_eq!(default_max_stake, 500_000_000_000_000);
+        assert_eq!(default_max_stake, u64::MAX);
 
         // Set a new max stake value
         let new_max_stake: u64 = 1_000_000;

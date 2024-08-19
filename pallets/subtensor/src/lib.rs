@@ -181,10 +181,17 @@ pub mod pallet {
     pub fn DefaultMinDelegateTake<T: Config>() -> u16 {
         T::InitialMinDelegateTake::get()
     }
+
     #[pallet::type_value]
     /// Default minimum childkey take.
     pub fn DefaultMinChildKeyTake<T: Config>() -> u16 {
         T::InitialMinChildKeyTake::get()
+    }
+
+    #[pallet::type_value]
+    /// Default maximum childkey take.
+    pub fn DefaultMaxChildKeyTake<T: Config>() -> u16 {
+        T::InitialMaxChildKeyTake::get()
     }
 
     #[pallet::type_value]
@@ -619,7 +626,7 @@ pub mod pallet {
     #[pallet::storage] // --- ITEM ( min_delegate_take )
     pub type MinDelegateTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinDelegateTake<T>>;
     #[pallet::storage] // --- ITEM ( default_childkey_take )
-    pub type MaxChildkeyTake<T> = StorageValue<_, u16, ValueQuery, DefaultChildKeyTake<T>>;
+    pub type MaxChildkeyTake<T> = StorageValue<_, u16, ValueQuery, DefaultMaxChildKeyTake<T>>;
     #[pallet::storage] // --- ITEM ( min_childkey_take )
     pub type MinChildkeyTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinChildKeyTake<T>>;
 
