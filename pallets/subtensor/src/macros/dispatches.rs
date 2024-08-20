@@ -1179,7 +1179,7 @@ mod dispatches {
         ///
         /// * `subnet_contact` (Vec<u8>):
         ///     - The contact information for the subnet.
-        #[pallet::call_index(73)]
+        #[pallet::call_index(78)]
         #[pallet::weight((Weight::from_parts(45_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::Yes))]
