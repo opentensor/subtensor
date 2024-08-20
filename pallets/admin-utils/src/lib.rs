@@ -4,6 +4,7 @@ pub use pallet::*;
 pub mod weights;
 pub use weights::WeightInfo;
 
+use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{traits::Member, RuntimeAppPublic};
 
 mod benchmarking;
@@ -1124,6 +1125,73 @@ pub mod pallet {
                 "NetworkMaxStakeSet( netuid: {:?}, max_stake: {:?} )",
                 netuid,
                 max_stake
+            );
+
+            Ok(())
+        }
+
+        /// Sets the duration of the coldkey swap schedule.
+        ///
+        /// This extrinsic allows the root account to set the duration for the coldkey swap schedule.
+        /// The coldkey swap schedule determines how long it takes for a coldkey swap operation to complete.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the root account.
+        /// * `duration` - The new duration for the coldkey swap schedule, in number of blocks.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the caller is not the root account.
+        ///
+        /// # Weight
+        /// Weight is handled by the `#[pallet::weight]` attribute.
+        #[pallet::call_index(54)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_coldkey_swap_schedule_duration(
+            origin: OriginFor<T>,
+            duration: BlockNumberFor<T>,
+        ) -> DispatchResult {
+            // Ensure the call is made by the root account
+            ensure_root(origin)?;
+
+            // Set the new duration of schedule coldkey swap
+            pallet_subtensor::Pallet::<T>::set_coldkey_swap_schedule_duration(duration);
+
+            // Log the change
+            log::trace!("ColdkeySwapScheduleDurationSet( duration: {:?} )", duration);
+
+            Ok(())
+        }
+
+        /// Sets the duration of the dissolve network schedule.
+        ///
+        /// This extrinsic allows the root account to set the duration for the dissolve network schedule.
+        /// The dissolve network schedule determines how long it takes for a network dissolution operation to complete.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the root account.
+        /// * `duration` - The new duration for the dissolve network schedule, in number of blocks.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the caller is not the root account.
+        ///
+        /// # Weight
+        /// Weight is handled by the `#[pallet::weight]` attribute.
+        #[pallet::call_index(55)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_dissolve_network_schedule_duration(
+            origin: OriginFor<T>,
+            duration: BlockNumberFor<T>,
+        ) -> DispatchResult {
+            // Ensure the call is made by the root account
+            ensure_root(origin)?;
+
+            // Set the duration of schedule dissolve network
+            pallet_subtensor::Pallet::<T>::set_dissolve_network_schedule_duration(duration);
+
+            // Log the change
+            log::trace!(
+                "DissolveNetworkScheduleDurationSet( duration: {:?} )",
+                duration
             );
 
             Ok(())
