@@ -12,6 +12,7 @@ pub struct StakeInfo<T: Config> {
     stake: Compact<u64>,
     locked: Compact<u64>,
     emission: Compact<u64>,
+    drain: Compact<u64>,
 }
 
 impl<T: Config> Pallet<T> {
@@ -31,6 +32,7 @@ impl<T: Config> Pallet<T> {
                 for hotkey_i in staking_hotkeys.clone().iter() {
                     let alpha: u64 = Alpha::<T>::get((hotkey_i.clone(), coldkey_i.clone(), netuid_i));
                     let emission: u64 = LastHotkeyColdkeyEmissionOnNetuid::<T>::get( (hotkey_i.clone(), coldkey_i.clone(), *netuid_i) );
+                    let drain: u64 = LastHotkeyEmissionDrain::<T>::get( hotkey_i.clone() );
                     let conviction: u64 = Self::get_conviction_for_hotkey_and_coldkey_on_subnet(
                         hotkey_i, coldkey_i, *netuid_i,
                     );
@@ -41,6 +43,7 @@ impl<T: Config> Pallet<T> {
                         stake: alpha.into(),
                         locked: conviction.into(),
                         emission: emission.into(),
+                        drain: drain.into(),
                     });
                 }
             }

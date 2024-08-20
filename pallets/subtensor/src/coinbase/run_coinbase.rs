@@ -218,12 +218,6 @@ impl<T: Config> Pallet<T> {
                 nominator_emission_limit = nominator_emission_limit.saturating_add(hotkey_emission);
             }
         }
-        // Update drain blocks.
-        for (hotkey, _, _) in PendingdHotkeyEmissionOnNetuid::<T>::iter() {
-            if Self::should_drain_hotkey(&hotkey, current_block, emission_tempo) {
-                LastHotkeyEmissionDrain::<T>::insert(hotkey, current_block);
-            }
-        }
         // Finally apply the emission tuples;
         log::debug!("Emission tuples: {:?}", nominator_emission);
         let total_nominator_emitted: u64 = nominator_emission
@@ -236,7 +230,8 @@ impl<T: Config> Pallet<T> {
             total_nominator_emitted,
             nominator_emission_limit
         );
-        Self::accumulate_nominator_emission(&mut nominator_emission);
+        Self::accumulate_nominator_emission(&mut nominator_emission, current_block);
+
     }
 
     /// Accumulates and distributes mining and validator emissions for a hotkey.
@@ -485,26 +480,38 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Accumulates emissions for nominators and updates total hotkey alpha.
+    /// Accumulates emissions for nominators and updates the last emission drain block for hotkeys.
     ///
     /// This function processes a vector of tuples containing nominator emission data.
     /// It updates two storage items:
-    /// 1. The total alpha for each hotkey on a specific subnet.
-    /// 2. The individual alpha for each nominator (coldkey) associated with a hotkey on a subnet.
+    /// 1. The emission for each nominator (coldkey) associated with a hotkey on a subnet.
+    /// 2. The last emission drain block for each hotkey.
     ///
     /// # Arguments
     ///
     /// * `nominator_tuples` - A mutable reference to a vector of tuples, each containing:
-    ///   - `T::AccountId`: The account ID of the hotkey
-    ///   - `T::AccountId`: The account ID of the coldkey (nominator)
-    ///   - `u16`: The subnet ID (netuid)
-    ///   - `u64`: The emission value to be added
-    pub fn accumulate_nominator_emission(
-        nominator_tuples: &mut Vec<(T::AccountId, T::AccountId, u16, u64)>,
-    ) {
+    ///   - `T::AccountId`: The account ID of the hotkey.
+    ///   - `T::AccountId`: The account ID of the coldkey (nominator).
+    ///   - `u16`: The subnet ID (netuid).
+    ///   - `u64`: The emission value to be added.
+    /// * `block` - The current block number.
+    pub fn accumulate_nominator_emission(nominator_tuples: &mut Vec<(T::AccountId, T::AccountId, u16, u64)>, block: u64) {
+        // Track processed hotkeys to avoid redundant updates
+        let mut processed_hotkeys: BTreeMap<T::AccountId, ()> = BTreeMap::new();
+        
+        // Iterate over each tuple in the nominator_tuples vector
         for (hotkey, coldkey, netuid, emission) in nominator_tuples {
-            Self::emit_into_subnet(hotkey, coldkey, *netuid, *emission);
-            LastHotkeyColdkeyEmissionOnNetuid::<T>::insert( (hotkey, coldkey, *netuid), *emission );
+            // If the emission value is greater than 0, update the subnet emission
+            if *emission > 0 {
+                Self::emit_into_subnet(hotkey, coldkey, *netuid, *emission);
+                // Record the last emission value for the hotkey-coldkey pair on the subnet
+                LastHotkeyColdkeyEmissionOnNetuid::<T>::insert((hotkey.clone(), coldkey.clone(), *netuid), *emission);
+            }
+            // If the hotkey has not been processed yet, update the last emission drain block
+            if !processed_hotkeys.contains_key(hotkey) {
+                LastHotkeyEmissionDrain::<T>::insert(hotkey.clone(), block);
+                processed_hotkeys.insert(hotkey.clone(), ());
+            }
         }
     }
 
