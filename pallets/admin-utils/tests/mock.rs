@@ -2,18 +2,20 @@
 
 use frame_support::{
     assert_ok, derive_impl, parameter_types,
-    traits::{Everything, Hooks},
+    traits::{Everything, Hooks, PrivilegeCmp},
     weights,
 };
 use frame_system as system;
-use frame_system::{limits, EnsureNever};
+use frame_system::{limits, EnsureNever, EnsureRoot};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::U256;
 use sp_core::{ConstU64, H256};
 use sp_runtime::{
     traits::{BlakeTwo256, ConstU32, IdentityLookup},
-    BuildStorage,
+    BuildStorage, Perbill,
 };
+use sp_std::cmp::Ordering;
+use sp_weights::Weight;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -25,6 +27,7 @@ frame_support::construct_runtime!(
         Balances: pallet_balances,
         AdminUtils: pallet_admin_utils,
         SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>, Error<T>},
+        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -81,6 +84,7 @@ parameter_types! {
     pub const InitialMinDelegateTake: u16 = 5_898; // 9%;
     pub const InitialDefaultChildKeyTake: u16 = 0; // Allow 0 %
     pub const InitialMinChildKeyTake: u16 = 0; // Allow 0 %
+    pub const InitialMaxChildKeyTake: u16 = 11_796; // 18 %;
     pub const InitialWeightsVersionKey: u16 = 0;
     pub const InitialServingRateLimit: u64 = 0; // No limit.
     pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
@@ -119,17 +123,20 @@ parameter_types! {
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const InitialHotkeyEmissionTempo: u64 = 1;
     pub const InitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64, this make the make stake infinity
+    pub const InitialColdkeySwapScheduleDuration: u64 = 5 * 24 * 60 * 60 / 12; // 5 days
+    pub const InitialDissolveNetworkScheduleDuration: u64 = 5 * 24 * 60 * 60 / 12; // 5 days
 }
 
 impl pallet_subtensor::Config for Test {
     type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type InitialIssuance = InitialIssuance;
     type SudoRuntimeCall = TestRuntimeCall;
     type CouncilOrigin = EnsureNever<AccountId>;
     type SenateMembers = ();
     type TriumvirateInterface = ();
-
+    type Scheduler = Scheduler;
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;
     type InitialMaxWeightsLimit = InitialMaxWeightsLimit;
@@ -153,6 +160,7 @@ impl pallet_subtensor::Config for Test {
     type InitialMinDelegateTake = InitialMinDelegateTake;
     type InitialDefaultChildKeyTake = InitialDefaultChildKeyTake;
     type InitialMinChildKeyTake = InitialMinChildKeyTake;
+    type InitialMaxChildKeyTake = InitialMaxChildKeyTake;
     type InitialWeightsVersionKey = InitialWeightsVersionKey;
     type InitialMaxDifficulty = InitialMaxDifficulty;
     type InitialMinDifficulty = InitialMinDifficulty;
@@ -179,6 +187,9 @@ impl pallet_subtensor::Config for Test {
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     type InitialHotkeyEmissionTempo = InitialHotkeyEmissionTempo;
     type InitialNetworkMaxStake = InitialNetworkMaxStake;
+    type Preimages = ();
+    type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
+    type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -224,6 +235,14 @@ impl pallet_balances::Config for Test {
     type RuntimeHoldReason = ();
 }
 
+pub struct OriginPrivilegeCmp;
+
+impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
+    fn cmp_privilege(_left: &OriginCaller, _right: &OriginCaller) -> Option<Ordering> {
+        None
+    }
+}
+
 impl pallet_admin_utils::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type AuthorityId = AuraId;
@@ -231,6 +250,26 @@ impl pallet_admin_utils::Config for Test {
     type Aura = ();
     type Balance = Balance;
     type WeightInfo = ();
+}
+
+parameter_types! {
+    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
+        BlockWeights::get().max_block;
+    pub const MaxScheduledPerBlock: u32 = 50;
+    pub const NoPreimagePostponement: Option<u32> = Some(10);
+}
+
+impl pallet_scheduler::Config for Test {
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeEvent = RuntimeEvent;
+    type PalletsOrigin = OriginCaller;
+    type RuntimeCall = RuntimeCall;
+    type MaximumWeight = MaximumSchedulerWeight;
+    type ScheduleOrigin = EnsureRoot<AccountId>;
+    type MaxScheduledPerBlock = MaxScheduledPerBlock;
+    type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Test>;
+    type OriginPrivilegeCmp = OriginPrivilegeCmp;
+    type Preimages = ();
 }
 
 // Build genesis storage according to the mock runtime.

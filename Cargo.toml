@@ -33,6 +33,7 @@ members = [
     "pallets/collective",
     "pallets/registry",
     "runtime",
+    "support/tools",
     "support/macros",
     "support/linting",
 ]

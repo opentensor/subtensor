@@ -19,6 +19,7 @@ use codec::{Decode, Encode};
 use frame_support::sp_runtime::transaction_validity::InvalidTransaction;
 use frame_support::sp_runtime::transaction_validity::ValidTransaction;
 use pallet_balances::Call as BalancesCall;
+// use pallet_scheduler as Scheduler;
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
@@ -63,11 +64,13 @@ pub mod pallet {
     use frame_support::{
         dispatch::GetDispatchInfo,
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
-        traits::{tokens::fungible, UnfilteredDispatchable},
+        traits::{
+            tokens::fungible, OriginTrait, QueryPreimage, StorePreimage, UnfilteredDispatchable,
+        },
     };
     use frame_system::pallet_prelude::*;
     use sp_core::H256;
-    use sp_runtime::traits::TrailingZeroInput;
+    use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::vec;
     use sp_std::vec::Vec;
 
@@ -75,6 +78,13 @@ pub mod pallet {
     use alloc::boxed::Box;
     #[cfg(feature = "std")]
     use sp_std::prelude::Box;
+
+    /// Origin for the pallet
+    pub type PalletsOriginOf<T> =
+        <<T as frame_system::Config>::RuntimeOrigin as OriginTrait>::PalletsOrigin;
+
+    /// Call type for the pallet
+    pub type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
     /// Tracks version for migrations. Should be monotonic with respect to the
     /// order of migrations. (i.e. always increasing)
@@ -93,6 +103,9 @@ pub mod pallet {
 
     /// Struct for Axon.
     pub type AxonInfoOf = AxonInfo;
+
+    /// local one
+    pub type LocalCallOf<T> = <T as Config>::RuntimeCall;
 
     /// Data structure for Axon information.
     #[crate::freeze_struct("3545cfb0cac4c1f5")]
@@ -194,10 +207,17 @@ pub mod pallet {
     pub fn DefaultMinDelegateTake<T: Config>() -> u16 {
         T::InitialMinDelegateTake::get()
     }
+
     #[pallet::type_value]
     /// Default minimum childkey take.
     pub fn DefaultMinChildKeyTake<T: Config>() -> u16 {
         T::InitialMinChildKeyTake::get()
+    }
+
+    #[pallet::type_value]
+    /// Default maximum childkey take.
+    pub fn DefaultMaxChildKeyTake<T: Config>() -> u16 {
+        T::InitialMaxChildKeyTake::get()
     }
 
     #[pallet::type_value]
@@ -607,6 +627,26 @@ pub mod pallet {
         T::InitialNetworkMaxStake::get()
     }
 
+    #[pallet::type_value]
+    /// Default value for coldkey swap schedule duration
+    pub fn DefaultColdkeySwapScheduleDuration<T: Config>() -> BlockNumberFor<T> {
+        T::InitialColdkeySwapScheduleDuration::get()
+    }
+
+    #[pallet::storage]
+    pub type ColdkeySwapScheduleDuration<T: Config> =
+        StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapScheduleDuration<T>>;
+
+    #[pallet::type_value]
+    /// Default value for dissolve network schedule duration
+    pub fn DefaultDissolveNetworkScheduleDuration<T: Config>() -> BlockNumberFor<T> {
+        T::InitialDissolveNetworkScheduleDuration::get()
+    }
+
+    #[pallet::storage]
+    pub type DissolveNetworkScheduleDuration<T: Config> =
+        StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultDissolveNetworkScheduleDuration<T>>;
+
     #[pallet::storage]
     pub type SenateRequiredStakePercentage<T> =
         StorageValue<_, u64, ValueQuery, DefaultSenateRequiredStakePercentage<T>>;
@@ -632,7 +672,7 @@ pub mod pallet {
     #[pallet::storage] // --- ITEM ( min_delegate_take )
     pub type MinDelegateTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinDelegateTake<T>>;
     #[pallet::storage] // --- ITEM ( default_childkey_take )
-    pub type MaxChildkeyTake<T> = StorageValue<_, u16, ValueQuery, DefaultChildKeyTake<T>>;
+    pub type MaxChildkeyTake<T> = StorageValue<_, u16, ValueQuery, DefaultMaxChildKeyTake<T>>;
     #[pallet::storage] // --- ITEM ( min_childkey_take )
     pub type MinChildkeyTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinChildKeyTake<T>>;
 
@@ -759,6 +799,10 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Returns the vector of hotkeys controlled by this coldkey.
     pub type OwnedHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
+
+    #[pallet::storage] // --- DMAP ( cold ) --> () | Maps coldkey to if a coldkey swap is scheduled.
+    pub type ColdkeySwapScheduled<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, (), ValueQuery>;
 
     /// ============================
     /// ==== Global Parameters =====
@@ -1263,13 +1307,27 @@ pub enum CallType {
     Other,
 }
 
+#[derive(Debug, PartialEq)]
+pub enum CustomTransactionError {
+    ColdkeyInSwapSchedule,
+}
+
+impl From<CustomTransactionError> for u8 {
+    fn from(variant: CustomTransactionError) -> u8 {
+        match variant {
+            CustomTransactionError::ColdkeyInSwapSchedule => 0,
+        }
+    }
+}
+
 #[freeze_struct("61e2b893d5ce6701")]
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 pub struct SubtensorSignedExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
 
 impl<T: Config + Send + Sync + TypeInfo> Default for SubtensorSignedExtension<T>
 where
-    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as frame_system::Config>::RuntimeCall:
+        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
     fn default() -> Self {
@@ -1279,7 +1337,8 @@ where
 
 impl<T: Config + Send + Sync + TypeInfo> SubtensorSignedExtension<T>
 where
-    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as frame_system::Config>::RuntimeCall:
+        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
     pub fn new() -> Self {
@@ -1310,14 +1369,15 @@ impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for SubtensorSignedE
 impl<T: Config + Send + Sync + TypeInfo + pallet_balances::Config> SignedExtension
     for SubtensorSignedExtension<T>
 where
-    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as frame_system::Config>::RuntimeCall:
+        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<BalancesCall<T>>,
 {
     const IDENTIFIER: &'static str = "SubtensorSignedExtension";
 
     type AccountId = T::AccountId;
-    type Call = T::RuntimeCall;
+    type Call = <T as frame_system::Config>::RuntimeCall;
     type AdditionalSigned = ();
     type Pre = (CallType, u64, Self::AccountId);
 
@@ -1408,14 +1468,36 @@ where
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
             }),
-            Some(Call::dissolve_network { .. }) => Ok(ValidTransaction {
-                priority: Self::get_priority_vanilla(),
-                ..Default::default()
-            }),
-            _ => Ok(ValidTransaction {
-                priority: Self::get_priority_vanilla(),
-                ..Default::default()
-            }),
+            Some(Call::dissolve_network { .. }) => {
+                if ColdkeySwapScheduled::<T>::contains_key(who) {
+                    InvalidTransaction::Custom(CustomTransactionError::ColdkeyInSwapSchedule.into())
+                        .into()
+                } else {
+                    Ok(ValidTransaction {
+                        priority: Self::get_priority_vanilla(),
+                        ..Default::default()
+                    })
+                }
+            }
+            _ => {
+                if let Some(
+                    BalancesCall::transfer_keep_alive { .. }
+                    | BalancesCall::transfer_all { .. }
+                    | BalancesCall::transfer_allow_death { .. },
+                ) = call.is_sub_type()
+                {
+                    if ColdkeySwapScheduled::<T>::contains_key(who) {
+                        return InvalidTransaction::Custom(
+                            CustomTransactionError::ColdkeyInSwapSchedule.into(),
+                        )
+                        .into();
+                    }
+                }
+                Ok(ValidTransaction {
+                    priority: Self::get_priority_vanilla(),
+                    ..Default::default()
+                })
+            }
         }
     }
 
