@@ -261,7 +261,7 @@ fn test_schedule_dissolve_network_execution_with_coldkey_swap() {
         System::assert_last_event(
             Event::DissolveNetworkScheduled {
                 account: new_network_owner_account_id,
-                netuid: netuid,
+                netuid,
                 execution_block: DissolveNetworkScheduleDuration::<Test>::get() + execution_block
                     - 1,
             }
