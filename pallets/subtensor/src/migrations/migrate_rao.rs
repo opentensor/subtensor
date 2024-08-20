@@ -28,9 +28,40 @@ pub fn migrate_rao<T: Config>() -> Weight {
         .collect();
     weight = weight.saturating_add(T::DbWeight::get().reads_writes(netuids.len() as u64, 0));
 
+    // Migrate all TAO to root.
+    Stake::<T>::iter().for_each(|(hotkey, coldkey, stake)| {
+        // Increase SubnetTAO on root.
+        SubnetTAO::<T>::mutate(0, |total| {
+            *total = total.saturating_add(stake);
+        });
+        // Increase SubnetAlphaOut on root.
+        SubnetAlphaOut::<T>::mutate(0, |total| {
+            *total = total.saturating_add(stake);
+        });
+        // Increase SubnetAlphaIn on root.
+        SubnetAlphaIn::<T>::mutate(0, |total| {
+            *total = total.saturating_add(stake);
+        });
+        // Set all the stake on root 0 subnet.
+        Alpha::<T>::mutate((hotkey.clone(), coldkey.clone(), 0), |total| {
+            *total = total.saturating_add(stake)
+        });
+        // Set the total stake on the coldkey
+        TotalColdkeyAlpha::<T>::mutate(coldkey.clone(), 0, |total| {
+            *total = total.saturating_add(stake)
+        });
+        // Set the total stake on the hotkey
+        TotalHotkeyAlpha::<T>::mutate(hotkey.clone(), 0, |total| {
+            *total = total.saturating_add(stake)
+        });
+        // 3 reads and 3 writes.
+        weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 3));
+    });
+
     // Convert subnets and give them lock.
     let current_block = Pallet::<T>::get_current_block_as_u64();
     for netuid in netuids.iter().clone() {
+        if netuid == 0 { continue; }
         let owner: T::AccountId = SubnetOwner::<T>::get(netuid);
         let lock: u64 = SubnetLocked::<T>::get(netuid); // Get the current locked.
         SubnetTAO::<T>::insert(netuid, lock); // Set TAO to the lock.
@@ -62,36 +93,6 @@ pub fn migrate_rao<T: Config>() -> Weight {
             ), // Starts initial lock at 2 months.
         );
     }
-
-    // Migrate all TAO to root.
-    Stake::<T>::iter().for_each(|(hotkey, coldkey, stake)| {
-        // Increase SubnetTAO on root.
-        SubnetTAO::<T>::mutate(0, |total| {
-            *total = total.saturating_add(stake);
-        });
-        // Increase SubnetAlphaOut on root.
-        SubnetAlphaOut::<T>::mutate(0, |total| {
-            *total = total.saturating_add(stake);
-        });
-        // Increase SubnetAlphaIn on root.
-        SubnetAlphaIn::<T>::mutate(0, |total| {
-            *total = total.saturating_add(stake);
-        });
-        // Set all the stake on root 0 subnet.
-        Alpha::<T>::mutate((hotkey.clone(), coldkey.clone(), 0), |total| {
-            *total = total.saturating_add(stake)
-        });
-        // Set the total stake on the coldkey
-        TotalColdkeyAlpha::<T>::mutate(coldkey.clone(), 0, |total| {
-            *total = total.saturating_add(stake)
-        });
-        // Set the total stake on the hotkey
-        TotalHotkeyAlpha::<T>::mutate(hotkey.clone(), 0, |total| {
-            *total = total.saturating_add(stake)
-        });
-        // 3 reads and 3 writes.
-        weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 3));
-    });
 
     // Mark the migration as completed
     HasMigrationRun::<T>::insert(&migration_name, true);

@@ -504,6 +504,7 @@ impl<T: Config> Pallet<T> {
     ) {
         for (hotkey, coldkey, netuid, emission) in nominator_tuples {
             Self::emit_into_subnet(hotkey, coldkey, *netuid, *emission);
+            LastHotkeyColdkeyEmissionOnNetuid::<T>::insert( (hotkey, coldkey, *netuid), *emission );
         }
     }
 
