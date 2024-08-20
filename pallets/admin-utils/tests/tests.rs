@@ -1419,6 +1419,12 @@ fn test_sudo_set_dissolve_network_schedule_duration() {
             new_duration
         ));
 
+        // Assert: Check if the duration was actually set
+        assert_eq!(
+            pallet_subtensor::DissolveNetworkScheduleDuration::<Test>::get(),
+            new_duration
+        );
+
         // Act & Assert: Setting the same value again should succeed (idempotent operation)
         assert_ok!(AdminUtils::sudo_set_dissolve_network_schedule_duration(
             root,
