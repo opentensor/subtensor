@@ -83,6 +83,14 @@ mod events {
         TxRateLimitSet(u64),
         /// setting the delegate take transaction rate limit.
         TxDelegateTakeRateLimitSet(u64),
+        /// setting the childkey take transaction rate limit.
+        TxChildKeyTakeRateLimitSet(u64),
+        /// minimum childkey take set
+        MinChildKeyTakeSet(u16),
+        /// maximum childkey take set
+        MaxChildKeyTakeSet(u16),
+        /// childkey take set
+        ChildKeyTakeSet(T::AccountId, u16),
         /// a sudo call is done.
         Sudid(DispatchResult),
         /// registration is allowed/disallowed for a subnet.
@@ -164,7 +172,7 @@ mod events {
             /// The account ID of the new coldkey
             new_coldkey: T::AccountId,
             /// The arbitration block for the coldkey swap
-            arbitration_block: u64,
+            execution_block: BlockNumberFor<T>,
         },
         /// The arbitration period has been extended
         ArbitrationPeriodExtended {
@@ -179,5 +187,14 @@ mod events {
         NetworkMaxStakeSet(u16, u64),
         /// The identity of a coldkey has been set
         ChainIdentitySet(T::AccountId),
+        /// A dissolve network extrinsic scheduled.
+        DissolveNetworkScheduled {
+            /// The account ID schedule the dissolve network extrisnic
+            account: T::AccountId,
+            /// network ID will be dissolved
+            netuid: u16,
+            /// extrinsic execution block number
+            execution_block: BlockNumberFor<T>,
+        },
     }
 }

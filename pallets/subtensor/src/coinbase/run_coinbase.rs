@@ -131,6 +131,11 @@ impl<T: Config> Pallet<T> {
                     log::debug!("Accumulated emissions on hotkey {:?} for netuid {:?}: mining {:?}, validator {:?}", hotkey, *netuid, mining_emission, validator_emission);
                 }
             } else {
+                // No epoch, increase blocks since last step and continue
+                Self::set_blocks_since_last_step(
+                    *netuid,
+                    Self::get_blocks_since_last_step(*netuid).saturating_add(1),
+                );
                 log::debug!("Tempo not reached for subnet: {:?}", *netuid);
             }
         }
@@ -186,7 +191,7 @@ impl<T: Config> Pallet<T> {
         mining_emission: u64,
     ) {
         // --- 1. First, calculate the hotkey's share of the emission.
-        let take_proportion: I64F64 = I64F64::from_num(Delegates::<T>::get(hotkey))
+        let take_proportion: I64F64 = I64F64::from_num(Self::get_childkey_take(hotkey, netuid))
             .saturating_div(I64F64::from_num(u16::MAX));
         let hotkey_take: u64 = take_proportion
             .saturating_mul(I64F64::from_num(validating_emission))

@@ -31,12 +31,10 @@ impl<T: Config> Pallet<T> {
     /// This function does not explicitly panic, but underlying arithmetic operations
     /// use saturating arithmetic to prevent overflows.
     ///
-    /// TODO: check for self loops.
-    /// TODO: (@distributedstatemachine): check if we should return error , otherwise self loop
-    /// detection is impossible to test.
     pub fn get_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
         // Retrieve the initial total stake for the hotkey without any child/parent adjustments.
         let initial_stake: u64 = Self::get_total_stake_for_hotkey(hotkey);
+        log::debug!("Initial stake: {:?}", initial_stake);
         let mut stake_to_children: u64 = 0;
         let mut stake_from_parents: u64 = 0;
 
@@ -1310,7 +1308,7 @@ impl<T: Config> Pallet<T> {
 
         AlphaValues::<T>::insert(netuid, (alpha_low, alpha_high));
 
-        log::info!(
+        log::debug!(
             "AlphaValuesSet( netuid: {:?}, AlphaLow: {:?}, AlphaHigh: {:?} ) ",
             netuid,
             alpha_low,

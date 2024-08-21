@@ -486,7 +486,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 1. Ensure that the call originates from a signed source and retrieve the caller's account ID (coldkey).
         let coldkey = ensure_signed(origin)?;
-        log::info!(
+        log::debug!(
             "do_root_register( coldkey: {:?}, hotkey: {:?} )",
             coldkey,
             hotkey
@@ -529,7 +529,7 @@ impl<T: Config> Pallet<T> {
 
             // --- 12.1.2 Add the new account and make them a member of the Senate.
             Self::append_neuron(root_netuid, &hotkey, current_block_number);
-            log::info!("add new neuron: {:?} on uid {:?}", hotkey, subnetwork_uid);
+            log::debug!("add new neuron: {:?} on uid {:?}", hotkey, subnetwork_uid);
         } else {
             // --- 13.1.1 The network is full. Perform replacement.
             // Find the neuron with the lowest stake value to replace.
@@ -562,7 +562,7 @@ impl<T: Config> Pallet<T> {
             // Replace the neuron account with new information.
             Self::replace_neuron(root_netuid, lowest_uid, &hotkey, current_block_number);
 
-            log::info!(
+            log::debug!(
                 "replace neuron: {:?} with {:?} on uid {:?}",
                 replaced_hotkey,
                 hotkey,
@@ -588,7 +588,7 @@ impl<T: Config> Pallet<T> {
         RegistrationsThisBlock::<T>::mutate(root_netuid, |val| *val += 1);
 
         // --- 16. Log and announce the successful registration.
-        log::info!(
+        log::debug!(
             "RootRegistered(netuid:{:?} uid:{:?} hotkey:{:?})",
             root_netuid,
             subnetwork_uid,
@@ -622,7 +622,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 1. Ensure that the call originates from a signed source and retrieve the caller's account ID (coldkey).
         let coldkey = ensure_signed(origin)?;
-        log::info!(
+        log::debug!(
             "do_root_register( coldkey: {:?}, hotkey: {:?} )",
             coldkey,
             hotkey
@@ -652,7 +652,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 5. Log and announce the successful Senate adjustment.
-        log::info!(
+        log::debug!(
             "SenateAdjusted(old_hotkey:{:?} hotkey:{:?})",
             replaced,
             hotkey
@@ -733,7 +733,7 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // Check the caller's signature. This is the coldkey of a registered account.
         let coldkey = ensure_signed(origin)?;
-        log::info!(
+        log::debug!(
             "do_set_root_weights( origin:{:?} netuid:{:?}, uids:{:?}, values:{:?})",
             coldkey,
             netuid,
@@ -834,7 +834,7 @@ impl<T: Config> Pallet<T> {
         Self::set_last_update_for_uid(netuid, neuron_uid, current_block);
 
         // Emit the tracking event.
-        log::info!(
+        log::debug!(
             "RootWeightsSet( netuid:{:?}, neuron_uid:{:?} )",
             netuid,
             neuron_uid
@@ -968,7 +968,7 @@ impl<T: Config> Pallet<T> {
         SubnetOwner::<T>::insert(netuid_to_register, coldkey);
 
         // --- 8. Emit the NetworkAdded event.
-        log::info!(
+        log::debug!(
             "NetworkAdded( netuid:{:?}, modality:{:?} )",
             netuid_to_register,
             0
@@ -1012,7 +1012,7 @@ impl<T: Config> Pallet<T> {
         Self::remove_network(netuid);
 
         // --- 5. Emit the NetworkRemoved event.
-        log::info!("NetworkRemoved( netuid:{:?} )", netuid);
+        log::debug!("NetworkRemoved( netuid:{:?} )", netuid);
         Self::deposit_event(Event::NetworkRemoved(netuid));
 
         // --- 6. Return success.
@@ -1274,7 +1274,7 @@ impl<T: Config> Pallet<T> {
             }
         });
 
-        log::info!("Netuids Order: {:?}", netuids);
+        log::debug!("Netuids Order: {:?}", netuids);
 
         match netuids.last() {
             Some(netuid) => *netuid,

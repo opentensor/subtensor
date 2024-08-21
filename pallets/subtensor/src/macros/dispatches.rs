@@ -4,6 +4,10 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod dispatches {
+    use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
+    use frame_support::traits::schedule::DispatchTime;
+    use frame_system::pallet_prelude::BlockNumberFor;
+    use sp_runtime::traits::Saturating;
     /// Dispatchable functions allow users to interact with the pallet and invoke state changes.
     /// These functions materialize as "extrinsics", which are often compared to transactions.
     /// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
@@ -262,7 +266,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
         pub fn become_delegate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-            Self::do_become_delegate(origin, hotkey, Self::get_default_take())
+            Self::do_become_delegate(origin, hotkey, Self::get_default_delegate_take())
         }
 
         /// --- Allows delegates to decrease its take value.
@@ -674,43 +678,141 @@ mod dispatches {
         .saturating_add(T::DbWeight::get().writes(12)), DispatchClass::Operational, Pays::No))]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
+            old_coldkey: T::AccountId,
             new_coldkey: T::AccountId,
         ) -> DispatchResultWithPostInfo {
-            Self::do_swap_coldkey(origin, &new_coldkey)
+            // Ensure it's called with root privileges (scheduler has root privileges)
+            ensure_root(origin.clone())?;
+            log::info!("swap_coldkey: {:?} -> {:?}", old_coldkey, new_coldkey);
+
+            Self::do_swap_coldkey(&old_coldkey, &new_coldkey)
         }
 
-        /// Unstakes all tokens associated with a hotkey and transfers them to a new coldkey.
+        /// Sets the childkey take for a given hotkey.
         ///
-        /// # Arguments
+        /// This function allows a coldkey to set the childkey take for a given hotkey.
+        /// The childkey take determines the proportion of stake that the hotkey keeps for itself
+        /// when distributing stake to its children.
         ///
-        /// * `origin` - The origin of the call, must be signed by the current coldkey.
-        /// * `hotkey` - The hotkey associated with the stakes to be unstaked.
-        /// * `new_coldkey` - The new coldkey to receive the unstaked tokens.
+        /// # Arguments:
+        /// * `origin` (<T as frame_system::Config>::RuntimeOrigin):
+        ///     - The signature of the calling coldkey. Setting childkey take can only be done by the coldkey.
         ///
-        /// # Returns
+        /// * `hotkey` (T::AccountId):
+        ///     - The hotkey for which the childkey take will be set.
         ///
-        /// Returns a `DispatchResult` indicating success or failure of the operation.
+        /// * `take` (u16):
+        ///     - The new childkey take value. This is a percentage represented as a value between 0 and 10000,
+        ///       where 10000 represents 100%.
         ///
-        /// # Weight
+        /// # Events:
+        /// * `ChildkeyTakeSet`:
+        ///     - On successfully setting the childkey take for a hotkey.
         ///
-        /// Weight is calculated based on the number of database reads and writes.
-        #[cfg(test)]
-        #[pallet::call_index(72)]
-        #[pallet::weight((Weight::from_parts(21_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(3))
-		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Operational, Pays::No))]
-        pub fn schedule_coldkey_swap(
-            _origin: OriginFor<T>,
-            _new_coldkey: T::AccountId,
-            _work: Vec<u8>,
-            _block_number: u64,
-            _nonce: u64,
+        /// # Errors:
+        /// * `NonAssociatedColdKey`:
+        ///     - The coldkey does not own the hotkey.
+        /// * `InvalidChildkeyTake`:
+        ///     - The provided take value is invalid (greater than the maximum allowed take).
+        /// * `TxChildkeyTakeRateLimitExceeded`:
+        ///     - The rate limit for changing childkey take has been exceeded.
+        ///
+        #[pallet::call_index(75)]
+        #[pallet::weight((
+            Weight::from_parts(34_000, 0)
+            .saturating_add(T::DbWeight::get().reads(4))
+            .saturating_add(T::DbWeight::get().writes(2)),
+    DispatchClass::Normal,
+    Pays::Yes
+))]
+        pub fn set_childkey_take(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: u16,
+            take: u16,
         ) -> DispatchResult {
-            Ok(())
+            let coldkey = ensure_signed(origin)?;
+
+            // Call the utility function to set the childkey take
+            Self::do_set_childkey_take(coldkey, hotkey, netuid, take)
         }
 
         // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------
 
+        /// Sets the transaction rate limit for changing childkey take.
+        ///
+        /// This function can only be called by the root origin.
+        ///
+        /// # Arguments:
+        /// * `origin` - The origin of the call, must be root.
+        /// * `tx_rate_limit` - The new rate limit in blocks.
+        ///
+        /// # Errors:
+        /// * `BadOrigin` - If the origin is not root.
+        ///
+        #[pallet::call_index(69)]
+        #[pallet::weight((
+            Weight::from_parts(6_000, 0)
+        .saturating_add(T::DbWeight::get().writes(1)),
+    DispatchClass::Operational,
+    Pays::No
+))]
+        pub fn sudo_set_tx_childkey_take_rate_limit(
+            origin: OriginFor<T>,
+            tx_rate_limit: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            Self::set_tx_childkey_take_rate_limit(tx_rate_limit);
+            Ok(())
+        }
+
+        /// Sets the minimum allowed childkey take.
+        ///
+        /// This function can only be called by the root origin.
+        ///
+        /// # Arguments:
+        /// * `origin` - The origin of the call, must be root.
+        /// * `take` - The new minimum childkey take value.
+        ///
+        /// # Errors:
+        /// * `BadOrigin` - If the origin is not root.
+        ///
+        #[pallet::call_index(76)]
+        #[pallet::weight((
+            Weight::from_parts(6_000, 0)
+            .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
+        pub fn sudo_set_min_childkey_take(origin: OriginFor<T>, take: u16) -> DispatchResult {
+            ensure_root(origin)?;
+            Self::set_min_childkey_take(take);
+            Ok(())
+        }
+
+        /// Sets the maximum allowed childkey take.
+        ///
+        /// This function can only be called by the root origin.
+        ///
+        /// # Arguments:
+        /// * `origin` - The origin of the call, must be root.
+        /// * `take` - The new maximum childkey take value.
+        ///
+        /// # Errors:
+        /// * `BadOrigin` - If the origin is not root.
+        ///
+        #[pallet::call_index(77)]
+        #[pallet::weight((
+            Weight::from_parts(6_000, 0)
+            .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
+        pub fn sudo_set_max_childkey_take(origin: OriginFor<T>, take: u16) -> DispatchResult {
+            ensure_root(origin)?;
+            Self::set_max_childkey_take(take);
+            Ok(())
+        }
         // ==================================
         // ==== Parameter Sudo calls ========
         // ==================================
@@ -833,17 +935,6 @@ mod dispatches {
             Self::user_remove_network(origin, netuid)
         }
 
-        /// Sets values for liquid alpha
-        #[pallet::call_index(64)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_hotfix_swap_coldkey_delegates(
-            _origin: OriginFor<T>,
-            _old_coldkey: T::AccountId,
-            _new_coldkey: T::AccountId,
-        ) -> DispatchResult {
-            Ok(())
-        }
-
         /// Set a single child for a given hotkey on a specified network.
         ///
         /// This function allows a coldkey to set a single child for a given hotkey on a specified network.
@@ -900,6 +991,137 @@ mod dispatches {
             children: Vec<(u64, T::AccountId)>,
         ) -> DispatchResultWithPostInfo {
             Self::do_set_children(origin, hotkey, netuid, children)?;
+            Ok(().into())
+        }
+
+        /// Schedules a coldkey swap operation to be executed at a future block.
+        ///
+        /// This function allows a user to schedule the swapping of their coldkey to a new one
+        /// at a specified future block. The swap is not executed immediately but is scheduled
+        /// to occur at the specified block number.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - The origin of the call, which should be signed by the current coldkey owner.
+        /// * `new_coldkey` - The account ID of the new coldkey that will replace the current one.
+        /// * `when` - The block number at which the coldkey swap should be executed.
+        ///
+        /// # Returns
+        ///
+        /// Returns a `DispatchResultWithPostInfo` indicating whether the scheduling was successful.
+        ///
+        /// # Errors
+        ///
+        /// This function may return an error if:
+        /// * The origin is not signed.
+        /// * The scheduling fails due to conflicts or system constraints.
+        ///
+        /// # Notes
+        ///
+        /// - The actual swap is not performed by this function. It merely schedules the swap operation.
+        /// - The weight of this call is set to a fixed value and may need adjustment based on benchmarking.
+        ///
+        /// # TODO
+        ///
+        /// - Implement proper weight calculation based on the complexity of the operation.
+        /// - Consider adding checks to prevent scheduling too far into the future.
+        /// TODO: Benchmark this call
+        #[pallet::call_index(73)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(6))
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
+        pub fn schedule_swap_coldkey(
+            origin: OriginFor<T>,
+            new_coldkey: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+            ensure!(
+                !ColdkeySwapScheduled::<T>::contains_key(&who),
+                Error::<T>::SwapAlreadyScheduled
+            );
+
+            let current_block: BlockNumberFor<T> = <frame_system::Pallet<T>>::block_number();
+            let duration: BlockNumberFor<T> = ColdkeySwapScheduleDuration::<T>::get();
+            let when: BlockNumberFor<T> = current_block.saturating_add(duration);
+
+            let call = Call::<T>::swap_coldkey {
+                old_coldkey: who.clone(),
+                new_coldkey: new_coldkey.clone(),
+            };
+
+            let bound_call = T::Preimages::bound(LocalCallOf::<T>::from(call.clone()))
+                .map_err(|_| Error::<T>::FailedToSchedule)?;
+
+            T::Scheduler::schedule(
+                DispatchTime::At(when),
+                None,
+                63,
+                frame_system::RawOrigin::Root.into(),
+                bound_call,
+            )
+            .map_err(|_| Error::<T>::FailedToSchedule)?;
+
+            ColdkeySwapScheduled::<T>::insert(&who, ());
+            // Emit the SwapScheduled event
+            Self::deposit_event(Event::ColdkeySwapScheduled {
+                old_coldkey: who.clone(),
+                new_coldkey: new_coldkey.clone(),
+                execution_block: when,
+            });
+
+            Ok(().into())
+        }
+
+        /// Schedule the dissolution of a network at a specified block number.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - The origin of the call, must be signed by the sender.
+        /// * `netuid` - The u16 network identifier to be dissolved.
+        ///
+        /// # Returns
+        ///
+        /// Returns a `DispatchResultWithPostInfo` indicating success or failure of the operation.
+        ///
+        /// # Weight
+        ///
+        /// Weight is calculated based on the number of database reads and writes.
+
+        #[pallet::call_index(74)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(6))
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
+        pub fn schedule_dissolve_network(
+            origin: OriginFor<T>,
+            netuid: u16,
+        ) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+
+            let current_block: BlockNumberFor<T> = <frame_system::Pallet<T>>::block_number();
+            let duration: BlockNumberFor<T> = DissolveNetworkScheduleDuration::<T>::get();
+            let when: BlockNumberFor<T> = current_block.saturating_add(duration);
+
+            let call = Call::<T>::dissolve_network { netuid };
+
+            let bound_call = T::Preimages::bound(LocalCallOf::<T>::from(call.clone()))
+                .map_err(|_| Error::<T>::FailedToSchedule)?;
+
+            T::Scheduler::schedule(
+                DispatchTime::At(when),
+                None,
+                63,
+                frame_system::RawOrigin::Signed(who.clone()).into(),
+                bound_call,
+            )
+            .map_err(|_| Error::<T>::FailedToSchedule)?;
+
+            // Emit the SwapScheduled event
+            Self::deposit_event(Event::DissolveNetworkScheduled {
+                account: who.clone(),
+                netuid,
+                execution_block: when,
+            });
+
             Ok(().into())
         }
 

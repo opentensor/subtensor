@@ -168,6 +168,20 @@ mod errors {
         TooManyChildren,
         /// Default transaction rate limit exceeded.
         TxRateLimitExceeded,
+        /// Swap coldkey only callable by root.
+        SwapColdkeyOnlyCallableByRoot,
+        /// Swap already scheduled.
+        SwapAlreadyScheduled,
+        /// failed to swap coldkey
+        FailedToSchedule,
+        /// New coldkey is hotkey
+        NewColdKeyIsHotkey,
+        /// New coldkey is in arbitration
+        NewColdkeyIsInArbitration,
+        /// Childkey take is invalid.
+        InvalidChildkeyTake,
+        /// Childkey take rate limit exceeded.
+        TxChildkeyTakeRateLimitExceeded,
         /// Invalid identity.
         InvalidIdentity,
     }
