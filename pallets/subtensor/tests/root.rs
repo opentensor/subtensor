@@ -963,11 +963,7 @@ fn test_dissolve_network_not_owner_err() {
         register_ok_neuron(netuid, hotkey, owner_coldkey, 3);
 
         assert_err!(
-            SubtensorModule::dissolve_network(
-                RuntimeOrigin::signed(random_coldkey),
-                random_coldkey,
-                netuid
-            ),
+            SubtensorModule::dissolve_network(RuntimeOrigin::root(), random_coldkey, netuid),
             Error::<Test>::NotSubnetOwner
         );
     });
