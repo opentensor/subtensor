@@ -3338,3 +3338,118 @@ fn test_set_children_multiple_subnets() {
         }
     });
 }
+
+// 56: Test setting multiple children across many subnets
+// This test verifies the correct setting of multiple children across many subnets:
+// - Sets up 45 subnets
+// - Registers a parent and 5 child neurons on each subnet
+// - Sets 5 children for the parent on each subnet
+// - Verifies that the parent-child relationships are correctly established on each subnet
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test children -- test_set_multiple_children_many_subnets --exact --nocapture
+
+#[test]
+fn test_set_multiple_children_many_subnets() {
+    new_test_ext(1).execute_with(|| {
+        const NUM_SUBNETS: u16 = 45;
+        const NUM_CHILDREN: usize = 5;
+        let coldkey = U256::from(1);
+        let parent_hotkey = U256::from(2);
+        let child_hotkeys: Vec<U256> = (3..=(2 + NUM_CHILDREN)).map(U256::from).collect();
+
+        // Set up subnets and register neurons
+        for netuid in 1..=NUM_SUBNETS {
+            add_network(netuid, 0, 0);
+            SubtensorModule::set_max_registrations_per_block(netuid, 1000);
+            SubtensorModule::set_target_registrations_per_interval(netuid, 1000);
+            register_ok_neuron(netuid, parent_hotkey, coldkey, 0);
+
+            // Register child neurons and add stake to parent
+            for child_hotkey in &child_hotkeys {
+                register_ok_neuron(netuid, *child_hotkey, coldkey, 0);
+            }
+            SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+                &coldkey,
+                &parent_hotkey,
+                5000,
+            );
+        }
+
+        // Set children for each subnet
+        for netuid in 1..=NUM_SUBNETS {
+            let children_with_proportions: Vec<(u64, U256)> = child_hotkeys
+                .iter()
+                .map(|&child| (u64::MAX / NUM_CHILDREN as u64, child))
+                .collect();
+
+            assert_ok!(SubtensorModule::do_set_children(
+                RuntimeOrigin::signed(coldkey),
+                parent_hotkey,
+                netuid,
+                children_with_proportions.clone()
+            ));
+
+            // Verify parent-child relationships
+            let children = SubtensorModule::get_children(&parent_hotkey, netuid);
+            assert_eq!(
+                children, children_with_proportions,
+                "Parent should have all children set on subnet {}",
+                netuid
+            );
+
+            for (proportion, child_hotkey) in &children_with_proportions {
+                let parents = SubtensorModule::get_parents(child_hotkey, netuid);
+                assert_eq!(
+                    parents,
+                    vec![(*proportion, parent_hotkey)],
+                    "Child {:?} should have the parent set on subnet {}",
+                    child_hotkey,
+                    netuid
+                );
+            }
+
+            // Verify stake distribution
+            let parent_stake =
+                SubtensorModule::get_stake_for_hotkey_on_subnet(&parent_hotkey, netuid);
+            assert_eq!(
+                parent_stake, 5, // small episilion from u64::max normalisation
+                "Parent should have 0 stake on subnet {}",
+                netuid
+            );
+
+            let total_child_stake: u64 = child_hotkeys
+                .iter()
+                .map(|child| SubtensorModule::get_stake_for_hotkey_on_subnet(child, netuid))
+                .sum();
+            assert_eq!(
+                total_child_stake, 224995, // small episilion from u64::max normalisation
+                "Total child stake should be 224995 on subnet {}",
+                netuid
+            );
+        }
+
+        // Verify that relationships are subnet-specific
+        for netuid in 1..=NUM_SUBNETS {
+            for other_netuid in 1..=NUM_SUBNETS {
+                if netuid != other_netuid {
+                    let children = SubtensorModule::get_children(&parent_hotkey, netuid);
+                    let other_subnet_children =
+                        SubtensorModule::get_children(&parent_hotkey, other_netuid);
+                    assert_eq!(
+                        children, other_subnet_children,
+                        "Parent-child relationships should be consistent across subnets"
+                    );
+
+                    for (_, child_hotkey) in &children {
+                        let parents = SubtensorModule::get_parents(child_hotkey, netuid);
+                        let other_subnet_parents =
+                            SubtensorModule::get_parents(child_hotkey, other_netuid);
+                        assert_eq!(
+                            parents, other_subnet_parents,
+                            "Child-parent relationships should be consistent across subnets"
+                        );
+                    }
+                }
+            }
+        }
+    });
+}
