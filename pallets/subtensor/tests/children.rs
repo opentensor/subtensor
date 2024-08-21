@@ -3237,3 +3237,104 @@ fn test_rank_trust_incentive_calculation_with_parent_child() {
 
     });
 }
+
+// 55: Test setting children across multiple subnets
+// This test verifies the correct setting of children across multiple subnets:
+// - Sets up 10 subnets
+// - Registers a parent and child neuron on each subnet
+// - Sets the child as the sole child of the parent on each subnet
+// - Verifies that the parent-child relationship is correctly established on each subnet
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test children -- test_set_children_multiple_subnets --exact --nocapture
+
+#[test]
+fn test_set_children_multiple_subnets() {
+    new_test_ext(1).execute_with(|| {
+        const NUM_SUBNETS: u16 = 10;
+        let coldkey = U256::from(1);
+        let parent_hotkey = U256::from(2);
+        let child_hotkey = U256::from(3);
+
+        // Set up subnets and register neurons
+        for netuid in 1..=NUM_SUBNETS {
+            add_network(netuid, 0, 0);
+            SubtensorModule::set_max_registrations_per_block(netuid, 1000);
+            SubtensorModule::set_target_registrations_per_interval(netuid, 1000);
+            register_ok_neuron(netuid, parent_hotkey, coldkey, 0);
+            register_ok_neuron(netuid, child_hotkey, coldkey, 0);
+
+            // Add some stake to the parent
+            SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+                &coldkey,
+                &parent_hotkey,
+                1000,
+            );
+        }
+
+        // Set children for each subnet
+        for netuid in 1..=NUM_SUBNETS {
+            assert_ok!(SubtensorModule::do_set_children(
+                RuntimeOrigin::signed(coldkey),
+                parent_hotkey,
+                netuid,
+                vec![(u64::MAX, child_hotkey)]
+            ));
+
+            // Verify parent-child relationship
+            let children = SubtensorModule::get_children(&parent_hotkey, netuid);
+            let parents = SubtensorModule::get_parents(&child_hotkey, netuid);
+
+            assert_eq!(
+                children,
+                vec![(u64::MAX, child_hotkey)],
+                "Parent should have the child set on subnet {}",
+                netuid
+            );
+            assert_eq!(
+                parents,
+                vec![(u64::MAX, parent_hotkey)],
+                "Child should have the parent set on subnet {}",
+                netuid
+            );
+
+            // Verify stake distribution
+            let parent_stake =
+                SubtensorModule::get_stake_for_hotkey_on_subnet(&parent_hotkey, netuid);
+            let child_stake =
+                SubtensorModule::get_stake_for_hotkey_on_subnet(&child_hotkey, netuid);
+
+            assert_eq!(
+                parent_stake, 0,
+                "Parent should have 0 stake on subnet {}",
+                netuid
+            );
+            assert_eq!(
+                child_stake, 10000,
+                "Child should have all the stake on subnet {}",
+                netuid
+            );
+        }
+
+        // Verify that relationships are subnet-specific
+        for netuid in 1..=NUM_SUBNETS {
+            for other_netuid in 1..=NUM_SUBNETS {
+                if netuid != other_netuid {
+                    let other_subnet_children =
+                        SubtensorModule::get_children(&parent_hotkey, other_netuid);
+                    let other_subnet_parents =
+                        SubtensorModule::get_parents(&child_hotkey, other_netuid);
+
+                    assert_eq!(
+                        other_subnet_children,
+                        vec![(u64::MAX, child_hotkey)],
+                        "Parent-child relationship should be consistent across subnets"
+                    );
+                    assert_eq!(
+                        other_subnet_parents,
+                        vec![(u64::MAX, parent_hotkey)],
+                        "Parent-child relationship should be consistent across subnets"
+                    );
+                }
+            }
+        }
+    });
+}
