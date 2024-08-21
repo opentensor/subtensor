@@ -342,10 +342,6 @@ impl<T: Config> Pallet<T> {
                 if new_total == 0 {
                     // Step 11a: Remove entry if new total is zero
                     *maybe_total = None;
-                    // Step 11b: Remove hotkey from StakingHotkeys if fully unstaked
-                    let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
-                    staking_hotkeys.retain(|h| h != hotkey);
-                    StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
                 } else {
                     // Step 11c: Update total if not zero
                     *total = new_total;
