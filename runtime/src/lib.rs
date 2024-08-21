@@ -1002,8 +1002,8 @@ parameter_types! {
     pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000; // 1 TAO
     pub const SubtensorInitialSubnetOwnerCut: u16 = 5_898; // 9 percent
     pub const SubtensorInitialSubnetLimit: u16 = u16::MAX;
-    pub const SubtensorInitialNetworkLockReductionInterval: u64 = 300; // create a new network every 1 hours.
-    pub const SubtensorInitialNetworkRateLimit: u64 = 300; // 1 hour in 12 second blocks. Or 5 minutes at second blocks. 
+    pub const SubtensorInitialNetworkLockReductionInterval: u64 = 1; // create a new network every 1 hours.
+    pub const SubtensorInitialNetworkRateLimit: u64 = 1; // 1 hour in 12 second blocks. Or 5 minutes at second blocks. 
     pub const SubtensorInitialTargetStakesPerInterval: u16 = u16::MAX;
     pub const SubtensorInitialKeySwapCost: u64 = 1_000_000_000;
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
