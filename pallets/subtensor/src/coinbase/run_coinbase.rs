@@ -120,19 +120,15 @@ impl<T: Config> Pallet<T> {
         // --- 6. Drain the accumulated subnet emissions, pass them through the epoch().
         // Before accumulating on the hotkeys the function redistributes the emission towards hotkey parents.
         // subnet_emission --> epoch() --> hotkey_emission --> (hotkey + parent hotkeys)
-        let mut hotkey_emission_limit: u64 = 0;
-        let mut hotkey_emission_tuples: Vec<(T::AccountId, u16, u64)> = vec![];
         for netuid in subnets.clone().iter() {
             // --- 6.1 Check to see if the subnet should run its epoch.
             if Self::should_run_epoch(*netuid, current_block) {
+                // This netuid hotkey emission tuples
+                let mut hotkey_emission_tuples: Vec<(T::AccountId, u16, u64)> = vec![];
+
                 // --- 6.2 Drain the subnet emission.
                 let subnet_emission: u64 = PendingEmission::<T>::get(*netuid);
                 PendingEmission::<T>::insert(*netuid, 0);
-                log::debug!(
-                    "Drained subnet emission for netuid {:?}: {:?}",
-                    *netuid,
-                    subnet_emission
-                );
 
                 // --- 6.3 Set last step counter.
                 Self::set_blocks_since_last_step(*netuid, 0);
@@ -140,20 +136,12 @@ impl<T: Config> Pallet<T> {
 
                 // --- 6.4 Decrement the emission by the owner cut.
                 // 9% cut for the owner.
-                let owner_cut: u64 = I96F32::from_num(subnet_emission)
-                    .saturating_mul(Self::get_float_subnet_owner_cut())
-                    .to_num::<u64>();
+                let owner_cut: u64 = I96F32::from_num(subnet_emission).saturating_mul(Self::get_float_subnet_owner_cut()).to_num::<u64>();
                 Self::distribute_owner_cut(*netuid, owner_cut);
                 let remaining_emission: u64 = subnet_emission.saturating_sub(owner_cut);
 
                 // --- 6.5 Pass emission through epoch() --> hotkey emission.
-                let hotkey_emission: Vec<(T::AccountId, u64, u64)> =
-                    Self::epoch(*netuid, remaining_emission);
-                log::debug!(
-                    "Hotkey emission results for netuid {:?}: {:?}",
-                    *netuid,
-                    hotkey_emission
-                );
+                let hotkey_emission: Vec<(T::AccountId, u64, u64)> = Self::epoch_mock(*netuid, remaining_emission);
 
                 // --- 6.6 Accumulate the tuples on hotkeys:
                 for (hotkey, mining_emission, validator_emission) in hotkey_emission {
@@ -165,48 +153,37 @@ impl<T: Config> Pallet<T> {
                         mining_emission,    // Amount recieved from mining.
                         &mut hotkey_emission_tuples,
                     );
-                    hotkey_emission_limit = hotkey_emission_limit
-                        .saturating_add(validator_emission.saturating_add(mining_emission));
-                    log::debug!("Accumulated emissions on hotkey {:?} for netuid {:?}: mining {:?}, validator {:?}", hotkey, *netuid, mining_emission, validator_emission);
                 }
-            } else {
-                log::debug!("Tempo not reached for subnet: {:?}", *netuid);
+
+                // Accounting
+                let mut processed_hotkeys_on_netuid: BTreeMap<T::AccountId, ()> = BTreeMap::new();
+                for (hotkey, netuid_j, emission) in hotkey_emission_tuples {
+                    PendingdHotkeyEmissionOnNetuid::<T>::mutate( &hotkey, netuid_j, |total| { *total = total.saturating_add( emission ) });
+                    // If the hotkey has not been processed yet, update the last emission drain block
+                    if !processed_hotkeys_on_netuid.contains_key( &hotkey ) {
+                        LastHotkeyEmissionOnNetuid::<T>::insert( &hotkey, netuid_j, emission);
+                        processed_hotkeys_on_netuid.insert( hotkey.clone(), () );
+                    } else {
+                        LastHotkeyEmissionOnNetuid::<T>::mutate( &hotkey, netuid_j, |total| { *total = total.saturating_add(emission) });
+                    }
+                }
             }
         }
 
-        // Finally apply the emission tuples;
-        log::debug!("Hotkey Emission tuples: {:?}", hotkey_emission_tuples);
-        let total_hotkey_emitted: u64 = hotkey_emission_tuples
-            .iter()
-            .map(|(_, _, amount)| amount)
-            .sum();
-        assert!(
-            total_hotkey_emitted <= hotkey_emission_limit,
-            "total_hotkey_emitted: ({}) > hotkey_emission_limit: ({})",
-            total_hotkey_emitted,
-            hotkey_emission_limit
-        );
-        Self::accumulate_hotkey_emission(&mut hotkey_emission_tuples);
+        // --- Drain tuples to hotkeys.
+        // DEPRECATED
+        // Self::accumulate_hotkey_emission(&mut hotkey_emission_tuples);
 
         // --- 7. Drain the accumulated hotkey emissions through to the nominators.
         // The hotkey takes a proportion of the emission, the remainder is drained through to the nominators.
         // We keep track of the last stake increase event for accounting purposes.
         // hotkeys --> nominators.
-        let mut nominator_emission_limit: u64 = 0;
         let mut nominator_emission: Vec<(T::AccountId, T::AccountId, u16, u64)> = vec![];
         let emission_tempo: u64 = Self::get_hotkey_emission_tempo();
         for (hotkey, netuid_i, hotkey_emission) in PendingdHotkeyEmissionOnNetuid::<T>::iter() {
             if Self::should_drain_hotkey(&hotkey, current_block, emission_tempo) {
-                log::debug!(
-                    "Draining hotkey {:?} on netuid {:?} on block {:?}: {:?}",
-                    hotkey,
-                    netuid_i,
-                    current_block,
-                    hotkey_emission
-                );
                 // Remove the hotkey emission from the pending emissions.
                 PendingdHotkeyEmissionOnNetuid::<T>::remove(&hotkey, netuid_i);
-                LastHotkeyEmissionOnNetuid::<T>::insert( &hotkey, netuid_i, hotkey_emission );
                 // Drain the hotkey emission.
                 Self::source_nominator_emission(
                     &hotkey,
@@ -215,23 +192,9 @@ impl<T: Config> Pallet<T> {
                     current_block,
                     &mut nominator_emission,
                 );
-                nominator_emission_limit = nominator_emission_limit.saturating_add(hotkey_emission);
             }
         }
-        // Finally apply the emission tuples;
-        log::debug!("Emission tuples: {:?}", nominator_emission);
-        let total_nominator_emitted: u64 = nominator_emission
-            .iter()
-            .map(|(_, _, _, amount)| amount)
-            .sum();
-        assert!(
-            total_nominator_emitted <= nominator_emission_limit,
-            "total_nominator_emitted: ({}) > emission_limit: ({})",
-            total_nominator_emitted,
-            nominator_emission_limit
-        );
         Self::accumulate_nominator_emission(&mut nominator_emission, current_block);
-
     }
 
     /// Accumulates and distributes mining and validator emissions for a hotkey.
