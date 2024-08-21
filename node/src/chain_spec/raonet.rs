@@ -54,6 +54,18 @@ fn raonet_genesis(
             100_000_000_000u128,
         ),
         (
+            <AccountId32 as Ss58Codec>::from_ss58check("5GsSxM8p1TYrpXfCx7Un5cTp1fr1RwHJczYDUUn8Xjnqj9Sk").unwrap(), // Nico
+            333_000_000_000u128,
+        ),
+        (
+            <AccountId32 as Ss58Codec>::from_ss58check("5FLHD4eZkPStKUG7p9B1VPjD4w93Fxncf6JG5EK2uRcELmJy").unwrap(), // Carlos
+            333_000_000_000u128,
+        ),
+        (
+            <AccountId32 as Ss58Codec>::from_ss58check("5EsSnQHU5ejtt1CybbbwmVKDLck8toTp2t498tHoMxkC31aj").unwrap(), // Ryan
+            333_000_000_000u128,
+        ),
+        (
             <AccountId32 as Ss58Codec>::from_ss58check("5EeBuJRFUMS3CgisL1FT2w4AdqSQVGWRGNsTdR5YrFd189PT").unwrap(), // Greg
             250_000_000_000u128,
         ),
