@@ -444,7 +444,7 @@ reveal_weights {
     let new_rate_limit: u64 = 100;
 }: sudo_set_tx_childkey_take_rate_limit(RawOrigin::Root, new_rate_limit)
 
-benchmark_set_childkey_take {
+ benchmark_set_childkey_take {
   // Setup
   let netuid: u16 = 1;
   let tempo: u16 = 1;
@@ -462,6 +462,7 @@ benchmark_set_childkey_take {
   Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, amount_to_be_staked);
   assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
 }: set_childkey_take(RawOrigin::Signed(coldkey), hotkey, netuid, take)
+
   swap_coldkey {
     // Set up initial state
     let old_coldkey: T::AccountId = account("old_coldkey", 0, 0);
@@ -517,6 +518,6 @@ benchmark_set_childkey_take {
     Identities::<T>::insert(&old_coldkey, identity);
 
     // Benchmark setup complete, now execute the extrinsic
-}: swap_coldkey(RawOrigin::Signed(old_coldkey.clone()), new_coldkey.clone())
+}: swap_coldkey(RawOrigin::Signed(old_coldkey.clone()), old_coldkey.clone(), new_coldkey.clone())
 
 }
