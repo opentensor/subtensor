@@ -184,16 +184,16 @@ impl<T: Config> Pallet<T> {
         );
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
         SubnetLocked::<T>::insert(netuid_to_register, alpha_out);
-        LargestLocked::<T>::insert(netuid_to_register, alpha_out);
-        Locks::<T>::insert(
-            // Lock the initial funds making this key the owner.
-            (netuid_to_register, hotkey.clone(), coldkey.clone()),
-            (
-                alpha_out,
-                current_block,
-                current_block.saturating_add(Self::get_lock_interval_blocks()),
-            ),
-        );
+        // LargestLocked::<T>::insert(netuid_to_register, alpha_out);
+        // Locks::<T>::insert(
+        //     // Lock the initial funds making this key the owner.
+        //     (netuid_to_register, hotkey.clone(), coldkey.clone()),
+        //     (
+        //         alpha_out,
+        //         current_block,
+        //         current_block.saturating_add(Self::get_lock_interval_blocks()),
+        //     ),
+        // );
 
         // --- 15. Emit the NetworkAdded event.
         log::info!(
