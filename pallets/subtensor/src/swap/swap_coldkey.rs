@@ -50,7 +50,7 @@ impl<T: Config> Pallet<T> {
         weight = weight.saturating_add(T::DbWeight::get().reads(1));
 
         // 5. Swap the identity if the old coldkey has one
-        if let Some(identity) = Identities::<T>::take(&old_coldkey) {
+        if let Some(identity) = Identities::<T>::take(old_coldkey) {
             Identities::<T>::insert(new_coldkey, identity);
         }
 
