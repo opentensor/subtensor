@@ -35,7 +35,7 @@ fn test_registration_ok() {
         ));
 
         assert_ok!(SubtensorModule::user_remove_network(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            coldkey_account_id,
             netuid
         ));
 

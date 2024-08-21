@@ -992,9 +992,8 @@ impl<T: Config> Pallet<T> {
     /// * 'SubNetworkDoesNotExist': If the specified network does not exist.
     /// * 'NotSubnetOwner': If the caller does not own the specified subnet.
     ///
-    pub fn user_remove_network(origin: T::RuntimeOrigin, netuid: u16) -> dispatch::DispatchResult {
+    pub fn user_remove_network(coldkey: T::AccountId, netuid: u16) -> dispatch::DispatchResult {
         // --- 1. Ensure the function caller is a signed user.
-        let coldkey = ensure_signed(origin)?;
 
         // --- 2. Ensure this subnet exists.
         ensure!(
