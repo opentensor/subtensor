@@ -95,11 +95,11 @@ fn raonet_genesis(
         ),
         (
             <AccountId32 as Ss58Codec>::from_ss58check("5FHCbUkGX8EmoFtsQkoDqdPgzCUTMZTCrVkHnAp52wYQtVBz").unwrap(), // !   Fish [τ τ]
-            100_000_000_000u128,
+            50_000_000_000u128,
         ),
         (
             <AccountId32 as Ss58Codec>::from_ss58check("5EPYa3Krjukbft2woziQ72dU8G9mbf4q7Kq378GFxXaiKDKq").unwrap(), // ! carro [τ, ∆] - manifold labs
-            100_000_000_000u128,
+            50_000_000_000u128,
         ),
         (
             <AccountId32 as Ss58Codec>::from_ss58check("5Hj53nAGMgtpLHCT7x7VrHDvD9oWpggDyp5rCWJEFE27aHXd").unwrap(), // 0xUnicorn [ τ, τ ]
@@ -363,10 +363,6 @@ fn raonet_genesis(
         ),
         (
             <AccountId32 as Ss58Codec>::from_ss58check("5FNqfWE5DvzHiUZqyep3Bt4M9c5W3TTwu1PwDdbehYn17AwZ").unwrap(), // dougsillars taostats [τ, τ]
-            100_000_000_000u128,
-        ),
-        (
-            <AccountId32 as Ss58Codec>::from_ss58check("5H3qhPGzKMNV9fTPuizxzp8azyFRMd4BnheSuwN9Qxb5Cz3u").unwrap(), // Greg Zaitsev [τ, τ]
             100_000_000_000u128,
         ),
         (
@@ -675,6 +671,14 @@ fn raonet_genesis(
         ),
         (
             <AccountId32 as Ss58Codec>::from_ss58check("5FNuMAaCwm14ZWriHME46LgoP3iaa2dM4uND7kKsF4FjQhDL").unwrap(), // John[τ, τ]
+            100_000_000_000u128,
+        ),
+        (
+            <AccountId32 as Ss58Codec>::from_ss58check("5EeBuJRFUMS3CgisL1FT2w4AdqSQVGWRGNsTdR5YrFd189PT").unwrap(), // GregZaitsev [τ, τ]
+            100_000_000_000u128,
+        ),
+        (
+            <AccountId32 as Ss58Codec>::from_ss58check("5DUFdkP4rJrkXq9pfrWMHQS8zgiwXBZRgw2MMEAnBot59Taz").unwrap(), // GregZaitsev [τ, τ]
             100_000_000_000u128,
         ),
     ];
