@@ -678,11 +678,23 @@ fn raonet_genesis(
             100_000_000_000u128,
         ),
         (
-            <AccountId32 as Ss58Codec>::from_ss58check("5DUFdkP4rJrkXq9pfrWMHQS8zgiwXBZRgw2MMEAnBot59Taz").unwrap(), // GregZaitsev [τ, τ]
+            <AccountId32 as Ss58Codec>::from_ss58check("5DUFdkP4rJrkXq9pfrWMHQS8zgiwXBZRgw2MMEAnBot59Taz").unwrap(), // Bob
             100_000_000_000u128,
         ),
         (
             <AccountId32 as Ss58Codec>::from_ss58check("5FRo4vab84LM3aiK4DijnVawGDKagLGLzfn95j9tjDaHja8Z").unwrap(), // Const [τ, τ]
+            100_000_000_000u128,
+        ),
+        (
+            <AccountId32 as Ss58Codec>::from_ss58check("5HjEUemUaXSkxPcxGYiLykHmi5VfXBh5NCeNXYMbj9akYHbn").unwrap(), // Jip.
+            100_000_000_000u128,
+        ),
+        (
+            <AccountId32 as Ss58Codec>::from_ss58check("5CwAuY3BekpE6wpopgQjDhpB2PutsuynLjsaSH8wvHKrsq9P").unwrap(), // Algod.
+            100_000_000_000u128,
+        ),
+        (
+            <AccountId32 as Ss58Codec>::from_ss58check("5H5wqFQp2Kq6C9mJJpymRmeywxdYXp5hfWTtPM4NKhFG77jr").unwrap(), // Samuel.
             100_000_000_000u128,
         ),
     ];
@@ -697,9 +709,9 @@ fn raonet_genesis(
     }
 
     let trimvirate_members: Vec<AccountId> = bounded_vec![
-        get_account_id_from_seed::<sr25519::Public>("Alice"),
-        get_account_id_from_seed::<sr25519::Public>("Bob"),
-        get_account_id_from_seed::<sr25519::Public>("Charlie"),
+        <AccountId32 as Ss58Codec>::from_ss58check("5FRo4vab84LM3aiK4DijnVawGDKagLGLzfn95j9tjDaHja8Z").unwrap(),
+        <AccountId32 as Ss58Codec>::from_ss58check("5HjEUemUaXSkxPcxGYiLykHmi5VfXBh5NCeNXYMbj9akYHbn").unwrap(),
+        <AccountId32 as Ss58Codec>::from_ss58check("5DUFdkP4rJrkXq9pfrWMHQS8zgiwXBZRgw2MMEAnBot59Taz").unwrap(),
     ];
 
     let senate_members: Vec<AccountId> = bounded_vec![
@@ -720,7 +732,7 @@ fn raonet_genesis(
                 .collect::<Vec<_>>()
         },
         "sudo": {
-            "key": Some(get_account_id_from_seed::<sr25519::Public>("Alice"))
+            "key": <AccountId32 as Ss58Codec>::from_ss58check("5FRo4vab84LM3aiK4DijnVawGDKagLGLzfn95j9tjDaHja8Z").unwrap()
         },
         "triumvirateMembers": {
             "members": trimvirate_members
