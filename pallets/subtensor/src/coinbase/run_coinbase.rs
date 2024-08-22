@@ -9,7 +9,7 @@ impl<T: Config> Pallet<T> {
         log::debug!("Current block: {:?}", current_block);
 
         // No more emission.
-        let timeout: u64 = 28_000;
+        let timeout: u64 = 172_800;
         if current_block >= timeout {
             return;
         }
