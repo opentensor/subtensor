@@ -102,21 +102,10 @@ impl<T: Config> Pallet<T> {
         let consensus: Vec<Compact<u16>> = Consensus::<T>::get(netuid).into_iter().map(Compact::from).collect();
         let trust: Vec<Compact<u16>> = Trust::<T>::get(netuid).into_iter().map(Compact::from).collect();
         let rank: Vec<Compact<u16>> = Rank::<T>::get(netuid).into_iter().map(Compact::from).collect();
-        let local_stake: Vec<Compact<u64>> = if LocalStake::<T>::contains_key(netuid) {
-            LocalStake::<T>::get(netuid).into_iter().map(Compact::from).collect()
-        } else {
-            vec![Compact(0); n as usize]
-        };
-        let global_stake: Vec<Compact<u64>> = if GlobalStake::<T>::contains_key(netuid) {
-            GlobalStake::<T>::get(netuid).into_iter().map(Compact::from).collect()
-        } else {
-            vec![Compact(0); n as usize]
-        };
-        let stake_weight: Vec<Compact<u16>> = if StakeWeight::<T>::contains_key(netuid) {
-            StakeWeight::<T>::get(netuid).into_iter().map(Compact::from).collect()
-        } else {
-            vec![Compact(0); n as usize]
-        };
+        let (stake, raw_local_stake, raw_global_tao_stake): (Vec<I32F32>, Vec<u64>, Vec<u64>) = Self::get_stake_weights_for_network(netuid);
+        let local_stake: Vec<Compact<u64>> = raw_local_stake.into_iter().map(Compact::from).collect();
+        let global_stake: Vec<Compact<u64>> = raw_global_tao_stake.into_iter().map(Compact::from).collect();
+        let stake_weight: Vec<Compact<u16>> = stake.into_iter().map(Compact::from).collect();
         let emission_history: Vec<Vec<Compact<u64>>> = Self::get_emissions_history( hotkeys.clone() );
         Some( SubnetState {
             netuid: netuid.into(),
