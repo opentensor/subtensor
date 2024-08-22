@@ -681,6 +681,10 @@ fn raonet_genesis(
             <AccountId32 as Ss58Codec>::from_ss58check("5DUFdkP4rJrkXq9pfrWMHQS8zgiwXBZRgw2MMEAnBot59Taz").unwrap(), // GregZaitsev [τ, τ]
             100_000_000_000u128,
         ),
+        (
+            <AccountId32 as Ss58Codec>::from_ss58check("5FRo4vab84LM3aiK4DijnVawGDKagLGLzfn95j9tjDaHja8Z").unwrap(), // Const [τ, τ]
+            100_000_000_000u128,
+        ),
     ];
 
     // Check if the environment variable is set
