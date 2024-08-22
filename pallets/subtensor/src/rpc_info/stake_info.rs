@@ -13,6 +13,7 @@ pub struct StakeInfo<T: Config> {
     locked: Compact<u64>,
     emission: Compact<u64>,
     drain: Compact<u64>,
+    is_registered: bool,
 }
 
 impl<T: Config> Pallet<T> {
@@ -36,6 +37,7 @@ impl<T: Config> Pallet<T> {
                     let conviction: u64 = Self::get_conviction_for_hotkey_and_coldkey_on_subnet(
                         hotkey_i, coldkey_i, *netuid_i,
                     );
+                    let is_registered: bool = Self::is_hotkey_registered_on_network(*netuid_i, &hotkey_i);
                     stake_info_for_coldkey.push(StakeInfo {
                         hotkey: hotkey_i.clone(),
                         coldkey: coldkey_i.clone(),
@@ -44,6 +46,7 @@ impl<T: Config> Pallet<T> {
                         locked: conviction.into(),
                         emission: emission.into(),
                         drain: drain.into(),
+                        is_registered: is_registered,
                     });
                 }
             }
