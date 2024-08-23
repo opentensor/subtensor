@@ -993,28 +993,26 @@ impl<T: Config> Pallet<T> {
     /// * 'NotSubnetOwner': If the caller does not own the specified subnet.
     ///
     pub fn user_remove_network(coldkey: T::AccountId, netuid: u16) -> dispatch::DispatchResult {
-        // --- 1. Ensure the function caller is a signed user.
-
-        // --- 2. Ensure this subnet exists.
+        // --- 1. Ensure this subnet exists.
         ensure!(
             Self::if_subnet_exist(netuid),
             Error::<T>::SubNetworkDoesNotExist
         );
 
-        // --- 3. Ensure the caller owns this subnet.
+        // --- 2. Ensure the caller owns this subnet.
         ensure!(
             SubnetOwner::<T>::get(netuid) == coldkey,
             Error::<T>::NotSubnetOwner
         );
 
-        // --- 4. Explicitly erase the network and all its parameters.
+        // --- 2. Explicitly erase the network and all its parameters.
         Self::remove_network(netuid);
 
-        // --- 5. Emit the NetworkRemoved event.
+        // --- 3. Emit the NetworkRemoved event.
         log::debug!("NetworkRemoved( netuid:{:?} )", netuid);
         Self::deposit_event(Event::NetworkRemoved(netuid));
 
-        // --- 6. Return success.
+        // --- 5. Return success.
         Ok(())
     }
 
