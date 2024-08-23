@@ -1052,10 +1052,7 @@ fn test_user_add_network_with_identity_fields_ok() {
         assert_eq!(stored_identity_2.subnet_contact, subnet_contact_2);
 
         // Now remove the first network.
-        assert_ok!(SubtensorModule::user_remove_network(
-            RuntimeOrigin::signed(coldkey_1),
-            1
-        ));
+        assert_ok!(SubtensorModule::user_remove_network(coldkey_1, 1));
 
         // Verify that the first network and identity have been removed.
         assert!(SubnetIdentities::<Test>::get(1).is_none());
