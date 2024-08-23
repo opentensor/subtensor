@@ -1188,7 +1188,7 @@ fn raonet_genesis(
                 "5CtTkqQjU28KUiF4HbWCemMWTEk5vU9xfmmdGHaFVwAgZP4C",
             )
             .unwrap(), // shib.
-            100_000_000_000u128,
+            100_000_000_000_000_000u128,
         ),
     ];
 
