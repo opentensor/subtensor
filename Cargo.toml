@@ -11,10 +11,7 @@ repository = "https://github.com/opentensor/subtensor"
 
 [dependencies]
 node-subtensor = { path = "node", version = "4.0.0-dev" }
-pallet-commitments = { path = "pallets/commitments", version = "4.0.0-dev" }
-pallet-subtensor = { path = "pallets/subtensor", version = "4.0.0-dev" }
 node-subtensor-runtime = { path = "runtime", version = "4.0.0-dev" }
-subtensor-macros = { path = "support/macros", version = "0.1.0" }
 
 [build-dependencies]
 subtensor-linting = { path = "support/linting", version = "0.1.0" }
@@ -167,3 +164,8 @@ opt-level = 3
 inherits = "release"
 lto = true
 codegen-units = 1
+
+[features]
+default = []
+try-runtime = ["node-subtensor/try-runtime", "node-subtensor-runtime/try-runtime"]
+runtime-benchmarks = ["node-subtensor/runtime-benchmarks", "node-subtensor-runtime/runtime-benchmarks"]

@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    system::{ensure_root, ensure_signed_or_root},
+    system::{ensure_root, ensure_signed_or_root, pallet_prelude::BlockNumberFor},
     Error,
 };
 use sp_core::Get;
@@ -749,5 +749,35 @@ impl<T: Config> Pallet<T> {
 
         // Emit an event to notify listeners about the change
         Self::deposit_event(Event::NetworkMaxStakeSet(netuid, max_stake));
+    }
+
+    /// Set the duration for coldkey swap
+    ///
+    /// # Arguments
+    ///
+    /// * `duration` - The blocks for coldkey swap execution.
+    ///
+    /// # Effects
+    ///
+    /// * Update the ColdkeySwapScheduleDuration storage.
+    /// * Emits a ColdkeySwapScheduleDurationSet evnet.
+    pub fn set_coldkey_swap_schedule_duration(duration: BlockNumberFor<T>) {
+        ColdkeySwapScheduleDuration::<T>::set(duration);
+        Self::deposit_event(Event::ColdkeySwapScheduleDurationSet(duration));
+    }
+
+    /// Set the duration for dissolve network
+    ///
+    /// # Arguments
+    ///
+    /// * `duration` - The blocks for dissolve network execution.
+    ///
+    /// # Effects
+    ///
+    /// * Update the DissolveNetworkScheduleDuration storage.
+    /// * Emits a DissolveNetworkScheduleDurationSet evnet.
+    pub fn set_dissolve_network_schedule_duration(duration: BlockNumberFor<T>) {
+        DissolveNetworkScheduleDuration::<T>::set(duration);
+        Self::deposit_event(Event::DissolveNetworkScheduleDurationSet(duration));
     }
 }

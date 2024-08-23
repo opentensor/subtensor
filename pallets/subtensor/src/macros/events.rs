@@ -200,5 +200,9 @@ mod events {
             /// extrinsic execution block number
             execution_block: BlockNumberFor<T>,
         },
+        /// The duration of schedule coldkey swap has been set
+        ColdkeySwapScheduleDurationSet(BlockNumberFor<T>),
+        /// The duration of dissolve network has been set
+        DissolveNetworkScheduleDurationSet(BlockNumberFor<T>),
     }
 }
