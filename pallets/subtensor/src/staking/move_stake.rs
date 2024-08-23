@@ -30,6 +30,7 @@ impl<T: Config> Pallet<T> {
         destination_hotkey: T::AccountId,
         origin_netuid: u16,
         destination_netuid: u16,
+        amount_moved: Option<u64>,
     ) -> dispatch::DispatchResult {
         // --- 1. Check that the origin is signed by the origin_hotkey.
         let coldkey = ensure_signed(origin)?;
@@ -66,8 +67,12 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 6. Get the current alpha stake for the origin hotkey-coldkey pair in the origin subnet
-        let origin_alpha = Alpha::<T>::get((origin_hotkey.clone(), coldkey.clone(), origin_netuid));
-
+        // or use amount_moved
+        let origin_alpha = if let Some(amount) = amount_moved {
+            amount
+        } else {
+            Alpha::<T>::get((origin_hotkey.clone(), coldkey.clone(), origin_netuid))
+        };
         // --- 7. Unstake the full amount of alpha from the origin subnet, converting it to TAO
         let origin_tao = Self::unstake_from_subnet(
             &origin_hotkey.clone(),
