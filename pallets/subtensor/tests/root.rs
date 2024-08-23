@@ -914,7 +914,8 @@ fn test_dissolve_network_ok() {
 
         assert!(SubtensorModule::if_subnet_exist(netuid));
         assert_ok!(SubtensorModule::dissolve_network(
-            RuntimeOrigin::signed(owner_coldkey),
+            RuntimeOrigin::root(),
+            owner_coldkey,
             netuid
         ));
         assert!(!SubtensorModule::if_subnet_exist(netuid))
@@ -937,7 +938,8 @@ fn test_dissolve_network_refund_coldkey_ok() {
 
         assert!(SubtensorModule::if_subnet_exist(netuid));
         assert_ok!(SubtensorModule::dissolve_network(
-            RuntimeOrigin::signed(owner_coldkey),
+            RuntimeOrigin::root(),
+            owner_coldkey,
             netuid
         ));
         assert!(!SubtensorModule::if_subnet_exist(netuid));
@@ -961,7 +963,7 @@ fn test_dissolve_network_not_owner_err() {
         register_ok_neuron(netuid, hotkey, owner_coldkey, 3);
 
         assert_err!(
-            SubtensorModule::dissolve_network(RuntimeOrigin::signed(random_coldkey), netuid),
+            SubtensorModule::dissolve_network(RuntimeOrigin::root(), random_coldkey, netuid),
             Error::<Test>::NotSubnetOwner
         );
     });
@@ -974,7 +976,7 @@ fn test_dissolve_network_does_not_exist_err() {
         let coldkey = U256::from(2);
 
         assert_err!(
-            SubtensorModule::dissolve_network(RuntimeOrigin::signed(coldkey), netuid),
+            SubtensorModule::dissolve_network(RuntimeOrigin::root(), coldkey, netuid),
             Error::<Test>::SubNetworkDoesNotExist
         );
     });
