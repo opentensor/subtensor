@@ -183,37 +183,39 @@ fn test_add_stake_err_signature() {
 //     });
 // }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_add_stake_err_neuron_does_not_belong_to_coldkey --exact --nocapture
-#[test]
-fn test_add_stake_err_neuron_does_not_belong_to_coldkey() {
-    new_test_ext(1).execute_with(|| {
-        let coldkey_id = U256::from(544);
-        let hotkey_id = U256::from(54544);
-        let other_cold_key = U256::from(99498);
-        let netuid: u16 = 1;
-        let tempo: u16 = 13;
-        let start_nonce: u64 = 0;
+// Deprecated
 
-        //add network
-        add_network(netuid, tempo, 0);
+// // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_add_stake_err_neuron_does_not_belong_to_coldkey --exact --nocapture
+// #[test]
+// fn test_add_stake_err_neuron_does_not_belong_to_coldkey() {
+//     new_test_ext(1).execute_with(|| {
+//         let coldkey_id = U256::from(544);
+//         let hotkey_id = U256::from(54544);
+//         let other_cold_key = U256::from(99498);
+//         let netuid: u16 = 1;
+//         let tempo: u16 = 13;
+//         let start_nonce: u64 = 0;
 
-        register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
-        // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&other_cold_key, 100000);
+//         //add network
+//         add_network(netuid, tempo, 0);
 
-        // Perform the request which is signed by a different cold key
-        let result = SubtensorModule::add_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(other_cold_key),
-            hotkey_id,
-            netuid,
-            1000,
-        );
-        assert_eq!(
-            result,
-            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
-        );
-    });
-}
+//         register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
+//         // Give it some $$$ in his coldkey balance
+//         SubtensorModule::add_balance_to_coldkey_account(&other_cold_key, 100000);
+
+//         // Perform the request which is signed by a different cold key
+//         let result = SubtensorModule::add_stake(
+//             <<Test as Config>::RuntimeOrigin>::signed(other_cold_key),
+//             hotkey_id,
+//             netuid,
+//             1000,
+//         );
+//         assert_eq!(
+//             result,
+//             Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
+//         );
+//     });
+// }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_add_stake_err_not_enough_belance --exact --nocapture
 #[test]
@@ -690,35 +692,36 @@ fn test_remove_stake_err_signature() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_remove_stake_err_hotkey_does_not_belong_to_coldkey --exact --nocapture
-#[test]
-fn test_remove_stake_err_hotkey_does_not_belong_to_coldkey() {
-    new_test_ext(1).execute_with(|| {
-        let coldkey_id = U256::from(544);
-        let hotkey_id = U256::from(54544);
-        let other_cold_key = U256::from(99498);
-        let netuid: u16 = 1;
-        let tempo: u16 = 13;
-        let start_nonce: u64 = 0;
+//  Deprecated
+// // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_remove_stake_err_hotkey_does_not_belong_to_coldkey --exact --nocapture
+// #[test]
+// fn test_remove_stake_err_hotkey_does_not_belong_to_coldkey() {
+//     new_test_ext(1).execute_with(|| {
+//         let coldkey_id = U256::from(544);
+//         let hotkey_id = U256::from(54544);
+//         let other_cold_key = U256::from(99498);
+//         let netuid: u16 = 1;
+//         let tempo: u16 = 13;
+//         let start_nonce: u64 = 0;
 
-        //add network
-        add_network(netuid, tempo, 0);
+//         //add network
+//         add_network(netuid, tempo, 0);
 
-        register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
+//         register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
 
-        // Perform the request which is signed by a different cold key
-        let result = SubtensorModule::remove_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(other_cold_key),
-            hotkey_id,
-            netuid,
-            1000,
-        );
-        assert_eq!(
-            result,
-            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
-        );
-    });
-}
+//         // Perform the request which is signed by a different cold key
+//         let result = SubtensorModule::remove_stake(
+//             <<Test as Config>::RuntimeOrigin>::signed(other_cold_key),
+//             hotkey_id,
+//             netuid,
+//             1000,
+//         );
+//         assert_eq!(
+//             result,
+//             Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
+//         );
+//     });
+// }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_remove_stake_no_enough_stake --exact --nocapture
 #[test]
