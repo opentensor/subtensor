@@ -901,8 +901,11 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(157_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))
 		.saturating_add(T::DbWeight::get().writes(30)), DispatchClass::Operational, Pays::No))]
-        pub fn register_network(origin: OriginFor<T>) -> DispatchResult {
-            Self::user_add_network(origin)
+        pub fn register_network(
+            origin: OriginFor<T>,
+            identity: Option<SubnetIdentityOf>,
+        ) -> DispatchResult {
+            Self::user_add_network(origin, identity)
         }
 
         /// Facility extrinsic for user to get taken from faucet
@@ -1167,6 +1170,36 @@ mod dispatches {
             additional: Vec<u8>,
         ) -> DispatchResult {
             Self::do_set_identity(origin, name, url, image, discord, description, additional)
+        }
+
+        /// ---- Set the identity information for a subnet.
+        /// # Args:
+        /// * `origin` - (<T as frame_system::Config>::Origin):
+        ///     - The signature of the calling coldkey, which must be the owner of the subnet.
+        ///
+        /// * `netuid` (u16):
+        ///     - The unique network identifier of the subnet.
+        ///
+        /// * `subnet_name` (Vec<u8>):
+        ///     - The name of the subnet.
+        ///
+        /// * `github_repo` (Vec<u8>):
+        ///     - The GitHub repository associated with the subnet identity.
+        ///
+        /// * `subnet_contact` (Vec<u8>):
+        ///     - The contact information for the subnet.
+        #[pallet::call_index(78)]
+        #[pallet::weight((Weight::from_parts(45_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(4))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::Yes))]
+        pub fn set_subnet_identity(
+            origin: OriginFor<T>,
+            netuid: u16,
+            subnet_name: Vec<u8>,
+            github_repo: Vec<u8>,
+            subnet_contact: Vec<u8>,
+        ) -> DispatchResult {
+            Self::do_set_subnet_identity(origin, netuid, subnet_name, github_repo, subnet_contact)
         }
     }
 }

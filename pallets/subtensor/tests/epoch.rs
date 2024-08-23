@@ -1501,7 +1501,7 @@ fn test_set_alpha_disabled() {
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
         assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, 1000));
         // Only owner can set alpha values
-        assert_ok!(SubtensorModule::register_network(signer.clone()));
+        assert_ok!(SubtensorModule::register_network(signer.clone(), None));
 
         // Explicitly set to false
         SubtensorModule::set_liquid_alpha_enabled(netuid, false);
@@ -2584,7 +2584,7 @@ fn test_get_set_alpha() {
             DispatchError::BadOrigin
         );
 
-        assert_ok!(SubtensorModule::register_network(signer.clone()));
+        assert_ok!(SubtensorModule::register_network(signer.clone(), None));
 
         assert_ok!(SubtensorModule::do_set_alpha_values(
             signer.clone(),

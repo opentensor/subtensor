@@ -4,7 +4,7 @@ use frame_support::storage::IterableStorageMap;
 extern crate alloc;
 use codec::Compact;
 
-#[freeze_struct("fe79d58173da662a")]
+#[freeze_struct("ccca539640c3f631")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetInfo<T: Config> {
     netuid: Compact<u16>,
@@ -25,6 +25,7 @@ pub struct SubnetInfo<T: Config> {
     emission_values: Compact<u64>,
     burn: Compact<u64>,
     owner: T::AccountId,
+    identity: Option<SubnetIdentity>,
 }
 
 #[freeze_struct("55b472510f10e76a")]
@@ -80,6 +81,7 @@ impl<T: Config> Pallet<T> {
         let network_modality = <NetworkModality<T>>::get(netuid);
         let emission_values = Self::get_emission_value(netuid);
         let burn: Compact<u64> = Self::get_burn_as_u64(netuid).into();
+        let identity: Option<SubnetIdentity> = SubnetIdentities::<T>::get(netuid);
 
         // DEPRECATED
         let network_connect: Vec<[u16; 2]> = Vec::<[u16; 2]>::new();
@@ -106,6 +108,7 @@ impl<T: Config> Pallet<T> {
             emission_values: emission_values.into(),
             burn,
             owner: Self::get_subnet_owner(netuid),
+            identity,
         })
     }
 

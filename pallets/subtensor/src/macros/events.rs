@@ -187,6 +187,10 @@ mod events {
         NetworkMaxStakeSet(u16, u64),
         /// The identity of a coldkey has been set
         ChainIdentitySet(T::AccountId),
+        /// The identity of a subnet has been set
+        SubnetIdentitySet(u16),
+        /// The identity of a subnet has been removed
+        SubnetIdentityRemoved(u16),
         /// A dissolve network extrinsic scheduled.
         DissolveNetworkScheduled {
             /// The account ID schedule the dissolve network extrisnic
