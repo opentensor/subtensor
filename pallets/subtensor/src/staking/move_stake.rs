@@ -68,17 +68,19 @@ impl<T: Config> Pallet<T> {
 
         // --- 6. Get the current alpha stake for the origin hotkey-coldkey pair in the origin subnet
         // or use amount_moved
-        let origin_alpha = if let Some(amount) = amount_moved {
-            amount
-        } else {
-            Alpha::<T>::get((origin_hotkey.clone(), coldkey.clone(), origin_netuid))
+        let origin_alpha = Alpha::<T>::get((origin_hotkey.clone(), coldkey.clone(), origin_netuid));
+
+        let move_alpha = match amount_moved {
+            Some(amount) if amount <= origin_alpha => amount,
+            _ => origin_alpha,
         };
+
         // --- 7. Unstake the full amount of alpha from the origin subnet, converting it to TAO
         let origin_tao = Self::unstake_from_subnet(
             &origin_hotkey.clone(),
             &coldkey.clone(),
             origin_netuid,
-            origin_alpha,
+            move_alpha,
         );
 
         // --- 8. Stake the resulting TAO into the destination subnet for the destination hotkey
