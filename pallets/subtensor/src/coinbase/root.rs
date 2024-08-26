@@ -908,7 +908,7 @@ impl<T: Config> Pallet<T> {
     /// * 'NotEnoughBalanceToStake': If there isn't enough balance to stake for network registration.
     /// * 'BalanceWithdrawalError': If an error occurs during balance withdrawal for network registration.
     ///
-    pub fn user_add_network_with_identity(
+    pub fn user_add_network(
         origin: T::RuntimeOrigin,
         identity: Option<SubnetIdentityOf>,
     ) -> dispatch::DispatchResult {

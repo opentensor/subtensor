@@ -1012,7 +1012,7 @@ fn test_user_add_network_with_identity_fields_ok() {
 
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_1, balance_1);
 
-        assert_ok!(SubtensorModule::user_add_network_with_identity(
+        assert_ok!(SubtensorModule::user_add_network(
             RuntimeOrigin::signed(coldkey_1),
             Some(identity_value_1.clone())
         ));
@@ -1020,7 +1020,7 @@ fn test_user_add_network_with_identity_fields_ok() {
         let balance_2 = SubtensorModule::get_network_lock_cost() + 10_000;
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_2, balance_2);
 
-        assert_ok!(SubtensorModule::user_add_network_with_identity(
+        assert_ok!(SubtensorModule::user_add_network(
             RuntimeOrigin::signed(coldkey_2),
             Some(identity_value_2.clone())
         ));
