@@ -891,100 +891,6 @@ impl<T: Config> Pallet<T> {
             .into())
     }
 
-    /// Facilitates user registration of a new subnetwork.
-    ///
-    /// # Args:
-    /// * `origin` (`T::RuntimeOrigin`): The calling origin. Must be signed.
-    ///
-    /// # Events:
-    /// * `NetworkAdded(netuid, modality)`: Emitted when a new network is successfully added.
-    /// * `NetworkRemoved(netuid)`: Emitted when an existing network is removed to make room for the new one.
-    ///
-    /// # Raises:
-    /// * 'TxRateLimitExceeded': If the rate limit for network registration is exceeded.
-    /// * 'NotEnoughBalanceToStake': If there isn't enough balance to stake for network registration.
-    /// * 'BalanceWithdrawalError': If an error occurs during balance withdrawal for network registration.
-    ///
-    pub fn user_add_network(origin: T::RuntimeOrigin) -> dispatch::DispatchResult {
-        // --- 0. Ensure the caller is a signed user.
-        let coldkey = ensure_signed(origin)?;
-
-        // --- 1. Rate limit for network registrations.
-        let current_block = Self::get_current_block_as_u64();
-        let last_lock_block = Self::get_network_last_lock_block();
-        ensure!(
-            current_block.saturating_sub(last_lock_block) >= NetworkRateLimit::<T>::get(),
-            Error::<T>::NetworkTxRateLimitExceeded
-        );
-
-        // --- 2. Calculate and lock the required tokens.
-        let lock_amount: u64 = Self::get_network_lock_cost();
-        log::debug!("network lock_amount: {:?}", lock_amount);
-        ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, lock_amount),
-            Error::<T>::NotEnoughBalanceToStake
-        );
-
-        // --- 4. Determine the netuid to register.
-        let netuid_to_register: u16 = {
-            log::debug!(
-                "subnet count: {:?}\nmax subnets: {:?}",
-                Self::get_num_subnets(),
-                Self::get_max_subnets()
-            );
-            if Self::get_num_subnets().saturating_sub(1) < Self::get_max_subnets() {
-                // We subtract one because we don't want root subnet to count towards total
-                let mut next_available_netuid = 0;
-                loop {
-                    next_available_netuid.saturating_inc();
-                    if !Self::if_subnet_exist(next_available_netuid) {
-                        log::debug!("got subnet id: {:?}", next_available_netuid);
-                        break next_available_netuid;
-                    }
-                }
-            } else {
-                let netuid_to_prune = Self::get_subnet_to_prune();
-                ensure!(netuid_to_prune > 0, Error::<T>::AllNetworksInImmunity);
-
-                Self::remove_network(netuid_to_prune);
-                log::debug!("remove_network: {:?}", netuid_to_prune,);
-                Self::deposit_event(Event::NetworkRemoved(netuid_to_prune));
-
-                if SubnetIdentities::<T>::take(netuid_to_prune).is_some() {
-                    Self::deposit_event(Event::SubnetIdentityRemoved(netuid_to_prune));
-                }
-
-                netuid_to_prune
-            }
-        };
-
-        // --- 5. Perform the lock operation.
-        let actual_lock_amount = Self::remove_balance_from_coldkey_account(&coldkey, lock_amount)?;
-        Self::set_subnet_locked_balance(netuid_to_register, actual_lock_amount);
-        Self::set_network_last_lock(actual_lock_amount);
-
-        // --- 6. Set initial and custom parameters for the network.
-        Self::init_new_network(netuid_to_register, 360);
-        log::debug!("init_new_network: {:?}", netuid_to_register,);
-
-        // --- 7. Set netuid storage.
-        let current_block_number: u64 = Self::get_current_block_as_u64();
-        NetworkLastRegistered::<T>::set(current_block_number);
-        NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block_number);
-        SubnetOwner::<T>::insert(netuid_to_register, coldkey);
-
-        // --- 8. Emit the NetworkAdded event.
-        log::debug!(
-            "NetworkAdded( netuid:{:?}, modality:{:?} )",
-            netuid_to_register,
-            0
-        );
-        Self::deposit_event(Event::NetworkAdded(netuid_to_register, 0));
-
-        // --- 9. Return success.
-        Ok(())
-    }
-
     /// Facilitates user registration of a new subnetwork with subnet identity.
     ///
     /// # Args:
@@ -1229,12 +1135,6 @@ impl<T: Config> Pallet<T> {
     /// # Note:
     /// This function does not emit any events, nor does it raise any errors. It silently
     /// returns if any internal checks fail.
-    ///
-    /// # Example:
-    /// ```rust
-    /// let netuid_to_remove: u16 = 5;
-    /// Pallet::<T>::remove_network(netuid_to_remove);
-    /// ```
     pub fn remove_network(netuid: u16) {
         // --- 1. Return balance to subnet owner.
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
