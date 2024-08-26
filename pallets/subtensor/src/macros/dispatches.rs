@@ -547,6 +547,9 @@ mod dispatches {
         /// * 'placeholder2' (u8):
         /// 	- Placeholder for further extra params.
         ///
+        /// * 'certificate' (Vec<u8>):
+        ///     - TLS certificate for inter neuron communitation.
+        ///
         /// # Event:
         /// * AxonServed;
         /// 	- On successfully serving the axon info.
