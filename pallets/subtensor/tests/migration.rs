@@ -171,7 +171,6 @@ fn test_total_issuance_global() {
         assert_eq!(SubtensorModule::get_total_issuance(), 0); // initial is zero.
         assert_ok!(SubtensorModule::register_network(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
-            None
         ));
         SubtensorModule::set_max_allowed_uids(netuid, 1); // Set the maximum allowed unique identifiers for the network to 1.
         assert_eq!(SubtensorModule::get_total_issuance(), 0); // initial is zero.
