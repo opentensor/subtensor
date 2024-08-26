@@ -902,7 +902,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(16))
 		.saturating_add(T::DbWeight::get().writes(30)), DispatchClass::Operational, Pays::No))]
         pub fn register_network(origin: OriginFor<T>) -> DispatchResult {
-            Self::user_add_network(origin)
+            Self::user_add_network(origin, None)
         }
 
         /// Facility extrinsic for user to get taken from faucet
@@ -1208,7 +1208,7 @@ mod dispatches {
             origin: OriginFor<T>,
             identity: Option<SubnetIdentityOf>,
         ) -> DispatchResult {
-            Self::user_add_network_with_identity(origin, identity)
+            Self::user_add_network(origin, identity)
         }
     }
 }
