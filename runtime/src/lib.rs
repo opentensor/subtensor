@@ -1390,10 +1390,6 @@ impl_runtime_apis! {
         fn get_neuron(netuid: u16, uid: u16) -> Vec<u8> {
             SubtensorModule::get_neuron(netuid, uid).map(|r| r.encode()).unwrap_or(vec![])
         }
-
-        fn get_neuron_certificate(netuid: u16, uid: u16) -> Vec<u8> {
-            SubtensorModule::get_neuron_certificate(netuid, uid).map(|r| r.encode()).unwrap_or(vec![])
-        }
     }
 
     impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
