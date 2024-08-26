@@ -75,6 +75,8 @@ impl<T: Config> Pallet<T> {
             _ => origin_alpha,
         };
 
+        ensure!(move_alpha > 0, Error::<T>::MoveAmountCanNotBeZero);
+
         // --- 7. Unstake the full amount of alpha from the origin subnet, converting it to TAO
         let origin_tao = Self::unstake_from_subnet(
             &origin_hotkey.clone(),
