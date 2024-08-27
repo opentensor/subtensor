@@ -299,7 +299,7 @@ benchmarks! {
     let amount: u64 = 1;
     let amount_to_be_staked = 100_000_000_000_000u64;
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
-  }: register_network(RawOrigin::Signed(coldkey), None)
+  }: register_network(RawOrigin::Signed(coldkey))
 
   benchmark_dissolve_network {
     let seed : u32 = 1;
@@ -311,9 +311,8 @@ benchmarks! {
     let amount: u64 = 1;
     let amount_to_be_staked = 100_000_000_000_000u64;
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
-    assert_ok!(Subtensor::<T>::register_network(RawOrigin::Signed(coldkey.clone()).into(), None));
-    let c1 = coldkey.clone();
-  }: dissolve_network(RawOrigin::Signed(c1), coldkey, 1)
+    assert_ok!(Subtensor::<T>::register_network(RawOrigin::Signed(coldkey.clone()).into()));
+  }: dissolve_network(RawOrigin::Root, coldkey.clone(), 1)
 
 
   // swap_hotkey {
@@ -520,6 +519,6 @@ reveal_weights {
     Identities::<T>::insert(&old_coldkey, identity);
 
     // Benchmark setup complete, now execute the extrinsic
-}: swap_coldkey(RawOrigin::Signed(old_coldkey.clone()), old_coldkey.clone(), new_coldkey.clone())
+}: swap_coldkey(RawOrigin::Root, old_coldkey.clone(), new_coldkey.clone())
 
 }
