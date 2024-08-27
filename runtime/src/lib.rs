@@ -674,7 +674,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::Triumvirate(..)
-					| RuntimeCall::RootWeights(..)
+                    | RuntimeCall::RootWeights(..)
             ),
             ProxyType::Triumvirate => matches!(
                 c,
