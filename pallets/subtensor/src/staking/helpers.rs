@@ -218,6 +218,13 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         increment: u64,
     ) {
+        log::debug!(
+            "Increasing stake: coldkey: {:?}, hotkey: {:?}, amount: {}",
+            coldkey,
+            hotkey,
+            increment
+        );
+
         TotalColdkeyStake::<T>::insert(
             coldkey,
             TotalColdkeyStake::<T>::get(coldkey).saturating_add(increment),
@@ -284,7 +291,6 @@ impl<T: Config> Pallet<T> {
         TotalHotkeyStake::<T>::mutate(hotkey, |stake| *stake = stake.saturating_sub(current_stake));
         Stake::<T>::remove(hotkey, coldkey);
         TotalStake::<T>::mutate(|stake| *stake = stake.saturating_sub(current_stake));
-        TotalIssuance::<T>::mutate(|issuance| *issuance = issuance.saturating_sub(current_stake));
 
         // Update StakingHotkeys map
         let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);

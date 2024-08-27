@@ -34,7 +34,7 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // --- 1. We check the coldkey signature.
         let coldkey = ensure_signed(origin)?;
-        log::info!(
+        log::debug!(
             "do_decrease_take( origin:{:?} hotkey:{:?}, take:{:?} )",
             coldkey,
             hotkey,
@@ -50,15 +50,15 @@ impl<T: Config> Pallet<T> {
             ensure!(take < current_take, Error::<T>::DelegateTakeTooLow);
         }
 
-        // --- 3.1 Ensure take is within the min ..= InitialDefaultTake (18%) range
-        let min_take = MinTake::<T>::get();
+        // --- 3.1 Ensure take is within the min ..= InitialDefaultDelegateTake (18%) range
+        let min_take = MinDelegateTake::<T>::get();
         ensure!(take >= min_take, Error::<T>::DelegateTakeTooLow);
 
         // --- 4. Set the new take value.
         Delegates::<T>::insert(hotkey.clone(), take);
 
         // --- 5. Emit the take value.
-        log::info!(
+        log::debug!(
             "TakeDecreased( coldkey:{:?}, hotkey:{:?}, take:{:?} )",
             coldkey,
             hotkey,

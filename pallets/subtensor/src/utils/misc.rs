@@ -1,38 +1,12 @@
 use super::*;
 use crate::{
-    system::{ensure_root, ensure_signed_or_root},
+    system::{ensure_root, ensure_signed_or_root, pallet_prelude::BlockNumberFor},
     Error,
 };
 use sp_core::Get;
 use sp_core::U256;
+use sp_runtime::Saturating;
 use substrate_fixed::types::I32F32;
-
-/// Enum representing different types of transactions
-#[derive(Copy, Clone)]
-pub enum TransactionType {
-    SetChildren,
-    Unknown,
-}
-
-/// Implement conversion from TransactionType to u16
-impl From<TransactionType> for u16 {
-    fn from(tx_type: TransactionType) -> Self {
-        match tx_type {
-            TransactionType::SetChildren => 0,
-            TransactionType::Unknown => 1,
-        }
-    }
-}
-
-/// Implement conversion from u16 to TransactionType
-impl From<u16> for TransactionType {
-    fn from(value: u16) -> Self {
-        match value {
-            0 => TransactionType::SetChildren,
-            _ => TransactionType::Unknown,
-        }
-    }
-}
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
@@ -149,12 +123,12 @@ impl<T: Config> Pallet<T> {
         Active::<T>::insert(netuid, updated_active_vec);
     }
     pub fn set_pruning_score_for_uid(netuid: u16, uid: u16, pruning_score: u16) {
-        log::info!("netuid = {:?}", netuid);
-        log::info!(
+        log::debug!("netuid = {:?}", netuid);
+        log::debug!(
             "SubnetworkN::<T>::get( netuid ) = {:?}",
             SubnetworkN::<T>::get(netuid)
         );
-        log::info!("uid = {:?}", uid);
+        log::debug!("uid = {:?}", uid);
         assert!(uid < SubnetworkN::<T>::get(netuid));
         PruningScores::<T>::mutate(netuid, |v| {
             if let Some(s) = v.get_mut(uid as usize) {
@@ -303,88 +277,6 @@ impl<T: Config> Pallet<T> {
     }
 
     // ========================
-    // ==== Rate Limiting =====
-    // ========================
-    /// Get the rate limit for a specific transaction type
-    pub fn get_rate_limit(tx_type: &TransactionType) -> u64 {
-        match tx_type {
-            TransactionType::SetChildren => (DefaultTempo::<T>::get().saturating_mul(2)).into(), // Cannot set children twice within the default tempo period.
-            TransactionType::Unknown => 0, // Default to no limit for unknown types (no limit)
-        }
-    }
-
-    /// Check if a transaction should be rate limited on a specific subnet
-    pub fn passes_rate_limit_on_subnet(
-        tx_type: &TransactionType,
-        hotkey: &T::AccountId,
-        netuid: u16,
-    ) -> bool {
-        let block: u64 = Self::get_current_block_as_u64();
-        let limit: u64 = Self::get_rate_limit(tx_type);
-        let last_block: u64 = Self::get_last_transaction_block(hotkey, netuid, tx_type);
-        block.saturating_sub(last_block) < limit
-    }
-
-    /// Check if a transaction should be rate limited globally
-    pub fn passes_rate_limit_globally(tx_type: &TransactionType, hotkey: &T::AccountId) -> bool {
-        let netuid: u16 = u16::MAX;
-        let block: u64 = Self::get_current_block_as_u64();
-        let limit: u64 = Self::get_rate_limit(tx_type);
-        let last_block: u64 = Self::get_last_transaction_block(hotkey, netuid, tx_type);
-        block.saturating_sub(last_block) >= limit
-    }
-
-    /// Get the block number of the last transaction for a specific hotkey, network, and transaction type
-    pub fn get_last_transaction_block(
-        hotkey: &T::AccountId,
-        netuid: u16,
-        tx_type: &TransactionType,
-    ) -> u64 {
-        let tx_as_u16: u16 = (*tx_type).into();
-        TransactionKeyLastBlock::<T>::get((hotkey, netuid, tx_as_u16))
-    }
-
-    /// Set the block number of the last transaction for a specific hotkey, network, and transaction type
-    pub fn set_last_transaction_block(
-        hotkey: &T::AccountId,
-        netuid: u16,
-        tx_type: &TransactionType,
-        block: u64,
-    ) {
-        let tx_as_u16: u16 = (*tx_type).into();
-        TransactionKeyLastBlock::<T>::insert((hotkey, netuid, tx_as_u16), block);
-    }
-
-    pub fn set_last_tx_block(key: &T::AccountId, block: u64) {
-        LastTxBlock::<T>::insert(key, block)
-    }
-    pub fn get_last_tx_block(key: &T::AccountId) -> u64 {
-        LastTxBlock::<T>::get(key)
-    }
-    pub fn set_last_tx_block_delegate_take(key: &T::AccountId, block: u64) {
-        LastTxBlockDelegateTake::<T>::insert(key, block)
-    }
-    pub fn get_last_tx_block_delegate_take(key: &T::AccountId) -> u64 {
-        LastTxBlockDelegateTake::<T>::get(key)
-    }
-    pub fn exceeds_tx_rate_limit(prev_tx_block: u64, current_block: u64) -> bool {
-        let rate_limit: u64 = Self::get_tx_rate_limit();
-        if rate_limit == 0 || prev_tx_block == 0 {
-            return false;
-        }
-
-        current_block.saturating_sub(prev_tx_block) <= rate_limit
-    }
-    pub fn exceeds_tx_delegate_take_rate_limit(prev_tx_block: u64, current_block: u64) -> bool {
-        let rate_limit: u64 = Self::get_tx_delegate_take_rate_limit();
-        if rate_limit == 0 || prev_tx_block == 0 {
-            return false;
-        }
-
-        current_block.saturating_sub(prev_tx_block) <= rate_limit
-    }
-
-    // ========================
     // === Token Management ===
     // ========================
     pub fn burn_tokens(amount: u64) {
@@ -393,24 +285,19 @@ impl<T: Config> Pallet<T> {
     pub fn coinbase(amount: u64) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(amount));
     }
-    pub fn get_default_take() -> u16 {
-        // Default to maximum
-        MaxTake::<T>::get()
-    }
-    pub fn set_max_take(default_take: u16) {
-        MaxTake::<T>::put(default_take);
-        Self::deposit_event(Event::DefaultTakeSet(default_take));
-    }
-    pub fn get_min_take() -> u16 {
-        MinTake::<T>::get()
-    }
 
     pub fn set_subnet_locked_balance(netuid: u16, amount: u64) {
         SubnetLocked::<T>::insert(netuid, amount);
     }
-
     pub fn get_subnet_locked_balance(netuid: u16) -> u64 {
         SubnetLocked::<T>::get(netuid)
+    }
+    pub fn get_total_subnet_locked() -> u64 {
+        let mut total_subnet_locked: u64 = 0;
+        for (_, locked) in SubnetLocked::<T>::iter() {
+            total_subnet_locked.saturating_accrue(locked);
+        }
+        total_subnet_locked
     }
 
     // ========================
@@ -433,18 +320,49 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::TxDelegateTakeRateLimitSet(tx_rate_limit));
     }
     pub fn set_min_delegate_take(take: u16) {
-        MinTake::<T>::put(take);
+        MinDelegateTake::<T>::put(take);
         Self::deposit_event(Event::MinDelegateTakeSet(take));
     }
     pub fn set_max_delegate_take(take: u16) {
-        MaxTake::<T>::put(take);
+        MaxDelegateTake::<T>::put(take);
         Self::deposit_event(Event::MaxDelegateTakeSet(take));
     }
     pub fn get_min_delegate_take() -> u16 {
-        MinTake::<T>::get()
+        MinDelegateTake::<T>::get()
     }
     pub fn get_max_delegate_take() -> u16 {
-        MaxTake::<T>::get()
+        MaxDelegateTake::<T>::get()
+    }
+    pub fn get_default_delegate_take() -> u16 {
+        // Default to maximum
+        MaxDelegateTake::<T>::get()
+    }
+    // get_default_childkey_take
+    pub fn get_default_childkey_take() -> u16 {
+        // Default to maximum
+        MinChildkeyTake::<T>::get()
+    }
+    pub fn get_tx_childkey_take_rate_limit() -> u64 {
+        TxChildkeyTakeRateLimit::<T>::get()
+    }
+    pub fn set_tx_childkey_take_rate_limit(tx_rate_limit: u64) {
+        TxChildkeyTakeRateLimit::<T>::put(tx_rate_limit);
+        Self::deposit_event(Event::TxChildKeyTakeRateLimitSet(tx_rate_limit));
+    }
+    pub fn set_min_childkey_take(take: u16) {
+        MinChildkeyTake::<T>::put(take);
+        Self::deposit_event(Event::MinChildKeyTakeSet(take));
+    }
+    pub fn set_max_childkey_take(take: u16) {
+        MaxChildkeyTake::<T>::put(take);
+        Self::deposit_event(Event::MaxChildKeyTakeSet(take));
+    }
+    pub fn get_min_childkey_take() -> u16 {
+        MinChildkeyTake::<T>::get()
+    }
+
+    pub fn get_max_childkey_take() -> u16 {
+        MaxChildkeyTake::<T>::get()
     }
 
     pub fn get_serving_rate_limit(netuid: u16) -> u64 {
@@ -536,6 +454,13 @@ impl<T: Config> Pallet<T> {
     pub fn set_immunity_period(netuid: u16, immunity_period: u16) {
         ImmunityPeriod::<T>::insert(netuid, immunity_period);
         Self::deposit_event(Event::ImmunityPeriodSet(netuid, immunity_period));
+    }
+    /// Check if a neuron is in immunity based on the current block
+    pub fn get_neuron_is_immune(netuid: u16, uid: u16) -> bool {
+        let registered_at = Self::get_neuron_block_at_registration(netuid, uid);
+        let current_block = Self::get_current_block_as_u64();
+        let immunity_period = Self::get_immunity_period(netuid);
+        current_block.saturating_sub(registered_at) < u64::from(immunity_period)
     }
 
     pub fn get_min_allowed_weights(netuid: u16) -> u16 {
@@ -824,5 +749,35 @@ impl<T: Config> Pallet<T> {
 
         // Emit an event to notify listeners about the change
         Self::deposit_event(Event::NetworkMaxStakeSet(netuid, max_stake));
+    }
+
+    /// Set the duration for coldkey swap
+    ///
+    /// # Arguments
+    ///
+    /// * `duration` - The blocks for coldkey swap execution.
+    ///
+    /// # Effects
+    ///
+    /// * Update the ColdkeySwapScheduleDuration storage.
+    /// * Emits a ColdkeySwapScheduleDurationSet evnet.
+    pub fn set_coldkey_swap_schedule_duration(duration: BlockNumberFor<T>) {
+        ColdkeySwapScheduleDuration::<T>::set(duration);
+        Self::deposit_event(Event::ColdkeySwapScheduleDurationSet(duration));
+    }
+
+    /// Set the duration for dissolve network
+    ///
+    /// # Arguments
+    ///
+    /// * `duration` - The blocks for dissolve network execution.
+    ///
+    /// # Effects
+    ///
+    /// * Update the DissolveNetworkScheduleDuration storage.
+    /// * Emits a DissolveNetworkScheduleDurationSet evnet.
+    pub fn set_dissolve_network_schedule_duration(duration: BlockNumberFor<T>) {
+        DissolveNetworkScheduleDuration::<T>::set(duration);
+        Self::deposit_event(Event::DissolveNetworkScheduleDurationSet(duration));
     }
 }

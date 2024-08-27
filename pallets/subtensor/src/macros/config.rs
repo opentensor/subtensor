@@ -1,15 +1,20 @@
 #![allow(clippy::crate_in_macro_def)]
 
 use frame_support::pallet_macros::pallet_section;
-
 /// A [`pallet_section`] that defines the errors for a pallet.
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod config {
-
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
     pub trait Config: frame_system::Config {
+        /// call type
+        type RuntimeCall: Parameter
+            + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+            + From<Call<Self>>
+            + IsType<<Self as frame_system::Config>::RuntimeCall>
+            + From<frame_system::Call<Self>>;
+
         /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -30,6 +35,17 @@ mod config {
 
         /// Interface to allow other pallets to control who can register identities
         type TriumvirateInterface: crate::CollectiveInterface<Self::AccountId, Self::Hash, u32>;
+
+        /// The scheduler type used for scheduling delayed calls.
+        type Scheduler: ScheduleAnon<
+            BlockNumberFor<Self>,
+            LocalCallOf<Self>,
+            PalletsOriginOf<Self>,
+            Hasher = Self::Hashing,
+        >;
+
+        /// the preimage to store the call data.
+        type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 
         /// =================================
         /// ==== Initial Value Constants ====
@@ -112,10 +128,19 @@ mod config {
         type InitialMaxAllowedValidators: Get<u16>;
         /// Initial default delegation take.
         #[pallet::constant]
-        type InitialDefaultTake: Get<u16>;
+        type InitialDefaultDelegateTake: Get<u16>;
         /// Initial minimum delegation take.
         #[pallet::constant]
-        type InitialMinTake: Get<u16>;
+        type InitialMinDelegateTake: Get<u16>;
+        /// Initial default childkey take.
+        #[pallet::constant]
+        type InitialDefaultChildKeyTake: Get<u16>;
+        /// Initial minimum childkey take.
+        #[pallet::constant]
+        type InitialMinChildKeyTake: Get<u16>;
+        /// Initial maximum childkey take.
+        #[pallet::constant]
+        type InitialMaxChildKeyTake: Get<u16>;
         /// Initial weights version key.
         #[pallet::constant]
         type InitialWeightsVersionKey: Get<u64>;
@@ -128,6 +153,9 @@ mod config {
         /// Initial delegate take transaction rate limit.
         #[pallet::constant]
         type InitialTxDelegateTakeRateLimit: Get<u64>;
+        /// Initial childkey take transaction rate limit.
+        #[pallet::constant]
+        type InitialTxChildKeyTakeRateLimit: Get<u64>;
         /// Initial percentage of total stake required to join senate.
         #[pallet::constant]
         type InitialSenateRequiredStakePercentage: Get<u64>;
@@ -176,5 +204,11 @@ mod config {
         /// Initial hotkey emission tempo.
         #[pallet::constant]
         type InitialHotkeyEmissionTempo: Get<u64>;
+        /// Coldkey swap schedule duartion.
+        #[pallet::constant]
+        type InitialColdkeySwapScheduleDuration: Get<BlockNumberFor<Self>>;
+        /// Dissolve network schedule duration
+        #[pallet::constant]
+        type InitialDissolveNetworkScheduleDuration: Get<BlockNumberFor<Self>>;
     }
 }

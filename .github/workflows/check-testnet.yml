@@ -2,7 +2,7 @@ name: Testnet Deploy Check
 
 on:
   pull_request:
-    branches: [testnet]
+    branches: [testnet, testnet-ready]
 
 env:
   CARGO_TERM_COLOR: always
@@ -11,6 +11,7 @@ jobs:
   check-spec-version:
     name: Check spec_version bump
     runs-on: SubtensorCI
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-spec-version-bump') }}
     steps:
       - name: Dependencies
         run: |

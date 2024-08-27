@@ -200,11 +200,12 @@ impl<T: Config> Pallet<T> {
 
         // 8. Swap delegates.
         // Delegates( hotkey ) -> take value -- the hotkey delegate take value.
-        let old_delegate_take = Delegates::<T>::get(old_hotkey);
-        Delegates::<T>::remove(old_hotkey); // Remove the old delegate take.
-        Delegates::<T>::insert(new_hotkey, old_delegate_take); // Insert the new delegate take.
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
-
+        if Delegates::<T>::contains_key(old_hotkey) {
+            let old_delegate_take = Delegates::<T>::get(old_hotkey);
+            Delegates::<T>::remove(old_hotkey);
+            Delegates::<T>::insert(new_hotkey, old_delegate_take);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+        }
         // 9. Swap all subnet specific info.
         let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
         for netuid in all_netuids {
@@ -305,6 +306,41 @@ impl<T: Config> Pallet<T> {
             staking_hotkeys.push(new_hotkey.clone());
             StakingHotkeys::<T>::insert(coldkey.clone(), staking_hotkeys);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+        }
+
+        // 11. Swap ChildKeys.
+        // ChildKeys( parent, netuid ) --> Vec<(proportion,child)> -- the child keys of the parent.
+        for netuid in Self::get_all_subnet_netuids() {
+            // Get the children of the old hotkey for this subnet
+            let my_children: Vec<(u64, T::AccountId)> = ChildKeys::<T>::get(old_hotkey, netuid);
+            // Remove the old hotkey's child entries
+            ChildKeys::<T>::remove(old_hotkey, netuid);
+            // Insert the same child entries for the new hotkey
+            ChildKeys::<T>::insert(new_hotkey, netuid, my_children);
+        }
+
+        // 12. Swap ParentKeys.
+        // ParentKeys( child, netuid ) --> Vec<(proportion,parent)> -- the parent keys of the child.
+        for netuid in Self::get_all_subnet_netuids() {
+            // Get the parents of the old hotkey for this subnet
+            let parents: Vec<(u64, T::AccountId)> = ParentKeys::<T>::get(old_hotkey, netuid);
+            // Remove the old hotkey's parent entries
+            ParentKeys::<T>::remove(old_hotkey, netuid);
+            // Insert the same parent entries for the new hotkey
+            ParentKeys::<T>::insert(new_hotkey, netuid, parents.clone());
+            for (_, parent_key_i) in parents {
+                // For each parent, update their children list
+                let mut parent_children: Vec<(u64, T::AccountId)> =
+                    ChildKeys::<T>::get(parent_key_i.clone(), netuid);
+                for child in parent_children.iter_mut() {
+                    // If the child is the old hotkey, replace it with the new hotkey
+                    if child.1 == *old_hotkey {
+                        child.1 = new_hotkey.clone();
+                    }
+                }
+                // Update the parent's children list
+                ChildKeys::<T>::insert(parent_key_i, netuid, parent_children);
+            }
         }
 
         // Return successful after swapping all the relevant terms.
