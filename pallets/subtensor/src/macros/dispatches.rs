@@ -901,11 +901,8 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(157_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))
 		.saturating_add(T::DbWeight::get().writes(30)), DispatchClass::Operational, Pays::No))]
-        pub fn register_network(
-            origin: OriginFor<T>,
-            identity: Option<SubnetIdentityOf>,
-        ) -> DispatchResult {
-            Self::user_add_network(origin, identity)
+        pub fn register_network(origin: OriginFor<T>) -> DispatchResult {
+            Self::user_add_network(origin, None)
         }
 
         /// Facility extrinsic for user to get taken from faucet
@@ -1200,6 +1197,18 @@ mod dispatches {
             subnet_contact: Vec<u8>,
         ) -> DispatchResult {
             Self::do_set_subnet_identity(origin, netuid, subnet_name, github_repo, subnet_contact)
+        }
+
+        /// User register a new subnetwork
+        #[pallet::call_index(79)]
+        #[pallet::weight((Weight::from_parts(157_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads(16))
+                .saturating_add(T::DbWeight::get().writes(30)), DispatchClass::Operational, Pays::No))]
+        pub fn register_network_with_identity(
+            origin: OriginFor<T>,
+            identity: Option<SubnetIdentityOf>,
+        ) -> DispatchResult {
+            Self::user_add_network(origin, identity)
         }
     }
 }
