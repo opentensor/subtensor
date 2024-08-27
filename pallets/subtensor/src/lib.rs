@@ -73,6 +73,7 @@ pub mod pallet {
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::vec;
     use sp_std::vec::Vec;
+	use subtensor_macros::freeze_struct;
 
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
@@ -132,6 +133,7 @@ pub mod pallet {
     /// Struct for NeuronCertificate.
     pub type NeuronCertificateOf = NeuronCertificate;
     /// Data structure for NeuronCertificate information.
+    #[freeze_struct("e6193a76002d491")]
     #[derive(Decode, Encode, Default, TypeInfo, PartialEq, Eq, Clone, Debug)]
     pub struct NeuronCertificate {
         ///  The neuron certificate.
