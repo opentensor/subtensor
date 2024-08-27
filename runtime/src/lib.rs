@@ -142,7 +142,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 193,
+    spec_version: 194,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1423,6 +1423,21 @@ impl_runtime_apis! {
 
         fn get_subnets_info() -> Vec<u8> {
             let result = SubtensorModule::get_subnets_info();
+            result.encode()
+        }
+
+        fn get_subnet_info_v2(netuid: u16) -> Vec<u8> {
+            let _result = SubtensorModule::get_subnet_info_v2(netuid);
+            if _result.is_some() {
+                let result = _result.expect("Could not get SubnetInfo");
+                result.encode()
+            } else {
+                vec![]
+            }
+        }
+
+        fn get_subnets_info_v2() -> Vec<u8> {
+            let result = SubtensorModule::get_subnets_info_v2();
             result.encode()
         }
 

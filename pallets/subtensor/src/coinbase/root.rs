@@ -891,20 +891,27 @@ impl<T: Config> Pallet<T> {
             .into())
     }
 
-    /// Facilitates user registration of a new subnetwork.
+    /// Facilitates user registration of a new subnetwork with subnet identity.
     ///
     /// # Args:
-    /// * 'origin': ('T::RuntimeOrigin'): The calling origin. Must be signed.
+    /// * `origin` (`T::RuntimeOrigin`): The calling origin. Must be signed.
+    /// * `identity` (`Option<SubnetIdentityOf>`): Optional identity to be associated with the new subnetwork.
     ///
-    /// # Event:
-    /// * 'NetworkAdded': Emitted when a new network is successfully added.
+    /// # Events:
+    /// * `NetworkAdded(netuid, modality)`: Emitted when a new network is successfully added.
+    /// * `SubnetIdentitySet(netuid)`: Emitted when a custom identity is set for a new subnetwork.
+    /// * `NetworkRemoved(netuid)`: Emitted when an existing network is removed to make room for the new one.
+    /// * `SubnetIdentityRemoved(netuid)`: Emitted when the identity of a removed network is also deleted.
     ///
     /// # Raises:
     /// * 'TxRateLimitExceeded': If the rate limit for network registration is exceeded.
     /// * 'NotEnoughBalanceToStake': If there isn't enough balance to stake for network registration.
     /// * 'BalanceWithdrawalError': If an error occurs during balance withdrawal for network registration.
     ///
-    pub fn user_add_network(origin: T::RuntimeOrigin) -> dispatch::DispatchResult {
+    pub fn user_add_network(
+        origin: T::RuntimeOrigin,
+        identity: Option<SubnetIdentityOf>,
+    ) -> dispatch::DispatchResult {
         // --- 0. Ensure the caller is a signed user.
         let coldkey = ensure_signed(origin)?;
 
@@ -948,6 +955,11 @@ impl<T: Config> Pallet<T> {
                 Self::remove_network(netuid_to_prune);
                 log::debug!("remove_network: {:?}", netuid_to_prune,);
                 Self::deposit_event(Event::NetworkRemoved(netuid_to_prune));
+
+                if SubnetIdentities::<T>::take(netuid_to_prune).is_some() {
+                    Self::deposit_event(Event::SubnetIdentityRemoved(netuid_to_prune));
+                }
+
                 netuid_to_prune
             }
         };
@@ -961,13 +973,24 @@ impl<T: Config> Pallet<T> {
         Self::init_new_network(netuid_to_register, 360);
         log::debug!("init_new_network: {:?}", netuid_to_register,);
 
-        // --- 7. Set netuid storage.
+        // --- 7. Add the identity if it exists
+        if let Some(identity_value) = identity {
+            ensure!(
+                Self::is_valid_subnet_identity(&identity_value),
+                Error::<T>::InvalidIdentity
+            );
+
+            SubnetIdentities::<T>::insert(netuid_to_register, identity_value);
+            Self::deposit_event(Event::SubnetIdentitySet(netuid_to_register));
+        }
+
+        // --- 8. Set netuid storage.
         let current_block_number: u64 = Self::get_current_block_as_u64();
         NetworkLastRegistered::<T>::set(current_block_number);
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block_number);
         SubnetOwner::<T>::insert(netuid_to_register, coldkey);
 
-        // --- 8. Emit the NetworkAdded event.
+        // --- 9. Emit the NetworkAdded event.
         log::debug!(
             "NetworkAdded( netuid:{:?}, modality:{:?} )",
             netuid_to_register,
@@ -975,7 +998,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::NetworkAdded(netuid_to_register, 0));
 
-        // --- 9. Return success.
+        // --- 10. Return success.
         Ok(())
     }
 
@@ -992,30 +1015,32 @@ impl<T: Config> Pallet<T> {
     /// * 'SubNetworkDoesNotExist': If the specified network does not exist.
     /// * 'NotSubnetOwner': If the caller does not own the specified subnet.
     ///
-    pub fn user_remove_network(origin: T::RuntimeOrigin, netuid: u16) -> dispatch::DispatchResult {
-        // --- 1. Ensure the function caller is a signed user.
-        let coldkey = ensure_signed(origin)?;
-
-        // --- 2. Ensure this subnet exists.
+    pub fn user_remove_network(coldkey: T::AccountId, netuid: u16) -> dispatch::DispatchResult {
+        // --- 1. Ensure this subnet exists.
         ensure!(
             Self::if_subnet_exist(netuid),
             Error::<T>::SubNetworkDoesNotExist
         );
 
-        // --- 3. Ensure the caller owns this subnet.
+        // --- 2. Ensure the caller owns this subnet.
         ensure!(
             SubnetOwner::<T>::get(netuid) == coldkey,
             Error::<T>::NotSubnetOwner
         );
 
-        // --- 4. Explicitly erase the network and all its parameters.
+        // --- 4. Remove the subnet identity if it exists.
+        if SubnetIdentities::<T>::take(netuid).is_some() {
+            Self::deposit_event(Event::SubnetIdentityRemoved(netuid));
+        }
+
+        // --- 5. Explicitly erase the network and all its parameters.
         Self::remove_network(netuid);
 
-        // --- 5. Emit the NetworkRemoved event.
+        // --- 6. Emit the NetworkRemoved event.
         log::debug!("NetworkRemoved( netuid:{:?} )", netuid);
         Self::deposit_event(Event::NetworkRemoved(netuid));
 
-        // --- 6. Return success.
+        // --- 7. Return success.
         Ok(())
     }
 
@@ -1101,8 +1126,8 @@ impl<T: Config> Pallet<T> {
     /// Removes a network (identified by netuid) and all associated parameters.
     ///
     /// This function is responsible for cleaning up all the data associated with a network.
-    /// It ensures that all the storage values related to the network are removed, and any
-    /// reserved balance is returned to the network owner.
+    /// It ensures that all the storage values related to the network are removed, any
+    /// reserved balance is returned to the network owner, and the subnet identity is removed if it exists.
     ///
     /// # Args:
     ///  * 'netuid': ('u16'): The unique identifier of the network to be removed.
@@ -1110,11 +1135,10 @@ impl<T: Config> Pallet<T> {
     /// # Note:
     /// This function does not emit any events, nor does it raise any errors. It silently
     /// returns if any internal checks fail.
-    ///
     pub fn remove_network(netuid: u16) {
         // --- 1. Return balance to subnet owner.
-        let owner_coldkey = SubnetOwner::<T>::get(netuid);
-        let reserved_amount = Self::get_subnet_locked_balance(netuid);
+        let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
+        let reserved_amount: u64 = Self::get_subnet_locked_balance(netuid);
 
         // --- 2. Remove network count.
         SubnetworkN::<T>::remove(netuid);
@@ -1125,13 +1149,13 @@ impl<T: Config> Pallet<T> {
         // --- 4. Remove netuid from added networks.
         NetworksAdded::<T>::remove(netuid);
 
-        // --- 6. Decrement the network counter.
-        TotalNetworks::<T>::mutate(|n| *n = n.saturating_sub(1));
+        // --- 5. Decrement the network counter.
+        TotalNetworks::<T>::mutate(|n: &mut u16| *n = n.saturating_sub(1));
 
-        // --- 7. Remove various network-related storages.
+        // --- 6. Remove various network-related storages.
         NetworkRegisteredAt::<T>::remove(netuid);
 
-        // --- 8. Remove incentive mechanism memory.
+        // --- 7. Remove incentive mechanism memory.
         let _ = Uids::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = Keys::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = Bonds::<T>::clear_prefix(netuid, u32::MAX, None);
@@ -1146,7 +1170,7 @@ impl<T: Config> Pallet<T> {
             )
         {
             // Create a new vector to hold modified weights.
-            let mut modified_weights = weights_i.clone();
+            let mut modified_weights: Vec<(u16, u16)> = weights_i.clone();
             // Iterate over each weight entry to potentially update it.
             for (subnet_id, weight) in modified_weights.iter_mut() {
                 if subnet_id == &netuid {
@@ -1188,6 +1212,12 @@ impl<T: Config> Pallet<T> {
         Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount);
         Self::set_subnet_locked_balance(netuid, 0);
         SubnetOwner::<T>::remove(netuid);
+
+        // --- 13. Remove subnet identity if it exists.
+        if SubnetIdentities::<T>::contains_key(netuid) {
+            SubnetIdentities::<T>::remove(netuid);
+            Self::deposit_event(Event::SubnetIdentityRemoved(netuid));
+        }
     }
 
     #[allow(clippy::arithmetic_side_effects)]
