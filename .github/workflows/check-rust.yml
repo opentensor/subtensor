@@ -212,6 +212,16 @@ jobs:
   cargo-audit:
     name: cargo audit
     runs-on: SubtensorCI
+    strategy:
+      matrix:
+        rust-branch:
+          - stable
+        rust-target:
+          - x86_64-unknown-linux-gnu
+        # - x86_64-apple-darwin
+        os:
+          - ubuntu-latest
+          # - macos-latest
     steps:
       - name: Check-out repositoroy under $GITHUB_WORKSPACE
         uses: actions/checkout@v4
