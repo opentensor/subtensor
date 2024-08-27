@@ -208,7 +208,7 @@ jobs:
 
       - name: cargo clippy --workspace --all-targets --all-features -- -D warnings
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
-
+  # runs cargo audit
   cargo-audit:
     name: cargo audit
     runs-on: SubtensorCI
@@ -218,6 +218,8 @@ jobs:
 
       - name: Audit check
         uses: rustsec/audit-check@v1.4.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
   # runs cargo test --workspace
   cargo-test:
     name: cargo test
