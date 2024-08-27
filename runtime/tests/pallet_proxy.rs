@@ -134,6 +134,22 @@ fn call_register() -> RuntimeCall {
     })
 }
 
+fn call_set_root_weights() -> RuntimeCall {
+    let netuid: u16 = 1;
+    let hotkey = AccountId::from(ACCOUNT);
+    let dests: Vec<u16> = vec![2, 3, 4];
+    let weights: Vec<u16> = vec![100, 100, 100];
+    let version_key: u64 = 12345678;
+
+    RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_root_weights {
+        netuid,
+        hotkey,
+        dests,
+        weights,
+        version_key,
+    })
+}
+
 fn verify_call_with_proxy_type(proxy_type: &ProxyType, call: &RuntimeCall) {
     assert_ok!(Proxy::proxy(
         RuntimeOrigin::signed(AccountId::from(DELEGATE)),
@@ -171,6 +187,7 @@ fn test_proxy_pallet() {
         ProxyType::Governance,
         ProxyType::Staking,
         ProxyType::Registration,
+        ProxyType::SetRootWeights,
     ];
 
     let calls = [
@@ -183,6 +200,7 @@ fn test_proxy_pallet() {
         call_senate,
         call_add_stake,
         call_register,
+        call_set_root_weights,
     ];
 
     for call in calls.iter() {
