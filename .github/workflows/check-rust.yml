@@ -208,6 +208,16 @@ jobs:
 
       - name: cargo clippy --workspace --all-targets --all-features -- -D warnings
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  cargo-audit:
+    name: cargo audit
+    runs-on: SubtensorCI
+    steps:
+      - name: Check-out repositoroy under $GITHUB_WORKSPACE
+        uses: actions/checkout@v4
+
+      - name: Audit check
+        uses: rustsec/audit-check@v1.4.1
   # runs cargo test --workspace
   cargo-test:
     name: cargo test
