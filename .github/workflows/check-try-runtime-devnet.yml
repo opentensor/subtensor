@@ -1,0 +1,24 @@
+name: Devnet Try Runtime Check
+
+on:
+  pull_request:
+    branches: [devnet, devnet-ready, testnet, testnet-ready, finney, main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check-devnet-migrations:
+    name: check devnet migrations
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Run Try Runtime Checks
+        uses: "paritytech/try-runtime-gha@v0.1.0"
+        with:
+          runtime-package: "node-subtensor-runtime"
+          node-uri: "wss://dev.chain.opentensor.ai:443"
+          checks: "pre-and-post"
+          extra-args: "--disable-spec-version-check --no-weight-warnings"
