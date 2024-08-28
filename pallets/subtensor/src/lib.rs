@@ -73,7 +73,7 @@ pub mod pallet {
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::vec;
     use sp_std::vec::Vec;
-	use subtensor_macros::freeze_struct;
+    use subtensor_macros::freeze_struct;
 
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
@@ -1175,7 +1175,7 @@ pub mod pallet {
         StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, AxonInfoOf, OptionQuery>;
     /// --- MAP ( netuid, hotkey ) --> certificate
     #[pallet::storage]
-    pub(super) type NeuronCertificates<T: Config> = StorageDoubleMap<
+    pub type NeuronCertificates<T: Config> = StorageDoubleMap<
         _,
         Identity,
         u16,

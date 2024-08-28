@@ -31,8 +31,8 @@ impl<T: Config> Pallet<T> {
     /// * 'placeholder2' (u8):
     ///     - Placeholder for further extra params.
     ///
-    ///	* 'certificate' (Option<Vec<u8>>):
-    ///		- Certificate for mutual Tls connection between neurons
+    /// * 'certificate' (Option<Vec<u8>>):
+    ///     - Certificate for mutual Tls connection between neurons
     ///
     /// # Event:
     /// * AxonServed;
@@ -253,7 +253,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn has_neuron_certificate(netuid: u16, hotkey: &T::AccountId) -> bool {
-        return NeuronCertificates::<T>::contains_key(netuid, hotkey);
+        NeuronCertificates::<T>::contains_key(netuid, hotkey)
     }
 
     pub fn has_prometheus_info(netuid: u16, hotkey: &T::AccountId) -> bool {

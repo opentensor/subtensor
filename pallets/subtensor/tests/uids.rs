@@ -3,6 +3,7 @@
 use crate::mock::*;
 use frame_support::assert_ok;
 use frame_system::Config;
+use pallet_subtensor::*;
 use sp_core::U256;
 
 mod mock;
@@ -32,6 +33,9 @@ fn test_replace_neuron() {
 
         let new_hotkey_account_id = U256::from(2);
         let _new_colkey_account_id = U256::from(12345);
+        let certificate = NeuronCertificate {
+            certificate: vec![1, 2, 3],
+        };
 
         //add network
         add_network(netuid, tempo, 0);
@@ -50,6 +54,9 @@ fn test_replace_neuron() {
         // Get UID
         let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id);
         assert_ok!(neuron_uid);
+
+        // Set a neuron certificate for it
+        NeuronCertificates::<Test>::insert(netuid, hotkey_account_id, certificate);
 
         // Replace the neuron.
         SubtensorModule::replace_neuron(
@@ -77,6 +84,10 @@ fn test_replace_neuron() {
             &new_hotkey_account_id
         ));
         assert_eq!(curr_hotkey.unwrap(), new_hotkey_account_id);
+
+        // Check neuron certificate was reset
+        let certificate = SubtensorModule::get_neuron_certificate(netuid, neuron_uid.unwrap());
+        assert_eq!(certificate, None);
     });
 }
 

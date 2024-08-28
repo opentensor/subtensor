@@ -129,8 +129,9 @@ fn test_serving_tls_ok() {
             placeholder2,
             certificate.clone()
         ));
-        let stored_certificate = SubtensorModule::get_neuron_certificate(netuid, uid);
-        assert_eq!(stored_certificate.unwrap().certificate, certificate);
+        let stored_certificate =
+            SubtensorModule::get_neuron_certificate(netuid, uid).expect("Certificate should exist");
+        assert_eq!(stored_certificate.certificate, certificate);
         let new_certificate = "UPDATED_CERT".as_bytes().to_vec();
         assert_ok!(SubtensorModule::serve_axon_tls(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
@@ -144,8 +145,9 @@ fn test_serving_tls_ok() {
             placeholder2,
             new_certificate.clone()
         ));
-        let stored_certificate = SubtensorModule::get_neuron_certificate(netuid, uid);
-        assert_eq!(stored_certificate.unwrap().certificate, new_certificate)
+        let stored_certificate =
+            SubtensorModule::get_neuron_certificate(netuid, uid).expect("Certificate should exist");
+        assert_eq!(stored_certificate.certificate, new_certificate)
     });
 }
 
