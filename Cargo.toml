@@ -167,5 +167,12 @@ codegen-units = 1
 
 [features]
 default = []
-try-runtime = ["node-subtensor/try-runtime", "node-subtensor-runtime/try-runtime"]
-runtime-benchmarks = ["node-subtensor/runtime-benchmarks", "node-subtensor-runtime/runtime-benchmarks"]
+try-runtime = [
+    "node-subtensor/try-runtime",
+    "node-subtensor-runtime/try-runtime",
+]
+runtime-benchmarks = [
+    "node-subtensor/runtime-benchmarks",
+    "node-subtensor-runtime/runtime-benchmarks",
+]
+metadata-hash = ["node-subtensor-runtime/metadata-hash"]
