@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=ubuntu:20.04
 
-FROM $BASE_IMAGE as builder
+FROM $BASE_IMAGE AS builder
 SHELL ["/bin/bash", "-c"]
 
 # Set noninteractive mode for apt-get
@@ -10,29 +10,25 @@ LABEL ai.opentensor.image.authors="operations@opentensor.ai" \
   ai.opentensor.image.vendor="Opentensor Foundation" \
   ai.opentensor.image.title="opentensor/subtensor" \
   ai.opentensor.image.description="Opentensor Subtensor Blockchain" \
-  ai.opentensor.image.revision="${VCS_REF}" \
-  ai.opentensor.image.created="${BUILD_DATE}" \
   ai.opentensor.image.documentation="https://docs.bittensor.com"
 
 # Set up Rust environment
-ENV RUST_BACKTRACE 1
+ENV RUST_BACKTRACE=1
 RUN apt-get update && \
   apt-get install -y curl build-essential protobuf-compiler clang git && \
   rm -rf /var/lib/apt/lists/*
 
 RUN set -o pipefail && curl https://sh.rustup.rs -sSf | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
-
-RUN rustup update nightly
 RUN rustup update stable
-RUN rustup target add wasm32-unknown-unknown --toolchain nightly
+RUN rustup target add wasm32-unknown-unknown --toolchain stable
 
 # Copy entire repository
 COPY . /build
 WORKDIR /build
 
 # Build the project
-RUN cargo build -p node-subtensor --profile production --features runtime-benchmarks --locked
+RUN cargo build -p node-subtensor --profile production  --features="runtime-benchmarks metadata-hash" --locked
 
 # Verify the binary was produced
 RUN test -e /build/target/production/node-subtensor
