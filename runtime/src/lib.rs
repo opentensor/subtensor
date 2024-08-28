@@ -142,7 +142,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 192,
+    spec_version: 195,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1030,27 +1030,27 @@ impl pallet_admin_utils::Config for Runtime {
 construct_runtime!(
     pub struct Runtime
     {
-        System: frame_system,
-        RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip,
-        Timestamp: pallet_timestamp,
-        Aura: pallet_aura,
-        Grandpa: pallet_grandpa,
-        Balances: pallet_balances,
-        TransactionPayment: pallet_transaction_payment,
-        SubtensorModule: pallet_subtensor,
-        Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
-        SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
-        Utility: pallet_utility,
-        Sudo: pallet_sudo,
-        Multisig: pallet_multisig,
-        Preimage: pallet_preimage,
-        Proxy: pallet_proxy,
-        Registry: pallet_registry,
-        Commitments: pallet_commitments,
-        AdminUtils: pallet_admin_utils,
-        SafeMode: pallet_safe_mode,
-        Scheduler: pallet_scheduler,
+        System: frame_system = 0,
+        RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip = 1,
+        Timestamp: pallet_timestamp = 2,
+        Aura: pallet_aura = 3,
+        Grandpa: pallet_grandpa = 4,
+        Balances: pallet_balances = 5,
+        TransactionPayment: pallet_transaction_payment = 6,
+        SubtensorModule: pallet_subtensor = 7,
+        Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 8,
+        TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 9,
+        SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 10,
+        Utility: pallet_utility = 11,
+        Sudo: pallet_sudo = 12,
+        Multisig: pallet_multisig = 13,
+        Preimage: pallet_preimage = 14,
+        Scheduler: pallet_scheduler = 15,
+        Proxy: pallet_proxy = 16,
+        Registry: pallet_registry = 17,
+        Commitments: pallet_commitments = 18,
+        AdminUtils: pallet_admin_utils = 19,
+        SafeMode: pallet_safe_mode = 20,
     }
 );
 
