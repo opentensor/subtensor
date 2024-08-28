@@ -149,7 +149,7 @@ pub fn run() -> sc_cli::Result<()> {
                             );
                         }
 
-                        cmd.run::<HashingFor<Block>, service::ExecutorDispatch>(config)
+                        cmd.run_with_spec::<HashingFor<Block>, service::ExecutorDispatch>(Some(config.chain_spec))
                     }
                     BenchmarkCmd::Block(cmd) => {
                         let PartialComponents { client, .. } = service::new_partial(&config)?;
@@ -210,7 +210,8 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(&cli.run)?;
             runner.run_node_until_exit(|config| async move {
                 let config = override_default_heap_pages(config, 60_000);
-                service::new_full(config).map_err(sc_cli::Error::Service)
+                service::new_full::<sc_network::Litep2pNetworkBackend>(config)
+                    .map_err(sc_cli::Error::Service)                
             })
         }
     }
