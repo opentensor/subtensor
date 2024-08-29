@@ -399,8 +399,7 @@ impl pallet_balances::Config for Runtime {
 
 pub struct LinearWeightToFee;
 
-impl WeightToFeePolynomial for LinearWeightToFee
-{
+impl WeightToFeePolynomial for LinearWeightToFee {
     type Balance = Balance;
 
     fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
