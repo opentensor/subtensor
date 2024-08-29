@@ -166,11 +166,13 @@ pub fn run() -> sc_cli::Result<()> {
 
             runner.sync_run(|config| {
                 let sc_service::PartialComponents {
-                    client,
-                    backend,
-                    ..
-                } = crate::service::new_partial(&config, &cli.eth, crate::service::build_manual_seal_import_queue)?;
-    
+                    client, backend, ..
+                } = crate::service::new_partial(
+                    &config,
+                    &cli.eth,
+                    crate::service::build_manual_seal_import_queue,
+                )?;
+
                 // This switch needs to be in the client, since the client decides
                 // which sub-commands it wants to support.
                 match cmd {
@@ -187,9 +189,7 @@ pub fn run() -> sc_cli::Result<()> {
                             config.chain_spec,
                         ))
                     }
-                    BenchmarkCmd::Block(cmd) => {
-                        cmd.run(client)
-                    }
+                    BenchmarkCmd::Block(cmd) => cmd.run(client),
                     #[cfg(not(feature = "runtime-benchmarks"))]
                     BenchmarkCmd::Storage(_) => Err(
                         "Storage benchmarking can be enabled with `--features runtime-benchmarks`."
