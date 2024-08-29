@@ -1,7 +1,8 @@
 use crate::{
     chain_spec,
     cli::{Cli, Subcommand},
-    ethereum::db_config_dir, service
+    ethereum::db_config_dir,
+    service,
 };
 use fc_db::{kv::frontier_database_dir, DatabaseSource};
 
@@ -16,10 +17,10 @@ pub use sp_keyring::Sr25519Keyring;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
 
+use futures::TryFutureExt;
 use node_subtensor_runtime::Block;
 use sc_cli::SubstrateCli;
 use sc_service::Configuration;
-use futures::TryFutureExt;
 
 impl SubstrateCli for Cli {
     fn impl_name() -> String {
@@ -68,97 +69,97 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
         }
-		Some(Subcommand::CheckBlock(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			runner.async_run(|mut config| {
-				let (client, _, import_queue, task_manager, _) =
-					service::new_chain_ops(&mut config, &cli.eth)?;
-				Ok((cmd.run(client, import_queue), task_manager))
-			})
-		}
-		Some(Subcommand::ExportBlocks(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			runner.async_run(|mut config| {
-				let (client, _, _, task_manager, _) =
-					service::new_chain_ops(&mut config, &cli.eth)?;
-				Ok((cmd.run(client, config.database), task_manager))
-			})
-		}
-		Some(Subcommand::ExportState(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			runner.async_run(|mut config| {
-				let (client, _, _, task_manager, _) =
-					service::new_chain_ops(&mut config, &cli.eth)?;
-				Ok((cmd.run(client, config.chain_spec), task_manager))
-			})
-		}
-		Some(Subcommand::ImportBlocks(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			runner.async_run(|mut config| {
-				let (client, _, import_queue, task_manager, _) =
-					service::new_chain_ops(&mut config, &cli.eth)?;
-				Ok((cmd.run(client, import_queue), task_manager))
-			})
-		}
-        Some(Subcommand::PurgeChain(cmd)) => {
-        	let runner = cli.create_runner(cmd)?;
-        	runner.sync_run(|config| {
-        		// Remove Frontier offchain db
-        		let db_config_dir = db_config_dir(&config);
-        		match cli.eth.frontier_backend_type {
-        			crate::ethereum::BackendType::KeyValue => {
-        				let frontier_database_config = match config.database {
-        					DatabaseSource::RocksDb { .. } => DatabaseSource::RocksDb {
-        						path: frontier_database_dir(&db_config_dir, "db"),
-        						cache_size: 0,
-        					},
-        					DatabaseSource::ParityDb { .. } => DatabaseSource::ParityDb {
-        						path: frontier_database_dir(&db_config_dir, "paritydb"),
-        					},
-        					_ => {
-        						return Err(format!(
-        							"Cannot purge `{:?}` database",
-        							config.database
-        						)
-        						.into())
-        					}
-        				};
-        				cmd.run(frontier_database_config)?;
-        			}
-        			crate::ethereum::BackendType::Sql => {
-        				let db_path = db_config_dir.join("sql");
-        				match std::fs::remove_dir_all(&db_path) {
-        					Ok(_) => {
-        						println!("{:?} removed.", &db_path);
-        					}
-        					Err(ref err) if err.kind() == std::io::ErrorKind::NotFound => {
-        						eprintln!("{:?} did not exist.", &db_path);
-        					}
-        					Err(err) => {
-        						return Err(format!(
-        							"Cannot purge `{:?}` database: {:?}",
-        							db_path, err,
-        						)
-        						.into())
-        					}
-        				};
-        			}
-        		};
-        		cmd.run(config.database)
-        	})
+        Some(Subcommand::CheckBlock(cmd)) => {
+            let runner = cli.create_runner(cmd)?;
+            runner.async_run(|mut config| {
+                let (client, _, import_queue, task_manager, _) =
+                    service::new_chain_ops(&mut config, &cli.eth)?;
+                Ok((cmd.run(client, import_queue), task_manager))
+            })
         }
-		Some(Subcommand::Revert(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			runner.async_run(|mut config| {
-				let (client, backend, _, task_manager, _) =
-					service::new_chain_ops(&mut config, &cli.eth)?;
-				let aux_revert = Box::new(move |client, _, blocks| {
-					sc_consensus_grandpa::revert(client, blocks)?;
-					Ok(())
-				});
-				Ok((cmd.run(client, backend, Some(aux_revert)), task_manager))
-			})
-		}
+        Some(Subcommand::ExportBlocks(cmd)) => {
+            let runner = cli.create_runner(cmd)?;
+            runner.async_run(|mut config| {
+                let (client, _, _, task_manager, _) =
+                    service::new_chain_ops(&mut config, &cli.eth)?;
+                Ok((cmd.run(client, config.database), task_manager))
+            })
+        }
+        Some(Subcommand::ExportState(cmd)) => {
+            let runner = cli.create_runner(cmd)?;
+            runner.async_run(|mut config| {
+                let (client, _, _, task_manager, _) =
+                    service::new_chain_ops(&mut config, &cli.eth)?;
+                Ok((cmd.run(client, config.chain_spec), task_manager))
+            })
+        }
+        Some(Subcommand::ImportBlocks(cmd)) => {
+            let runner = cli.create_runner(cmd)?;
+            runner.async_run(|mut config| {
+                let (client, _, import_queue, task_manager, _) =
+                    service::new_chain_ops(&mut config, &cli.eth)?;
+                Ok((cmd.run(client, import_queue), task_manager))
+            })
+        }
+        Some(Subcommand::PurgeChain(cmd)) => {
+            let runner = cli.create_runner(cmd)?;
+            runner.sync_run(|config| {
+                // Remove Frontier offchain db
+                let db_config_dir = db_config_dir(&config);
+                match cli.eth.frontier_backend_type {
+                    crate::ethereum::BackendType::KeyValue => {
+                        let frontier_database_config = match config.database {
+                            DatabaseSource::RocksDb { .. } => DatabaseSource::RocksDb {
+                                path: frontier_database_dir(&db_config_dir, "db"),
+                                cache_size: 0,
+                            },
+                            DatabaseSource::ParityDb { .. } => DatabaseSource::ParityDb {
+                                path: frontier_database_dir(&db_config_dir, "paritydb"),
+                            },
+                            _ => {
+                                return Err(format!(
+                                    "Cannot purge `{:?}` database",
+                                    config.database
+                                )
+                                .into())
+                            }
+                        };
+                        cmd.run(frontier_database_config)?;
+                    }
+                    crate::ethereum::BackendType::Sql => {
+                        let db_path = db_config_dir.join("sql");
+                        match std::fs::remove_dir_all(&db_path) {
+                            Ok(_) => {
+                                println!("{:?} removed.", &db_path);
+                            }
+                            Err(ref err) if err.kind() == std::io::ErrorKind::NotFound => {
+                                eprintln!("{:?} did not exist.", &db_path);
+                            }
+                            Err(err) => {
+                                return Err(format!(
+                                    "Cannot purge `{:?}` database: {:?}",
+                                    db_path, err,
+                                )
+                                .into())
+                            }
+                        };
+                    }
+                };
+                cmd.run(config.database)
+            })
+        }
+        Some(Subcommand::Revert(cmd)) => {
+            let runner = cli.create_runner(cmd)?;
+            runner.async_run(|mut config| {
+                let (client, backend, _, task_manager, _) =
+                    service::new_chain_ops(&mut config, &cli.eth)?;
+                let aux_revert = Box::new(move |client, _, blocks| {
+                    sc_consensus_grandpa::revert(client, blocks)?;
+                    Ok(())
+                });
+                Ok((cmd.run(client, backend, Some(aux_revert)), task_manager))
+            })
+        }
         #[cfg(feature = "runtime-benchmarks")]
         Some(Subcommand::Benchmark(cmd)) => {
             let runner = cli.create_runner(cmd)?;
@@ -176,7 +177,9 @@ pub fn run() -> sc_cli::Result<()> {
                             );
                         }
 
-                        cmd.run_with_spec::<HashingFor<Block>, service::ExecutorDispatch>(Some(config.chain_spec))
+                        cmd.run_with_spec::<HashingFor<Block>, service::ExecutorDispatch>(Some(
+                            config.chain_spec,
+                        ))
                     }
                     BenchmarkCmd::Block(cmd) => {
                         let PartialComponents { client, .. } = service::new_partial(&config)?;
@@ -237,12 +240,9 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(&cli.run)?;
             runner.run_node_until_exit(|config| async move {
                 let config = override_default_heap_pages(config, 60_000);
-                service::new_full::<sc_network::Litep2pNetworkBackend>(
-                    config,
-                    cli.eth,
-                    cli.sealing
-                ).map_err(Into::into)
-                .await
+                service::new_full::<sc_network::Litep2pNetworkBackend>(config, cli.eth, cli.sealing)
+                    .map_err(Into::into)
+                    .await
             })
         }
     }
