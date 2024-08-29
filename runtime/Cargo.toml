@@ -213,12 +213,7 @@ runtime-benchmarks = [
 	"pallet-sudo/runtime-benchmarks",
 
 	# EVM + Frontier
-#    "fp-self-contained/runtime-benchmarks",
-#	"pallet-base-fee/runtime-benchmarks",
-#	"pallet-dynamic-fee/runtime-benchmarks",
 	"pallet-ethereum/runtime-benchmarks",
-#	"pallet-evm/runtime-benchmarks",
-#	"pallet-evm-chain-id/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
@@ -229,6 +224,7 @@ try-runtime = [
 	"pallet-sudo/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-grandpa/try-runtime",
+	"pallet-hotfix-sufficients/try-runtime",
 	"pallet-insecure-randomness-collective-flip/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
