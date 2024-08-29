@@ -176,7 +176,7 @@ where
                         .join(db_path)
                         .join("frontier.db3")
                         .to_str()
-                        .unwrap(),
+                        .unwrap_or(""),
                     create_if_missing: true,
                     thread_count: eth_config.frontier_sql_backend_thread_count,
                     cache_size: eth_config.frontier_sql_backend_cache_size,
@@ -428,7 +428,7 @@ pub async fn new_full<
         let target_gas_price = eth_config.target_gas_price;
         let pending_create_inherent_data_providers = move |_, ()| async move {
             let current = sp_timestamp::InherentDataProvider::from_system_time();
-            let next_slot = current.timestamp().as_millis() + slot_duration.as_millis();
+            let next_slot = current.timestamp().as_millis().saturating_add(slot_duration.as_millis());
             let timestamp = sp_timestamp::InherentDataProvider::new(next_slot.into());
             let slot = sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
 				*timestamp,
@@ -660,6 +660,7 @@ pub fn new_chain_ops(
     Ok((client, backend, import_queue, task_manager, other.3))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_manual_seal_authorship(
     eth_config: &EthConfiguration,
     sealing: Sealing,
@@ -693,7 +694,8 @@ fn run_manual_seal_authorship(
             inherent_data: &mut sp_inherents::InherentData,
         ) -> Result<(), sp_inherents::Error> {
             TIMESTAMP.with(|x| {
-                *x.borrow_mut() += node_subtensor_runtime::SLOT_DURATION;
+                let mut x_ref = x.borrow_mut();
+                *x_ref = x_ref.saturating_add(node_subtensor_runtime::SLOT_DURATION);
                 inherent_data.put_data(sp_timestamp::INHERENT_IDENTIFIER, &*x.borrow())
             })
         }

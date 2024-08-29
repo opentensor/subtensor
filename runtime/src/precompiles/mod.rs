@@ -17,6 +17,15 @@ use balance_transfer::*;
 
 pub struct FrontierPrecompiles<R>(PhantomData<R>);
 
+impl<R> Default for FrontierPrecompiles<R>
+where
+    R: pallet_evm::Config,
+ {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<R> FrontierPrecompiles<R>
 where
     R: pallet_evm::Config,
@@ -78,19 +87,30 @@ pub fn get_method_id(method_signature: &str) -> [u8; 4] {
     let hash = keccak_256(method_signature.as_bytes());
 
     // Extract the first 4 bytes to get the method ID
-    let method_id = [hash[0], hash[1], hash[2], hash[3]];
-
-    method_id
+    [hash[0], hash[1], hash[2], hash[3]]
 }
 
 /// Convert bytes to AccountId32 with PrecompileFailure as Error
 /// which consumes all gas
 ///
 pub fn bytes_to_account_id(account_id_bytes: &[u8]) -> Result<AccountId32, PrecompileFailure> {
-    AccountId32::from_slice(&account_id_bytes).map_err(|_| {
+    AccountId32::from_slice(account_id_bytes).map_err(|_| {
         log::info!("Error parsing account id bytes {:?}", account_id_bytes);
         PrecompileFailure::Error {
             exit_status: ExitError::InvalidRange,
         }
     })
+}
+
+/// Takes a slice from bytes with PrecompileFailure as Error
+///
+pub fn get_slice(data: &[u8], from: usize, to: usize) -> Result<&[u8], PrecompileFailure> {
+	let maybe_slice = data.get(from..to);
+	if let Some(slice) = maybe_slice {
+		Ok(slice)
+	} else {
+        Err(PrecompileFailure::Error {
+            exit_status: ExitError::InvalidRange,
+        })
+	}
 }

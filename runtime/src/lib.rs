@@ -1072,11 +1072,15 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for FindAuthorTruncated<F> {
         I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
     {
         if let Some(author_index) = F::find_author(digests) {
-            let authority_id =
-                pallet_aura::Authorities::<Runtime>::get()[author_index as usize].clone();
-            return Some(H160::from_slice(&authority_id.to_raw_vec()[4..24]));
+            pallet_aura::Authorities::<Runtime>::get()
+                .get(author_index as usize)
+                .and_then(|authority_id| {
+                    let raw_vec = authority_id.to_raw_vec();
+                    raw_vec.get(4..24).map(H160::from_slice)
+                })
+        } else {
+            None
         }
-        None
     }
 }
 

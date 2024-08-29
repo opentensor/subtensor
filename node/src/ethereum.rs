@@ -123,6 +123,7 @@ pub fn new_frontier_partial(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn spawn_frontier_tasks(
     task_manager: &TaskManager,
     client: Arc<FullClient>,
@@ -139,11 +140,6 @@ pub async fn spawn_frontier_tasks(
         >,
     >,
 )
-// where
-// RuntimeApi: ConstructRuntimeApi<Block, FullClient>,
-// RuntimeApi: Send + Sync + 'static,
-// RuntimeApi::RuntimeApi: EthCompatRuntimeApiCollection,
-// Executor: NativeExecutionDispatch + 'static,
 {
     // Spawn main mapping sync worker background task.
     match &*frontier_backend {
