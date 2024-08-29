@@ -397,18 +397,16 @@ impl pallet_balances::Config for Runtime {
     type MaxFreezes = ConstU32<50>;
 }
 
-pub struct LinearWeightToFee<C>(sp_std::marker::PhantomData<C>);
+pub struct LinearWeightToFee;
 
-impl<C> WeightToFeePolynomial for LinearWeightToFee<C>
-where
-    C: Get<Balance>,
+impl WeightToFeePolynomial for LinearWeightToFee
 {
     type Balance = Balance;
 
     fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
         let coefficient = WeightToFeeCoefficient {
             coeff_integer: 0,
-            coeff_frac: Perbill::from_parts(1_000_000),
+            coeff_frac: Perbill::from_parts(500_000),
             negative: false,
             degree: 1,
         };
@@ -418,9 +416,6 @@ where
 }
 
 parameter_types! {
-    // Used with LinearWeightToFee conversion.
-    pub const FeeWeightRatio: u64 = 1;
-    pub const TransactionByteFee: u64 = 1;
     pub const OperationalFeeMultiplier: u8 = 5;
     pub FeeMultiplier: Multiplier = Multiplier::one();
 }
@@ -452,10 +447,9 @@ impl
 
 impl pallet_transaction_payment::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    //type TransactionByteFee = TransactionByteFee;
     type OnChargeTransaction = FungibleAdapter<Balances, TransactionFeeHandler>;
     // Convert dispatch weight to a chargeable fee.
-    type WeightToFee = LinearWeightToFee<FeeWeightRatio>;
+    type WeightToFee = LinearWeightToFee;
     type OperationalFeeMultiplier = OperationalFeeMultiplier;
     type LengthToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
