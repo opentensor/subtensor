@@ -165,6 +165,12 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
 
             runner.sync_run(|config| {
+                let sc_service::PartialComponents {
+                    client,
+                    backend,
+                    ..
+                } = crate::service::new_partial(&config, &cli.eth, crate::service::build_manual_seal_import_queue)?;
+    
                 // This switch needs to be in the client, since the client decides
                 // which sub-commands it wants to support.
                 match cmd {
@@ -182,7 +188,6 @@ pub fn run() -> sc_cli::Result<()> {
                         ))
                     }
                     BenchmarkCmd::Block(cmd) => {
-                        let PartialComponents { client, .. } = service::new_partial(&config)?;
                         cmd.run(client)
                     }
                     #[cfg(not(feature = "runtime-benchmarks"))]
@@ -192,16 +197,12 @@ pub fn run() -> sc_cli::Result<()> {
                     ),
                     #[cfg(feature = "runtime-benchmarks")]
                     BenchmarkCmd::Storage(cmd) => {
-                        let PartialComponents {
-                            client, backend, ..
-                        } = service::new_partial(&config)?;
                         let db = backend.expose_db();
                         let storage = backend.expose_storage();
 
                         cmd.run(config, client, db, storage)
                     }
                     BenchmarkCmd::Overhead(cmd) => {
-                        let PartialComponents { client, .. } = service::new_partial(&config)?;
                         let ext_builder = RemarkBuilder::new(client.clone());
 
                         cmd.run(
@@ -213,7 +214,6 @@ pub fn run() -> sc_cli::Result<()> {
                         )
                     }
                     BenchmarkCmd::Extrinsic(cmd) => {
-                        let PartialComponents { client, .. } = service::new_partial(&config)?;
                         // Register the *Remark* and *TKA* builders.
                         let ext_factory = ExtrinsicFactory(vec![
                             Box::new(RemarkBuilder::new(client.clone())),
