@@ -9,6 +9,7 @@ mod benchmarking;
 mod cli;
 mod command;
 mod rpc;
+mod ethereum;
 
 fn main() -> sc_cli::Result<()> {
     command::run()

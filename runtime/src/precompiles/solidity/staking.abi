@@ -1,0 +1,33 @@
+[
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "hotkey",
+                "type": "bytes32"
+            }
+        ],
+        "name": "addStake",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "hotkey",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "uint64",
+                "name": "amount",
+                "type": "uint64"
+            }
+        ],
+        "name": "removeStake",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+    }
+]

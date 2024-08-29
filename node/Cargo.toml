@@ -20,6 +20,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 name = "node-subtensor"
 
 [dependencies]
+async-trait = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 futures = { workspace = true, features = ["thread-pool"] }
 serde = { workspace = true, features = ["derive"] }
@@ -74,6 +75,22 @@ pallet-transaction-payment-rpc = { workspace = true }
 frame-benchmarking = { workspace = true }
 frame-benchmarking-cli = { workspace = true }
 
+# Needed for Frontier
+sc-consensus-manual-seal = { workspace = true }
+sc-network-sync = { workspace = true }
+substrate-prometheus-endpoint = { workspace = true }
+
+# Frontier
+fc-storage = { workspace = true }
+fc-db = { workspace = true }
+fc-consensus = { workspace = true }
+fp-dynamic-fee = { workspace = true }
+fc-api = { workspace = true }
+fc-rpc = { workspace = true }
+fc-rpc-core = { workspace = true }
+fp-rpc = { workspace = true }
+fc-mapping-sync = { workspace = true }
+
 # Local Dependencies
 node-subtensor-runtime = { path = "../runtime" }
 subtensor-custom-rpc = { path = "../pallets/subtensor/rpc" }
@@ -83,7 +100,22 @@ subtensor-custom-rpc-runtime-api = { path = "../pallets/subtensor/runtime-api" }
 substrate-build-script-utils = { workspace = true }
 
 [features]
-default = []
+default = [
+	"rocksdb",
+	"sql",
+	"txpool",
+]
+sql = [
+	"fc-db/sql",
+	"fc-mapping-sync/sql",
+]
+rocksdb = [
+	"sc-service/rocksdb",
+	"fc-db/rocksdb",
+	"fc-mapping-sync/rocksdb",
+]
+txpool = ["fc-rpc/txpool"]
+
 # Dependencies that are only required if runtime benchmarking should be build.
 runtime-benchmarks = [
 	"node-subtensor-runtime/runtime-benchmarks",

@@ -93,6 +93,23 @@ pallet-registry = { default-features = false, path = "../pallets/registry" }
 # Metadata commitment pallet
 pallet-commitments = { default-features = false, path = "../pallets/commitments" }
 
+# Frontier
+fp-evm = { workspace = true }
+fp-rpc = { workspace = true }
+fp-self-contained = { workspace = true }
+
+# Frontier FRAME
+pallet-base-fee = { workspace = true }
+pallet-dynamic-fee = { workspace = true }
+pallet-ethereum = { workspace = true }
+pallet-evm = { workspace = true }
+pallet-evm-chain-id = { workspace = true }
+pallet-evm-precompile-modexp = { workspace = true }
+pallet-evm-precompile-sha3fips = { workspace = true }
+pallet-evm-precompile-simple = { workspace = true }
+pallet-hotfix-sufficients = { workspace = true }
+fp-account = { workspace = true }
+
 [dev-dependencies]
 frame-metadata = { workspace = true }
 sp-io = { workspace = true }
@@ -156,6 +173,21 @@ std = [
 	"log/std",
 	"sp-storage/std",
 	"sp-genesis-builder/std",
+	# Frontier
+	"fp-evm/std",
+	"fp-rpc/std",
+	"fp-self-contained/std",
+	# Frontier FRAME
+	"pallet-base-fee/std",
+	"pallet-dynamic-fee/std",
+	"pallet-ethereum/std",
+	"pallet-evm/std",
+	"pallet-evm-chain-id/std",
+	"pallet-evm-precompile-modexp/std",
+	"pallet-evm-precompile-sha3fips/std",
+	"pallet-evm-precompile-simple/std",
+	"pallet-hotfix-sufficients/std",
+	"fp-account/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
