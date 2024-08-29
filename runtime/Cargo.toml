@@ -214,6 +214,8 @@ runtime-benchmarks = [
 
 	# EVM + Frontier
 	"pallet-ethereum/runtime-benchmarks",
+	"pallet-evm/runtime-benchmarks",
+    "pallet-hotfix-sufficients/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
