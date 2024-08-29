@@ -237,5 +237,13 @@ try-runtime = [
 	"pallet-admin-utils/try-runtime",
 	"pallet-commitments/try-runtime",
 	"pallet-registry/try-runtime",
+
+	# EVM + Frontier
+    "fp-self-contained/try-runtime",
+	"pallet-base-fee/try-runtime",
+	"pallet-dynamic-fee/try-runtime",
+	"pallet-ethereum/try-runtime",
+	"pallet-evm/try-runtime",
+	"pallet-evm-chain-id/try-runtime",
 ]
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]
