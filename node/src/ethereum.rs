@@ -139,8 +139,7 @@ pub async fn spawn_frontier_tasks(
             fc_mapping_sync::EthereumBlockNotification<Block>,
         >,
     >,
-)
-{
+) {
     // Spawn main mapping sync worker background task.
     match &*frontier_backend {
         fc_db::Backend::KeyValue(b) => {

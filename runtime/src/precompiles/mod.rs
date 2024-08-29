@@ -20,7 +20,7 @@ pub struct FrontierPrecompiles<R>(PhantomData<R>);
 impl<R> Default for FrontierPrecompiles<R>
 where
     R: pallet_evm::Config,
- {
+{
     fn default() -> Self {
         Self::new()
     }
@@ -105,12 +105,12 @@ pub fn bytes_to_account_id(account_id_bytes: &[u8]) -> Result<AccountId32, Preco
 /// Takes a slice from bytes with PrecompileFailure as Error
 ///
 pub fn get_slice(data: &[u8], from: usize, to: usize) -> Result<&[u8], PrecompileFailure> {
-	let maybe_slice = data.get(from..to);
-	if let Some(slice) = maybe_slice {
-		Ok(slice)
-	} else {
+    let maybe_slice = data.get(from..to);
+    if let Some(slice) = maybe_slice {
+        Ok(slice)
+    } else {
         Err(PrecompileFailure::Error {
             exit_status: ExitError::InvalidRange,
         })
-	}
+    }
 }
