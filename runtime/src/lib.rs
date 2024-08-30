@@ -83,7 +83,6 @@ mod precompiles;
 use precompiles::FrontierPrecompiles;
 
 // Frontier
-use fp_evm::weight_per_gas;
 use fp_rpc::TransactionStatus;
 use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
 use pallet_evm::{Account as EVMAccount, FeeCalculator, Runner};
@@ -192,17 +191,6 @@ pub const DAYS: BlockNumber = HOURS * 24;
 
 pub const MAXIMUM_BLOCK_WEIGHT: Weight =
     Weight::from_parts(4u64 * WEIGHT_REF_TIME_PER_SECOND, u64::MAX);
-
-/// Current approximation of the gas/s consumption considering
-/// EVM execution over compiled WASM (on 4.4Ghz CPU).
-/// Given the 500ms Weight, from which 75% only are used for transactions,
-/// the total EVM execution gas limit is: GAS_PER_SECOND * 0.500 * 0.75 ~= 15_000_000.
-/// Note: this value has been used in production by (and is copied from) the Moonbeam parachain.
-pub const GAS_PER_SECOND: u64 = 40_000_000;
-
-/// Approximate ratio of the amount of Weight per Gas.
-/// u64 works for approximations because Weight is a very small unit compared to gas.
-pub const WEIGHT_PER_GAS: u64 = WEIGHT_REF_TIME_PER_SECOND / GAS_PER_SECOND;
 
 // The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
@@ -1080,11 +1068,17 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for FindAuthorTruncated<F> {
 const BLOCK_GAS_LIMIT: u64 = 75_000_000;
 const MAX_POV_SIZE: u64 = 5 * 1024 * 1024;
 
+/// `WeightPerGas` is an approximate ratio of the amount of Weight per Gas.
+///
+fn weight_per_gas() -> Weight {
+	(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT).saturating_div(BLOCK_GAS_LIMIT)
+}
+
 parameter_types! {
     pub BlockGasLimit: U256 = U256::from(BLOCK_GAS_LIMIT);
     pub const GasLimitPovSizeRatio: u64 = BLOCK_GAS_LIMIT.saturating_div(MAX_POV_SIZE);
     pub PrecompilesValue: FrontierPrecompiles<Runtime> = FrontierPrecompiles::<_>::new();
-    pub WeightPerGas: Weight = Weight::from_parts(weight_per_gas(BLOCK_GAS_LIMIT, NORMAL_DISPATCH_RATIO, MILLISECS_PER_BLOCK), 0);
+    pub WeightPerGas: Weight = weight_per_gas();
     pub SuicideQuickClearLimit: u32 = 0;
 }
 
@@ -1132,7 +1126,7 @@ impl pallet_dynamic_fee::Config for Runtime {
 }
 
 parameter_types! {
-    pub DefaultBaseFeePerGas: U256 = U256::from(1_000_000_000);
+    pub DefaultBaseFeePerGas: U256 = U256::from(20);
     pub DefaultElasticity: Permill = Permill::from_parts(125_000);
 }
 pub struct BaseFeeThreshold;
