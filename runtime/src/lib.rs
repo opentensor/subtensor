@@ -1071,7 +1071,7 @@ const MAX_POV_SIZE: u64 = 5 * 1024 * 1024;
 /// `WeightPerGas` is an approximate ratio of the amount of Weight per Gas.
 ///
 fn weight_per_gas() -> Weight {
-	(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT).saturating_div(BLOCK_GAS_LIMIT)
+    (NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT).saturating_div(BLOCK_GAS_LIMIT)
 }
 
 parameter_types! {
