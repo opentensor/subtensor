@@ -1041,7 +1041,8 @@ impl pallet_admin_utils::Config for Runtime {
 
 // Define the ChainId
 parameter_types! {
-    pub const SubtensorChainId: u64 = 0x03C4; // Unicode for lowercase tau
+    pub const SubtensorChainId: u64 = 0x03B1; // Unicode for lowercase alpha
+    // pub const SubtensorChainId: u64 = 0x03C4; // Unicode for lowercase tau
 }
 
 impl pallet_evm_chain_id::Config for Runtime {}
