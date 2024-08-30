@@ -1,5 +1,14 @@
 #!/bin/bash
 
+# Check if `--no-purge` passed as a parameter
+NO_PURGE=0
+for arg in "$@"; do
+    if [ "$arg" = "--no-purge" ]; then
+        NO_PURGE=1
+        break
+    fi
+done
+
 # Determine the directory this script resides in. This allows invoking it from any location.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 
@@ -39,7 +48,7 @@ fi
 
 if [[ $BUILD_BINARY == "1" ]]; then
   echo "*** Building substrate binary..."
-  cargo build --release --features "$FEATURES" --manifest-path "$BASE_DIR/Cargo.toml"
+  cargo build --workspace --profile=release --features "$FEATURES" --manifest-path "$BASE_DIR/Cargo.toml"
   echo "*** Binary compiled"
 fi
 
@@ -47,10 +56,14 @@ echo "*** Building chainspec..."
 "$BASE_DIR/target/release/node-subtensor" build-spec --disable-default-bootnode --raw --chain $CHAIN >$FULL_PATH
 echo "*** Chainspec built and output to file"
 
-echo "*** Purging previous state..."
-"$BASE_DIR/target/release/node-subtensor" purge-chain -y --base-path /tmp/bob --chain="$FULL_PATH" >/dev/null 2>&1
-"$BASE_DIR/target/release/node-subtensor" purge-chain -y --base-path /tmp/alice --chain="$FULL_PATH" >/dev/null 2>&1
-echo "*** Previous chainstate purged"
+if [ $NO_PURGE -eq 1 ]; then
+  echo "*** Purging previous state skipped..."
+else
+  echo "*** Purging previous state..."
+  "$BASE_DIR/target/release/node-subtensor" purge-chain -y --base-path /tmp/bob --chain="$FULL_PATH" >/dev/null 2>&1
+  "$BASE_DIR/target/release/node-subtensor" purge-chain -y --base-path /tmp/alice --chain="$FULL_PATH" >/dev/null 2>&1
+  echo "*** Previous chainstate purged"
+fi
 
 echo "*** Starting localnet nodes..."
 alice_start=(

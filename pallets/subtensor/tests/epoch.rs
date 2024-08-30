@@ -7,7 +7,7 @@
 use crate::mock::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
-use pallet_subtensor::math::safe_exp;
+use pallet_subtensor::epoch::math::safe_exp;
 use pallet_subtensor::*;
 use rand::{distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
 use sp_core::U256;
@@ -1496,7 +1496,7 @@ fn test_set_alpha_disabled() {
 
         // Enable Liquid Alpha and setup
         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-        migration::migrate_create_root_network::<Test>();
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
         assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, 1000));
@@ -2573,7 +2573,7 @@ fn test_get_set_alpha() {
 
         // Enable Liquid Alpha and setup
         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-        migration::migrate_create_root_network::<Test>();
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
         assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, 1000));
@@ -2703,6 +2703,53 @@ fn test_get_set_alpha() {
     });
 }
 
+#[test]
+fn test_blocks_since_last_step() {
+    new_test_ext(1).execute_with(|| {
+        System::set_block_number(0);
+
+        let netuid: u16 = 1;
+        let tempo: u16 = 7200;
+        add_network(netuid, tempo, 0);
+
+        let original_blocks: u64 = SubtensorModule::get_blocks_since_last_step(netuid);
+
+        step_block(5);
+
+        let new_blocks: u64 = SubtensorModule::get_blocks_since_last_step(netuid);
+
+        assert!(new_blocks > original_blocks);
+        assert_eq!(new_blocks, 5);
+
+        let blocks_to_step: u16 = SubtensorModule::blocks_until_next_epoch(
+            netuid,
+            tempo,
+            SubtensorModule::get_current_block_as_u64(),
+        ) as u16
+            + 10;
+        step_block(blocks_to_step);
+
+        let post_blocks: u64 = SubtensorModule::get_blocks_since_last_step(netuid);
+
+        assert_eq!(post_blocks, 10);
+
+        let blocks_to_step: u16 = SubtensorModule::blocks_until_next_epoch(
+            netuid,
+            tempo,
+            SubtensorModule::get_current_block_as_u64(),
+        ) as u16
+            + 20;
+        step_block(blocks_to_step);
+
+        let new_post_blocks: u64 = SubtensorModule::get_blocks_since_last_step(netuid);
+
+        assert_eq!(new_post_blocks, 20);
+
+        step_block(7);
+
+        assert_eq!(SubtensorModule::get_blocks_since_last_step(netuid), 27);
+    });
+}
 // // Map the retention graph for consensus guarantees with an single epoch on a graph with 512 nodes, of which the first 64 are validators, the graph is split into a major and minor set, each setting specific weight on itself and the complement on the other.
 // //
 // // ```import torch

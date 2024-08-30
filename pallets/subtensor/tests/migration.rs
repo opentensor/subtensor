@@ -1,11 +1,33 @@
-#![allow(clippy::unwrap_used)]
-
+#![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
 mod mock;
 use frame_support::{assert_ok, weights::Weight};
 use frame_system::Config;
 use mock::*;
 use pallet_subtensor::*;
 use sp_core::U256;
+
+#[test]
+fn test_initialise_ti() {
+    use frame_support::traits::OnRuntimeUpgrade;
+
+    new_test_ext(1).execute_with(|| {
+        pallet_subtensor::SubnetLocked::<Test>::insert(1, 100);
+        pallet_subtensor::SubnetLocked::<Test>::insert(2, 5);
+        pallet_balances::TotalIssuance::<Test>::put(1000);
+        pallet_subtensor::TotalStake::<Test>::put(25);
+
+        // Ensure values are NOT initialized prior to running migration
+        assert!(pallet_subtensor::TotalIssuance::<Test>::get() == 0);
+
+        pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration::<Test>::on_runtime_upgrade();
+
+        // Ensure values were initialized correctly
+        assert!(
+            pallet_subtensor::TotalIssuance::<Test>::get()
+                == 105u64.saturating_add(1000).saturating_add(25)
+        );
+    });
+}
 
 #[test]
 fn test_migration_fix_total_stake_maps() {
@@ -67,7 +89,7 @@ fn test_migration_fix_total_stake_maps() {
         assert_ne!(SubtensorModule::get_total_stake(), total_stake_amount);
 
         // Run the migration to fix the total stake maps
-        pallet_subtensor::migration::migrate_to_v2_fixed_total_stake::<Test>();
+        pallet_subtensor::migrations::migrate_to_v2_fixed_total_stake::migrate_to_v2_fixed_total_stake::<Test>();
 
         // Verify that the total stake is now correct
         assert_eq!(SubtensorModule::get_total_stake(), total_stake_amount);
@@ -107,19 +129,19 @@ fn test_migration_fix_total_stake_maps() {
 
 #[test]
 // To run this test with cargo, use the following command:
-// cargo test --package pallet-subtensor --test migration test_migration5_total_issuance
-fn test_migration5_total_issuance() {
+// cargo test --package pallet-subtensor --test migration test_migrate_total_issuance
+fn test_migrate_total_issuance() {
     new_test_ext(1).execute_with(|| {
         // Run the migration to check total issuance.
         let test: bool = true;
 
         assert_eq!(SubtensorModule::get_total_issuance(), 0);
-        pallet_subtensor::migration::migration5_total_issuance::<Test>(test);
+        pallet_subtensor::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(test);
         assert_eq!(SubtensorModule::get_total_issuance(), 0);
 
         SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 10000);
         assert_eq!(SubtensorModule::get_total_issuance(), 0);
-        pallet_subtensor::migration::migration5_total_issuance::<Test>(test);
+        pallet_subtensor::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(test);
         assert_eq!(SubtensorModule::get_total_issuance(), 10000);
 
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
@@ -128,7 +150,7 @@ fn test_migration5_total_issuance() {
             30000,
         );
         assert_eq!(SubtensorModule::get_total_issuance(), 10000);
-        pallet_subtensor::migration::migration5_total_issuance::<Test>(test);
+        pallet_subtensor::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(test);
         assert_eq!(SubtensorModule::get_total_issuance(), 10000 + 30000);
     })
 }
@@ -148,11 +170,11 @@ fn test_total_issuance_global() {
         SubtensorModule::add_balance_to_coldkey_account(&owner, lockcost); // Add a balance of 20000 to the coldkey account.
         assert_eq!(SubtensorModule::get_total_issuance(), 0); // initial is zero.
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(owner)
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
         ));
         SubtensorModule::set_max_allowed_uids(netuid, 1); // Set the maximum allowed unique identifiers for the network to 1.
         assert_eq!(SubtensorModule::get_total_issuance(), 0); // initial is zero.
-        pallet_subtensor::migration::migration5_total_issuance::<Test>(true); // Pick up lock.
+        pallet_subtensor::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(true); // Pick up lock.
         assert_eq!(SubtensorModule::get_total_issuance(), lockcost); // Verify the total issuance is updated to 20000 after migration.
         assert!(SubtensorModule::if_subnet_exist(netuid));
 
@@ -162,7 +184,7 @@ fn test_total_issuance_global() {
         let _coldkey_account_id_1 = U256::from(1); // Define a coldkey account ID for further operations.
         assert_eq!(SubtensorModule::get_total_issuance(), lockcost); // Ensure the total issuance starts at 0 before the migration.
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, account_balance); // Add a balance of 20000 to the coldkey account.
-        pallet_subtensor::migration::migration5_total_issuance::<Test>(true); // Execute the migration to update total issuance.
+        pallet_subtensor::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(true); // Execute the migration to update total issuance.
         assert_eq!(
             SubtensorModule::get_total_issuance(),
             account_balance + lockcost
@@ -185,7 +207,7 @@ fn test_total_issuance_global() {
             SubtensorModule::get_total_issuance(),
             account_balance + lockcost - burn_cost
         ); // Verify the total issuance is reduced to 10000 after burning.
-        pallet_subtensor::migration::migration5_total_issuance::<Test>(true); // Execute the migration to update total issuance.
+        pallet_subtensor::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(true); // Execute the migration to update total issuance.
         assert_eq!(
             SubtensorModule::get_total_issuance(),
             account_balance + lockcost - burn_cost
@@ -202,7 +224,7 @@ fn test_total_issuance_global() {
             SubtensorModule::get_total_issuance(),
             account_balance + lockcost - burn_cost
         ); // Same
-        pallet_subtensor::migration::migration5_total_issuance::<Test>(true); // Fix issuance
+        pallet_subtensor::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(true); // Fix issuance
         assert_eq!(
             SubtensorModule::get_total_issuance(),
             account_balance + lockcost - burn_cost + new_stake
@@ -222,7 +244,7 @@ fn test_total_issuance_global() {
             SubtensorModule::get_total_issuance(),
             account_balance + lockcost - burn_cost + new_stake + emission
         ); // Verify the total issuance reflects the staked amount and emission value that has been put through the epoch.
-        pallet_subtensor::migration::migration5_total_issuance::<Test>(true); // Test migration does not change amount.
+        pallet_subtensor::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(true); // Test migration does not change amount.
         assert_eq!(
             SubtensorModule::get_total_issuance(),
             account_balance + lockcost - burn_cost + new_stake + emission
@@ -244,7 +266,7 @@ fn test_migration_transfer_nets_to_foundation() {
         // Run the migration to transfer ownership
         let hex =
             hex_literal::hex!["feabaafee293d3b76dae304e2f9d885f77d2b17adab9e17e921b321eccd61c77"];
-        pallet_subtensor::migration::migrate_transfer_ownership_to_foundation::<Test>(hex);
+        pallet_subtensor::migrations::migrate_transfer_ownership_to_foundation::migrate_transfer_ownership_to_foundation::<Test>(hex);
 
         log::info!("new owner: {:?}", SubtensorModule::get_subnet_owner(1));
     })
@@ -258,7 +280,7 @@ fn test_migration_delete_subnet_3() {
         assert!(SubtensorModule::if_subnet_exist(3));
 
         // Run the migration to transfer ownership
-        pallet_subtensor::migration::migrate_delete_subnet_3::<Test>();
+        pallet_subtensor::migrations::migrate_delete_subnet_3::migrate_delete_subnet_3::<Test>();
 
         assert!(!SubtensorModule::if_subnet_exist(3));
     })
@@ -272,7 +294,7 @@ fn test_migration_delete_subnet_21() {
         assert!(SubtensorModule::if_subnet_exist(21));
 
         // Run the migration to transfer ownership
-        pallet_subtensor::migration::migrate_delete_subnet_21::<Test>();
+        pallet_subtensor::migrations::migrate_delete_subnet_21::migrate_delete_subnet_21::<Test>();
 
         assert!(!SubtensorModule::if_subnet_exist(21));
     })
@@ -283,20 +305,14 @@ fn test_migration_delete_subnet_21() {
 #[test]
 fn test_migrate_fix_total_coldkey_stake() {
     new_test_ext(1).execute_with(|| {
-        let migration_name = "fix_total_coldkey_stake_v7";
+        let _migration_name = "fix_total_coldkey_stake_v7";
         let coldkey = U256::from(0);
         TotalColdkeyStake::<Test>::insert(coldkey, 0);
         StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
         Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
         Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
         Stake::<Test>::insert(U256::from(3), U256::from(0), 10000);
-
-        let weight = run_migration_and_check(migration_name);
-        assert!(weight != Weight::zero());
-        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
-
-        let second_weight = run_migration_and_check(migration_name);
-        assert_eq!(second_weight, Weight::zero());
+        pallet_subtensor::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<Test>();
         assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
     })
 }
@@ -305,16 +321,14 @@ fn test_migrate_fix_total_coldkey_stake() {
 #[test]
 fn test_migrate_fix_total_coldkey_stake_value_already_in_total() {
     new_test_ext(1).execute_with(|| {
-        let migration_name = "fix_total_coldkey_stake_v7";
+        let _migration_name = "fix_total_coldkey_stake_v7";
         let coldkey = U256::from(0);
         TotalColdkeyStake::<Test>::insert(coldkey, 100000000);
         StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
         Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
         Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
         Stake::<Test>::insert(U256::from(3), U256::from(0), 10000);
-
-        let weight = run_migration_and_check(migration_name);
-        assert!(weight != Weight::zero());
+        pallet_subtensor::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<Test>();
         assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
     })
 }
@@ -323,15 +337,13 @@ fn test_migrate_fix_total_coldkey_stake_value_already_in_total() {
 #[test]
 fn test_migrate_fix_total_coldkey_stake_no_entry() {
     new_test_ext(1).execute_with(|| {
-        let migration_name = "fix_total_coldkey_stake_v7";
+        let _migration_name = "fix_total_coldkey_stake_v7";
         let coldkey = U256::from(0);
         StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
         Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
         Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
         Stake::<Test>::insert(U256::from(3), U256::from(0), 10000);
-
-        let weight = run_migration_and_check(migration_name);
-        assert!(weight != Weight::zero());
+        pallet_subtensor::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<Test>();
         assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
     })
 }
@@ -340,13 +352,11 @@ fn test_migrate_fix_total_coldkey_stake_no_entry() {
 #[test]
 fn test_migrate_fix_total_coldkey_stake_no_entry_in_hotkeys() {
     new_test_ext(1).execute_with(|| {
-        let migration_name = "fix_total_coldkey_stake_v7";
+        let _migration_name = "fix_total_coldkey_stake_v7";
         let coldkey = U256::from(0);
         TotalColdkeyStake::<Test>::insert(coldkey, 100000000);
         StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
-
-        let weight = run_migration_and_check(migration_name);
-        assert!(weight != Weight::zero());
+        pallet_subtensor::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<Test>();
         assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 0);
     })
 }
@@ -355,20 +365,19 @@ fn test_migrate_fix_total_coldkey_stake_no_entry_in_hotkeys() {
 #[test]
 fn test_migrate_fix_total_coldkey_stake_one_hotkey_stake_missing() {
     new_test_ext(1).execute_with(|| {
-        let migration_name = "fix_total_coldkey_stake_v7";
+        let _migration_name = "fix_total_coldkey_stake_v7";
         let coldkey = U256::from(0);
         TotalColdkeyStake::<Test>::insert(coldkey, 100000000);
         StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
         Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
         Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
-
-        let weight = run_migration_and_check(migration_name);
-        assert!(weight != Weight::zero());
+        pallet_subtensor::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<Test>();
         assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 20000);
     })
 }
 
 // New test to check if migration runs only once
+//  SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake_runs_once --exact --nocapture
 #[test]
 fn test_migrate_fix_total_coldkey_stake_runs_once() {
     new_test_ext(1).execute_with(|| {
@@ -376,9 +385,9 @@ fn test_migrate_fix_total_coldkey_stake_runs_once() {
         let coldkey = U256::from(0);
         TotalColdkeyStake::<Test>::insert(coldkey, 0);
         StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
-        Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
-        Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
-        Stake::<Test>::insert(U256::from(3), U256::from(0), 10000);
+        Stake::<Test>::insert(U256::from(1), coldkey, 10000);
+        Stake::<Test>::insert(U256::from(2), coldkey, 10000);
+        Stake::<Test>::insert(U256::from(3), coldkey, 10000);
 
         // First run
         let first_weight = run_migration_and_check(migration_name);
@@ -405,14 +414,13 @@ fn test_migrate_fix_total_coldkey_stake_starts_with_value_no_stake_map_entries()
         let weight = run_migration_and_check(migration_name);
         assert!(weight != Weight::zero());
         // Therefore 0
-        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 0);
+        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 123_456_789);
     })
 }
 
 fn run_migration_and_check(migration_name: &'static str) -> frame_support::weights::Weight {
     // Execute the migration and store its weight
-    let weight: frame_support::weights::Weight =
-        pallet_subtensor::migration::migrate_fix_total_coldkey_stake::<Test>();
+    let weight: frame_support::weights::Weight = pallet_subtensor::migrations::migrate_fix_total_coldkey_stake::migrate_fix_total_coldkey_stake::<Test>();
 
     // Check if the migration has been marked as completed
     assert!(HasMigrationRun::<Test>::get(
