@@ -1363,7 +1363,7 @@ impl_runtime_apis! {
         }
 
         fn get_delegate(delegate_account_vec: Vec<u8>) -> Vec<u8> {
-            SubtensorModule::get_delegate(delegate_account_vec).map(|r| r.encode()).unwrap_or(vec![])
+            SubtensorModule::get_delegate(delegate_account_vec).map(|r| r.encode()).unwrap_or_default()
         }
 
         fn get_delegated(delegatee_account_vec: Vec<u8>) -> Vec<u8> {
@@ -1379,7 +1379,7 @@ impl_runtime_apis! {
         }
 
         fn get_neuron_lite(netuid: u16, uid: u16) -> Vec<u8> {
-            SubtensorModule::get_neuron_lite(netuid, uid).map(|r| r.encode()).unwrap_or(vec![])
+            SubtensorModule::get_neuron_lite(netuid, uid).map(|r| r.encode()).unwrap_or_default()
         }
 
         fn get_neurons(netuid: u16) -> Vec<u8> {
@@ -1388,13 +1388,13 @@ impl_runtime_apis! {
         }
 
         fn get_neuron(netuid: u16, uid: u16) -> Vec<u8> {
-            SubtensorModule::get_neuron(netuid, uid).map(|r| r.encode()).unwrap_or(vec![])
+            SubtensorModule::get_neuron(netuid, uid).map(|r| r.encode()).unwrap_or_default()
         }
     }
 
     impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
         fn get_subnet_info(netuid: u16) -> Vec<u8> {
-            SubtensorModule::get_subnet_info(netuid).map(|r| r.encode()).unwrap_or(vec![])
+            SubtensorModule::get_subnet_info(netuid).map(|r| r.encode()).unwrap_or_default()
         }
 
         fn get_subnets_info() -> Vec<u8> {
@@ -1418,7 +1418,7 @@ impl_runtime_apis! {
         }
 
         fn get_subnet_hyperparams(netuid: u16) -> Vec<u8> {
-            SubtensorModule::get_subnet_hyperparams(netuid).map(|r| r.encode()).unwrap_or(vec![])
+            SubtensorModule::get_subnet_hyperparams(netuid).map(|r| r.encode()).unwrap_or_default()
         }
     }
 
