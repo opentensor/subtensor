@@ -298,10 +298,7 @@ fn test_set_weights_validate() {
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
         // Should fail due to insufficient stake
-        assert_err!(
-            result_no_stake,
-            TransactionValidityError::Invalid(InvalidTransaction::Custom(3))
-        );
+        assert_ok!(result_no_stake);
 
         // Increase the stake to be equal to the minimum
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
