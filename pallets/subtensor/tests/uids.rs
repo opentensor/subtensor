@@ -86,7 +86,7 @@ fn test_replace_neuron() {
         assert_eq!(curr_hotkey.unwrap(), new_hotkey_account_id);
 
         // Check neuron certificate was reset
-        let certificate = SubtensorModule::get_neuron_certificate(netuid, neuron_uid.unwrap());
+        let certificate = NeuronCertificates::<Test>::get(netuid, hotkey_account_id);
         assert_eq!(certificate, None);
     });
 }

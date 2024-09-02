@@ -252,10 +252,6 @@ impl<T: Config> Pallet<T> {
         Axons::<T>::contains_key(netuid, hotkey)
     }
 
-    pub fn has_neuron_certificate(netuid: u16, hotkey: &T::AccountId) -> bool {
-        NeuronCertificates::<T>::contains_key(netuid, hotkey)
-    }
-
     pub fn has_prometheus_info(netuid: u16, hotkey: &T::AccountId) -> bool {
         Prometheus::<T>::contains_key(netuid, hotkey)
     }

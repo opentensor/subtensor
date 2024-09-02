@@ -103,7 +103,6 @@ fn test_serving_ok() {
 fn test_serving_tls_ok() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
-        let uid: u16 = 0;
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let version: u32 = 2;
@@ -129,8 +128,9 @@ fn test_serving_tls_ok() {
             placeholder2,
             certificate.clone()
         ));
-        let stored_certificate =
-            SubtensorModule::get_neuron_certificate(netuid, uid).expect("Certificate should exist");
+
+        let stored_certificate = NeuronCertificates::<Test>::get(netuid, hotkey_account_id)
+            .expect("Certificate should exist");
         assert_eq!(stored_certificate.certificate, certificate);
         let new_certificate = "UPDATED_CERT".as_bytes().to_vec();
         assert_ok!(SubtensorModule::serve_axon_tls(
@@ -145,8 +145,8 @@ fn test_serving_tls_ok() {
             placeholder2,
             new_certificate.clone()
         ));
-        let stored_certificate =
-            SubtensorModule::get_neuron_certificate(netuid, uid).expect("Certificate should exist");
+        let stored_certificate = NeuronCertificates::<Test>::get(netuid, hotkey_account_id)
+            .expect("Certificate should exist");
         assert_eq!(stored_certificate.certificate, new_certificate)
     });
 }
