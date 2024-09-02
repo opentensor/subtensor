@@ -891,7 +891,7 @@ impl<T: Config> Pallet<T> {
             .into())
     }
 
-    /// Facilitates user registration of a new subnetwork.
+    /// Facilitates user registration of a new subnetwork with subnet identity.
     ///
     /// # Args:
     /// * `origin` (`T::RuntimeOrigin`): The calling origin. Must be signed.
@@ -1126,8 +1126,8 @@ impl<T: Config> Pallet<T> {
     /// Removes a network (identified by netuid) and all associated parameters.
     ///
     /// This function is responsible for cleaning up all the data associated with a network.
-    /// It ensures that all the storage values related to the network are removed, and any
-    /// reserved balance is returned to the network owner.
+    /// It ensures that all the storage values related to the network are removed, any
+    /// reserved balance is returned to the network owner, and the subnet identity is removed if it exists.
     ///
     /// # Args:
     ///  * 'netuid': ('u16'): The unique identifier of the network to be removed.
@@ -1135,11 +1135,10 @@ impl<T: Config> Pallet<T> {
     /// # Note:
     /// This function does not emit any events, nor does it raise any errors. It silently
     /// returns if any internal checks fail.
-    ///
     pub fn remove_network(netuid: u16) {
         // --- 1. Return balance to subnet owner.
-        let owner_coldkey = SubnetOwner::<T>::get(netuid);
-        let reserved_amount = Self::get_subnet_locked_balance(netuid);
+        let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
+        let reserved_amount: u64 = Self::get_subnet_locked_balance(netuid);
 
         // --- 2. Remove network count.
         SubnetworkN::<T>::remove(netuid);
@@ -1150,13 +1149,13 @@ impl<T: Config> Pallet<T> {
         // --- 4. Remove netuid from added networks.
         NetworksAdded::<T>::remove(netuid);
 
-        // --- 6. Decrement the network counter.
-        TotalNetworks::<T>::mutate(|n| *n = n.saturating_sub(1));
+        // --- 5. Decrement the network counter.
+        TotalNetworks::<T>::mutate(|n: &mut u16| *n = n.saturating_sub(1));
 
-        // --- 7. Remove various network-related storages.
+        // --- 6. Remove various network-related storages.
         NetworkRegisteredAt::<T>::remove(netuid);
 
-        // --- 8. Remove incentive mechanism memory.
+        // --- 7. Remove incentive mechanism memory.
         let _ = Uids::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = Keys::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = Bonds::<T>::clear_prefix(netuid, u32::MAX, None);
@@ -1171,7 +1170,7 @@ impl<T: Config> Pallet<T> {
             )
         {
             // Create a new vector to hold modified weights.
-            let mut modified_weights = weights_i.clone();
+            let mut modified_weights: Vec<(u16, u16)> = weights_i.clone();
             // Iterate over each weight entry to potentially update it.
             for (subnet_id, weight) in modified_weights.iter_mut() {
                 if subnet_id == &netuid {
@@ -1213,6 +1212,12 @@ impl<T: Config> Pallet<T> {
         Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount);
         Self::set_subnet_locked_balance(netuid, 0);
         SubnetOwner::<T>::remove(netuid);
+
+        // --- 13. Remove subnet identity if it exists.
+        if SubnetIdentities::<T>::contains_key(netuid) {
+            SubnetIdentities::<T>::remove(netuid);
+            Self::deposit_event(Event::SubnetIdentityRemoved(netuid));
+        }
     }
 
     #[allow(clippy::arithmetic_side_effects)]
