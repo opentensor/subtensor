@@ -1358,10 +1358,6 @@ where
     pub fn check_weights_min_stake(who: &T::AccountId) -> bool {
         Pallet::<T>::check_weights_min_stake(who)
     }
-
-    pub fn get_root_netuid() -> u16 {
-        Pallet::<T>::get_root_netuid()
-    }
 }
 
 impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for SubtensorSignedExtension<T> {
@@ -1419,25 +1415,6 @@ where
                     })
                 } else {
                     Err(InvalidTransaction::Custom(2).into())
-                }
-            }
-            Some(Call::set_weights { netuid, .. }) => {
-                if *netuid == Self::get_root_netuid() {
-                    if Self::check_weights_min_stake(who) {
-                        let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                        Ok(ValidTransaction {
-                            priority,
-                            longevity: 1,
-                            ..Default::default()
-                        })
-                    } else {
-                        Err(InvalidTransaction::Custom(3).into())
-                    }
-                } else {
-                    Ok(ValidTransaction {
-                        priority: Self::get_priority_vanilla(),
-                        ..Default::default()
-                    })
                 }
             }
             Some(Call::set_root_weights { netuid, hotkey, .. }) => {
