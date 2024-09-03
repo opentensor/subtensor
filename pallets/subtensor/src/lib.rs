@@ -1433,7 +1433,7 @@ where
                 }
             }
             Some(Call::set_weights { netuid, .. }) => {
-                match Self::get_uid_for_net_and_hotkey(*netuid, &who) {
+                match Self::get_uid_for_net_and_hotkey(*netuid, who) {
                     Ok(uid) => {
                         if Self::get_validator_permit_for_uid(*netuid, uid) {
                             Ok(ValidTransaction {
