@@ -142,7 +142,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 195,
+    spec_version: 196,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -629,6 +629,7 @@ pub enum ProxyType {
     Registration,
     Transfer,
     SmallTransfer,
+    RootWeights,
 }
 // Transfers below SMALL_TRANSFER_LIMIT are considered small transfers
 pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
@@ -673,6 +674,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::Triumvirate(..)
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_root_weights { .. })
             ),
             ProxyType::Triumvirate => matches!(
                 c,
@@ -694,6 +696,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::register { .. })
+            ),
+            ProxyType::RootWeights => matches!(
+                c,
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_root_weights { .. })
             ),
         }
     }
