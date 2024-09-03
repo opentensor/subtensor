@@ -297,7 +297,7 @@ fn test_set_weights_validate() {
         let extension = pallet_subtensor::SubtensorSignedExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
-        // Should fail due to insufficient stake
+        // Should ok even no any stake
         assert_ok!(result_no_stake);
 
         // Increase the stake to be equal to the minimum
