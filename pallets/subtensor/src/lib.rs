@@ -1310,12 +1310,16 @@ pub enum CallType {
 #[derive(Debug, PartialEq)]
 pub enum CustomTransactionError {
     ColdkeyInSwapSchedule,
+    HotKeyNotRegisteredInSubNet,
+    ValidatorWithoutPermission,
 }
 
 impl From<CustomTransactionError> for u8 {
     fn from(variant: CustomTransactionError) -> u8 {
         match variant {
             CustomTransactionError::ColdkeyInSwapSchedule => 0,
+            CustomTransactionError::HotKeyNotRegisteredInSubNet => 1,
+            CustomTransactionError::ValidatorWithoutPermission => 2,
         }
     }
 }
@@ -1357,6 +1361,17 @@ where
 
     pub fn check_weights_min_stake(who: &T::AccountId) -> bool {
         Pallet::<T>::check_weights_min_stake(who)
+    }
+
+    pub fn get_uid_for_net_and_hotkey(
+        netuid: u16,
+        hotkey: &T::AccountId,
+    ) -> Result<u16, DispatchError> {
+        Pallet::<T>::get_uid_for_net_and_hotkey(netuid, hotkey)
+    }
+
+    pub fn get_validator_permit_for_uid(netuid: u16, uid: u16) -> bool {
+        Pallet::<T>::get_validator_permit_for_uid(netuid, uid)
     }
 }
 
@@ -1415,6 +1430,27 @@ where
                     })
                 } else {
                     Err(InvalidTransaction::Custom(2).into())
+                }
+            }
+            Some(Call::set_weights { netuid, .. }) => {
+                match Self::get_uid_for_net_and_hotkey(*netuid, &who) {
+                    Ok(uid) => {
+                        if Self::get_validator_permit_for_uid(*netuid, uid) {
+                            Ok(ValidTransaction {
+                                priority: Self::get_priority_vanilla(),
+                                ..Default::default()
+                            })
+                        } else {
+                            InvalidTransaction::Custom(
+                                CustomTransactionError::ValidatorWithoutPermission.into(),
+                            )
+                            .into()
+                        }
+                    }
+                    Err(_) => InvalidTransaction::Custom(
+                        CustomTransactionError::HotKeyNotRegisteredInSubNet.into(),
+                    )
+                    .into(),
                 }
             }
             Some(Call::set_root_weights { netuid, hotkey, .. }) => {

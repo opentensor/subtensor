@@ -7,7 +7,7 @@ use frame_support::{
     pallet_prelude::{InvalidTransaction, TransactionValidityError},
 };
 use mock::*;
-use pallet_subtensor::{Error, Owner};
+use pallet_subtensor::{CustomTransactionError, Error, Owner, ValidatorPermit};
 use sp_core::{H256, U256};
 use sp_runtime::{
     traits::{BlakeTwo256, DispatchInfoOf, Hash, SignedExtension},
@@ -279,10 +279,39 @@ fn test_set_weights_validate() {
             version_key: 0,
         });
 
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = pallet_subtensor::SubtensorSignedExtension::<Test>::new();
+
         // Create netuid
         add_network(netuid, 0, 0);
+
+        // Check extension before hotkey registerred
+        let result_no_hotkey = extension.validate(&who, &call.clone(), &info, 10);
+        assert_err!(
+            result_no_hotkey,
+            TransactionValidityError::Invalid(InvalidTransaction::Custom(
+                CustomTransactionError::HotKeyNotRegisteredInSubNet.into()
+            ))
+        );
+
         // Register the hotkey
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
+
+        // Check extension without validator permission
+        let result_no_permission = extension.validate(&who, &call.clone(), &info, 10);
+        assert_err!(
+            result_no_permission,
+            TransactionValidityError::Invalid(InvalidTransaction::Custom(
+                CustomTransactionError::ValidatorWithoutPermission.into()
+            ))
+        );
+        let uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey)
+            .expect("we can get it after append_neuron");
+
+        // Set validator permit for the hotkey
+        ValidatorPermit::<Test>::mutate(netuid, |v| *v = vec![true; uid as usize + 1]);
+
         Owner::<Test>::insert(hotkey, coldkey);
 
         let min_stake = 500_000_000_000;
@@ -291,10 +320,7 @@ fn test_set_weights_validate() {
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-        let info: DispatchInfo =
-            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = pallet_subtensor::SubtensorSignedExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
         // Should ok even no any stake
