@@ -187,10 +187,18 @@ pub mod pallet {
     /// ============================
 
     #[pallet::type_value]
-    /// Total Rao in circulation.
+    /// Total TAO Cap.
     pub fn TotalSupply<T: Config>() -> u64 {
-        21_000_000_000_000_000
+        #[cfg(feature = "testnet")]
+        {
+            15_000_000_000_000_000_000
+        }
+        #[cfg(not(feature = "testnet"))]
+        {
+            21_000_000_000_000_000
+        }
     }
+
     #[pallet::type_value]
     /// Default Delegate Take.
     pub fn DefaultDelegateTake<T: Config>() -> u16 {
@@ -665,6 +673,8 @@ pub mod pallet {
     /// separate accounting.
     #[pallet::storage] // --- ITEM ( total_issuance )
     pub type TotalIssuance<T> = StorageValue<_, u64, ValueQuery, DefaultTotalIssuance<T>>;
+    #[pallet::storage] // --- ITEM ( total_supply )
+    pub type TotalTaoSupplyCap<T> = StorageValue<_, u64, ValueQuery, TotalSupply<T>>;
     #[pallet::storage] // --- ITEM ( total_stake )
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
     #[pallet::storage] // --- ITEM ( default_delegate_take )
