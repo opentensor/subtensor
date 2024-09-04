@@ -1,14 +1,14 @@
+use crate::precompiles::{bytes_to_account_id, get_method_id, get_slice};
 use frame_system::RawOrigin;
+use pallet_evm::{AddressMapping, HashedAddressMapping};
 use pallet_evm::{
     ExitError, ExitSucceed, PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult,
 };
-use pallet_evm::{HashedAddressMapping,AddressMapping};
 use sp_core::U256;
 use sp_runtime::traits::BlakeTwo256;
 use sp_runtime::traits::Dispatchable;
 use sp_runtime::AccountId32;
 use sp_std::vec;
-use crate::precompiles::{bytes_to_account_id, get_method_id, get_slice};
 
 use crate::{Runtime, RuntimeCall};
 pub const STAKING_PRECOMPILE_INDEX: u64 = 2049;
@@ -22,11 +22,15 @@ impl StakingPrecompile {
         let method_input = txdata[4..].to_vec(); // Avoiding borrowing conflicts
 
         match method_id {
-            id if id == get_method_id("addStake(bytes32)") => Self::add_stake(handle, &method_input),
-            id if id == get_method_id("removeStake(bytes32,uint64)") => Self::remove_stake(handle, &method_input),
+            id if id == get_method_id("addStake(bytes32)") => {
+                Self::add_stake(handle, &method_input)
+            }
+            id if id == get_method_id("removeStake(bytes32,uint64)") => {
+                Self::remove_stake(handle, &method_input)
+            }
             _ => Err(PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
-            })
+            }),
         }
     }
 
@@ -63,7 +67,10 @@ impl StakingPrecompile {
     }
 
     fn dispatch(handle: &mut impl PrecompileHandle, call: RuntimeCall) -> PrecompileResult {
-        let account_id = <HashedAddressMapping<BlakeTwo256> as AddressMapping<AccountId32>>::into_account_id(handle.context().caller);
+        let account_id =
+            <HashedAddressMapping<BlakeTwo256> as AddressMapping<AccountId32>>::into_account_id(
+                handle.context().caller,
+            );
         let result = call.dispatch(RawOrigin::Signed(account_id).into());
         match &result {
             Ok(post_info) => log::info!("Dispatch succeeded. Post info: {:?}", post_info),

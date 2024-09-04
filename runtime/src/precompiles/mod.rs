@@ -66,7 +66,7 @@ where
             a if a == hash(1025) => Some(ECRecoverPublicKey::execute(handle)),
             a if a == hash(BALANCE_TRANSFER_INDEX) => {
                 Some(BalanceTransferPrecompile::execute(handle))
-            },
+            }
             a if a == hash(STAKING_PRECOMPILE_INDEX) => {
                 Some(StakingPrecompile::execute(handle)) // Add this line
             }
