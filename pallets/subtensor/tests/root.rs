@@ -1198,7 +1198,7 @@ fn test_dissolve_network_complex_state() {
 
                 // Alternate between having stake and no stake
                 if i % 2 == 0 {
-                    let stake = (i + 1) as u64 * 1000;
+                    let stake = (i + 1) * 1000;
                     stakes.push(stake);
 
                     register_ok_neuron(netuid, hotkey, coldkey, 3);
@@ -1260,7 +1260,7 @@ fn test_dissolve_network_complex_state() {
                 let staking_key = if SubtensorModule::hotkey_is_delegate(hotkey) {
                     pallet_subtensor::Owner::<Test>::get(hotkey)
                 } else {
-                    coldkey.clone()
+                    *coldkey
                 };
 
                 let new_balance = SubtensorModule::get_coldkey_balance(&staking_key);
@@ -1278,12 +1278,7 @@ fn test_dissolve_network_complex_state() {
         }
 
         // Ensure that all stakes were removed
-        for (_, ((hotkey, coldkey), _stake)) in hotkeys
-            .iter()
-            .zip(coldkeys.iter())
-            .zip(stakes.iter())
-            .enumerate()
-        {
+        for ((hotkey, coldkey), _stake) in hotkeys.iter().zip(coldkeys.iter()).zip(stakes.iter()) {
             log::debug!(
                 "Checking if stake for hotkey {} and coldkey {} was removed",
                 hotkey,
