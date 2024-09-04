@@ -142,7 +142,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 193,
+    spec_version: 196,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -629,6 +629,7 @@ pub enum ProxyType {
     Registration,
     Transfer,
     SmallTransfer,
+    RootWeights,
 }
 // Transfers below SMALL_TRANSFER_LIMIT are considered small transfers
 pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
@@ -673,6 +674,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::Triumvirate(..)
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_root_weights { .. })
             ),
             ProxyType::Triumvirate => matches!(
                 c,
@@ -694,6 +696,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::register { .. })
+            ),
+            ProxyType::RootWeights => matches!(
+                c,
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_root_weights { .. })
             ),
         }
     }
@@ -1030,27 +1036,27 @@ impl pallet_admin_utils::Config for Runtime {
 construct_runtime!(
     pub struct Runtime
     {
-        System: frame_system,
-        RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip,
-        Timestamp: pallet_timestamp,
-        Aura: pallet_aura,
-        Grandpa: pallet_grandpa,
-        Balances: pallet_balances,
-        TransactionPayment: pallet_transaction_payment,
-        SubtensorModule: pallet_subtensor,
-        Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
-        SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
-        Utility: pallet_utility,
-        Sudo: pallet_sudo,
-        Multisig: pallet_multisig,
-        Preimage: pallet_preimage,
-        Proxy: pallet_proxy,
-        Registry: pallet_registry,
-        Commitments: pallet_commitments,
-        AdminUtils: pallet_admin_utils,
-        SafeMode: pallet_safe_mode,
-        Scheduler: pallet_scheduler,
+        System: frame_system = 0,
+        RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip = 1,
+        Timestamp: pallet_timestamp = 2,
+        Aura: pallet_aura = 3,
+        Grandpa: pallet_grandpa = 4,
+        Balances: pallet_balances = 5,
+        TransactionPayment: pallet_transaction_payment = 6,
+        SubtensorModule: pallet_subtensor = 7,
+        Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 8,
+        TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 9,
+        SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 10,
+        Utility: pallet_utility = 11,
+        Sudo: pallet_sudo = 12,
+        Multisig: pallet_multisig = 13,
+        Preimage: pallet_preimage = 14,
+        Scheduler: pallet_scheduler = 15,
+        Proxy: pallet_proxy = 16,
+        Registry: pallet_registry = 17,
+        Commitments: pallet_commitments = 18,
+        AdminUtils: pallet_admin_utils = 19,
+        SafeMode: pallet_safe_mode = 20,
     }
 );
 
@@ -1423,6 +1429,21 @@ impl_runtime_apis! {
 
         fn get_subnets_info() -> Vec<u8> {
             let result = SubtensorModule::get_subnets_info();
+            result.encode()
+        }
+
+        fn get_subnet_info_v2(netuid: u16) -> Vec<u8> {
+            let _result = SubtensorModule::get_subnet_info_v2(netuid);
+            if _result.is_some() {
+                let result = _result.expect("Could not get SubnetInfo");
+                result.encode()
+            } else {
+                vec![]
+            }
+        }
+
+        fn get_subnets_info_v2() -> Vec<u8> {
+            let result = SubtensorModule::get_subnets_info_v2();
             result.encode()
         }
 

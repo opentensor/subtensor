@@ -672,16 +672,17 @@ mod dispatches {
         ///
         /// Weight is calculated based on the number of database reads and writes.
         #[pallet::call_index(71)]
-        #[pallet::weight((Weight::from_parts(1_940_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(272))
-		.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(127_713_000, 0)
+        .saturating_add(Weight::from_parts(0, 11645))
+        .saturating_add(T::DbWeight::get().reads(18))
+        .saturating_add(T::DbWeight::get().writes(12)), DispatchClass::Operational, Pays::No))]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
             old_coldkey: T::AccountId,
             new_coldkey: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             // Ensure it's called with root privileges (scheduler has root privileges)
-            ensure_root(origin.clone())?;
+            ensure_root(origin)?;
             log::info!("swap_coldkey: {:?} -> {:?}", old_coldkey, new_coldkey);
 
             Self::do_swap_coldkey(&old_coldkey, &new_coldkey)
@@ -901,7 +902,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(16))
 		.saturating_add(T::DbWeight::get().writes(30)), DispatchClass::Operational, Pays::No))]
         pub fn register_network(origin: OriginFor<T>) -> DispatchResult {
-            Self::user_add_network(origin)
+            Self::user_add_network(origin, None)
         }
 
         /// Facility extrinsic for user to get taken from faucet
@@ -930,8 +931,13 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(119_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
-        pub fn dissolve_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
-            Self::user_remove_network(origin, netuid)
+        pub fn dissolve_network(
+            origin: OriginFor<T>,
+            coldkey: T::AccountId,
+            netuid: u16,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            Self::user_remove_network(coldkey, netuid)
         }
 
         /// Set a single child for a given hotkey on a specified network.
@@ -1100,7 +1106,10 @@ mod dispatches {
             let duration: BlockNumberFor<T> = DissolveNetworkScheduleDuration::<T>::get();
             let when: BlockNumberFor<T> = current_block.saturating_add(duration);
 
-            let call = Call::<T>::dissolve_network { netuid };
+            let call = Call::<T>::dissolve_network {
+                coldkey: who.clone(),
+                netuid,
+            };
 
             let bound_call = T::Preimages::bound(LocalCallOf::<T>::from(call.clone()))
                 .map_err(|_| Error::<T>::FailedToSchedule)?;
@@ -1109,7 +1118,7 @@ mod dispatches {
                 DispatchTime::At(when),
                 None,
                 63,
-                frame_system::RawOrigin::Signed(who.clone()).into(),
+                frame_system::RawOrigin::Root.into(),
                 bound_call,
             )
             .map_err(|_| Error::<T>::FailedToSchedule)?;
@@ -1158,6 +1167,48 @@ mod dispatches {
             additional: Vec<u8>,
         ) -> DispatchResult {
             Self::do_set_identity(origin, name, url, image, discord, description, additional)
+        }
+
+        /// ---- Set the identity information for a subnet.
+        /// # Args:
+        /// * `origin` - (<T as frame_system::Config>::Origin):
+        ///     - The signature of the calling coldkey, which must be the owner of the subnet.
+        ///
+        /// * `netuid` (u16):
+        ///     - The unique network identifier of the subnet.
+        ///
+        /// * `subnet_name` (Vec<u8>):
+        ///     - The name of the subnet.
+        ///
+        /// * `github_repo` (Vec<u8>):
+        ///     - The GitHub repository associated with the subnet identity.
+        ///
+        /// * `subnet_contact` (Vec<u8>):
+        ///     - The contact information for the subnet.
+        #[pallet::call_index(78)]
+        #[pallet::weight((Weight::from_parts(45_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(4))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::Yes))]
+        pub fn set_subnet_identity(
+            origin: OriginFor<T>,
+            netuid: u16,
+            subnet_name: Vec<u8>,
+            github_repo: Vec<u8>,
+            subnet_contact: Vec<u8>,
+        ) -> DispatchResult {
+            Self::do_set_subnet_identity(origin, netuid, subnet_name, github_repo, subnet_contact)
+        }
+
+        /// User register a new subnetwork
+        #[pallet::call_index(79)]
+        #[pallet::weight((Weight::from_parts(157_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads(16))
+                .saturating_add(T::DbWeight::get().writes(30)), DispatchClass::Operational, Pays::No))]
+        pub fn register_network_with_identity(
+            origin: OriginFor<T>,
+            identity: Option<SubnetIdentityOf>,
+        ) -> DispatchResult {
+            Self::user_add_network(origin, identity)
         }
     }
 }

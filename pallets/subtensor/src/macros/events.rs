@@ -187,6 +187,10 @@ mod events {
         NetworkMaxStakeSet(u16, u64),
         /// The identity of a coldkey has been set
         ChainIdentitySet(T::AccountId),
+        /// The identity of a subnet has been set
+        SubnetIdentitySet(u16),
+        /// The identity of a subnet has been removed
+        SubnetIdentityRemoved(u16),
         /// A dissolve network extrinsic scheduled.
         DissolveNetworkScheduled {
             /// The account ID schedule the dissolve network extrisnic
@@ -196,5 +200,9 @@ mod events {
             /// extrinsic execution block number
             execution_block: BlockNumberFor<T>,
         },
+        /// The duration of schedule coldkey swap has been set
+        ColdkeySwapScheduleDurationSet(BlockNumberFor<T>),
+        /// The duration of dissolve network has been set
+        DissolveNetworkScheduleDurationSet(BlockNumberFor<T>),
     }
 }

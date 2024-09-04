@@ -1,5 +1,6 @@
 .devcontainer
 .github
 .vscode
-!scripts/init.sh
-target
+target/
+.dockerignore
+Dockerfile

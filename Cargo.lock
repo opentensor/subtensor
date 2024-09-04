@@ -9193,13 +9193,10 @@ version = "0.1.0"
 dependencies = [
  "node-subtensor",
  "node-subtensor-runtime",
- "pallet-commitments",
- "pallet-subtensor",
  "proc-macro2",
  "quote",
  "rayon",
  "subtensor-linting",
- "subtensor-macros",
  "syn 2.0.71",
  "walkdir",
 ]
