@@ -18,7 +18,8 @@ do
   output_pallet="$pallet_dir"
 
   echo "Benchmarking $pallet_name..."
-  cargo run --profile=production --features=runtime-benchmarks,try-runtime -p node-subtensor -- benchmark pallet \
+  cargo run --profile=production --features=runtime-benchmarks,try-runtime,skip-broken-benchmarks \
+    -p node-subtensor -- benchmark pallet \
     --chain $chain_spec \
     --wasm-execution=compiled \
     --pallet "$pallet_name" \
