@@ -3,13 +3,12 @@ use pallet_evm::{
     ExitError, ExitSucceed, PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult,
 };
 use pallet_evm::{HashedAddressMapping,AddressMapping};
-use sp_core::{H160, U256};
+use sp_core::U256;
 use sp_runtime::traits::BlakeTwo256;
 use sp_runtime::traits::Dispatchable;
 use sp_runtime::AccountId32;
 use sp_std::vec;
 use crate::precompiles::{bytes_to_account_id, get_method_id, get_slice};
-
 
 use crate::{Runtime, RuntimeCall};
 pub const STAKING_PRECOMPILE_INDEX: u64 = 2049;
@@ -34,14 +33,14 @@ impl StakingPrecompile {
     fn add_stake(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
         let hotkey = Self::parse_hotkey(data)?.into();
         let amount: U256 = handle.context().apparent_value;
+        // Create the add_stake call
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::<Runtime>::add_stake {
             hotkey,
             amount_staked: amount.as_u64(),
         });
-
+        // Dispatch the add_stake call
         Self::dispatch(handle, call)
     }
-
     fn remove_stake(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
         let hotkey = Self::parse_hotkey(data)?.into();
         let amount = U256::from_big_endian(&data[32..40]).as_u64(); // Assuming the next 8 bytes represent the amount
@@ -65,9 +64,11 @@ impl StakingPrecompile {
 
     fn dispatch(handle: &mut impl PrecompileHandle, call: RuntimeCall) -> PrecompileResult {
         let account_id = <HashedAddressMapping<BlakeTwo256> as AddressMapping<AccountId32>>::into_account_id(handle.context().caller);
-        log::info!("Mapped account_id: {:?}", account_id);
-        //let account_id = bytes_to_account_id(&address_bytes_src)?;
         let result = call.dispatch(RawOrigin::Signed(account_id).into());
+        match &result {
+            Ok(post_info) => log::info!("Dispatch succeeded. Post info: {:?}", post_info),
+            Err(dispatch_error) => log::error!("Dispatch failed. Error: {:?}", dispatch_error),
+        }
         match result {
             Ok(_) => Ok(PrecompileOutput {
                 exit_status: ExitSucceed::Returned,
