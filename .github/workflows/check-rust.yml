@@ -247,7 +247,7 @@ jobs:
         run: cargo install cargo-audit
 
       - name: cargo audit
-        run: cargo audit
+        run: cargo audit --ignore RUSTSEC-2024-0336 # rustls issue; wait for upstream to resolve this
 
   # runs cargo test --workspace
   cargo-test:
