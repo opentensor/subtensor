@@ -22,12 +22,10 @@ impl StakingPrecompile {
         let method_id = get_slice(txdata, 0, 4)?;
         let method_input = txdata[4..].to_vec(); // Avoiding borrowing conflicts
 
-        if method_id ==  get_method_id("addStake(bytes32)") {
-           return  Self::add_stake(handle, &method_input);
-        } else if method_id == get_method_id("removeStake(bytes32,uint64)") {
-           return  Self::remove_stake(handle, &method_input);
-        }else {
-            return Err(PrecompileFailure::Error {
+        match method_id {
+            id if id == get_method_id("addStake(bytes32)") => Self::add_stake(handle, &method_input),
+            id if id == get_method_id("removeStake(bytes32,uint64)") => Self::remove_stake(handle, &method_input),
+            _ => Err(PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
             })
         }
