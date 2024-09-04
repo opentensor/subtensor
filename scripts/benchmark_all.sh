@@ -10,7 +10,7 @@ chain_spec="finney"  # or your specific chain spec
 for pallet in "${pallets[@]}"
 do
   echo "Benchmarking $pallet..."
-  cargo run --profile=production --features=runtime-benchmarks,try-runtime --bin node-subtensor -- benchmark pallet \
+  cargo run --profile=production --features=runtime-benchmarks,try-runtime -p node-subtensor -- benchmark pallet \
     --chain $chain_spec \
     --wasm-execution=compiled \
     --pallet $pallet \
