@@ -207,4 +207,3 @@ try-runtime = [
 	"pallet-registry/try-runtime",
 ]
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]
-testnet = []
