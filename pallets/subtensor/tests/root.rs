@@ -1211,6 +1211,26 @@ fn test_dissolve_network_complex_state() {
                         coldkey,
                         stake
                     );
+                } else if i % 3 == 0 {
+                    let stake = (i + 1) * 1000;
+                    stakes.push(stake);
+
+                    register_ok_neuron(netuid, hotkey, coldkey, 3);
+                    <pallet_subtensor::Stake<Test>>::insert(hotkey, coldkey, stake);
+
+                    assert_ok!(SubtensorModule::do_become_delegate(
+                        <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                        hotkey,
+                        u16::MAX / 10
+                    ));
+
+                    log::debug!(
+                        "Registered neuron as delegate {} in network {} with coldkey {} and stake {}",
+                        hotkey,
+                        netuid,
+                        coldkey,
+                        stake
+                    );
                 } else {
                     stakes.push(0); // No stake for this UID
                     register_ok_neuron(netuid, hotkey, coldkey, 3);
@@ -1224,7 +1244,6 @@ fn test_dissolve_network_complex_state() {
                 }
 
                 pallet_subtensor::Uids::<Test>::insert(netuid, hotkey, i as u16);
-                // Add UID to network
             }
         }
 
@@ -1255,35 +1274,24 @@ fn test_dissolve_network_complex_state() {
                 stake
             );
 
-            // If there was a stake, check if the balance was added to the correct stakeholder (hotkey owner or coldkey)
-            if stake > 0 {
-                let staking_key = if SubtensorModule::hotkey_is_delegate(hotkey) {
-                    pallet_subtensor::Owner::<Test>::get(hotkey)
-                } else {
-                    *coldkey
-                };
+            let staking_key = if SubtensorModule::hotkey_is_delegate(hotkey) {
+                pallet_subtensor::Owner::<Test>::get(hotkey)
+            } else {
+                *coldkey
+            };
 
-                let new_balance = SubtensorModule::get_coldkey_balance(&staking_key);
+            let new_balance = SubtensorModule::get_coldkey_balance(&staking_key);
 
-                log::debug!(
-                    "Hotkey {} has staking key {}. New balance is {}, expected stake is {}",
-                    hotkey,
-                    staking_key,
-                    new_balance,
-                    stake
-                );
-
-                assert_eq!(new_balance, stake + initial_balances[i]);
-            }
-        }
-
-        // Ensure that all stakes were removed
-        for ((hotkey, coldkey), _stake) in hotkeys.iter().zip(coldkeys.iter()).zip(stakes.iter()) {
             log::debug!(
-                "Checking if stake for hotkey {} and coldkey {} was removed",
+                "Hotkey {} has staking key {}. New balance is {}, expected stake is {}",
                 hotkey,
-                coldkey
+                staking_key,
+                new_balance,
+                stake
             );
+
+            assert_eq!(new_balance, stake + initial_balances[i]);
+
             assert!(!<pallet_subtensor::Stake<Test>>::contains_key(
                 hotkey, coldkey
             ));
