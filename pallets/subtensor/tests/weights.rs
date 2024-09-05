@@ -1,3 +1,5 @@
+#![allow(clippy::indexing_slicing)]
+
 mod mock;
 use frame_support::{
     assert_err, assert_ok,
@@ -21,7 +23,6 @@ use substrate_fixed::types::I32F32;
 
 // Test the call passes through the subtensor module.
 #[test]
-#[cfg(not(tarpaulin))]
 fn test_set_weights_dispatch_info_ok() {
     new_test_ext(0).execute_with(|| {
         let dests = vec![1, 1];
@@ -41,7 +42,6 @@ fn test_set_weights_dispatch_info_ok() {
     });
 }
 #[test]
-#[cfg(not(tarpaulin))]
 fn test_set_rootweights_dispatch_info_ok() {
     new_test_ext(0).execute_with(|| {
         let dests = vec![1, 1];
@@ -109,7 +109,7 @@ fn test_set_rootweights_validate() {
         assert_err!(
             // Should get an invalid transaction error
             result_no_stake,
-            TransactionValidityError::Invalid(InvalidTransaction::Call,)
+            TransactionValidityError::Invalid(InvalidTransaction::Custom(4))
         );
 
         // Increase the stake to be equal to the minimum
@@ -213,7 +213,7 @@ fn test_commit_weights_validate() {
         assert_err!(
             // Should get an invalid transaction error
             result_no_stake,
-            TransactionValidityError::Invalid(InvalidTransaction::Call,)
+            TransactionValidityError::Invalid(InvalidTransaction::Custom(1))
         );
 
         // Increase the stake to be equal to the minimum
@@ -268,6 +268,66 @@ fn test_reveal_weights_dispatch_info_ok() {
 }
 
 #[test]
+fn test_set_weights_validate() {
+    // Testing the signed extension validate function
+    // correctly filters the `set_weights` transaction.
+
+    new_test_ext(0).execute_with(|| {
+        let netuid: u16 = 1;
+        let coldkey = U256::from(0);
+        let hotkey: U256 = U256::from(1);
+        assert_ne!(hotkey, coldkey);
+
+        let who = hotkey; // The hotkey signs this transaction
+
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::set_weights {
+            netuid,
+            dests: vec![1, 1],
+            weights: vec![1, 1],
+            version_key: 0,
+        });
+
+        // Create netuid
+        add_network(netuid, 0, 0);
+        // Register the hotkey
+        SubtensorModule::append_neuron(netuid, &hotkey, 0);
+        Owner::<Test>::insert(hotkey, coldkey);
+
+        let min_stake = 500_000_000_000;
+        // Set the minimum stake
+        SubtensorModule::set_weights_min_stake(min_stake);
+
+        // Verify stake is less than minimum
+        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+
+        let extension = pallet_subtensor::SubtensorSignedExtension::<Test>::new();
+        // Submit to the signed extension validate function
+        let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
+        // Should fail due to insufficient stake
+        assert_err!(
+            result_no_stake,
+            TransactionValidityError::Invalid(InvalidTransaction::Custom(3))
+        );
+
+        // Increase the stake to be equal to the minimum
+        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
+
+        // Verify stake is equal to minimum
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+            min_stake
+        );
+
+        // Submit to the signed extension validate function
+        let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
+        // Now the call should pass
+        assert_ok!(result_min_stake);
+    });
+}
+
+#[test]
 fn test_reveal_weights_validate() {
     // Testing the signed extension validate function
     // correctly filters this transaction.
@@ -316,7 +376,7 @@ fn test_reveal_weights_validate() {
         assert_err!(
             // Should get an invalid transaction error
             result_no_stake,
-            TransactionValidityError::Invalid(InvalidTransaction::Call,)
+            TransactionValidityError::Invalid(InvalidTransaction::Custom(2))
         );
 
         // Increase the stake to be equal to the minimum
@@ -414,7 +474,6 @@ fn test_weights_err_no_validator_permit() {
 
 // To execute this test: cargo test --package pallet-subtensor --test weights test_set_weights_min_stake_failed -- --nocapture`
 #[test]
-#[cfg(not(tarpaulin))]
 fn test_set_weights_min_stake_failed() {
     new_test_ext(0).execute_with(|| {
         let dests = vec![0];

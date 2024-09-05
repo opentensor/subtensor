@@ -8,8 +8,10 @@ use sp_runtime::{
         InvalidTransaction, TransactionLongevity, TransactionValidity, TransactionValidityError,
         ValidTransaction,
     },
+    Saturating,
 };
 use sp_std::vec;
+use subtensor_macros::freeze_struct;
 
 /// Nonce check and increment to give replay protection for transactions.
 ///
@@ -18,6 +20,7 @@ use sp_std::vec;
 /// This extension affects `requires` and `provides` tags of validity, but DOES NOT
 /// set the `priority` field. Make sure that AT LEAST one of the signed extension sets
 /// some kind of priority upon validating transactions.
+#[freeze_struct("610b76f62cdb521e")]
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckNonce<T: Config>(#[codec(compact)] pub T::Nonce);
@@ -82,7 +85,7 @@ where
             }
             .into());
         }
-        account.nonce += T::Nonce::one();
+        account.nonce.saturating_inc();
         frame_system::Account::<T>::insert(who, account);
         Ok(())
     }
@@ -111,7 +114,7 @@ where
 
         let provides = vec![Encode::encode(&(who, self.0))];
         let requires = if account.nonce < self.0 {
-            vec![Encode::encode(&(who, self.0 - One::one()))]
+            vec![Encode::encode(&(who, self.0.saturating_sub(One::one())))]
         } else {
             vec![]
         };

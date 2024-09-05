@@ -16,6 +16,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+subtensor-macros.workspace = true
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
 	"derive",
 ] }
@@ -27,6 +28,7 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-io = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 serde-tuple-vec-map = { workspace = true }
 serde_bytes = { workspace = true, features = ["alloc"] }
 serde_with = { workspace = true, features = ["macros"] }
@@ -43,15 +45,19 @@ hex = { workspace = true }
 pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../collective" }
 pallet-membership = { workspace = true }
 hex-literal = { workspace = true }
+num-traits = { version = "0.2.19", default-features = false, features = ["libm"] }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
+pallet-scheduler = { workspace = true }
 sp-version = { workspace = true }
 # Substrate
 sp-tracing = { workspace = true }
 parity-util-mem = { workspace = true, features = ["primitive-types"] }
 rand = { workspace = true }
 sp-core = { workspace = true }
+sp-std = { workspace = true }
+pallet-preimage = { workspace = true }
 
 [features]
 default = ["std"]
@@ -65,6 +71,8 @@ std = [
 	"pallet-membership/std",
 	"substrate-fixed/std",
 	"pallet-balances/std",
+	"pallet-preimage/std",
+	"pallet-scheduler/std",
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
 	"sp-core/std",
@@ -78,7 +86,10 @@ std = [
 	"ndarray/std",
 	"serde/std",
 	"serde_bytes/std",
-	"serde_with/std"
+	"serde_with/std",
+	"substrate-fixed/std",
+	"num-traits/std",
+	"serde_json/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -88,13 +99,17 @@ runtime-benchmarks = [
 	"pallet-membership/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"pallet-collective/runtime-benchmarks"
+	"pallet-collective/runtime-benchmarks",
+	"pallet-preimage/runtime-benchmarks",
+	"pallet-scheduler/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-membership/try-runtime",
+	"pallet-preimage/try-runtime",
+	"pallet-scheduler/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",

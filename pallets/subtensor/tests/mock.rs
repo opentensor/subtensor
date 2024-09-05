@@ -1,19 +1,22 @@
+#![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
+use frame_support::weights::constants::RocksDbWeight;
+use frame_support::weights::Weight;
 use frame_support::{
     assert_ok, parameter_types,
-    traits::{Everything, Hooks},
-    weights,
+    traits::{Everything, Hooks, PrivilegeCmp},
 };
 use frame_system as system;
 use frame_system::{limits, EnsureNever, EnsureRoot, RawOrigin};
+use pallet_collective::MemberCount;
 use sp_core::{Get, H256, U256};
+use sp_runtime::Perbill;
 use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
     BuildStorage,
 };
-
-use pallet_collective::MemberCount;
+use sp_std::cmp::Ordering;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -29,6 +32,8 @@ frame_support::construct_runtime!(
         SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
         SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>},
         Utility: pallet_utility::{Pallet, Call, Storage, Event},
+        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
+        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -75,7 +80,6 @@ impl pallet_balances::Config for Test {
     type WeightInfo = ();
     type MaxReserves = ();
     type ReserveIdentifier = ();
-
     type RuntimeHoldReason = ();
     type FreezeIdentifier = ();
     type MaxFreezes = ();
@@ -84,9 +88,9 @@ impl pallet_balances::Config for Test {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for Test {
     type BaseCallFilter = Everything;
-    type BlockWeights = ();
+    type BlockWeights = BlockWeights;
     type BlockLength = ();
-    type DbWeight = ();
+    type DbWeight = RocksDbWeight;
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
     type Hash = H256;
@@ -112,7 +116,10 @@ parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
     pub const InitialEmissionValue: u16 = 0;
     pub const InitialMaxWeightsLimit: u16 = u16::MAX;
-    pub BlockWeights: limits::BlockWeights = limits::BlockWeights::simple_max(weights::Weight::from_parts(1024, 0));
+    pub BlockWeights: limits::BlockWeights = limits::BlockWeights::with_sensible_defaults(
+        Weight::from_parts(2_000_000_000_000, u64::MAX),
+        Perbill::from_percent(75),
+    );
     pub const ExistentialDeposit: Balance = 1;
     pub const TransactionByteFee: Balance = 100;
     pub const SDebug:u64 = 1;
@@ -125,12 +132,16 @@ parameter_types! {
     pub const InitialBondsMovingAverage: u64 = 900_000;
     pub const InitialStakePruningMin: u16 = 0;
     pub const InitialFoundationDistribution: u64 = 0;
-    pub const InitialDefaultTake: u16 = 11_796; // 18%, same as in production
-    pub const InitialMinTake: u16 =5_898; // 9%;
+    pub const InitialDefaultDelegateTake: u16 = 11_796; // 18%, same as in production
+    pub const InitialMinDelegateTake: u16 = 5_898; // 9%;
+    pub const InitialDefaultChildKeyTake: u16 = 0 ;// 0 %
+    pub const InitialMinChildKeyTake: u16 = 0; // 0 %;
+    pub const InitialMaxChildKeyTake: u16 = 11_796; // 18 %;
     pub const InitialWeightsVersionKey: u16 = 0;
     pub const InitialServingRateLimit: u64 = 0; // No limit.
     pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
     pub const InitialTxDelegateTakeRateLimit: u64 = 1; // 1 block take rate limit for testing
+    pub const InitialTxChildKeyTakeRateLimit: u64 = 1; // 1 block take rate limit for testing
     pub const InitialBurn: u64 = 0;
     pub const InitialMinBurn: u64 = 0;
     pub const InitialMaxBurn: u64 = 1_000_000_000;
@@ -158,6 +169,14 @@ parameter_types! {
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialTargetStakesPerInterval: u16 = 2;
+    pub const InitialKeySwapCost: u64 = 1_000_000_000;
+    pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
+    pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
+    pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
+    pub const InitialHotkeyEmissionTempo: u64 = 0; // Defaults to draining every block.
+    pub const InitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64
+    pub const InitialColdkeySwapScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
+    pub const InitialDissolveNetworkScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
 }
 
 // Configure collective pallet for council
@@ -192,23 +211,29 @@ use pallet_subtensor::{CollectiveInterface, MemberManagement};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
-        SenateMembers::add_member(RawOrigin::Root.into(), *account)
+        let who = *account;
+        SenateMembers::add_member(RawOrigin::Root.into(), who)
     }
 
     fn remove_member(account: &AccountId) -> DispatchResultWithPostInfo {
-        SenateMembers::remove_member(RawOrigin::Root.into(), *account)
+        let who = *account;
+        SenateMembers::remove_member(RawOrigin::Root.into(), who)
     }
 
-    fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResultWithPostInfo {
-        SenateMembers::swap_member(RawOrigin::Root.into(), *remove, *add)
+    fn swap_member(rm: &AccountId, add: &AccountId) -> DispatchResultWithPostInfo {
+        let remove = *rm;
+        let add = *add;
+
+        Triumvirate::remove_votes(rm)?;
+        SenateMembers::swap_member(RawOrigin::Root.into(), remove, add)
     }
 
     fn is_member(account: &AccountId) -> bool {
-        Senate::is_member(account)
+        SenateMembers::members().contains(account)
     }
 
     fn members() -> Vec<AccountId> {
-        Senate::members()
+        SenateMembers::members().into()
     }
 
     fn max_members() -> u32 {
@@ -245,6 +270,7 @@ impl CollectiveInterface<AccountId, H256, u32> for TriumvirateVotes {
 }
 
 // We call pallet_collective TriumvirateCollective
+#[allow(dead_code)]
 type TriumvirateCollective = pallet_collective::Instance1;
 impl pallet_collective::Config<TriumvirateCollective> for Test {
     type RuntimeOrigin = RuntimeOrigin;
@@ -262,6 +288,7 @@ impl pallet_collective::Config<TriumvirateCollective> for Test {
 }
 
 // We call council members Triumvirate
+#[allow(dead_code)]
 type TriumvirateMembership = pallet_membership::Instance1;
 impl pallet_membership::Config<TriumvirateMembership> for Test {
     type RuntimeEvent = RuntimeEvent;
@@ -278,6 +305,7 @@ impl pallet_membership::Config<TriumvirateMembership> for Test {
 
 // This is a dummy collective instance for managing senate members
 // Probably not the best solution, but fastest implementation
+#[allow(dead_code)]
 type SenateCollective = pallet_collective::Instance2;
 impl pallet_collective::Config<SenateCollective> for Test {
     type RuntimeOrigin = RuntimeOrigin;
@@ -295,6 +323,7 @@ impl pallet_collective::Config<SenateCollective> for Test {
 }
 
 // We call our top K delegates membership Senate
+#[allow(dead_code)]
 type SenateMembership = pallet_membership::Instance2;
 impl pallet_membership::Config<SenateMembership> for Test {
     type RuntimeEvent = RuntimeEvent;
@@ -311,13 +340,14 @@ impl pallet_membership::Config<SenateMembership> for Test {
 
 impl pallet_subtensor::Config for Test {
     type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type InitialIssuance = InitialIssuance;
     type SudoRuntimeCall = TestRuntimeCall;
     type CouncilOrigin = frame_system::EnsureSigned<AccountId>;
     type SenateMembers = ManageSenateMembers;
     type TriumvirateInterface = TriumvirateVotes;
-
+    type Scheduler = Scheduler;
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;
     type InitialMaxWeightsLimit = InitialMaxWeightsLimit;
@@ -337,8 +367,12 @@ impl pallet_subtensor::Config for Test {
     type InitialPruningScore = InitialPruningScore;
     type InitialBondsMovingAverage = InitialBondsMovingAverage;
     type InitialMaxAllowedValidators = InitialMaxAllowedValidators;
-    type InitialDefaultTake = InitialDefaultTake;
-    type InitialMinTake = InitialMinTake;
+    type InitialDefaultDelegateTake = InitialDefaultDelegateTake;
+    type InitialMinDelegateTake = InitialMinDelegateTake;
+    type InitialDefaultChildKeyTake = InitialDefaultChildKeyTake;
+    type InitialMinChildKeyTake = InitialMinChildKeyTake;
+    type InitialMaxChildKeyTake = InitialMaxChildKeyTake;
+    type InitialTxChildKeyTakeRateLimit = InitialTxChildKeyTakeRateLimit;
     type InitialWeightsVersionKey = InitialWeightsVersionKey;
     type InitialMaxDifficulty = InitialMaxDifficulty;
     type InitialMinDifficulty = InitialMinDifficulty;
@@ -358,6 +392,43 @@ impl pallet_subtensor::Config for Test {
     type InitialSubnetLimit = InitialSubnetLimit;
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = InitialTargetStakesPerInterval;
+    type KeySwapCost = InitialKeySwapCost;
+    type AlphaHigh = InitialAlphaHigh;
+    type AlphaLow = InitialAlphaLow;
+    type LiquidAlphaOn = InitialLiquidAlphaOn;
+    type InitialHotkeyEmissionTempo = InitialHotkeyEmissionTempo;
+    type InitialNetworkMaxStake = InitialNetworkMaxStake;
+    type Preimages = Preimage;
+    type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
+    type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
+}
+
+pub struct OriginPrivilegeCmp;
+
+impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
+    fn cmp_privilege(_left: &OriginCaller, _right: &OriginCaller) -> Option<Ordering> {
+        Some(Ordering::Less)
+    }
+}
+
+parameter_types! {
+    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
+        BlockWeights::get().max_block;
+    pub const MaxScheduledPerBlock: u32 = 50;
+    pub const NoPreimagePostponement: Option<u32> = Some(10);
+}
+
+impl pallet_scheduler::Config for Test {
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeEvent = RuntimeEvent;
+    type PalletsOrigin = OriginCaller;
+    type RuntimeCall = RuntimeCall;
+    type MaximumWeight = MaximumSchedulerWeight;
+    type ScheduleOrigin = EnsureRoot<AccountId>;
+    type MaxScheduledPerBlock = MaxScheduledPerBlock;
+    type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Test>;
+    type OriginPrivilegeCmp = OriginPrivilegeCmp;
+    type Preimages = Preimage;
 }
 
 impl pallet_utility::Config for Test {
@@ -365,6 +436,20 @@ impl pallet_utility::Config for Test {
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type WeightInfo = pallet_utility::weights::SubstrateWeight<Test>;
+}
+
+parameter_types! {
+    pub const PreimageMaxSize: u32 = 4096 * 1024;
+    pub const PreimageBaseDeposit: Balance = 1;
+    pub const PreimageByteDeposit: Balance = 1;
+}
+
+impl pallet_preimage::Config for Test {
+    type WeightInfo = pallet_preimage::weights::SubstrateWeight<Test>;
+    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
+    type ManagerOrigin = EnsureRoot<AccountId>;
+    type Consideration = ();
 }
 
 #[allow(dead_code)]
@@ -401,22 +486,30 @@ pub fn test_ext_with_balances(balances: Vec<(U256, u128)>) -> sp_io::TestExterna
 #[allow(dead_code)]
 pub(crate) fn step_block(n: u16) {
     for _ in 0..n {
+        Scheduler::on_finalize(System::block_number());
         SubtensorModule::on_finalize(System::block_number());
         System::on_finalize(System::block_number());
         System::set_block_number(System::block_number() + 1);
         System::on_initialize(System::block_number());
         SubtensorModule::on_initialize(System::block_number());
+        Scheduler::on_initialize(System::block_number());
     }
 }
 
 #[allow(dead_code)]
 pub(crate) fn run_to_block(n: u64) {
     while System::block_number() < n {
+        Scheduler::on_finalize(System::block_number());
         SubtensorModule::on_finalize(System::block_number());
         System::on_finalize(System::block_number());
         System::set_block_number(System::block_number() + 1);
         System::on_initialize(System::block_number());
+        System::events().iter().for_each(|event| {
+            log::info!("Event: {:?}", event.event);
+        });
+        System::reset_events();
         SubtensorModule::on_initialize(System::block_number());
+        Scheduler::on_initialize(System::block_number());
     }
 }
 
@@ -471,4 +564,22 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+}
+
+// Helper function to set up a neuron with stake
+#[allow(dead_code)]
+pub fn setup_neuron_with_stake(netuid: u16, hotkey: U256, coldkey: U256, stake: u64) {
+    register_ok_neuron(netuid, hotkey, coldkey, stake);
+    SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake);
+}
+
+// Helper function to check if a value is within tolerance of an expected value
+#[allow(dead_code)]
+pub fn is_within_tolerance(actual: u64, expected: u64, tolerance: u64) -> bool {
+    let difference = if actual > expected {
+        actual - expected
+    } else {
+        expected - actual
+    };
+    difference <= tolerance
 }

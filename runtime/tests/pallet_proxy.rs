@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use codec::Encode;
 use frame_support::{assert_ok, traits::InstanceFilter, BoundedVec};
 use node_subtensor_runtime::{
@@ -197,4 +199,31 @@ fn test_proxy_pallet() {
             });
         }
     }
+}
+
+#[test]
+fn test_non_transfer_cannot_transfer() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Proxy::add_proxy(
+            RuntimeOrigin::signed(AccountId::from(ACCOUNT)),
+            AccountId::from(DELEGATE).into(),
+            ProxyType::NonTransfer,
+            0
+        ));
+
+        let call = call_transfer();
+        assert_ok!(Proxy::proxy(
+            RuntimeOrigin::signed(AccountId::from(DELEGATE)),
+            AccountId::from(ACCOUNT).into(),
+            None,
+            Box::new(call.clone()),
+        ));
+
+        System::assert_last_event(
+            pallet_proxy::Event::ProxyExecuted {
+                result: Err(SystemError::CallFiltered.into()),
+            }
+            .into(),
+        );
+    });
 }

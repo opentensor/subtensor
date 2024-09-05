@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use frame_support::traits::Currency;
 
 use crate::mock::*;
@@ -36,7 +38,7 @@ fn test_registration_subscribe_ok_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                weight: frame_support::weights::Weight::from_parts(192_000_000, 0),
+                weight: frame_support::weights::Weight::from_parts(2_992_000_000, 0),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
             }
@@ -274,7 +276,7 @@ fn test_registration_rate_limit_exceeded() {
         let result = extension.validate(&who, &call.into(), &info, 10);
 
         // Expectation: The transaction should be rejected
-        assert_err!(result, InvalidTransaction::ExhaustsResources);
+        assert_err!(result, InvalidTransaction::Custom(5));
 
         let current_registrants = SubtensorModule::get_registrations_this_interval(netuid);
         assert!(current_registrants <= max_registrants);
@@ -358,10 +360,7 @@ fn test_burned_registration_rate_limit_exceeded() {
             extension.validate(&who, &call_burned_register.into(), &info, 10);
 
         // Expectation: The transaction should be rejected
-        assert_err!(
-            burned_register_result,
-            InvalidTransaction::ExhaustsResources
-        );
+        assert_err!(burned_register_result, InvalidTransaction::Custom(5));
 
         let current_registrants = SubtensorModule::get_registrations_this_interval(netuid);
         assert!(current_registrants <= max_registrants);
@@ -537,7 +536,122 @@ fn test_burn_adjustment() {
 }
 
 #[test]
-#[cfg(not(tarpaulin))]
+fn test_burn_registration_pruning_scenarios() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+        let burn_cost = 1000;
+        let coldkey_account_id = U256::from(667);
+        let max_allowed_uids = 6;
+        let immunity_period = 5000;
+
+        const IS_IMMUNE: bool = true;
+        const NOT_IMMUNE: bool = false;
+
+        // Initial setup
+        SubtensorModule::set_burn(netuid, burn_cost);
+        SubtensorModule::set_max_allowed_uids(netuid, max_allowed_uids);
+        SubtensorModule::set_target_registrations_per_interval(netuid, max_allowed_uids);
+        SubtensorModule::set_immunity_period(netuid, immunity_period);
+
+        add_network(netuid, tempo, 0);
+
+        let mint_balance = burn_cost * u64::from(max_allowed_uids) + 1_000_000_000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, mint_balance);
+
+        // Register first half of neurons
+        for i in 0..3 {
+            assert_ok!(SubtensorModule::burned_register(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                netuid,
+                U256::from(i)
+            ));
+            step_block(1);
+        }
+
+        // Note: pruning score is set to u16::MAX after getting neuron to prune
+
+        // 1. Test if all immune neurons
+        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 0), IS_IMMUNE);
+        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 1), IS_IMMUNE);
+        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 2), IS_IMMUNE);
+
+        SubtensorModule::set_pruning_score_for_uid(netuid, 0, 100);
+        SubtensorModule::set_pruning_score_for_uid(netuid, 1, 75);
+        SubtensorModule::set_pruning_score_for_uid(netuid, 2, 50);
+
+        // The immune neuron with the lowest score should be pruned
+        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), 2);
+
+        // 2. Test tie-breaking for immune neurons
+        SubtensorModule::set_pruning_score_for_uid(netuid, 1, 50);
+        SubtensorModule::set_pruning_score_for_uid(netuid, 2, 50);
+
+        // Should get the oldest neuron (i.e., neuron that was registered first)
+        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), 1);
+
+        // 3. Test if no immune neurons
+        step_block(immunity_period);
+
+        // ensure all neurons are non-immune
+        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 0), NOT_IMMUNE);
+        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 1), NOT_IMMUNE);
+        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 2), NOT_IMMUNE);
+
+        SubtensorModule::set_pruning_score_for_uid(netuid, 0, 100);
+        SubtensorModule::set_pruning_score_for_uid(netuid, 1, 50);
+        SubtensorModule::set_pruning_score_for_uid(netuid, 2, 75);
+
+        // The non-immune neuron with the lowest score should be pruned
+        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), 1);
+
+        // 4. Test tie-breaking for non-immune neurons
+        SubtensorModule::set_pruning_score_for_uid(netuid, 1, 50);
+        SubtensorModule::set_pruning_score_for_uid(netuid, 2, 50);
+
+        // Should get the oldest non-immune neuron
+        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), 1);
+
+        // 5. Test mixed immunity
+        // Register second batch of neurons (these will be non-immune)
+        for i in 3..6 {
+            assert_ok!(SubtensorModule::burned_register(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                netuid,
+                U256::from(i)
+            ));
+            step_block(1);
+        }
+
+        // Ensure all new neurons are immune
+        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 3), IS_IMMUNE);
+        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 4), IS_IMMUNE);
+        assert_eq!(SubtensorModule::get_neuron_is_immune(netuid, 5), IS_IMMUNE);
+
+        // Set pruning scores for all neurons
+        SubtensorModule::set_pruning_score_for_uid(netuid, 0, 75); // non-immune
+        SubtensorModule::set_pruning_score_for_uid(netuid, 1, 50); // non-immune
+        SubtensorModule::set_pruning_score_for_uid(netuid, 2, 60); // non-immune
+        SubtensorModule::set_pruning_score_for_uid(netuid, 3, 40); // immune
+        SubtensorModule::set_pruning_score_for_uid(netuid, 4, 55); // immune
+        SubtensorModule::set_pruning_score_for_uid(netuid, 5, 45); // immune
+
+        // The non-immune neuron with the lowest score should be pruned
+        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), 1);
+
+        // If we remove the lowest non-immune neuron, it should choose the next lowest non-immune
+        SubtensorModule::set_pruning_score_for_uid(netuid, 1, u16::MAX);
+        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), 2);
+
+        // If we make all non-immune neurons have high scores, it should choose the oldest non-immune neuron
+        SubtensorModule::set_pruning_score_for_uid(netuid, 0, u16::MAX);
+        SubtensorModule::set_pruning_score_for_uid(netuid, 1, u16::MAX);
+        SubtensorModule::set_pruning_score_for_uid(netuid, 2, u16::MAX);
+        assert_eq!(SubtensorModule::get_neuron_to_prune(netuid), 0);
+    });
+}
+
+#[test]
 fn test_registration_too_many_registrations_per_block() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
@@ -1866,153 +1980,153 @@ fn test_registration_disabled() {
     });
 }
 
-#[ignore]
-#[test]
-fn test_hotkey_swap_ok() {
-    new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
-        let tempo: u16 = 13;
-        let hotkey_account_id = U256::from(1);
-        let burn_cost = 1000;
-        let coldkey_account_id = U256::from(667);
+// #[ignore]
+// #[test]
+// fn test_hotkey_swap_ok() {
+//     new_test_ext(1).execute_with(|| {
+//         let netuid: u16 = 1;
+//         let tempo: u16 = 13;
+//         let hotkey_account_id = U256::from(1);
+//         let burn_cost = 1000;
+//         let coldkey_account_id = U256::from(667);
 
-        SubtensorModule::set_burn(netuid, burn_cost);
-        add_network(netuid, tempo, 0);
+//         SubtensorModule::set_burn(netuid, burn_cost);
+//         add_network(netuid, tempo, 0);
 
-        // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10_000_000_000);
+//         // Give it some $$$ in his coldkey balance
+//         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10_000_000_000);
 
-        // Subscribe and check extrinsic output
-        assert_ok!(SubtensorModule::burned_register(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            netuid,
-            hotkey_account_id
-        ));
+//         // Subscribe and check extrinsic output
+//         assert_ok!(SubtensorModule::burned_register(
+//             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+//             netuid,
+//             hotkey_account_id
+//         ));
 
-        let new_hotkey = U256::from(1337);
-        assert_ok!(SubtensorModule::swap_hotkey(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id,
-            new_hotkey
-        ));
-        assert_ne!(
-            SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
-            coldkey_account_id
-        );
-        assert_eq!(
-            SubtensorModule::get_owning_coldkey_for_hotkey(&new_hotkey),
-            coldkey_account_id
-        );
-    });
-}
+//         let new_hotkey = U256::from(1337);
+//         assert_ok!(SubtensorModule::swap_hotkey(
+//             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+//             hotkey_account_id,
+//             new_hotkey
+//         ));
+//         assert_ne!(
+//             SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
+//             coldkey_account_id
+//         );
+//         assert_eq!(
+//             SubtensorModule::get_owning_coldkey_for_hotkey(&new_hotkey),
+//             coldkey_account_id
+//         );
+//     });
+// }
 
-#[ignore]
-#[test]
-fn test_hotkey_swap_not_owner() {
-    new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
-        let tempo: u16 = 13;
-        let hotkey_account_id = U256::from(1);
-        let burn_cost = 1000;
-        let coldkey_account_id = U256::from(2);
-        let not_owner_coldkey = U256::from(3);
+// #[ignore]
+// #[test]
+// fn test_hotkey_swap_not_owner() {
+//     new_test_ext(1).execute_with(|| {
+//         let netuid: u16 = 1;
+//         let tempo: u16 = 13;
+//         let hotkey_account_id = U256::from(1);
+//         let burn_cost = 1000;
+//         let coldkey_account_id = U256::from(2);
+//         let not_owner_coldkey = U256::from(3);
 
-        SubtensorModule::set_burn(netuid, burn_cost);
-        add_network(netuid, tempo, 0);
+//         SubtensorModule::set_burn(netuid, burn_cost);
+//         add_network(netuid, tempo, 0);
 
-        // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+//         // Give it some $$$ in his coldkey balance
+//         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
 
-        // Subscribe and check extrinsic output
-        assert_ok!(SubtensorModule::burned_register(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            netuid,
-            hotkey_account_id
-        ));
+//         // Subscribe and check extrinsic output
+//         assert_ok!(SubtensorModule::burned_register(
+//             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+//             netuid,
+//             hotkey_account_id
+//         ));
 
-        let new_hotkey = U256::from(4);
-        assert_err!(
-            SubtensorModule::swap_hotkey(
-                <<Test as Config>::RuntimeOrigin>::signed(not_owner_coldkey),
-                hotkey_account_id,
-                new_hotkey
-            ),
-            Error::<Test>::NonAssociatedColdKey
-        );
-    });
-}
+//         let new_hotkey = U256::from(4);
+//         assert_err!(
+//             SubtensorModule::swap_hotkey(
+//                 <<Test as Config>::RuntimeOrigin>::signed(not_owner_coldkey),
+//                 hotkey_account_id,
+//                 new_hotkey
+//             ),
+//             Error::<Test>::NonAssociatedColdKey
+//         );
+//     });
+// }
 
-#[ignore]
-#[test]
-fn test_hotkey_swap_same_key() {
-    new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
-        let tempo: u16 = 13;
-        let hotkey_account_id = U256::from(1);
-        let burn_cost = 1000;
-        let coldkey_account_id = U256::from(2);
+// #[ignore]
+// #[test]
+// fn test_hotkey_swap_same_key() {
+//     new_test_ext(1).execute_with(|| {
+//         let netuid: u16 = 1;
+//         let tempo: u16 = 13;
+//         let hotkey_account_id = U256::from(1);
+//         let burn_cost = 1000;
+//         let coldkey_account_id = U256::from(2);
 
-        SubtensorModule::set_burn(netuid, burn_cost);
-        add_network(netuid, tempo, 0);
+//         SubtensorModule::set_burn(netuid, burn_cost);
+//         add_network(netuid, tempo, 0);
 
-        // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+//         // Give it some $$$ in his coldkey balance
+//         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
 
-        // Subscribe and check extrinsic output
-        assert_ok!(SubtensorModule::burned_register(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            netuid,
-            hotkey_account_id
-        ));
+//         // Subscribe and check extrinsic output
+//         assert_ok!(SubtensorModule::burned_register(
+//             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+//             netuid,
+//             hotkey_account_id
+//         ));
 
-        assert_err!(
-            SubtensorModule::swap_hotkey(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-                hotkey_account_id,
-                hotkey_account_id
-            ),
-            Error::<Test>::HotKeyAlreadyRegisteredInSubNet
-        );
-    });
-}
+//         assert_err!(
+//             SubtensorModule::swap_hotkey(
+//                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+//                 hotkey_account_id,
+//                 hotkey_account_id
+//             ),
+//             Error::<Test>::HotKeyAlreadyRegisteredInSubNet
+//         );
+//     });
+// }
 
-#[ignore]
-#[test]
-fn test_hotkey_swap_registered_key() {
-    new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
-        let tempo: u16 = 13;
-        let hotkey_account_id = U256::from(1);
-        let burn_cost = 1000;
-        let coldkey_account_id = U256::from(2);
+// #[ignore]
+// #[test]
+// fn test_hotkey_swap_registered_key() {
+//     new_test_ext(1).execute_with(|| {
+//         let netuid: u16 = 1;
+//         let tempo: u16 = 13;
+//         let hotkey_account_id = U256::from(1);
+//         let burn_cost = 1000;
+//         let coldkey_account_id = U256::from(2);
 
-        SubtensorModule::set_burn(netuid, burn_cost);
-        add_network(netuid, tempo, 0);
+//         SubtensorModule::set_burn(netuid, burn_cost);
+//         add_network(netuid, tempo, 0);
 
-        // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 100_000_000_000);
+//         // Give it some $$$ in his coldkey balance
+//         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 100_000_000_000);
 
-        // Subscribe and check extrinsic output
-        assert_ok!(SubtensorModule::burned_register(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            netuid,
-            hotkey_account_id
-        ));
+//         // Subscribe and check extrinsic output
+//         assert_ok!(SubtensorModule::burned_register(
+//             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+//             netuid,
+//             hotkey_account_id
+//         ));
 
-        let new_hotkey = U256::from(3);
-        assert_ok!(SubtensorModule::burned_register(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            netuid,
-            new_hotkey
-        ));
+//         let new_hotkey = U256::from(3);
+//         assert_ok!(SubtensorModule::burned_register(
+//             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+//             netuid,
+//             new_hotkey
+//         ));
 
-        assert_err!(
-            SubtensorModule::swap_hotkey(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-                hotkey_account_id,
-                new_hotkey
-            ),
-            Error::<Test>::HotKeyAlreadyRegisteredInSubNet
-        );
-    });
-}
+//         assert_err!(
+//             SubtensorModule::swap_hotkey(
+//                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+//                 hotkey_account_id,
+//                 new_hotkey
+//             ),
+//             Error::<Test>::HotKeyAlreadyRegisteredInSubNet
+//         );
+//     });
+// }
