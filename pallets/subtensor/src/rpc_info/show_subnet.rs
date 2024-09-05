@@ -158,8 +158,8 @@ impl<T: Config> Pallet<T> {
             block_at_registration: block_at_registration.into(),
             local_stake: local_stake.into(),
             global_stake: global_stake.into(),
-            stake_weight: stake_weight,
-            emission_history: emission_history,
+            stake_weight,
+            emission_history,
         })
     }
 }

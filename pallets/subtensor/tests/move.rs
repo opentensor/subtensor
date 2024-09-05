@@ -522,7 +522,8 @@ fn test_do_move_with_locks() {
             origin_hotkey,
             destination_hotkey,
             netuid,
-            netuid
+            netuid,
+            None
         ));
 
         // Check that only unlocked stake was moved
