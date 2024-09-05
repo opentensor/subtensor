@@ -132,8 +132,8 @@ where
     BE: Backend<Block> + 'static,
     P: TransactionPool<Block = Block> + 'static,
     A: ChainApi<Block = Block> + 'static,
-    CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
-    CT: fp_rpc::ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + 'static,
+    CIDP: CreateInherentDataProviders<Block, ()> + Send + Clone + 'static,
+    CT: fp_rpc::ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + Clone + 'static,
 {
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
     use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
