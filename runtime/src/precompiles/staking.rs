@@ -21,7 +21,7 @@ impl StakingPrecompile {
     pub fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
         let txdata = handle.input();
         let method_id = get_slice(txdata, 0, 4)?;
-        let method_input = txdata[4..].to_vec(); // Avoiding borrowing conflicts
+        let method_input = txdata.get(4..).map_or_else(vec::Vec::new, |slice| slice.to_vec()); // Avoiding borrowing conflicts
 
         match method_id {
             id if id == get_method_id("addStake(bytes32)") => {
@@ -49,7 +49,9 @@ impl StakingPrecompile {
     }
     fn remove_stake(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
         let hotkey = Self::parse_hotkey(data)?.into();
-        let amount = U256::from_big_endian(&data[32..40]).as_u64(); // Assuming the next 8 bytes represent the amount
+        let amount = data.get(32..40)
+            .map(U256::from_big_endian)
+            .map_or(0, |v| v.as_u64()); // Assuming the next 8 bytes represent the amount
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::<Runtime>::remove_stake {
             hotkey,
             amount_unstaked: amount,
@@ -64,7 +66,7 @@ impl StakingPrecompile {
             });
         }
         let mut hotkey = [0u8; 32];
-        hotkey.copy_from_slice(&data[0..32]);
+        hotkey.copy_from_slice(get_slice(data, 0, 32)?);
         Ok(hotkey)
     }
 
