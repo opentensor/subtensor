@@ -1,5 +1,5 @@
 use core::marker::PhantomData;
-use sp_core::{crypto::ByteArray, hashing::keccak_256, H160};
+use sp_core::{hashing::keccak_256, H160};
 use sp_runtime::AccountId32;
 
 use pallet_evm::{
@@ -100,7 +100,7 @@ pub fn get_method_id(method_signature: &str) -> [u8; 4] {
 /// which consumes all gas
 ///
 pub fn bytes_to_account_id(account_id_bytes: &[u8]) -> Result<AccountId32, PrecompileFailure> {
-    AccountId32::from_slice(account_id_bytes).map_err(|_| {
+    AccountId32::try_from(account_id_bytes).map_err(|_| {
         log::info!("Error parsing account id bytes {:?}", account_id_bytes);
         PrecompileFailure::Error {
             exit_status: ExitError::InvalidRange,
