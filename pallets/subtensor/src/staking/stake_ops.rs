@@ -63,12 +63,13 @@ impl<T: Config> Pallet<T> {
     /// 1. Retrieves the mechanism type for the subnet (0 for Stable, 1 for Dynamic).
     /// 2. Converts the input TAO amount to a fixed-point number for precise calculations.
     /// 3. Calculates the alpha to be staked based on the subnet's mechanism:
-    ///		a. For Dynamic mechanism (mechanism_id == 1):
+    ///    a. For Dynamic mechanism (mechanism_id == 1):
     ///       - Retrieves current TAO and Alpha in the subnet.
     ///       - Computes the constant product k = alpha * tao.
     ///       - Calculates alpha staked using the formula: alpha_staked = current_alpha - (k / (current_tao + new_tao)).
     ///       - Calculates new subnet alpha after staking.
-    ///		b. For Stable mechanism (mechanism_id == 0):
+    ///
+    ///    b. For Stable mechanism (mechanism_id == 0):
     ///       - Sets alpha staked equal to TAO staked.
     ///       - Sets new subnet alpha to zero.
     /// 4. Converts calculated alpha values from fixed-point to u64 for storage.

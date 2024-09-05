@@ -436,7 +436,7 @@ impl<T: Config> Pallet<T> {
 
         // Get the last block the neuron owner added some stake to this hotkey
         let stake_add_block =
-            LastAddStakeIncrease::<T>::get(&hotkey, Self::get_coldkey_for_hotkey(&hotkey));
+            LastAddStakeIncrease::<T>::get(&hotkey, Self::get_coldkey_for_hotkey(hotkey));
 
         // If the last block this nominator added any stake is old enough (older than one hotkey tempo),
         // consider this nominator's contribution
