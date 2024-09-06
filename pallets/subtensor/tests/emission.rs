@@ -1699,16 +1699,13 @@ fn test_fast_stake_unstake_protection_source_hotkey() {
 
         // Set up stakes and delegations
         add_network(netuid, tempo, 0);
-        Delegates::<Test>::insert(&hotkey, 16384); // 25% take
+        Delegates::<Test>::insert(hotkey, 16384); // 25% take
         SubtensorModule::stake_into_subnet(&parent1, &coldkey, netuid, 500);
         SubtensorModule::stake_into_subnet(&parent2, &coldkey, netuid, 500);
         ParentKeys::<Test>::insert(
-            &hotkey,
+            hotkey,
             netuid,
-            vec![
-                (u64::MAX / 2, parent1.clone()),
-                (u64::MAX / 2, parent2.clone()),
-            ],
+            vec![(u64::MAX / 2, parent1), (u64::MAX / 2, parent2)],
         );
 
         let mut emission_tuples = Vec::new();
@@ -1758,7 +1755,7 @@ fn test_fast_stake_unstake_protection_source_nominator() {
         // Set up stakes and delegations
         SubtensorModule::stake_into_subnet(&hotkey, &nominator1, netuid, 500);
         SubtensorModule::stake_into_subnet(&hotkey, &nominator2, netuid, 500);
-        Delegates::<Test>::insert(&hotkey, 16384); // 25% take
+        Delegates::<Test>::insert(hotkey, 16384); // 25% take
         HotkeyEmissionTempo::<Test>::put(10);
 
         let mut emission_tuples = Vec::new();
