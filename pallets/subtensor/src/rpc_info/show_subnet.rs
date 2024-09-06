@@ -138,7 +138,7 @@ impl<T: Config> Pallet<T> {
             .collect();
         let stake_weight: Vec<Compact<u16>> = stake
             .into_iter()
-            .map(|x| Compact::from((x.to_num::<u64>() as u16).min(u16::MAX)))
+            .map(|x| Compact::from(x.to_num::<u64>() as u16))
             .collect();
         let emission_history: Vec<Vec<Compact<u64>>> = Self::get_emissions_history(hotkeys.clone());
         Some(SubnetState {
