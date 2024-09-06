@@ -35,16 +35,31 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CommitRevealDisabled
         );
 
+        // Check that the validator is not committing too frequently (weights_rate_limit check)
         ensure!(
-            Self::can_commit(netuid, &who),
+            Self::check_rate_limit_for_commit(netuid, &who),
             Error::<T>::WeightsCommitNotAllowed
         );
 
+        // Insert the new commit with the current block number.
+        let current_block = Self::get_current_block_as_u64();
         WeightCommits::<T>::insert(
             netuid,
             &who,
-            (commit_hash, Self::get_current_block_as_u64()),
+            (commit_hash, current_block),
         );
+
+        // Retain only commits where committed_block < current_block - commit_reveal_interval * 2
+        let interval = Self::get_commit_reveal_weights_interval(netuid) * 2;
+        let threshold_block = current_block.saturating_sub(interval);
+
+        // Iterate through the commits and remove old entries
+        WeightCommits::<T>::drain_prefix(netuid).for_each(|(who, (_hash, commit_block))| {
+            if commit_block < threshold_block {
+                WeightCommits::<T>::remove(netuid, who);
+            }
+        });
+
         Ok(())
     }
 
@@ -102,7 +117,7 @@ impl<T: Config> Pallet<T> {
                 .ok_or(Error::<T>::NoWeightsCommitFound)?;
 
             ensure!(
-                Self::is_reveal_block_range(netuid, *commit_block),
+                Self::is_reveal_valid(*commit_block, netuid),
                 Error::<T>::InvalidRevealCommitTempo
             );
 
@@ -452,50 +467,29 @@ impl<T: Config> Pallet<T> {
         uids.len() <= subnetwork_n as usize
     }
 
-    #[allow(clippy::arithmetic_side_effects)]
-    pub fn can_commit(netuid: u16, who: &T::AccountId) -> bool {
-        if let Some((_hash, commit_block)) = WeightCommits::<T>::get(netuid, who) {
-            let interval: u64 = Self::get_commit_reveal_weights_interval(netuid);
-            if interval == 0 {
-                return true; //prevent division by 0
-            }
-
+    ///
+    /// This function checks if the `weights_rate_limit` time has passed since the last
+    /// committed weight. If it has, the validator can commit new weights.
+    ///
+    pub fn check_rate_limit_for_commit(netuid: u16, who: &T::AccountId) -> bool {
+        if let Some((_hash, last_commit_block)) = WeightCommits::<T>::get(netuid, who) {
             let current_block: u64 = Self::get_current_block_as_u64();
-            let interval_start: u64 = current_block.saturating_sub(current_block % interval);
-            let last_commit_interval_start: u64 =
-                commit_block.saturating_sub(commit_block % interval);
-
-            // Allow commit if we're within the interval bounds
-            if current_block <= interval_start.saturating_add(interval)
-                && interval_start > last_commit_interval_start
-            {
-                return true;
-            }
-
-            false
+            let rate_limit: u64 = Self::get_weights_set_rate_limit(netuid);
+            current_block.saturating_sub(last_commit_block) >= rate_limit
         } else {
             true
         }
     }
 
+    /// ---- The helper logic for checking if a reveal is valid based on the commit.
+    ///
+    /// A reveal is valid if the difference between the current block and the committed block
+    /// exceeds the `commit_reveal_interval`.
+    ///
     #[allow(clippy::arithmetic_side_effects)]
-    pub fn is_reveal_block_range(netuid: u16, commit_block: u64) -> bool {
-        let interval: u64 = Self::get_commit_reveal_weights_interval(netuid);
-        if interval == 0 {
-            return true; //prevent division by 0
-        }
-
-        let commit_interval_start: u64 = commit_block.saturating_sub(commit_block % interval); // Find the start of the interval in which the commit occurred
-        let reveal_interval_start: u64 = commit_interval_start.saturating_add(interval); // Start of the next interval after the commit interval
-        let current_block: u64 = Self::get_current_block_as_u64();
-
-        // Allow reveal if the current block is within the interval following the commit's interval
-        if current_block >= reveal_interval_start
-            && current_block < reveal_interval_start.saturating_add(interval)
-        {
-            return true;
-        }
-
-        false
+    pub fn is_reveal_valid(commit_block: u64, netuid: u16) -> bool {
+        let interval = Self::get_commit_reveal_weights_interval(netuid);
+        let current_block = Self::get_current_block_as_u64();
+        current_block.saturating_sub(commit_block) > interval
     }
 }
