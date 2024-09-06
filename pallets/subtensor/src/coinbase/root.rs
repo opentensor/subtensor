@@ -1159,7 +1159,7 @@ impl<T: Config> Pallet<T> {
 
         for (staking_key, hotkey, coldkey, stake) in stake_entries {
             Self::add_balance_to_coldkey_account(&staking_key, stake);
-            <Stake<T>>::remove(&hotkey, &coldkey);
+            Self::decrease_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake);
         }
 
         // --- 3. Remove network count.

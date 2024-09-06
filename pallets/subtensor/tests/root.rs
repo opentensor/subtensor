@@ -1013,9 +1013,7 @@ fn test_dissolve_network_unstake_nominators_ok() {
 
         // Check that the balance was correctly updated and the stake was removed
         assert_eq!(new_balance, initial_balance + stake);
-        assert!(!<pallet_subtensor::Stake<Test>>::contains_key(
-            hotkey, coldkey
-        ));
+        assert_eq!(<pallet_subtensor::Stake<Test>>::get(hotkey, coldkey), 0);
     });
 }
 
@@ -1061,9 +1059,7 @@ fn test_dissolve_network_unstake_delegate_ok() {
 
         // Check that the delegate's balance was correctly updated and the stake was removed
         assert_eq!(new_delegate_balance, initial_delegate_balance + stake);
-        assert!(!<pallet_subtensor::Stake<Test>>::contains_key(
-            hotkey, coldkey
-        ));
+        assert_eq!(<pallet_subtensor::Stake<Test>>::get(hotkey, coldkey), 0);
     });
 }
 
@@ -1107,12 +1103,11 @@ fn test_dissolve_network_unstake_nominators_and_delegates_partial_match() {
         // Check that only the second network's stake was removed and balance updated
         assert_eq!(new_balance1, initial_balance1);
         assert_eq!(new_balance2, initial_balance2 + stake2); // Only change for hotkey2
-        assert!(<pallet_subtensor::Stake<Test>>::contains_key(
-            hotkey1, coldkey1
-        ));
-        assert!(!<pallet_subtensor::Stake<Test>>::contains_key(
-            hotkey2, coldkey2
-        ));
+        assert_eq!(
+            <pallet_subtensor::Stake<Test>>::get(hotkey1, coldkey1),
+            stake1
+        );
+        assert_eq!(<pallet_subtensor::Stake<Test>>::get(hotkey2, coldkey2), 0);
     });
 }
 
@@ -1150,12 +1145,8 @@ fn test_dissolve_network_unstake_multiple_stakes_same_hotkey() {
         // Check that both stakes were removed and the balances updated
         assert_eq!(new_balance1, initial_balance1 + stake1);
         assert_eq!(new_balance2, initial_balance2 + stake2);
-        assert!(!<pallet_subtensor::Stake<Test>>::contains_key(
-            hotkey, coldkey1
-        ));
-        assert!(!<pallet_subtensor::Stake<Test>>::contains_key(
-            hotkey, coldkey2
-        ));
+        assert_eq!(<pallet_subtensor::Stake<Test>>::get(hotkey, coldkey1), 0);
+        assert_eq!(<pallet_subtensor::Stake<Test>>::get(hotkey, coldkey2), 0);
     });
 }
 
@@ -1291,10 +1282,7 @@ fn test_dissolve_network_complex_state() {
             );
 
             assert_eq!(new_balance, stake + initial_balances[i]);
-
-            assert!(!<pallet_subtensor::Stake<Test>>::contains_key(
-                hotkey, coldkey
-            ));
+            assert_eq!(<pallet_subtensor::Stake<Test>>::get(hotkey, coldkey), 0);
         }
     });
 }
