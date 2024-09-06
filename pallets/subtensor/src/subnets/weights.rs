@@ -43,14 +43,10 @@ impl<T: Config> Pallet<T> {
 
         // Insert the new commit with the current block number.
         let current_block = Self::get_current_block_as_u64();
-        WeightCommits::<T>::insert(
-            netuid,
-            &who,
-            (commit_hash, current_block),
-        );
+        WeightCommits::<T>::insert(netuid, &who, (commit_hash, current_block));
 
         // Retain only commits where committed_block < current_block - commit_reveal_interval * 2
-        let interval = Self::get_commit_reveal_weights_interval(netuid) * 2;
+        let interval = Self::get_commit_reveal_weights_interval(netuid).saturating_mul(2);
         let threshold_block = current_block.saturating_sub(interval);
 
         // Iterate through the commits and remove old entries
