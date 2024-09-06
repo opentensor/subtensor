@@ -319,9 +319,7 @@ fn test_swap_certificates() {
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
         let netuid = 0u16;
-        let certificate = NeuronCertificate {
-            certificate: vec![1, 2, 3],
-        };
+        let certificate = NeuronCertificate::try_from(vec![1, 2, 3]).unwrap();
         let mut weight = Weight::zero();
 
         add_network(netuid, 0, 1);

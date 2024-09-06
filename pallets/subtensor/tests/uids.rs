@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used)]
 
 use crate::mock::*;
-use frame_support::assert_ok;
+use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use pallet_subtensor::*;
 use sp_core::U256;
@@ -33,9 +33,7 @@ fn test_replace_neuron() {
 
         let new_hotkey_account_id = U256::from(2);
         let _new_colkey_account_id = U256::from(12345);
-        let certificate = NeuronCertificate {
-            certificate: vec![1, 2, 3],
-        };
+        let certificate = NeuronCertificate::try_from(vec![1, 2, 3]).unwrap();
 
         //add network
         add_network(netuid, tempo, 0);
@@ -380,5 +378,26 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
         );
+    });
+}
+
+#[test]
+fn test_neuron_certificate() {
+    new_test_ext(1).execute_with(|| {
+        // 512 bits key
+        let mut data = [0; 65].to_vec();
+        assert_ok!(NeuronCertificate::try_from(data));
+
+        // 256 bits key
+        data = [1; 33].to_vec();
+        assert_ok!(NeuronCertificate::try_from(data));
+
+        // too much data
+        data = [8; 88].to_vec();
+        assert_err!(NeuronCertificate::try_from(data), ());
+
+        // no data
+        data = vec![];
+        assert_err!(NeuronCertificate::try_from(data), ());
     });
 }
