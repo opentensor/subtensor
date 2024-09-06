@@ -1055,7 +1055,14 @@ mod dispatches {
             destination_netuid: u16,
             amount_moved: Option<u64>,
         ) -> DispatchResult {
-            Self::do_move_stake(origin, origin_hotkey, destination_hotkey, origin_netuid, destination_netuid, amount_moved)
+            Self::do_move_stake(
+                origin,
+                origin_hotkey,
+                destination_hotkey,
+                origin_netuid,
+                destination_netuid,
+                amount_moved,
+            )
         }
     }
 }
