@@ -1141,26 +1141,21 @@ impl<T: Config> Pallet<T> {
         let reserved_amount: u64 = Self::get_subnet_locked_balance(netuid);
 
         // --- 2. Unstake nominators and delegates
-        let stake_entries: Vec<(T::AccountId, T::AccountId, T::AccountId, u64)> =
-            <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter()
-                .filter_map(|(hotkey, coldkey, stake)| {
-                    if !Uids::<T>::contains_key(netuid, &hotkey) {
-                        return None;
-                    }
+        <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter().for_each(
+            |(hotkey, coldkey, stake)| {
+                if !Uids::<T>::contains_key(netuid, &hotkey) {
+                    return;
+                }
 
-                    let staking_key = match Self::hotkey_is_delegate(&hotkey) {
-                        true => Owner::<T>::get(&hotkey),
-                        false => coldkey.clone(),
-                    };
+                let staking_key = match Self::hotkey_is_delegate(&hotkey) {
+                    true => Owner::<T>::get(&hotkey),
+                    false => coldkey.clone(),
+                };
 
-                    Some((staking_key, hotkey, coldkey, stake))
-                })
-                .collect::<Vec<_>>();
-
-        for (staking_key, hotkey, coldkey, stake) in stake_entries {
-            Self::add_balance_to_coldkey_account(&staking_key, stake);
-            Self::decrease_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake);
-        }
+                Self::add_balance_to_coldkey_account(&staking_key, stake);
+                Self::decrease_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake);
+            },
+        );
 
         // --- 3. Remove network count.
         SubnetworkN::<T>::remove(netuid);
