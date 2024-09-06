@@ -1,8 +1,8 @@
-name: Finney Deploy Check
+name: Testnet Spec Version Check
 
 on:
   pull_request:
-    branches: [finney, main]
+    branches: [testnet, testnet-ready]
 
 env:
   CARGO_TERM_COLOR: always
@@ -30,7 +30,7 @@ jobs:
 
       - name: Check that spec_version has been bumped
         run: |
-          spec_version=$(PATH=$PATH:$HOME/.cargo/.bin substrate-spec-version wss://entrypoint-finney.opentensor.ai:443 | tr -d '\n')
+          spec_version=$(PATH=$PATH:$HOME/.cargo/.bin substrate-spec-version wss://test.finney.opentensor.ai:443 | tr -d '\n')
           echo "network spec_version: $spec_version"
           : ${spec_version:?bad spec version}
           local_spec_version=$(cargo run -p node-subtensor-runtime --bin spec_version | tr -d '\n')
@@ -38,17 +38,3 @@ jobs:
           echo "network spec_version: $spec_version"
           if (( $(echo "$local_spec_version <= $spec_version" | bc -l) )); then echo "$local_spec_version ≯ $spec_version ❌"; exit 1; fi
           echo "$local_spec_version > $spec_version ✅"
-
-  check-finney-migrations:
-    name: check finney migrations
-    runs-on: SubtensorCI
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-      - name: Run Try Runtime Checks
-        uses: "paritytech/try-runtime-gha@v0.1.0"
-        with:
-          runtime-package: "node-subtensor-runtime"
-          node-uri: "wss://entrypoint-finney.opentensor.ai:443"
-          checks: "pre-and-post"
-          extra-args: "--disable-spec-version-check --no-weight-warnings"
