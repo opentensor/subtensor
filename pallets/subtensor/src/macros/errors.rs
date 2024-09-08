@@ -4,6 +4,7 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod errors {
+    #[repr(u8)]
     #[pallet::error]
     pub enum Error<T> {
         /// The subnet does not exist.
@@ -184,5 +185,32 @@ mod errors {
         TxChildkeyTakeRateLimitExceeded,
         /// Invalid identity.
         InvalidIdentity,
+        /// Coldkey currently in swap schedule
+        ColdkeyInSwapSchedule,
+        /// Stake is too low to commit weights
+        CommitWeightsBelowMinStake,
+        /// Stake is too low to reveal weights
+        RevealWeightsBelowMinStake,
+        /// Stake is too low to set weights
+        SetWeightsBelowMinStake,
+        /// Stake is too low to set root weights
+        SetRootWeightsBelowMinStake,
+        /// Too many registrations this interval
+        MaxIntervalRegistrationsReached,
+    }
+
+    //Codes are intended to match their index within the errors enum
+    impl<T> From<Error<T>> for u8 {
+        fn from(e: Error<T>) -> u8 {
+            match e {
+                Error::<T>::ColdkeyInSwapSchedule => 89,
+                Error::<T>::CommitWeightsBelowMinStake => 90,
+                Error::<T>::RevealWeightsBelowMinStake => 91,
+                Error::<T>::SetWeightsBelowMinStake => 92,
+                Error::<T>::SetRootWeightsBelowMinStake => 93,
+                Error::<T>::MaxIntervalRegistrationsReached => 94,
+                _ => u8::MAX,
+            }
+        }
     }
 }
