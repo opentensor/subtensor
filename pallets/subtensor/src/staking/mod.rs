@@ -9,5 +9,4 @@ pub mod lock;
 pub mod move_stake;
 pub mod remove_stake;
 pub mod set_children;
-pub mod set_stakes;
 pub mod stake_ops;
