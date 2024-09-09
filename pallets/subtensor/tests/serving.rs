@@ -131,7 +131,10 @@ fn test_serving_tls_ok() {
 
         let stored_certificate = NeuronCertificates::<Test>::get(netuid, hotkey_account_id)
             .expect("Certificate should exist");
-        assert_eq!(stored_certificate.public_key.clone().into_inner(), certificate.get(1..).expect("Certificate should exist"));
+        assert_eq!(
+            stored_certificate.public_key.clone().into_inner(),
+            certificate.get(1..).expect("Certificate should exist")
+        );
         let new_certificate = "UPDATED_CERT".as_bytes().to_vec();
         assert_ok!(SubtensorModule::serve_axon_tls(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
@@ -147,7 +150,10 @@ fn test_serving_tls_ok() {
         ));
         let stored_certificate = NeuronCertificates::<Test>::get(netuid, hotkey_account_id)
             .expect("Certificate should exist");
-        assert_eq!(stored_certificate.public_key.clone().into_inner(), new_certificate.get(1..).expect("Certificate should exist"));
+        assert_eq!(
+            stored_certificate.public_key.clone().into_inner(),
+            new_certificate.get(1..).expect("Certificate should exist")
+        );
     });
 }
 
