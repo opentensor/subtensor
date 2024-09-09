@@ -43,4 +43,17 @@ fn main() {
         .split("\n")
         .map(|s| s.trim().to_string())
         .collect::<Vec<String>>();
+
+    let previous_tag = match network {
+        Network::Mainnet => all_tags
+            .iter()
+            .find(|tag| tag.starts_with("v") && !tag.ends_with("-pre-release"))
+            .expect("could not find a valid mainnet tag!"),
+        Network::Testnet => all_tags
+            .iter()
+            .find(|tag| tag.starts_with("v") && tag.ends_with("-pre-release"))
+            .expect("could not find a valid testnet tag!"),
+    };
+
+    println!("Previous Release Tag: {}", previous_tag);
 }
