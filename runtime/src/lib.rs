@@ -629,6 +629,7 @@ pub enum ProxyType {
     Registration,
     Transfer,
     SmallTransfer,
+    RootWeights,
 }
 // Transfers below SMALL_TRANSFER_LIMIT are considered small transfers
 pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
@@ -673,6 +674,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::Triumvirate(..)
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_root_weights { .. })
             ),
             ProxyType::Triumvirate => matches!(
                 c,
@@ -694,6 +696,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::register { .. })
+            ),
+            ProxyType::RootWeights => matches!(
+                c,
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_root_weights { .. })
             ),
         }
     }
