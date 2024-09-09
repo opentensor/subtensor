@@ -54,6 +54,32 @@ fn main() {
             .find(|tag| tag.starts_with("v") && tag.ends_with("-pre-release"))
             .expect("could not find a valid testnet tag!"),
     };
+    println!("Previous release tag: {}", previous_tag);
 
-    println!("Previous Release Tag: {}", previous_tag);
+    println!("");
+    println!(
+        "Generating release notes for all merges since {}...",
+        previous_tag,
+    );
+
+    let merges = eval(format!(
+        "git log --merges --pretty=format:'%s' {}..HEAD",
+        previous_tag
+    ))
+    .split("\n")
+    .map(|s| s.trim().to_string())
+    .filter(|s| {
+        !s.is_empty()
+            && s.starts_with("Merge pull request #")
+            && !s.ends_with("from opentensor/devnet-ready")
+            && !s.ends_with("from opentensor/testnet-ready")
+            && !s.ends_with("from opentensor/devnet")
+            && !s.ends_with("from opentensor/testnet")
+    })
+    .collect::<Vec<String>>();
+
+    println!("");
+    println!("Filtered merges:\n{}", merges.join("\n"));
+
+    println!("");
 }
