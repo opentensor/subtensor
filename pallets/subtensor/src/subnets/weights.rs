@@ -38,7 +38,6 @@ impl<T: Config> Pallet<T> {
         // Check that the validator is not committing too frequently (weights_rate_limit check)
         ensure!(
             Self::check_rate_limit_for_commit(netuid, &who),
-            
             Error::<T>::WeightsCommitNotAllowed
         );
 
@@ -51,7 +50,8 @@ impl<T: Config> Pallet<T> {
         let threshold_block = current_block.saturating_sub(interval);
 
         // Retrieve all commits for the given network as a vector, sorted by block number
-        let mut commits: Vec<(T::AccountId, (H256, u64))> = WeightCommits::<T>::iter_prefix(netuid).collect();
+        let mut commits: Vec<(T::AccountId, (H256, u64))> =
+            WeightCommits::<T>::iter_prefix(netuid).collect();
 
         // Use binary search to find the first valid commit that is above the threshold
         let first_valid_index = commits
@@ -61,9 +61,11 @@ impl<T: Config> Pallet<T> {
         // If there are old commits, remove them in bulk
         if first_valid_index > 0 {
             // Remove old commits that are below the threshold
-            commits.drain(0..first_valid_index).for_each(|(account, _)| {
-                WeightCommits::<T>::remove(netuid, &account);
-            });
+            commits
+                .drain(0..first_valid_index)
+                .for_each(|(account, _)| {
+                    WeightCommits::<T>::remove(netuid, &account);
+                });
         }
         Ok(())
     }
@@ -122,7 +124,10 @@ impl<T: Config> Pallet<T> {
                 .ok_or(Error::<T>::NoWeightsCommitFound)?;
 
             ensure!(
-                Self::is_reveal_valid(*commit_block, netuid),
+                Self::is_rate_limit_satisfied(
+                    *commit_block,
+                    Self::get_commit_reveal_weights_interval(netuid)
+                ),
                 Error::<T>::InvalidRevealCommitTempo
             );
 
@@ -472,20 +477,20 @@ impl<T: Config> Pallet<T> {
         uids.len() <= subnetwork_n as usize
     }
 
-    ///
-    /// This function checks if the `weights_rate_limit` time has passed since the last
-    /// committed weight. If it has, the validator can commit new weights.
-    ///
-    /// 
-    pub fn check_rate_limit_for_commit(netuid: u16, who: &T::AccountId) -> bool {
-        if let Some((_hash, last_commit_block)) = WeightCommits::<T>::get(netuid, who) {
-            let current_block: u64 = Self::get_current_block_as_u64();
-            let rate_limit: u64 = Self::get_weights_set_rate_limit(netuid);
-            current_block.saturating_sub(last_commit_block) >= rate_limit
-        } else {
-            true
-        }
-    }
+    // ///
+    // /// This function checks if the `weights_rate_limit` time has passed since the last
+    // /// committed weight. If it has, the validator can commit new weights.
+    // ///
+    // ///
+    // pub fn check_rate_limit_for_commit(netuid: u16, who: &T::AccountId) -> bool {
+    //     if let Some((_hash, last_commit_block)) = WeightCommits::<T>::get(netuid, who) {
+    //         let current_block: u64 = Self::get_current_block_as_u64();
+    //         let rate_limit: u64 = Self::get_weights_set_rate_limit(netuid);
+    //         current_block.saturating_sub(last_commit_block) >= rate_limit
+    //     } else {
+    //         true
+    //     }
+    // }
 
     /// This function is used to enforce a time delay between when weights are committed and when
     /// they can be revealed. This delay helps prevent certain types of attacks and ensures the
@@ -504,5 +509,38 @@ impl<T: Config> Pallet<T> {
         let interval = Self::get_commit_reveal_weights_interval(netuid);
         let current_block = Self::get_current_block_as_u64();
         current_block.saturating_sub(commit_block) > interval
+    }
+
+    /// Checks if the rate limit has been satisfied based on the current block and a given interval.
+    ///
+    /// # Arguments
+    ///
+    /// * `last_commit_block` - The block number when the weights were committed.
+    /// * `rate_limit_interval` - The interval (in blocks) that must pass before a new action can occur.
+    ///
+    /// # Returns
+    ///
+    /// * `bool` - True if the rate limit has been satisfied, false otherwise.
+    fn is_rate_limit_satisfied(last_commit_block: u64, rate_limit_interval: u64) -> bool {
+        let current_block = Self::get_current_block_as_u64();
+        let time_passed = current_block.saturating_sub(last_commit_block);
+        log::debug!(
+            "Checking rate limit: current_block = {}, last_commit_block = {}, time_passed = {}, interval = {}",
+            current_block, last_commit_block, time_passed, rate_limit_interval
+        );
+        time_passed > rate_limit_interval
+    }
+
+    /// Checks if the neuron has set weights within the weights_set_rate_limit.
+    ///
+    pub fn check_rate_limit_for_commit(netuid: u16, who: &T::AccountId) -> bool {
+        if let Some((_hash, last_commit_block)) = WeightCommits::<T>::get(netuid, who) {
+            Self::is_rate_limit_satisfied(
+                last_commit_block,
+                Self::get_weights_set_rate_limit(netuid),
+            )
+        } else {
+            true
+        }
     }
 }
