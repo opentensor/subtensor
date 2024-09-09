@@ -477,40 +477,6 @@ impl<T: Config> Pallet<T> {
         uids.len() <= subnetwork_n as usize
     }
 
-    // ///
-    // /// This function checks if the `weights_rate_limit` time has passed since the last
-    // /// committed weight. If it has, the validator can commit new weights.
-    // ///
-    // ///
-    // pub fn check_rate_limit_for_commit(netuid: u16, who: &T::AccountId) -> bool {
-    //     if let Some((_hash, last_commit_block)) = WeightCommits::<T>::get(netuid, who) {
-    //         let current_block: u64 = Self::get_current_block_as_u64();
-    //         let rate_limit: u64 = Self::get_weights_set_rate_limit(netuid);
-    //         current_block.saturating_sub(last_commit_block) >= rate_limit
-    //     } else {
-    //         true
-    //     }
-    // }
-
-    /// This function is used to enforce a time delay between when weights are committed and when
-    /// they can be revealed. This delay helps prevent certain types of attacks and ensures the
-    /// integrity of the commit-reveal scheme.
-    ///
-    /// # Arguments
-    ///
-    /// * `commit_block` - The block number when the weights were committed
-    /// * `netuid` - The network UID for which to check the reveal validity
-    ///
-    /// # Returns
-    ///
-    /// * `bool` - True if the reveal is valid (enough time has passed), false otherwise
-    #[allow(clippy::arithmetic_side_effects)]
-    pub fn is_reveal_valid(commit_block: u64, netuid: u16) -> bool {
-        let interval = Self::get_commit_reveal_weights_interval(netuid);
-        let current_block = Self::get_current_block_as_u64();
-        current_block.saturating_sub(commit_block) > interval
-    }
-
     /// Checks if the rate limit has been satisfied based on the current block and a given interval.
     ///
     /// # Arguments
