@@ -1052,17 +1052,19 @@ mod dispatches {
             origin_hotkey: T::AccountId,
             destination_hotkey: T::AccountId,
             origin_netuid: u16,
-            destination_netuid: u16,
-            amount_moved: Option<u64>,
+            netuid_amount_vec: Vec<(u16, Option<u64>)>,
         ) -> DispatchResult {
-            Self::do_move_stake(
-                origin,
-                origin_hotkey,
-                destination_hotkey,
-                origin_netuid,
-                destination_netuid,
-                amount_moved,
-            )
+            for (destination_netuid, amount_moved) in netuid_amount_vec.iter() {
+                Self::do_move_stake(
+                    origin.clone(),
+                    origin_hotkey.clone(),
+                    destination_hotkey.clone(),
+                    origin_netuid,
+                    *destination_netuid,
+                    *amount_moved,
+                )?;
+            }
+            Ok(())
         }
     }
 }
