@@ -1064,5 +1064,16 @@ mod dispatches {
                 amount_moved,
             )
         }
+
+        /// Moves stake from one hotkey to another across subnets.
+        #[pallet::call_index(76)]
+        #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn set_stakes(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            stakes: Vec<(u16, u64)>,
+        ) -> DispatchResult {
+            Self::do_set_stake(origin, hotkey, stakes)
+        }
     }
 }
