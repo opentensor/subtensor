@@ -47,7 +47,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Drain the subnet block emission and accumulate it as subnet emission, which increases until the tempo is reached in #4.
         // subnet_blockwise_emission -> subnet_pending_emission
-        for netuid in subnets.clone().iter() {
+        for netuid in subnets.clone().iter().filter(|&&id| id != 0) {
             // --- 3.1 Get the network's block-wise emission amount.
             // This value is newly minted TAO which has not reached staking accounts yet.
             let subnet_blockwise_emission: u64 = EmissionValues::<T>::get(*netuid);
