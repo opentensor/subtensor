@@ -76,7 +76,6 @@ fn main() {
     println!("Branch: {}", branch);
     eval(format!("git checkout {}", branch), true).unwrap();
 
-    println!("");
     println!(
         "Generating release notes for all merges since {}...",
         previous_tag,
