@@ -38,24 +38,33 @@ impl<T: Config> Pallet<T> {
         // Check that the validator is not committing too frequently (weights_rate_limit check)
         ensure!(
             Self::check_rate_limit_for_commit(netuid, &who),
+            
             Error::<T>::WeightsCommitNotAllowed
         );
 
-        // Insert the new commit with the current block number.
+        // Insert the new commit with the current block number
         let current_block = Self::get_current_block_as_u64();
         WeightCommits::<T>::insert(netuid, &who, (commit_hash, current_block));
 
-        // Retain only commits where committed_block < current_block - commit_reveal_interval * 2
+        // Calculate the threshold block beyond which old commits should be removed
         let interval = Self::get_commit_reveal_weights_interval(netuid).saturating_mul(2);
         let threshold_block = current_block.saturating_sub(interval);
 
-        // Iterate through the commits and remove old entries
-        WeightCommits::<T>::drain_prefix(netuid).for_each(|(who, (_hash, commit_block))| {
-            if commit_block < threshold_block {
-                WeightCommits::<T>::remove(netuid, who);
-            }
-        });
+        // Retrieve all commits for the given network as a vector, sorted by block number
+        let mut commits: Vec<(T::AccountId, (H256, u64))> = WeightCommits::<T>::iter_prefix(netuid).collect();
 
+        // Use binary search to find the first valid commit that is above the threshold
+        let first_valid_index = commits
+            .binary_search_by(|&(_, (_, commit_block))| commit_block.cmp(&threshold_block))
+            .unwrap_or_else(|index| index); // If not found, return the position of the first valid commit
+
+        // If there are old commits, remove them in bulk
+        if first_valid_index > 0 {
+            // Remove old commits that are below the threshold
+            commits.drain(0..first_valid_index).for_each(|(account, _)| {
+                WeightCommits::<T>::remove(netuid, &account);
+            });
+        }
         Ok(())
     }
 
@@ -467,6 +476,7 @@ impl<T: Config> Pallet<T> {
     /// This function checks if the `weights_rate_limit` time has passed since the last
     /// committed weight. If it has, the validator can commit new weights.
     ///
+    /// 
     pub fn check_rate_limit_for_commit(netuid: u16, who: &T::AccountId) -> bool {
         if let Some((_hash, last_commit_block)) = WeightCommits::<T>::get(netuid, who) {
             let current_block: u64 = Self::get_current_block_as_u64();
