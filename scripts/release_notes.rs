@@ -1,7 +1,7 @@
 #!/usr/bin/env rust-script
 // ^ `cargo install rust-script` to be able to run this script
 
-use core::fmt::Display;
+use core::{fmt::Display, str::FromStr};
 use std::{env, process::Command};
 
 fn eval(cmd: impl Display) -> String {
@@ -13,12 +13,34 @@ fn eval(cmd: impl Display) -> String {
     String::from_utf8(output.stdout).unwrap().trim().to_string()
 }
 
-fn main() {
-    let previous_tag = env::var("PREVIOUS_TAG").unwrap_or_else(|_| {
-        eval("git describe --abbrev=0 --tags $(git rev-list --tags --skip=1 --max-count=1)")
-    });
-    if previous_tag.is_empty() {
-        panic!("PREVIOUS_TAG is not specified or invalid");
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+enum Network {
+    Mainnet,
+    Testnet,
+}
+
+impl FromStr for Network {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "mainnet" => Ok(Network::Mainnet),
+            "testnet" => Ok(Network::Testnet),
+            _ => Err(()),
+        }
     }
-    println!("Previous tag: {}", previous_tag);
+}
+
+fn main() {
+    let network = env::var("NETWORK")
+        .unwrap_or_else(|_| "mainnet".to_string())
+        .parse::<Network>()
+        .unwrap_or_else(|_| panic!("Invalid NETWORK value"));
+    println!("Network: {:?}", network);
+
+    let all_tags = env::var("PREVIOUS_TAG")
+        .unwrap_or_else(|_| eval("git tag --sort=-creatordate"))
+        .split("\n")
+        .map(|s| s.trim().to_string())
+        .collect::<Vec<String>>();
 }
