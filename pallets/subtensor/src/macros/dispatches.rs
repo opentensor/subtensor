@@ -1065,7 +1065,15 @@ mod dispatches {
             )
         }
 
-        /// Moves stake from one hotkey to another across subnets.
+        /// Sets the stakes in all netuids according to the proportion defined
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the transaction, which must be signed by the `origin_hotkey`.
+        /// * `hotkey` - The hotkey used to stake token in different netuid.
+        /// * `stakes` - The vector of stake netuid and stke proporation
+        /// # Returns
+        /// * `DispatchResult` - Indicates the success or failure of the operation.
+        ///
         #[pallet::call_index(76)]
         #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn set_stakes(
