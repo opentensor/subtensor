@@ -68,13 +68,12 @@ fn main() {
 
     let branch = env::var("BRANCH").unwrap_or(
         match network {
-            Network::Mainnet => "main",
-            Network::Testnet => "testnet",
+            Network::Mainnet => "testnet",
+            Network::Testnet => "devnet",
         }
         .to_string(),
     );
     println!("Branch: {}", branch);
-    eval(format!("git checkout {}", branch), true).unwrap();
 
     println!(
         "Generating release notes for all merges since {}...",
@@ -82,8 +81,9 @@ fn main() {
     );
     let merges = eval(
         format!(
-            "git log --merges --pretty=format:'%s' {}..HEAD",
-            previous_tag
+            "git log --merges --pretty=format:'%s' {}..{}",
+            previous_tag,
+            branch // Replace HEAD with branch variable
         ),
         false,
     )
