@@ -1,5 +1,4 @@
 use frame_support::pallet_macros::pallet_section;
-
 /// A [`pallet_section`] that defines the errors for a pallet.
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
@@ -1052,19 +1051,17 @@ mod dispatches {
             origin_hotkey: T::AccountId,
             destination_hotkey: T::AccountId,
             origin_netuid: u16,
-            netuid_amount_vec: Vec<(u16, Option<u64>)>,
+            amount_moved: Option<u64>,
+            netuid_amount_vec: Vec<(u16, u64)>,
         ) -> DispatchResult {
-            for (destination_netuid, amount_moved) in netuid_amount_vec.iter() {
-                Self::do_move_stake(
-                    origin.clone(),
-                    origin_hotkey.clone(),
-                    destination_hotkey.clone(),
-                    origin_netuid,
-                    *destination_netuid,
-                    *amount_moved,
-                )?;
-            }
-            Ok(())
+            Self::do_move_stake(
+                origin,
+                origin_hotkey,
+                destination_hotkey,
+                origin_netuid,
+                amount_moved,
+                netuid_amount_vec,
+            )
         }
     }
 }
