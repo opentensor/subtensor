@@ -108,17 +108,28 @@ fn main() {
         .iter()
         .map(|s| s.split(" ").collect::<Vec<&str>>()[3].trim_start_matches("#"))
         .collect::<Vec<&str>>();
-    println!("PR numbers:\n{}", pr_numbers.join("\n"));
+    println!("PR numbers:\n{:?}", pr_numbers);
 
     println!("");
+    println!("Fetching PR titles...");
     let pr_titles = pr_numbers
         .iter()
         .map(|pr_number| {
-            eval(format!("gh pr view {} --json title", pr_number), false)
+            print!("#{}: ", pr_number);
+            let title = eval(format!("gh pr view {} --json title", pr_number), false)
                 .unwrap()
                 .trim()
-                .to_string()
+                .to_string();
+            if !title.starts_with("{\"title\":\"") {
+                panic!("Malformed PR title: {}", title);
+            }
+            let title = title
+                .trim_start_matches("{\"title\":\"")
+                .trim_end_matches("\"}")
+                .trim()
+                .to_string();
+            println!("{}", title);
+            title
         })
         .collect::<Vec<String>>();
-    println!("PR titles:\n{}", pr_titles.join("\n"));
 }
