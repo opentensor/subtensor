@@ -169,7 +169,15 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
         }
 
-        // 4. Swap total coldkey stake.
+        // 4. Swap LastAddStakeIncrease.
+        for hotkey in StakingHotkeys::<T>::get(old_coldkey) {
+            let last_add_stake_increase = LastAddStakeIncrease::<T>::get(&hotkey, old_coldkey);
+            LastAddStakeIncrease::<T>::remove(&hotkey, old_coldkey);
+            LastAddStakeIncrease::<T>::insert(&hotkey, new_coldkey, last_add_stake_increase);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+        }
+
+        // 5. Swap total coldkey stake.
         // TotalColdkeyStake: MAP ( coldkey ) --> u64 | Total stake of the coldkey.
         let old_coldkey_stake: u64 = TotalColdkeyStake::<T>::get(old_coldkey);
         // Get the stake of the new coldkey.
@@ -183,7 +191,7 @@ impl<T: Config> Pallet<T> {
         );
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
 
-        // 5. Swap StakingHotkeys.
+        // 6. Swap StakingHotkeys.
         // StakingHotkeys: MAP ( coldkey ) --> Vec<hotkeys> | Hotkeys staking for the coldkey.
         let old_staking_hotkeys: Vec<T::AccountId> = StakingHotkeys::<T>::get(old_coldkey);
         let mut new_staking_hotkeys: Vec<T::AccountId> = StakingHotkeys::<T>::get(new_coldkey);
@@ -197,7 +205,7 @@ impl<T: Config> Pallet<T> {
         StakingHotkeys::<T>::insert(new_coldkey, new_staking_hotkeys);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
 
-        // 6. Swap hotkey owners.
+        // 7. Swap hotkey owners.
         // Owner: MAP ( hotkey ) --> coldkey | Owner of the hotkey.
         // OwnedHotkeys: MAP ( coldkey ) --> Vec<hotkeys> | Hotkeys owned by the coldkey.
         let old_owned_hotkeys: Vec<T::AccountId> = OwnedHotkeys::<T>::get(old_coldkey);
@@ -216,7 +224,7 @@ impl<T: Config> Pallet<T> {
         OwnedHotkeys::<T>::insert(new_coldkey, new_owned_hotkeys);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
 
-        // 7. Transfer remaining balance.
+        // 8. Transfer remaining balance.
         // Balance: MAP ( coldkey ) --> u64 | Balance of the coldkey.
         // Transfer any remaining balance from old_coldkey to new_coldkey
         let remaining_balance = Self::get_coldkey_balance(old_coldkey);
