@@ -154,7 +154,7 @@ fn main() {
 
     println!("");
     println!("generated release notes:");
-    let release_notes = "\n## What's Changed\n".to_string();
+    let release_notes = "## What's Changed\n".to_string();
     let release_notes = release_notes
         + &pr_numbers
             .iter()
@@ -165,4 +165,9 @@ fn main() {
             })
             .collect::<String>();
     println!("{}", release_notes);
+
+    println!("");
+    println!("writing release notes to /tmp/release_notes.md");
+    std::fs::write("/tmp/release_notes.md", release_notes).unwrap();
+    println!("done!");
 }
