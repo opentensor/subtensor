@@ -1,4 +1,6 @@
 mod mock;
+use std::vec;
+
 use frame_support::assert_noop;
 use frame_support::assert_ok;
 use mock::*;
@@ -29,8 +31,8 @@ fn test_do_move_success() {
             origin_hotkey,
             destination_hotkey,
             netuid,
-            netuid,
-            None
+            None,
+            vec![(netuid, 1)],
         ));
 
         // Check that the stake has been moved
@@ -79,8 +81,8 @@ fn test_do_move_different_subnets() {
             origin_hotkey,
             destination_hotkey,
             origin_netuid,
-            destination_netuid,
-            None
+            None,
+            vec![(destination_netuid, 1)]
         ));
 
         // Check that the stake has been moved
@@ -138,10 +140,10 @@ fn test_do_move_locked_funds() {
                 origin_hotkey,
                 destination_hotkey,
                 origin_netuid,
-                destination_netuid,
-                None
+                None,
+                vec![(destination_netuid, 1)],
             ),
-            Error::<Test>::NotEnoughStakeToWithdraw
+            Error::<Test>::MovedStakeIsLocked
         );
 
         // Check that the stake and lock remain unchanged
@@ -187,8 +189,8 @@ fn test_do_move_nonexistent_subnet() {
                 origin_hotkey,
                 destination_hotkey,
                 origin_netuid,
-                nonexistent_netuid,
-                None
+                None,
+                vec![(nonexistent_netuid, 1)]
             ),
             Error::<Test>::SubnetNotExists
         );
@@ -224,8 +226,8 @@ fn test_do_move_nonexistent_origin_hotkey() {
                 nonexistent_origin_hotkey,
                 destination_hotkey,
                 netuid,
-                netuid,
-                None
+                None,
+                vec![(netuid, 1)]
             ),
             Error::<Test>::HotKeyAccountNotExists
         );
@@ -273,8 +275,8 @@ fn test_do_move_nonexistent_destination_hotkey() {
                 origin_hotkey,
                 nonexistent_destination_hotkey,
                 netuid,
-                netuid,
-                None
+                None,
+                vec![(netuid, 1)]
             ),
             Error::<Test>::HotKeyAccountNotExists
         );
@@ -320,10 +322,10 @@ fn test_do_move_zero_stake() {
                 origin_hotkey,
                 destination_hotkey,
                 netuid,
-                netuid,
-                None
+                None,
+                vec![(netuid, 0)]
             ),
-            Error::<Test>::MoveAmountCanNotBeZero
+            Error::<Test>::TotalMovedAmountIsZero
         );
 
         // Check that no stake was moved
@@ -370,8 +372,8 @@ fn test_do_move_all_stake() {
             origin_hotkey,
             destination_hotkey,
             netuid,
-            netuid,
-            None
+            None,
+            vec![(netuid, 1)]
         ));
 
         // Check that all stake was moved
@@ -418,8 +420,8 @@ fn test_do_move_partial_stake() {
             origin_hotkey,
             destination_hotkey,
             netuid,
-            netuid,
-            None
+            None,
+            vec![(netuid, 1)]
         ));
 
         // Check that the correct amount of stake was moved
@@ -467,16 +469,16 @@ fn test_do_move_multiple_times() {
                 hotkey1,
                 hotkey2,
                 netuid,
-                netuid,
-                None
+                None,
+                vec![(netuid, 1)]
             ));
             assert_ok!(SubtensorModule::do_move_stake(
                 RuntimeOrigin::signed(coldkey),
                 hotkey2,
                 hotkey1,
                 netuid,
-                netuid,
-                None
+                None,
+                vec![(netuid, 1)]
             ));
         }
 
@@ -525,8 +527,8 @@ fn test_do_move_with_locks() {
             origin_hotkey,
             destination_hotkey,
             netuid,
-            netuid,
-            None
+            None,
+            vec![(netuid, 1)]
         ));
 
         // Check that only unlocked stake was moved
@@ -560,6 +562,7 @@ fn test_do_move_wrong_origin() {
         let origin_hotkey = U256::from(2);
         let destination_hotkey = U256::from(3);
         let netuid = 1;
+        let destination_netuid = 2;
         let stake_amount = 1000;
 
         // Set up initial stake
@@ -567,6 +570,7 @@ fn test_do_move_wrong_origin() {
 
         // Attempt to move stake with wrong origin
         add_network(netuid, 0, 0);
+        add_network(destination_netuid, 0, 0);
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
         assert_noop!(
@@ -575,8 +579,8 @@ fn test_do_move_wrong_origin() {
                 origin_hotkey,
                 destination_hotkey,
                 netuid,
-                netuid,
-                Some(1)
+                Some(1),
+                vec![(destination_netuid, 1)]
             ),
             Error::<Test>::MoveAmountCanNotBeZero
         );
@@ -623,8 +627,8 @@ fn test_do_move_same_hotkey() {
             hotkey,
             hotkey,
             netuid,
-            netuid,
-            None
+            None,
+            vec![(netuid, 1)]
         ));
 
         // Check that stake remains unchanged
@@ -660,13 +664,21 @@ fn test_do_move_event_emission() {
             origin_hotkey,
             destination_hotkey,
             netuid,
-            netuid,
-            None
+            None,
+            vec![(netuid, 1)]
         ));
 
         // Check for the correct event emission
         System::assert_last_event(
-            Event::StakeMoved(coldkey, origin_hotkey, netuid, destination_hotkey, netuid).into(),
+            Event::StakeMoved(
+                coldkey,
+                origin_hotkey,
+                netuid,
+                destination_hotkey,
+                netuid,
+                stake_amount,
+            )
+            .into(),
         );
     });
 }
@@ -697,8 +709,8 @@ fn test_do_move_storage_updates() {
             origin_hotkey,
             destination_hotkey,
             origin_netuid,
-            destination_netuid,
-            None
+            None,
+            vec![(destination_netuid, 1)]
         ));
 
         // Verify storage updates
@@ -761,8 +773,8 @@ fn test_do_move_max_values() {
             origin_hotkey,
             destination_hotkey,
             netuid,
-            netuid,
-            None
+            None,
+            vec![(netuid, 1)]
         ));
 
         // Verify stake movement without overflow

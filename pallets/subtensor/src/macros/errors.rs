@@ -180,5 +180,11 @@ mod errors {
         SubnetAlreadyConverted,
         /// The amount of movement cannot be equal to zero.
         MoveAmountCanNotBeZero,
+        /// Duplicate netuid found in the netuid amount vector.
+        DuplicateNetuid,
+        /// The total moved amount is zero.
+        TotalMovedAmountIsZero,
+        /// The stake movement is locked.
+        MovedStakeIsLocked,
     }
 }

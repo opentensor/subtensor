@@ -183,12 +183,12 @@ mod events {
         MechanismAdded(u16),
         /// Lock increased
         LockIncreased(T::AccountId, T::AccountId, u16, u64),
-        /// Lock interval set        
+        /// Lock interval set
         LockIntervalSet(u64),
         /// Network activated
         NetworkActivated(u16),
         /// StakeMoved
-        StakeMoved(T::AccountId, T::AccountId, u16, T::AccountId, u16),
+        StakeMoved(T::AccountId, T::AccountId, u16, T::AccountId, u16, u64),
         /// SubnetConverted meaning the owner has converted their lock and now the owner position is open.
         SubnetConverted(u16),
     }
