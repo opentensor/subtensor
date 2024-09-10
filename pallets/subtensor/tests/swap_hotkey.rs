@@ -1115,3 +1115,82 @@ fn test_swap_complex_parent_child_structure() {
         );
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_hotkey_with_pending_emissions --exact --nocapture
+#[test]
+fn test_swap_hotkey_with_pending_emissions() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let netuid = 0u16;
+        let mut weight = Weight::zero();
+
+        let pending_emission = 123_456_789u64;
+
+        // Set up initial state
+        add_network(netuid, 0, 1);
+
+        // Set up pending emissions
+        PendingdHotkeyEmission::<Test>::insert(&old_hotkey, pending_emission);
+        // Verify the pending emissions are set
+        assert_eq!(
+            PendingdHotkeyEmission::<Test>::get(&old_hotkey),
+            pending_emission
+        );
+        // Verify the new hotkey does not have any pending emissions
+        assert!(!PendingdHotkeyEmission::<Test>::contains_key(&new_hotkey));
+
+        // Perform the swap
+        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
+
+        // Verify the pending emissions are transferred
+        assert_eq!(
+            PendingdHotkeyEmission::<Test>::get(&new_hotkey),
+            pending_emission
+        );
+        assert!(!PendingdHotkeyEmission::<Test>::contains_key(&old_hotkey));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_hotkeys_last_add_stake_increase --exact --nocapture
+#[test]
+fn test_swap_hotkeys_last_add_stake_increase() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let new_coldkeys = vec![U256::from(4), U256::from(5)];
+        let netuid = 0u16;
+        let mut weight = Weight::zero();
+
+        let pending_emission = 123_456_789u64;
+
+        // Set up initial state
+        add_network(netuid, 0, 1);
+
+        // Setup LastAddStakeIncrease map
+        for new_coldkey in new_coldkeys.iter() {
+            LastAddStakeIncrease::<Test>::insert(&old_hotkey, &new_coldkey, 100);
+        }
+        // Verify the LastAddStakeIncrease map is empty for the new hotkey
+        assert!(LastAddStakeIncrease::<Test>::iter_prefix(&new_hotkey)
+            .next()
+            .is_none());
+
+        // Perform the swap
+        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
+
+        // Verify the LastAddStakeIncrease map is transferred
+        for new_coldkey in new_coldkeys.iter() {
+            assert_eq!(
+                LastAddStakeIncrease::<Test>::get(&new_hotkey, &new_coldkey),
+                100
+            );
+            assert!(!LastAddStakeIncrease::<Test>::contains_key(
+                &old_hotkey,
+                &new_coldkey
+            ));
+        }
+    });
+}
