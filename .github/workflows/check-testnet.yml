@@ -10,6 +10,13 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  debug-labels:
+    name: Debug Labels
+    runs-on: SubtensorCI
+    steps:
+      - name: Debug Labels
+        run: |
+          echo "Labels: ${{ toJson(github.event.pull_request.labels) }}"
   check-spec-version:
     name: Check spec_version bump
     runs-on: SubtensorCI
