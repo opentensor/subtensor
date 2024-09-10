@@ -104,4 +104,21 @@ fn main() {
     println!("Filtered merges:\n{}", merges.join("\n"));
 
     println!("");
+    let pr_numbers = merges
+        .iter()
+        .map(|s| s.split(" ").collect::<Vec<&str>>()[3].trim_start_matches("#"))
+        .collect::<Vec<&str>>();
+    println!("PR numbers:\n{}", pr_numbers.join("\n"));
+
+    println!("");
+    let pr_titles = pr_numbers
+        .iter()
+        .map(|pr_number| {
+            eval(format!("gh pr view {} --json title", pr_number), false)
+                .unwrap()
+                .trim()
+                .to_string()
+        })
+        .collect::<Vec<String>>();
+    println!("PR titles:\n{}", pr_titles.join("\n"));
 }
