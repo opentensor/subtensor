@@ -796,3 +796,134 @@ fn test_do_move_max_values() {
         );
     });
 }
+
+// 19. test_do_move_success
+// Description: Test a successful move of stake between two hotkeys in the same subnet
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test move -- test_do_move_to_multiple_netuid --exact --nocapture
+#[test]
+fn test_do_move_to_multiple_netuid() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let origin_hotkey = U256::from(2);
+        let destination_hotkey = U256::from(3);
+        let netuid = 1;
+        let destination_netuid = 2;
+        let stake_amount = 1000;
+
+        // Set up initial stake
+        add_network(netuid, 0, 0);
+        add_network(destination_netuid, 0, 0);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
+        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount);
+
+        // Perform the move
+        assert_ok!(SubtensorModule::do_move_stake(
+            RuntimeOrigin::signed(coldkey),
+            origin_hotkey,
+            destination_hotkey,
+            netuid,
+            None,
+            vec![(netuid, 1), (destination_netuid, 1)],
+        ));
+
+        // Check that the stake has been moved
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &origin_hotkey,
+                &coldkey,
+                netuid
+            ),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &destination_hotkey,
+                &coldkey,
+                netuid
+            ),
+            stake_amount / 2
+        );
+
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &destination_hotkey,
+                &coldkey,
+                destination_netuid
+            ),
+            stake_amount / 2
+        );
+    });
+}
+
+// 19. test_do_move_success
+// Description: Test a successful move of stake between two hotkeys in the same subnet
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test move -- test_do_move_to_multiple_netuid_2 --exact --nocapture
+#[test]
+fn test_do_move_to_multiple_netuid_2() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let origin_hotkey = U256::from(2);
+        let destination_hotkey = U256::from(3);
+        let netuid = 1;
+        let destination_netuid_1 = 2;
+        let destination_netuid_2 = 3;
+
+        let stake_amount = 1000;
+
+        // Set up initial stake
+        add_network(netuid, 0, 0);
+        add_network(destination_netuid_1, 0, 0);
+        add_network(destination_netuid_2, 0, 0);
+
+        SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
+        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount);
+
+        // Perform the move
+        assert_ok!(SubtensorModule::do_move_stake(
+            RuntimeOrigin::signed(coldkey),
+            origin_hotkey,
+            destination_hotkey,
+            netuid,
+            None,
+            vec![(destination_netuid_1, 1), (destination_netuid_2, 1)],
+        ));
+
+        // Check that the stake has been moved
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &origin_hotkey,
+                &coldkey,
+                netuid
+            ),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &destination_hotkey,
+                &coldkey,
+                netuid
+            ),
+            0
+        );
+
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &destination_hotkey,
+                &coldkey,
+                destination_netuid_1
+            ),
+            stake_amount / 2
+        );
+
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &destination_hotkey,
+                &coldkey,
+                destination_netuid_2
+            ),
+            stake_amount / 2
+        );
+    });
+}
