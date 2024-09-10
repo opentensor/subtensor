@@ -132,4 +132,38 @@ fn main() {
             title
         })
         .collect::<Vec<String>>();
+
+    println!("");
+    println!("Fetching PR authors...");
+    let pr_authors = pr_numbers
+        .iter()
+        .map(|pr_number| {
+            print!("#{}: ", pr_number);
+            let author = eval(
+                format!("gh pr view {} --json author | jq .author.login", pr_number),
+                false,
+            )
+            .unwrap()
+            .trim()
+            .trim_start_matches("\"")
+            .trim_end_matches("\"")
+            .to_string();
+            println!("{}", author);
+            author
+        })
+        .collect::<Vec<String>>();
+
+    println!("");
+    println!("generated release notes:");
+    let release_notes = "\n## What's Changed\n".to_string();
+    let release_notes = release_notes
+        + &pr_numbers
+            .iter()
+            .zip(pr_titles.iter())
+            .zip(pr_authors.iter())
+            .map(|((pr_number, pr_title), pr_author)| {
+                format!("- {} in #{} by @{}\n", pr_title, pr_number, pr_author)
+            })
+            .collect::<String>();
+    println!("{}", release_notes);
 }
