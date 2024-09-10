@@ -82,8 +82,7 @@ fn main() {
     let merges = eval(
         format!(
             "git log --merges --pretty=format:'%s' {}..{}",
-            previous_tag,
-            branch // Replace HEAD with branch variable
+            branch, previous_tag,
         ),
         false,
     )
