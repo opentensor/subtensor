@@ -69,10 +69,12 @@ impl<T: Config> Pallet<T> {
         );
 
         // -- 7. Ensure we are not moving locked funds across subnets.
-        // ensure!(
-        //     !Locks::<T>::contains_key((origin_netuid, origin_hotkey.clone(), coldkey.clone())),
-        //     Error::<T>::MovedStakeIsLocked
-        // );
+        if !(unique_netuid.len() == 1 && unique_netuid.first() == Some(&origin_netuid)) {
+            ensure!(
+                !Locks::<T>::contains_key((origin_netuid, origin_hotkey.clone(), coldkey.clone())),
+                Error::<T>::MovedStakeIsLocked
+            );
+        }
 
         // --- 8. Get the current alpha stake for the origin hotkey-coldkey pair in the origin subnet
         // or use amount_moved
