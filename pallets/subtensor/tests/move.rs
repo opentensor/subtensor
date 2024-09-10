@@ -797,8 +797,9 @@ fn test_do_move_max_values() {
     });
 }
 
-// 19. test_do_move_success
-// Description: Test a successful move of stake between two hotkeys in the same subnet
+// 19. test_do_move_to_multiple_netuid
+// Description: Test a successful move of stake between two hotkeys from one network to the list of two networks
+// that includes the original network
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test move -- test_do_move_to_multiple_netuid --exact --nocapture
 #[test]
 fn test_do_move_to_multiple_netuid() {
@@ -856,7 +857,7 @@ fn test_do_move_to_multiple_netuid() {
     });
 }
 
-// 19. test_do_move_success
+// 20. test_do_move_to_multiple_netuid_2
 // Description: Test a successful move of stake between two hotkeys in the same subnet
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test move -- test_do_move_to_multiple_netuid_2 --exact --nocapture
 #[test]

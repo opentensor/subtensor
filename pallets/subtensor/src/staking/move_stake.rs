@@ -95,6 +95,8 @@ impl<T: Config> Pallet<T> {
             move_alpha,
         );
 
+        let lock_data = Locks::<T>::take((origin_netuid, origin_hotkey.clone(), coldkey.clone()));
+
         // --- 10. Stake the resulting TAO into the destination subnet for the destination hotkey
         for (netuid, amount) in netuid_amount_vec.iter() {
             // --- 11. Calculate the added tao for each netuid according to the proportion.
@@ -110,13 +112,15 @@ impl<T: Config> Pallet<T> {
                 added_tao,
             );
 
-            // --- 13. Swap the locks.
-            if Locks::<T>::contains_key((origin_netuid, &origin_hotkey.clone(), coldkey.clone())) {
-                let lock_data =
-                    Locks::<T>::take((origin_netuid, origin_hotkey.clone(), coldkey.clone()));
+            // --- 13. Add the locks to new netuid.
+            if lock_data.0 > 0 {
+                let added_lock = lock_data
+                    .0
+                    .saturating_mul(*amount)
+                    .saturating_div(tatal_moved);
                 Locks::<T>::insert(
                     (netuid, destination_hotkey.clone(), coldkey.clone()),
-                    lock_data,
+                    (added_lock, lock_data.1, lock_data.2),
                 );
             }
 
