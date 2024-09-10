@@ -75,7 +75,9 @@ fn collect_rust_files(dir: &Path) -> Vec<PathBuf> {
     let mut rust_files = Vec::new();
 
     for entry in WalkDir::new(dir) {
-        let entry = entry.unwrap();
+        let Ok(entry) = entry else {
+            continue;
+        };
         let path = entry.path();
 
         // Skip any path that contains "target" directory
