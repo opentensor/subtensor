@@ -457,7 +457,7 @@ fn get_account_id_from_ss58(ss58_str: &str) -> U256 {
     account_id
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_pending_emissions --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --package pallet-subtensor --test migration -- test_migrate_fix_pending_emissions --exact --nocapture
 #[test]
 fn test_migrate_fix_pending_emissions() {
     new_test_ext(1).execute_with(|| {
