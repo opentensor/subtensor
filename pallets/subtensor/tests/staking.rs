@@ -2348,7 +2348,7 @@ fn test_stake_delta_tracks_adds_and_removes() {
                 delegate_hotkey,
                 delegate_coldkey
             )),
-            0 as i128
+            0_i128
         );
 
         // Give the coldkey some balance; extra just in case

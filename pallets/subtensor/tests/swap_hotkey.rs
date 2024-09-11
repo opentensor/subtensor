@@ -1135,14 +1135,18 @@ fn test_hotkey_swap_stake_delta() {
             StakeDeltaSinceLastEmissionDrain::<Test>::insert(
                 old_hotkey,
                 coldkey,
-                (123 + coldkey.saturated_into::<i128>()).into(),
+                PackedI128::from(123 + coldkey.saturated_into::<i128>()),
             );
 
             StakingHotkeys::<Test>::insert(coldkey, vec![old_hotkey]);
         }
 
         // Add stake delta for one coldkey and the new_hotkey
-        StakeDeltaSinceLastEmissionDrain::<Test>::insert(new_hotkey, coldkeys[0], 456.into());
+        StakeDeltaSinceLastEmissionDrain::<Test>::insert(
+            new_hotkey,
+            coldkeys[0],
+            PackedI128::from(456),
+        );
         // Add corresponding StakingHotkeys
         StakingHotkeys::<Test>::insert(coldkeys[0], vec![old_hotkey, new_hotkey]);
 

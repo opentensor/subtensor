@@ -953,7 +953,7 @@ fn test_coinbase_nominator_drainage_with_net_positive_delta() {
         // Notice that nominator1 stake is the new stake, including the removed stake
         assert_eq!(
             nominator_1_stake_before,
-            u64::try_from(100 + net_change).unwrap() as u64
+            u64::try_from(100 + net_change).unwrap()
         );
 
         // 5. Set emission and verify initial states
@@ -1151,7 +1151,7 @@ fn test_coinbase_nominator_drainage_with_net_negative_delta() {
         // Notice that nominator1 stake is the new stake, including the removed stake
         assert_eq!(
             nominator_1_stake_before,
-            u64::try_from(100 + net_change).unwrap() as u64
+            u64::try_from(100 + net_change).unwrap()
         );
 
         // 5. Set emission and verify initial states
