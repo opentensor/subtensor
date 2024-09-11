@@ -71,9 +71,12 @@ impl<T: Config> Pallet<T> {
         );
 
         // Track this addition in the stake delta.
-        StakeDeltaSinceLastEmissionDrain::<T>::mutate(&hotkey, &coldkey, |stake_delta| {
-            *stake_delta = stake_delta.saturating_add_unsigned(stake_to_be_added as u128);
-        });
+        let stake_delta = Self::get_stake_delta_since_last_emission_drain(&hotkey, &coldkey);
+        Self::set_stake_delta_since_last_emission_drain(
+            &hotkey,
+            &coldkey,
+            stake_delta.saturating_add_unsigned(stake_to_be_added as u128),
+        );
 
         // If coldkey is not owner of the hotkey, it's a nomination stake.
         if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {

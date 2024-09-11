@@ -439,4 +439,44 @@ impl<T: Config> Pallet<T> {
             StakeDeltaSinceLastEmissionDrain::<T>::remove(hotkey, &delegate_coldkey_i);
         }
     }
+
+    /// Get the StakeDeltaSinceLastEmissionDrain as an i128
+    ///
+    /// # Arguments
+    ///
+    /// * `hotkey` - The hotkey account id
+    ///
+    /// * `coldkey` - The coldkey account id
+    ///
+    /// # Returns
+    ///
+    /// * `i128` - The StakeDeltaSinceLastEmissionDrain as an i128
+    pub fn get_stake_delta_since_last_emission_drain(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+    ) -> i128 {
+        StakeDeltaSinceLastEmissionDrain::<T>::get(hotkey, coldkey).into()
+    }
+
+    /// Set the StakeDeltaSinceLastEmissionDrain using an i128
+    ///
+    /// # Arguments
+    ///
+    /// * `hotkey` - The hotkey account id
+    ///
+    ///	* `coldkey` - The coldkey account id
+    ///
+    /// * `stake` - The StakeDeltaSinceLastEmissionDrain as an i128
+    ///
+    /// # Effects
+    ///
+    /// * Update the StakeDeltaSinceLastEmissionDrain storage
+    pub fn set_stake_delta_since_last_emission_drain(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        stake: i128,
+    ) {
+        let stake_as_packed: PackedI128 = stake.into();
+        StakeDeltaSinceLastEmissionDrain::<T>::insert(hotkey, coldkey, stake_as_packed);
+    }
 }

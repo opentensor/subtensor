@@ -2344,8 +2344,11 @@ fn test_stake_delta_tracks_adds_and_removes() {
 
         // Verify that the stake delta is empty
         assert_eq!(
-            StakeDeltaSinceLastEmissionDrain::<Test>::get(delegate_hotkey, delegate_coldkey),
-            0
+            i128::from(StakeDeltaSinceLastEmissionDrain::<Test>::get(
+                delegate_hotkey,
+                delegate_coldkey
+            )),
+            0 as i128
         );
 
         // Give the coldkey some balance; extra just in case
@@ -2363,7 +2366,10 @@ fn test_stake_delta_tracks_adds_and_removes() {
 
         // Verify that the stake delta is correct
         assert_eq!(
-            StakeDeltaSinceLastEmissionDrain::<Test>::get(delegate_hotkey, delegate_coldkey),
+            i128::from(StakeDeltaSinceLastEmissionDrain::<Test>::get(
+                delegate_hotkey,
+                delegate_coldkey
+            )),
             i128::from(owner_added_stake)
         );
 
@@ -2377,7 +2383,10 @@ fn test_stake_delta_tracks_adds_and_removes() {
 
         // Verify that the stake delta is unchanged for the owner
         assert_eq!(
-            StakeDeltaSinceLastEmissionDrain::<Test>::get(delegate_hotkey, delegate_coldkey),
+            i128::from(StakeDeltaSinceLastEmissionDrain::<Test>::get(
+                delegate_hotkey,
+                delegate_coldkey
+            )),
             i128::from(owner_added_stake)
         );
 
@@ -2390,7 +2399,10 @@ fn test_stake_delta_tracks_adds_and_removes() {
 
         // Verify that the stake delta is correct
         assert_eq!(
-            StakeDeltaSinceLastEmissionDrain::<Test>::get(delegate_hotkey, delegate_coldkey),
+            i128::from(StakeDeltaSinceLastEmissionDrain::<Test>::get(
+                delegate_hotkey,
+                delegate_coldkey
+            )),
             i128::from(owner_added_stake).saturating_sub_unsigned(owner_removed_stake.into())
         );
 
@@ -2403,7 +2415,10 @@ fn test_stake_delta_tracks_adds_and_removes() {
 
         // Verify that the stake delta is correct
         assert_eq!(
-            StakeDeltaSinceLastEmissionDrain::<Test>::get(delegate_hotkey, delegate_coldkey),
+            i128::from(StakeDeltaSinceLastEmissionDrain::<Test>::get(
+                delegate_hotkey,
+                delegate_coldkey
+            )),
             i128::from(owner_added_stake)
                 .saturating_add_unsigned((owner_adds_more_stake - owner_removed_stake).into())
         );

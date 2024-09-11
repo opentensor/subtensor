@@ -171,9 +171,11 @@ impl<T: Config> Pallet<T> {
 
         // 4. Swap StakeDeltaSinceLastEmissionDrain
         for hotkey in StakingHotkeys::<T>::get(old_coldkey) {
-            let old_stake_delta = StakeDeltaSinceLastEmissionDrain::<T>::get(&hotkey, old_coldkey);
-            let new_stake_delta = StakeDeltaSinceLastEmissionDrain::<T>::get(&hotkey, new_coldkey);
-            StakeDeltaSinceLastEmissionDrain::<T>::insert(
+            let old_stake_delta =
+                Self::get_stake_delta_since_last_emission_drain(&hotkey, old_coldkey);
+            let new_stake_delta =
+                Self::get_stake_delta_since_last_emission_drain(&hotkey, new_coldkey);
+            Self::set_stake_delta_since_last_emission_drain(
                 &hotkey,
                 new_coldkey,
                 new_stake_delta.saturating_add(old_stake_delta),

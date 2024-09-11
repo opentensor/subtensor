@@ -1642,10 +1642,18 @@ fn test_coldkey_swap_stake_delta() {
         let tempo = 1;
 
         // Give the old coldkey a stake delta on hotkey
-        StakeDeltaSinceLastEmissionDrain::<Test>::insert(hotkey, old_coldkey, 123);
+        StakeDeltaSinceLastEmissionDrain::<Test>::insert(
+            hotkey,
+            old_coldkey,
+            PackedI128::from(123),
+        );
         // Give the new coldkey a stake delta on hotkey
-        StakeDeltaSinceLastEmissionDrain::<Test>::insert(hotkey, new_coldkey, 456);
-        let expected_stake_delta = 123 + 456;
+        StakeDeltaSinceLastEmissionDrain::<Test>::insert(
+            hotkey,
+            new_coldkey,
+            PackedI128::from(456),
+        );
+        let expected_stake_delta: i128 = 123 + 456;
         // Add StakingHotkeys entry
         StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
 
@@ -1657,11 +1665,17 @@ fn test_coldkey_swap_stake_delta() {
 
         // Ensure the stake delta is correctly transferred
         assert_eq!(
-            StakeDeltaSinceLastEmissionDrain::<Test>::get(hotkey, new_coldkey),
+            i128::from(StakeDeltaSinceLastEmissionDrain::<Test>::get(
+                hotkey,
+                new_coldkey
+            )),
             expected_stake_delta
         );
         assert_eq!(
-            StakeDeltaSinceLastEmissionDrain::<Test>::get(hotkey, old_coldkey),
+            i128::from(StakeDeltaSinceLastEmissionDrain::<Test>::get(
+                hotkey,
+                old_coldkey
+            )),
             0
         );
     });

@@ -61,6 +61,7 @@ extern crate alloc;
 #[frame_support::pallet]
 pub mod pallet {
     use crate::migrations;
+    use codec::Compact;
     use frame_support::{
         dispatch::GetDispatchInfo,
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
@@ -106,6 +107,36 @@ pub mod pallet {
 
     /// local one
     pub type LocalCallOf<T> = <T as Config>::RuntimeCall;
+
+    /// A compact encoding of a signed 128-bit integer.
+    #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, Copy)]
+    pub struct PackedI128(bool, Compact<u64>);
+
+    impl From<i128> for PackedI128 {
+        fn from(value: i128) -> Self {
+            let is_negative = value < 0;
+            let value = u64::try_from(value.abs()).unwrap_or(u64::MAX);
+
+            PackedI128(is_negative, Compact(value))
+        }
+    }
+
+    impl From<PackedI128> for i128 {
+        fn from(value: PackedI128) -> Self {
+            let value = value.1 .0 as i128;
+            if value < 0 {
+                value * -1
+            } else {
+                value
+            }
+        }
+    }
+
+    impl PartialEq<i128> for PackedI128 {
+        fn eq(&self, other: &i128) -> bool {
+            i128::from(*self) == *other
+        }
+    }
 
     /// Data structure for Axon information.
     #[crate::freeze_struct("3545cfb0cac4c1f5")]
@@ -227,8 +258,8 @@ pub mod pallet {
     }
     #[pallet::type_value]
     /// Default stake delta.
-    pub fn DefaultStakeDelta<T: Config>() -> i128 {
-        0
+    pub fn DefaultStakeDelta<T: Config>() -> PackedI128 {
+        0.into()
     }
     #[pallet::type_value]
     /// Default stakes per interval.
@@ -782,7 +813,7 @@ pub mod pallet {
         T::AccountId,
         Identity,
         T::AccountId,
-        i128,
+        PackedI128,
         ValueQuery,
         DefaultStakeDelta<T>,
     >;

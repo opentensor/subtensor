@@ -254,7 +254,7 @@ impl<T: Config> Pallet<T> {
     /// This stake will not receive emission until the next emission drain.
     /// Note: if the stake delta is below zero, we return zero. We don't allow more stake than the nominator has.
     pub fn get_nonviable_stake(hotkey: &T::AccountId, nominator: &T::AccountId) -> u64 {
-        let stake_delta = StakeDeltaSinceLastEmissionDrain::<T>::get(hotkey, nominator);
+        let stake_delta: i128 = Self::get_stake_delta_since_last_emission_drain(hotkey, nominator);
         if stake_delta.is_negative() {
             0
         } else {
