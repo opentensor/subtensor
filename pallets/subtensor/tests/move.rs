@@ -857,11 +857,11 @@ fn test_do_move_to_multiple_netuid() {
     });
 }
 
-// 20. test_do_move_to_multiple_netuid_2
-// Description: Test a successful move of stake between two hotkeys in the same subnet
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test move -- test_do_move_to_multiple_netuid_2 --exact --nocapture
+// 20. test_do_move_to_multiple_netuid_without_origin_one
+// Description: Test a successful move of stake to two subnets which not include the orginal one
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test move -- test_do_move_to_multiple_netuid_without_origin_one --exact --nocapture
 #[test]
-fn test_do_move_to_multiple_netuid_2() {
+fn test_do_move_to_multiple_netuid_without_origin_one() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let origin_hotkey = U256::from(2);
@@ -929,11 +929,11 @@ fn test_do_move_to_multiple_netuid_2() {
     });
 }
 
-// 21. test_do_move_to_multiple_netuid_3
-// Description: Test a successful move of stake between two hotkeys in the same subnet
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test move -- test_do_move_to_multiple_netuid_3 --exact --nocapture
+// 21. test_do_move_to_multiple_netuid_different_ratio
+// Description: Test a successful move stake to different subnets with different ratio
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test move -- test_do_move_to_multiple_netuid_different_ratio --exact --nocapture
 #[test]
-fn test_do_move_to_multiple_netuid_3() {
+fn test_do_move_to_multiple_netuid_different_ratio() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let origin_hotkey = U256::from(2);
@@ -1062,11 +1062,11 @@ fn test_do_move_locked_funds_failed() {
     });
 }
 
-// 23. test_do_move_locked_funds_failed_2
+// 23. test_do_move_locked_funds_failed_subnets_include_origin_one
 // Description: Attempt to move locked funds to multiple subnets, which should fail even the subnets include the origin one
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test move -- test_do_move_locked_funds_failed_2 --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test move -- test_do_move_locked_funds_failed_subnets_include_origin_one --exact --nocapture
 #[test]
-fn test_do_move_locked_funds_failed_2() {
+fn test_do_move_locked_funds_failed_subnets_include_origin_one() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let origin_hotkey = U256::from(2);

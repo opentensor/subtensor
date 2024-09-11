@@ -19,9 +19,11 @@ impl<T: Config> Pallet<T> {
     /// # Errors
     /// This function will return an error if:
     /// * The origin is not signed by the `origin_hotkey`.
-    /// * Either the origin or destination subnet does not exist.
+    /// * Either the origin or destination subnets does not exist.
     /// * The `origin_hotkey` or `destination_hotkey` does not exist.
     /// * There are locked funds that cannot be moved across subnets.
+    /// * There is duplicate netuid in netuid_amount_vec
+    /// * The sum of amount in netuid_amount_vec is zero
     ///
     /// # Events
     /// Emits a `StakeMoved` event upon successful completion of the stake movement.
@@ -68,7 +70,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyAccountNotExists
         );
 
-        // --- 8. Get the current alpha stake for the origin hotkey-coldkey pair in the origin subnet
+        // --- 7. Get the current alpha stake for the origin hotkey-coldkey pair in the origin subnet
         // or use amount_moved
         let origin_alpha = Alpha::<T>::get((origin_hotkey.clone(), coldkey.clone(), origin_netuid));
 
@@ -79,7 +81,7 @@ impl<T: Config> Pallet<T> {
 
         ensure!(move_alpha > 0, Error::<T>::MoveAmountCanNotBeZero);
 
-        // -- 7. If move just in the same network, swap the lock. otherwise, return error if lock existed
+        // -- 8. Check the lock, if move just in the same network, swap the lock. otherwise, return error if lock existed
         if unique_netuid.len() == 1 && unique_netuid.first() == Some(&origin_netuid) {
             if Locks::<T>::contains_key((origin_netuid, origin_hotkey.clone(), coldkey.clone())) {
                 // swap lock just in the same network

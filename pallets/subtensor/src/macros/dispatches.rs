@@ -1031,6 +1031,7 @@ mod dispatches {
         /// * `destination_hotkey` - The account ID of the hotkey to which the stake is being moved.
         /// * `origin_netuid` - The network ID of the origin subnet.
         /// * `destination_netuid` - The network ID of the destination subnet.
+        /// * `netuid_amount_vec` - The distribution of unstaked TAO, to different network and the propotions
         ///
         /// # Returns
         /// * `DispatchResult` - Indicates the success or failure of the operation.
@@ -1038,9 +1039,11 @@ mod dispatches {
         /// # Errors
         /// This function will return an error if:
         /// * The origin is not signed by the `origin_hotkey`.
-        /// * Either the origin or destination subnet does not exist.
+        /// * Either the origin or destination subnets does not exist.
         /// * The `origin_hotkey` or `destination_hotkey` does not exist.
         /// * There are locked funds that cannot be moved across subnets.
+        ///	* There is duplicate netuid in netuid_amount_vec
+        /// * The sum of amount in netuid_amount_vec is zero
         ///
         /// # Events
         /// Emits a `StakeMoved` event upon successful completion of the stake movement.
