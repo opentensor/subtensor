@@ -4,34 +4,6 @@ use frame_support::{traits::Get, weights::Weight};
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::AccountId32;
 
-fn swap_pending_emissions<T: Config>(
-    old_hotkey: &T::AccountId,
-    new_hotkey: &T::AccountId,
-) -> Weight {
-    let mut weight = T::DbWeight::get().reads(0);
-
-    // Get the pending emissions for the old hotkey
-    let pending_emissions = PendingdHotkeyEmission::<T>::get(old_hotkey);
-    weight.saturating_accrue(T::DbWeight::get().reads(1));
-
-    // Remove the pending emissions for the old hotkey
-    PendingdHotkeyEmission::<T>::remove(old_hotkey);
-    weight.saturating_accrue(T::DbWeight::get().writes(1));
-
-    // Get any existing pending emissions for the new hotkey
-    let existing_new_pending_emissions = PendingdHotkeyEmission::<T>::get(new_hotkey);
-    weight.saturating_accrue(T::DbWeight::get().reads(1));
-
-    // Add the pending emissions for the new hotkey
-    PendingdHotkeyEmission::<T>::insert(
-        new_hotkey,
-        pending_emissions.saturating_add(existing_new_pending_emissions),
-    );
-    weight.saturating_accrue(T::DbWeight::get().writes(1));
-
-    weight
-}
-
 fn get_account_id_from_ss58<T: Config>(ss58_str: &str) -> T::AccountId {
     let account = AccountId32::from_ss58check(ss58_str).unwrap();
     let onchain_account = T::AccountId::decode(&mut account.as_ref()).unwrap();
@@ -39,7 +11,11 @@ fn get_account_id_from_ss58<T: Config>(ss58_str: &str) -> T::AccountId {
     onchain_account
 }
 
-fn unstake_old_hotkey_and_move_to_pending<T: Config>(
+/**
+ * Migrates the pending emissions from the old hotkey to the new hotkey.
+ * Also migrates the stake entry of (old_hotkey, 0x000) to the pending emissions of the new hotkey.
+ */
+fn migrate_pending_emissions_including_null_stake<T: Config>(
     old_hotkey: &T::AccountId,
     new_hotkey: &T::AccountId,
 ) -> Weight {
@@ -104,7 +80,7 @@ pub fn do_migrate_fix_pending_emission<T: Config>() -> Weight {
     let taostats_old_hk_account: T::AccountId = get_account_id_from_ss58::<T>(taostats_old_hotkey);
     let taostats_new_hk_account: T::AccountId = get_account_id_from_ss58::<T>(taostats_new_hotkey);
 
-    weight.saturating_accrue(unstake_old_hotkey_and_move_to_pending::<T>(
+    weight.saturating_accrue(migrate_pending_emissions_including_null_stake::<T>(
         &taostats_old_hk_account,
         &taostats_new_hk_account,
     ));
@@ -115,7 +91,7 @@ pub fn do_migrate_fix_pending_emission<T: Config>() -> Weight {
     let datura_old_hk_account: T::AccountId = get_account_id_from_ss58::<T>(datura_old_hotkey);
     let datura_new_hk_account: T::AccountId = get_account_id_from_ss58::<T>(datura_new_hotkey);
 
-    weight.saturating_accrue(swap_pending_emissions::<T>(
+    weight.saturating_accrue(migrate_pending_emissions_including_null_stake::<T>(
         &datura_old_hk_account,
         &datura_new_hk_account,
     ));
