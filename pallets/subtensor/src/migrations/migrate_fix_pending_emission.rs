@@ -18,8 +18,15 @@ fn swap_pending_emissions<T: Config>(
     PendingdHotkeyEmission::<T>::remove(old_hotkey);
     weight.saturating_accrue(T::DbWeight::get().writes(1));
 
+    // Get any existing pending emissions for the new hotkey
+    let existing_new_pending_emissions = PendingdHotkeyEmission::<T>::get(new_hotkey);
+    weight.saturating_accrue(T::DbWeight::get().reads(1));
+
     // Add the pending emissions for the new hotkey
-    PendingdHotkeyEmission::<T>::insert(new_hotkey, pending_emissions);
+    PendingdHotkeyEmission::<T>::insert(
+        new_hotkey,
+        pending_emissions.saturating_add(existing_new_pending_emissions),
+    );
     weight.saturating_accrue(T::DbWeight::get().writes(1));
 
     weight
@@ -40,8 +47,8 @@ fn unstake_old_hotkey_and_move_to_pending<T: Config>(
     let null_account = DefaultAccount::<T>::get();
     weight.saturating_accrue(T::DbWeight::get().reads(1));
 
-    // Get the pending emissions for the new hotkey
-    let pending_emissions = PendingdHotkeyEmission::<T>::get(new_hotkey);
+    // Get the pending emissions for the OLD hotkey
+    let pending_emissions_old: u64 = PendingdHotkeyEmission::<T>::get(old_hotkey);
     weight.saturating_accrue(T::DbWeight::get().reads(1));
 
     // Get the stake for the 0x000 key
@@ -71,8 +78,17 @@ fn unstake_old_hotkey_and_move_to_pending<T: Config>(
     TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(null_stake));
     weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
-    // Add stake to the pending emissions for the new hotkey
-    PendingdHotkeyEmission::<T>::insert(new_hotkey, pending_emissions.saturating_add(null_stake));
+    // Get the pending emissions for the NEW hotkey
+    let pending_emissions_new: u64 = PendingdHotkeyEmission::<T>::get(new_hotkey);
+    weight.saturating_accrue(T::DbWeight::get().reads(1));
+
+    // Add stake to the pending emissions for the new hotkey and the old hotkey
+    PendingdHotkeyEmission::<T>::insert(
+        new_hotkey,
+        pending_emissions_new
+            .saturating_add(pending_emissions_old)
+            .saturating_add(null_stake),
+    );
     weight.saturating_accrue(T::DbWeight::get().writes(1));
 
     weight
