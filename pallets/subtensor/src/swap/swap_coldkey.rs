@@ -169,6 +169,7 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
         }
 
+
         // 4. Swap StakeDeltaSinceLastEmissionDrain
         for hotkey in StakingHotkeys::<T>::get(old_coldkey) {
             let old_stake_delta = StakeDeltaSinceLastEmissionDrain::<T>::get(&hotkey, old_coldkey);
