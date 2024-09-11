@@ -226,6 +226,11 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
+    /// Default stake delta.
+    pub fn DefaultStakeDelta<T: Config>() -> i128 {
+        0
+    }
+    #[pallet::type_value]
     /// Default stakes per interval.
     pub fn DefaultStakesPerInterval<T: Config>() -> (u64, u64) {
         (0, 0)
@@ -770,16 +775,16 @@ pub mod pallet {
         DefaultAccountTake<T>,
     >;
     #[pallet::storage]
-    /// Map ( hot, cold ) --> stake | Stake added/removed since last emission drain.
+    /// Map ( hot, cold ) --> stake: i128 | Stake added/removed since last emission drain.
     pub type StakeDeltaSinceLastEmissionDrain<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         T::AccountId,
         Identity,
         T::AccountId,
-        u64,
+        i128,
         ValueQuery,
-        DefaultAccountTake<T>,
+        DefaultStakeDelta<T>,
     >;
     #[pallet::storage]
     /// DMAP ( parent, netuid ) --> Vec<(proportion,child)>

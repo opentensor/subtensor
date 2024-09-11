@@ -252,8 +252,15 @@ impl<T: Config> Pallet<T> {
     /// Calculates the nonviable stake for a nominator.
     /// The nonviable stake is the stake that was added by the nominator since the last emission drain.
     /// This stake will not receive emission until the next emission drain.
+    /// Note: if the stake delta is below zero, we return zero. We don't allow more stake than the nominator has.
     pub fn get_nonviable_stake(hotkey: &T::AccountId, nominator: &T::AccountId) -> u64 {
-        StakeDeltaSinceLastEmissionDrain::<T>::get(hotkey, nominator)
+        let stake_delta = StakeDeltaSinceLastEmissionDrain::<T>::get(hotkey, nominator);
+        if stake_delta.is_negative() {
+            0
+        } else {
+            // Should never fail the into, but we handle it anyway.
+            stake_delta.try_into().unwrap_or(u64::MAX)
+        }
     }
 
     //. --- 4. Drains the accumulated hotkey emission through to the nominators. The hotkey takes a proportion of the emission.
