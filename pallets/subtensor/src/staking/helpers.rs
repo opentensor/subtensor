@@ -464,7 +464,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `hotkey` - The hotkey account id
     ///
-    ///	* `coldkey` - The coldkey account id
+    /// * `coldkey` - The coldkey account id
     ///
     /// * `stake` - The StakeDeltaSinceLastEmissionDrain as an i128
     ///
