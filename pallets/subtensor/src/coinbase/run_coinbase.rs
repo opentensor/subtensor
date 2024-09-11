@@ -292,7 +292,8 @@ impl<T: Config> Pallet<T> {
         // --- 8 Iterate over each nominator and get all viable stake.
         let mut total_viable_nominator_stake: u64 = total_hotkey_stake;
         for (nominator, nominator_stake) in Stake::<T>::iter_prefix(hotkey) {
-            if LastAddStakeIncrease::<T>::get(hotkey, nominator) > last_emission_drain {
+            if false && LastAddStakeIncrease::<T>::get(hotkey, nominator) > last_emission_drain {
+                // <=============
                 total_viable_nominator_stake =
                     total_viable_nominator_stake.saturating_sub(nominator_stake);
             }
@@ -303,7 +304,11 @@ impl<T: Config> Pallet<T> {
             for (nominator, nominator_stake) in Stake::<T>::iter_prefix(hotkey) {
                 // --- 10 Check if the stake was manually increased by the user since the last emission drain for this hotkey.
                 // If it was, skip this nominator as they will not receive their proportion of the emission.
-                if LastAddStakeIncrease::<T>::get(hotkey, nominator.clone()) > last_emission_drain {
+                if false
+                    && LastAddStakeIncrease::<T>::get(hotkey, nominator.clone())
+                        > last_emission_drain
+                {
+                    // <=============
                     continue;
                 }
 
