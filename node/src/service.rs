@@ -36,12 +36,12 @@ impl HostFunctions for ExecutorDispatch {
 }
 
 impl sc_executor::NativeExecutionDispatch for ExecutorDispatch {
-    // Only enable the benchmarking host functions when we actually want to benchmark.
-    #[cfg(feature = "runtime-benchmarks")]
+    // Always enable runtime benchmark host functions, the genesis state
+    // was built with them so we're stuck with them forever.
+    //
+    // They're just a noop, never actually get used if the runtime was not compiled with
+    // `runtime-benchmarks`.
     type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
-    // Otherwise we only use the default Substrate host functions.
-    #[cfg(not(feature = "runtime-benchmarks"))]
-    type ExtendHostFunctions = ();
 
     fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
         node_subtensor_runtime::api::dispatch(method, data)
