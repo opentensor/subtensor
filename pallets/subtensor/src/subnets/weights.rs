@@ -59,14 +59,27 @@ impl<T: Config> Pallet<T> {
             .unwrap_or_else(|index| index); // If not found, return the position of the first valid commit
 
         // If there are old commits, remove them in bulk
+        // Optimize the removal of old commits
         if first_valid_index > 0 {
-            // Remove old commits that are below the threshold
-            commits
-                .drain(0..first_valid_index)
-                .for_each(|(account, _)| {
-                    WeightCommits::<T>::remove(netuid, &account);
-                });
+            // Get the range of valid commits
+            let valid_commits = commits.split_off(first_valid_index);
+
+            // Clear all commits for this netuid
+            let _ = WeightCommits::<T>::clear_prefix(netuid, u32::MAX, None);
+
+            // Re-insert only the valid commits
+            for (account, (commit_hash, block_number)) in valid_commits {
+                WeightCommits::<T>::insert(netuid, &account, (commit_hash, block_number));
+            }
         }
+        // if first_valid_index > 0 {
+        //     // Remove old commits that are below the threshold
+        //     commits
+        //         .drain(0..first_valid_index)
+        //         .for_each(|(account, _)| {
+        //             WeightCommits::<T>::remove(netuid, &account);
+        //         });
+        // }
         Ok(())
     }
 
