@@ -1660,17 +1660,17 @@ fn test_coldkey_swap_last_add_stake_increase() {
             100_000
         ));
         // Check LastAddStakeIncrease
-        assert_eq!(LastAddStakeIncrease::<Test>::get(&hotkey, &old_coldkey), 10); // Just added stake
+        assert_eq!(LastAddStakeIncrease::<Test>::get(hotkey, old_coldkey), 10); // Just added stake
 
         // Check the same for the new coldkey
-        assert_eq!(LastAddStakeIncrease::<Test>::get(&hotkey, &new_coldkey), 0); // No stake added ever
+        assert_eq!(LastAddStakeIncrease::<Test>::get(hotkey, new_coldkey), 0); // No stake added ever
 
         // Perform the coldkey swap
         assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey));
 
         // Check the LastAddStakeIncrease for the hotkey
-        assert_eq!(LastAddStakeIncrease::<Test>::get(&hotkey, &new_coldkey), 10); // Matches the old coldkey
-        assert_eq!(LastAddStakeIncrease::<Test>::get(&hotkey, &old_coldkey), 0);
+        assert_eq!(LastAddStakeIncrease::<Test>::get(hotkey, new_coldkey), 10); // Matches the old coldkey
+        assert_eq!(LastAddStakeIncrease::<Test>::get(hotkey, old_coldkey), 0);
         // Should be reset to 0 (empty)
     });
 }

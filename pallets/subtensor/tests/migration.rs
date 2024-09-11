@@ -464,7 +464,7 @@ fn test_migrate_fix_pending_emissions() {
         let migration_name = "fix_pending_emission";
 
         let null_account = U256::from(0); // The null account
-        let rand_coldkeys = vec![U256::from(1), U256::from(2), U256::from(3), U256::from(4)];
+        let rand_coldkeys = [U256::from(1), U256::from(2), U256::from(3), U256::from(4)];
 
         let taostats_old_hotkey = "5Hddm3iBFD2GLT5ik7LZnT3XJUnRnN8PoeCFgGQgawUVKNm8";
         let taostats_new_hotkey = "5GKH9FPPnWSUoeeTJp19wVtd84XqFW4pyK2ijV2GsFbhTrP1";
@@ -479,17 +479,17 @@ fn test_migrate_fix_pending_emissions() {
         let datura_new_hk_account: AccountId = get_account_id_from_ss58(datura_new_hotkey);
 
         // Setup the old Datura hotkey with a pending emission
-        PendingdHotkeyEmission::<Test>::insert(&datura_old_hk_account, 10_000);
+        PendingdHotkeyEmission::<Test>::insert(datura_old_hk_account, 10_000);
         // Setup the NEW Datura hotkey with a pending emission
-        PendingdHotkeyEmission::<Test>::insert(&datura_new_hk_account, 123_456_789);
+        PendingdHotkeyEmission::<Test>::insert(datura_new_hk_account, 123_456_789);
         let expected_datura_new_hk_pending_emission: u64 = 123_456_789 + 10_000;
 
         // Setup the old TaoStats hotkey with a pending emission
-        PendingdHotkeyEmission::<Test>::insert(&taostats_old_hk_account, 987_654);
+        PendingdHotkeyEmission::<Test>::insert(taostats_old_hk_account, 987_654);
         // Setup the new TaoStats hotkey with a pending emission
-        PendingdHotkeyEmission::<Test>::insert(&taostats_new_hk_account, 100_000);
+        PendingdHotkeyEmission::<Test>::insert(taostats_new_hk_account, 100_000);
         // Setup the old TaoStats hotkey with a null-key stake entry
-        Stake::<Test>::insert(&taostats_old_hk_account, &null_account, 123_456_789);
+        Stake::<Test>::insert(taostats_old_hk_account, null_account, 123_456_789);
         let expected_taostats_new_hk_pending_emission: u64 = 987_654 + 100_000 + 123_456_789;
 
         // Run migration
