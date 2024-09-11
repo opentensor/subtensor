@@ -22,17 +22,6 @@ fn swap_pending_emissions<T: Config>(
     PendingdHotkeyEmission::<T>::insert(new_hotkey, pending_emissions);
     weight.saturating_accrue(T::DbWeight::get().writes(1));
 
-    // Swap the last LastAddStakeIncrease
-    let old_coldkey_entries: Vec<(T::AccountId, u64)> =
-        LastAddStakeIncrease::<T>::iter_prefix(old_hotkey).collect();
-    if !old_coldkey_entries.is_empty() {
-        for (coldkey, last_add_stake_increase) in old_coldkey_entries {
-            LastAddStakeIncrease::<T>::remove(old_hotkey, &coldkey);
-            LastAddStakeIncrease::<T>::insert(new_hotkey, &coldkey, last_add_stake_increase);
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
-        }
-    }
-
     weight
 }
 
