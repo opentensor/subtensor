@@ -249,6 +249,13 @@ impl<T: Config> Pallet<T> {
         });
     }
 
+    /// Calculates the nonviable stake for a nominator.
+    /// The nonviable stake is the stake that was added by the nominator since the last emission drain.
+    /// This stake will not receive emission until the next emission drain.
+    pub fn get_nonviable_stake(hotkey: &T::AccountId, nominator: &T::AccountId) -> u64 {
+        StakeDeltaSinceLastEmissionDrain::<T>::get(hotkey, nominator)
+    }
+
     //. --- 4. Drains the accumulated hotkey emission through to the nominators. The hotkey takes a proportion of the emission.
     /// The remainder is drained through to the nominators keeping track of the last stake increase event to ensure that the hotkey does not
     /// gain more emission than it's stake since the last drain.
@@ -269,7 +276,7 @@ impl<T: Config> Pallet<T> {
         PendingdHotkeyEmission::<T>::insert(hotkey, 0);
 
         // --- 2 Retrieve the last time this hotkey's emissions were drained.
-        let last_emission_drain: u64 = LastHotkeyEmissionDrain::<T>::get(hotkey);
+        let _last_emission_drain: u64 = LastHotkeyEmissionDrain::<T>::get(hotkey);
 
         // --- 3 Update the block value to the current block number.
         LastHotkeyEmissionDrain::<T>::insert(hotkey, block_number);
@@ -291,25 +298,24 @@ impl<T: Config> Pallet<T> {
 
         // --- 8 Iterate over each nominator and get all viable stake.
         let mut total_viable_nominator_stake: u64 = total_hotkey_stake;
-        for (nominator, nominator_stake) in Stake::<T>::iter_prefix(hotkey) {
-            if LastAddStakeIncrease::<T>::get(hotkey, nominator) > last_emission_drain {
-                total_viable_nominator_stake =
-                    total_viable_nominator_stake.saturating_sub(nominator_stake);
-            }
+        for (nominator, _) in Stake::<T>::iter_prefix(hotkey) {
+            let nonviable_nomintaor_stake = Self::get_nonviable_stake(hotkey, &nominator);
+
+            total_viable_nominator_stake =
+                total_viable_nominator_stake.saturating_sub(nonviable_nomintaor_stake);
         }
 
         // --- 9 Iterate over each nominator.
         if total_viable_nominator_stake != 0 {
             for (nominator, nominator_stake) in Stake::<T>::iter_prefix(hotkey) {
-                // --- 10 Check if the stake was manually increased by the user since the last emission drain for this hotkey.
-                // If it was, skip this nominator as they will not receive their proportion of the emission.
-                if LastAddStakeIncrease::<T>::get(hotkey, nominator.clone()) > last_emission_drain {
-                    continue;
-                }
+                // --- 10 Skip emission for any stake the was added by the nominator since the last emission drain.
+                // This means the nominator will get emission on existing stake, but not on new stake, until the next emission drain.
+                let viable_nominator_stake =
+                    nominator_stake.saturating_sub(Self::get_nonviable_stake(hotkey, &nominator));
 
                 // --- 11 Calculate this nominator's share of the emission.
                 let nominator_emission: I64F64 = I64F64::from_num(emission_minus_take)
-                    .saturating_mul(I64F64::from_num(nominator_stake))
+                    .saturating_mul(I64F64::from_num(viable_nominator_stake))
                     .checked_div(I64F64::from_num(total_viable_nominator_stake))
                     .unwrap_or(I64F64::from_num(0));
 
@@ -330,7 +336,10 @@ impl<T: Config> Pallet<T> {
         let hotkey_new_tao: u64 = hotkey_take.saturating_add(remainder);
         Self::increase_stake_on_hotkey_account(hotkey, hotkey_new_tao);
 
-        // --- 15 Record new tao creation event and return the amount created.
+        // --- 15 Reset the stake delta for the hotkey.
+        let _ = StakeDeltaSinceLastEmissionDrain::<T>::clear_prefix(hotkey, u32::MAX, None);
+
+        // --- 16 Record new tao creation event and return the amount created.
         total_new_tao = total_new_tao.saturating_add(hotkey_new_tao);
         total_new_tao
     }

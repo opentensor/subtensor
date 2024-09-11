@@ -770,6 +770,18 @@ pub mod pallet {
         DefaultAccountTake<T>,
     >;
     #[pallet::storage]
+    /// Map ( hot, cold ) --> stake | Stake added/removed since last emission drain.
+    pub type StakeDeltaSinceLastEmissionDrain<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        T::AccountId,
+        u64,
+        ValueQuery,
+        DefaultAccountTake<T>,
+    >;
+    #[pallet::storage]
     /// DMAP ( parent, netuid ) --> Vec<(proportion,child)>
     pub type ChildKeys<T: Config> = StorageDoubleMap<
         _,
