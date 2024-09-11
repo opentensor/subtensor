@@ -1,7 +1,8 @@
 #![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
 use crate::mock::*;
 mod mock;
-// use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_err, assert_ok};
+use frame_system::Config;
 use sp_core::U256;
 
 // Test the ability to hash all sorts of hotkeys.
