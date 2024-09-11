@@ -125,7 +125,7 @@ pub mod pallet {
         fn from(value: PackedI128) -> Self {
             let value = value.1 .0 as i128;
             if value < 0 {
-                value * -1
+                value.checked_mul(-1).unwrap_or(i128::MIN)
             } else {
                 value
             }
