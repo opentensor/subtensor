@@ -4,11 +4,12 @@ use frame_support::{traits::Get, weights::Weight};
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::AccountId32;
 
-fn get_account_id_from_ss58<T: Config>(ss58_str: &str) -> T::AccountId {
-    let account = AccountId32::from_ss58check(ss58_str).unwrap();
-    let onchain_account = T::AccountId::decode(&mut account.as_ref()).unwrap();
+fn get_account_id_from_ss58<T: Config>(ss58_str: &str) -> Result<T::AccountId, codec::Error> {
+    let account =
+        AccountId32::from_ss58check(ss58_str).map_err(|_| codec::Error::from("Invalid SS58"))?;
+    let onchain_account = T::AccountId::decode(&mut account.as_ref())?;
 
-    onchain_account
+    Ok(onchain_account)
 }
 
 /**
@@ -77,24 +78,38 @@ pub fn do_migrate_fix_pending_emission<T: Config>() -> Weight {
     let taostats_old_hotkey = "5Hddm3iBFD2GLT5ik7LZnT3XJUnRnN8PoeCFgGQgawUVKNm8";
     let taostats_new_hotkey = "5GKH9FPPnWSUoeeTJp19wVtd84XqFW4pyK2ijV2GsFbhTrP1";
 
-    let taostats_old_hk_account: T::AccountId = get_account_id_from_ss58::<T>(taostats_old_hotkey);
-    let taostats_new_hk_account: T::AccountId = get_account_id_from_ss58::<T>(taostats_new_hotkey);
+    let taostats_old_hk_account = get_account_id_from_ss58::<T>(taostats_old_hotkey);
+    let taostats_new_hk_account = get_account_id_from_ss58::<T>(taostats_new_hotkey);
 
-    weight.saturating_accrue(migrate_pending_emissions_including_null_stake::<T>(
-        &taostats_old_hk_account,
-        &taostats_new_hk_account,
-    ));
+    match (taostats_old_hk_account, taostats_new_hk_account) {
+        (Ok(taostats_old_hk_acct), Ok(taostats_new_hk_acct)) => {
+            weight.saturating_accrue(migrate_pending_emissions_including_null_stake::<T>(
+                &taostats_old_hk_acct,
+                &taostats_new_hk_acct,
+            ));
+        }
+        _ => {
+            log::warn!("Failed to get account id from ss58 for taostats hotkeys");
+        }
+    }
 
     let datura_old_hotkey = "5FKstHjZkh4v3qAMSBa1oJcHCLjxYZ8SNTSz1opTv4hR7gVB";
     let datura_new_hotkey = "5GP7c3fFazW9GXK8Up3qgu2DJBk8inu4aK9TZy3RuoSWVCMi";
 
-    let datura_old_hk_account: T::AccountId = get_account_id_from_ss58::<T>(datura_old_hotkey);
-    let datura_new_hk_account: T::AccountId = get_account_id_from_ss58::<T>(datura_new_hotkey);
+    let datura_old_hk_account = get_account_id_from_ss58::<T>(datura_old_hotkey);
+    let datura_new_hk_account = get_account_id_from_ss58::<T>(datura_new_hotkey);
 
-    weight.saturating_accrue(migrate_pending_emissions_including_null_stake::<T>(
-        &datura_old_hk_account,
-        &datura_new_hk_account,
-    ));
+    match (datura_old_hk_account, datura_new_hk_account) {
+        (Ok(datura_old_hk_acct), Ok(datura_new_hk_acct)) => {
+            weight.saturating_accrue(migrate_pending_emissions_including_null_stake::<T>(
+                &datura_old_hk_acct,
+                &datura_new_hk_acct,
+            ));
+        }
+        _ => {
+            log::warn!("Failed to get account id from ss58 for datura hotkeys");
+        }
+    }
 
     weight
 }
