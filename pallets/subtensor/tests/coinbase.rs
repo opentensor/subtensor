@@ -775,6 +775,11 @@ fn test_coinbase_nominator_drainage_with_neutral_delta() {
         );
         log::debug!("Stakes added for nominators");
 
+        let nominator1_stake_before =
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey);
+        // Notice that nominator1 stake is the unchanged from the initial stake
+        assert_eq!(nominator1_stake_before, 100);
+
         // 5. Set emission and verify initial states
         SubtensorModule::set_emission_values(&[netuid], vec![10]).unwrap();
         assert_eq!(SubtensorModule::get_subnet_emission_value(netuid), 10);
@@ -808,9 +813,6 @@ fn test_coinbase_nominator_drainage_with_neutral_delta() {
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey);
         let nominator2_stake =
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator2, &hotkey);
-
-        // Notice that nominator1 stake is the unchanged from the initial stake
-        assert_eq!(nominator1_stake, 100);
 
         log::debug!(
             "Final stakes - Hotkey: {}, Nominator1: {}, Nominator2: {}, Total Hotkey Stake: {}",
