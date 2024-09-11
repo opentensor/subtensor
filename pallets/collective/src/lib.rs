@@ -41,7 +41,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "128"]
-#![allow(clippy::manual_inspect)]
 
 use frame_support::{
     dispatch::{DispatchResultWithPostInfo, GetDispatchInfo, Pays, PostDispatchInfo},
