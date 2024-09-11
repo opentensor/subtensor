@@ -259,9 +259,9 @@ fn test_get_nonviable_stake() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test coinbase test_coinbase_nominator_drainage -- --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --test coinbase test_coinbase_nominator_drainage_no_deltas -- --nocapture
 #[test]
-fn test_coinbase_nominator_drainage() {
+fn test_coinbase_nominator_drainage_no_deltas() {
     new_test_ext(1).execute_with(|| {
         // 1. Set up the network and accounts
         let netuid: u16 = 1;
@@ -298,9 +298,10 @@ fn test_coinbase_nominator_drainage() {
         log::debug!("Hotkey became a delegate with minimum take");
 
         // Add stakes for nominators
-        SubtensorModule::add_stake(RuntimeOrigin::signed(nominator1), hotkey, 100);
-
-        SubtensorModule::add_stake(RuntimeOrigin::signed(nominator2), hotkey, 100);
+        // Add the stake directly to their coldkey-hotkey account
+        // This bypasses the accounting in stake delta
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&nominator1, &hotkey, 100);
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&nominator2, &hotkey, 100);
 
         // Log the stakes for hotkey, nominator1, and nominator2
         log::debug!(
