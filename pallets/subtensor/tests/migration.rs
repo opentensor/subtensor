@@ -1,10 +1,12 @@
 #![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
 mod mock;
+use codec::{Decode, Encode};
 use frame_support::{assert_ok, weights::Weight};
 use frame_system::Config;
 use mock::*;
 use pallet_subtensor::*;
-use sp_core::U256;
+use sp_core::{crypto::Ss58Codec, U256};
+use substrate_fixed::types::extra::U2;
 
 #[test]
 fn test_initialise_ti() {
@@ -429,4 +431,87 @@ fn run_migration_and_check(migration_name: &'static str) -> frame_support::weigh
 
     // Return the weight of the executed migration
     weight
+}
+
+fn run_pending_emissions_migration_and_check(
+    migration_name: &'static str,
+) -> frame_support::weights::Weight {
+    // Execute the migration and store its weight
+    let weight: frame_support::weights::Weight =
+        pallet_subtensor::migrations::migrate_fix_pending_emission::migrate_fix_pending_emission::<
+            Test,
+        >();
+
+    // Check if the migration has been marked as completed
+    assert!(HasMigrationRun::<Test>::get(
+        migration_name.as_bytes().to_vec()
+    ));
+
+    // Return the weight of the executed migration
+    weight
+}
+
+fn get_account_id_from_ss58(ss58_str: &str) -> U256 {
+    let account_id = sp_core::crypto::AccountId32::from_ss58check(ss58_str).unwrap();
+    let account_id = AccountId::decode(&mut account_id.as_ref()).unwrap();
+    account_id
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_pending_emissions --exact --nocapture
+#[test]
+fn test_migrate_fix_pending_emissions() {
+    new_test_ext(1).execute_with(|| {
+        let migration_name = "fix_pending_emission";
+
+        let null_account = U256::from(0); // The null account
+        let rand_coldkeys = vec![U256::from(1), U256::from(2), U256::from(3), U256::from(4)];
+
+        let taostats_old_hotkey = "5Hddm3iBFD2GLT5ik7LZnT3XJUnRnN8PoeCFgGQgawUVKNm8";
+        let taostats_new_hotkey = "5GKH9FPPnWSUoeeTJp19wVtd84XqFW4pyK2ijV2GsFbhTrP1";
+
+        let taostats_old_hk_account: AccountId = get_account_id_from_ss58(taostats_old_hotkey);
+        let taostats_new_hk_account: AccountId = get_account_id_from_ss58(taostats_new_hotkey);
+
+        let datura_old_hotkey = "5FKstHjZkh4v3qAMSBa1oJcHCLjxYZ8SNTSz1opTv4hR7gVB";
+        let datura_new_hotkey = "5GP7c3fFazW9GXK8Up3qgu2DJBk8inu4aK9TZy3RuoSWVCMi";
+
+        let datura_old_hk_account: AccountId = get_account_id_from_ss58(datura_old_hotkey);
+        let datura_new_hk_account: AccountId = get_account_id_from_ss58(datura_new_hotkey);
+
+        // Setup the old Datura hotkey with a pending emission
+        PendingdHotkeyEmission::<Test>::insert(&datura_old_hk_account, 10_000);
+        // Setup the NEW Datura hotkey with a pending emission
+        PendingdHotkeyEmission::<Test>::insert(&datura_new_hk_account, 123_456_789);
+        let expected_datura_new_hk_pending_emission: u64 = 123_456_789 + 10_000;
+
+        // Setup the old TaoStats hotkey with a pending emission
+        PendingdHotkeyEmission::<Test>::insert(&taostats_old_hk_account, 987_654);
+        // Setup the new TaoStats hotkey with a pending emission
+        PendingdHotkeyEmission::<Test>::insert(&taostats_new_hk_account, 100_000);
+        // Setup the old TaoStats hotkey with a null-key stake entry
+        Stake::<Test>::insert(&taostats_old_hk_account, &null_account, 123_456_789);
+        let expected_taostats_new_hk_pending_emission: u64 = 987_654 + 100_000 + 123_456_789;
+
+        // Run migration
+        let first_weight = run_pending_emissions_migration_and_check(migration_name);
+        assert!(first_weight != Weight::zero());
+
+        // Check the pending emission is added to new Datura hotkey
+        assert_eq!(
+            PendingdHotkeyEmission::<Test>::get(datura_new_hk_account),
+            expected_datura_new_hk_pending_emission
+        );
+
+        // Check the pending emission is added to new the TaoStats hotkey
+        assert_eq!(
+            PendingdHotkeyEmission::<Test>::get(taostats_new_hk_account),
+            expected_taostats_new_hk_pending_emission
+        );
+
+        // Check the pending emission is added to new the Datura hotkey
+        assert_eq!(
+            PendingdHotkeyEmission::<Test>::get(datura_new_hk_account),
+            expected_datura_new_hk_pending_emission
+        );
+    })
 }
