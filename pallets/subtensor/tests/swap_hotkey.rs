@@ -1125,7 +1125,7 @@ fn test_hotkey_swap_stake_delta() {
         let new_hotkey = U256::from(4);
         let coldkey = U256::from(7);
 
-        let coldkeys = vec![U256::from(1), U256::from(2), U256::from(5)];
+        let coldkeys = [U256::from(1), U256::from(2), U256::from(5)];
 
         let mut weight = Weight::zero();
 
