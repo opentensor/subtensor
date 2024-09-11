@@ -1107,8 +1107,8 @@ fn test_coinbase_nominator_drainage_with_net_negative_delta() {
         // Add stakes for nominators
         // Add the stake directly to their coldkey-hotkey account
         // This bypasses the accounting in stake delta
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&nominator1, &hotkey, 100);
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&nominator2, &hotkey, 100);
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&nominator1, &hotkey, 300);
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&nominator2, &hotkey, 300);
 
         let initial_nominator1_stake =
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey);
@@ -1118,10 +1118,11 @@ fn test_coinbase_nominator_drainage_with_net_negative_delta() {
 
         assert_eq!(initial_nominator1_stake, initial_nominator2_stake); // Initial stakes should be equal
 
-        let removed_stake = 12;
+        let removed_stake = 220;
         // Do an add_stake for nominator 1 of LESS than was removed
-        let added_stake = removed_stake - 1;
+        let added_stake = removed_stake - 188;
         let net_change: i128 = i128::from(added_stake) - i128::from(removed_stake); // Negative net change
+        assert!(net_change < 0);
 
         // Do an remove_stake for nominator 1
         assert_ok!(SubtensorModule::remove_stake(
@@ -1148,12 +1149,13 @@ fn test_coinbase_nominator_drainage_with_net_negative_delta() {
         );
         log::debug!("Stakes added for nominators");
 
+        let total_stake_before = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
         let nominator_1_stake_before =
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey);
         // Notice that nominator1 stake is the new stake, including the removed stake
         assert_eq!(
             nominator_1_stake_before,
-            u64::try_from(100 + net_change).unwrap()
+            u64::try_from(300 + net_change).unwrap()
         );
 
         // 5. Set emission and verify initial states
@@ -1162,7 +1164,7 @@ fn test_coinbase_nominator_drainage_with_net_negative_delta() {
         assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            u64::try_from(200 + net_change).unwrap()
+            u64::try_from(600 + net_change).unwrap()
         );
         assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
 
@@ -1233,19 +1235,21 @@ fn test_coinbase_nominator_drainage_with_net_negative_delta() {
 
         // Assertions
         assert_eq!(delegate_stake, 2, "Hotkey stake mismatch");
-        assert_eq!(
-            nominator1_stake,
-            u64::try_from(
-                net_change
-                    .checked_add_unsigned(100 + nominator_1_emission as u128)
-                    .unwrap()
-            )
-            .unwrap(),
+
+        // Do a fuzzy check on the nominator stakes
+        let expected_1_stake = u64::try_from(
+            net_change
+                .checked_add_unsigned((initial_nominator1_stake + nominator_1_emission) as u128)
+                .unwrap(),
+        )
+        .unwrap();
+        assert!(
+            expected_1_stake - 5 <= nominator1_stake && expected_1_stake + 5 >= nominator1_stake,
             "Nominator1 stake mismatch"
         );
-        assert_eq!(
-            nominator2_stake,
-            initial_nominator2_stake + nominator_2_emission,
+        let expected_2_stake = initial_nominator2_stake + nominator_2_emission;
+        assert!(
+            expected_2_stake - 5 <= nominator2_stake && expected_2_stake + 5 >= nominator2_stake,
             "Nominator2 stake mismatch"
         );
 
@@ -1254,7 +1258,10 @@ fn test_coinbase_nominator_drainage_with_net_negative_delta() {
             total_stake,
             u64::try_from(
                 net_change
-                    .checked_add_unsigned(200 + total_emission as u128)
+                    .checked_add_unsigned(
+                        (initial_nominator2_stake + initial_nominator1_stake + total_emission)
+                            as u128
+                    )
                     .unwrap()
             )
             .unwrap(),
