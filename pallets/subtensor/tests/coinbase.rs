@@ -254,7 +254,7 @@ fn test_get_nonviable_stake() {
         // Verify that the nonviable stake is the net of the operations
         assert_eq!(
             SubtensorModule::get_nonviable_stake(&delegate_hotkey, &delegate_coldkey),
-            owner_adds_more_stake - owner_removed_stake
+            owner_adds_more_stake - owner_removed_stake + owner_added_stake
         );
     });
 }
