@@ -160,7 +160,6 @@ fn test_commit_weights_dispatch_info_ok() {
     });
 }
 
-
 #[test]
 fn test_commit_weights_rate_limit() {
     new_test_ext(1).execute_with(|| {
@@ -184,7 +183,7 @@ fn test_commit_weights_rate_limit() {
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, U256::from(3), U256::from(4), 300000);
         register_ok_neuron(netuid, U256::from(1), U256::from(2), 100000);
-        
+
         // Set the commit/reveal weights rate limit and enable the feature
         SubtensorModule::set_weights_set_rate_limit(netuid, 5);
         SubtensorModule::set_commit_reveal_weights_interval(netuid, 5);
