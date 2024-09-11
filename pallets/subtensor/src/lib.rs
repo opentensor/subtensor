@@ -1234,6 +1234,10 @@ pub mod pallet {
         pub stakes: Vec<(T::AccountId, Vec<(T::AccountId, (u64, u16))>)>,
         /// The total issued balance in genesis
         pub balances_issuance: u64,
+        /// Flag to initialize network 1.
+        pub initialize_network_1: bool,
+        /// Flag to initialize network 3.
+        pub initialize_network_3: bool,
     }
 
     impl<T: Config> Default for GenesisConfig<T> {
@@ -1241,6 +1245,8 @@ pub mod pallet {
             Self {
                 stakes: Default::default(),
                 balances_issuance: 0,
+                initialize_network_1: false,
+                initialize_network_3: true,
             }
         }
     }

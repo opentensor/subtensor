@@ -5,74 +5,86 @@ use frame_support::pallet_macros::pallet_section;
 #[pallet_section]
 mod genesis {
 
+    fn init_network<T: Config>(netuid: u16, tempo: u16) {
+        // The functions for initializing new networks/setting defaults cannot be run directly from genesis functions like extrinsics would
+        // --- Set this network uid to alive.
+        NetworksAdded::<T>::insert(netuid, true);
+
+        // --- Fill tempo memory item.
+        Tempo::<T>::insert(netuid, tempo);
+
+        // --- Fill modality item.
+        // Only modality 0 exists (text)
+        NetworkModality::<T>::insert(netuid, 0);
+
+        // Make network parameters explicit.
+        if !Tempo::<T>::contains_key(netuid) {
+            Tempo::<T>::insert(netuid, Tempo::<T>::get(netuid));
+        }
+        if !Kappa::<T>::contains_key(netuid) {
+            Kappa::<T>::insert(netuid, Kappa::<T>::get(netuid));
+        }
+        if !Difficulty::<T>::contains_key(netuid) {
+            Difficulty::<T>::insert(netuid, Difficulty::<T>::get(netuid));
+        }
+        if !MaxAllowedUids::<T>::contains_key(netuid) {
+            MaxAllowedUids::<T>::insert(netuid, MaxAllowedUids::<T>::get(netuid));
+        }
+        if !ImmunityPeriod::<T>::contains_key(netuid) {
+            ImmunityPeriod::<T>::insert(netuid, ImmunityPeriod::<T>::get(netuid));
+        }
+        if !ActivityCutoff::<T>::contains_key(netuid) {
+            ActivityCutoff::<T>::insert(netuid, ActivityCutoff::<T>::get(netuid));
+        }
+        if !EmissionValues::<T>::contains_key(netuid) {
+            EmissionValues::<T>::insert(netuid, EmissionValues::<T>::get(netuid));
+        }
+        if !MaxWeightsLimit::<T>::contains_key(netuid) {
+            MaxWeightsLimit::<T>::insert(netuid, MaxWeightsLimit::<T>::get(netuid));
+        }
+        if !MinAllowedWeights::<T>::contains_key(netuid) {
+            MinAllowedWeights::<T>::insert(netuid, MinAllowedWeights::<T>::get(netuid));
+        }
+        if !RegistrationsThisInterval::<T>::contains_key(netuid) {
+            RegistrationsThisInterval::<T>::insert(
+                netuid,
+                RegistrationsThisInterval::<T>::get(netuid),
+            );
+        }
+        if !POWRegistrationsThisInterval::<T>::contains_key(netuid) {
+            POWRegistrationsThisInterval::<T>::insert(
+                netuid,
+                POWRegistrationsThisInterval::<T>::get(netuid),
+            );
+        }
+        if !BurnRegistrationsThisInterval::<T>::contains_key(netuid) {
+            BurnRegistrationsThisInterval::<T>::insert(
+                netuid,
+                BurnRegistrationsThisInterval::<T>::get(netuid),
+            );
+        }
+    }
+
     #[pallet::genesis_build]
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             // Set initial total issuance from balances
             TotalIssuance::<T>::put(self.balances_issuance);
 
+            // let a = Ok(0);
             // Subnet config values
-            let netuid: u16 = 3;
             let tempo = 99;
+
+            if self.initialize_network_1 {
+                init_network::<T>(1, tempo);
+            }
+
+            if self.initialize_network_3 {
+                init_network::<T>(3, tempo);
+            }
+
+            let netuid: u16 = 3;
             let max_uids = 4096;
-
-            // The functions for initializing new networks/setting defaults cannot be run directly from genesis functions like extrinsics would
-            // --- Set this network uid to alive.
-            NetworksAdded::<T>::insert(netuid, true);
-
-            // --- Fill tempo memory item.
-            Tempo::<T>::insert(netuid, tempo);
-
-            // --- Fill modality item.
-            // Only modality 0 exists (text)
-            NetworkModality::<T>::insert(netuid, 0);
-
-            // Make network parameters explicit.
-            if !Tempo::<T>::contains_key(netuid) {
-                Tempo::<T>::insert(netuid, Tempo::<T>::get(netuid));
-            }
-            if !Kappa::<T>::contains_key(netuid) {
-                Kappa::<T>::insert(netuid, Kappa::<T>::get(netuid));
-            }
-            if !Difficulty::<T>::contains_key(netuid) {
-                Difficulty::<T>::insert(netuid, Difficulty::<T>::get(netuid));
-            }
-            if !MaxAllowedUids::<T>::contains_key(netuid) {
-                MaxAllowedUids::<T>::insert(netuid, MaxAllowedUids::<T>::get(netuid));
-            }
-            if !ImmunityPeriod::<T>::contains_key(netuid) {
-                ImmunityPeriod::<T>::insert(netuid, ImmunityPeriod::<T>::get(netuid));
-            }
-            if !ActivityCutoff::<T>::contains_key(netuid) {
-                ActivityCutoff::<T>::insert(netuid, ActivityCutoff::<T>::get(netuid));
-            }
-            if !EmissionValues::<T>::contains_key(netuid) {
-                EmissionValues::<T>::insert(netuid, EmissionValues::<T>::get(netuid));
-            }
-            if !MaxWeightsLimit::<T>::contains_key(netuid) {
-                MaxWeightsLimit::<T>::insert(netuid, MaxWeightsLimit::<T>::get(netuid));
-            }
-            if !MinAllowedWeights::<T>::contains_key(netuid) {
-                MinAllowedWeights::<T>::insert(netuid, MinAllowedWeights::<T>::get(netuid));
-            }
-            if !RegistrationsThisInterval::<T>::contains_key(netuid) {
-                RegistrationsThisInterval::<T>::insert(
-                    netuid,
-                    RegistrationsThisInterval::<T>::get(netuid),
-                );
-            }
-            if !POWRegistrationsThisInterval::<T>::contains_key(netuid) {
-                POWRegistrationsThisInterval::<T>::insert(
-                    netuid,
-                    POWRegistrationsThisInterval::<T>::get(netuid),
-                );
-            }
-            if !BurnRegistrationsThisInterval::<T>::contains_key(netuid) {
-                BurnRegistrationsThisInterval::<T>::insert(
-                    netuid,
-                    BurnRegistrationsThisInterval::<T>::get(netuid),
-                );
-            }
 
             // Set max allowed uids
             MaxAllowedUids::<T>::insert(netuid, max_uids);
