@@ -275,7 +275,7 @@ impl<T: Config> Pallet<T> {
         LastHotkeyEmissionDrain::<T>::insert(hotkey, block_number);
 
         // --- 4 Retrieve the total stake for the hotkey from all nominations.
-        let _total_hotkey_stake: u64 = Self::get_total_stake_for_hotkey(hotkey);
+        let total_hotkey_stake: u64 = Self::get_total_stake_for_hotkey(hotkey);
 
         // --- 5 Calculate the emission take for the hotkey.
         let take_proportion: I64F64 = I64F64::from_num(Delegates::<T>::get(hotkey))
@@ -288,19 +288,17 @@ impl<T: Config> Pallet<T> {
 
         // --- 7 Calculate the remaining emission after the hotkey's take.
         let mut remainder: u64 = emission_minus_take;
-        // --- 8. Calculate the total stake for the hotkey from all nominations.
-        let total_hotkey_stake: u64 = Self::get_total_stake_for_hotkey(hotkey);
 
-        // --- 9. Iterate over each nominator and distribute emissions.
+        // --- 8. Iterate over each nominator and distribute emissions.
         if total_hotkey_stake != 0 {
             for (nominator, nominator_stake) in Stake::<T>::iter_prefix(hotkey) {
-                // --- 10. Calculate this nominator's share of the emission.
+                // --- 9. Calculate this nominator's share of the emission.
                 let nominator_emission: I64F64 = I64F64::from_num(emission_minus_take)
                     .saturating_mul(I64F64::from_num(nominator_stake))
                     .checked_div(I64F64::from_num(total_hotkey_stake))
                     .unwrap_or(I64F64::from_num(0));
 
-                // --- 11. Increase the stake for the nominator.
+                // --- 10. Increase the stake for the nominator.
                 let nominator_emission_u64: u64 = nominator_emission.to_num::<u64>();
                 Self::increase_stake_on_coldkey_hotkey_account(
                     &nominator,
@@ -308,17 +306,17 @@ impl<T: Config> Pallet<T> {
                     nominator_emission_u64,
                 );
 
-                // --- 12. Record event and subtract the nominator's emission from the remainder.
+                // --- 11. Record event and subtract the nominator's emission from the remainder.
                 total_new_tao = total_new_tao.saturating_add(nominator_emission_u64);
                 remainder = remainder.saturating_sub(nominator_emission_u64);
             }
         }
 
-        // --- 13. Finally, add the stake to the hotkey itself, including its take and the remaining emission.
+        // --- 12. Finally, add the stake to the hotkey itself, including its take and the remaining emission.
         let hotkey_new_tao: u64 = hotkey_take.saturating_add(remainder);
         Self::increase_stake_on_hotkey_account(hotkey, hotkey_new_tao);
 
-        // --- 15 Record new tao creation event and return the amount created.
+        // --- 13 Record new tao creation event and return the amount created.
         total_new_tao = total_new_tao.saturating_add(hotkey_new_tao);
         total_new_tao
     }
