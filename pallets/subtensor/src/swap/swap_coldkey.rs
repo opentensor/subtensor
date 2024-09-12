@@ -169,12 +169,17 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
         }
 
-        // 4. Swap LastAddStakeIncrease.
+        // 4. Swap StakeDeltaSinceLastEmissionDrain
         for hotkey in StakingHotkeys::<T>::get(old_coldkey) {
-            let last_add_stake_increase = LastAddStakeIncrease::<T>::get(&hotkey, old_coldkey);
-            LastAddStakeIncrease::<T>::remove(&hotkey, old_coldkey);
-            LastAddStakeIncrease::<T>::insert(&hotkey, new_coldkey, last_add_stake_increase);
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+            let old_stake_delta = StakeDeltaSinceLastEmissionDrain::<T>::get(&hotkey, old_coldkey);
+            let new_stake_delta = StakeDeltaSinceLastEmissionDrain::<T>::get(&hotkey, new_coldkey);
+            StakeDeltaSinceLastEmissionDrain::<T>::insert(
+                &hotkey,
+                new_coldkey,
+                new_stake_delta.saturating_add(old_stake_delta),
+            );
+            StakeDeltaSinceLastEmissionDrain::<T>::remove(&hotkey, old_coldkey);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
         }
 
         // 5. Swap total coldkey stake.

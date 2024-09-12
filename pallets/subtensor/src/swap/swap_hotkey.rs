@@ -207,23 +207,12 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
         }
 
-        // 9.1. swap PendingdHotkeyEmission
+        // 9. swap PendingdHotkeyEmission
         if PendingdHotkeyEmission::<T>::contains_key(old_hotkey) {
             let old_pending_hotkey_emission = PendingdHotkeyEmission::<T>::get(old_hotkey);
             PendingdHotkeyEmission::<T>::remove(old_hotkey);
             PendingdHotkeyEmission::<T>::insert(new_hotkey, old_pending_hotkey_emission);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
-        }
-        // 9.2. swap LastAddStakeIncrease
-        // Swap double map prefix
-        let old_coldkey_entries: Vec<(T::AccountId, u64)> =
-            LastAddStakeIncrease::<T>::iter_prefix(old_hotkey).collect();
-        if !old_coldkey_entries.is_empty() {
-            for (coldkey, last_add_stake_increase) in old_coldkey_entries {
-                LastAddStakeIncrease::<T>::remove(old_hotkey, &coldkey);
-                LastAddStakeIncrease::<T>::insert(new_hotkey, &coldkey, last_add_stake_increase);
-                weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
-            }
         }
 
         // 10. Swap all subnet specific info.
@@ -361,6 +350,19 @@ impl<T: Config> Pallet<T> {
                 // Update the parent's children list
                 ChildKeys::<T>::insert(parent_key_i, netuid, parent_children);
             }
+        }
+
+        // 13. Swap Stake Delta for all coldkeys.
+        for (coldkey, stake_delta) in StakeDeltaSinceLastEmissionDrain::<T>::iter_prefix(old_hotkey)
+        {
+            let new_stake_delta = StakeDeltaSinceLastEmissionDrain::<T>::get(new_hotkey, &coldkey);
+            StakeDeltaSinceLastEmissionDrain::<T>::insert(
+                new_hotkey,
+                &coldkey,
+                new_stake_delta.saturating_add(stake_delta),
+            );
+            StakeDeltaSinceLastEmissionDrain::<T>::remove(old_hotkey, &coldkey);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
         }
 
         // Return successful after swapping all the relevant terms.
