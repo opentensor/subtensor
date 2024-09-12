@@ -289,10 +289,11 @@ fn test_coinbase_nominator_drainage_no_deltas() {
         log::debug!("Balances added to accounts");
 
         // 4. Make the hotkey a delegate
+        let val_take = (u16::MAX as u64 / 10);
         assert_ok!(SubtensorModule::do_become_delegate(
             RuntimeOrigin::signed(coldkey),
             hotkey,
-            (u16::MAX as u64 / 10) as u16
+            val_take as u16
         ));
 
         log::debug!("Hotkey became a delegate with minimum take");
@@ -353,7 +354,7 @@ fn test_coinbase_nominator_drainage_no_deltas() {
         );
 
         // 9. Verify distribution
-        let min_take = SubtensorModule::get_min_delegate_take() as u64;
+        let min_take = val_take;
         let total_emission = 20; // 10 per block for 2 blocks
         let hotkey_emission = total_emission * min_take / u16::MAX as u64;
         let remaining_emission = total_emission - hotkey_emission;
@@ -424,10 +425,11 @@ fn test_coinbase_nominator_drainage_with_positive_delta() {
         log::debug!("Balances added to accounts");
 
         // 4. Make the hotkey a delegate
+        let val_take = (u16::MAX as u64 / 10);
         assert_ok!(SubtensorModule::do_become_delegate(
             RuntimeOrigin::signed(coldkey),
             hotkey,
-            (u16::MAX as u64 / 10) as u16
+            val_take as u16
         ));
 
         log::debug!("Hotkey became a delegate with minimum take");
@@ -502,7 +504,7 @@ fn test_coinbase_nominator_drainage_with_positive_delta() {
         );
 
         // 9. Verify distribution
-        let min_take = SubtensorModule::get_min_delegate_take() as u64;
+        let min_take = val_take;
         let total_emission = 20; // 10 per block for 2 blocks
         let hotkey_emission = total_emission * min_take / u16::MAX as u64;
         let remaining_emission = total_emission - hotkey_emission;
@@ -579,10 +581,11 @@ fn test_coinbase_nominator_drainage_with_negative_delta() {
         log::debug!("Balances added to accounts");
 
         // 4. Make the hotkey a delegate
+        let val_take = (u16::MAX as u64 / 10);
         assert_ok!(SubtensorModule::do_become_delegate(
             RuntimeOrigin::signed(coldkey),
             hotkey,
-            (u16::MAX as u64 / 10) as u16
+            val_take as u16
         ));
 
         log::debug!("Hotkey became a delegate with minimum take");
@@ -661,7 +664,7 @@ fn test_coinbase_nominator_drainage_with_negative_delta() {
         );
 
         // 9. Verify distribution
-        let min_take = SubtensorModule::get_min_delegate_take() as u64;
+        let min_take = val_take;
         let total_emission = 20; // 10 per block for 2 blocks
         let hotkey_emission = total_emission * min_take / u16::MAX as u64;
         let remaining_emission = total_emission - hotkey_emission;
@@ -739,10 +742,11 @@ fn test_coinbase_nominator_drainage_with_neutral_delta() {
         log::debug!("Balances added to accounts");
 
         // 4. Make the hotkey a delegate
+        let val_take = (u16::MAX as u64 / 10);
         assert_ok!(SubtensorModule::do_become_delegate(
             RuntimeOrigin::signed(coldkey),
             hotkey,
-            (u16::MAX as u64 / 10) as u16
+            val_take as u16
         ));
 
         log::debug!("Hotkey became a delegate with minimum take");
@@ -823,7 +827,7 @@ fn test_coinbase_nominator_drainage_with_neutral_delta() {
         );
 
         // 9. Verify distribution
-        let min_take = SubtensorModule::get_min_delegate_take() as u64;
+        let min_take = val_take;
         let total_emission = 20; // 10 per block for 2 blocks
         let hotkey_emission = total_emission * min_take / u16::MAX as u64;
         let remaining_emission = total_emission - hotkey_emission;
@@ -898,10 +902,11 @@ fn test_coinbase_nominator_drainage_with_net_positive_delta() {
         log::debug!("Balances added to accounts");
 
         // 4. Make the hotkey a delegate
+        let val_take = (u16::MAX as u64 / 10);
         assert_ok!(SubtensorModule::do_become_delegate(
             RuntimeOrigin::signed(coldkey),
             hotkey,
-            (u16::MAX as u64 / 10) as u16
+            val_take as u16
         ));
 
         log::debug!("Hotkey became a delegate with minimum take");
@@ -1004,7 +1009,7 @@ fn test_coinbase_nominator_drainage_with_net_positive_delta() {
         );
 
         // 9. Verify distribution
-        let min_take = SubtensorModule::get_min_delegate_take() as u64;
+        let min_take = val_take;
         let total_emission = 20; // 10 per block for 2 blocks
         let hotkey_emission = total_emission * min_take / u16::MAX as u64;
         let remaining_emission = total_emission - hotkey_emission;
