@@ -1216,7 +1216,7 @@ fn test_coinbase_nominator_drainage_with_net_negative_delta() {
         let hotkey_emission = total_emission * min_take / u16::MAX as u64;
         let remaining_emission = total_emission - hotkey_emission;
 
-        // We expect to distribute using the NEW stake for nominator 1; because the delta is net positive
+        // We expect to distribute using the NEW stake for nominator 1; because the delta is net negative
         // We also use the INITIAL total hotkey stake
         // Note: nominator_1_stake_before is the new stake for nominator 1, before the epochs run
         let nominator_1_emission =
