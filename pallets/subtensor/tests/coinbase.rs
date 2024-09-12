@@ -1096,10 +1096,11 @@ fn test_coinbase_nominator_drainage_with_net_negative_delta() {
         log::debug!("Balances added to accounts");
 
         // 4. Make the hotkey a delegate
+        let val_take = (u16::MAX as u64 / 10);
         assert_ok!(SubtensorModule::do_become_delegate(
             RuntimeOrigin::signed(coldkey),
             hotkey,
-            (u16::MAX as u64 / 10) as u16
+            val_take as u16
         ));
 
         log::debug!("Hotkey became a delegate with minimum take");
@@ -1159,8 +1160,9 @@ fn test_coinbase_nominator_drainage_with_net_negative_delta() {
         );
 
         // 5. Set emission and verify initial states
-        SubtensorModule::set_emission_values(&[netuid], vec![10]).unwrap();
-        assert_eq!(SubtensorModule::get_subnet_emission_value(netuid), 10);
+        let to_emit = 10_000e9 as u64;
+        SubtensorModule::set_emission_values(&[netuid], vec![to_emit]).unwrap();
+        assert_eq!(SubtensorModule::get_subnet_emission_value(netuid), to_emit);
         assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey),
@@ -1176,7 +1178,7 @@ fn test_coinbase_nominator_drainage_with_net_negative_delta() {
 
         // 7. Simulate blocks and check emissions
         next_block();
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 10);
+        assert_eq!(SubtensorModule::get_pending_emission(netuid), to_emit);
         log::debug!(
             "After first block, pending emission: {}",
             SubtensorModule::get_pending_emission(netuid)
@@ -1204,8 +1206,8 @@ fn test_coinbase_nominator_drainage_with_net_negative_delta() {
         );
 
         // 9. Verify distribution
-        let min_take = SubtensorModule::get_min_delegate_take() as u64;
-        let total_emission = 20; // 10 per block for 2 blocks
+        let min_take = val_take;
+        let total_emission = to_emit * 2; // 10 per block for 2 blocks
         let hotkey_emission = total_emission * min_take / u16::MAX as u64;
         let remaining_emission = total_emission - hotkey_emission;
 
@@ -1213,9 +1215,9 @@ fn test_coinbase_nominator_drainage_with_net_negative_delta() {
         // We also use the INITIAL total hotkey stake
         // Note: nominator_1_stake_before is the new stake for nominator 1, before the epochs run
         let nominator_1_emission =
-            remaining_emission * nominator_1_stake_before / intial_total_hotkey_stake;
+            remaining_emission * nominator_1_stake_before / total_stake_before;
         let nominator_2_emission =
-            remaining_emission * initial_nominator2_stake / intial_total_hotkey_stake;
+            remaining_emission * initial_nominator2_stake / total_stake_before;
 
         log::debug!(
             "Calculated emissions - Hotkey: {}, Each Nominator: 1;{}, 2;{}",
@@ -1233,10 +1235,18 @@ fn test_coinbase_nominator_drainage_with_net_negative_delta() {
         let total_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
         log::debug!("Total stake for hotkey: {}", total_stake);
 
-        // Assertions
-        assert_eq!(delegate_stake, 2, "Hotkey stake mismatch");
+        // Do a fuzzy check on the final stakes
+        let eps = 0.2e9 as u64;
 
-        // Do a fuzzy check on the nominator stakes
+        let expected_delegate_stake: u64 = 2_000e9 as u64;
+        assert!(
+            expected_delegate_stake - eps <= delegate_stake
+                && expected_delegate_stake + eps >= delegate_stake,
+            "Hotkey stake mismatch - Expected: {}, Actual: {}",
+            expected_delegate_stake,
+            delegate_stake
+        );
+
         let expected_1_stake = u64::try_from(
             net_change
                 .checked_add_unsigned((initial_nominator1_stake + nominator_1_emission) as u128)
@@ -1244,13 +1254,19 @@ fn test_coinbase_nominator_drainage_with_net_negative_delta() {
         )
         .unwrap();
         assert!(
-            expected_1_stake - 5 <= nominator1_stake && expected_1_stake + 5 >= nominator1_stake,
-            "Nominator1 stake mismatch"
+            expected_1_stake - eps <= nominator1_stake
+                && expected_1_stake + eps >= nominator1_stake,
+            "Nominator1 stake mismatch - Expected: {}, Actual: {}",
+            expected_1_stake,
+            nominator1_stake
         );
         let expected_2_stake = initial_nominator2_stake + nominator_2_emission;
         assert!(
-            expected_2_stake - 5 <= nominator2_stake && expected_2_stake + 5 >= nominator2_stake,
-            "Nominator2 stake mismatch"
+            expected_2_stake - eps <= nominator2_stake
+                && expected_2_stake + eps >= nominator2_stake,
+            "Nominator2 stake mismatch - Expected: {}, Actual: {}",
+            expected_2_stake,
+            nominator2_stake
         );
 
         // 10. Check total stake
