@@ -292,7 +292,7 @@ impl<T: Config> Pallet<T> {
         // --- 8 Iterate over each nominator and get all viable stake.
         let mut total_viable_nominator_stake: u64 = total_hotkey_stake;
         for (nominator, nominator_stake) in Stake::<T>::iter_prefix(hotkey) {
-            if LastAddStakeIncrease::<T>::get(hotkey, nominator) > last_emission_drain {
+            if false && LastAddStakeIncrease::<T>::get(hotkey, nominator) > last_emission_drain {
                 total_viable_nominator_stake =
                     total_viable_nominator_stake.saturating_sub(nominator_stake);
             }
@@ -303,15 +303,18 @@ impl<T: Config> Pallet<T> {
             for (nominator, nominator_stake) in Stake::<T>::iter_prefix(hotkey) {
                 // --- 10 Check if the stake was manually increased by the user since the last emission drain for this hotkey.
                 // If it was, skip this nominator as they will not receive their proportion of the emission.
-                if LastAddStakeIncrease::<T>::get(hotkey, nominator.clone()) > last_emission_drain {
+                if false
+                    && LastAddStakeIncrease::<T>::get(hotkey, nominator.clone())
+                        > last_emission_drain
+                {
                     continue;
                 }
 
                 // --- 11 Calculate this nominator's share of the emission.
-                let nominator_emission: I64F64 = I64F64::from_num(emission_minus_take)
-                    .saturating_mul(I64F64::from_num(nominator_stake))
+                let nominator_emission: I64F64 = I64F64::from_num(nominator_stake)
                     .checked_div(I64F64::from_num(total_viable_nominator_stake))
-                    .unwrap_or(I64F64::from_num(0));
+                    .unwrap_or(I64F64::from_num(0))
+                    .saturating_mul(I64F64::from_num(emission_minus_take));
 
                 // --- 12 Increase the stake for the nominator.
                 Self::increase_stake_on_coldkey_hotkey_account(
