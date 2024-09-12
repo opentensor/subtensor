@@ -2,6 +2,7 @@
 use crate::mock::*;
 mod mock;
 use frame_support::assert_ok;
+use pallet_subtensor::LastAddStakeIncrease;
 use sp_core::U256;
 use substrate_fixed::types::I64F64;
 
@@ -201,6 +202,166 @@ fn test_coinbase_nominator_drainage_overflow() {
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&nominator1, &hotkey, 5e9 as u64);
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&nominator2, &hotkey, 5e9 as u64);
         let initial_stake = 5e9 as u64;
+
+        // Log the stakes for hotkey, nominator1, and nominator2
+        log::debug!(
+            "Initial stakes - Hotkey: {}, Nominator1: {}, Nominator2: {}",
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator2, &hotkey)
+        );
+        log::debug!("Stakes added for nominators");
+
+        // 5. Set emission and verify initial states
+        let to_emit = 20_000e9 as u64;
+        SubtensorModule::set_emission_values(&[netuid], vec![to_emit]).unwrap();
+        assert_eq!(SubtensorModule::get_subnet_emission_value(netuid), to_emit);
+        assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+            initial_stake * 2
+        );
+        assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+
+        log::debug!("Emission set and initial states verified");
+
+        // 6. Set hotkey emission tempo
+        SubtensorModule::set_hotkey_emission_tempo(1);
+        log::debug!("Hotkey emission tempo set to 1");
+
+        // 7. Simulate blocks and check emissions
+        next_block();
+        assert_eq!(SubtensorModule::get_pending_emission(netuid), to_emit);
+        log::debug!(
+            "After first block, pending emission: {}",
+            SubtensorModule::get_pending_emission(netuid)
+        );
+
+        next_block();
+        assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+        assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
+        log::debug!("After second block, pending emission drained");
+
+        // 8. Check final stakes
+        let hotkey_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey);
+        let nominator1_stake =
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey);
+        let nominator2_stake =
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator2, &hotkey);
+
+        log::debug!(
+            "Final stakes - Hotkey: {}, Nominator1: {}, Nominator2: {}",
+            hotkey_stake,
+            nominator1_stake,
+            nominator2_stake
+        );
+
+        // 9. Verify distribution
+        let total_emission = to_emit * 2; // to_emit per block for 2 blocks
+        let hotkey_emission = (I64F64::from_num(total_emission) / I64F64::from_num(u16::MAX)
+            * I64F64::from_num(vali_take))
+        .to_num::<u64>();
+        let remaining_emission = total_emission - hotkey_emission;
+        let nominator_emission = remaining_emission / 2;
+
+        log::debug!(
+            "Calculated emissions - Hotkey: {}, Each Nominator: {}",
+            hotkey_emission,
+            nominator_emission
+        );
+
+        // Debug: Print the actual stakes
+        log::debug!("Actual hotkey stake: {}", hotkey_stake);
+        log::debug!("Actual nominator1 stake: {}", nominator1_stake);
+        log::debug!("Actual nominator2 stake: {}", nominator2_stake);
+
+        // Debug: Check the total stake for the hotkey
+        let total_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
+        log::debug!("Total stake for hotkey: {}", total_stake);
+
+        // Assertions
+        let expected_hotkey_stake = 4_000e9 as u64;
+        let eps = 0.5e9 as u64;
+        assert!(
+            hotkey_stake >= expected_hotkey_stake - eps
+                && hotkey_stake <= expected_hotkey_stake + eps,
+            "Hotkey stake mismatch - expected: {}, actual: {}",
+            expected_hotkey_stake,
+            hotkey_stake
+        );
+        assert_eq!(
+            nominator1_stake,
+            initial_stake + nominator_emission,
+            "Nominator1 stake mismatch"
+        );
+        assert_eq!(
+            nominator2_stake,
+            initial_stake + nominator_emission,
+            "Nominator2 stake mismatch"
+        );
+
+        // 10. Check total stake
+        assert_eq!(
+            total_stake,
+            initial_stake + initial_stake + total_emission,
+            "Total stake mismatch"
+        );
+
+        log::debug!("Test completed");
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --test coinbase test_coinbase_nominator_drainage_no_affected_by_last_add_stake -- --nocapture
+#[test]
+fn test_coinbase_nominator_drainage_no_affected_by_last_add_stake() {
+    new_test_ext(1).execute_with(|| {
+        // 1. Set up the network and accounts
+        let netuid: u16 = 1;
+        let hotkey = U256::from(0);
+        let coldkey = U256::from(3);
+        let nominator1 = U256::from(1);
+        let nominator2 = U256::from(2);
+
+        log::debug!("Setting up network with netuid: {}", netuid);
+        log::debug!("Hotkey: {:?}, Coldkey: {:?}", hotkey, coldkey);
+        log::debug!("Nominators: {:?}, {:?}", nominator1, nominator2);
+
+        // 2. Create network and register neuron
+        add_network(netuid, 1, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 100000);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+
+        log::debug!("Network created and neuron registered");
+
+        // 3. Set up balances and stakes
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1000);
+        SubtensorModule::add_balance_to_coldkey_account(&nominator1, 1500);
+        SubtensorModule::add_balance_to_coldkey_account(&nominator2, 1500);
+
+        log::debug!("Balances added to accounts");
+
+        // 4. Make the hotkey a delegate
+        let vali_take = (u16::MAX as u64 / 10);
+        assert_ok!(SubtensorModule::do_become_delegate(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            vali_take as u16
+        ));
+
+        log::debug!("Hotkey became a delegate with minimum take");
+
+        // Add stakes for nominators
+        // Add the stake directly to their coldkey-hotkey account
+        // This bypasses the accounting in stake delta
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&nominator1, &hotkey, 5e9 as u64);
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&nominator2, &hotkey, 5e9 as u64);
+        let initial_stake = 5e9 as u64;
+
+        // Make add_stake call for nominator1
+        // This should not affect the emission distribution
+
+        // Will be greater than the bock emission
+        LastAddStakeIncrease::<Test>::insert(hotkey, nominator1, 100);
 
         // Log the stakes for hotkey, nominator1, and nominator2
         log::debug!(
