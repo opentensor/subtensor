@@ -583,7 +583,7 @@ fn test_migrate_fix_pending_emissions() {
             TotalColdkeyStake::<Test>::get(migration_account),
             null_stake_total
         );
-        assert!(StakingHotkeys::<Test>::get(migration_account).contains(&datura_old_hk_account));
-        assert!(StakingHotkeys::<Test>::get(migration_account).contains(&taostats_old_hk_account));
+        assert!(StakingHotkeys::<Test>::get(migration_account).contains(datura_old_hk_account));
+        assert!(StakingHotkeys::<Test>::get(migration_account).contains(taostats_old_hk_account));
     })
 }
