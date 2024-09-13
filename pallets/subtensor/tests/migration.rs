@@ -478,20 +478,33 @@ fn test_migrate_fix_pending_emissions() {
         let datura_old_hk_account: AccountId = get_account_id_from_ss58(datura_old_hotkey);
         let datura_new_hk_account: AccountId = get_account_id_from_ss58(datura_new_hotkey);
 
+        // "Issue" the TAO we're going to insert to stake
+        let null_stake_datura = 123_456_789;
+        let null_stake_tao_stats = 123_456_789;
+        let null_stake_total = null_stake_datura + null_stake_tao_stats;
+        SubtensorModule::set_total_issuance(null_stake_total);
+        TotalStake::<Test>::put(null_stake_total);
+        TotalColdkeyStake::<Test>::insert(null_account, null_stake_total);
+        TotalHotkeyStake::<Test>::insert(datura_old_hk_account, null_stake_datura);
+        TotalHotkeyStake::<Test>::insert(taostats_old_hk_account, null_stake_tao_stats);
+
         // Setup the old Datura hotkey with a pending emission
         PendingdHotkeyEmission::<Test>::insert(datura_old_hk_account, 10_000);
         // Setup the NEW Datura hotkey with a pending emission
-        PendingdHotkeyEmission::<Test>::insert(datura_new_hk_account, 123_456_789);
+        PendingdHotkeyEmission::<Test>::insert(datura_new_hk_account, null_stake_datura);
         Stake::<Test>::insert(datura_old_hk_account, null_account, 123_456_789);
-        let expected_datura_new_hk_pending_emission: u64 = 123_456_789 + 10_000 + 123_456_789;
+        let expected_datura_new_hk_pending_emission: u64 = 123_456_789 + 10_000 + null_stake_datura;
 
         // Setup the old TaoStats hotkey with a pending emission
         PendingdHotkeyEmission::<Test>::insert(taostats_old_hk_account, 987_654);
         // Setup the new TaoStats hotkey with a pending emission
         PendingdHotkeyEmission::<Test>::insert(taostats_new_hk_account, 100_000);
         // Setup the old TaoStats hotkey with a null-key stake entry
-        Stake::<Test>::insert(taostats_old_hk_account, null_account, 123_456_789);
-        let expected_taostats_new_hk_pending_emission: u64 = 987_654 + 100_000 + 123_456_789;
+        Stake::<Test>::insert(taostats_old_hk_account, null_account, null_stake_tao_stats);
+        let expected_taostats_new_hk_pending_emission: u64 =
+            987_654 + 100_000 + null_stake_tao_stats;
+
+        let total_issuance_before = SubtensorModule::get_total_issuance();
 
         // Run migration
         let first_weight = run_pending_emissions_migration_and_check(migration_name);
@@ -523,5 +536,18 @@ fn test_migrate_fix_pending_emissions() {
         // Check the stake entry is removed
         assert_eq!(Stake::<Test>::get(datura_old_hk_account, null_account), 0);
         assert_eq!(Stake::<Test>::get(taostats_old_hk_account, null_account), 0);
+
+        // Check the total issuance is decreased by the null stake removed
+        let expected_total_issuance = total_issuance_before - null_stake_total;
+        assert_eq!(
+            SubtensorModule::get_total_issuance(),
+            expected_total_issuance
+        );
+
+        // Check total stake is decreased by the null stake removed
+        assert_eq!(TotalStake::<Test>::get(), expected_total_issuance);
+        assert_eq!(TotalColdkeyStake::<Test>::get(null_account), 0);
+        assert_eq!(TotalHotkeyStake::<Test>::get(datura_old_hk_account), 0);
+        assert_eq!(TotalHotkeyStake::<Test>::get(taostats_old_hk_account), 0);
     })
 }
