@@ -482,7 +482,8 @@ fn test_migrate_fix_pending_emissions() {
         PendingdHotkeyEmission::<Test>::insert(datura_old_hk_account, 10_000);
         // Setup the NEW Datura hotkey with a pending emission
         PendingdHotkeyEmission::<Test>::insert(datura_new_hk_account, 123_456_789);
-        let expected_datura_new_hk_pending_emission: u64 = 123_456_789 + 10_000;
+        Stake::<Test>::insert(datura_old_hk_account, null_account, 123_456_789);
+        let expected_datura_new_hk_pending_emission: u64 = 123_456_789 + 10_000 + 123_456_789;
 
         // Setup the old TaoStats hotkey with a pending emission
         PendingdHotkeyEmission::<Test>::insert(taostats_old_hk_account, 987_654);
@@ -508,10 +509,15 @@ fn test_migrate_fix_pending_emissions() {
             expected_taostats_new_hk_pending_emission
         );
 
-        // Check the pending emission is added to new the Datura hotkey
+        // Check the pending emission is removed from old ones
         assert_eq!(
-            PendingdHotkeyEmission::<Test>::get(datura_new_hk_account),
-            expected_datura_new_hk_pending_emission
+            PendingdHotkeyEmission::<Test>::get(datura_old_hk_account),
+            0
+        );
+
+        assert_eq!(
+            PendingdHotkeyEmission::<Test>::get(taostats_old_hk_account),
+            0
         );
     })
 }

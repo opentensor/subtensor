@@ -26,6 +26,7 @@ fn migrate_pending_emissions_including_null_stake<T: Config>(
 
     // Get the pending emissions for the OLD hotkey
     let pending_emissions_old: u64 = PendingdHotkeyEmission::<T>::get(old_hotkey);
+    PendingdHotkeyEmission::<T>::remove(old_hotkey);
     weight.saturating_accrue(T::DbWeight::get().reads(1));
 
     // Get the stake for the 0x000 key
