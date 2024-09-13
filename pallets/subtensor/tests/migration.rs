@@ -519,5 +519,9 @@ fn test_migrate_fix_pending_emissions() {
             PendingdHotkeyEmission::<Test>::get(taostats_old_hk_account),
             0
         );
+
+        // Check the stake entry is removed
+        assert_eq!(Stake::<Test>::get(datura_old_hk_account, null_account), 0);
+        assert_eq!(Stake::<Test>::get(taostats_old_hk_account, null_account), 0);
     })
 }
