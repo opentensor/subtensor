@@ -19,6 +19,7 @@ fn get_account_id_from_ss58<T: Config>(ss58_str: &str) -> Result<T::AccountId, c
 fn migrate_pending_emissions_including_null_stake<T: Config>(
     old_hotkey: &T::AccountId,
     new_hotkey: &T::AccountId,
+    migration_account: &T::AccountId,
 ) -> Weight {
     let mut weight = T::DbWeight::get().reads(0);
     let null_account = &DefaultAccount::<T>::get();
@@ -30,10 +31,10 @@ fn migrate_pending_emissions_including_null_stake<T: Config>(
     weight.saturating_accrue(T::DbWeight::get().reads(1));
 
     // Get the stake for the 0x000 key
-    let null_stake = Stake::<T>::get(&old_hotkey, null_account);
+    let null_stake = Stake::<T>::get(old_hotkey, null_account);
     weight.saturating_accrue(T::DbWeight::get().reads(1));
     // Remove
-    Stake::<T>::remove(&old_hotkey, null_account);
+    Stake::<T>::remove(old_hotkey, null_account);
     weight.saturating_accrue(T::DbWeight::get().writes(1));
 
     let new_total_coldkey_stake =
@@ -45,29 +46,35 @@ fn migrate_pending_emissions_including_null_stake<T: Config>(
     }
     weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
-    let new_total_hotkey_stake = TotalHotkeyStake::<T>::get(old_hotkey).saturating_sub(null_stake);
-    if new_total_hotkey_stake == 0 {
-        TotalHotkeyStake::<T>::remove(old_hotkey);
-    } else {
-        TotalHotkeyStake::<T>::insert(old_hotkey, new_total_hotkey_stake);
-    }
+    let new_staking_hotkeys = StakingHotkeys::<T>::get(null_account);
+    let new_staking_hotkeys = new_staking_hotkeys
+        .into_iter()
+        .filter(|hk| hk != old_hotkey)
+        .collect::<Vec<_>>();
+    StakingHotkeys::<T>::insert(null_account, new_staking_hotkeys);
     weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
-    // Remove the stake from the total stake and total issuance (since it is re-emitted)
-    TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(null_stake));
-    TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(null_stake));
-    weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+    // Insert the stake from the null account to the MIGRATION account under the OLD hotkey
+    Stake::<T>::insert(old_hotkey, migration_account, null_stake);
+    TotalColdkeyStake::<T>::insert(
+        migration_account,
+        TotalColdkeyStake::<T>::get(migration_account).saturating_add(null_stake),
+    );
+    let mut new_staking_hotkeys = StakingHotkeys::<T>::get(migration_account);
+    if !new_staking_hotkeys.contains(old_hotkey) {
+        new_staking_hotkeys.push(old_hotkey.clone());
+    }
+    StakingHotkeys::<T>::insert(migration_account, new_staking_hotkeys);
+    weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 3));
 
     // Get the pending emissions for the NEW hotkey
     let pending_emissions_new: u64 = PendingdHotkeyEmission::<T>::get(new_hotkey);
     weight.saturating_accrue(T::DbWeight::get().reads(1));
 
-    // Add stake to the pending emissions for the new hotkey and the old hotkey
+    // Add the pending emissions for the new hotkey and the old hotkey
     PendingdHotkeyEmission::<T>::insert(
         new_hotkey,
-        pending_emissions_new
-            .saturating_add(pending_emissions_old)
-            .saturating_add(null_stake),
+        pending_emissions_new.saturating_add(pending_emissions_old),
     );
     weight.saturating_accrue(T::DbWeight::get().writes(1));
 
@@ -80,19 +87,28 @@ pub fn do_migrate_fix_pending_emission<T: Config>() -> Weight {
 
     let taostats_old_hotkey = "5Hddm3iBFD2GLT5ik7LZnT3XJUnRnN8PoeCFgGQgawUVKNm8";
     let taostats_new_hotkey = "5GKH9FPPnWSUoeeTJp19wVtd84XqFW4pyK2ijV2GsFbhTrP1";
+    let migration_coldkey = "5D65DoFbapkYzJK17VRQo3HFs7FmMeicbaQern28UNDPypCT";
 
     let taostats_old_hk_account = get_account_id_from_ss58::<T>(taostats_old_hotkey);
     let taostats_new_hk_account = get_account_id_from_ss58::<T>(taostats_new_hotkey);
+    let migration_ck_account = get_account_id_from_ss58::<T>(migration_coldkey);
 
-    match (taostats_old_hk_account, taostats_new_hk_account) {
-        (Ok(taostats_old_hk_acct), Ok(taostats_new_hk_acct)) => {
+    match (
+        taostats_old_hk_account,
+        taostats_new_hk_account,
+        migration_ck_account.clone(),
+    ) {
+        (Ok(taostats_old_hk_acct), Ok(taostats_new_hk_acct), Ok(migration_ck_account)) => {
             weight.saturating_accrue(migrate_pending_emissions_including_null_stake::<T>(
                 &taostats_old_hk_acct,
                 &taostats_new_hk_acct,
+                &migration_ck_account,
             ));
+            log::info!("Migrated pending emissions from taostats old hotkey to new hotkey");
         }
         _ => {
             log::warn!("Failed to get account id from ss58 for taostats hotkeys");
+            return weight;
         }
     }
 
@@ -102,15 +118,22 @@ pub fn do_migrate_fix_pending_emission<T: Config>() -> Weight {
     let datura_old_hk_account = get_account_id_from_ss58::<T>(datura_old_hotkey);
     let datura_new_hk_account = get_account_id_from_ss58::<T>(datura_new_hotkey);
 
-    match (datura_old_hk_account, datura_new_hk_account) {
-        (Ok(datura_old_hk_acct), Ok(datura_new_hk_acct)) => {
+    match (
+        datura_old_hk_account,
+        datura_new_hk_account,
+        migration_ck_account,
+    ) {
+        (Ok(datura_old_hk_acct), Ok(datura_new_hk_acct), Ok(migration_ck_account)) => {
             weight.saturating_accrue(migrate_pending_emissions_including_null_stake::<T>(
                 &datura_old_hk_acct,
                 &datura_new_hk_acct,
+                &migration_ck_account,
             ));
+            log::info!("Migrated pending emissions from datura old hotkey to new hotkey");
         }
         _ => {
             log::warn!("Failed to get account id from ss58 for datura hotkeys");
+            return weight;
         }
     }
 
