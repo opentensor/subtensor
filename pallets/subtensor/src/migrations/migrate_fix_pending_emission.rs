@@ -21,7 +21,7 @@ fn migrate_pending_emissions_including_null_stake<T: Config>(
     new_hotkey: &T::AccountId,
 ) -> Weight {
     let mut weight = T::DbWeight::get().reads(0);
-    let null_account = DefaultAccount::<T>::get();
+    let null_account = &DefaultAccount::<T>::get();
     weight.saturating_accrue(T::DbWeight::get().reads(1));
 
     // Get the pending emissions for the OLD hotkey
@@ -30,18 +30,18 @@ fn migrate_pending_emissions_including_null_stake<T: Config>(
     weight.saturating_accrue(T::DbWeight::get().reads(1));
 
     // Get the stake for the 0x000 key
-    let null_stake = Stake::<T>::get(&old_hotkey, &null_account);
+    let null_stake = Stake::<T>::get(&old_hotkey, null_account);
     weight.saturating_accrue(T::DbWeight::get().reads(1));
     // Remove
-    Stake::<T>::remove(&old_hotkey, &null_account);
+    Stake::<T>::remove(&old_hotkey, null_account);
     weight.saturating_accrue(T::DbWeight::get().writes(1));
 
     let new_total_coldkey_stake =
-        TotalColdkeyStake::<T>::get(old_hotkey).saturating_sub(null_stake);
+        TotalColdkeyStake::<T>::get(null_account).saturating_sub(null_stake);
     if new_total_coldkey_stake == 0 {
-        TotalColdkeyStake::<T>::remove(old_hotkey);
+        TotalColdkeyStake::<T>::remove(null_account);
     } else {
-        TotalColdkeyStake::<T>::insert(old_hotkey, new_total_coldkey_stake);
+        TotalColdkeyStake::<T>::insert(null_account, new_total_coldkey_stake);
     }
     weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
@@ -53,8 +53,10 @@ fn migrate_pending_emissions_including_null_stake<T: Config>(
     }
     weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
+    // Remove the stake from the total stake and total issuance (since it is re-emitted)
     TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(null_stake));
-    weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+    TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(null_stake));
+    weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
 
     // Get the pending emissions for the NEW hotkey
     let pending_emissions_new: u64 = PendingdHotkeyEmission::<T>::get(new_hotkey);
