@@ -87,7 +87,7 @@ pub fn do_migrate_fix_pending_emission<T: Config>() -> Weight {
 
     let taostats_old_hotkey = "5Hddm3iBFD2GLT5ik7LZnT3XJUnRnN8PoeCFgGQgawUVKNm8";
     let taostats_new_hotkey = "5GKH9FPPnWSUoeeTJp19wVtd84XqFW4pyK2ijV2GsFbhTrP1";
-    let migration_coldkey = "5D65DoFbapkYzJK17VRQo3HFs7FmMeicbaQern28UNDPypCT";
+    let migration_coldkey = "5GeRjQYsobRWFnrbBmGe5ugme3rfnDVF69N45YtdBpUFsJG8";
 
     let taostats_old_hk_account = get_account_id_from_ss58::<T>(taostats_old_hotkey);
     let taostats_new_hk_account = get_account_id_from_ss58::<T>(taostats_new_hotkey);

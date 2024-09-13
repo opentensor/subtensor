@@ -477,7 +477,7 @@ fn test_migrate_fix_pending_emissions() {
         let datura_old_hk_account: &AccountId = &get_account_id_from_ss58(datura_old_hotkey);
         let datura_new_hk_account: &AccountId = &get_account_id_from_ss58(datura_new_hotkey);
 
-        let migration_coldkey = "5D65DoFbapkYzJK17VRQo3HFs7FmMeicbaQern28UNDPypCT";
+        let migration_coldkey = "5GeRjQYsobRWFnrbBmGe5ugme3rfnDVF69N45YtdBpUFsJG8";
         let migration_account: &AccountId = &get_account_id_from_ss58(migration_coldkey);
 
         // "Issue" the TAO we're going to insert to stake
