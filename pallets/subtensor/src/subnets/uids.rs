@@ -9,6 +9,27 @@ impl<T: Config> Pallet<T> {
         SubnetworkN::<T>::get(netuid)
     }
 
+    /// Sets value for the element at the given position if it exists.
+    pub fn set_element_at<N>(vec: &mut [N], position: usize, value: N) {
+        if let Some(element) = vec.get_mut(position) {
+            *element = value;
+        }
+    }
+
+    /// Resets the trust, emission, consensus, incentive, dividends of the neuron to default
+    pub fn clear_neuron(netuid: u16, neuron_uid: u16) {
+        let neuron_index: usize = neuron_uid.into();
+        Self::set_element_at(&mut Emission::<T>::get(netuid), neuron_index, 0);
+        for storage in &mut [
+            &mut Trust::<T>::get(netuid),
+            &mut Consensus::<T>::get(netuid),
+            &mut Incentive::<T>::get(netuid),
+            &mut Dividends::<T>::get(netuid),
+        ] {
+            Self::set_element_at(storage, neuron_index, 0);
+        }
+    }
+
     /// Replace the neuron under this uid.
     pub fn replace_neuron(
         netuid: u16,
@@ -45,6 +66,12 @@ impl<T: Config> Pallet<T> {
         Uids::<T>::insert(netuid, new_hotkey.clone(), uid_to_replace); // Make uid - hotkey association.
         BlockAtRegistration::<T>::insert(netuid, uid_to_replace, block_number); // Fill block at registration.
         IsNetworkMember::<T>::insert(new_hotkey.clone(), netuid, true); // Fill network is member.
+
+        // 4. Reset new neuron's values.
+        Self::clear_neuron(netuid, uid_to_replace);
+
+        // 4a. reset axon info for the new uid.
+        Axons::<T>::remove(netuid, old_hotkey);
     }
 
     /// Appends the uid to the network.
