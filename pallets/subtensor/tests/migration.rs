@@ -436,11 +436,11 @@ fn run_migration_and_check(migration_name: &'static str) -> frame_support::weigh
 fn run_pending_emissions_migration_and_check(
     migration_name: &'static str,
 ) -> frame_support::weights::Weight {
+    use frame_support::traits::OnRuntimeUpgrade;
+
     // Execute the migration and store its weight
     let weight: frame_support::weights::Weight =
-        pallet_subtensor::migrations::migrate_fix_pending_emission::migrate_fix_pending_emission::<
-            Test,
-        >();
+		pallet_subtensor::migrations::migrate_fix_pending_emission::migration::Migration::<Test>::on_runtime_upgrade();
 
     // Check if the migration has been marked as completed
     assert!(HasMigrationRun::<Test>::get(

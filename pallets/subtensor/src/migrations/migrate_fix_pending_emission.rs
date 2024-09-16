@@ -81,6 +81,9 @@ fn migrate_pending_emissions_including_null_stake<T: Config>(
     weight
 }
 
+// This executes the migration to fix the pending emissions
+// This also migrates the stake entry of (old_hotkey, 0x000) to the Migration Account for
+// both the old hotkeys.
 pub fn do_migrate_fix_pending_emission<T: Config>() -> Weight {
     // Initialize the weight with one read operation.
     let mut weight = T::DbWeight::get().reads(1);
@@ -139,39 +142,310 @@ pub fn do_migrate_fix_pending_emission<T: Config>() -> Weight {
 
     weight
 }
-// Public migrate function to be called by Lib.rs on upgrade.
-pub fn migrate_fix_pending_emission<T: Config>() -> Weight {
-    let migration_name = b"fix_pending_emission".to_vec();
 
-    // Initialize the weight with one read operation.
-    let mut weight = T::DbWeight::get().reads(1);
+/// Collection of storage item formats from the previous storage version.
+///
+/// Required so we can read values in the v0 storage format during the migration.
+#[cfg(feature = "try-runtime")]
+mod v0 {
+    use frame_support::storage_alias;
+    use subtensor_macros::freeze_struct;
 
-    // Check if the migration has already run
-    if HasMigrationRun::<T>::get(&migration_name) {
-        log::info!(
-            "Migration '{:?}' has already run. Skipping.",
-            migration_name
-        );
-        return Weight::zero();
+    #[freeze_struct("7adbed79987ae83d")]
+    #[derive(codec::Encode, codec::Decode, Clone, PartialEq, Debug)]
+    pub struct OldStorage {
+        pub total_issuance_before: u64,
+        pub expected_taostats_new_hk_pending_emission: u64,
+        pub expected_datura_new_hk_pending_emission: u64,
+        pub old_null_stake_taostats: u64,
+        pub old_null_stake_datura: u64,
     }
 
-    log::info!(
-        "Running migration '{}'",
-        String::from_utf8_lossy(&migration_name)
-    );
+    /// V0 type for [`crate::Value`].
+    #[storage_alias]
+    pub type Value<T: crate::Config> = StorageValue<crate::Pallet<T>, OldStorage>;
+}
 
-    // Run the migration
-    weight.saturating_accrue(do_migrate_fix_pending_emission::<T>());
+impl<T: Config> Pallet<T> {
+    #[cfg(feature = "try-runtime")]
+    fn check_null_stake_invariants(
+        old_storage: v0::OldStorage,
+    ) -> Result<(), sp_runtime::TryRuntimeError> {
+        let null_account = &DefaultAccount::<T>::get();
 
-    // Mark the migration as completed
-    HasMigrationRun::<T>::insert(&migration_name, true);
-    weight.saturating_accrue(T::DbWeight::get().writes(1));
+        let taostats_old_hotkey = "5Hddm3iBFD2GLT5ik7LZnT3XJUnRnN8PoeCFgGQgawUVKNm8";
+        let taostats_new_hotkey = "5GKH9FPPnWSUoeeTJp19wVtd84XqFW4pyK2ijV2GsFbhTrP1";
+        let migration_coldkey = "5GeRjQYsobRWFnrbBmGe5ugme3rfnDVF69N45YtdBpUFsJG8";
 
-    log::info!(
-        "Migration '{:?}' completed. Marked in storage.",
-        String::from_utf8_lossy(&migration_name)
-    );
+        let taostats_old_hk_account = &get_account_id_from_ss58::<T>(taostats_old_hotkey);
+        let taostats_new_hk_account = &get_account_id_from_ss58::<T>(taostats_new_hotkey);
+        let migration_ck_account = &get_account_id_from_ss58::<T>(migration_coldkey);
 
-    // Return the migration weight.
-    weight
+        let old = old_storage;
+        let null_stake_total = old
+            .old_null_stake_taostats
+            .saturating_add(old.old_null_stake_datura);
+
+        match (
+            taostats_old_hk_account,
+            taostats_new_hk_account,
+            migration_ck_account,
+        ) {
+            (Ok(taostats_old_hk_acct), Ok(taostats_new_hk_acct), Ok(migration_ck_acct)) => {
+                // Check the pending emission is added to new the TaoStats hotkey
+                assert_eq!(
+                    PendingdHotkeyEmission::<T>::get(taostats_new_hk_acct),
+                    old.expected_taostats_new_hk_pending_emission
+                );
+
+                assert_eq!(PendingdHotkeyEmission::<T>::get(taostats_old_hk_acct), 0);
+
+                assert_eq!(Stake::<T>::get(taostats_old_hk_acct, null_account), 0);
+
+                assert!(StakingHotkeys::<T>::get(migration_ck_acct).contains(taostats_old_hk_acct));
+
+                assert_eq!(
+                    Self::get_stake_for_coldkey_and_hotkey(null_account, taostats_old_hk_acct),
+                    0
+                );
+
+                let new_null_stake_taostats =
+                    Self::get_stake_for_coldkey_and_hotkey(migration_ck_acct, taostats_old_hk_acct);
+
+                assert_eq!(new_null_stake_taostats, old.old_null_stake_taostats);
+            }
+            _ => {
+                log::warn!("Failed to get account id from ss58 for taostats hotkeys");
+                return Err("Failed to get account id from ss58 for taostats hotkeys".into());
+            }
+        }
+
+        let datura_old_hotkey = "5FKstHjZkh4v3qAMSBa1oJcHCLjxYZ8SNTSz1opTv4hR7gVB";
+        let datura_new_hotkey = "5GP7c3fFazW9GXK8Up3qgu2DJBk8inu4aK9TZy3RuoSWVCMi";
+
+        let datura_old_hk_account = &get_account_id_from_ss58::<T>(datura_old_hotkey);
+        let datura_new_hk_account = &get_account_id_from_ss58::<T>(datura_new_hotkey);
+
+        match (
+            datura_old_hk_account,
+            datura_new_hk_account,
+            migration_ck_account,
+        ) {
+            (Ok(datura_old_hk_acct), Ok(datura_new_hk_acct), Ok(migration_ck_acct)) => {
+                // Check the pending emission is added to new Datura hotkey
+                assert_eq!(
+                    crate::PendingdHotkeyEmission::<T>::get(datura_new_hk_acct),
+                    old.expected_datura_new_hk_pending_emission
+                );
+
+                // Check the pending emission is removed from old ones
+                assert_eq!(PendingdHotkeyEmission::<T>::get(datura_old_hk_acct), 0);
+
+                // Check the stake entry is removed
+                assert_eq!(Stake::<T>::get(datura_old_hk_acct, null_account), 0);
+
+                assert!(StakingHotkeys::<T>::get(migration_ck_acct).contains(datura_old_hk_acct));
+
+                assert_eq!(
+                    Self::get_stake_for_coldkey_and_hotkey(null_account, datura_old_hk_acct),
+                    0
+                );
+
+                let new_null_stake_datura =
+                    Self::get_stake_for_coldkey_and_hotkey(migration_ck_acct, datura_old_hk_acct);
+
+                assert_eq!(new_null_stake_datura, old.old_null_stake_datura);
+            }
+            _ => {
+                log::warn!("Failed to get account id from ss58 for datura hotkeys");
+                return Err("Failed to get account id from ss58 for datura hotkeys".into());
+            }
+        }
+
+        match migration_ck_account {
+            Ok(migration_ck_acct) => {
+                // Check the migration key has stake with both *old* hotkeys
+                assert_eq!(
+                    TotalColdkeyStake::<T>::get(migration_ck_acct),
+                    null_stake_total
+                );
+            }
+            _ => {
+                log::warn!("Failed to get account id from ss58 for migration coldkey");
+                return Err("Failed to get account id from ss58 for migration coldkey".into());
+            }
+        }
+
+        // Check the total issuance is the SAME following migration (no TAO issued)
+        let expected_total_issuance = old.total_issuance_before;
+        assert_eq!(Self::get_total_issuance(), expected_total_issuance);
+
+        // Check total stake is the SAME following the migration (no new TAO staked)
+        assert_eq!(TotalStake::<T>::get(), expected_total_issuance);
+        // Check the total stake maps are updated following the migration (removal of old null_account stake entries)
+        assert_eq!(TotalColdkeyStake::<T>::get(null_account), 0);
+
+        // Check staking hotkeys is updated
+        assert_eq!(StakingHotkeys::<T>::get(null_account), vec![]);
+
+        Ok(())
+    }
+}
+
+pub mod migration {
+    use frame_support::pallet_prelude::Weight;
+    use frame_support::traits::OnRuntimeUpgrade;
+    use sp_core::Get;
+
+    use super::*;
+
+    pub struct Migration<T: Config>(PhantomData<T>);
+
+    #[cfg(feature = "try-runtime")]
+    fn get_old_storage_values<T: Config>() -> Result<v0::OldStorage, sp_runtime::TryRuntimeError> {
+        let null_account = &DefaultAccount::<T>::get();
+
+        let taostats_old_hotkey = "5Hddm3iBFD2GLT5ik7LZnT3XJUnRnN8PoeCFgGQgawUVKNm8";
+        let taostats_new_hotkey = "5GKH9FPPnWSUoeeTJp19wVtd84XqFW4pyK2ijV2GsFbhTrP1";
+
+        let taostats_old_hk_account = &get_account_id_from_ss58::<T>(taostats_old_hotkey);
+        let taostats_new_hk_account = &get_account_id_from_ss58::<T>(taostats_new_hotkey);
+
+        let total_issuance_before = crate::Pallet::<T>::get_total_issuance();
+        let mut expected_taostats_new_hk_pending_emission: u64 = 0;
+        let mut expected_datura_new_hk_pending_emission: u64 = 0;
+        let old_null_stake_taostats: u64 = match (taostats_old_hk_account, taostats_new_hk_account)
+        {
+            (Ok(taostats_old_hk_acct), Ok(taostats_new_hk_acct)) => {
+                expected_taostats_new_hk_pending_emission =
+                    expected_taostats_new_hk_pending_emission
+                        .saturating_add(PendingdHotkeyEmission::<T>::get(taostats_old_hk_acct))
+                        .saturating_add(PendingdHotkeyEmission::<T>::get(taostats_new_hk_acct));
+
+                Ok::<u64, sp_runtime::TryRuntimeError>(
+                    crate::Pallet::<T>::get_stake_for_coldkey_and_hotkey(
+                        null_account,
+                        taostats_old_hk_acct,
+                    ),
+                )
+            }
+            _ => {
+                log::warn!("Failed to get account id from ss58 for taostats hotkeys");
+                Err("Failed to get account id from ss58 for taostats hotkeys".into())
+            }
+        }?;
+
+        let datura_old_hotkey = "5FKstHjZkh4v3qAMSBa1oJcHCLjxYZ8SNTSz1opTv4hR7gVB";
+        let datura_new_hotkey = "5GP7c3fFazW9GXK8Up3qgu2DJBk8inu4aK9TZy3RuoSWVCMi";
+
+        let datura_old_hk_account = &get_account_id_from_ss58::<T>(datura_old_hotkey);
+        let datura_new_hk_account = &get_account_id_from_ss58::<T>(datura_new_hotkey);
+
+        let old_null_stake_datura: u64 = match (datura_old_hk_account, datura_new_hk_account) {
+            (Ok(datura_old_hk_acct), Ok(datura_new_hk_acct)) => {
+                expected_datura_new_hk_pending_emission = expected_datura_new_hk_pending_emission
+                    .saturating_add(PendingdHotkeyEmission::<T>::get(datura_old_hk_acct))
+                    .saturating_add(PendingdHotkeyEmission::<T>::get(datura_new_hk_acct));
+
+                Ok::<u64, sp_runtime::TryRuntimeError>(
+                    crate::Pallet::<T>::get_stake_for_coldkey_and_hotkey(
+                        null_account,
+                        datura_old_hk_acct,
+                    ),
+                )
+            }
+            _ => {
+                log::warn!("Failed to get account id from ss58 for datura hotkeys");
+                Err("Failed to get account id from ss58 for datura hotkeys".into())
+            }
+        }?;
+
+        let result = v0::OldStorage {
+            total_issuance_before,
+            expected_taostats_new_hk_pending_emission,
+            expected_datura_new_hk_pending_emission,
+            old_null_stake_taostats,
+            old_null_stake_datura,
+        };
+
+        Ok(result)
+    }
+
+    impl<T: Config> OnRuntimeUpgrade for Migration<T> {
+        /// Runs the migration to fix the pending emissions.
+        #[cfg(feature = "try-runtime")]
+        fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+            use codec::Encode;
+
+            // Get the old storage values
+            let old_storage = get_old_storage_values::<T>()?;
+
+            // Return it as an encoded `Vec<u8>`
+            Ok(old_storage.encode())
+        }
+
+        // Runs the migrate function for the fix_pending_emission migration
+        fn on_runtime_upgrade() -> Weight {
+            let migration_name = b"fix_pending_emission".to_vec();
+
+            // Initialize the weight with one read operation.
+            let mut weight = T::DbWeight::get().reads(1);
+
+            // Check if the migration has already run
+            if HasMigrationRun::<T>::get(&migration_name) {
+                log::info!(
+                    "Migration '{:?}' has already run. Skipping.",
+                    migration_name
+                );
+                return Weight::zero();
+            }
+
+            log::info!(
+                "Running migration '{}'",
+                String::from_utf8_lossy(&migration_name)
+            );
+
+            // Run the migration
+            weight.saturating_accrue(
+                migrations::migrate_fix_pending_emission::do_migrate_fix_pending_emission::<T>(),
+            );
+
+            // Mark the migration as completed
+            HasMigrationRun::<T>::insert(&migration_name, true);
+            weight.saturating_accrue(T::DbWeight::get().writes(1));
+
+            log::info!(
+                "Migration '{:?}' completed. Marked in storage.",
+                String::from_utf8_lossy(&migration_name)
+            );
+
+            // Return the migration weight.
+            weight
+        }
+
+        /// Performs post-upgrade checks to ensure the migration was successful.
+        ///
+        /// This function is only compiled when the "try-runtime" feature is enabled.
+        #[cfg(feature = "try-runtime")]
+        fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+            use codec::Decode;
+
+            let maybe_old_value =
+                Option::<v0::OldStorage>::decode(&mut &state[..]).map_err(|_| {
+                    sp_runtime::TryRuntimeError::Other("Failed to decode old value from storage")
+                })?;
+
+            match maybe_old_value {
+                Some(old_value) => {
+                    // Verify that all null stake invariants are satisfied after the migration
+                    crate::Pallet::<T>::check_null_stake_invariants(old_value)?;
+                }
+                None => {
+                    log::warn!("Failed to decode old value from storage");
+                    return Err("Failed to decode old value from storage".into());
+                }
+            };
+            Ok(())
+        }
+    }
 }
