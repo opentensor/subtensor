@@ -1,7 +1,7 @@
 #![allow(clippy::indexing_slicing, clippy::unwrap_used)]
 
 use crate::mock::*;
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::Config;
 use frame_system::{EventRecord, Phase};
 use pallet_subtensor::{
@@ -1052,6 +1052,330 @@ fn test_user_add_network_with_identity_fields_ok() {
             stored_identity_2_after_removal.subnet_contact,
             subnet_contact_2
         );
+    });
+}
+
+#[test]
+fn test_user_add_network_not_signed_error() {
+    new_test_ext(1).execute_with(|| {
+        let identity_value: Option<SubnetIdentity> = None;
+
+        let result = SubtensorModule::user_add_network(
+            RuntimeOrigin::none(), // Unsigned origin
+            identity_value,
+        );
+
+        assert_eq!(result, Err(DispatchError::BadOrigin));
+    });
+}
+
+#[test]
+fn test_user_add_network_rate_limit_exceeded() {
+    new_test_ext(1).execute_with(|| {
+        pallet_subtensor::NetworkRateLimit::<Test>::put(1);
+
+        let coldkey = U256::from(1);
+
+        // Capture the initial lock cost before adding the first network
+        let initial_lock_cost = SubtensorModule::get_network_lock_cost();
+        let balance = initial_lock_cost + 10_000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, balance);
+
+        assert_ok!(SubtensorModule::user_add_network(
+            RuntimeOrigin::signed(coldkey),
+            None
+        ));
+
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey,
+            SubtensorModule::get_network_lock_cost(),
+        );
+
+        // Attempt to add another network in the same block
+        assert_noop!(
+            SubtensorModule::user_add_network(RuntimeOrigin::signed(coldkey), None),
+            Error::<Test>::NetworkTxRateLimitExceeded
+        );
+
+        System::set_block_number(System::block_number() + 1);
+
+        // Now the rate limit should allow another network addition
+        assert_ok!(SubtensorModule::user_add_network(
+            RuntimeOrigin::signed(coldkey),
+            None
+        ));
+    });
+}
+
+#[test]
+fn test_user_add_network_insufficient_balance_error() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let balance = SubtensorModule::get_network_lock_cost() - 1; // Less than lock cost
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, balance);
+
+        let result = SubtensorModule::user_add_network(RuntimeOrigin::signed(coldkey), None);
+
+        // Assuming the error is InsufficientBalance
+        assert_noop!(result, Error::<Test>::NotEnoughBalanceToStake);
+    });
+}
+
+#[test]
+fn test_user_add_network_sets_subnet_locked_balance() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let initial_lock_cost = SubtensorModule::get_network_lock_cost();
+        let balance = initial_lock_cost + 10_000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, balance);
+
+        assert_ok!(SubtensorModule::user_add_network(
+            RuntimeOrigin::signed(coldkey),
+            None
+        ));
+
+        let locked_balance = SubtensorModule::get_subnet_locked_balance(1);
+
+        assert_eq!(locked_balance, initial_lock_cost);
+    });
+}
+
+#[test]
+fn test_user_add_network_reuses_netuid_after_removal() {
+    new_test_ext(1).execute_with(|| {
+        SubtensorModule::set_max_subnets(2);
+
+        let coldkey_1 = U256::from(1);
+        let coldkey_2 = U256::from(2);
+        let coldkey_3 = U256::from(3);
+
+        // --- Add subnet 1 ---
+        let lock_cost_1 = SubtensorModule::get_network_lock_cost();
+        let balance_1 = lock_cost_1 + 10_000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_1, balance_1);
+        assert_ok!(SubtensorModule::user_add_network(
+            RuntimeOrigin::signed(coldkey_1),
+            None
+        ));
+        assert!(SubtensorModule::if_subnet_exist(1));
+
+        // --- Add subnet 2 ---
+        let lock_cost_2 = SubtensorModule::get_network_lock_cost();
+        let balance_2 = lock_cost_2 + 10_000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_2, balance_2);
+        assert_ok!(SubtensorModule::user_add_network(
+            RuntimeOrigin::signed(coldkey_2),
+            None
+        ));
+        assert!(SubtensorModule::if_subnet_exist(2));
+
+        // --- Remove subnet 1 ---
+        assert_ok!(SubtensorModule::user_remove_network(coldkey_1, 1));
+        assert!(!SubtensorModule::if_subnet_exist(1));
+
+        // --- Add subnet 3 ---
+        let lock_cost_3 = SubtensorModule::get_network_lock_cost();
+        let balance_3 = lock_cost_3 + 10_000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_3, balance_3);
+        assert_ok!(SubtensorModule::user_add_network(
+            RuntimeOrigin::signed(coldkey_3),
+            None
+        ));
+
+        // --- Verify that netuid 1 is reused ---
+        let subnet_owner = SubtensorModule::get_subnet_owner(1);
+        assert_eq!(subnet_owner, coldkey_3);
+        assert!(pallet_subtensor::SubnetOwner::<Test>::contains_key(1));
+        assert_eq!(pallet_subtensor::SubnetOwner::<Test>::get(1), coldkey_3);
+        assert!(SubtensorModule::if_subnet_exist(1));
+        assert!(!SubtensorModule::if_subnet_exist(3))
+    });
+}
+
+#[test]
+fn test_user_add_network_deducts_lock_cost_from_balance() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let lock_cost = SubtensorModule::get_network_lock_cost();
+        let initial_balance = lock_cost + 10_000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_balance);
+
+        assert_ok!(SubtensorModule::user_add_network(
+            RuntimeOrigin::signed(coldkey),
+            None
+        ));
+
+        let expected_balance = initial_balance - lock_cost;
+        let actual_balance = SubtensorModule::get_coldkey_balance(&coldkey);
+
+        assert_eq!(actual_balance, expected_balance);
+    });
+}
+
+#[test]
+fn test_user_add_network_increases_lock_cost() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey_1 = U256::from(1);
+        let coldkey_2 = U256::from(2);
+
+        let lock_cost_1 = SubtensorModule::get_network_lock_cost();
+        let balance_1 = lock_cost_1 + 10_000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_1, balance_1);
+
+        assert_ok!(SubtensorModule::user_add_network(
+            RuntimeOrigin::signed(coldkey_1),
+            None
+        ));
+
+        // After adding a network, the lock cost should increase
+        let lock_cost_2 = SubtensorModule::get_network_lock_cost();
+        assert!(lock_cost_2 > lock_cost_1);
+
+        let balance_2 = lock_cost_2 + 10_000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_2, balance_2);
+
+        assert_ok!(SubtensorModule::user_add_network(
+            RuntimeOrigin::signed(coldkey_2),
+            None
+        ));
+
+        // Check that the lock cost increased again
+        let lock_cost_3 = SubtensorModule::get_network_lock_cost();
+        assert!(lock_cost_3 > lock_cost_2);
+    });
+}
+
+#[test]
+fn test_user_add_network_initializes_subnet_parameters() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let balance = SubtensorModule::get_network_lock_cost() + 10_000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, balance);
+
+        assert_ok!(SubtensorModule::user_add_network(
+            RuntimeOrigin::signed(coldkey),
+            None
+        ));
+
+        let netuid = 1;
+
+        assert_eq!(pallet_subtensor::SubnetworkN::<Test>::get(netuid), 0);
+        assert!(pallet_subtensor::NetworksAdded::<Test>::get(netuid));
+        assert!(pallet_subtensor::Tempo::<Test>::contains_key(netuid));
+        assert!(pallet_subtensor::NetworkModality::<Test>::contains_key(
+            netuid
+        ));
+        assert_eq!(pallet_subtensor::TotalNetworks::<Test>::get(), 1);
+        assert!(SubtensorModule::get_network_registration_allowed(netuid));
+        assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), 256);
+        assert_eq!(SubtensorModule::get_max_allowed_validators(netuid), 64);
+        assert_eq!(SubtensorModule::get_min_allowed_weights(netuid), 1);
+        assert_eq!(SubtensorModule::get_max_weight_limit(netuid), u16::MAX);
+        assert_eq!(SubtensorModule::get_adjustment_interval(netuid), 360);
+        assert_eq!(
+            SubtensorModule::get_target_registrations_per_interval(netuid),
+            1
+        );
+        assert_eq!(
+            SubtensorModule::get_adjustment_alpha(netuid),
+            17_893_341_751_498_265_066u64
+        );
+        assert_eq!(SubtensorModule::get_immunity_period(netuid), 5000);
+        assert_eq!(SubtensorModule::get_min_burn_as_u64(netuid), 1);
+        assert_eq!(SubtensorModule::get_min_difficulty(netuid), u64::MAX);
+        assert_eq!(SubtensorModule::get_max_difficulty(netuid), u64::MAX);
+
+        // Ensure that other parameters are initialized
+        assert!(pallet_subtensor::Kappa::<Test>::contains_key(netuid));
+        assert!(pallet_subtensor::Difficulty::<Test>::contains_key(netuid));
+        assert!(pallet_subtensor::MaxAllowedUids::<Test>::contains_key(
+            netuid
+        ));
+        assert!(pallet_subtensor::ImmunityPeriod::<Test>::contains_key(
+            netuid
+        ));
+        assert!(pallet_subtensor::ActivityCutoff::<Test>::contains_key(
+            netuid
+        ));
+        assert!(pallet_subtensor::EmissionValues::<Test>::contains_key(
+            netuid
+        ));
+        assert!(pallet_subtensor::MaxWeightsLimit::<Test>::contains_key(
+            netuid
+        ));
+        assert!(pallet_subtensor::MinAllowedWeights::<Test>::contains_key(
+            netuid
+        ));
+        assert!(pallet_subtensor::RegistrationsThisInterval::<Test>::contains_key(netuid));
+        assert!(pallet_subtensor::POWRegistrationsThisInterval::<Test>::contains_key(netuid));
+        assert!(pallet_subtensor::BurnRegistrationsThisInterval::<Test>::contains_key(netuid));
+    });
+}
+
+#[test]
+fn test_user_add_network_initializes_subnet_owner() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let balance = SubtensorModule::get_network_lock_cost() + 10_000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, balance);
+
+        assert_ok!(SubtensorModule::user_add_network(
+            RuntimeOrigin::signed(coldkey),
+            None
+        ));
+
+        // Check that SubnetOwner is set correctly
+        let owner = SubtensorModule::get_subnet_owner(1);
+        assert_eq!(owner, coldkey);
+    });
+}
+
+#[test]
+fn test_user_add_network_sets_network_registered_at() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let balance = SubtensorModule::get_network_lock_cost() + 10_000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, balance);
+        let current_block = System::block_number();
+
+        assert_ok!(SubtensorModule::user_add_network(
+            RuntimeOrigin::signed(coldkey),
+            None
+        ));
+
+        let netuid = 1;
+
+        let registered_at = pallet_subtensor::NetworkRegisteredAt::<Test>::get(netuid);
+        assert_eq!(registered_at, current_block);
+
+        let last_registered = pallet_subtensor::NetworkLastRegistered::<Test>::get();
+        assert_eq!(last_registered, netuid as u64);
+    });
+}
+
+#[test]
+fn test_user_add_network_emits_network_added_event() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let balance = SubtensorModule::get_network_lock_cost() + 10_000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, balance);
+        System::reset_events();
+
+        assert_ok!(SubtensorModule::user_add_network(
+            RuntimeOrigin::signed(coldkey),
+            None
+        ));
+
+        let events = System::events();
+        let network_added_event_found = events.iter().any(|record| {
+            matches!(
+                record.event,
+                RuntimeEvent::SubtensorModule(Event::NetworkAdded(added_netuid, 0))
+                if added_netuid == 1
+            )
+        });
+
+        assert!(network_added_event_found, "NetworkAdded event not found");
     });
 }
 
