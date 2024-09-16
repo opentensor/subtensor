@@ -1076,9 +1076,9 @@ pub type SignedExtra = (
 );
 
 type Migrations =
-    pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
+    (pallet_subtensor::migrations::migrate_fix_pending_emission::migrate_fix_pending_emission::Migration<
         Runtime,
-    >;
+    >);
 
 // Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
