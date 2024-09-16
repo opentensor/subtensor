@@ -4,10 +4,11 @@ use crate::mock::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use frame_system::{EventRecord, Phase};
-use pallet_subtensor::Error;
-use pallet_subtensor::{migrations, SubnetIdentity};
-use pallet_subtensor::{SubnetIdentities, SubnetIdentityOf};
+use pallet_subtensor::{
+    migrations, Error, Event, SubnetIdentities, SubnetIdentity, SubnetIdentityOf,
+};
 use sp_core::{Get, H256, U256};
+use sp_runtime::DispatchError;
 
 mod mock;
 
@@ -967,6 +968,7 @@ fn test_dissolve_network_not_owner_err() {
             SubtensorModule::dissolve_network(RuntimeOrigin::root(), random_coldkey, netuid),
             Error::<Test>::NotSubnetOwner
         );
+        assert!(!pallet_subtensor::SubnetOwner::<Test>::contains_key(netuid));
     });
 }
 
@@ -1050,5 +1052,257 @@ fn test_user_add_network_with_identity_fields_ok() {
             stored_identity_2_after_removal.subnet_contact,
             subnet_contact_2
         );
+    });
+}
+
+#[test]
+fn test_dissolve_network_not_subnet_owner_bad_origin_error() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 30;
+        let subnet_owner = U256::from(1);
+        let non_owner = U256::from(2);
+
+        add_network(netuid, 0, 0);
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, subnet_owner);
+
+        let result = SubtensorModule::dissolve_network(
+            RuntimeOrigin::signed(non_owner), // must be root
+            non_owner,
+            netuid,
+        );
+
+        assert_eq!(result, Err(DispatchError::BadOrigin));
+    });
+}
+
+#[test]
+fn test_dissolve_network_emits_network_removed_event() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 30;
+        let subnet_owner = U256::from(1);
+
+        // Set up the network with subnet_owner as the owner
+        add_network(netuid, 0, 0);
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, subnet_owner);
+
+        // Dissolve the network
+        assert_ok!(SubtensorModule::dissolve_network(
+            RuntimeOrigin::root(),
+            subnet_owner,
+            netuid,
+        ));
+
+        // Check that the NetworkRemoved event was emitted
+        let events = System::events();
+        let network_removed_event_found = events.iter().any(|record| {
+            matches!(
+                record.event,
+                RuntimeEvent::SubtensorModule(Event::NetworkRemoved(removed_netuid))
+                if removed_netuid == netuid
+            )
+        });
+
+        assert!(
+            network_removed_event_found,
+            "NetworkRemoved event not found"
+        );
+    });
+}
+
+#[test]
+fn test_dissolve_network_removes_subnet_identity_and_emits_event() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 30;
+        let subnet_owner = U256::from(1);
+
+        // Set up the network with subnet_owner as the owner
+        add_network(netuid, 0, 0);
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, subnet_owner);
+
+        let subnet_name = b"Test Subnet".to_vec();
+        let github_repo = b"https://github.com/test/subnet".to_vec();
+        let subnet_contact = b"contact@testsubnet.com".to_vec();
+
+        // Set subnet identity
+        assert_ok!(SubtensorModule::do_set_subnet_identity(
+            <<Test as Config>::RuntimeOrigin>::signed(subnet_owner),
+            netuid,
+            subnet_name.clone(),
+            github_repo.clone(),
+            subnet_contact.clone()
+        ));
+
+        // Ensure the subnet identity exists
+        assert!(pallet_subtensor::SubnetIdentities::<Test>::contains_key(
+            netuid
+        ));
+
+        // Dissolve the network
+        assert_ok!(SubtensorModule::dissolve_network(
+            RuntimeOrigin::root(),
+            subnet_owner,
+            netuid,
+        ));
+
+        // Check that the SubnetIdentityRemoved event was emitted
+        let events = System::events();
+        let subnet_identity_removed_event_found = events.iter().any(|record| {
+            matches!(
+                record.event,
+                RuntimeEvent::SubtensorModule(Event::SubnetIdentityRemoved(removed_netuid))
+                if removed_netuid == netuid
+            )
+        });
+
+        assert!(
+            subnet_identity_removed_event_found,
+            "SubnetIdentityRemoved event not found"
+        );
+
+        // Ensure the subnet identity is removed
+        assert!(!pallet_subtensor::SubnetIdentities::<Test>::contains_key(
+            netuid
+        ));
+    });
+}
+
+#[test]
+fn test_dissolve_network_all_weights_removed() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 30;
+        let subnet_owner = U256::from(1);
+        let uid_i: u16 = 0;
+        let uid_j: u16 = 1;
+        let weight_value: u16 = 50;
+
+        // Set up the network with subnet_owner as the owner
+        add_network(netuid, 0, 0);
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, subnet_owner);
+
+        // Insert some weights for the netuid
+        let weights = vec![(uid_j, weight_value)];
+        pallet_subtensor::Weights::<Test>::insert(netuid, uid_i, weights);
+
+        // Ensure weights exist
+        assert!(pallet_subtensor::Weights::<Test>::contains_key(
+            netuid, uid_i
+        ));
+
+        // Dissolve the network
+        assert_ok!(SubtensorModule::dissolve_network(
+            RuntimeOrigin::root(),
+            subnet_owner,
+            netuid,
+        ));
+
+        // Check that weights are removed
+        assert!(!pallet_subtensor::Weights::<Test>::contains_key(
+            netuid, uid_i
+        ));
+    });
+}
+
+#[test]
+fn test_dissolve_network_removes_netuid_parameters() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 30;
+        let subnet_owner = U256::from(1);
+
+        // Set up the network with subnet_owner as the owner
+        add_network(netuid, 0, 0);
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, subnet_owner);
+
+        // Set some netuid related parameters with correct types
+        pallet_subtensor::Rank::<Test>::insert(netuid, vec![0u16, 1, 2]);
+        pallet_subtensor::Trust::<Test>::insert(netuid, vec![0u16, 1, 2]);
+        pallet_subtensor::Active::<Test>::insert(netuid, vec![true, false, true]);
+        pallet_subtensor::Emission::<Test>::insert(netuid, vec![100u64, 200, 300]);
+        pallet_subtensor::Incentive::<Test>::insert(netuid, vec![10u16, 20, 30]);
+        pallet_subtensor::Consensus::<Test>::insert(netuid, vec![0u16, 1, 2]);
+        pallet_subtensor::Dividends::<Test>::insert(netuid, vec![5u16, 15, 25]);
+        pallet_subtensor::PruningScores::<Test>::insert(netuid, vec![1u16, 2, 3]);
+        pallet_subtensor::LastUpdate::<Test>::insert(netuid, vec![12345u64]);
+        pallet_subtensor::ValidatorPermit::<Test>::insert(netuid, vec![true, true, false]);
+        pallet_subtensor::ValidatorTrust::<Test>::insert(netuid, vec![5u16, 7, 9]);
+
+        // Ensure parameters exist
+        assert!(pallet_subtensor::Rank::<Test>::contains_key(netuid));
+        assert!(pallet_subtensor::Trust::<Test>::contains_key(netuid));
+        assert!(pallet_subtensor::Active::<Test>::contains_key(netuid));
+        assert!(pallet_subtensor::Emission::<Test>::contains_key(netuid));
+        assert!(pallet_subtensor::Incentive::<Test>::contains_key(netuid));
+        assert!(pallet_subtensor::Consensus::<Test>::contains_key(netuid));
+        assert!(pallet_subtensor::Dividends::<Test>::contains_key(netuid));
+        assert!(pallet_subtensor::PruningScores::<Test>::contains_key(
+            netuid
+        ));
+        assert!(pallet_subtensor::LastUpdate::<Test>::contains_key(netuid));
+        assert!(pallet_subtensor::ValidatorPermit::<Test>::contains_key(
+            netuid
+        ));
+        assert!(pallet_subtensor::ValidatorTrust::<Test>::contains_key(
+            netuid
+        ));
+
+        // Dissolve the network
+        assert_ok!(SubtensorModule::dissolve_network(
+            RuntimeOrigin::root(),
+            subnet_owner,
+            netuid,
+        ));
+
+        // Check that parameters are removed
+        assert!(!pallet_subtensor::Rank::<Test>::contains_key(netuid));
+        assert!(!pallet_subtensor::Trust::<Test>::contains_key(netuid));
+        assert!(!pallet_subtensor::Active::<Test>::contains_key(netuid));
+        assert!(!pallet_subtensor::Emission::<Test>::contains_key(netuid));
+        assert!(!pallet_subtensor::Incentive::<Test>::contains_key(netuid));
+        assert!(!pallet_subtensor::Consensus::<Test>::contains_key(netuid));
+        assert!(!pallet_subtensor::Dividends::<Test>::contains_key(netuid));
+        assert!(!pallet_subtensor::PruningScores::<Test>::contains_key(
+            netuid
+        ));
+        assert!(!pallet_subtensor::LastUpdate::<Test>::contains_key(netuid));
+        assert!(!pallet_subtensor::ValidatorPermit::<Test>::contains_key(
+            netuid
+        ));
+        assert!(!pallet_subtensor::ValidatorTrust::<Test>::contains_key(
+            netuid
+        ));
+    });
+}
+
+#[test]
+fn test_dissolve_network_subnet_locked_balance_returned_and_cleared() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 30;
+        let subnet_owner = U256::from(1);
+        let reserved_amount: u64 = 1000;
+
+        // Set up the network with subnet_owner as the owner
+        add_network(netuid, 0, 0);
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, subnet_owner);
+
+        // Set the subnet locked balance
+        SubtensorModule::set_subnet_locked_balance(netuid, reserved_amount);
+
+        // Give the subnet owner some initial balance
+        SubtensorModule::add_balance_to_coldkey_account(&subnet_owner, 0);
+        let initial_balance = SubtensorModule::get_coldkey_balance(&subnet_owner);
+
+        // Dissolve the network
+        assert_ok!(SubtensorModule::dissolve_network(
+            RuntimeOrigin::root(),
+            subnet_owner,
+            netuid,
+        ));
+
+        // Check that the subnet owner's balance increased by reserved_amount
+        let new_balance = SubtensorModule::get_coldkey_balance(&subnet_owner);
+        assert_eq!(new_balance, initial_balance + reserved_amount);
+
+        // Check that the subnet locked balance is cleared
+        let locked_balance = SubtensorModule::get_subnet_locked_balance(netuid);
+        assert_eq!(locked_balance, 0);
     });
 }
