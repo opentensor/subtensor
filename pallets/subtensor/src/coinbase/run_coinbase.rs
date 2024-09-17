@@ -252,14 +252,13 @@ impl<T: Config> Pallet<T> {
             )
         });
 
-        PendingHotkeySubnetEmission::<T>::mutate( netuid,hotkey, |hotkey_pending| {
+        PendingHotkeySubnetEmission::<T>::mutate(netuid, hotkey, |hotkey_pending| {
             *hotkey_pending = hotkey_pending.saturating_add(
                 remaining_emission
                     .saturating_add(hotkey_take)
                     .saturating_add(mining_emission),
             )
         });
-
     }
 
     /// Calculates the nonviable stake for a nominator.
@@ -295,8 +294,6 @@ impl<T: Config> Pallet<T> {
         // --- 1.0 Drain the hotkey emission.
         PendingHotkeyEmission::<T>::insert(hotkey, 0);
 
-        // --- 1.0 Drain the hotkey emission on the subnet.
-
         // Drain the hotkey emission for all subnets
         for netuid in Self::get_all_subnet_netuids() {
             let subnet_emission = PendingHotkeySubnetEmission::<T>::get(netuid, hotkey);
@@ -304,7 +301,6 @@ impl<T: Config> Pallet<T> {
                 PendingHotkeySubnetEmission::<T>::insert(netuid, hotkey, 0);
             }
         }
-
 
         // --- 2 Update the block value to the current block number.
         LastHotkeyEmissionDrain::<T>::insert(hotkey, block_number);
