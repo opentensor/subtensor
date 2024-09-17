@@ -295,6 +295,17 @@ impl<T: Config> Pallet<T> {
         // --- 1.0 Drain the hotkey emission.
         PendingHotkeyEmission::<T>::insert(hotkey, 0);
 
+        // --- 1.0 Drain the hotkey emission on the subnet.
+
+        // Drain the hotkey emission for all subnets
+        for netuid in Self::get_all_subnet_netuids() {
+            let subnet_emission = PendingHotkeySubnetEmission::<T>::get(netuid, hotkey);
+            if subnet_emission > 0 {
+                PendingHotkeySubnetEmission::<T>::insert(netuid, hotkey, 0);
+            }
+        }
+
+
         // --- 2 Update the block value to the current block number.
         LastHotkeyEmissionDrain::<T>::insert(hotkey, block_number);
 
