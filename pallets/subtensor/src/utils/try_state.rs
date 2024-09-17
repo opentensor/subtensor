@@ -17,7 +17,7 @@ impl<T: Config> Pallet<T> {
 
         // Calculate the total staked amount
         let mut total_staked: u64 = 0;
-        for (_account, _netuid, stake) in Stake::<T>::iter() {
+        for (_hotkey, _coldkey, stake) in Stake::<T>::iter() {
             total_staked = total_staked.saturating_add(stake);
         }
 
