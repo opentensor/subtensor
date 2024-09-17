@@ -5,6 +5,7 @@ use frame_support::pallet_macros::pallet_section;
 #[pallet_section]
 mod errors {
     #[pallet::error]
+    #[derive(PartialEq)]
     pub enum Error<T> {
         /// The subnet does not exist.
         SubNetworkDoesNotExist,
@@ -198,17 +199,114 @@ mod errors {
         MaxIntervalRegistrationsReached,
     }
 
-    //Codes are intended to match their index within the errors enum
-    impl<T> From<Error<T>> for u8 {
+    impl<T> Error<T> {
+        /// Returns a vector of all possible errors.
+        pub fn get_all_errors_as_vec() -> Vec<Self> {
+            vec![
+                Error::SubNetworkDoesNotExist,
+                Error::RootNetworkDoesNotExist,
+                Error::InvalidIpType,
+                Error::InvalidIpAddress,
+                Error::InvalidPort,
+                Error::HotKeyNotRegisteredInSubNet,
+                Error::HotKeyAccountNotExists,
+                Error::HotKeyNotRegisteredInNetwork,
+                Error::NonAssociatedColdKey,
+                Error::HotKeyNotDelegateAndSignerNotOwnHotKey,
+                Error::StakeToWithdrawIsZero,
+                Error::NotEnoughStakeToWithdraw,
+                Error::NotEnoughStakeToSetWeights,
+                Error::NotEnoughBalanceToStake,
+                Error::BalanceWithdrawalError,
+                Error::ZeroBalanceAfterWithdrawn,
+                Error::NeuronNoValidatorPermit,
+                Error::WeightVecNotEqualSize,
+                Error::DuplicateUids,
+                Error::UidVecContainInvalidOne,
+                Error::WeightVecLengthIsLow,
+                Error::TooManyRegistrationsThisBlock,
+                Error::HotKeyAlreadyRegisteredInSubNet,
+                Error::NewHotKeyIsSameWithOld,
+                Error::InvalidWorkBlock,
+                Error::InvalidDifficulty,
+                Error::InvalidSeal,
+                Error::MaxWeightExceeded,
+                Error::HotKeyAlreadyDelegate,
+                Error::SettingWeightsTooFast,
+                Error::IncorrectWeightVersionKey,
+                Error::ServingRateLimitExceeded,
+                Error::UidsLengthExceedUidsInSubNet,
+                Error::NetworkTxRateLimitExceeded,
+                Error::DelegateTxRateLimitExceeded,
+                Error::HotKeySetTxRateLimitExceeded,
+                Error::StakeRateLimitExceeded,
+                Error::UnstakeRateLimitExceeded,
+                Error::SubNetRegistrationDisabled,
+                Error::TooManyRegistrationsThisInterval,
+                Error::TransactorAccountShouldBeHotKey,
+                Error::NotSenateMember,
+                Error::FaucetDisabled,
+                Error::NotSubnetOwner,
+                Error::RegistrationNotPermittedOnRootSubnet,
+                Error::StakeTooLowForRoot,
+                Error::AllNetworksInImmunity,
+                Error::NotEnoughBalanceToPaySwapHotKey,
+                Error::NotRootSubnet,
+                Error::CanNotSetRootNetworkWeights,
+                Error::NoNeuronIdAvailable,
+                Error::NomStakeBelowMinimumThreshold,
+                Error::DelegateTakeTooLow,
+                Error::DelegateTakeTooHigh,
+                Error::WeightsCommitNotAllowed,
+                Error::NoWeightsCommitFound,
+                Error::InvalidRevealCommitTempo,
+                Error::InvalidRevealCommitHashNotMatch,
+                Error::CommitRevealEnabled,
+                Error::CommitRevealDisabled,
+                Error::CouldNotJoinSenate,
+                Error::LiquidAlphaDisabled,
+                Error::AlphaHighTooLow,
+                Error::AlphaLowOutOfRange,
+                Error::ColdKeyAlreadyAssociated,
+                Error::ColdKeySwapTxRateLimitExceeded,
+                Error::NewColdKeyIsSameWithOld,
+                Error::NotExistColdkey,
+                Error::NotEnoughBalanceToPaySwapColdKey,
+                Error::NoBalanceToTransfer,
+                Error::SameColdkey,
+                Error::ColdkeyIsInArbitration,
+                Error::DuplicateColdkey,
+                Error::ColdkeySwapError,
+                Error::InsufficientBalanceToPerformColdkeySwap,
+                Error::MaxColdkeyDestinationsReached,
+                Error::InvalidChild,
+                Error::DuplicateChild,
+                Error::ProportionOverflow,
+                Error::TooManyChildren,
+                Error::TxRateLimitExceeded,
+                Error::SwapColdkeyOnlyCallableByRoot,
+                Error::SwapAlreadyScheduled,
+                Error::FailedToSchedule,
+                Error::NewColdKeyIsHotkey,
+                Error::NewColdkeyIsInArbitration,
+                Error::InvalidChildkeyTake,
+                Error::TxChildkeyTakeRateLimitExceeded,
+                Error::InvalidIdentity,
+                Error::ColdkeyInSwapSchedule,
+                Error::CommitWeightsBelowMinStake,
+                Error::RevealWeightsBelowMinStake,
+                Error::SetWeightsBelowMinStake,
+                Error::SetRootWeightsBelowMinStake,
+                Error::MaxIntervalRegistrationsReached,
+            ]
+        }
+    }
+
+    impl<T: PartialEq> From<Error<T>> for u8 {
         fn from(e: Error<T>) -> u8 {
-            match e {
-                Error::<T>::ColdkeyInSwapSchedule => 89,
-                Error::<T>::CommitWeightsBelowMinStake => 90,
-                Error::<T>::RevealWeightsBelowMinStake => 91,
-                Error::<T>::SetWeightsBelowMinStake => 92,
-                Error::<T>::SetRootWeightsBelowMinStake => 93,
-                Error::<T>::MaxIntervalRegistrationsReached => 94,
-                _ => u8::MAX,
+            match Error::get_all_errors_as_vec().iter().position(|x| x == &e) {
+                Some(index) => index as u8,
+                None => u8::MAX,
             }
         }
     }
