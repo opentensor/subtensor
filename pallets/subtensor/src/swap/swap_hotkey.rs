@@ -207,11 +207,11 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
         }
 
-        // 9. swap PendingdHotkeyEmission
-        if PendingdHotkeyEmission::<T>::contains_key(old_hotkey) {
-            let old_pending_hotkey_emission = PendingdHotkeyEmission::<T>::get(old_hotkey);
-            PendingdHotkeyEmission::<T>::remove(old_hotkey);
-            PendingdHotkeyEmission::<T>::insert(new_hotkey, old_pending_hotkey_emission);
+        // 9. swap PendingHotkeyEmission
+        if PendingHotkeyEmission::<T>::contains_key(old_hotkey) {
+            let old_pending_hotkey_emission = PendingHotkeyEmission::<T>::get(old_hotkey);
+            PendingHotkeyEmission::<T>::remove(old_hotkey);
+            PendingHotkeyEmission::<T>::insert(new_hotkey, old_pending_hotkey_emission);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
         }
 

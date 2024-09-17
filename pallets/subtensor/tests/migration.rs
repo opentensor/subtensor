@@ -479,15 +479,15 @@ fn test_migrate_fix_pending_emissions() {
         let datura_new_hk_account: AccountId = get_account_id_from_ss58(datura_new_hotkey);
 
         // Setup the old Datura hotkey with a pending emission
-        PendingdHotkeyEmission::<Test>::insert(datura_old_hk_account, 10_000);
+        PendingHotkeyEmission::<Test>::insert(datura_old_hk_account, 10_000);
         // Setup the NEW Datura hotkey with a pending emission
-        PendingdHotkeyEmission::<Test>::insert(datura_new_hk_account, 123_456_789);
+        PendingHotkeyEmission::<Test>::insert(datura_new_hk_account, 123_456_789);
         let expected_datura_new_hk_pending_emission: u64 = 123_456_789 + 10_000;
 
         // Setup the old TaoStats hotkey with a pending emission
-        PendingdHotkeyEmission::<Test>::insert(taostats_old_hk_account, 987_654);
+        PendingHotkeyEmission::<Test>::insert(taostats_old_hk_account, 987_654);
         // Setup the new TaoStats hotkey with a pending emission
-        PendingdHotkeyEmission::<Test>::insert(taostats_new_hk_account, 100_000);
+        PendingHotkeyEmission::<Test>::insert(taostats_new_hk_account, 100_000);
         // Setup the old TaoStats hotkey with a null-key stake entry
         Stake::<Test>::insert(taostats_old_hk_account, null_account, 123_456_789);
         let expected_taostats_new_hk_pending_emission: u64 = 987_654 + 100_000 + 123_456_789;
@@ -498,19 +498,19 @@ fn test_migrate_fix_pending_emissions() {
 
         // Check the pending emission is added to new Datura hotkey
         assert_eq!(
-            PendingdHotkeyEmission::<Test>::get(datura_new_hk_account),
+            PendingHotkeyEmission::<Test>::get(datura_new_hk_account),
             expected_datura_new_hk_pending_emission
         );
 
         // Check the pending emission is added to new the TaoStats hotkey
         assert_eq!(
-            PendingdHotkeyEmission::<Test>::get(taostats_new_hk_account),
+            PendingHotkeyEmission::<Test>::get(taostats_new_hk_account),
             expected_taostats_new_hk_pending_emission
         );
 
         // Check the pending emission is added to new the Datura hotkey
         assert_eq!(
-            PendingdHotkeyEmission::<Test>::get(datura_new_hk_account),
+            PendingHotkeyEmission::<Test>::get(datura_new_hk_account),
             expected_datura_new_hk_pending_emission
         );
     })

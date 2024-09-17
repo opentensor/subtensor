@@ -754,7 +754,7 @@ pub mod pallet {
         StorageValue<_, u64, ValueQuery, DefaultHotkeyEmissionTempo<T>>;
     #[pallet::storage]
     /// Map ( hot ) --> emission | Accumulated hotkey emission.
-    pub type PendingdHotkeyEmission<T: Config> = StorageMap<
+    pub type PendingHotkeyEmission<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
         T::AccountId,

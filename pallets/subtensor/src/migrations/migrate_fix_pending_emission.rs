@@ -25,7 +25,7 @@ fn migrate_pending_emissions_including_null_stake<T: Config>(
     weight.saturating_accrue(T::DbWeight::get().reads(1));
 
     // Get the pending emissions for the OLD hotkey
-    let pending_emissions_old: u64 = PendingdHotkeyEmission::<T>::get(old_hotkey);
+    let pending_emissions_old: u64 = PendingHotkeyEmission::<T>::get(old_hotkey);
     weight.saturating_accrue(T::DbWeight::get().reads(1));
 
     // Get the stake for the 0x000 key
@@ -56,11 +56,11 @@ fn migrate_pending_emissions_including_null_stake<T: Config>(
     weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
     // Get the pending emissions for the NEW hotkey
-    let pending_emissions_new: u64 = PendingdHotkeyEmission::<T>::get(new_hotkey);
+    let pending_emissions_new: u64 = PendingHotkeyEmission::<T>::get(new_hotkey);
     weight.saturating_accrue(T::DbWeight::get().reads(1));
 
     // Add stake to the pending emissions for the new hotkey and the old hotkey
-    PendingdHotkeyEmission::<T>::insert(
+    PendingHotkeyEmission::<T>::insert(
         new_hotkey,
         pending_emissions_new
             .saturating_add(pending_emissions_old)

@@ -1184,23 +1184,23 @@ fn test_swap_hotkey_with_pending_emissions() {
         add_network(netuid, 0, 1);
 
         // Set up pending emissions
-        PendingdHotkeyEmission::<Test>::insert(old_hotkey, pending_emission);
+        PendingHotkeyEmission::<Test>::insert(old_hotkey, pending_emission);
         // Verify the pending emissions are set
         assert_eq!(
-            PendingdHotkeyEmission::<Test>::get(old_hotkey),
+            PendingHotkeyEmission::<Test>::get(old_hotkey),
             pending_emission
         );
         // Verify the new hotkey does not have any pending emissions
-        assert!(!PendingdHotkeyEmission::<Test>::contains_key(new_hotkey));
+        assert!(!PendingHotkeyEmission::<Test>::contains_key(new_hotkey));
 
         // Perform the swap
         SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
 
         // Verify the pending emissions are transferred
         assert_eq!(
-            PendingdHotkeyEmission::<Test>::get(new_hotkey),
+            PendingHotkeyEmission::<Test>::get(new_hotkey),
             pending_emission
         );
-        assert!(!PendingdHotkeyEmission::<Test>::contains_key(old_hotkey));
+        assert!(!PendingHotkeyEmission::<Test>::contains_key(old_hotkey));
     });
 }
