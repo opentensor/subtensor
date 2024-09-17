@@ -20,9 +20,9 @@
                 "type": "bytes32"
             },
             {
-                "internalType": "uint64",
+                "internalType": "uint256",
                 "name": "amount",
-                "type": "uint64"
+                "type": "uint256"
             }
         ],
         "name": "removeStake",

@@ -56,7 +56,7 @@ impl StakingPrecompile {
             id if id == get_method_id("addStake(bytes32)") => {
                 Self::add_stake(handle, &method_input)
             }
-            id if id == get_method_id("removeStake(bytes32,uint64)") => {
+            id if id == get_method_id("removeStake(bytes32,uint256)") => {
                 Self::remove_stake(handle, &method_input)
             }
             _ => Err(PrecompileFailure::Error {
@@ -78,10 +78,14 @@ impl StakingPrecompile {
     }
     fn remove_stake(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
         let hotkey = Self::parse_hotkey(data)?.into();
+
+        // We have to treat this as uint256 (because of Solidity ABI encoding rules, it pads uint64),
+        // but this will never exceed 8 bytes, se we will ignore higher bytes and will only use lower
+        // 8 bytes.
         let amount = data
-            .get(32..40)
+            .get(56..64)
             .map(U256::from_big_endian)
-            .map_or(0, |v| v.as_u64()); // Assuming the next 8 bytes represent the amount
+            .map_or(0, |v| v.as_u64());
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::<Runtime>::remove_stake {
             hotkey,
             amount_unstaked: amount,
@@ -134,7 +138,7 @@ impl StakingPrecompile {
         account_id: &AccountId32,
         amount: U256,
     ) -> Result<(), PrecompileFailure> {
-        // this is staking smart contract's(0x0000000000000000000000000000000000000800) sr25519 address
+        // this is staking smart contract's(0x0000000000000000000000000000000000000801) sr25519 address
         let smart_contract_account_id =
             match AccountId32::from_ss58check("5CwnBK9Ack1mhznmCnwiibCNQc174pYQVktYW3ayRpLm4K2X") {
                 Ok(addr) => addr,

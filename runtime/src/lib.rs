@@ -1073,7 +1073,6 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for FindAuthorTruncated<F> {
 }
 
 const BLOCK_GAS_LIMIT: u64 = 75_000_000;
-const MAX_POV_SIZE: u64 = 5 * 1024 * 1024;
 
 /// `WeightPerGas` is an approximate ratio of the amount of Weight per Gas.
 ///
@@ -1083,7 +1082,7 @@ fn weight_per_gas() -> Weight {
 
 parameter_types! {
     pub BlockGasLimit: U256 = U256::from(BLOCK_GAS_LIMIT);
-    pub const GasLimitPovSizeRatio: u64 = BLOCK_GAS_LIMIT.saturating_div(MAX_POV_SIZE);
+    pub const GasLimitPovSizeRatio: u64 = 0;
     pub PrecompilesValue: FrontierPrecompiles<Runtime> = FrontierPrecompiles::<_>::new();
     pub WeightPerGas: Weight = weight_per_gas();
     pub SuicideQuickClearLimit: u32 = 0;

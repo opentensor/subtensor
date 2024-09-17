@@ -38,5 +38,5 @@ interface IStaking {
      *   correctly attributed.
      * - The existing stake amount must be not lower than specified amount
      */
-    function removeStake(bytes32 hotkey, uint64 amount) external payable;
+    function removeStake(bytes32 hotkey, uint256 amount) external payable;
 }
