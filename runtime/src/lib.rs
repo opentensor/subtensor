@@ -1075,10 +1075,12 @@ pub type SignedExtra = (
     frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
-type Migrations =
+type Migrations = (
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
         Runtime,
-    >;
+    >,
+    pallet_subtensor::migrations::migrate_fix_pending_emission::migration::Migration<Runtime>,
+);
 
 // Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =

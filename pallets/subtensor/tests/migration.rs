@@ -436,11 +436,11 @@ fn run_migration_and_check(migration_name: &'static str) -> frame_support::weigh
 fn run_pending_emissions_migration_and_check(
     migration_name: &'static str,
 ) -> frame_support::weights::Weight {
+    use frame_support::traits::OnRuntimeUpgrade;
+
     // Execute the migration and store its weight
     let weight: frame_support::weights::Weight =
-        pallet_subtensor::migrations::migrate_fix_pending_emission::migrate_fix_pending_emission::<
-            Test,
-        >();
+		pallet_subtensor::migrations::migrate_fix_pending_emission::migration::Migration::<Test>::on_runtime_upgrade();
 
     // Check if the migration has been marked as completed
     assert!(HasMigrationRun::<Test>::get(
@@ -463,25 +463,38 @@ fn test_migrate_fix_pending_emissions() {
     new_test_ext(1).execute_with(|| {
         let migration_name = "fix_pending_emission";
 
-        let null_account = U256::from(0); // The null account
-        let rand_coldkeys = [U256::from(1), U256::from(2), U256::from(3), U256::from(4)];
+        let null_account = &U256::from(0); // The null account
 
         let taostats_old_hotkey = "5Hddm3iBFD2GLT5ik7LZnT3XJUnRnN8PoeCFgGQgawUVKNm8";
         let taostats_new_hotkey = "5GKH9FPPnWSUoeeTJp19wVtd84XqFW4pyK2ijV2GsFbhTrP1";
 
-        let taostats_old_hk_account: AccountId = get_account_id_from_ss58(taostats_old_hotkey);
-        let taostats_new_hk_account: AccountId = get_account_id_from_ss58(taostats_new_hotkey);
+        let taostats_old_hk_account: &AccountId = &get_account_id_from_ss58(taostats_old_hotkey);
+        let taostats_new_hk_account: &AccountId = &get_account_id_from_ss58(taostats_new_hotkey);
 
         let datura_old_hotkey = "5FKstHjZkh4v3qAMSBa1oJcHCLjxYZ8SNTSz1opTv4hR7gVB";
         let datura_new_hotkey = "5GP7c3fFazW9GXK8Up3qgu2DJBk8inu4aK9TZy3RuoSWVCMi";
 
-        let datura_old_hk_account: AccountId = get_account_id_from_ss58(datura_old_hotkey);
-        let datura_new_hk_account: AccountId = get_account_id_from_ss58(datura_new_hotkey);
+        let datura_old_hk_account: &AccountId = &get_account_id_from_ss58(datura_old_hotkey);
+        let datura_new_hk_account: &AccountId = &get_account_id_from_ss58(datura_new_hotkey);
+
+        let migration_coldkey = "5GeRjQYsobRWFnrbBmGe5ugme3rfnDVF69N45YtdBpUFsJG8";
+        let migration_account: &AccountId = &get_account_id_from_ss58(migration_coldkey);
+
+        // "Issue" the TAO we're going to insert to stake
+        let null_stake_datura = 123_456_789;
+        let null_stake_tao_stats = 123_456_789;
+        let null_stake_total = null_stake_datura + null_stake_tao_stats;
+        SubtensorModule::set_total_issuance(null_stake_total);
+        TotalStake::<Test>::put(null_stake_total);
+        TotalColdkeyStake::<Test>::insert(null_account, null_stake_total);
+        TotalHotkeyStake::<Test>::insert(datura_old_hk_account, null_stake_datura);
+        TotalHotkeyStake::<Test>::insert(taostats_old_hk_account, null_stake_tao_stats);
 
         // Setup the old Datura hotkey with a pending emission
         PendingdHotkeyEmission::<Test>::insert(datura_old_hk_account, 10_000);
         // Setup the NEW Datura hotkey with a pending emission
         PendingdHotkeyEmission::<Test>::insert(datura_new_hk_account, 123_456_789);
+        Stake::<Test>::insert(datura_old_hk_account, null_account, null_stake_datura);
         let expected_datura_new_hk_pending_emission: u64 = 123_456_789 + 10_000;
 
         // Setup the old TaoStats hotkey with a pending emission
@@ -489,8 +502,10 @@ fn test_migrate_fix_pending_emissions() {
         // Setup the new TaoStats hotkey with a pending emission
         PendingdHotkeyEmission::<Test>::insert(taostats_new_hk_account, 100_000);
         // Setup the old TaoStats hotkey with a null-key stake entry
-        Stake::<Test>::insert(taostats_old_hk_account, null_account, 123_456_789);
-        let expected_taostats_new_hk_pending_emission: u64 = 987_654 + 100_000 + 123_456_789;
+        Stake::<Test>::insert(taostats_old_hk_account, null_account, null_stake_tao_stats);
+        let expected_taostats_new_hk_pending_emission: u64 = 987_654 + 100_000;
+
+        let total_issuance_before = SubtensorModule::get_total_issuance();
 
         // Run migration
         let first_weight = run_pending_emissions_migration_and_check(migration_name);
@@ -508,10 +523,67 @@ fn test_migrate_fix_pending_emissions() {
             expected_taostats_new_hk_pending_emission
         );
 
-        // Check the pending emission is added to new the Datura hotkey
+        // Check the pending emission is removed from old ones
         assert_eq!(
-            PendingdHotkeyEmission::<Test>::get(datura_new_hk_account),
-            expected_datura_new_hk_pending_emission
+            PendingdHotkeyEmission::<Test>::get(datura_old_hk_account),
+            0
         );
+
+        assert_eq!(
+            PendingdHotkeyEmission::<Test>::get(taostats_old_hk_account),
+            0
+        );
+
+        // Check the stake entry is removed
+        assert_eq!(Stake::<Test>::get(datura_old_hk_account, null_account), 0);
+        assert_eq!(Stake::<Test>::get(taostats_old_hk_account, null_account), 0);
+
+        // Check the total issuance is the SAME following migration (no TAO issued)
+        let expected_total_issuance = total_issuance_before;
+        assert_eq!(
+            SubtensorModule::get_total_issuance(),
+            expected_total_issuance
+        );
+
+        // Check total stake is the SAME following the migration (no new TAO staked)
+        assert_eq!(TotalStake::<Test>::get(), expected_total_issuance);
+        // Check the total stake maps are updated following the migration (removal of old null_account stake entries)
+        assert_eq!(TotalColdkeyStake::<Test>::get(null_account), 0);
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(null_account, datura_old_hk_account),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(
+                null_account,
+                taostats_old_hk_account
+            ),
+            0
+        );
+
+        // Check staking hotkeys is updated
+        assert_eq!(StakingHotkeys::<Test>::get(null_account), vec![]);
+
+        // Check the migration key has stake with both *old* hotkeys
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(
+                migration_account,
+                datura_old_hk_account
+            ),
+            null_stake_datura
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(
+                migration_account,
+                taostats_old_hk_account
+            ),
+            null_stake_tao_stats
+        );
+        assert_eq!(
+            TotalColdkeyStake::<Test>::get(migration_account),
+            null_stake_total
+        );
+        assert!(StakingHotkeys::<Test>::get(migration_account).contains(datura_old_hk_account));
+        assert!(StakingHotkeys::<Test>::get(migration_account).contains(taostats_old_hk_account));
     })
 }
