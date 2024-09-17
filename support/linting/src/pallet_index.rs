@@ -67,9 +67,9 @@ impl Parse for ConstructRuntimeEntries {
 }
 
 struct PalletEntry {
-    visibility: Option<Visibility>,
+    _visibility: Option<Visibility>,
     pallet_name: Path,
-    components: Option<PalletComponents>,
+    _components: Option<PalletComponents>,
     index: Option<syn::LitInt>, // Now index can be None (i.e., missing)
 }
 
@@ -90,16 +90,16 @@ impl Parse for PalletEntry {
         };
 
         Ok(PalletEntry {
-            visibility,
+            _visibility: visibility,
             pallet_name,
-            components: None, // Components will be handled directly in `parse_complex_pallet_path`
+            _components: None, // Components will be handled directly in `parse_complex_pallet_path`
             index,
         })
     }
 }
 
 fn parse_complex_pallet_path(input: ParseStream) -> syn::Result<Path> {
-    let mut path = Path::parse_mod_style(input)?;
+    let path = Path::parse_mod_style(input)?;
 
     // Check if there are generics like `::<Instance1>`
     if input.peek(syn::token::Lt) {
@@ -117,13 +117,13 @@ fn parse_complex_pallet_path(input: ParseStream) -> syn::Result<Path> {
 }
 
 struct PalletComponents {
-    components: Punctuated<Ident, Token![,]>,
+    _components: Punctuated<Ident, Token![,]>,
 }
 
 impl Parse for PalletComponents {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         Ok(PalletComponents {
-            components: input.parse_terminated(Ident::parse, Token![,])?,
+            _components: input.parse_terminated(Ident::parse, Token![,])?,
         })
     }
 }
