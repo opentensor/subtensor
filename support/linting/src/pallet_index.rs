@@ -1,9 +1,12 @@
 use super::*;
+use quote::ToTokens;
+use syn::braced;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
+use syn::spanned::Spanned;
 use syn::token::Colon;
 use syn::visit::Visit;
-use syn::{File, ItemMacro, Token};
+use syn::{File, Ident, ItemMacro, Path, Token, Visibility};
 
 pub struct RequireExplicitPalletIndex;
 
@@ -29,22 +32,24 @@ struct ConstructRuntimeVisitor {
 impl<'ast> Visit<'ast> for ConstructRuntimeVisitor {
     fn visit_item_macro(&mut self, node: &'ast ItemMacro) {
         if node.mac.path.is_ident("construct_runtime") {
+            // Token stream parsing logic
             let tokens = node.mac.tokens.clone();
-            if let Ok(runtime_entries) = syn::parse2::<ConstructRuntimeEntries>(tokens) {
-                for entry in runtime_entries.entries {
-                    if entry.index.is_none() {
-                        self.errors.push(syn::Error::new(
-                            entry.pallet_name.span(),
-                            format!(
-                                "Pallet `{}` does not have an explicit index in construct_runtime!",
-                                entry.pallet_name
-                            ),
-                        ));
-                    }
+            let runtime_entries = syn::parse2::<ConstructRuntimeEntries>(tokens).unwrap();
+            for entry in runtime_entries.entries {
+                // Check if the entry is missing an explicit index
+                if entry.index.is_none() {
+                    self.errors.push(syn::Error::new(
+                        entry.pallet_name.span(),
+                        format!(
+                            "Pallet `{}` does not have an explicit index in construct_runtime!",
+                            entry.pallet_name.to_token_stream().to_string().trim()
+                        ),
+                    ));
                 }
             }
         }
 
+        // Continue visiting the rest of the file
         syn::visit::visit_item_macro(self, node);
     }
 }
@@ -62,20 +67,64 @@ impl Parse for ConstructRuntimeEntries {
 }
 
 struct PalletEntry {
-    pallet_name: syn::Ident,
-    index: Option<syn::LitInt>,
+    visibility: Option<Visibility>,
+    pallet_name: Path,
+    components: Option<PalletComponents>,
+    index: Option<syn::LitInt>, // Now index can be None (i.e., missing)
 }
 
 impl Parse for PalletEntry {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let pallet_name: syn::Ident = input.parse()?;
+        // Optionally parse visibility (e.g., `pub`)
+        let visibility: Option<Visibility> = input.parse().ok();
+
+        // Parse the pallet name (with possible generics and paths like `pallet_collective::<Instance1>::{ Pallet, Call, Storage }`)
+        let pallet_name = parse_complex_pallet_path(input)?;
+
+        // Optionally parse the index if it's present
         let index = if input.peek(Colon) {
             input.parse::<Colon>()?;
             Some(input.parse::<syn::LitInt>()?)
         } else {
-            None
+            None // Missing index is allowed during parsing
         };
-        Ok(PalletEntry { pallet_name, index })
+
+        Ok(PalletEntry {
+            visibility,
+            pallet_name,
+            components: None, // Components will be handled directly in `parse_complex_pallet_path`
+            index,
+        })
+    }
+}
+
+fn parse_complex_pallet_path(input: ParseStream) -> syn::Result<Path> {
+    let mut path = Path::parse_mod_style(input)?;
+
+    // Check if there are generics like `::<Instance1>`
+    if input.peek(syn::token::Lt) {
+        let _generics: syn::AngleBracketedGenericArguments = input.parse()?;
+    }
+
+    // Now check for nested components in `{ Pallet, Call, Storage }`
+    if input.peek(syn::token::Brace) {
+        let content;
+        braced!(content in input);
+        let _: Punctuated<Ident, Token![,]> = content.parse_terminated(Ident::parse, Token![,])?;
+    }
+
+    Ok(path)
+}
+
+struct PalletComponents {
+    components: Punctuated<Ident, Token![,]>,
+}
+
+impl Parse for PalletComponents {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        Ok(PalletComponents {
+            components: input.parse_terminated(Ident::parse, Token![,])?,
+        })
     }
 }
 
@@ -121,6 +170,39 @@ mod tests {
             construct_runtime!(
                 PalletA,
                 PalletB: 1
+            );
+        "#;
+        assert!(lint_macro(input).is_err());
+    }
+
+    #[test]
+    fn test_with_visibility_and_index() {
+        let input = r#"
+            construct_runtime!(
+                pub PalletA: 0,
+                PalletB: 1
+            );
+        "#;
+        assert!(lint_macro(input).is_ok());
+    }
+
+    #[test]
+    fn test_with_generic_and_index() {
+        let input = r#"
+            construct_runtime!(
+                PalletA,
+                pallet_collective::<Instance1>::{ Pallet, Call, Storage }: 1
+            );
+        "#;
+        assert!(lint_macro(input).is_ok());
+    }
+
+    #[test]
+    fn test_with_nested_and_missing_index() {
+        let input = r#"
+            construct_runtime!(
+                PalletA,
+                pallet_collective::<Instance1>::{ Pallet, Call, Storage }
             );
         "#;
         assert!(lint_macro(input).is_err());
