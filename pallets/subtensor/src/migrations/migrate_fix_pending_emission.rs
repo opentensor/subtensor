@@ -212,7 +212,8 @@ impl<T: Config> Pallet<T> {
                 // Check the total hotkey stake is the same
                 assert_eq!(
                     TotalHotkeyStake::<T>::get(taostats_old_hk_acct),
-                    old.old_null_stake_taostats + old.old_migration_stake_taostats
+                    old.old_null_stake_taostats
+                        .saturating_add(old.old_migration_stake_taostats)
                 );
 
                 let new_null_stake_taostats =
@@ -220,7 +221,8 @@ impl<T: Config> Pallet<T> {
 
                 assert_eq!(
                     new_null_stake_taostats,
-                    old.old_null_stake_taostats + old.old_migration_stake_taostats
+                    old.old_null_stake_taostats
+                        .saturating_add(old.old_migration_stake_taostats)
                 );
             }
             _ => {
@@ -263,7 +265,8 @@ impl<T: Config> Pallet<T> {
                 // Check the total hotkey stake is the same
                 assert_eq!(
                     TotalHotkeyStake::<T>::get(datura_old_hk_acct),
-                    old.old_null_stake_datura + old.old_migration_stake_datura
+                    old.old_null_stake_datura
+                        .saturating_add(old.old_migration_stake_datura)
                 );
 
                 let new_null_stake_datura =
@@ -271,7 +274,8 @@ impl<T: Config> Pallet<T> {
 
                 assert_eq!(
                     new_null_stake_datura,
-                    old.old_null_stake_datura + old.old_migration_stake_datura
+                    old.old_null_stake_datura
+                        .saturating_add(old.old_migration_stake_datura)
                 );
             }
             _ => {
