@@ -148,22 +148,20 @@ pub fn do_migrate_fix_pending_emission<T: Config>() -> Weight {
 /// Required so we can read values in the v0 storage format during the migration.
 #[cfg(feature = "try-runtime")]
 mod v0 {
-    use frame_support::storage_alias;
     use subtensor_macros::freeze_struct;
 
-    #[freeze_struct("7adbed79987ae83d")]
+    #[freeze_struct("2228babfc0580c62")]
     #[derive(codec::Encode, codec::Decode, Clone, PartialEq, Debug)]
     pub struct OldStorage {
         pub total_issuance_before: u64,
+        pub total_stake_before: u64,
         pub expected_taostats_new_hk_pending_emission: u64,
         pub expected_datura_new_hk_pending_emission: u64,
+        pub old_migration_stake_taostats: u64,
         pub old_null_stake_taostats: u64,
+        pub old_migration_stake_datura: u64,
         pub old_null_stake_datura: u64,
     }
-
-    /// V0 type for [`crate::Value`].
-    #[storage_alias]
-    pub type Value<T: crate::Config> = StorageValue<crate::Pallet<T>, OldStorage>;
 }
 
 impl<T: Config> Pallet<T> {
@@ -184,7 +182,9 @@ impl<T: Config> Pallet<T> {
         let old = old_storage;
         let null_stake_total = old
             .old_null_stake_taostats
-            .saturating_add(old.old_null_stake_datura);
+            .saturating_add(old.old_null_stake_datura)
+            .saturating_add(old.old_migration_stake_taostats)
+            .saturating_add(old.old_migration_stake_datura);
 
         match (
             taostats_old_hk_account,
@@ -209,10 +209,19 @@ impl<T: Config> Pallet<T> {
                     0
                 );
 
+                // Check the total hotkey stake is the same
+                assert_eq!(
+                    TotalHotkeyStake::<T>::get(taostats_old_hk_acct),
+                    old.old_null_stake_taostats + old.old_migration_stake_taostats
+                );
+
                 let new_null_stake_taostats =
                     Self::get_stake_for_coldkey_and_hotkey(migration_ck_acct, taostats_old_hk_acct);
 
-                assert_eq!(new_null_stake_taostats, old.old_null_stake_taostats);
+                assert_eq!(
+                    new_null_stake_taostats,
+                    old.old_null_stake_taostats + old.old_migration_stake_taostats
+                );
             }
             _ => {
                 log::warn!("Failed to get account id from ss58 for taostats hotkeys");
@@ -251,10 +260,19 @@ impl<T: Config> Pallet<T> {
                     0
                 );
 
+                // Check the total hotkey stake is the same
+                assert_eq!(
+                    TotalHotkeyStake::<T>::get(datura_old_hk_acct),
+                    old.old_null_stake_datura + old.old_migration_stake_datura
+                );
+
                 let new_null_stake_datura =
                     Self::get_stake_for_coldkey_and_hotkey(migration_ck_acct, datura_old_hk_acct);
 
-                assert_eq!(new_null_stake_datura, old.old_null_stake_datura);
+                assert_eq!(
+                    new_null_stake_datura,
+                    old.old_null_stake_datura + old.old_migration_stake_datura
+                );
             }
             _ => {
                 log::warn!("Failed to get account id from ss58 for datura hotkeys");
@@ -278,10 +296,11 @@ impl<T: Config> Pallet<T> {
 
         // Check the total issuance is the SAME following migration (no TAO issued)
         let expected_total_issuance = old.total_issuance_before;
+        let expected_total_stake = old.total_stake_before;
         assert_eq!(Self::get_total_issuance(), expected_total_issuance);
 
         // Check total stake is the SAME following the migration (no new TAO staked)
-        assert_eq!(TotalStake::<T>::get(), expected_total_issuance);
+        assert_eq!(TotalStake::<T>::get(), expected_total_stake);
         // Check the total stake maps are updated following the migration (removal of old null_account stake entries)
         assert_eq!(TotalColdkeyStake::<T>::get(null_account), 0);
 
@@ -303,7 +322,11 @@ pub mod migration {
 
     #[cfg(feature = "try-runtime")]
     fn get_old_storage_values<T: Config>() -> Result<v0::OldStorage, sp_runtime::TryRuntimeError> {
+        log::info!("Getting old storage values for migration");
+
         let null_account = &DefaultAccount::<T>::get();
+        let migration_coldkey = "5GeRjQYsobRWFnrbBmGe5ugme3rfnDVF69N45YtdBpUFsJG8";
+        let migration_account = &get_account_id_from_ss58::<T>(migration_coldkey);
 
         let taostats_old_hotkey = "5Hddm3iBFD2GLT5ik7LZnT3XJUnRnN8PoeCFgGQgawUVKNm8";
         let taostats_new_hotkey = "5GKH9FPPnWSUoeeTJp19wVtd84XqFW4pyK2ijV2GsFbhTrP1";
@@ -314,20 +337,27 @@ pub mod migration {
         let total_issuance_before = crate::Pallet::<T>::get_total_issuance();
         let mut expected_taostats_new_hk_pending_emission: u64 = 0;
         let mut expected_datura_new_hk_pending_emission: u64 = 0;
-        let old_null_stake_taostats: u64 = match (taostats_old_hk_account, taostats_new_hk_account)
-        {
-            (Ok(taostats_old_hk_acct), Ok(taostats_new_hk_acct)) => {
+        let (old_null_stake_taostats, old_migration_stake_taostats) = match (
+            taostats_old_hk_account,
+            taostats_new_hk_account,
+            migration_account,
+        ) {
+            (Ok(taostats_old_hk_acct), Ok(taostats_new_hk_acct), Ok(migration_acct)) => {
                 expected_taostats_new_hk_pending_emission =
                     expected_taostats_new_hk_pending_emission
                         .saturating_add(PendingdHotkeyEmission::<T>::get(taostats_old_hk_acct))
                         .saturating_add(PendingdHotkeyEmission::<T>::get(taostats_new_hk_acct));
 
-                Ok::<u64, sp_runtime::TryRuntimeError>(
+                Ok::<(u64, u64), sp_runtime::TryRuntimeError>((
                     crate::Pallet::<T>::get_stake_for_coldkey_and_hotkey(
                         null_account,
                         taostats_old_hk_acct,
                     ),
-                )
+                    crate::Pallet::<T>::get_stake_for_coldkey_and_hotkey(
+                        migration_acct,
+                        taostats_old_hk_acct,
+                    ),
+                ))
             }
             _ => {
                 log::warn!("Failed to get account id from ss58 for taostats hotkeys");
@@ -341,18 +371,26 @@ pub mod migration {
         let datura_old_hk_account = &get_account_id_from_ss58::<T>(datura_old_hotkey);
         let datura_new_hk_account = &get_account_id_from_ss58::<T>(datura_new_hotkey);
 
-        let old_null_stake_datura: u64 = match (datura_old_hk_account, datura_new_hk_account) {
-            (Ok(datura_old_hk_acct), Ok(datura_new_hk_acct)) => {
+        let (old_null_stake_datura, old_migration_stake_datura) = match (
+            datura_old_hk_account,
+            datura_new_hk_account,
+            migration_account,
+        ) {
+            (Ok(datura_old_hk_acct), Ok(datura_new_hk_acct), Ok(migration_acct)) => {
                 expected_datura_new_hk_pending_emission = expected_datura_new_hk_pending_emission
                     .saturating_add(PendingdHotkeyEmission::<T>::get(datura_old_hk_acct))
                     .saturating_add(PendingdHotkeyEmission::<T>::get(datura_new_hk_acct));
 
-                Ok::<u64, sp_runtime::TryRuntimeError>(
+                Ok::<(u64, u64), sp_runtime::TryRuntimeError>((
                     crate::Pallet::<T>::get_stake_for_coldkey_and_hotkey(
                         null_account,
                         datura_old_hk_acct,
                     ),
-                )
+                    crate::Pallet::<T>::get_stake_for_coldkey_and_hotkey(
+                        migration_acct,
+                        datura_old_hk_acct,
+                    ),
+                ))
             }
             _ => {
                 log::warn!("Failed to get account id from ss58 for datura hotkeys");
@@ -360,13 +398,20 @@ pub mod migration {
             }
         }?;
 
+        let total_stake_before: u64 = crate::Pallet::<T>::get_total_stake();
+
         let result = v0::OldStorage {
             total_issuance_before,
+            total_stake_before,
             expected_taostats_new_hk_pending_emission,
             expected_datura_new_hk_pending_emission,
+            old_migration_stake_taostats,
             old_null_stake_taostats,
+            old_migration_stake_datura,
             old_null_stake_datura,
         };
+
+        log::info!("Got old storage values for migration");
 
         Ok(result)
     }
@@ -378,10 +423,18 @@ pub mod migration {
             use codec::Encode;
 
             // Get the old storage values
-            let old_storage = get_old_storage_values::<T>()?;
+            match get_old_storage_values::<T>() {
+                Ok(old_storage) => {
+                    log::info!("Successfully got old storage values for migration");
+                    let encoded = old_storage.encode();
 
-            // Return it as an encoded `Vec<u8>`
-            Ok(old_storage.encode())
+                    Ok(encoded)
+                }
+                Err(e) => {
+                    log::error!("Failed to get old storage values for migration: {:?}", e);
+                    Err("Failed to get old storage values for migration".into())
+                }
+            }
         }
 
         // Runs the migrate function for the fix_pending_emission migration
@@ -430,21 +483,14 @@ pub mod migration {
         fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
             use codec::Decode;
 
-            let maybe_old_value =
-                Option::<v0::OldStorage>::decode(&mut &state[..]).map_err(|_| {
+            let old_storage: v0::OldStorage =
+                v0::OldStorage::decode(&mut &state[..]).map_err(|_| {
                     sp_runtime::TryRuntimeError::Other("Failed to decode old value from storage")
                 })?;
 
-            match maybe_old_value {
-                Some(old_value) => {
-                    // Verify that all null stake invariants are satisfied after the migration
-                    crate::Pallet::<T>::check_null_stake_invariants(old_value)?;
-                }
-                None => {
-                    log::warn!("Failed to decode old value from storage");
-                    return Err("Failed to decode old value from storage".into());
-                }
-            };
+            // Verify that all null stake invariants are satisfied after the migration
+            crate::Pallet::<T>::check_null_stake_invariants(old_storage)?;
+
             Ok(())
         }
     }
