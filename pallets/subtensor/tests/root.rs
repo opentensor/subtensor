@@ -1052,3 +1052,33 @@ fn test_user_add_network_with_identity_fields_ok() {
         );
     });
 }
+
+#[test]
+fn test_error_into_u8_conversion() {
+    new_test_ext(1).execute_with(|| {
+        let errors: Vec<Error<Test>> = vec![
+            Error::<Test>::ColdkeyInSwapSchedule,
+            Error::<Test>::CommitWeightsBelowMinStake,
+            Error::<Test>::RevealWeightsBelowMinStake,
+            Error::<Test>::SetWeightsBelowMinStake,
+            Error::<Test>::SetRootWeightsBelowMinStake,
+            Error::<Test>::MaxIntervalRegistrationsReached,
+            Error::<Test>::SubNetworkDoesNotExist,
+        ];
+
+        for error in errors {
+            let expected_value: u8 = match &error {
+                Error::<Test>::ColdkeyInSwapSchedule => 89,
+                Error::<Test>::CommitWeightsBelowMinStake => 90,
+                Error::<Test>::RevealWeightsBelowMinStake => 91,
+                Error::<Test>::SetWeightsBelowMinStake => 92,
+                Error::<Test>::SetRootWeightsBelowMinStake => 93,
+                Error::<Test>::MaxIntervalRegistrationsReached => 94,
+                _ => u8::MAX,
+            };
+
+            let value: u8 = error.into();
+            assert_eq!(value, expected_value);
+        }
+    });
+}
