@@ -36,7 +36,8 @@ impl<'ast> Visit<'ast> for ConstructRuntimeVisitor {
             let tokens = node.mac.tokens.clone();
 
             // Try parsing as runtime entries
-            if let Ok(runtime_entries) = syn::parse2::<ConstructRuntimeEntries>(tokens) {
+            let result = syn::parse2::<ConstructRuntimeEntries>(tokens);
+            if let Ok(runtime_entries) = result {
                 for entry in runtime_entries.entries {
                     // Check if the entry is missing an explicit index
                     if entry.index.is_none() {
@@ -51,10 +52,7 @@ impl<'ast> Visit<'ast> for ConstructRuntimeVisitor {
                 }
             } else {
                 // Handle other cases, e.g., enum/struct definitions inside construct_runtime
-                self.errors.push(syn::Error::new(
-                    node.mac.span(),
-                    "Failed to parse construct_runtime!",
-                ));
+                self.errors.push(result.unwrap_err());
             }
         }
 
@@ -63,6 +61,7 @@ impl<'ast> Visit<'ast> for ConstructRuntimeVisitor {
     }
 }
 
+#[derive(Debug)]
 struct ConstructRuntimeEntries {
     entries: Punctuated<PalletEntry, Token![,]>,
 }
@@ -75,6 +74,7 @@ impl Parse for ConstructRuntimeEntries {
     }
 }
 
+#[derive(Debug)]
 struct PalletEntry {
     _visibility: Option<Visibility>,
     pallet_name: Path,
@@ -86,6 +86,11 @@ impl Parse for PalletEntry {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         // Optionally parse visibility (e.g., `pub`)
         let visibility: Option<Visibility> = input.parse().ok();
+
+        // Handle 'struct' keyword if present
+        if input.peek(Token![struct]) {
+            let _: Token![struct] = input.parse()?;
+        }
 
         // Parse the pallet name (handling complex paths with generics and nested components)
         let pallet_name = parse_complex_pallet_path(input)?;
@@ -109,26 +114,25 @@ impl Parse for PalletEntry {
 
 fn parse_complex_pallet_path(input: ParseStream) -> syn::Result<Path> {
     // Start by parsing the base path (pallet name)
-    let mut path = input.parse::<Path>()?;
+    let path = input.parse::<Path>()?;
 
     // If there are generics like `::<Instance1>`, handle them
     if input.peek(syn::token::Lt) {
-        let _generics: syn::AngleBracketedGenericArguments = input.parse()?;
+        let _: syn::AngleBracketedGenericArguments = input.parse()?;
     }
 
     // Now handle nested components like `{ Pallet, Call, Storage }`
     if input.peek(syn::token::Brace) {
         let content;
         braced!(content in input);
-        let components: Punctuated<Ident, Token![,]> =
+        let _components: Punctuated<Ident, Token![,]> =
             content.parse_terminated(Ident::parse, Token![,])?;
-
-        // We can attach the components to the path, if necessary, or validate them separately.
     }
 
     Ok(path)
 }
 
+#[derive(Debug)]
 struct PalletComponents {
     _components: Punctuated<Ident, Token![,]>,
 }
@@ -163,7 +167,7 @@ mod tests {
                 PalletB
             );
         "#;
-        assert!(lint_macro(input).is_err());
+        lint_macro(input).unwrap_err();
     }
 
     #[test]
@@ -174,7 +178,7 @@ mod tests {
                 PalletB: 1
             );
         "#;
-        assert!(lint_macro(input).is_ok());
+        lint_macro(input).unwrap();
     }
 
     #[test]
@@ -185,7 +189,7 @@ mod tests {
                 PalletB: 1
             );
         "#;
-        assert!(lint_macro(input).is_err());
+        lint_macro(input).unwrap_err();
     }
 
     #[test]
@@ -196,7 +200,7 @@ mod tests {
                 PalletB: 1
             );
         "#;
-        assert!(lint_macro(input).is_ok());
+        lint_macro(input).unwrap();
     }
 
     #[test]
@@ -207,7 +211,7 @@ mod tests {
                 pallet_collective::<Instance1>::{ Pallet, Call, Storage }: 1
             );
         "#;
-        assert!(lint_macro(input).is_ok());
+        lint_macro(input).unwrap();
     }
 
     #[test]
@@ -218,7 +222,7 @@ mod tests {
                 pallet_collective::<Instance1>::{ Pallet, Call, Storage }
             );
         "#;
-        assert!(lint_macro(input).is_err());
+        lint_macro(input).unwrap_err();
     }
 
     #[test]
@@ -242,8 +246,7 @@ mod tests {
         "#;
 
         // This should fail because there are no explicit indices
-        let result = lint_macro(input);
-        assert!(result.is_err());
+        lint_macro(input).unwrap_err();
     }
 
     #[test]
@@ -277,7 +280,6 @@ mod tests {
         "#;
 
         // Call the lint function on this input to ensure it parses correctly
-        let result = lint_macro(input);
-        assert!(result.is_ok());
+        lint_macro(input).unwrap();
     }
 }
