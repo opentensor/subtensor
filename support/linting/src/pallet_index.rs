@@ -72,7 +72,6 @@ mod tests {
 
     #[test]
     fn test_no_pallet_index() {
-        // Updated with valid `construct_runtime!` syntax
         let input = r#"
             construct_runtime! {
                 pub enum Test where
@@ -158,5 +157,89 @@ mod tests {
         "#;
 
         lint_macro(input).unwrap_err();
+    }
+
+    #[test]
+    fn test_with_multiple_instances() {
+        let input = r#"
+            construct_runtime! {
+                pub enum Test where
+                    Block = Block,
+                    NodeBlock = Block,
+                    UncheckedExtrinsic = UncheckedExtrinsic
+                {
+                    Instance1: pallet_collective::<Instance1>::{Pallet, Call, Storage} = 1,
+                    Instance2: pallet_collective::<Instance2>::{Pallet, Call, Storage} = 2,
+                    Balances: pallet_balances = 3
+                }
+            }
+        "#;
+        lint_macro(input).unwrap();
+    }
+
+    #[test]
+    fn test_missing_pallet_parts() {
+        let input = r#"
+            construct_runtime! {
+                pub enum Test where
+                    Block = Block,
+                    NodeBlock = Block,
+                    UncheckedExtrinsic = UncheckedExtrinsic
+                {
+                    PalletA = 0,
+                    PalletB
+                }
+            }
+        "#;
+        lint_macro(input).unwrap_err();
+    }
+
+    #[test]
+    fn test_with_expanded_pallet() {
+        let input = r#"
+            construct_runtime! {
+                pub enum Test where
+                    Block = Block,
+                    NodeBlock = Block,
+                    UncheckedExtrinsic = UncheckedExtrinsic
+                {
+                    ExpandedPallet: pallet_balances expanded::{Pallet, Call, Storage} = 1,
+                    RegularPallet: pallet_sudo = 2
+                }
+            }
+        "#;
+        lint_macro(input).unwrap();
+    }
+
+    #[test]
+    fn test_with_no_pallets() {
+        let input = r#"
+            construct_runtime! {
+                pub enum Test where
+                    Block = Block,
+                    NodeBlock = Block,
+                    UncheckedExtrinsic = UncheckedExtrinsic
+                {
+                }
+            }
+        "#;
+        lint_macro(input).unwrap();
+    }
+
+    #[test]
+    fn test_with_pallet_alias() {
+        let input = r#"
+            construct_runtime! {
+                pub enum Test where
+                    Block = Block,
+                    NodeBlock = Block,
+                    UncheckedExtrinsic = UncheckedExtrinsic
+                {
+                    MyAlias: pallet_balances = 1,
+                    OtherAlias: pallet_timestamp = 2
+                }
+            }
+        "#;
+        lint_macro(input).unwrap();
     }
 }
