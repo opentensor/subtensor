@@ -25,35 +25,38 @@ struct ConstructRuntimeVisitor {
 
 impl<'ast> syn::visit::Visit<'ast> for ConstructRuntimeVisitor {
     fn visit_item_macro(&mut self, node: &'ast syn::ItemMacro) {
-        if node.mac.path.is_ident("construct_runtime") {
+        let is_construct_runtime = node
+            .mac
+            .path
+            .segments
+            .last()
+            .map_or(false, |segment| segment.ident == "construct_runtime");
+
+        if is_construct_runtime {
             let tokens = node.mac.tokens.clone();
 
-            // Attempt to parse the construct_runtime invocation.
             match syn::parse2::<RuntimeDeclaration>(tokens) {
-                Ok(runtime_decl) => {
-                    match runtime_decl {
-                        RuntimeDeclaration::Explicit(runtime) => {
-                            self.check_pallets_for_index(&runtime.pallets);
-                        }
-                        RuntimeDeclaration::ExplicitExpanded(runtime) => {
-                            self.check_pallets_for_index(&runtime.pallets);
-                        }
-                        RuntimeDeclaration::Implicit(runtime) => {
-                            for pallet in runtime.pallets {
-                                // Check if the index is missing (implicit declaration)
-                                if pallet.index.is_none() {
-                                    self.errors.push(syn::Error::new(
+                Ok(runtime_decl) => match runtime_decl {
+                    RuntimeDeclaration::Explicit(runtime) => {
+                        self.check_pallets_for_index(&runtime.pallets);
+                    }
+                    RuntimeDeclaration::ExplicitExpanded(runtime) => {
+                        self.check_pallets_for_index(&runtime.pallets);
+                    }
+                    RuntimeDeclaration::Implicit(runtime) => {
+                        for pallet in runtime.pallets {
+                            if pallet.index.is_none() {
+                                self.errors.push(syn::Error::new(
                                         pallet.name.span(),
                                         format!(
                                             "Pallet `{}` does not have an explicit index in the implicit construct_runtime!",
                                             pallet.name.to_token_stream()
                                         ),
                                     ));
-                                }
                             }
                         }
                     }
-                }
+                },
                 Err(e) => self.errors.push(e),
             }
         }
@@ -96,11 +99,8 @@ mod tests {
         Ok(())
     }
 
-    // Corrected test cases
-
     #[test]
     fn test_no_pallet_index() {
-        // Updated with valid `construct_runtime!` syntax
         let input = quote! {
             construct_runtime! {
                 pub enum Test where
@@ -188,7 +188,6 @@ mod tests {
         lint_macro(input).unwrap_err();
     }
 
-    // New test for implicit construct_runtime
     #[test]
     fn test_implicit_construct_runtime_should_fail() {
         let input = quote! {
@@ -208,7 +207,6 @@ mod tests {
         lint_macro(input).unwrap_err();
     }
 
-    // Test for explicit expanded case that should pass
     #[test]
     fn test_explicit_expanded_runtime_with_correct_index_should_pass() {
         let input = quote! {
@@ -224,7 +222,6 @@ mod tests {
         lint_macro(input).unwrap();
     }
 
-    // Test for explicit expanded case that should fail
     #[test]
     fn test_explicit_expanded_runtime_with_missing_index_should_fail() {
         let input = quote! {
@@ -239,5 +236,22 @@ mod tests {
         };
 
         lint_macro(input).unwrap_err();
+    }
+
+    #[test]
+    fn test_fully_qualified_construct_runtime() {
+        let input = quote! {
+        frame_support::construct_runtime! {
+            pub enum Test {
+                System: frame_system,
+                Balances: pallet_balances,
+                AdminUtils: pallet_admin_utils,
+                SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>, Error<T>},
+                Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
+            }
+        }
+        };
+
+        lint_macro(input).unwrap();
     }
 }
