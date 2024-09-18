@@ -36,11 +36,9 @@ impl<'ast> Visit<'ast> for ConstructRuntimeVisitor {
             let tokens = node.mac.tokens.clone();
             println!("Parsing construct_runtime! tokens: {}", tokens.to_string());
 
-            // Try parsing as runtime entries
             let result = syn::parse2::<ConstructRuntimeEntries>(tokens);
             if let Ok(runtime_entries) = result {
                 for entry in runtime_entries.entries {
-                    println!("Parsed entry: {:?}", entry);
                     // Check if the entry is missing an explicit index
                     if entry.index.is_none() {
                         self.errors.push(syn::Error::new(
@@ -53,7 +51,7 @@ impl<'ast> Visit<'ast> for ConstructRuntimeVisitor {
                     }
                 }
             } else {
-                // Print out the error and where it failed
+                // Log error
                 println!("Failed to parse construct_runtime! block: {:?}", result);
                 self.errors.push(result.unwrap_err());
             }
@@ -71,66 +69,60 @@ struct ConstructRuntimeEntries {
 
 impl Parse for ConstructRuntimeEntries {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        println!("Parsing ConstructRuntimeEntries");
         let entries = input.parse_terminated(PalletEntry::parse, Token![,])?;
-        println!("Parsed entries: {:?}", entries);
         Ok(ConstructRuntimeEntries { entries })
     }
 }
 
 #[derive(Debug)]
 struct PalletEntry {
-    _visibility: Option<Visibility>,
+    visibility: Option<Visibility>,
     pallet_name: Path,
-    _components: Option<PalletComponents>,
-    index: Option<syn::LitInt>, // Now index can be None (i.e., missing)
+    components: Option<PalletComponents>,
+    index: Option<syn::LitInt>,
 }
 
 impl Parse for PalletEntry {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         // Optionally parse visibility (e.g., `pub`)
         let visibility: Option<Visibility> = input.parse().ok();
-        println!("Parsed visibility: {:?}", visibility);
-
-        // Handle 'struct' keyword if present
-        if input.peek(Token![struct]) {
-            let _: Token![struct] = input.parse()?;
-            println!("Parsed 'struct' keyword");
-        }
 
         // Parse the pallet name (handling complex paths with generics and nested components)
         let pallet_name = parse_complex_pallet_path(input)?;
-        println!("Parsed pallet name: {:?}", pallet_name);
+
+        // Optionally parse the components in `{ Pallet, Call, Storage }`
+        let components = if input.peek(syn::token::Brace) {
+            let content;
+            braced!(content in input);
+            Some(content.parse::<PalletComponents>()?)
+        } else {
+            None
+        };
 
         // Optionally parse the index if it's present
         let index = if input.peek(Colon) {
             input.parse::<Colon>()?;
-            let index = input.parse::<syn::LitInt>()?;
-            println!("Parsed index: {:?}", index);
-            Some(index)
+            Some(input.parse::<syn::LitInt>()?)
         } else {
-            println!("No index found");
-            None // Missing index is allowed during parsing
+            None
         };
 
         Ok(PalletEntry {
-            _visibility: visibility,
+            visibility,
             pallet_name,
-            _components: None, // Components will be handled in `parse_complex_pallet_path`
+            components,
             index,
         })
     }
 }
 
 fn parse_complex_pallet_path(input: ParseStream) -> syn::Result<Path> {
-    // Start by parsing the base path (pallet name)
-    let mut path = input.parse::<Path>()?;
-    println!("Parsed base path: {:?}", path);
+    // Parse the base path (e.g., `pallet_collective`)
+    let path = input.parse::<Path>()?;
 
     // If there are generics like `::<Instance1>`, handle them
     if input.peek(syn::token::Lt) {
-        let generics: syn::AngleBracketedGenericArguments = input.parse()?;
-        println!("Parsed generics: {:?}", generics);
+        let _generics: syn::AngleBracketedGenericArguments = input.parse()?;
     }
 
     // Now handle nested components like `{ Pallet, Call, Storage }`
@@ -147,15 +139,13 @@ fn parse_complex_pallet_path(input: ParseStream) -> syn::Result<Path> {
 
 #[derive(Debug)]
 struct PalletComponents {
-    _components: Punctuated<Ident, Token![,]>,
+    components: Punctuated<Ident, Token![,]>,
 }
 
 impl Parse for PalletComponents {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let components = input.parse_terminated(Ident::parse, Token![,])?;
-        println!("Parsed components: {:?}", components);
         Ok(PalletComponents {
-            _components: components,
+            components: input.parse_terminated(Ident::parse, Token![,])?,
         })
     }
 }
@@ -294,7 +284,6 @@ mod tests {
 		}
         "#;
 
-        // Call the lint function on this input to ensure it parses correctly
         lint_macro(input).unwrap();
     }
 }
