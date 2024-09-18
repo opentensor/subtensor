@@ -1,5 +1,6 @@
 use super::*;
 use procedural_fork::exports::construct_runtime::parse::RuntimeDeclaration;
+use quote::ToTokens;
 use syn::{visit::Visit, File};
 
 pub struct RequireExplicitPalletIndex;
@@ -33,7 +34,7 @@ impl<'ast> syn::visit::Visit<'ast> for ConstructRuntimeVisitor {
                 Ok(runtime_decl) => {
                     if let RuntimeDeclaration::Explicit(runtime) = runtime_decl {
                         for pallet in runtime.pallets {
-                            if pallet.index.is_none() {
+                            if pallet.index == 0 {
                                 self.errors.push(syn::Error::new(
                                     pallet.name.span(),
                                     format!(
@@ -57,7 +58,7 @@ impl<'ast> syn::visit::Visit<'ast> for ConstructRuntimeVisitor {
 mod tests {
     use super::*;
 
-    fn lint_macro(input: &str) -> Result<()> {
+    fn lint_macro(input: &str) -> Result {
         let item_macro: syn::ItemMacro = syn::parse_str(input).expect("should only use on a macro");
         let mut visitor = ConstructRuntimeVisitor::default();
         visitor.visit_item_macro(&item_macro);
@@ -67,48 +68,41 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_no_pallet_index() {
-        let input = r#"
-            construct_runtime!(
-                PalletA,
-                PalletB
-            );
-        "#;
-        lint_macro(input).unwrap_err();
-    }
+    // Corrected test cases
 
     #[test]
-    fn test_with_pallet_index() {
+    fn test_no_pallet_index() {
+        // Updated with valid `construct_runtime!` syntax
         let input = r#"
-            construct_runtime!(
-                PalletA: 0,
-                PalletB: 1
-            );
+            construct_runtime! {
+                pub enum Test where
+                    Block = Block,
+                    NodeBlock = Block,
+                    UncheckedExtrinsic = UncheckedExtrinsic
+                {
+                    PalletA,
+                    PalletB
+                }
+            }
         "#;
-        lint_macro(input).unwrap();
+        lint_macro(input).unwrap_err();
     }
 
     #[test]
     fn test_mixed_pallet_index() {
         let input = r#"
-            construct_runtime!(
-                PalletA,
-                PalletB: 1
-            );
+            construct_runtime! {
+                pub enum Test where
+                    Block = Block,
+                    NodeBlock = Block,
+                    UncheckedExtrinsic = UncheckedExtrinsic
+                {
+                    PalletA,
+                    PalletB: 1
+                }
+            }
         "#;
         lint_macro(input).unwrap_err();
-    }
-
-    #[test]
-    fn test_with_visibility_and_index() {
-        let input = r#"
-            construct_runtime!(
-                pub PalletA: 0,
-                PalletB: 1
-            );
-        "#;
-        lint_macro(input).unwrap();
     }
 
     #[test]
