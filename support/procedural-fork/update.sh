@@ -11,7 +11,7 @@ POLKADOT_SDK_TAG="v1.10.0-rc3"
 TMP_DIR=$(mktemp -d)
 
 # Define source and destination directories
-SRC_DIR="substrate/support/procedural/src"
+SRC_DIR="substrate/frame/support/procedural/src"
 DEST_DIR="$(pwd)/src"  # Absolute path to `src` directory of procedural-fork
 
 # Check if DEST_DIR exists
@@ -28,7 +28,7 @@ git clone --depth 1 --branch "$POLKADOT_SDK_TAG" --filter=blob:none --sparse "$R
 # Navigate to the cloned directory
 cd "$TMP_DIR"
 
-# Initialize sparse-checkout and set the directory
+# Initialize sparse-checkout and set the correct directory
 git sparse-checkout init --cone
 git sparse-checkout set "$SRC_DIR"
 
