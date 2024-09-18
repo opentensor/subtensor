@@ -3,7 +3,8 @@
 //! re-export all parsing code from the original crate to make it accessible to other crates,
 //! since the original crate is a `proc-macro` crate and therefore cannot have any non-macro
 //! public exports. If Parity ever decides to move the parsing code to a separate crate, this
-//! fork will no longer need to exist.
+//! fork will no longer need to exist, but right now this is the only reliable way to get
+//! access to the core parsing logic of substrate.
 //!
 //! Tags will be created for each major version of `polkadot-sdk` that `subtensor` relies on,
 //! on an as-needed, ad-hoc basis, and versions will matched the corresponding `polkadot-sdk`
