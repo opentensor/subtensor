@@ -25,9 +25,16 @@ fi
 echo "Cloning $REPO_URL at tag $POLKADOT_SDK_TAG ..."
 git clone --depth 1 --branch "$POLKADOT_SDK_TAG" --filter=blob:none --sparse "$REPO_URL" "$TMP_DIR"
 
+# Navigate to the cloned directory
 cd "$TMP_DIR"
+
+# Initialize sparse-checkout and set the directory
 git sparse-checkout init --cone
 git sparse-checkout set "$SRC_DIR"
+
+# Debugging: List the contents of the sparse-checked-out directory
+echo "Contents of $TMP_DIR/$SRC_DIR after sparse-checkout:"
+ls -l "$TMP_DIR/$SRC_DIR" || { echo "Error: Sparse checkout failed, $SRC_DIR not found."; rm -rf "$TMP_DIR"; exit 1; }
 
 # Copy all files from `src` except `lib.rs` to the destination folder
 echo "Copying files to $DEST_DIR ..."
