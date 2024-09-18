@@ -2497,13 +2497,26 @@ dependencies = [
  "cfg-expr",
  "derive-syn-parse 0.2.0",
  "expander",
- "frame-support-procedural-tools",
+ "frame-support-procedural-tools 10.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=v1.10.0-rc3)",
  "itertools 0.10.5",
  "macro_magic",
  "proc-macro-warning",
  "proc-macro2",
  "quote",
- "sp-crypto-hashing",
+ "sp-crypto-hashing 0.0.0",
+ "syn 2.0.71",
+]
+
+[[package]]
+name = "frame-support-procedural-tools"
+version = "10.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3363df38464c47a73eb521a4f648bfcc7537a82d70347ef8af3f73b6d019e910"
+dependencies = [
+ "frame-support-procedural-tools-derive 11.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "proc-macro-crate 3.1.0",
+ "proc-macro2",
+ "quote",
  "syn 2.0.71",
 ]
 
@@ -2512,8 +2525,19 @@ name = "frame-support-procedural-tools"
 version = "10.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=v1.10.0-rc3#8d2f55dfe06bae13e9f47ccf587acfd3fb9cd923"
 dependencies = [
- "frame-support-procedural-tools-derive",
+ "frame-support-procedural-tools-derive 11.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=v1.10.0-rc3)",
  "proc-macro-crate 3.1.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.71",
+]
+
+[[package]]
+name = "frame-support-procedural-tools-derive"
+version = "11.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68672b9ec6fe72d259d3879dc212c5e42e977588cdac830c76f54d9f492aeb58"
+dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.71",
@@ -5973,6 +5997,21 @@ dependencies = [
 [[package]]
 name = "procedural-fork"
 version = "1.10.0-rc3"
+dependencies = [
+ "Inflector",
+ "cfg-expr",
+ "derive-syn-parse 0.2.0",
+ "expander",
+ "frame-support-procedural-tools 10.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "itertools 0.10.5",
+ "macro_magic",
+ "proc-macro-warning",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "sp-crypto-hashing 0.1.0",
+ "syn 2.0.71",
+]
 
 [[package]]
 name = "prometheus"
@@ -6789,7 +6828,7 @@ dependencies = [
  "serde_json",
  "sp-blockchain",
  "sp-core",
- "sp-crypto-hashing",
+ "sp-crypto-hashing 0.0.0",
  "sp-genesis-builder",
  "sp-io",
  "sp-runtime",
@@ -6991,7 +7030,7 @@ dependencies = [
  "sp-consensus",
  "sp-consensus-grandpa",
  "sp-core",
- "sp-crypto-hashing",
+ "sp-crypto-hashing 0.0.0",
  "sp-keystore",
  "sp-runtime",
  "substrate-prometheus-endpoint",
@@ -7576,7 +7615,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-core",
- "sp-crypto-hashing",
+ "sp-crypto-hashing 0.0.0",
  "sp-io",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=v1.10.0-rc3)",
 ]
@@ -7660,7 +7699,7 @@ dependencies = [
  "sp-api",
  "sp-blockchain",
  "sp-core",
- "sp-crypto-hashing",
+ "sp-crypto-hashing 0.0.0",
  "sp-runtime",
  "sp-tracing 16.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=v1.10.0-rc3)",
  "sp-transaction-pool",
@@ -8398,7 +8437,7 @@ dependencies = [
  "secp256k1",
  "secrecy",
  "serde",
- "sp-crypto-hashing",
+ "sp-crypto-hashing 0.0.0",
  "sp-debug-derive 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=v1.10.0-rc3)",
  "sp-externalities 0.25.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=v1.10.0-rc3)",
  "sp-runtime-interface 24.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=v1.10.0-rc3)",
@@ -8446,12 +8485,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp-crypto-hashing"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc9927a7f81334ed5b8a98a4a978c81324d12bd9713ec76b5c68fd410174c5eb"
+dependencies = [
+ "blake2b_simd",
+ "byteorder",
+ "digest 0.10.7",
+ "sha2 0.10.8",
+ "sha3",
+ "twox-hash",
+]
+
+[[package]]
 name = "sp-crypto-hashing-proc-macro"
 version = "0.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=v1.10.0-rc3#8d2f55dfe06bae13e9f47ccf587acfd3fb9cd923"
 dependencies = [
  "quote",
- "sp-crypto-hashing",
+ "sp-crypto-hashing 0.0.0",
  "syn 2.0.71",
 ]
 
@@ -8541,7 +8594,7 @@ dependencies = [
  "rustversion",
  "secp256k1",
  "sp-core",
- "sp-crypto-hashing",
+ "sp-crypto-hashing 0.0.0",
  "sp-externalities 0.25.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=v1.10.0-rc3)",
  "sp-keystore",
  "sp-runtime-interface 24.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=v1.10.0-rc3)",
@@ -8785,7 +8838,7 @@ dependencies = [
  "sp-api",
  "sp-application-crypto",
  "sp-core",
- "sp-crypto-hashing",
+ "sp-crypto-hashing 0.0.0",
  "sp-externalities 0.25.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=v1.10.0-rc3)",
  "sp-runtime",
  "sp-runtime-interface 24.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=v1.10.0-rc3)",
