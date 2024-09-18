@@ -60,7 +60,7 @@ mod tests {
     use quote::quote;
 
     fn lint_macro(tokens: proc_macro2::TokenStream) -> Result {
-        let item_macro: syn::ItemMacro = syn::parse2(tokens).expect("should only use on a macro");
+        let item_macro: syn::ItemMacro = syn::parse2(tokens).unwrap();
         let mut visitor = ConstructRuntimeVisitor::default();
         visitor.visit_item_macro(&item_macro);
         if !visitor.errors.is_empty() {
