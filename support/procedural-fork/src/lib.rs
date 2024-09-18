@@ -1,3 +1,13 @@
+//! This crate is a fork of the `frame-support-procedural` crate from
+//! `substrate/frame/support/procedural` in `polkadot-sdk`. The purpose of this fork is to
+//! re-export all parsing code from the original crate to make it accessible to other crates,
+//! since the original crate is a `proc-macro` crate and therefore cannot have any non-macro
+//! public exports. If Parity ever decides to move the parsing code to a separate crate, this
+//! fork will no longer need to exist.
+//!
+//! Tags will be created for each major version of `polkadot-sdk` that `subtensor` relies on,
+//! on an as-needed, ad-hoc basis, and versions will matched the corresponding `polkadot-sdk`
+//! version/tag name.
 #![recursion_limit = "512"]
 #![deny(rustdoc::broken_intra_doc_links)]
 
