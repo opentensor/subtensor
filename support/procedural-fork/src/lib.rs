@@ -60,3 +60,95 @@ fn get_cargo_env_var<T: FromStr>(version_env: &str) -> std::result::Result<T, ()
 fn counter_prefix(prefix: &str) -> String {
     format!("CounterFor{}", prefix)
 }
+
+pub mod exports {
+    pub mod benchmark {
+        pub use crate::benchmark::*;
+    }
+
+    pub mod crate_version {
+        pub use crate::crate_version::*;
+    }
+
+    pub mod derive_impl {
+        pub use crate::derive_impl::*;
+    }
+
+    pub mod dummy_part_checker {
+        pub use crate::dummy_part_checker::*;
+    }
+
+    pub mod dynamic_params {
+        pub use crate::dynamic_params::*;
+    }
+
+    pub mod key_prefix {
+        pub use crate::key_prefix::*;
+    }
+
+    pub mod match_and_insert {
+        pub use crate::match_and_insert::*;
+    }
+
+    pub mod pallet_error {
+        pub use crate::pallet_error::*;
+    }
+
+    pub mod storage_alias {
+        pub use crate::storage_alias::*;
+    }
+
+    pub mod transactional {
+        pub use crate::transactional::*;
+    }
+
+    pub mod tt_macro {
+        pub use crate::tt_macro::*;
+    }
+
+    pub mod construct_runtime {
+        pub use crate::construct_runtime::*;
+
+        pub mod parse {
+            pub use crate::construct_runtime::parse::*;
+        }
+
+        pub mod expand {
+            pub use crate::construct_runtime::expand::*;
+        }
+    }
+
+    pub mod no_bound {
+        pub mod clone {
+            pub use crate::no_bound::clone::*;
+        }
+
+        pub mod debug {
+            pub use crate::no_bound::debug::*;
+        }
+
+        pub mod default {
+            pub use crate::no_bound::default::*;
+        }
+
+        pub mod ord {
+            pub use crate::no_bound::ord::*;
+        }
+
+        pub mod partial_eq {
+            pub use crate::no_bound::partial_eq::*;
+        }
+
+        pub mod partial_ord {
+            pub use crate::no_bound::partial_ord::*;
+        }
+    }
+
+    pub mod pallet {
+        pub use crate::pallet::*;
+
+        pub mod parse {
+            pub use crate::pallet::parse::*;
+        }
+    }
+}
