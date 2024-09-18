@@ -19,12 +19,7 @@ mod storage_alias;
 mod transactional;
 mod tt_macro;
 
-use frame_support_procedural_tools::generate_access_from_frame_or_crate;
-use macro_magic::{import_tokens_attr, import_tokens_attr_verbatim};
-use proc_macro::TokenStream;
-use quote::{quote, ToTokens};
 use std::{cell::RefCell, str::FromStr};
-use syn::{parse_macro_input, Error, ItemImpl, ItemMod, TraitItemType};
 
 pub(crate) const INHERENT_INSTANCE_NAME: &str = "__InherentHiddenInstance";
 
