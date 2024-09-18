@@ -34,6 +34,7 @@ impl<'ast> Visit<'ast> for ConstructRuntimeVisitor {
         if node.mac.path.is_ident("construct_runtime") {
             // Token stream parsing logic
             let tokens = node.mac.tokens.clone();
+            println!("{}", tokens.to_string());
             let runtime_entries = syn::parse2::<ConstructRuntimeEntries>(tokens).unwrap();
             for entry in runtime_entries.entries {
                 // Check if the entry is missing an explicit index
@@ -78,7 +79,7 @@ impl Parse for PalletEntry {
         // Optionally parse visibility (e.g., `pub`)
         let visibility: Option<Visibility> = input.parse().ok();
 
-        // Parse the pallet name (with possible generics and paths like `pallet_collective::<Instance1>::{ Pallet, Call, Storage }`)
+        // Parse the pallet name (handling complex paths with generics and nested components)
         let pallet_name = parse_complex_pallet_path(input)?;
 
         // Optionally parse the index if it's present
@@ -92,25 +93,29 @@ impl Parse for PalletEntry {
         Ok(PalletEntry {
             _visibility: visibility,
             pallet_name,
-            _components: None, // Components will be handled directly in `parse_complex_pallet_path`
+            _components: None, // Components will be handled in `parse_complex_pallet_path`
             index,
         })
     }
 }
 
 fn parse_complex_pallet_path(input: ParseStream) -> syn::Result<Path> {
-    let path = Path::parse_mod_style(input)?;
+    // Start by parsing the base path (pallet name)
+    let mut path = input.parse::<Path>()?;
 
-    // Check if there are generics like `::<Instance1>`
+    // If there are generics like `::<Instance1>`, handle them
     if input.peek(syn::token::Lt) {
         let _generics: syn::AngleBracketedGenericArguments = input.parse()?;
     }
 
-    // Now check for nested components in `{ Pallet, Call, Storage }`
+    // Now handle nested components like `{ Pallet, Call, Storage }`
     if input.peek(syn::token::Brace) {
         let content;
         braced!(content in input);
-        let _: Punctuated<Ident, Token![,]> = content.parse_terminated(Ident::parse, Token![,])?;
+        let components: Punctuated<Ident, Token![,]> =
+            content.parse_terminated(Ident::parse, Token![,])?;
+
+        // We can attach the components to the path, if necessary, or validate them separately.
     }
 
     Ok(path)
@@ -206,5 +211,38 @@ mod tests {
             );
         "#;
         assert!(lint_macro(input).is_err());
+    }
+
+    #[test]
+    fn test_complex_construct_runtime() {
+        let input = r#"
+        pub struct Runtime { 
+            System : frame_system = 0, 
+            RandomnessCollectiveFlip : pallet_insecure_randomness_collective_flip = 1, 
+            Timestamp : pallet_timestamp = 2, 
+            Aura : pallet_aura = 3, 
+            Grandpa : pallet_grandpa = 4, 
+            Balances : pallet_balances = 5, 
+            TransactionPayment : pallet_transaction_payment = 6, 
+            SubtensorModule : pallet_subtensor = 7, 
+            Triumvirate : pallet_collective::<Instance1>::{ Pallet, Call, Storage, Origin<T>, Event<T>, Config<T> } = 8, 
+            TriumvirateMembers : pallet_membership::<Instance1>::{ Pallet, Call, Storage, Event<T>, Config<T> } = 9, 
+            SenateMembers : pallet_membership::<Instance2>::{ Pallet, Call, Storage, Event<T>, Config<T> } = 10, 
+            Utility : pallet_utility = 11, 
+            Sudo : pallet_sudo = 12, 
+            Multisig : pallet_multisig = 13, 
+            Preimage : pallet_preimage = 14, 
+            Scheduler : pallet_scheduler = 15, 
+            Proxy : pallet_proxy = 16, 
+            Registry : pallet_registry = 17, 
+            Commitments : pallet_commitments = 18, 
+            AdminUtils : pallet_admin_utils = 19, 
+            SafeMode : pallet_safe_mode = 20 
+        }
+        "#;
+
+        // Call the lint function on this input to ensure it parses correctly
+        let result = lint_macro(input);
+        assert!(result.is_ok());
     }
 }
