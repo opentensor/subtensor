@@ -34,11 +34,13 @@ impl<'ast> Visit<'ast> for ConstructRuntimeVisitor {
         if node.mac.path.is_ident("construct_runtime") {
             // Token stream parsing logic
             let tokens = node.mac.tokens.clone();
+            println!("Parsing construct_runtime! tokens: {}", tokens.to_string());
 
             // Try parsing as runtime entries
             let result = syn::parse2::<ConstructRuntimeEntries>(tokens);
             if let Ok(runtime_entries) = result {
                 for entry in runtime_entries.entries {
+                    println!("Parsed entry: {:?}", entry);
                     // Check if the entry is missing an explicit index
                     if entry.index.is_none() {
                         self.errors.push(syn::Error::new(
@@ -51,7 +53,8 @@ impl<'ast> Visit<'ast> for ConstructRuntimeVisitor {
                     }
                 }
             } else {
-                // Handle other cases, e.g., enum/struct definitions inside construct_runtime
+                // Print out the error and where it failed
+                println!("Failed to parse construct_runtime! block: {:?}", result);
                 self.errors.push(result.unwrap_err());
             }
         }
@@ -68,9 +71,10 @@ struct ConstructRuntimeEntries {
 
 impl Parse for ConstructRuntimeEntries {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        Ok(ConstructRuntimeEntries {
-            entries: input.parse_terminated(PalletEntry::parse, Token![,])?,
-        })
+        println!("Parsing ConstructRuntimeEntries");
+        let entries = input.parse_terminated(PalletEntry::parse, Token![,])?;
+        println!("Parsed entries: {:?}", entries);
+        Ok(ConstructRuntimeEntries { entries })
     }
 }
 
@@ -86,20 +90,26 @@ impl Parse for PalletEntry {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         // Optionally parse visibility (e.g., `pub`)
         let visibility: Option<Visibility> = input.parse().ok();
+        println!("Parsed visibility: {:?}", visibility);
 
         // Handle 'struct' keyword if present
         if input.peek(Token![struct]) {
             let _: Token![struct] = input.parse()?;
+            println!("Parsed 'struct' keyword");
         }
 
         // Parse the pallet name (handling complex paths with generics and nested components)
         let pallet_name = parse_complex_pallet_path(input)?;
+        println!("Parsed pallet name: {:?}", pallet_name);
 
         // Optionally parse the index if it's present
         let index = if input.peek(Colon) {
             input.parse::<Colon>()?;
-            Some(input.parse::<syn::LitInt>()?)
+            let index = input.parse::<syn::LitInt>()?;
+            println!("Parsed index: {:?}", index);
+            Some(index)
         } else {
+            println!("No index found");
             None // Missing index is allowed during parsing
         };
 
@@ -114,19 +124,22 @@ impl Parse for PalletEntry {
 
 fn parse_complex_pallet_path(input: ParseStream) -> syn::Result<Path> {
     // Start by parsing the base path (pallet name)
-    let path = input.parse::<Path>()?;
+    let mut path = input.parse::<Path>()?;
+    println!("Parsed base path: {:?}", path);
 
     // If there are generics like `::<Instance1>`, handle them
     if input.peek(syn::token::Lt) {
-        let _: syn::AngleBracketedGenericArguments = input.parse()?;
+        let generics: syn::AngleBracketedGenericArguments = input.parse()?;
+        println!("Parsed generics: {:?}", generics);
     }
 
     // Now handle nested components like `{ Pallet, Call, Storage }`
     if input.peek(syn::token::Brace) {
         let content;
         braced!(content in input);
-        let _components: Punctuated<Ident, Token![,]> =
+        let components: Punctuated<Ident, Token![,]> =
             content.parse_terminated(Ident::parse, Token![,])?;
+        println!("Parsed components: {:?}", components);
     }
 
     Ok(path)
@@ -139,8 +152,10 @@ struct PalletComponents {
 
 impl Parse for PalletComponents {
     fn parse(input: ParseStream) -> syn::Result<Self> {
+        let components = input.parse_terminated(Ident::parse, Token![,])?;
+        println!("Parsed components: {:?}", components);
         Ok(PalletComponents {
-            _components: input.parse_terminated(Ident::parse, Token![,])?,
+            _components: components,
         })
     }
 }
