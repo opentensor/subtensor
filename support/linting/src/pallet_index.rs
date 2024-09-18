@@ -57,9 +57,10 @@ impl<'ast> syn::visit::Visit<'ast> for ConstructRuntimeVisitor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use quote::quote;
 
-    fn lint_macro(input: &str) -> Result {
-        let item_macro: syn::ItemMacro = syn::parse_str(input).expect("should only use on a macro");
+    fn lint_macro(tokens: proc_macro2::TokenStream) -> Result {
+        let item_macro: syn::ItemMacro = syn::parse2(tokens).expect("should only use on a macro");
         let mut visitor = ConstructRuntimeVisitor::default();
         visitor.visit_item_macro(&item_macro);
         if !visitor.errors.is_empty() {
@@ -68,11 +69,9 @@ mod tests {
         Ok(())
     }
 
-    // Corrected test cases
-
     #[test]
     fn test_no_pallet_index() {
-        let input = r#"
+        let tokens = quote! {
             construct_runtime! {
                 pub enum Test where
                     Block = Block,
@@ -83,13 +82,13 @@ mod tests {
                     PalletB
                 }
             }
-        "#;
-        lint_macro(input).unwrap_err();
+        };
+        lint_macro(tokens).unwrap_err();
     }
 
     #[test]
     fn test_mixed_pallet_index() {
-        let input = r#"
+        let tokens = quote! {
             construct_runtime! {
                 pub enum Test where
                     Block = Block,
@@ -100,68 +99,66 @@ mod tests {
                     PalletB: 1
                 }
             }
-        "#;
-        lint_macro(input).unwrap_err();
+        };
+        lint_macro(tokens).unwrap_err();
     }
 
     #[test]
     fn test_complex_construct_runtime_struct() {
-        let input = r#"
-		construct_runtime! {
-			pub struct Runtime { 
-				System : frame_system = 0, 
-				RandomnessCollectiveFlip : pallet_insecure_randomness_collective_flip = 1, 
-				Timestamp : pallet_timestamp = 2, 
-				Aura : pallet_aura = 3, 
-				Grandpa : pallet_grandpa = 4, 
-				Balances : pallet_balances = 5, 
-				TransactionPayment : pallet_transaction_payment = 6, 
-				SubtensorModule : pallet_subtensor = 7, 
-				Triumvirate : pallet_collective::<Instance1>::{ Pallet, Call, Storage, Origin<T>, Event<T>, Config<T> } = 8, 
-				TriumvirateMembers : pallet_membership::<Instance1>::{ Pallet, Call, Storage, Event<T>, Config<T> } = 9, 
-				SenateMembers : pallet_membership::<Instance2>::{ Pallet, Call, Storage, Event<T>, Config<T> } = 10, 
-				Utility : pallet_utility = 11, 
-				Sudo : pallet_sudo = 12, 
-				Multisig : pallet_multisig = 13, 
-				Preimage : pallet_preimage = 14, 
-				Scheduler : pallet_scheduler = 15, 
-				Proxy : pallet_proxy = 16, 
-				Registry : pallet_registry = 17, 
-				Commitments : pallet_commitments = 18, 
-				AdminUtils : pallet_admin_utils = 19, 
-				SafeMode : pallet_safe_mode = 20 
-			}
-		}
-        "#;
-
-        lint_macro(input).unwrap();
+        let tokens = quote! {
+            construct_runtime! {
+                pub struct Runtime {
+                    System : frame_system = 0,
+                    RandomnessCollectiveFlip : pallet_insecure_randomness_collective_flip = 1,
+                    Timestamp : pallet_timestamp = 2,
+                    Aura : pallet_aura = 3,
+                    Grandpa : pallet_grandpa = 4,
+                    Balances : pallet_balances = 5,
+                    TransactionPayment : pallet_transaction_payment = 6,
+                    SubtensorModule : pallet_subtensor = 7,
+                    Triumvirate : pallet_collective::<Instance1>::{ Pallet, Call, Storage, Origin<T>, Event<T>, Config<T> } = 8,
+                    TriumvirateMembers : pallet_membership::<Instance1>::{ Pallet, Call, Storage, Event<T>, Config<T> } = 9,
+                    SenateMembers : pallet_membership::<Instance2>::{ Pallet, Call, Storage, Event<T>, Config<T> } = 10,
+                    Utility : pallet_utility = 11,
+                    Sudo : pallet_sudo = 12,
+                    Multisig : pallet_multisig = 13,
+                    Preimage : pallet_preimage = 14,
+                    Scheduler : pallet_scheduler = 15,
+                    Proxy : pallet_proxy = 16,
+                    Registry : pallet_registry = 17,
+                    Commitments : pallet_commitments = 18,
+                    AdminUtils : pallet_admin_utils = 19,
+                    SafeMode : pallet_safe_mode = 20
+                }
+            }
+        };
+        lint_macro(tokens).unwrap();
     }
 
     #[test]
     fn test_complex_construct_runtime_enum_should_fail() {
-        let input = r#"
-		construct_runtime! {
-			pub enum Test {
-				System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-				Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
-				Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
-				TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
-				Senate: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
-				SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
-				SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>},
-				Utility: pallet_utility::{Pallet, Call, Storage, Event},
-				Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
-				Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
-			}
-		}
-        "#;
-
-        lint_macro(input).unwrap_err();
+        let tokens = quote! {
+            construct_runtime! {
+                pub enum Test {
+                    System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
+                    Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
+                    Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
+                    TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
+                    Senate: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
+                    SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
+                    SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>},
+                    Utility: pallet_utility::{Pallet, Call, Storage, Event},
+                    Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
+                    Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
+                }
+            }
+        };
+        lint_macro(tokens).unwrap_err();
     }
 
     #[test]
     fn test_with_multiple_instances() {
-        let input = r#"
+        let tokens = quote! {
             construct_runtime! {
                 pub enum Test where
                     Block = Block,
@@ -173,13 +170,13 @@ mod tests {
                     Balances: pallet_balances = 3
                 }
             }
-        "#;
-        lint_macro(input).unwrap();
+        };
+        lint_macro(tokens).unwrap();
     }
 
     #[test]
     fn test_missing_pallet_parts() {
-        let input = r#"
+        let tokens = quote! {
             construct_runtime! {
                 pub enum Test where
                     Block = Block,
@@ -190,13 +187,13 @@ mod tests {
                     PalletB
                 }
             }
-        "#;
-        lint_macro(input).unwrap_err();
+        };
+        lint_macro(tokens).unwrap_err();
     }
 
     #[test]
     fn test_with_expanded_pallet() {
-        let input = r#"
+        let tokens = quote! {
             construct_runtime! {
                 pub enum Test where
                     Block = Block,
@@ -207,13 +204,13 @@ mod tests {
                     RegularPallet: pallet_sudo = 2
                 }
             }
-        "#;
-        lint_macro(input).unwrap();
+        };
+        lint_macro(tokens).unwrap();
     }
 
     #[test]
     fn test_with_no_pallets() {
-        let input = r#"
+        let tokens = quote! {
             construct_runtime! {
                 pub enum Test where
                     Block = Block,
@@ -222,13 +219,13 @@ mod tests {
                 {
                 }
             }
-        "#;
-        lint_macro(input).unwrap();
+        };
+        lint_macro(tokens).unwrap();
     }
 
     #[test]
     fn test_with_pallet_alias() {
-        let input = r#"
+        let tokens = quote! {
             construct_runtime! {
                 pub enum Test where
                     Block = Block,
@@ -239,7 +236,7 @@ mod tests {
                     OtherAlias: pallet_timestamp = 2
                 }
             }
-        "#;
-        lint_macro(input).unwrap();
+        };
+        lint_macro(tokens).unwrap();
     }
 }
