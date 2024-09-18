@@ -5971,6 +5971,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "procedural-fork"
+version = "1.10.0-rc3"
+
+[[package]]
 name = "prometheus"
 version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9231,6 +9235,7 @@ name = "subtensor-linting"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",
+ "procedural-fork",
  "quote",
  "syn 2.0.71",
 ]

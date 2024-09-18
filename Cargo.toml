@@ -32,7 +32,7 @@ members = [
     "runtime",
     "support/tools",
     "support/macros",
-    "support/linting",
+    "support/linting", "support/procedural-fork",
 ]
 resolver = "2"
 
