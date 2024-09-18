@@ -33,17 +33,10 @@ impl<'ast> syn::visit::Visit<'ast> for ConstructRuntimeVisitor {
                 Ok(runtime_decl) => {
                     match runtime_decl {
                         RuntimeDeclaration::Explicit(runtime) => {
-                            for pallet in runtime.pallets {
-                                if pallet.index == 0 {
-                                    self.errors.push(syn::Error::new(
-                                        pallet.name.span(),
-                                        format!(
-                                            "Pallet `{}` does not have an explicit index in construct_runtime!",
-                                            pallet.name.to_token_stream()
-                                        ),
-                                    ));
-                                }
-                            }
+                            self.check_pallets_for_index(&runtime.pallets);
+                        }
+                        RuntimeDeclaration::ExplicitExpanded(runtime) => {
+                            self.check_pallets_for_index(&runtime.pallets);
                         }
                         RuntimeDeclaration::Implicit(runtime) => {
                             for pallet in runtime.pallets {
@@ -59,7 +52,6 @@ impl<'ast> syn::visit::Visit<'ast> for ConstructRuntimeVisitor {
                                 }
                             }
                         }
-                        _ => {}
                     }
                 }
                 Err(e) => self.errors.push(e),
@@ -67,6 +59,25 @@ impl<'ast> syn::visit::Visit<'ast> for ConstructRuntimeVisitor {
         }
 
         syn::visit::visit_item_macro(self, node);
+    }
+}
+
+impl ConstructRuntimeVisitor {
+    fn check_pallets_for_index(
+        &mut self,
+        pallets: &[procedural_fork::exports::construct_runtime::parse::Pallet],
+    ) {
+        for pallet in pallets {
+            if pallet.index == 0 {
+                self.errors.push(syn::Error::new(
+                    pallet.name.span(),
+                    format!(
+                        "Pallet `{}` does not have an explicit index in construct_runtime!",
+                        pallet.name.to_token_stream()
+                    ),
+                ));
+            }
+        }
     }
 }
 
@@ -190,6 +201,39 @@ mod tests {
                 Grandpa: pallet_grandpa,
                 Balances: pallet_balances,
                 TransactionPayment: pallet_transaction_payment
+            }
+        }
+        };
+
+        lint_macro(input).unwrap_err();
+    }
+
+    // Test for explicit expanded case that should pass
+    #[test]
+    fn test_explicit_expanded_runtime_with_correct_index_should_pass() {
+        let input = quote! {
+        construct_runtime! {
+            pub struct Runtime {
+                System : frame_system = 0,
+                Balances : pallet_balances = 1,
+                ExpandedPallet: pallet_collective::{ Pallet, Call, Config<T>, Storage, Event<T> } = 2
+            }
+        }
+        };
+
+        lint_macro(input).unwrap();
+    }
+
+    // Test for explicit expanded case that should fail
+    #[test]
+    fn test_explicit_expanded_runtime_with_missing_index_should_fail() {
+        let input = quote! {
+        construct_runtime! {
+            pub struct Runtime {
+                System : frame_system = 0,
+                Balances : pallet_balances = 1,
+                ExpandedPallet: pallet_collective::{ Pallet, Call, Config<T>, Storage, Event<T> },
+                FaultyPallet: pallet_sudo
             }
         }
         };
