@@ -21,51 +21,40 @@ use syn::{spanned::Spanned, Attribute, Ident, PathArguments};
 /// The declaration of a pallet.
 #[derive(Debug, Clone)]
 pub struct PalletDeclaration {
-    /// The name of the pallet, e.g.`System` in `System: frame_system`.
-    pub name: Ident,
-    /// Optional attributes tagged right above a pallet declaration.
-    pub attrs: Vec<Attribute>,
-    /// The path of the pallet, e.g. `frame_system` in `System: frame_system`.
-    pub path: syn::Path,
-    /// The instance of the pallet, e.g. `Instance1` in `Council: pallet_collective::<Instance1>`.
-    pub instance: Option<Ident>,
+	/// The name of the pallet, e.g.`System` in `System: frame_system`.
+	pub name: Ident,
+	/// Optional attributes tagged right above a pallet declaration.
+	pub attrs: Vec<Attribute>,
+	/// The path of the pallet, e.g. `frame_system` in `System: frame_system`.
+	pub path: syn::Path,
+	/// The instance of the pallet, e.g. `Instance1` in `Council: pallet_collective::<Instance1>`.
+	pub instance: Option<Ident>,
 }
 
 impl PalletDeclaration {
-    pub fn try_from(
-        _attr_span: proc_macro2::Span,
-        item: &syn::ItemType,
-        path: &syn::TypePath,
-    ) -> syn::Result<Self> {
-        let name = item.ident.clone();
+	pub fn try_from(
+		_attr_span: proc_macro2::Span,
+		item: &syn::ItemType,
+		path: &syn::TypePath,
+	) -> syn::Result<Self> {
+		let name = item.ident.clone();
 
-        let mut path = path.path.clone();
+		let mut path = path.path.clone();
 
-        let mut instance = None;
-        if let Some(segment) = path
-            .segments
-            .iter_mut()
-            .find(|seg| !seg.arguments.is_empty())
-        {
-            if let PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments {
-                args, ..
-            }) = segment.arguments.clone()
-            {
-                if let Some(syn::GenericArgument::Type(syn::Type::Path(arg_path))) = args.first() {
-                    instance = Some(Ident::new(
-                        &arg_path.to_token_stream().to_string(),
-                        arg_path.span(),
-                    ));
-                    segment.arguments = PathArguments::None;
-                }
-            }
-        }
+		let mut instance = None;
+		if let Some(segment) = path.segments.iter_mut().find(|seg| !seg.arguments.is_empty()) {
+			if let PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments {
+				args, ..
+			}) = segment.arguments.clone()
+			{
+				if let Some(syn::GenericArgument::Type(syn::Type::Path(arg_path))) = args.first() {
+					instance =
+						Some(Ident::new(&arg_path.to_token_stream().to_string(), arg_path.span()));
+					segment.arguments = PathArguments::None;
+				}
+			}
+		}
 
-        Ok(Self {
-            name,
-            path,
-            instance,
-            attrs: item.attrs.clone(),
-        })
-    }
+		Ok(Self { name, path, instance, attrs: item.attrs.clone() })
+	}
 }

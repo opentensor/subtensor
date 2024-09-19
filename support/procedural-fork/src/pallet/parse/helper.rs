@@ -21,176 +21,164 @@ use syn::spanned::Spanned;
 
 /// List of additional token to be used for parsing.
 mod keyword {
-    syn::custom_keyword!(I);
-    syn::custom_keyword!(compact);
-    syn::custom_keyword!(GenesisBuild);
-    syn::custom_keyword!(BuildGenesisConfig);
-    syn::custom_keyword!(Config);
-    syn::custom_keyword!(T);
-    syn::custom_keyword!(Pallet);
-    syn::custom_keyword!(origin);
-    syn::custom_keyword!(DispatchResult);
-    syn::custom_keyword!(DispatchResultWithPostInfo);
+	syn::custom_keyword!(I);
+	syn::custom_keyword!(compact);
+	syn::custom_keyword!(GenesisBuild);
+	syn::custom_keyword!(BuildGenesisConfig);
+	syn::custom_keyword!(Config);
+	syn::custom_keyword!(T);
+	syn::custom_keyword!(Pallet);
+	syn::custom_keyword!(origin);
+	syn::custom_keyword!(DispatchResult);
+	syn::custom_keyword!(DispatchResultWithPostInfo);
 }
 
 /// A usage of instance, either the trait `Config` has been used with instance or without instance.
 /// Used to check for consistency.
 #[derive(Clone)]
 pub struct InstanceUsage {
-    pub has_instance: bool,
-    pub span: proc_macro2::Span,
+	pub has_instance: bool,
+	pub span: proc_macro2::Span,
 }
 
 /// Trait implemented for syn items to get mutable references on their attributes.
 ///
 /// NOTE: verbatim variants are not supported.
 pub trait MutItemAttrs {
-    fn mut_item_attrs(&mut self) -> Option<&mut Vec<syn::Attribute>>;
+	fn mut_item_attrs(&mut self) -> Option<&mut Vec<syn::Attribute>>;
 }
 
 /// Take the first pallet attribute (e.g. attribute like `#[pallet..]`) and decode it to `Attr`
 pub(crate) fn take_first_item_pallet_attr<Attr>(
-    item: &mut impl MutItemAttrs,
+	item: &mut impl MutItemAttrs,
 ) -> syn::Result<Option<Attr>>
 where
-    Attr: syn::parse::Parse,
+	Attr: syn::parse::Parse,
 {
-    let attrs = if let Some(attrs) = item.mut_item_attrs() {
-        attrs
-    } else {
-        return Ok(None);
-    };
+	let attrs = if let Some(attrs) = item.mut_item_attrs() { attrs } else { return Ok(None) };
 
-    if let Some(index) = attrs.iter().position(|attr| {
-        attr.path()
-            .segments
-            .first()
-            .map_or(false, |segment| segment.ident == "pallet")
-    }) {
-        let pallet_attr = attrs.remove(index);
-        Ok(Some(syn::parse2(pallet_attr.into_token_stream())?))
-    } else {
-        Ok(None)
-    }
+	if let Some(index) = attrs.iter().position(|attr| {
+		attr.path().segments.first().map_or(false, |segment| segment.ident == "pallet")
+	}) {
+		let pallet_attr = attrs.remove(index);
+		Ok(Some(syn::parse2(pallet_attr.into_token_stream())?))
+	} else {
+		Ok(None)
+	}
 }
 
 /// Take all the pallet attributes (e.g. attribute like `#[pallet..]`) and decode them to `Attr`
 pub(crate) fn take_item_pallet_attrs<Attr>(item: &mut impl MutItemAttrs) -> syn::Result<Vec<Attr>>
 where
-    Attr: syn::parse::Parse,
+	Attr: syn::parse::Parse,
 {
-    let mut pallet_attrs = Vec::new();
+	let mut pallet_attrs = Vec::new();
 
-    while let Some(attr) = take_first_item_pallet_attr(item)? {
-        pallet_attrs.push(attr)
-    }
+	while let Some(attr) = take_first_item_pallet_attr(item)? {
+		pallet_attrs.push(attr)
+	}
 
-    Ok(pallet_attrs)
+	Ok(pallet_attrs)
 }
 
 /// Get all the cfg attributes (e.g. attribute like `#[cfg..]`) and decode them to `Attr`
 pub fn get_item_cfg_attrs(attrs: &[syn::Attribute]) -> Vec<syn::Attribute> {
-    attrs
-        .iter()
-        .filter_map(|attr| {
-            if attr
-                .path()
-                .segments
-                .first()
-                .map_or(false, |segment| segment.ident == "cfg")
-            {
-                Some(attr.clone())
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<_>>()
+	attrs
+		.iter()
+		.filter_map(|attr| {
+			if attr.path().segments.first().map_or(false, |segment| segment.ident == "cfg") {
+				Some(attr.clone())
+			} else {
+				None
+			}
+		})
+		.collect::<Vec<_>>()
 }
 
 impl MutItemAttrs for syn::Item {
-    fn mut_item_attrs(&mut self) -> Option<&mut Vec<syn::Attribute>> {
-        match self {
-            Self::Const(item) => Some(item.attrs.as_mut()),
-            Self::Enum(item) => Some(item.attrs.as_mut()),
-            Self::ExternCrate(item) => Some(item.attrs.as_mut()),
-            Self::Fn(item) => Some(item.attrs.as_mut()),
-            Self::ForeignMod(item) => Some(item.attrs.as_mut()),
-            Self::Impl(item) => Some(item.attrs.as_mut()),
-            Self::Macro(item) => Some(item.attrs.as_mut()),
-            Self::Mod(item) => Some(item.attrs.as_mut()),
-            Self::Static(item) => Some(item.attrs.as_mut()),
-            Self::Struct(item) => Some(item.attrs.as_mut()),
-            Self::Trait(item) => Some(item.attrs.as_mut()),
-            Self::TraitAlias(item) => Some(item.attrs.as_mut()),
-            Self::Type(item) => Some(item.attrs.as_mut()),
-            Self::Union(item) => Some(item.attrs.as_mut()),
-            Self::Use(item) => Some(item.attrs.as_mut()),
-            _ => None,
-        }
-    }
+	fn mut_item_attrs(&mut self) -> Option<&mut Vec<syn::Attribute>> {
+		match self {
+			Self::Const(item) => Some(item.attrs.as_mut()),
+			Self::Enum(item) => Some(item.attrs.as_mut()),
+			Self::ExternCrate(item) => Some(item.attrs.as_mut()),
+			Self::Fn(item) => Some(item.attrs.as_mut()),
+			Self::ForeignMod(item) => Some(item.attrs.as_mut()),
+			Self::Impl(item) => Some(item.attrs.as_mut()),
+			Self::Macro(item) => Some(item.attrs.as_mut()),
+			Self::Mod(item) => Some(item.attrs.as_mut()),
+			Self::Static(item) => Some(item.attrs.as_mut()),
+			Self::Struct(item) => Some(item.attrs.as_mut()),
+			Self::Trait(item) => Some(item.attrs.as_mut()),
+			Self::TraitAlias(item) => Some(item.attrs.as_mut()),
+			Self::Type(item) => Some(item.attrs.as_mut()),
+			Self::Union(item) => Some(item.attrs.as_mut()),
+			Self::Use(item) => Some(item.attrs.as_mut()),
+			_ => None,
+		}
+	}
 }
 
 impl MutItemAttrs for syn::TraitItem {
-    fn mut_item_attrs(&mut self) -> Option<&mut Vec<syn::Attribute>> {
-        match self {
-            Self::Const(item) => Some(item.attrs.as_mut()),
-            Self::Fn(item) => Some(item.attrs.as_mut()),
-            Self::Type(item) => Some(item.attrs.as_mut()),
-            Self::Macro(item) => Some(item.attrs.as_mut()),
-            _ => None,
-        }
-    }
+	fn mut_item_attrs(&mut self) -> Option<&mut Vec<syn::Attribute>> {
+		match self {
+			Self::Const(item) => Some(item.attrs.as_mut()),
+			Self::Fn(item) => Some(item.attrs.as_mut()),
+			Self::Type(item) => Some(item.attrs.as_mut()),
+			Self::Macro(item) => Some(item.attrs.as_mut()),
+			_ => None,
+		}
+	}
 }
 
 impl MutItemAttrs for Vec<syn::Attribute> {
-    fn mut_item_attrs(&mut self) -> Option<&mut Vec<syn::Attribute>> {
-        Some(self)
-    }
+	fn mut_item_attrs(&mut self) -> Option<&mut Vec<syn::Attribute>> {
+		Some(self)
+	}
 }
 
 impl MutItemAttrs for syn::ItemMod {
-    fn mut_item_attrs(&mut self) -> Option<&mut Vec<syn::Attribute>> {
-        Some(&mut self.attrs)
-    }
+	fn mut_item_attrs(&mut self) -> Option<&mut Vec<syn::Attribute>> {
+		Some(&mut self.attrs)
+	}
 }
 
 impl MutItemAttrs for syn::ImplItemFn {
-    fn mut_item_attrs(&mut self) -> Option<&mut Vec<syn::Attribute>> {
-        Some(&mut self.attrs)
-    }
+	fn mut_item_attrs(&mut self) -> Option<&mut Vec<syn::Attribute>> {
+		Some(&mut self.attrs)
+	}
 }
 
 impl MutItemAttrs for syn::ItemType {
-    fn mut_item_attrs(&mut self) -> Option<&mut Vec<syn::Attribute>> {
-        Some(&mut self.attrs)
-    }
+	fn mut_item_attrs(&mut self) -> Option<&mut Vec<syn::Attribute>> {
+		Some(&mut self.attrs)
+	}
 }
 
 /// Parse for `()`
 struct Unit;
 impl syn::parse::Parse for Unit {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let content;
-        syn::parenthesized!(content in input);
-        if !content.is_empty() {
-            let msg = "unexpected tokens, expected nothing inside parenthesis as `()`";
-            return Err(syn::Error::new(content.span(), msg));
-        }
-        Ok(Self)
-    }
+	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+		let content;
+		syn::parenthesized!(content in input);
+		if !content.is_empty() {
+			let msg = "unexpected tokens, expected nothing inside parenthesis as `()`";
+			return Err(syn::Error::new(content.span(), msg))
+		}
+		Ok(Self)
+	}
 }
 
 /// Parse for `'static`
 struct StaticLifetime;
 impl syn::parse::Parse for StaticLifetime {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let lifetime = input.parse::<syn::Lifetime>()?;
-        if lifetime.ident != "static" {
-            let msg = "unexpected tokens, expected `static`";
-            return Err(syn::Error::new(lifetime.ident.span(), msg));
-        }
-        Ok(Self)
-    }
+	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+		let lifetime = input.parse::<syn::Lifetime>()?;
+		if lifetime.ident != "static" {
+			let msg = "unexpected tokens, expected `static`";
+			return Err(syn::Error::new(lifetime.ident.span(), msg))
+		}
+		Ok(Self)
+	}
 }
 
 /// Check the syntax: `I: 'static = ()`
@@ -199,28 +187,28 @@ impl syn::parse::Parse for StaticLifetime {
 ///
 /// return the instance if found.
 pub fn check_config_def_gen(gen: &syn::Generics, span: proc_macro2::Span) -> syn::Result<()> {
-    let expected = "expected `I: 'static = ()`";
-    pub struct CheckTraitDefGenerics;
-    impl syn::parse::Parse for CheckTraitDefGenerics {
-        fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-            input.parse::<keyword::I>()?;
-            input.parse::<syn::Token![:]>()?;
-            input.parse::<StaticLifetime>()?;
-            input.parse::<syn::Token![=]>()?;
-            input.parse::<Unit>()?;
+	let expected = "expected `I: 'static = ()`";
+	pub struct CheckTraitDefGenerics;
+	impl syn::parse::Parse for CheckTraitDefGenerics {
+		fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+			input.parse::<keyword::I>()?;
+			input.parse::<syn::Token![:]>()?;
+			input.parse::<StaticLifetime>()?;
+			input.parse::<syn::Token![=]>()?;
+			input.parse::<Unit>()?;
 
-            Ok(Self)
-        }
-    }
+			Ok(Self)
+		}
+	}
 
-    syn::parse2::<CheckTraitDefGenerics>(gen.params.to_token_stream()).map_err(|e| {
-        let msg = format!("Invalid generics: {}", expected);
-        let mut err = syn::Error::new(span, msg);
-        err.combine(e);
-        err
-    })?;
+	syn::parse2::<CheckTraitDefGenerics>(gen.params.to_token_stream()).map_err(|e| {
+		let msg = format!("Invalid generics: {}", expected);
+		let mut err = syn::Error::new(span, msg);
+		err.combine(e);
+		err
+	})?;
 
-    Ok(())
+	Ok(())
 }
 
 /// Check the syntax:
@@ -231,41 +219,38 @@ pub fn check_config_def_gen(gen: &syn::Generics, span: proc_macro2::Span) -> syn
 ///
 /// return the instance if found.
 pub fn check_type_def_gen_no_bounds(
-    gen: &syn::Generics,
-    span: proc_macro2::Span,
+	gen: &syn::Generics,
+	span: proc_macro2::Span,
 ) -> syn::Result<InstanceUsage> {
-    let expected = "expected `T` or `T, I = ()`";
-    pub struct Checker(InstanceUsage);
-    impl syn::parse::Parse for Checker {
-        fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-            let mut instance_usage = InstanceUsage {
-                has_instance: false,
-                span: input.span(),
-            };
+	let expected = "expected `T` or `T, I = ()`";
+	pub struct Checker(InstanceUsage);
+	impl syn::parse::Parse for Checker {
+		fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+			let mut instance_usage = InstanceUsage { has_instance: false, span: input.span() };
 
-            input.parse::<keyword::T>()?;
-            if input.peek(syn::Token![,]) {
-                instance_usage.has_instance = true;
-                input.parse::<syn::Token![,]>()?;
-                input.parse::<keyword::I>()?;
-                input.parse::<syn::Token![=]>()?;
-                input.parse::<Unit>()?;
-            }
+			input.parse::<keyword::T>()?;
+			if input.peek(syn::Token![,]) {
+				instance_usage.has_instance = true;
+				input.parse::<syn::Token![,]>()?;
+				input.parse::<keyword::I>()?;
+				input.parse::<syn::Token![=]>()?;
+				input.parse::<Unit>()?;
+			}
 
-            Ok(Self(instance_usage))
-        }
-    }
+			Ok(Self(instance_usage))
+		}
+	}
 
-    let i = syn::parse2::<Checker>(gen.params.to_token_stream())
-        .map_err(|e| {
-            let msg = format!("Invalid type def generics: {}", expected);
-            let mut err = syn::Error::new(span, msg);
-            err.combine(e);
-            err
-        })?
-        .0;
+	let i = syn::parse2::<Checker>(gen.params.to_token_stream())
+		.map_err(|e| {
+			let msg = format!("Invalid type def generics: {}", expected);
+			let mut err = syn::Error::new(span, msg);
+			err.combine(e);
+			err
+		})?
+		.0;
 
-    Ok(i)
+	Ok(i)
 }
 
 /// Check the syntax:
@@ -279,79 +264,76 @@ pub fn check_type_def_gen_no_bounds(
 ///
 /// return some instance usage if there is some generic, or none otherwise.
 pub fn check_type_def_optional_gen(
-    gen: &syn::Generics,
-    span: proc_macro2::Span,
+	gen: &syn::Generics,
+	span: proc_macro2::Span,
 ) -> syn::Result<Option<InstanceUsage>> {
-    let expected = "expected `` or `T` or `T: Config` or `T, I = ()` or \
+	let expected = "expected `` or `T` or `T: Config` or `T, I = ()` or \
 		`T: Config<I>, I: 'static = ()`";
-    pub struct Checker(Option<InstanceUsage>);
-    impl syn::parse::Parse for Checker {
-        fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-            if input.is_empty() {
-                return Ok(Self(None));
-            }
+	pub struct Checker(Option<InstanceUsage>);
+	impl syn::parse::Parse for Checker {
+		fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+			if input.is_empty() {
+				return Ok(Self(None))
+			}
 
-            let mut instance_usage = InstanceUsage {
-                span: input.span(),
-                has_instance: false,
-            };
+			let mut instance_usage = InstanceUsage { span: input.span(), has_instance: false };
 
-            input.parse::<keyword::T>()?;
+			input.parse::<keyword::T>()?;
 
-            if input.is_empty() {
-                return Ok(Self(Some(instance_usage)));
-            }
+			if input.is_empty() {
+				return Ok(Self(Some(instance_usage)))
+			}
 
-            let lookahead = input.lookahead1();
-            if lookahead.peek(syn::Token![,]) {
-                instance_usage.has_instance = true;
-                input.parse::<syn::Token![,]>()?;
-                input.parse::<keyword::I>()?;
-                input.parse::<syn::Token![=]>()?;
-                input.parse::<Unit>()?;
+			let lookahead = input.lookahead1();
+			if lookahead.peek(syn::Token![,]) {
+				instance_usage.has_instance = true;
+				input.parse::<syn::Token![,]>()?;
+				input.parse::<keyword::I>()?;
+				input.parse::<syn::Token![=]>()?;
+				input.parse::<Unit>()?;
 
-                Ok(Self(Some(instance_usage)))
-            } else if lookahead.peek(syn::Token![:]) {
-                input.parse::<syn::Token![:]>()?;
-                input.parse::<keyword::Config>()?;
+				Ok(Self(Some(instance_usage)))
+			} else if lookahead.peek(syn::Token![:]) {
+				input.parse::<syn::Token![:]>()?;
+				input.parse::<keyword::Config>()?;
 
-                if input.is_empty() {
-                    return Ok(Self(Some(instance_usage)));
-                }
+				if input.is_empty() {
+					return Ok(Self(Some(instance_usage)))
+				}
 
-                instance_usage.has_instance = true;
-                input.parse::<syn::Token![<]>()?;
-                input.parse::<keyword::I>()?;
-                input.parse::<syn::Token![>]>()?;
-                input.parse::<syn::Token![,]>()?;
-                input.parse::<keyword::I>()?;
-                input.parse::<syn::Token![:]>()?;
-                input.parse::<StaticLifetime>()?;
-                input.parse::<syn::Token![=]>()?;
-                input.parse::<Unit>()?;
+				instance_usage.has_instance = true;
+				input.parse::<syn::Token![<]>()?;
+				input.parse::<keyword::I>()?;
+				input.parse::<syn::Token![>]>()?;
+				input.parse::<syn::Token![,]>()?;
+				input.parse::<keyword::I>()?;
+				input.parse::<syn::Token![:]>()?;
+				input.parse::<StaticLifetime>()?;
+				input.parse::<syn::Token![=]>()?;
+				input.parse::<Unit>()?;
 
-                Ok(Self(Some(instance_usage)))
-            } else {
-                Err(lookahead.error())
-            }
-        }
-    }
+				Ok(Self(Some(instance_usage)))
+			} else {
+				Err(lookahead.error())
+			}
+		}
+	}
 
-    let i = syn::parse2::<Checker>(gen.params.to_token_stream())
-        .map_err(|e| {
-            let msg = format!("Invalid type def generics: {}", expected);
-            let mut err = syn::Error::new(span, msg);
-            err.combine(e);
-            err
-        })?
-        .0
-        // Span can be call_site if generic is empty. Thus we replace it.
-        .map(|mut i| {
-            i.span = span;
-            i
-        });
+	let i = syn::parse2::<Checker>(gen.params.to_token_stream())
+		.map_err(|e| {
+			let msg = format!("Invalid type def generics: {}", expected);
+			let mut err = syn::Error::new(span, msg);
+			err.combine(e);
+			err
+		})?
+		.0
+		// Span can be call_site if generic is empty. Thus we replace it.
+		.map(|mut i| {
+			i.span = span;
+			i
+		});
 
-    Ok(i)
+	Ok(i)
 }
 
 /// Check the syntax:
@@ -360,39 +342,36 @@ pub fn check_type_def_optional_gen(
 ///
 /// return the instance if found.
 pub fn check_pallet_struct_usage(type_: &Box<syn::Type>) -> syn::Result<InstanceUsage> {
-    let expected = "expected `Pallet<T>` or `Pallet<T, I>`";
-    pub struct Checker(InstanceUsage);
-    impl syn::parse::Parse for Checker {
-        fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-            let mut instance_usage = InstanceUsage {
-                span: input.span(),
-                has_instance: false,
-            };
+	let expected = "expected `Pallet<T>` or `Pallet<T, I>`";
+	pub struct Checker(InstanceUsage);
+	impl syn::parse::Parse for Checker {
+		fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+			let mut instance_usage = InstanceUsage { span: input.span(), has_instance: false };
 
-            input.parse::<keyword::Pallet>()?;
-            input.parse::<syn::Token![<]>()?;
-            input.parse::<keyword::T>()?;
-            if input.peek(syn::Token![,]) {
-                instance_usage.has_instance = true;
-                input.parse::<syn::Token![,]>()?;
-                input.parse::<keyword::I>()?;
-            }
-            input.parse::<syn::Token![>]>()?;
+			input.parse::<keyword::Pallet>()?;
+			input.parse::<syn::Token![<]>()?;
+			input.parse::<keyword::T>()?;
+			if input.peek(syn::Token![,]) {
+				instance_usage.has_instance = true;
+				input.parse::<syn::Token![,]>()?;
+				input.parse::<keyword::I>()?;
+			}
+			input.parse::<syn::Token![>]>()?;
 
-            Ok(Self(instance_usage))
-        }
-    }
+			Ok(Self(instance_usage))
+		}
+	}
 
-    let i = syn::parse2::<Checker>(type_.to_token_stream())
-        .map_err(|e| {
-            let msg = format!("Invalid pallet struct: {}", expected);
-            let mut err = syn::Error::new(type_.span(), msg);
-            err.combine(e);
-            err
-        })?
-        .0;
+	let i = syn::parse2::<Checker>(type_.to_token_stream())
+		.map_err(|e| {
+			let msg = format!("Invalid pallet struct: {}", expected);
+			let mut err = syn::Error::new(type_.span(), msg);
+			err.combine(e);
+			err
+		})?
+		.0;
 
-    Ok(i)
+	Ok(i)
 }
 
 /// Check the generic is:
@@ -403,42 +382,39 @@ pub fn check_pallet_struct_usage(type_: &Box<syn::Type>) -> syn::Result<Instance
 ///
 /// return whether it contains instance.
 pub fn check_impl_gen(gen: &syn::Generics, span: proc_macro2::Span) -> syn::Result<InstanceUsage> {
-    let expected = "expected `impl<T: Config>` or `impl<T: Config<I>, I: 'static>`";
-    pub struct Checker(InstanceUsage);
-    impl syn::parse::Parse for Checker {
-        fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-            let mut instance_usage = InstanceUsage {
-                span: input.span(),
-                has_instance: false,
-            };
+	let expected = "expected `impl<T: Config>` or `impl<T: Config<I>, I: 'static>`";
+	pub struct Checker(InstanceUsage);
+	impl syn::parse::Parse for Checker {
+		fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+			let mut instance_usage = InstanceUsage { span: input.span(), has_instance: false };
 
-            input.parse::<keyword::T>()?;
-            input.parse::<syn::Token![:]>()?;
-            input.parse::<keyword::Config>()?;
-            if input.peek(syn::Token![<]) {
-                instance_usage.has_instance = true;
-                input.parse::<syn::Token![<]>()?;
-                input.parse::<keyword::I>()?;
-                input.parse::<syn::Token![>]>()?;
-                input.parse::<syn::Token![,]>()?;
-                input.parse::<keyword::I>()?;
-                input.parse::<syn::Token![:]>()?;
-                input.parse::<StaticLifetime>()?;
-            }
+			input.parse::<keyword::T>()?;
+			input.parse::<syn::Token![:]>()?;
+			input.parse::<keyword::Config>()?;
+			if input.peek(syn::Token![<]) {
+				instance_usage.has_instance = true;
+				input.parse::<syn::Token![<]>()?;
+				input.parse::<keyword::I>()?;
+				input.parse::<syn::Token![>]>()?;
+				input.parse::<syn::Token![,]>()?;
+				input.parse::<keyword::I>()?;
+				input.parse::<syn::Token![:]>()?;
+				input.parse::<StaticLifetime>()?;
+			}
 
-            Ok(Self(instance_usage))
-        }
-    }
+			Ok(Self(instance_usage))
+		}
+	}
 
-    let i = syn::parse2::<Checker>(gen.params.to_token_stream())
-        .map_err(|e| {
-            let mut err = syn::Error::new(span, format!("Invalid generics: {}", expected));
-            err.combine(e);
-            err
-        })?
-        .0;
+	let i = syn::parse2::<Checker>(gen.params.to_token_stream())
+		.map_err(|e| {
+			let mut err = syn::Error::new(span, format!("Invalid generics: {}", expected));
+			err.combine(e);
+			err
+		})?
+		.0;
 
-    Ok(i)
+	Ok(i)
 }
 
 /// Check the syntax:
@@ -451,73 +427,70 @@ pub fn check_impl_gen(gen: &syn::Generics, span: proc_macro2::Span) -> syn::Resu
 ///
 /// return the instance if found.
 pub fn check_type_def_gen(
-    gen: &syn::Generics,
-    span: proc_macro2::Span,
+	gen: &syn::Generics,
+	span: proc_macro2::Span,
 ) -> syn::Result<InstanceUsage> {
-    let expected = "expected `T` or `T: Config` or `T, I = ()` or \
+	let expected = "expected `T` or `T: Config` or `T, I = ()` or \
 		`T: Config<I>, I: 'static = ()`";
-    pub struct Checker(InstanceUsage);
-    impl syn::parse::Parse for Checker {
-        fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-            let mut instance_usage = InstanceUsage {
-                span: input.span(),
-                has_instance: false,
-            };
+	pub struct Checker(InstanceUsage);
+	impl syn::parse::Parse for Checker {
+		fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+			let mut instance_usage = InstanceUsage { span: input.span(), has_instance: false };
 
-            input.parse::<keyword::T>()?;
+			input.parse::<keyword::T>()?;
 
-            if input.is_empty() {
-                return Ok(Self(instance_usage));
-            }
+			if input.is_empty() {
+				return Ok(Self(instance_usage))
+			}
 
-            let lookahead = input.lookahead1();
-            if lookahead.peek(syn::Token![,]) {
-                instance_usage.has_instance = true;
-                input.parse::<syn::Token![,]>()?;
-                input.parse::<keyword::I>()?;
-                input.parse::<syn::Token![=]>()?;
-                input.parse::<Unit>()?;
+			let lookahead = input.lookahead1();
+			if lookahead.peek(syn::Token![,]) {
+				instance_usage.has_instance = true;
+				input.parse::<syn::Token![,]>()?;
+				input.parse::<keyword::I>()?;
+				input.parse::<syn::Token![=]>()?;
+				input.parse::<Unit>()?;
 
-                Ok(Self(instance_usage))
-            } else if lookahead.peek(syn::Token![:]) {
-                input.parse::<syn::Token![:]>()?;
-                input.parse::<keyword::Config>()?;
+				Ok(Self(instance_usage))
+			} else if lookahead.peek(syn::Token![:]) {
+				input.parse::<syn::Token![:]>()?;
+				input.parse::<keyword::Config>()?;
 
-                if input.is_empty() {
-                    return Ok(Self(instance_usage));
-                }
+				if input.is_empty() {
+					return Ok(Self(instance_usage))
+				}
 
-                instance_usage.has_instance = true;
-                input.parse::<syn::Token![<]>()?;
-                input.parse::<keyword::I>()?;
-                input.parse::<syn::Token![>]>()?;
-                input.parse::<syn::Token![,]>()?;
-                input.parse::<keyword::I>()?;
-                input.parse::<syn::Token![:]>()?;
-                input.parse::<StaticLifetime>()?;
-                input.parse::<syn::Token![=]>()?;
-                input.parse::<Unit>()?;
+				instance_usage.has_instance = true;
+				input.parse::<syn::Token![<]>()?;
+				input.parse::<keyword::I>()?;
+				input.parse::<syn::Token![>]>()?;
+				input.parse::<syn::Token![,]>()?;
+				input.parse::<keyword::I>()?;
+				input.parse::<syn::Token![:]>()?;
+				input.parse::<StaticLifetime>()?;
+				input.parse::<syn::Token![=]>()?;
+				input.parse::<Unit>()?;
 
-                Ok(Self(instance_usage))
-            } else {
-                Err(lookahead.error())
-            }
-        }
-    }
+				Ok(Self(instance_usage))
+			} else {
+				Err(lookahead.error())
+			}
+		}
+	}
 
-    let mut i = syn::parse2::<Checker>(gen.params.to_token_stream())
-        .map_err(|e| {
-            let msg = format!("Invalid type def generics: {}", expected);
-            let mut err = syn::Error::new(span, msg);
-            err.combine(e);
-            err
-        })?
-        .0;
+	let mut i = syn::parse2::<Checker>(gen.params.to_token_stream())
+		.map_err(|e| {
+			let msg = format!("Invalid type def generics: {}", expected);
+			let mut err = syn::Error::new(span, msg);
+			err.combine(e);
+			err
+		})?
+		.0;
 
-    // Span can be call_site if generic is empty. Thus we replace it.
-    i.span = span;
+	// Span can be call_site if generic is empty. Thus we replace it.
+	i.span = span;
 
-    Ok(i)
+	Ok(i)
 }
 
 /// Check the syntax:
@@ -528,43 +501,40 @@ pub fn check_type_def_gen(
 /// return the instance if found for `GenesisBuild`
 /// return None for BuildGenesisConfig
 pub fn check_genesis_builder_usage(type_: &syn::Path) -> syn::Result<Option<InstanceUsage>> {
-    let expected = "expected `BuildGenesisConfig` (or the deprecated `GenesisBuild<T>` or `GenesisBuild<T, I>`)";
-    pub struct Checker(Option<InstanceUsage>);
-    impl syn::parse::Parse for Checker {
-        fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-            let mut instance_usage = InstanceUsage {
-                span: input.span(),
-                has_instance: false,
-            };
+	let expected = "expected `BuildGenesisConfig` (or the deprecated `GenesisBuild<T>` or `GenesisBuild<T, I>`)";
+	pub struct Checker(Option<InstanceUsage>);
+	impl syn::parse::Parse for Checker {
+		fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+			let mut instance_usage = InstanceUsage { span: input.span(), has_instance: false };
 
-            if input.peek(keyword::GenesisBuild) {
-                input.parse::<keyword::GenesisBuild>()?;
-                input.parse::<syn::Token![<]>()?;
-                input.parse::<keyword::T>()?;
-                if input.peek(syn::Token![,]) {
-                    instance_usage.has_instance = true;
-                    input.parse::<syn::Token![,]>()?;
-                    input.parse::<keyword::I>()?;
-                }
-                input.parse::<syn::Token![>]>()?;
-                Ok(Self(Some(instance_usage)))
-            } else {
-                input.parse::<keyword::BuildGenesisConfig>()?;
-                Ok(Self(None))
-            }
-        }
-    }
+			if input.peek(keyword::GenesisBuild) {
+				input.parse::<keyword::GenesisBuild>()?;
+				input.parse::<syn::Token![<]>()?;
+				input.parse::<keyword::T>()?;
+				if input.peek(syn::Token![,]) {
+					instance_usage.has_instance = true;
+					input.parse::<syn::Token![,]>()?;
+					input.parse::<keyword::I>()?;
+				}
+				input.parse::<syn::Token![>]>()?;
+				return Ok(Self(Some(instance_usage)))
+			} else {
+				input.parse::<keyword::BuildGenesisConfig>()?;
+				return Ok(Self(None))
+			}
+		}
+	}
 
-    let i = syn::parse2::<Checker>(type_.to_token_stream())
-        .map_err(|e| {
-            let msg = format!("Invalid genesis builder: {}", expected);
-            let mut err = syn::Error::new(type_.span(), msg);
-            err.combine(e);
-            err
-        })?
-        .0;
+	let i = syn::parse2::<Checker>(type_.to_token_stream())
+		.map_err(|e| {
+			let msg = format!("Invalid genesis builder: {}", expected);
+			let mut err = syn::Error::new(type_.span(), msg);
+			err.combine(e);
+			err
+		})?
+		.0;
 
-    Ok(i)
+	Ok(i)
 }
 
 /// Check the syntax:
@@ -576,89 +546,87 @@ pub fn check_genesis_builder_usage(type_: &syn::Path) -> syn::Result<Option<Inst
 ///
 /// return the instance if found.
 pub fn check_type_value_gen(
-    gen: &syn::Generics,
-    span: proc_macro2::Span,
+	gen: &syn::Generics,
+	span: proc_macro2::Span,
 ) -> syn::Result<Option<InstanceUsage>> {
-    let expected = "expected `` or `T: Config` or `T: Config<I>, I: 'static`";
-    pub struct Checker(Option<InstanceUsage>);
-    impl syn::parse::Parse for Checker {
-        fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-            if input.is_empty() {
-                return Ok(Self(None));
-            }
+	let expected = "expected `` or `T: Config` or `T: Config<I>, I: 'static`";
+	pub struct Checker(Option<InstanceUsage>);
+	impl syn::parse::Parse for Checker {
+		fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+			if input.is_empty() {
+				return Ok(Self(None))
+			}
 
-            input.parse::<keyword::T>()?;
-            input.parse::<syn::Token![:]>()?;
-            input.parse::<keyword::Config>()?;
+			input.parse::<keyword::T>()?;
+			input.parse::<syn::Token![:]>()?;
+			input.parse::<keyword::Config>()?;
 
-            let mut instance_usage = InstanceUsage {
-                span: input.span(),
-                has_instance: false,
-            };
+			let mut instance_usage = InstanceUsage { span: input.span(), has_instance: false };
 
-            if input.is_empty() {
-                return Ok(Self(Some(instance_usage)));
-            }
+			if input.is_empty() {
+				return Ok(Self(Some(instance_usage)))
+			}
 
-            instance_usage.has_instance = true;
-            input.parse::<syn::Token![<]>()?;
-            input.parse::<keyword::I>()?;
-            input.parse::<syn::Token![>]>()?;
-            input.parse::<syn::Token![,]>()?;
-            input.parse::<keyword::I>()?;
-            input.parse::<syn::Token![:]>()?;
-            input.parse::<StaticLifetime>()?;
+			instance_usage.has_instance = true;
+			input.parse::<syn::Token![<]>()?;
+			input.parse::<keyword::I>()?;
+			input.parse::<syn::Token![>]>()?;
+			input.parse::<syn::Token![,]>()?;
+			input.parse::<keyword::I>()?;
+			input.parse::<syn::Token![:]>()?;
+			input.parse::<StaticLifetime>()?;
 
-            Ok(Self(Some(instance_usage)))
-        }
-    }
+			Ok(Self(Some(instance_usage)))
+		}
+	}
 
-    let i = syn::parse2::<Checker>(gen.params.to_token_stream())
-        .map_err(|e| {
-            let msg = format!("Invalid type def generics: {}", expected);
-            let mut err = syn::Error::new(span, msg);
-            err.combine(e);
-            err
-        })?
-        .0
-        // Span can be call_site if generic is empty. Thus we replace it.
-        .map(|mut i| {
-            i.span = span;
-            i
-        });
+	let i = syn::parse2::<Checker>(gen.params.to_token_stream())
+		.map_err(|e| {
+			let msg = format!("Invalid type def generics: {}", expected);
+			let mut err = syn::Error::new(span, msg);
+			err.combine(e);
+			err
+		})?
+		.0
+		// Span can be call_site if generic is empty. Thus we replace it.
+		.map(|mut i| {
+			i.span = span;
+			i
+		});
 
-    Ok(i)
+	Ok(i)
 }
 
 /// Check the keyword `DispatchResultWithPostInfo` or `DispatchResult`.
 pub fn check_pallet_call_return_type(type_: &syn::Type) -> syn::Result<()> {
-    pub struct Checker;
-    impl syn::parse::Parse for Checker {
-        fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-            let lookahead = input.lookahead1();
-            if lookahead.peek(keyword::DispatchResultWithPostInfo) {
-                input.parse::<keyword::DispatchResultWithPostInfo>()?;
-                Ok(Self)
-            } else if lookahead.peek(keyword::DispatchResult) {
-                input.parse::<keyword::DispatchResult>()?;
-                Ok(Self)
-            } else {
-                Err(lookahead.error())
-            }
-        }
-    }
+	pub struct Checker;
+	impl syn::parse::Parse for Checker {
+		fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+			let lookahead = input.lookahead1();
+			if lookahead.peek(keyword::DispatchResultWithPostInfo) {
+				input.parse::<keyword::DispatchResultWithPostInfo>()?;
+				Ok(Self)
+			} else if lookahead.peek(keyword::DispatchResult) {
+				input.parse::<keyword::DispatchResult>()?;
+				Ok(Self)
+			} else {
+				Err(lookahead.error())
+			}
+		}
+	}
 
-    syn::parse2::<Checker>(type_.to_token_stream()).map(|_| ())
+	syn::parse2::<Checker>(type_.to_token_stream()).map(|_| ())
 }
 
 pub(crate) fn two128_str(s: &str) -> TokenStream {
-    bytes_to_array(sp_crypto_hashing::twox_128(s.as_bytes()))
+	bytes_to_array(sp_crypto_hashing::twox_128(s.as_bytes()).into_iter())
 }
 
 pub(crate) fn bytes_to_array(bytes: impl IntoIterator<Item = u8>) -> TokenStream {
-    let bytes = bytes.into_iter();
+	let bytes = bytes.into_iter();
 
-    quote!(
-        [ #( #bytes ),* ]
-    )
+	quote!(
+		[ #( #bytes ),* ]
+	)
+	.into()
 }

@@ -21,38 +21,35 @@ use quote::quote;
 use syn::{spanned::Spanned, Ident};
 
 pub fn expand_origins(def: &mut Def) -> TokenStream {
-    let count = COUNTER.with(|counter| counter.borrow_mut().inc());
-    let macro_ident = Ident::new(
-        &format!("__is_origin_part_defined_{}", count),
-        def.item.span(),
-    );
+	let count = COUNTER.with(|counter| counter.borrow_mut().inc());
+	let macro_ident = Ident::new(&format!("__is_origin_part_defined_{}", count), def.item.span());
 
-    let maybe_compile_error = if def.origin.is_none() {
-        quote! {
-            compile_error!(concat!(
-                "`",
-                stringify!($pallet_name),
-                "` does not have #[pallet::origin] defined, perhaps you should \
-                remove `Origin` from construct_runtime?",
-            ));
-        }
-    } else {
-        TokenStream::new()
-    };
+	let maybe_compile_error = if def.origin.is_none() {
+		quote! {
+			compile_error!(concat!(
+				"`",
+				stringify!($pallet_name),
+				"` does not have #[pallet::origin] defined, perhaps you should \
+				remove `Origin` from construct_runtime?",
+			));
+		}
+	} else {
+		TokenStream::new()
+	};
 
-    quote! {
-        #[doc(hidden)]
-        pub mod __substrate_origin_check {
-            #[macro_export]
-            #[doc(hidden)]
-            macro_rules! #macro_ident {
-                ($pallet_name:ident) => {
-                    #maybe_compile_error
-                }
-            }
+	quote! {
+		#[doc(hidden)]
+		pub mod __substrate_origin_check {
+			#[macro_export]
+			#[doc(hidden)]
+			macro_rules! #macro_ident {
+				($pallet_name:ident) => {
+					#maybe_compile_error
+				}
+			}
 
-            #[doc(hidden)]
-            pub use #macro_ident as is_origin_part_defined;
-        }
-    }
+			#[doc(hidden)]
+			pub use #macro_ident as is_origin_part_defined;
+		}
+	}
 }

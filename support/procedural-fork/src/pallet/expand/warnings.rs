@@ -20,84 +20,79 @@
 use crate::pallet::parse::call::{CallVariantDef, CallWeightDef};
 use proc_macro_warning::Warning;
 use syn::{
-    spanned::Spanned,
-    visit::{self, Visit},
+	spanned::Spanned,
+	visit::{self, Visit},
 };
 
 /// Warn if any of the call arguments starts with a underscore and is used in a weight formula.
 pub(crate) fn weight_witness_warning(
-    method: &CallVariantDef,
-    dev_mode: bool,
-    warnings: &mut Vec<Warning>,
+	method: &CallVariantDef,
+	dev_mode: bool,
+	warnings: &mut Vec<Warning>,
 ) {
-    if dev_mode {
-        return;
-    }
-    let CallWeightDef::Immediate(w) = &method.weight else {
-        return;
-    };
+	if dev_mode {
+		return
+	}
+	let CallWeightDef::Immediate(w) = &method.weight else { return };
 
-    let partial_warning = Warning::new_deprecated("UncheckedWeightWitness")
-        .old("not check weight witness data")
-        .new("ensure that all witness data for weight calculation is checked before usage")
-        .help_link("https://github.com/paritytech/polkadot-sdk/pull/1818");
+	let partial_warning = Warning::new_deprecated("UncheckedWeightWitness")
+		.old("not check weight witness data")
+		.new("ensure that all witness data for weight calculation is checked before usage")
+		.help_link("https://github.com/paritytech/polkadot-sdk/pull/1818");
 
-    for (_, arg_ident, _) in method.args.iter() {
-        if !arg_ident.to_string().starts_with('_') || !contains_ident(w.clone(), arg_ident) {
-            continue;
-        }
+	for (_, arg_ident, _) in method.args.iter() {
+		if !arg_ident.to_string().starts_with('_') || !contains_ident(w.clone(), &arg_ident) {
+			continue
+		}
 
-        let warning = partial_warning
-            .clone()
-            .index(warnings.len())
-            .span(arg_ident.span())
-            .build_or_panic();
+		let warning = partial_warning
+			.clone()
+			.index(warnings.len())
+			.span(arg_ident.span())
+			.build_or_panic();
 
-        warnings.push(warning);
-    }
+		warnings.push(warning);
+	}
 }
 
 /// Warn if the weight is a constant and the pallet not in `dev_mode`.
 pub(crate) fn weight_constant_warning(
-    weight: &syn::Expr,
-    dev_mode: bool,
-    warnings: &mut Vec<Warning>,
+	weight: &syn::Expr,
+	dev_mode: bool,
+	warnings: &mut Vec<Warning>,
 ) {
-    if dev_mode {
-        return;
-    }
-    let syn::Expr::Lit(lit) = weight else { return };
+	if dev_mode {
+		return
+	}
+	let syn::Expr::Lit(lit) = weight else { return };
 
-    let warning = Warning::new_deprecated("ConstantWeight")
-        .index(warnings.len())
-        .old("use hard-coded constant as call weight")
-        .new("benchmark all calls or put the pallet into `dev` mode")
-        .help_link("https://github.com/paritytech/substrate/pull/13798")
-        .span(lit.span())
-        .build_or_panic();
+	let warning = Warning::new_deprecated("ConstantWeight")
+		.index(warnings.len())
+		.old("use hard-coded constant as call weight")
+		.new("benchmark all calls or put the pallet into `dev` mode")
+		.help_link("https://github.com/paritytech/substrate/pull/13798")
+		.span(lit.span())
+		.build_or_panic();
 
-    warnings.push(warning);
+	warnings.push(warning);
 }
 
 /// Returns whether `expr` contains `ident`.
 fn contains_ident(mut expr: syn::Expr, ident: &syn::Ident) -> bool {
-    struct ContainsIdent {
-        ident: syn::Ident,
-        found: bool,
-    }
+	struct ContainsIdent {
+		ident: syn::Ident,
+		found: bool,
+	}
 
-    impl<'a> Visit<'a> for ContainsIdent {
-        fn visit_ident(&mut self, i: &syn::Ident) {
-            if *i == self.ident {
-                self.found = true;
-            }
-        }
-    }
+	impl<'a> Visit<'a> for ContainsIdent {
+		fn visit_ident(&mut self, i: &syn::Ident) {
+			if *i == self.ident {
+				self.found = true;
+			}
+		}
+	}
 
-    let mut visitor = ContainsIdent {
-        ident: ident.clone(),
-        found: false,
-    };
-    visit::visit_expr(&mut visitor, &mut expr);
-    visitor.found
+	let mut visitor = ContainsIdent { ident: ident.clone(), found: false };
+	visit::visit_expr(&mut visitor, &mut expr);
+	visitor.found
 }
