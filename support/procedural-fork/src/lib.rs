@@ -11,7 +11,7 @@
 //! version/tag name.
 #![recursion_limit = "512"]
 #![allow(warnings)]
-#![allow(all)]
+#![allow(clippy)]
 
 extern crate proc_macro;
 
