@@ -46,7 +46,7 @@ pub fn expand(def: Def, legacy_ordering: bool) -> TokenStream2 {
     let (check_pallet_number_res, res) = match def.pallets {
         AllPalletsDeclaration::Implicit(ref decl) => (
             check_pallet_number(input.clone(), decl.pallet_count),
-            construct_runtime_implicit_to_explicit(input.into(), decl.clone(), legacy_ordering),
+            construct_runtime_implicit_to_explicit(input, decl.clone(), legacy_ordering),
         ),
         AllPalletsDeclaration::Explicit(ref decl) => (
             check_pallet_number(input, decl.pallets.len()),
@@ -76,13 +76,13 @@ pub fn expand(def: Def, legacy_ordering: bool) -> TokenStream2 {
         res
     };
 
-    let res = expander::Expander::new("construct_runtime")
+    
+
+    expander::Expander::new("construct_runtime")
         .dry(std::env::var("FRAME_EXPAND").is_err())
         .verbose(true)
         .write_to_out_dir(res)
-        .expect("Does not fail because of IO in OUT_DIR; qed");
-
-    res.into()
+        .expect("Does not fail because of IO in OUT_DIR; qed")
 }
 
 fn construct_runtime_implicit_to_explicit(
@@ -157,18 +157,13 @@ fn construct_runtime_final_expansion(
 
     let features = pallets
         .iter()
-        .filter_map(|decl| {
-            (!decl.cfg_pattern.is_empty()).then(|| {
-                decl.cfg_pattern.iter().flat_map(|attr| {
+        .filter(|&decl| (!decl.cfg_pattern.is_empty())).flat_map(|decl| decl.cfg_pattern.iter().flat_map(|attr| {
                     attr.predicates().filter_map(|pred| match pred {
                         Predicate::Feature(feat) => Some(feat),
                         Predicate::Test => Some("test"),
                         _ => None,
                     })
-                })
-            })
-        })
-        .flatten()
+                }))
         .collect::<HashSet<_>>();
 
     let hidden_crate_name = "construct_runtime";

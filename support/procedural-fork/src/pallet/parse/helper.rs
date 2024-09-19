@@ -547,10 +547,10 @@ pub fn check_genesis_builder_usage(type_: &syn::Path) -> syn::Result<Option<Inst
                     input.parse::<keyword::I>()?;
                 }
                 input.parse::<syn::Token![>]>()?;
-                return Ok(Self(Some(instance_usage)));
+                Ok(Self(Some(instance_usage)))
             } else {
                 input.parse::<keyword::BuildGenesisConfig>()?;
-                return Ok(Self(None));
+                Ok(Self(None))
             }
         }
     }
@@ -652,7 +652,7 @@ pub fn check_pallet_call_return_type(type_: &syn::Type) -> syn::Result<()> {
 }
 
 pub(crate) fn two128_str(s: &str) -> TokenStream {
-    bytes_to_array(sp_crypto_hashing::twox_128(s.as_bytes()).into_iter())
+    bytes_to_array(sp_crypto_hashing::twox_128(s.as_bytes()))
 }
 
 pub(crate) fn bytes_to_array(bytes: impl IntoIterator<Item = u8>) -> TokenStream {
@@ -661,5 +661,4 @@ pub(crate) fn bytes_to_array(bytes: impl IntoIterator<Item = u8>) -> TokenStream
     quote!(
         [ #( #bytes ),* ]
     )
-    .into()
 }

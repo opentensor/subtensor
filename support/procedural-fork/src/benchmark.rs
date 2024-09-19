@@ -166,7 +166,7 @@ impl syn::parse::Parse for PovEstimationMode {
         let lookahead = input.lookahead1();
         if lookahead.peek(keywords::MaxEncodedLen) {
             let _max_encoded_len: keywords::MaxEncodedLen = input.parse()?;
-            return Ok(PovEstimationMode::MaxEncodedLen);
+            Ok(PovEstimationMode::MaxEncodedLen)
         } else if lookahead.peek(keywords::Measured) {
             let _measured: keywords::Measured = input.parse()?;
             return Ok(PovEstimationMode::Measured);
@@ -204,7 +204,7 @@ impl syn::parse::Parse for BenchmarkAttrs {
         let mut extra = false;
         let mut skip_meta = false;
         let mut pov_mode = None;
-        let args = Punctuated::<BenchmarkAttr, Token![,]>::parse_terminated(&input)?;
+        let args = Punctuated::<BenchmarkAttr, Token![,]>::parse_terminated(input)?;
 
         for arg in args.into_iter() {
             match arg {
@@ -294,7 +294,7 @@ struct ResultDef {
 /// Ensures that `ReturnType` is a `Result<(), BenchmarkError>`, if specified
 fn ensure_valid_return_type(item_fn: &ItemFn) -> Result<()> {
     if let ReturnType::Type(_, typ) = &item_fn.sig.output {
-        let non_unit = |span| return Err(Error::new(span, "expected `()`"));
+        let non_unit = |span| Err(Error::new(span, "expected `()`"));
         let Type::Path(TypePath { path, qself: _ }) = &**typ else {
             return Err(Error::new(
 					typ.span(),
@@ -328,10 +328,10 @@ fn parse_params(item_fn: &ItemFn) -> Result<Vec<ParamDef>> {
     let mut params: Vec<ParamDef> = Vec::new();
     for arg in &item_fn.sig.inputs {
         let invalid_param = |span| {
-            return Err(Error::new(
+            Err(Error::new(
                 span,
                 "Invalid benchmark function param. A valid example would be `x: Linear<5, 10>`.",
-            ));
+            ))
         };
 
         let FnArg::Typed(arg) = arg else {
@@ -344,10 +344,10 @@ fn parse_params(item_fn: &ItemFn) -> Result<Vec<ParamDef>> {
         // check param name
         let var_span = ident.span();
         let invalid_param_name = || {
-            return Err(Error::new(
+            Err(Error::new(
 					var_span,
 					"Benchmark parameter names must consist of a single lowercase letter (a-z) and no other characters.",
-				));
+				))
         };
         let name = ident.ident.to_token_stream().to_string();
         if name.len() > 1 {
@@ -385,10 +385,10 @@ fn parse_params(item_fn: &ItemFn) -> Result<Vec<ParamDef>> {
 
 /// Used in several places where the `#[extrinsic_call]` or `#[body]` annotation is missing
 fn missing_call<T>(item_fn: &ItemFn) -> Result<T> {
-    return Err(Error::new(
+    Err(Error::new(
 		item_fn.block.brace_token.span.join(),
 		"No valid #[extrinsic_call] or #[block] annotation could be found in benchmark function body."
-	));
+	))
 }
 
 /// Finds the `BenchmarkCallDef` and its index (within the list of stmts for the fn) and
@@ -447,7 +447,7 @@ impl BenchmarkDef {
     pub fn from(item_fn: &ItemFn) -> Result<BenchmarkDef> {
         let params = parse_params(item_fn)?;
         ensure_valid_return_type(item_fn)?;
-        let (i, call_def) = parse_call_def(&item_fn)?;
+        let (i, call_def) = parse_call_def(item_fn)?;
 
         let (verify_stmts, last_stmt) = match item_fn.sig.output {
             ReturnType::Default =>
@@ -961,11 +961,11 @@ fn expand_benchmark(
     // set up variables needed during quoting
     let krate = match generate_access_from_frame_or_crate("frame-benchmarking") {
         Ok(ident) => ident,
-        Err(err) => return err.to_compile_error().into(),
+        Err(err) => return err.to_compile_error(),
     };
     let frame_system = match generate_access_from_frame_or_crate("frame-system") {
         Ok(path) => path,
-        Err(err) => return err.to_compile_error().into(),
+        Err(err) => return err.to_compile_error(),
     };
     let codec = quote!(#krate::__private::codec);
     let traits = quote!(#krate::__private::traits);
@@ -973,7 +973,7 @@ fn expand_benchmark(
     let verify_stmts = benchmark_def.verify_stmts;
     let last_stmt = benchmark_def.last_stmt;
     let test_ident = Ident::new(
-        format!("test_benchmark_{}", name.to_string()).as_str(),
+        format!("test_benchmark_{}", name).as_str(),
         Span::call_site(),
     );
 
@@ -1106,7 +1106,7 @@ fn expand_benchmark(
         sig.generics.where_clause = parse_quote!(where #where_clause);
     }
     sig.ident = Ident::new(
-        format!("_{}", name.to_token_stream().to_string()).as_str(),
+        format!("_{}", name.to_token_stream()).as_str(),
         Span::call_site(),
     );
     let mut fn_param_inputs: Vec<TokenStream2> =

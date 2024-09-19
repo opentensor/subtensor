@@ -77,9 +77,7 @@ impl Pallet {
             }
         }
 
-        pallet_parts = pallet_parts
-            .into_iter()
-            .filter(|part| {
+        pallet_parts.retain(|part| {
                 if let (true, &PalletPartKeyword::Call(_)) = (disable_call, &part.keyword) {
                     false
                 } else if let (true, &PalletPartKeyword::ValidateUnsigned(_)) =
@@ -89,8 +87,7 @@ impl Pallet {
                 } else {
                     true
                 }
-            })
-            .collect();
+            });
 
         let cfg_pattern = vec![];
 

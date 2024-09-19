@@ -20,8 +20,8 @@ use proc_macro2::TokenStream;
 use quote::ToTokens;
 use syn::{spanned::Spanned, Attribute, Lit, LitStr};
 
-const DOC: &'static str = "doc";
-const PALLET_DOC: &'static str = "pallet_doc";
+const DOC: &str = "doc";
+const PALLET_DOC: &str = "pallet_doc";
 
 /// Get the documentation file path from the `pallet_doc` attribute.
 ///

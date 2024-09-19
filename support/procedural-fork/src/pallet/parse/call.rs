@@ -189,7 +189,7 @@ pub fn check_dispatchable_first_arg_type(ty: &syn::Type, is_ref: bool) -> syn::R
 
     let result_origin_for = syn::parse2::<CheckOriginFor>(ty.to_token_stream());
     let result_runtime_origin = syn::parse2::<CheckRuntimeOrigin>(ty.to_token_stream());
-    return match (result_origin_for, result_runtime_origin) {
+    match (result_origin_for, result_runtime_origin) {
         (Ok(CheckOriginFor(has_ref)), _) if is_ref == has_ref => Ok(()),
         (_, Ok(_)) => Ok(()),
         (_, _) => {
@@ -198,9 +198,9 @@ pub fn check_dispatchable_first_arg_type(ty: &syn::Type, is_ref: bool) -> syn::R
             } else {
                 "Invalid type: expected `OriginFor<T>` or `T::RuntimeOrigin`"
             };
-            return Err(syn::Error::new(ty.span(), msg));
+            Err(syn::Error::new(ty.span(), msg))
         }
-    };
+    }
 }
 
 impl CallDef {

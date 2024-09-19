@@ -25,7 +25,7 @@ pub fn expand_outer_freeze_reason(pallet_decls: &[Pallet], scrate: &TokenStream)
     let mut freeze_reason_variants = Vec::new();
     let mut freeze_reason_variants_count = Vec::new();
     for decl in pallet_decls {
-        if let Some(_) = decl.find_part("FreezeReason") {
+        if decl.find_part("FreezeReason").is_some() {
             let variant_name = &decl.name;
             let path = &decl.path;
             let index = decl.index;

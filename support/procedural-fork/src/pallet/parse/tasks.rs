@@ -104,7 +104,7 @@ impl syn::parse::Parse for TasksDef {
         // we require the path on the impl to be a TypePath
         let enum_path = parse2::<TypePath>(item_impl.self_ty.to_token_stream())?;
         let segments = enum_path.path.segments.iter().collect::<Vec<_>>();
-        let (Some(last_seg), None) = (segments.get(0), segments.get(1)) else {
+        let (Some(last_seg), None) = (segments.first(), segments.get(1)) else {
             return Err(Error::new(
                 enum_path.span(),
                 "if specified manually, the task enum must be defined locally in this \
@@ -456,7 +456,7 @@ impl TryFrom<PalletTaskAttr<TaskAttrMeta>> for TaskIndexAttr {
         match value.meta {
             TaskAttrMeta::TaskIndex(meta) => parse2(quote!(#pound[#pallet #colons #meta])),
             _ => {
-                return Err(Error::new(
+                Err(Error::new(
                     value.span(),
                     format!(
                         "`{:?}` cannot be converted to a `TaskIndexAttr`",
@@ -478,7 +478,7 @@ impl TryFrom<PalletTaskAttr<TaskAttrMeta>> for TaskConditionAttr {
         match value.meta {
             TaskAttrMeta::TaskCondition(meta) => parse2(quote!(#pound[#pallet #colons #meta])),
             _ => {
-                return Err(Error::new(
+                Err(Error::new(
                     value.span(),
                     format!(
                         "`{:?}` cannot be converted to a `TaskConditionAttr`",
@@ -500,7 +500,7 @@ impl TryFrom<PalletTaskAttr<TaskAttrMeta>> for TaskWeightAttr {
         match value.meta {
             TaskAttrMeta::TaskWeight(meta) => parse2(quote!(#pound[#pallet #colons #meta])),
             _ => {
-                return Err(Error::new(
+                Err(Error::new(
                     value.span(),
                     format!(
                         "`{:?}` cannot be converted to a `TaskWeightAttr`",
@@ -522,7 +522,7 @@ impl TryFrom<PalletTaskAttr<TaskAttrMeta>> for TaskListAttr {
         match value.meta {
             TaskAttrMeta::TaskList(meta) => parse2(quote!(#pound[#pallet #colons #meta])),
             _ => {
-                return Err(Error::new(
+                Err(Error::new(
                     value.span(),
                     format!("`{:?}` cannot be converted to a `TaskListAttr`", value.meta),
                 ))
@@ -544,7 +544,7 @@ fn extract_pallet_attr(item_enum: &mut ItemEnum) -> Result<Option<TokenStream2>>
                 .iter()
                 .map(|seg| seg.ident.clone())
                 .collect::<Vec<_>>();
-            let (Some(seg1), Some(_), None) = (segs.get(0), segs.get(1), segs.get(2)) else {
+            let (Some(seg1), Some(_), None) = (segs.first(), segs.get(1), segs.get(2)) else {
                 return true;
             };
             if seg1 != "pallet" {

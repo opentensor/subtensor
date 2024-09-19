@@ -171,11 +171,8 @@ impl VisitMut for MacroInjectArgs {
             .find(|attr| attr.path().is_ident("dynamic_pallet_params"));
 
         if let Some(attr) = attr {
-            match &attr.meta {
-                syn::Meta::Path(path) => {
-                    assert_eq!(path.to_token_stream().to_string(), "dynamic_pallet_params")
-                }
-                _ => (),
+            if let syn::Meta::Path(path) = &attr.meta {
+                assert_eq!(path.to_token_stream().to_string(), "dynamic_pallet_params")
             }
 
             let runtime_params = &self.runtime_params;
@@ -184,8 +181,7 @@ impl VisitMut for MacroInjectArgs {
             attr.meta = syn::parse2::<syn::Meta>(quote! {
                 dynamic_pallet_params(#runtime_params, #params_pallet)
             })
-            .unwrap()
-            .into();
+            .unwrap();
         }
 
         visit_mut::visit_item_mod_mut(self, item);

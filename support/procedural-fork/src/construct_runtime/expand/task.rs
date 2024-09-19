@@ -69,7 +69,7 @@ pub fn expand_outer_task(
 
     let prelude = quote!(#scrate::traits::tasks::__private);
 
-    const INCOMPLETE_MATCH_QED: &'static str =
+    const INCOMPLETE_MATCH_QED: &str =
         "cannot have an instantiated RuntimeTask without some Task variant in the runtime. QED";
 
     let output = quote! {

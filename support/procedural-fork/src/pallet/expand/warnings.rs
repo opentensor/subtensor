@@ -43,7 +43,7 @@ pub(crate) fn weight_witness_warning(
         .help_link("https://github.com/paritytech/polkadot-sdk/pull/1818");
 
     for (_, arg_ident, _) in method.args.iter() {
-        if !arg_ident.to_string().starts_with('_') || !contains_ident(w.clone(), &arg_ident) {
+        if !arg_ident.to_string().starts_with('_') || !contains_ident(w.clone(), arg_ident) {
             continue;
         }
 

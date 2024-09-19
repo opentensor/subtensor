@@ -136,7 +136,7 @@ pub fn derive_default_no_bound(input: proc_macro::TokenStream) -> proc_macro::To
 
 					err.extend(
 						additional
-							.into_iter()
+							.iter()
 							.map(|variant| syn::Error::new_spanned(variant, "additional default")),
 					);
 

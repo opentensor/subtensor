@@ -41,7 +41,7 @@ pub(crate) const NUMBER_OF_INSTANCE: u8 = 16;
 
 thread_local! {
     /// A global counter, can be used to generate a relatively unique identifier.
-    static COUNTER: RefCell<Counter> = RefCell::new(Counter(0));
+    static COUNTER: RefCell<Counter> = const { RefCell::new(Counter(0)) };
 }
 
 /// Counter to generate a relatively unique identifier for macros. This is necessary because

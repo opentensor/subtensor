@@ -25,7 +25,7 @@ pub fn expand_outer_hold_reason(pallet_decls: &[Pallet], scrate: &TokenStream) -
     let mut hold_reason_variants = Vec::new();
     let mut hold_reason_variants_count = Vec::new();
     for decl in pallet_decls {
-        if let Some(_) = decl.find_part("HoldReason") {
+        if decl.find_part("HoldReason").is_some() {
             let variant_name = &decl.name;
             let path = &decl.path;
             let index = decl.index;

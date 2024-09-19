@@ -216,7 +216,7 @@ mod keyword {
 pub fn runtime(attr: TokenStream, tokens: TokenStream) -> TokenStream {
     let mut legacy_ordering = false;
     if !attr.is_empty() {
-        if let Ok(_) = syn::parse::<keyword::legacy_ordering>(attr.clone()) {
+        if syn::parse::<keyword::legacy_ordering>(attr.clone()).is_ok() {
             legacy_ordering = true;
         } else {
             let msg = "Invalid runtime macro call: unexpected attribute. Macro call must be \

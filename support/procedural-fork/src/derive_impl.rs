@@ -133,7 +133,7 @@ fn combine_impls(
     let mut final_impl = local_impl;
     let extended_items = foreign_impl.items.into_iter().filter_map(|item| {
         if let Some(ident) = impl_item_ident(&item) {
-            if existing_local_keys.contains(&ident) {
+            if existing_local_keys.contains(ident) {
                 // do not copy colliding items that have an ident
                 return None;
             }
@@ -281,7 +281,7 @@ fn test_runtime_type_with_doc() {
     .unwrap();
     for item in p.items {
         if let ImplItem::Type(typ) = item {
-            assert_eq!(is_runtime_type(&typ), true);
+            assert!(is_runtime_type(&typ));
         }
     }
 }

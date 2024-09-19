@@ -955,7 +955,7 @@ impl StorageDef {
                         let msg = format!(
                             "Invalid pallet::storage, unexpected generic args for ResultQuery, \
 							expected angle-bracketed arguments, found `{}`",
-                            args.to_token_stream().to_string()
+                            args.to_token_stream()
                         );
                         return Err(syn::Error::new(args.span(), msg));
                     }
@@ -1005,7 +1005,7 @@ impl StorageDef {
                         let msg = format!(
 							"Invalid pallet::storage, unexpected generic argument kind, expected a \
 							type path to a `PalletError` enum variant, found `{}`",
-							gen_arg.to_token_stream().to_string(),
+							gen_arg.to_token_stream(),
 						);
                         Err(syn::Error::new(gen_arg.span(), msg))
                     }

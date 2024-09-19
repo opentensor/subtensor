@@ -266,7 +266,7 @@ pub fn expand_tasks(def: &mut Def) -> TokenStream2 {
     if let Some(tasks_def) = &def.tasks {
         if def.task_enum.is_none() {
             def.task_enum = Some(TaskEnumDef::generate(
-                &tasks_def,
+                tasks_def,
                 def.type_decl_bounded_generics(tasks_def.item_impl.span()),
                 def.type_use_generics(tasks_def.item_impl.span()),
             ));

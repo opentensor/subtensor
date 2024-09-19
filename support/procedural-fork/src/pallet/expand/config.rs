@@ -51,7 +51,7 @@ Consequently, a runtime that wants to include this pallet must implement this tr
     // we only emit `DefaultConfig` if there are trait items, so an empty `DefaultConfig` is
     // impossible consequently.
     match &config.default_sub_trait {
-        Some(default_sub_trait) if default_sub_trait.items.len() > 0 => {
+        Some(default_sub_trait) if !default_sub_trait.items.is_empty() => {
             let trait_items = &default_sub_trait
                 .items
                 .iter()

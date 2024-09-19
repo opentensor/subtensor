@@ -298,7 +298,7 @@ impl Parse for PalletDeclaration {
         let pallet_parts = if input.peek(Token![::]) && input.peek3(token::Brace) {
             let _: Token![::] = input.parse()?;
             let mut parts = parse_pallet_parts(input)?;
-            parts.extend(extra_parts.into_iter());
+            parts.extend(extra_parts);
             Some(parts)
         } else if !input.peek(keyword::exclude_parts)
             && !input.peek(keyword::use_parts)
@@ -740,8 +740,8 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
             if let Some(used_pallet) = names.insert(pallet.name.clone(), pallet.name.span()) {
                 let msg = "Two pallets with the same name!";
 
-                let mut err = syn::Error::new(used_pallet, &msg);
-                err.combine(syn::Error::new(pallet.name.span(), &msg));
+                let mut err = syn::Error::new(used_pallet, msg);
+                err.combine(syn::Error::new(pallet.name.span(), msg));
                 return Err(err);
             }
 

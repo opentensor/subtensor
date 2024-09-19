@@ -140,7 +140,7 @@ pub struct Def {
 
 impl Def {
     pub fn try_from(mut item: syn::ItemMod) -> syn::Result<Self> {
-        let input: TokenStream2 = item.to_token_stream().into();
+        let input: TokenStream2 = item.to_token_stream();
         let item_span = item.span();
         let items = &mut item
             .content
@@ -207,8 +207,8 @@ impl Def {
                         {
                             let msg = "Two pallets with the same name!";
 
-                            let mut err = syn::Error::new(used_pallet, &msg);
-                            err.combine(syn::Error::new(pallet_decl.name.span(), &msg));
+                            let mut err = syn::Error::new(used_pallet, msg);
+                            err.combine(syn::Error::new(pallet_decl.name.span(), msg));
                             return Err(err);
                         }
 

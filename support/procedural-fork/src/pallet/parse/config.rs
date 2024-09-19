@@ -290,7 +290,7 @@ fn has_expected_system_config(path: syn::Path, frame_system: &syn::Path) -> bool
 
     let mut expected_system_config = match (
         is_using_frame_crate(&path),
-        is_using_frame_crate(&frame_system),
+        is_using_frame_crate(frame_system),
     ) {
         (true, false) =>
         // We can't use the path to `frame_system` from `frame` if `frame_system` is not being

@@ -388,18 +388,13 @@ fn construct_runtime_final_expansion(
 
     let features = pallets
         .iter()
-        .filter_map(|decl| {
-            (!decl.cfg_pattern.is_empty()).then(|| {
-                decl.cfg_pattern.iter().flat_map(|attr| {
+        .filter(|&decl| (!decl.cfg_pattern.is_empty())).flat_map(|decl| decl.cfg_pattern.iter().flat_map(|attr| {
                     attr.predicates().filter_map(|pred| match pred {
                         Predicate::Feature(feat) => Some(feat),
                         Predicate::Test => Some("test"),
                         _ => None,
                     })
-                })
-            })
-        })
-        .flatten()
+                }))
         .collect::<HashSet<_>>();
 
     let hidden_crate_name = "construct_runtime";
@@ -439,9 +434,7 @@ fn construct_runtime_final_expansion(
     let integrity_test = decl_integrity_test(&scrate);
     let static_assertions = decl_static_assertions(&name, &pallets, &scrate);
 
-    let warning = where_section.map_or(None, |where_section| {
-        Some(
-            proc_macro_warning::Warning::new_deprecated("WhereSection")
+    let warning = where_section.map(|where_section| proc_macro_warning::Warning::new_deprecated("WhereSection")
                 .old("use a `where` clause in `construct_runtime`")
                 .new(
                     "use `frame_system::Config` to set the `Block` type and delete this clause.
@@ -449,9 +442,7 @@ fn construct_runtime_final_expansion(
                 )
                 .help_links(&["https://github.com/paritytech/substrate/pull/14437"])
                 .span(where_section.span)
-                .build_or_panic(),
-        )
-    });
+                .build_or_panic());
 
     let res = quote!(
         #warning
@@ -545,8 +536,7 @@ pub(crate) fn decl_all_pallets<'a>(
 
     // Every feature set to the pallet names that should be included by this feature set.
     let mut features_to_names = features
-        .iter()
-        .map(|f| *f)
+        .iter().copied()
         .powerset()
         .map(|feat| (HashSet::from_iter(feat), Vec::new()))
         .collect::<Vec<(HashSet<_>, Vec<_>)>>();

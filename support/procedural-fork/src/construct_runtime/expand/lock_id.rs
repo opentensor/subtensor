@@ -24,7 +24,7 @@ pub fn expand_outer_lock_id(pallet_decls: &[Pallet], scrate: &TokenStream) -> To
     let mut conversion_fns = Vec::new();
     let mut lock_id_variants = Vec::new();
     for decl in pallet_decls {
-        if let Some(_) = decl.find_part("LockId") {
+        if decl.find_part("LockId").is_some() {
             let variant_name = &decl.name;
             let path = &decl.path;
             let index = decl.index;

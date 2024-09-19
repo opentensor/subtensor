@@ -287,8 +287,7 @@ impl Def {
 						"A `#[pallet::tasks_experimental]` attribute must be attached to your `Task` impl if the \
 						task enum has been omitted",
 					));
-                } else {
-                }
+                } 
             }
             _ => (),
         }
@@ -310,7 +309,7 @@ impl Def {
             return Ok(());
         };
         let type_path = type_path.path.segments.iter().collect::<Vec<_>>();
-        let (Some(seg), None) = (type_path.get(0), type_path.get(1)) else {
+        let (Some(seg), None) = (type_path.first(), type_path.get(1)) else {
             return Ok(());
         };
         let mut result = None;
@@ -356,7 +355,7 @@ impl Def {
                 continue;
             };
             let target_path = target_path.path.segments.iter().collect::<Vec<_>>();
-            let (Some(target_ident), None) = (target_path.get(0), target_path.get(1)) else {
+            let (Some(target_ident), None) = (target_path.first(), target_path.get(1)) else {
                 continue;
             };
             let matches_task_enum = match task_enum {
@@ -420,10 +419,9 @@ impl Def {
             instances.extend_from_slice(&genesis_config.instances[..]);
         }
         if let Some(genesis_build) = &self.genesis_build {
-            genesis_build
+            if let Some(i) = genesis_build
                 .instances
-                .as_ref()
-                .map(|i| instances.extend_from_slice(&i));
+                .as_ref() { instances.extend_from_slice(i) }
         }
         if let Some(extra_constants) = &self.extra_constants {
             instances.extend_from_slice(&extra_constants.instances[..]);

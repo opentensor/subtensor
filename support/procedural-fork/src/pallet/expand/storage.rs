@@ -183,7 +183,7 @@ pub fn process_generics(def: &mut Def) -> syn::Result<Vec<ResultOnEmptyStructMet
                     let msg = format!(
                         "Invalid pallet::storage, unexpected type for query, expected ResultQuery \
 						with 1 type parameter, found `{}`",
-                        query_type.to_token_stream().to_string()
+                        query_type.to_token_stream()
                     );
                     return Err(syn::Error::new(query_type.span(), msg));
                 }

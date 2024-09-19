@@ -24,7 +24,7 @@ pub fn expand_outer_slash_reason(pallet_decls: &[Pallet], scrate: &TokenStream) 
     let mut conversion_fns = Vec::new();
     let mut slash_reason_variants = Vec::new();
     for decl in pallet_decls {
-        if let Some(_) = decl.find_part("SlashReason") {
+        if decl.find_part("SlashReason").is_some() {
             let variant_name = &decl.name;
             let path = &decl.path;
             let index = decl.index;

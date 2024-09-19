@@ -41,7 +41,7 @@ pub fn pallet(
 ) -> proc_macro::TokenStream {
     let mut dev_mode = false;
     if !attr.is_empty() {
-        if let Ok(_) = syn::parse::<keyword::dev_mode>(attr.clone()) {
+        if syn::parse::<keyword::dev_mode>(attr.clone()).is_ok() {
             dev_mode = true;
         } else {
             let msg = "Invalid pallet macro call: unexpected attribute. Macro call must be \
