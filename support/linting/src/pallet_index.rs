@@ -47,12 +47,12 @@ impl<'ast> syn::visit::Visit<'ast> for ConstructRuntimeVisitor {
                         for pallet in runtime.pallets {
                             if pallet.index.is_none() {
                                 self.errors.push(syn::Error::new(
-                                        pallet.name.span(),
-                                        format!(
-                                            "Pallet `{}` does not have an explicit index in the implicit construct_runtime!",
-                                            pallet.name.to_token_stream()
-                                        ),
-                                    ));
+                                    pallet.name.span(),
+                                    format!(
+                                        "Pallet `{}` does not have an explicit index in the implicit construct_runtime!",
+                                        pallet.name.to_token_stream()
+                                    ),
+                                ));
                             }
                         }
                     }
@@ -71,6 +71,7 @@ impl ConstructRuntimeVisitor {
         pallets: &[procedural_fork::exports::construct_runtime::parse::Pallet],
     ) {
         for pallet in pallets {
+            // For explicit and expanded, ensure index is explicitly provided (not zero)
             if pallet.index == 0 {
                 self.errors.push(syn::Error::new(
                     pallet.name.span(),
@@ -239,19 +240,41 @@ mod tests {
     }
 
     #[test]
-    fn test_fully_qualified_construct_runtime() {
+    fn test_fully_qualified_construct_runtime_should_pass() {
         let input = quote! {
         frame_support::construct_runtime! {
             pub enum Test {
-                System: frame_system,
-                Balances: pallet_balances,
-                AdminUtils: pallet_admin_utils,
-                SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>, Error<T>},
-                Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
+                System: frame_system = 1,
+                Balances: pallet_balances = 2,
+                AdminUtils: pallet_admin_utils = 3,
+                SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>, Error<T>} = 4,
+                Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 5,
             }
         }
         };
 
         lint_macro(input).unwrap();
+    }
+
+    #[test]
+    fn test_mixed_pallets_should_fail() {
+        let input = quote! {
+        frame_support::construct_runtime! {
+            pub enum Test {
+                System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 1,
+                Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
+                Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 3,
+                TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 4,
+                Senate: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 5,
+                SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 6,
+                SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>} = 7,
+                Utility: pallet_utility::{Pallet, Call, Storage, Event} = 8,
+                Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 9,
+                Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 10,
+            }
+        }
+        };
+
+        lint_macro(input).unwrap_err();
     }
 }
