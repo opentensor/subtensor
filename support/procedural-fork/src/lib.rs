@@ -11,6 +11,7 @@
 //! version/tag name.
 #![recursion_limit = "512"]
 #![deny(rustdoc::broken_intra_doc_links)]
+#![allow(unused)]
 
 extern crate proc_macro;
 
