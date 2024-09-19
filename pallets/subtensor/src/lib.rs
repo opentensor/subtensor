@@ -26,7 +26,7 @@ use sp_runtime::{
     transaction_validity::{TransactionValidity, TransactionValidityError},
     DispatchError,
 };
-use sp_std::{marker::PhantomData, vec::Vec};
+use sp_std::{marker::PhantomData, vec, vec::Vec};
 
 // ============================
 //	==== Benchmark Imports =====
