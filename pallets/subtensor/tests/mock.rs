@@ -25,7 +25,7 @@ frame_support::construct_runtime!(
     pub enum Test
     {
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 1,
-        Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>} = 2,
+        Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
         Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 3,
         TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 4,
         Senate: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 5,
