@@ -11,6 +11,7 @@
 //! version/tag name.
 #![recursion_limit = "512"]
 #![allow(warnings)]
+#![allow(all)]
 
 extern crate proc_macro;
 
