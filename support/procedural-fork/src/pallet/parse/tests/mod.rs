@@ -20,7 +20,7 @@ use syn::parse_quote;
 
 #[doc(hidden)]
 pub mod __private {
-	pub use regex;
+    pub use regex;
 }
 
 /// Allows you to assert that the input expression resolves to an error whose string
@@ -63,22 +63,22 @@ pub mod __private {
 /// enough that it will work with any error with a reasonable [`core::fmt::Display`] impl.
 #[macro_export]
 macro_rules! assert_parse_error_matches {
-	($expr:expr, $reg:literal) => {
-		match $expr {
-			Ok(_) => panic!("Expected an `Error(..)`, but got Ok(..)"),
-			Err(e) => {
-				let error_message = e.to_string();
-				let re = $crate::pallet::parse::tests::__private::regex::Regex::new($reg)
-					.expect("Invalid regex pattern");
-				assert!(
-					re.is_match(&error_message),
-					"Error message \"{}\" does not match the pattern \"{}\"",
-					error_message,
-					$reg
-				);
-			},
-		}
-	};
+    ($expr:expr, $reg:literal) => {
+        match $expr {
+            Ok(_) => panic!("Expected an `Error(..)`, but got Ok(..)"),
+            Err(e) => {
+                let error_message = e.to_string();
+                let re = $crate::pallet::parse::tests::__private::regex::Regex::new($reg)
+                    .expect("Invalid regex pattern");
+                assert!(
+                    re.is_match(&error_message),
+                    "Error message \"{}\" does not match the pattern \"{}\"",
+                    error_message,
+                    $reg
+                );
+            }
+        }
+    };
 }
 
 /// Allows you to assert that an entire pallet parses successfully. A custom syntax is used for
@@ -88,7 +88,7 @@ macro_rules! assert_parse_error_matches {
 ///
 /// ```ignore
 /// assert_pallet_parses! {
-/// 	#[manifest_dir("../../examples/basic")]
+/// 	#[manifest_dir("../../pallets/subtensor")]
 /// 	#[frame_support::pallet]
 /// 	pub mod pallet {
 /// 		#[pallet::config]
@@ -142,7 +142,7 @@ macro_rules! assert_pallet_parses {
 ///
 /// ```
 /// assert_pallet_parse_error! {
-/// 	#[manifest_dir("../../examples/basic")]
+/// 	#[manifest_dir("../../pallets/subtensor")]
 /// 	#[error_regex("Missing `\\#\\[pallet::pallet\\]`")]
 /// 	#[frame_support::pallet]
 /// 	pub mod pallet {
@@ -183,82 +183,82 @@ macro_rules! assert_pallet_parse_error {
 /// This function uses a [`Mutex`] to avoid a race condition created when multiple tests try to
 /// modify and then restore the `CARGO_MANIFEST_DIR` ENV var in an overlapping way.
 pub fn simulate_manifest_dir<P: AsRef<std::path::Path>, F: FnOnce() + std::panic::UnwindSafe>(
-	path: P,
-	closure: F,
+    path: P,
+    closure: F,
 ) {
-	use std::{env::*, path::*};
+    use std::{env::*, path::*};
 
-	/// Ensures that only one thread can modify/restore the `CARGO_MANIFEST_DIR` ENV var at a time,
-	/// avoiding a race condition because `cargo test` runs tests in parallel.
-	///
-	/// Although this forces all tests that use [`simulate_manifest_dir`] to run sequentially with
-	/// respect to each other, this is still several orders of magnitude faster than using UI
-	/// tests, even if they are run in parallel.
-	static MANIFEST_DIR_LOCK: Mutex<()> = Mutex::new(());
+    /// Ensures that only one thread can modify/restore the `CARGO_MANIFEST_DIR` ENV var at a time,
+    /// avoiding a race condition because `cargo test` runs tests in parallel.
+    ///
+    /// Although this forces all tests that use [`simulate_manifest_dir`] to run sequentially with
+    /// respect to each other, this is still several orders of magnitude faster than using UI
+    /// tests, even if they are run in parallel.
+    static MANIFEST_DIR_LOCK: Mutex<()> = Mutex::new(());
 
-	// avoid race condition when swapping out `CARGO_MANIFEST_DIR`
-	let guard = MANIFEST_DIR_LOCK.lock().unwrap();
+    // avoid race condition when swapping out `CARGO_MANIFEST_DIR`
+    let guard = MANIFEST_DIR_LOCK.lock().unwrap();
 
-	// obtain the current/original `CARGO_MANIFEST_DIR`
-	let orig = PathBuf::from(
-		var("CARGO_MANIFEST_DIR").expect("failed to read ENV var `CARGO_MANIFEST_DIR`"),
-	);
+    // obtain the current/original `CARGO_MANIFEST_DIR`
+    let orig = PathBuf::from(
+        var("CARGO_MANIFEST_DIR").expect("failed to read ENV var `CARGO_MANIFEST_DIR`"),
+    );
 
-	// set `CARGO_MANIFEST_DIR` to the provided path, relative to current working dir
-	set_var("CARGO_MANIFEST_DIR", orig.join(path.as_ref()));
+    // set `CARGO_MANIFEST_DIR` to the provided path, relative to current working dir
+    set_var("CARGO_MANIFEST_DIR", orig.join(path.as_ref()));
 
-	// safely run closure catching any panics
-	let result = panic::catch_unwind(closure);
+    // safely run closure catching any panics
+    let result = panic::catch_unwind(closure);
 
-	// restore original `CARGO_MANIFEST_DIR` before unwinding
-	set_var("CARGO_MANIFEST_DIR", &orig);
+    // restore original `CARGO_MANIFEST_DIR` before unwinding
+    set_var("CARGO_MANIFEST_DIR", &orig);
 
-	// unlock the mutex so we don't poison it if there is a panic
-	drop(guard);
+    // unlock the mutex so we don't poison it if there is a panic
+    drop(guard);
 
-	// unwind any panics originally encountered when running closure
-	result.unwrap();
+    // unwind any panics originally encountered when running closure
+    result.unwrap();
 }
 
 mod tasks;
 
 #[test]
 fn test_parse_minimal_pallet() {
-	assert_pallet_parses! {
-		#[manifest_dir("../../examples/basic")]
-		#[frame_support::pallet]
-		pub mod pallet {
-			#[pallet::config]
-			pub trait Config: frame_system::Config {}
+    assert_pallet_parses! {
+        #[manifest_dir("../../pallets/subtensor")]
+        #[frame_support::pallet]
+        pub mod pallet {
+            #[pallet::config]
+            pub trait Config: frame_system::Config {}
 
-			#[pallet::pallet]
-			pub struct Pallet<T>(_);
-		}
-	};
+            #[pallet::pallet]
+            pub struct Pallet<T>(_);
+        }
+    };
 }
 
 #[test]
 fn test_parse_pallet_missing_pallet() {
-	assert_pallet_parse_error! {
-		#[manifest_dir("../../examples/basic")]
-		#[error_regex("Missing `\\#\\[pallet::pallet\\]`")]
-		#[frame_support::pallet]
-		pub mod pallet {
-			#[pallet::config]
-			pub trait Config: frame_system::Config {}
-		}
-	}
+    assert_pallet_parse_error! {
+        #[manifest_dir("../../pallets/subtensor")]
+        #[error_regex("Missing `\\#\\[pallet::pallet\\]`")]
+        #[frame_support::pallet]
+        pub mod pallet {
+            #[pallet::config]
+            pub trait Config: frame_system::Config {}
+        }
+    }
 }
 
 #[test]
 fn test_parse_pallet_missing_config() {
-	assert_pallet_parse_error! {
-		#[manifest_dir("../../examples/basic")]
-		#[error_regex("Missing `\\#\\[pallet::config\\]`")]
-		#[frame_support::pallet]
-		pub mod pallet {
-			#[pallet::pallet]
-			pub struct Pallet<T>(_);
-		}
-	}
+    assert_pallet_parse_error! {
+        #[manifest_dir("../../pallets/subtensor")]
+        #[error_regex("Missing `\\#\\[pallet::config\\]`")]
+        #[frame_support::pallet]
+        pub mod pallet {
+            #[pallet::pallet]
+            pub struct Pallet<T>(_);
+        }
+    }
 }
