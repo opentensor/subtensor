@@ -23,65 +23,67 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use std::collections::HashSet;
 use syn::{
-	parse2, parse_quote, spanned::Spanned, token, Ident, ImplItem, ItemImpl, Path, Result, Token,
+    parse2, parse_quote, spanned::Spanned, token, Ident, ImplItem, ItemImpl, Path, Result, Token,
 };
 
 mod keyword {
-	syn::custom_keyword!(inject_runtime_type);
-	syn::custom_keyword!(no_aggregated_types);
+    syn::custom_keyword!(inject_runtime_type);
+    syn::custom_keyword!(no_aggregated_types);
 }
 
 #[derive(derive_syn_parse::Parse, PartialEq, Eq)]
 pub enum PalletAttrType {
-	#[peek(keyword::inject_runtime_type, name = "inject_runtime_type")]
-	RuntimeType(keyword::inject_runtime_type),
+    #[peek(keyword::inject_runtime_type, name = "inject_runtime_type")]
+    RuntimeType(keyword::inject_runtime_type),
 }
 
 #[derive(derive_syn_parse::Parse)]
 pub struct PalletAttr {
-	_pound: Token![#],
-	#[bracket]
-	_bracket: token::Bracket,
-	#[inside(_bracket)]
-	typ: PalletAttrType,
+    _pound: Token![#],
+    #[bracket]
+    _bracket: token::Bracket,
+    #[inside(_bracket)]
+    typ: PalletAttrType,
 }
 
 fn is_runtime_type(item: &syn::ImplItemType) -> bool {
-	item.attrs.iter().any(|attr| {
-		if let Ok(PalletAttr { typ: PalletAttrType::RuntimeType(_), .. }) =
-			parse2::<PalletAttr>(attr.into_token_stream())
-		{
-			return true
-		}
-		false
-	})
+    item.attrs.iter().any(|attr| {
+        if let Ok(PalletAttr {
+            typ: PalletAttrType::RuntimeType(_),
+            ..
+        }) = parse2::<PalletAttr>(attr.into_token_stream())
+        {
+            return true;
+        }
+        false
+    })
 }
 
 #[derive(Parse, Debug)]
 pub struct DeriveImplAttrArgs {
-	pub default_impl_path: Path,
-	_as: Option<Token![as]>,
-	#[parse_if(_as.is_some())]
-	pub disambiguation_path: Option<Path>,
-	_comma: Option<Token![,]>,
-	#[parse_if(_comma.is_some())]
-	pub no_aggregated_types: Option<keyword::no_aggregated_types>,
+    pub default_impl_path: Path,
+    _as: Option<Token![as]>,
+    #[parse_if(_as.is_some())]
+    pub disambiguation_path: Option<Path>,
+    _comma: Option<Token![,]>,
+    #[parse_if(_comma.is_some())]
+    pub no_aggregated_types: Option<keyword::no_aggregated_types>,
 }
 
 impl ForeignPath for DeriveImplAttrArgs {
-	fn foreign_path(&self) -> &Path {
-		&self.default_impl_path
-	}
+    fn foreign_path(&self) -> &Path {
+        &self.default_impl_path
+    }
 }
 
 impl ToTokens for DeriveImplAttrArgs {
-	fn to_tokens(&self, tokens: &mut TokenStream2) {
-		tokens.extend(self.default_impl_path.to_token_stream());
-		tokens.extend(self._as.to_token_stream());
-		tokens.extend(self.disambiguation_path.to_token_stream());
-		tokens.extend(self._comma.to_token_stream());
-		tokens.extend(self.no_aggregated_types.to_token_stream());
-	}
+    fn to_tokens(&self, tokens: &mut TokenStream2) {
+        tokens.extend(self.default_impl_path.to_token_stream());
+        tokens.extend(self._as.to_token_stream());
+        tokens.extend(self.disambiguation_path.to_token_stream());
+        tokens.extend(self._comma.to_token_stream());
+        tokens.extend(self.no_aggregated_types.to_token_stream());
+    }
 }
 
 /// Gets the [`Ident`] representation of the given [`ImplItem`], if one exists. Otherwise
@@ -90,13 +92,13 @@ impl ToTokens for DeriveImplAttrArgs {
 /// Used by [`combine_impls`] to determine whether we can compare [`ImplItem`]s by [`Ident`]
 /// or not.
 fn impl_item_ident(impl_item: &ImplItem) -> Option<&Ident> {
-	match impl_item {
-		ImplItem::Const(item) => Some(&item.ident),
-		ImplItem::Fn(item) => Some(&item.sig.ident),
-		ImplItem::Type(item) => Some(&item.ident),
-		ImplItem::Macro(item) => item.mac.path.get_ident(),
-		_ => None,
-	}
+    match impl_item {
+        ImplItem::Const(item) => Some(&item.ident),
+        ImplItem::Fn(item) => Some(&item.sig.ident),
+        ImplItem::Type(item) => Some(&item.ident),
+        ImplItem::Macro(item) => item.mac.path.get_ident(),
+        _ => None,
+    }
 }
 
 /// The real meat behind `derive_impl`. Takes in a `local_impl`, which is the impl for which we
@@ -112,64 +114,68 @@ fn impl_item_ident(impl_item: &ImplItem) -> Option<&Ident> {
 ///   into `local_impl`. Items that lack an ident and also exist verbatim in `local_impl` are not
 ///   copied over.
 fn combine_impls(
-	local_impl: ItemImpl,
-	foreign_impl: ItemImpl,
-	default_impl_path: Path,
-	disambiguation_path: Path,
-	inject_runtime_types: bool,
+    local_impl: ItemImpl,
+    foreign_impl: ItemImpl,
+    default_impl_path: Path,
+    disambiguation_path: Path,
+    inject_runtime_types: bool,
 ) -> ItemImpl {
-	let (existing_local_keys, existing_unsupported_items): (HashSet<ImplItem>, HashSet<ImplItem>) =
-		local_impl
-			.items
-			.iter()
-			.cloned()
-			.partition(|impl_item| impl_item_ident(impl_item).is_some());
-	let existing_local_keys: HashSet<Ident> = existing_local_keys
-		.into_iter()
-		.filter_map(|item| impl_item_ident(&item).cloned())
-		.collect();
-	let mut final_impl = local_impl;
-	let extended_items = foreign_impl.items.into_iter().filter_map(|item| {
-		if let Some(ident) = impl_item_ident(&item) {
-			if existing_local_keys.contains(&ident) {
-				// do not copy colliding items that have an ident
-				return None
-			}
-			if let ImplItem::Type(typ) = item.clone() {
-				let cfg_attrs = typ
-					.attrs
-					.iter()
-					.filter(|attr| attr.path().get_ident().map_or(false, |ident| ident == "cfg"))
-					.map(|attr| attr.to_token_stream());
-				if is_runtime_type(&typ) {
-					let item: ImplItem = if inject_runtime_types {
-						parse_quote! {
-							#( #cfg_attrs )*
-							type #ident = #ident;
-						}
-					} else {
-						item
-					};
-					return Some(item)
-				}
-				// modify and insert uncolliding type items
-				let modified_item: ImplItem = parse_quote! {
-					#( #cfg_attrs )*
-					type #ident = <#default_impl_path as #disambiguation_path>::#ident;
-				};
-				return Some(modified_item)
-			}
-			// copy uncolliding non-type items that have an ident
-			Some(item)
-		} else {
-			// do not copy colliding items that lack an ident
-			(!existing_unsupported_items.contains(&item))
-				// copy uncolliding items without an ident verbatim
-				.then_some(item)
-		}
-	});
-	final_impl.items.extend(extended_items);
-	final_impl
+    let (existing_local_keys, existing_unsupported_items): (HashSet<ImplItem>, HashSet<ImplItem>) =
+        local_impl
+            .items
+            .iter()
+            .cloned()
+            .partition(|impl_item| impl_item_ident(impl_item).is_some());
+    let existing_local_keys: HashSet<Ident> = existing_local_keys
+        .into_iter()
+        .filter_map(|item| impl_item_ident(&item).cloned())
+        .collect();
+    let mut final_impl = local_impl;
+    let extended_items = foreign_impl.items.into_iter().filter_map(|item| {
+        if let Some(ident) = impl_item_ident(&item) {
+            if existing_local_keys.contains(&ident) {
+                // do not copy colliding items that have an ident
+                return None;
+            }
+            if let ImplItem::Type(typ) = item.clone() {
+                let cfg_attrs = typ
+                    .attrs
+                    .iter()
+                    .filter(|attr| {
+                        attr.path()
+                            .get_ident()
+                            .map_or(false, |ident| ident == "cfg")
+                    })
+                    .map(|attr| attr.to_token_stream());
+                if is_runtime_type(&typ) {
+                    let item: ImplItem = if inject_runtime_types {
+                        parse_quote! {
+                            #( #cfg_attrs )*
+                            type #ident = #ident;
+                        }
+                    } else {
+                        item
+                    };
+                    return Some(item);
+                }
+                // modify and insert uncolliding type items
+                let modified_item: ImplItem = parse_quote! {
+                    #( #cfg_attrs )*
+                    type #ident = <#default_impl_path as #disambiguation_path>::#ident;
+                };
+                return Some(modified_item);
+            }
+            // copy uncolliding non-type items that have an ident
+            Some(item)
+        } else {
+            // do not copy colliding items that lack an ident
+            (!existing_unsupported_items.contains(&item))
+                // copy uncolliding items without an ident verbatim
+                .then_some(item)
+        }
+    });
+    final_impl.items.extend(extended_items);
+    final_impl
 }
 
 /// Computes the disambiguation path for the `derive_impl` attribute macro.
@@ -178,25 +184,26 @@ fn combine_impls(
 /// disambiguation is used as is. If not, we infer the disambiguation path from the
 /// `foreign_impl_path` and the computed scope.
 fn compute_disambiguation_path(
-	disambiguation_path: Option<Path>,
-	foreign_impl: ItemImpl,
-	default_impl_path: Path,
+    disambiguation_path: Option<Path>,
+    foreign_impl: ItemImpl,
+    default_impl_path: Path,
 ) -> Result<Path> {
-	match (disambiguation_path, foreign_impl.clone().trait_) {
-		(Some(disambiguation_path), _) => Ok(disambiguation_path),
-		(None, Some((_, foreign_impl_path, _))) =>
-			if default_impl_path.segments.len() > 1 {
-				let scope = default_impl_path.segments.first();
-				Ok(parse_quote!(#scope :: #foreign_impl_path))
-			} else {
-				Ok(foreign_impl_path)
-			},
-		_ => Err(syn::Error::new(
-			default_impl_path.span(),
-			"Impl statement must have a defined type being implemented \
+    match (disambiguation_path, foreign_impl.clone().trait_) {
+        (Some(disambiguation_path), _) => Ok(disambiguation_path),
+        (None, Some((_, foreign_impl_path, _))) => {
+            if default_impl_path.segments.len() > 1 {
+                let scope = default_impl_path.segments.first();
+                Ok(parse_quote!(#scope :: #foreign_impl_path))
+            } else {
+                Ok(foreign_impl_path)
+            }
+        }
+        _ => Err(syn::Error::new(
+            default_impl_path.span(),
+            "Impl statement must have a defined type being implemented \
 			for a defined type such as `impl A for B`",
-		)),
-	}
+        )),
+    }
 }
 
 /// Internal implementation behind [`#[derive_impl(..)]`](`macro@crate::derive_impl`).
@@ -211,93 +218,99 @@ fn compute_disambiguation_path(
 /// `disambiguation_path`: the module path of the external trait we will use to qualify
 ///                        defaults imported from the external `impl` statement
 pub fn derive_impl(
-	default_impl_path: TokenStream2,
-	foreign_tokens: TokenStream2,
-	local_tokens: TokenStream2,
-	disambiguation_path: Option<Path>,
-	no_aggregated_types: Option<keyword::no_aggregated_types>,
+    default_impl_path: TokenStream2,
+    foreign_tokens: TokenStream2,
+    local_tokens: TokenStream2,
+    disambiguation_path: Option<Path>,
+    no_aggregated_types: Option<keyword::no_aggregated_types>,
 ) -> Result<TokenStream2> {
-	let local_impl = parse2::<ItemImpl>(local_tokens)?;
-	let foreign_impl = parse2::<ItemImpl>(foreign_tokens)?;
-	let default_impl_path = parse2::<Path>(default_impl_path)?;
+    let local_impl = parse2::<ItemImpl>(local_tokens)?;
+    let foreign_impl = parse2::<ItemImpl>(foreign_tokens)?;
+    let default_impl_path = parse2::<Path>(default_impl_path)?;
 
-	let disambiguation_path = compute_disambiguation_path(
-		disambiguation_path,
-		foreign_impl.clone(),
-		default_impl_path.clone(),
-	)?;
+    let disambiguation_path = compute_disambiguation_path(
+        disambiguation_path,
+        foreign_impl.clone(),
+        default_impl_path.clone(),
+    )?;
 
-	// generate the combined impl
-	let combined_impl = combine_impls(
-		local_impl,
-		foreign_impl,
-		default_impl_path,
-		disambiguation_path,
-		no_aggregated_types.is_none(),
-	);
+    // generate the combined impl
+    let combined_impl = combine_impls(
+        local_impl,
+        foreign_impl,
+        default_impl_path,
+        disambiguation_path,
+        no_aggregated_types.is_none(),
+    );
 
-	Ok(quote!(#combined_impl))
+    Ok(quote!(#combined_impl))
 }
 
 #[test]
 fn test_derive_impl_attr_args_parsing() {
-	parse2::<DeriveImplAttrArgs>(quote!(
-		some::path::TestDefaultConfig as some::path::DefaultConfig
-	))
-	.unwrap();
-	parse2::<DeriveImplAttrArgs>(quote!(
-		frame_system::prelude::testing::TestDefaultConfig as DefaultConfig
-	))
-	.unwrap();
-	parse2::<DeriveImplAttrArgs>(quote!(Something as some::path::DefaultConfig)).unwrap();
-	parse2::<DeriveImplAttrArgs>(quote!(Something as DefaultConfig)).unwrap();
-	parse2::<DeriveImplAttrArgs>(quote!(DefaultConfig)).unwrap();
-	assert!(parse2::<DeriveImplAttrArgs>(quote!()).is_err());
-	assert!(parse2::<DeriveImplAttrArgs>(quote!(Config Config)).is_err());
+    parse2::<DeriveImplAttrArgs>(quote!(
+        some::path::TestDefaultConfig as some::path::DefaultConfig
+    ))
+    .unwrap();
+    parse2::<DeriveImplAttrArgs>(quote!(
+        frame_system::prelude::testing::TestDefaultConfig as DefaultConfig
+    ))
+    .unwrap();
+    parse2::<DeriveImplAttrArgs>(quote!(Something as some::path::DefaultConfig)).unwrap();
+    parse2::<DeriveImplAttrArgs>(quote!(Something as DefaultConfig)).unwrap();
+    parse2::<DeriveImplAttrArgs>(quote!(DefaultConfig)).unwrap();
+    assert!(parse2::<DeriveImplAttrArgs>(quote!()).is_err());
+    assert!(parse2::<DeriveImplAttrArgs>(quote!(Config Config)).is_err());
 }
 
 #[test]
 fn test_runtime_type_with_doc() {
-	trait TestTrait {
-		type Test;
-	}
-	#[allow(unused)]
-	struct TestStruct;
-	let p = parse2::<ItemImpl>(quote!(
-		impl TestTrait for TestStruct {
-			/// Some doc
-			#[inject_runtime_type]
-			type Test = u32;
-		}
-	))
-	.unwrap();
-	for item in p.items {
-		if let ImplItem::Type(typ) = item {
-			assert_eq!(is_runtime_type(&typ), true);
-		}
-	}
+    trait TestTrait {
+        type Test;
+    }
+    #[allow(unused)]
+    struct TestStruct;
+    let p = parse2::<ItemImpl>(quote!(
+        impl TestTrait for TestStruct {
+            /// Some doc
+            #[inject_runtime_type]
+            type Test = u32;
+        }
+    ))
+    .unwrap();
+    for item in p.items {
+        if let ImplItem::Type(typ) = item {
+            assert_eq!(is_runtime_type(&typ), true);
+        }
+    }
 }
 
 #[test]
 fn test_disambiguation_path() {
-	let foreign_impl: ItemImpl = parse_quote!(impl SomeTrait for SomeType {});
-	let default_impl_path: Path = parse_quote!(SomeScope::SomeType);
+    let foreign_impl: ItemImpl = parse_quote!(impl SomeTrait for SomeType {});
+    let default_impl_path: Path = parse_quote!(SomeScope::SomeType);
 
-	// disambiguation path is specified
-	let disambiguation_path = compute_disambiguation_path(
-		Some(parse_quote!(SomeScope::SomePath)),
-		foreign_impl.clone(),
-		default_impl_path.clone(),
-	);
-	assert_eq!(disambiguation_path.unwrap(), parse_quote!(SomeScope::SomePath));
+    // disambiguation path is specified
+    let disambiguation_path = compute_disambiguation_path(
+        Some(parse_quote!(SomeScope::SomePath)),
+        foreign_impl.clone(),
+        default_impl_path.clone(),
+    );
+    assert_eq!(
+        disambiguation_path.unwrap(),
+        parse_quote!(SomeScope::SomePath)
+    );
 
-	// disambiguation path is not specified and the default_impl_path has more than one segment
-	let disambiguation_path =
-		compute_disambiguation_path(None, foreign_impl.clone(), default_impl_path.clone());
-	assert_eq!(disambiguation_path.unwrap(), parse_quote!(SomeScope::SomeTrait));
+    // disambiguation path is not specified and the default_impl_path has more than one segment
+    let disambiguation_path =
+        compute_disambiguation_path(None, foreign_impl.clone(), default_impl_path.clone());
+    assert_eq!(
+        disambiguation_path.unwrap(),
+        parse_quote!(SomeScope::SomeTrait)
+    );
 
-	// disambiguation path is not specified and the default_impl_path has only one segment
-	let disambiguation_path =
-		compute_disambiguation_path(None, foreign_impl.clone(), parse_quote!(SomeType));
-	assert_eq!(disambiguation_path.unwrap(), parse_quote!(SomeTrait));
+    // disambiguation path is not specified and the default_impl_path has only one segment
+    let disambiguation_path =
+        compute_disambiguation_path(None, foreign_impl.clone(), parse_quote!(SomeType));
+    assert_eq!(disambiguation_path.unwrap(), parse_quote!(SomeTrait));
 }

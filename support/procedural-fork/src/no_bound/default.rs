@@ -21,51 +21,57 @@ use syn::{spanned::Spanned, Data, DeriveInput, Fields};
 
 /// Derive Default but do not bound any generic.
 pub fn derive_default_no_bound(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-	let input = syn::parse_macro_input!(input as DeriveInput);
+    let input = syn::parse_macro_input!(input as DeriveInput);
 
-	let name = &input.ident;
+    let name = &input.ident;
 
-	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-	let impl_ = match input.data {
-		Data::Struct(struct_) => match struct_.fields {
-			Fields::Named(named) => {
-				let fields = named.named.iter().map(|field| &field.ident).map(|ident| {
-					quote_spanned! {ident.span() =>
-						#ident: ::core::default::Default::default()
-					}
-				});
+    let impl_ =
+        match input.data {
+            Data::Struct(struct_) => match struct_.fields {
+                Fields::Named(named) => {
+                    let fields = named.named.iter().map(|field| &field.ident).map(|ident| {
+                        quote_spanned! {ident.span() =>
+                            #ident: ::core::default::Default::default()
+                        }
+                    });
 
-				quote!(Self { #( #fields, )* })
-			},
-			Fields::Unnamed(unnamed) => {
-				let fields = unnamed.unnamed.iter().map(|field| {
-					quote_spanned! {field.span()=>
-						::core::default::Default::default()
-					}
-				});
+                    quote!(Self { #( #fields, )* })
+                }
+                Fields::Unnamed(unnamed) => {
+                    let fields = unnamed.unnamed.iter().map(|field| {
+                        quote_spanned! {field.span()=>
+                            ::core::default::Default::default()
+                        }
+                    });
 
-				quote!(Self( #( #fields, )* ))
-			},
-			Fields::Unit => {
-				quote!(Self)
-			},
-		},
-		Data::Enum(enum_) => {
-			if enum_.variants.is_empty() {
-				return syn::Error::new_spanned(name, "cannot derive Default for an empty enum")
-					.to_compile_error()
-					.into()
-			}
+                    quote!(Self( #( #fields, )* ))
+                }
+                Fields::Unit => {
+                    quote!(Self)
+                }
+            },
+            Data::Enum(enum_) => {
+                if enum_.variants.is_empty() {
+                    return syn::Error::new_spanned(name, "cannot derive Default for an empty enum")
+                        .to_compile_error()
+                        .into();
+                }
 
-			// all #[default] attrs with the variant they're on; i.e. a var
-			let default_variants = enum_
-				.variants
-				.into_iter()
-				.filter(|variant| variant.attrs.iter().any(|attr| attr.path().is_ident("default")))
-				.collect::<Vec<_>>();
+                // all #[default] attrs with the variant they're on; i.e. a var
+                let default_variants = enum_
+                    .variants
+                    .into_iter()
+                    .filter(|variant| {
+                        variant
+                            .attrs
+                            .iter()
+                            .any(|attr| attr.path().is_ident("default"))
+                    })
+                    .collect::<Vec<_>>();
 
-			match &*default_variants {
+                match &*default_variants {
 				[] => return syn::Error::new(
 					name.clone().span(),
 					"no default declared, make a variant default by placing `#[default]` above it",
@@ -137,25 +143,26 @@ pub fn derive_default_no_bound(input: proc_macro::TokenStream) -> proc_macro::To
 					return err.into_compile_error().into()
 				},
 			}
-		},
-		Data::Union(union_) =>
-			return syn::Error::new_spanned(
-				union_.union_token,
-				"Union type not supported by `derive(DefaultNoBound)`",
-			)
-			.to_compile_error()
-			.into(),
-	};
+            }
+            Data::Union(union_) => {
+                return syn::Error::new_spanned(
+                    union_.union_token,
+                    "Union type not supported by `derive(DefaultNoBound)`",
+                )
+                .to_compile_error()
+                .into()
+            }
+        };
 
-	quote!(
-		const _: () = {
-			#[automatically_derived]
-			impl #impl_generics ::core::default::Default for #name #ty_generics #where_clause {
-				fn default() -> Self {
-					#impl_
-				}
-			}
-		};
-	)
-	.into()
+    quote!(
+        const _: () = {
+            #[automatically_derived]
+            impl #impl_generics ::core::default::Default for #name #ty_generics #where_clause {
+                fn default() -> Self {
+                    #impl_
+                }
+            }
+        };
+    )
+    .into()
 }
