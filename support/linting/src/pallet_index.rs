@@ -76,7 +76,14 @@ impl ConstructRuntimeVisitor {
     ) {
         for pallet in pallets {
             // Check for explicit index and detect missing indices
-            if pallet.index == 0 {
+            if !self
+                .original_tokens
+                .contains(format!(" = {}", pallet.index).as_str())
+            {
+                // ^ HACK: FRAME's parsing code does not allow us to differentiate between an
+                // automatically generated index and an explicitly provided index so we fall
+                // back to the original source code here. e.g. if index is 1, we will search
+                // for " = 1" in the original source code to determine if it was explicitly provided.
                 self.errors.push(syn::Error::new(
                     pallet.name.span(),
                     format!(
