@@ -10,8 +10,7 @@
 //! on an as-needed, ad-hoc basis, and versions will matched the corresponding `polkadot-sdk`
 //! version/tag name.
 #![recursion_limit = "512"]
-#![deny(rustdoc::broken_intra_doc_links)]
-#![allow(unused)]
+#![allow(warnings)]
 
 extern crate proc_macro;
 
