@@ -158,7 +158,7 @@ jobs:
       - name: check lints
         run: |
           set -o pipefail
-          cargo check 2>&1 | sed -r "s/\x1B\[[0-9;]*[mK]//g" | tee /dev/tty | grep "warning:" && exit 1
+          cargo check 2>&1 | sed -r "s/\x1B\[[0-9;]*[mK]//g" | grep "warning:" && exit 1
           echo "No warnings found."
 
   cargo-clippy-all-features:
