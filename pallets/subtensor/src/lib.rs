@@ -26,7 +26,10 @@ use sp_runtime::{
     transaction_validity::{TransactionValidity, TransactionValidityError},
     DispatchError,
 };
-use sp_std::marker::PhantomData;
+use sp_std::{
+    marker::PhantomData,
+    vec::Vec,
+};
 
 // ============================
 //	==== Benchmark Imports =====
@@ -71,8 +74,6 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
     use sp_core::H256;
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
-    use sp_std::vec;
-    use sp_std::vec::Vec;
 
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
@@ -1579,12 +1580,6 @@ where
     }
 }
 
-use sp_std::vec;
-
-// TODO: unravel this rats nest, for some reason rustc thinks this is unused even though it's
-// used not 25 lines below
-#[allow(unused)]
-use sp_std::vec::Vec;
 use subtensor_macros::freeze_struct;
 
 /// Trait for managing a membership pallet instance in the runtime
