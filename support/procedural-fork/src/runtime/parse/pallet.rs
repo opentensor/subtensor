@@ -78,16 +78,16 @@ impl Pallet {
         }
 
         pallet_parts.retain(|part| {
-                if let (true, &PalletPartKeyword::Call(_)) = (disable_call, &part.keyword) {
-                    false
-                } else if let (true, &PalletPartKeyword::ValidateUnsigned(_)) =
-                    (disable_unsigned, &part.keyword)
-                {
-                    false
-                } else {
-                    true
-                }
-            });
+            if let (true, &PalletPartKeyword::Call(_)) = (disable_call, &part.keyword) {
+                false
+            } else if let (true, &PalletPartKeyword::ValidateUnsigned(_)) =
+                (disable_unsigned, &part.keyword)
+            {
+                false
+            } else {
+                true
+            }
+        });
 
         let cfg_pattern = vec![];
 

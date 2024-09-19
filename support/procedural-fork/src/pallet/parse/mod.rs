@@ -287,7 +287,7 @@ impl Def {
 						"A `#[pallet::tasks_experimental]` attribute must be attached to your `Task` impl if the \
 						task enum has been omitted",
 					));
-                } 
+                }
             }
             _ => (),
         }
@@ -419,9 +419,9 @@ impl Def {
             instances.extend_from_slice(&genesis_config.instances[..]);
         }
         if let Some(genesis_build) = &self.genesis_build {
-            if let Some(i) = genesis_build
-                .instances
-                .as_ref() { instances.extend_from_slice(i) }
+            if let Some(i) = genesis_build.instances.as_ref() {
+                instances.extend_from_slice(i)
+            }
         }
         if let Some(extra_constants) = &self.extra_constants {
             instances.extend_from_slice(&extra_constants.instances[..]);

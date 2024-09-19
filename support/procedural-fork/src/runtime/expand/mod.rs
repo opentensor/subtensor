@@ -76,8 +76,6 @@ pub fn expand(def: Def, legacy_ordering: bool) -> TokenStream2 {
         res
     };
 
-    
-
     expander::Expander::new("construct_runtime")
         .dry(std::env::var("FRAME_EXPAND").is_err())
         .verbose(true)
@@ -157,13 +155,16 @@ fn construct_runtime_final_expansion(
 
     let features = pallets
         .iter()
-        .filter(|&decl| (!decl.cfg_pattern.is_empty())).flat_map(|decl| decl.cfg_pattern.iter().flat_map(|attr| {
-                    attr.predicates().filter_map(|pred| match pred {
-                        Predicate::Feature(feat) => Some(feat),
-                        Predicate::Test => Some("test"),
-                        _ => None,
-                    })
-                }))
+        .filter(|&decl| (!decl.cfg_pattern.is_empty()))
+        .flat_map(|decl| {
+            decl.cfg_pattern.iter().flat_map(|attr| {
+                attr.predicates().filter_map(|pred| match pred {
+                    Predicate::Feature(feat) => Some(feat),
+                    Predicate::Test => Some("test"),
+                    _ => None,
+                })
+            })
+        })
         .collect::<HashSet<_>>();
 
     let hidden_crate_name = "construct_runtime";
