@@ -3,8 +3,8 @@ name = "procedural-fork"
 version = "1.10.0-rc3"
 edition = "2021"
 
-[lints]
-workspace = true
+[lints.clippy]
+all = "allow"
 
 [dependencies]
 derive-syn-parse = "0.2"
