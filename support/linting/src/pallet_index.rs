@@ -1,4 +1,5 @@
 use super::*;
+use proc_macro2::TokenStream as TokenStream2;
 use procedural_fork::exports::construct_runtime::parse::RuntimeDeclaration;
 use quote::ToTokens;
 use syn::{visit::Visit, File};
@@ -7,10 +8,7 @@ pub struct RequireExplicitPalletIndex;
 
 impl Lint for RequireExplicitPalletIndex {
     fn lint(source: &File) -> Result {
-        let mut visitor = ConstructRuntimeVisitor {
-            original_tokens: source.to_token_stream().to_string(),
-            errors: Vec::new(),
-        };
+        let mut visitor = ConstructRuntimeVisitor::new(source.to_token_stream());
         visitor.visit_file(source);
 
         if !visitor.errors.is_empty() {
@@ -70,6 +68,17 @@ impl<'ast> syn::visit::Visit<'ast> for ConstructRuntimeVisitor {
 }
 
 impl ConstructRuntimeVisitor {
+    fn new(original_tokens: impl Into<TokenStream2>) -> Self {
+        ConstructRuntimeVisitor {
+            original_tokens: {
+                let mut st = original_tokens.into().to_string();
+                st.retain(|c| !c.is_whitespace());
+                st
+            },
+            errors: Vec::new(),
+        }
+    }
+
     fn check_pallets_for_index(
         &mut self,
         pallets: &[procedural_fork::exports::construct_runtime::parse::Pallet],
@@ -78,7 +87,7 @@ impl ConstructRuntimeVisitor {
             // Check for explicit index and detect missing indices
             if !self
                 .original_tokens
-                .contains(format!(" = {}", pallet.index).as_str())
+                .contains(format!("={},", pallet.index).as_str())
             {
                 // ^ HACK: FRAME's parsing code does not allow us to differentiate between an
                 // automatically generated index and an explicitly provided index so we fall
@@ -103,10 +112,7 @@ mod tests {
 
     fn lint_macro(input: proc_macro2::TokenStream) -> Result {
         let item_macro: syn::ItemMacro = syn::parse2(input).unwrap();
-        let mut visitor = ConstructRuntimeVisitor {
-            original_tokens: item_macro.to_token_stream().to_string(),
-            errors: Vec::new(),
-        };
+        let mut visitor = ConstructRuntimeVisitor::new(item_macro.to_token_stream());
         visitor.visit_item_macro(&item_macro);
         if !visitor.errors.is_empty() {
             return Err(visitor.errors);
