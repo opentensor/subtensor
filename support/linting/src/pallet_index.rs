@@ -7,7 +7,10 @@ pub struct RequireExplicitPalletIndex;
 
 impl Lint for RequireExplicitPalletIndex {
     fn lint(source: &File) -> Result {
-        let mut visitor = ConstructRuntimeVisitor::default();
+        let mut visitor = ConstructRuntimeVisitor {
+            original_tokens: source.to_token_stream().to_string(),
+            errors: Vec::new(),
+        };
         visitor.visit_file(source);
 
         if !visitor.errors.is_empty() {
@@ -18,8 +21,8 @@ impl Lint for RequireExplicitPalletIndex {
     }
 }
 
-#[derive(Default)]
 struct ConstructRuntimeVisitor {
+    original_tokens: String,
     errors: Vec<syn::Error>,
 }
 
@@ -44,6 +47,7 @@ impl<'ast> syn::visit::Visit<'ast> for ConstructRuntimeVisitor {
                         self.check_pallets_for_index(&runtime.pallets);
                     }
                     RuntimeDeclaration::Implicit(runtime) => {
+                        // Only implicit runtime allows `None` for index
                         for pallet in runtime.pallets {
                             if pallet.index.is_none() {
                                 self.errors.push(syn::Error::new(
@@ -71,7 +75,7 @@ impl ConstructRuntimeVisitor {
         pallets: &[procedural_fork::exports::construct_runtime::parse::Pallet],
     ) {
         for pallet in pallets {
-            // For explicit and expanded, ensure index is explicitly provided (not zero)
+            // Check for explicit index and detect missing indices
             if pallet.index == 0 {
                 self.errors.push(syn::Error::new(
                     pallet.name.span(),
@@ -92,7 +96,10 @@ mod tests {
 
     fn lint_macro(input: proc_macro2::TokenStream) -> Result {
         let item_macro: syn::ItemMacro = syn::parse2(input).unwrap();
-        let mut visitor = ConstructRuntimeVisitor::default();
+        let mut visitor = ConstructRuntimeVisitor {
+            original_tokens: item_macro.to_token_stream().to_string(),
+            errors: Vec::new(),
+        };
         visitor.visit_item_macro(&item_macro);
         if !visitor.errors.is_empty() {
             return Err(visitor.errors);
