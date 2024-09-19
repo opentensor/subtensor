@@ -26,123 +26,132 @@ use syn::{parse2, spanned::Spanned, visit_mut, visit_mut::VisitMut, Result, Toke
 
 /// Parse and expand a `#[dynamic_params(..)]` module.
 pub fn dynamic_params(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
-	DynamicParamModAttr::parse(attr, item).map(ToTokens::into_token_stream)
+    DynamicParamModAttr::parse(attr, item).map(ToTokens::into_token_stream)
 }
 
 /// Parse and expand `#[dynamic_pallet_params(..)]` attribute.
 pub fn dynamic_pallet_params(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
-	DynamicPalletParamAttr::parse(attr, item).map(ToTokens::into_token_stream)
+    DynamicPalletParamAttr::parse(attr, item).map(ToTokens::into_token_stream)
 }
 
 /// Parse and expand `#[dynamic_aggregated_params_internal]` attribute.
 pub fn dynamic_aggregated_params_internal(
-	_attr: TokenStream,
-	item: TokenStream,
+    _attr: TokenStream,
+    item: TokenStream,
 ) -> Result<TokenStream> {
-	parse2::<DynamicParamAggregatedEnum>(item).map(ToTokens::into_token_stream)
+    parse2::<DynamicParamAggregatedEnum>(item).map(ToTokens::into_token_stream)
 }
 
 /// A top `#[dynamic_params(..)]` attribute together with a mod.
 #[derive(derive_syn_parse::Parse)]
 pub struct DynamicParamModAttr {
-	params_mod: syn::ItemMod,
-	meta: DynamicParamModAttrMeta,
+    params_mod: syn::ItemMod,
+    meta: DynamicParamModAttrMeta,
 }
 
 /// The inner meta of a `#[dynamic_params(..)]` attribute.
 #[derive(derive_syn_parse::Parse)]
 pub struct DynamicParamModAttrMeta {
-	name: syn::Ident,
-	_comma: Option<Token![,]>,
-	#[parse_if(_comma.is_some())]
-	params_pallet: Option<syn::Type>,
+    name: syn::Ident,
+    _comma: Option<Token![,]>,
+    #[parse_if(_comma.is_some())]
+    params_pallet: Option<syn::Type>,
 }
 
 impl DynamicParamModAttr {
-	pub fn parse(attr: TokenStream, item: TokenStream) -> Result<Self> {
-		let params_mod = parse2(item)?;
-		let meta = parse2(attr)?;
-		Ok(Self { params_mod, meta })
-	}
+    pub fn parse(attr: TokenStream, item: TokenStream) -> Result<Self> {
+        let params_mod = parse2(item)?;
+        let meta = parse2(attr)?;
+        Ok(Self { params_mod, meta })
+    }
 
-	pub fn inner_mods(&self) -> Vec<syn::ItemMod> {
-		self.params_mod.content.as_ref().map_or(Vec::new(), |(_, items)| {
-			items
-				.iter()
-				.filter_map(|i| match i {
-					syn::Item::Mod(m) => Some(m),
-					_ => None,
-				})
-				.cloned()
-				.collect()
-		})
-	}
+    pub fn inner_mods(&self) -> Vec<syn::ItemMod> {
+        self.params_mod
+            .content
+            .as_ref()
+            .map_or(Vec::new(), |(_, items)| {
+                items
+                    .iter()
+                    .filter_map(|i| match i {
+                        syn::Item::Mod(m) => Some(m),
+                        _ => None,
+                    })
+                    .cloned()
+                    .collect()
+            })
+    }
 }
 
 impl ToTokens for DynamicParamModAttr {
-	fn to_tokens(&self, tokens: &mut TokenStream) {
-		let scrate = match crate_access() {
-			Ok(path) => path,
-			Err(err) => return tokens.extend(err),
-		};
-		let (mut params_mod, name) = (self.params_mod.clone(), &self.meta.name);
-		let dynam_params_ident = &params_mod.ident;
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let scrate = match crate_access() {
+            Ok(path) => path,
+            Err(err) => return tokens.extend(err),
+        };
+        let (mut params_mod, name) = (self.params_mod.clone(), &self.meta.name);
+        let dynam_params_ident = &params_mod.ident;
 
-		let mut quoted_enum = quote! {};
-		for m in self.inner_mods() {
-			let aggregate_name =
-				syn::Ident::new(&m.ident.to_string().to_class_case(), m.ident.span());
-			let mod_name = &m.ident;
+        let mut quoted_enum = quote! {};
+        for m in self.inner_mods() {
+            let aggregate_name =
+                syn::Ident::new(&m.ident.to_string().to_class_case(), m.ident.span());
+            let mod_name = &m.ident;
 
-			let mut attrs = m.attrs.clone();
-			attrs.retain(|attr| !attr.path().is_ident("dynamic_pallet_params"));
-			if let Err(err) = ensure_codec_index(&attrs, m.span()) {
-				tokens.extend(err.into_compile_error());
-				return
-			}
+            let mut attrs = m.attrs.clone();
+            attrs.retain(|attr| !attr.path().is_ident("dynamic_pallet_params"));
+            if let Err(err) = ensure_codec_index(&attrs, m.span()) {
+                tokens.extend(err.into_compile_error());
+                return;
+            }
 
-			quoted_enum.extend(quote! {
-				#(#attrs)*
-				#aggregate_name(#dynam_params_ident::#mod_name::Parameters),
-			});
-		}
+            quoted_enum.extend(quote! {
+                #(#attrs)*
+                #aggregate_name(#dynam_params_ident::#mod_name::Parameters),
+            });
+        }
 
-		// Inject the outer args into the inner `#[dynamic_pallet_params(..)]` attribute.
-		if let Some(params_pallet) = &self.meta.params_pallet {
-			MacroInjectArgs { runtime_params: name.clone(), params_pallet: params_pallet.clone() }
-				.visit_item_mod_mut(&mut params_mod);
-		}
+        // Inject the outer args into the inner `#[dynamic_pallet_params(..)]` attribute.
+        if let Some(params_pallet) = &self.meta.params_pallet {
+            MacroInjectArgs {
+                runtime_params: name.clone(),
+                params_pallet: params_pallet.clone(),
+            }
+            .visit_item_mod_mut(&mut params_mod);
+        }
 
-		tokens.extend(quote! {
-			#params_mod
+        tokens.extend(quote! {
+            #params_mod
 
-			#[#scrate::dynamic_params::dynamic_aggregated_params_internal]
-			pub enum #name {
-				#quoted_enum
-			}
-		});
-	}
+            #[#scrate::dynamic_params::dynamic_aggregated_params_internal]
+            pub enum #name {
+                #quoted_enum
+            }
+        });
+    }
 }
 
 /// Ensure there is a `#[codec(index = ..)]` attribute.
 fn ensure_codec_index(attrs: &Vec<syn::Attribute>, span: Span) -> Result<()> {
-	let mut found = false;
+    let mut found = false;
 
-	for attr in attrs.iter() {
-		if attr.path().is_ident("codec") {
-			let meta: syn::ExprAssign = attr.parse_args()?;
-			if meta.left.to_token_stream().to_string() == "index" {
-				found = true;
-				break
-			}
-		}
-	}
+    for attr in attrs.iter() {
+        if attr.path().is_ident("codec") {
+            let meta: syn::ExprAssign = attr.parse_args()?;
+            if meta.left.to_token_stream().to_string() == "index" {
+                found = true;
+                break;
+            }
+        }
+    }
 
-	if !found {
-		Err(syn::Error::new(span, "Missing explicit `#[codec(index = ..)]` attribute"))
-	} else {
-		Ok(())
-	}
+    if !found {
+        Err(syn::Error::new(
+            span,
+            "Missing explicit `#[codec(index = ..)]` attribute",
+        ))
+    } else {
+        Ok(())
+    }
 }
 
 /// Used to inject arguments into the inner `#[dynamic_pallet_params(..)]` attribute.
@@ -150,110 +159,125 @@ fn ensure_codec_index(attrs: &Vec<syn::Attribute>, span: Span) -> Result<()> {
 /// This allows the outer `#[dynamic_params(..)]` attribute to specify some arguments that don't
 /// need to be repeated every time.
 struct MacroInjectArgs {
-	runtime_params: syn::Ident,
-	params_pallet: syn::Type,
+    runtime_params: syn::Ident,
+    params_pallet: syn::Type,
 }
 impl VisitMut for MacroInjectArgs {
-	fn visit_item_mod_mut(&mut self, item: &mut syn::ItemMod) {
-		// Check if the mod has a `#[dynamic_pallet_params(..)]` attribute.
-		let attr = item.attrs.iter_mut().find(|attr| attr.path().is_ident("dynamic_pallet_params"));
+    fn visit_item_mod_mut(&mut self, item: &mut syn::ItemMod) {
+        // Check if the mod has a `#[dynamic_pallet_params(..)]` attribute.
+        let attr = item
+            .attrs
+            .iter_mut()
+            .find(|attr| attr.path().is_ident("dynamic_pallet_params"));
 
-		if let Some(attr) = attr {
-			match &attr.meta {
-				syn::Meta::Path(path) =>
-					assert_eq!(path.to_token_stream().to_string(), "dynamic_pallet_params"),
-				_ => (),
-			}
+        if let Some(attr) = attr {
+            match &attr.meta {
+                syn::Meta::Path(path) => {
+                    assert_eq!(path.to_token_stream().to_string(), "dynamic_pallet_params")
+                }
+                _ => (),
+            }
 
-			let runtime_params = &self.runtime_params;
-			let params_pallet = &self.params_pallet;
+            let runtime_params = &self.runtime_params;
+            let params_pallet = &self.params_pallet;
 
-			attr.meta = syn::parse2::<syn::Meta>(quote! {
-				dynamic_pallet_params(#runtime_params, #params_pallet)
-			})
-			.unwrap()
-			.into();
-		}
+            attr.meta = syn::parse2::<syn::Meta>(quote! {
+                dynamic_pallet_params(#runtime_params, #params_pallet)
+            })
+            .unwrap()
+            .into();
+        }
 
-		visit_mut::visit_item_mod_mut(self, item);
-	}
+        visit_mut::visit_item_mod_mut(self, item);
+    }
 }
 /// The helper attribute of a `#[dynamic_pallet_params(runtime_params, params_pallet)]`
 /// attribute.
 #[derive(derive_syn_parse::Parse)]
 pub struct DynamicPalletParamAttr {
-	inner_mod: syn::ItemMod,
-	meta: DynamicPalletParamAttrMeta,
+    inner_mod: syn::ItemMod,
+    meta: DynamicPalletParamAttrMeta,
 }
 
 /// The inner meta of a `#[dynamic_pallet_params(..)]` attribute.
 #[derive(derive_syn_parse::Parse)]
 pub struct DynamicPalletParamAttrMeta {
-	runtime_params: syn::Ident,
-	_comma: Token![,],
-	parameter_pallet: syn::Type,
+    runtime_params: syn::Ident,
+    _comma: Token![,],
+    parameter_pallet: syn::Type,
 }
 
 impl DynamicPalletParamAttr {
-	pub fn parse(attr: TokenStream, item: TokenStream) -> Result<Self> {
-		Ok(Self { inner_mod: parse2(item)?, meta: parse2(attr)? })
-	}
+    pub fn parse(attr: TokenStream, item: TokenStream) -> Result<Self> {
+        Ok(Self {
+            inner_mod: parse2(item)?,
+            meta: parse2(attr)?,
+        })
+    }
 
-	pub fn statics(&self) -> Vec<syn::ItemStatic> {
-		self.inner_mod.content.as_ref().map_or(Vec::new(), |(_, items)| {
-			items
-				.iter()
-				.filter_map(|i| match i {
-					syn::Item::Static(s) => Some(s),
-					_ => None,
-				})
-				.cloned()
-				.collect()
-		})
-	}
+    pub fn statics(&self) -> Vec<syn::ItemStatic> {
+        self.inner_mod
+            .content
+            .as_ref()
+            .map_or(Vec::new(), |(_, items)| {
+                items
+                    .iter()
+                    .filter_map(|i| match i {
+                        syn::Item::Static(s) => Some(s),
+                        _ => None,
+                    })
+                    .cloned()
+                    .collect()
+            })
+    }
 }
 
 impl ToTokens for DynamicPalletParamAttr {
-	fn to_tokens(&self, tokens: &mut TokenStream) {
-		let scrate = match crate_access() {
-			Ok(path) => path,
-			Err(err) => return tokens.extend(err),
-		};
-		let (params_mod, parameter_pallet, runtime_params) =
-			(&self.inner_mod, &self.meta.parameter_pallet, &self.meta.runtime_params);
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let scrate = match crate_access() {
+            Ok(path) => path,
+            Err(err) => return tokens.extend(err),
+        };
+        let (params_mod, parameter_pallet, runtime_params) = (
+            &self.inner_mod,
+            &self.meta.parameter_pallet,
+            &self.meta.runtime_params,
+        );
 
-		let aggregate_name =
-			syn::Ident::new(&params_mod.ident.to_string().to_class_case(), params_mod.ident.span());
-		let (mod_name, vis) = (&params_mod.ident, &params_mod.vis);
-		let statics = self.statics();
+        let aggregate_name = syn::Ident::new(
+            &params_mod.ident.to_string().to_class_case(),
+            params_mod.ident.span(),
+        );
+        let (mod_name, vis) = (&params_mod.ident, &params_mod.vis);
+        let statics = self.statics();
 
-		let (mut key_names, mut key_values, mut defaults, mut attrs, mut value_types): (
-			Vec<_>,
-			Vec<_>,
-			Vec<_>,
-			Vec<_>,
-			Vec<_>,
-		) = Default::default();
+        let (mut key_names, mut key_values, mut defaults, mut attrs, mut value_types): (
+            Vec<_>,
+            Vec<_>,
+            Vec<_>,
+            Vec<_>,
+            Vec<_>,
+        ) = Default::default();
 
-		for s in statics.iter() {
-			if let Err(err) = ensure_codec_index(&s.attrs, s.span()) {
-				tokens.extend(err.into_compile_error());
-				return
-			}
+        for s in statics.iter() {
+            if let Err(err) = ensure_codec_index(&s.attrs, s.span()) {
+                tokens.extend(err.into_compile_error());
+                return;
+            }
 
-			key_names.push(&s.ident);
-			key_values.push(format_ident!("{}Value", &s.ident));
-			defaults.push(&s.expr);
-			attrs.push(&s.attrs);
-			value_types.push(&s.ty);
-		}
+            key_names.push(&s.ident);
+            key_values.push(format_ident!("{}Value", &s.ident));
+            defaults.push(&s.expr);
+            attrs.push(&s.attrs);
+            value_types.push(&s.ty);
+        }
 
-		let key_ident = syn::Ident::new("ParametersKey", params_mod.ident.span());
-		let value_ident = syn::Ident::new("ParametersValue", params_mod.ident.span());
-		let runtime_key_ident = format_ident!("{}Key", runtime_params);
-		let runtime_value_ident = format_ident!("{}Value", runtime_params);
+        let key_ident = syn::Ident::new("ParametersKey", params_mod.ident.span());
+        let value_ident = syn::Ident::new("ParametersValue", params_mod.ident.span());
+        let runtime_key_ident = format_ident!("{}Key", runtime_params);
+        let runtime_value_ident = format_ident!("{}Value", runtime_params);
 
-		tokens.extend(quote! {
+        tokens.extend(quote! {
 			pub mod #mod_name {
 				use super::*;
 
@@ -426,44 +450,44 @@ impl ToTokens for DynamicPalletParamAttr {
 				)*
 			}
 		});
-	}
+    }
 }
 
 #[derive(derive_syn_parse::Parse)]
 pub struct DynamicParamAggregatedEnum {
-	aggregated_enum: syn::ItemEnum,
+    aggregated_enum: syn::ItemEnum,
 }
 
 impl ToTokens for DynamicParamAggregatedEnum {
-	fn to_tokens(&self, tokens: &mut TokenStream) {
-		let scrate = match crate_access() {
-			Ok(path) => path,
-			Err(err) => return tokens.extend(err),
-		};
-		let params_enum = &self.aggregated_enum;
-		let (name, vis) = (&params_enum.ident, &params_enum.vis);
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let scrate = match crate_access() {
+            Ok(path) => path,
+            Err(err) => return tokens.extend(err),
+        };
+        let params_enum = &self.aggregated_enum;
+        let (name, vis) = (&params_enum.ident, &params_enum.vis);
 
-		let (mut indices, mut param_names, mut param_types): (Vec<_>, Vec<_>, Vec<_>) =
-			Default::default();
-		let mut attributes = Vec::new();
-		for (i, variant) in params_enum.variants.iter().enumerate() {
-			indices.push(i);
-			param_names.push(&variant.ident);
-			attributes.push(&variant.attrs);
+        let (mut indices, mut param_names, mut param_types): (Vec<_>, Vec<_>, Vec<_>) =
+            Default::default();
+        let mut attributes = Vec::new();
+        for (i, variant) in params_enum.variants.iter().enumerate() {
+            indices.push(i);
+            param_names.push(&variant.ident);
+            attributes.push(&variant.attrs);
 
-			param_types.push(match &variant.fields {
+            param_types.push(match &variant.fields {
 				syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => &fields.unnamed[0].ty,
 				_ => {
 					*tokens = quote! { compile_error!("Only unnamed enum variants with one inner item are supported") };
 					return
 				},
 			});
-		}
+        }
 
-		let params_key_ident = format_ident!("{}Key", params_enum.ident);
-		let params_value_ident = format_ident!("{}Value", params_enum.ident);
+        let params_key_ident = format_ident!("{}Key", params_enum.ident);
+        let params_value_ident = format_ident!("{}Value", params_enum.ident);
 
-		tokens.extend(quote! {
+        tokens.extend(quote! {
 			#[doc(hidden)]
 			#[derive(
 				Clone,
@@ -554,10 +578,10 @@ impl ToTokens for DynamicParamAggregatedEnum {
 				}
 			)*
 		});
-	}
+    }
 }
 
 /// Get access to the current crate and convert the error to a compile error.
 fn crate_access() -> core::result::Result<syn::Path, TokenStream> {
-	generate_access_from_frame_or_crate("frame-support").map_err(|e| e.to_compile_error())
+    generate_access_from_frame_or_crate("frame-support").map_err(|e| e.to_compile_error())
 }

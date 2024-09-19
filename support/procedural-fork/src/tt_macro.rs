@@ -22,29 +22,29 @@ use proc_macro2::{Ident, TokenStream};
 use quote::format_ident;
 
 struct CreateTtReturnMacroDef {
-	name: Ident,
-	args: Vec<(Ident, TokenStream)>,
+    name: Ident,
+    args: Vec<(Ident, TokenStream)>,
 }
 
 impl syn::parse::Parse for CreateTtReturnMacroDef {
-	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-		let name = input.parse()?;
-		let _ = input.parse::<syn::Token![,]>()?;
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let name = input.parse()?;
+        let _ = input.parse::<syn::Token![,]>()?;
 
-		let mut args = Vec::new();
-		while !input.is_empty() {
-			let mut value;
-			let key: Ident = input.parse()?;
-			let _ = input.parse::<syn::Token![=]>()?;
-			let _: syn::token::Bracket = syn::bracketed!(value in input);
-			let _: syn::token::Brace = syn::braced!(value in value);
-			let value: TokenStream = value.parse()?;
+        let mut args = Vec::new();
+        while !input.is_empty() {
+            let mut value;
+            let key: Ident = input.parse()?;
+            let _ = input.parse::<syn::Token![=]>()?;
+            let _: syn::token::Bracket = syn::bracketed!(value in input);
+            let _: syn::token::Brace = syn::braced!(value in value);
+            let value: TokenStream = value.parse()?;
 
-			args.push((key, value))
-		}
+            args.push((key, value))
+        }
 
-		Ok(Self { name, args })
-	}
+        Ok(Self { name, args })
+    }
 }
 
 /// A proc macro that accepts a name and any number of key-value pairs, to be used to create a
@@ -74,32 +74,32 @@ impl syn::parse::Parse for CreateTtReturnMacroDef {
 /// }
 /// ```
 pub fn create_tt_return_macro(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-	let CreateTtReturnMacroDef { name, args } =
-		syn::parse_macro_input!(input as CreateTtReturnMacroDef);
+    let CreateTtReturnMacroDef { name, args } =
+        syn::parse_macro_input!(input as CreateTtReturnMacroDef);
 
-	let (keys, values): (Vec<_>, Vec<_>) = args.into_iter().unzip();
-	let count = COUNTER.with(|counter| counter.borrow_mut().inc());
-	let unique_name = format_ident!("{}_{}", name, count);
+    let (keys, values): (Vec<_>, Vec<_>) = args.into_iter().unzip();
+    let count = COUNTER.with(|counter| counter.borrow_mut().inc());
+    let unique_name = format_ident!("{}_{}", name, count);
 
-	let decl_macro = quote::quote! {
-		#[macro_export]
-		#[doc(hidden)]
-		macro_rules! #unique_name {
-			{
-				$caller:tt
-				$(your_tt_return = [{ $my_tt_macro:path }])?
-			} => {
-				$my_tt_return! {
-					$caller
-					#(
-						#keys = [{ #values }]
-					)*
-				}
-			}
-		}
+    let decl_macro = quote::quote! {
+        #[macro_export]
+        #[doc(hidden)]
+        macro_rules! #unique_name {
+            {
+                $caller:tt
+                $(your_tt_return = [{ $my_tt_macro:path }])?
+            } => {
+                $my_tt_return! {
+                    $caller
+                    #(
+                        #keys = [{ #values }]
+                    )*
+                }
+            }
+        }
 
-		pub use #unique_name as #name;
-	};
+        pub use #unique_name as #name;
+    };
 
-	decl_macro.into()
+    decl_macro.into()
 }
