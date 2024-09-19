@@ -6,9 +6,8 @@ use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
 use sc_consensus_grandpa::SharedVoterState;
 use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
-use sc_executor::sp_wasm_interface::{Function, HostFunctionRegistry, HostFunctions};
-pub use sc_executor::NativeElseWasmExecutor;
-use sc_service::{error::Error as ServiceError, Configuration, TaskManager, WarpSyncParams};
+pub use sc_executor::WasmExecutor;
+use sc_service::{error::Error as ServiceError, Configuration, TaskManager, WarpSyncConfig};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
@@ -18,42 +17,11 @@ use std::{sync::Arc, time::Duration};
 /// imported and generated.
 const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
 
-// Our native executor instance.
-pub struct ExecutorDispatch;
-
-// appeasing the compiler, this is a no-op
-impl HostFunctions for ExecutorDispatch {
-    fn host_functions() -> Vec<&'static dyn Function> {
-        vec![]
-    }
-
-    fn register_static<T>(_registry: &mut T) -> core::result::Result<(), T::Error>
-    where
-        T: HostFunctionRegistry,
-    {
-        Ok(())
-    }
-}
-
-impl sc_executor::NativeExecutionDispatch for ExecutorDispatch {
-    // Only enable the benchmarking host functions when we actually want to benchmark.
-    #[cfg(feature = "runtime-benchmarks")]
-    type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
-    // Otherwise we only use the default Substrate host functions.
-    #[cfg(not(feature = "runtime-benchmarks"))]
-    type ExtendHostFunctions = ();
-
-    fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-        node_subtensor_runtime::api::dispatch(method, data)
-    }
-
-    fn native_version() -> sc_executor::NativeVersion {
-        node_subtensor_runtime::native_version()
-    }
-}
-
-pub(crate) type FullClient =
-    sc_service::TFullClient<Block, RuntimeApi, NativeElseWasmExecutor<ExecutorDispatch>>;
+pub(crate) type FullClient = sc_service::TFullClient<
+    Block,
+    RuntimeApi,
+    WasmExecutor<sp_io::SubstrateHostFunctions>
+>;
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 
@@ -90,7 +58,7 @@ pub fn new_partial(
         })
         .transpose()?;
 
-    let executor = sc_service::new_native_or_wasm_executor(config);
+    let executor = sc_service::new_wasm_executor::<sp_io::SubstrateHostFunctions>(&config.executor);
 
     let (client, backend, keystore_container, task_manager) =
         sc_service::new_full_parts::<Block, RuntimeApi, _>(
@@ -163,7 +131,11 @@ pub fn new_partial(
 }
 
 // Builds a new service for a full client.
-pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
+pub fn new_full<
+    N: sc_network::NetworkBackend<Block, <Block as sp_runtime::traits::Block>::Hash>,
+>(
+    config: Configuration
+) -> Result<TaskManager, ServiceError> {
     let sc_service::PartialComponents {
         client,
         backend,
@@ -175,7 +147,12 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
         other: (block_import, grandpa_link, mut telemetry),
     } = new_partial(&config)?;
 
-    let mut net_config = sc_network::config::FullNetworkConfiguration::new(&config.network);
+	let mut net_config = sc_network::config::FullNetworkConfiguration::<
+		Block,
+		<Block as sp_runtime::traits::Block>::Hash,
+		N,
+	>::new(&config.network, config.prometheus_registry().cloned());
+	let metrics = N::register_notification_metrics(config.prometheus_registry());
 
     let grandpa_protocol_name = sc_consensus_grandpa::protocol_standard_name(
         &client
@@ -186,8 +163,13 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
         &config.chain_spec,
     );
 
-    let (grandpa_protocol_config, grandpa_notification_service) =
-        sc_consensus_grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone());
+    let peer_store_handle = net_config.peer_store_handle();
+	let (grandpa_protocol_config, grandpa_notification_service) =
+		sc_consensus_grandpa::grandpa_peers_set_config::<_, N>(
+			grandpa_protocol_name.clone(),
+			metrics.clone(),
+			peer_store_handle,
+		);
     net_config.add_notification_protocol(grandpa_protocol_config);
 
     let warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
@@ -205,8 +187,9 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
             spawn_handle: task_manager.spawn_handle(),
             import_queue,
             block_announce_validator_builder: None,
-            warp_sync_params: Some(WarpSyncParams::WithProvider(warp_sync)),
-            block_relay: None,
+			warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
+			block_relay: None,
+			metrics,
         })?;
 
     if config.offchain_worker.enabled {
@@ -221,7 +204,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
                 transaction_pool: Some(OffchainTransactionPoolFactory::new(
                     transaction_pool.clone(),
                 )),
-                network_provider: network.clone(),
+                network_provider: Arc::new(network.clone()),
                 enable_http_requests: true,
                 custom_extensions: |_| vec![],
             })
@@ -239,7 +222,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
     let shared_authority_set = grandpa_link.shared_authority_set().clone();
     let shared_voter_state = SharedVoterState::empty();
 
-    let role = config.role.clone();
+    let role = config.role;
     let force_authoring = config.force_authoring;
     let backoff_authoring_blocks = Some(BackoffAuthoringOnFinalizedHeadLagging {
         unfinalized_slack: 6,
@@ -254,11 +237,10 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
         let pool = transaction_pool.clone();
 
         Box::new(
-            move |deny_unsafe, subscription_executor: sc_rpc::SubscriptionTaskExecutor| {
+            move |subscription_executor: sc_rpc::SubscriptionTaskExecutor| {
                 let deps = crate::rpc::FullDeps {
                     client: client.clone(),
                     pool: pool.clone(),
-                    deny_unsafe,
                     grandpa: crate::rpc::GrandpaDeps {
                         shared_voter_state: shared_voter_state.clone(),
                         shared_authority_set: shared_authority_set.clone(),

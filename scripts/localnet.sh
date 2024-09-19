@@ -25,13 +25,13 @@ if [ "$fast_blocks" == "False" ]; then
   echo "fast_blocks is Off"
   : "${CHAIN:=local}"
   : "${BUILD_BINARY:=1}"
-  : "${FEATURES:="pow-faucet runtime-benchmarks"}"
+  : "${FEATURES:="pow-faucet"}"
 else
   # Block of code to execute if fast_blocks is not False
   echo "fast_blocks is On"
   : "${CHAIN:=local}"
   : "${BUILD_BINARY:=1}"
-  : "${FEATURES:="pow-faucet runtime-benchmarks fast-blocks"}"
+  : "${FEATURES:="pow-faucet fast-blocks"}"
 fi
 
 SPEC_PATH="${SCRIPT_DIR}/specs/"
@@ -55,6 +55,10 @@ fi
 echo "*** Building chainspec..."
 "$BASE_DIR/target/release/node-subtensor" build-spec --disable-default-bootnode --raw --chain $CHAIN >$FULL_PATH
 echo "*** Chainspec built and output to file"
+
+# generate node keys
+$BASE_DIR/target/release/node-subtensor key generate-node-key --chain="$FULL_PATH" --base-path /tmp/alice
+$BASE_DIR/target/release/node-subtensor key generate-node-key --chain="$FULL_PATH" --base-path /tmp/bob
 
 if [ $NO_PURGE -eq 1 ]; then
   echo "*** Purging previous state skipped..."
