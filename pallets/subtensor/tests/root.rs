@@ -475,6 +475,9 @@ fn test_root_subnet_creation_deletion() {
             <<Test as Config>::RuntimeOrigin>::signed(owner),
         ));
         // last_lock: 100000000000, min_lock: 100000000000, last_lock_block: 0, lock_reduction_interval: 2, current_block: 0, mult: 1 lock_cost: 100000000000
+        #[cfg(feature = "pow-faucet")]
+        assert_eq!(SubtensorModule::get_network_lock_cost(), 0);
+        #[cfg(not(feature = "pow-faucet"))]
         assert_eq!(SubtensorModule::get_network_lock_cost(), 100_000_000_000);
         step_block(1);
         // last_lock: 100000000000, min_lock: 100000000000, last_lock_block: 0, lock_reduction_interval: 2, current_block: 1, mult: 1 lock_cost: 100000000000
