@@ -17,11 +17,8 @@ use std::{sync::Arc, time::Duration};
 /// imported and generated.
 const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
 
-pub(crate) type FullClient = sc_service::TFullClient<
-    Block,
-    RuntimeApi,
-    WasmExecutor<sp_io::SubstrateHostFunctions>
->;
+pub(crate) type FullClient =
+    sc_service::TFullClient<Block, RuntimeApi, WasmExecutor<sp_io::SubstrateHostFunctions>>;
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 
@@ -134,7 +131,7 @@ pub fn new_partial(
 pub fn new_full<
     N: sc_network::NetworkBackend<Block, <Block as sp_runtime::traits::Block>::Hash>,
 >(
-    config: Configuration
+    config: Configuration,
 ) -> Result<TaskManager, ServiceError> {
     let sc_service::PartialComponents {
         client,
@@ -147,12 +144,12 @@ pub fn new_full<
         other: (block_import, grandpa_link, mut telemetry),
     } = new_partial(&config)?;
 
-	let mut net_config = sc_network::config::FullNetworkConfiguration::<
-		Block,
-		<Block as sp_runtime::traits::Block>::Hash,
-		N,
-	>::new(&config.network, config.prometheus_registry().cloned());
-	let metrics = N::register_notification_metrics(config.prometheus_registry());
+    let mut net_config = sc_network::config::FullNetworkConfiguration::<
+        Block,
+        <Block as sp_runtime::traits::Block>::Hash,
+        N,
+    >::new(&config.network, config.prometheus_registry().cloned());
+    let metrics = N::register_notification_metrics(config.prometheus_registry());
 
     let grandpa_protocol_name = sc_consensus_grandpa::protocol_standard_name(
         &client
@@ -164,12 +161,12 @@ pub fn new_full<
     );
 
     let peer_store_handle = net_config.peer_store_handle();
-	let (grandpa_protocol_config, grandpa_notification_service) =
-		sc_consensus_grandpa::grandpa_peers_set_config::<_, N>(
-			grandpa_protocol_name.clone(),
-			metrics.clone(),
-			peer_store_handle,
-		);
+    let (grandpa_protocol_config, grandpa_notification_service) =
+        sc_consensus_grandpa::grandpa_peers_set_config::<_, N>(
+            grandpa_protocol_name.clone(),
+            metrics.clone(),
+            peer_store_handle,
+        );
     net_config.add_notification_protocol(grandpa_protocol_config);
 
     let warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
@@ -187,9 +184,9 @@ pub fn new_full<
             spawn_handle: task_manager.spawn_handle(),
             import_queue,
             block_announce_validator_builder: None,
-			warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
-			block_relay: None,
-			metrics,
+            warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
+            block_relay: None,
+            metrics,
         })?;
 
     if config.offchain_worker.enabled {

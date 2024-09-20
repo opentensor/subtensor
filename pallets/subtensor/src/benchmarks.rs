@@ -311,14 +311,8 @@ benchmarks! {
     let amount: u64 = 1;
     let amount_to_be_staked = 100_000_000_000_000u64;
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
-<<<<<<< HEAD
     assert_ok!(Subtensor::<T>::register_network(RawOrigin::Signed(coldkey.clone()).into()));
   }: dissolve_network(RawOrigin::Root, coldkey.clone(), 1)
-=======
-    assert_ok!(Subtensor::<T>::register_network(RawOrigin::Signed(coldkey.clone()).into(), None));
-    let c1 = coldkey.clone();
-  }: dissolve_network(RawOrigin::Signed(c1), coldkey, 1)
->>>>>>> 3404a5bc (fix benchmark_dissolve_network)
 
 
   // swap_hotkey {

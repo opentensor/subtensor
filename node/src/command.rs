@@ -15,11 +15,9 @@ pub use sp_keyring::Sr25519Keyring;
 
 use node_subtensor_runtime::Block;
 use sc_cli::SubstrateCli;
-use sc_service::{config::{
-        ExecutorConfiguration,
-        RpcConfiguration
-    },
-    Configuration, PartialComponents
+use sc_service::{
+    config::{ExecutorConfiguration, RpcConfiguration},
+    Configuration, PartialComponents,
 };
 
 impl SubstrateCli for Cli {
@@ -152,9 +150,9 @@ pub fn run() -> sc_cli::Result<()> {
                             );
                         }
 
-						cmd.run_with_spec::<sp_runtime::traits::HashingFor<Block>, ()>(Some(
-							config.chain_spec,
-						))
+                        cmd.run_with_spec::<sp_runtime::traits::HashingFor<Block>, ()>(Some(
+                            config.chain_spec,
+                        ))
                     }
                     BenchmarkCmd::Block(cmd) => {
                         let PartialComponents { client, .. } = service::new_partial(&config)?;
@@ -211,11 +209,11 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.sync_run(|config| cmd.run::<Block>(&config))
         }
-		None => {
-			let runner = cli.create_runner(&cli.run)?;
-			runner.run_node_until_exit(|config| async move {
+        None => {
+            let runner = cli.create_runner(&cli.run)?;
+            runner.run_node_until_exit(|config| async move {
                 let config = override_default_heap_pages(config, 60_000);
-				match config.network.network_backend {
+                match config.network.network_backend {
 					sc_network::config::NetworkBackendType::Libp2p => service::new_full::<
 						sc_network::NetworkWorker<
 							node_subtensor_runtime::opaque::Block,
@@ -227,8 +225,8 @@ pub fn run() -> sc_cli::Result<()> {
 						service::new_full::<sc_network::Litep2pNetworkBackend>(config)
 							.map_err(sc_cli::Error::Service),
 				}
-			})
-		},
+            })
+        }
     }
 }
 
