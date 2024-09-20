@@ -81,8 +81,14 @@ mod genesis {
                 let stake_amount = 1_000_000_000_000;
                 // Add validator for network 1
                 if let Some(coldkey_validator) = &self.subnet_coldkey_validator {
-                    let coldkey = coldkey_validator[0].clone();
-                    let hotkey = coldkey_validator[1].clone();
+                    let coldkey = coldkey_validator
+                        .get(0)
+                        .expect("should config in genesis")
+                        .clone();
+                    let hotkey = coldkey_validator
+                        .get(1)
+                        .expect("should config in genesis")
+                        .clone();
                     Pallet::<T>::create_account_if_non_existent(&coldkey, &hotkey);
                     Pallet::<T>::append_neuron(1, &hotkey, 0);
                     Pallet::<T>::increase_stake_on_coldkey_hotkey_account(
