@@ -1039,7 +1039,7 @@ mod dispatches {
         /// # Errors
         /// This function will return an error if:
         /// * The origin is not signed by the `origin_hotkey`.
-        /// * Either the origin or destination subnets does not exist.
+        /// * Either the origin or destination subnet does not exist.
         /// * The `origin_hotkey` or `destination_hotkey` does not exist.
         /// * There are locked funds that cannot be moved across subnets.
         ///	* There is duplicate netuid in netuid_amount_vec

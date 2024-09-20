@@ -134,14 +134,14 @@ impl<T: Config> Pallet<T> {
 			);
 
             // --- 15. Emit the StakeMoved event.
-            Self::deposit_event(Event::StakeMoved(
-                coldkey.clone(),
-                origin_hotkey.clone(),
+            Self::deposit_event(Event::StakeMoved {
+                coldkey: coldkey.clone(),
+                origin_hotkey: origin_hotkey.clone(),
                 origin_netuid,
-                destination_hotkey.clone(),
-                *netuid,
-                added_tao,
-            ));
+                destination_hotkey: destination_hotkey.clone(),
+                destination_netuid: *netuid,
+                stake_amount: added_tao,
+            });
         }
 
         // -- 16. Ok and return.

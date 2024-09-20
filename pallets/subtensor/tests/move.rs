@@ -670,14 +670,14 @@ fn test_do_move_event_emission() {
 
         // Check for the correct event emission
         System::assert_last_event(
-            Event::StakeMoved(
+            Event::StakeMoved {
                 coldkey,
                 origin_hotkey,
-                netuid,
+                origin_netuid: netuid,
                 destination_hotkey,
-                netuid,
+                destination_netuid: netuid,
                 stake_amount,
-            )
+            }
             .into(),
         );
     });
