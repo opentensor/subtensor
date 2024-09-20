@@ -74,11 +74,30 @@ mod genesis {
             // Subnet config values
             let tempo = 99;
 
+            // Should be only for localnet
             if self.initialize_network_1 {
                 init_network::<T>(1, tempo);
-                if let Some((coldkey, hotkey)) = &self.subnet_coldkey_validator {
+                // Stake 1000 TAO, each validator has 2000 TAO according to localnet configure
+                let stake_amount = 1_000_000_000_000;
+                // Add validator for network 1
+                if let Some(coldkey_validator) = &self.subnet_coldkey_validator {
+                    let coldkey = coldkey_validator[0].clone();
+                    let hotkey = coldkey_validator[1].clone();
                     Pallet::<T>::create_account_if_non_existent(&coldkey, &hotkey);
                     Pallet::<T>::append_neuron(1, &hotkey, 0);
+                    Pallet::<T>::increase_stake_on_coldkey_hotkey_account(
+                        &coldkey,
+                        &hotkey,
+                        stake_amount,
+                    );
+                }
+
+                // Register all miners account, no any stake for miners
+                if let Some(miners) = &self.miners {
+                    for miner in miners.iter() {
+                        Pallet::<T>::create_account_if_non_existent(&miner.0, &miner.1);
+                        Pallet::<T>::append_neuron(1, &miner.1, 0);
+                    }
                 }
             }
 

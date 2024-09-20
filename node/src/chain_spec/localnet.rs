@@ -141,6 +141,7 @@ fn localnet_genesis(
         get_account_id_from_seed::<sr25519::Public>("Ferdie"),
     ];
 
+    let alice_account = get_account_id_from_seed::<sr25519::Public>("Alice");
     serde_json::json!({
         "balances": { "balances": balances },
         "aura": {
@@ -163,15 +164,15 @@ fn localnet_genesis(
         },
         "subtensorModule": {
             "initializeNetwork1": true,
-            "initializeNetwork_3": false,
-            "rootColdkeyValidator": Some((get_account_id_from_seed::<sr25519::Public>("Alice"), root_validator)),
-            "subnetColdkeyValidator": Some((get_account_id_from_seed::<sr25519::Public>("Alice"), subnet_validator)),
-            "miners": Some([
-                miners[0].0.clone(),
-                miners[1].0.clone(),
-                miners[2].0.clone(),
-                miners[3].0.clone(),
-                miners[4].0.clone(),
+            "initializeNetwork3": false,
+            "rootColdkeyValidator": Some(vec![alice_account.clone(), root_validator.0]),
+            "subnetColdkeyValidator": Some(vec![alice_account.clone(), subnet_validator.0]),
+            "miners": Some(vec![
+                (alice_account.clone(), miners[0].0.clone()),
+                (alice_account.clone(), miners[1].0.clone()),
+                (alice_account.clone(), miners[2].0.clone()),
+                (alice_account.clone(), miners[3].0.clone()),
+                (alice_account.clone(), miners[4].0.clone()),
             ]),
         },
     })

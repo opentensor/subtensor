@@ -1239,11 +1239,11 @@ pub mod pallet {
         /// Flag to initialize network 3.
         pub initialize_network_3: bool,
         /// The root validator account ID.
-        pub root_coldkey_validator: Option<(T::AccountId, T::AccountId)>,
+        pub root_coldkey_validator: Option<Vec<T::AccountId>>,
         /// The subnet validator account ID.
-        pub subnet_coldkey_validator: Option<(T::AccountId, T::AccountId)>,
+        pub subnet_coldkey_validator: Option<Vec<T::AccountId>>,
         /// The miner account IDs.
-        pub miners: Option<[T::AccountId; 5]>,
+        pub miners: Option<Vec<(T::AccountId, T::AccountId)>>,
     }
 
     impl<T: Config> Default for GenesisConfig<T> {
