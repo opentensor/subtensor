@@ -1,5 +1,4 @@
 use frame_support::pallet_macros::pallet_section;
-
 /// A [`pallet_section`] that defines the errors for a pallet.
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
@@ -1032,6 +1031,7 @@ mod dispatches {
         /// * `destination_hotkey` - The account ID of the hotkey to which the stake is being moved.
         /// * `origin_netuid` - The network ID of the origin subnet.
         /// * `destination_netuid` - The network ID of the destination subnet.
+        /// * `netuid_amount_vec` - The distribution of unstaked TAO, to different network and the propotions
         ///
         /// # Returns
         /// * `DispatchResult` - Indicates the success or failure of the operation.
@@ -1042,6 +1042,8 @@ mod dispatches {
         /// * Either the origin or destination subnet does not exist.
         /// * The `origin_hotkey` or `destination_hotkey` does not exist.
         /// * There are locked funds that cannot be moved across subnets.
+        ///	* There is duplicate netuid in netuid_amount_vec
+        /// * The sum of amount in netuid_amount_vec is zero
         ///
         /// # Events
         /// Emits a `StakeMoved` event upon successful completion of the stake movement.
@@ -1052,16 +1054,16 @@ mod dispatches {
             origin_hotkey: T::AccountId,
             destination_hotkey: T::AccountId,
             origin_netuid: u16,
-            destination_netuid: u16,
             amount_moved: Option<u64>,
+            netuid_amount_vec: Vec<(u16, u64)>,
         ) -> DispatchResult {
             Self::do_move_stake(
                 origin,
                 origin_hotkey,
                 destination_hotkey,
                 origin_netuid,
-                destination_netuid,
                 amount_moved,
+                netuid_amount_vec,
             )
         }
     }

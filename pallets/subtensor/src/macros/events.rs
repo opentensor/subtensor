@@ -183,12 +183,25 @@ mod events {
         MechanismAdded(u16),
         /// Lock increased
         LockIncreased(T::AccountId, T::AccountId, u16, u64),
-        /// Lock interval set        
+        /// Lock interval set
         LockIntervalSet(u64),
         /// Network activated
         NetworkActivated(u16),
         /// StakeMoved
-        StakeMoved(T::AccountId, T::AccountId, u16, T::AccountId, u16),
+        StakeMoved {
+            /// The account ID of the coldkey
+            coldkey: T::AccountId,
+            /// The account ID of the origin hotkey
+            origin_hotkey: T::AccountId,
+            /// The network ID of the origin subnet
+            origin_netuid: u16,
+            /// The account ID of the destination hotkey
+            destination_hotkey: T::AccountId,
+            /// The network ID of the destination subnet
+            destination_netuid: u16,
+            /// The amount of stake moved
+            stake_amount: u64,
+        },
         /// SubnetConverted meaning the owner has converted their lock and now the owner position is open.
         SubnetConverted(u16),
     }
