@@ -149,4 +149,3 @@ fn test_set_and_get_hotkey_emission_tempo() {
         assert_eq!(updated_tempo, new_tempo);
     });
 }
-
