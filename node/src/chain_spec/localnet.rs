@@ -11,6 +11,17 @@ pub fn localnet_config() -> Result<ChainSpec, String> {
     properties.insert("tokenSymbol".into(), "TAO".into());
     properties.insert("tokenDecimals".into(), 9.into());
     properties.insert("ss58Format".into(), 42.into());
+    let genesis = localnet_genesis(
+        // Initial PoA authorities (Validators)
+        // aura | grandpa
+        vec![
+            // Keys for debug
+            authority_keys_from_seed("Alice"),
+            authority_keys_from_seed("Bob"),
+        ],
+        // Pre-funded accounts
+        false,
+    );
 
     Ok(ChainSpec::builder(
         wasm_binary,
@@ -29,17 +40,7 @@ pub fn localnet_config() -> Result<ChainSpec, String> {
     .with_protocol_id("bittensor")
     .with_id("bittensor")
     .with_chain_type(ChainType::Development)
-    .with_genesis_config_patch(localnet_genesis(
-        // Initial PoA authorities (Validators)
-        // aura | grandpa
-        vec![
-            // Keys for debug
-            authority_keys_from_seed("Alice"),
-            authority_keys_from_seed("Bob"),
-        ],
-        // Pre-funded accounts
-        true,
-    ))
+    .with_genesis_config_patch(genesis)
     .with_properties(properties)
     .build())
 }
@@ -74,6 +75,50 @@ fn localnet_genesis(
             2000000000000u128,
         ),
     ];
+
+    let root_validator = (
+        get_account_id_from_seed::<sr25519::Public>("RootValidator"),
+        // 10000 TAO
+        10_000_000_000_000_u128,
+    );
+
+    let subnet_validator = (
+        get_account_id_from_seed::<sr25519::Public>("SubnetValidator"),
+        // 2000 TAO
+        2_000_000_000_000_u128,
+    );
+
+    let miners = [
+        (
+            get_account_id_from_seed::<sr25519::Public>("Miner1"),
+            // 10 TAO
+            10_000_000_000_u128,
+        ),
+        (
+            get_account_id_from_seed::<sr25519::Public>("Miner2"),
+            // 10 TAO
+            10_000_000_000_u128,
+        ),
+        (
+            get_account_id_from_seed::<sr25519::Public>("Miner3"),
+            // 10 TAO
+            10_000_000_000_u128,
+        ),
+        (
+            get_account_id_from_seed::<sr25519::Public>("Miner4"),
+            // 10 TAO
+            10_000_000_000_u128,
+        ),
+        (
+            get_account_id_from_seed::<sr25519::Public>("Miner5"),
+            // 10 TAO
+            10_000_000_000_u128,
+        ),
+    ];
+
+    balances.push(root_validator.clone());
+    balances.push(subnet_validator.clone());
+    balances.append(&mut miners.to_vec());
 
     // Check if the environment variable is set
     if let Ok(bt_wallet) = env::var("BT_DEFAULT_TOKEN_WALLET") {
@@ -115,6 +160,19 @@ fn localnet_genesis(
         },
         "senateMembers": {
             "members": senate_members,
+        },
+        "subtensorModule": {
+            "initializeNetwork1": true,
+            "initializeNetwork_3": false,
+            "rootColdkeyValidator": Some((get_account_id_from_seed::<sr25519::Public>("Alice"), root_validator)),
+            "subnetColdkeyValidator": Some((get_account_id_from_seed::<sr25519::Public>("Alice"), subnet_validator)),
+            "miners": Some([
+                miners[0].0.clone(),
+                miners[1].0.clone(),
+                miners[2].0.clone(),
+                miners[3].0.clone(),
+                miners[4].0.clone(),
+            ]),
         },
     })
 }

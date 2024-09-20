@@ -1238,6 +1238,12 @@ pub mod pallet {
         pub initialize_network_1: bool,
         /// Flag to initialize network 3.
         pub initialize_network_3: bool,
+        /// The root validator account ID.
+        pub root_coldkey_validator: Option<(T::AccountId, T::AccountId)>,
+        /// The subnet validator account ID.
+        pub subnet_coldkey_validator: Option<(T::AccountId, T::AccountId)>,
+        /// The miner account IDs.
+        pub miners: Option<[T::AccountId; 5]>,
     }
 
     impl<T: Config> Default for GenesisConfig<T> {
@@ -1247,6 +1253,9 @@ pub mod pallet {
                 balances_issuance: 0,
                 initialize_network_1: false,
                 initialize_network_3: true,
+                root_coldkey_validator: None,
+                subnet_coldkey_validator: None,
+                miners: None,
             }
         }
     }

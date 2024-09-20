@@ -1,5 +1,4 @@
 use frame_support::pallet_macros::pallet_section;
-
 /// A [`pallet_section`] that defines the errors for a pallet.
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
@@ -77,6 +76,10 @@ mod genesis {
 
             if self.initialize_network_1 {
                 init_network::<T>(1, tempo);
+                if let Some((coldkey, hotkey)) = &self.subnet_coldkey_validator {
+                    crate::Pallet::<T>::create_account_if_non_existent(&coldkey, &hotkey);
+                    crate::Pallet::<T>::append_neuron(1, &hotkey, 0);
+                }
             }
 
             if self.initialize_network_3 {

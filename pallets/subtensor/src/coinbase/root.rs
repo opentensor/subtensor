@@ -1240,6 +1240,9 @@ impl<T: Config> Pallet<T> {
     ///     - The lock cost for the network.
     ///
     pub fn get_network_lock_cost() -> u64 {
+        #[cfg(feature = "pow-faucet")]
+        return 0_64;
+
         let last_lock = Self::get_network_last_lock();
         let min_lock = Self::get_network_min_lock();
         let last_lock_block = Self::get_network_last_lock_block();
