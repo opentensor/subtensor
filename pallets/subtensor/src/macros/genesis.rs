@@ -77,8 +77,8 @@ mod genesis {
             if self.initialize_network_1 {
                 init_network::<T>(1, tempo);
                 if let Some((coldkey, hotkey)) = &self.subnet_coldkey_validator {
-                    crate::Pallet::<T>::create_account_if_non_existent(&coldkey, &hotkey);
-                    crate::Pallet::<T>::append_neuron(1, &hotkey, 0);
+                    Pallet::<T>::create_account_if_non_existent(&coldkey, &hotkey);
+                    Pallet::<T>::append_neuron(1, &hotkey, 0);
                 }
             }
 
