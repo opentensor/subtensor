@@ -3,10 +3,10 @@
 # Check if `--no-purge` passed as a parameter
 NO_PURGE=0
 for arg in "$@"; do
-    if [ "$arg" = "--no-purge" ]; then
-        NO_PURGE=1
-        break
-    fi
+  if [ "$arg" = "--no-purge" ]; then
+    NO_PURGE=1
+    break
+  fi
 done
 
 # Determine the directory this script resides in. This allows invoking it from any location.

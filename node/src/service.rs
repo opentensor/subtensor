@@ -17,11 +17,50 @@ use std::{sync::Arc, time::Duration};
 /// imported and generated.
 const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
 
+<<<<<<< HEAD
 pub(crate) type FullClient = sc_service::TFullClient<
     Block,
     RuntimeApi,
     WasmExecutor<sp_io::SubstrateHostFunctions>
 >;
+=======
+// Our native executor instance.
+pub struct ExecutorDispatch;
+
+// appeasing the compiler, this is a no-op
+impl HostFunctions for ExecutorDispatch {
+    fn host_functions() -> Vec<&'static dyn Function> {
+        vec![]
+    }
+
+    fn register_static<T>(_registry: &mut T) -> core::result::Result<(), T::Error>
+    where
+        T: HostFunctionRegistry,
+    {
+        Ok(())
+    }
+}
+
+impl sc_executor::NativeExecutionDispatch for ExecutorDispatch {
+    // Always enable runtime benchmark host functions, the genesis state
+    // was built with them so we're stuck with them forever.
+    //
+    // They're just a noop, never actually get used if the runtime was not compiled with
+    // `runtime-benchmarks`.
+    type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+
+    fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+        node_subtensor_runtime::api::dispatch(method, data)
+    }
+
+    fn native_version() -> sc_executor::NativeVersion {
+        node_subtensor_runtime::native_version()
+    }
+}
+
+pub(crate) type FullClient =
+    sc_service::TFullClient<Block, RuntimeApi, NativeElseWasmExecutor<ExecutorDispatch>>;
+>>>>>>> f37d9c1b (fix node dep on runtime-benchmarks)
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 
