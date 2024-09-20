@@ -325,7 +325,7 @@ impl<T: Config> Pallet<T> {
             subnetwork_uid = current_subnetwork_n;
 
             // --- 11.1.2 Expand subnetwork with new account.
-            Self::append_neuron(netuid, &hotkey, current_block_number); 
+            Self::append_neuron(netuid, &hotkey, current_block_number);
             log::debug!("add new neuron account");
         } else {
             // --- 11.1.1 Replacement required.
