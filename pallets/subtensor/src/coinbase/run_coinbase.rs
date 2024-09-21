@@ -48,9 +48,6 @@ impl<T: Config> Pallet<T> {
         // --- 3. Drain the subnet block emission and accumulate it as subnet emission, which increases until the tempo is reached in #4.
         // subnet_blockwise_emission -> subnet_pending_emission
         for netuid in subnets.clone().iter() {
-            if *netuid == 0 {
-                continue;
-            }
             // --- 3.1 Get the network's block-wise emission amount.
             // This value is newly minted TAO which has not reached staking accounts yet.
             let subnet_blockwise_emission: u64 = EmissionValues::<T>::get(*netuid);
@@ -249,20 +246,6 @@ impl<T: Config> Pallet<T> {
         });
     }
 
-    /// Calculates the nonviable stake for a nominator.
-    /// The nonviable stake is the stake that was added by the nominator since the last emission drain.
-    /// This stake will not receive emission until the next emission drain.
-    /// Note: if the stake delta is below zero, we return zero. We don't allow more stake than the nominator has.
-    pub fn get_nonviable_stake(hotkey: &T::AccountId, nominator: &T::AccountId) -> u64 {
-        let stake_delta = StakeDeltaSinceLastEmissionDrain::<T>::get(hotkey, nominator);
-        if stake_delta.is_negative() {
-            0
-        } else {
-            // Should never fail the into, but we handle it anyway.
-            stake_delta.try_into().unwrap_or(u64::MAX)
-        }
-    }
-
     //. --- 4. Drains the accumulated hotkey emission through to the nominators. The hotkey takes a proportion of the emission.
     /// The remainder is drained through to the nominators keeping track of the last stake increase event to ensure that the hotkey does not
     /// gain more emission than it's stake since the last drain.
@@ -282,66 +265,67 @@ impl<T: Config> Pallet<T> {
         // --- 1.0 Drain the hotkey emission.
         PendingdHotkeyEmission::<T>::insert(hotkey, 0);
 
-        // --- 2 Update the block value to the current block number.
+        // --- 2 Retrieve the last time this hotkey's emissions were drained.
+        let last_emission_drain: u64 = LastHotkeyEmissionDrain::<T>::get(hotkey);
+
+        // --- 3 Update the block value to the current block number.
         LastHotkeyEmissionDrain::<T>::insert(hotkey, block_number);
 
-        // --- 3 Retrieve the total stake for the hotkey from all nominations.
+        // --- 4 Retrieve the total stake for the hotkey from all nominations.
         let total_hotkey_stake: u64 = Self::get_total_stake_for_hotkey(hotkey);
 
-        // --- 4 Calculate the emission take for the hotkey.
+        // --- 5 Calculate the emission take for the hotkey.
         let take_proportion: I64F64 = I64F64::from_num(Delegates::<T>::get(hotkey))
             .saturating_div(I64F64::from_num(u16::MAX));
         let hotkey_take: u64 =
             (take_proportion.saturating_mul(I64F64::from_num(emission))).to_num::<u64>();
 
-        // --- 5 Compute the remaining emission after deducting the hotkey's take.
+        // --- 6 Compute the remaining emission after deducting the hotkey's take.
         let emission_minus_take: u64 = emission.saturating_sub(hotkey_take);
 
-        // --- 6 Calculate the remaining emission after the hotkey's take.
+        // --- 7 Calculate the remaining emission after the hotkey's take.
         let mut remainder: u64 = emission_minus_take;
 
-        // --- 7 Iterate over each nominator and get all viable stake.
+        // --- 8 Iterate over each nominator and get all viable stake.
         let mut total_viable_nominator_stake: u64 = total_hotkey_stake;
-        for (nominator, _) in Stake::<T>::iter_prefix(hotkey) {
-            let nonviable_nomintaor_stake = Self::get_nonviable_stake(hotkey, &nominator);
-
-            total_viable_nominator_stake =
-                total_viable_nominator_stake.saturating_sub(nonviable_nomintaor_stake);
+        for (nominator, nominator_stake) in Stake::<T>::iter_prefix(hotkey) {
+            if LastAddStakeIncrease::<T>::get(hotkey, nominator) > last_emission_drain {
+                total_viable_nominator_stake =
+                    total_viable_nominator_stake.saturating_sub(nominator_stake);
+            }
         }
 
-        // --- 8 Iterate over each nominator.
+        // --- 9 Iterate over each nominator.
         if total_viable_nominator_stake != 0 {
             for (nominator, nominator_stake) in Stake::<T>::iter_prefix(hotkey) {
-                // --- 9 Skip emission for any stake the was added by the nominator since the last emission drain.
-                // This means the nominator will get emission on existing stake, but not on new stake, until the next emission drain.
-                let viable_nominator_stake =
-                    nominator_stake.saturating_sub(Self::get_nonviable_stake(hotkey, &nominator));
+                // --- 10 Check if the stake was manually increased by the user since the last emission drain for this hotkey.
+                // If it was, skip this nominator as they will not receive their proportion of the emission.
+                if LastAddStakeIncrease::<T>::get(hotkey, nominator.clone()) > last_emission_drain {
+                    continue;
+                }
 
-                // --- 10 Calculate this nominator's share of the emission.
-                let nominator_emission: I64F64 = I64F64::from_num(viable_nominator_stake)
+                // --- 11 Calculate this nominator's share of the emission.
+                let nominator_emission: I64F64 = I64F64::from_num(emission_minus_take)
+                    .saturating_mul(I64F64::from_num(nominator_stake))
                     .checked_div(I64F64::from_num(total_viable_nominator_stake))
-                    .unwrap_or(I64F64::from_num(0))
-                    .saturating_mul(I64F64::from_num(emission_minus_take));
+                    .unwrap_or(I64F64::from_num(0));
 
-                // --- 11 Increase the stake for the nominator.
+                // --- 12 Increase the stake for the nominator.
                 Self::increase_stake_on_coldkey_hotkey_account(
                     &nominator,
                     hotkey,
                     nominator_emission.to_num::<u64>(),
                 );
 
-                // --- 12* Record event and Subtract the nominator's emission from the remainder.
+                // --- 13* Record event and Subtract the nominator's emission from the remainder.
                 total_new_tao = total_new_tao.saturating_add(nominator_emission.to_num::<u64>());
                 remainder = remainder.saturating_sub(nominator_emission.to_num::<u64>());
             }
         }
 
-        // --- 13 Finally, add the stake to the hotkey itself, including its take and the remaining emission.
+        // --- 14 Finally, add the stake to the hotkey itself, including its take and the remaining emission.
         let hotkey_new_tao: u64 = hotkey_take.saturating_add(remainder);
         Self::increase_stake_on_hotkey_account(hotkey, hotkey_new_tao);
-
-        // --- 14 Reset the stake delta for the hotkey.
-        let _ = StakeDeltaSinceLastEmissionDrain::<T>::clear_prefix(hotkey, u32::MAX, None);
 
         // --- 15 Record new tao creation event and return the amount created.
         total_new_tao = total_new_tao.saturating_add(hotkey_new_tao);

@@ -226,11 +226,6 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
-    /// Default stake delta.
-    pub fn DefaultStakeDelta<T: Config>() -> i128 {
-        0
-    }
-    #[pallet::type_value]
     /// Default stakes per interval.
     pub fn DefaultStakesPerInterval<T: Config>() -> (u64, u64) {
         (0, 0)
@@ -775,18 +770,6 @@ pub mod pallet {
         DefaultAccountTake<T>,
     >;
     #[pallet::storage]
-    /// Map ( hot, cold ) --> stake: i128 | Stake added/removed since last emission drain.
-    pub type StakeDeltaSinceLastEmissionDrain<T: Config> = StorageDoubleMap<
-        _,
-        Blake2_128Concat,
-        T::AccountId,
-        Identity,
-        T::AccountId,
-        i128,
-        ValueQuery,
-        DefaultStakeDelta<T>,
-    >;
-    #[pallet::storage]
     /// DMAP ( parent, netuid ) --> Vec<(proportion,child)>
     pub type ChildKeys<T: Config> = StorageDoubleMap<
         _,
@@ -1267,7 +1250,7 @@ pub mod pallet {
         /// Returns the transaction priority for setting weights.
         pub fn get_priority_set_weights(hotkey: &T::AccountId, netuid: u16) -> u64 {
             if let Ok(uid) = Self::get_uid_for_net_and_hotkey(netuid, hotkey) {
-                let _stake = Self::get_stake_for_hotkey_on_subnet(hotkey, netuid);
+                let _stake = Self::get_total_stake_for_hotkey(hotkey);
                 let current_block_number: u64 = Self::get_current_block_as_u64();
                 let default_priority: u64 =
                     current_block_number.saturating_sub(Self::get_last_update_for_uid(netuid, uid));
@@ -1277,9 +1260,9 @@ pub mod pallet {
         }
 
         /// Is the caller allowed to set weights
-        pub fn check_weights_min_stake(hotkey: &T::AccountId, netuid: u16) -> bool {
+        pub fn check_weights_min_stake(hotkey: &T::AccountId) -> bool {
             // Blacklist weights transactions for low stake peers.
-            Self::get_stake_for_hotkey_on_subnet(hotkey, netuid) >= Self::get_weights_min_stake()
+            Self::get_total_stake_for_hotkey(hotkey) >= Self::get_weights_min_stake()
         }
 
         /// Helper function to check if register is allowed
@@ -1372,8 +1355,8 @@ where
         Pallet::<T>::get_priority_set_weights(who, netuid)
     }
 
-    pub fn check_weights_min_stake(who: &T::AccountId, netuid: u16) -> bool {
-        Pallet::<T>::check_weights_min_stake(who, netuid)
+    pub fn check_weights_min_stake(who: &T::AccountId) -> bool {
+        Pallet::<T>::check_weights_min_stake(who)
     }
 }
 
@@ -1411,7 +1394,7 @@ where
     ) -> TransactionValidity {
         match call.is_sub_type() {
             Some(Call::commit_weights { netuid, .. }) => {
-                if Self::check_weights_min_stake(who, *netuid) {
+                if Self::check_weights_min_stake(who) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
                     Ok(ValidTransaction {
                         priority,
@@ -1423,7 +1406,7 @@ where
                 }
             }
             Some(Call::reveal_weights { netuid, .. }) => {
-                if Self::check_weights_min_stake(who, *netuid) {
+                if Self::check_weights_min_stake(who) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
                     Ok(ValidTransaction {
                         priority,
@@ -1435,7 +1418,7 @@ where
                 }
             }
             Some(Call::set_weights { netuid, .. }) => {
-                if Self::check_weights_min_stake(who, *netuid) {
+                if Self::check_weights_min_stake(who) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
                     Ok(ValidTransaction {
                         priority,
@@ -1447,7 +1430,7 @@ where
                 }
             }
             Some(Call::set_root_weights { netuid, hotkey, .. }) => {
-                if Self::check_weights_min_stake(hotkey, *netuid) {
+                if Self::check_weights_min_stake(hotkey) {
                     let priority: u64 = Self::get_priority_set_weights(hotkey, *netuid);
                     Ok(ValidTransaction {
                         priority,
