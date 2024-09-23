@@ -461,6 +461,664 @@ fn test_root_set_weights_out_of_order_netuids() {
     });
 }
 
+// Helper function to register a hotkey on a subnet
+fn register_hotkey_on_subnet(
+    netuid: u16,
+    coldkey_account_id: U256,
+    hotkey_account_id: U256,
+) {
+    // Enable registration on the subnet
+    SubtensorModule::set_network_registration_allowed(netuid, true);
+    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+
+    // Set registration parameters
+    SubtensorModule::set_max_registrations_per_block(netuid, 10);
+    SubtensorModule::set_target_registrations_per_interval(netuid, 10);
+    SubtensorModule::set_max_allowed_uids(netuid, 10);
+
+    // Generate nonce and work for registration
+    let block_number: u64 = SubtensorModule::get_current_block_as_u64();
+    let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        netuid,
+        block_number,
+        0,
+        &hotkey_account_id,
+    );
+
+    assert_ok!(SubtensorModule::register(
+        <<Test as frame_system::Config>::RuntimeOrigin>::signed(hotkey_account_id),
+        netuid,
+        block_number,
+        nonce,
+        work,
+        hotkey_account_id,
+        coldkey_account_id,
+    ));
+}
+
+
+
+// Test when the hotkey account does not exist.
+#[test]
+fn test_root_set_weights_hotkey_not_exists() {
+    new_test_ext(1).execute_with(|| {
+        System::set_block_number(0);
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
+
+        let root_netuid: u16 = 0;
+
+        // Create a coldkey account and fund it
+        let coldkey_account_id: U256 = U256::from(0);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1_000_000_000_000_000);
+
+        // Use a hotkey that does not exist
+        let hotkey_account_id: U256 = U256::from(9999);
+
+        // Try to set weights with non-existing hotkey
+        let uids: Vec<u16> = vec![1];
+        let values: Vec<u16> = vec![1];
+
+        assert_err!(
+            SubtensorModule::set_root_weights(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                root_netuid,
+                hotkey_account_id,
+                uids,
+                values,
+                0,
+            ),
+            Error::<Test>::HotKeyAccountNotExists
+        );
+    });
+}
+
+// Test when the subnet does not exist.
+#[test]
+fn test_root_set_weights_subnet_does_not_exist() {
+    new_test_ext(1).execute_with(|| {
+        System::set_block_number(0);
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
+
+        let non_existent_netuid: u16 = 9999;
+
+        // Create and register hotkey and coldkey
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id: U256 = U256::from(1);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1_000_000_000_000_000);
+        // Register the hotkey on root network
+        assert_ok!(SubtensorModule::root_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+        ));
+
+        let uids: Vec<u16> = vec![1];
+        let values: Vec<u16> = vec![1];
+
+        // Try to set weights on a non-existent subnet
+        assert_err!(
+            SubtensorModule::set_root_weights(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                non_existent_netuid,
+                hotkey_account_id,
+                uids,
+                values,
+                0,
+            ),
+            Error::<Test>::SubNetworkDoesNotExist
+        );
+    });
+}
+
+// Test when using a netuid that is not the root network.
+#[test]
+fn test_root_set_weights_not_root_subnet() {
+    new_test_ext(1).execute_with(|| {
+        System::set_block_number(0);
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
+
+        let netuid: u16 = 1;
+
+        // Create and register hotkey and coldkey
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id: U256 = U256::from(1);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1_000_000_000_000_000);
+
+        // Register other network
+        assert_ok!(SubtensorModule::register_network(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+        ));
+
+        // Register the hotkey on the other network
+        register_hotkey_on_subnet(netuid, coldkey_account_id, hotkey_account_id);
+
+        let uids: Vec<u16> = vec![netuid];
+        let values: Vec<u16> = vec![1];
+
+        // Try to set weights on a network that is not the root subnet
+        assert_err!(
+            SubtensorModule::set_root_weights(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                netuid,
+                hotkey_account_id,
+                uids,
+                values,
+                0,
+            ),
+            Error::<Test>::NotRootSubnet
+        );
+    });
+}
+
+// Test when uids and values vectors have different lengths.
+#[test]
+fn test_root_set_weights_weight_vec_not_equal_size() {
+    new_test_ext(1).execute_with(|| {
+        System::set_block_number(0);
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
+
+        let root_netuid: u16 = 0;
+
+        // Create and register hotkey and coldkey on root network
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id: U256 = U256::from(1);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey_account_id,
+            1_000_000_000_000_000,
+        );
+        assert_ok!(SubtensorModule::root_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+        ));
+
+        // Stake tokens
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            1000
+        ));
+
+        let uids: Vec<u16> = vec![1, 2];
+        let values: Vec<u16> = vec![1];
+
+        // Try to set weights with mismatched uids and values length
+        assert_err!(
+            SubtensorModule::set_root_weights(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                root_netuid,
+                hotkey_account_id,
+                uids,
+                values,
+                0,
+            ),
+            Error::<Test>::WeightVecNotEqualSize
+        );
+    });
+}
+
+// Test when uids contain invalid subnet netuids.
+#[test]
+fn test_root_set_weights_invalid_uids() {
+    new_test_ext(1).execute_with(|| {
+        System::set_block_number(0);
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
+
+        let root_netuid: u16 = 0;
+
+        // Create and register hotkey and coldkey on root network
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id: U256 = U256::from(1);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey_account_id,
+            1_000_000_000_000_000,
+        );
+        assert_ok!(SubtensorModule::root_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+        ));
+
+        // Stake tokens
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            1000
+        ));
+
+        // Register other networks
+        assert_ok!(SubtensorModule::register_network(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+        )); // netuid 1
+
+        // Valid netuids are 0 (root), 1 (registered above)
+        let invalid_netuid: u16 = 9999; // invalid netuid
+
+        let uids: Vec<u16> = vec![invalid_netuid];
+        let values: Vec<u16> = vec![1];
+
+        // Try to set weights with invalid uids
+        assert_err!(
+            SubtensorModule::set_root_weights(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                root_netuid,
+                hotkey_account_id,
+                uids,
+                values,
+                0,
+            ),
+            Error::<Test>::UidVecContainInvalidOne
+        );
+    });
+}
+
+// Test when the hotkey is not registered on the root network.
+#[test]
+fn test_root_set_weights_hotkey_not_registered_in_subnet() {
+    new_test_ext(1).execute_with(|| {
+        System::set_block_number(0);
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
+
+        let root_netuid: u16 = 0;
+        let other_netuid: u16 = 1;
+
+        // Create and register coldkey
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id: U256 = U256::from(1);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey_account_id,
+            1_000_000_000_000_000,
+        );
+
+        // Register other network
+        assert_ok!(SubtensorModule::register_network(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+        ));
+
+        // Register hotkey on other subnet
+        register_hotkey_on_subnet(other_netuid, coldkey_account_id, hotkey_account_id);
+
+        // Do NOT register the hotkey on the root network
+
+        // Stake tokens
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            1000
+        ));
+
+        let uids: Vec<u16> = vec![other_netuid]; // Use valid netuid
+        let values: Vec<u16> = vec![1];
+
+        // Try to set weights with hotkey not registered on root network
+        assert_err!(
+            SubtensorModule::set_root_weights(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                root_netuid,
+                hotkey_account_id,
+                uids,
+                values,
+                0,
+            ),
+            Error::<Test>::HotKeyNotRegisteredInSubNet
+        );
+    });
+}
+
+// Test when the hotkey does not have enough stake.
+#[test]
+fn test_root_set_weights_not_enough_stake() {
+    new_test_ext(1).execute_with(|| {
+        System::set_block_number(1);
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
+
+        let root_netuid: u16 = 0;
+
+        // Set the minimum stake required to set weights
+        SubtensorModule::set_weights_min_stake(1000);
+
+        // Create and register hotkey and coldkey on root network
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id: U256 = U256::from(1);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1_000_000_000_000_000);
+        assert_ok!(SubtensorModule::root_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+        ));
+
+        // Do NOT stake any tokens
+
+        let uids: Vec<u16> = vec![0];
+        let values: Vec<u16> = vec![1];
+
+        // Get the correct version_key
+        let version_key = SubtensorModule::get_weights_version_key(root_netuid);
+
+        // Try to set weights without enough stake
+        assert_err!(
+            SubtensorModule::set_root_weights(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                root_netuid,
+                hotkey_account_id,
+                uids,
+                values,
+                version_key,
+            ),
+            Error::<Test>::NotEnoughStakeToSetWeights
+        );
+    });
+}
+
+
+// Test when providing an incorrect version_key.
+#[test]
+fn test_root_set_weights_incorrect_version_key() {
+    new_test_ext(1).execute_with(|| {
+        System::set_block_number(1);
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
+
+        let root_netuid: u16 = 0;
+
+        // Set the weights set rate limit for the root network
+        SubtensorModule::set_weights_set_rate_limit(root_netuid, 1);
+
+        // Create and register hotkey and coldkey on the root network
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id: U256 = U256::from(1);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey_account_id,
+            1_000_000_000_000_000,
+        );
+        assert_ok!(SubtensorModule::root_register(
+            <<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+        ));
+
+        // Advance the block number to satisfy the rate limit
+        System::set_block_number(System::block_number() + 1);
+
+        // Stake tokens
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            1000,
+        ));
+
+        // Get the initial version_key
+        let version_key_initial = SubtensorModule::get_weights_version_key(root_netuid);
+
+        // Set weights successfully with the initial version_key
+        let uids: Vec<u16> = vec![0];
+        let values: Vec<u16> = vec![1];
+        assert_ok!(SubtensorModule::set_root_weights(
+            <<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            root_netuid,
+            hotkey_account_id,
+            uids.clone(),
+            values.clone(),
+            version_key_initial,
+        ));
+
+        // Advance the block number to satisfy the rate limit
+        System::set_block_number(System::block_number() + 1);
+
+        // Get the updated version_key
+        let version_key_updated = SubtensorModule::get_weights_version_key(root_netuid);
+
+        // Ensure that the version_key has incremented
+        assert!(version_key_updated > version_key_initial);
+
+        // Attempt to set weights again using the old version_key
+        assert_err!(
+            SubtensorModule::set_root_weights(
+                <<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                root_netuid,
+                hotkey_account_id,
+                uids,
+                values,
+                version_key_initial, // Old version_key
+            ),
+            Error::<Test>::IncorrectWeightVersionKey
+        );
+    });
+}
+
+// Test when setting weights faster than the weights_set_rate_limit.
+#[test]
+fn test_root_set_weights_too_fast() {
+    new_test_ext(1).execute_with(|| {
+        System::set_block_number(1);
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
+
+        let root_netuid: u16 = 0;
+
+        // Set the weights set rate limit to 10 (weights can be set every 10 blocks)
+        SubtensorModule::set_weights_set_rate_limit(root_netuid, 10);
+
+        // Create and register hotkey and coldkey on root network
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id: U256 = U256::from(1);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey_account_id,
+            1_000_000_000_000_000,
+        );
+        assert_ok!(SubtensorModule::root_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+        ));
+
+        // Advance the block number to pass the initial rate limit
+        System::set_block_number(System::block_number() + 10);
+
+        // Stake tokens
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            1000
+        ));
+
+        // Get the correct version_key
+        let version_key = SubtensorModule::get_weights_version_key(root_netuid);
+
+        let uids: Vec<u16> = vec![root_netuid];
+        let values: Vec<u16> = vec![1];
+
+        // Set weights for the first time
+        assert_ok!(SubtensorModule::set_root_weights(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            root_netuid,
+            hotkey_account_id,
+            uids.clone(),
+            values.clone(),
+            version_key,
+        ));
+
+        // Attempt to set weights again without advancing the block number
+        let new_version_key = SubtensorModule::get_weights_version_key(root_netuid);
+
+        assert_err!(
+            SubtensorModule::set_root_weights(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                root_netuid,
+                hotkey_account_id,
+                uids,
+                values,
+                new_version_key,
+            ),
+            Error::<Test>::SettingWeightsTooFast
+        );
+    });
+}
+
+// Test when uids vector contains duplicates.
+#[test]
+fn test_root_set_weights_duplicate_uids() {
+    new_test_ext(1).execute_with(|| {
+        System::set_block_number(1);
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
+
+        let root_netuid: u16 = 0;
+
+        // Set the weights set rate limit for the root network
+        SubtensorModule::set_weights_set_rate_limit(root_netuid, 1);
+
+        // Create and register hotkey and coldkey on root network
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id: U256 = U256::from(1);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey_account_id,
+            1_000_000_000_000_000,
+        );
+        assert_ok!(SubtensorModule::root_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+        ));
+
+        // Advance the block number to satisfy the rate limit
+        System::set_block_number(System::block_number() + 1);
+
+        // Stake tokens
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            1000
+        ));
+
+        // Get the correct version_key
+        let version_key = SubtensorModule::get_weights_version_key(root_netuid);
+
+        // Try to set weights with duplicate uids
+        let uids: Vec<u16> = vec![0, 0]; // Duplicate uids
+        let values: Vec<u16> = vec![1, 1];
+
+        assert_err!(
+            SubtensorModule::set_root_weights(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                root_netuid,
+                hotkey_account_id,
+                uids,
+                values,
+                version_key,
+            ),
+            Error::<Test>::DuplicateUids
+        );
+    });
+}
+
+// Test when weights vector length is too low.
+#[test]
+fn test_root_set_weights_length_too_low() {
+    new_test_ext(1).execute_with(|| {
+        System::set_block_number(1);
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
+
+        let root_netuid: u16 = 0;
+
+        // Set the weights set rate limit for the root network
+        SubtensorModule::set_weights_set_rate_limit(root_netuid, 1);
+
+        // **Set the minimum allowed weights length to 1**
+        SubtensorModule::set_min_allowed_weights(root_netuid, 1);
+
+        // Create and register hotkey and coldkey on root network
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id: U256 = U256::from(1);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1_000_000_000_000_000);
+        assert_ok!(SubtensorModule::root_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+        ));
+
+        // Advance the block number to satisfy the rate limit
+        System::set_block_number(System::block_number() + 1);
+
+        // Stake tokens
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            1000
+        ));
+
+        // Try to set weights with length too low
+        let uids: Vec<u16> = vec![]; // Empty vector
+        let values: Vec<u16> = vec![];
+
+        assert_err!(
+            SubtensorModule::set_root_weights(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                root_netuid,
+                hotkey_account_id,
+                uids,
+                values,
+                SubtensorModule::get_weights_version_key(root_netuid),
+            ),
+            Error::<Test>::WeightVecLengthIsLow
+        );
+    });
+}
+
+// Test when weights exceed the maximum weight limit.
+#[test]
+fn test_root_set_weights_max_weight_exceeded() {
+    new_test_ext(1).execute_with(|| {
+        System::set_block_number(1);
+
+        // Migrate and create root network
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
+
+        let root_netuid: u16 = 0;
+        let subnet_netuid: u16 = 1;
+
+        // Set the weights set rate limit for the root network
+        SubtensorModule::set_weights_set_rate_limit(root_netuid, 1);
+
+        // Set max weight limit for testing (e.g., 1000)
+        SubtensorModule::set_max_weight_limit(root_netuid, 1000);
+
+        // Create and register hotkey and coldkey for the neuron on root network
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id: U256 = U256::from(1);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1_000_000_000_000_000);
+        // Register neuron on root network
+        assert_ok!(SubtensorModule::root_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+        ));
+
+        // Register a new subnet with netuid `1`
+        assert_ok!(SubtensorModule::register_network(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+        ));
+
+        // Advance the block number to satisfy the rate limit after registration
+        System::set_block_number(System::block_number() + 1);
+
+        // Stake tokens for the neuron
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            1000
+        ));
+
+        // Get the correct version_key
+        let version_key = SubtensorModule::get_weights_version_key(root_netuid);
+
+        // Neuron tries to set weight to subnet netuid `1`, exceeding the max weight limit
+        let uids: Vec<u16> = vec![subnet_netuid]; // Setting weight to subnet netuid `1`
+        let values: Vec<u16> = vec![u16::MAX];     // Exceeding max weight limit
+
+        // Attempt to set weights and expect the `MaxWeightExceeded` error
+        assert_err!(
+            SubtensorModule::set_root_weights(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                root_netuid,        // The root network
+                hotkey_account_id,  // Neuron's hotkey
+                uids,
+                values,
+                version_key,
+            ),
+            Error::<Test>::MaxWeightExceeded
+        );
+    });
+}
+
 #[test]
 fn test_root_subnet_creation_deletion() {
     new_test_ext(1).execute_with(|| {
