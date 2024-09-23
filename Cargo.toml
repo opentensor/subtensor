@@ -35,6 +35,7 @@ members = [
     "support/linting",
     "support/procedural-fork",
 ]
+exclude = ["support/procedural-fork"]
 resolver = "2"
 
 [workspace.lints.clippy]
