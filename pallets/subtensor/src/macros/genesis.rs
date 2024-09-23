@@ -70,8 +70,6 @@ mod genesis {
             // Set initial total issuance from balances
             TotalIssuance::<T>::put(self.balances_issuance);
 
-            // let a = Ok(0);
-            // Subnet config values
             let tempo = 99;
 
             // Should be only for localnet
@@ -168,6 +166,8 @@ mod genesis {
 
             // Get the root network uid.
             let root_netuid: u16 = 0;
+            // Root validator with balance 10_000_000_000_000_u128, half of stake
+            let stake_amount = 5_000_000_000_000_u64;
 
             // Set the root network as added.
             NetworksAdded::<T>::insert(root_netuid, true);
@@ -198,6 +198,25 @@ mod genesis {
 
             // Set target registrations for validators as 1 per block.
             TargetRegistrationsPerInterval::<T>::insert(root_netuid, 1);
+
+            // Config the validator for root network
+            if let Some(coldkey_validator) = &self.root_coldkey_validator {
+                let coldkey = coldkey_validator
+                    .get(0)
+                    .expect("should config in genesis")
+                    .clone();
+                let hotkey = coldkey_validator
+                    .get(1)
+                    .expect("should config in genesis")
+                    .clone();
+                Pallet::<T>::create_account_if_non_existent(&coldkey, &hotkey);
+                Pallet::<T>::append_neuron(root_netuid, &hotkey, 0);
+                Pallet::<T>::increase_stake_on_coldkey_hotkey_account(
+                    &coldkey,
+                    &hotkey,
+                    stake_amount,
+                );
+            }
         }
     }
 }
