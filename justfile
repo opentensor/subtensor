@@ -51,4 +51,4 @@ lint:
 
 production:
   @echo "Running cargo build with metadata-hash generation..."
-  cargo +{{RUSTV}} build --profile production --features="metadata-hash"
+  cargo +{{RUSTV}} build -p node-subtensor --profile production --features="metadata-hash"
