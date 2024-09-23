@@ -16,9 +16,9 @@ pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, u64, 
 frame_support::construct_runtime!(
     pub enum Test
     {
-        System: frame_system,
-        Balances: pallet_balances,
-        Commitments: pallet_commitments
+        System: frame_system = 1,
+        Balances: pallet_balances = 2,
+        Commitments: pallet_commitments = 3,
     }
 );
 

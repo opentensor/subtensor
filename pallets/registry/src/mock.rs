@@ -12,8 +12,8 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
     pub enum Test
     {
-        System: frame_system,
-        TemplateModule: pallet_template,
+        System: frame_system = 1,
+        TemplateModule: pallet_template = 2,
     }
 );
 
