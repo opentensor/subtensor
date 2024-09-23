@@ -43,6 +43,7 @@ indexing-slicing = "deny"
 arithmetic-side-effects = "deny"
 type_complexity = "allow"
 unwrap-used = "deny"
+manual_inspect = "allow"
 
 [workspace.dependencies]
 cargo-husky = { version = "1", default-features = false }
