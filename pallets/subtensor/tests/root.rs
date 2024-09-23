@@ -462,11 +462,7 @@ fn test_root_set_weights_out_of_order_netuids() {
 }
 
 // Helper function to register a hotkey on a subnet
-fn register_hotkey_on_subnet(
-    netuid: u16,
-    coldkey_account_id: U256,
-    hotkey_account_id: U256,
-) {
+fn register_hotkey_on_subnet(netuid: u16, coldkey_account_id: U256, hotkey_account_id: U256) {
     // Enable registration on the subnet
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
@@ -478,12 +474,8 @@ fn register_hotkey_on_subnet(
 
     // Generate nonce and work for registration
     let block_number: u64 = SubtensorModule::get_current_block_as_u64();
-    let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
-        netuid,
-        block_number,
-        0,
-        &hotkey_account_id,
-    );
+    let (nonce, work): (u64, Vec<u8>) =
+        SubtensorModule::create_work_for_block_number(netuid, block_number, 0, &hotkey_account_id);
 
     assert_ok!(SubtensorModule::register(
         <<Test as frame_system::Config>::RuntimeOrigin>::signed(hotkey_account_id),
@@ -495,8 +487,6 @@ fn register_hotkey_on_subnet(
         coldkey_account_id,
     ));
 }
-
-
 
 // Test when the hotkey account does not exist.
 #[test]
@@ -621,10 +611,7 @@ fn test_root_set_weights_weight_vec_not_equal_size() {
         // Create and register hotkey and coldkey on root network
         let hotkey_account_id: U256 = U256::from(1);
         let coldkey_account_id: U256 = U256::from(1);
-        SubtensorModule::add_balance_to_coldkey_account(
-            &coldkey_account_id,
-            1_000_000_000_000_000,
-        );
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id,
@@ -667,10 +654,7 @@ fn test_root_set_weights_invalid_uids() {
         // Create and register hotkey and coldkey on root network
         let hotkey_account_id: U256 = U256::from(1);
         let coldkey_account_id: U256 = U256::from(1);
-        SubtensorModule::add_balance_to_coldkey_account(
-            &coldkey_account_id,
-            1_000_000_000_000_000,
-        );
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id,
@@ -722,10 +706,7 @@ fn test_root_set_weights_hotkey_not_registered_in_subnet() {
         // Create and register coldkey
         let hotkey_account_id: U256 = U256::from(1);
         let coldkey_account_id: U256 = U256::from(1);
-        SubtensorModule::add_balance_to_coldkey_account(
-            &coldkey_account_id,
-            1_000_000_000_000_000,
-        );
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1_000_000_000_000_000);
 
         // Register other network
         assert_ok!(SubtensorModule::register_network(
@@ -806,7 +787,6 @@ fn test_root_set_weights_not_enough_stake() {
     });
 }
 
-
 // Test when providing an incorrect version_key.
 #[test]
 fn test_root_set_weights_incorrect_version_key() {
@@ -822,10 +802,7 @@ fn test_root_set_weights_incorrect_version_key() {
         // Create and register hotkey and coldkey on the root network
         let hotkey_account_id: U256 = U256::from(1);
         let coldkey_account_id: U256 = U256::from(1);
-        SubtensorModule::add_balance_to_coldkey_account(
-            &coldkey_account_id,
-            1_000_000_000_000_000,
-        );
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(
             <<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id,
@@ -895,10 +872,7 @@ fn test_root_set_weights_too_fast() {
         // Create and register hotkey and coldkey on root network
         let hotkey_account_id: U256 = U256::from(1);
         let coldkey_account_id: U256 = U256::from(1);
-        SubtensorModule::add_balance_to_coldkey_account(
-            &coldkey_account_id,
-            1_000_000_000_000_000,
-        );
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id,
@@ -962,10 +936,7 @@ fn test_root_set_weights_duplicate_uids() {
         // Create and register hotkey and coldkey on root network
         let hotkey_account_id: U256 = U256::from(1);
         let coldkey_account_id: U256 = U256::from(1);
-        SubtensorModule::add_balance_to_coldkey_account(
-            &coldkey_account_id,
-            1_000_000_000_000_000,
-        );
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id,
@@ -1102,14 +1073,14 @@ fn test_root_set_weights_max_weight_exceeded() {
 
         // Neuron tries to set weight to subnet netuid `1`, exceeding the max weight limit
         let uids: Vec<u16> = vec![subnet_netuid]; // Setting weight to subnet netuid `1`
-        let values: Vec<u16> = vec![u16::MAX];     // Exceeding max weight limit
+        let values: Vec<u16> = vec![u16::MAX]; // Exceeding max weight limit
 
         // Attempt to set weights and expect the `MaxWeightExceeded` error
         assert_err!(
             SubtensorModule::set_root_weights(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-                root_netuid,        // The root network
-                hotkey_account_id,  // Neuron's hotkey
+                root_netuid,       // The root network
+                hotkey_account_id, // Neuron's hotkey
                 uids,
                 values,
                 version_key,
