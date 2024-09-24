@@ -23,11 +23,11 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
     pub enum Test
     {
-        System: frame_system,
-        Balances: pallet_balances,
-        AdminUtils: pallet_admin_utils,
-        SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>, Error<T>},
-        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
+        System: frame_system = 1,
+        Balances: pallet_balances = 2,
+        AdminUtils: pallet_admin_utils = 3,
+        SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>, Error<T>} = 4,
+        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 5,
     }
 );
 
