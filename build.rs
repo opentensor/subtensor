@@ -60,6 +60,7 @@ fn main() {
         };
 
         track_lint(RequireFreezeStruct::lint(&parsed_file));
+        track_lint(RequireExplicitPalletIndex::lint(&parsed_file));
     });
 
     // Collect and print all errors after the parallel processing is done
