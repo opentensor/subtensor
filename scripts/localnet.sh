@@ -77,6 +77,7 @@ alice_start=(
   --alice
   --port 30334
   --rpc-port 9946
+  --rpc-external
   --validator
   --rpc-cors=all
   --allow-private-ipv4
