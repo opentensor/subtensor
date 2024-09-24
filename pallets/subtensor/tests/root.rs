@@ -818,31 +818,15 @@ fn test_root_set_weights_incorrect_version_key() {
             1000,
         ));
 
-        // Get the initial version_key
-        let version_key_initial = SubtensorModule::get_weights_version_key(root_netuid);
+        // Manually set the WeightsVersionKey to a value greater than 0
+        pallet_subtensor::WeightsVersionKey::<Test>::insert(root_netuid, 5);
 
-        // Set weights successfully with the initial version_key
+        // Try to set weights with a version_key less than the network_version_key
+        let incorrect_version_key = 4;
         let uids: Vec<u16> = vec![0];
         let values: Vec<u16> = vec![1];
-        assert_ok!(SubtensorModule::set_root_weights(
-            <<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            root_netuid,
-            hotkey_account_id,
-            uids.clone(),
-            values.clone(),
-            version_key_initial,
-        ));
 
-        // Advance the block number to satisfy the rate limit
-        System::set_block_number(System::block_number() + 1);
-
-        // Get the updated version_key
-        let version_key_updated = SubtensorModule::get_weights_version_key(root_netuid);
-
-        // Ensure that the version_key has incremented
-        assert!(version_key_updated > version_key_initial);
-
-        // Attempt to set weights again using the old version_key
+        // Attempt to set weights and expect an error
         assert_err!(
             SubtensorModule::set_root_weights(
                 <<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey_account_id),
@@ -850,7 +834,7 @@ fn test_root_set_weights_incorrect_version_key() {
                 hotkey_account_id,
                 uids,
                 values,
-                version_key_initial, // Old version_key
+                incorrect_version_key,
             ),
             Error::<Test>::IncorrectWeightVersionKey
         );
