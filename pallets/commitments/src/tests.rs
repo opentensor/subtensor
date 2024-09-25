@@ -1,6 +1,5 @@
 #![allow(non_camel_case_types)]
 
-use super::*;
 use crate as pallet_commitments;
 use frame_support::derive_impl;
 use frame_support::traits::ConstU64;
