@@ -60,7 +60,7 @@ local
 						nonce: super?.nonce ?? 0,
 						// Leaks
 						consumers: super?.consumers ?? 1,
-						providers: super?.providers ?? 1,
+						providers: 1,
 						sufficients: super?.sufficients ?? 0,
 						data+: {
 							free: std.bigint(1000000000),
