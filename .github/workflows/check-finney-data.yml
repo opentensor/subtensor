@@ -92,12 +92,6 @@ jobs:
           chmod +x bin/baedeker
           ./bin/baedeker --version
 
-
-
-
-
-
-
   # # Buid the subtensor code from current branch
   # build:
   #   name: cargo build

@@ -68,6 +68,17 @@ async function main() {
   await sendTransaction(sudoCallSetCode, sudoAccount);
   console.log("Running runtime upgrade - done");
 
+  // CI test - failed tx
+
+  // Test that chain is functionning with a balance transfer
+  const bob = keyring.addFromUri("//Bob");
+  // const balanceTransfer = api.tx.balances.transferKeepAlive(bob.address, `1000000000`);
+  const balanceTransfer = api.tx.balances.transferKeepAlive(sudoAccount.address, `1000000000`);
+  console.log("Executing balance transfer...");
+  // await sendTransaction(balanceTransfer, sudoAccount);
+  await sendTransaction(balanceTransfer, bob);
+  console.log("Balance transfer successful");
+
   process.exit(0);
 }
 
