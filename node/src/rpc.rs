@@ -82,25 +82,25 @@ pub struct DefaultEthConfig<C, BE>(std::marker::PhantomData<(C, BE)>);
 
 impl<B, C, BE> fc_rpc::EthConfig<B, C> for DefaultEthConfig<C, BE>
 where
-	B: BlockT,
-	C: StorageProvider<B, BE> + Sync + Send + 'static,
-	BE: Backend<B> + 'static,
+    B: BlockT,
+    C: StorageProvider<B, BE> + Sync + Send + 'static,
+    BE: Backend<B> + 'static,
 {
-	type EstimateGasAdapter = ();
-	type RuntimeStorageOverride =
-		fc_rpc::frontier_backend_client::SystemAccountId20StorageOverride<B, C, BE>;
+    type EstimateGasAdapter = ();
+    type RuntimeStorageOverride =
+        fc_rpc::frontier_backend_client::SystemAccountId20StorageOverride<B, C, BE>;
 }
 
 /// Full client dependencies.
 pub struct FullDeps<B: BlockT, C, P, A: ChainApi, CT, CIDP> {
-	/// The client instance to use.
-	pub client: Arc<C>,
-	/// Transaction pool instance.
-	pub pool: Arc<P>,
-	/// Manual seal command sink
-	pub command_sink: Option<mpsc::Sender<EngineCommand<Hash>>>,
-	/// Ethereum-compatibility specific dependencies.
-	pub eth: EthDeps<B, C, P, A, CT, CIDP>,
+    /// The client instance to use.
+    pub client: Arc<C>,
+    /// Transaction pool instance.
+    pub pool: Arc<P>,
+    /// Manual seal command sink
+    pub command_sink: Option<mpsc::Sender<EngineCommand<Hash>>>,
+    /// Ethereum-compatibility specific dependencies.
+    pub eth: EthDeps<B, C, P, A, CT, CIDP>,
 }
 
 /// Instantiate all full RPC extensions.

@@ -241,13 +241,13 @@ pub fn run() -> sc_cli::Result<()> {
             runner.sync_run(|config| cmd.run::<Block>(&config))
         }
         None => {
-			let runner = cli.create_runner(&cli.run)?;
-			runner.run_node_until_exit(|config| async move {
+            let runner = cli.create_runner(&cli.run)?;
+            runner.run_node_until_exit(|config| async move {
                 let config = override_default_heap_pages(config, 60_000);
-				service::build_full(config, cli.eth, cli.sealing)
-					.map_err(Into::into)
-					.await
-			})
+                service::build_full(config, cli.eth, cli.sealing)
+                    .map_err(Into::into)
+                    .await
+            })
         }
     }
 }
