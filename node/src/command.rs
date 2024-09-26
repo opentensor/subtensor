@@ -6,15 +6,6 @@ use crate::{
 };
 use fc_db::{kv::frontier_database_dir, DatabaseSource};
 
-#[cfg(feature = "runtime-benchmarks")]
-pub use crate::benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferKeepAliveBuilder};
-#[cfg(feature = "runtime-benchmarks")]
-pub use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE_HARDWARE};
-#[cfg(feature = "runtime-benchmarks")]
-pub use node_subtensor_runtime::EXISTENTIAL_DEPOSIT;
-#[cfg(feature = "runtime-benchmarks")]
-pub use sp_keyring::Sr25519Keyring;
-
 use futures::TryFutureExt;
 use node_subtensor_runtime::Block;
 use sc_cli::SubstrateCli;
@@ -163,10 +154,17 @@ pub fn run() -> sc_cli::Result<()> {
         }
         #[cfg(feature = "runtime-benchmarks")]
         Some(Subcommand::Benchmark(cmd)) => {
+            use crate::benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferKeepAliveBuilder};
+            use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE_HARDWARE};
+            use node_subtensor_runtime::EXISTENTIAL_DEPOSIT;
+            use sp_keyring::Sr25519Keyring;
+            use sp_runtime::traits::HashingFor;
+            use sc_service::PartialComponents;
+
             let runner = cli.create_runner(cmd)?;
 
             runner.sync_run(|config| {
-                let sc_service::PartialComponents {
+                let PartialComponents {
                     client, backend, ..
                 } = crate::service::new_partial(
                     &config,
@@ -178,28 +176,11 @@ pub fn run() -> sc_cli::Result<()> {
                 // which sub-commands it wants to support.
                 match cmd {
                     BenchmarkCmd::Pallet(cmd) => {
-                        if !cfg!(feature = "runtime-benchmarks") {
-                            return Err(
-                                "Runtime benchmarking wasn't enabled when building the node. \
-							You can enable it with `--features runtime-benchmarks`."
-                                    .into(),
-                            );
-                        }
-
-                        cmd.run_with_spec::<HashingFor<Block>, service::ExecutorDispatch>(Some(
-                            config.chain_spec,
-                        ))
+                        cmd.run_with_spec::<HashingFor<Block>, ()>(Some(config.chain_spec))
                     }
                     BenchmarkCmd::Block(cmd) => {
-                        let PartialComponents { client, .. } = service::new_partial(&config)?;
                         cmd.run(client)
                     }
-                    #[cfg(not(feature = "runtime-benchmarks"))]
-                    BenchmarkCmd::Storage(_) => Err(
-                        "Storage benchmarking can be enabled with `--features runtime-benchmarks`."
-                            .into(),
-                    ),
-                    #[cfg(feature = "runtime-benchmarks")]
                     BenchmarkCmd::Storage(cmd) => {
                         let db = backend.expose_db();
                         let storage = backend.expose_storage();
