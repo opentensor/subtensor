@@ -6,6 +6,7 @@ mod chain_spec;
 mod service;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+mod client;
 mod cli;
 mod command;
 mod ethereum;

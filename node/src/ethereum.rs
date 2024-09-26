@@ -13,12 +13,13 @@ use sc_client_api::{
     client::BlockchainEvents,
     AuxStore, UsageProvider,
 };
+use sc_executor::HostFunctions;
 use sc_network_sync::SyncingService;
 use sc_rpc::SubscriptionTaskExecutor;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_transaction_pool::ChainApi;
 use sc_transaction_pool_api::TransactionPool;
-use sp_api::{CallApiAt, ProvideRuntimeApi};
+use sp_api::{CallApiAt, ConstructRuntimeApi, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -38,11 +39,9 @@ pub use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
 /// Frontier DB backend type.
 pub use fc_storage::{StorageOverride, StorageOverrideHandler};
 
-use node_subtensor_runtime::opaque::Block;
+use crate::client::{FullBackend, FullClient};
 
-use crate::service::{FullBackend, FullClient};
-
-pub type FrontierBackend<C> = fc_db::Backend<Block, C>;
+pub type FrontierBackend<B, C> = fc_db::Backend<B, C>;
 
 /// Avalailable frontier backend types.
 #[derive(Debug, Copy, Clone, Default, clap::ValueEnum)]
@@ -127,23 +126,46 @@ pub fn new_frontier_partial(
     })
 }
 
+/// A set of APIs that ethereum-compatible runtimes must implement.
+pub trait EthCompatRuntimeApiCollection<Block: BlockT>:
+	sp_api::ApiExt<Block>
+	+ fp_rpc::ConvertTransactionRuntimeApi<Block>
+	+ fp_rpc::EthereumRuntimeRPCApi<Block>
+{
+}
+
+impl<Block, Api> EthCompatRuntimeApiCollection<Block> for Api
+where
+	Block: BlockT,
+	Api: sp_api::ApiExt<Block>
+		+ fp_rpc::ConvertTransactionRuntimeApi<Block>
+		+ fp_rpc::EthereumRuntimeRPCApi<Block>,
+{
+}
+
 #[allow(clippy::too_many_arguments)]
-pub async fn spawn_frontier_tasks(
+pub async fn spawn_frontier_tasks<B, RA, HF>(
     task_manager: &TaskManager,
-    client: Arc<FullClient>,
-    backend: Arc<FullBackend>,
-    frontier_backend: Arc<FrontierBackend<FullClient>>,
+    client: Arc<FullClient<B, RA, HF>>,
+    backend: Arc<FullBackend<B>>,
+    frontier_backend: Arc<FrontierBackend<B, FullClient<B, RA, HF>>>,
     filter_pool: Option<FilterPool>,
-    storage_override: Arc<dyn StorageOverride<Block>>,
+    storage_override: Arc<dyn StorageOverride<B>>,
     fee_history_cache: FeeHistoryCache,
     fee_history_cache_limit: FeeHistoryCacheLimit,
-    sync: Arc<SyncingService<Block>>,
+    sync: Arc<SyncingService<B>>,
     pubsub_notification_sinks: Arc<
         fc_mapping_sync::EthereumBlockNotificationSinks<
-            fc_mapping_sync::EthereumBlockNotification<Block>,
+            fc_mapping_sync::EthereumBlockNotification<B>,
         >,
     >,
-) {
+) where
+    B: BlockT<Hash = H256>,
+    RA: ConstructRuntimeApi<B, FullClient<B, RA, HF>>,
+    RA: Send + Sync + 'static,
+    RA::RuntimeApi: EthCompatRuntimeApiCollection<B>,
+    HF: HostFunctions + 'static,
+{
     // Spawn main mapping sync worker background task.
     match &*frontier_backend {
         fc_db::Backend::KeyValue(b) => {
@@ -158,7 +180,7 @@ pub async fn spawn_frontier_tasks(
                     storage_override.clone(),
                     b.clone(),
                     3,
-                    0,
+                    0u32.into(),
                     fc_mapping_sync::SyncStrategy::Normal,
                     sync,
                     pubsub_notification_sinks,

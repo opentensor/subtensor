@@ -11,11 +11,11 @@ use fp_rpc::{ConvertTransactionRuntimeApi, EthereumRuntimeRPCApi};
 use futures::channel::mpsc;
 
 use crate::ethereum::create_eth;
-pub use fc_rpc::{EthBlockDataCacheTask, EthConfig};
+pub use fc_rpc::EthBlockDataCacheTask;
 pub use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
 use fc_storage::StorageOverride;
 use jsonrpsee::RpcModule;
-use node_subtensor_runtime::{opaque::Block, AccountId, Balance, Hash, Nonce};
+use node_subtensor_runtime::{AccountId, Balance, Hash, Nonce};
 use sc_client_api::{
     backend::{Backend, StorageProvider},
     client::BlockchainEvents,
@@ -25,7 +25,6 @@ use sc_consensus_manual_seal::EngineCommand;
 use sc_network::service::traits::NetworkService;
 use sc_network_sync::SyncingService;
 use sc_rpc::SubscriptionTaskExecutor;
-pub use sc_rpc_api::DenyUnsafe;
 use sc_transaction_pool::{ChainApi, Pool};
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::{CallApiAt, ProvideRuntimeApi};
@@ -81,59 +80,59 @@ pub struct EthDeps<B: BlockT, C, P, A: ChainApi, CT, CIDP> {
 /// Default Eth RPC configuration
 pub struct DefaultEthConfig<C, BE>(std::marker::PhantomData<(C, BE)>);
 
-impl<C, BE> EthConfig<Block, C> for DefaultEthConfig<C, BE>
+impl<B, C, BE> fc_rpc::EthConfig<B, C> for DefaultEthConfig<C, BE>
 where
-    C: StorageProvider<Block, BE> + Sync + Send + 'static,
-    BE: Backend<Block> + 'static,
+	B: BlockT,
+	C: StorageProvider<B, BE> + Sync + Send + 'static,
+	BE: Backend<B> + 'static,
 {
-    type EstimateGasAdapter = ();
-    type RuntimeStorageOverride =
-        fc_rpc::frontier_backend_client::SystemAccountId20StorageOverride<Block, C, BE>;
+	type EstimateGasAdapter = ();
+	type RuntimeStorageOverride =
+		fc_rpc::frontier_backend_client::SystemAccountId20StorageOverride<B, C, BE>;
 }
 
 /// Full client dependencies.
-pub struct FullDeps<C, P, A: ChainApi, CT, CIDP> {
-    /// The client instance to use.
-    pub client: Arc<C>,
-    /// Transaction pool instance.
-    pub pool: Arc<P>,
-    /// Whether to deny unsafe calls
-    pub deny_unsafe: DenyUnsafe,
-    /// Manual seal command sink
-    pub command_sink: Option<mpsc::Sender<EngineCommand<Hash>>>,
-    /// Ethereum-compatibility specific dependencies.
-    pub eth: EthDeps<Block, C, P, A, CT, CIDP>,
+pub struct FullDeps<B: BlockT, C, P, A: ChainApi, CT, CIDP> {
+	/// The client instance to use.
+	pub client: Arc<C>,
+	/// Transaction pool instance.
+	pub pool: Arc<P>,
+	/// Manual seal command sink
+	pub command_sink: Option<mpsc::Sender<EngineCommand<Hash>>>,
+	/// Ethereum-compatibility specific dependencies.
+	pub eth: EthDeps<B, C, P, A, CT, CIDP>,
 }
 
 /// Instantiate all full RPC extensions.
-pub fn create_full<C, P, BE, A, CT, CIDP>(
-    deps: FullDeps<C, P, A, CT, CIDP>,
+pub fn create_full<B, C, P, BE, A, CT, CIDP>(
+    deps: FullDeps<B, C, P, A, CT, CIDP>,
     subscription_task_executor: SubscriptionTaskExecutor,
     pubsub_notification_sinks: Arc<
         fc_mapping_sync::EthereumBlockNotificationSinks<
-            fc_mapping_sync::EthereumBlockNotification<Block>,
+            fc_mapping_sync::EthereumBlockNotification<B>,
         >,
     >,
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
-    C: CallApiAt<Block> + ProvideRuntimeApi<Block>,
-    C::Api: BlockBuilder<Block>,
-    C::Api: AuraApi<Block, AuraId>,
-    C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
-    C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
-    C::Api: ConvertTransactionRuntimeApi<Block>,
-    C::Api: EthereumRuntimeRPCApi<Block>,
-    C::Api: subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi<Block>,
-    C::Api: subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<Block>,
-    C::Api: subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block>,
-    C::Api: subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block>,
-    C: HeaderBackend<Block> + HeaderMetadata<Block, Error = BlockChainError> + 'static,
-    C: BlockchainEvents<Block> + AuxStore + UsageProvider<Block> + StorageProvider<Block, BE>,
-    BE: Backend<Block> + 'static,
-    P: TransactionPool<Block = Block> + 'static,
-    A: ChainApi<Block = Block> + 'static,
-    CIDP: CreateInherentDataProviders<Block, ()> + Send + Clone + 'static,
-    CT: fp_rpc::ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + Clone + 'static,
+    B: BlockT<Hash = sp_core::H256>,
+    C: CallApiAt<B> + ProvideRuntimeApi<B>,
+    C::Api: BlockBuilder<B>,
+    C::Api: AuraApi<B, AuraId>,
+    C::Api: substrate_frame_rpc_system::AccountNonceApi<B, AccountId, Nonce>,
+    C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<B, Balance>,
+    C::Api: ConvertTransactionRuntimeApi<B>,
+    C::Api: EthereumRuntimeRPCApi<B>,
+    C::Api: subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi<B>,
+    C::Api: subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<B>,
+    C::Api: subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<B>,
+    C::Api: subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<B>,
+    C: HeaderBackend<B> + HeaderMetadata<B, Error = BlockChainError> + 'static,
+    C: BlockchainEvents<B> + AuxStore + UsageProvider<B> + StorageProvider<B, BE>,
+    BE: Backend<B> + 'static,
+    P: TransactionPool<Block = B> + 'static,
+    A: ChainApi<Block = B> + 'static,
+    CIDP: CreateInherentDataProviders<B, ()> + Send + Clone + 'static,
+    CT: fp_rpc::ConvertTransaction<<B as BlockT>::Extrinsic> + Send + Sync + Clone + 'static,
 {
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
     use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
@@ -144,7 +143,6 @@ where
     let FullDeps {
         client,
         pool,
-        deny_unsafe,
         command_sink,
         eth,
     } = deps;
@@ -152,7 +150,7 @@ where
     // Custom RPC methods for Paratensor
     module.merge(SubtensorCustom::new(client.clone()).into_rpc())?;
 
-    module.merge(System::new(client.clone(), pool.clone(), deny_unsafe).into_rpc())?;
+    module.merge(System::new(client.clone(), pool.clone()).into_rpc())?;
     module.merge(TransactionPayment::new(client).into_rpc())?;
 
     // Extend this RPC with a custom API by using the following syntax.

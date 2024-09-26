@@ -60,6 +60,7 @@ fn main() {
         };
 
         track_lint(RequireFreezeStruct::lint(&parsed_file));
+        track_lint(RequireExplicitPalletIndex::lint(&parsed_file));
     });
 
     // Collect and print all errors after the parallel processing is done
@@ -75,7 +76,9 @@ fn collect_rust_files(dir: &Path) -> Vec<PathBuf> {
     let mut rust_files = Vec::new();
 
     for entry in WalkDir::new(dir) {
-        let entry = entry.unwrap();
+        let Ok(entry) = entry else {
+            continue;
+        };
         let path = entry.path();
 
         // Skip any path that contains "target" directory
