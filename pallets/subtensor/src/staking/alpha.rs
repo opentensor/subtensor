@@ -95,9 +95,9 @@ impl<T: Config> Pallet<T> {
         let mut alpha_stake: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
         let mut raw_alpha_stake: Vec<u64> = vec![0; n as usize];
         for (uid_i, hotkey) in &hotkeys {
-            let alpha: u64 = Self::get_inherited_alpha_for_hotkey_on_subnet(hotkey, netuid);
-            alpha_stake[*uid_i as usize] = I64F64::from_num(alpha);
-            raw_alpha_stake[*uid_i as usize] = alpha;
+            let alpha: u64 = Self::get_inherited_alpha_for_hotkey_on_subnet( hotkey, netuid );
+            alpha_stake[ *uid_i as usize ] = I64F64::from_num(alpha);
+            raw_alpha_stake[ *uid_i as usize ] = alpha;
         }
         // Normalize the alpha stake vector.
         inplace_normalize_64(&mut alpha_stake);
@@ -107,7 +107,7 @@ impl<T: Config> Pallet<T> {
         let mut global_tao_stake: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
         let mut raw_global_tao_stake: Vec<u64> = vec![0; n as usize];
         for (uid_i, hotkey) in &hotkeys {
-            let global: u64 = Self::get_inherited_global_for_hotkey_on_subnet(hotkey, netuid);
+            let global: u64 = Self::get_inherited_global_for_hotkey_on_subnet( hotkey, netuid );
             global_tao_stake[*uid_i as usize] = I64F64::from_num(global);
             raw_global_tao_stake[*uid_i as usize] = global;
         }

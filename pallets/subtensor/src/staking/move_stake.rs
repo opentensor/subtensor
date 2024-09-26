@@ -2,6 +2,7 @@ use super::*;
 // use substrate_fixed::types::I96F32;
 
 impl<T: Config> Pallet<T> {
+   
     /// Moves stake from one hotkey to another across subnets.
     ///
     /// # Arguments
@@ -20,7 +21,7 @@ impl<T: Config> Pallet<T> {
     /// * Either the origin or destination subnet does not exist.
     /// * The `origin_hotkey` or `destination_hotkey` does not exist.
     /// * There are locked funds that cannot be moved across subnets.
-    ///
+    /// 
     /// # Events
     /// Emits a `StakeMoved` event upon successful completion of the stake movement.
     pub fn do_move_stake(
