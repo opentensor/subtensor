@@ -50,7 +50,7 @@ fn main() {
                 let loc = error.span().start();
                 let file_path = relative_path.display();
                 // note that spans can't go across thread boundaries without losing their location
-                // info so we we serialize here and send a String
+                // info so we serialize here and send a String
                 tx.send(format!(
                     "cargo:warning={}:{}:{}: {}",
                     file_path, loc.line, loc.column, error,
