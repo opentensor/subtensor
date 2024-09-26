@@ -12,8 +12,8 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
     pub enum Test
     {
-        System: frame_system,
-        Commitments: pallet_commitments,
+        System: frame_system = 1,
+        Commitments: pallet_commitments = 2,
     }
 );
 

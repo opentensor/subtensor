@@ -38,10 +38,20 @@ impl<T: Config> Pallet<T> {
             .saturating_add(total_staked)
             .saturating_add(total_subnet_locked);
 
-        // Verify that the calculated total issuance matches the stored TotalIssuance
+        // Verify the diff between calculated TI and actual TI is less than delta
+        //
+        // These values can be off slightly due to float rounding errors.
+        // They are corrected every runtime upgrade.
+        const DELTA: u64 = 1000;
+        let diff = if TotalIssuance::<T>::get() > expected_total_issuance {
+            TotalIssuance::<T>::get().checked_sub(expected_total_issuance)
+        } else {
+            expected_total_issuance.checked_sub(TotalIssuance::<T>::get())
+        }
+        .expect("LHS > RHS");
         ensure!(
-            TotalIssuance::<T>::get() == expected_total_issuance,
-            "TotalIssuance accounting discrepancy",
+            diff <= DELTA,
+            "TotalIssuance diff greater than allowable delta",
         );
 
         Ok(())
