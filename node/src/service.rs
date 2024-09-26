@@ -430,7 +430,10 @@ where
         let target_gas_price = eth_config.target_gas_price;
         let pending_create_inherent_data_providers = move |_, ()| async move {
             let current = sp_timestamp::InherentDataProvider::from_system_time();
-            let next_slot = current.timestamp().as_millis().saturating_add(slot_duration.as_millis());
+            let next_slot = current
+                .timestamp()
+                .as_millis()
+                .saturating_add(slot_duration.as_millis());
             let timestamp = sp_timestamp::InherentDataProvider::new(next_slot.into());
             let slot = sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
 				*timestamp,
