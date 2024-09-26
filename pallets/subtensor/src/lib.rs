@@ -1578,8 +1578,8 @@ where
     }
 }
 
-use subtensor_macros::freeze_struct;
 use sp_std::vec;
+use subtensor_macros::freeze_struct;
 
 /// Trait for managing a membership pallet instance in the runtime
 pub trait MemberManagement<AccountId> {
