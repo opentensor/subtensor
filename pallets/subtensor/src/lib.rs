@@ -26,7 +26,6 @@ use sp_runtime::{
     transaction_validity::{TransactionValidity, TransactionValidityError},
     DispatchError,
 };
-use sp_std::vec;
 use sp_std::{marker::PhantomData, vec::Vec};
 
 // ============================
@@ -72,6 +71,7 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
     use sp_core::H256;
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
+    use sp_std::vec;
 
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
@@ -1579,6 +1579,7 @@ where
 }
 
 use subtensor_macros::freeze_struct;
+use sp_std::vec;
 
 /// Trait for managing a membership pallet instance in the runtime
 pub trait MemberManagement<AccountId> {
