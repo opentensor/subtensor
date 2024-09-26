@@ -154,12 +154,16 @@ pub fn run() -> sc_cli::Result<()> {
         }
         #[cfg(feature = "runtime-benchmarks")]
         Some(Subcommand::Benchmark(cmd)) => {
-            use crate::benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferKeepAliveBuilder};
-            use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE_HARDWARE};
+            use crate::benchmarking::{
+                inherent_benchmark_data, RemarkBuilder, TransferKeepAliveBuilder,
+            };
+            use frame_benchmarking_cli::{
+                BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE_HARDWARE,
+            };
             use node_subtensor_runtime::EXISTENTIAL_DEPOSIT;
+            use sc_service::PartialComponents;
             use sp_keyring::Sr25519Keyring;
             use sp_runtime::traits::HashingFor;
-            use sc_service::PartialComponents;
 
             let runner = cli.create_runner(cmd)?;
 
@@ -178,9 +182,7 @@ pub fn run() -> sc_cli::Result<()> {
                     BenchmarkCmd::Pallet(cmd) => {
                         cmd.run_with_spec::<HashingFor<Block>, ()>(Some(config.chain_spec))
                     }
-                    BenchmarkCmd::Block(cmd) => {
-                        cmd.run(client)
-                    }
+                    BenchmarkCmd::Block(cmd) => cmd.run(client),
                     BenchmarkCmd::Storage(cmd) => {
                         let db = backend.expose_db();
                         let storage = backend.expose_storage();
