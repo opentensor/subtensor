@@ -4,9 +4,9 @@ use frame_support::storage::IterableStorageMap;
 extern crate alloc;
 use codec::Compact;
 
-#[freeze_struct("fe79d58173da662a")]
-#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
-pub struct SubnetInfo<T: Config> {
+#[freeze_struct("2a5e9b0845946de0")]
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
+pub struct SubnetInfo<AccountId: TypeInfo + Decode + Encode> {
     netuid: Compact<u16>,
     rho: Compact<u16>,
     kappa: Compact<u16>,
@@ -24,11 +24,11 @@ pub struct SubnetInfo<T: Config> {
     network_connect: Vec<[u16; 2]>,
     emission_values: Compact<u64>,
     burn: Compact<u64>,
-    owner: T::AccountId,
+    owner: AccountId,
 }
 
-#[freeze_struct("55b472510f10e76a")]
-#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
+#[freeze_struct("4714b5e2336f7b19")]
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetHyperparams {
     rho: Compact<u16>,
     kappa: Compact<u16>,
@@ -60,7 +60,7 @@ pub struct SubnetHyperparams {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn get_subnet_info(netuid: u16) -> Option<SubnetInfo<T>> {
+    pub fn get_subnet_info(netuid: u16) -> Option<SubnetInfo<T::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }
@@ -109,7 +109,7 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    pub fn get_subnets_info() -> Vec<Option<SubnetInfo<T>>> {
+    pub fn get_subnets_info() -> Vec<Option<SubnetInfo<T::AccountId>>> {
         let mut subnet_netuids = Vec::<u16>::new();
         let mut max_netuid: u16 = 0;
         for (netuid, added) in <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter() {
@@ -121,7 +121,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        let mut subnets_info = Vec::<Option<SubnetInfo<T>>>::new();
+        let mut subnets_info = Vec::<Option<SubnetInfo<T::AccountId>>>::new();
         for netuid_ in 0..=max_netuid {
             if subnet_netuids.contains(&netuid_) {
                 subnets_info.push(Self::get_subnet_info(netuid_));

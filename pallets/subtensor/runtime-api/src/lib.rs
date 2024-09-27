@@ -8,6 +8,7 @@ use pallet_subtensor::rpc_info::{
     dynamic_info::DynamicInfo,
     neuron_info::{NeuronInfo, NeuronInfoLite},
     show_subnet::SubnetState,
+    subnet_info::{SubnetHyperparams, SubnetInfo},
 };
 
 // Here we declare the runtime API. It is implemented it the `impl` block in
@@ -28,9 +29,9 @@ sp_api::decl_runtime_apis! {
 
     pub trait SubnetInfoRuntimeApi {
         fn get_subnet_state(netuid: u16) -> Option<SubnetState<AccountId32>>;
-        fn get_subnet_info(netuid: u16) -> Vec<u8>;
-        fn get_subnets_info() -> Vec<u8>;
-        fn get_subnet_hyperparams(netuid: u16) -> Vec<u8>;
+        fn get_subnet_info(netuid: u16) -> Option<SubnetInfo<AccountId32>>;
+        fn get_subnets_info() -> Vec<Option<SubnetInfo<AccountId32>>>;
+        fn get_subnet_hyperparams(netuid: u16) -> Option<SubnetHyperparams>;
         fn get_dynamic_info(netuid: u16) -> Option<DynamicInfo<AccountId32>>;
         fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<AccountId32>>>;
     }

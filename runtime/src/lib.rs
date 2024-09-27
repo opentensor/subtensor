@@ -31,6 +31,7 @@ use pallet_subtensor::rpc_info::{
     dynamic_info::DynamicInfo,
     neuron_info::{NeuronInfo, NeuronInfoLite},
     show_subnet::SubnetState,
+    subnet_info::{SubnetHyperparams, SubnetInfo},
 };
 use scale_info::TypeInfo;
 use smallvec::smallvec;
@@ -1738,22 +1739,15 @@ impl_runtime_apis! {
     }
 
     impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
-        fn get_subnet_info(netuid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_subnet_info(netuid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get SubnetInfo");
-                result.encode()
-            } else {
-                vec![]
-            }
+        fn get_subnet_info(netuid: u16) -> Option<SubnetInfo<AccountId32>> {
+            SubtensorModule::get_subnet_info(netuid)
         }
 
         fn get_subnet_state(netuid: u16) -> Option<SubnetState<AccountId>> {
             SubtensorModule::get_subnet_state( netuid )
         }
-        fn get_subnets_info() -> Vec<u8> {
-            let result = SubtensorModule::get_subnets_info();
-            result.encode()
+        fn get_subnets_info() -> Vec<Option<SubnetInfo<AccountId32>>> {
+            SubtensorModule::get_subnets_info()
         }
         fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<AccountId>>> {
             SubtensorModule::get_all_dynamic_info()
@@ -1761,14 +1755,8 @@ impl_runtime_apis! {
         fn get_dynamic_info(netuid: u16) -> Option<DynamicInfo<AccountId>> {
             SubtensorModule::get_dynamic_info(netuid)
         }
-        fn get_subnet_hyperparams(netuid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_subnet_hyperparams(netuid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get SubnetHyperparams");
-                result.encode()
-            } else {
-                vec![]
-            }
+        fn get_subnet_hyperparams(netuid: u16) -> Option<SubnetHyperparams> {
+            SubtensorModule::get_subnet_hyperparams(netuid)
         }
     }
 
