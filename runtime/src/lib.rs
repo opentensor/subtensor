@@ -11,7 +11,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 pub mod check_nonce;
 mod migrations;
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Compact, Decode, Encode, MaxEncodedLen};
 use frame_support::traits::Imbalance;
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
@@ -30,6 +30,9 @@ use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
 use pallet_registry::CanRegisterIdentity;
+use pallet_subtensor::rpc_info::{
+    delegate_info::DelegateInfo
+};
 use scale_info::TypeInfo;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
@@ -1032,7 +1035,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
 }
 
-use sp_runtime::BoundedVec;
+use sp_runtime::{AccountId32, BoundedVec};
 
 pub struct AuraPalletIntrf;
 impl pallet_admin_utils::AuraInterface<AuraId, ConstU32<32>> for AuraPalletIntrf {
@@ -1389,24 +1392,16 @@ impl_runtime_apis! {
     }
 
     impl subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi<Block> for Runtime {
-        fn get_delegates() -> Vec<u8> {
-            let result = SubtensorModule::get_delegates();
-            result.encode()
+        fn get_delegates() -> Vec<DelegateInfo<AccountId32>> {
+            SubtensorModule::get_delegates()
         }
 
-        fn get_delegate(delegate_account_vec: Vec<u8>) -> Vec<u8> {
-            let _result = SubtensorModule::get_delegate(delegate_account_vec);
-            if _result.is_some() {
-                let result = _result.expect("Could not get DelegateInfo");
-                result.encode()
-            } else {
-                vec![]
-            }
+        fn get_delegate(delegate_account: AccountId32) -> Option<DelegateInfo<AccountId32>> {
+            SubtensorModule::get_delegate(delegate_account)
         }
 
-        fn get_delegated(delegatee_account_vec: Vec<u8>) -> Vec<u8> {
-            let result = SubtensorModule::get_delegated(delegatee_account_vec);
-            result.encode()
+        fn get_delegated(delegatee_account: AccountId32) -> Vec<(DelegateInfo<AccountId32>, Compact<u64>)> {
+            SubtensorModule::get_delegated(delegatee_account)
         }
     }
 

@@ -1,12 +1,14 @@
 //! RPC interface for the custom Subtensor rpc methods
 
+use codec::{Decode, Encode};
 use jsonrpsee::{
     core::RpcResult,
     proc_macros::rpc,
     types::{error::ErrorObject, ErrorObjectOwned},
 };
 use sp_blockchain::HeaderBackend;
-use sp_runtime::traits::Block as BlockT;
+use sp_core::hexdisplay::AsBytesRef;
+use sp_runtime::{traits::Block as BlockT, AccountId32};
 use std::sync::Arc;
 
 use sp_api::ProvideRuntimeApi;
@@ -108,9 +110,12 @@ where
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_delegates(at).map_err(|e| {
-            Error::RuntimeError(format!("Unable to get delegates info: {:?}", e)).into()
-        })
+        match api.get_delegates(at) {
+            Err(e) => {
+                Err(Error::RuntimeError(format!("Unable to get delegates info: {:?}", e)).into())
+            }
+            Ok(result) => Ok(result.encode()),
+        }
     }
 
     fn get_delegate(
@@ -121,9 +126,20 @@ where
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_delegate(at, delegate_account_vec).map_err(|e| {
-            Error::RuntimeError(format!("Unable to get delegates info: {:?}", e)).into()
-        })
+        let delegate_account = match AccountId32::decode(&mut delegate_account_vec.as_bytes_ref()) {
+            Err(e) => {
+                return Err(
+                    Error::RuntimeError(format!("Unable to get delegates info: {:?}", e)).into(),
+                )
+            }
+            Ok(delegate_account) => delegate_account,
+        };
+        match api.get_delegate(at, delegate_account) {
+            Err(e) => {
+                Err(Error::RuntimeError(format!("Unable to get delegates info: {:?}", e)).into())
+            }
+            Ok(result) => Ok(result.encode()),
+        }
     }
 
     fn get_delegated(
@@ -134,9 +150,21 @@ where
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_delegated(at, delegatee_account_vec).map_err(|e| {
-            Error::RuntimeError(format!("Unable to get delegates info: {:?}", e)).into()
-        })
+        let delegatee_account = match AccountId32::decode(&mut delegatee_account_vec.as_bytes_ref())
+        {
+            Err(e) => {
+                return Err(
+                    Error::RuntimeError(format!("Unable to get delegates info: {:?}", e)).into(),
+                )
+            }
+            Ok(delegatee_account) => delegatee_account,
+        };
+        match api.get_delegated(at, delegatee_account) {
+            Err(e) => {
+                Err(Error::RuntimeError(format!("Unable to get delegates info: {:?}", e)).into())
+            }
+            Ok(result) => Ok(result.encode()),
+        }
     }
 
     fn get_neurons_lite(
