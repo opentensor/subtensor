@@ -7,10 +7,9 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use fp_rpc::{ConvertTransactionRuntimeApi, EthereumRuntimeRPCApi};
 use futures::channel::mpsc;
 
-use crate::ethereum::create_eth;
+use crate::{client::RuntimeApiCollection, ethereum::create_eth};
 pub use fc_rpc::EthBlockDataCacheTask;
 pub use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
 use fc_storage::StorageOverride;
@@ -28,10 +27,8 @@ use sc_rpc::SubscriptionTaskExecutor;
 use sc_transaction_pool::{ChainApi, Pool};
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::{CallApiAt, ProvideRuntimeApi};
-use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_consensus_aura::AuraApi;
 use sp_core::H256;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::Block as BlockT;
@@ -116,16 +113,7 @@ pub fn create_full<B, C, P, BE, A, CT, CIDP>(
 where
     B: BlockT<Hash = sp_core::H256>,
     C: CallApiAt<B> + ProvideRuntimeApi<B>,
-    C::Api: BlockBuilder<B>,
-    C::Api: AuraApi<B, AuraId>,
-    C::Api: substrate_frame_rpc_system::AccountNonceApi<B, AccountId, Nonce>,
-    C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<B, Balance>,
-    C::Api: ConvertTransactionRuntimeApi<B>,
-    C::Api: EthereumRuntimeRPCApi<B>,
-    C::Api: subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi<B>,
-    C::Api: subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<B>,
-    C::Api: subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<B>,
-    C::Api: subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<B>,
+    C::Api: RuntimeApiCollection<B, AuraId, AccountId, Nonce, Balance>,
     C: HeaderBackend<B> + HeaderMetadata<B, Error = BlockChainError> + 'static,
     C: BlockchainEvents<B> + AuxStore + UsageProvider<B> + StorageProvider<B, BE>,
     BE: Backend<B> + 'static,
