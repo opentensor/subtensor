@@ -26,6 +26,7 @@ use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
 use pallet_registry::CanRegisterIdentity;
+use pallet_subtensor::rpc_info::{dynamic_info::DynamicInfo, show_subnet::SubnetState};
 use scale_info::TypeInfo;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
@@ -1764,22 +1765,19 @@ impl_runtime_apis! {
             }
         }
 
-        fn get_subnet_state(netuid: u16) -> Vec<u8> {
-            let result = SubtensorModule::get_subnet_state( netuid );
-            result.encode()
+        fn get_subnet_state(netuid: u16) -> Option<SubnetState<AccountId>> {
+            SubtensorModule::get_subnet_state( netuid )
         }
         fn get_subnets_info() -> Vec<u8> {
             let result = SubtensorModule::get_subnets_info();
             result.encode()
         }
-        fn get_all_dynamic_info() -> Vec<u8> {
-            let result = SubtensorModule::get_all_dynamic_info();
-            result.encode()
-        }   
-        fn get_dynamic_info(netuid: u16) -> Vec<u8> {
-            let result = SubtensorModule::get_dynamic_info(netuid);
-            result.encode()
-        }   
+        fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<AccountId>>> {
+            SubtensorModule::get_all_dynamic_info()
+        }
+        fn get_dynamic_info(netuid: u16) -> Option<DynamicInfo<AccountId>> {
+            SubtensorModule::get_dynamic_info(netuid)
+        }
         fn get_subnet_hyperparams(netuid: u16) -> Vec<u8> {
             let _result = SubtensorModule::get_subnet_hyperparams(netuid);
             if _result.is_some() {

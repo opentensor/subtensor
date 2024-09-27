@@ -1,6 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 use alloc::vec::Vec;
+use frame_support::sp_runtime::AccountId32;
+use pallet_subtensor::rpc_info::{dynamic_info::DynamicInfo, show_subnet::SubnetState};
 
 // Here we declare the runtime API. It is implemented it the `impl` block in
 // src/neuron_info.rs, src/subnet_info.rs, and src/delegate_info.rs
@@ -19,12 +21,12 @@ sp_api::decl_runtime_apis! {
     }
 
     pub trait SubnetInfoRuntimeApi {
-        fn get_subnet_state(netuid: u16) -> Vec<u8>;
+        fn get_subnet_state(netuid: u16) -> Option<SubnetState<AccountId32>>;
         fn get_subnet_info(netuid: u16) -> Vec<u8>;
         fn get_subnets_info() -> Vec<u8>;
         fn get_subnet_hyperparams(netuid: u16) -> Vec<u8>;
-        fn get_dynamic_info(netuid: u16) -> Vec<u8>;
-        fn get_all_dynamic_info() -> Vec<u8>;
+        fn get_dynamic_info(netuid: u16) -> Option<DynamicInfo<AccountId32>>;
+        fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<AccountId32>>>;
     }
 
     pub trait StakeInfoRuntimeApi {

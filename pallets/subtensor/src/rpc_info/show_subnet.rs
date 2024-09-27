@@ -4,11 +4,11 @@ use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I32F32;
 
-#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
-pub struct SubnetState<T: Config> {
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
+pub struct SubnetState<AccountId: TypeInfo + Encode> {
     netuid: Compact<u16>,
-    hotkeys: Vec<T::AccountId>,
-    coldkeys: Vec<T::AccountId>,
+    hotkeys: Vec<AccountId>,
+    coldkeys: Vec<AccountId>,
     active: Vec<bool>,
     validator_permit: Vec<bool>,
     pruning_score: Vec<Compact<u16>>,
@@ -75,9 +75,9 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     ///
-    /// * `Option<SubnetState<T>>` - An optional `SubnetState` struct containing the collected data for the subnet.
+    /// * `Option<SubnetState<T::AccountId>>` - An optional `SubnetState` struct containing the collected data for the subnet.
     ///   Returns `None` if the subnet does not exist.
-    pub fn get_subnet_state(netuid: u16) -> Option<SubnetState<T>> {
+    pub fn get_subnet_state(netuid: u16) -> Option<SubnetState<T::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }
