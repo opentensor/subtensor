@@ -17,7 +17,6 @@ unwrap-used = "deny"
 [workspace.dependencies]
 cargo-husky = { version = "1", default-features = false }
 clap = "4.5.4"
-codec = { version = "3.2.2", default-features = false }
 enumflags2 = "0.7.9"
 futures = "0.3.30"
 hex = { version = "0.4", default-features = false }
@@ -38,6 +37,9 @@ smallvec = "1.13.2"
 litep2p = { git = "https://github.com/paritytech/litep2p", branch = "master" }
 
 subtensor-macros = { path = "support/macros" }
+
+
+codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false }
 
 frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "v1.10.0-rc3", default-features = false }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "v1.10.0-rc3" }
