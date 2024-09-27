@@ -76,50 +76,6 @@ fn localnet_genesis(
         ),
     ];
 
-    let root_validator = (
-        get_account_id_from_seed::<sr25519::Public>("RootValidator"),
-        // 10000 TAO
-        10_000_000_000_000_u128,
-    );
-
-    let subnet_validator = (
-        get_account_id_from_seed::<sr25519::Public>("SubnetValidator"),
-        // 2000 TAO
-        2_000_000_000_000_u128,
-    );
-
-    let miners = [
-        (
-            get_account_id_from_seed::<sr25519::Public>("Miner1"),
-            // 10 TAO
-            10_000_000_000_u128,
-        ),
-        (
-            get_account_id_from_seed::<sr25519::Public>("Miner2"),
-            // 10 TAO
-            10_000_000_000_u128,
-        ),
-        (
-            get_account_id_from_seed::<sr25519::Public>("Miner3"),
-            // 10 TAO
-            10_000_000_000_u128,
-        ),
-        (
-            get_account_id_from_seed::<sr25519::Public>("Miner4"),
-            // 10 TAO
-            10_000_000_000_u128,
-        ),
-        (
-            get_account_id_from_seed::<sr25519::Public>("Miner5"),
-            // 10 TAO
-            10_000_000_000_u128,
-        ),
-    ];
-
-    balances.push(root_validator.clone());
-    balances.push(subnet_validator.clone());
-    balances.append(&mut miners.to_vec());
-
     // Check if the environment variable is set
     if let Ok(bt_wallet) = env::var("BT_DEFAULT_TOKEN_WALLET") {
         if let Ok(decoded_wallet) = Ss58Codec::from_ss58check(&bt_wallet) {
@@ -141,7 +97,6 @@ fn localnet_genesis(
         get_account_id_from_seed::<sr25519::Public>("Ferdie"),
     ];
 
-    let alice_account = get_account_id_from_seed::<sr25519::Public>("Alice");
     serde_json::json!({
         "balances": { "balances": balances },
         "aura": {
@@ -163,17 +118,7 @@ fn localnet_genesis(
             "members": senate_members,
         },
         "subtensorModule": {
-            "initializeNetwork1": true,
             "initializeNetwork3": false,
-            "rootColdkeyValidator": Some(vec![alice_account.clone(), root_validator.0]),
-            "subnetColdkeyValidator": Some(vec![alice_account.clone(), subnet_validator.0]),
-            "miners": Some(vec![
-                (alice_account.clone(), miners[0].0.clone()),
-                (alice_account.clone(), miners[1].0.clone()),
-                (alice_account.clone(), miners[2].0.clone()),
-                (alice_account.clone(), miners[3].0.clone()),
-                (alice_account.clone(), miners[4].0.clone()),
-            ]),
         },
     })
 }

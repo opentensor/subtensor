@@ -72,39 +72,6 @@ mod genesis {
 
             let tempo = 99;
 
-            // Should be only for localnet
-            if self.initialize_network_1 {
-                init_network::<T>(1, tempo);
-                // Stake 1000 TAO, each validator has 2000 TAO according to localnet configure
-                let stake_amount = 1_000_000_000_000;
-                // Add validator for network 1
-                if let Some(coldkey_validator) = &self.subnet_coldkey_validator {
-                    let coldkey = coldkey_validator
-                        .get(0)
-                        .expect("should config in genesis")
-                        .clone();
-                    let hotkey = coldkey_validator
-                        .get(1)
-                        .expect("should config in genesis")
-                        .clone();
-                    Pallet::<T>::create_account_if_non_existent(&coldkey, &hotkey);
-                    Pallet::<T>::append_neuron(1, &hotkey, 0);
-                    Pallet::<T>::increase_stake_on_coldkey_hotkey_account(
-                        &coldkey,
-                        &hotkey,
-                        stake_amount,
-                    );
-                }
-
-                // Register all miners account, no any stake for miners
-                if let Some(miners) = &self.miners {
-                    for miner in miners.iter() {
-                        Pallet::<T>::create_account_if_non_existent(&miner.0, &miner.1);
-                        Pallet::<T>::append_neuron(1, &miner.1, 0);
-                    }
-                }
-            }
-
             if self.initialize_network_3 {
                 init_network::<T>(3, tempo);
             }
@@ -166,8 +133,6 @@ mod genesis {
 
             // Get the root network uid.
             let root_netuid: u16 = 0;
-            // Root validator with balance 10_000_000_000_000_u128, half of stake
-            let stake_amount = 5_000_000_000_000_u64;
 
             // Set the root network as added.
             NetworksAdded::<T>::insert(root_netuid, true);
@@ -198,25 +163,6 @@ mod genesis {
 
             // Set target registrations for validators as 1 per block.
             TargetRegistrationsPerInterval::<T>::insert(root_netuid, 1);
-
-            // Config the validator for root network
-            if let Some(coldkey_validator) = &self.root_coldkey_validator {
-                let coldkey = coldkey_validator
-                    .get(0)
-                    .expect("should config in genesis")
-                    .clone();
-                let hotkey = coldkey_validator
-                    .get(1)
-                    .expect("should config in genesis")
-                    .clone();
-                Pallet::<T>::create_account_if_non_existent(&coldkey, &hotkey);
-                Pallet::<T>::append_neuron(root_netuid, &hotkey, 0);
-                Pallet::<T>::increase_stake_on_coldkey_hotkey_account(
-                    &coldkey,
-                    &hotkey,
-                    stake_amount,
-                );
-            }
         }
     }
 }
