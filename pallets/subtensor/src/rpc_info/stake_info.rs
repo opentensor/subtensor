@@ -3,7 +3,7 @@ use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
 use codec::Compact;
 
-#[freeze_struct("4f16c654467bc8b6")]
+#[freeze_struct("7ba412c8ac3f4677")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct StakeInfo<AccountId: TypeInfo + Encode + Decode> {
     hotkey: AccountId,

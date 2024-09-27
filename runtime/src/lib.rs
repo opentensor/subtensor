@@ -1435,20 +1435,6 @@ impl_runtime_apis! {
             SubtensorModule::get_subnets_info()
         }
 
-        fn get_subnet_info_v2(netuid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_subnet_info_v2(netuid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get SubnetInfo");
-                result.encode()
-            } else {
-                vec![]
-            }
-        }
-
-        fn get_subnets_info_v2() -> Vec<u8> {
-            let result = SubtensorModule::get_subnets_info_v2();
-            result.encode()
-        }
         fn get_subnet_hyperparams(netuid: u16) -> Option<SubnetHyperparams> {
             SubtensorModule::get_subnet_hyperparams(netuid)
         }
