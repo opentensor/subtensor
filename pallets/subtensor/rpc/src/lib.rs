@@ -175,9 +175,12 @@ where
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_neurons_lite(at, netuid).map_err(|e| {
-            Error::RuntimeError(format!("Unable to get neurons lite info: {:?}", e)).into()
-        })
+        match api.get_neurons_lite(at, netuid) {
+            Err(e) => {
+                Err(Error::RuntimeError(format!("Unable to get neurons lite info: {:?}", e)).into())
+            }
+            Ok(neurons) => Ok(neurons.encode()),
+        }
     }
 
     fn get_neuron_lite(
@@ -189,17 +192,24 @@ where
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_neuron_lite(at, netuid, uid).map_err(|e| {
-            Error::RuntimeError(format!("Unable to get neurons lite info: {:?}", e)).into()
-        })
+        match api.get_neuron_lite(at, netuid, uid) {
+            Err(e) => {
+                Err(Error::RuntimeError(format!("Unable to get neuron lite info: {:?}", e)).into())
+            }
+            Ok(neuron) => Ok(neuron.encode()),
+        }
     }
 
     fn get_neurons(&self, netuid: u16, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_neurons(at, netuid)
-            .map_err(|e| Error::RuntimeError(format!("Unable to get neurons info: {:?}", e)).into())
+        match api.get_neurons(at, netuid) {
+            Err(e) => {
+                Err(Error::RuntimeError(format!("Unable to get neurons info: {:?}", e)).into())
+            }
+            Ok(neurons) => Ok(neurons.encode()),
+        }
     }
 
     fn get_neuron(
@@ -211,8 +221,12 @@ where
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_neuron(at, netuid, uid)
-            .map_err(|e| Error::RuntimeError(format!("Unable to get neuron info: {:?}", e)).into())
+        match api.get_neuron(at, netuid, uid) {
+            Err(e) => {
+                Err(Error::RuntimeError(format!("Unable to get neuron info: {:?}", e)).into())
+            }
+            Ok(neuron) => Ok(neuron.encode()),
+        }
     }
 
     fn get_subnet_info(

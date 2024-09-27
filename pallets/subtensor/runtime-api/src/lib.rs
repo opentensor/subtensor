@@ -4,7 +4,8 @@ use alloc::vec::Vec;
 use codec::Compact;
 use frame_support::sp_runtime::AccountId32;
 use pallet_subtensor::rpc_info::{
-    delegate_info::DelegateInfo
+    delegate_info::DelegateInfo,
+    neuron_info::{NeuronInfo, NeuronInfoLite},
 };
 
 // Here we declare the runtime API. It is implemented it the `impl` block in
@@ -17,10 +18,10 @@ sp_api::decl_runtime_apis! {
     }
 
     pub trait NeuronInfoRuntimeApi {
-        fn get_neurons(netuid: u16) -> Vec<u8>;
-        fn get_neuron(netuid: u16, uid: u16) -> Vec<u8>;
-        fn get_neurons_lite(netuid: u16) -> Vec<u8>;
-        fn get_neuron_lite(netuid: u16, uid: u16) -> Vec<u8>;
+        fn get_neurons(netuid: u16) -> Vec<NeuronInfo<AccountId32>>;
+        fn get_neuron(netuid: u16, uid: u16) -> Option<NeuronInfo<AccountId32>>;
+        fn get_neurons_lite(netuid: u16) -> Vec<NeuronInfoLite<AccountId32>>;
+        fn get_neuron_lite(netuid: u16, uid: u16) -> Option<NeuronInfoLite<AccountId32>>;
     }
 
     pub trait SubnetInfoRuntimeApi {
