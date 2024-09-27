@@ -33,6 +33,7 @@ use pallet_registry::CanRegisterIdentity;
 use pallet_subtensor::rpc_info::{
     delegate_info::DelegateInfo,
     neuron_info::{NeuronInfo, NeuronInfoLite},
+    subnet_info::{SubnetHyperparams, SubnetInfo},
 };
 use scale_info::TypeInfo;
 use smallvec::smallvec;
@@ -1425,19 +1426,12 @@ impl_runtime_apis! {
     }
 
     impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
-        fn get_subnet_info(netuid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_subnet_info(netuid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get SubnetInfo");
-                result.encode()
-            } else {
-                vec![]
-            }
+        fn get_subnet_info(netuid: u16) -> Option<SubnetInfo<AccountId32>> {
+            SubtensorModule::get_subnet_info(netuid)
         }
 
-        fn get_subnets_info() -> Vec<u8> {
-            let result = SubtensorModule::get_subnets_info();
-            result.encode()
+        fn get_subnets_info() -> Vec<Option<SubnetInfo<AccountId32>>> {
+            SubtensorModule::get_subnets_info()
         }
 
         fn get_subnet_info_v2(netuid: u16) -> Vec<u8> {
@@ -1454,15 +1448,8 @@ impl_runtime_apis! {
             let result = SubtensorModule::get_subnets_info_v2();
             result.encode()
         }
-
-        fn get_subnet_hyperparams(netuid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_subnet_hyperparams(netuid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get SubnetHyperparams");
-                result.encode()
-            } else {
-                vec![]
-            }
+        fn get_subnet_hyperparams(netuid: u16) -> Option<SubnetHyperparams> {
+            SubtensorModule::get_subnet_hyperparams(netuid)
         }
     }
 

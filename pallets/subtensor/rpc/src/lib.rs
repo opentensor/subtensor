@@ -237,8 +237,12 @@ where
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_subnet_info(at, netuid)
-            .map_err(|e| Error::RuntimeError(format!("Unable to get subnet info: {:?}", e)).into())
+        match api.get_subnet_info(at, netuid) {
+            Err(e) => {
+                Err(Error::RuntimeError(format!("Unable to get subnet info: {:?}", e)).into())
+            }
+            Ok(result) => Ok(result.encode()),
+        }
     }
 
     fn get_subnet_hyperparams(
@@ -249,16 +253,26 @@ where
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_subnet_hyperparams(at, netuid)
-            .map_err(|e| Error::RuntimeError(format!("Unable to get subnet info: {:?}", e)).into())
+        match api.get_subnet_hyperparams(at, netuid) {
+            Err(e) => Err(Error::RuntimeError(format!(
+                "Unable to get subnet hyperparam info: {:?}",
+                e
+            ))
+            .into()),
+            Ok(result) => Ok(result.encode()),
+        }
     }
 
     fn get_subnets_info(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_subnets_info(at)
-            .map_err(|e| Error::RuntimeError(format!("Unable to get subnets info: {:?}", e)).into())
+        match api.get_subnets_info(at) {
+            Err(e) => {
+                Err(Error::RuntimeError(format!("Unable to get subnets info: {:?}", e)).into())
+            }
+            Ok(result) => Ok(result.encode()),
+        }
     }
 
     fn get_subnet_info_v2(

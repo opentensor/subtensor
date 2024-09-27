@@ -6,6 +6,7 @@ use frame_support::sp_runtime::AccountId32;
 use pallet_subtensor::rpc_info::{
     delegate_info::DelegateInfo,
     neuron_info::{NeuronInfo, NeuronInfoLite},
+    subnet_info::{SubnetHyperparams, SubnetInfo},
 };
 
 // Here we declare the runtime API. It is implemented it the `impl` block in
@@ -25,11 +26,11 @@ sp_api::decl_runtime_apis! {
     }
 
     pub trait SubnetInfoRuntimeApi {
-        fn get_subnet_info(netuid: u16) -> Vec<u8>;
-        fn get_subnets_info() -> Vec<u8>;
+		fn get_subnet_info(netuid: u16) -> Option<SubnetInfo<AccountId32>>;
+        fn get_subnets_info() -> Vec<Option<SubnetInfo<AccountId32>>>;
         fn get_subnet_info_v2(netuid: u16) -> Vec<u8>;
         fn get_subnets_info_v2() -> Vec<u8>;
-        fn get_subnet_hyperparams(netuid: u16) -> Vec<u8>;
+        fn get_subnet_hyperparams(netuid: u16) -> Option<SubnetHyperparams>;
     }
 
     pub trait StakeInfoRuntimeApi {
