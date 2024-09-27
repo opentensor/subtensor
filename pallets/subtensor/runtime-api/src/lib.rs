@@ -6,6 +6,7 @@ use frame_support::sp_runtime::AccountId32;
 use pallet_subtensor::rpc_info::{
     delegate_info::DelegateInfo,
     neuron_info::{NeuronInfo, NeuronInfoLite},
+    stake_info::StakeInfo,
     subnet_info::{SubnetHyperparams, SubnetInfo},
 };
 
@@ -34,8 +35,8 @@ sp_api::decl_runtime_apis! {
     }
 
     pub trait StakeInfoRuntimeApi {
-        fn get_stake_info_for_coldkey( coldkey_account_vec: Vec<u8> ) -> Vec<u8>;
-        fn get_stake_info_for_coldkeys( coldkey_account_vecs: Vec<Vec<u8>> ) -> Vec<u8>;
+        fn get_stake_info_for_coldkey( coldkey_account: AccountId32 ) -> Vec<StakeInfo<AccountId32>>;
+        fn get_stake_info_for_coldkeys( coldkey_accounts: Vec<AccountId32> ) -> Vec<(AccountId32, Vec<StakeInfo<AccountId32>>)>;
     }
 
     pub trait SubnetRegistrationRuntimeApi {

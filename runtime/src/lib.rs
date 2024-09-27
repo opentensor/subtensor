@@ -33,6 +33,7 @@ use pallet_registry::CanRegisterIdentity;
 use pallet_subtensor::rpc_info::{
     delegate_info::DelegateInfo,
     neuron_info::{NeuronInfo, NeuronInfoLite},
+    stake_info::StakeInfo,
     subnet_info::{SubnetHyperparams, SubnetInfo},
 };
 use scale_info::TypeInfo;
@@ -1454,14 +1455,12 @@ impl_runtime_apis! {
     }
 
     impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {
-        fn get_stake_info_for_coldkey( coldkey_account_vec: Vec<u8> ) -> Vec<u8> {
-            let result = SubtensorModule::get_stake_info_for_coldkey( coldkey_account_vec );
-            result.encode()
+        fn get_stake_info_for_coldkey( coldkey_account: AccountId32 ) -> Vec<StakeInfo<AccountId32>> {
+            SubtensorModule::get_stake_info_for_coldkey( coldkey_account )
         }
 
-        fn get_stake_info_for_coldkeys( coldkey_account_vecs: Vec<Vec<u8>> ) -> Vec<u8> {
-            let result = SubtensorModule::get_stake_info_for_coldkeys( coldkey_account_vecs );
-            result.encode()
+        fn get_stake_info_for_coldkeys( coldkey_accounts: Vec<AccountId32> ) -> Vec<(AccountId32, Vec<StakeInfo<AccountId32>>)> {
+               SubtensorModule::get_stake_info_for_coldkeys( coldkey_accounts )
         }
     }
 
