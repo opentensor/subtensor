@@ -27,7 +27,10 @@ use pallet_grandpa::{
 };
 use pallet_registry::CanRegisterIdentity;
 use pallet_subtensor::rpc_info::{
-    delegate_info::DelegateInfo, dynamic_info::DynamicInfo, show_subnet::SubnetState,
+    delegate_info::DelegateInfo,
+    dynamic_info::DynamicInfo,
+    neuron_info::{NeuronInfo, NeuronInfoLite},
+    show_subnet::SubnetState,
 };
 use scale_info::TypeInfo;
 use smallvec::smallvec;
@@ -1717,34 +1720,20 @@ impl_runtime_apis! {
     }
 
     impl subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<Block> for Runtime {
-        fn get_neurons_lite(netuid: u16) -> Vec<u8> {
-            let result = SubtensorModule::get_neurons_lite(netuid);
-            result.encode()
+        fn get_neurons_lite(netuid: u16) -> Vec<NeuronInfoLite<AccountId32>> {
+            SubtensorModule::get_neurons_lite(netuid)
         }
 
-        fn get_neuron_lite(netuid: u16, uid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_neuron_lite(netuid, uid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get NeuronInfoLite");
-                result.encode()
-            } else {
-                vec![]
-            }
+        fn get_neuron_lite(netuid: u16, uid: u16) -> Option<NeuronInfoLite<AccountId32>> {
+            SubtensorModule::get_neuron_lite(netuid, uid)
         }
 
-        fn get_neurons(netuid: u16) -> Vec<u8> {
-            let result = SubtensorModule::get_neurons(netuid);
-            result.encode()
+        fn get_neurons(netuid: u16) -> Vec<NeuronInfo<AccountId32>> {
+            SubtensorModule::get_neurons(netuid)
         }
 
-        fn get_neuron(netuid: u16, uid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_neuron(netuid, uid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get NeuronInfo");
-                result.encode()
-            } else {
-                vec![]
-            }
+        fn get_neuron(netuid: u16, uid: u16) -> Option<NeuronInfo<AccountId32>> {
+            SubtensorModule::get_neuron(netuid, uid)
         }
     }
 
