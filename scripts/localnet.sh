@@ -17,7 +17,7 @@ BASE_DIR="$SCRIPT_DIR/.."
 
 # get parameters
 # Get the value of fast_blocks from the first argument
-fast_blocks=${1:-"True"}
+fast_blocks=${1:-"False"}
 
 # Check the value of fast_blocks
 if [ "$fast_blocks" == "False" ]; then
