@@ -33,7 +33,7 @@ members = [
     "support/tools",
     "support/macros",
     "support/linting",
-    "support/procedural-fork",
+    "support/procedural-fork", "support/code-coverage",
 ]
 exclude = ["support/procedural-fork"]
 resolver = "2"

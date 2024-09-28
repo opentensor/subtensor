@@ -1,0 +1,11 @@
+[package]
+name = "subtensor-code-coverage"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+build-print = "0.1"
+syn.workspace = true
+
+[lints]
+workspace = true

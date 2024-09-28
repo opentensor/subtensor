@@ -927,6 +927,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "build-print"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a2128d00b7061b82b72844a351e80acd29e05afc60e9261e2ac90dca9ecc2ac"
+
+[[package]]
 name = "bumpalo"
 version = "3.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9871,6 +9877,14 @@ dependencies = [
  "subtensor-linting",
  "syn 2.0.77",
  "walkdir",
+]
+
+[[package]]
+name = "subtensor-code-coverage"
+version = "0.1.0"
+dependencies = [
+ "build-print",
+ "syn 2.0.77",
 ]
 
 [[package]]
