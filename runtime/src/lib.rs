@@ -1038,7 +1038,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
 }
 
-use sp_runtime::{AccountId32, BoundedVec};
+use sp_runtime::BoundedVec;
 
 pub struct AuraPalletIntrf;
 impl pallet_admin_utils::AuraInterface<AuraId, ConstU32<32>> for AuraPalletIntrf {
