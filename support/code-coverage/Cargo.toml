@@ -6,6 +6,8 @@ edition = "2021"
 [dependencies]
 build-print = "0.1"
 syn.workspace = true
+quote.workspace = true
+proc-macro2.workspace = true
 procedural-fork.workspace = true
 
 [lints]
