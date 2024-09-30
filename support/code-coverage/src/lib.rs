@@ -5,12 +5,14 @@ use std::{
 
 use syn::File;
 
+#[derive(Default, Debug, PartialEq, Eq, Clone)]
 pub struct PalletCoverageInfo {
     pub pallet_name: String,
     pub path: PathBuf,
     pub extrinsics: HashMap<String, usize>,
-    pub events: HashMap<String, usize>,
-    pub hooks: HashMap<String, usize>,
-    pub calls: HashMap<String, usize>,
-    pub storage: HashMap<String, usize>,
+}
+
+pub fn analyze_pallet(file: &File) -> PalletCoverageInfo {
+    let mut pallet_coverage_info = PalletCoverageInfo::default();
+    todo!()
 }

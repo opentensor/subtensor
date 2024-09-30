@@ -157,6 +157,8 @@ substrate-frame-rpc-system = { git = "https://github.com/paritytech/polkadot-sdk
 substrate-wasm-builder = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "v1.16.0-rc1" }
 frame-metadata = "16"
 
+procedural-fork = { version = "1.10.0-rc3", path = "support/procedural-fork" }
+
 [profile.release]
 panic = "unwind"
 
