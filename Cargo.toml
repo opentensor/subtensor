@@ -234,6 +234,8 @@ tle = { git = "https://github.com/ideal-lab5/timelock", rev = "5416406cfd32799e3
 
 frame-metadata = "16"
 
+procedural-fork = { version = "1.10.0-rc3", path = "support/procedural-fork" }
+
 [profile.release]
 panic = "unwind"
 
