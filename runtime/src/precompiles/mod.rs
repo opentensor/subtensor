@@ -6,6 +6,7 @@ use pallet_evm::{
     ExitError, IsPrecompileResult, Precompile, PrecompileFailure, PrecompileHandle,
     PrecompileResult, PrecompileSet,
 };
+use pallet_evm_precompile_ed25519::Ed25519Verify;
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;
 use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripemd160, Sha256};
@@ -16,6 +17,8 @@ mod staking;
 
 use balance_transfer::*;
 use staking::*;
+
+pub const EDVERIFY_PRECOMPILE_INDEX: u64 = 1026;
 
 pub struct FrontierPrecompiles<R>(PhantomData<R>);
 
@@ -35,7 +38,7 @@ where
     pub fn new() -> Self {
         Self(Default::default())
     }
-    pub fn used_addresses() -> [H160; 9] {
+    pub fn used_addresses() -> [H160; 10] {
         [
             hash(1),
             hash(2),
@@ -44,6 +47,7 @@ where
             hash(5),
             hash(1024),
             hash(1025),
+            hash(EDVERIFY_PRECOMPILE_INDEX),
             hash(BALANCE_TRANSFER_INDEX),
             hash(STAKING_PRECOMPILE_INDEX),
         ]
@@ -64,6 +68,8 @@ where
             // Non-Frontier specific nor Ethereum precompiles :
             a if a == hash(1024) => Some(Sha3FIPS256::execute(handle)),
             a if a == hash(1025) => Some(ECRecoverPublicKey::execute(handle)),
+            a if a == hash(EDVERIFY_PRECOMPILE_INDEX) => Some(Ed25519Verify::execute(handle)),
+            // Subtensor specific precompiles :
             a if a == hash(BALANCE_TRANSFER_INDEX) => {
                 Some(BalanceTransferPrecompile::execute(handle))
             }

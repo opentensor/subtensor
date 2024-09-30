@@ -184,6 +184,7 @@ pallet-dynamic-fee = { git = "https://github.com/keithtensor/frontier", branch =
 pallet-ethereum = { git = "https://github.com/keithtensor/frontier", branch = "upgrade-to-v1.16.0", default-features = false }
 pallet-evm = { git = "https://github.com/keithtensor/frontier", branch = "upgrade-to-v1.16.0", default-features = false }
 pallet-evm-chain-id = { git = "https://github.com/keithtensor/frontier", branch = "upgrade-to-v1.16.0", default-features = false }
+pallet-evm-precompile-ed25519 = { git = "https://github.com/keithtensor/frontier", branch = "upgrade-to-v1.16.0", default-features = false }
 pallet-evm-precompile-modexp = { git = "https://github.com/keithtensor/frontier", branch = "upgrade-to-v1.16.0", default-features = false }
 pallet-evm-precompile-sha3fips = { git = "https://github.com/keithtensor/frontier", branch = "upgrade-to-v1.16.0", default-features = false }
 pallet-evm-precompile-simple = { git = "https://github.com/keithtensor/frontier", branch = "upgrade-to-v1.16.0", default-features = false }
