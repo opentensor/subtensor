@@ -1,14 +1,16 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+use syn::File;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+pub struct PalletCoverageInfo {
+    pub pallet_name: String,
+    pub path: PathBuf,
+    pub extrinsics: HashMap<String, usize>,
+    pub events: HashMap<String, usize>,
+    pub hooks: HashMap<String, usize>,
+    pub calls: HashMap<String, usize>,
+    pub storage: HashMap<String, usize>,
 }
