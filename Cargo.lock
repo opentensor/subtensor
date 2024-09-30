@@ -9884,6 +9884,7 @@ name = "subtensor-code-coverage"
 version = "0.1.0"
 dependencies = [
  "build-print",
+ "proc-macro2",
  "syn 2.0.77",
 ]
 
