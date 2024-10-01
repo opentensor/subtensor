@@ -25,7 +25,7 @@ fn main() {
     // Collect all Rust source files in the workspace
     let rust_files = collect_rust_files(workspace_root);
 
-    rust_files.par_iter().for_each(|path| {
+    rust_files.iter().for_each(|path| {
         let infos = analyze_file(path);
         //build_print::info!("File: {}", path.display());
         for info in infos {
@@ -90,10 +90,9 @@ fn collect_rust_files(dir: &Path) -> Vec<PathBuf> {
         let path = entry.path();
 
         // Skip any path that contains "target" directory
-        if path
-            .components()
-            .any(|component| component.as_os_str() == "target")
-            || path.ends_with("build.rs")
+        if path.components().any(|component| {
+            component.as_os_str() == "target" || component.as_os_str() == "procedural-fork"
+        }) || path.ends_with("build.rs")
         {
             continue;
         }

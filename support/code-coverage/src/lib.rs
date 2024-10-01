@@ -16,11 +16,24 @@ pub struct PalletCoverageInfo {
 
 pub fn try_parse_pallet(item_mod: &ItemMod) -> Option<Def> {
     simulate_manifest_dir("pallets/subtensor", || -> Option<Def> {
+        if item_mod.content.is_none() || item_mod.ident != "pallet" {
+            build_print::info!(
+                "Skipping blank or irrelevant module: {}",
+                item_mod.ident.to_string()
+            );
+            return None;
+        }
+        build_print::info!("Parsing module: {}", item_mod.ident.to_string());
         if let Ok(pallet) = Def::try_from(item_mod.clone(), false) {
             Some(pallet)
         } else if let Ok(pallet) = Def::try_from(item_mod.clone(), true) {
             Some(pallet)
         } else {
+            let err = match Def::try_from(item_mod.clone(), false) {
+                Err(e) => e,
+                Ok(_) => unreachable!(),
+            };
+            build_print::error!("Error parsing pallet: {}", err);
             None
         }
     })
@@ -37,6 +50,7 @@ pub fn analyze_file(path: &Path) -> Vec<PalletCoverageInfo> {
         return Vec::new();
     };
     let mut infos = Vec::new();
+    build_print::info!("Analyzing file: {}", path.display());
     PalletVisitor::for_each_pallet(&file, |_item_mod, _pallet: &Def| {
         let mut info = PalletCoverageInfo::default();
         info.path = path.to_path_buf();
