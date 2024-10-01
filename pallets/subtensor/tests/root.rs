@@ -2243,3 +2243,62 @@ fn test_dissolve_network_subnet_locked_balance_returned_and_cleared() {
         assert_eq!(locked_balance, 0);
     });
 }
+
+#[test]
+fn test_blocks_until_next_epoch() {
+    // Special case: tempo = 0 (Network never runs)
+    assert_eq!(
+        SubtensorModule::blocks_until_next_epoch(0, 0, 0),
+        u64::MAX,
+        "Special case: tempo = 0"
+    );
+
+    // First epoch block, tempo = 1, netuid = 0
+    assert_eq!(
+        SubtensorModule::blocks_until_next_epoch(0, 1, 0),
+        0,
+        "First epoch block, tempo = 1, netuid = 0"
+    );
+
+    // First epoch block, tempo = 1, netuid = 1
+    assert_eq!(
+        SubtensorModule::blocks_until_next_epoch(1, 1, 0),
+        1,
+        "First epoch block, tempo = 1, netuid = 1"
+    );
+
+    // First epoch block, tempo = 2, netuid = 0
+    assert_eq!(
+        SubtensorModule::blocks_until_next_epoch(0, 2, 0),
+        1,
+        "First epoch block, tempo = 2, netuid = 0"
+    );
+
+    // First epoch block, tempo = 2, netuid = 1
+    assert_eq!(
+        SubtensorModule::blocks_until_next_epoch(1, 2, 0),
+        0,
+        "First epoch block, tempo = 2, netuid = 1"
+    );
+
+    // First epoch block, tempo = 100, netuid = 0
+    assert_eq!(
+        SubtensorModule::blocks_until_next_epoch(0, 100, 0),
+        99,
+        "First epoch block, tempo = 100, netuid = 0"
+    );
+
+    // First epoch block, tempo = 100, netuid = 1
+    assert_eq!(
+        SubtensorModule::blocks_until_next_epoch(1, 100, 0),
+        98,
+        "First epoch block, tempo = 100, netuid = 1"
+    );
+
+    // block_number > 0, tempo = 100, netuid = 1
+    assert_eq!(
+        SubtensorModule::blocks_until_next_epoch(1, 100, 101),
+        98,
+        "block_number > 0, tempo = 100, netuid = 1"
+    );
+}
