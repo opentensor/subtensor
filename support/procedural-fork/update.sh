@@ -13,6 +13,7 @@ TMP_DIR=$(mktemp -d)
 # Define source and destination directories
 SRC_DIR="substrate/frame/support/procedural/src"
 DEST_DIR="$(pwd)/src"  # Absolute path to `src` directory of procedural-fork
+PARENT_DIR="$(dirname "$DEST_DIR")"  # Get the parent directory of DEST_DIR
 
 # Check if DEST_DIR exists
 if [ ! -d "$DEST_DIR" ]; then
@@ -47,7 +48,18 @@ find "$DEST_DIR" -name '*.rs' -not -path "$DEST_DIR/lib.rs" | while read -r file
     awk 'BEGIN {print "#![ignore]\n#![cfg(not(doc))]"} {print}' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
 done
 
+# Remove all `#[cfg(test)]` lines from `pallet/parse/mod.rs`
+MOD_RS="$DEST_DIR/pallet/parse/mod.rs"
+if [ -f "$MOD_RS" ]; then
+    echo "Removing #[cfg(test)] from $MOD_RS ..."
+    grep -v '#\[cfg(test)\]' "$MOD_RS" > "$MOD_RS.tmp" && mv "$MOD_RS.tmp" "$MOD_RS"
+fi
+
+# Change directory to the parent of $DEST_DIR to run cargo fmt
+echo "Changing directory to $PARENT_DIR and running cargo fmt --all ..."
+cd "$PARENT_DIR" && cargo fmt --all
+
 # Clean up the temporary directory
 rm -rf "$TMP_DIR"
 
-echo "Update completed successfully with modifications."
+echo "Update and formatting completed successfully."
