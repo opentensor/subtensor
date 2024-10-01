@@ -5,6 +5,7 @@ use std::{
     str::FromStr,
     sync::mpsc::channel,
 };
+use subtensor_code_coverage::analyze_file;
 use walkdir::WalkDir;
 
 use subtensor_linting::*;
@@ -23,6 +24,14 @@ fn main() {
 
     // Collect all Rust source files in the workspace
     let rust_files = collect_rust_files(workspace_root);
+
+    rust_files.par_iter().for_each(|path| {
+        let infos = analyze_file(path);
+        //build_print::info!("File: {}", path.display());
+        for info in infos {
+            build_print::info!("pallet: {}", info.path.display());
+        }
+    });
 
     // Channel used to communicate errors back to the main thread from the parallel processing
     // as we process each Rust file

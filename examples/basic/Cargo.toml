@@ -1,0 +1,11 @@
+[package]
+name = "basic"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+frame-system.workspace = true
+frame-support.workspace = true
+
+[lints]
+workspace = true
