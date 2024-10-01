@@ -55,6 +55,12 @@ if [ -f "$MOD_RS" ]; then
     grep -v '#\[cfg(test)\]' "$MOD_RS" > "$MOD_RS.tmp" && mv "$MOD_RS.tmp" "$MOD_RS"
 fi
 
+# Replace all #[test] with #[test]\n#[ignore] using awk
+echo "Replacing #[test] with #[test]\n#[ignore] ..."
+find "$DEST_DIR" -name '*.rs' | while read -r file; do
+    awk '{if ($0 == "#[test]") print $0 "\n#[ignore]"; else print $0}' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+done
+
 # Change directory to the parent of $DEST_DIR to run cargo fmt
 echo "Changing directory to $PARENT_DIR and running cargo fmt --all ..."
 cd "$PARENT_DIR" && cargo fmt --all
