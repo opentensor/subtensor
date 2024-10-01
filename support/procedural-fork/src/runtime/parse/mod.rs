@@ -1,3 +1,4 @@
+#![cfg(not(doc))]
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -255,20 +256,20 @@ impl Def {
         };
 
         let def = Def {
-            input,
-            item,
-            runtime_struct: runtime_struct.ok_or_else(|| {
-                syn::Error::new(item_span,
+			input,
+			item,
+			runtime_struct: runtime_struct.ok_or_else(|| {
+				syn::Error::new(item_span,
 					"Missing Runtime. Please add a struct inside the module and annotate it with `#[runtime::runtime]`"
 				)
-            })?,
-            pallets,
-            runtime_types: runtime_types.ok_or_else(|| {
-                syn::Error::new(item_span,
+			})?,
+			pallets,
+			runtime_types: runtime_types.ok_or_else(|| {
+				syn::Error::new(item_span,
 					"Missing Runtime Types. Please annotate the runtime struct with `#[runtime::derive]`"
 				)
-            })?,
-        };
+			})?,
+		};
 
         Ok(def)
     }

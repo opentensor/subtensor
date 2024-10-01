@@ -74,9 +74,10 @@ fn counter_prefix(prefix: &str) -> String {
     format!("CounterFor{}", prefix)
 }
 
-pub use crate::pallet::parse::tests::simulate_manifest_dir;
-
+#[cfg(not(doc))]
 pub mod exports {
+    pub use crate::pallet::parse::tests::simulate_manifest_dir;
+
     pub mod benchmark {
         pub use crate::benchmark::*;
     }
