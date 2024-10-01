@@ -36,11 +36,21 @@ git sparse-checkout set "$SRC_DIR"
 echo "Contents of $TMP_DIR/$SRC_DIR after sparse-checkout:"
 ls -l "$TMP_DIR/$SRC_DIR" || { echo "Error: Sparse checkout failed, $SRC_DIR not found."; rm -rf "$TMP_DIR"; exit 1; }
 
-# Copy all files from `src` except `lib.rs` to the destination folder
+# Copy all files from `src` except `$DEST_DIR/lib.rs` to the destination folder
 echo "Copying files to $DEST_DIR ..."
 rsync -a --exclude='lib.rs' "$TMP_DIR/$SRC_DIR/" "$DEST_DIR/"
+
+# Add the desired lines to the top of each Rust file, except the `lib.rs` in $DEST_DIR
+for file in "$DEST_DIR"/*.rs; do
+    if [ -f "$file" ] && [ "$(realpath "$file")" != "$(realpath "$DEST_DIR/lib.rs")" ]; then
+        echo "Prepending configuration to $file ..."
+        # Use sed to prepend the lines to each file
+        sed -i '1i\
+#![ignore]\n#![cfg(not(doc))]\n' "$file"
+    fi
+done
 
 # Clean up the temporary directory
 rm -rf "$TMP_DIR"
 
-echo "Update completed successfully."
+echo "Update completed successfully with modifications."
