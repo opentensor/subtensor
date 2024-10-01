@@ -145,7 +145,7 @@ impl<T: Config> Pallet<T> {
         // We keep track of the last stake increase event for accounting purposes.
         // hotkeys --> nominators.
         let emission_tempo: u64 = Self::get_hotkey_emission_tempo();
-        for (hotkey, hotkey_emission) in PendingdHotkeyEmission::<T>::iter() {
+        for (hotkey, hotkey_emission) in PendingHotkeyEmission::<T>::iter() {
             // Check for zeros.
             // remove zero values.
             if hotkey_emission == 0 {
@@ -227,17 +227,29 @@ impl<T: Config> Pallet<T> {
                     .to_num::<u64>();
 
                 // --- 5.5. Accumulate emissions for the parent hotkey.
-                PendingdHotkeyEmission::<T>::mutate(parent, |parent_accumulated| {
+                PendingHotkeyEmission::<T>::mutate(parent.clone(), |parent_accumulated| {
                     *parent_accumulated = parent_accumulated.saturating_add(parent_emission_take)
                 });
 
-                // --- 5.6. Subtract the parent's share from the remaining emission for this hotkey.
+                // --- 5.6. Accumulate emissions for the parent hotkey on this specific subnet.
+                PendingHotkeySubnetEmission::<T>::mutate(netuid, parent, |parent_accumulated| {
+                    *parent_accumulated = parent_accumulated.saturating_add(parent_emission_take)
+                });
+
+                // --- 5.7. Subtract the parent's share from the remaining emission for this hotkey.
                 remaining_emission = remaining_emission.saturating_sub(parent_emission_take);
             }
         }
-
         // --- 6. Add the remaining emission plus the hotkey's initial take to the pending emission for this hotkey.
-        PendingdHotkeyEmission::<T>::mutate(hotkey, |hotkey_pending| {
+        PendingHotkeyEmission::<T>::mutate(hotkey.clone(), |hotkey_pending| {
+            *hotkey_pending = hotkey_pending.saturating_add(
+                remaining_emission
+                    .saturating_add(hotkey_take)
+                    .saturating_add(mining_emission),
+            )
+        });
+
+        PendingHotkeySubnetEmission::<T>::mutate(netuid, hotkey, |hotkey_pending| {
             *hotkey_pending = hotkey_pending.saturating_add(
                 remaining_emission
                     .saturating_add(hotkey_take)
@@ -263,7 +275,15 @@ impl<T: Config> Pallet<T> {
         let mut total_new_tao: u64 = 0;
 
         // --- 1.0 Drain the hotkey emission.
-        PendingdHotkeyEmission::<T>::insert(hotkey, 0);
+        PendingHotkeyEmission::<T>::insert(hotkey, 0);
+
+        // Drain the hotkey emission for all subnets
+        for netuid in Self::get_all_subnet_netuids() {
+            let subnet_emission = PendingHotkeySubnetEmission::<T>::get(netuid, hotkey);
+            if subnet_emission > 0 {
+                PendingHotkeySubnetEmission::<T>::insert(netuid, hotkey, 0);
+            }
+        }
 
         // --- 2 Retrieve the last time this hotkey's emissions were drained.
         let last_emission_drain: u64 = LastHotkeyEmissionDrain::<T>::get(hotkey);
