@@ -7,12 +7,24 @@ use std::{
     path::{Path, PathBuf},
     str::FromStr,
 };
-use syn::{parse2, spanned::Spanned, File, Item};
+use syn::{parse2, spanned::Spanned, visit::Visit, File, Item, ItemMod, ItemStruct};
 
 #[derive(Default, Debug, PartialEq, Eq, Clone)]
 pub struct PalletCoverageInfo {
     pub path: PathBuf,
     pub extrinsics: HashMap<String, usize>,
+}
+
+pub fn try_parse_pallet(item_mod: &ItemMod) -> Option<Def> {
+    let pallet: Def = if let Ok(pallet) = Def::try_from(item_mod.clone(), false) {
+        pallet
+    } else {
+        let Ok(pallet) = Def::try_from(item_mod.clone(), true) else {
+            return None;
+        };
+        pallet
+    };
+    Some(pallet)
 }
 
 pub fn analyze_file(path: &Path) -> Vec<PalletCoverageInfo> {
@@ -28,16 +40,26 @@ pub fn analyze_file(path: &Path) -> Vec<PalletCoverageInfo> {
     // TODO: use a visitor here instead
     for item in &file.items {
         let Item::Mod(item_mod) = item else { continue };
-        let pallet: Def = if let Ok(pallet) = Def::try_from(item_mod.clone(), false) {
-            pallet
-        } else {
-            let Ok(pallet) = Def::try_from(item_mod.clone(), true) else {
-                continue;
-            };
-            pallet
+        let Some(pallet) = try_parse_pallet(&item_mod) else {
+            continue;
         };
         let mut info = PalletCoverageInfo::default();
         info.path = path.to_path_buf();
     }
     todo!()
+}
+
+#[derive(Default)]
+pub struct PalletVisitor {
+    pub pallets: Vec<(ItemMod, Def)>,
+}
+
+impl<'ast> Visit<'ast> for PalletVisitor {
+    fn visit_item_mod(&mut self, item_mod: &'ast ItemMod) {
+        let Some(pallet) = try_parse_pallet(item_mod) else {
+            syn::visit::visit_item_mod(self, item_mod);
+            return;
+        };
+        self.pallets.push((item_mod.clone(), pallet));
+    }
 }
