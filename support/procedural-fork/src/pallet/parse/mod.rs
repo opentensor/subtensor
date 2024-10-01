@@ -37,7 +37,6 @@ pub mod tasks;
 pub mod type_value;
 pub mod validate_unsigned;
 
-#[cfg(test)]
 pub mod tests;
 
 use composite::{keyword::CompositeKeyword, CompositeDef};

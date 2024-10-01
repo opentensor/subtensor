@@ -1,10 +1,11 @@
 use proc_macro2::TokenStream as TokenStream2;
-use procedural_fork::exports::pallet::parse::Def;
+use procedural_fork::{exports::pallet::parse::Def, simulate_manifest_dir};
 use std::{
     collections::HashMap,
-    fs,
+    fs, panic,
     path::{Path, PathBuf},
     str::FromStr,
+    sync::Mutex,
 };
 use syn::{visit::Visit, File, ItemMod};
 
@@ -15,15 +16,21 @@ pub struct PalletCoverageInfo {
 }
 
 pub fn try_parse_pallet(item_mod: &ItemMod) -> Option<Def> {
-    let pallet: Def = if let Ok(pallet) = Def::try_from(item_mod.clone(), false) {
-        pallet
-    } else {
-        let Ok(pallet) = Def::try_from(item_mod.clone(), true) else {
-            return None;
-        };
-        pallet
+    if let Ok(pallet) = Def::try_from(item_mod.clone(), false) {
+        return Some(pallet);
+    } else if let Ok(pallet) = Def::try_from(item_mod.clone(), true) {
+        return Some(pallet);
+    }
+    let err = match Def::try_from(item_mod.clone(), false) {
+        Err(err) => err,
+        _ => unreachable!(),
     };
-    Some(pallet)
+    build_print::warn!(
+        "A: pallet: {}, {}",
+        item_mod.ident.to_string(),
+        err.to_string()
+    );
+    None
 }
 
 pub fn analyze_file(path: &Path) -> Vec<PalletCoverageInfo> {
@@ -66,10 +73,9 @@ impl PalletVisitor {
 
 impl<'ast> Visit<'ast> for PalletVisitor {
     fn visit_item_mod(&mut self, item_mod: &'ast ItemMod) {
-        let Some(pallet) = try_parse_pallet(item_mod) else {
-            syn::visit::visit_item_mod(self, item_mod);
-            return;
-        };
-        self.pallets.push((item_mod.clone(), pallet));
+        if let Some(pallet) = try_parse_pallet(item_mod) {
+            self.pallets.push((item_mod.clone(), pallet));
+        }
+        syn::visit::visit_item_mod(self, item_mod);
     }
 }
