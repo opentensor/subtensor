@@ -13,7 +13,6 @@
 #![allow(warnings)]
 #![allow(clippy::all)]
 #![ignore] // ensure procedural-fork tests are not run
-#![cfg(not(doc))] // ensure procedural-fork doc tests are not run
 
 extern crate proc_macro;
 
