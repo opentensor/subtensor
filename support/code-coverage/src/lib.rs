@@ -1,13 +1,12 @@
 use proc_macro2::TokenStream as TokenStream2;
 use procedural_fork::exports::pallet::parse::Def;
-use quote::ToTokens;
 use std::{
     collections::HashMap,
     fs,
     path::{Path, PathBuf},
     str::FromStr,
 };
-use syn::{parse2, spanned::Spanned, visit::Visit, File, Item, ItemMod, ItemStruct};
+use syn::{visit::Visit, File, ItemMod};
 
 #[derive(Default, Debug, PartialEq, Eq, Clone)]
 pub struct PalletCoverageInfo {
@@ -37,16 +36,13 @@ pub fn analyze_file(path: &Path) -> Vec<PalletCoverageInfo> {
     let Ok(file) = syn::parse2::<syn::File>(parsed_tokens) else {
         return Vec::new();
     };
-    // TODO: use a visitor here instead
-    for item in &file.items {
-        let Item::Mod(item_mod) = item else { continue };
-        let Some(pallet) = try_parse_pallet(&item_mod) else {
-            continue;
-        };
+    let mut infos = Vec::new();
+    PalletVisitor::for_each_pallet(&file, |item_mod, pallet: &Def| {
         let mut info = PalletCoverageInfo::default();
         info.path = path.to_path_buf();
-    }
-    todo!()
+        infos.push(info);
+    });
+    infos
 }
 
 #[derive(Default)]
