@@ -41,13 +41,10 @@ echo "Copying files to $DEST_DIR ..."
 rsync -a --exclude='lib.rs' "$TMP_DIR/$SRC_DIR/" "$DEST_DIR/"
 
 # Add the desired lines to the top of each Rust file, except the `lib.rs` in $DEST_DIR
-for file in "$DEST_DIR"/*.rs; do
-    if [ -f "$file" ] && [ "$(realpath "$file")" != "$(realpath "$DEST_DIR/lib.rs")" ]; then
-        echo "Prepending configuration to $file ..."
-        # Use sed to prepend the lines to each file
-        sed -i '1i\
-#![ignore]\n#![cfg(not(doc))]\n' "$file"
-    fi
+find "$DEST_DIR" -name '*.rs' -not -path "$DEST_DIR/lib.rs" | while read -r file; do
+    echo "Prepending configuration to $file ..."
+    # Use awk to prepend the lines to each file
+    awk 'BEGIN {print "#![ignore]\n#![cfg(not(doc))]"} {print}' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
 done
 
 # Clean up the temporary directory
