@@ -1,5 +1,5 @@
 use proc_macro2::TokenStream as TokenStream2;
-use procedural_fork::exports::{pallet::parse::Def, simulate_manifest_dir};
+use procedural_fork::{exports::pallet::parse::Def, simulate_manifest_dir};
 use std::{
     collections::HashMap,
     fs,
@@ -15,21 +15,15 @@ pub struct PalletCoverageInfo {
 }
 
 pub fn try_parse_pallet(item_mod: &ItemMod) -> Option<Def> {
-    if let Ok(pallet) = Def::try_from(item_mod.clone(), false) {
-        return Some(pallet);
-    } else if let Ok(pallet) = Def::try_from(item_mod.clone(), true) {
-        return Some(pallet);
-    }
-    let err = match Def::try_from(item_mod.clone(), false) {
-        Err(err) => err,
-        _ => unreachable!(),
-    };
-    build_print::warn!(
-        "A: pallet: {}, {}",
-        item_mod.ident.to_string(),
-        err.to_string()
-    );
-    None
+    simulate_manifest_dir("pallets/subtensor", || -> Option<Def> {
+        if let Ok(pallet) = Def::try_from(item_mod.clone(), false) {
+            Some(pallet)
+        } else if let Ok(pallet) = Def::try_from(item_mod.clone(), true) {
+            Some(pallet)
+        } else {
+            None
+        }
+    })
 }
 
 pub fn analyze_file(path: &Path) -> Vec<PalletCoverageInfo> {
@@ -43,7 +37,7 @@ pub fn analyze_file(path: &Path) -> Vec<PalletCoverageInfo> {
         return Vec::new();
     };
     let mut infos = Vec::new();
-    PalletVisitor::for_each_pallet(&file, |item_mod, pallet: &Def| {
+    PalletVisitor::for_each_pallet(&file, |_item_mod, _pallet: &Def| {
         let mut info = PalletCoverageInfo::default();
         info.path = path.to_path_buf();
         infos.push(info);

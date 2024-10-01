@@ -29,7 +29,7 @@ fn main() {
         let infos = analyze_file(path);
         //build_print::info!("File: {}", path.display());
         for info in infos {
-            build_print::info!("pallet: {}", info.path.display());
+            build_print::info!("found pallet: {}", info.path.display());
         }
     });
 
