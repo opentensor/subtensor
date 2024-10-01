@@ -32,7 +32,13 @@ mod storage_alias;
 mod transactional;
 mod tt_macro;
 
-use std::{cell::RefCell, str::FromStr};
+use std::{
+    cell::RefCell,
+    env::{set_var, var},
+    path::PathBuf,
+    str::FromStr,
+    sync::Mutex,
+};
 
 pub(crate) const INHERENT_INSTANCE_NAME: &str = "__InherentHiddenInstance";
 
@@ -72,6 +78,24 @@ fn get_cargo_env_var<T: FromStr>(version_env: &str) -> std::result::Result<T, ()
 /// counter_prefix is used by counted storage map.
 fn counter_prefix(prefix: &str) -> String {
     format!("CounterFor{}", prefix)
+}
+
+/// Improvement on [`exports::simulate_manifest_dir`] that allows for an arbitrary return type
+pub fn simulate_manifest_dir<P, F, R>(path: P, closure: F) -> R
+where
+    P: AsRef<std::path::Path>,
+    F: FnOnce() -> R + std::panic::UnwindSafe,
+{
+    static MANIFEST_DIR_LOCK: Mutex<()> = Mutex::new(());
+    let guard = MANIFEST_DIR_LOCK.lock().unwrap();
+    let orig = PathBuf::from(
+        var("CARGO_MANIFEST_DIR").expect("failed to read ENV var `CARGO_MANIFEST_DIR`"),
+    );
+    set_var("CARGO_MANIFEST_DIR", orig.join(path.as_ref()));
+    let result = std::panic::catch_unwind(closure);
+    set_var("CARGO_MANIFEST_DIR", &orig);
+    drop(guard);
+    result.unwrap()
 }
 
 #[cfg(not(doc))]
