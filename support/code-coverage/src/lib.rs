@@ -54,6 +54,19 @@ pub struct PalletVisitor {
     pub pallets: Vec<(ItemMod, Def)>,
 }
 
+impl PalletVisitor {
+    pub fn for_each_pallet<F>(file: &File, mut f: F)
+    where
+        F: FnMut(&ItemMod, &Def),
+    {
+        let mut visitor = PalletVisitor::default();
+        visitor.visit_file(file);
+        for (item_mod, pallet) in visitor.pallets {
+            f(&item_mod, &pallet);
+        }
+    }
+}
+
 impl<'ast> Visit<'ast> for PalletVisitor {
     fn visit_item_mod(&mut self, item_mod: &'ast ItemMod) {
         let Some(pallet) = try_parse_pallet(item_mod) else {
