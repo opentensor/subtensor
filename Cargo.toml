@@ -37,7 +37,6 @@ members = [
     "support/linting",
     "support/procedural-fork",
     "support/code-coverage",
-    "examples/basic",
 ]
 resolver = "2"
 
