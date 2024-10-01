@@ -55,15 +55,16 @@ pub struct PalletVisitor {
 }
 
 impl PalletVisitor {
-    pub fn for_each_pallet<F>(file: &File, mut f: F)
+    pub fn for_each_pallet<F>(file: &File, mut f: F) -> Self
     where
         F: FnMut(&ItemMod, &Def),
     {
         let mut visitor = PalletVisitor::default();
         visitor.visit_file(file);
-        for (item_mod, pallet) in visitor.pallets {
-            f(&item_mod, &pallet);
+        for (item_mod, pallet) in &visitor.pallets {
+            f(item_mod, pallet);
         }
+        visitor
     }
 }
 
