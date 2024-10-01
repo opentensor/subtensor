@@ -5595,6 +5595,7 @@ dependencies = [
 name = "node-subtensor-runtime"
 version = "4.0.0-dev"
 dependencies = [
+ "ed25519-dalek",
  "fp-account",
  "fp-evm",
  "fp-rpc",
@@ -5619,7 +5620,6 @@ dependencies = [
  "pallet-ethereum",
  "pallet-evm",
  "pallet-evm-chain-id",
- "pallet-evm-precompile-ed25519",
  "pallet-evm-precompile-modexp",
  "pallet-evm-precompile-sha3fips",
  "pallet-evm-precompile-simple",
@@ -6146,15 +6146,6 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "scale-info",
-]
-
-[[package]]
-name = "pallet-evm-precompile-ed25519"
-version = "2.0.0-dev"
-source = "git+https://github.com/keithtensor/frontier?branch=upgrade-to-v1.16.0#f80f9e2bad338f3bf3854b256b3c4edea23e5968"
-dependencies = [
- "ed25519-dalek",
- "fp-evm",
 ]
 
 [[package]]

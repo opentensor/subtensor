@@ -6,19 +6,18 @@ use pallet_evm::{
     ExitError, IsPrecompileResult, Precompile, PrecompileFailure, PrecompileHandle,
     PrecompileResult, PrecompileSet,
 };
-use pallet_evm_precompile_ed25519::Ed25519Verify;
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;
 use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripemd160, Sha256};
 
 // Include custom precompiles
 mod balance_transfer;
+mod ed25519;
 mod staking;
 
 use balance_transfer::*;
+use ed25519::*;
 use staking::*;
-
-pub const EDVERIFY_PRECOMPILE_INDEX: u64 = 1026;
 
 pub struct FrontierPrecompiles<R>(PhantomData<R>);
 
