@@ -56,7 +56,7 @@ if [ -f "$MOD_RS" ]; then
 fi
 
 # Replace all #[test] with #[test]\n#[ignore] using awk
-echo "Replacing #[test] with #[test]\n#[ignore] ..."
+echo "Replacing #[test] with #[ignore] ..."
 find "$DEST_DIR" -name '*.rs' | while read -r file; do
     awk '{if ($0 == "#[test]") print $0 "\n#[ignore]"; else print $0}' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
 done

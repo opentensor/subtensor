@@ -1,11 +1,10 @@
 use proc_macro2::TokenStream as TokenStream2;
-use procedural_fork::{exports::pallet::parse::Def, simulate_manifest_dir};
+use procedural_fork::exports::{pallet::parse::Def, simulate_manifest_dir};
 use std::{
     collections::HashMap,
-    fs, panic,
+    fs,
     path::{Path, PathBuf},
     str::FromStr,
-    sync::Mutex,
 };
 use syn::{visit::Visit, File, ItemMod};
 
