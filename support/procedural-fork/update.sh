@@ -41,11 +41,11 @@ ls -l "$TMP_DIR/$SRC_DIR" || { echo "Error: Sparse checkout failed, $SRC_DIR not
 echo "Copying files to $DEST_DIR ..."
 rsync -a --exclude='lib.rs' "$TMP_DIR/$SRC_DIR/" "$DEST_DIR/"
 
-# Add the desired lines to the top of each Rust file, except the `lib.rs` in $DEST_DIR
+# Prepend only `#![cfg(not(doc))]` to the top of each Rust file, except the `lib.rs` in $DEST_DIR
 find "$DEST_DIR" -name '*.rs' -not -path "$DEST_DIR/lib.rs" | while read -r file; do
     echo "Prepending configuration to $file ..."
-    # Use awk to prepend the lines to each file
-    awk 'BEGIN {print "#![ignore]\n#![cfg(not(doc))]"} {print}' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+    # Use awk to prepend only `#![cfg(not(doc))]`
+    awk 'BEGIN {print "#![cfg(not(doc))]"} {print}' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
 done
 
 # Remove all `#[cfg(test)]` lines from `pallet/parse/mod.rs`
