@@ -18,12 +18,7 @@ pub struct PalletCoverageInfo {
 
 pub fn try_parse_pallet(item_mod: &ItemMod, file_path: &Path) -> Option<Def> {
     simulate_manifest_dir("pallets/subtensor", || -> Option<Def> {
-        // Single check for both content and identifier relevance
         if item_mod.content.is_none() || item_mod.ident != "pallet" {
-            build_print::info!(
-                "Skipping irrelevant or blank module: {}",
-                item_mod.ident.to_string()
-            );
             return None;
         }
 
@@ -32,8 +27,6 @@ pub fn try_parse_pallet(item_mod: &ItemMod, file_path: &Path) -> Option<Def> {
             if attr.meta.path().segments.last().unwrap().ident != "import_section" {
                 continue;
             }
-            build_print::note!("Importing section: {}", attr.to_token_stream().to_string());
-            build_print::note!("path: {:?}", file_path);
 
             // Extract the section name from the attribute's args
             let Ok(inner_path) = attr.parse_args::<syn::Path>() else {
@@ -51,7 +44,6 @@ pub fn try_parse_pallet(item_mod: &ItemMod, file_path: &Path) -> Option<Def> {
             }
         }
 
-        build_print::info!("Parsing module: {}", item_mod.ident.to_string());
         if let Ok(pallet) = Def::try_from(item_mod.clone(), false) {
             Some(pallet)
         } else if let Ok(pallet) = Def::try_from(item_mod.clone(), true) {
@@ -61,7 +53,8 @@ pub fn try_parse_pallet(item_mod: &ItemMod, file_path: &Path) -> Option<Def> {
                 Err(e) => e,
                 Ok(_) => unreachable!(),
             };
-            build_print::error!("Error parsing pallet: {}", err);
+            build_print::error!("unable to parse pallet in {}:", file_path.display());
+            build_print::println!("         {}", err);
             None
         }
     })
@@ -80,7 +73,6 @@ fn find_matching_pallet_section(src_path: &Path, section_name: &Ident) -> Option
             continue;
         }
         if path.is_file() {
-            build_print::warn!("Checking file: {}", path.display());
             let Ok(content) = fs::read_to_string(path) else {
                 continue;
             };
@@ -94,7 +86,6 @@ fn find_matching_pallet_section(src_path: &Path, section_name: &Ident) -> Option
                 if item_mod.ident != *section_name {
                     continue;
                 }
-                build_print::note!("Checking module: {}", item_mod.ident.to_string());
                 if item_mod.attrs.iter().any(|attr| is_pallet_section(attr)) {
                     return Some(path.to_path_buf());
                 }
@@ -119,7 +110,6 @@ pub fn analyze_file(path: &Path) -> Vec<PalletCoverageInfo> {
         return Vec::new();
     };
     let mut infos = Vec::new();
-    build_print::info!("Analyzing file: {}", path.display());
     PalletVisitor::for_each_pallet(&file, &path, |_item_mod, _pallet: &Def| {
         let mut info = PalletCoverageInfo::default();
         info.path = path.to_path_buf();
