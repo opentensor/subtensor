@@ -95,8 +95,9 @@ pub fn try_parse_pallet(item_mod: &ItemMod, file_path: &Path) -> Option<Def> {
                 custom_println!(
                     "[code-coverage]",
                     green,
-                    "parsed pallet '{}' ✔",
+                    "parsed pallet '{}' ✔ ({})",
                     extract_pallet_name(file_path).unwrap_or("unknown".to_string()),
+                    file_path.display(),
                 );
                 Some(pallet)
             }
