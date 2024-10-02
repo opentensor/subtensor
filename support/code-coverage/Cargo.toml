@@ -10,6 +10,7 @@ quote.workspace = true
 proc-macro2.workspace = true
 procedural-fork.workspace = true
 walkdir.workspace = true
+rayon.workspace = true
 
 [lints]
 workspace = true

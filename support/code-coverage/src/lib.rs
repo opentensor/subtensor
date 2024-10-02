@@ -1,8 +1,10 @@
 use proc_macro2::TokenStream as TokenStream2;
 use procedural_fork::{exports::pallet::parse::Def, simulate_manifest_dir};
 use quote::ToTokens;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::{
     collections::HashMap,
+    ffi::OsStr,
     fs::{self},
     path::{Path, PathBuf},
     str::FromStr,
@@ -64,35 +66,43 @@ fn find_matching_pallet_section(src_path: &Path, section_name: &Ident) -> Option
     let Some(base_path) = src_path.parent() else {
         return None;
     };
-    for entry in WalkDir::new(base_path.parent().unwrap())
+    let rust_files = WalkDir::new(base_path.parent().unwrap())
         .into_iter()
         .filter_map(Result::ok)
-    {
-        let path = entry.path();
-        if path == src_path {
-            continue;
-        }
-        if path.is_file() {
+        .filter(|e| {
+            e.path() != src_path
+                && e.path().is_file()
+                && e.path().extension() == Some(OsStr::new("rs"))
+        })
+        .map(|e| e.path().to_path_buf())
+        .collect::<Vec<PathBuf>>();
+    let section_name = section_name.to_string().trim().to_string();
+    rust_files
+        .par_iter()
+        .find_any(|path| {
+            if !path.display().to_string().contains("macros") {
+                return false;
+            }
             let Ok(content) = fs::read_to_string(path) else {
-                continue;
+                return false;
             };
             let Ok(file) = syn::parse_file(&content) else {
-                continue;
+                return false;
             };
             for item in file.items {
                 let syn::Item::Mod(item_mod) = item else {
                     continue;
                 };
-                if item_mod.ident != *section_name {
+                if item_mod.ident != section_name {
                     continue;
                 }
                 if item_mod.attrs.iter().any(|attr| is_pallet_section(attr)) {
-                    return Some(path.to_path_buf());
+                    return true;
                 }
             }
-        }
-    }
-    None
+            false
+        })
+        .cloned()
 }
 
 fn is_pallet_section(attr: &Attribute) -> bool {

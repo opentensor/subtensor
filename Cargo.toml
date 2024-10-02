@@ -21,7 +21,7 @@ syn.workspace = true
 quote.workspace = true
 proc-macro2.workspace = true
 walkdir.workspace = true
-rayon = "1.10"
+rayon.workspace = true
 
 [workspace]
 members = [
@@ -52,6 +52,7 @@ manual_inspect = "allow"
 
 [workspace.dependencies]
 async-trait = "0.1"
+rayon = "1"
 build-print = "0.1"
 cargo-husky = { version = "1", default-features = false }
 clap = "4.5.4"
