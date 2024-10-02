@@ -26,6 +26,9 @@ fn main() {
     let rust_files = collect_rust_files(workspace_root);
 
     rust_files.par_iter().for_each(|path| {
+        if path.display().to_string().contains("test") {
+            return;
+        }
         let _infos = analyze_file(path);
     });
 
