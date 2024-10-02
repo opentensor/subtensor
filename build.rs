@@ -26,10 +26,7 @@ fn main() {
     let rust_files = collect_rust_files(workspace_root);
 
     rust_files.par_iter().for_each(|path| {
-        let infos = analyze_file(path);
-        for info in infos {
-            build_print::info!("found pallet: {}", info.path.display());
-        }
+        let _infos = analyze_file(path);
     });
 
     // Channel used to communicate errors back to the main thread from the parallel processing

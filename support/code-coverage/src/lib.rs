@@ -1,3 +1,4 @@
+use build_print::*;
 use proc_macro2::TokenStream as TokenStream2;
 use procedural_fork::{exports::pallet::parse::Def, simulate_manifest_dir};
 use quote::ToTokens;
@@ -20,9 +21,18 @@ pub struct PalletCoverageInfo {
 
 pub fn try_parse_pallet(item_mod: &ItemMod, file_path: &Path) -> Option<Def> {
     simulate_manifest_dir("pallets/subtensor", || -> Option<Def> {
-        if item_mod.content.is_none() || item_mod.ident != "pallet" {
+        // skip non-inline modules
+        let mut item_mod = item_mod.clone();
+        let Some((_, ref mut content)) = item_mod.content else {
+            return None;
+        };
+
+        // skip non-pallet modules
+        if item_mod.ident != "pallet" {
             return None;
         }
+
+        let mut section_announced = false;
 
         // manually import foreign sections defined by the `#[import_section]` attribute
         for attr in item_mod.attrs.iter() {
@@ -36,17 +46,33 @@ pub fn try_parse_pallet(item_mod: &ItemMod, file_path: &Path) -> Option<Def> {
             };
             let section_name = &inner_path.segments.last().unwrap().ident;
 
-            if let Some(matching_path) = find_matching_pallet_section(file_path, &section_name) {
-                build_print::note!("Found matching pallet section at: {:?}", matching_path);
+            if !section_announced {
+                custom_println!(
+                    "[code-coverage]",
+                    cyan,
+                    "importing pallet sections for '{}'...",
+                    extract_pallet_name(file_path).unwrap_or("unknown".to_string()),
+                );
+                section_announced = true;
+            }
+
+            if let Some(section_mod) = find_matching_pallet_section(file_path, &section_name) {
+                let Some((_, mut section_content)) = section_mod.content else {
+                    continue;
+                };
+                content.append(&mut section_content);
+                custom_println!("[code-coverage]", cyan, "└ imported '{}' ✔", section_name,);
             } else {
-                build_print::warn!(
-                    "Could not find a matching pallet section for: {}",
-                    section_name
+                custom_println!(
+                    "[code-coverage]",
+                    red,
+                    "could not find matching section for: '{}'",
+                    section_name,
                 );
             }
         }
 
-        if let Ok(pallet) = Def::try_from(item_mod.clone(), false) {
+        let pallet = if let Ok(pallet) = Def::try_from(item_mod.clone(), false) {
             Some(pallet)
         } else if let Ok(pallet) = Def::try_from(item_mod.clone(), true) {
             Some(pallet)
@@ -55,14 +81,31 @@ pub fn try_parse_pallet(item_mod: &ItemMod, file_path: &Path) -> Option<Def> {
                 Err(e) => e,
                 Ok(_) => unreachable!(),
             };
-            build_print::error!("unable to parse pallet in {}:", file_path.display());
-            build_print::println!("         {}", err);
+            custom_println!(
+                "[code-coverage]",
+                red,
+                "unable to parse pallet in {}:",
+                file_path.display()
+            );
+            custom_println!("[code-coverage]", red, "{}", err);
             None
+        };
+        match pallet {
+            Some(pallet) => {
+                custom_println!(
+                    "[code-coverage]",
+                    green,
+                    "parsed pallet '{}' ✔",
+                    extract_pallet_name(file_path).unwrap_or("unknown".to_string()),
+                );
+                Some(pallet)
+            }
+            None => None,
         }
     })
 }
 
-fn find_matching_pallet_section(src_path: &Path, section_name: &Ident) -> Option<PathBuf> {
+fn find_matching_pallet_section(src_path: &Path, section_name: &Ident) -> Option<ItemMod> {
     let Some(base_path) = src_path.parent() else {
         return None;
     };
@@ -79,15 +122,15 @@ fn find_matching_pallet_section(src_path: &Path, section_name: &Ident) -> Option
     let section_name = section_name.to_string().trim().to_string();
     rust_files
         .par_iter()
-        .find_any(|path| {
+        .find_map_any(|path| {
             if !path.display().to_string().contains("macros") {
-                return false;
+                return None;
             }
             let Ok(content) = fs::read_to_string(path) else {
-                return false;
+                return None;
             };
             let Ok(file) = syn::parse_file(&content) else {
-                return false;
+                return None;
             };
             for item in file.items {
                 let syn::Item::Mod(item_mod) = item else {
@@ -97,12 +140,13 @@ fn find_matching_pallet_section(src_path: &Path, section_name: &Ident) -> Option
                     continue;
                 }
                 if item_mod.attrs.iter().any(|attr| is_pallet_section(attr)) {
-                    return true;
+                    // can't move ItemMod across thread boundaries
+                    return Some(item_mod.to_token_stream().to_string());
                 }
             }
-            false
+            None
         })
-        .cloned()
+        .map(|s| syn::parse_str::<ItemMod>(&s).unwrap()) // can't move ItemMod across thread boundaries
 }
 
 fn is_pallet_section(attr: &Attribute) -> bool {
@@ -158,4 +202,13 @@ impl<'ast> Visit<'ast> for PalletVisitor {
         }
         syn::visit::visit_item_mod(self, item_mod);
     }
+}
+
+pub fn extract_pallet_name(path: &Path) -> Option<String> {
+    // Try to get the parent directory, then the directory name
+    path.parent()?
+        .parent()? // Go up one level to the "pallets" directory
+        .file_name() // Get the directory name "subtensor"
+        .and_then(|os_str| os_str.to_str()) // Convert OsStr to &str
+        .map(|s| s.to_string()) // Convert &str to String
 }
