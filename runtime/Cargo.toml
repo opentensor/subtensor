@@ -20,7 +20,7 @@ name = "spec_version"
 path = "src/spec_version.rs"
 
 [dependencies]
-ed25519-dalek = { workspace = true }
+ed25519-dalek = { workspace = true, default-features = false, features = ["alloc"] }
 subtensor-macros.workspace = true
 subtensor-custom-rpc-runtime-api = { path = "../pallets/subtensor/runtime-api", default-features = false }
 smallvec = { workspace = true }
