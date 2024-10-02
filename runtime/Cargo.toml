@@ -128,6 +128,7 @@ std = [
 	"frame-system-benchmarking?/std",
 	"frame-benchmarking/std",
 	"codec/std",
+	"ed25519-dalek/std",
 	"scale-info/std",
 	"frame-executive/std",
 	"frame-metadata-hash-extension/std",
