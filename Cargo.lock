@@ -9889,6 +9889,7 @@ dependencies = [
  "proc-macro2",
  "procedural-fork",
  "quote",
+ "rayon",
  "syn 2.0.77",
  "walkdir",
 ]
