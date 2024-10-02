@@ -3,11 +3,12 @@ use procedural_fork::{exports::pallet::parse::Def, simulate_manifest_dir};
 use quote::ToTokens;
 use std::{
     collections::HashMap,
-    fs,
+    fs::{self},
     path::{Path, PathBuf},
     str::FromStr,
 };
-use syn::{visit::Visit, File, ItemMod};
+use syn::{visit::Visit, Attribute, File, Ident, ItemMod};
+use walkdir::WalkDir;
 
 #[derive(Default, Debug, PartialEq, Eq, Clone)]
 pub struct PalletCoverageInfo {
@@ -17,24 +18,39 @@ pub struct PalletCoverageInfo {
 
 pub fn try_parse_pallet(item_mod: &ItemMod, file_path: &Path) -> Option<Def> {
     simulate_manifest_dir("pallets/subtensor", || -> Option<Def> {
+        // Single check for both content and identifier relevance
         if item_mod.content.is_none() || item_mod.ident != "pallet" {
             build_print::info!(
-                "Skipping blank or irrelevant module: {}",
+                "Skipping irrelevant or blank module: {}",
                 item_mod.ident.to_string()
             );
             return None;
         }
-        let item_mod = item_mod.clone();
+
         // manually import foreign sections defined by the `#[import_section]` attribute
         for attr in item_mod.attrs.iter() {
-            if attr.meta.path().segments.last().unwrap().ident == "import_section" {
-                build_print::note!("Importing section: {}", attr.to_token_stream().to_string());
-                build_print::note!("path: {:?}", file_path);
-                // TODO: in parallel, recursively search all files in the parent dir of `file_path` until we
-                // find a module with a `#[pallet_section]` attribute whose name also matches
-                // that of the `#[import_section]` attribute
+            if attr.meta.path().segments.last().unwrap().ident != "import_section" {
+                continue;
+            }
+            build_print::note!("Importing section: {}", attr.to_token_stream().to_string());
+            build_print::note!("path: {:?}", file_path);
+
+            // Extract the section name from the attribute's args
+            let Ok(inner_path) = attr.parse_args::<syn::Path>() else {
+                continue;
+            };
+            let section_name = &inner_path.segments.last().unwrap().ident;
+
+            if let Some(matching_path) = find_matching_pallet_section(file_path, &section_name) {
+                build_print::note!("Found matching pallet section at: {:?}", matching_path);
+            } else {
+                build_print::warn!(
+                    "Could not find a matching pallet section for: {}",
+                    section_name
+                );
             }
         }
+
         build_print::info!("Parsing module: {}", item_mod.ident.to_string());
         if let Ok(pallet) = Def::try_from(item_mod.clone(), false) {
             Some(pallet)
@@ -49,6 +65,47 @@ pub fn try_parse_pallet(item_mod: &ItemMod, file_path: &Path) -> Option<Def> {
             None
         }
     })
+}
+
+fn find_matching_pallet_section(src_path: &Path, section_name: &Ident) -> Option<PathBuf> {
+    let Some(base_path) = src_path.parent() else {
+        return None;
+    };
+    for entry in WalkDir::new(base_path.parent().unwrap())
+        .into_iter()
+        .filter_map(Result::ok)
+    {
+        let path = entry.path();
+        if path == src_path {
+            continue;
+        }
+        if path.is_file() {
+            build_print::warn!("Checking file: {}", path.display());
+            let Ok(content) = fs::read_to_string(path) else {
+                continue;
+            };
+            let Ok(file) = syn::parse_file(&content) else {
+                continue;
+            };
+            for item in file.items {
+                let syn::Item::Mod(item_mod) = item else {
+                    continue;
+                };
+                if item_mod.ident != *section_name {
+                    continue;
+                }
+                build_print::note!("Checking module: {}", item_mod.ident.to_string());
+                if item_mod.attrs.iter().any(|attr| is_pallet_section(attr)) {
+                    return Some(path.to_path_buf());
+                }
+            }
+        }
+    }
+    None
+}
+
+fn is_pallet_section(attr: &Attribute) -> bool {
+    attr.meta.path().segments.last().unwrap().ident != "pallet_section"
 }
 
 pub fn analyze_file(path: &Path) -> Vec<PalletCoverageInfo> {

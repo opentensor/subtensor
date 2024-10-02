@@ -979,12 +979,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "build-print"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a2128d00b7061b82b72844a351e80acd29e05afc60e9261e2ac90dca9ecc2ac"
-
-[[package]]
 name = "bumpalo"
 version = "3.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10904,27 +10898,14 @@ dependencies = [
 name = "subtensor"
 version = "0.1.0"
 dependencies = [
- "build-print",
  "node-subtensor",
  "node-subtensor-runtime",
  "proc-macro2",
  "quote",
  "rayon",
- "subtensor-code-coverage",
  "subtensor-linting",
  "syn 2.0.87",
  "walkdir",
-]
-
-[[package]]
-name = "subtensor-code-coverage"
-version = "0.1.0"
-dependencies = [
- "build-print",
- "proc-macro2",
- "procedural-fork",
- "quote",
- "syn 2.0.79",
 ]
 
 [[package]]
