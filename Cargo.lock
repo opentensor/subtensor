@@ -9890,6 +9890,7 @@ dependencies = [
  "procedural-fork",
  "quote",
  "syn 2.0.77",
+ "walkdir",
 ]
 
 [[package]]
