@@ -157,9 +157,9 @@ jobs:
 
       - name: check lints
         run: |
-          set -o pipefail  # Ensure the pipeline fails if any command in the pipeline fails
-          cargo check 2>&1 | sed -r "s/\x1B\[[0-9;]*[mK]//g" | tee /dev/tty | grep -q "^warning:" && \
-          (echo "Build emitted the following warnings:" >&2 && exit 1) || echo "No warnings found."
+          set -o pipefail
+          cargo check 2>&1 | sed -r "s/\x1B\[[0-9;]*[mK]//g" | grep "warning:" && exit 1
+          echo "No warnings found."
 
   cargo-clippy-all-features:
     name: cargo clippy --all-features

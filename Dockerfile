@@ -28,7 +28,7 @@ COPY . /build
 WORKDIR /build
 
 # Build the project
-RUN cargo build -p node-subtensor --profile production  --features="runtime-benchmarks metadata-hash" --locked
+RUN cargo build -p node-subtensor --profile production  --features="metadata-hash" --locked
 
 # Verify the binary was produced
 RUN test -e /build/target/production/node-subtensor

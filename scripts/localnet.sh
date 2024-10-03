@@ -3,10 +3,10 @@
 # Check if `--no-purge` passed as a parameter
 NO_PURGE=0
 for arg in "$@"; do
-    if [ "$arg" = "--no-purge" ]; then
-        NO_PURGE=1
-        break
-    fi
+  if [ "$arg" = "--no-purge" ]; then
+    NO_PURGE=1
+    break
+  fi
 done
 
 # Determine the directory this script resides in. This allows invoking it from any location.
@@ -25,13 +25,13 @@ if [ "$fast_blocks" == "False" ]; then
   echo "fast_blocks is Off"
   : "${CHAIN:=local}"
   : "${BUILD_BINARY:=1}"
-  : "${FEATURES:="pow-faucet runtime-benchmarks"}"
+  : "${FEATURES:="pow-faucet"}"
 else
   # Block of code to execute if fast_blocks is not False
   echo "fast_blocks is On"
   : "${CHAIN:=local}"
   : "${BUILD_BINARY:=1}"
-  : "${FEATURES:="pow-faucet runtime-benchmarks fast-blocks"}"
+  : "${FEATURES:="pow-faucet fast-blocks"}"
 fi
 
 SPEC_PATH="${SCRIPT_DIR}/specs/"
@@ -77,6 +77,7 @@ alice_start=(
   --rpc-cors=all
   --allow-private-ipv4
   --discover-local
+  --unsafe-force-node-key-generation
 )
 
 bob_start=(
@@ -87,8 +88,10 @@ bob_start=(
   --port 30335
   --rpc-port 9945
   --validator
+  --rpc-cors=all
   --allow-private-ipv4
   --discover-local
+  --unsafe-force-node-key-generation
 )
 
 trap 'pkill -P $$' EXIT SIGINT SIGTERM
