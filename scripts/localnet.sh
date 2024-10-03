@@ -53,21 +53,21 @@ if [[ $BUILD_BINARY == "1" ]]; then
 fi
 
 echo "*** Building chainspec..."
-"$BASE_DIR/target/release/node-subtensor" build-spec --disable-default-bootnode --raw --chain $CHAIN >$FULL_PATH
+"$BASE_DIR/target/production/node-subtensor" build-spec --disable-default-bootnode --raw --chain $CHAIN >$FULL_PATH
 echo "*** Chainspec built and output to file"
 
 if [ $NO_PURGE -eq 1 ]; then
   echo "*** Purging previous state skipped..."
 else
   echo "*** Purging previous state..."
-  "$BASE_DIR/target/release/node-subtensor" purge-chain -y --base-path /tmp/bob --chain="$FULL_PATH" >/dev/null 2>&1
-  "$BASE_DIR/target/release/node-subtensor" purge-chain -y --base-path /tmp/alice --chain="$FULL_PATH" >/dev/null 2>&1
+  "$BASE_DIR/target/production/node-subtensor" purge-chain -y --base-path /tmp/bob --chain="$FULL_PATH" >/dev/null 2>&1
+  "$BASE_DIR/target/production/node-subtensor" purge-chain -y --base-path /tmp/alice --chain="$FULL_PATH" >/dev/null 2>&1
   echo "*** Previous chainstate purged"
 fi
 
 echo "*** Starting localnet nodes..."
 alice_start=(
-  "$BASE_DIR/target/release/node-subtensor"
+  "$BASE_DIR/target/production/node-subtensor"
   --base-path /tmp/alice
   --chain="$FULL_PATH"
   --alice
@@ -80,7 +80,7 @@ alice_start=(
 )
 
 bob_start=(
-  "$BASE_DIR"/target/release/node-subtensor
+  "$BASE_DIR"/target/production/node-subtensor
   --base-path /tmp/bob
   --chain="$FULL_PATH"
   --bob
