@@ -132,7 +132,6 @@ impl<T: Config> Pallet<T> {
             hotkey.clone(),
             tao_unstaked
         );
-        Self::deposit_event(Event::StakeRemoved(hotkey.clone(), tao_unstaked));
 
         // Done and ok.
         Ok(())

@@ -12,9 +12,9 @@ mod events {
         /// a network is removed.
         NetworkRemoved(u16),
         /// stake has been transferred from the a coldkey account onto the hotkey staking account.
-        StakeAdded(T::AccountId, u64),
+        StakeAdded(T::AccountId, T::AccountId, u64, u64, u16),
         /// stake has been removed from the hotkey staking account onto the coldkey account.
-        StakeRemoved(T::AccountId, u64),
+        StakeRemoved(T::AccountId, T::AccountId, u64, u64, u16),
         /// a caller successfully sets their weights on a subnetwork.
         WeightsSet(u16, u16),
         /// a new neuron account has been registered to the chain.

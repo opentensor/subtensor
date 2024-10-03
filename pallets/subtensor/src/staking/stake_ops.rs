@@ -208,6 +208,14 @@ impl<T: Config> Pallet<T> {
             StakingHotkeys::<T>::insert(coldkey, staking_hotkeys.clone());
         }
 
+        Self::deposit_event(Event::StakeAdded(
+            coldkey.clone(),
+            hotkey.clone(),
+            tao_staked,
+            alpha_staked_u64,
+            netuid,
+        ));
+
         // Step 16: Return the amount of alpha staked
         alpha_staked_u64
     }
@@ -390,6 +398,14 @@ impl<T: Config> Pallet<T> {
                 hotkeys.retain(|k| k != hotkey);
             });
         }
+
+        Self::deposit_event(Event::StakeRemoved(
+            coldkey.clone(),
+            hotkey.clone(),
+            tao_unstaked_u64,
+            alpha_unstaked,
+            netuid,
+        ));
 
         // Step 17: Return the amount of TAO unstaked
         tao_unstaked_u64
