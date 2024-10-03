@@ -1068,7 +1068,10 @@ impl<T: Config> Pallet<T> {
         Self::set_min_allowed_weights(netuid, 1);
         Self::set_max_weight_limit(netuid, u16::MAX);
         Self::set_adjustment_interval(netuid, 360);
+        #[cfg(not(feature = "fast-blocks"))]
         Self::set_target_registrations_per_interval(netuid, 1);
+        #[cfg(feature = "fast-blocks")]
+        Self::set_target_registrations_per_interval(netuid, 1000);
         Self::set_adjustment_alpha(netuid, 17_893_341_751_498_265_066); // 18_446_744_073_709_551_615 * 0.97 = 17_893_341_751_498_265_066
         Self::set_immunity_period(netuid, 5000);
         Self::set_min_burn(netuid, 1);
