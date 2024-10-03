@@ -461,6 +461,7 @@ fn test_root_set_weights_out_of_order_netuids() {
 }
 
 #[test]
+#[cfg(not(feature = "pow-faucet"))]
 fn test_root_subnet_creation_deletion() {
     new_test_ext(1).execute_with(|| {
         System::set_block_number(0);
