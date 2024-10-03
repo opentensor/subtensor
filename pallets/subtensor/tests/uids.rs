@@ -1,8 +1,9 @@
 #![allow(clippy::unwrap_used)]
 
 use crate::mock::*;
-use frame_support::assert_ok;
+use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
+use pallet_subtensor::*;
 use sp_core::U256;
 
 mod mock;
@@ -32,6 +33,7 @@ fn test_replace_neuron() {
 
         let new_hotkey_account_id = U256::from(2);
         let _new_colkey_account_id = U256::from(12345);
+        let certificate = NeuronCertificate::try_from(vec![1, 2, 3]).unwrap();
 
         //add network
         add_network(netuid, tempo, 0);
@@ -50,6 +52,9 @@ fn test_replace_neuron() {
         // Get UID
         let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id);
         assert_ok!(neuron_uid);
+
+        // Set a neuron certificate for it
+        NeuronCertificates::<Test>::insert(netuid, hotkey_account_id, certificate);
 
         // Replace the neuron.
         SubtensorModule::replace_neuron(
@@ -77,6 +82,10 @@ fn test_replace_neuron() {
             &new_hotkey_account_id
         ));
         assert_eq!(curr_hotkey.unwrap(), new_hotkey_account_id);
+
+        // Check neuron certificate was reset
+        let certificate = NeuronCertificates::<Test>::get(netuid, hotkey_account_id);
+        assert_eq!(certificate, None);
     });
 }
 
@@ -369,5 +378,26 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
         );
+    });
+}
+
+#[test]
+fn test_neuron_certificate() {
+    new_test_ext(1).execute_with(|| {
+        // 512 bits key
+        let mut data = [0; 65].to_vec();
+        assert_ok!(NeuronCertificate::try_from(data));
+
+        // 256 bits key
+        data = [1; 33].to_vec();
+        assert_ok!(NeuronCertificate::try_from(data));
+
+        // too much data
+        data = [8; 88].to_vec();
+        assert_err!(NeuronCertificate::try_from(data), ());
+
+        // no data
+        data = vec![];
+        assert_err!(NeuronCertificate::try_from(data), ());
     });
 }
