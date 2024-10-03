@@ -19,6 +19,25 @@ pub struct PalletCoverageInfo {
     pub extrinsics: HashMap<String, usize>,
 }
 
+pub fn analyze_file(path: &Path) -> Vec<PalletCoverageInfo> {
+    let Ok(content) = fs::read_to_string(path) else {
+        return Vec::new();
+    };
+    let Ok(parsed_tokens) = TokenStream2::from_str(&content) else {
+        return Vec::new();
+    };
+    let Ok(file) = syn::parse2::<syn::File>(parsed_tokens) else {
+        return Vec::new();
+    };
+    let mut infos = Vec::new();
+    PalletVisitor::for_each_pallet(&file, &path, |_item_mod, _pallet: &Def| {
+        let mut info = PalletCoverageInfo::default();
+        info.path = path.to_path_buf();
+        infos.push(info);
+    });
+    infos
+}
+
 pub fn try_parse_pallet(item_mod: &ItemMod, file_path: &Path) -> Option<Def> {
     simulate_manifest_dir("pallets/subtensor", || -> Option<Def> {
         // skip non-inline modules
@@ -152,25 +171,6 @@ fn find_matching_pallet_section(src_path: &Path, section_name: &Ident) -> Option
 
 fn is_pallet_section(attr: &Attribute) -> bool {
     attr.meta.path().segments.last().unwrap().ident != "pallet_section"
-}
-
-pub fn analyze_file(path: &Path) -> Vec<PalletCoverageInfo> {
-    let Ok(content) = fs::read_to_string(path) else {
-        return Vec::new();
-    };
-    let Ok(parsed_tokens) = TokenStream2::from_str(&content) else {
-        return Vec::new();
-    };
-    let Ok(file) = syn::parse2::<syn::File>(parsed_tokens) else {
-        return Vec::new();
-    };
-    let mut infos = Vec::new();
-    PalletVisitor::for_each_pallet(&file, &path, |_item_mod, _pallet: &Def| {
-        let mut info = PalletCoverageInfo::default();
-        info.path = path.to_path_buf();
-        infos.push(info);
-    });
-    infos
 }
 
 #[derive(Default)]
