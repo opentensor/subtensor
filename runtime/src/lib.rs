@@ -85,7 +85,7 @@ use precompiles::FrontierPrecompiles;
 // Frontier
 use fp_rpc::TransactionStatus;
 use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
-use pallet_evm::{Account as EVMAccount, FeeCalculator, Runner};
+use pallet_evm::{Account as EVMAccount, BalanceConverter, FeeCalculator, Runner};
 
 // Subtensor module
 pub use pallet_scheduler;
@@ -1088,6 +1088,30 @@ parameter_types! {
     pub SuicideQuickClearLimit: u32 = 0;
 }
 
+const EVM_DECIMALS_FACTOR: u64 = 1_000_000_000_u64;
+
+pub struct SubtensorEvmBalanceConverter<F>(PhantomData<F>);
+impl<T: pallet_evm::Config> BalanceConverter<T> for SubtensorEvmBalanceConverter<T>
+where
+    pallet_evm::BalanceOf<T>: TryFrom<U256> + Into<U256>,
+{
+    fn into_evm_balance(
+        value: <
+            <T as pallet_evm::Config>::Currency as frame_support::traits::tokens::fungible::Inspect<<T as frame_system::Config>::AccountId>
+        >::Balance,
+    ) -> Option<U256> {
+        U256::from(UniqueSaturatedInto::<u128>::unique_saturated_into(value))
+            .checked_mul(U256::from(EVM_DECIMALS_FACTOR))
+    }
+
+    fn into_substrate_balance(value: U256) -> Option<pallet_evm::BalanceOf<T>> {
+        value
+            .checked_div(U256::from(EVM_DECIMALS_FACTOR))
+            .map(|result| result.try_into().ok())
+            .flatten()
+    }
+}
+
 impl pallet_evm::Config for Runtime {
     type FeeCalculator = BaseFee;
     type GasWeightMapping = pallet_evm::FixedGasWeightMapping<Self>;
@@ -1110,6 +1134,7 @@ impl pallet_evm::Config for Runtime {
     type SuicideQuickClearLimit = SuicideQuickClearLimit;
     type Timestamp = Timestamp;
     type WeightInfo = pallet_evm::weights::SubstrateWeight<Self>;
+    type BalanceConverter = SubtensorEvmBalanceConverter<Self>;
 }
 
 parameter_types! {

@@ -1,6 +1,7 @@
 use frame_system::RawOrigin;
 use pallet_evm::{
-    ExitError, ExitSucceed, PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult,
+    BalanceConverter, ExitError, ExitSucceed, PrecompileFailure, PrecompileHandle,
+    PrecompileOutput, PrecompileResult,
 };
 use sp_core::U256;
 use sp_runtime::traits::Dispatchable;
@@ -36,11 +37,14 @@ impl BalanceTransferPrecompile {
             let address_bytes_dst: &[u8] = get_slice(txdata, 4, 36)?;
             let account_id_src = bytes_to_account_id(&address_bytes_src)?;
             let account_id_dst = bytes_to_account_id(address_bytes_dst)?;
+            let amount_sub =
+                <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
+                    .ok_or(ExitError::OutOfFund)?;
 
             let call =
                 RuntimeCall::Balances(pallet_balances::Call::<Runtime>::transfer_allow_death {
                     dest: account_id_dst.into(),
-                    value: amount.as_u64(),
+                    value: amount_sub,
                 });
 
             let result = call.dispatch(RawOrigin::Signed(account_id_src).into());
