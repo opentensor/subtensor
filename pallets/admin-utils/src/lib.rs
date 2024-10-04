@@ -960,32 +960,6 @@ pub mod pallet {
             Ok(())
         }
 
-        /// The extrinsic sets the commit/reveal interval for a subnet.
-        /// It is only callable by the root account or subnet owner.
-        /// The extrinsic will call the Subtensor pallet to set the interval.
-        #[pallet::call_index(48)]
-        #[pallet::weight(T::WeightInfo::sudo_set_commit_reveal_weights_interval())]
-        pub fn sudo_set_commit_reveal_weights_interval(
-            origin: OriginFor<T>,
-            netuid: u16,
-            interval: u64,
-        ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
-
-            ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
-                Error::<T>::SubnetDoesNotExist
-            );
-
-            pallet_subtensor::Pallet::<T>::set_commit_reveal_weights_interval(netuid, interval);
-            log::debug!(
-                "SetWeightCommitInterval( netuid: {:?}, interval: {:?} ) ",
-                netuid,
-                interval
-            );
-            Ok(())
-        }
-
         /// The extrinsic enabled/disables commit/reaveal for a given subnet.
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the value.

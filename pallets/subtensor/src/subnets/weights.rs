@@ -119,6 +119,8 @@ impl<T: Config> Pallet<T> {
                 Error::<T>::InvalidRevealCommitHashNotMatch
             );
 
+            *maybe_commit = None;
+
             Self::do_set_weights(origin, netuid, uids, values, version_key)
         })
     }
@@ -452,50 +454,43 @@ impl<T: Config> Pallet<T> {
         uids.len() <= subnetwork_n as usize
     }
 
-    #[allow(clippy::arithmetic_side_effects)]
     pub fn can_commit(netuid: u16, who: &T::AccountId) -> bool {
         if let Some((_hash, commit_block)) = WeightCommits::<T>::get(netuid, who) {
-            let interval: u64 = Self::get_commit_reveal_weights_interval(netuid);
-            if interval == 0 {
-                return true; //prevent division by 0
-            }
-
             let current_block: u64 = Self::get_current_block_as_u64();
-            let interval_start: u64 = current_block.saturating_sub(current_block % interval);
-            let last_commit_interval_start: u64 =
-                commit_block.saturating_sub(commit_block % interval);
+            let current_epoch: u64 = Self::get_epoch_index(netuid, current_block);
+            let commit_epoch: u64 = Self::get_epoch_index(netuid, commit_block);
 
-            // Allow commit if we're within the interval bounds
-            if current_block <= interval_start.saturating_add(interval)
-                && interval_start > last_commit_interval_start
-            {
+            // Allow commit if we're in a new epoch
+            if current_epoch > commit_epoch {
                 return true;
             }
-
             false
         } else {
             true
         }
     }
 
-    #[allow(clippy::arithmetic_side_effects)]
     pub fn is_reveal_block_range(netuid: u16, commit_block: u64) -> bool {
-        let interval: u64 = Self::get_commit_reveal_weights_interval(netuid);
-        if interval == 0 {
-            return true; //prevent division by 0
-        }
-
-        let commit_interval_start: u64 = commit_block.saturating_sub(commit_block % interval); // Find the start of the interval in which the commit occurred
-        let reveal_interval_start: u64 = commit_interval_start.saturating_add(interval); // Start of the next interval after the commit interval
         let current_block: u64 = Self::get_current_block_as_u64();
+        let commit_epoch: u64 = Self::get_epoch_index(netuid, commit_block);
+        let current_epoch: u64 = Self::get_epoch_index(netuid, current_block);
 
-        // Allow reveal if the current block is within the interval following the commit's interval
-        if current_block >= reveal_interval_start
-            && current_block < reveal_interval_start.saturating_add(interval)
-        {
+        // Allow reveal if the current epoch is immediately after the commit's epoch
+        if current_epoch == commit_epoch + 1 {
             return true;
         }
-
         false
+    }
+
+    pub fn get_epoch_index(netuid: u16, block_number: u64) -> u64 {
+        let tempo = Self::get_tempo(netuid);
+        if tempo == 0 {
+            return 0;
+        }
+        let tempo_plus_one = (tempo as u64).saturating_add(1);
+        let netuid_plus_one = (netuid as u64).saturating_add(1);
+        let epoch_index =
+            (block_number.saturating_add(netuid_plus_one)).saturating_div(tempo_plus_one);
+        epoch_index
     }
 }

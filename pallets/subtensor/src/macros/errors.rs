@@ -184,5 +184,7 @@ mod errors {
         TxChildkeyTakeRateLimitExceeded,
         /// Invalid identity.
         InvalidIdentity,
+        /// invalid reaveal epoch
+        InvalidRevealEpoch,
     }
 }

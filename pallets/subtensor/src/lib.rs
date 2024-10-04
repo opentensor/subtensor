@@ -629,11 +629,6 @@ pub mod pallet {
         T::InitialServingRateLimit::get()
     }
     #[pallet::type_value]
-    /// Default value for weight commit reveal interval.
-    pub fn DefaultWeightCommitRevealInterval<T: Config>() -> u64 {
-        1000
-    }
-    #[pallet::type_value]
     /// Default value for weight commit/reveal enabled.
     pub fn DefaultCommitRevealWeightsEnabled<T: Config>() -> bool {
         false
@@ -1030,10 +1025,6 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> adjustment_alpha
     pub type AdjustmentAlpha<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultAdjustmentAlpha<T>>;
-    #[pallet::storage]
-    /// --- MAP ( netuid ) --> interval
-    pub type WeightCommitRevealInterval<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultWeightCommitRevealInterval<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> interval
     pub type CommitRevealWeightsEnabled<T> =
