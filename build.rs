@@ -29,7 +29,7 @@ fn main() {
         if path.display().to_string().contains("test") {
             return;
         }
-        let _infos = analyze_file(path);
+        let _infos = analyze_file(path, workspace_root);
     });
 
     // Channel used to communicate errors back to the main thread from the parallel processing

@@ -13,13 +13,15 @@ use std::{
 use syn::{visit::Visit, Attribute, File, Ident, ItemMod};
 use walkdir::WalkDir;
 
+/// Code coverage information for a pallet
 #[derive(Default, Debug, PartialEq, Eq, Clone)]
 pub struct PalletCoverageInfo {
     pub path: PathBuf,
     pub extrinsics: HashMap<String, usize>,
 }
 
-pub fn analyze_file(path: &Path) -> Vec<PalletCoverageInfo> {
+/// Collects code coverage information for all pallets in the specified file
+pub fn analyze_file(path: &Path, root_path: &Path) -> Vec<PalletCoverageInfo> {
     let Ok(content) = fs::read_to_string(path) else {
         return Vec::new();
     };
@@ -30,7 +32,15 @@ pub fn analyze_file(path: &Path) -> Vec<PalletCoverageInfo> {
         return Vec::new();
     };
     let mut infos = Vec::new();
-    PalletVisitor::for_each_pallet(&file, &path, |_item_mod, _pallet: &Def| {
+    PalletVisitor::for_each_pallet(&file, path, root_path, |_item_mod, _pallet: &Def| {
+        custom_println!(
+            "[code-coverage]",
+            green,
+            "parsed pallet '{}' ({})",
+            extract_pallet_name(path).unwrap_or("unknown".to_string()),
+            strip_common_suffix("/src/lib.rs".as_ref(), strip_common_prefix(root_path, path))
+                .display(),
+        );
         let mut info = PalletCoverageInfo::default();
         info.path = path.to_path_buf();
         infos.push(info);
@@ -38,7 +48,8 @@ pub fn analyze_file(path: &Path) -> Vec<PalletCoverageInfo> {
     infos
 }
 
-pub fn try_parse_pallet(item_mod: &ItemMod, file_path: &Path) -> Option<Def> {
+/// Tries to parse a pallet from a module
+pub fn try_parse_pallet(item_mod: &ItemMod, file_path: &Path, root_path: &Path) -> Option<Def> {
     simulate_manifest_dir("pallets/subtensor", || -> Option<Def> {
         // skip non-inline modules
         let mut item_mod = item_mod.clone();
@@ -69,18 +80,35 @@ pub fn try_parse_pallet(item_mod: &ItemMod, file_path: &Path) -> Option<Def> {
                 custom_println!(
                     "[code-coverage]",
                     cyan,
-                    "importing pallet sections for '{}'...",
+                    "importing pallet sections for '{}' ({})...",
                     extract_pallet_name(file_path).unwrap_or("unknown".to_string()),
+                    strip_common_suffix(
+                        "/src/lib.rs".as_ref(),
+                        strip_common_prefix(root_path, file_path)
+                    )
+                    .display(),
                 );
                 section_announced = true;
             }
 
-            if let Some(section_mod) = find_matching_pallet_section(file_path, &section_name) {
+            if let Some((section_mod, section_path)) =
+                find_matching_pallet_section(file_path, &section_name)
+            {
                 let Some((_, mut section_content)) = section_mod.content else {
                     continue;
                 };
                 content.append(&mut section_content);
-                custom_println!("[code-coverage]", cyan, "└ imported '{}' ✔", section_name,);
+                custom_println!(
+                    "[code-coverage]",
+                    cyan,
+                    "└ imported '{}' ({})",
+                    section_name,
+                    strip_common_suffix(
+                        "/src/lib.rs".as_ref(),
+                        strip_common_prefix(file_path, &section_path)
+                    )
+                    .display()
+                );
             } else {
                 custom_println!(
                     "[code-coverage]",
@@ -109,23 +137,14 @@ pub fn try_parse_pallet(item_mod: &ItemMod, file_path: &Path) -> Option<Def> {
             custom_println!("[code-coverage]", red, "{}", err);
             None
         };
-        match pallet {
-            Some(pallet) => {
-                custom_println!(
-                    "[code-coverage]",
-                    green,
-                    "parsed pallet '{}' ✔ ({})",
-                    extract_pallet_name(file_path).unwrap_or("unknown".to_string()),
-                    file_path.display(),
-                );
-                Some(pallet)
-            }
-            None => None,
-        }
+        pallet
     })
 }
 
-fn find_matching_pallet_section(src_path: &Path, section_name: &Ident) -> Option<ItemMod> {
+fn find_matching_pallet_section(
+    src_path: &Path,
+    section_name: &Ident,
+) -> Option<(ItemMod, PathBuf)> {
     let Some(base_path) = src_path.parent() else {
         return None;
     };
@@ -161,32 +180,35 @@ fn find_matching_pallet_section(src_path: &Path, section_name: &Ident) -> Option
                 }
                 if item_mod.attrs.iter().any(|attr| is_pallet_section(attr)) {
                     // can't move ItemMod across thread boundaries
-                    return Some(item_mod.to_token_stream().to_string());
+                    return Some((item_mod.to_token_stream().to_string(), path.to_path_buf()));
                 }
             }
             None
         })
-        .map(|s| syn::parse_str::<ItemMod>(&s).unwrap()) // can't move ItemMod across thread boundaries
+        .map(|(s, p)| (syn::parse_str::<ItemMod>(&s).unwrap(), p)) // can't move ItemMod across thread boundaries
 }
 
 fn is_pallet_section(attr: &Attribute) -> bool {
     attr.meta.path().segments.last().unwrap().ident != "pallet_section"
 }
 
+/// A visitor that collects pallets from a file/module
 #[derive(Default)]
 pub struct PalletVisitor {
     pub pallets: Vec<(ItemMod, Def)>,
     pub file_path: PathBuf,
+    pub workspace_root_path: PathBuf,
 }
 
 impl PalletVisitor {
-    pub fn for_each_pallet<F>(file: &File, file_path: &Path, mut f: F) -> Self
+    pub fn for_each_pallet<F>(file: &File, file_path: &Path, root_path: &Path, mut f: F) -> Self
     where
         F: FnMut(&ItemMod, &Def),
     {
         let mut visitor = PalletVisitor {
             pallets: Vec::new(),
             file_path: file_path.to_path_buf(),
+            workspace_root_path: root_path.to_path_buf(),
         };
         visitor.visit_file(file);
         for (item_mod, pallet) in &visitor.pallets {
@@ -198,13 +220,15 @@ impl PalletVisitor {
 
 impl<'ast> Visit<'ast> for PalletVisitor {
     fn visit_item_mod(&mut self, item_mod: &'ast ItemMod) {
-        if let Some(pallet) = try_parse_pallet(item_mod, &self.file_path) {
+        if let Some(pallet) = try_parse_pallet(item_mod, &self.file_path, &self.workspace_root_path)
+        {
             self.pallets.push((item_mod.clone(), pallet));
         }
         syn::visit::visit_item_mod(self, item_mod);
     }
 }
 
+/// Extracts the pallet name from a path
 pub fn extract_pallet_name(path: &Path) -> Option<String> {
     // Try to get the parent directory, then the directory name
     path.parent()?
@@ -212,4 +236,67 @@ pub fn extract_pallet_name(path: &Path) -> Option<String> {
         .file_name() // Get the directory name "subtensor"
         .and_then(|os_str| os_str.to_str()) // Convert OsStr to &str
         .map(|s| s.to_string()) // Convert &str to String
+}
+
+/// Strips the longest common prefix from two paths (i.e. base is allowed to have more
+/// components that are not shared with target and these are ignored)
+pub fn strip_common_prefix<'a>(base: &'a Path, target: &'a Path) -> &'a Path {
+    let mut base_components = base.components();
+    let mut target_components = target.components();
+    let mut common_length = 0;
+
+    // Find the longest common prefix
+    while let (Some(bc), Some(tc)) = (base_components.next(), target_components.next()) {
+        if bc == tc {
+            common_length += 1;
+        } else {
+            break;
+        }
+    }
+
+    // Create a Path that skips the common prefix
+    let mut remaining = target;
+    for _ in 0..common_length {
+        remaining = remaining
+            .strip_prefix(remaining.components().next().unwrap())
+            .unwrap_or(remaining);
+    }
+
+    remaining
+}
+
+/// Strips the longest common suffix from two paths (i.e. base is allowed to have more
+/// leading components that are not shared with target and these are ignored)
+pub fn strip_common_suffix<'a>(base: &'a Path, target: &'a Path) -> &'a Path {
+    let base_components: Vec<_> = base.components().collect();
+    let target_components: Vec<_> = target.components().collect();
+
+    let mut common_suffix_length = 0;
+
+    // Reverse iterate over both paths to find the longest common suffix
+    for (bc, tc) in base_components
+        .iter()
+        .rev()
+        .zip(target_components.iter().rev())
+    {
+        if bc == tc {
+            common_suffix_length += 1;
+        } else {
+            break;
+        }
+    }
+
+    // If there is no common suffix, return target verbatim
+    if common_suffix_length == 0 {
+        return target;
+    }
+
+    // Create a new path without the common suffix
+    let mut remaining = target;
+
+    for _ in 0..common_suffix_length {
+        remaining = remaining.parent().unwrap_or(target);
+    }
+
+    remaining
 }
