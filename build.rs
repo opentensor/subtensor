@@ -1,12 +1,6 @@
 use rayon::prelude::*;
-use std::{
-    env, fs,
-    path::{Path, PathBuf},
-    str::FromStr,
-    sync::mpsc::channel,
-};
-use subtensor_code_coverage::analyze_file;
-use walkdir::WalkDir;
+use std::{env, fs, path::Path, str::FromStr, sync::mpsc::channel};
+use subtensor_code_coverage::collect_rust_files;
 
 use subtensor_linting::*;
 
@@ -24,13 +18,6 @@ fn main() {
 
     // Collect all Rust source files in the workspace
     let rust_files = collect_rust_files(workspace_root);
-
-    rust_files.par_iter().for_each(|path| {
-        if path.display().to_string().contains("test") {
-            return;
-        }
-        let _infos = analyze_file(path, workspace_root);
-    });
 
     // Channel used to communicate errors back to the main thread from the parallel processing
     // as we process each Rust file
@@ -75,30 +62,4 @@ fn main() {
     for error in rx {
         println!("{error}");
     }
-}
-
-/// Recursively collects all Rust files in the given directory
-fn collect_rust_files(dir: &Path) -> Vec<PathBuf> {
-    let mut rust_files = Vec::new();
-
-    for entry in WalkDir::new(dir) {
-        let Ok(entry) = entry else {
-            continue;
-        };
-        let path = entry.path();
-
-        // Skip any path that contains "target" directory
-        if path.components().any(|component| {
-            component.as_os_str() == "target" || component.as_os_str() == "procedural-fork"
-        }) || path.ends_with("build.rs")
-        {
-            continue;
-        }
-
-        if path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("rs") {
-            rust_files.push(path.to_path_buf());
-        }
-    }
-
-    rust_files
 }

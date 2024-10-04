@@ -20,8 +20,45 @@ pub struct PalletInfo {
     pub methods: Vec<String>,
 }
 
-/// Collects code coverage information for all pallets in the specified file
-pub fn analyze_file(path: &Path, root_path: &Path) -> Vec<PalletInfo> {
+/// Recursively collects all Rust files in the given directory
+pub fn collect_rust_files(dir: &Path) -> Vec<PathBuf> {
+    let mut rust_files = Vec::new();
+
+    for entry in WalkDir::new(dir) {
+        let Ok(entry) = entry else {
+            continue;
+        };
+        let path = entry.path();
+
+        // Skip any path that contains "target" directory
+        if path.components().any(|component| {
+            component.as_os_str() == "target" || component.as_os_str() == "procedural-fork"
+        }) || path.ends_with("build.rs")
+        {
+            continue;
+        }
+
+        if path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("rs") {
+            rust_files.push(path.to_path_buf());
+        }
+    }
+
+    rust_files
+}
+
+pub fn analyze_files(workspace_root: &Path) -> Vec<PalletInfo> {
+    let rust_files = collect_rust_files(workspace_root);
+    let mut infos = Vec::new();
+    for path in rust_files {
+        if path.display().to_string().contains("test") {
+            continue;
+        }
+        infos.append(&mut analyze_file(&path, workspace_root));
+    }
+    infos
+}
+
+fn analyze_file(path: &Path, root_path: &Path) -> Vec<PalletInfo> {
     let Ok(content) = fs::read_to_string(path) else {
         return Vec::new();
     };
