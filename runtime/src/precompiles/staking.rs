@@ -26,7 +26,7 @@
 //
 
 use frame_system::RawOrigin;
-use pallet_evm::{AddressMapping, HashedAddressMapping};
+use pallet_evm::{AddressMapping, BalanceConverter, HashedAddressMapping};
 use pallet_evm::{
     ExitError, ExitSucceed, PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult,
 };
@@ -68,10 +68,14 @@ impl StakingPrecompile {
     fn add_stake(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
         let hotkey = Self::parse_hotkey(data)?.into();
         let amount: U256 = handle.context().apparent_value;
+        let amount_sub =
+            <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
+                .ok_or(ExitError::OutOfFund)?;
+
         // Create the add_stake call
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::<Runtime>::add_stake {
             hotkey,
-            amount_staked: amount.as_u64(),
+            amount_staked: amount_sub,
         });
         // Dispatch the add_stake call
         Self::dispatch(handle, call)
@@ -85,10 +89,14 @@ impl StakingPrecompile {
         let amount = data
             .get(56..64)
             .map(U256::from_big_endian)
-            .map_or(0, |v| v.as_u64());
+            .ok_or(ExitError::OutOfFund)?;
+        let amount_sub =
+            <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
+                .ok_or(ExitError::OutOfFund)?;
+
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::<Runtime>::remove_stake {
             hotkey,
-            amount_unstaked: amount,
+            amount_unstaked: amount_sub,
         });
         Self::dispatch(handle, call)
     }
@@ -148,12 +156,15 @@ impl StakingPrecompile {
                     });
                 }
             };
+        let amount_sub =
+            <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
+                .ok_or(ExitError::OutOfFund)?;
 
         // Create a transfer call from the smart contract to the caller
         let transfer_call =
             RuntimeCall::Balances(pallet_balances::Call::<Runtime>::transfer_allow_death {
                 dest: account_id.clone().into(),
-                value: amount.as_u64(),
+                value: amount_sub,
             });
 
         // Execute the transfer

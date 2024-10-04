@@ -1107,8 +1107,7 @@ where
     fn into_substrate_balance(value: U256) -> Option<pallet_evm::BalanceOf<T>> {
         value
             .checked_div(U256::from(EVM_DECIMALS_FACTOR))
-            .map(|result| result.try_into().ok())
-            .flatten()
+            .and_then(|result| result.try_into().ok())
     }
 }
 
