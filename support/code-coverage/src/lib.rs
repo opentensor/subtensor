@@ -4,7 +4,6 @@ use procedural_fork::{exports::pallet::parse::Def, simulate_manifest_dir};
 use quote::ToTokens;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::{
-    collections::HashMap,
     ffi::OsStr,
     fs::{self},
     path::{Path, PathBuf},
@@ -15,13 +14,14 @@ use walkdir::WalkDir;
 
 /// Code coverage information for a pallet
 #[derive(Default, Debug, PartialEq, Eq, Clone)]
-pub struct PalletCoverageInfo {
+pub struct PalletInfo {
     pub path: PathBuf,
-    pub extrinsics: HashMap<String, usize>,
+    pub pallet_name: String,
+    pub methods: Vec<String>,
 }
 
 /// Collects code coverage information for all pallets in the specified file
-pub fn analyze_file(path: &Path, root_path: &Path) -> Vec<PalletCoverageInfo> {
+pub fn analyze_file(path: &Path, root_path: &Path) -> Vec<PalletInfo> {
     let Ok(content) = fs::read_to_string(path) else {
         return Vec::new();
     };
@@ -32,7 +32,7 @@ pub fn analyze_file(path: &Path, root_path: &Path) -> Vec<PalletCoverageInfo> {
         return Vec::new();
     };
     let mut infos = Vec::new();
-    PalletVisitor::for_each_pallet(&file, path, root_path, |_item_mod, _pallet: &Def| {
+    PalletVisitor::for_each_pallet(&file, path, root_path, |_item_mod, pallet: &Def| {
         custom_println!(
             "[code-coverage]",
             green,
@@ -41,8 +41,18 @@ pub fn analyze_file(path: &Path, root_path: &Path) -> Vec<PalletCoverageInfo> {
             strip_common_suffix("/src/lib.rs".as_ref(), strip_common_prefix(root_path, path))
                 .display(),
         );
-        let mut info = PalletCoverageInfo::default();
+        let mut info = PalletInfo::default();
         info.path = path.to_path_buf();
+        info.pallet_name = extract_pallet_name(path).unwrap_or("pallet".to_string());
+
+        // collect all Call methods
+        if let Some(call) = &pallet.call {
+            info.methods
+                .append(&mut call.methods.iter().map(|m| m.name.to_string()).collect());
+        }
+
+        build_print::println!("{:?}", info);
+
         infos.push(info);
     });
     infos
