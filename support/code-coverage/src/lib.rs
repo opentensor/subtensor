@@ -172,7 +172,7 @@ fn find_matching_pallet_section(
     rust_files
         .par_iter()
         .find_map_any(|path| {
-            if !path.display().to_string().contains("macros") {
+            if path.display().to_string().contains("test") {
                 return None;
             }
             let Ok(content) = fs::read_to_string(path) else {
