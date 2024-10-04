@@ -1088,6 +1088,9 @@ parameter_types! {
     pub SuicideQuickClearLimit: u32 = 0;
 }
 
+/// The difference between EVM decimals and Substrate decimals.
+/// Substrate balances has 9 decimals, while EVM has 18, so the
+/// difference factor is 9 decimals, or 10^9
 const EVM_DECIMALS_FACTOR: u64 = 1_000_000_000_u64;
 
 pub struct SubtensorEvmBalanceConverter<F>(PhantomData<F>);
@@ -1556,7 +1559,9 @@ impl_runtime_apis! {
 
         fn gas_price() -> U256 {
             let (gas_price, _) = <Runtime as pallet_evm::Config>::FeeCalculator::min_gas_price();
-            gas_price
+
+            // Recalculate decimals
+            gas_price * U256::from(EVM_DECIMALS_FACTOR)
         }
 
         fn account_code_at(address: H160) -> Vec<u8> {
