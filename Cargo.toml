@@ -66,7 +66,7 @@ scale-info = { version = "2.11.2", default-features = false }
 serde = { version = "1.0.199", default-features = false }
 serde-tuple-vec-map = { version = "1.0.1", default-features = false }
 serde_bytes = { version = "0.11.14", default-features = false }
-serde_json = { version = "1.0.116", default-features = false }
+serde_json = { version = "1.0.121", default-features = false }
 serde_with = { version = "=2.0.0", default-features = false }
 smallvec = "1.13.2"
 litep2p = { git = "https://github.com/paritytech/litep2p", branch = "master" }

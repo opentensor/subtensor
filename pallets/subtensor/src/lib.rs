@@ -67,12 +67,14 @@ pub mod pallet {
         traits::{
             tokens::fungible, OriginTrait, QueryPreimage, StorePreimage, UnfilteredDispatchable,
         },
+        BoundedVec,
     };
     use frame_system::pallet_prelude::*;
     use sp_core::H256;
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::vec;
     use sp_std::vec::Vec;
+    use subtensor_macros::freeze_struct;
 
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
@@ -127,6 +129,36 @@ pub mod pallet {
         pub placeholder1: u8,
         ///  Axon proto placeholder 2.
         pub placeholder2: u8,
+    }
+
+    /// Struct for NeuronCertificate.
+    pub type NeuronCertificateOf = NeuronCertificate;
+    /// Data structure for NeuronCertificate information.
+    #[freeze_struct("1c232be200d9ec6c")]
+    #[derive(Decode, Encode, Default, TypeInfo, PartialEq, Eq, Clone, Debug)]
+    pub struct NeuronCertificate {
+        ///  The neuron TLS public key
+        pub public_key: BoundedVec<u8, ConstU32<64>>,
+        ///  The algorithm used to generate the public key
+        pub algorithm: u8,
+    }
+
+    impl TryFrom<Vec<u8>> for NeuronCertificate {
+        type Error = ();
+
+        fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+            if value.len() > 65 {
+                return Err(());
+            }
+            // take the first byte as the algorithm
+            let algorithm = value.first().ok_or(())?;
+            // and the rest as the public_key
+            let certificate = value.get(1..).ok_or(())?.to_vec();
+            Ok(Self {
+                public_key: BoundedVec::try_from(certificate).map_err(|_| ())?,
+                algorithm: *algorithm,
+            })
+        }
     }
 
     ///  Struct for Prometheus.
@@ -1162,6 +1194,17 @@ pub mod pallet {
     /// --- MAP ( netuid, hotkey ) --> axon_info
     pub type Axons<T: Config> =
         StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, AxonInfoOf, OptionQuery>;
+    /// --- MAP ( netuid, hotkey ) --> certificate
+    #[pallet::storage]
+    pub type NeuronCertificates<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        u16,
+        Blake2_128Concat,
+        T::AccountId,
+        NeuronCertificateOf,
+        OptionQuery,
+    >;
     #[pallet::storage]
     /// --- MAP ( netuid, hotkey ) --> prometheus_info
     pub type Prometheus<T: Config> = StorageDoubleMap<
@@ -1535,6 +1578,10 @@ where
                 Ok((CallType::Register, transaction_fee, who.clone()))
             }
             Some(Call::serve_axon { .. }) => {
+                let transaction_fee = 0;
+                Ok((CallType::Serve, transaction_fee, who.clone()))
+            }
+            Some(Call::serve_axon_tls { .. }) => {
                 let transaction_fee = 0;
                 Ok((CallType::Serve, transaction_fee, who.clone()))
             }
