@@ -15,12 +15,16 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::Imbalance;
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
-    genesis_builder_helper::{build_config, create_default_config},
+    genesis_builder_helper::{build_state, get_preset},
     pallet_prelude::Get,
-    traits::{fungible::HoldConsideration, Contains, LinearStoragePrice, OnUnbalanced},
+    traits::{
+        fungible::{
+            DecreaseIssuance, HoldConsideration, Imbalance as FungibleImbalance, IncreaseIssuance,
+        },
+        Contains, LinearStoragePrice, OnUnbalanced,
+    },
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
-use pallet_balances::NegativeImbalance;
 use pallet_commitments::CanCommit;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -37,7 +41,7 @@ use sp_runtime::{
         AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, One, Verify,
     },
     transaction_validity::{TransactionSource, TransactionValidity},
-    ApplyExtrinsicResult, MultiSignature,
+    AccountId32, ApplyExtrinsicResult, MultiSignature,
 };
 use sp_std::cmp::Ordering;
 use sp_std::prelude::*;
@@ -64,7 +68,7 @@ pub use frame_support::{
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
-use pallet_transaction_payment::{CurrencyAdapter, Multiplier};
+use pallet_transaction_payment::{FungibleAdapter, Multiplier};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
@@ -394,8 +398,22 @@ parameter_types! {
 /// Deduct the transaction fee from the Subtensor Pallet TotalIssuance when dropping the transaction
 /// fee.
 pub struct TransactionFeeHandler;
-impl OnUnbalanced<NegativeImbalance<Runtime>> for TransactionFeeHandler {
-    fn on_nonzero_unbalanced(credit: NegativeImbalance<Runtime>) {
+impl
+    OnUnbalanced<
+        FungibleImbalance<
+            u64,
+            DecreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
+            IncreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
+        >,
+    > for TransactionFeeHandler
+{
+    fn on_nonzero_unbalanced(
+        credit: FungibleImbalance<
+            u64,
+            DecreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
+            IncreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
+        >,
+    ) {
         let ti_before = pallet_subtensor::TotalIssuance::<Runtime>::get();
         pallet_subtensor::TotalIssuance::<Runtime>::put(ti_before.saturating_sub(credit.peek()));
         drop(credit);
@@ -406,7 +424,7 @@ impl pallet_transaction_payment::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
 
     //type TransactionByteFee = TransactionByteFee;
-    type OnChargeTransaction = CurrencyAdapter<Balances, TransactionFeeHandler>;
+    type OnChargeTransaction = FungibleAdapter<Balances, TransactionFeeHandler>;
 
     // Convert dispatch weight to a chargeable fee.
     type WeightToFee = LinearWeightToFee<FeeWeightRatio>;
@@ -1082,10 +1100,11 @@ pub type SignedExtra = (
 );
 
 type Migrations = (
+    // Leave this migration in the runtime, so every runtime upgrade tiny rounding errors (fractions of fractions
+    // of a cent) are cleaned up. These tiny rounding errors occur due to floating point coversion.
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
         Runtime,
     >,
-    pallet_subtensor::migrations::migrate_fix_pending_emission::migration::Migration<Runtime>,
 );
 
 // Unchecked extrinsic type as expected by this runtime.
@@ -1113,11 +1132,12 @@ mod benches {
         [frame_benchmarking, BaselineBench::<Runtime>]
         [frame_system, SystemBench::<Runtime>]
         [pallet_balances, Balances]
-        [pallet_subtensor, SubtensorModule]
         [pallet_timestamp, Timestamp]
+        [pallet_sudo, Sudo]
         [pallet_registry, Registry]
         [pallet_commitments, Commitments]
         [pallet_admin_utils, AdminUtils]
+        [pallet_subtensor, SubtensorModule]
     );
 }
 
@@ -1172,12 +1192,16 @@ impl_runtime_apis! {
     }
 
     impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
-        fn create_default_config() -> Vec<u8> {
-            create_default_config::<RuntimeGenesisConfig>()
+        fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
+            build_state::<RuntimeGenesisConfig>(config)
         }
 
-        fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
-            build_config::<RuntimeGenesisConfig>(config)
+        fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
+            get_preset::<RuntimeGenesisConfig>(id, |_| None)
+        }
+
+        fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
+            vec![]
         }
     }
 

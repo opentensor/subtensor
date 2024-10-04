@@ -297,9 +297,6 @@ impl<T: Config> Pallet<T> {
         staking_hotkeys.retain(|h| h != hotkey);
         StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
 
-        // Update stake delta
-        StakeDeltaSinceLastEmissionDrain::<T>::remove(hotkey, coldkey);
-
         current_stake
     }
 
@@ -434,9 +431,6 @@ impl<T: Config> Pallet<T> {
 
             // Add the balance to the coldkey account.
             Self::add_balance_to_coldkey_account(&delegate_coldkey_i, stake_i);
-
-            // Remove stake delta
-            StakeDeltaSinceLastEmissionDrain::<T>::remove(hotkey, &delegate_coldkey_i);
         }
     }
 }

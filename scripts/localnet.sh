@@ -77,6 +77,7 @@ alice_start=(
   --rpc-cors=all
   --allow-private-ipv4
   --discover-local
+  --unsafe-force-node-key-generation
 )
 
 bob_start=(
@@ -87,8 +88,10 @@ bob_start=(
   --port 30335
   --rpc-port 9945
   --validator
+  --rpc-cors=all
   --allow-private-ipv4
   --discover-local
+  --unsafe-force-node-key-generation
 )
 
 trap 'pkill -P $$' EXIT SIGINT SIGTERM
