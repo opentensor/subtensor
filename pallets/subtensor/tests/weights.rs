@@ -1808,6 +1808,168 @@ fn test_toggle_commit_reveal_weights_and_set_weights() {
     });
 }
 
+#[test]
+fn test_tempo_change_during_commit_reveal_process() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let uids: Vec<u16> = vec![0, 1];
+        let weight_values: Vec<u16> = vec![10, 10];
+        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let version_key: u64 = 0;
+        let hotkey: U256 = U256::from(1);
+
+        let commit_hash: H256 = BlakeTwo256::hash_of(&(
+            hotkey,
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            salt.clone(),
+            version_key,
+        ));
+
+        System::set_block_number(1);
+
+        let tempo: u16 = 100;
+        add_network(netuid, tempo, 0);
+
+        register_ok_neuron(netuid, U256::from(3), U256::from(4), 300_000);
+        register_ok_neuron(netuid, U256::from(1), U256::from(2), 100_000);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 5);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        assert_ok!(SubtensorModule::commit_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            commit_hash
+        ));
+        log::info!(
+            "Commit successful at block {}",
+            SubtensorModule::get_current_block_as_u64()
+        );
+
+        step_block(9);
+        log::info!(
+            "Advanced to block {}",
+            SubtensorModule::get_current_block_as_u64()
+        );
+
+        let tempo_before_next_reveal: u16 = 200;
+        log::info!("Changing tempo to {}", tempo_before_next_reveal);
+        SubtensorModule::set_tempo(netuid, tempo_before_next_reveal);
+
+        let blocks_to_next_epoch: u64 = SubtensorModule::blocks_until_next_epoch(
+            netuid,
+            SubtensorModule::get_tempo(netuid),
+            SubtensorModule::get_current_block_as_u64(),
+        );
+        step_block(blocks_to_next_epoch as u16);
+        log::info!(
+            "Advanced to block {}",
+            SubtensorModule::get_current_block_as_u64() + 1
+        );
+        assert!(SubtensorModule::should_run_epoch(netuid, SubtensorModule::get_current_block_as_u64()));
+        step_block(1);
+
+        assert_ok!(SubtensorModule::reveal_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            salt.clone(),
+            version_key,
+        ));
+        log::info!(
+            "Revealed at block {}",
+            SubtensorModule::get_current_block_as_u64()
+        );
+
+        assert_ok!(SubtensorModule::commit_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            commit_hash
+        ));
+        log::info!(
+            "Commit successful at block {}",
+            SubtensorModule::get_current_block_as_u64()
+        );
+
+        let tempo: u16 = 150;
+        log::info!("Changing tempo to {}", tempo);
+        SubtensorModule::set_tempo(netuid, tempo);
+
+        let blocks_to_next_epoch: u64 = SubtensorModule::blocks_until_next_epoch(
+            netuid,
+            SubtensorModule::get_tempo(netuid),
+            SubtensorModule::get_current_block_as_u64(),
+        );
+        step_block(blocks_to_next_epoch as u16);
+        log::info!(
+            "Advanced to block {}",
+            SubtensorModule::get_current_block_as_u64() + 1
+        );
+        assert!(SubtensorModule::should_run_epoch(netuid, SubtensorModule::get_current_block_as_u64()));
+        step_block(1);
+
+        assert_ok!(SubtensorModule::reveal_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            salt.clone(),
+            version_key,
+        ));
+        log::info!(
+            "Revealed at block {}",
+            SubtensorModule::get_current_block_as_u64()
+        );
+
+
+        let tempo: u16 = 1050;
+        log::info!("Changing tempo to {}", tempo);
+        SubtensorModule::set_tempo(netuid, tempo);
+
+        assert_ok!(SubtensorModule::commit_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            commit_hash
+        ));
+        log::info!(
+            "Commit successful at block {}",
+            SubtensorModule::get_current_block_as_u64()
+        );
+
+        let tempo: u16 = 805;
+        log::info!("Changing tempo to {}", tempo);
+        SubtensorModule::set_tempo(netuid, tempo);
+
+        let blocks_to_next_epoch: u64 = SubtensorModule::blocks_until_next_epoch(
+            netuid,
+            SubtensorModule::get_tempo(netuid),
+            SubtensorModule::get_current_block_as_u64(),
+        );
+        step_block(blocks_to_next_epoch.saturating_add(1) as u16);
+        log::info!(
+            "Advanced to block {}",
+            SubtensorModule::get_current_block_as_u64()
+        );
+
+        assert_ok!(SubtensorModule::reveal_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            salt.clone(),
+            version_key,
+        ));
+        log::info!(
+            "Revealed at block {}",
+            SubtensorModule::get_current_block_as_u64()
+        );
+    });
+}
+
 fn commit_reveal_set_weights(
     hotkey: U256,
     netuid: u16,
