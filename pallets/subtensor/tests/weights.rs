@@ -1388,10 +1388,8 @@ fn test_commit_reveal_weights_ok() {
             version_key,
         ));
 
-        // Set block number to 0
         System::set_block_number(0);
 
-        // Add network with tempo 5
         let tempo: u16 = 5;
         add_network(netuid, tempo, 0);
 
@@ -1401,8 +1399,6 @@ fn test_commit_reveal_weights_ok() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 5);
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
-
-        // Enable commit/reveal
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
         // Commit at block 0
@@ -1461,8 +1457,6 @@ fn test_commit_reveal_tempo_interval() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 5);
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
-
-        // Enable commit/reveal
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
         // Commit at block 0
@@ -1542,18 +1536,53 @@ fn test_commit_reveal_tempo_interval() {
         );
         step_block(blocks_to_next_epoch.saturating_add(1) as u16);
 
-        // Attempt to reveal previous commit in the new epoch, should fail with `InvalidRevealCommitTempo`
         assert_err!(
             SubtensorModule::reveal_weights(
                 RuntimeOrigin::signed(hotkey),
                 netuid,
-                uids,
-                weight_values,
-                salt,
+                uids.clone(),
+                weight_values.clone(),
+                salt.clone(),
                 version_key,
             ),
             Error::<Test>::InvalidRevealCommitTempo
         );
+
+        assert_ok!(SubtensorModule::commit_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            commit_hash
+        ));
+
+        step_block(50);
+
+        assert_err!(
+            SubtensorModule::reveal_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                uids.clone(),
+                weight_values.clone(),
+                salt.clone(),
+                version_key,
+            ),
+            Error::<Test>::InvalidRevealCommitTempo
+        );
+
+        let blocks_to_next_epoch: u64 = SubtensorModule::blocks_until_next_epoch(
+            netuid,
+            tempo,
+            SubtensorModule::get_current_block_as_u64(),
+        );
+        step_block(blocks_to_next_epoch.saturating_add(1) as u16);
+
+        assert_ok!(SubtensorModule::reveal_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            uids,
+            weight_values,
+            salt,
+            version_key,
+        ));
     });
 }
 

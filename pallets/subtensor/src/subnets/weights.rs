@@ -475,22 +475,16 @@ impl<T: Config> Pallet<T> {
         let commit_epoch: u64 = Self::get_epoch_index(netuid, commit_block);
         let current_epoch: u64 = Self::get_epoch_index(netuid, current_block);
 
-        // Allow reveal if the current epoch is immediately after the commit's epoch
-        if current_epoch == commit_epoch + 1 {
-            return true;
-        }
-        false
+        // Reveal is allowed only in the epoch immediately after the commit's epoch
+        current_epoch == commit_epoch.saturating_add(1)
     }
 
     pub fn get_epoch_index(netuid: u16, block_number: u64) -> u64 {
-        let tempo = Self::get_tempo(netuid);
-        if tempo == 0 {
-            return 0;
-        }
-        let tempo_plus_one = (tempo as u64).saturating_add(1);
-        let netuid_plus_one = (netuid as u64).saturating_add(1);
-        let epoch_index =
-            (block_number.saturating_add(netuid_plus_one)).saturating_div(tempo_plus_one);
-        epoch_index
+        let tempo: u64 = Self::get_tempo(netuid) as u64;
+        let tempo_plus_one: u64 = tempo.saturating_add(1);
+        let netuid_plus_one: u64 = (netuid as u64).saturating_add(1);
+        let block_with_offset: u64 = block_number.saturating_add(netuid_plus_one);
+
+        block_with_offset.checked_div(tempo_plus_one).unwrap_or(0)
     }
 }
