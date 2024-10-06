@@ -184,7 +184,11 @@ mod errors {
         TxChildkeyTakeRateLimitExceeded,
         /// Invalid identity.
         InvalidIdentity,
-        /// invalid reaveal epoch
-        InvalidRevealEpoch,
+        /// Maximum commit limit reached
+        TooManyUnrevealedCommits,
+        /// Reveal is out of order
+        RevealOutOfOrder,
+        /// Attempted to reveal weights that are expired
+        AttemptedToRevealExpiredWeightCommit,
     }
 }
