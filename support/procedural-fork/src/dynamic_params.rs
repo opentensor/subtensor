@@ -94,7 +94,7 @@ impl ToTokens for DynamicParamModAttr {
         let mut quoted_enum = quote! {};
         for m in self.inner_mods() {
             let aggregate_name =
-                syn::Ident::new(&m.ident.to_string().to_class_case(), m.ident.span());
+                syn::Ident::new(&m.ident.to_string().to_pascal_case(), m.ident.span());
             let mod_name = &m.ident;
 
             let mut attrs = m.attrs.clone();
@@ -245,7 +245,7 @@ impl ToTokens for DynamicPalletParamAttr {
         );
 
         let aggregate_name = syn::Ident::new(
-            &params_mod.ident.to_string().to_class_case(),
+            &params_mod.ident.to_string().to_pascal_case(),
             params_mod.ident.span(),
         );
         let (mod_name, vis) = (&params_mod.ident, &params_mod.vis);

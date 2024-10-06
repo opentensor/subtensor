@@ -97,23 +97,26 @@ fn construct_runtime_implicit_to_explicit(
         quote!()
     };
     let mut expansion = quote::quote!(
-        #[frame_support::runtime #attr]
+        #[#frame_support::runtime #attr]
         #input
     );
     for pallet in definition.pallet_decls.iter() {
         let pallet_path = &pallet.path;
         let pallet_name = &pallet.name;
-        let pallet_instance = pallet
-            .instance
-            .as_ref()
-            .map(|instance| quote::quote!(<#instance>));
+        let runtime_param = &pallet.runtime_param;
+        let pallet_segment_and_instance = match (&pallet.pallet_segment, &pallet.instance) {
+            (Some(segment), Some(instance)) => quote::quote!(::#segment<#runtime_param, #instance>),
+            (Some(segment), None) => quote::quote!(::#segment<#runtime_param>),
+            (None, Some(instance)) => quote::quote!(<#instance>),
+            (None, None) => quote::quote!(),
+        };
         expansion = quote::quote!(
             #frame_support::__private::tt_call! {
                 macro = [{ #pallet_path::tt_default_parts_v2 }]
-                frame_support = [{ #frame_support }]
+                your_tt_return = [{ #frame_support::__private::tt_return }]
                 ~~> #frame_support::match_and_insert! {
                     target = [{ #expansion }]
-                    pattern = [{ #pallet_name = #pallet_path #pallet_instance  }]
+                    pattern = [{ #pallet_name = #pallet_path #pallet_segment_and_instance }]
                 }
             }
         );
@@ -264,7 +267,7 @@ fn construct_runtime_final_expansion(
         // Prevent UncheckedExtrinsic to print unused warning.
         const _: () = {
             #[allow(unused)]
-            type __hidden_use_of_unchecked_extrinsic = #unchecked_extrinsic;
+            type __HiddenUseOfUncheckedExtrinsic = #unchecked_extrinsic;
         };
 
         #[derive(
@@ -294,7 +297,7 @@ fn construct_runtime_final_expansion(
         #[doc(hidden)]
         trait InternalConstructRuntime {
             #[inline(always)]
-            fn runtime_metadata(&self) -> #scrate::__private::sp_std::vec::Vec<#scrate::__private::metadata_ir::RuntimeApiMetadataIR> {
+            fn runtime_metadata(&self) -> #scrate::__private::Vec<#scrate::__private::metadata_ir::RuntimeApiMetadataIR> {
                 Default::default()
             }
         }
