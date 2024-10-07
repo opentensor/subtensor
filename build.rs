@@ -19,6 +19,9 @@ fn main() {
     // Collect all Rust source files in the workspace
     let rust_files = collect_rust_files(workspace_root);
 
+    // Generate code coverage report
+    subtensor_code_coverage::analyze_files(&rust_files, &workspace_root);
+
     // Channel used to communicate errors back to the main thread from the parallel processing
     // as we process each Rust file
     let (tx, rx) = channel();

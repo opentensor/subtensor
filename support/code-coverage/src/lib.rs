@@ -46,15 +46,29 @@ pub fn collect_rust_files(dir: &Path) -> Vec<PathBuf> {
     rust_files
 }
 
-pub fn analyze_files(workspace_root: &Path) -> Vec<PalletInfo> {
-    let rust_files = collect_rust_files(workspace_root);
-    let mut infos = Vec::new();
-    for path in rust_files {
-        if path.display().to_string().contains("test") {
-            continue;
-        }
-        infos.append(&mut analyze_file(&path, workspace_root));
-    }
+pub fn analyze_files(rust_files: &[PathBuf], workspace_root: &Path) -> Vec<PalletInfo> {
+    custom_println!(
+        "[code-coverage]",
+        green,
+        "searching {} rust files for pallets in parallel...",
+        rust_files.len()
+    );
+    let infos = rust_files
+        .par_iter()
+        .map(|path| {
+            if path.display().to_string().contains("test") {
+                return Vec::new();
+            }
+            analyze_file(&path, workspace_root)
+        })
+        .reduce(
+            || Vec::new(),
+            |mut acc, mut infos| {
+                acc.append(&mut infos);
+                acc
+            },
+        );
+    custom_println!("[code-coverage]", green, "found {} pallets", infos.len());
     infos
 }
 
@@ -87,8 +101,6 @@ fn analyze_file(path: &Path, root_path: &Path) -> Vec<PalletInfo> {
             info.methods
                 .append(&mut call.methods.iter().map(|m| m.name.to_string()).collect());
         }
-
-        build_print::println!("{:?}", info);
 
         infos.push(info);
     });
