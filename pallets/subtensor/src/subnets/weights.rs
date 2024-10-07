@@ -39,22 +39,31 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CommitRevealDisabled
         );
 
-        // --- 3. Check if the current number of unrevealed commits is within the allowed limit.
+        // --- 3. Mutate the WeightCommits to retrieve existing commits for the user.
         WeightCommits::<T>::try_mutate(netuid, &who, |maybe_commits| -> DispatchResult {
-            if let Some(ref commits) = maybe_commits {
-                ensure!(commits.len() < 10, Error::<T>::TooManyUnrevealedCommits);
-            }
-
             // --- 4. Take the existing commits or create a new VecDeque.
             let mut commits: VecDeque<(H256, u64)> = maybe_commits.take().unwrap_or_default();
 
-            // --- 5. Append the new commit to the queue.
+            // --- 5. Remove any expired commits from the front of the queue.
+            while let Some((_, commit_block)) = commits.front() {
+                if Self::is_commit_expired(netuid, *commit_block) {
+                    // Remove the expired commit
+                    commits.pop_front();
+                } else {
+                    break;
+                }
+            }
+
+            // --- 6. Check if the current number of unrevealed commits is within the allowed limit.
+            ensure!(commits.len() < 10, Error::<T>::TooManyUnrevealedCommits);
+
+            // --- 7. Append the new commit to the queue.
             commits.push_back((commit_hash, Self::get_current_block_as_u64()));
 
-            // --- 6. Store the updated queue back to storage.
+            // --- 8. Store the updated queue back to storage.
             *maybe_commits = Some(commits);
 
-            // --- 7. Return ok.
+            // --- 9. Return ok.
             Ok(())
         })
     }
