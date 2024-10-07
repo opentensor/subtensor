@@ -195,6 +195,15 @@ pub mod pallet {
 
             Ok(().into())
         }
+
+        /// user free call
+        #[pallet::call_index(80)]
+        #[pallet::weight(Weight::from_parts(157_000_000, 0))]
+        #[pallet::feeless_if(|origin: &OriginFor<T>| -> bool {true})]
+        pub fn free_call(origin: OriginFor<T>) -> DispatchResult {
+            ensure_signed(origin)?;
+            Ok(())
+        }
     }
 }
 // Interfaces to interact with other pallets
