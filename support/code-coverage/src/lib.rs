@@ -4,6 +4,7 @@ use procedural_fork::{exports::pallet::parse::Def, simulate_manifest_dir};
 use quote::ToTokens;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::{
+    collections::HashSet,
     ffi::OsStr,
     fs::{self},
     path::{Path, PathBuf},
@@ -47,6 +48,7 @@ pub fn collect_rust_files(dir: &Path) -> Vec<PathBuf> {
 }
 
 pub fn analyze_files(rust_files: &[PathBuf], workspace_root: &Path) -> Vec<PalletInfo> {
+    let start = std::time::Instant::now();
     custom_println!(
         "[code-coverage]",
         cyan,
@@ -77,6 +79,27 @@ pub fn analyze_files(rust_files: &[PathBuf], workspace_root: &Path) -> Vec<Palle
     );
     let tests = find_tests(rust_files);
     custom_println!("[code-coverage]", green, "found {} tests", tests.len());
+    let methods = infos
+        .iter()
+        .flat_map(|info| info.methods.iter())
+        .collect::<HashSet<_>>();
+    custom_println!(
+        "[code-coverage]",
+        cyan,
+        "reduced {} methods to {} unique methods",
+        infos.iter().map(|info| info.methods.len()).sum::<usize>(),
+        methods.len(),
+    );
+
+    build_print::println!("test: {:?}", tests);
+
+    let finish = std::time::Instant::now();
+    custom_println!(
+        "[code-coverage]",
+        green,
+        "coverage report generated in {:?}",
+        finish - start
+    );
     infos
 }
 
@@ -115,9 +138,16 @@ fn analyze_file(path: &Path, root_path: &Path) -> Vec<PalletInfo> {
     infos
 }
 
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
+pub struct TestInfo {
+    pub path: PathBuf,
+    pub name: String,
+    pub method_calls: HashSet<String>,
+}
+
 /// Finds all tests in the given set of rust files, using a parallel map-reduce.
-pub fn find_tests(rust_files: &[PathBuf]) -> Vec<ItemFn> {
-    let tests: Vec<String> = rust_files
+pub fn find_tests(rust_files: &[PathBuf]) -> Vec<TestInfo> {
+    rust_files
         .par_iter()
         .map(|path| {
             let Ok(content) = fs::read_to_string(path) else {
@@ -131,7 +161,18 @@ pub fn find_tests(rust_files: &[PathBuf]) -> Vec<ItemFn> {
             visitor
                 .tests
                 .into_iter()
-                .map(|f| f.to_token_stream().to_string())
+                .map(|f| {
+                    let mut method_calls = HashSet::new();
+                    let mut visitor = CallVisitor {
+                        method_calls: &mut method_calls,
+                    };
+                    visitor.visit_item_fn(&f);
+                    TestInfo {
+                        path: path.clone(),
+                        name: f.sig.ident.to_string(),
+                        method_calls,
+                    }
+                })
                 .collect()
         })
         .reduce(
@@ -140,11 +181,35 @@ pub fn find_tests(rust_files: &[PathBuf]) -> Vec<ItemFn> {
                 acc.append(&mut infos);
                 acc
             },
-        );
-    tests
-        .into_iter()
-        .map(|s| syn::parse_str::<ItemFn>(&s).unwrap())
-        .collect()
+        )
+}
+
+pub struct CallVisitor<'a> {
+    pub method_calls: &'a mut HashSet<String>,
+}
+
+impl<'ast> Visit<'ast> for CallVisitor<'_> {
+    // fn visit_expr_method_call(&mut self, i: &'ast syn::ExprMethodCall) {
+    //     self.method_calls.insert(i.method.to_string());
+    //     syn::visit::visit_expr_method_call(self, i);
+    // }
+
+    fn visit_expr_path(&mut self, i: &'ast syn::ExprPath) {
+        let segments: Vec<_> = i.path.segments.iter().collect();
+        // truncate all but the last 2 segments so we preserve the `SubtensorModule` in `some::path::SubtensorModule::foo`
+        let truncated_segments = if segments.len() > 2 {
+            &segments[segments.len() - 2..]
+        } else {
+            &segments[..]
+        };
+        let truncated_path = truncated_segments
+            .iter()
+            .map(|segment| segment.ident.to_string())
+            .collect::<Vec<_>>()
+            .join("::");
+        self.method_calls.insert(truncated_path);
+        syn::visit::visit_expr_path(self, i);
+    }
 }
 
 pub struct TestVisitor {
