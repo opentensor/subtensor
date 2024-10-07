@@ -9,7 +9,7 @@ use std::{
     path::{Path, PathBuf},
     str::FromStr,
 };
-use syn::{visit::Visit, Attribute, File, Ident, ItemMod};
+use syn::{visit::Visit, Attribute, File, Ident, ItemFn, ItemMod};
 use walkdir::WalkDir;
 
 /// Code coverage information for a pallet
@@ -75,6 +75,8 @@ pub fn analyze_files(rust_files: &[PathBuf], workspace_root: &Path) -> Vec<Palle
         "searching {} rust files for tests in parallel...",
         rust_files.len()
     );
+    let tests = find_tests(rust_files);
+    custom_println!("[code-coverage]", green, "found {} tests", tests.len());
     infos
 }
 
@@ -113,22 +115,54 @@ fn analyze_file(path: &Path, root_path: &Path) -> Vec<PalletInfo> {
     infos
 }
 
-fn find_tests(rust_files: &[PathBuf], workspace_root: &Path) -> Vec<PalletInfo> {
-    custom_println!(
-        "[code-coverage]",
-        cyan,
-        "searching {} rust files for tests in parallel...",
-        rust_files.len()
-    );
-    let infos = rust_files.par_iter().map(|path| todo!()).reduce(
-        || Vec::new(),
-        |mut acc, mut infos| {
-            acc.append(&mut infos);
-            acc
-        },
-    );
-    custom_println!("[code-coverage]", green, "found {} tests", infos.len());
-    infos
+/// Finds all tests in the given set of rust files, using a parallel map-reduce.
+pub fn find_tests(rust_files: &[PathBuf]) -> Vec<ItemFn> {
+    let tests: Vec<String> = rust_files
+        .par_iter()
+        .map(|path| {
+            let Ok(content) = fs::read_to_string(path) else {
+                return Vec::new();
+            };
+            let Ok(file) = syn::parse_file(&content) else {
+                return Vec::new();
+            };
+            let mut visitor = TestVisitor { tests: Vec::new() };
+            visitor.visit_file(&file);
+            visitor
+                .tests
+                .into_iter()
+                .map(|f| f.to_token_stream().to_string())
+                .collect()
+        })
+        .reduce(
+            || Vec::new(),
+            |mut acc, mut infos| {
+                acc.append(&mut infos);
+                acc
+            },
+        );
+    tests
+        .into_iter()
+        .map(|s| syn::parse_str::<ItemFn>(&s).unwrap())
+        .collect()
+}
+
+pub struct TestVisitor {
+    pub tests: Vec<ItemFn>,
+}
+
+impl<'ast> Visit<'ast> for TestVisitor {
+    fn visit_item_fn(&mut self, item_fn: &'ast ItemFn) {
+        if item_fn.attrs.iter().any(|attr| {
+            let Some(seg) = attr.path().segments.last() else {
+                return false;
+            };
+            seg.ident == "test" || seg.ident == "should_panic"
+        }) {
+            self.tests.push(item_fn.clone());
+        }
+        syn::visit::visit_item_fn(self, item_fn);
+    }
 }
 
 /// Tries to parse a pallet from a module
