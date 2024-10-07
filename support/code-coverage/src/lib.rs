@@ -2,7 +2,10 @@ use build_print::*;
 use proc_macro2::TokenStream as TokenStream2;
 use procedural_fork::{exports::pallet::parse::Def, simulate_manifest_dir};
 use quote::ToTokens;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rayon::{
+    iter::{IntoParallelRefIterator, ParallelIterator},
+    slice::ParallelSliceMut,
+};
 use std::{
     collections::{HashMap, HashSet},
     ffi::OsStr,
@@ -82,11 +85,7 @@ pub fn analyze_files(rust_files: &[PathBuf], workspace_root: &Path) -> Vec<Palle
 
     let methods = infos
         .iter()
-        .flat_map(|info| {
-            info.methods
-                .iter()
-                .map(|m| format!("{}::{}", info.pallet_name, m))
-        })
+        .flat_map(|i| i.methods.iter())
         .collect::<HashSet<_>>();
 
     custom_println!("[code-coverage]", green, "found {} tests", tests.len());
@@ -103,13 +102,43 @@ pub fn analyze_files(rust_files: &[PathBuf], workspace_root: &Path) -> Vec<Palle
 
     let mut coverage: HashMap<String, usize> = HashMap::new();
     // this takes about 6ms serially so better to keep serial for now
+    for method in &methods {
+        coverage
+            .entry(method.strip_prefix("sudo_").unwrap_or(&method).to_string())
+            .or_insert(0);
+    }
     for test in &tests {
         for method in &test.method_calls {
-            if methods.contains(method) {
-                *coverage.entry(method.clone()).or_insert(0) += 1;
-            }
+            let method = method.strip_prefix("sudo_").unwrap_or(method);
+            let Some(count) = coverage.get_mut(method) else {
+                continue;
+            };
+            *count += 1;
         }
     }
+    let mut coverage = coverage.into_iter().collect::<Vec<_>>();
+    coverage.par_sort_by_key(|(_, v)| *v);
+
+    let (covered, uncovered) = coverage.iter().partition::<Vec<_>, _>(|(_, v)| *v > 0);
+
+    custom_println!(
+        "[code-coverage]",
+        cyan,
+        "    total covered: {}",
+        covered.len()
+    );
+    custom_println!(
+        "[code-coverage]",
+        cyan,
+        "  total uncovered: {}",
+        uncovered.len()
+    );
+    custom_println!(
+        "[code-coverage]",
+        cyan,
+        "   total coverage: {:.2}%",
+        covered.len() as f64 / methods.len() as f64 * 100.0
+    );
 
     let finish = std::time::Instant::now();
     custom_println!(
@@ -207,25 +236,14 @@ pub struct CallVisitor<'a> {
 }
 
 impl<'ast> Visit<'ast> for CallVisitor<'_> {
-    // fn visit_expr_method_call(&mut self, i: &'ast syn::ExprMethodCall) {
-    //     self.method_calls.insert(i.method.to_string());
-    //     syn::visit::visit_expr_method_call(self, i);
-    // }
+    fn visit_expr_method_call(&mut self, i: &'ast syn::ExprMethodCall) {
+        self.method_calls.insert(i.method.to_string());
+        syn::visit::visit_expr_method_call(self, i);
+    }
 
     fn visit_expr_path(&mut self, i: &'ast syn::ExprPath) {
-        let segments: Vec<_> = i.path.segments.iter().collect();
-        // truncate all but the last 2 segments so we preserve the `SubtensorModule` in `some::path::SubtensorModule::foo`
-        let truncated_segments = if segments.len() > 2 {
-            &segments[segments.len() - 2..]
-        } else {
-            &segments[..]
-        };
-        let truncated_path = truncated_segments
-            .iter()
-            .map(|segment| segment.ident.to_string())
-            .collect::<Vec<_>>()
-            .join("::");
-        self.method_calls.insert(truncated_path);
+        self.method_calls
+            .insert(i.path.segments.last().unwrap().ident.to_string());
         syn::visit::visit_expr_path(self, i);
     }
 }
