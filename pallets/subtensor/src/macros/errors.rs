@@ -118,8 +118,6 @@ mod errors {
         WeightsCommitNotAllowed,
         /// No commit found for the provided hotkey+netuid combination when attempting to reveal the weights.
         NoWeightsCommitFound,
-        /// Not the correct block/range to reveal weights.
-        InvalidRevealCommitTempo,
         /// Committed hash does not equal the hashed reveal data.
         InvalidRevealCommitHashNotMatch,
         /// Attempting to call set_weights when commit/reveal is enabled
@@ -186,9 +184,11 @@ mod errors {
         InvalidIdentity,
         /// Maximum commit limit reached
         TooManyUnrevealedCommits,
-        /// Reveal is out of order
+        /// Reveal is out of order.
         RevealOutOfOrder,
-        /// Attempted to reveal weights that are expired
-        AttemptedToRevealExpiredWeightCommit,
+        /// Attempted to reveal weights that are expired.
+        ExpiredWeightCommit,
+        /// Attempted to reveal weights too early.
+        RevealTooEarly,
     }
 }

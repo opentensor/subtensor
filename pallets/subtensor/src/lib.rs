@@ -569,6 +569,11 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
+    /// Default minimum stake for weights.
+    pub fn DefaultRevealPeriodEpochs<T: Config>() -> u64 {
+        1
+    }
+    #[pallet::type_value]
     /// Value definition for vector of u16.
     pub fn EmptyU16Vec<T: Config>() -> Vec<u16> {
         vec![]
@@ -1256,6 +1261,10 @@ pub mod pallet {
         VecDeque<(H256, u64)>,
         OptionQuery,
     >;
+    #[pallet::storage]
+    /// --- Map (netuid) --> Number of epochs allowed for commit reveal periods
+    pub type RevealPeriodEpochs<T: Config> =
+        StorageMap<_, Twox64Concat, u16, u64, ValueQuery, DefaultRevealPeriodEpochs<T>>;
 
     /// ==================
     /// ==== Genesis =====

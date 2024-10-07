@@ -84,7 +84,7 @@ impl<T: Config> Pallet<T> {
     ///   - The values of the weights being revealed.
     ///
     /// * `salt` (`Vec<u16>`):
-    ///   - The values of the weights being revealed.
+    ///   - The salt used to generate the commit hash.
     ///
     /// * `version_key` (`u64`):
     ///   - The network version key.
@@ -96,11 +96,11 @@ impl<T: Config> Pallet<T> {
     /// * `NoWeightsCommitFound`:
     ///   - Attempting to reveal weights without an existing commit.
     ///
-    /// * `InvalidRevealCommitTempo`:
-    ///   - Attempting to reveal weights outside the valid reveal period.
-    ///
-    /// * `AttemptedToRevealExpiredWeightCommit`:
+    /// * `ExpiredWeightCommit`:
     ///   - Attempting to reveal a weight commit that has expired.
+    ///
+    /// * `RevealTooEarly`:
+    ///   - Attempting to reveal weights outside the valid reveal period.
     ///
     /// * `RevealOutOfOrder`:
     ///   - Attempting to reveal a commit out of the expected order.
@@ -159,7 +159,7 @@ impl<T: Config> Pallet<T> {
                 // No non-expired commits
                 // Check if provided_hash matches any expired commits
                 if expired_hashes.contains(&provided_hash) {
-                    return Err(Error::<T>::AttemptedToRevealExpiredWeightCommit.into());
+                    return Err(Error::<T>::ExpiredWeightCommit.into());
                 } else {
                     return Err(Error::<T>::NoWeightsCommitFound.into());
                 }
@@ -175,7 +175,7 @@ impl<T: Config> Pallet<T> {
             // --- 9. Ensure the commit is ready to be revealed in the current block range.
             ensure!(
                 Self::is_reveal_block_range(netuid, *commit_block),
-                Error::<T>::InvalidRevealCommitTempo
+                Error::<T>::RevealTooEarly
             );
 
             // --- 10. Check if the provided hash matches the first commit's hash.
@@ -188,7 +188,7 @@ impl<T: Config> Pallet<T> {
                 {
                     return Err(Error::<T>::RevealOutOfOrder.into());
                 } else if expired_hashes.contains(&provided_hash) {
-                    return Err(Error::<T>::AttemptedToRevealExpiredWeightCommit.into());
+                    return Err(Error::<T>::ExpiredWeightCommit.into());
                 } else {
                     return Err(Error::<T>::InvalidRevealCommitHashNotMatch.into());
                 }
@@ -540,9 +540,10 @@ impl<T: Config> Pallet<T> {
         let current_block: u64 = Self::get_current_block_as_u64();
         let commit_epoch: u64 = Self::get_epoch_index(netuid, commit_block);
         let current_epoch: u64 = Self::get_epoch_index(netuid, current_block);
+        let reveal_period: u64 = RevealPeriodEpochs::<T>::get(netuid);
 
-        // Reveal is allowed only in the epoch immediately after the commit's epoch
-        current_epoch == commit_epoch.saturating_add(1)
+        // Reveal is allowed only in the exact epoch `commit_epoch + reveal_period`
+        current_epoch == commit_epoch.saturating_add(reveal_period)
     }
 
     pub fn get_epoch_index(netuid: u16, block_number: u64) -> u64 {
@@ -555,10 +556,15 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn is_commit_expired(netuid: u16, commit_block: u64) -> bool {
-        let current_block = Self::get_current_block_as_u64();
-        let current_epoch = Self::get_epoch_index(netuid, current_block);
-        let commit_epoch = Self::get_epoch_index(netuid, commit_block);
+        let current_block: u64 = Self::get_current_block_as_u64();
+        let current_epoch: u64 = Self::get_epoch_index(netuid, current_block);
+        let commit_epoch: u64 = Self::get_epoch_index(netuid, commit_block);
+        let reveal_period: u64 = RevealPeriodEpochs::<T>::get(netuid);
 
-        current_epoch > commit_epoch.saturating_add(1)
+        current_epoch > commit_epoch.saturating_add(reveal_period)
+    }
+
+    pub fn set_reveal_period(netuid: u16, reveal_period: u64) {
+        RevealPeriodEpochs::<T>::insert(netuid, reveal_period);
     }
 }
