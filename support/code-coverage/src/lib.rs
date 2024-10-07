@@ -4,7 +4,7 @@ use procedural_fork::{exports::pallet::parse::Def, simulate_manifest_dir};
 use quote::ToTokens;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     ffi::OsStr,
     fs::{self},
     path::{Path, PathBuf},
@@ -48,6 +48,7 @@ pub fn collect_rust_files(dir: &Path) -> Vec<PathBuf> {
 }
 
 pub fn analyze_files(rust_files: &[PathBuf], workspace_root: &Path) -> Vec<PalletInfo> {
+    custom_println!("[code-coverage]", cyan, "generating coverage report...");
     let start = std::time::Instant::now();
     custom_println!(
         "[code-coverage]",
@@ -70,7 +71,7 @@ pub fn analyze_files(rust_files: &[PathBuf], workspace_root: &Path) -> Vec<Palle
                 acc
             },
         );
-    custom_println!("[code-coverage]", green, "found {} pallets", infos.len());
+
     custom_println!(
         "[code-coverage]",
         cyan,
@@ -78,20 +79,37 @@ pub fn analyze_files(rust_files: &[PathBuf], workspace_root: &Path) -> Vec<Palle
         rust_files.len()
     );
     let tests = find_tests(rust_files);
-    custom_println!("[code-coverage]", green, "found {} tests", tests.len());
+
     let methods = infos
         .iter()
-        .flat_map(|info| info.methods.iter())
+        .flat_map(|info| {
+            info.methods
+                .iter()
+                .map(|m| format!("{}::{}", info.pallet_name, m))
+        })
         .collect::<HashSet<_>>();
+
+    custom_println!("[code-coverage]", green, "found {} tests", tests.len());
+
     custom_println!(
         "[code-coverage]",
-        cyan,
-        "reduced {} methods to {} unique methods",
-        infos.iter().map(|info| info.methods.len()).sum::<usize>(),
+        green,
+        "found {} unique calls across {} pallets",
         methods.len(),
+        infos.len(),
     );
 
-    build_print::println!("test: {:?}", tests);
+    custom_println!("[code-coverage]", cyan, "compiling statistics...");
+
+    let mut coverage: HashMap<String, usize> = HashMap::new();
+    // this takes about 6ms serially so better to keep serial for now
+    for test in &tests {
+        for method in &test.method_calls {
+            if methods.contains(method) {
+                *coverage.entry(method.clone()).or_insert(0) += 1;
+            }
+        }
+    }
 
     let finish = std::time::Instant::now();
     custom_println!(
