@@ -1405,13 +1405,7 @@ fn test_reveal_weights_when_commit_reveal_disabled() {
             commit_hash
         ));
 
-        // Advance to the next epoch
-        let blocks_to_next_epoch: u64 = SubtensorModule::blocks_until_next_epoch(
-            netuid,
-            tempo,
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(blocks_to_next_epoch.saturating_add(1) as u16);
+        step_epochs(1, netuid);
 
         // Disable commit-reveal before reveal
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
@@ -1470,13 +1464,7 @@ fn test_commit_reveal_weights_ok() {
             commit_hash
         ));
 
-        // Calculate blocks to next epoch and advance
-        let blocks_to_next_epoch: u64 = SubtensorModule::blocks_until_next_epoch(
-            netuid,
-            tempo,
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(blocks_to_next_epoch.saturating_add(1) as u16);
+        step_epochs(1, netuid);
 
         // Reveal in the next epoch
         assert_ok!(SubtensorModule::reveal_weights(
@@ -1541,13 +1529,7 @@ fn test_commit_reveal_tempo_interval() {
             Error::<Test>::RevealTooEarly
         );
 
-        // Calculate blocks to next epoch and advance
-        let blocks_to_next_epoch: u64 = SubtensorModule::blocks_until_next_epoch(
-            netuid,
-            tempo,
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(blocks_to_next_epoch.saturating_add(1) as u16);
+        step_epochs(1, netuid);
 
         assert_ok!(SubtensorModule::reveal_weights(
             RuntimeOrigin::signed(hotkey),
@@ -1579,18 +1561,7 @@ fn test_commit_reveal_tempo_interval() {
         ));
 
         // step two epochs
-        let blocks_to_next_epoch: u64 = SubtensorModule::blocks_until_next_epoch(
-            netuid,
-            tempo,
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(blocks_to_next_epoch.saturating_add(1) as u16);
-        let blocks_to_next_epoch: u64 = SubtensorModule::blocks_until_next_epoch(
-            netuid,
-            tempo,
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(blocks_to_next_epoch.saturating_add(1) as u16);
+        step_epochs(2, netuid);
 
         assert_err!(
             SubtensorModule::reveal_weights(
@@ -1624,12 +1595,7 @@ fn test_commit_reveal_tempo_interval() {
             Error::<Test>::RevealTooEarly
         );
 
-        let blocks_to_next_epoch: u64 = SubtensorModule::blocks_until_next_epoch(
-            netuid,
-            tempo,
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(blocks_to_next_epoch.saturating_add(1) as u16);
+        step_epochs(1, netuid);
 
         assert_ok!(SubtensorModule::reveal_weights(
             RuntimeOrigin::signed(hotkey),
@@ -1679,13 +1645,7 @@ fn test_commit_reveal_hash() {
             commit_hash
         ));
 
-        // Calculate blocks to next epoch and advance
-        let blocks_to_next_epoch: u64 = SubtensorModule::blocks_until_next_epoch(
-            netuid,
-            SubtensorModule::get_tempo(netuid),
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(blocks_to_next_epoch.saturating_add(1) as u16);
+        step_epochs(1, netuid);
 
         // Attempt to reveal with incorrect data, should fail
         assert_err!(
@@ -1771,13 +1731,7 @@ fn test_commit_reveal_disabled_or_enabled() {
             commit_hash
         ));
 
-        // Calculate blocks to next epoch and advance
-        let blocks_to_next_epoch: u64 = SubtensorModule::blocks_until_next_epoch(
-            netuid,
-            SubtensorModule::get_tempo(netuid),
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(blocks_to_next_epoch.saturating_add(1) as u16);
+        step_epochs(1, netuid);
 
         // Reveal should succeed
         assert_ok!(SubtensorModule::reveal_weights(
@@ -1829,13 +1783,7 @@ fn test_toggle_commit_reveal_weights_and_set_weights() {
             commit_hash
         ));
 
-        // Calculate blocks to next epoch and advance
-        let blocks_to_next_epoch: u64 = SubtensorModule::blocks_until_next_epoch(
-            netuid,
-            SubtensorModule::get_tempo(netuid),
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(blocks_to_next_epoch.saturating_add(1) as u16);
+        step_epochs(1, netuid);
 
         // Reveal in the next epoch
         assert_ok!(SubtensorModule::reveal_weights(
@@ -1915,21 +1863,11 @@ fn test_tempo_change_during_commit_reveal_process() {
         log::info!("Changing tempo to {}", tempo_before_next_reveal);
         SubtensorModule::set_tempo(netuid, tempo_before_next_reveal);
 
-        let blocks_to_next_epoch: u64 = SubtensorModule::blocks_until_next_epoch(
-            netuid,
-            SubtensorModule::get_tempo(netuid),
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(blocks_to_next_epoch as u16);
+        step_epochs(1, netuid);
         log::info!(
             "Advanced to block {}",
-            SubtensorModule::get_current_block_as_u64() + 1
-        );
-        assert!(SubtensorModule::should_run_epoch(
-            netuid,
             SubtensorModule::get_current_block_as_u64()
-        ));
-        step_block(1);
+        );
 
         assert_ok!(SubtensorModule::reveal_weights(
             RuntimeOrigin::signed(hotkey),
@@ -1958,21 +1896,11 @@ fn test_tempo_change_during_commit_reveal_process() {
         log::info!("Changing tempo to {}", tempo);
         SubtensorModule::set_tempo(netuid, tempo);
 
-        let blocks_to_next_epoch: u64 = SubtensorModule::blocks_until_next_epoch(
-            netuid,
-            SubtensorModule::get_tempo(netuid),
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(blocks_to_next_epoch as u16);
+        step_epochs(1, netuid);
         log::info!(
             "Advanced to block {}",
-            SubtensorModule::get_current_block_as_u64() + 1
-        );
-        assert!(SubtensorModule::should_run_epoch(
-            netuid,
             SubtensorModule::get_current_block_as_u64()
-        ));
-        step_block(1);
+        );
 
         assert_ok!(SubtensorModule::reveal_weights(
             RuntimeOrigin::signed(hotkey),
@@ -2005,21 +1933,11 @@ fn test_tempo_change_during_commit_reveal_process() {
         log::info!("Changing tempo to {}", tempo);
         SubtensorModule::set_tempo(netuid, tempo);
 
-        let blocks_to_next_epoch: u64 = SubtensorModule::blocks_until_next_epoch(
-            netuid,
-            SubtensorModule::get_tempo(netuid),
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(blocks_to_next_epoch as u16);
+        step_epochs(1, netuid);
         log::info!(
             "Advanced to block {}",
-            SubtensorModule::get_current_block_as_u64() + 1
-        );
-        assert!(SubtensorModule::should_run_epoch(
-            netuid,
             SubtensorModule::get_current_block_as_u64()
-        ));
-        step_block(1);
+        );
 
         assert_ok!(SubtensorModule::reveal_weights(
             RuntimeOrigin::signed(hotkey),
@@ -2095,12 +2013,7 @@ fn test_commit_reveal_multiple_commits() {
 
         // 3. Attempt to reveal out of order (reveal the second commit first), should fail
         // Advance to the next epoch for reveals to be valid
-        let blocks_to_next_epoch = SubtensorModule::blocks_until_next_epoch(
-            netuid,
-            tempo,
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(blocks_to_next_epoch.saturating_add(1) as u16);
+        step_epochs(1, netuid);
 
         // Try to reveal the second commit first
         let (_commit_hash_2, salt_2) = &commit_hashes[1];
@@ -2153,14 +2066,7 @@ fn test_commit_reveal_multiple_commits() {
         ));
 
         // Advance two epochs so the commit expires
-        for _ in 0..2 {
-            let blocks_to_next_epoch = SubtensorModule::blocks_until_next_epoch(
-                netuid,
-                tempo,
-                SubtensorModule::get_current_block_as_u64(),
-            );
-            step_block(blocks_to_next_epoch.saturating_add(1) as u16);
-        }
+        step_epochs(2, netuid);
 
         // Attempt to reveal the expired commit, should fail
         assert_err!(
@@ -2191,12 +2097,7 @@ fn test_commit_reveal_multiple_commits() {
             commit_hash_13
         ));
 
-        let blocks_to_next_epoch = SubtensorModule::blocks_until_next_epoch(
-            netuid,
-            tempo,
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(blocks_to_next_epoch.saturating_add(1) as u16);
+        step_epochs(1, netuid);
 
         assert_ok!(SubtensorModule::reveal_weights(
             RuntimeOrigin::signed(hotkey),
@@ -2225,14 +2126,7 @@ fn test_commit_reveal_multiple_commits() {
         ));
 
         // Advance beyond the valid reveal period (more than one epoch)
-        for _ in 0..2 {
-            let blocks_to_next_epoch = SubtensorModule::blocks_until_next_epoch(
-                netuid,
-                tempo,
-                SubtensorModule::get_current_block_as_u64(),
-            );
-            step_block(blocks_to_next_epoch.saturating_add(1) as u16);
-        }
+        step_epochs(2, netuid);
 
         // Attempt to reveal, should fail
         assert_err!(
@@ -2277,13 +2171,7 @@ fn test_commit_reveal_multiple_commits() {
             Error::<Test>::RevealTooEarly
         );
 
-        // Advance to the next epoch
-        let blocks_to_next_epoch = SubtensorModule::blocks_until_next_epoch(
-            netuid,
-            tempo,
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(blocks_to_next_epoch.saturating_add(1) as u16);
+        step_epochs(1, netuid);
 
         // Now reveal should succeed
         assert_ok!(SubtensorModule::reveal_weights(
@@ -2312,13 +2200,7 @@ fn test_commit_reveal_multiple_commits() {
             commit_hash_16
         ));
 
-        // Advance to the next epoch
-        let blocks_to_next_epoch = SubtensorModule::blocks_until_next_epoch(
-            netuid,
-            tempo,
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(blocks_to_next_epoch.saturating_add(1) as u16);
+        step_epochs(1, netuid);
 
         // Attempt to reveal with incorrect salt
         let wrong_salt: Vec<u16> = vec![99; 8];
@@ -2388,13 +2270,7 @@ fn test_commit_reveal_multiple_commits() {
             commit_hash_b
         ));
 
-        // Advance to next epoch
-        let blocks_to_next_epoch = SubtensorModule::blocks_until_next_epoch(
-            netuid,
-            tempo,
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(blocks_to_next_epoch.saturating_add(1) as u16);
+        step_epochs(1, netuid);
 
         // Attempt to reveal the second commit first
         assert_err!(
@@ -2452,13 +2328,7 @@ fn commit_reveal_set_weights(
 
     SubtensorModule::commit_weights(RuntimeOrigin::signed(hotkey), netuid, commit_hash)?;
 
-    // Calculate blocks to next epoch and advance
-    let blocks_to_next_epoch: u64 = SubtensorModule::blocks_until_next_epoch(
-        netuid,
-        SubtensorModule::get_tempo(netuid),
-        SubtensorModule::get_current_block_as_u64(),
-    );
-    step_block(blocks_to_next_epoch.saturating_add(1) as u16);
+    step_epochs(1, netuid);
 
     SubtensorModule::reveal_weights(
         RuntimeOrigin::signed(hotkey),
@@ -2515,12 +2385,7 @@ fn test_expired_commits_handling_in_commit_and_reveal() {
         }
 
         // Advance to epoch 1
-        let blocks_to_next_epoch = SubtensorModule::blocks_until_next_epoch(
-            netuid,
-            tempo,
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(blocks_to_next_epoch.saturating_add(1) as u16);
+        step_epochs(1, netuid);
 
         // 2. Commit another 5 times in epoch 1
         for i in 5..10 {
@@ -2557,12 +2422,7 @@ fn test_expired_commits_handling_in_commit_and_reveal() {
         );
 
         // 4. Advance to epoch 2 to expire the commits from epoch 0
-        let blocks_to_next_epoch = SubtensorModule::blocks_until_next_epoch(
-            netuid,
-            tempo,
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(blocks_to_next_epoch.saturating_add(1) as u16); // Now at epoch 2
+        step_epochs(1, netuid); // Now at epoch 2
 
         // 5. Attempt to commit again; should succeed after expired commits are removed
         assert_ok!(SubtensorModule::commit_weights(
@@ -2607,12 +2467,7 @@ fn test_expired_commits_handling_in_commit_and_reveal() {
         }
 
         // 9. Advance to epoch 3 to reveal the new commit
-        let blocks_to_next_epoch = SubtensorModule::blocks_until_next_epoch(
-            netuid,
-            tempo,
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(blocks_to_next_epoch.saturating_add(1) as u16);
+        step_epochs(1, netuid);
 
         // 10. Reveal the new commit from epoch 2
         assert_ok!(SubtensorModule::reveal_weights(
@@ -2658,12 +2513,7 @@ fn test_expired_commits_handling_in_commit_and_reveal() {
         ));
 
         // Advance to next epoch (epoch 4) and reveal
-        let blocks_to_next_epoch = SubtensorModule::blocks_until_next_epoch(
-            netuid,
-            tempo,
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(blocks_to_next_epoch.saturating_add(1) as u16);
+        step_epochs(1, netuid);
 
         assert_ok!(SubtensorModule::reveal_weights(
             RuntimeOrigin::signed(hotkey),
@@ -3005,6 +2855,12 @@ pub fn step_epochs(count: u16, netuid: u16) {
             SubtensorModule::get_tempo(netuid),
             SubtensorModule::get_current_block_as_u64(),
         );
-        step_block(blocks_to_next_epoch.saturating_add(1) as u16);
+        step_block(blocks_to_next_epoch as u16);
+
+        assert!(SubtensorModule::should_run_epoch(
+            netuid,
+            SubtensorModule::get_current_block_as_u64()
+        ));
+        step_block(1);
     }
 }
