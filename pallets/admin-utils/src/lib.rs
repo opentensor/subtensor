@@ -1170,6 +1170,45 @@ pub mod pallet {
 
             Ok(())
         }
+
+        /// Sets the commit-reveal weights periods for a specific subnet.
+        ///
+        /// This extrinsic allows the subnet owner or root account to set the duration (in epochs) during which committed weights must be revealed.
+        /// The commit-reveal mechanism ensures that users commit weights in advance and reveal them only within a specified period.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the subnet owner or the root account.
+        /// * `netuid` - The unique identifier of the subnet for which the periods are being set.
+        /// * `periods` - The number of epochs that define the commit-reveal period.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the caller is neither the subnet owner nor the root account.
+        /// * `SubnetDoesNotExist` - If the specified subnet does not exist.
+        ///
+        /// # Weight
+        /// Weight is handled by the `#[pallet::weight]` attribute.
+        #[pallet::call_index(56)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_commit_reveal_weights_periods(
+            origin: OriginFor<T>,
+            netuid: u16,
+            periods: u64,
+        ) -> DispatchResult {
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+
+            pallet_subtensor::Pallet::<T>::set_reveal_period(netuid, periods);
+            log::debug!(
+                "SetWeightCommitPeriods( netuid: {:?}, periods: {:?} ) ",
+                netuid,
+                periods
+            );
+            Ok(())
+        }
     }
 }
 
