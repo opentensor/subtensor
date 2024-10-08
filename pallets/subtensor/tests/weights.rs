@@ -2864,3 +2864,119 @@ pub fn step_epochs(count: u16, netuid: u16) {
         step_block(1);
     }
 }
+
+#[test]
+fn test_commit_reveal_order_enforcement() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let hotkey: <Test as frame_system::Config>::AccountId = U256::from(1);
+        let version_key: u64 = 0;
+        let uids: Vec<u16> = vec![0, 1];
+        let weight_values: Vec<u16> = vec![10, 10];
+        let tempo: u16 = 100;
+
+        System::set_block_number(0);
+        add_network(netuid, tempo, 0);
+
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+
+        register_ok_neuron(netuid, U256::from(3), U256::from(4), 300_000);
+        register_ok_neuron(netuid, U256::from(1), U256::from(2), 100_000);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
+
+        // Commit three times: A, B, C
+        let mut commit_info = Vec::new();
+        for i in 0..3 {
+            let salt: Vec<u16> = vec![i; 8];
+            let commit_hash: H256 = BlakeTwo256::hash_of(&(
+                hotkey,
+                netuid,
+                uids.clone(),
+                weight_values.clone(),
+                salt.clone(),
+                version_key,
+            ));
+            commit_info.push((commit_hash, salt));
+            assert_ok!(SubtensorModule::commit_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                commit_hash
+            ));
+        }
+
+        step_epochs(1, netuid);
+
+        // Attempt to reveal B first (index 1), should fail
+        let (_commit_hash_b, salt_b) = &commit_info[1];
+        assert_err!(
+            SubtensorModule::reveal_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                uids.clone(),
+                weight_values.clone(),
+                salt_b.clone(),
+                version_key,
+            ),
+            Error::<Test>::RevealOutOfOrder
+        );
+
+        // Reveal A (index 0)
+        let (_commit_hash_a, salt_a) = &commit_info[0];
+        assert_ok!(SubtensorModule::reveal_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            salt_a.clone(),
+            version_key,
+        ));
+
+        // Attempt to reveal C (index 2) before B, should fail
+        let (_commit_hash_c, salt_c) = &commit_info[2];
+        assert_err!(
+            SubtensorModule::reveal_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                uids.clone(),
+                weight_values.clone(),
+                salt_c.clone(),
+                version_key,
+            ),
+            Error::<Test>::RevealOutOfOrder
+        );
+
+        // Reveal B
+        assert_ok!(SubtensorModule::reveal_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            salt_b.clone(),
+            version_key,
+        ));
+
+        // Reveal C
+        assert_ok!(SubtensorModule::reveal_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            salt_c.clone(),
+            version_key,
+        ));
+
+        assert_err!(
+            SubtensorModule::reveal_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                uids,
+                weight_values,
+                salt_a.clone(),
+                version_key,
+            ),
+            Error::<Test>::NoWeightsCommitFound
+        );
+    });
+}
