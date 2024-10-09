@@ -36,10 +36,7 @@ impl<'ast> Visit<'ast> for AsPrimitiveVisitor {
 }
 
 fn is_as_primitive(ident: &Ident) -> bool {
-    match ident.to_string().as_str() {
-        "as_u32" | "as_u64" | "as_u128" | "as_usize" => true,
-        _ => false,
-    }
+    matches!(ident.to_string().as_str(), "as_u32" | "as_u64" | "as_u128" | "as_usize")
 }
 
 #[cfg(test)]
