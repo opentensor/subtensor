@@ -67,13 +67,10 @@ pub fn analyze_files(rust_files: &[PathBuf], workspace_root: &Path) -> Vec<Palle
             }
             analyze_file(path, workspace_root)
         })
-        .reduce(
-            Vec::new,
-            |mut acc, mut infos| {
-                acc.append(&mut infos);
-                acc
-            },
-        );
+        .reduce(Vec::new, |mut acc, mut infos| {
+            acc.append(&mut infos);
+            acc
+        });
 
     custom_println!(
         "[code-coverage]",
@@ -222,13 +219,10 @@ pub fn find_tests(rust_files: &[PathBuf]) -> Vec<TestInfo> {
                 })
                 .collect()
         })
-        .reduce(
-            Vec::new,
-            |mut acc, mut infos| {
-                acc.append(&mut infos);
-                acc
-            },
-        )
+        .reduce(Vec::new, |mut acc, mut infos| {
+            acc.append(&mut infos);
+            acc
+        })
 }
 
 pub struct CallVisitor<'a> {
@@ -337,7 +331,6 @@ pub fn try_parse_pallet(item_mod: &ItemMod, file_path: &Path, root_path: &Path) 
             }
         }
 
-        
         if let Ok(pallet) = Def::try_from(item_mod.clone(), false) {
             Some(pallet)
         } else if let Ok(pallet) = Def::try_from(item_mod.clone(), true) {
