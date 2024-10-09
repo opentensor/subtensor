@@ -21,8 +21,6 @@ impl<T: Config> Pallet<T> {
 
 
     pub fn do_commit_timed_data(origin: T::RuntimeOrigin, netuid: u16, ciphertext: Vec<u8>, unlock_block: u64) -> DispatchResult {
-        let who = ensure_signed(origin)?;
-
 
         log::info!(
             "Decrypted Text: {:?}, Passed Text: {:?}",
@@ -30,7 +28,6 @@ impl<T: Config> Pallet<T> {
             String::from_utf8_lossy(&ciphertext)
         );
     
-        // Insert or push the new commit into the VecDeque for this account and netuid
         // TimedCommits::<T>::mutate(netuid, &who, |maybe_queue| {
         //     let queue = maybe_queue.get_or_insert_with(VecDeque::new);
         //     queue.push_back((ciphertext, unlock_block));
