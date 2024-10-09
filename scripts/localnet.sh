@@ -2,10 +2,12 @@
 
 # Check if `--no-purge` passed as a parameter
 NO_PURGE=0
+LOG_INFO=0
 for arg in "$@"; do
   if [ "$arg" = "--no-purge" ]; then
     NO_PURGE=1
-    break
+  elif [ "$arg" = "--log-info" ]; then
+    LOG_INFO=1
   fi
 done
 
@@ -63,6 +65,15 @@ else
   "$BASE_DIR/target/release/node-subtensor" purge-chain -y --base-path /tmp/bob --chain="$FULL_PATH" >/dev/null 2>&1
   "$BASE_DIR/target/release/node-subtensor" purge-chain -y --base-path /tmp/alice --chain="$FULL_PATH" >/dev/null 2>&1
   echo "*** Previous chainstate purged"
+fi
+
+# Set logging level via environment variable if --log-info is passed
+if [ $LOG_INFO -eq 1 ]; then
+  export RUST_LOG=info
+  echo "*** Info-level logging enabled"
+else
+  export RUST_LOG=warn
+  echo "*** Info-level logging disabled, using warn"
 fi
 
 echo "*** Starting localnet nodes..."

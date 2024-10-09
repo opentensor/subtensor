@@ -163,6 +163,34 @@ mod dispatches {
             Self::do_reveal_weights(origin, netuid, uids, values, salt, version_key)
         }
 
+        ///docs
+        #[pallet::call_index(109)]
+        #[pallet::weight((Weight::from_parts(103_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(11))
+		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
+        pub fn commit_timed_data(
+            origin: T::RuntimeOrigin,
+            netuid: u16,
+            ciphertext: Vec<u8>,
+            unlock_block: u64,
+        ) -> DispatchResult {
+            Self::do_commit_timed_data(origin, netuid, ciphertext, unlock_block)
+        }
+
+        // /// docs
+        // #[pallet::call_index(110)]
+        // #[pallet::weight((Weight::from_parts(103_000_000, 0)
+		// .saturating_add(T::DbWeight::get().reads(11))
+		// .saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
+        // pub fn reveal_timed_data(
+        //     origin: T::RuntimeOrigin,
+        //     netuid: u16,
+        //     plaintext: Vec<u8>,
+        // ) -> DispatchResult {
+        //     Self::do_reveal_timed_data(origin, netuid, plaintext)
+        // }
+
+
         /// # Args:
         /// * `origin`: (<T as frame_system::Config>Origin):
         /// 	- The caller, a hotkey who wishes to set their weights.

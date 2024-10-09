@@ -190,5 +190,13 @@ mod errors {
         ExpiredWeightCommit,
         /// Attempted to reveal weights too early.
         RevealTooEarly,
+        ///docs
+        NoCommitFound,
+        ///docs
+        DecryptionFailed,
+        ///docs
+        UnlockBlockNotReached,
+        ///docs
+        DataMismatch,
     }
 }

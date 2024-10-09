@@ -40,6 +40,10 @@ pallet-transaction-payment = { workspace = true }
 pallet-utility = { workspace = true }
 ndarray = { workspace = true }
 hex = { workspace = true }
+# tlock = { git = "https://github.com/thibmeu/tlock-rs", branch = "feat/add-wasm-bindgen"}
+# bincode = "1.3"
+# bls12_381_plus = { version = "0.7.0", features = ["nightly"] }
+
 
 # Used for sudo decentralization
 pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../collective" }

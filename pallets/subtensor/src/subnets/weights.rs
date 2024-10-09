@@ -3,8 +3,108 @@ use crate::epoch::math::*;
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, Hash};
 use sp_std::{collections::vec_deque::VecDeque, vec};
+use scale_info::prelude::string::String;
 
+// use tlock::{time_unlock, ibe::Ciphertext, client::Beacon};
+// use bls12_381_plus::G1Affine;
+// use sp_runtime::{Serialize, Deserialize};
+// use sp_io::hashing::blake2_256;
+
+// #[derive(Serialize, Deserialize)]
+// struct SerializableCiphertext {
+//     round: u64,
+//     u: Vec<u8>,
+//     v: Vec<u8>,
+//     w: Vec<u8>,
+// }
 impl<T: Config> Pallet<T> {
+
+
+    pub fn do_commit_timed_data(origin: T::RuntimeOrigin, netuid: u16, ciphertext: Vec<u8>, unlock_block: u64) -> DispatchResult {
+        let who = ensure_signed(origin)?;
+
+
+        log::info!(
+            "Decrypted Text: {:?}, Passed Text: {:?}",
+            ciphertext,
+            String::from_utf8_lossy(&ciphertext)
+        );
+    
+        // Insert or push the new commit into the VecDeque for this account and netuid
+        // TimedCommits::<T>::mutate(netuid, &who, |maybe_queue| {
+        //     let queue = maybe_queue.get_or_insert_with(VecDeque::new);
+        //     queue.push_back((ciphertext, unlock_block));
+        // });
+    
+        Ok(())
+    }
+
+    // pub fn do_reveal_timed_data(
+    //     origin: T::RuntimeOrigin,
+    //     netuid: u16,
+    //     plaintext: Vec<u8>,
+    // ) -> DispatchResult {
+    //     let who = ensure_signed(origin)?;
+
+    //     // Retrieve the queue of commits for this netuid and account
+    //     TimedCommits::<T>::try_mutate_exists(netuid, &who, |maybe_queue| -> DispatchResult {
+    //         let queue = maybe_queue.as_mut().ok_or(Error::<T>::NoCommitFound)?;
+
+    //         // Get the first commit (FIFO)
+    //         let (ciphertext_bytes, unlock_block) = queue.pop_front().ok_or(Error::<T>::NoCommitFound)?;
+
+    //         // Ensure the current block number has reached or passed the unlock block
+    //         let current_block = Self::get_current_block_as_u64();
+    //         ensure!(
+    //             current_block >= unlock_block,
+    //             Error::<T>::UnlockBlockNotReached
+    //         );
+
+    //         // Deserialize the ciphertext using bincode
+    //         let serializable_ct: SerializableCiphertext = bincode::deserialize(&ciphertext_bytes)
+    //             .map_err(|_| Error::<T>::DecryptionFailed)?;
+
+    //         // Reconstruct the Ciphertext
+    //         let u_compressed: [u8; 48] = serializable_ct.u.try_into()
+    //             .map_err(|_| Error::<T>::DecryptionFailed)?;
+    //         let u_affine = G1Affine::from_compressed(&u_compressed)
+    //             .into_option()
+    //             .ok_or(Error::<T>::DecryptionFailed)?;
+
+    //         let ct = Ciphertext {
+    //             u: u_affine,
+    //             v: serializable_ct.v,
+    //             w: serializable_ct.w,
+    //         };
+
+    //         // Get the block hash for the unlock_block
+    //         let block_hash = Self::get_block_hash_from_u64(current_block);
+
+    //         // Construct the beacon
+    //         let beacon = Beacon {
+    //             round: unlock_block,
+    //             randomness: block_hash.as_ref().to_vec(),
+    //             signature: blake2_256(block_hash.as_ref()).to_vec(),
+    //         };
+
+    //         // Perform the time_unlock operation
+    //         let decrypted_plaintext = time_unlock(beacon, &ct);
+
+    //         // Ensure the decrypted plaintext matches the provided plaintext
+    //         ensure!(
+    //             decrypted_plaintext == plaintext,
+    //             Error::<T>::DataMismatch
+    //         );
+
+    //         log::info!(
+    //             "Decrypted Text: {:?}, Passed Text: {:?}",
+    //             String::from_utf8_lossy(&decrypted_plaintext),
+    //             String::from_utf8_lossy(&plaintext)
+    //         );
+
+    //         Ok(())
+    //     })
+    // }
     /// ---- The implementation for committing weight hashes.
     ///
     /// # Args:

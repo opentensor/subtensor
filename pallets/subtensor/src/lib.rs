@@ -1262,6 +1262,18 @@ pub mod pallet {
         OptionQuery,
     >;
     #[pallet::storage]
+    /// --- MAP (netuid, who) --> VecDeque<(ciphertext, unlock_block)> | Stores a queue of commits for an account on a given netuid.
+    pub type TimedCommits<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        u16,                      // Network identifier
+        Twox64Concat,
+        T::AccountId,             // Account ID
+        VecDeque<(Vec<u8>, u64)>, // Queue of (ciphertext, unlock_block)
+        OptionQuery,
+    >;
+
+    #[pallet::storage]
     /// --- Map (netuid) --> Number of epochs allowed for commit reveal periods
     pub type RevealPeriodEpochs<T: Config> =
         StorageMap<_, Twox64Concat, u16, u64, ValueQuery, DefaultRevealPeriodEpochs<T>>;
