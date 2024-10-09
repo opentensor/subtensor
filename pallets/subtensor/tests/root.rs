@@ -904,6 +904,35 @@ fn test_get_emission_across_entire_issuance_range() {
 }
 
 #[test]
+fn test_issuance_testnet_override() {
+    new_test_ext(1).execute_with(|| {
+        let block_emission_0 = SubtensorModule::get_block_emission_for_issuance(0u64).unwrap();
+        assert_eq!(block_emission_0, 1_000_000_000);
+
+        let block_emission_21m = SubtensorModule::get_block_emission_for_issuance(21_000_000_000_000_000u64).unwrap();
+        assert_eq!(block_emission_21m, 0);
+
+        // Override total supply to 2B
+        pallet_subtensor::TestnetTotalSupplyOverride::<Test>::set(Some(2_000_000_000_000_000_000));
+
+        let block_emission_0_override = SubtensorModule::get_block_emission_for_issuance(0u64).unwrap();
+        assert_eq!(block_emission_0_override, 1_000_000_000);
+
+        let block_emission_21m_override = SubtensorModule::get_block_emission_for_issuance(21_000_000_000_000_000u64).unwrap();
+        assert_eq!(block_emission_21m_override, 1_000_000_000);
+
+        let block_emission_1b_override = SubtensorModule::get_block_emission_for_issuance(1_000_000_000_000_000_000u64).unwrap();
+        assert_eq!(block_emission_1b_override, 500_000_000); // one halving occurs
+
+        // Override total supply to u64::MAX
+        pallet_subtensor::TestnetTotalSupplyOverride::<Test>::set(Some(u64::MAX));
+
+        let block_emission_1b_override_u64max = SubtensorModule::get_block_emission_for_issuance(1_000_000_000_000_000_000u64).unwrap();
+        assert_eq!(block_emission_1b_override_u64max, 1_000_000_000);
+    })
+}
+
+#[test]
 fn test_dissolve_network_ok() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 30;

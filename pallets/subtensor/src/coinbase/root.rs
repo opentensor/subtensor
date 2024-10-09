@@ -151,7 +151,12 @@ impl<T: Config> Pallet<T> {
         let total_issuance: I96F32 = I96F32::from_num(issuance);
         // Check to prevent division by zero when the total supply is reached
         // and creating an issuance greater than the total supply.
-        if total_issuance >= I96F32::from_num(TotalSupply::<T>::get()) {
+        let total_supply = if let Some(override_supply) = TestnetTotalSupplyOverride::<T>::get() {
+            override_supply
+        } else {
+            TotalSupply::<T>::get()
+        };
+        if total_issuance >= I96F32::from_num(total_supply) {
             return Ok(0);
         }
         // Calculate the logarithmic residual of the issuance against half the total supply.
@@ -163,7 +168,7 @@ impl<T: Config> Pallet<T> {
                             total_issuance
                                 .checked_div(
                                     I96F32::from_num(2.0)
-                                        .saturating_mul(I96F32::from_num(10_500_000_000_000_000.0)),
+                                        .saturating_mul(I96F32::from_num(total_supply / 2)),
                                 )
                                 .ok_or("Logarithm calculation failed")?,
                         )

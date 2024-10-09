@@ -224,6 +224,11 @@ pub mod pallet {
         21_000_000_000_000_000
     }
     #[pallet::type_value]
+    /// Default minimum stake for weights.
+    pub fn DefaultTestnetTotalSupplyOverride<T: Config>() -> Option<u64> {
+        None
+    }
+    #[pallet::type_value]
     /// Default Delegate Take.
     pub fn DefaultDelegateTake<T: Config>() -> u16 {
         T::InitialDefaultDelegateTake::get()
@@ -1264,6 +1269,9 @@ pub mod pallet {
         (H256, u64),
         OptionQuery,
     >;
+    #[pallet::storage]
+    /// ITEM( testnet_total_supply_override )
+    pub type TestnetTotalSupplyOverride<T> = StorageValue<_, Option<u64>, ValueQuery, DefaultTestnetTotalSupplyOverride<T>>;
 
     /// ==================
     /// ==== Genesis =====
