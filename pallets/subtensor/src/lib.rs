@@ -1271,7 +1271,8 @@ pub mod pallet {
     >;
     #[pallet::storage]
     /// ITEM( testnet_total_supply_override )
-    pub type TestnetTotalSupplyOverride<T> = StorageValue<_, Option<u64>, ValueQuery, DefaultTestnetTotalSupplyOverride<T>>;
+    pub type TestnetTotalSupplyOverride<T> =
+        StorageValue<_, Option<u64>, ValueQuery, DefaultTestnetTotalSupplyOverride<T>>;
 
     /// ==================
     /// ==== Genesis =====
