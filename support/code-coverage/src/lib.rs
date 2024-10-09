@@ -65,10 +65,10 @@ pub fn analyze_files(rust_files: &[PathBuf], workspace_root: &Path) -> Vec<Palle
             if path.display().to_string().contains("test") {
                 return Vec::new();
             }
-            analyze_file(&path, workspace_root)
+            analyze_file(path, workspace_root)
         })
         .reduce(
-            || Vec::new(),
+            Vec::new,
             |mut acc, mut infos| {
                 acc.append(&mut infos);
                 acc
@@ -104,7 +104,7 @@ pub fn analyze_files(rust_files: &[PathBuf], workspace_root: &Path) -> Vec<Palle
     // this takes about 6ms serially so better to keep serial for now
     for method in &methods {
         coverage
-            .entry(method.strip_prefix("sudo_").unwrap_or(&method).to_string())
+            .entry(method.strip_prefix("sudo_").unwrap_or(method).to_string())
             .or_insert(0);
     }
     for test in &tests {
@@ -223,7 +223,7 @@ pub fn find_tests(rust_files: &[PathBuf]) -> Vec<TestInfo> {
                 .collect()
         })
         .reduce(
-            || Vec::new(),
+            Vec::new,
             |mut acc, mut infos| {
                 acc.append(&mut infos);
                 acc
@@ -310,7 +310,7 @@ pub fn try_parse_pallet(item_mod: &ItemMod, file_path: &Path, root_path: &Path) 
             }
 
             if let Some((section_mod, section_path)) =
-                find_matching_pallet_section(file_path, &section_name)
+                find_matching_pallet_section(file_path, section_name)
             {
                 let Some((_, mut section_content)) = section_mod.content else {
                     continue;
@@ -337,7 +337,8 @@ pub fn try_parse_pallet(item_mod: &ItemMod, file_path: &Path, root_path: &Path) 
             }
         }
 
-        let pallet = if let Ok(pallet) = Def::try_from(item_mod.clone(), false) {
+        
+        if let Ok(pallet) = Def::try_from(item_mod.clone(), false) {
             Some(pallet)
         } else if let Ok(pallet) = Def::try_from(item_mod.clone(), true) {
             Some(pallet)
@@ -354,8 +355,7 @@ pub fn try_parse_pallet(item_mod: &ItemMod, file_path: &Path, root_path: &Path) 
             );
             custom_println!("[code-coverage]", red, "{}", err);
             None
-        };
-        pallet
+        }
     })
 }
 
@@ -396,7 +396,7 @@ fn find_matching_pallet_section(
                 if item_mod.ident != section_name {
                     continue;
                 }
-                if item_mod.attrs.iter().any(|attr| is_pallet_section(attr)) {
+                if item_mod.attrs.iter().any(is_pallet_section) {
                     // can't move ItemMod across thread boundaries
                     return Some((item_mod.to_token_stream().to_string(), path.to_path_buf()));
                 }
