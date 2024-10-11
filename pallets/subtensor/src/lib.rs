@@ -763,6 +763,16 @@ pub mod pallet {
         DefaultAccumulatedEmission<T>,
     >;
     #[pallet::storage]
+    /// Map ( hot ) --> emission | Part of accumulated hotkey emission that will not be distributed to nominators.
+    pub type PendingdHotkeyEmissionUntouchable<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        u64,
+        ValueQuery,
+        DefaultAccumulatedEmission<T>,
+    >;
+    #[pallet::storage]
     /// Map ( hot, cold ) --> block_number | Last add stake increase.
     pub type LastAddStakeIncrease<T: Config> = StorageDoubleMap<
         _,
