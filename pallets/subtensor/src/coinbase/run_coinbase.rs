@@ -191,18 +191,11 @@ impl<T: Config> Pallet<T> {
         mining_emission: u64,
     ) {
         // --- 1. First, calculate the hotkey's share of the emission.
-        let take_proportion: I64F64 = I64F64::from_num(Self::get_childkey_take(hotkey, netuid))
+        let childkey_take_proportion: I64F64 = I64F64::from_num(Self::get_childkey_take(hotkey, netuid))
             .saturating_div(I64F64::from_num(u16::MAX));
-        let hotkey_take: u64 = take_proportion
-            .saturating_mul(I64F64::from_num(validating_emission))
-            .to_num::<u64>();
-        // NOTE: Only the validation emission should be split amongst parents.
-
-        // --- 2. Compute the remaining emission after the hotkey's share is deducted.
-        let emission_minus_take: u64 = validating_emission.saturating_sub(hotkey_take);
 
         // --- 3. Track the remaining emission for accounting purposes.
-        let mut remaining_emission: u64 = emission_minus_take;
+        let mut remaining_emission: u64 = validating_emission;
 
         // --- 4. Calculate the total stake of the hotkey, adjusted by the stakes of parents and children.
         // Parents contribute to the stake, while children reduce it.
@@ -222,9 +215,18 @@ impl<T: Config> Pallet<T> {
                 );
                 let proportion_from_parent: I96F32 =
                     stake_from_parent.saturating_div(I96F32::from_num(total_hotkey_stake));
-                let parent_emission_take: u64 = proportion_from_parent
-                    .saturating_mul(I96F32::from_num(emission_minus_take))
+                let parent_emission: u64 = proportion_from_parent
+                    .saturating_mul(I96F32::from_num(validating_emission))
                     .to_num::<u64>();
+
+                // --- 5.3 Childkey take as part of parent emission
+                let childkey_take: u64 = childkey_take_proportion
+                    .saturating_mul(I64F64::from_num(parent_emission))
+                    .to_num::<u64>();
+                // NOTE: Only the validation emission should be split amongst parents.
+
+                // --- 5.4 Compute the remaining parent emission after the childkey's share is deducted.
+                let parent_emission_take: u64 = parent_emission.saturating_sub(childkey_take);
 
                 // --- 5.5. Accumulate emissions for the parent hotkey.
                 PendingdHotkeyEmission::<T>::mutate(parent, |parent_accumulated| {
@@ -240,9 +242,14 @@ impl<T: Config> Pallet<T> {
         PendingdHotkeyEmission::<T>::mutate(hotkey, |hotkey_pending| {
             *hotkey_pending = hotkey_pending.saturating_add(
                 remaining_emission
-                    .saturating_add(hotkey_take)
                     .saturating_add(mining_emission),
             )
+        });
+
+        // --- 7. Update untouchable part of hotkey emission (that will not be distributed to nominators)
+        //        This doesn't include remaining_emission, which should be distributed in drain_hotkey_emission
+        PendingdHotkeyEmissionUntouchable::<T>::mutate(hotkey, |hotkey_pending| {
+            *hotkey_pending = hotkey_pending.saturating_add(mining_emission)
         });
     }
 
@@ -262,8 +269,14 @@ impl<T: Config> Pallet<T> {
         // --- 0. For accounting purposes record the total new added stake.
         let mut total_new_tao: u64 = 0;
 
+        // Get the untouchable part of pending hotkey emission, so that we don't distribute this part of 
+        // PendingdHotkeyEmission to nominators
+        let untouchable_emission = PendingdHotkeyEmissionUntouchable::<T>::get(hotkey);
+        let emission_to_distribute = emission.saturating_sub(untouchable_emission);
+
         // --- 1.0 Drain the hotkey emission.
         PendingdHotkeyEmission::<T>::insert(hotkey, 0);
+        PendingdHotkeyEmissionUntouchable::<T>::insert(hotkey, 0);
 
         // --- 2 Retrieve the last time this hotkey's emissions were drained.
         let last_emission_drain: u64 = LastHotkeyEmissionDrain::<T>::get(hotkey);
@@ -274,14 +287,16 @@ impl<T: Config> Pallet<T> {
         // --- 4 Retrieve the total stake for the hotkey from all nominations.
         let total_hotkey_stake: u64 = Self::get_total_stake_for_hotkey(hotkey);
 
-        // --- 5 Calculate the emission take for the hotkey.
+        // --- 4 Calculate the emission take for the hotkey.
+        // This is only the hotkey take. Childkey take was already deducted from validator emissions in 
+        // accumulate_hotkey_emission and now it is included in untouchable_emission.
         let take_proportion: I64F64 = I64F64::from_num(Delegates::<T>::get(hotkey))
             .saturating_div(I64F64::from_num(u16::MAX));
         let hotkey_take: u64 =
-            (take_proportion.saturating_mul(I64F64::from_num(emission))).to_num::<u64>();
+            (take_proportion.saturating_mul(I64F64::from_num(emission_to_distribute))).to_num::<u64>();
 
-        // --- 6 Compute the remaining emission after deducting the hotkey's take.
-        let emission_minus_take: u64 = emission.saturating_sub(hotkey_take);
+        // --- 5 Compute the remaining emission after deducting the hotkey's take and untouchable_emission.
+        let emission_minus_take: u64 = emission_to_distribute.saturating_sub(hotkey_take);
 
         // --- 7 Calculate the remaining emission after the hotkey's take.
         let mut remainder: u64 = emission_minus_take;
@@ -323,8 +338,11 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // --- 14 Finally, add the stake to the hotkey itself, including its take and the remaining emission.
-        let hotkey_new_tao: u64 = hotkey_take.saturating_add(remainder);
+        // --- 13 Finally, add the stake to the hotkey itself, including its take, the remaining emission, and
+        // the untouchable_emission (part of pending hotkey emission that consists of mining emission and childkey take)
+        let hotkey_new_tao: u64 = hotkey_take
+            .saturating_add(remainder)
+            .saturating_add(untouchable_emission);
         Self::increase_stake_on_hotkey_account(hotkey, hotkey_new_tao);
 
         // --- 15 Record new tao creation event and return the amount created.
