@@ -59,6 +59,7 @@ fn main() {
             }
         };
 
+        track_lint(ForbidAsPrimitiveConversion::lint(&parsed_file));
         track_lint(RequireFreezeStruct::lint(&parsed_file));
         track_lint(RequireExplicitPalletIndex::lint(&parsed_file));
     });
