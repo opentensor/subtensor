@@ -102,9 +102,6 @@ impl<T: Config> Pallet<T> {
     /// * `RevealTooEarly`:
     ///   - Attempting to reveal weights outside the valid reveal period.
     ///
-    /// * `RevealOutOfOrder`:
-    ///   - Attempting to reveal a commit out of the expected order.
-    ///
     /// * `InvalidRevealCommitHashNotMatch`:
     ///   - The revealed hash does not match any committed hash.
     pub fn do_reveal_weights(
@@ -165,44 +162,45 @@ impl<T: Config> Pallet<T> {
                 }
             }
 
-            // --- 7. Collect the hashes of the remaining (non-expired) commits.
-            let non_expired_hashes: Vec<H256> = commits.iter().map(|(hash, _)| *hash).collect();
+            // --- 7. Try to find the commit matching the provided hash.
+            let mut found_commit_index = None;
+            for (index, (commit_hash, commit_block)) in commits.iter().enumerate() {
+                if provided_hash == *commit_hash {
+                    // Found matching commit
+                    // --- 8. Check if it's not too early to reveal.
+                    ensure!(
+                        !Self::is_commit_too_early_for_reveal(netuid, *commit_block),
+                        Error::<T>::RevealTooEarly
+                    );
+                    ensure!(
+                        !Self::is_commit_expired(netuid, *commit_block),
+                        Error::<T>::ExpiredWeightCommit
+                    );
+                    found_commit_index = Some(index);
+                    break;
+                }
+            }
 
-            // --- 8. Get the first commit from the VecDeque.
-            let (commit_hash, commit_block) =
-                commits.front().ok_or(Error::<T>::NoWeightsCommitFound)?;
-
-            // --- 9. Ensure the commit is ready to be revealed in the current block range.
-            ensure!(
-                Self::is_reveal_block_range(netuid, *commit_block),
-                Error::<T>::RevealTooEarly
-            );
-
-            // --- 10. Check if the provided hash matches the first commit's hash.
-            if provided_hash != *commit_hash {
-                // Check if the provided hash matches any other non-expired commit in the queue
-                if non_expired_hashes
-                    .iter()
-                    .skip(1)
-                    .any(|hash| *hash == provided_hash)
-                {
-                    return Err(Error::<T>::RevealOutOfOrder.into());
-                } else if expired_hashes.contains(&provided_hash) {
+            // --- 9. Handle the case where the provided hash was not found in non-expired commits,
+            // and remove the commit from the queue if found.
+            match found_commit_index {
+                Some(index) => {
+                    commits.drain(0..=index);
+                }
+                None if expired_hashes.contains(&provided_hash) => {
                     return Err(Error::<T>::ExpiredWeightCommit.into());
-                } else {
+                }
+                None => {
                     return Err(Error::<T>::InvalidRevealCommitHashNotMatch.into());
                 }
             }
 
-            // --- 11. Remove the first commit from the queue after passing all checks.
-            commits.pop_front();
-
-            // --- 12. If the queue is now empty, remove the storage entry for the user.
+            // --- 10. If the queue is now empty, remove the storage entry for the user.
             if commits.is_empty() {
                 *maybe_commits = None;
             }
 
-            // --- 13. Proceed to set the revealed weights.
+            // --- 11. Proceed to set the revealed weights.
             Self::do_set_weights(origin, netuid, uids, values, version_key)
         })
     }
@@ -536,38 +534,27 @@ impl<T: Config> Pallet<T> {
         uids.len() <= subnetwork_n as usize
     }
 
-    pub fn is_reveal_block_range(netuid: u16, commit_block: u64) -> bool {
-        let current_block: u64 = Self::get_current_block_as_u64();
-        let commit_epoch: u64 = Self::get_epoch_index(netuid, commit_block);
-        let current_epoch: u64 = Self::get_epoch_index(netuid, current_block);
-        let reveal_period: u64 = RevealPeriodEpochs::<T>::get(netuid);
-
-        // Reveal is allowed only in the exact epoch `commit_epoch + reveal_period`
-        current_epoch == commit_epoch.saturating_add(reveal_period)
-    }
-
-    pub fn get_epoch_index(netuid: u16, block_number: u64) -> u64 {
-        let tempo: u64 = Self::get_tempo(netuid) as u64;
-        let tempo_plus_one: u64 = tempo.saturating_add(1);
-        let netuid_plus_one: u64 = (netuid as u64).saturating_add(1);
-        let block_with_offset: u64 = block_number.saturating_add(netuid_plus_one);
-
-        block_with_offset.checked_div(tempo_plus_one).unwrap_or(0)
-    }
-
     pub fn is_commit_expired(netuid: u16, commit_block: u64) -> bool {
+        let interval: u64 = Self::get_commit_reveal_weights_interval(netuid);
         let current_block: u64 = Self::get_current_block_as_u64();
-        let current_epoch: u64 = Self::get_epoch_index(netuid, current_block);
-        let commit_epoch: u64 = Self::get_epoch_index(netuid, commit_block);
-        let reveal_period: u64 = RevealPeriodEpochs::<T>::get(netuid);
 
-        current_epoch > commit_epoch.saturating_add(reveal_period)
+        current_block >= commit_block.saturating_add(interval.saturating_mul(2))
     }
 
-    pub fn set_reveal_period(netuid: u16, reveal_period: u64) {
-        RevealPeriodEpochs::<T>::insert(netuid, reveal_period);
-    }
-    pub fn get_reveal_period(netuid: u16) -> u64 {
-        RevealPeriodEpochs::<T>::get(netuid)
+    pub fn is_commit_too_early_for_reveal(netuid: u16, commit_block: u64) -> bool {
+        let interval: u64 = Self::get_commit_reveal_weights_interval(netuid);
+
+        // Return False if the interval is 0
+        let commit_mod = match commit_block.checked_rem(interval) {
+            Some(mod_val) => mod_val,
+            None => return false,
+        };
+
+        let commit_interval_start: u64 = commit_block.saturating_sub(commit_mod);
+        let reveal_interval_start: u64 = commit_interval_start.saturating_add(interval);
+        let current_block: u64 = Self::get_current_block_as_u64();
+
+        // Reveal is too early if the current block is before the reveal interval starts.
+        current_block < reveal_interval_start
     }
 }

@@ -569,11 +569,6 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
-    /// Default minimum stake for weights.
-    pub fn DefaultRevealPeriodEpochs<T: Config>() -> u64 {
-        1
-    }
-    #[pallet::type_value]
     /// Value definition for vector of u16.
     pub fn EmptyU16Vec<T: Config>() -> Vec<u16> {
         vec![]
@@ -633,6 +628,11 @@ pub mod pallet {
     /// Default value for serving rate limit.
     pub fn DefaultServingRateLimit<T: Config>() -> u64 {
         T::InitialServingRateLimit::get()
+    }
+    #[pallet::type_value]
+    /// Default value for weight commit reveal interval.
+    pub fn DefaultWeightCommitRevealInterval<T: Config>() -> u64 {
+        1000
     }
     #[pallet::type_value]
     /// Default value for weight commit/reveal enabled.
@@ -1033,6 +1033,10 @@ pub mod pallet {
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultAdjustmentAlpha<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> interval
+    pub type WeightCommitRevealInterval<T> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultWeightCommitRevealInterval<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> interval
     pub type CommitRevealWeightsEnabled<T> =
         StorageMap<_, Identity, u16, bool, ValueQuery, DefaultCommitRevealWeightsEnabled<T>>;
     #[pallet::storage]
@@ -1261,10 +1265,6 @@ pub mod pallet {
         VecDeque<(H256, u64)>,
         OptionQuery,
     >;
-    #[pallet::storage]
-    /// --- Map (netuid) --> Number of epochs allowed for commit reveal periods
-    pub type RevealPeriodEpochs<T: Config> =
-        StorageMap<_, Twox64Concat, u16, u64, ValueQuery, DefaultRevealPeriodEpochs<T>>;
 
     /// ==================
     /// ==== Genesis =====
