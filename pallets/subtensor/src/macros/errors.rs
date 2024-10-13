@@ -184,8 +184,6 @@ mod errors {
         InvalidIdentity,
         /// Maximum commit limit reached
         TooManyUnrevealedCommits,
-        /// Reveal is out of order.
-        RevealOutOfOrder,
         /// Attempted to reveal weights that are expired.
         ExpiredWeightCommit,
         /// Attempted to reveal weights too early.
