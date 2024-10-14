@@ -83,7 +83,8 @@ impl<T: Config> Pallet<T> {
         // This only applies to nominator stakes.
         // If the coldkey does not own the hotkey, it's a nominator stake.
         let new_stake = Self::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey);
-        Self::clear_small_nomination_if_required(&hotkey, &coldkey, new_stake);
+        let cleared_stake = Self::clear_small_nomination_if_required(&hotkey, &coldkey, new_stake);
+        let stake_removed = stake_to_be_removed.saturating_add(cleared_stake);
 
         // Set last block for rate limiting
         let block: u64 = Self::get_current_block_as_u64();
@@ -97,11 +98,12 @@ impl<T: Config> Pallet<T> {
             block,
         );
         log::debug!(
-            "StakeRemoved( hotkey:{:?}, stake_to_be_removed:{:?} )",
+            "StakeRemoved( hotkey:{:?}, stake_to_be_removed:{:?} stake_removed:{:?} )",
             hotkey,
-            stake_to_be_removed
+            stake_to_be_removed,
+            stake_removed
         );
-        Self::deposit_event(Event::StakeRemoved(hotkey, stake_to_be_removed));
+        Self::deposit_event(Event::StakeRemoved(hotkey, stake_removed));
 
         // Done and ok.
         Ok(())

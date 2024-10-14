@@ -305,7 +305,7 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         stake: u64,
-    ) {
+    ) -> u64 {
         // Verify if the account is a nominator account by checking ownership of the hotkey by the coldkey.
         if !Self::coldkey_owns_hotkey(coldkey, hotkey) {
             // If the stake is below the minimum required, it's considered a small nomination and needs to be cleared.
@@ -315,8 +315,10 @@ impl<T: Config> Pallet<T> {
                 let cleared_stake = Self::empty_stake_on_coldkey_hotkey_account(coldkey, hotkey);
                 // Add the stake to the coldkey account.
                 Self::add_balance_to_coldkey_account(coldkey, cleared_stake);
+                return cleared_stake;
             }
         }
+        0
     }
 
     /// Clears small nominations for all accounts.
