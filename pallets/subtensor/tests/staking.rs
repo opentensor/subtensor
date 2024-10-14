@@ -2306,3 +2306,231 @@ fn test_get_total_delegated_stake_exclude_owner_stake() {
         );
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test staking -- test_stake_delta_tracks_adds_and_removes --exact --nocapture
+#[test]
+fn test_stake_delta_tracks_adds_and_removes() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1u16;
+        let delegate_coldkey = U256::from(1);
+        let delegate_hotkey = U256::from(2);
+        let delegator = U256::from(3);
+
+        let owner_stake = 1000;
+        let owner_added_stake = 123;
+        let owner_removed_stake = 456;
+        // Add more than removed to test that the delta is updated correctly
+        let owner_adds_more_stake = owner_removed_stake + 1;
+
+        let delegator_added_stake = 999;
+
+        // Set stake rate limit very high
+        TargetStakesPerInterval::<Test>::put(1e9 as u64);
+
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, delegate_hotkey, delegate_coldkey, 0);
+        // Give extra stake to the owner
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+            &delegate_coldkey,
+            &delegate_hotkey,
+            owner_stake,
+        );
+
+        // Register as a delegate
+        assert_ok!(SubtensorModule::become_delegate(
+            RuntimeOrigin::signed(delegate_coldkey),
+            delegate_hotkey
+        ));
+
+        // Verify that the stake delta is empty
+        assert_eq!(
+            StakeDeltaSinceLastEmissionDrain::<Test>::get(delegate_hotkey, delegate_coldkey),
+            0
+        );
+
+        // Give the coldkey some balance; extra just in case
+        SubtensorModule::add_balance_to_coldkey_account(
+            &delegate_coldkey,
+            owner_added_stake + owner_adds_more_stake,
+        );
+
+        // Add some stake
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(delegate_coldkey),
+            delegate_hotkey,
+            owner_added_stake
+        ));
+
+        // Verify that the stake delta is correct
+        assert_eq!(
+            StakeDeltaSinceLastEmissionDrain::<Test>::get(delegate_hotkey, delegate_coldkey),
+            i128::from(owner_added_stake)
+        );
+
+        // Add some stake from a delegator
+        SubtensorModule::add_balance_to_coldkey_account(&delegator, delegator_added_stake);
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(delegator),
+            delegate_hotkey,
+            delegator_added_stake
+        ));
+
+        // Verify that the stake delta is unchanged for the owner
+        assert_eq!(
+            StakeDeltaSinceLastEmissionDrain::<Test>::get(delegate_hotkey, delegate_coldkey),
+            i128::from(owner_added_stake)
+        );
+
+        // Remove some stake
+        assert_ok!(SubtensorModule::remove_stake(
+            RuntimeOrigin::signed(delegate_coldkey),
+            delegate_hotkey,
+            owner_removed_stake
+        ));
+
+        // Verify that the stake delta is correct
+        assert_eq!(
+            StakeDeltaSinceLastEmissionDrain::<Test>::get(delegate_hotkey, delegate_coldkey),
+            i128::from(owner_added_stake).saturating_sub_unsigned(owner_removed_stake.into())
+        );
+
+        // Add more stake than was removed
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(delegate_coldkey),
+            delegate_hotkey,
+            owner_adds_more_stake
+        ));
+
+        // Verify that the stake delta is correct
+        assert_eq!(
+            StakeDeltaSinceLastEmissionDrain::<Test>::get(delegate_hotkey, delegate_coldkey),
+            i128::from(owner_added_stake)
+                .saturating_add_unsigned((owner_adds_more_stake - owner_removed_stake).into())
+        );
+    });
+}
+
+/// Test that drain_hotkey_emission sends mining emission fully to the miner, even
+/// if miner is a delegate and someone is delegating.
+#[test]
+fn test_mining_emission_drain() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let validator = U256::from(2);
+        let miner = U256::from(3);
+        let nominator = U256::from(4);
+        let netuid: u16 = 1;
+        let root_id: u16 = 0;
+        let root_tempo = 9; // neet root epoch to happen before subnet tempo
+        let subnet_tempo = 10;
+        let hotkey_tempo = 20;
+        let stake = 100_000_000_000;
+        let miner_stake = 1_000_000_000;
+
+        // Add network, register hotkeys, and setup network parameters
+        add_network(root_id, root_tempo, 0);
+        add_network(netuid, subnet_tempo, 0);
+        register_ok_neuron(netuid, validator, coldkey, 0);
+        register_ok_neuron(netuid, miner, coldkey, 1);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 2 * stake + ExistentialDeposit::get());
+        SubtensorModule::add_balance_to_coldkey_account(&nominator, stake + ExistentialDeposit::get());
+        SubtensorModule::set_hotkey_emission_tempo(hotkey_tempo);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        SubtensorModule::set_max_allowed_validators(netuid, 2);
+        step_block(subnet_tempo);
+        pallet_subtensor::SubnetOwnerCut::<Test>::set(0);
+        // All stake is active
+        pallet_subtensor::ActivityCutoff::<Test>::set(netuid, u16::MAX);
+        // There's only one validator
+        pallet_subtensor::MaxAllowedUids::<Test>::set(netuid, 2);
+        pallet_subtensor::MaxAllowedValidators::<Test>::set(netuid, 1);
+        // pallet_subtensor::ValidatorPermit::<Test>::set(netuid, vec![true, false]);
+
+        // Set zero hotkey take for validator
+        SubtensorModule::set_min_delegate_take(0);
+        assert_ok!(SubtensorModule::do_become_delegate(
+            RuntimeOrigin::signed(coldkey),
+            validator,
+            0
+        ));
+
+        // Set zero hotkey take for miner
+        assert_ok!(SubtensorModule::do_become_delegate(
+            RuntimeOrigin::signed(coldkey),
+            miner,
+            0
+        ));
+
+        // Setup stakes:
+        //   Stake from validator
+        //   Stake from miner
+        //   Stake from nominator to miner
+        //   Give 100% of parent stake to childkey
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            validator,
+            stake
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            miner,
+            miner_stake
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(nominator),
+            miner,
+            stake
+        ));
+        // Make all stakes viable
+        pallet_subtensor::StakeDeltaSinceLastEmissionDrain::<Test>::set(validator, coldkey, -1);
+        pallet_subtensor::StakeDeltaSinceLastEmissionDrain::<Test>::set(miner, nominator, -1);
+
+        // Setup YUMA so that it creates emissions:
+        //   Validator sets weights
+        //   Validator registers on root and
+        //   Sets root weights
+        //   Last weight update is after block at registration
+        pallet_subtensor::Weights::<Test>::insert(netuid, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        assert_ok!(SubtensorModule::do_root_register(
+            RuntimeOrigin::signed(coldkey),
+            validator,
+        ));
+        pallet_subtensor::Weights::<Test>::insert(root_id, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        // pallet_subtensor::Weights::<Test>::insert(root_id, 1, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        pallet_subtensor::BlockAtRegistration::<Test>::set(netuid, 0, 1);
+        pallet_subtensor::LastUpdate::<Test>::set(netuid, vec![2, 2]);
+        pallet_subtensor::Kappa::<Test>::set(netuid, u16::MAX/5);
+
+        // Run run_coinbase until root epoch is run
+        while pallet_subtensor::PendingEmission::<Test>::get(netuid) == 0 {
+            step_block(1);
+        }
+
+        // Prevent further root epochs
+        pallet_subtensor::Tempo::<Test>::set(root_id, u16::MAX);
+
+        // Run run_coinbase until PendingHotkeyEmission are populated
+        while pallet_subtensor::PendingdHotkeyEmission::<Test>::get(miner) == 0 {
+            step_block(1);
+        }
+
+        // Prevent further subnet epochs
+        pallet_subtensor::Tempo::<Test>::set(netuid, u16::MAX);
+
+        // Run run_coinbase until PendingHotkeyEmission is drained for both validator and miner
+        step_block((hotkey_tempo * 2) as u16);
+
+        // Verify how emission is split between keys
+        //   - Validator stake increased by 50% of total emission
+        //   - Miner stake increased by 50% of total emission
+        //   - Nominator gets nothing because he staked to miner
+        let miner_emission = pallet_subtensor::Stake::<Test>::get(miner, coldkey) - miner_stake;
+        let validator_emission = pallet_subtensor::Stake::<Test>::get(validator, coldkey) - stake;
+        let nominator_emission = pallet_subtensor::Stake::<Test>::get(miner, nominator) - stake;
+        let total_emission = validator_emission + miner_emission + nominator_emission;
+
+        assert_eq!(validator_emission, total_emission / 2);
+        assert_eq!(miner_emission, total_emission / 2);
+        assert_eq!(nominator_emission, 0);
+    });
+}

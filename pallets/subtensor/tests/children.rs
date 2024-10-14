@@ -3539,7 +3539,6 @@ fn test_childkey_take_drain() {
         //   - Child stake increased by its child key take only (20% * 50% = 10% of total emission)
         //   - Parent stake increased by 40% of total emission
         //   - Nominator stake increased by 50% of total emission
-        // println!("pending_child_emission = {:?}", pending_child_emission);
         let child_emission = pallet_subtensor::Stake::<Test>::get(child, coldkey);
         let parent_emission = pallet_subtensor::Stake::<Test>::get(parent, coldkey) - stake;
         let nominator_emission = pallet_subtensor::Stake::<Test>::get(child, nominator) - stake;
