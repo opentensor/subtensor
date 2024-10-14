@@ -3449,8 +3449,14 @@ fn test_childkey_take_drain() {
         add_network(netuid, subnet_tempo, 0);
         register_ok_neuron(netuid, child, coldkey, 0);
         register_ok_neuron(netuid, parent, coldkey, 1);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake + ExistentialDeposit::get());
-        SubtensorModule::add_balance_to_coldkey_account(&nominator, stake + ExistentialDeposit::get());
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey,
+            stake + ExistentialDeposit::get(),
+        );
+        SubtensorModule::add_balance_to_coldkey_account(
+            &nominator,
+            stake + ExistentialDeposit::get(),
+        );
         SubtensorModule::set_hotkey_emission_tempo(hotkey_tempo);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_allowed_validators(netuid, 2);
@@ -3544,8 +3550,20 @@ fn test_childkey_take_drain() {
         let nominator_emission = pallet_subtensor::Stake::<Test>::get(child, nominator) - stake;
         let total_emission = child_emission + parent_emission + nominator_emission;
 
-        assert!(is_within_tolerance(child_emission, total_emission / 10, 500));
-        assert!(is_within_tolerance(parent_emission, total_emission / 10 * 4, 500));
-        assert!(is_within_tolerance(nominator_emission, total_emission / 2, 500));
+        assert!(is_within_tolerance(
+            child_emission,
+            total_emission / 10,
+            500
+        ));
+        assert!(is_within_tolerance(
+            parent_emission,
+            total_emission / 10 * 4,
+            500
+        ));
+        assert!(is_within_tolerance(
+            nominator_emission,
+            total_emission / 2,
+            500
+        ));
     });
 }
