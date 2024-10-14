@@ -2432,8 +2432,14 @@ fn test_mining_emission_drain() {
         add_network(netuid, subnet_tempo, 0);
         register_ok_neuron(netuid, validator, coldkey, 0);
         register_ok_neuron(netuid, miner, coldkey, 1);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 2 * stake + ExistentialDeposit::get());
-        SubtensorModule::add_balance_to_coldkey_account(&nominator, stake + ExistentialDeposit::get());
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey,
+            2 * stake + ExistentialDeposit::get(),
+        );
+        SubtensorModule::add_balance_to_coldkey_account(
+            &nominator,
+            stake + ExistentialDeposit::get(),
+        );
         SubtensorModule::set_hotkey_emission_tempo(hotkey_tempo);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_allowed_validators(netuid, 2);
@@ -2499,7 +2505,7 @@ fn test_mining_emission_drain() {
         // pallet_subtensor::Weights::<Test>::insert(root_id, 1, vec![(0, 0xFFFF), (1, 0xFFFF)]);
         pallet_subtensor::BlockAtRegistration::<Test>::set(netuid, 0, 1);
         pallet_subtensor::LastUpdate::<Test>::set(netuid, vec![2, 2]);
-        pallet_subtensor::Kappa::<Test>::set(netuid, u16::MAX/5);
+        pallet_subtensor::Kappa::<Test>::set(netuid, u16::MAX / 5);
 
         // Run run_coinbase until root epoch is run
         while pallet_subtensor::PendingEmission::<Test>::get(netuid) == 0 {
