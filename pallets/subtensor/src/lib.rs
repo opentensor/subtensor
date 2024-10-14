@@ -781,7 +781,7 @@ pub mod pallet {
         StorageValue<_, u64, ValueQuery, DefaultHotkeyEmissionTempo<T>>;
     #[pallet::storage]
     /// Map ( hot ) --> emission | Accumulated hotkey emission.
-    pub type PendingdHotkeyEmission<T: Config> = StorageMap<
+    pub type PendingHotkeyEmission<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
         T::AccountId,
@@ -789,6 +789,19 @@ pub mod pallet {
         ValueQuery,
         DefaultAccumulatedEmission<T>,
     >;
+
+    #[pallet::storage]
+    /// Map ( netuid, hotkey ) --> emission | Returns the total stake for a hotkey on a specific subnet.
+    pub type PendingHotkeySubnetEmission<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        u16, // First key: netuid
+        Identity,
+        T::AccountId, // Second key: hotkey
+        u64,          // Value: total emission
+        ValueQuery,
+    >;
+
     #[pallet::storage]
     /// Map ( hot, cold ) --> block_number | Last add stake increase.
     pub type LastAddStakeIncrease<T: Config> = StorageDoubleMap<
