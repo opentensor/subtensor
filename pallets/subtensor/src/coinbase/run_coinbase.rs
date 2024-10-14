@@ -224,14 +224,14 @@ impl<T: Config> Pallet<T> {
                     .to_num::<u64>();
 
                 // --- 5.3 Childkey take as part of parent emission
-                let childkey_take: u64 = childkey_take_proportion
+                let child_emission_take: u64 = childkey_take_proportion
                     .saturating_mul(I64F64::from_num(parent_emission))
                     .to_num::<u64>();
-                total_childkey_take = total_childkey_take.saturating_add(childkey_take);
+                total_childkey_take = total_childkey_take.saturating_add(child_emission_take);
                 // NOTE: Only the validation emission should be split amongst parents.
 
                 // --- 5.4 Compute the remaining parent emission after the childkey's share is deducted.
-                let parent_emission_take: u64 = parent_emission.saturating_sub(childkey_take);
+                let parent_emission_take: u64 = parent_emission.saturating_sub(child_emission_take);
 
                 // --- 5.5. Accumulate emissions for the parent hotkey.
                 PendingdHotkeyEmission::<T>::mutate(parent, |parent_accumulated| {
@@ -239,7 +239,9 @@ impl<T: Config> Pallet<T> {
                 });
 
                 // --- 5.6. Subtract the parent's share from the remaining emission for this hotkey.
-                remaining_emission = remaining_emission.saturating_sub(parent_emission_take);
+                remaining_emission = remaining_emission
+                    .saturating_sub(parent_emission_take)
+                    .saturating_sub(child_emission_take);
             }
         }
 
@@ -247,6 +249,7 @@ impl<T: Config> Pallet<T> {
         PendingdHotkeyEmission::<T>::mutate(hotkey, |hotkey_pending| {
             *hotkey_pending = hotkey_pending.saturating_add(
                 remaining_emission
+                    .saturating_add(total_childkey_take)
                     .saturating_add(mining_emission),
             )
         });
