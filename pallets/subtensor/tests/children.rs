@@ -3455,9 +3455,10 @@ fn test_childkey_take_drain() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_allowed_validators(netuid, 2);
         step_block(subnet_tempo);
+        pallet_subtensor::SubnetOwnerCut::<Test>::set(0);
 
-        // Set 50% childkey take
-        let max_take: u16 = 0xFFFF / 2;
+        // Set 20% childkey take
+        let max_take: u16 = 0xFFFF / 5;
         SubtensorModule::set_max_childkey_take(max_take);
         assert_ok!(SubtensorModule::set_childkey_take(
             RuntimeOrigin::signed(coldkey),
@@ -3522,25 +3523,30 @@ fn test_childkey_take_drain() {
         pallet_subtensor::Weights::<Test>::insert(root_id, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
         pallet_subtensor::Weights::<Test>::insert(root_id, 1, vec![(0, 0xFFFF), (1, 0xFFFF)]);
 
-        // Run run_coinbase until PendingHotkeyEmission is populated for child
+        // Run run_coinbase until PendingHotkeyEmission are populated
         while pallet_subtensor::PendingdHotkeyEmission::<Test>::get(child) == 0 {
             step_block(1);
         }
 
-        // Run run_coinbase until PendingHotkeyEmission is drained for child
-        let mut pending_child_emission = pallet_subtensor::PendingdHotkeyEmission::<Test>::get(child);
-        while pallet_subtensor::PendingdHotkeyEmission::<Test>::get(child) != 0 {
-            println!("Nom stake: {:?}", pallet_subtensor::Stake::<Test>::get(child, nominator) - stake);
+        // Prevent further subnet epochs
+        pallet_subtensor::Tempo::<Test>::set(netuid, u16::MAX);
+        pallet_subtensor::Tempo::<Test>::set(root_id, u16::MAX);
 
-            pending_child_emission = pallet_subtensor::PendingdHotkeyEmission::<Test>::get(child);
-            step_block(1);
-        }
+        // Run run_coinbase until PendingHotkeyEmission is drained for both child and parent
+        step_block((hotkey_tempo * 2) as u16);
 
-        // Verify that child key stake increased by its child key take only 
-        println!("pending_child_emission = {:?}", pending_child_emission);
-        println!("Child stake: {:?}", pallet_subtensor::Stake::<Test>::get(child, coldkey));
-        println!("Parent stake: {:?}", pallet_subtensor::Stake::<Test>::get(parent, coldkey) - stake);
-        println!("Nom stake: {:?}", pallet_subtensor::Stake::<Test>::get(child, nominator) - stake);
+        // Verify how emission is split between keys
+        //   - Child stake increased by its child key take only (20% * 50% = 10% of total emission)
+        //   - Parent stake increased by 40% of total emission
+        //   - Nominator stake increased by 50% of total emission
+        // println!("pending_child_emission = {:?}", pending_child_emission);
+        let child_emission = pallet_subtensor::Stake::<Test>::get(child, coldkey);
+        let parent_emission = pallet_subtensor::Stake::<Test>::get(parent, coldkey) - stake;
+        let nominator_emission = pallet_subtensor::Stake::<Test>::get(child, nominator) - stake;
+        let total_emission = child_emission + parent_emission + nominator_emission;
 
+        assert!(is_within_tolerance(child_emission, total_emission / 10, 500));
+        assert!(is_within_tolerance(parent_emission, total_emission / 10 * 4, 500));
+        assert!(is_within_tolerance(nominator_emission, total_emission / 2, 500));
     });
 }

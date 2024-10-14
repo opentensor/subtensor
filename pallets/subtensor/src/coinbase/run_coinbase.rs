@@ -193,6 +193,7 @@ impl<T: Config> Pallet<T> {
         // --- 1. First, calculate the hotkey's share of the emission.
         let childkey_take_proportion: I64F64 = I64F64::from_num(Self::get_childkey_take(hotkey, netuid))
             .saturating_div(I64F64::from_num(u16::MAX));
+        let mut total_childkey_take: u64 = 0;
 
         // --- 3. Track the remaining emission for accounting purposes.
         let mut remaining_emission: u64 = validating_emission;
@@ -223,6 +224,7 @@ impl<T: Config> Pallet<T> {
                 let childkey_take: u64 = childkey_take_proportion
                     .saturating_mul(I64F64::from_num(parent_emission))
                     .to_num::<u64>();
+                total_childkey_take = total_childkey_take.saturating_add(childkey_take);
                 // NOTE: Only the validation emission should be split amongst parents.
 
                 // --- 5.4 Compute the remaining parent emission after the childkey's share is deducted.
@@ -249,7 +251,10 @@ impl<T: Config> Pallet<T> {
         // --- 7. Update untouchable part of hotkey emission (that will not be distributed to nominators)
         //        This doesn't include remaining_emission, which should be distributed in drain_hotkey_emission
         PendingdHotkeyEmissionUntouchable::<T>::mutate(hotkey, |hotkey_pending| {
-            *hotkey_pending = hotkey_pending.saturating_add(mining_emission)
+            *hotkey_pending = hotkey_pending.saturating_add(
+                total_childkey_take
+                    .saturating_add(mining_emission),
+            )
         });
     }
 
