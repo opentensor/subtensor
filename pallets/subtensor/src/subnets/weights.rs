@@ -35,16 +35,51 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CommitRevealDisabled
         );
 
+        // Check that the validator is not committing too frequently (weights_rate_limit check)
         ensure!(
-            Self::can_commit(netuid, &who),
+            Self::check_rate_limit_for_commit(netuid, &who),
             Error::<T>::WeightsCommitNotAllowed
         );
 
-        WeightCommits::<T>::insert(
-            netuid,
-            &who,
-            (commit_hash, Self::get_current_block_as_u64()),
-        );
+        // Insert the new commit with the current block number
+        let current_block = Self::get_current_block_as_u64();
+        WeightCommits::<T>::insert(netuid, &who, (commit_hash, current_block));
+
+        // Calculate the threshold block beyond which old commits should be removed
+        let interval = Self::get_commit_reveal_weights_interval(netuid).saturating_mul(2);
+        let threshold_block = current_block.saturating_sub(interval);
+
+        // Retrieve all commits for the given network as a vector, sorted by block number
+        let mut commits: Vec<(T::AccountId, (H256, u64))> =
+            WeightCommits::<T>::iter_prefix(netuid).collect();
+
+        // Use binary search to find the first valid commit that is above the threshold
+        let first_valid_index = commits
+            .binary_search_by(|&(_, (_, commit_block))| commit_block.cmp(&threshold_block))
+            .unwrap_or_else(|index| index); // If not found, return the position of the first valid commit
+
+        // If there are old commits, remove them in bulk
+        // Optimize the removal of old commits
+        if first_valid_index > 0 {
+            // Get the range of valid commits
+            let valid_commits = commits.split_off(first_valid_index);
+
+            // Clear all commits for this netuid
+            let _ = WeightCommits::<T>::clear_prefix(netuid, u32::MAX, None);
+
+            // Re-insert only the valid commits
+            for (account, (commit_hash, block_number)) in valid_commits {
+                WeightCommits::<T>::insert(netuid, &account, (commit_hash, block_number));
+            }
+        }
+        // if first_valid_index > 0 {
+        //     // Remove old commits that are below the threshold
+        //     commits
+        //         .drain(0..first_valid_index)
+        //         .for_each(|(account, _)| {
+        //             WeightCommits::<T>::remove(netuid, &account);
+        //         });
+        // }
         Ok(())
     }
 
@@ -102,7 +137,10 @@ impl<T: Config> Pallet<T> {
                 .ok_or(Error::<T>::NoWeightsCommitFound)?;
 
             ensure!(
-                Self::is_reveal_block_range(netuid, *commit_block),
+                Self::is_rate_limit_satisfied(
+                    *commit_block,
+                    Self::get_commit_reveal_weights_interval(netuid)
+                ),
                 Error::<T>::InvalidRevealCommitTempo
             );
 
@@ -452,50 +490,36 @@ impl<T: Config> Pallet<T> {
         uids.len() <= subnetwork_n as usize
     }
 
-    #[allow(clippy::arithmetic_side_effects)]
-    pub fn can_commit(netuid: u16, who: &T::AccountId) -> bool {
-        if let Some((_hash, commit_block)) = WeightCommits::<T>::get(netuid, who) {
-            let interval: u64 = Self::get_commit_reveal_weights_interval(netuid);
-            if interval == 0 {
-                return true; //prevent division by 0
-            }
+    /// Checks if the rate limit has been satisfied based on the current block and a given interval.
+    ///
+    /// # Arguments
+    ///
+    /// * `last_commit_block` - The block number when the weights were committed.
+    /// * `rate_limit_interval` - The interval (in blocks) that must pass before a new action can occur.
+    ///
+    /// # Returns
+    ///
+    /// * `bool` - True if the rate limit has been satisfied, false otherwise.
+    fn is_rate_limit_satisfied(last_commit_block: u64, rate_limit_interval: u64) -> bool {
+        let current_block = Self::get_current_block_as_u64();
+        let time_passed = current_block.saturating_sub(last_commit_block);
+        log::debug!(
+            "Checking rate limit: current_block = {}, last_commit_block = {}, time_passed = {}, interval = {}",
+            current_block, last_commit_block, time_passed, rate_limit_interval
+        );
+        time_passed > rate_limit_interval
+    }
 
-            let current_block: u64 = Self::get_current_block_as_u64();
-            let interval_start: u64 = current_block.saturating_sub(current_block % interval);
-            let last_commit_interval_start: u64 =
-                commit_block.saturating_sub(commit_block % interval);
-
-            // Allow commit if we're within the interval bounds
-            if current_block <= interval_start.saturating_add(interval)
-                && interval_start > last_commit_interval_start
-            {
-                return true;
-            }
-
-            false
+    /// Checks if the neuron has set weights within the weights_set_rate_limit.
+    ///
+    pub fn check_rate_limit_for_commit(netuid: u16, who: &T::AccountId) -> bool {
+        if let Some((_hash, last_commit_block)) = WeightCommits::<T>::get(netuid, who) {
+            Self::is_rate_limit_satisfied(
+                last_commit_block,
+                Self::get_weights_set_rate_limit(netuid),
+            )
         } else {
             true
         }
-    }
-
-    #[allow(clippy::arithmetic_side_effects)]
-    pub fn is_reveal_block_range(netuid: u16, commit_block: u64) -> bool {
-        let interval: u64 = Self::get_commit_reveal_weights_interval(netuid);
-        if interval == 0 {
-            return true; //prevent division by 0
-        }
-
-        let commit_interval_start: u64 = commit_block.saturating_sub(commit_block % interval); // Find the start of the interval in which the commit occurred
-        let reveal_interval_start: u64 = commit_interval_start.saturating_add(interval); // Start of the next interval after the commit interval
-        let current_block: u64 = Self::get_current_block_as_u64();
-
-        // Allow reveal if the current block is within the interval following the commit's interval
-        if current_block >= reveal_interval_start
-            && current_block < reveal_interval_start.saturating_add(interval)
-        {
-            return true;
-        }
-
-        false
     }
 }

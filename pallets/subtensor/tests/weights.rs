@@ -161,6 +161,73 @@ fn test_commit_weights_dispatch_info_ok() {
 }
 
 #[test]
+fn test_commit_weights_rate_limit() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let uids: Vec<u16> = vec![0, 1];
+        let weight_values: Vec<u16> = vec![10, 10];
+        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let version_key: u64 = 0;
+        let hotkey: U256 = U256::from(1);
+
+        let commit_hash: H256 = BlakeTwo256::hash_of(&(
+            hotkey,
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            salt.clone(),
+            version_key,
+        ));
+
+        // Add network and register neurons
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, U256::from(3), U256::from(4), 300000);
+        register_ok_neuron(netuid, U256::from(1), U256::from(2), 100000);
+
+        // Set the commit/reveal weights rate limit and enable the feature
+        SubtensorModule::set_weights_set_rate_limit(netuid, 5);
+        SubtensorModule::set_commit_reveal_weights_interval(netuid, 5);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        // First commit should succeed
+        assert_ok!(SubtensorModule::commit_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            commit_hash
+        ));
+
+        // Try to commit again within the rate limit (should fail)
+        let second_commit_hash: H256 = BlakeTwo256::hash_of(&(
+            hotkey,
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            salt.clone(),
+            version_key + 1,
+        ));
+
+        assert_err!(
+            SubtensorModule::commit_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                second_commit_hash
+            ),
+            Error::<Test>::WeightsCommitNotAllowed
+        );
+
+        // Simulate the passage of time to exceed the rate limit interval
+        step_block(6);
+
+        // Try to commit again after rate limit interval (should succeed)
+        assert_ok!(SubtensorModule::commit_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            second_commit_hash
+        ));
+    });
+}
+
+#[test]
 fn test_commit_weights_validate() {
     // Testing the signed extension validate function
     // correctly filters this transaction.
