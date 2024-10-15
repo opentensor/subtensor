@@ -1094,8 +1094,7 @@ parameter_types! {
 const EVM_DECIMALS_FACTOR: u64 = 1_000_000_000_u64;
 
 pub struct SubtensorEvmBalanceConverter;
-impl BalanceConverter for SubtensorEvmBalanceConverter
-{
+impl BalanceConverter for SubtensorEvmBalanceConverter {
     fn into_evm_balance(value: U256) -> Option<U256> {
         U256::from(UniqueSaturatedInto::<u128>::unique_saturated_into(value))
             .checked_mul(U256::from(EVM_DECIMALS_FACTOR))

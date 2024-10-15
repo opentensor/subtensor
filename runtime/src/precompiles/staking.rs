@@ -32,8 +32,8 @@ use pallet_evm::{
 };
 use sp_core::crypto::Ss58Codec;
 use sp_core::U256;
-use sp_runtime::traits::{BlakeTwo256, UniqueSaturatedInto};
 use sp_runtime::traits::Dispatchable;
+use sp_runtime::traits::{BlakeTwo256, UniqueSaturatedInto};
 use sp_runtime::AccountId32;
 
 use crate::precompiles::{get_method_id, get_slice};
