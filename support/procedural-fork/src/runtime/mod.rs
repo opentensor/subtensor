@@ -201,8 +201,6 @@
 //!     +----------------------+
 //! ```
 
-#![cfg(feature = "experimental")]
-
 pub use parse::Def;
 use proc_macro::TokenStream;
 use syn::spanned::Spanned;

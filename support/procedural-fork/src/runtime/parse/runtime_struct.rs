@@ -19,11 +19,10 @@
 use syn::spanned::Spanned;
 pub struct RuntimeStructDef {
     pub ident: syn::Ident,
-    pub attr_span: proc_macro2::Span,
 }
 
 impl RuntimeStructDef {
-    pub fn try_from(attr_span: proc_macro2::Span, item: &mut syn::Item) -> syn::Result<Self> {
+    pub fn try_from(item: &mut syn::Item) -> syn::Result<Self> {
         let item = if let syn::Item::Struct(item) = item {
             item
         } else {
@@ -33,7 +32,6 @@ impl RuntimeStructDef {
 
         Ok(Self {
             ident: item.ident.clone(),
-            attr_span,
         })
     }
 }
