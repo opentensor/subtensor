@@ -209,6 +209,12 @@ pub mod pallet {
     }
 
     #[pallet::type_value]
+    /// Default limit for number of childkeys on one hotkey
+    pub fn DefaultChildKeyLimit<T: Config>() -> u16 {
+        5
+    }
+
+    #[pallet::type_value]
     /// Default minimum childkey take.
     pub fn DefaultMinChildKeyTake<T: Config>() -> u16 {
         T::InitialMinChildKeyTake::get()

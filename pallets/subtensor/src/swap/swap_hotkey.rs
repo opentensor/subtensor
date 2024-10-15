@@ -1,6 +1,7 @@
 use super::*;
 use frame_support::weights::Weight;
 use sp_core::Get;
+use substrate_fixed::types::I96F32;
 
 impl<T: Config> Pallet<T> {
     /// Swaps the hotkey of a coldkey account.
@@ -82,7 +83,7 @@ impl<T: Config> Pallet<T> {
         Self::burn_tokens(actual_burn_amount);
 
         // 14. Perform the hotkey swap
-        let _ = Self::perform_hotkey_swap(old_hotkey, new_hotkey, &coldkey, &mut weight);
+        Self::perform_hotkey_swap(old_hotkey, new_hotkey, &coldkey, &mut weight)?;
 
         // 15. Update the last transaction block for the coldkey
         Self::set_last_tx_block(&coldkey, block);
@@ -321,11 +322,80 @@ impl<T: Config> Pallet<T> {
         // ChildKeys( parent, netuid ) --> Vec<(proportion,child)> -- the child keys of the parent.
         for netuid in Self::get_all_subnet_netuids() {
             // Get the children of the old hotkey for this subnet
-            let my_children: Vec<(u64, T::AccountId)> = ChildKeys::<T>::get(old_hotkey, netuid);
+            let old_hotkey_children: Vec<(u64, T::AccountId)> =
+                ChildKeys::<T>::get(old_hotkey, netuid);
+            // Read old children of the new hotkey
+            let new_hotkey_children: Vec<(u64, T::AccountId)> =
+                ChildKeys::<T>::get(new_hotkey, netuid);
+            // Merged childkey list (initialize with old hotkey children)
+            let mut merged_childkey_list: Vec<(u64, T::AccountId)> =
+                ChildKeys::<T>::get(old_hotkey, netuid);
+
+            // Calculate total of proportions between two lists being merged (old and new)
+            let proportion_total: I96F32 = I96F32::from_num(
+                old_hotkey_children
+                    .iter()
+                    .map(|(proportion, _)| *proportion as u128)
+                    .sum::<u128>(),
+            )
+            .saturating_add(I96F32::from_num(
+                new_hotkey_children
+                    .iter()
+                    .map(|(proportion, _)| *proportion as u128)
+                    .sum::<u128>(),
+            ));
+
+            // Merge old and new child lists. Do not use HashSet because we only have 5 keys per list,
+            // and iteration is more efficient.
+            new_hotkey_children.iter().for_each(|new_hotkey_child| {
+                if !merged_childkey_list
+                    .iter()
+                    .any(|merged_hotkey_child| merged_hotkey_child.1 == new_hotkey_child.1)
+                {
+                    merged_childkey_list.push(new_hotkey_child.clone());
+                }
+            });
+
+            if merged_childkey_list.len() > DefaultChildKeyLimit::<T>::get() as usize {
+                return Err(Error::<T>::TooManyChildren.into());
+            }
+
+            // Update proportions in the merged list
+            // Re-normalize child proportions if total of proportions exceeds 1.0
+            // (because two child lists were merged and we can't go over 1.0 total proportion)
+            let proportion_normalization_coeff: I96F32 = if proportion_total > u64::MAX {
+                I96F32::from_num(u64::MAX).saturating_div(proportion_total)
+            } else {
+                I96F32::from_num(1)
+            };
+            merged_childkey_list.iter_mut().for_each(|child| {
+                let proportion_from_old_hotkey = old_hotkey_children
+                    .iter()
+                    .find(|&old_hotkey_child| old_hotkey_child.1 == child.1)
+                    .map(|old_hotkey_child| old_hotkey_child.0)
+                    .unwrap_or(0_u64);
+                let proportion_from_new_hotkey = new_hotkey_children
+                    .iter()
+                    .find(|&new_hotkey_child| new_hotkey_child.1 == child.1)
+                    .map(|new_hotkey_child| new_hotkey_child.0)
+                    .unwrap_or(0_u64);
+
+                let mut normalized_proportion: I96F32 =
+                    I96F32::from_num(proportion_from_old_hotkey)
+                        .saturating_mul(proportion_normalization_coeff);
+                normalized_proportion = normalized_proportion.saturating_add(
+                    I96F32::from_num(proportion_from_new_hotkey)
+                        .saturating_mul(proportion_normalization_coeff),
+                );
+
+                *child = (normalized_proportion.to_num::<u64>(), child.1.clone());
+            });
+
             // Remove the old hotkey's child entries
             ChildKeys::<T>::remove(old_hotkey, netuid);
-            // Insert the same child entries for the new hotkey
-            ChildKeys::<T>::insert(new_hotkey, netuid, my_children);
+
+            // Insert the new hotkey's child entries
+            ChildKeys::<T>::insert(new_hotkey, netuid, merged_childkey_list);
         }
 
         // 13. Swap ParentKeys.
