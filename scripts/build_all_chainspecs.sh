@@ -3,7 +3,7 @@
 set -e
 
 echo "*** Building node..."
-cargo build
+cargo build --workspace
 
 echo "*** Building new chainspecs..."
 
