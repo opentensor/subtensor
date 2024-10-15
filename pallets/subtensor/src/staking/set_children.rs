@@ -1,4 +1,5 @@
 use super::*;
+use frame_support::traits::Get;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic do_set_child_singular: Sets a single child.
@@ -96,7 +97,10 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 4.1. Ensure that the number of children does not exceed 5.
-        ensure!(children.len() <= 5, Error::<T>::TooManyChildren);
+        ensure!(
+            children.len() <= DefaultChildKeyLimit::<T>::get() as usize,
+            Error::<T>::TooManyChildren
+        );
 
         // --- 5. Ensure that each child is not the hotkey.
         for (_, child_i) in &children {
