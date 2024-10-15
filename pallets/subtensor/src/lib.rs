@@ -632,7 +632,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for weight commit reveal interval.
     pub fn DefaultWeightCommitRevealInterval<T: Config>() -> u64 {
-        1000
+        360
     }
     #[pallet::type_value]
     /// Default value for weight commit/reveal enabled.
