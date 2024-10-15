@@ -32,7 +32,7 @@ use pallet_evm::{
 };
 use sp_core::crypto::Ss58Codec;
 use sp_core::U256;
-use sp_runtime::traits::BlakeTwo256;
+use sp_runtime::traits::{BlakeTwo256, UniqueSaturatedInto};
 use sp_runtime::traits::Dispatchable;
 use sp_runtime::AccountId32;
 
@@ -75,7 +75,7 @@ impl StakingPrecompile {
         // Create the add_stake call
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::<Runtime>::add_stake {
             hotkey,
-            amount_staked: amount_sub,
+            amount_staked: amount_sub.unique_saturated_into(),
         });
         // Dispatch the add_stake call
         Self::dispatch(handle, call)
@@ -96,7 +96,7 @@ impl StakingPrecompile {
 
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::<Runtime>::remove_stake {
             hotkey,
-            amount_unstaked: amount_sub,
+            amount_unstaked: amount_sub.unique_saturated_into(),
         });
         Self::dispatch(handle, call)
     }
@@ -164,7 +164,7 @@ impl StakingPrecompile {
         let transfer_call =
             RuntimeCall::Balances(pallet_balances::Call::<Runtime>::transfer_allow_death {
                 dest: account_id.clone().into(),
-                value: amount_sub,
+                value: amount_sub.unique_saturated_into(),
             });
 
         // Execute the transfer

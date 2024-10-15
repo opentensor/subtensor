@@ -4,7 +4,7 @@ use pallet_evm::{
     PrecompileOutput, PrecompileResult,
 };
 use sp_core::U256;
-use sp_runtime::traits::Dispatchable;
+use sp_runtime::traits::{Dispatchable, UniqueSaturatedInto};
 use sp_std::vec;
 
 use crate::{Runtime, RuntimeCall};
@@ -44,7 +44,7 @@ impl BalanceTransferPrecompile {
             let call =
                 RuntimeCall::Balances(pallet_balances::Call::<Runtime>::transfer_allow_death {
                     dest: account_id_dst.into(),
-                    value: amount_sub,
+                    value: amount_sub.unique_saturated_into(),
                 });
 
             let result = call.dispatch(RawOrigin::Signed(account_id_src).into());

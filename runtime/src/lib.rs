@@ -1093,24 +1093,20 @@ parameter_types! {
 /// difference factor is 9 decimals, or 10^9
 const EVM_DECIMALS_FACTOR: u64 = 1_000_000_000_u64;
 
-pub struct SubtensorEvmBalanceConverter<F>(PhantomData<F>);
-impl<T: pallet_evm::Config> BalanceConverter<T> for SubtensorEvmBalanceConverter<T>
-where
-    pallet_evm::BalanceOf<T>: TryFrom<U256> + Into<U256>,
+pub struct SubtensorEvmBalanceConverter;
+impl BalanceConverter for SubtensorEvmBalanceConverter
 {
-    fn into_evm_balance(
-        value: <
-            <T as pallet_evm::Config>::Currency as frame_support::traits::tokens::fungible::Inspect<<T as frame_system::Config>::AccountId>
-        >::Balance,
-    ) -> Option<U256> {
+    fn into_evm_balance(value: U256) -> Option<U256> {
         U256::from(UniqueSaturatedInto::<u128>::unique_saturated_into(value))
             .checked_mul(U256::from(EVM_DECIMALS_FACTOR))
     }
 
-    fn into_substrate_balance(value: U256) -> Option<pallet_evm::BalanceOf<T>> {
-        value
-            .checked_div(U256::from(EVM_DECIMALS_FACTOR))
-            .and_then(|result| result.try_into().ok())
+    fn into_substrate_balance(value: U256) -> Option<U256> {
+        if value <= U256::from(u64::MAX) {
+            value.checked_div(U256::from(EVM_DECIMALS_FACTOR))
+        } else {
+            None
+        }
     }
 }
 
@@ -1136,7 +1132,7 @@ impl pallet_evm::Config for Runtime {
     type SuicideQuickClearLimit = SuicideQuickClearLimit;
     type Timestamp = Timestamp;
     type WeightInfo = pallet_evm::weights::SubstrateWeight<Self>;
-    type BalanceConverter = SubtensorEvmBalanceConverter<Self>;
+    type BalanceConverter = SubtensorEvmBalanceConverter;
 }
 
 parameter_types! {
@@ -1159,7 +1155,7 @@ impl pallet_dynamic_fee::Config for Runtime {
 }
 
 parameter_types! {
-    pub DefaultBaseFeePerGas: U256 = U256::from(20);
+    pub DefaultBaseFeePerGas: U256 = U256::from(20_000_000_000_u128);
     pub DefaultElasticity: Permill = Permill::from_parts(125_000);
 }
 pub struct BaseFeeThreshold;
