@@ -114,8 +114,6 @@ mod errors {
         DelegateTakeTooLow,
         /// Delegate take is too high.
         DelegateTakeTooHigh,
-        /// Not allowed to commit weights.
-        WeightsCommitNotAllowed,
         /// No commit found for the provided hotkey+netuid combination when attempting to reveal the weights.
         NoWeightsCommitFound,
         /// Committed hash does not equal the hashed reveal data.

@@ -89,7 +89,7 @@ mod dispatches {
             Err(Error::<T>::CommitRevealEnabled.into())
         }
 
-        /// ---- Used to commit a hash of your weight values to later be revealed.
+        /// ---- The implementation for committing weight hashes.
         ///
         /// # Args:
         /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -102,9 +102,11 @@ mod dispatches {
         ///   - The hash representing the committed weights.
         ///
         /// # Raises:
-        /// * `WeightsCommitNotAllowed`:
-        ///   - Attempting to commit when it is not allowed.
+        /// * `CommitRevealDisabled`:
+        ///   - Attempting to commit when the commit-reveal mechanism is disabled.
         ///
+        /// * `TooManyUnrevealedCommits`:
+        ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
         #[pallet::call_index(96)]
         #[pallet::weight((Weight::from_parts(46_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(1))
@@ -117,7 +119,7 @@ mod dispatches {
             Self::do_commit_weights(origin, netuid, commit_hash)
         }
 
-        /// ---- Used to reveal the weights for a previously committed hash.
+        /// ---- The implementation for revealing committed weights.
         ///
         /// # Args:
         /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -132,22 +134,27 @@ mod dispatches {
         /// * `values` (`Vec<u16>`):
         ///   - The values of the weights being revealed.
         ///
-        /// * `salt` (`Vec<u8>`):
-        ///   - The random salt to protect from brute-force guessing attack in case of small weight changes bit-wise.
+        /// * `salt` (`Vec<u16>`):
+        ///   - The salt used to generate the commit hash.
         ///
         /// * `version_key` (`u64`):
         ///   - The network version key.
         ///
         /// # Raises:
+        /// * `CommitRevealDisabled`:
+        ///   - Attempting to reveal weights when the commit-reveal mechanism is disabled.
+        ///
         /// * `NoWeightsCommitFound`:
         ///   - Attempting to reveal weights without an existing commit.
         ///
-        /// * `InvalidRevealCommitHashNotMatchTempo`:
-        ///   - Attempting to reveal weights outside the valid tempo.
+        /// * `ExpiredWeightCommit`:
+        ///   - Attempting to reveal a weight commit that has expired.
+        ///
+        /// * `RevealTooEarly`:
+        ///   - Attempting to reveal weights outside the valid reveal period.
         ///
         /// * `InvalidRevealCommitHashNotMatch`:
-        ///   - The revealed hash does not match the committed hash.
-        ///
+        ///   - The revealed hash does not match any committed hash.
         #[pallet::call_index(97)]
         #[pallet::weight((Weight::from_parts(103_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(11))
