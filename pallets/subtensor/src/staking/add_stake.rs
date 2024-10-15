@@ -117,7 +117,6 @@ impl<T: Config> Pallet<T> {
             hotkey.clone(),
             alpha_staked
         );
-        Self::deposit_event(Event::StakeAdded(hotkey.clone(), alpha_staked));
 
         // Ok and return.
         Ok(())
