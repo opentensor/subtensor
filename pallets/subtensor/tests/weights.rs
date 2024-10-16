@@ -1977,7 +1977,7 @@ fn test_commit_reveal_multiple_commits() {
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
         // 1. Commit 10 times successfully
-        let mut commit_hashes = vec![];
+        let mut commit_info = Vec::new();
         for i in 0..10 {
             let salt_i: Vec<u16> = vec![i; 8]; // Unique salt for each commit
             let commit_hash: H256 = BlakeTwo256::hash_of(&(
@@ -1988,7 +1988,7 @@ fn test_commit_reveal_multiple_commits() {
                 salt_i.clone(),
                 version_key,
             ));
-            commit_hashes.push((commit_hash, salt_i));
+            commit_info.push((commit_hash, salt_i));
             assert_ok!(SubtensorModule::commit_weights(
                 RuntimeOrigin::signed(hotkey),
                 netuid,
@@ -2011,35 +2011,40 @@ fn test_commit_reveal_multiple_commits() {
             Error::<Test>::TooManyUnrevealedCommits
         );
 
-        // 3. Attempt to reveal out of order (reveal the second commit first), should fail
+        // 3. Attempt to reveal out of order (reveal the second commit first)
         // Advance to the next epoch for reveals to be valid
         step_epochs(1, netuid);
 
         // Try to reveal the second commit first
-        let (_commit_hash_2, salt_2) = &commit_hashes[1];
-        assert_err!(
-            SubtensorModule::reveal_weights(
-                RuntimeOrigin::signed(hotkey),
-                netuid,
-                uids.clone(),
-                weight_values.clone(),
-                salt_2.clone(),
-                version_key,
-            ),
-            Error::<Test>::RevealOutOfOrder
-        );
+        let (_commit_hash_2, salt_2) = &commit_info[1];
+        assert_ok!(SubtensorModule::reveal_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            salt_2.clone(),
+            version_key,
+        ));
 
-        // 4. Reveal commits in order, ensuring they succeed
-        for (_commit_hash_i, salt_i) in commit_hashes.iter() {
-            assert_ok!(SubtensorModule::reveal_weights(
-                RuntimeOrigin::signed(hotkey),
-                netuid,
-                uids.clone(),
-                weight_values.clone(),
-                salt_i.clone(),
-                version_key,
-            ));
-        }
+        // Check that commits before the revealed one are removed
+        let remaining_commits = pallet_subtensor::WeightCommits::<Test>::get(netuid, hotkey)
+            .expect("expected 8 remaining commits");
+        assert_eq!(remaining_commits.len(), 8); // 10 commits - 2 removed (index 0 and 1)
+
+        // 4. Reveal the last commit next
+        let (_commit_hash_10, salt_10) = &commit_info[9];
+        assert_ok!(SubtensorModule::reveal_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            salt_10.clone(),
+            version_key,
+        ));
+
+        // Remaining commits should have removed up to index 9
+        let remaining_commits = pallet_subtensor::WeightCommits::<Test>::get(netuid, hotkey);
+        assert!(remaining_commits.is_none()); // All commits removed
 
         // After revealing all commits, attempt to commit again should now succeed
         assert_ok!(SubtensorModule::commit_weights(
@@ -2239,7 +2244,7 @@ fn test_commit_reveal_multiple_commits() {
             Error::<Test>::NoWeightsCommitFound
         );
 
-        // 10. Commit twice and attempt to reveal out of sequence
+        // 10. Commit twice and attempt to reveal out of sequence (which is now allowed)
         let salt_a: Vec<u16> = vec![21; 8];
         let commit_hash_a: H256 = BlakeTwo256::hash_of(&(
             hotkey,
@@ -2272,38 +2277,32 @@ fn test_commit_reveal_multiple_commits() {
 
         step_epochs(1, netuid);
 
-        // Attempt to reveal the second commit first
-        assert_err!(
-            SubtensorModule::reveal_weights(
-                RuntimeOrigin::signed(hotkey),
-                netuid,
-                uids.clone(),
-                weight_values.clone(),
-                salt_b.clone(),
-                version_key,
-            ),
-            Error::<Test>::RevealOutOfOrder
-        );
-
-        // Reveal the first commit
+        // Reveal the second commit first, should now succeed
         assert_ok!(SubtensorModule::reveal_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
             uids.clone(),
             weight_values.clone(),
-            salt_a.clone(),
+            salt_b.clone(),
             version_key,
         ));
 
-        // Now reveal the second commit
-        assert_ok!(SubtensorModule::reveal_weights(
-            RuntimeOrigin::signed(hotkey),
-            netuid,
-            uids,
-            weight_values,
-            salt_b,
-            version_key,
-        ));
+        // Check that the first commit has been removed
+        let remaining_commits = pallet_subtensor::WeightCommits::<Test>::get(netuid, hotkey);
+        assert!(remaining_commits.is_none());
+
+        // Attempting to reveal the first commit should fail as it was removed
+        assert_err!(
+            SubtensorModule::reveal_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                uids,
+                weight_values,
+                salt_a,
+                version_key,
+            ),
+            Error::<Test>::NoWeightsCommitFound
+        );
     });
 }
 
@@ -2848,23 +2847,6 @@ fn test_tempo_and_reveal_period_change_during_commit_reveal_process() {
     });
 }
 
-pub fn step_epochs(count: u16, netuid: u16) {
-    for _ in 0..count {
-        let blocks_to_next_epoch = SubtensorModule::blocks_until_next_epoch(
-            netuid,
-            SubtensorModule::get_tempo(netuid),
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(blocks_to_next_epoch as u16);
-
-        assert!(SubtensorModule::should_run_epoch(
-            netuid,
-            SubtensorModule::get_current_block_as_u64()
-        ));
-        step_block(1);
-    }
-}
-
 #[test]
 fn test_commit_reveal_order_enforcement() {
     new_test_ext(1).execute_with(|| {
@@ -2908,46 +2890,8 @@ fn test_commit_reveal_order_enforcement() {
 
         step_epochs(1, netuid);
 
-        // Attempt to reveal B first (index 1), should fail
+        // Attempt to reveal B first (index 1), should now succeed
         let (_commit_hash_b, salt_b) = &commit_info[1];
-        assert_err!(
-            SubtensorModule::reveal_weights(
-                RuntimeOrigin::signed(hotkey),
-                netuid,
-                uids.clone(),
-                weight_values.clone(),
-                salt_b.clone(),
-                version_key,
-            ),
-            Error::<Test>::RevealOutOfOrder
-        );
-
-        // Reveal A (index 0)
-        let (_commit_hash_a, salt_a) = &commit_info[0];
-        assert_ok!(SubtensorModule::reveal_weights(
-            RuntimeOrigin::signed(hotkey),
-            netuid,
-            uids.clone(),
-            weight_values.clone(),
-            salt_a.clone(),
-            version_key,
-        ));
-
-        // Attempt to reveal C (index 2) before B, should fail
-        let (_commit_hash_c, salt_c) = &commit_info[2];
-        assert_err!(
-            SubtensorModule::reveal_weights(
-                RuntimeOrigin::signed(hotkey),
-                netuid,
-                uids.clone(),
-                weight_values.clone(),
-                salt_c.clone(),
-                version_key,
-            ),
-            Error::<Test>::RevealOutOfOrder
-        );
-
-        // Reveal B
         assert_ok!(SubtensorModule::reveal_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
@@ -2957,7 +2901,13 @@ fn test_commit_reveal_order_enforcement() {
             version_key,
         ));
 
-        // Reveal C
+        // Check that commits A and B are removed
+        let remaining_commits = pallet_subtensor::WeightCommits::<Test>::get(netuid, hotkey)
+            .expect("expected 1 remaining commit");
+        assert_eq!(remaining_commits.len(), 1); // Only commit C should remain
+
+        // Attempt to reveal C (index 2), should succeed
+        let (_commit_hash_c, salt_c) = &commit_info[2];
         assert_ok!(SubtensorModule::reveal_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
@@ -2967,6 +2917,8 @@ fn test_commit_reveal_order_enforcement() {
             version_key,
         ));
 
+        // Attempting to reveal A (index 0) should fail as it's been removed
+        let (_commit_hash_a, salt_a) = &commit_info[0];
         assert_err!(
             SubtensorModule::reveal_weights(
                 RuntimeOrigin::signed(hotkey),
@@ -2978,5 +2930,176 @@ fn test_commit_reveal_order_enforcement() {
             ),
             Error::<Test>::NoWeightsCommitFound
         );
+    });
+}
+
+#[test]
+fn test_reveal_at_exact_block() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let hotkey: <Test as frame_system::Config>::AccountId = U256::from(1);
+        let version_key: u64 = 0;
+        let uids: Vec<u16> = vec![0, 1];
+        let weight_values: Vec<u16> = vec![10, 10];
+        let tempo: u16 = 360;
+
+        System::set_block_number(0);
+        add_network(netuid, tempo, 0);
+
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+
+        register_ok_neuron(netuid, U256::from(3), U256::from(4), 300_000);
+        register_ok_neuron(netuid, U256::from(1), U256::from(2), 100_000);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
+
+        let reveal_periods: Vec<u64> = vec![
+            0,
+            1,
+            2,
+            5,
+            19,
+            21,
+            30,
+            77,
+            104,
+            833,
+            1999,
+            36398,
+            u32::MAX as u64,
+        ];
+
+        for &reveal_period in &reveal_periods {
+            SubtensorModule::set_reveal_period(netuid, reveal_period);
+
+            // Step 1: Commit weights
+            let salt: Vec<u16> = vec![42 + (reveal_period % 100) as u16; 8];
+            let commit_hash: H256 = BlakeTwo256::hash_of(&(
+                hotkey,
+                netuid,
+                uids.clone(),
+                weight_values.clone(),
+                salt.clone(),
+                version_key,
+            ));
+            assert_ok!(SubtensorModule::commit_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                commit_hash
+            ));
+
+            let commit_block = SubtensorModule::get_current_block_as_u64();
+            let commit_epoch = SubtensorModule::get_epoch_index(netuid, commit_block);
+            let reveal_epoch = commit_epoch.saturating_add(reveal_period);
+
+            // Calculate the block number where the reveal epoch starts
+            let tempo_plus_one = (tempo as u64).saturating_add(1);
+            let netuid_plus_one = (netuid as u64).saturating_add(1);
+            let reveal_epoch_start_block = reveal_epoch
+                .saturating_mul(tempo_plus_one)
+                .saturating_sub(netuid_plus_one);
+
+            // Attempt to reveal before the reveal epoch starts
+            let current_block = SubtensorModule::get_current_block_as_u64();
+            if current_block < reveal_epoch_start_block {
+                // Advance to one block before the reveal epoch starts
+                let blocks_to_advance = reveal_epoch_start_block.saturating_sub(current_block);
+                if blocks_to_advance > 1 {
+                    // Advance to one block before the reveal epoch
+                    let new_block_number = current_block + blocks_to_advance - 1;
+                    System::set_block_number(new_block_number);
+                }
+
+                // Attempt to reveal too early
+                assert_err!(
+                    SubtensorModule::reveal_weights(
+                        RuntimeOrigin::signed(hotkey),
+                        netuid,
+                        uids.clone(),
+                        weight_values.clone(),
+                        salt.clone(),
+                        version_key
+                    ),
+                    Error::<Test>::RevealTooEarly
+                );
+
+                // Advance one more block to reach the exact reveal epoch start block
+                System::set_block_number(reveal_epoch_start_block);
+            } else {
+                // If we're already at or past the reveal epoch start block
+                System::set_block_number(reveal_epoch_start_block);
+            }
+
+            // Reveal at the exact allowed block
+            assert_ok!(SubtensorModule::reveal_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                uids.clone(),
+                weight_values.clone(),
+                salt.clone(),
+                version_key
+            ));
+
+            // Attempt to reveal again; should fail with NoWeightsCommitFound
+            assert_err!(
+                SubtensorModule::reveal_weights(
+                    RuntimeOrigin::signed(hotkey),
+                    netuid,
+                    uids.clone(),
+                    weight_values.clone(),
+                    salt.clone(),
+                    version_key
+                ),
+                Error::<Test>::NoWeightsCommitFound
+            );
+
+            // Commit again with new salt
+            let new_salt: Vec<u16> = vec![43 + (reveal_period % 100) as u16; 8];
+            let new_commit_hash: H256 = BlakeTwo256::hash_of(&(
+                hotkey,
+                netuid,
+                uids.clone(),
+                weight_values.clone(),
+                new_salt.clone(),
+                version_key,
+            ));
+            assert_ok!(SubtensorModule::commit_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                new_commit_hash
+            ));
+
+            // Advance blocks to after the commit expires
+            let commit_block = SubtensorModule::get_current_block_as_u64();
+            let commit_epoch = SubtensorModule::get_epoch_index(netuid, commit_block);
+            let reveal_epoch = commit_epoch.saturating_add(reveal_period);
+            let expiration_epoch = reveal_epoch.saturating_add(1);
+            let expiration_epoch_start_block = expiration_epoch
+                .saturating_mul(tempo_plus_one)
+                .saturating_sub(netuid_plus_one);
+
+            let current_block = SubtensorModule::get_current_block_as_u64();
+            if current_block < expiration_epoch_start_block {
+                // Advance to the block where the commit expires
+                System::set_block_number(expiration_epoch_start_block);
+            }
+
+            // Attempt to reveal after the commit has expired
+            assert_err!(
+                SubtensorModule::reveal_weights(
+                    RuntimeOrigin::signed(hotkey),
+                    netuid,
+                    uids.clone(),
+                    weight_values.clone(),
+                    new_salt.clone(),
+                    version_key
+                ),
+                Error::<Test>::ExpiredWeightCommit
+            );
+
+            // Clean up for next iteration
+            pallet_subtensor::WeightCommits::<Test>::remove(netuid, hotkey);
+        }
     });
 }

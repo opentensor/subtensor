@@ -165,45 +165,40 @@ impl<T: Config> Pallet<T> {
                 }
             }
 
-            // --- 7. Collect the hashes of the remaining (non-expired) commits.
-            let non_expired_hashes: Vec<H256> = commits.iter().map(|(hash, _)| *hash).collect();
+            // --- 7. Search for the provided_hash in the non-expired commits.
+            if let Some(position) = commits.iter().position(|(hash, _)| *hash == provided_hash) {
+                // --- 8. Get the commit block for the commit being revealed.
+                let (_, commit_block) = commits
+                    .get(position)
+                    .ok_or(Error::<T>::NoWeightsCommitFound)?;
 
-            // --- 8. Get the first commit from the VecDeque.
-            let (commit_hash, commit_block) =
-                commits.front().ok_or(Error::<T>::NoWeightsCommitFound)?;
+                // --- 9. Ensure the commit is ready to be revealed in the current block range.
+                ensure!(
+                    Self::is_reveal_block_range(netuid, *commit_block),
+                    Error::<T>::RevealTooEarly
+                );
 
-            // --- 9. Ensure the commit is ready to be revealed in the current block range.
-            ensure!(
-                Self::is_reveal_block_range(netuid, *commit_block),
-                Error::<T>::RevealTooEarly
-            );
+                // --- 10. Remove all commits up to and including the one being revealed.
+                for _ in 0..=position {
+                    commits.pop_front();
+                }
 
-            // --- 10. Check if the provided hash matches the first commit's hash.
-            if provided_hash != *commit_hash {
-                // Check if the provided hash matches any other non-expired commit in the queue
-                if non_expired_hashes
-                    .iter()
-                    .skip(1)
-                    .any(|hash| *hash == provided_hash)
-                {
-                    return Err(Error::<T>::RevealOutOfOrder.into());
-                } else if expired_hashes.contains(&provided_hash) {
-                    return Err(Error::<T>::ExpiredWeightCommit.into());
+                // --- 11. If the queue is now empty, remove the storage entry for the user.
+                if commits.is_empty() {
+                    *maybe_commits = None;
+                }
+
+                // --- 12. Proceed to set the revealed weights.
+                Self::do_set_weights(origin, netuid, uids, values, version_key)
+            } else {
+                // --- 13. The provided_hash does not match any non-expired commits.
+                // Check if provided_hash matches any expired commits
+                if expired_hashes.contains(&provided_hash) {
+                    Err(Error::<T>::ExpiredWeightCommit.into())
                 } else {
-                    return Err(Error::<T>::InvalidRevealCommitHashNotMatch.into());
+                    Err(Error::<T>::InvalidRevealCommitHashNotMatch.into())
                 }
             }
-
-            // --- 11. Remove the first commit from the queue after passing all checks.
-            commits.pop_front();
-
-            // --- 12. If the queue is now empty, remove the storage entry for the user.
-            if commits.is_empty() {
-                *maybe_commits = None;
-            }
-
-            // --- 13. Proceed to set the revealed weights.
-            Self::do_set_weights(origin, netuid, uids, values, version_key)
         })
     }
 
@@ -540,7 +535,7 @@ impl<T: Config> Pallet<T> {
         let current_block: u64 = Self::get_current_block_as_u64();
         let commit_epoch: u64 = Self::get_epoch_index(netuid, commit_block);
         let current_epoch: u64 = Self::get_epoch_index(netuid, current_block);
-        let reveal_period: u64 = RevealPeriodEpochs::<T>::get(netuid);
+        let reveal_period: u64 = Self::get_reveal_period(netuid);
 
         // Reveal is allowed only in the exact epoch `commit_epoch + reveal_period`
         current_epoch == commit_epoch.saturating_add(reveal_period)
@@ -559,7 +554,7 @@ impl<T: Config> Pallet<T> {
         let current_block: u64 = Self::get_current_block_as_u64();
         let current_epoch: u64 = Self::get_epoch_index(netuid, current_block);
         let commit_epoch: u64 = Self::get_epoch_index(netuid, commit_block);
-        let reveal_period: u64 = RevealPeriodEpochs::<T>::get(netuid);
+        let reveal_period: u64 = Self::get_reveal_period(netuid);
 
         current_epoch > commit_epoch.saturating_add(reveal_period)
     }
