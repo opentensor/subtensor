@@ -150,6 +150,8 @@ impl<T: Config> Pallet<T> {
         for (uid_i, hotkey) in &hotkeys {
             stake_64[*uid_i as usize] =
                 I64F64::from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
+            // Save the total stake for this subnet
+            <TotalSubnetStake<T>>::insert(uid_i, hotkey, stake_64[*uid_i as usize].to_num::<u64>());
         }
         inplace_normalize_64(&mut stake_64);
         let stake: Vec<I32F32> = vec_fixed64_to_fixed32(stake_64);
@@ -484,6 +486,12 @@ impl<T: Config> Pallet<T> {
         for (uid_i, hotkey) in &hotkeys {
             stake_64[*uid_i as usize] =
                 I64F64::from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
+            // Save the total stake for this subnet
+            <TotalSubnetStake<T>>::insert(
+                netuid,
+                hotkey,
+                stake_64[*uid_i as usize].to_num::<u64>(),
+            );
         }
         log::trace!("Stake : {:?}", &stake_64);
         inplace_normalize_64(&mut stake_64);
