@@ -208,10 +208,10 @@ jobs:
 
       - name: cargo clippy --workspace --all-targets --all-features -- -D warnings
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
-  # runs cargo audit
   cargo-audit:
     name: cargo audit
     runs-on: SubtensorCI
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-cargo-audit') }}
     strategy:
       matrix:
         rust-branch:
