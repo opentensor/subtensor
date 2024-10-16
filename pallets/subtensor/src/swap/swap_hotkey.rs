@@ -316,7 +316,20 @@ impl<T: Config> Pallet<T> {
             // Remove the old hotkey's child entries
             ChildKeys::<T>::remove(old_hotkey, netuid);
             // Insert the same child entries for the new hotkey
-            ChildKeys::<T>::insert(new_hotkey, netuid, my_children);
+            ChildKeys::<T>::insert(new_hotkey, netuid, my_children.clone());
+            for (_, child_key_i) in my_children {
+                // For each child, update their parent list
+                let mut child_parents: Vec<(u64, T::AccountId)> =
+                    ParentKeys::<T>::get(child_key_i.clone(), netuid);
+                for parent in child_parents.iter_mut() {
+                    // If the parent is the old hotkey, replace it with the new hotkey
+                    if parent.1 == *old_hotkey {
+                        parent.1 = new_hotkey.clone();
+                    }
+                }
+                // Update the child's parent list
+                ParentKeys::<T>::insert(child_key_i, netuid, child_parents);
+            }
         }
 
         // 12. Swap ParentKeys.
