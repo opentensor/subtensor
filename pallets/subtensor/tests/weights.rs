@@ -7,7 +7,7 @@ use frame_support::{
     pallet_prelude::{InvalidTransaction, TransactionValidityError},
 };
 use mock::*;
-use pallet_subtensor::{Error, Owner};
+use pallet_subtensor::{CustomTransactionError, Error, Owner, ValidatorPermit};
 use sp_core::{H256, U256};
 use sp_runtime::{
     traits::{BlakeTwo256, DispatchInfoOf, Hash, SignedExtension},
@@ -279,10 +279,39 @@ fn test_set_weights_validate() {
             version_key: 0,
         });
 
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = pallet_subtensor::SubtensorSignedExtension::<Test>::new();
+
         // Create netuid
         add_network(netuid, 0, 0);
+
+        // Check extension before hotkey registerred
+        let result_no_hotkey = extension.validate(&who, &call.clone(), &info, 10);
+        assert_err!(
+            result_no_hotkey,
+            TransactionValidityError::Invalid(InvalidTransaction::Custom(
+                CustomTransactionError::HotKeyNotRegisteredInSubNet.into()
+            ))
+        );
+
         // Register the hotkey
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
+
+        // Check extension without validator permission
+        let result_no_permission = extension.validate(&who, &call.clone(), &info, 10);
+        assert_err!(
+            result_no_permission,
+            TransactionValidityError::Invalid(InvalidTransaction::Custom(
+                CustomTransactionError::ValidatorWithoutPermission.into()
+            ))
+        );
+        let uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey)
+            .expect("we can get it after append_neuron");
+
+        // Set validator permit for the hotkey
+        ValidatorPermit::<Test>::mutate(netuid, |v| *v = vec![true; uid as usize + 1]);
+
         Owner::<Test>::insert(hotkey, coldkey);
 
         let min_stake = 500_000_000_000;
@@ -291,17 +320,11 @@ fn test_set_weights_validate() {
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-        let info: DispatchInfo =
-            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = pallet_subtensor::SubtensorSignedExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
-        // Should fail due to insufficient stake
-        assert_err!(
-            result_no_stake,
-            TransactionValidityError::Invalid(InvalidTransaction::Custom(3))
-        );
+        // Should ok even no any stake
+        assert_ok!(result_no_stake);
 
         // Increase the stake to be equal to the minimum
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
@@ -457,55 +480,6 @@ fn test_weights_err_no_validator_permit() {
             0,
         );
         assert_ok!(result);
-    });
-}
-
-// To execute this test: cargo test --package pallet-subtensor --test weights test_set_weights_min_stake_failed -- --nocapture`
-#[test]
-fn test_set_weights_min_stake_failed() {
-    new_test_ext(0).execute_with(|| {
-        let dests = vec![0];
-        let weights = vec![1];
-        let netuid: u16 = 1;
-        let version_key: u64 = 0;
-        let hotkey = U256::from(0);
-        let coldkey = U256::from(0);
-        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
-        add_network(netuid, 0, 0);
-        register_ok_neuron(netuid, hotkey, coldkey, 2143124);
-        SubtensorModule::set_weights_min_stake(20_000_000_000_000);
-
-        // Check the signed extension function.
-        assert_eq!(SubtensorModule::get_weights_min_stake(), 20_000_000_000_000);
-        assert!(!SubtensorModule::check_weights_min_stake(&hotkey));
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 19_000_000_000_000);
-        assert!(!SubtensorModule::check_weights_min_stake(&hotkey));
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 20_000_000_000_000);
-        assert!(SubtensorModule::check_weights_min_stake(&hotkey));
-
-        // Check that it fails at the pallet level.
-        SubtensorModule::set_weights_min_stake(100_000_000_000_000);
-        assert_eq!(
-            commit_reveal_set_weights(
-                hotkey,
-                netuid,
-                dests.clone(),
-                weights.clone(),
-                salt.clone(),
-                version_key
-            ),
-            Err(Error::<Test>::NotEnoughStakeToSetWeights.into())
-        );
-        // Now passes
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 100_000_000_000_000);
-        assert_ok!(commit_reveal_set_weights(
-            hotkey,
-            netuid,
-            dests.clone(),
-            weights.clone(),
-            salt.clone(),
-            version_key
-        ));
     });
 }
 
