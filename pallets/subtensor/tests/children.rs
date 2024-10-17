@@ -3567,3 +3567,138 @@ fn test_childkey_take_drain() {
         ));
     });
 }
+
+/// Test that drain_hotkey_emission sends childkey take fully to the childkey with validator take enabled.
+#[test]
+fn test_childkey_take_drain_validator_take() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let parent = U256::from(2);
+        let child = U256::from(3);
+        let nominator = U256::from(4);
+        let netuid: u16 = 1;
+        let root_id: u16 = 0;
+        let subnet_tempo = 10;
+        let hotkey_tempo = 20;
+        let stake = 100_000_000_000;
+        let proportion: u64 = u64::MAX;
+
+        // Add network, register hotkeys, and setup network parameters
+        add_network(root_id, subnet_tempo, 0);
+        add_network(netuid, subnet_tempo, 0);
+        register_ok_neuron(netuid, child, coldkey, 0);
+        register_ok_neuron(netuid, parent, coldkey, 1);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey,
+            stake + ExistentialDeposit::get(),
+        );
+        SubtensorModule::add_balance_to_coldkey_account(
+            &nominator,
+            stake + ExistentialDeposit::get(),
+        );
+        SubtensorModule::set_hotkey_emission_tempo(hotkey_tempo);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        SubtensorModule::set_max_allowed_validators(netuid, 2);
+        step_block(subnet_tempo);
+        pallet_subtensor::SubnetOwnerCut::<Test>::set(0);
+
+        // Set 20% childkey take
+        let max_take: u16 = 0xFFFF / 5;
+        SubtensorModule::set_max_childkey_take(max_take);
+        assert_ok!(SubtensorModule::set_childkey_take(
+            RuntimeOrigin::signed(coldkey),
+            child,
+            netuid,
+            max_take
+        ));
+
+        // Set 20% hotkey take for childkey
+        SubtensorModule::set_max_delegate_take(max_take);
+        assert_ok!(SubtensorModule::do_become_delegate(
+            RuntimeOrigin::signed(coldkey),
+            child,
+            max_take
+        ));
+
+        // Set 20% hotkey take for parent
+        assert_ok!(SubtensorModule::do_become_delegate(
+            RuntimeOrigin::signed(coldkey),
+            parent,
+            max_take
+        ));
+
+        // Setup stakes:
+        //   Stake from parent
+        //   Stake from nominator to childkey
+        //   Give 100% of parent stake to childkey
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            parent,
+            stake
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(nominator),
+            child,
+            stake
+        ));
+        assert_ok!(SubtensorModule::do_set_children(
+            RuntimeOrigin::signed(coldkey),
+            parent,
+            netuid,
+            vec![(proportion, child)]
+        ));
+        // Make all stakes viable
+        pallet_subtensor::StakeDeltaSinceLastEmissionDrain::<Test>::set(parent, coldkey, -1);
+        pallet_subtensor::StakeDeltaSinceLastEmissionDrain::<Test>::set(child, nominator, -1);
+
+        // Setup YUMA so that it creates emissions:
+        //   Parent and child both set weights
+        //   Parent and child register on root and
+        //   Set root weights
+        pallet_subtensor::Weights::<Test>::insert(netuid, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        pallet_subtensor::Weights::<Test>::insert(netuid, 1, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        assert_ok!(SubtensorModule::do_root_register(
+            RuntimeOrigin::signed(coldkey),
+            parent,
+        ));
+        assert_ok!(SubtensorModule::do_root_register(
+            RuntimeOrigin::signed(coldkey),
+            child,
+        ));
+        pallet_subtensor::Weights::<Test>::insert(root_id, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        pallet_subtensor::Weights::<Test>::insert(root_id, 1, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+
+        // Run run_coinbase until PendingHotkeyEmission are populated
+        while pallet_subtensor::PendingdHotkeyEmission::<Test>::get(child) == 0 {
+            step_block(1);
+        }
+
+        // Prevent further subnet epochs
+        pallet_subtensor::Tempo::<Test>::set(netuid, u16::MAX);
+        pallet_subtensor::Tempo::<Test>::set(root_id, u16::MAX);
+
+        // Run run_coinbase until PendingHotkeyEmission is drained for both child and parent
+        step_block((hotkey_tempo * 2) as u16);
+
+        // Verify how emission is split between keys
+        //   - Child stake increased by its child key take (20% * 50% = 10% of total emission) plus childkey's delegate take (10%)
+        //   - Parent stake increased by 40% of total emission
+        //   - Nominator stake increased by 40% of total emission
+        let child_emission = pallet_subtensor::Stake::<Test>::get(child, coldkey);
+        let parent_emission = pallet_subtensor::Stake::<Test>::get(parent, coldkey) - stake;
+        let nominator_emission = pallet_subtensor::Stake::<Test>::get(child, nominator) - stake;
+        let total_emission = child_emission + parent_emission + nominator_emission;
+
+        assert!(is_within_tolerance(child_emission, total_emission / 5, 500));
+        assert!(is_within_tolerance(
+            parent_emission,
+            total_emission / 10 * 4,
+            500
+        ));
+        assert!(is_within_tolerance(
+            nominator_emission,
+            total_emission / 10 * 4,
+            500
+        ));
+    });
+}
