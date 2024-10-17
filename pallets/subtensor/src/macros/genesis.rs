@@ -70,66 +70,66 @@ mod genesis {
             // Set initial total issuance from balances
             TotalIssuance::<T>::put(self.balances_issuance);
 
-            let tempo = 99;
-
             if self.initialize_network_3 {
+                let tempo = 99;
+
                 init_network::<T>(3, tempo);
 
+                let netuid: u16 = 3;
+                let max_uids = 4096;
 
-            let netuid: u16 = 3;
-            let max_uids = 4096;
+                // Set max allowed uids
+                MaxAllowedUids::<T>::insert(netuid, max_uids);
 
-            // Set max allowed uids
-            MaxAllowedUids::<T>::insert(netuid, max_uids);
+                let mut next_uid: u16 = 0;
 
-            let mut next_uid: u16 = 0;
+                for (coldkey, hotkeys) in self.stakes.iter() {
+                    for (hotkey, stake_uid) in hotkeys.iter() {
+                        let (stake, uid) = stake_uid;
 
-            for (coldkey, hotkeys) in self.stakes.iter() {
-                for (hotkey, stake_uid) in hotkeys.iter() {
-                    let (stake, uid) = stake_uid;
+                        // Expand Yuma Consensus with new position.
+                        Rank::<T>::mutate(netuid, |v| v.push(0));
+                        Trust::<T>::mutate(netuid, |v| v.push(0));
+                        Active::<T>::mutate(netuid, |v| v.push(true));
+                        Emission::<T>::mutate(netuid, |v| v.push(0));
+                        Consensus::<T>::mutate(netuid, |v| v.push(0));
+                        Incentive::<T>::mutate(netuid, |v| v.push(0));
+                        Dividends::<T>::mutate(netuid, |v| v.push(0));
+                        LastUpdate::<T>::mutate(netuid, |v| v.push(0));
+                        PruningScores::<T>::mutate(netuid, |v| v.push(0));
+                        ValidatorTrust::<T>::mutate(netuid, |v| v.push(0));
+                        ValidatorPermit::<T>::mutate(netuid, |v| v.push(false));
 
-                    // Expand Yuma Consensus with new position.
-                    Rank::<T>::mutate(netuid, |v| v.push(0));
-                    Trust::<T>::mutate(netuid, |v| v.push(0));
-                    Active::<T>::mutate(netuid, |v| v.push(true));
-                    Emission::<T>::mutate(netuid, |v| v.push(0));
-                    Consensus::<T>::mutate(netuid, |v| v.push(0));
-                    Incentive::<T>::mutate(netuid, |v| v.push(0));
-                    Dividends::<T>::mutate(netuid, |v| v.push(0));
-                    LastUpdate::<T>::mutate(netuid, |v| v.push(0));
-                    PruningScores::<T>::mutate(netuid, |v| v.push(0));
-                    ValidatorTrust::<T>::mutate(netuid, |v| v.push(0));
-                    ValidatorPermit::<T>::mutate(netuid, |v| v.push(false));
+                        // Insert account information.
+                        Keys::<T>::insert(netuid, uid, hotkey.clone()); // Make hotkey - uid association.
+                        Uids::<T>::insert(netuid, hotkey.clone(), uid); // Make uid - hotkey association.
+                        BlockAtRegistration::<T>::insert(netuid, uid, 0); // Fill block at registration.
+                        IsNetworkMember::<T>::insert(hotkey.clone(), netuid, true); // Fill network is member.
 
-                    // Insert account information.
-                    Keys::<T>::insert(netuid, uid, hotkey.clone()); // Make hotkey - uid association.
-                    Uids::<T>::insert(netuid, hotkey.clone(), uid); // Make uid - hotkey association.
-                    BlockAtRegistration::<T>::insert(netuid, uid, 0); // Fill block at registration.
-                    IsNetworkMember::<T>::insert(hotkey.clone(), netuid, true); // Fill network is member.
+                        // Fill stake information.
+                        Owner::<T>::insert(hotkey.clone(), coldkey.clone());
 
-                    // Fill stake information.
-                    Owner::<T>::insert(hotkey.clone(), coldkey.clone());
+                        TotalHotkeyStake::<T>::insert(hotkey.clone(), stake);
+                        TotalColdkeyStake::<T>::insert(
+                            coldkey.clone(),
+                            TotalColdkeyStake::<T>::get(coldkey).saturating_add(*stake),
+                        );
 
-                    TotalHotkeyStake::<T>::insert(hotkey.clone(), stake);
-                    TotalColdkeyStake::<T>::insert(
-                        coldkey.clone(),
-                        TotalColdkeyStake::<T>::get(coldkey).saturating_add(*stake),
-                    );
+                        // Update total issuance value
+                        TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(*stake));
 
-                    // Update total issuance value
-                    TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(*stake));
+                        Stake::<T>::insert(hotkey.clone(), coldkey.clone(), stake);
 
-                    Stake::<T>::insert(hotkey.clone(), coldkey.clone(), stake);
-
-                    next_uid = next_uid.saturating_add(1);
+                        next_uid = next_uid.saturating_add(1);
+                    }
                 }
+
+                // Set correct length for Subnet neurons
+                SubnetworkN::<T>::insert(netuid, next_uid);
+
+                // --- Increase total network count.
+                TotalNetworks::<T>::mutate(|n| *n = n.saturating_add(1));
             }
-
-            // Set correct length for Subnet neurons
-            SubnetworkN::<T>::insert(netuid, next_uid);
-
-            // --- Increase total network count.
-            TotalNetworks::<T>::mutate(|n| *n = n.saturating_add(1));
 
             // Get the root network uid.
             let root_netuid: u16 = 0;
