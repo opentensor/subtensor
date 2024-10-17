@@ -2490,11 +2490,11 @@ fn test_mining_emission_drain() {
         pallet_subtensor::StakeDeltaSinceLastEmissionDrain::<Test>::set(miner, nominator, -1);
 
         // Setup YUMA so that it creates emissions:
-        //   Validator sets weights
+        //   Validator sets weight for miner
         //   Validator registers on root and
         //   Sets root weights
         //   Last weight update is after block at registration
-        pallet_subtensor::Weights::<Test>::insert(netuid, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        pallet_subtensor::Weights::<Test>::insert(netuid, 0, vec![(1, 0xFFFF)]);
         assert_ok!(SubtensorModule::do_root_register(
             RuntimeOrigin::signed(coldkey),
             validator,
@@ -2544,8 +2544,8 @@ fn test_mining_emission_drain() {
 fn test_mining_emission_drain_with_validation() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
-        let validator = U256::from(2);
-        let miner = U256::from(3);
+        let validator_miner1 = U256::from(2);
+        let validator_miner2 = U256::from(3);
         let nominator = U256::from(4);
         let netuid: u16 = 1;
         let root_id: u16 = 0;
@@ -2553,13 +2553,13 @@ fn test_mining_emission_drain_with_validation() {
         let subnet_tempo = 10;
         let hotkey_tempo = 20;
         let stake = 100_000_000_000;
-        let nominator_stake = 99_999_999_999; // 1 rao less than validator so that validator makes it to top_k
+        let half_stake = 50_000_000_000;
 
         // Add network, register hotkeys, and setup network parameters
         add_network(root_id, root_tempo, 0);
         add_network(netuid, subnet_tempo, 0);
-        register_ok_neuron(netuid, validator, coldkey, 0);
-        register_ok_neuron(netuid, miner, coldkey, 1);
+        register_ok_neuron(netuid, validator_miner1, coldkey, 0);
+        register_ok_neuron(netuid, validator_miner2, coldkey, 1);
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey,
             2 * stake + ExistentialDeposit::get(),
@@ -2582,14 +2582,14 @@ fn test_mining_emission_drain_with_validation() {
         SubtensorModule::set_min_delegate_take(0);
         assert_ok!(SubtensorModule::do_become_delegate(
             RuntimeOrigin::signed(coldkey),
-            validator,
+            validator_miner1,
             0
         ));
 
         // Set zero hotkey take for miner
         assert_ok!(SubtensorModule::do_become_delegate(
             RuntimeOrigin::signed(coldkey),
-            miner,
+            validator_miner2,
             0
         ));
 
@@ -2600,26 +2600,38 @@ fn test_mining_emission_drain_with_validation() {
         //   Give 100% of parent stake to childkey
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey),
-            validator,
+            validator_miner1,
             stake
         ));
-        // assert_ok!(SubtensorModule::add_stake(
-        //     RuntimeOrigin::signed(coldkey),
-        //     miner,
-        //     miner_stake
-        // ));
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            validator_miner2,
+            half_stake
+        ));
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(nominator),
-            miner,
-            nominator_stake
+            validator_miner2,
+            half_stake
         ));
         // Make all stakes viable
-        pallet_subtensor::StakeDeltaSinceLastEmissionDrain::<Test>::set(validator, coldkey, -1);
-        pallet_subtensor::StakeDeltaSinceLastEmissionDrain::<Test>::set(miner, nominator, -1);
+        pallet_subtensor::StakeDeltaSinceLastEmissionDrain::<Test>::set(
+            validator_miner1,
+            coldkey,
+            -1,
+        );
+        pallet_subtensor::StakeDeltaSinceLastEmissionDrain::<Test>::set(
+            validator_miner2,
+            coldkey,
+            -1,
+        );
+        pallet_subtensor::StakeDeltaSinceLastEmissionDrain::<Test>::set(
+            validator_miner2,
+            nominator,
+            -1,
+        );
 
         // Setup YUMA so that it creates emissions:
-        //   Validator sets weights
-        //   Miner sets weights
+        //   Validators set weights for each other
         //   Validator registers on root and
         //   Sets root weights
         //   Last weight update is after block at registration
@@ -2627,7 +2639,7 @@ fn test_mining_emission_drain_with_validation() {
         pallet_subtensor::Weights::<Test>::insert(netuid, 1, vec![(0, 0xFFFF), (1, 0xFFFF)]);
         assert_ok!(SubtensorModule::do_root_register(
             RuntimeOrigin::signed(coldkey),
-            validator,
+            validator_miner1,
         ));
         pallet_subtensor::Weights::<Test>::insert(root_id, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
         pallet_subtensor::BlockAtRegistration::<Test>::set(netuid, 0, 1);
@@ -2644,7 +2656,7 @@ fn test_mining_emission_drain_with_validation() {
         pallet_subtensor::Tempo::<Test>::set(root_id, u16::MAX);
 
         // Run run_coinbase until PendingHotkeyEmission are populated
-        while pallet_subtensor::PendingdHotkeyEmission::<Test>::get(miner) == 0 {
+        while pallet_subtensor::PendingdHotkeyEmission::<Test>::get(validator_miner1) == 0 {
             step_block(1);
         }
 
@@ -2656,22 +2668,21 @@ fn test_mining_emission_drain_with_validation() {
 
         // Verify how emission is split between keys
         //   - 50% goes to miners and 50% goes to validators
-        //   - Miner's reward is treated as half miner and half validator because he set weights
-        //   - Validator stake increased by 50% of total emission
-        //   - Miner stake increased by 25% of total emission
-        //   - Nominator gets increased by 25% of total emission
-        let miner_emission = pallet_subtensor::Stake::<Test>::get(miner, coldkey);
-        let validator_emission = pallet_subtensor::Stake::<Test>::get(validator, coldkey) - stake;
+        //   - Miner's reward is treated as half miner and half validator
+        //   - Neuron 1 stake is increased by 50% of total emission
+        //   - Neuron 2 stake is increased by 37.5% of total emission (mining portion is intact, validation portion is split 50%)
+        //   - Nominator stake is increased by 12.5% of total emission (validation portion is distributed in 50% proportion)
+        let validator_miner_emission1 =
+            pallet_subtensor::Stake::<Test>::get(validator_miner1, coldkey) - stake;
+        let validator_miner_emission2 =
+            pallet_subtensor::Stake::<Test>::get(validator_miner2, coldkey) - half_stake;
         let nominator_emission =
-            pallet_subtensor::Stake::<Test>::get(miner, nominator) - nominator_stake;
-        let total_emission = validator_emission + miner_emission + nominator_emission;
+            pallet_subtensor::Stake::<Test>::get(validator_miner2, nominator) - half_stake;
+        let total_emission =
+            validator_miner_emission1 + validator_miner_emission2 + nominator_emission;
 
-        assert_eq!(validator_emission, total_emission / 2);
-        assert!(is_within_tolerance(miner_emission, total_emission / 4, 5));
-        assert!(is_within_tolerance(
-            nominator_emission,
-            total_emission / 4,
-            5
-        ));
+        assert_eq!(validator_miner_emission1, total_emission / 2);
+        assert_eq!(validator_miner_emission2, total_emission / 1000 * 375);
+        assert_eq!(nominator_emission, total_emission / 1000 * 125);
     });
 }
