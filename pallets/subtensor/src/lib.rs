@@ -31,7 +31,7 @@ use sp_std::marker::PhantomData;
 // ============================
 //	==== Benchmark Imports =====
 // ============================
-mod benchmarks;
+mod benchmarking;
 
 // =========================
 //	==== Pallet Imports =====

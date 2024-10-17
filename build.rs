@@ -1,11 +1,6 @@
 use rayon::prelude::*;
-use std::{
-    env, fs,
-    path::{Path, PathBuf},
-    str::FromStr,
-    sync::mpsc::channel,
-};
-use walkdir::WalkDir;
+use std::{env, fs, path::Path, str::FromStr, sync::mpsc::channel};
+use subtensor_code_coverage::collect_rust_files;
 
 use subtensor_linting::*;
 
@@ -14,7 +9,6 @@ fn main() {
     println!("cargo:rerun-if-changed=pallets");
     println!("cargo:rerun-if-changed=node");
     println!("cargo:rerun-if-changed=runtime");
-    println!("cargo:rerun-if-changed=lints");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src");
     println!("cargo:rerun-if-changed=support");
@@ -24,6 +18,9 @@ fn main() {
 
     // Collect all Rust source files in the workspace
     let rust_files = collect_rust_files(workspace_root);
+
+    // Generate code coverage report
+    subtensor_code_coverage::analyze_files(&rust_files, workspace_root);
 
     // Channel used to communicate errors back to the main thread from the parallel processing
     // as we process each Rust file
@@ -49,8 +46,7 @@ fn main() {
             for error in errors {
                 let loc = error.span().start();
                 let file_path = relative_path.display();
-                // note that spans can't go across thread boundaries without losing their location
-                // info so we we serialize here and send a String
+                // note that spans can't go across thread boundaries so we serialize here and send a String
                 tx.send(format!(
                     "cargo:warning={}:{}:{}: {}",
                     file_path, loc.line, loc.column, error,
@@ -59,6 +55,7 @@ fn main() {
             }
         };
 
+        track_lint(DisallowV1Benchmarks::lint(&parsed_file));
         track_lint(ForbidAsPrimitiveConversion::lint(&parsed_file));
         track_lint(RequireFreezeStruct::lint(&parsed_file));
         track_lint(RequireExplicitPalletIndex::lint(&parsed_file));
@@ -70,31 +67,4 @@ fn main() {
     for error in rx {
         println!("{error}");
     }
-}
-
-/// Recursively collects all Rust files in the given directory
-fn collect_rust_files(dir: &Path) -> Vec<PathBuf> {
-    let mut rust_files = Vec::new();
-
-    for entry in WalkDir::new(dir) {
-        let Ok(entry) = entry else {
-            continue;
-        };
-        let path = entry.path();
-
-        // Skip any path that contains "target" directory
-        if path
-            .components()
-            .any(|component| component.as_os_str() == "target")
-            || path.ends_with("build.rs")
-        {
-            continue;
-        }
-
-        if path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("rs") {
-            rust_files.push(path.to_path_buf());
-        }
-    }
-
-    rust_files
 }
