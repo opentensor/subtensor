@@ -79,6 +79,7 @@ pub fn analyze_files(rust_files: &[PathBuf], workspace_root: &Path) -> Vec<Palle
         rust_files.len()
     );
     let tests = find_tests(rust_files);
+    let benchmarks = find_benchmarks(rust_files);
 
     let methods = infos
         .iter()
@@ -86,6 +87,7 @@ pub fn analyze_files(rust_files: &[PathBuf], workspace_root: &Path) -> Vec<Palle
         .collect::<HashSet<_>>();
 
     custom_println!("[code-coverage]", green, "found {} tests", tests.len());
+    custom_println!("[code-coverage]", green, "found {} benchmarks", benchmarks.len());
 
     custom_println!(
         "[code-coverage]",
@@ -108,6 +110,17 @@ pub fn analyze_files(rust_files: &[PathBuf], workspace_root: &Path) -> Vec<Palle
         for method in &test.method_calls {
             let method = method.strip_prefix("sudo_").unwrap_or(method);
             let Some(count) = coverage.get_mut(method) else {
+                continue;
+            };
+            *count += 1;
+        }
+    }
+    // if a call is in a benchmark, we can consider it tested since a benchmark test is
+    // auto-generated
+    for benchmark in &benchmarks {
+        for call in &benchmark.calls {
+            let call = call.strip_prefix("sudo_").unwrap_or(call);
+            let Some(count) = coverage.get_mut(call) else {
                 continue;
             };
             *count += 1;
@@ -207,7 +220,7 @@ pub fn find_tests(rust_files: &[PathBuf]) -> Vec<TestInfo> {
                 .into_iter()
                 .map(|f| {
                     let mut method_calls = HashSet::new();
-                    let mut visitor = CallVisitor {
+                    let mut visitor = MethodCallVisitor {
                         method_calls: &mut method_calls,
                     };
                     visitor.visit_item_fn(&f);
@@ -225,11 +238,65 @@ pub fn find_tests(rust_files: &[PathBuf]) -> Vec<TestInfo> {
         })
 }
 
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
+pub struct BenchmarkInfo {
+    pub calls: HashSet<String>,
+}
+
+/// Finds all benchmarks in the given set of rust files, using a parallel map-reduce
+pub fn find_benchmarks(rust_files: &[PathBuf]) -> Vec<BenchmarkInfo> {
+    rust_files
+        .par_iter()
+        .map(|path| {
+            let Ok(content) = fs::read_to_string(path) else {
+                return Vec::new();
+            };
+            let Ok(file) = syn::parse_file(&content) else {
+                return Vec::new();
+            };
+            let mut visitor = BenchmarkVisitor { benchmarks: Vec::new() };
+            visitor.visit_file(&file);
+            visitor
+                .benchmarks
+                .into_iter()
+                .map(|f| {
+                    let mut calls = HashSet::new();
+                    let mut visitor = CallVisitor {
+                        calls: &mut calls,
+                    };
+                    visitor.visit_item_fn(&f);
+                    BenchmarkInfo {
+                        calls,
+                    }
+                })
+                .collect()
+        })
+        .reduce(Vec::new, |mut acc, mut infos| {
+            acc.append(&mut infos);
+            acc
+        })
+}
+
 pub struct CallVisitor<'a> {
-    pub method_calls: &'a mut HashSet<String>,
+    pub calls: &'a mut HashSet<String>,
 }
 
 impl<'ast> Visit<'ast> for CallVisitor<'_> {
+    fn visit_expr_call(&mut self, i: &'ast syn::ExprCall) {
+        if let syn::Expr::Path(expr) = &*i.func {
+            if let Some(seg) = expr.path.segments.last() {
+                self.calls.insert(seg.ident.to_string());
+            }
+        }
+        syn::visit::visit_expr_call(self, i);
+    }
+}
+
+pub struct MethodCallVisitor<'a> {
+    pub method_calls: &'a mut HashSet<String>,
+}
+
+impl<'ast> Visit<'ast> for MethodCallVisitor<'_> {
     fn visit_expr_method_call(&mut self, i: &'ast syn::ExprMethodCall) {
         self.method_calls.insert(i.method.to_string());
         syn::visit::visit_expr_method_call(self, i);
@@ -255,6 +322,24 @@ impl<'ast> Visit<'ast> for TestVisitor {
             seg.ident == "test" || seg.ident == "should_panic"
         }) {
             self.tests.push(item_fn.clone());
+        }
+        syn::visit::visit_item_fn(self, item_fn);
+    }
+}
+
+pub struct BenchmarkVisitor {
+    pub benchmarks: Vec<ItemFn>,
+}
+
+impl<'ast> Visit<'ast> for BenchmarkVisitor {
+    fn visit_item_fn(&mut self, item_fn: &'ast ItemFn) {
+        if item_fn.attrs.iter().any(|attr| {
+            let Some(seg) = attr.path().segments.last() else {
+                return false;
+            };
+            seg.ident == "benchmark"
+        }) {
+            self.benchmarks.push(item_fn.clone());
         }
         syn::visit::visit_item_fn(self, item_fn);
     }
