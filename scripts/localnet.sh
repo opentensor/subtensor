@@ -19,6 +19,9 @@ LOG_DIR="$BASE_DIR/logs"
 ALICE_LOG="$LOG_DIR/alice.log"
 BOB_LOG="$LOG_DIR/bob.log"
 
+# Create the log dir if it doesn't exist
+mkdir -p "$LOG_DIR"
+
 # get parameters
 # Get the value of fast_blocks from the first argument
 fast_blocks=${1:-"True"}
