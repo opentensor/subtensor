@@ -186,5 +186,7 @@ mod errors {
         ExpiredWeightCommit,
         /// Attempted to reveal weights too early.
         RevealTooEarly,
+        /// Attempted to batch reveal weights with mismatched vector input lenghts.
+        InputLengthsUnequal,
     }
 }
