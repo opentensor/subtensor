@@ -87,7 +87,12 @@ pub fn analyze_files(rust_files: &[PathBuf], workspace_root: &Path) -> Vec<Palle
         .collect::<HashSet<_>>();
 
     custom_println!("[code-coverage]", green, "found {} tests", tests.len());
-    custom_println!("[code-coverage]", green, "found {} benchmarks", benchmarks.len());
+    custom_println!(
+        "[code-coverage]",
+        green,
+        "found {} benchmarks",
+        benchmarks.len()
+    );
 
     custom_println!(
         "[code-coverage]",
@@ -254,20 +259,18 @@ pub fn find_benchmarks(rust_files: &[PathBuf]) -> Vec<BenchmarkInfo> {
             let Ok(file) = syn::parse_file(&content) else {
                 return Vec::new();
             };
-            let mut visitor = BenchmarkVisitor { benchmarks: Vec::new() };
+            let mut visitor = BenchmarkVisitor {
+                benchmarks: Vec::new(),
+            };
             visitor.visit_file(&file);
             visitor
                 .benchmarks
                 .into_iter()
                 .map(|f| {
                     let mut calls = HashSet::new();
-                    let mut visitor = CallVisitor {
-                        calls: &mut calls,
-                    };
+                    let mut visitor = CallVisitor { calls: &mut calls };
                     visitor.visit_item_fn(&f);
-                    BenchmarkInfo {
-                        calls,
-                    }
+                    BenchmarkInfo { calls }
                 })
                 .collect()
         })
