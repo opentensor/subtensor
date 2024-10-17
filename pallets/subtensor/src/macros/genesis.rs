@@ -74,7 +74,7 @@ mod genesis {
 
             if self.initialize_network_3 {
                 init_network::<T>(3, tempo);
-            }
+
 
             let netuid: u16 = 3;
             let max_uids = 4096;
@@ -140,7 +140,7 @@ mod genesis {
             // Increment the number of total networks.
             TotalNetworks::<T>::mutate(|n| *n = n.saturating_add(1));
 
-            // Set the number of validators to 1.
+            // Set the number of validators to 0.
             SubnetworkN::<T>::insert(root_netuid, 0);
 
             // Set the maximum number to the number of senate members.
