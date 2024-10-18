@@ -3,7 +3,7 @@
 
 use super::*;
 
-pub fn localnet_config() -> Result<ChainSpec, String> {
+pub fn e2e_test_config() -> Result<ChainSpec, String> {
     let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 
     // Give front-ends necessary data to present to users
@@ -11,17 +11,6 @@ pub fn localnet_config() -> Result<ChainSpec, String> {
     properties.insert("tokenSymbol".into(), "TAO".into());
     properties.insert("tokenDecimals".into(), 9.into());
     properties.insert("ss58Format".into(), 42.into());
-    let genesis = localnet_genesis(
-        // Initial PoA authorities (Validators)
-        // aura | grandpa
-        vec![
-            // Keys for debug
-            authority_keys_from_seed("Alice"),
-            authority_keys_from_seed("Bob"),
-        ],
-        // Pre-funded accounts
-        false,
-    );
 
     Ok(ChainSpec::builder(
         wasm_binary,
@@ -40,12 +29,22 @@ pub fn localnet_config() -> Result<ChainSpec, String> {
     .with_protocol_id("bittensor")
     .with_id("bittensor")
     .with_chain_type(ChainType::Development)
-    .with_genesis_config_patch(genesis)
+    .with_genesis_config_patch(e2e_test_genesis(
+        // Initial PoA authorities (Validators)
+        // aura | grandpa
+        vec![
+            // Keys for debug
+            authority_keys_from_seed("Alice"),
+            authority_keys_from_seed("Bob"),
+        ],
+        // Pre-funded accounts
+        true,
+    ))
     .with_properties(properties)
     .build())
 }
 
-fn localnet_genesis(
+fn e2e_test_genesis(
     initial_authorities: Vec<(AuraId, GrandpaId)>,
     _enable_println: bool,
 ) -> serde_json::Value {
@@ -73,46 +72,6 @@ fn localnet_genesis(
         (
             get_account_id_from_seed::<sr25519::Public>("Ferdie"),
             2000000000000u128,
-        ),
-        (
-            get_account_id_from_seed::<sr25519::Public>("Grace"),
-            1500000000000u128,
-        ),
-        (
-            get_account_id_from_seed::<sr25519::Public>("Tom"),
-            1500000000000u128,
-        ),
-        (
-            get_account_id_from_seed::<sr25519::Public>("Ivy"),
-            1500000000000u128,
-        ),
-        (
-            get_account_id_from_seed::<sr25519::Public>("Judy"),
-            1500000000000u128,
-        ),
-        (
-            get_account_id_from_seed::<sr25519::Public>("Jerry"),
-            1500000000000u128,
-        ),
-        (
-            get_account_id_from_seed::<sr25519::Public>("Harry"),
-            1500000000000u128,
-        ),
-        (
-            get_account_id_from_seed::<sr25519::Public>("Oscar"),
-            1500000000000u128,
-        ),
-        (
-            get_account_id_from_seed::<sr25519::Public>("Trent"),
-            1500000000000u128,
-        ),
-        (
-            get_account_id_from_seed::<sr25519::Public>("Victor"),
-            1500000000000u128,
-        ),
-        (
-            get_account_id_from_seed::<sr25519::Public>("Wendy"),
-            1500000000000u128,
         ),
     ];
 
@@ -156,9 +115,6 @@ fn localnet_genesis(
         },
         "senateMembers": {
             "members": senate_members,
-        },
-        "subtensorModule": {
-            "initializeNetwork3": false,
         },
     })
 }
