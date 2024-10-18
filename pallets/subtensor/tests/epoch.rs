@@ -2857,7 +2857,7 @@ fn test_blocks_since_last_step() {
 /// * `left` - The first value to compare.
 /// * `right` - The second value to compare.
 /// * `epsilon` - The maximum allowed difference between the two values.
-fn assert_approx_eq(left: I32F32, right: I32F32, epsilon: I32F32) {
+pub fn assert_approx_eq(left: I32F32, right: I32F32, epsilon: I32F32) {
     if (left - right).abs() > epsilon {
         panic!(
             "assertion failed: `(left ≈ right)`\n  left: `{:?}`,\n right: `{:?}`,\n epsilon: `{:?}`",
