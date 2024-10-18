@@ -74,6 +74,47 @@ fn localnet_genesis(
             get_account_id_from_seed::<sr25519::Public>("Ferdie"),
             2000000000000u128,
         ),
+        (
+            get_account_id_from_seed::<sr25519::Public>("Grace"),
+            1500000000000u128,
+        ),
+        (
+            get_account_id_from_seed::<sr25519::Public>("Tom"),
+            1500000000000u128,
+        ),
+        (
+            get_account_id_from_seed::<sr25519::Public>("Ivy"),
+            1500000000000u128,
+        ),
+        (
+            get_account_id_from_seed::<sr25519::Public>("Judy"),
+            1500000000000u128,
+        ),
+        (
+            get_account_id_from_seed::<sr25519::Public>("Jerry"),
+            1500000000000u128,
+        ),
+        (
+            get_account_id_from_seed::<sr25519::Public>("Harry"),
+            1500000000000u128,
+        ),
+        (
+            get_account_id_from_seed::<sr25519::Public>("Oscar"),
+            1500000000000u128,
+        ),
+        (
+            get_account_id_from_seed::<sr25519::Public>("Trent"),
+            1500000000000u128,
+        ),
+        (
+            get_account_id_from_seed::<sr25519::Public>("Victor"),
+            1500000000000u128,
+        ),
+        (
+            get_account_id_from_seed::<sr25519::Public>("Wendy"),
+            1500000000000u128,
+        ),
+        
     ];
 
     // Check if the environment variable is set
