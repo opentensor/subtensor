@@ -1068,7 +1068,10 @@ impl<T: Config> Pallet<T> {
         Self::set_min_allowed_weights(netuid, 1);
         Self::set_max_weight_limit(netuid, u16::MAX);
         Self::set_adjustment_interval(netuid, 360);
+        #[cfg(not(feature = "fast-blocks"))]
         Self::set_target_registrations_per_interval(netuid, 1);
+        #[cfg(feature = "fast-blocks")]
+        Self::set_target_registrations_per_interval(netuid, 1000);
         Self::set_adjustment_alpha(netuid, 17_893_341_751_498_265_066); // 18_446_744_073_709_551_615 * 0.97 = 17_893_341_751_498_265_066
         Self::set_immunity_period(netuid, 5000);
         Self::set_min_burn(netuid, 1);
@@ -1240,27 +1243,33 @@ impl<T: Config> Pallet<T> {
     ///     - The lock cost for the network.
     ///
     pub fn get_network_lock_cost() -> u64 {
-        let last_lock = Self::get_network_last_lock();
-        let min_lock = Self::get_network_min_lock();
-        let last_lock_block = Self::get_network_last_lock_block();
-        let current_block = Self::get_current_block_as_u64();
-        let lock_reduction_interval = Self::get_lock_reduction_interval();
-        let mult = if last_lock_block == 0 { 1 } else { 2 };
+        #[cfg(feature = "pow-faucet")]
+        return 0_u64;
 
-        let mut lock_cost = last_lock.saturating_mul(mult).saturating_sub(
-            last_lock
-                .saturating_div(lock_reduction_interval)
-                .saturating_mul(current_block.saturating_sub(last_lock_block)),
-        );
+        #[cfg(not(feature = "pow-faucet"))]
+        {
+            let last_lock = Self::get_network_last_lock();
+            let min_lock = Self::get_network_min_lock();
+            let last_lock_block = Self::get_network_last_lock_block();
+            let current_block = Self::get_current_block_as_u64();
+            let lock_reduction_interval = Self::get_lock_reduction_interval();
+            let mult = if last_lock_block == 0 { 1 } else { 2 };
 
-        if lock_cost < min_lock {
-            lock_cost = min_lock;
-        }
+            let mut lock_cost = last_lock.saturating_mul(mult).saturating_sub(
+                last_lock
+                    .saturating_div(lock_reduction_interval)
+                    .saturating_mul(current_block.saturating_sub(last_lock_block)),
+            );
 
-        log::debug!( "last_lock: {:?}, min_lock: {:?}, last_lock_block: {:?}, lock_reduction_interval: {:?}, current_block: {:?}, mult: {:?} lock_cost: {:?}",
+            if lock_cost < min_lock {
+                lock_cost = min_lock;
+            }
+
+            log::debug!( "last_lock: {:?}, min_lock: {:?}, last_lock_block: {:?}, lock_reduction_interval: {:?}, current_block: {:?}, mult: {:?} lock_cost: {:?}",
         last_lock, min_lock, last_lock_block, lock_reduction_interval, current_block, mult, lock_cost);
 
-        lock_cost
+            lock_cost
+        }
     }
 
     /// This function is used to determine which subnet to prune when the total number of networks has reached the limit.
