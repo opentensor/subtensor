@@ -154,9 +154,6 @@ mod dispatches {
         /// * `RevealTooEarly`:
         ///   - Attempting to reveal weights outside the valid reveal period.
         ///
-        /// * `RevealOutOfOrder`:
-        ///   - Attempting to reveal a commit out of the expected order.
-        ///
         /// * `InvalidRevealCommitHashNotMatch`:
         ///   - The revealed hash does not match any committed hash.
         ///
