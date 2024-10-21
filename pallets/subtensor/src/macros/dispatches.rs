@@ -212,8 +212,8 @@ mod dispatches {
         /// * `InvalidInputLengths`:
         ///   - The input vectors are of mismatched lengths.
         #[pallet::call_index(98)]
-        #[pallet::weight((Weight::from_parts(103_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(11))
+        #[pallet::weight((Weight::from_parts(367_612_000, 0)
+		.saturating_add(T::DbWeight::get().reads(14))
 		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
         pub fn batch_reveal_weights(
             origin: T::RuntimeOrigin,

@@ -1188,7 +1188,7 @@ pub mod pallet {
         /// # Weight
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(56)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        #[pallet::weight(T::WeightInfo::sudo_set_commit_reveal_weights_periods())]
         pub fn sudo_set_commit_reveal_weights_periods(
             origin: OriginFor<T>,
             netuid: u16,
