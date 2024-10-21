@@ -628,7 +628,7 @@ pub mod pallet {
     /// --- ITEM ( global_block_emission )
     pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
     #[pallet::storage] // --- DMap ( hot, netuid ) --> emission | Accumulated hotkey emission.
-    pub type PendingdHotkeyEmissionOnNetuid<T: Config> = StorageDoubleMap<
+    pub type PendingHotkeyEmissionOnNetuid<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         T::AccountId,

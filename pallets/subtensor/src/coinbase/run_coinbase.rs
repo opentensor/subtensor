@@ -158,7 +158,7 @@ impl<T: Config> Pallet<T> {
                 // Accounting
                 let mut processed_hotkeys_on_netuid: BTreeMap<T::AccountId, ()> = BTreeMap::new();
                 for (hotkey, netuid_j, emission) in hotkey_emission_tuples {
-                    PendingdHotkeyEmissionOnNetuid::<T>::mutate( &hotkey, netuid_j, |total| { *total = total.saturating_add( emission ) });
+                    PendingHotkeyEmissionOnNetuid::<T>::mutate( &hotkey, netuid_j, |total| { *total = total.saturating_add( emission ) });
                     // If the hotkey has not been processed yet, update the last emission drain block
                     if !processed_hotkeys_on_netuid.contains_key( &hotkey ) {
                         LastHotkeyEmissionOnNetuid::<T>::insert( &hotkey, netuid_j, emission);
@@ -187,10 +187,10 @@ impl<T: Config> Pallet<T> {
         // hotkeys --> nominators.
         let mut nominator_emission: Vec<(T::AccountId, T::AccountId, u16, u64)> = vec![];
         let emission_tempo: u64 = Self::get_hotkey_emission_tempo();
-        for (hotkey, netuid_i, hotkey_emission) in PendingdHotkeyEmissionOnNetuid::<T>::iter() {
+        for (hotkey, netuid_i, hotkey_emission) in PendingHotkeyEmissionOnNetuid::<T>::iter() {
             if Self::should_drain_hotkey(&hotkey, current_block, emission_tempo) {
                 // Remove the hotkey emission from the pending emissions.
-                PendingdHotkeyEmissionOnNetuid::<T>::remove(&hotkey, netuid_i);
+                PendingHotkeyEmissionOnNetuid::<T>::remove(&hotkey, netuid_i);
                 // Drain the hotkey emission.
                 Self::source_nominator_emission(
                     &hotkey,
@@ -452,25 +452,25 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Accumulates emissions for hotkeys across different subnets.
-    ///
-    /// This function takes a vector of tuples, each containing a hotkey account ID,
-    /// a subnet ID (netuid), and an emission value. It updates the pending emission
-    /// for each hotkey on the specified subnet by adding the given emission value.
-    ///
-    /// # Arguments
-    ///
-    /// * `hotkey_tuples` - A mutable reference to a vector of tuples, each containing:
-    ///   - `T::AccountId`: The account ID of the hotkey
-    ///   - `u16`: The subnet ID (netuid)
-    ///   - `u64`: The emission value to be added
-    pub fn accumulate_hotkey_emission(hotkey_tuples: &mut Vec<(T::AccountId, u16, u64)>) {
-        for (hotkey, netuid, emission) in hotkey_tuples {
-            PendingdHotkeyEmissionOnNetuid::<T>::mutate(hotkey, *netuid, |pending_emission| {
-                *pending_emission = pending_emission.saturating_add(*emission);
-            });
-        }
-    }
+    // /// Accumulates emissions for hotkeys across different subnets.
+    // ///
+    // /// This function takes a vector of tuples, each containing a hotkey account ID,
+    // /// a subnet ID (netuid), and an emission value. It updates the pending emission
+    // /// for each hotkey on the specified subnet by adding the given emission value.
+    // ///
+    // /// # Arguments
+    // ///
+    // /// * `hotkey_tuples` - A mutable reference to a vector of tuples, each containing:
+    // ///   - `T::AccountId`: The account ID of the hotkey
+    // ///   - `u16`: The subnet ID (netuid)
+    // ///   - `u64`: The emission value to be added
+    // pub fn accumulate_hotkey_emission(hotkey_tuples: &mut Vec<(T::AccountId, u16, u64)>) {
+    //     for (hotkey, netuid, emission) in hotkey_tuples {
+    //         PendingHotkeyEmissionOnNetuid::<T>::mutate(hotkey, *netuid, |pending_emission| {
+    //             *pending_emission = pending_emission.saturating_add(*emission);
+    //         });
+    //     }
+    // }
 
     /// Accumulates emissions for nominators and updates the last emission drain block for hotkeys.
     ///
@@ -582,6 +582,6 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `u64` - The pending emission amount for the hotkey on the specified subnet.
     pub fn get_pending_hotkey_emission_on_netuid(hotkey: &T::AccountId, netuid: u16) -> u64 {
-        PendingdHotkeyEmissionOnNetuid::<T>::get(hotkey, netuid)
+        PendingHotkeyEmissionOnNetuid::<T>::get(hotkey, netuid)
     }
 }
