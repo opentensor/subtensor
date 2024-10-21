@@ -312,19 +312,10 @@ parameter_types! {
 pub struct SafeModeWhitelistedCalls;
 impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
     fn contains(call: &RuntimeCall) -> bool {
-        matches!(
+        !matches!(
             call,
-            RuntimeCall::Sudo(_)
-                | RuntimeCall::Multisig(_)
-                | RuntimeCall::System(_)
-                | RuntimeCall::SafeMode(_)
-                | RuntimeCall::Timestamp(_)
-                | RuntimeCall::SubtensorModule(
-                    pallet_subtensor::Call::set_weights { .. }
-                        | pallet_subtensor::Call::set_root_weights { .. }
-                        | pallet_subtensor::Call::serve_axon { .. }
-                )
-                | RuntimeCall::Commitments(pallet_commitments::Call::set_commitment { .. })
+            RuntimeCall::Balances(_)
+                | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_coldkey { .. })
         )
     }
 }
