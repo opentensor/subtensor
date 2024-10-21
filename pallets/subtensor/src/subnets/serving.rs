@@ -31,6 +31,9 @@ impl<T: Config> Pallet<T> {
     /// * 'placeholder2' (u8):
     ///     - Placeholder for further extra params.
     ///
+    /// * 'certificate' (Option<Vec<u8>>):
+    ///     - Certificate for mutual Tls connection between neurons
+    ///
     /// # Event:
     /// * AxonServed;
     ///     - On successfully serving the axon info.
@@ -61,6 +64,7 @@ impl<T: Config> Pallet<T> {
         protocol: u8,
         placeholder1: u8,
         placeholder2: u8,
+        certificate: Option<Vec<u8>>,
     ) -> dispatch::DispatchResult {
         // We check the callers (hotkey) signature.
         let hotkey_id = ensure_signed(origin)?;
@@ -86,6 +90,13 @@ impl<T: Config> Pallet<T> {
             Error::<T>::ServingRateLimitExceeded
         );
 
+        // Check certificate
+        if let Some(certificate) = certificate {
+            if let Ok(certificate) = NeuronCertificateOf::try_from(certificate) {
+                NeuronCertificates::<T>::insert(netuid, hotkey_id.clone(), certificate)
+            }
+        }
+
         // We insert the axon meta.
         prev_axon.block = Self::get_current_block_as_u64();
         prev_axon.version = version;
@@ -106,7 +117,7 @@ impl<T: Config> Pallet<T> {
         Axons::<T>::insert(netuid, hotkey_id.clone(), prev_axon);
 
         // We deposit axon served event.
-        log::info!("AxonServed( hotkey:{:?} ) ", hotkey_id.clone());
+        log::debug!("AxonServed( hotkey:{:?} ) ", hotkey_id.clone());
         Self::deposit_event(Event::AxonServed(netuid, hotkey_id));
 
         // Return is successful dispatch.
@@ -204,7 +215,7 @@ impl<T: Config> Pallet<T> {
         Prometheus::<T>::insert(netuid, hotkey_id.clone(), prev_prometheus);
 
         // We deposit prometheus served event.
-        log::info!("PrometheusServed( hotkey:{:?} ) ", hotkey_id.clone());
+        log::debug!("PrometheusServed( hotkey:{:?} ) ", hotkey_id.clone());
         Self::deposit_event(Event::PrometheusServed(netuid, hotkey_id));
 
         // Return is successful dispatch.

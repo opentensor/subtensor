@@ -98,7 +98,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         let who = ensure_signed(origin.clone())?;
 
-        log::info!("do_reveal_weights( hotkey:{:?} netuid:{:?})", who, netuid);
+        log::debug!("do_reveal_weights( hotkey:{:?} netuid:{:?})", who, netuid);
 
         ensure!(
             Self::get_commit_reveal_weights_enabled(netuid),
@@ -197,7 +197,7 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // --- 1. Check the caller's signature. This is the hotkey of a registered account.
         let hotkey = ensure_signed(origin)?;
-        log::info!(
+        log::debug!(
             "do_set_weights( origin:{:?} netuid:{:?}, uids:{:?}, values:{:?})",
             hotkey,
             netuid,
@@ -299,7 +299,7 @@ impl<T: Config> Pallet<T> {
         Self::set_last_update_for_uid(netuid, neuron_uid, current_block);
 
         // --- 19. Emit the tracking event.
-        log::info!(
+        log::debug!(
             "WeightsSet( netuid:{:?}, neuron_uid:{:?} )",
             netuid,
             neuron_uid
@@ -318,7 +318,7 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn check_version_key(netuid: u16, version_key: u64) -> bool {
         let network_version_key: u64 = WeightsVersionKey::<T>::get(netuid);
-        log::info!(
+        log::debug!(
             "check_version_key( network_version_key:{:?}, version_key:{:?} )",
             network_version_key,
             version_key

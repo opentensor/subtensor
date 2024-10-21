@@ -19,6 +19,7 @@ use codec::{Decode, Encode};
 use frame_support::sp_runtime::transaction_validity::InvalidTransaction;
 use frame_support::sp_runtime::transaction_validity::ValidTransaction;
 use pallet_balances::Call as BalancesCall;
+// use pallet_scheduler as Scheduler;
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
@@ -66,18 +67,29 @@ pub mod pallet {
     use frame_support::{
         dispatch::GetDispatchInfo,
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
-        traits::{tokens::fungible, UnfilteredDispatchable},
+        traits::{
+            tokens::fungible, OriginTrait, QueryPreimage, StorePreimage, UnfilteredDispatchable,
+        },
+        BoundedVec,
     };
     use frame_system::pallet_prelude::*;
     use sp_core::H256;
-    use sp_runtime::traits::TrailingZeroInput;
+    use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::vec;
     use sp_std::vec::Vec;
+    use subtensor_macros::freeze_struct;
 
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
     #[cfg(feature = "std")]
     use sp_std::prelude::Box;
+
+    /// Origin for the pallet
+    pub type PalletsOriginOf<T> =
+        <<T as frame_system::Config>::RuntimeOrigin as OriginTrait>::PalletsOrigin;
+
+    /// Call type for the pallet
+    pub type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
     /// Tracks version for migrations. Should be monotonic with respect to the
     /// order of migrations. (i.e. always increasing)
@@ -97,7 +109,11 @@ pub mod pallet {
     /// Struct for Axon.
     pub type AxonInfoOf = AxonInfo;
 
+    /// local one
+    pub type LocalCallOf<T> = <T as Config>::RuntimeCall;
+
     /// Data structure for Axon information.
+    #[crate::freeze_struct("3545cfb0cac4c1f5")]
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct AxonInfo {
         ///  Axon serving block.
@@ -118,9 +134,41 @@ pub mod pallet {
         pub placeholder2: u8,
     }
 
+    /// Struct for NeuronCertificate.
+    pub type NeuronCertificateOf = NeuronCertificate;
+    /// Data structure for NeuronCertificate information.
+    #[freeze_struct("1c232be200d9ec6c")]
+    #[derive(Decode, Encode, Default, TypeInfo, PartialEq, Eq, Clone, Debug)]
+    pub struct NeuronCertificate {
+        ///  The neuron TLS public key
+        pub public_key: BoundedVec<u8, ConstU32<64>>,
+        ///  The algorithm used to generate the public key
+        pub algorithm: u8,
+    }
+
+    impl TryFrom<Vec<u8>> for NeuronCertificate {
+        type Error = ();
+
+        fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+            if value.len() > 65 {
+                return Err(());
+            }
+            // take the first byte as the algorithm
+            let algorithm = value.first().ok_or(())?;
+            // and the rest as the public_key
+            let certificate = value.get(1..).ok_or(())?.to_vec();
+            Ok(Self {
+                public_key: BoundedVec::try_from(certificate).map_err(|_| ())?,
+                algorithm: *algorithm,
+            })
+        }
+    }
+
     ///  Struct for Prometheus.
     pub type PrometheusInfoOf = PrometheusInfo;
+
     /// Data structure for Prometheus information.
+    #[crate::freeze_struct("5dde687e63baf0cd")]
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct PrometheusInfo {
         /// Prometheus serving block.
@@ -135,9 +183,11 @@ pub mod pallet {
         pub ip_type: u8,
     }
 
-    ///  Struct for Prometheus.
+    ///  Struct for ChainIdentities.
     pub type ChainIdentityOf = ChainIdentity;
-    /// Data structure for Prometheus information.
+
+    /// Data structure for Chain Identities.
+    #[crate::freeze_struct("bbfd00438dbe2b58")]
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct ChainIdentity {
         /// The name of the chain identity
@@ -154,6 +204,19 @@ pub mod pallet {
         pub additional: Vec<u8>,
     }
 
+    ///  Struct for SubnetIdentities.
+    pub type SubnetIdentityOf = SubnetIdentity;
+    /// Data structure for Subnet Identities
+    #[crate::freeze_struct("f448dc3dad763108")]
+    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    pub struct SubnetIdentity {
+        /// The name of the subnet
+        pub subnet_name: Vec<u8>,
+        /// The github repository associated with the chain identity
+        pub github_repo: Vec<u8>,
+        /// The subnet's contact
+        pub subnet_contact: Vec<u8>,
+    }
     /// ============================
     /// ==== Staking + Accounts ====
     /// ============================
@@ -184,15 +247,34 @@ pub mod pallet {
         21_000_000_000_000_000
     }
     #[pallet::type_value]
-    /// Default total stake.
-    pub fn DefaultDefaultTake<T: Config>() -> u16 {
-        T::InitialDefaultTake::get()
+    /// Default Delegate Take.
+    pub fn DefaultDelegateTake<T: Config>() -> u16 {
+        T::InitialDefaultDelegateTake::get()
+    }
+
+    #[pallet::type_value]
+    /// Default childkey take.
+    pub fn DefaultChildKeyTake<T: Config>() -> u16 {
+        T::InitialDefaultChildKeyTake::get()
     }
     #[pallet::type_value]
-    /// Default minimum take.
-    pub fn DefaultMinTake<T: Config>() -> u16 {
-        T::InitialMinTake::get()
+    /// Default minimum delegate take.
+    pub fn DefaultMinDelegateTake<T: Config>() -> u16 {
+        T::InitialMinDelegateTake::get()
     }
+
+    #[pallet::type_value]
+    /// Default minimum childkey take.
+    pub fn DefaultMinChildKeyTake<T: Config>() -> u16 {
+        T::InitialMinChildKeyTake::get()
+    }
+
+    #[pallet::type_value]
+    /// Default maximum childkey take.
+    pub fn DefaultMaxChildKeyTake<T: Config>() -> u16 {
+        T::InitialMaxChildKeyTake::get()
+    }
+
     #[pallet::type_value]
     /// Default stakes per interval.
     pub fn DefaultStakesPerInterval<T: Config>() -> (u64, u64) {
@@ -311,6 +393,26 @@ pub mod pallet {
             return 0;
         }
         T::InitialNetworkRateLimit::get()
+    }
+    #[pallet::type_value]
+    /// Default value for emission values.
+    pub fn DefaultEmissionValues<T: Config>() -> u64 {
+        0
+    }
+    #[pallet::type_value]
+    /// Default value for pending emission.
+    pub fn DefaultPendingEmission<T: Config>() -> u64 {
+        0
+    }
+    #[pallet::type_value]
+    /// Default value for blocks since last step.
+    pub fn DefaultBlocksSinceLastStep<T: Config>() -> u64 {
+        0
+    }
+    #[pallet::type_value]
+    /// Default value for last mechanism step block.
+    pub fn DefaultLastMechanismStepBlock<T: Config>() -> u64 {
+        0
     }
     #[pallet::type_value]
     /// Default value for subnet owner.
@@ -450,6 +552,16 @@ pub mod pallet {
         T::InitialTxDelegateTakeRateLimit::get()
     }
     #[pallet::type_value]
+    /// Default value for chidlkey take rate limiting
+    pub fn DefaultTxChildKeyTakeRateLimit<T: Config>() -> u64 {
+        T::InitialTxChildKeyTakeRateLimit::get()
+    }
+    #[pallet::type_value]
+    /// Default value for last extrinsic block.
+    pub fn DefaultLastTxBlock<T: Config>() -> u64 {
+        0
+    }
+    #[pallet::type_value]
     /// Default value for serving rate limit.
     pub fn DefaultServingRateLimit<T: Config>() -> u64 {
         T::InitialServingRateLimit::get()
@@ -494,6 +606,26 @@ pub mod pallet {
     pub fn DefaultGlobalWeight<T: Config>() -> u64 {
         T::InitialGlobalWeight::get()
     }
+
+    #[pallet::type_value]
+    /// Default value for coldkey swap schedule duration
+    pub fn DefaultColdkeySwapScheduleDuration<T: Config>() -> BlockNumberFor<T> {
+        T::InitialColdkeySwapScheduleDuration::get()
+    }
+
+    #[pallet::storage]
+    pub type ColdkeySwapScheduleDuration<T: Config> =
+        StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapScheduleDuration<T>>;
+
+    #[pallet::type_value]
+    /// Default value for dissolve network schedule duration
+    pub fn DefaultDissolveNetworkScheduleDuration<T: Config>() -> BlockNumberFor<T> {
+        T::InitialDissolveNetworkScheduleDuration::get()
+    }
+
+    #[pallet::storage]
+    pub type DissolveNetworkScheduleDuration<T: Config> =
+        StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultDissolveNetworkScheduleDuration<T>>;
 
     #[pallet::storage]
     pub type SenateRequiredStakePercentage<T> =
@@ -622,6 +754,17 @@ pub mod pallet {
     pub type MaxTake<T> = StorageValue<_, u16, ValueQuery, DefaultDefaultTake<T>>;
     #[pallet::storage] // --- ITEM ( min_take )
     pub type MinTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinTake<T>>;
+    #[pallet::storage] // --- ITEM ( default_delegate_take )
+    pub type MaxDelegateTake<T> = StorageValue<_, u16, ValueQuery, DefaultDelegateTake<T>>;
+    #[pallet::storage] // --- ITEM ( min_delegate_take )
+    pub type MinDelegateTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinDelegateTake<T>>;
+    #[pallet::storage] // --- ITEM ( default_childkey_take )
+    pub type MaxChildkeyTake<T> = StorageValue<_, u16, ValueQuery, DefaultMaxChildKeyTake<T>>;
+    #[pallet::storage] // --- ITEM ( min_childkey_take )
+    pub type MinChildkeyTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinChildKeyTake<T>>;
+
+    #[pallet::storage] // --- ITEM ( global_block_emission )
+    pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
     #[pallet::storage] // --- ITEM (target_stakes_per_interval)
     pub type TargetStakesPerInterval<T> =
         StorageValue<_, u64, ValueQuery, DefaultTargetStakesPerInterval<T>>;
@@ -643,8 +786,57 @@ pub mod pallet {
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
     #[pallet::storage] // --- MAP ( hot ) --> take | Returns the hotkey delegation take. And signals that this key is open for delegation.
     pub type Delegates<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, u16, ValueQuery, DefaultDefaultTake<T>>;
-    #[pallet::storage] // --- Map ( hot, cold ) --> block_number | Last add stake increase.
+        StorageMap<_, Blake2_128Concat, T::AccountId, u16, ValueQuery, DefaultDelegateTake<T>>;
+    #[pallet::storage]
+    /// DMAP ( hot, netuid ) --> take | Returns the hotkey childkey take for a specific subnet
+    pub type ChildkeyTake<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId, // First key: hotkey
+        Identity,
+        u16, // Second key: netuid
+        u16, // Value: take
+        ValueQuery,
+    >;
+
+    #[pallet::storage]
+    /// DMAP ( hot, cold ) --> stake | Returns the stake under a coldkey prefixed by hotkey.
+    pub type Stake<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        T::AccountId,
+        u64,
+        ValueQuery,
+        DefaultAccountTake<T>,
+    >;
+    #[pallet::storage]
+    /// Map ( hot ) --> last_hotkey_emission_drain | Last block we drained this hotkey's emission.
+    pub type LastHotkeyEmissionDrain<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        u64,
+        ValueQuery,
+        DefaultAccumulatedEmission<T>,
+    >;
+    #[pallet::storage]
+    /// ITEM ( hotkey_emission_tempo )
+    pub type HotkeyEmissionTempo<T> =
+        StorageValue<_, u64, ValueQuery, DefaultHotkeyEmissionTempo<T>>;
+    #[pallet::storage]
+    /// Map ( hot ) --> emission | Accumulated hotkey emission.
+    pub type PendingdHotkeyEmission<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        u64,
+        ValueQuery,
+        DefaultAccumulatedEmission<T>,
+    >;
+    #[pallet::storage]
+    /// Map ( hot, cold ) --> block_number | Last add stake increase.
     pub type LastAddStakeIncrease<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -683,6 +875,10 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Returns the vector of hotkeys controlled by this coldkey.
     pub type OwnedHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
+
+    #[pallet::storage] // --- DMAP ( cold ) --> () | Maps coldkey to if a coldkey swap is scheduled.
+    pub type ColdkeySwapScheduled<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, (), ValueQuery>;
 
     /// ============================
     /// ==== Global Parameters =====
@@ -888,10 +1084,16 @@ pub mod pallet {
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultRAORecycledForRegistration<T>>;
     #[pallet::storage] // --- ITEM ( tx_rate_limit )
     pub type TxRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultTxRateLimit<T>>;
-    #[pallet::storage] // --- ITEM ( tx_rate_limit )
+    #[pallet::storage]
+    /// --- ITEM ( tx_delegate_take_rate_limit )
     pub type TxDelegateTakeRateLimit<T> =
         StorageValue<_, u64, ValueQuery, DefaultTxDelegateTakeRateLimit<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> Whether or not Liquid Alpha is enabled
+    #[pallet::storage]
+    /// --- ITEM ( tx_childkey_take_rate_limit )
+    pub type TxChildkeyTakeRateLimit<T> =
+        StorageValue<_, u64, ValueQuery, DefaultTxChildKeyTakeRateLimit<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> Whether or not Liquid Alpha is enabled
     pub type LiquidAlphaOn<T> =
         StorageMap<_, Blake2_128Concat, u16, bool, ValueQuery, DefaultFalse<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> (alpha_low, alpha_high)
@@ -981,7 +1183,19 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid, hotkey ) --> axon_info
     pub type Axons<T: Config> =
         StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, AxonInfoOf, OptionQuery>;
-    #[pallet::storage] // --- MAP ( netuid, hotkey ) --> prometheus_info
+    /// --- MAP ( netuid, hotkey ) --> certificate
+    #[pallet::storage]
+    pub type NeuronCertificates<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        u16,
+        Blake2_128Concat,
+        T::AccountId,
+        NeuronCertificateOf,
+        OptionQuery,
+    >;
+    #[pallet::storage]
+    /// --- MAP ( netuid, hotkey ) --> prometheus_info
     pub type Prometheus<T: Config> = StorageDoubleMap<
         _,
         Identity,
@@ -994,6 +1208,10 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( coldkey ) --> identity
     pub type Identities<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, ChainIdentityOf, OptionQuery>;
+
+    #[pallet::storage] // --- MAP ( netuid ) --> identity
+    pub type SubnetIdentities<T: Config> =
+        StorageMap<_, Blake2_128Concat, u16, SubnetIdentityOf, OptionQuery>;
 
     /// =================================
     /// ==== Axon / Promo Endpoints =====
@@ -1012,8 +1230,13 @@ pub mod pallet {
     #[pallet::storage]
     /// --- MAP ( key ) --> last_block
     pub type LastTxBlock<T: Config> =
-        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- MAP ( key ) --> last_block
+        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
+    #[pallet::storage]
+    /// --- MAP ( key ) --> last_tx_block_childkey_take
+    pub type LastTxBlockChildKeyTake<T: Config> =
+        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
+    #[pallet::storage]
+    /// --- MAP ( key ) --> last_tx_block_delegate_take
     pub type LastTxBlockDelegateTake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- ITEM( weights_min_stake )
@@ -1126,13 +1349,27 @@ pub enum CallType {
     Other,
 }
 
+#[derive(Debug, PartialEq)]
+pub enum CustomTransactionError {
+    ColdkeyInSwapSchedule,
+}
+
+impl From<CustomTransactionError> for u8 {
+    fn from(variant: CustomTransactionError) -> u8 {
+        match variant {
+            CustomTransactionError::ColdkeyInSwapSchedule => 0,
+        }
+    }
+}
+
 #[freeze_struct("61e2b893d5ce6701")]
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 pub struct SubtensorSignedExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
 
 impl<T: Config + Send + Sync + TypeInfo> Default for SubtensorSignedExtension<T>
 where
-    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as frame_system::Config>::RuntimeCall:
+        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
     fn default() -> Self {
@@ -1142,7 +1379,8 @@ where
 
 impl<T: Config + Send + Sync + TypeInfo> SubtensorSignedExtension<T>
 where
-    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as frame_system::Config>::RuntimeCall:
+        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
     pub fn new() -> Self {
@@ -1173,14 +1411,15 @@ impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for SubtensorSignedE
 impl<T: Config + Send + Sync + TypeInfo + pallet_balances::Config> SignedExtension
     for SubtensorSignedExtension<T>
 where
-    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as frame_system::Config>::RuntimeCall:
+        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<BalancesCall<T>>,
 {
     const IDENTIFIER: &'static str = "SubtensorSignedExtension";
 
     type AccountId = T::AccountId;
-    type Call = T::RuntimeCall;
+    type Call = <T as frame_system::Config>::RuntimeCall;
     type AdditionalSigned = ();
     type Pre = (CallType, u64, Self::AccountId);
 
@@ -1205,7 +1444,7 @@ where
                         ..Default::default()
                     })
                 } else {
-                    Err(InvalidTransaction::Call.into())
+                    Err(InvalidTransaction::Custom(1).into())
                 }
             }
             Some(Call::reveal_weights { netuid, .. }) => {
@@ -1217,7 +1456,7 @@ where
                         ..Default::default()
                     })
                 } else {
-                    Err(InvalidTransaction::Call.into())
+                    Err(InvalidTransaction::Custom(2).into())
                 }
             }
             Some(Call::set_weights { netuid, .. }) => {
@@ -1229,7 +1468,7 @@ where
                         ..Default::default()
                     })
                 } else {
-                    Err(InvalidTransaction::Call.into())
+                    Err(InvalidTransaction::Custom(3).into())
                 }
             }
             Some(Call::set_root_weights { netuid, hotkey, .. }) => {
@@ -1241,7 +1480,7 @@ where
                         ..Default::default()
                     })
                 } else {
-                    Err(InvalidTransaction::Call.into())
+                    Err(InvalidTransaction::Custom(4).into())
                 }
             }
             Some(Call::add_stake { .. }) => Ok(ValidTransaction {
@@ -1260,17 +1499,47 @@ where
                 if registrations_this_interval >= (max_registrations_per_interval.saturating_mul(3))
                 {
                     // If the registration limit for the interval is exceeded, reject the transaction
-                    return InvalidTransaction::ExhaustsResources.into();
+                    return Err(InvalidTransaction::Custom(5).into());
                 }
                 Ok(ValidTransaction {
                     priority: Self::get_priority_vanilla(),
                     ..Default::default()
                 })
             }
-            _ => Ok(ValidTransaction {
+            Some(Call::register_network { .. }) => Ok(ValidTransaction {
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
             }),
+            Some(Call::dissolve_network { .. }) => {
+                if ColdkeySwapScheduled::<T>::contains_key(who) {
+                    InvalidTransaction::Custom(CustomTransactionError::ColdkeyInSwapSchedule.into())
+                        .into()
+                } else {
+                    Ok(ValidTransaction {
+                        priority: Self::get_priority_vanilla(),
+                        ..Default::default()
+                    })
+                }
+            }
+            _ => {
+                if let Some(
+                    BalancesCall::transfer_keep_alive { .. }
+                    | BalancesCall::transfer_all { .. }
+                    | BalancesCall::transfer_allow_death { .. },
+                ) = call.is_sub_type()
+                {
+                    if ColdkeySwapScheduled::<T>::contains_key(who) {
+                        return InvalidTransaction::Custom(
+                            CustomTransactionError::ColdkeyInSwapSchedule.into(),
+                        )
+                        .into();
+                    }
+                }
+                Ok(ValidTransaction {
+                    priority: Self::get_priority_vanilla(),
+                    ..Default::default()
+                })
+            }
         }
     }
 
@@ -1310,6 +1579,14 @@ where
             Some(Call::serve_axon { .. }) => {
                 let transaction_fee = 0;
                 Ok((CallType::Serve, transaction_fee, who.clone()))
+            }
+            Some(Call::serve_axon_tls { .. }) => {
+                let transaction_fee = 0;
+                Ok((CallType::Serve, transaction_fee, who.clone()))
+            }
+            Some(Call::register_network { .. }) => {
+                let transaction_fee = 0;
+                Ok((CallType::RegisterNetwork, transaction_fee, who.clone()))
             }
             _ => {
                 let transaction_fee = 0;

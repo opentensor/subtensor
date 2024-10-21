@@ -179,7 +179,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 1. Ensure that the call originates from a signed source and retrieve the caller's account ID (coldkey).
         let coldkey = ensure_signed(origin)?;
-        log::info!(
+        log::debug!(
             "do_root_register( coldkey: {:?}, hotkey: {:?} )",
             coldkey,
             hotkey
@@ -222,7 +222,7 @@ impl<T: Config> Pallet<T> {
 
             // --- 12.1.2 Add the new account and make them a member of the Senate.
             Self::append_neuron(root_netuid, &hotkey, current_block_number);
-            log::info!("add new neuron: {:?} on uid {:?}", hotkey, subnetwork_uid);
+            log::debug!("add new neuron: {:?} on uid {:?}", hotkey, subnetwork_uid);
         } else {
             // --- 13.1.1 The network is full. Perform replacement.
             // Find the neuron with the lowest stake value to replace.
@@ -255,7 +255,7 @@ impl<T: Config> Pallet<T> {
             // Replace the neuron account with new information.
             Self::replace_neuron(root_netuid, lowest_uid, &hotkey, current_block_number);
 
-            log::info!(
+            log::debug!(
                 "replace neuron: {:?} with {:?} on uid {:?}",
                 replaced_hotkey,
                 hotkey,
@@ -281,7 +281,7 @@ impl<T: Config> Pallet<T> {
         RegistrationsThisBlock::<T>::mutate(root_netuid, |val| *val += 1);
 
         // --- 16. Log and announce the successful registration.
-        log::info!(
+        log::debug!(
             "RootRegistered(netuid:{:?} uid:{:?} hotkey:{:?})",
             root_netuid,
             subnetwork_uid,
@@ -315,7 +315,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 1. Ensure that the call originates from a signed source and retrieve the caller's account ID (coldkey).
         let coldkey = ensure_signed(origin)?;
-        log::info!(
+        log::debug!(
             "do_root_register( coldkey: {:?}, hotkey: {:?} )",
             coldkey,
             hotkey
@@ -345,7 +345,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 5. Log and announce the successful Senate adjustment.
-        log::info!(
+        log::debug!(
             "SenateAdjusted(old_hotkey:{:?} hotkey:{:?})",
             replaced,
             hotkey

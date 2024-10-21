@@ -100,6 +100,64 @@ fn test_serving_ok() {
 }
 
 #[test]
+fn test_serving_tls_ok() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(1);
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+        let version: u32 = 2;
+        let ip: u128 = 1676056785;
+        let port: u16 = 128;
+        let ip_type: u8 = 4;
+        let modality: u16 = 0;
+        let protocol: u8 = 0;
+        let placeholder1: u8 = 0;
+        let placeholder2: u8 = 0;
+        let certificate: Vec<u8> = "CERT".as_bytes().to_vec();
+        add_network(netuid, tempo, modality);
+        register_ok_neuron(netuid, hotkey_account_id, U256::from(66), 0);
+        assert_ok!(SubtensorModule::serve_axon_tls(
+            <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
+            netuid,
+            version,
+            ip,
+            port,
+            ip_type,
+            protocol,
+            placeholder1,
+            placeholder2,
+            certificate.clone()
+        ));
+
+        let stored_certificate = NeuronCertificates::<Test>::get(netuid, hotkey_account_id)
+            .expect("Certificate should exist");
+        assert_eq!(
+            stored_certificate.public_key.clone().into_inner(),
+            certificate.get(1..).expect("Certificate should exist")
+        );
+        let new_certificate = "UPDATED_CERT".as_bytes().to_vec();
+        assert_ok!(SubtensorModule::serve_axon_tls(
+            <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
+            netuid,
+            version,
+            ip,
+            port,
+            ip_type,
+            protocol,
+            placeholder1,
+            placeholder2,
+            new_certificate.clone()
+        ));
+        let stored_certificate = NeuronCertificates::<Test>::get(netuid, hotkey_account_id)
+            .expect("Certificate should exist");
+        assert_eq!(
+            stored_certificate.public_key.clone().into_inner(),
+            new_certificate.get(1..).expect("Certificate should exist")
+        );
+    });
+}
+
+#[test]
 fn test_serving_set_metadata_update() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
@@ -825,5 +883,192 @@ fn test_migrate_set_hotkey_identities() {
             weight != Weight::zero(),
             "Migration weight should be non-zero"
         );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test serving -- test_do_set_subnet_identity --exact --nocapture
+#[test]
+fn test_do_set_subnet_identity() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid = 1;
+
+        // Register a hotkey for the coldkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Set coldkey as the owner of the subnet
+        SubnetOwner::<Test>::insert(netuid, coldkey);
+
+        // Prepare subnet identity data
+        let subnet_name = b"Test Subnet".to_vec();
+        let github_repo = b"https://github.com/test/subnet".to_vec();
+        let subnet_contact = b"contact@testsubnet.com".to_vec();
+
+        // Set subnet identity
+        assert_ok!(SubtensorModule::do_set_subnet_identity(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            netuid,
+            subnet_name.clone(),
+            github_repo.clone(),
+            subnet_contact.clone()
+        ));
+
+        // Check if subnet identity is set correctly
+        let stored_identity =
+            SubnetIdentities::<Test>::get(netuid).expect("Subnet identity should be set");
+        assert_eq!(stored_identity.subnet_name, subnet_name);
+        assert_eq!(stored_identity.github_repo, github_repo);
+        assert_eq!(stored_identity.subnet_contact, subnet_contact);
+
+        // Test setting subnet identity by non-owner
+        let non_owner_coldkey = U256::from(2);
+        assert_noop!(
+            SubtensorModule::do_set_subnet_identity(
+                <<Test as Config>::RuntimeOrigin>::signed(non_owner_coldkey),
+                netuid,
+                subnet_name.clone(),
+                github_repo.clone(),
+                subnet_contact.clone()
+            ),
+            Error::<Test>::NotSubnetOwner
+        );
+
+        // Test updating an existing subnet identity
+        let new_subnet_name = b"Updated Subnet".to_vec();
+        let new_github_repo = b"https://github.com/test/subnet-updated".to_vec();
+        assert_ok!(SubtensorModule::do_set_subnet_identity(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            netuid,
+            new_subnet_name.clone(),
+            new_github_repo.clone(),
+            subnet_contact.clone()
+        ));
+
+        let updated_identity =
+            SubnetIdentities::<Test>::get(netuid).expect("Updated subnet identity should be set");
+        assert_eq!(updated_identity.subnet_name, new_subnet_name);
+        assert_eq!(updated_identity.github_repo, new_github_repo);
+
+        // Test setting subnet identity with invalid data (exceeding 1024 bytes total)
+        let long_data = vec![0; 1025];
+        assert_noop!(
+            SubtensorModule::do_set_subnet_identity(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                netuid,
+                long_data.clone(),
+                long_data.clone(),
+                long_data.clone()
+            ),
+            Error::<Test>::InvalidIdentity
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test serving -- test_is_valid_subnet_identity --exact --nocapture
+#[test]
+fn test_is_valid_subnet_identity() {
+    new_test_ext(1).execute_with(|| {
+        // Test valid subnet identity
+        let valid_identity = SubnetIdentity {
+            subnet_name: vec![0; 256],
+            github_repo: vec![0; 1024],
+            subnet_contact: vec![0; 1024],
+        };
+        assert!(SubtensorModule::is_valid_subnet_identity(&valid_identity));
+
+        // Test subnet identity with total length exactly at the maximum
+        let max_length_identity = SubnetIdentity {
+            subnet_name: vec![0; 256],
+            github_repo: vec![0; 1024],
+            subnet_contact: vec![0; 1024],
+        };
+        assert!(SubtensorModule::is_valid_subnet_identity(
+            &max_length_identity
+        ));
+
+        // Test subnet identity with total length exceeding the maximum
+        let invalid_length_identity = SubnetIdentity {
+            subnet_name: vec![0; 257],
+            github_repo: vec![0; 1024],
+            subnet_contact: vec![0; 1024],
+        };
+        assert!(!SubtensorModule::is_valid_subnet_identity(
+            &invalid_length_identity
+        ));
+
+        // Test subnet identity with one field exceeding its maximum
+        let invalid_field_identity = SubnetIdentity {
+            subnet_name: vec![0; 257],
+            github_repo: vec![0; 1024],
+            subnet_contact: vec![0; 1024],
+        };
+        assert!(!SubtensorModule::is_valid_subnet_identity(
+            &invalid_field_identity
+        ));
+
+        // Test subnet identity with empty fields
+        let empty_identity = SubnetIdentity {
+            subnet_name: vec![],
+            github_repo: vec![],
+            subnet_contact: vec![],
+        };
+        assert!(SubtensorModule::is_valid_subnet_identity(&empty_identity));
+
+        // Test subnet identity with some empty and some filled fields
+        let mixed_identity = SubnetIdentity {
+            subnet_name: b"Test Subnet".to_vec(),
+            github_repo: vec![],
+            subnet_contact: b"contact@testsubnet.com".to_vec(),
+        };
+        assert!(SubtensorModule::is_valid_subnet_identity(&mixed_identity));
+    });
+}
+
+#[test]
+fn test_set_identity_for_non_existent_subnet() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let netuid = 999; // Non-existent subnet ID
+
+        // Subnet identity data
+        let subnet_name = b"Non-existent Subnet".to_vec();
+        let github_repo = b"https://github.com/test/nonexistent".to_vec();
+        let subnet_contact = b"contact@nonexistent.com".to_vec();
+
+        // Attempt to set identity for a non-existent subnet
+        assert_noop!(
+            SubtensorModule::do_set_subnet_identity(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                netuid,
+                subnet_name.clone(),
+                github_repo.clone(),
+                subnet_contact.clone()
+            ),
+            Error::<Test>::NotSubnetOwner // Since there's no owner, it should fail
+        );
+    });
+}
+
+#[test]
+fn test_set_subnet_identity_dispatch_info_ok() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let subnet_name: Vec<u8> = b"JesusSubnet".to_vec();
+        let github_repo: Vec<u8> = b"bible.com".to_vec();
+        let subnet_contact: Vec<u8> = b"https://www.vatican.va".to_vec();
+
+        let call: RuntimeCall = RuntimeCall::SubtensorModule(SubtensorCall::set_subnet_identity {
+            netuid,
+            subnet_name,
+            github_repo,
+            subnet_contact,
+        });
+
+        let dispatch_info: DispatchInfo = call.get_dispatch_info();
+
+        assert_eq!(dispatch_info.class, DispatchClass::Normal);
+        assert_eq!(dispatch_info.pays_fee, Pays::Yes);
     });
 }

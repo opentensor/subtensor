@@ -15,12 +15,16 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::Imbalance;
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
-    genesis_builder_helper::{build_config, create_default_config},
-    pallet_prelude::{DispatchError, Get},
-    traits::{fungible::HoldConsideration, Contains, LinearStoragePrice, OnUnbalanced},
+    genesis_builder_helper::{build_state, get_preset},
+    pallet_prelude::Get,
+    traits::{
+        fungible::{
+            DecreaseIssuance, HoldConsideration, Imbalance as FungibleImbalance, IncreaseIssuance,
+        },
+        Contains, LinearStoragePrice, OnUnbalanced,
+    },
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
-use pallet_balances::NegativeImbalance;
 use pallet_commitments::CanCommit;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -37,7 +41,7 @@ use sp_runtime::{
         AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, One, Verify,
     },
     transaction_validity::{TransactionSource, TransactionValidity},
-    ApplyExtrinsicResult, MultiSignature,
+    AccountId32, ApplyExtrinsicResult, MultiSignature,
 };
 use sp_std::cmp::Ordering;
 use sp_std::prelude::*;
@@ -64,12 +68,13 @@ pub use frame_support::{
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
-use pallet_transaction_payment::{CurrencyAdapter, Multiplier};
+use pallet_transaction_payment::{FungibleAdapter, Multiplier};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
 // Subtensor module
+pub use pallet_scheduler;
 pub use pallet_subtensor;
 
 // An index to a block.
@@ -141,7 +146,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 192,
+    spec_version: 197,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -399,8 +404,22 @@ parameter_types! {
 /// Deduct the transaction fee from the Subtensor Pallet TotalIssuance when dropping the transaction
 /// fee.
 pub struct TransactionFeeHandler;
-impl OnUnbalanced<NegativeImbalance<Runtime>> for TransactionFeeHandler {
-    fn on_nonzero_unbalanced(credit: NegativeImbalance<Runtime>) {
+impl
+    OnUnbalanced<
+        FungibleImbalance<
+            u64,
+            DecreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
+            IncreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
+        >,
+    > for TransactionFeeHandler
+{
+    fn on_nonzero_unbalanced(
+        credit: FungibleImbalance<
+            u64,
+            DecreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
+            IncreaseIssuance<AccountId32, pallet_balances::Pallet<Runtime>>,
+        >,
+    ) {
         let ti_before = pallet_subtensor::TotalIssuance::<Runtime>::get();
         pallet_subtensor::TotalIssuance::<Runtime>::put(ti_before.saturating_sub(credit.peek()));
         drop(credit);
@@ -411,7 +430,7 @@ impl pallet_transaction_payment::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
 
     //type TransactionByteFee = TransactionByteFee;
-    type OnChargeTransaction = CurrencyAdapter<Balances, TransactionFeeHandler>;
+    type OnChargeTransaction = FungibleAdapter<Balances, TransactionFeeHandler>;
 
     // Convert dispatch weight to a chargeable fee.
     type WeightToFee = LinearWeightToFee<FeeWeightRatio>;
@@ -632,7 +651,12 @@ pub enum ProxyType {
     Governance, // Both above governance
     Staking,
     Registration,
+    Transfer,
+    SmallTransfer,
+    RootWeights,
 }
+// Transfers below SMALL_TRANSFER_LIMIT are considered small transfers
+pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
 impl Default for ProxyType {
     fn default() -> Self {
         Self::Any
@@ -651,6 +675,22 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
             ),
+            ProxyType::Transfer => matches!(
+                c,
+                RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive { .. })
+                    | RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death { .. })
+                    | RuntimeCall::Balances(pallet_balances::Call::transfer_all { .. })
+            ),
+            ProxyType::SmallTransfer => match c {
+                RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
+                    value, ..
+                }) => *value < SMALL_TRANSFER_LIMIT,
+                RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
+                    value,
+                    ..
+                }) => *value < SMALL_TRANSFER_LIMIT,
+                _ => false,
+            },
             ProxyType::Owner => matches!(c, RuntimeCall::AdminUtils(..)),
             ProxyType::NonCritical => !matches!(
                 c,
@@ -658,6 +698,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::Triumvirate(..)
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_root_weights { .. })
             ),
             ProxyType::Triumvirate => matches!(
                 c,
@@ -680,6 +721,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::register { .. })
             ),
+            ProxyType::RootWeights => matches!(
+                c,
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_root_weights { .. })
+            ),
         }
     }
     fn is_superset(&self, o: &Self) -> bool {
@@ -687,8 +732,12 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
             (x, y) if x == y => true,
             (ProxyType::Any, _) => true,
             (_, ProxyType::Any) => false,
-            (ProxyType::NonTransfer, _) => true,
+            (ProxyType::NonTransfer, _) => {
+                // NonTransfer is NOT a superset of Transfer or SmallTransfer
+                !matches!(o, ProxyType::Transfer | ProxyType::SmallTransfer)
+            }
             (ProxyType::Governance, ProxyType::Triumvirate | ProxyType::Senate) => true,
+            (ProxyType::Transfer, ProxyType::SmallTransfer) => true,
             _ => false,
         }
     }
@@ -854,6 +903,18 @@ impl pallet_commitments::Config for Runtime {
     type RateLimit = CommitmentRateLimit;
 }
 
+#[cfg(not(feature = "fast-blocks"))]
+pub const INITIAL_SUBNET_TEMPO: u16 = 99;
+
+#[cfg(feature = "fast-blocks")]
+pub const INITIAL_SUBNET_TEMPO: u16 = 10;
+
+#[cfg(not(feature = "fast-blocks"))]
+pub const INITIAL_CHILDKEY_TAKE_RATELIMIT: u64 = 216000; // 30 days at 12 seconds per block
+
+#[cfg(feature = "fast-blocks")]
+pub const INITIAL_CHILDKEY_TAKE_RATELIMIT: u64 = 5;
+
 // Configure the pallet subtensor.
 #[cfg(not(feature = "fast-blocks"))]
 #[cfg(not(feature = "raonet"))]
@@ -868,7 +929,7 @@ parameter_types! {
     pub const SubtensorInitialValidatorPruneLen: u64 = 1;
     pub const SubtensorInitialScalingLawPower: u16 = 50; // 0.5
     pub const SubtensorInitialMaxAllowedValidators: u16 = 128;
-    pub const SubtensorInitialTempo: u16 = 99;
+    pub const SubtensorInitialTempo: u16 = INITIAL_SUBNET_TEMPO;
     pub const SubtensorInitialDifficulty: u64 = 10_000_000;
     pub const SubtensorInitialAdjustmentInterval: u16 = 100;
     pub const SubtensorInitialAdjustmentAlpha: u64 = 0; // no weight to previous value.
@@ -879,7 +940,10 @@ parameter_types! {
     pub const SubtensorInitialPruningScore : u16 = u16::MAX;
     pub const SubtensorInitialBondsMovingAverage: u64 = 900_000;
     pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
-    pub const SubtensorInitialMinTake: u16 = 5_898; // 9%
+    pub const SubtensorInitialMinDelegateTake: u16 = 0; // Allow 0% delegate take
+    pub const SubtensorInitialDefaultChildKeyTake: u16 = 0; // Allow 0% childkey take
+    pub const SubtensorInitialMinChildKeyTake: u16 = 0; // 0 %
+    pub const SubtensorInitialMaxChildKeyTake: u16 = 11_796; // 18 %
     pub const SubtensorInitialWeightsVersionKey: u64 = 0;
     pub const SubtensorInitialMinDifficulty: u64 = 10_000_000;
     pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX / 4;
@@ -889,6 +953,7 @@ parameter_types! {
     pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
     pub const SubtensorInitialTxDelegateTakeRateLimit: u64 = 216000; // 30 days at 12 seconds per block
+    pub const SubtensorInitialTxChildKeyTakeRateLimit: u64 = INITIAL_CHILDKEY_TAKE_RATELIMIT;
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
     pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
     pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
@@ -1012,16 +1077,21 @@ parameter_types! {
     pub const SubtensorInitialHotkeyEmissionTempo: u64 = 1000; // Drain every hour.
     pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // 500_000 TAO
     pub const SubtensorInitialGlobalWeight: u64 = u64::MAX/2; // 50% global weight.
+    pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64, this make the make stake infinity
+    pub const  InitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
+    pub const  InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
+
 }
 
 impl pallet_subtensor::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
     type SudoRuntimeCall = RuntimeCall;
     type Currency = Balances;
     type CouncilOrigin = EnsureMajoritySenate;
     type SenateMembers = ManageSenateMembers;
     type TriumvirateInterface = TriumvirateVotes;
-
+    type Scheduler = Scheduler;
     type InitialRho = SubtensorInitialRho;
     type InitialKappa = SubtensorInitialKappa;
     type InitialMaxAllowedUids = SubtensorInitialMaxAllowedUids;
@@ -1042,8 +1112,10 @@ impl pallet_subtensor::Config for Runtime {
     type InitialMaxRegistrationsPerBlock = SubtensorInitialMaxRegistrationsPerBlock;
     type InitialPruningScore = SubtensorInitialPruningScore;
     type InitialMaxAllowedValidators = SubtensorInitialMaxAllowedValidators;
-    type InitialDefaultTake = SubtensorInitialDefaultTake;
-    type InitialMinTake = SubtensorInitialMinTake;
+    type InitialDefaultDelegateTake = SubtensorInitialDefaultTake;
+    type InitialDefaultChildKeyTake = SubtensorInitialDefaultChildKeyTake;
+    type InitialMinDelegateTake = SubtensorInitialMinDelegateTake;
+    type InitialMinChildKeyTake = SubtensorInitialMinChildKeyTake;
     type InitialWeightsVersionKey = SubtensorInitialWeightsVersionKey;
     type InitialMaxDifficulty = SubtensorInitialMaxDifficulty;
     type InitialMinDifficulty = SubtensorInitialMinDifficulty;
@@ -1053,6 +1125,8 @@ impl pallet_subtensor::Config for Runtime {
     type InitialMinBurn = SubtensorInitialMinBurn;
     type InitialTxRateLimit = SubtensorInitialTxRateLimit;
     type InitialTxDelegateTakeRateLimit = SubtensorInitialTxDelegateTakeRateLimit;
+    type InitialTxChildKeyTakeRateLimit = SubtensorInitialTxChildKeyTakeRateLimit;
+    type InitialMaxChildKeyTake = SubtensorInitialMaxChildKeyTake;
     type InitialRAORecycledForRegistration = SubtensorInitialRAORecycledForRegistration;
     type InitialSenateRequiredStakePercentage = SubtensorInitialSenateRequiredStakePercentage;
     type InitialNetworkImmunityPeriod = SubtensorInitialNetworkImmunity;
@@ -1070,6 +1144,9 @@ impl pallet_subtensor::Config for Runtime {
     type InitialHotkeyEmissionTempo = SubtensorInitialHotkeyEmissionTempo;
     type InitialNetworkMaxStake = SubtensorInitialNetworkMaxStake;
     type InitialGlobalWeight = SubtensorInitialGlobalWeight;
+    type Preimages = Preimage;
+    type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
+    type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
 }
 
 use sp_runtime::BoundedVec;
@@ -1081,319 +1158,31 @@ impl pallet_admin_utils::AuraInterface<AuraId, ConstU32<32>> for AuraPalletIntrf
     }
 }
 
-pub struct SubtensorInterface;
-
-impl
-    pallet_admin_utils::SubtensorInterface<
-        AccountId,
-        <pallet_balances::Pallet<Runtime> as frame_support::traits::Currency<AccountId>>::Balance,
-        RuntimeOrigin,
-    > for SubtensorInterface
-{
-    fn set_max_delegate_take(max_take: u16) {
-        SubtensorModule::set_max_delegate_take(max_take);
-    }
-
-    fn set_min_delegate_take(max_take: u16) {
-        SubtensorModule::set_min_delegate_take(max_take);
-    }
-
-    fn set_tx_rate_limit(rate_limit: u64) {
-        SubtensorModule::set_tx_rate_limit(rate_limit);
-    }
-
-    fn set_tx_delegate_take_rate_limit(rate_limit: u64) {
-        SubtensorModule::set_tx_delegate_take_rate_limit(rate_limit);
-    }
-
-    fn set_serving_rate_limit(netuid: u16, rate_limit: u64) {
-        SubtensorModule::set_serving_rate_limit(netuid, rate_limit);
-    }
-
-    fn set_max_burn(netuid: u16, max_burn: u64) {
-        SubtensorModule::set_max_burn(netuid, max_burn);
-    }
-
-    fn set_min_burn(netuid: u16, min_burn: u64) {
-        SubtensorModule::set_min_burn(netuid, min_burn);
-    }
-
-    fn set_burn(netuid: u16, burn: u64) {
-        SubtensorModule::set_burn(netuid, burn);
-    }
-
-    fn set_max_difficulty(netuid: u16, max_diff: u64) {
-        SubtensorModule::set_max_difficulty(netuid, max_diff);
-    }
-
-    fn set_min_difficulty(netuid: u16, min_diff: u64) {
-        SubtensorModule::set_min_difficulty(netuid, min_diff);
-    }
-
-    fn set_difficulty(netuid: u16, diff: u64) {
-        SubtensorModule::set_difficulty(netuid, diff);
-    }
-
-    fn set_weights_rate_limit(netuid: u16, rate_limit: u64) {
-        SubtensorModule::set_weights_set_rate_limit(netuid, rate_limit);
-    }
-
-    fn set_weights_version_key(netuid: u16, version: u64) {
-        SubtensorModule::set_weights_version_key(netuid, version);
-    }
-
-    fn set_bonds_moving_average(netuid: u16, moving_average: u64) {
-        SubtensorModule::set_bonds_moving_average(netuid, moving_average);
-    }
-
-    fn set_max_allowed_validators(netuid: u16, max_validators: u16) {
-        SubtensorModule::set_max_allowed_validators(netuid, max_validators);
-    }
-
-    fn get_root_netuid() -> u16 {
-        SubtensorModule::get_root_netuid()
-    }
-
-    fn if_subnet_exist(netuid: u16) -> bool {
-        SubtensorModule::if_subnet_exist(netuid)
-    }
-
-    fn create_account_if_non_existent(coldkey: &AccountId, hotkey: &AccountId) {
-        SubtensorModule::create_account_if_non_existent(coldkey, hotkey)
-    }
-
-    fn coldkey_owns_hotkey(coldkey: &AccountId, hotkey: &AccountId) -> bool {
-        SubtensorModule::coldkey_owns_hotkey(coldkey, hotkey)
-    }
-
-    fn add_balance_to_coldkey_account(coldkey: &AccountId, amount: Balance) {
-        SubtensorModule::add_balance_to_coldkey_account(coldkey, amount);
-    }
-
-    fn get_current_block_as_u64() -> u64 {
-        SubtensorModule::get_current_block_as_u64()
-    }
-
-    fn get_subnetwork_n(netuid: u16) -> u16 {
-        SubtensorModule::get_subnetwork_n(netuid)
-    }
-
-    fn get_max_allowed_uids(netuid: u16) -> u16 {
-        SubtensorModule::get_max_allowed_uids(netuid)
-    }
-
-    fn append_neuron(netuid: u16, new_hotkey: &AccountId, block_number: u64) {
-        SubtensorModule::append_neuron(netuid, new_hotkey, block_number)
-    }
-
-    fn get_neuron_to_prune(netuid: u16) -> u16 {
-        SubtensorModule::get_neuron_to_prune(netuid)
-    }
-
-    fn replace_neuron(netuid: u16, uid_to_replace: u16, new_hotkey: &AccountId, block_number: u64) {
-        SubtensorModule::replace_neuron(netuid, uid_to_replace, new_hotkey, block_number);
-    }
-
-    fn set_total_issuance(total_issuance: u64) {
-        SubtensorModule::set_total_issuance(total_issuance);
-    }
-
-    fn set_network_immunity_period(net_immunity_period: u64) {
-        SubtensorModule::set_network_immunity_period(net_immunity_period);
-    }
-
-    fn set_network_min_lock(net_min_lock: u64) {
-        SubtensorModule::set_network_min_lock(net_min_lock);
-    }
-
-    fn set_subnet_limit(limit: u16) {
-        SubtensorModule::set_max_subnets(limit);
-    }
-
-    fn set_lock_reduction_interval(interval: u64) {
-        SubtensorModule::set_lock_reduction_interval(interval);
-    }
-
-    fn set_tempo(netuid: u16, tempo: u16) {
-        SubtensorModule::set_tempo(netuid, tempo);
-    }
-
-    fn set_subnet_owner_cut(subnet_owner_cut: u16) {
-        SubtensorModule::set_subnet_owner_cut(subnet_owner_cut);
-    }
-
-    fn set_network_rate_limit(limit: u64) {
-        SubtensorModule::set_network_rate_limit(limit);
-    }
-
-    fn set_max_registrations_per_block(netuid: u16, max_registrations_per_block: u16) {
-        SubtensorModule::set_max_registrations_per_block(netuid, max_registrations_per_block);
-    }
-
-    fn set_adjustment_alpha(netuid: u16, adjustment_alpha: u64) {
-        SubtensorModule::set_adjustment_alpha(netuid, adjustment_alpha);
-    }
-
-    fn set_target_registrations_per_interval(netuid: u16, target_registrations_per_interval: u16) {
-        SubtensorModule::set_target_registrations_per_interval(
-            netuid,
-            target_registrations_per_interval,
-        );
-    }
-
-    fn set_network_pow_registration_allowed(netuid: u16, registration_allowed: bool) {
-        SubtensorModule::set_network_pow_registration_allowed(netuid, registration_allowed);
-    }
-
-    fn set_network_registration_allowed(netuid: u16, registration_allowed: bool) {
-        SubtensorModule::set_network_registration_allowed(netuid, registration_allowed);
-    }
-
-    fn set_activity_cutoff(netuid: u16, activity_cutoff: u16) {
-        SubtensorModule::set_activity_cutoff(netuid, activity_cutoff);
-    }
-
-    fn ensure_subnet_owner_or_root(o: RuntimeOrigin, netuid: u16) -> Result<(), DispatchError> {
-        SubtensorModule::ensure_subnet_owner_or_root(o, netuid)
-    }
-
-    fn set_rho(netuid: u16, rho: u16) {
-        SubtensorModule::set_rho(netuid, rho);
-    }
-
-    fn set_kappa(netuid: u16, kappa: u16) {
-        SubtensorModule::set_kappa(netuid, kappa);
-    }
-
-    fn set_max_allowed_uids(netuid: u16, max_allowed: u16) {
-        SubtensorModule::set_max_allowed_uids(netuid, max_allowed);
-    }
-
-    fn set_min_allowed_weights(netuid: u16, min_allowed_weights: u16) {
-        SubtensorModule::set_min_allowed_weights(netuid, min_allowed_weights);
-    }
-
-    fn set_immunity_period(netuid: u16, immunity_period: u16) {
-        SubtensorModule::set_immunity_period(netuid, immunity_period);
-    }
-
-    fn set_max_weight_limit(netuid: u16, max_weight_limit: u16) {
-        SubtensorModule::set_max_weight_limit(netuid, max_weight_limit);
-    }
-
-    fn set_scaling_law_power(netuid: u16, scaling_law_power: u16) {
-        SubtensorModule::set_scaling_law_power(netuid, scaling_law_power);
-    }
-
-    fn set_validator_prune_len(netuid: u16, validator_prune_len: u64) {
-        SubtensorModule::set_validator_prune_len(netuid, validator_prune_len);
-    }
-
-    fn set_adjustment_interval(netuid: u16, adjustment_interval: u16) {
-        SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
-    }
-
-    fn set_weights_set_rate_limit(netuid: u16, weights_set_rate_limit: u64) {
-        SubtensorModule::set_weights_set_rate_limit(netuid, weights_set_rate_limit);
-    }
-
-    fn set_rao_recycled(netuid: u16, rao_recycled: u64) {
-        SubtensorModule::set_rao_recycled(netuid, rao_recycled);
-    }
-
-    fn is_hotkey_registered_on_network(netuid: u16, hotkey: &AccountId) -> bool {
-        SubtensorModule::is_hotkey_registered_on_network(netuid, hotkey)
-    }
-
-    fn init_new_network(netuid: u16, tempo: u16) {
-        SubtensorModule::init_new_network(netuid, tempo);
-    }
-
-    fn set_weights_min_stake(min_stake: u64) {
-        SubtensorModule::set_weights_min_stake(min_stake);
-    }
-
-    fn clear_small_nominations() {
-        SubtensorModule::clear_small_nominations();
-    }
-
-    fn set_nominator_min_required_stake(min_stake: u64) {
-        SubtensorModule::set_nominator_min_required_stake(min_stake);
-    }
-
-    fn get_nominator_min_required_stake() -> u64 {
-        SubtensorModule::get_nominator_min_required_stake()
-    }
-
-    fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
-        SubtensorModule::set_target_stakes_per_interval(target_stakes_per_interval)
-    }
-
-    fn set_commit_reveal_weights_interval(netuid: u16, interval: u64) {
-        SubtensorModule::set_commit_reveal_weights_interval(netuid, interval);
-    }
-
-    fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, enabled);
-    }
-
-    fn set_liquid_alpha_enabled(netuid: u16, enabled: bool) {
-        SubtensorModule::set_liquid_alpha_enabled(netuid, enabled);
-    }
-
-    fn set_hotkey_emission_tempo(emission_tempo: u64) {
-        SubtensorModule::set_hotkey_emission_tempo(emission_tempo);
-    }
-
-    fn set_network_max_stake(netuid: u16, max_stake: u64) {
-        SubtensorModule::set_network_max_stake(netuid, max_stake);
-    }
-
-    fn do_set_alpha_values(
-        origin: RuntimeOrigin,
-        netuid: u16,
-        alpha_low: u16,
-        alpha_high: u16,
-    ) -> Result<(), DispatchError> {
-        SubtensorModule::do_set_alpha_values(origin, netuid, alpha_low, alpha_high)
-    }
-}
-
-impl pallet_admin_utils::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type AuthorityId = AuraId;
-    type MaxAuthorities = ConstU32<32>;
-    type Aura = AuraPalletIntrf;
-    type Balance = Balance;
-    type Subtensor = SubtensorInterface;
-    type WeightInfo = pallet_admin_utils::weights::SubstrateWeight<Runtime>;
-}
-
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
     pub struct Runtime
     {
-        System: frame_system,
-        RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip,
-        Timestamp: pallet_timestamp,
-        Aura: pallet_aura,
-        Grandpa: pallet_grandpa,
-        Balances: pallet_balances,
-        TransactionPayment: pallet_transaction_payment,
-        SubtensorModule: pallet_subtensor,
-        Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
-        SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
-        Utility: pallet_utility,
-        Sudo: pallet_sudo,
-        Multisig: pallet_multisig,
-        Preimage: pallet_preimage,
-        Scheduler: pallet_scheduler,
-        Proxy: pallet_proxy,
-        Registry: pallet_registry,
-        Commitments: pallet_commitments,
-        AdminUtils: pallet_admin_utils,
-        SafeMode: pallet_safe_mode,
+        System: frame_system = 0,
+        RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip = 1,
+        Timestamp: pallet_timestamp = 2,
+        Aura: pallet_aura = 3,
+        Grandpa: pallet_grandpa = 4,
+        Balances: pallet_balances = 5,
+        TransactionPayment: pallet_transaction_payment = 6,
+        SubtensorModule: pallet_subtensor = 7,
+        Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 8,
+        TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 9,
+        SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 10,
+        Utility: pallet_utility = 11,
+        Sudo: pallet_sudo = 12,
+        Multisig: pallet_multisig = 13,
+        Preimage: pallet_preimage = 14,
+        Scheduler: pallet_scheduler = 15,
+        Proxy: pallet_proxy = 16,
+        Registry: pallet_registry = 17,
+        Commitments: pallet_commitments = 18,
+        AdminUtils: pallet_admin_utils = 19,
+        SafeMode: pallet_safe_mode = 20,
     }
 );
 
@@ -1418,10 +1207,13 @@ pub type SignedExtra = (
     frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
-type Migrations =
+type Migrations = (
+    // Leave this migration in the runtime, so every runtime upgrade tiny rounding errors (fractions of fractions
+    // of a cent) are cleaned up. These tiny rounding errors occur due to floating point coversion.
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
         Runtime,
-    >;
+    >,
+);
 
 // Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
@@ -1448,11 +1240,12 @@ mod benches {
         [frame_benchmarking, BaselineBench::<Runtime>]
         [frame_system, SystemBench::<Runtime>]
         [pallet_balances, Balances]
-        [pallet_subtensor, SubtensorModule]
         [pallet_timestamp, Timestamp]
+        [pallet_sudo, Sudo]
         [pallet_registry, Registry]
         [pallet_commitments, Commitments]
         [pallet_admin_utils, AdminUtils]
+        [pallet_subtensor, SubtensorModule]
     );
 }
 
@@ -1507,12 +1300,16 @@ impl_runtime_apis! {
     }
 
     impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
-        fn create_default_config() -> Vec<u8> {
-            create_default_config::<RuntimeGenesisConfig>()
+        fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
+            build_state::<RuntimeGenesisConfig>(config)
         }
 
-        fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
-            build_config::<RuntimeGenesisConfig>(config)
+        fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
+            get_preset::<RuntimeGenesisConfig>(id, |_| None)
+        }
+
+        fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
+            vec![]
         }
     }
 
@@ -1780,6 +1577,22 @@ impl_runtime_apis! {
             let result = SubtensorModule::get_dynamic_info(netuid);
             result.encode()
         }   
+
+        fn get_subnet_info_v2(netuid: u16) -> Vec<u8> {
+            let _result = SubtensorModule::get_subnet_info_v2(netuid);
+            if _result.is_some() {
+                let result = _result.expect("Could not get SubnetInfo");
+                result.encode()
+            } else {
+                vec![]
+            }
+        }
+
+        fn get_subnets_info_v2() -> Vec<u8> {
+            let result = SubtensorModule::get_subnets_info_v2();
+            result.encode()
+        }
+
         fn get_subnet_hyperparams(netuid: u16) -> Vec<u8> {
             let _result = SubtensorModule::get_subnet_hyperparams(netuid);
             if _result.is_some() {

@@ -46,6 +46,9 @@ impl<T: Config> Pallet<T> {
         Uids::<T>::insert(netuid, new_hotkey.clone(), uid_to_replace); // Make uid - hotkey association.
         BlockAtRegistration::<T>::insert(netuid, uid_to_replace, block_number); // Fill block at registration.
         IsNetworkMember::<T>::insert(new_hotkey.clone(), netuid, true); // Fill network is member.
+
+        // 4. Clear neuron certificates
+        NeuronCertificates::<T>::remove(netuid, old_hotkey.clone());
     }
 
     /// Appends the uid to the network.

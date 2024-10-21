@@ -2,18 +2,20 @@
 
 use frame_support::{
     assert_ok, derive_impl, parameter_types,
-    traits::{Everything, Hooks},
+    traits::{Everything, Hooks, PrivilegeCmp},
     weights,
 };
 use frame_system as system;
-use frame_system::{limits, EnsureNever};
+use frame_system::{limits, EnsureNever, EnsureRoot};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::U256;
 use sp_core::{ConstU64, H256};
 use sp_runtime::{
     traits::{BlakeTwo256, ConstU32, IdentityLookup},
-    BuildStorage, DispatchError,
+    BuildStorage, Perbill,
 };
+use sp_std::cmp::Ordering;
+use sp_weights::Weight;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -21,10 +23,11 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
     pub enum Test
     {
-        System: frame_system,
-        Balances: pallet_balances,
-        AdminUtils: pallet_admin_utils,
-        SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>, Error<T>},
+        System: frame_system = 1,
+        Balances: pallet_balances = 2,
+        AdminUtils: pallet_admin_utils = 3,
+        SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>, Error<T>} = 4,
+        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 5,
     }
 );
 
@@ -77,12 +80,16 @@ parameter_types! {
     pub const InitialBondsMovingAverage: u64 = 900_000;
     pub const InitialStakePruningMin: u16 = 0;
     pub const InitialFoundationDistribution: u64 = 0;
-    pub const InitialDefaultTake: u16 = 11_796; // 18% honest number.
-    pub const InitialMinTake: u16 = 5_898; // 9%;
+    pub const InitialDefaultDelegateTake: u16 = 11_796; // 18% honest number.
+    pub const InitialMinDelegateTake: u16 = 5_898; // 9%;
+    pub const InitialDefaultChildKeyTake: u16 = 0; // Allow 0 %
+    pub const InitialMinChildKeyTake: u16 = 0; // Allow 0 %
+    pub const InitialMaxChildKeyTake: u16 = 11_796; // 18 %;
     pub const InitialWeightsVersionKey: u16 = 0;
     pub const InitialServingRateLimit: u64 = 0; // No limit.
     pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
     pub const InitialTxDelegateTakeRateLimit: u64 = 0; // Disable rate limit for testing
+    pub const InitialTxChildKeyTakeRateLimit: u64 = 0; // Disable rate limit for testing
     pub const InitialBurn: u64 = 0;
     pub const InitialMinBurn: u64 = 0;
     pub const InitialMaxBurn: u64 = 1_000_000_000;
@@ -116,18 +123,21 @@ parameter_types! {
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const InitialHotkeyEmissionTempo: u64 = 1;
     pub const InitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
+    pub const InitialColdkeySwapScheduleDuration: u64 = 5 * 24 * 60 * 60 / 12; // 5 days
+    pub const InitialDissolveNetworkScheduleDuration: u64 = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const InitialGlobalWeight: u64 = u64::MAX/2; // 50% global weight.
 }
 
 impl pallet_subtensor::Config for Test {
     type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type InitialIssuance = InitialIssuance;
     type SudoRuntimeCall = TestRuntimeCall;
     type CouncilOrigin = EnsureNever<AccountId>;
     type SenateMembers = ();
     type TriumvirateInterface = ();
-
+    type Scheduler = Scheduler;
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;
     type InitialMaxWeightsLimit = InitialMaxWeightsLimit;
@@ -147,14 +157,18 @@ impl pallet_subtensor::Config for Test {
     type InitialPruningScore = InitialPruningScore;
     type InitialBondsMovingAverage = InitialBondsMovingAverage;
     type InitialMaxAllowedValidators = InitialMaxAllowedValidators;
-    type InitialDefaultTake = InitialDefaultTake;
-    type InitialMinTake = InitialMinTake;
+    type InitialDefaultDelegateTake = InitialDefaultDelegateTake;
+    type InitialMinDelegateTake = InitialMinDelegateTake;
+    type InitialDefaultChildKeyTake = InitialDefaultChildKeyTake;
+    type InitialMinChildKeyTake = InitialMinChildKeyTake;
+    type InitialMaxChildKeyTake = InitialMaxChildKeyTake;
     type InitialWeightsVersionKey = InitialWeightsVersionKey;
     type InitialMaxDifficulty = InitialMaxDifficulty;
     type InitialMinDifficulty = InitialMinDifficulty;
     type InitialServingRateLimit = InitialServingRateLimit;
     type InitialTxRateLimit = InitialTxRateLimit;
     type InitialTxDelegateTakeRateLimit = InitialTxDelegateTakeRateLimit;
+    type InitialTxChildKeyTakeRateLimit = InitialTxChildKeyTakeRateLimit;
     type InitialBurn = InitialBurn;
     type InitialMaxBurn = InitialMaxBurn;
     type InitialMinBurn = InitialMinBurn;
@@ -174,6 +188,9 @@ impl pallet_subtensor::Config for Test {
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     type InitialHotkeyEmissionTempo = InitialHotkeyEmissionTempo;
     type InitialNetworkMaxStake = InitialNetworkMaxStake;
+    type Preimages = ();
+    type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
+    type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialGlobalWeight = InitialGlobalWeight;
 }
 
@@ -220,273 +237,11 @@ impl pallet_balances::Config for Test {
     type RuntimeHoldReason = ();
 }
 
-pub struct SubtensorIntrf;
+pub struct OriginPrivilegeCmp;
 
-impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> for SubtensorIntrf {
-    fn set_max_delegate_take(default_take: u16) {
-        SubtensorModule::set_max_delegate_take(default_take);
-    }
-
-    fn set_min_delegate_take(default_take: u16) {
-        SubtensorModule::set_min_delegate_take(default_take);
-    }
-
-    fn set_tx_rate_limit(rate_limit: u64) {
-        SubtensorModule::set_tx_rate_limit(rate_limit);
-    }
-
-    fn set_tx_delegate_take_rate_limit(rate_limit: u64) {
-        SubtensorModule::set_tx_delegate_take_rate_limit(rate_limit);
-    }
-
-    fn set_serving_rate_limit(netuid: u16, rate_limit: u64) {
-        SubtensorModule::set_serving_rate_limit(netuid, rate_limit);
-    }
-
-    fn set_max_burn(netuid: u16, max_burn: u64) {
-        SubtensorModule::set_max_burn(netuid, max_burn);
-    }
-
-    fn set_min_burn(netuid: u16, min_burn: u64) {
-        SubtensorModule::set_min_burn(netuid, min_burn);
-    }
-
-    fn set_burn(netuid: u16, burn: u64) {
-        SubtensorModule::set_burn(netuid, burn);
-    }
-
-    fn set_max_difficulty(netuid: u16, max_diff: u64) {
-        SubtensorModule::set_max_difficulty(netuid, max_diff);
-    }
-
-    fn set_min_difficulty(netuid: u16, min_diff: u64) {
-        SubtensorModule::set_min_difficulty(netuid, min_diff);
-    }
-
-    fn set_difficulty(netuid: u16, diff: u64) {
-        SubtensorModule::set_difficulty(netuid, diff);
-    }
-
-    fn set_weights_rate_limit(netuid: u16, rate_limit: u64) {
-        SubtensorModule::set_weights_set_rate_limit(netuid, rate_limit);
-    }
-
-    fn set_weights_version_key(netuid: u16, version: u64) {
-        SubtensorModule::set_weights_version_key(netuid, version);
-    }
-
-    fn set_bonds_moving_average(netuid: u16, moving_average: u64) {
-        SubtensorModule::set_bonds_moving_average(netuid, moving_average);
-    }
-
-    fn set_max_allowed_validators(netuid: u16, max_validators: u16) {
-        SubtensorModule::set_max_allowed_validators(netuid, max_validators);
-    }
-
-    fn get_root_netuid() -> u16 {
-        SubtensorModule::get_root_netuid()
-    }
-
-    fn if_subnet_exist(netuid: u16) -> bool {
-        SubtensorModule::if_subnet_exist(netuid)
-    }
-
-    fn create_account_if_non_existent(coldkey: &AccountId, hotkey: &AccountId) {
-        SubtensorModule::create_account_if_non_existent(coldkey, hotkey)
-    }
-
-    fn coldkey_owns_hotkey(coldkey: &AccountId, hotkey: &AccountId) -> bool {
-        SubtensorModule::coldkey_owns_hotkey(coldkey, hotkey)
-    }
-
-    fn add_balance_to_coldkey_account(coldkey: &AccountId, amount: Balance) {
-        SubtensorModule::add_balance_to_coldkey_account(coldkey, amount);
-    }
-
-    fn get_current_block_as_u64() -> u64 {
-        SubtensorModule::get_current_block_as_u64()
-    }
-
-    fn get_subnetwork_n(netuid: u16) -> u16 {
-        SubtensorModule::get_subnetwork_n(netuid)
-    }
-
-    fn get_max_allowed_uids(netuid: u16) -> u16 {
-        SubtensorModule::get_max_allowed_uids(netuid)
-    }
-
-    fn append_neuron(netuid: u16, new_hotkey: &AccountId, block_number: u64) {
-        SubtensorModule::append_neuron(netuid, new_hotkey, block_number)
-    }
-
-    fn get_neuron_to_prune(netuid: u16) -> u16 {
-        SubtensorModule::get_neuron_to_prune(netuid)
-    }
-
-    fn replace_neuron(netuid: u16, uid_to_replace: u16, new_hotkey: &AccountId, block_number: u64) {
-        SubtensorModule::replace_neuron(netuid, uid_to_replace, new_hotkey, block_number);
-    }
-
-    fn set_total_issuance(total_issuance: u64) {
-        SubtensorModule::set_total_issuance(total_issuance);
-    }
-
-    fn set_network_immunity_period(net_immunity_period: u64) {
-        SubtensorModule::set_network_immunity_period(net_immunity_period);
-    }
-
-    fn set_network_min_lock(net_min_lock: u64) {
-        SubtensorModule::set_network_min_lock(net_min_lock);
-    }
-
-    fn set_subnet_limit(limit: u16) {
-        SubtensorModule::set_max_subnets(limit);
-    }
-
-    fn set_lock_reduction_interval(interval: u64) {
-        SubtensorModule::set_lock_reduction_interval(interval);
-    }
-
-    fn set_tempo(netuid: u16, tempo: u16) {
-        SubtensorModule::set_tempo(netuid, tempo);
-    }
-
-    fn set_subnet_owner_cut(subnet_owner_cut: u16) {
-        SubtensorModule::set_subnet_owner_cut(subnet_owner_cut);
-    }
-
-    fn set_network_rate_limit(limit: u64) {
-        SubtensorModule::set_network_rate_limit(limit);
-    }
-
-    fn set_max_registrations_per_block(netuid: u16, max_registrations_per_block: u16) {
-        SubtensorModule::set_max_registrations_per_block(netuid, max_registrations_per_block);
-    }
-
-    fn set_adjustment_alpha(netuid: u16, adjustment_alpha: u64) {
-        SubtensorModule::set_adjustment_alpha(netuid, adjustment_alpha);
-    }
-
-    fn set_target_registrations_per_interval(netuid: u16, target_registrations_per_interval: u16) {
-        SubtensorModule::set_target_registrations_per_interval(
-            netuid,
-            target_registrations_per_interval,
-        );
-    }
-
-    fn set_network_pow_registration_allowed(netuid: u16, registration_allowed: bool) {
-        SubtensorModule::set_network_pow_registration_allowed(netuid, registration_allowed);
-    }
-
-    fn set_network_registration_allowed(netuid: u16, registration_allowed: bool) {
-        SubtensorModule::set_network_pow_registration_allowed(netuid, registration_allowed);
-    }
-
-    fn set_activity_cutoff(netuid: u16, activity_cutoff: u16) {
-        SubtensorModule::set_activity_cutoff(netuid, activity_cutoff);
-    }
-
-    fn ensure_subnet_owner_or_root(o: RuntimeOrigin, netuid: u16) -> Result<(), DispatchError> {
-        SubtensorModule::ensure_subnet_owner_or_root(o, netuid)
-    }
-
-    fn set_rho(netuid: u16, rho: u16) {
-        SubtensorModule::set_rho(netuid, rho);
-    }
-
-    fn set_kappa(netuid: u16, kappa: u16) {
-        SubtensorModule::set_kappa(netuid, kappa);
-    }
-
-    fn set_max_allowed_uids(netuid: u16, max_allowed: u16) {
-        SubtensorModule::set_max_allowed_uids(netuid, max_allowed);
-    }
-
-    fn set_min_allowed_weights(netuid: u16, min_allowed_weights: u16) {
-        SubtensorModule::set_min_allowed_weights(netuid, min_allowed_weights);
-    }
-
-    fn set_immunity_period(netuid: u16, immunity_period: u16) {
-        SubtensorModule::set_immunity_period(netuid, immunity_period);
-    }
-
-    fn set_max_weight_limit(netuid: u16, max_weight_limit: u16) {
-        SubtensorModule::set_max_weight_limit(netuid, max_weight_limit);
-    }
-
-    fn set_scaling_law_power(netuid: u16, scaling_law_power: u16) {
-        SubtensorModule::set_scaling_law_power(netuid, scaling_law_power);
-    }
-
-    fn set_validator_prune_len(netuid: u16, validator_prune_len: u64) {
-        SubtensorModule::set_validator_prune_len(netuid, validator_prune_len);
-    }
-
-    fn set_adjustment_interval(netuid: u16, adjustment_interval: u16) {
-        SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
-    }
-
-    fn set_weights_set_rate_limit(netuid: u16, weights_set_rate_limit: u64) {
-        SubtensorModule::set_weights_set_rate_limit(netuid, weights_set_rate_limit);
-    }
-
-    fn set_rao_recycled(netuid: u16, rao_recycled: u64) {
-        SubtensorModule::set_rao_recycled(netuid, rao_recycled);
-    }
-
-    fn is_hotkey_registered_on_network(netuid: u16, hotkey: &AccountId) -> bool {
-        SubtensorModule::is_hotkey_registered_on_network(netuid, hotkey)
-    }
-
-    fn init_new_network(netuid: u16, tempo: u16) {
-        SubtensorModule::init_new_network(netuid, tempo);
-    }
-
-    fn set_weights_min_stake(min_stake: u64) {
-        SubtensorModule::set_weights_min_stake(min_stake);
-    }
-
-    fn set_nominator_min_required_stake(min_stake: u64) {
-        SubtensorModule::set_nominator_min_required_stake(min_stake);
-    }
-
-    fn get_nominator_min_required_stake() -> u64 {
-        SubtensorModule::get_nominator_min_required_stake()
-    }
-
-    fn clear_small_nominations() {
-        SubtensorModule::clear_small_nominations();
-    }
-
-    fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
-        SubtensorModule::set_target_stakes_per_interval(target_stakes_per_interval);
-    }
-
-    fn set_commit_reveal_weights_interval(netuid: u16, interval: u64) {
-        SubtensorModule::set_commit_reveal_weights_interval(netuid, interval);
-    }
-
-    fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, enabled);
-    }
-
-    fn set_liquid_alpha_enabled(netuid: u16, enabled: bool) {
-        SubtensorModule::set_liquid_alpha_enabled(netuid, enabled);
-    }
-    fn set_hotkey_emission_tempo(emission_tempo: u64) {
-        SubtensorModule::set_hotkey_emission_tempo(emission_tempo)
-    }
-    fn set_network_max_stake(netuid: u16, max_stake: u64) {
-        SubtensorModule::set_network_max_stake(netuid, max_stake)
-    }
-
-    fn do_set_alpha_values(
-        origin: RuntimeOrigin,
-        netuid: u16,
-        alpha_low: u16,
-        alpha_high: u16,
-    ) -> Result<(), DispatchError> {
-        SubtensorModule::do_set_alpha_values(origin, netuid, alpha_low, alpha_high)
+impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
+    fn cmp_privilege(_left: &OriginCaller, _right: &OriginCaller) -> Option<Ordering> {
+        None
     }
 }
 
@@ -496,8 +251,27 @@ impl pallet_admin_utils::Config for Test {
     type MaxAuthorities = ConstU32<32>;
     type Aura = ();
     type Balance = Balance;
-    type Subtensor = SubtensorIntrf;
     type WeightInfo = ();
+}
+
+parameter_types! {
+    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
+        BlockWeights::get().max_block;
+    pub const MaxScheduledPerBlock: u32 = 50;
+    pub const NoPreimagePostponement: Option<u32> = Some(10);
+}
+
+impl pallet_scheduler::Config for Test {
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeEvent = RuntimeEvent;
+    type PalletsOrigin = OriginCaller;
+    type RuntimeCall = RuntimeCall;
+    type MaximumWeight = MaximumSchedulerWeight;
+    type ScheduleOrigin = EnsureRoot<AccountId>;
+    type MaxScheduledPerBlock = MaxScheduledPerBlock;
+    type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Test>;
+    type OriginPrivilegeCmp = OriginPrivilegeCmp;
+    type Preimages = ();
 }
 
 // Build genesis storage according to the mock runtime.

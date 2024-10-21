@@ -159,7 +159,7 @@ benchmarks! {
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), wallet_bal);
 
     assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
-    assert_ok!(Subtensor::<T>::do_become_delegate(RawOrigin::Signed(coldkey.clone()).into(), hotkey.clone(), Subtensor::<T>::get_default_take()));
+    assert_ok!(Subtensor::<T>::do_become_delegate(RawOrigin::Signed(coldkey.clone()).into(), hotkey.clone(), Subtensor::<T>::get_default_delegate_take()));
 
       // Stake 10% of our current total staked TAO
       let u64_staked_amt = 100_000_000_000;
@@ -289,6 +289,32 @@ benchmarks! {
     assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
   }: root_register(RawOrigin::Signed(coldkey), hotkey)
 
+  benchmark_register_network {
+    let seed : u32 = 1;
+
+    let coldkey: T::AccountId = account("Test", 0, seed);
+
+    Subtensor::<T>::set_network_rate_limit(1);
+
+    let amount: u64 = 1;
+    let amount_to_be_staked = 100_000_000_000_000u64;
+    Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
+  }: register_network(RawOrigin::Signed(coldkey))
+
+  benchmark_dissolve_network {
+    let seed : u32 = 1;
+
+    let coldkey: T::AccountId = account("Test", 0, seed);
+
+    Subtensor::<T>::set_network_rate_limit(0);
+
+    let amount: u64 = 1;
+    let amount_to_be_staked = 100_000_000_000_000u64;
+    Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
+    assert_ok!(Subtensor::<T>::register_network(RawOrigin::Signed(coldkey.clone()).into()));
+  }: dissolve_network(RawOrigin::Root, coldkey.clone(), 1)
+
+
   // swap_hotkey {
   //   let seed: u32 = 1;
   //   let coldkey: T::AccountId = account("Alice", 0, seed);
@@ -415,6 +441,41 @@ reveal_weights {
 
   }: sudo_set_lock_interval_blocks(RawOrigin::Root, new_interval)
 
+  schedule_swap_coldkey {
+    let old_coldkey: T::AccountId = account("old_cold", 0, 1);
+    let new_coldkey: T::AccountId = account("new_cold", 1, 2);
+  }: schedule_swap_coldkey(RawOrigin::Signed(old_coldkey.clone()), new_coldkey.clone())
+
+  schedule_dissolve_network {
+    let coldkey: T::AccountId = account("coldkey", 0, 1);
+    let netuid = 1;
+  }: schedule_dissolve_network(RawOrigin::Signed(coldkey.clone()), netuid)
+
+  benchmark_sudo_set_tx_childkey_take_rate_limit {
+    // We don't need to set up any initial state for this benchmark
+    // as it's a simple setter function that only requires root origin
+    let new_rate_limit: u64 = 100;
+  }: sudo_set_tx_childkey_take_rate_limit(RawOrigin::Root, new_rate_limit)
+
+  benchmark_set_childkey_take {
+    // Setup
+    let netuid: u16 = 1;
+    let tempo: u16 = 1;
+    let seed: u32 = 1;
+    let coldkey: T::AccountId = account("Cold", 0, seed);
+    let hotkey: T::AccountId = account("Hot", 0, seed);
+    let take: u16 = 1000; // 10% in basis points
+
+    // Initialize the network
+    Subtensor::<T>::init_new_network(netuid, tempo);
+
+    // Register the hotkey
+    Subtensor::<T>::set_burn(netuid, 1);
+    let amount_to_be_staked = 1_000_000u32.into();
+    Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, amount_to_be_staked);
+    assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
+  }: set_childkey_take(RawOrigin::Signed(coldkey), hotkey, netuid, take)
+
   swap_coldkey {
       // Set up initial state
       let old_coldkey: T::AccountId = account("old_coldkey", 0, 0);
@@ -469,7 +530,7 @@ reveal_weights {
 
       Identities::<T>::insert(&old_coldkey, identity);
 
-      // Benchmark setup complete, now execute the extrinsic
-  }: swap_coldkey(RawOrigin::Signed(old_coldkey.clone()), new_coldkey.clone())
+    // Benchmark setup complete, now execute the extrinsic
+}: swap_coldkey(RawOrigin::Root, old_coldkey.clone(), new_coldkey.clone())
 
 }

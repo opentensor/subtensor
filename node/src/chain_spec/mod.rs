@@ -6,7 +6,7 @@ pub mod localnet;
 pub mod raonet;
 pub mod testnet;
 
-use node_subtensor_runtime::{AccountId, Block, RuntimeGenesisConfig, Signature, WASM_BINARY};
+use node_subtensor_runtime::{AccountId, Block, Signature, WASM_BINARY};
 use sc_chain_spec_derive::ChainSpecExtension;
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -33,7 +33,7 @@ pub struct Extensions {
 }
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
-pub type ChainSpec = sc_service::GenericChainSpec<RuntimeGenesisConfig, Extensions>;
+pub type ChainSpec = sc_service::GenericChainSpec<Extensions>;
 
 /// Generate a crypto pair from seed.
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {

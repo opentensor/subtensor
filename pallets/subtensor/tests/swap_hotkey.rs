@@ -288,6 +288,38 @@ fn test_swap_axons() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_certificates --exact --nocapture
+#[test]
+fn test_swap_certificates() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let netuid = 0u16;
+        let certificate = NeuronCertificate::try_from(vec![1, 2, 3]).unwrap();
+        let mut weight = Weight::zero();
+
+        add_network(netuid, 0, 1);
+        IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
+        NeuronCertificates::<Test>::insert(netuid, old_hotkey, certificate.clone());
+
+        assert_ok!(SubtensorModule::perform_hotkey_swap(
+            &old_hotkey,
+            &new_hotkey,
+            &coldkey,
+            &mut weight
+        ));
+
+        assert!(!NeuronCertificates::<Test>::contains_key(
+            netuid, old_hotkey
+        ));
+        assert_eq!(
+            NeuronCertificates::<Test>::get(netuid, new_hotkey),
+            Some(certificate)
+        );
+    });
+}
+
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_weight_commits --exact --nocapture
 #[test]
 fn test_swap_weight_commits() {

@@ -21,7 +21,7 @@ path = "src/spec_version.rs"
 
 [dependencies]
 subtensor-macros.workspace = true
-subtensor-custom-rpc-runtime-api = { version = "0.0.2", path = "../pallets/subtensor/runtime-api", default-features = false }
+subtensor-custom-rpc-runtime-api = { path = "../pallets/subtensor/runtime-api", default-features = false }
 smallvec = { workspace = true }
 log = { workspace = true }
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
@@ -156,7 +156,7 @@ std = [
 	"sp-tracing/std",
 	"log/std",
 	"sp-storage/std",
-	"sp-genesis-builder/std"
+	"sp-genesis-builder/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -179,7 +179,7 @@ runtime-benchmarks = [
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
-	"pallet-sudo/runtime-benchmarks"
+	"pallet-sudo/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
@@ -205,6 +205,6 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 	"pallet-admin-utils/try-runtime",
 	"pallet-commitments/try-runtime",
-	"pallet-registry/try-runtime"
+	"pallet-registry/try-runtime",
 ]
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]
