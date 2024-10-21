@@ -301,20 +301,6 @@ benchmarks! {
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
   }: register_network(RawOrigin::Signed(coldkey))
 
-  benchmark_dissolve_network {
-    let seed : u32 = 1;
-
-    let coldkey: T::AccountId = account("Test", 0, seed);
-
-    Subtensor::<T>::set_network_rate_limit(0);
-
-    let amount: u64 = 1;
-    let amount_to_be_staked = 100_000_000_000_000u64;
-    Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
-    assert_ok!(Subtensor::<T>::register_network(RawOrigin::Signed(coldkey.clone()).into()));
-  }: dissolve_network(RawOrigin::Root, coldkey.clone(), 1)
-
-
   // swap_hotkey {
   //   let seed: u32 = 1;
   //   let coldkey: T::AccountId = account("Alice", 0, seed);
@@ -445,11 +431,6 @@ reveal_weights {
     let old_coldkey: T::AccountId = account("old_cold", 0, 1);
     let new_coldkey: T::AccountId = account("new_cold", 1, 2);
   }: schedule_swap_coldkey(RawOrigin::Signed(old_coldkey.clone()), new_coldkey.clone())
-
-  schedule_dissolve_network {
-    let coldkey: T::AccountId = account("coldkey", 0, 1);
-    let netuid = 1;
-  }: schedule_dissolve_network(RawOrigin::Signed(coldkey.clone()), netuid)
 
   benchmark_sudo_set_tx_childkey_take_rate_limit {
     // We don't need to set up any initial state for this benchmark

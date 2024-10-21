@@ -840,7 +840,7 @@ mod dispatches {
         /// # Errors:
         /// * `BadOrigin` - If the origin is not root.
         ///
-        #[pallet::call_index(69)]
+        #[pallet::call_index(80)]
         #[pallet::weight((
             Weight::from_parts(6_000, 0)
         .saturating_add(T::DbWeight::get().writes(1)),
@@ -997,7 +997,7 @@ mod dispatches {
             hotkey: T::AccountId,
             mechid: u16,
         ) -> DispatchResult {
-            Self::do_register_network(origin, &hotkey, mechid)
+            Self::do_register_network(origin, &hotkey, mechid, None)
         }
 
         /// Facility extrinsic for user to get taken from faucet
@@ -1188,51 +1188,21 @@ mod dispatches {
         ///
         /// # Returns
         ///
-        /// Returns a `DispatchResultWithPostInfo` indicating success or failure of the operation.
+        /// Returns a `DispatchResult` indicating success or failure of the operation.
         ///
         /// # Weight
         ///
         /// Weight is calculated based on the number of database reads and writes.
 
-        #[pallet::call_index(74)]
+        #[pallet::call_index(81)]
         #[pallet::weight((Weight::from_parts(119_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
         pub fn schedule_dissolve_network(
-            origin: OriginFor<T>,
-            netuid: u16,
-        ) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
-
-            let current_block: BlockNumberFor<T> = <frame_system::Pallet<T>>::block_number();
-            let duration: BlockNumberFor<T> = DissolveNetworkScheduleDuration::<T>::get();
-            let when: BlockNumberFor<T> = current_block.saturating_add(duration);
-
-            let call = Call::<T>::dissolve_network {
-                coldkey: who.clone(),
-                netuid,
-            };
-
-            let bound_call = T::Preimages::bound(LocalCallOf::<T>::from(call.clone()))
-                .map_err(|_| Error::<T>::FailedToSchedule)?;
-
-            T::Scheduler::schedule(
-                DispatchTime::At(when),
-                None,
-                63,
-                frame_system::RawOrigin::Root.into(),
-                bound_call,
-            )
-            .map_err(|_| Error::<T>::FailedToSchedule)?;
-
-            // Emit the SwapScheduled event
-            Self::deposit_event(Event::DissolveNetworkScheduled {
-                account: who.clone(),
-                netuid,
-                execution_block: when,
-            });
-
-            Ok(().into())
+            _origin: OriginFor<T>,
+            _netuid: u16,
+        ) -> DispatchResult {
+            Ok(())
         }
 
         /// ---- Set prometheus information for the neuron.
@@ -1367,7 +1337,7 @@ mod dispatches {
         ///
         /// # Events
         /// Emits a `StakeMoved` event upon successful completion of the stake movement.
-        #[pallet::call_index(75)]
+        #[pallet::call_index(82)]
         #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn move_stake(
             origin: OriginFor<T>,
@@ -1416,9 +1386,11 @@ mod dispatches {
                 .saturating_add(T::DbWeight::get().writes(30)), DispatchClass::Operational, Pays::No))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            mechid: u16,
             identity: Option<SubnetIdentityOf>,
         ) -> DispatchResult {
-            Self::user_add_network(origin, identity)
+            Self::do_register_network(origin, &hotkey, mechid, identity)
         }
     }
 }

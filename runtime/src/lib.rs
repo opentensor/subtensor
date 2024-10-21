@@ -694,8 +694,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
             ProxyType::Owner => matches!(c, RuntimeCall::AdminUtils(..)),
             ProxyType::NonCritical => !matches!(
                 c,
-                RuntimeCall::SubtensorModule(pallet_subtensor::Call::dissolve_network { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::Triumvirate(..)
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_root_weights { .. })
@@ -971,6 +970,7 @@ parameter_types! {
     pub const SubtensorInitialHotkeyEmissionTempo: u64 = 7200; // Drain every day.
     pub const SubtensorInitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
     pub const SubtensorInitialGlobalWeight: u64 = u64::MAX/2; // 50% global weight.
+    pub const SubtensorInitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
 }
 // This is for the Local net.
 #[cfg(feature = "fast-blocks")]
@@ -1024,6 +1024,7 @@ parameter_types! {
     pub const SubtensorInitialHotkeyEmissionTempo: u64 = 7200; // Drain every day.
     pub const SubtensorInitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
     pub const SubtensorInitialGlobalWeight: u64 = u64::MAX/2; // 50% global weigh.
+    pub const SubtensorInitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
 }
 // This is for the Local net.
 #[cfg(not(feature = "fast-blocks"))]
@@ -1078,8 +1079,7 @@ parameter_types! {
     pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // 500_000 TAO
     pub const SubtensorInitialGlobalWeight: u64 = u64::MAX/2; // 50% global weight.
     pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64, this make the make stake infinity
-    pub const  InitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
-    pub const  InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
+    pub const SubtensorInitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
 
 }
 
@@ -1145,8 +1145,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialNetworkMaxStake = SubtensorInitialNetworkMaxStake;
     type InitialGlobalWeight = SubtensorInitialGlobalWeight;
     type Preimages = Preimage;
-    type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
-    type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
+    type InitialColdkeySwapScheduleDuration = SubtensorInitialColdkeySwapScheduleDuration;
 }
 
 use sp_runtime::BoundedVec;
@@ -1156,6 +1155,15 @@ impl pallet_admin_utils::AuraInterface<AuraId, ConstU32<32>> for AuraPalletIntrf
     fn change_authorities(new: BoundedVec<AuraId, ConstU32<32>>) {
         Aura::change_authorities(new);
     }
+}
+
+impl pallet_admin_utils::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type AuthorityId = AuraId;
+    type MaxAuthorities = ConstU32<32>;
+    type Aura = AuraPalletIntrf;
+    type Balance = Balance;
+    type WeightInfo = pallet_admin_utils::weights::SubstrateWeight<Runtime>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

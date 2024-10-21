@@ -5,12 +5,13 @@
 )]
 
 use crate::mock::*;
-use frame_support::assert_ok;
+use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use pallet_subtensor::epoch::math::safe_exp;
 use pallet_subtensor::*;
 use rand::{distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
 use sp_core::U256;
+use sp_runtime::DispatchError;
 use std::time::Instant;
 use substrate_fixed::types::I32F32;
 
@@ -2499,7 +2500,7 @@ fn test_get_set_alpha() {
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
-        assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, 1000));
+        assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, netuid, 1000));
 
         // Should fail as signer does not own the subnet
         assert_err!(
@@ -2507,7 +2508,7 @@ fn test_get_set_alpha() {
             DispatchError::BadOrigin
         );
 
-        assert_ok!(SubtensorModule::register_network(signer.clone()));
+        assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey, 1));
 
         assert_ok!(SubtensorModule::do_set_alpha_values(
             signer.clone(),

@@ -203,18 +203,7 @@ mod events {
         SubnetIdentitySet(u16),
         /// The identity of a subnet has been removed
         SubnetIdentityRemoved(u16),
-        /// A dissolve network extrinsic scheduled.
-        DissolveNetworkScheduled {
-            /// The account ID schedule the dissolve network extrisnic
-            account: T::AccountId,
-            /// network ID will be dissolved
-            netuid: u16,
-            /// extrinsic execution block number
-            execution_block: BlockNumberFor<T>,
-        },
         /// The duration of schedule coldkey swap has been set
         ColdkeySwapScheduleDurationSet(BlockNumberFor<T>),
-        /// The duration of dissolve network has been set
-        DissolveNetworkScheduleDurationSet(BlockNumberFor<T>),
     }
 }

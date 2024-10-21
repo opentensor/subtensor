@@ -176,9 +176,7 @@ parameter_types! {
     pub const InitialHotkeyEmissionTempo: u64 = 0; // Defaults to draining every block.
     pub const InitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500,000 TAO
     pub const InitialColdkeySwapScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
-    pub const InitialDissolveNetworkScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days    
     pub const InitialGlobalWeight: u64 = 0; // zero global weight.
-
 }
 
 // Configure collective pallet for council
@@ -402,7 +400,7 @@ impl pallet_subtensor::Config for Test {
     type InitialNetworkMaxStake = InitialNetworkMaxStake;
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
-    type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
+    type InitialGlobalWeight = InitialGlobalWeight;
 }
 
 pub struct OriginPrivilegeCmp;
@@ -568,11 +566,23 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
 }
 
+/// Helper function to mock now missing increase_stake_on_coldkey_hotkey_account with 
+/// minimal changes
+#[allow(dead_code)]
+pub fn increase_stake_on_coldkey_hotkey_account(
+    coldkey: &U256,
+    hotkey: &U256,
+    tao_staked: u64,
+    netuid: u16,
+) {
+    SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked);
+}
+
 // Helper function to set up a neuron with stake
 #[allow(dead_code)]
 pub fn setup_neuron_with_stake(netuid: u16, hotkey: U256, coldkey: U256, stake: u64) {
     register_ok_neuron(netuid, hotkey, coldkey, stake);
-    SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake);
+    increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake, netuid);
 }
 
 // Helper function to check if a value is within tolerance of an expected value

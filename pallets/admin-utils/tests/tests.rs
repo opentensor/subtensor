@@ -5,7 +5,7 @@ use frame_support::{
 };
 use frame_system::Config;
 use pallet_admin_utils::Error;
-use pallet_subtensor::Event;
+use pallet_subtensor::{migrations, Event, Error as SubtensorError};
 use sp_core::U256;
 
 mod mock;
@@ -1226,6 +1226,7 @@ fn test_set_alpha_values_dispatch_info_ok() {
 fn test_sudo_get_set_alpha() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
+        let mechid: u16 = 1;
         let alpha_low: u16 = 12_u16;
         let alpha_high: u16 = u16::MAX - 10;
 
@@ -1238,7 +1239,7 @@ fn test_sudo_get_set_alpha() {
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
-        assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, 1000));
+        assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, netuid, 1000));
 
         // Should fail as signer does not own the subnet
         assert_err!(
@@ -1246,7 +1247,7 @@ fn test_sudo_get_set_alpha() {
             DispatchError::BadOrigin
         );
 
-        assert_ok!(SubtensorModule::register_network(signer.clone()));
+        assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey, mechid));
 
         assert_ok!(AdminUtils::sudo_set_alpha_values(
             signer.clone(),
@@ -1402,39 +1403,3 @@ fn test_sudo_set_coldkey_swap_schedule_duration() {
     });
 }
 
-#[test]
-fn test_sudo_set_dissolve_network_schedule_duration() {
-    new_test_ext().execute_with(|| {
-        // Arrange
-        let root = RuntimeOrigin::root();
-        let non_root = RuntimeOrigin::signed(U256::from(1));
-        let new_duration = 200u32.into();
-
-        // Act & Assert: Non-root account should fail
-        assert_noop!(
-            AdminUtils::sudo_set_dissolve_network_schedule_duration(non_root, new_duration),
-            DispatchError::BadOrigin
-        );
-
-        // Act: Root account should succeed
-        assert_ok!(AdminUtils::sudo_set_dissolve_network_schedule_duration(
-            root.clone(),
-            new_duration
-        ));
-
-        // Assert: Check if the duration was actually set
-        assert_eq!(
-            pallet_subtensor::DissolveNetworkScheduleDuration::<Test>::get(),
-            new_duration
-        );
-
-        // Act & Assert: Setting the same value again should succeed (idempotent operation)
-        assert_ok!(AdminUtils::sudo_set_dissolve_network_schedule_duration(
-            root,
-            new_duration
-        ));
-
-        // You might want to check for events here if your pallet emits them
-        System::assert_last_event(Event::DissolveNetworkScheduleDurationSet(new_duration).into());
-    });
-}

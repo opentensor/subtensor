@@ -235,12 +235,11 @@ impl<T: Config> Pallet<T> {
         mining_emission: u64,
         hotkey_emission_tuples: &mut Vec<(T::AccountId, u16, u64)>,
     ) {
-        // --- 1. First, calculate the hotkey's share of the emission.
-        let take_proportion: I64F64 = I64F64::from_num(Self::get_childkey_take(hotkey, netuid))
-            .saturating_div(I64F64::from_num(u16::MAX));
-        let hotkey_take: u64 = take_proportion
-            .saturating_mul(I64F64::from_num(validating_emission))
-            .to_num::<u64>();
+        // Calculate the hotkey's share of the validator emission based on its delegation status
+        let validating_emission: I96F32 = I96F32::from_num(validating_emission);
+        let take_proportion: I96F32 = I96F32::from_num(Delegates::<T>::get(hotkey))
+            .saturating_div(I96F32::from_num(u16::MAX));
+        let hotkey_take: I96F32 = take_proportion.saturating_mul(validating_emission);
         // NOTE: Only the validation emission should be split amongst parents.
 
         // Initialize variables to track emission distribution

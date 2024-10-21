@@ -942,7 +942,8 @@ fn test_schedule_swap_coldkey_execution() {
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
             hotkey,
-            stake_amount
+            netuid,
+            stake_amount,
         ));
 
         // Check initial ownership
@@ -1201,7 +1202,7 @@ fn test_swap_coldkey_locks() {
 
         // Perform the coldkey swap
         assert_ok!(SubtensorModule::do_swap_coldkey(
-            <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+            &old_coldkey,
             &new_coldkey,
         ));
 

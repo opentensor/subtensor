@@ -95,6 +95,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Args:
     /// * 'origin': ('T::RuntimeOrigin'): The calling origin. Must be signed.
+    /// * `identity` (`Option<SubnetIdentityOf>`): Optional identity to be associated with the new subnetwork.
     ///
     /// # Event:
     /// * 'NetworkAdded': Emitted when a new network is successfully added.
@@ -103,11 +104,14 @@ impl<T: Config> Pallet<T> {
     /// * 'TxRateLimitExceeded': If the rate limit for network registration is exceeded.
     /// * 'NotEnoughBalanceToStake': If there isn't enough balance to stake for network registration.
     /// * 'BalanceWithdrawalError': If an error occurs during balance withdrawal for network registration.
+    /// * `SubnetIdentitySet(netuid)`: Emitted when a custom identity is set for a new subnetwork.
+    /// * `SubnetIdentityRemoved(netuid)`: Emitted when the identity of a removed network is also deleted.
     ///
     pub fn do_register_network(
         origin: T::RuntimeOrigin,
         hotkey: &T::AccountId,
         mechid: u16,
+        identity: Option<SubnetIdentityOf>,
     ) -> DispatchResult {
         // --- 1. Ensure the caller is a signed user.
         let coldkey = ensure_signed(origin)?;
@@ -195,7 +199,18 @@ impl<T: Config> Pallet<T> {
         //     ),
         // );
 
-        // --- 15. Emit the NetworkAdded event.
+        // --- 15. Add the identity if it exists
+        if let Some(identity_value) = identity {
+            ensure!(
+                Self::is_valid_subnet_identity(&identity_value),
+                Error::<T>::InvalidIdentity
+            );
+
+            SubnetIdentities::<T>::insert(netuid_to_register, identity_value);
+            Self::deposit_event(Event::SubnetIdentitySet(netuid_to_register));
+        }
+        
+        // --- 16. Emit the NetworkAdded event.
         log::info!(
             "NetworkAdded( netuid:{:?}, mechanism:{:?} )",
             netuid_to_register,
@@ -203,7 +218,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::NetworkAdded(netuid_to_register, 0));
 
-        // --- 16. Return success.
+        // --- 17. Return success.
         Ok(())
     }
 

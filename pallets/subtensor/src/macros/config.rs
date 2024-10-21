@@ -210,8 +210,5 @@ mod config {
         /// Coldkey swap schedule duartion.
         #[pallet::constant]
         type InitialColdkeySwapScheduleDuration: Get<BlockNumberFor<Self>>;
-        /// Dissolve network schedule duration
-        #[pallet::constant]
-        type InitialDissolveNetworkScheduleDuration: Get<BlockNumberFor<Self>>;
     }
 }

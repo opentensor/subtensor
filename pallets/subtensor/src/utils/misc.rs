@@ -769,19 +769,4 @@ impl<T: Config> Pallet<T> {
         ColdkeySwapScheduleDuration::<T>::set(duration);
         Self::deposit_event(Event::ColdkeySwapScheduleDurationSet(duration));
     }
-
-    /// Set the duration for dissolve network
-    ///
-    /// # Arguments
-    ///
-    /// * `duration` - The blocks for dissolve network execution.
-    ///
-    /// # Effects
-    ///
-    /// * Update the DissolveNetworkScheduleDuration storage.
-    /// * Emits a DissolveNetworkScheduleDurationSet evnet.
-    pub fn set_dissolve_network_schedule_duration(duration: BlockNumberFor<T>) {
-        DissolveNetworkScheduleDuration::<T>::set(duration);
-        Self::deposit_event(Event::DissolveNetworkScheduleDurationSet(duration));
-    }
 }

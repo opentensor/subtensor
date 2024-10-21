@@ -617,16 +617,6 @@ pub mod pallet {
     pub type ColdkeySwapScheduleDuration<T: Config> =
         StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapScheduleDuration<T>>;
 
-    #[pallet::type_value]
-    /// Default value for dissolve network schedule duration
-    pub fn DefaultDissolveNetworkScheduleDuration<T: Config>() -> BlockNumberFor<T> {
-        T::InitialDissolveNetworkScheduleDuration::get()
-    }
-
-    #[pallet::storage]
-    pub type DissolveNetworkScheduleDuration<T: Config> =
-        StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultDissolveNetworkScheduleDuration<T>>;
-
     #[pallet::storage]
     pub type SenateRequiredStakePercentage<T> =
         StorageValue<_, u64, ValueQuery, DefaultSenateRequiredStakePercentage<T>>;
@@ -634,13 +624,9 @@ pub mod pallet {
     /// ==================
     /// ==== Coinbase ====
     /// ==================
-    #[pallet::storage] // --- ITEM ( global_block_emission )
+    #[pallet::storage] 
+    /// --- ITEM ( global_block_emission )
     pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
-    #[pallet::storage] // --- ITEM ( hotkey_emission_tempo )
-    pub type HotkeyEmissionTempo<T> =
-        StorageValue<_, u64, ValueQuery, DefaultHotkeyEmissionTempo<T>>;
-    #[pallet::storage] // --- Map ( hot ) --> last_hotkey_emission_drain | Last block we drained this hotkey's emission.
-    pub type LastHotkeyEmissionDrain<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- DMap ( hot, netuid ) --> emission | Accumulated hotkey emission.
     pub type PendingdHotkeyEmissionOnNetuid<T: Config> = StorageDoubleMap<
         _,
@@ -700,17 +686,6 @@ pub mod pallet {
     #[pallet::storage] // --- DMAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
     pub type SubnetAlphaOut<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- DMAP ( hot, cold ) --> stake | Returns the stake under a coldkey prefixed by hotkey.
-    pub type Stake<T: Config> = StorageDoubleMap<
-        _,
-        Blake2_128Concat,
-        T::AccountId,
-        Identity,
-        T::AccountId,
-        u64,
-        ValueQuery,
-        DefaultZeroU64<T>,
-    >;
     #[pallet::storage] // --- DMAP ( cold, netuid ) --> alpha | Returns the total amount of alpha a coldkey owns.
     pub type TotalColdkeyAlpha<T: Config> = StorageDoubleMap<
         _,
@@ -750,10 +725,6 @@ pub mod pallet {
     /// ============================
     #[pallet::storage] // --- ITEM ( global_weight )
     pub type GlobalWeight<T> = StorageValue<_, u64, ValueQuery, DefaultGlobalWeight<T>>;
-    #[pallet::storage] // --- ITEM ( default_take )
-    pub type MaxTake<T> = StorageValue<_, u16, ValueQuery, DefaultDefaultTake<T>>;
-    #[pallet::storage] // --- ITEM ( min_take )
-    pub type MinTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinTake<T>>;
     #[pallet::storage] // --- ITEM ( default_delegate_take )
     pub type MaxDelegateTake<T> = StorageValue<_, u16, ValueQuery, DefaultDelegateTake<T>>;
     #[pallet::storage] // --- ITEM ( min_delegate_take )
@@ -763,8 +734,6 @@ pub mod pallet {
     #[pallet::storage] // --- ITEM ( min_childkey_take )
     pub type MinChildkeyTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinChildKeyTake<T>>;
 
-    #[pallet::storage] // --- ITEM ( global_block_emission )
-    pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
     #[pallet::storage] // --- ITEM (target_stakes_per_interval)
     pub type TargetStakesPerInterval<T> =
         StorageValue<_, u64, ValueQuery, DefaultTargetStakesPerInterval<T>>;
@@ -809,7 +778,7 @@ pub mod pallet {
         T::AccountId,
         u64,
         ValueQuery,
-        DefaultAccountTake<T>,
+        DefaultZeroU64<T>,
     >;
     #[pallet::storage]
     /// Map ( hot ) --> last_hotkey_emission_drain | Last block we drained this hotkey's emission.
@@ -819,7 +788,7 @@ pub mod pallet {
         T::AccountId,
         u64,
         ValueQuery,
-        DefaultAccumulatedEmission<T>,
+        DefaultZeroU64<T>,
     >;
     #[pallet::storage]
     /// ITEM ( hotkey_emission_tempo )
@@ -833,7 +802,7 @@ pub mod pallet {
         T::AccountId,
         u64,
         ValueQuery,
-        DefaultAccumulatedEmission<T>,
+        DefaultZeroU64<T>,
     >;
     #[pallet::storage]
     /// Map ( hot, cold ) --> block_number | Last add stake increase.
@@ -1510,17 +1479,6 @@ where
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
             }),
-            Some(Call::dissolve_network { .. }) => {
-                if ColdkeySwapScheduled::<T>::contains_key(who) {
-                    InvalidTransaction::Custom(CustomTransactionError::ColdkeyInSwapSchedule.into())
-                        .into()
-                } else {
-                    Ok(ValidTransaction {
-                        priority: Self::get_priority_vanilla(),
-                        ..Default::default()
-                    })
-                }
-            }
             _ => {
                 if let Some(
                     BalancesCall::transfer_keep_alive { .. }

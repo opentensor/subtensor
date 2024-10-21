@@ -292,7 +292,7 @@ fn test_set_weights_validate() {
         SubtensorModule::set_weights_min_stake(min_stake);
 
         // Verify stake is less than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
+        assert!(SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid) < min_stake);
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
@@ -306,11 +306,11 @@ fn test_set_weights_validate() {
         );
 
         // Increase the stake to be equal to the minimum
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
+        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, min_stake, netuid);
 
         // Verify stake is equal to minimum
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid),
             min_stake
         );
 
