@@ -81,7 +81,6 @@ pub fn migrate_rao<T: Config>() -> Weight {
         }); // Increase the stake.
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(lock)); // Increase the total stake.
         SubnetMechanism::<T>::insert(netuid, 1); // Convert to dynamic immediately with initialization.
-        SubnetLocked::<T>::insert(netuid, lock);
         LargestLocked::<T>::insert(netuid, lock);
         Locks::<T>::insert(
             // Lock the initial funds making this key the owner.
@@ -90,7 +89,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
                 lock,
                 current_block,
                 current_block.saturating_add(<LockIntervalBlocks<T>>::get()),
-            ), // Starts initial lock at 2 months.
+            ), // Starts initial lock at 6 months (180 days = 7200 * 180 blocks).
         );
     }
 
