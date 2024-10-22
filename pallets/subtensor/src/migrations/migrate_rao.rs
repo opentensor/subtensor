@@ -63,30 +63,36 @@ pub fn migrate_rao<T: Config>() -> Weight {
     for netuid in netuids.iter().clone() {
         if *netuid == 0 { continue; }
         let owner: T::AccountId = SubnetOwner::<T>::get(netuid);
+
         let lock: u64 = SubnetLocked::<T>::get(netuid); // Get the current locked.
-        SubnetTAO::<T>::insert(netuid, lock); // Set TAO to the lock.
-        SubnetAlphaIn::<T>::insert(netuid, 1); // Set AlphaIn to the initial alpha distribution.
-        SubnetAlphaOut::<T>::insert(netuid, lock); // Set AlphaOut to the initial alpha distribution.
+		let new_lock: u64 = 1; // lock 1 RAO initially.
+		SubnetLocked::<T>::insert(netuid, new_lock);
+		// Give the owner the old lock back
+		Pallet::<T>::add_balance_to_coldkey_account(&owner, lock);
+
+        SubnetTAO::<T>::insert(netuid, 1); // TAO in initial distribution.
+        SubnetAlphaIn::<T>::insert(netuid, 10_000_000); // Set AlphaIn to the initial alpha distribution.
+        SubnetAlphaOut::<T>::insert(netuid, new_lock); // Set AlphaOut to the initial alpha distribution.
         TotalColdkeyAlpha::<T>::mutate(owner.clone(), 0, |total| {
-            *total = total.saturating_add(lock)
+            *total = total.saturating_add(new_lock)
         }); // Set the total coldkey alpha.
         TotalHotkeyAlpha::<T>::mutate(owner.clone(), 0, |total| {
-            *total = total.saturating_add(lock)
+            *total = total.saturating_add(new_lock)
         }); // Set the total hotkey alpha.
         Alpha::<T>::mutate((owner.clone(), owner.clone(), netuid), |total| {
-            *total = total.saturating_add(lock)
+            *total = total.saturating_add(new_lock)
         }); // Set the alpha.
         Stake::<T>::mutate(&owner, &owner, |total| {
-            *total = total.saturating_add(lock);
+            *total = total.saturating_add(new_lock);
         }); // Increase the stake.
-        TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(lock)); // Increase the total stake.
+        TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(new_lock)); // Increase the total stake.
         SubnetMechanism::<T>::insert(netuid, 1); // Convert to dynamic immediately with initialization.
-        LargestLocked::<T>::insert(netuid, lock);
+        LargestLocked::<T>::insert(netuid, new_lock);
         Locks::<T>::insert(
             // Lock the initial funds making this key the owner.
             (netuid, owner.clone(), owner.clone()), // Sets owner as initial lock.
             (
-                lock,
+                new_lock,
                 current_block,
                 current_block.saturating_add(<LockIntervalBlocks<T>>::get()),
             ), // Starts initial lock at 6 months (180 days = 7200 * 180 blocks).
