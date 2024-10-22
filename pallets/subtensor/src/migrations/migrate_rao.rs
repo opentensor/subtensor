@@ -100,6 +100,8 @@ pub fn migrate_rao<T: Config>() -> Weight {
         );
         // Update all tempos to default
         Tempo::<T>::insert(netuid, DefaultTempo::<T>::get());
+        // Set global weight to 1.0 for the start
+        GlobalWeight::<T>::insert(netuid, u64::MAX);
     }
 
     // Mark the migration as completed
