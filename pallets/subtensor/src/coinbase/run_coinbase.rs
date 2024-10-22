@@ -184,13 +184,12 @@ impl<T: Config> Pallet<T> {
     pub fn distribute_owner_cut(netuid: u16, owner_cut: u64) -> u64 {
         // Does the subnet have an owner?
         if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
-            // Find subnet owner hotkey
-            if let Some(owner_hotkey) = OwnedHotkeys::<T>::get(&owner_coldkey).first() {
-                // Add subnet owner cut to owner's stake
-                Self::emit_into_subnet(owner_hotkey, &owner_coldkey, netuid, owner_cut);
-                // Emit event
-                Self::deposit_event(Event::OwnerPaymentDistributed(netuid, owner_hotkey.clone(), owner_cut).into());
-            }
+            // Use subnet owner coldkey as hotkey
+            let owner_hotkey = owner_coldkey.clone();
+            // Add subnet owner cut to owner's stake
+            Self::emit_into_subnet(&owner_hotkey, &owner_coldkey, netuid, owner_cut);
+            // Emit event
+            Self::deposit_event(Event::OwnerPaymentDistributed(netuid, owner_hotkey.clone(), owner_cut).into());
             return 0_u64;
         }
         owner_cut
