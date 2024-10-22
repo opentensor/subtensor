@@ -2232,9 +2232,9 @@ fn test_parent_child_chain_emission() {
 //         }
 
 //         // Log PendingEmission Tuple for a, b, c
-//         let pending_emission_a = SubtensorModule::get_pending_hotkey_emission(&hotkey_a);
-//         let pending_emission_b = SubtensorModule::get_pending_hotkey_emission(&hotkey_b);
-//         let pending_emission_c = SubtensorModule::get_pending_hotkey_emission(&hotkey_c);
+//         let pending_emission_a = SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey_a);
+//         let pending_emission_b = SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey_b);
+//         let pending_emission_c = SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey_c);
 
 //         log::info!("Pending Emission for A: {:?}", pending_emission_a);
 //         log::info!("Pending Emission for B: {:?}", pending_emission_b);

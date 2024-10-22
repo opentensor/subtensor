@@ -1,9 +1,10 @@
 #![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
 use crate::mock::*;
 mod mock;
+use coinbase::block_emission;
+use frame_support::{assert_err, assert_ok};
 use pallet_subtensor::*;
 use sp_core::Get;
-// use frame_support::{assert_err, assert_ok};
 use sp_core::U256;
 
 // Test the ability to hash all sorts of hotkeys.
@@ -51,89 +52,104 @@ fn test_hotkey_drain_time() {
 
 fn test_coinbase_basic() {
     new_test_ext(1).execute_with(|| {
-        // // Define network ID
-        // let netuid: u16 = 1;
-        // let hotkey = U256::from(0);
-        // let coldkey = U256::from(3);
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid: u16 = 1;
+        let subnet_tempo = 10;
+        let hotkey_tempo = 20;
+        let stake = 100_000_000_000;
 
-        // // Create a network with a tempo 1
-        // add_network(netuid, 1, 0);
-        // register_ok_neuron(netuid, hotkey, coldkey, 100000);
-        // SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
-        // increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, 1000, netuid);
+        // Add network, register hotkeys, and setup network parameters
+        add_dynamic_network(netuid, subnet_tempo, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey,
+            2 * stake + ExistentialDeposit::get(),
+        );
+        SubtensorModule::set_hotkey_emission_tempo(hotkey_tempo);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        step_block(subnet_tempo);
+        pallet_subtensor::SubnetOwnerCut::<Test>::set(u16::MAX/5);
+        // All stake is active
+        pallet_subtensor::ActivityCutoff::<Test>::set(netuid, u16::MAX);
+        // There is one validator
+        pallet_subtensor::MaxAllowedUids::<Test>::set(netuid, 1);
+        SubtensorModule::set_max_allowed_validators(netuid, 1);
 
-        // // Set the subnet emission value to 1.
-        // SubtensorModule::set_emission_values(&[netuid], vec![1]).unwrap();
-        // assert_eq!(SubtensorModule::get_subnet_emission_value(netuid), 1);
+        // Setup stakes:
+        //   Stake from validator
+        //   Stake from miner
+        //   Stake from nominator to miner
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            stake,
+        ));
+        let alpha_before = pallet_subtensor::Alpha::<Test>::get((hotkey, coldkey, netuid));
 
-        // // Hotkey has no pending emission
-        // assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
+        // Setup YUMA so that it creates emissions:
+        //   Validators sets weights
+        //   Last weight update is after block at registration
+        pallet_subtensor::Weights::<Test>::insert(netuid, 0, vec![(0, 0xFFFF)]);
+        pallet_subtensor::BlockAtRegistration::<Test>::set(netuid, 0, 1);
+        pallet_subtensor::LastUpdate::<Test>::set(netuid, vec![2]);
+        pallet_subtensor::Kappa::<Test>::set(netuid, u16::MAX / 5);
 
-        // // Hotkey has same stake
-        // assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey), 1000);
+        // Hotkey has no pending emission
+        assert_eq!(SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey, netuid), 0);
 
-        // // Subnet has no pending emission.
-        // assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+        // Hotkey has same stake
+        assert_eq!(get_total_stake_for_hotkey(hotkey), stake);
 
-        // // Step block
-        // next_block();
+        // Ensure that subnet PendingEmission accumulates
+        let block_emission = SubtensorModule::get_block_emission();
+        let subnet_emission_before = SubtensorModule::get_pending_emission(netuid);
+        step_block(1);
+        assert_eq!(
+            SubtensorModule::get_pending_emission(netuid) - subnet_emission_before,
+            block_emission.unwrap()
+        );
 
-        // // Hotkey has no pending emission
-        // assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
+        // Hotkey has no pending emission
+        assert_eq!(SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey, netuid), 0);
 
-        // // Hotkey has same stake
-        // assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey), 1000);
+        // Run run_coinbase until PendingHotkeyEmission are populated
+        while pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(hotkey, netuid) == 0 {
+            step_block(1);
+        }
 
-        // // Subnet has no pending emission of 1 ( from coinbase )
-        // assert_eq!(SubtensorModule::get_pending_emission(netuid), 1);
+        // Subnet pending has been drained.
+        assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
 
-        // // Step block releases
-        // next_block();
+        // Hotkey has pending emission
+        let hotkey_pending_emission = SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey, netuid);
+        assert!(hotkey_pending_emission != 0);
 
-        // // Subnet pending has been drained.
-        // assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+        // Hotkey has same stake
+        assert_eq!(get_total_stake_for_hotkey(hotkey), stake);
 
-        // // Hotkey pending immediately drained.
-        // assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
+        // Subnet pending has been drained.
+        assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
 
-        // // Hotkey has NEW stake
-        // assert_eq!(
-        //     SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-        //     1000 + 2
-        // );
+        // Prevent further subnet epochs
+        pallet_subtensor::Tempo::<Test>::set(netuid, u16::MAX);
 
-        // // Set the hotkey drain time to 2 block.
-        // SubtensorModule::set_hotkey_emission_tempo(2);
+        // Run run_coinbase until PendingHotkeyEmission is drained
+        step_block((hotkey_tempo * 2) as u16);
 
-        // // Step block releases
-        // next_block();
+        // Hotkey pending drained.
+        assert_eq!(SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey, netuid), 0);
 
-        // // Subnet pending increased by 1
-        // assert_eq!(SubtensorModule::get_pending_emission(netuid), 1);
+        // Hotkey has NEW stake
+        let alpha_after = pallet_subtensor::Alpha::<Test>::get((hotkey, coldkey, netuid));
+        assert_eq!(
+            alpha_after - alpha_before,
+            hotkey_pending_emission
+        );
 
-        // // Hotkey pending not increased (still on subnet)
-        // assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
-
-        // // Hotkey has same stake
-        // assert_eq!(
-        //     SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-        //     1000 + 2
-        // );
-
-        // // Step block releases
-        // next_block();
-
-        // // Subnet pending has been drained.
-        // assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
-
-        // // Hotkey pending drained.
-        // assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
-
-        // // Hotkey has 2 new TAO.
-        // assert_eq!(
-        //     SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-        //     1000 + 4
-        // );
+        // Hotkey pending drained.
+        assert_eq!(SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey, netuid), 0);
     });
 }
 

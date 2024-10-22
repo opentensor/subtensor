@@ -566,6 +566,12 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
 }
 
+#[allow(dead_code)]
+pub fn add_dynamic_network(netuid: u16, tempo: u16, modality: u16) {
+    add_network(netuid, tempo, modality);
+    pallet_subtensor::SubnetMechanism::<Test>::insert(netuid, 1);
+}
+
 /// Helper function to mock now missing increase_stake_on_coldkey_hotkey_account with 
 /// minimal changes
 #[allow(dead_code)]
@@ -576,6 +582,14 @@ pub fn increase_stake_on_coldkey_hotkey_account(
     netuid: u16,
 ) {
     SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked);
+}
+
+/// Helper function to mock now missing get_total_stake_for_hotkey with 
+/// minimal changes
+#[allow(dead_code)]
+pub fn get_total_stake_for_hotkey(hotkey: U256) -> u64 {
+    let coldkey = pallet_subtensor::Owner::<Test>::get(hotkey);
+    pallet_subtensor::Stake::<Test>::get(hotkey, coldkey)
 }
 
 // Helper function to set up a neuron with stake
