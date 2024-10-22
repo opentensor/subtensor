@@ -8,7 +8,7 @@ use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays
 use frame_support::sp_runtime::DispatchError;
 use mock::*;
 use pallet_subtensor::*;
-use sp_core::{H256, U256};
+use sp_core::{Get, H256, U256};
 
 /***********************************************************
     staking::add_stake() tests
@@ -2452,6 +2452,41 @@ fn test_get_total_delegated_stake_exclude_owner_stake() {
             actual_delegated_stake, expected_delegated_stake,
             "Delegated stake should exclude owner's stake. Expected: {}, Actual: {}",
             expected_delegated_stake, actual_delegated_stake
+        );
+    });
+}
+
+#[test]
+fn test_anneal_global_weight() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1u16;
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Set max global weight
+        SubtensorModule::set_global_weight(u64::MAX, netuid);
+
+        // Adjust global weight
+        let interval: u64 = pallet_subtensor::GlobalWeightAdjustmentInterval::<Test>::get();
+        let mut block: u64 = 0;
+        while block < 2629800 {
+            block += interval;
+            SubtensorModule::adjust_global_weight(block);
+        }
+        assert_eq!(
+            pallet_subtensor::GlobalWeight::<Test>::get(netuid),
+            u64::MAX / 2,
+        );
+
+        // Make sure it doesn't reduce below u64::MAX
+        block += interval;
+        SubtensorModule::adjust_global_weight(block);
+        assert_eq!(
+            pallet_subtensor::GlobalWeight::<Test>::get(netuid),
+            u64::MAX / 2,
         );
     });
 }

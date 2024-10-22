@@ -283,7 +283,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // Get the weights for global and alpha stakes in emission distribution
-        let global_weight: I96F32 = Self::get_global_weight();
+        let global_weight: I96F32 = Self::get_global_weight(netuid);
         let alpha_weight: I96F32 = I96F32::from_num(1.0).saturating_sub(global_weight);
 
         // Distribute emission to parents based on their contributions
@@ -398,7 +398,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // Get the weights for global and alpha scores
-        let global_weight: I96F32 = Self::get_global_weight();
+        let global_weight: I96F32 = Self::get_global_weight(netuid);
         let alpha_weight: I96F32 = I96F32::from_num(1.0).saturating_sub(global_weight);
 
         // Distribute emission to nominators based on their contributions

@@ -611,6 +611,11 @@ pub mod pallet {
     pub fn DefaultStakeDelta<T: Config>() -> i128 {
         0
     }
+    #[pallet::type_value]
+    /// Global Weight adjustment interval.
+    pub fn GlobalWeightAdjustmentInterval<T: Config>() -> u64 {
+        7200 // 1 day
+    }
 
     #[pallet::type_value]
     /// Default value for coldkey swap schedule duration
@@ -731,8 +736,10 @@ pub mod pallet {
     /// ============================
     /// ==== Staking Variables ====
     /// ============================
-    #[pallet::storage] // --- ITEM ( global_weight )
-    pub type GlobalWeight<T> = StorageValue<_, u64, ValueQuery, DefaultGlobalWeight<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> Global weight
+    pub type GlobalWeight<T> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultGlobalWeight<T>>;
     #[pallet::storage] // --- ITEM ( default_delegate_take )
     pub type MaxDelegateTake<T> = StorageValue<_, u16, ValueQuery, DefaultDelegateTake<T>>;
     #[pallet::storage] // --- ITEM ( min_delegate_take )
@@ -814,18 +821,6 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroU64<T>,
     >;
-    #[pallet::storage]
-    /// Map ( hot, cold ) --> stake: i128 | Stake added/removed since last emission drain.
-    pub type StakeDeltaSinceLastEmissionDrain<T: Config> = StorageDoubleMap<
-        _,
-        Blake2_128Concat,
-        T::AccountId,
-        Identity,
-        T::AccountId,
-        i128,
-        ValueQuery,
-        DefaultStakeDelta<T>,
-    >;    
     #[pallet::storage] // --- DMAP ( parent, netuid ) --> Vec<(proportion,child)>
     pub type ChildKeys<T: Config> = StorageDoubleMap<
         _,

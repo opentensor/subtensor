@@ -301,5 +301,8 @@ impl<T: Config> Pallet<T> {
                 BurnRegistrationsThisInterval::<T>::get(netuid),
             );
         }
+        if !GlobalWeight::<T>::contains_key(netuid) {
+            GlobalWeight::<T>::insert(netuid, DefaultGlobalWeight::<T>::get());
+        }
     }
 }

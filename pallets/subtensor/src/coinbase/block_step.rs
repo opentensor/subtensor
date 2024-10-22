@@ -1,6 +1,7 @@
 use super::*;
 use frame_support::storage::IterableStorageMap;
 use substrate_fixed::types::I110F18;
+use sp_core::Get;
 
 impl<T: Config> Pallet<T> {
     /// Executes the necessary operations for each block.
@@ -18,6 +19,8 @@ impl<T: Config> Pallet<T> {
         // if block_number.saturating_add(1) % 300 == 0 { // adjust every hour.
         //     Self::adjust_tempos();
         // }
+        // --- 4. Anneal global weight
+        Self::adjust_global_weight(block_number);
         // Return ok.
         Ok(())
     }
@@ -243,6 +246,27 @@ impl<T: Config> Pallet<T> {
             return Self::get_min_burn_as_u64(netuid);
         } else {
             return next_value.to_num::<u64>();
+        }
+    }
+
+    /// Anneal global weight which starts at 1.0 at subnet registration and on conversion to rao
+    /// to 0.5 within 1 year at every adjustment interval.
+    ///
+    pub fn adjust_global_weight(block_number: u64) {
+        let adjustment_interval = GlobalWeightAdjustmentInterval::<T>::get();
+        if block_number % adjustment_interval == 0 {
+            // Calculate adjustment. Per block is u64::MAX / 2 / blocks_per_year
+            let adjustment_per_block: u64 = 3_507_252_276_543;
+            let adjustment = adjustment_per_block.saturating_mul(adjustment_interval);
+
+            let subnets: Vec<u16> = Self::get_all_subnet_netuids();
+            for &netuid in subnets.iter() {
+                let current_weight = GlobalWeight::<T>::get(netuid);
+                let diff = current_weight.saturating_sub(u64::MAX / 2);
+                if diff > 0 {
+                    GlobalWeight::<T>::insert(netuid, current_weight.saturating_sub(adjustment.min(diff)));
+                }
+            }
         }
     }
 }
