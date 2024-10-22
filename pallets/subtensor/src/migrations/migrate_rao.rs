@@ -63,7 +63,13 @@ pub fn migrate_rao<T: Config>() -> Weight {
     for netuid in netuids.iter().clone() {
         if *netuid == 0 { continue; }
         let owner: T::AccountId = SubnetOwner::<T>::get(netuid);
-        let lock: u64 = SubnetLocked::<T>::get(netuid); // Get the current locked.
+        let current_lock: u64 = SubnetLocked::<T>::get(netuid); // Get the current locked.
+        // Return lock to the original owner less 1 TAO
+        let tao = 1_000_000_000_u64;
+        let lock_to_return: u64 = current_lock.saturating_sub(tao);
+        let lock: u64 = current_lock.saturating_sub(lock_to_return);
+        Pallet::<T>::add_balance_to_coldkey_account(&owner, lock_to_return);
+
         SubnetTAO::<T>::insert(netuid, lock); // Set TAO to the lock.
         SubnetAlphaIn::<T>::insert(netuid, 1); // Set AlphaIn to the initial alpha distribution.
         SubnetAlphaOut::<T>::insert(netuid, lock); // Set AlphaOut to the initial alpha distribution.
@@ -92,6 +98,8 @@ pub fn migrate_rao<T: Config>() -> Weight {
                 current_block.saturating_add(<LockIntervalBlocks<T>>::get()),
             ), // Starts initial lock at 2 months.
         );
+        // Update all tempos to default
+        Tempo::<T>::insert(netuid, DefaultTempo::<T>::get());
     }
 
     // Mark the migration as completed

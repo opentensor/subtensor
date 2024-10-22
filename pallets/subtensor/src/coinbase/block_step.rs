@@ -9,15 +9,15 @@ impl<T: Config> Pallet<T> {
         log::debug!("block_step for block: {:?} ", block_number);
         // --- 1. Adjust difficulties.
         Self::adjust_registration_terms_for_networks();
-        // --- 2. Update owners.
-        Self::update_all_subnet_owners();
-        // --- 3. Run emission through network.
+        // --- 2. Run emission through network.
         Self::run_coinbase();
-        // --- 4. Adjust tempos every day.
+        // --- 3. Adjust tempos every day.
         // TODO(const) make this better.
-        if block_number.saturating_add(1) % 300 == 0 { // adjust every hour.
-            Self::adjust_tempos();
-        }
+        // Per const: remove dynamic tempos for now, just make the min and the max value always 
+        // 300 blocks. (not 360)
+        // if block_number.saturating_add(1) % 300 == 0 { // adjust every hour.
+        //     Self::adjust_tempos();
+        // }
         // Return ok.
         Ok(())
     }

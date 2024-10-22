@@ -107,6 +107,11 @@ impl<T: Config> Pallet<T> {
         let tao_unstaked: u64 =
             Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha_unstaked);
 
+        // Track this removal in the stake delta.
+        StakeDeltaSinceLastEmissionDrain::<T>::mutate(&hotkey, &coldkey, |stake_delta| {
+            *stake_delta = stake_delta.saturating_sub_unsigned(tao_unstaked as u128);
+        });
+
         // We add the balance to the coldkey.  If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 

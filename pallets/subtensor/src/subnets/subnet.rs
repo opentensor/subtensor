@@ -1,5 +1,6 @@
 use super::*;
 use frame_support::IterableStorageMap;
+use sp_core::Get;
 
 impl<T: Config> Pallet<T> {
     /// Fetches the total count of subnets.
@@ -153,7 +154,8 @@ impl<T: Config> Pallet<T> {
         Self::set_network_last_lock(actual_tao_lock_amount);
 
         // --- 8. Set initial and custom parameters for the network.
-        Self::init_new_network(netuid_to_register, 360);
+        let default_tempo = DefaultTempo::<T>::get();
+        Self::init_new_network(netuid_to_register, default_tempo);
         log::debug!("init_new_network: {:?}", netuid_to_register);
 
         // --- 9 . Add the caller to the neuron set.

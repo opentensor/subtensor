@@ -205,5 +205,7 @@ mod events {
         SubnetIdentityRemoved(u16),
         /// The duration of schedule coldkey swap has been set
         ColdkeySwapScheduleDurationSet(BlockNumberFor<T>),
+        /// Subnet owner cut distributed
+        OwnerPaymentDistributed(u16, T::AccountId, u64),
     }
 }

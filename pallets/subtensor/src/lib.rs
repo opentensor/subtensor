@@ -606,6 +606,11 @@ pub mod pallet {
     pub fn DefaultGlobalWeight<T: Config>() -> u64 {
         T::InitialGlobalWeight::get()
     }
+    #[pallet::type_value]
+    /// Default stake delta.
+    pub fn DefaultStakeDelta<T: Config>() -> i128 {
+        0
+    }
 
     #[pallet::type_value]
     /// Default value for coldkey swap schedule duration
@@ -627,7 +632,8 @@ pub mod pallet {
     #[pallet::storage] 
     /// --- ITEM ( global_block_emission )
     pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
-    #[pallet::storage] // --- DMap ( hot, netuid ) --> emission | Accumulated hotkey emission.
+    #[pallet::storage] 
+    /// --- DMap ( hot, netuid ) --> emission | Accumulated hotkey emission.
     pub type PendingHotkeyEmissionOnNetuid<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -638,7 +644,8 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroU64<T>,
     >;
-    #[pallet::storage] // --- DMap ( hot, netuid ) --> emission | last hotkey emission on network.
+    #[pallet::storage] 
+    /// --- DMap ( hot, netuid ) --> emission | last hotkey emission on network.
     pub type LastHotkeyEmissionOnNetuid<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -649,7 +656,8 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroU64<T>,
     >;
-    #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> last_emission_on_hot_cold_net | Returns the last_emission_update_on_hot_cold_net
+    #[pallet::storage]
+    /// --- NMAP ( hot, cold, netuid ) --> last_emission_on_hot_cold_net | Returns the last_emission_update_on_hot_cold_net
     pub type LastHotkeyColdkeyEmissionOnNetuid<T: Config> = StorageNMap<
         _,
         (
@@ -795,16 +803,6 @@ pub mod pallet {
     pub type HotkeyEmissionTempo<T> =
         StorageValue<_, u64, ValueQuery, DefaultHotkeyEmissionTempo<T>>;
     #[pallet::storage]
-    /// Map ( hot ) --> emission | Accumulated hotkey emission.
-    pub type PendingdHotkeyEmission<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        T::AccountId,
-        u64,
-        ValueQuery,
-        DefaultZeroU64<T>,
-    >;
-    #[pallet::storage]
     /// Map ( hot, cold ) --> block_number | Last add stake increase.
     pub type LastAddStakeIncrease<T: Config> = StorageDoubleMap<
         _,
@@ -816,6 +814,18 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroU64<T>,
     >;
+    #[pallet::storage]
+    /// Map ( hot, cold ) --> stake: i128 | Stake added/removed since last emission drain.
+    pub type StakeDeltaSinceLastEmissionDrain<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        T::AccountId,
+        i128,
+        ValueQuery,
+        DefaultStakeDelta<T>,
+    >;    
     #[pallet::storage] // --- DMAP ( parent, netuid ) --> Vec<(proportion,child)>
     pub type ChildKeys<T: Config> = StorageDoubleMap<
         _,
