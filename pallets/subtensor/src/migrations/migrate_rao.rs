@@ -97,6 +97,9 @@ pub fn migrate_rao<T: Config>() -> Weight {
                 current_block.saturating_add(<LockIntervalBlocks<T>>::get()),
             ), // Starts initial lock at 6 months (180 days = 7200 * 180 blocks).
         );
+
+		// Set the hotkey emission tempo.
+		HotkeyEmissionTempo::<T>::put(100); // Every 20 minutes. 100 blocks.
     }
 
     // Mark the migration as completed
