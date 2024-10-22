@@ -572,9 +572,6 @@ impl<T: Config> Pallet<T> {
         );
         Self::accumulate_nominator_emission(&mut nominator_emission, block_number);
 
-        // Reset the stake delta for the hotkey.
-        let _ = StakeDeltaSinceLastEmissionDrain::<T>::clear_prefix(hotkey, u32::MAX, None);
-
         log::debug!(
             "Drained hotkey emission for hotkey {:?} for netuid {:?} on block {:?}: {:?}",
             hotkey,
@@ -661,18 +658,4 @@ impl<T: Config> Pallet<T> {
     pub fn get_pending_hotkey_emission_on_netuid(hotkey: &T::AccountId, netuid: u16) -> u64 {
         PendingHotkeyEmissionOnNetuid::<T>::get(hotkey, netuid)
     }
-
-    /// Calculates the nonviable stake for a nominator.
-    /// The nonviable stake is the stake that was added by the nominator since the last emission drain.
-    /// This stake will not receive emission until the next emission drain.
-    /// Note: if the stake delta is below zero, we return zero. We don't allow more stake than the nominator has.
-    pub fn get_nonviable_stake(hotkey: &T::AccountId, nominator: &T::AccountId) -> u64 {
-        let stake_delta = StakeDeltaSinceLastEmissionDrain::<T>::get(hotkey, nominator);
-        if stake_delta.is_negative() {
-            0
-        } else {
-            // Should never fail the into, but we handle it anyway.
-            stake_delta.try_into().unwrap_or(u64::MAX)
-        }
-    }    
 }

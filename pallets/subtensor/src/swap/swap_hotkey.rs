@@ -402,19 +402,6 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // 9. Swap Stake Delta for all coldkeys.
-        for (coldkey, stake_delta) in StakeDeltaSinceLastEmissionDrain::<T>::iter_prefix(old_hotkey)
-        {
-            let new_stake_delta = StakeDeltaSinceLastEmissionDrain::<T>::get(new_hotkey, &coldkey);
-            StakeDeltaSinceLastEmissionDrain::<T>::insert(
-                new_hotkey,
-                &coldkey,
-                new_stake_delta.saturating_add(stake_delta),
-            );
-            StakeDeltaSinceLastEmissionDrain::<T>::remove(old_hotkey, &coldkey);
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
-        }
-
         // Return successful after swapping all the relevant terms.
         Ok(())
     }
