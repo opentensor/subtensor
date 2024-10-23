@@ -395,7 +395,7 @@ impl<T: Config> Pallet<T> {
         log::trace!("current_block: {:?}", current_block);
 
         // Get activity cutoff.
-        let activity_cutoff: u64 = Self::get_activity_cutoff(netuid) as u64;
+        let activity_cutoff: u64 = ((7 * 24 * 60 * 60) / 3) as u64; // 7 days //Self::get_activity_cutoff(netuid) as u64;
         log::trace!("activity_cutoff: {:?}", activity_cutoff);
 
         // Last update vector.
