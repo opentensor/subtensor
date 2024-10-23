@@ -141,7 +141,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 192,
+    spec_version: 204,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -994,7 +994,7 @@ parameter_types! {
     pub const SubtensorInitialSubnetOwnerCut: u16 = 5_898; // 9 percent
     pub const SubtensorInitialSubnetLimit: u16 = u16::MAX;
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 1200; // create a new network every 1 hours.
-    pub const SubtensorInitialNetworkRateLimit: u64 = 10; // 1 hour in 12 second blocks. Or 5 minutes at second blocks. 
+    pub const SubtensorInitialNetworkRateLimit: u64 = 10; // 1 hour in 12 second blocks. Or 5 minutes at second blocks.
     pub const SubtensorInitialTargetStakesPerInterval: u16 = u16::MAX;
     pub const SubtensorInitialKeySwapCost: u64 = 1_000_000_000;
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
@@ -1766,11 +1766,11 @@ impl_runtime_apis! {
         fn get_all_dynamic_info() -> Vec<u8> {
             let result = SubtensorModule::get_all_dynamic_info();
             result.encode()
-        }   
+        }
         fn get_dynamic_info(netuid: u16) -> Vec<u8> {
             let result = SubtensorModule::get_dynamic_info(netuid);
             result.encode()
-        }   
+        }
         fn get_subnet_hyperparams(netuid: u16) -> Vec<u8> {
             let _result = SubtensorModule::get_subnet_hyperparams(netuid);
             if _result.is_some() {
