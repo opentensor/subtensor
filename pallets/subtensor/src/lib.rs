@@ -487,7 +487,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for u16 max.
     pub fn DefaultMaxTempo<T: Config>() -> u16 {
-        300 * 4 // 4 hours.
+        300
     }
     #[pallet::type_value]
     /// Default value for global weight.
