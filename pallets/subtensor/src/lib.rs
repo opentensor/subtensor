@@ -321,7 +321,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for network tempo
     pub fn DefaultTempo<T: Config>() -> u16 {
-        T::InitialTempo::get()
+		300
     }
     #[pallet::type_value]
     /// Default value for weights set rate limit.
