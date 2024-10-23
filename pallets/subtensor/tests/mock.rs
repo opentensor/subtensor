@@ -607,6 +607,7 @@ pub fn is_within_tolerance(actual: u64, expected: u64, tolerance: u64) -> bool {
 #[allow(dead_code)]
 pub struct DynamicSubnetSetupParameters {
     pub netuid: u16,
+    pub owner: (U256, U256),
     pub subnet_tempo: u16,
     pub hotkey_tempo: u64,
     pub coldkeys: Vec<U256>,
@@ -620,6 +621,11 @@ pub struct DynamicSubnetSetupParameters {
 pub fn setup_dynamic_network(prm: &DynamicSubnetSetupParameters) {
     add_network(prm.netuid, prm.subnet_tempo as u16, 0);
     pallet_subtensor::SubnetMechanism::<Test>::insert(prm.netuid, 1);
+    pallet_subtensor::SubnetTAO::<Test>::insert(prm.netuid, 1);
+    pallet_subtensor::SubnetAlphaIn::<Test>::insert(prm.netuid, 1);
+    pallet_subtensor::SubnetOwner::<Test>::insert(prm.netuid, prm.owner.0);
+    pallet_subtensor::SubnetOwnerHotkey::<Test>::insert(prm.netuid, prm.owner.1);
+
 
     // Register neurons
     let uids: Vec<u16> = prm.coldkeys.iter()
@@ -675,8 +681,6 @@ pub fn setup_dynamic_network(prm: &DynamicSubnetSetupParameters) {
         .for_each(|(uid, weights)| {
             if weights.len() > 0 {
                 pallet_subtensor::Weights::<Test>::insert(prm.netuid, uid, weights);
-                println!("uid {:?} sets weights: {:?}", uid, weights);
-                println!("uid {:?} hotkey: {:?}", uid, pallet_subtensor::Keys::<Test>::get(prm.netuid, uid));
             }
             pallet_subtensor::BlockAtRegistration::<Test>::set(prm.netuid, uid, 1);
         });
