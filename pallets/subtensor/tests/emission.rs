@@ -468,6 +468,7 @@ fn test_global_and_alpha_weight_distribution() {
         SubtensorModule::set_global_weight(
             ((I96F32::from_num(3) * I96F32::from_num(u64::MAX)) / I96F32::from_num(10))
                 .to_num::<u64>(),
+            netuid,
         ); // 30% global weight
         SubtensorModule::stake_into_subnet(&hotkey, &nominator, netuid, 1000);
         Delegates::<Test>::insert(hotkey, 0); // No hotkey take
@@ -1204,6 +1205,7 @@ fn test_global_and_alpha_weight_distribution_scenario() {
         SubtensorModule::set_global_weight(
             (I96F32::from_num(u64::MAX) * I96F32::from_num(3) / I96F32::from_num(10))
                 .to_num::<u64>(),
+            netuid,
         );
         ParentKeys::<Test>::insert(hotkey, netuid, vec![(u64::MAX, parent)]);
         SubtensorModule::stake_into_subnet(&parent, &coldkey, netuid, 500);
@@ -1747,5 +1749,202 @@ fn test_fast_stake_unstake_protection_source_nominator() {
 
         // Every hotkey is rejected because LastAddStakeIncrease is too close
         assert_eq!(emission_tuples.len(), 0);
+    });
+}
+
+#[test]
+fn test_basic_validator_emission() {
+    new_test_ext(1).execute_with(|| {
+        // Define hotkeys
+        let validator: U256 = U256::from(1);
+        let miner: U256 = U256::from(2);
+
+        // Define coldkeys with more readable names
+        let coldkey_validator: U256 = U256::from(4);
+        let coldkey_miner: U256 = U256::from(5);
+
+        let netuid: u16 = 1;
+        let subnet_tempo = 10;
+        let hotkey_tempo = 100;
+
+        setup_dynamic_network(&DynamicSubnetSetupParameters {
+            netuid,
+            subnet_tempo,
+            hotkey_tempo,
+            coldkeys: vec![coldkey_validator, coldkey_miner],
+            hotkeys: vec![validator, miner],
+            stakes: vec![1_000_000_000, 100_000_000],
+            validators: 1,
+            weights: vec![vec![(1u16, 0xFFFF)], vec![]], // Only set weight for the miner (UID 1)
+        });
+
+        // Run run_coinbase until PendingHotkeyEmission are populated
+        while pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(validator, netuid) == 0 {
+            step_block(1);
+        }
+
+        println!("validator pending = {:?}", pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(validator, netuid));
+        println!("miner pending = {:?}", pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(miner, netuid));
+
+        assert!(
+            pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(validator, netuid) > 1_000_000_000,
+            "Validator should have received pending emission"
+        );
+        assert_eq!(
+            pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(miner, netuid),
+            0,
+            "Miner should not have received pending emission"
+        );
+
+        // // Prevent further subnet epochs
+        // pallet_subtensor::Tempo::<Test>::set(netuid, u16::MAX);
+
+        // // Run run_coinbase until PendingHotkeyEmission is drained
+        // step_block((hotkey_tempo * 2) as u16);
+
+        // // Check emission distribution
+        // let parent_stake: u64 =
+        //     pallet_subtensor::Alpha::<Test>::get((parent, coldkey_parent, netuid));
+        // let child_stake: u64 =
+        //     pallet_subtensor::Alpha::<Test>::get((child, coldkey_child, netuid));
+        // let weight_setter_stake: u64 = 
+        //     pallet_subtensor::Alpha::<Test>::get((weight_setter, coldkey_weight_setter, netuid));
+
+        // println!("child stake = {:?}", child_stake);
+
+
+        // assert!(parent_stake > 1, "Parent should have received emission");
+        // assert!(child_stake > 109_999, "Child should have received emission");
+        // assert!(
+        //     weight_setter_stake > 1_000_000,
+        //     "Weight setter should have received emission"
+        // );
+
+        // // Additional assertion to verify that the weight setter received the most emission
+        // assert!(
+        //     weight_setter_stake > parent_stake && weight_setter_stake > child_stake,
+        //     "Weight setter should have received the most emission"
+        // );
+    });
+}
+
+#[test]
+fn test_basic_validator_emission_reverse_order() {
+    new_test_ext(1).execute_with(|| {
+        // Define hotkeys
+        let validator: U256 = U256::from(1);
+        let miner: U256 = U256::from(2);
+
+        // Define coldkeys with more readable names
+        let coldkey_validator: U256 = U256::from(4);
+        let coldkey_miner: U256 = U256::from(5);
+
+        let netuid: u16 = 1;
+        let subnet_tempo = 10;
+        let hotkey_tempo = 100;
+
+        setup_dynamic_network(&DynamicSubnetSetupParameters {
+            netuid,
+            subnet_tempo,
+            hotkey_tempo,
+            coldkeys: vec![coldkey_miner, coldkey_validator],
+            hotkeys: vec![miner, validator],
+            stakes: vec![100_000_000, 1_000_000_000],
+            validators: 1,
+            weights: vec![vec![], vec![(0u16, 0xFFFF)]], // Only set weight for the miner (UID 0)
+        });
+
+        // let stake = 1_000_000_000;
+
+        // add_network(netuid, subnet_tempo as u16, 0);
+        // pallet_subtensor::SubnetMechanism::<Test>::insert(netuid, 1);
+        // register_ok_neuron(netuid, validator, coldkey_validator, 0);
+        // register_ok_neuron(netuid, miner, coldkey_miner, 0);
+        // SubtensorModule::add_balance_to_coldkey_account(
+        //     &coldkey_validator,
+        //     stake + ExistentialDeposit::get(),
+        // );
+        // SubtensorModule::add_balance_to_coldkey_account(
+        //     &coldkey_miner,
+        //     stake + ExistentialDeposit::get(),
+        // );
+    
+        // SubtensorModule::set_hotkey_emission_tempo(hotkey_tempo);
+        // SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        // step_block(subnet_tempo);
+        // pallet_subtensor::SubnetOwnerCut::<Test>::set(u16::MAX/5);
+        // // All stake is active
+        // pallet_subtensor::ActivityCutoff::<Test>::set(netuid, u16::MAX);
+        // // Validator limit
+        // pallet_subtensor::MaxAllowedUids::<Test>::set(netuid, 2);
+        // SubtensorModule::set_max_allowed_validators(netuid, 1);
+    
+        // frame_support::assert_ok!(SubtensorModule::add_stake(
+        //     RuntimeOrigin::signed(coldkey_validator),
+        //     validator,
+        //     netuid,
+        //     stake,
+        // ));
+        // frame_support::assert_ok!(SubtensorModule::add_stake(
+        //     RuntimeOrigin::signed(coldkey_miner),
+        //     miner,
+        //     netuid,
+        //     stake / 10,
+        // ));
+
+        // // YUMA
+        // pallet_subtensor::Weights::<Test>::insert(netuid, 0, vec![(0u16, 0xffff)]);
+        // pallet_subtensor::BlockAtRegistration::<Test>::set(netuid, 0, 1);
+        // pallet_subtensor::LastUpdate::<Test>::set(netuid, vec![2, 2]);
+        // pallet_subtensor::Kappa::<Test>::set(netuid, u16::MAX / 5);
+    
+
+        // Run run_coinbase until PendingHotkeyEmission are populated
+        while pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(validator, netuid) == 0 {
+            step_block(1);
+        }
+
+        println!("validator pending = {:?}", pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(validator, netuid));
+        println!("miner pending = {:?}", pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(miner, netuid));
+
+        assert!(
+            pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(validator, netuid) > 1_000_000_000,
+            "Validator should have received pending emission"
+        );
+        assert_eq!(
+            pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(miner, netuid),
+            0,
+            "Miner should not have received pending emission"
+        );
+
+        // // Prevent further subnet epochs
+        // pallet_subtensor::Tempo::<Test>::set(netuid, u16::MAX);
+
+        // // Run run_coinbase until PendingHotkeyEmission is drained
+        // step_block((hotkey_tempo * 2) as u16);
+
+        // // Check emission distribution
+        // let parent_stake: u64 =
+        //     pallet_subtensor::Alpha::<Test>::get((parent, coldkey_parent, netuid));
+        // let child_stake: u64 =
+        //     pallet_subtensor::Alpha::<Test>::get((child, coldkey_child, netuid));
+        // let weight_setter_stake: u64 = 
+        //     pallet_subtensor::Alpha::<Test>::get((weight_setter, coldkey_weight_setter, netuid));
+
+        // println!("child stake = {:?}", child_stake);
+
+
+        // assert!(parent_stake > 1, "Parent should have received emission");
+        // assert!(child_stake > 109_999, "Child should have received emission");
+        // assert!(
+        //     weight_setter_stake > 1_000_000,
+        //     "Weight setter should have received emission"
+        // );
+
+        // // Additional assertion to verify that the weight setter received the most emission
+        // assert!(
+        //     weight_setter_stake > parent_stake && weight_setter_stake > child_stake,
+        //     "Weight setter should have received the most emission"
+        // );
     });
 }

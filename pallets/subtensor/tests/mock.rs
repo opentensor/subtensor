@@ -566,12 +566,6 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
 }
 
-#[allow(dead_code)]
-pub fn add_dynamic_network(netuid: u16, tempo: u16, modality: u16) {
-    add_network(netuid, tempo, modality);
-    pallet_subtensor::SubnetMechanism::<Test>::insert(netuid, 1);
-}
-
 /// Helper function to mock now missing increase_stake_on_coldkey_hotkey_account with 
 /// minimal changes
 #[allow(dead_code)]
@@ -608,4 +602,86 @@ pub fn is_within_tolerance(actual: u64, expected: u64, tolerance: u64) -> bool {
         expected - actual
     };
     difference <= tolerance
+}
+
+#[allow(dead_code)]
+pub struct DynamicSubnetSetupParameters {
+    pub netuid: u16,
+    pub subnet_tempo: u16,
+    pub hotkey_tempo: u64,
+    pub coldkeys: Vec<U256>,
+    pub hotkeys: Vec<U256>,
+    pub stakes: Vec<u64>,
+    pub validators: u16,
+    pub weights: Vec<Vec<(u16, u16)>>,
+}
+
+#[allow(dead_code)]
+pub fn setup_dynamic_network(prm: &DynamicSubnetSetupParameters) {
+    add_network(prm.netuid, prm.subnet_tempo as u16, 0);
+    pallet_subtensor::SubnetMechanism::<Test>::insert(prm.netuid, 1);
+
+    // Register neurons
+    let uids: Vec<u16> = prm.coldkeys.iter()
+        .zip(prm.hotkeys.iter())
+        .enumerate()
+        .map(|(i, (&coldkey, &hotkey))| {
+            register_ok_neuron(prm.netuid, hotkey, coldkey, 0);
+            i as u16
+        })
+        .collect();
+
+    // Add balance to coldkeys
+    prm.coldkeys.iter()
+        .zip(prm.stakes.iter())
+        .for_each(|(&coldkey, stake)| {
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey,
+            stake + ExistentialDeposit::get(),
+        );
+    });
+
+    // Setup parameters
+    SubtensorModule::set_hotkey_emission_tempo(prm.hotkey_tempo);
+    SubtensorModule::set_weights_set_rate_limit(prm.netuid, 0);
+    step_block(prm.subnet_tempo);
+    pallet_subtensor::SubnetOwnerCut::<Test>::set(u16::MAX/5);
+    // All stake is active
+    pallet_subtensor::ActivityCutoff::<Test>::set(prm.netuid, u16::MAX);
+    // Validator limit
+    pallet_subtensor::MaxAllowedUids::<Test>::set(prm.netuid, prm.coldkeys.len() as u16);
+    SubtensorModule::set_max_allowed_validators(prm.netuid, prm.validators);
+
+    // Setup stakes
+    prm.coldkeys.iter()
+        .zip(prm.hotkeys.iter())
+        .zip(prm.stakes.iter())
+        .for_each(|((&coldkey, &hotkey), &stake)| {
+            if stake > 0 {
+                assert_ok!(SubtensorModule::add_stake(
+                    RuntimeOrigin::signed(coldkey),
+                    hotkey,
+                    prm.netuid,
+                    stake,
+                ));
+            }
+        });
+
+    // Setup YUMA so that it creates emissions:
+    //   Validators set weights
+    //   Last weight update is after block at registration
+    uids.iter()
+        .zip(prm.weights.iter())
+        .for_each(|(uid, weights)| {
+            if weights.len() > 0 {
+                pallet_subtensor::Weights::<Test>::insert(prm.netuid, uid, weights);
+                println!("uid {:?} sets weights: {:?}", uid, weights);
+                println!("uid {:?} hotkey: {:?}", uid, pallet_subtensor::Keys::<Test>::get(prm.netuid, uid));
+            }
+            pallet_subtensor::BlockAtRegistration::<Test>::set(prm.netuid, uid, 1);
+        });
+
+    let last_update_vec = uids.iter().map(|_| 2).collect();
+    pallet_subtensor::LastUpdate::<Test>::set(prm.netuid, last_update_vec);
+    pallet_subtensor::Kappa::<Test>::set(prm.netuid, u16::MAX / 5);
 }

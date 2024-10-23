@@ -1833,137 +1833,96 @@ fn test_get_parents_chain() {
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test children test_childkey_single_parent_emission -- --nocapture
 #[test]
 fn test_childkey_single_parent_emission() {
-//     new_test_ext(1).execute_with(|| {
-//         let netuid: u16 = 1;
-//         add_network(netuid, 1, 0);
+    new_test_ext(1).execute_with(|| {
+        // Define hotkeys
+        let parent: U256 = U256::from(1);
+        let child: U256 = U256::from(2);
+        let weight_setter: U256 = U256::from(3);
 
-//         // Define hotkeys
-//         let parent: U256 = U256::from(1);
-//         let child: U256 = U256::from(2);
-//         let weight_setter: U256 = U256::from(3);
+        // Define coldkeys with more readable names
+        let coldkey_parent: U256 = U256::from(4);
+        let coldkey_child: U256 = U256::from(5);
+        let coldkey_weight_setter: U256 = U256::from(6);
 
-//         // Define coldkeys with more readable names
-//         let coldkey_parent: U256 = U256::from(100);
-//         let coldkey_child: U256 = U256::from(101);
-//         let coldkey_weight_setter: U256 = U256::from(102);
+        let netuid: u16 = 1;
+        let subnet_tempo = 13;
+        let hotkey_tempo = 7200;
 
-//         // Register parent with minimal stake and child with high stake
-//         SubtensorModule::add_balance_to_coldkey_account(&coldkey_parent, 1);
-//         SubtensorModule::add_balance_to_coldkey_account(&coldkey_child, 109_999);
-//         SubtensorModule::add_balance_to_coldkey_account(&coldkey_weight_setter, 1_000_000);
+        setup_dynamic_network(&DynamicSubnetSetupParameters {
+            netuid,
+            subnet_tempo,
+            hotkey_tempo,
+            coldkeys: vec![coldkey_parent, coldkey_child, coldkey_weight_setter],
+            // coldkeys: vec![coldkey_weight_setter, coldkey_parent, coldkey_child],
+            hotkeys: vec![parent, child, weight_setter],
+            // hotkeys: vec![weight_setter, parent, child],
+            stakes: vec![109_999, 1, 1_000_000],
+            // stakes: vec![1_000_000, 109_999, 1],
+            validators: 1,
+            weights: vec![vec![], vec![], vec![(1u16, 0xFFFF)]], // Only set weight for the child (UID 1)
+            // weights: vec![vec![(1u16, 0xFFFF)], vec![], vec![]], // Only set weight for the child (UID 1)
+        });
 
-//         // Add neurons for parent, child and weight_setter
-//         register_ok_neuron(netuid, parent, coldkey_parent, 1);
-//         register_ok_neuron(netuid, child, coldkey_child, 1);
-//         register_ok_neuron(netuid, weight_setter, coldkey_weight_setter, 1);
+        // Set parent-child relationship
+        assert_ok!(SubtensorModule::do_set_children(
+            RuntimeOrigin::signed(coldkey_parent),
+            parent,
+            netuid,
+            vec![(u64::MAX, child)]
+        ));
 
-//         increase_stake_on_coldkey_hotkey_account(
-//             &coldkey_parent,
-//             &parent,
-//             109_999,
-//             netuid,
-//         );
-//         increase_stake_on_coldkey_hotkey_account(
-//             &coldkey_weight_setter,
-//             &weight_setter,
-//             1_000_000,
-//             netuid,
-//         );
+        // Run run_coinbase until PendingHotkeyEmission are populated
+        while pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(parent, netuid) == 0 {
+            step_block(1);
+        }
 
-//         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        println!("parent pending = {:?}", pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(parent, netuid));
+        println!("child pending = {:?}", pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(child, netuid));
+        println!("weight pending = {:?}", pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(weight_setter, netuid));
 
-//         // Set parent-child relationship
-//         assert_ok!(SubtensorModule::do_set_children(
-//             RuntimeOrigin::signed(coldkey_parent),
-//             parent,
-//             netuid,
-//             vec![(u64::MAX, child)]
-//         ));
-//         step_block(7200 + 1);
-//         // Set weights on the child using the weight_setter account
-//         let origin = RuntimeOrigin::signed(weight_setter);
-//         let uids: Vec<u16> = vec![1]; // Only set weight for the child (UID 1)
-//         let values: Vec<u16> = vec![u16::MAX]; // Use maximum value for u16
-//         let version_key = SubtensorModule::get_weights_version_key(netuid);
-//         assert_ok!(SubtensorModule::set_weights(
-//             origin,
-//             netuid,
-//             uids,
-//             values,
-//             version_key
-//         ));
+        assert!(
+            pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(parent, netuid) > 1_000_000_000,
+            "Parent should have received pending emission"
+        );
+        assert!(
+            pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(child, netuid) > 1_000_000_000,
+            "Child should have received pending emission"
+        );
+        assert!(
+            pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(weight_setter, netuid) > 1_000_000_000,
+            "Weight setter should have received pending emission"
+        );
 
-//         // Run epoch with a hardcoded emission value
-//         let hardcoded_emission: u64 = 1_000_000_000; // 1 TAO
-//         let hotkey_emission: Vec<(U256, u64, u64)> =
-//             SubtensorModule::epoch(netuid, hardcoded_emission);
+        // Prevent further subnet epochs
+        pallet_subtensor::Tempo::<Test>::set(netuid, u16::MAX);
 
-//         // Process the hotkey emission results
-//         for (hotkey, mining_emission, validator_emission) in hotkey_emission {
-//             SubtensorModule::accumulate_hotkey_emission(
-//                 &hotkey,
-//                 netuid,
-//                 validator_emission,
-//                 mining_emission,
-//             );
-//             log::debug!(
-//                 "Accumulated emissions on hotkey {:?} for netuid {:?}: mining {:?}, validator {:?}",
-//                 hotkey,
-//                 netuid,
-//                 mining_emission,
-//                 validator_emission
-//             );
-//         }
-//         step_block(7200 + 1);
-//         // Check emission distribution
-//         let parent_stake: u64 =
-//             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_parent, &parent);
-//         let parent_stake_on_subnet: u64 =
-//             SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
+        // Run run_coinbase until PendingHotkeyEmission is drained
+        step_block((hotkey_tempo * 2) as u16);
 
-//         log::debug!(
-//             "Parent stake: {:?}, Parent stake on subnet: {:?}",
-//             parent_stake,
-//             parent_stake_on_subnet
-//         );
+        // Check emission distribution
+        let parent_stake: u64 =
+            pallet_subtensor::Alpha::<Test>::get((parent, coldkey_parent, netuid));
+        let child_stake: u64 =
+            pallet_subtensor::Alpha::<Test>::get((child, coldkey_child, netuid));
+        let weight_setter_stake: u64 = 
+            pallet_subtensor::Alpha::<Test>::get((weight_setter, coldkey_weight_setter, netuid));
 
-//         let child_stake: u64 =
-//             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_child, &child);
-//         let child_stake_on_subnet: u64 =
-//             SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid);
+        println!("child stake = {:?}", child_stake);
 
-//         log::debug!(
-//             "Child stake: {:?}, Child stake on subnet: {:?}",
-//             child_stake,
-//             child_stake_on_subnet
-//         );
 
-//         let weight_setter_stake: u64 = SubtensorModule::get_stake_for_coldkey_and_hotkey(
-//             &coldkey_weight_setter,
-//             &weight_setter,
-//         );
-//         let weight_setter_stake_on_subnet: u64 =
-//             SubtensorModule::get_stake_for_hotkey_on_subnet(&weight_setter, netuid);
+        assert!(parent_stake > 1, "Parent should have received emission");
+        assert!(child_stake > 109_999, "Child should have received emission");
+        assert!(
+            weight_setter_stake > 1_000_000,
+            "Weight setter should have received emission"
+        );
 
-//         log::debug!(
-//             "Weight setter stake: {:?}, Weight setter stake on subnet: {:?}",
-//             weight_setter_stake,
-//             weight_setter_stake_on_subnet
-//         );
-
-//         assert!(parent_stake > 1, "Parent should have received emission");
-//         assert!(child_stake > 109_999, "Child should have received emission");
-//         assert!(
-//             weight_setter_stake > 1_000_000,
-//             "Weight setter should have received emission"
-//         );
-
-//         // Additional assertion to verify that the weight setter received the most emission
-//         assert!(
-//             weight_setter_stake > parent_stake && weight_setter_stake > child_stake,
-//             "Weight setter should have received the most emission"
-//         );
-//     });
+        // Additional assertion to verify that the weight setter received the most emission
+        assert!(
+            weight_setter_stake > parent_stake && weight_setter_stake > child_stake,
+            "Weight setter should have received the most emission"
+        );
+    });
 }
 
 // 43: Test emission distribution between a childkey and multiple parents

@@ -49,7 +49,6 @@ fn test_hotkey_drain_time() {
 // To run this test specifically, use the following command:
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test coinbase test_coinbase_basic -- --nocapture
 #[test]
-
 fn test_coinbase_basic() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
@@ -59,42 +58,18 @@ fn test_coinbase_basic() {
         let hotkey_tempo = 20;
         let stake = 100_000_000_000;
 
-        // Add network, register hotkeys, and setup network parameters
-        add_dynamic_network(netuid, subnet_tempo, 0);
-        register_ok_neuron(netuid, hotkey, coldkey, 0);
-        SubtensorModule::add_balance_to_coldkey_account(
-            &coldkey,
-            2 * stake + ExistentialDeposit::get(),
-        );
-        SubtensorModule::set_hotkey_emission_tempo(hotkey_tempo);
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
-        step_block(subnet_tempo);
-        pallet_subtensor::SubnetOwnerCut::<Test>::set(u16::MAX/5);
-        // All stake is active
-        pallet_subtensor::ActivityCutoff::<Test>::set(netuid, u16::MAX);
-        // There is one validator
-        pallet_subtensor::MaxAllowedUids::<Test>::set(netuid, 1);
-        SubtensorModule::set_max_allowed_validators(netuid, 1);
-
-        // Setup stakes:
-        //   Stake from validator
-        //   Stake from miner
-        //   Stake from nominator to miner
-        assert_ok!(SubtensorModule::add_stake(
-            RuntimeOrigin::signed(coldkey),
-            hotkey,
+        setup_dynamic_network(&DynamicSubnetSetupParameters {
             netuid,
-            stake,
-        ));
-        let alpha_before = pallet_subtensor::Alpha::<Test>::get((hotkey, coldkey, netuid));
+            subnet_tempo,
+            hotkey_tempo,
+            coldkeys: vec![coldkey],
+            hotkeys: vec![hotkey],
+            stakes: vec![stake],
+            validators: 1,
+            weights: vec![vec![(0u16, 0xFFFF)]],
+        });
 
-        // Setup YUMA so that it creates emissions:
-        //   Validators sets weights
-        //   Last weight update is after block at registration
-        pallet_subtensor::Weights::<Test>::insert(netuid, 0, vec![(0, 0xFFFF)]);
-        pallet_subtensor::BlockAtRegistration::<Test>::set(netuid, 0, 1);
-        pallet_subtensor::LastUpdate::<Test>::set(netuid, vec![2]);
-        pallet_subtensor::Kappa::<Test>::set(netuid, u16::MAX / 5);
+        let alpha_before = pallet_subtensor::Alpha::<Test>::get((hotkey, coldkey, netuid));
 
         // Hotkey has no pending emission
         assert_eq!(SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey, netuid), 0);
