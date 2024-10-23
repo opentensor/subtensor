@@ -102,6 +102,8 @@ pub fn migrate_rao<T: Config>() -> Weight {
         Tempo::<T>::insert(netuid, DefaultTempo::<T>::get());
         // Set global weight to 1.0 for the start
         GlobalWeight::<T>::insert(netuid, u64::MAX);
+
+		HotkeyEmissionTempo::<T>::put(600); // 2 * subnet tempo of 300.
     }
 
     // Mark the migration as completed
