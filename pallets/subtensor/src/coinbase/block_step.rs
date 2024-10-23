@@ -14,7 +14,7 @@ impl<T: Config> Pallet<T> {
         Self::run_coinbase();
         // --- 3. Adjust tempos every day.
         // TODO(const) make this better.
-        // Per const: remove dynamic tempos for now, just make the min and the max value always 
+        // Per const: remove dynamic tempos for now, just make the min and the max value always
         // 300 blocks. (not 360)
         if block_number.saturating_add(1) % 300 == 0 { // adjust every hour.
             Self::adjust_tempos();
@@ -256,7 +256,7 @@ impl<T: Config> Pallet<T> {
         let adjustment_interval = GlobalWeightAdjustmentInterval::<T>::get();
         if block_number % adjustment_interval == 0 {
             // Calculate adjustment. Per block is u64::MAX / 2 / blocks_per_year
-            let adjustment_per_block: u64 = 3_507_252_276_543;
+            let adjustment_per_block: u64 = 53_375_995_583_650_u64;
             let adjustment = adjustment_per_block.saturating_mul(adjustment_interval);
 
             let subnets: Vec<u16> = Self::get_all_subnet_netuids();
