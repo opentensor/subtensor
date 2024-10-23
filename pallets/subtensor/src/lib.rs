@@ -423,7 +423,8 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for network tempo
     pub fn DefaultTempo<T: Config>() -> u16 {
-        T::InitialTempo::get()
+        // T::InitialTempo::get()
+        300
     }
     #[pallet::type_value]
     /// Default value for weights set rate limit.
@@ -599,7 +600,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for u16 max.
     pub fn DefaultMaxTempo<T: Config>() -> u16 {
-        300 * 4 // 4 hours.
+        300 // 1 hour.
     }
     #[pallet::type_value]
     /// Default value for global weight.
@@ -892,8 +893,13 @@ pub mod pallet {
     /// ============================
     /// ==== Subnet Locks =====
     /// ============================
-    #[pallet::storage] // --- MAP ( netuid ) --> subnet_owner
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> subnet_owner
     pub type SubnetOwner<T: Config> =
+        StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> subnet_owner_hotkey
+    pub type SubnetOwnerHotkey<T: Config> =
         StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
     // DEPRECATED
     #[pallet::storage] // --- MAP ( netuid ) --> total_subnet_locked

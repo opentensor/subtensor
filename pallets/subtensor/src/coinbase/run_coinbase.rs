@@ -181,18 +181,21 @@ impl<T: Config> Pallet<T> {
     ///
     /// * Emits an `OwnerPaymentDistributed` event for each distribution.
     /// 
-    pub fn distribute_owner_cut(netuid: u16, owner_cut: u64) -> u64 {
-        // Does the subnet have an owner?
+    pub fn distribute_owner_cut(netuid: u16, owner_cut: u64) {
+        // Check if the subnet has an owner and the owner has the hotkey
         if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
             // Use subnet owner coldkey as hotkey
-            let owner_hotkey = owner_coldkey.clone();
+            let owner_hotkey = 
+                if let Ok(hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
+                    hotkey
+                } else {
+                    owner_coldkey.clone()
+                };
             // Add subnet owner cut to owner's stake
             Self::emit_into_subnet(&owner_hotkey, &owner_coldkey, netuid, owner_cut);
             // Emit event
             Self::deposit_event(Event::OwnerPaymentDistributed(netuid, owner_hotkey.clone(), owner_cut).into());
-            return 0_u64;
         }
-        owner_cut
     }
 
     /// Accumulates and distributes mining and validator emissions for a hotkey.

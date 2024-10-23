@@ -1651,13 +1651,7 @@ fn test_distribute_owner_cut_basic() {
         System::set_block_number(current_block);
 
         // Call the distribute_owner_cut function
-        let remaining = SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
-
-        // Verify distribution
-        assert!(
-            remaining < amount_to_distribute,
-            "Some amount should be distributed"
-        );
+        SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
 
         // Check that locks have been updated
         let (new_lock1, _, _) = Locks::<Test>::get((netuid, hotkey1, coldkey1));
@@ -1670,7 +1664,7 @@ fn test_distribute_owner_cut_basic() {
 
         // Verify that the total distributed amount matches the initial amount minus remaining
         let total_distributed = (new_lock1 - 500) + (new_lock2 - 300) + (new_lock3 - 200);
-        assert_eq!(total_distributed, amount_to_distribute - remaining);
+        assert_eq!(total_distributed, amount_to_distribute);
     });
 }
 
@@ -1698,10 +1692,7 @@ fn test_distribute_owner_cut_single_hotkey() {
         System::set_block_number(current_block);
 
         // Call the distribute_owner_cut function
-        let remaining = SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
-
-        // Verify distribution
-        assert_eq!(remaining, 0, "All amount should be distributed");
+        SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
 
         // Check that lock has been updated
         let (new_lock, _, _) = Locks::<Test>::get((netuid, hotkey, coldkey));
@@ -1715,34 +1706,6 @@ fn test_distribute_owner_cut_single_hotkey() {
         // Verify that the total distributed amount matches the initial amount
         let total_distributed = new_lock - 500;
         assert_eq!(total_distributed, amount_to_distribute);
-    });
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test lock -- test_distribute_owner_cut_no_stake --exact --nocapture
-#[test]
-fn test_distribute_owner_cut_no_stake() {
-    new_test_ext(1).execute_with(|| {
-        // Setup
-        let netuid = 1;
-        let amount_to_distribute = 1000000;
-        let current_block = 100;
-
-        // No hotkeys or locks are set up
-
-        // Mock the current block
-        System::set_block_number(current_block);
-
-        // Call the distribute_owner_cut function
-        let remaining = SubtensorModule::distribute_owner_cut(netuid, amount_to_distribute);
-
-        // Verify that all amount is returned as remaining
-        assert_eq!(
-            remaining, amount_to_distribute,
-            "All amount should be returned when no stake exists"
-        );
-
-        // Verify that no locks were created or modified
-        assert_eq!(Locks::<Test>::iter().count(), 0, "No locks should exist");
     });
 }
 

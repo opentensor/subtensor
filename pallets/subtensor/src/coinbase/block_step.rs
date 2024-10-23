@@ -16,9 +16,9 @@ impl<T: Config> Pallet<T> {
         // TODO(const) make this better.
         // Per const: remove dynamic tempos for now, just make the min and the max value always 
         // 300 blocks. (not 360)
-        // if block_number.saturating_add(1) % 300 == 0 { // adjust every hour.
-        //     Self::adjust_tempos();
-        // }
+        if block_number.saturating_add(1) % 300 == 0 { // adjust every hour.
+            Self::adjust_tempos();
+        }
         // --- 4. Anneal global weight
         Self::adjust_global_weight(block_number);
         // Return ok.
