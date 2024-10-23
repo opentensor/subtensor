@@ -12,6 +12,7 @@ use frame_system::Config;
 use mock::*;
 use pallet_subtensor::*;
 use sp_core::{H256, U256};
+use sp_io::hashing::twox_128;
 use sp_runtime::traits::Zero;
 
 #[test]
@@ -446,23 +447,36 @@ fn test_migrate_commit_reveal_2() {
         // Step 1: Simulate Old Storage Entries
         // ------------------------------
         const MIGRATION_NAME: &str = "migrate_commit_reveal_2";
-        const WEIGHT_COMMIT_REVEAL_INTERVAL_PREFIX: &[u8] =
-            b"pallet_subtensor::WeightCommitRevealInterval";
-        const WEIGHT_COMMITS_PREFIX: &[u8] = b"pallet_subtensor::WeightCommits";
+
+        let pallet_prefix = twox_128("SubtensorModule".as_bytes());
+        let storage_prefix_interval = twox_128("WeightCommitRevealInterval".as_bytes());
+        let storage_prefix_commits = twox_128("WeightCommits".as_bytes());
 
         let netuid: u16 = 1;
         let interval_value: u64 = 50u64;
 
-        let mut interval_key = WEIGHT_COMMIT_REVEAL_INTERVAL_PREFIX.to_vec();
+        // Construct the full key for WeightCommitRevealInterval
+        let mut interval_key = Vec::new();
+        interval_key.extend_from_slice(&pallet_prefix);
+        interval_key.extend_from_slice(&storage_prefix_interval);
         interval_key.extend_from_slice(&netuid.encode());
 
         put_raw(&interval_key, &interval_value.encode());
 
         let test_account: U256 = U256::from(1);
 
-        let mut commit_key = WEIGHT_COMMITS_PREFIX.to_vec();
-        commit_key.extend_from_slice(&Twox64Concat::hash(&netuid.encode()));
-        commit_key.extend_from_slice(&Twox64Concat::hash(&test_account.encode()));
+        // Construct the full key for WeightCommits (DoubleMap)
+        let mut commit_key = Vec::new();
+        commit_key.extend_from_slice(&pallet_prefix);
+        commit_key.extend_from_slice(&storage_prefix_commits);
+
+        // First key (netuid) hashed with Twox64Concat
+        let netuid_hashed = Twox64Concat::hash(&netuid.encode());
+        commit_key.extend_from_slice(&netuid_hashed);
+
+        // Second key (account) hashed with Twox64Concat
+        let account_hashed = Twox64Concat::hash(&test_account.encode());
+        commit_key.extend_from_slice(&account_hashed);
 
         let commit_value: (H256, u64) = (H256::from_low_u64_be(42), 100);
         put_raw(&commit_key, &commit_value.encode());

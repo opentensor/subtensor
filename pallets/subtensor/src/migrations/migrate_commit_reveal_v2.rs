@@ -2,7 +2,7 @@ use super::*;
 use crate::HasMigrationRun;
 use frame_support::{traits::Get, weights::Weight};
 use scale_info::prelude::string::String;
-use sp_io::{storage::clear_prefix, KillStorageResult};
+use sp_io::{hashing::twox_128, storage::clear_prefix, KillStorageResult};
 
 pub fn migrate_commit_reveal_2<T: Config>() -> Weight {
     let migration_name = b"migrate_commit_reveal_2".to_vec();
@@ -25,14 +25,17 @@ pub fn migrate_commit_reveal_2<T: Config>() -> Weight {
     // Step 1: Remove WeightCommitRevealInterval entries
     // ------------------------------
 
-    const WEIGHT_COMMIT_REVEAL_INTERVAL_PREFIX: &[u8] =
-        b"pallet_subtensor::WeightCommitRevealInterval";
-    let removal_results = clear_prefix(WEIGHT_COMMIT_REVEAL_INTERVAL_PREFIX, Some(u32::MAX));
+    let mut weight_commit_reveal_interval_prefix = Vec::new();
+    weight_commit_reveal_interval_prefix.extend_from_slice(&twox_128("SubtensorModule".as_bytes()));
+    weight_commit_reveal_interval_prefix
+        .extend_from_slice(&twox_128("WeightCommitRevealInterval".as_bytes()));
+
+    let removal_results = clear_prefix(&weight_commit_reveal_interval_prefix, Some(u32::MAX));
 
     let removed_entries_count = match removal_results {
         KillStorageResult::AllRemoved(removed) => removed as u64,
         KillStorageResult::SomeRemaining(removed) => {
-            log::info!("Failed To Remove Some Items During migrate_commit_reveal_v2",);
+            log::info!("Failed To Remove Some Items During migrate_commit_reveal_v2");
             removed as u64
         }
     };
@@ -48,13 +51,16 @@ pub fn migrate_commit_reveal_2<T: Config>() -> Weight {
     // Step 2: Remove WeightCommits entries
     // ------------------------------
 
-    const WEIGHT_COMMITS_PREFIX: &[u8] = b"pallet_subtensor::WeightCommits";
-    let removal_results_commits = clear_prefix(WEIGHT_COMMITS_PREFIX, Some(u32::MAX));
+    let mut weight_commits_prefix = Vec::new();
+    weight_commits_prefix.extend_from_slice(&twox_128("SubtensorModule".as_bytes()));
+    weight_commits_prefix.extend_from_slice(&twox_128("WeightCommits".as_bytes()));
+
+    let removal_results_commits = clear_prefix(&weight_commits_prefix, Some(u32::MAX));
 
     let removed_commits_entries = match removal_results_commits {
         KillStorageResult::AllRemoved(removed) => removed as u64,
         KillStorageResult::SomeRemaining(removed) => {
-            log::info!("Failed To Remove Some Items During migrate_commit_reveal_v2",);
+            log::info!("Failed To Remove Some Items During migrate_commit_reveal_v2");
             removed as u64
         }
     };
