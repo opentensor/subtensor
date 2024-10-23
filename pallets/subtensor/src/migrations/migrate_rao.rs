@@ -64,8 +64,8 @@ pub fn migrate_rao<T: Config>() -> Weight {
         if *netuid == 0 { continue; }
         let owner: T::AccountId = SubnetOwner::<T>::get(netuid);
         let current_lock: u64 = SubnetLocked::<T>::get(netuid); // Get the current locked.
-        // Return lock to the original owner less 1 TAO
-        let tao = 1_000_000_000_u64;
+        // Return lock to the original owner less 1 RAO
+        let tao = 1_u64;
         let lock_to_return: u64 = current_lock.saturating_sub(tao);
         let lock: u64 = current_lock.saturating_sub(lock_to_return);
         Pallet::<T>::add_balance_to_coldkey_account(&owner, lock_to_return);
