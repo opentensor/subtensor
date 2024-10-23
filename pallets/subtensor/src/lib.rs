@@ -1461,6 +1461,18 @@ where
                     Err(InvalidTransaction::Custom(2).into())
                 }
             }
+            Some(Call::batch_reveal_weights { netuid, .. }) => {
+                if Self::check_weights_min_stake(who) {
+                    let priority: u64 = Self::get_priority_set_weights(who, *netuid);
+                    Ok(ValidTransaction {
+                        priority,
+                        longevity: 1,
+                        ..Default::default()
+                    })
+                } else {
+                    Err(InvalidTransaction::Custom(6).into())
+                }
+            }
             Some(Call::set_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
