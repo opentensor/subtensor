@@ -256,7 +256,7 @@ impl<T: Config> Pallet<T> {
         let adjustment_interval = GlobalWeightAdjustmentInterval::<T>::get();
         if block_number % adjustment_interval == 0 {
             // Calculate adjustment. Per block is u64::MAX / 2 / blocks_per_year
-            let adjustment_per_block: u64 = 53_375_995_583_650_u64;
+            let adjustment_per_block: u64 = 213_503_982_334_601_u64;
             let adjustment = adjustment_per_block.saturating_mul(adjustment_interval);
 
             let subnets: Vec<u16> = Self::get_all_subnet_netuids();
