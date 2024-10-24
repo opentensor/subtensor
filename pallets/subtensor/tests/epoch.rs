@@ -2633,7 +2633,7 @@ fn test_blocks_since_last_step() {
         System::set_block_number(0);
 
         let netuid: u16 = 1;
-        let tempo: u16 = 7200;
+        let tempo: u16 = 300;
         add_network(netuid, tempo, 0);
 
         let original_blocks: u64 = SubtensorModule::get_blocks_since_last_step(netuid);
