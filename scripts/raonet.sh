@@ -48,7 +48,7 @@ fi
 
 if [[ $BUILD_BINARY == "1" ]]; then
   echo "*** Building substrate binary..."
-  cargo build --production --features "$FEATURES" --manifest-path "$BASE_DIR/Cargo.toml"
+  cargo build --profile production --features "$FEATURES" --manifest-path "$BASE_DIR/Cargo.toml"
   echo "*** Binary compiled"
 fi
 
