@@ -424,7 +424,7 @@ pub mod pallet {
     /// Default value for network tempo
     pub fn DefaultTempo<T: Config>() -> u16 {
         // T::InitialTempo::get()
-        300
+        30
     }
     #[pallet::type_value]
     /// Default value for weights set rate limit.
@@ -600,7 +600,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for u16 max.
     pub fn DefaultMaxTempo<T: Config>() -> u16 {
-        300 // 1 hour.
+        30 // 1 hour.
     }
     #[pallet::type_value]
     /// Default value for global weight.
@@ -635,10 +635,10 @@ pub mod pallet {
     /// ==================
     /// ==== Coinbase ====
     /// ==================
-    #[pallet::storage] 
+    #[pallet::storage]
     /// --- ITEM ( global_block_emission )
     pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
-    #[pallet::storage] 
+    #[pallet::storage]
     /// --- DMap ( hot, netuid ) --> emission | Accumulated hotkey emission.
     pub type PendingHotkeyEmissionOnNetuid<T: Config> = StorageDoubleMap<
         _,
@@ -650,7 +650,7 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroU64<T>,
     >;
-    #[pallet::storage] 
+    #[pallet::storage]
     /// --- DMap ( hot, netuid ) --> emission | last hotkey emission on network.
     pub type LastHotkeyEmissionOnNetuid<T: Config> = StorageDoubleMap<
         _,
