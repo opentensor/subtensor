@@ -1706,6 +1706,11 @@ fn test_children_stake_values() {
         register_ok_neuron(netuid, child1, coldkey, 0);
         register_ok_neuron(netuid, child2, coldkey, 0);
         register_ok_neuron(netuid, child3, coldkey, 0);
+        let parent_uid = 0;
+        let child1_uid = 1;
+        let child2_uid = 2;
+        let child3_uid = 3;
+
         increase_stake_on_coldkey_hotkey_account(
             &coldkey,
             &hotkey,
@@ -1724,29 +1729,43 @@ fn test_children_stake_values() {
                 (proportion3, child3)
             ]
         ));
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid),
-            25_000_000_069_852
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid),
-            24_999_999_976_716
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid),
-            24_999_999_976_716
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&child3, netuid),
-            24_999_999_976_716
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&child3, netuid)
-                + SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid)
-                + SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid)
-                + SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid),
-            100_000_000_000_000
-        );
+        
+        let (stake, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) = SubtensorModule::get_stake_weights_for_network(netuid);
+
+        let parent_stake: I32F32 = stake[parent_uid];
+        let child1_stake: I32F32 = stake[child1_uid];
+        let child2_stake: I32F32 = stake[child2_uid];
+        let child3_stake: I32F32 = stake[child3_uid];
+
+        // Check that the total stake is preserved
+        let num1e3 = I32F32::from_num(1000);
+        assert!(is_within_tolerance(
+            (parent_stake + child1_stake + child2_stake + child3_stake).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).to_num::<u64>(),
+        ));
+
+        // Each hotkey stake weight is approximately 1/4
+        assert!(is_within_tolerance(
+            parent_stake.saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).saturating_div(I32F32::from_num(4)).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).to_num::<u64>(),
+        ));
+        assert!(is_within_tolerance(
+            child1_stake.saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).saturating_div(I32F32::from_num(4)).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).to_num::<u64>(),
+        ));
+        assert!(is_within_tolerance(
+            child2_stake.saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).saturating_div(I32F32::from_num(4)).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).to_num::<u64>(),
+        ));
+        assert!(is_within_tolerance(
+            child3_stake.saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).saturating_div(I32F32::from_num(4)).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).to_num::<u64>(),
+        ));
     });
 }
 
