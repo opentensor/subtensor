@@ -3029,6 +3029,10 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
         register_ok_neuron(netuid, child1, coldkey_child1, 0);
         register_ok_neuron(netuid, child2, coldkey_child2, 0);
         register_ok_neuron(netuid, grandchild, coldkey_grandchild, 0);
+        let parent_uid = 0;
+        let child1_uid = 1;
+        let child2_uid = 2;
+        let grandchild_uid = 3;
 
         let total_stake = 1000;
         increase_stake_on_coldkey_hotkey_account(
@@ -3038,22 +3042,24 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
             netuid,
         );
 
+        let (stake_before, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) = SubtensorModule::get_stake_weights_for_network(netuid);
+
         log::info!("Initial stakes:");
         log::info!(
             "Parent stake: {}",
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid)
+            stake_before[parent_uid]
         );
         log::info!(
             "Child1 stake: {}",
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid)
+            stake_before[child1_uid]
         );
         log::info!(
             "Child2 stake: {}",
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid)
+            stake_before[child2_uid]
         );
         log::info!(
             "Grandchild stake: {}",
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&grandchild, netuid)
+            stake_before[grandchild_uid]
         );
 
         // Step 1: Set children for parent
@@ -3063,6 +3069,8 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
             netuid,
             vec![(u64::MAX / 2, child1), (u64::MAX / 2, child2)]
         ));
+
+        let (stake_after_1, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) = SubtensorModule::get_stake_weights_for_network(netuid);
 
         log::info!("After setting parent's children:");
         log::info!(
@@ -3078,20 +3086,30 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
             SubtensorModule::get_parents(&child2, netuid)
         );
 
-        let parent_stake_1 = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
-        let child1_stake_1 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid);
-        let child2_stake_1 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
+        let parent_stake_1: I32F32 = stake_after_1[parent_uid];
+        let child1_stake_1: I32F32 = stake_after_1[child1_uid];
+        let child2_stake_1: I32F32 = stake_after_1[child2_uid];
 
         log::info!("Parent stake: {}", parent_stake_1);
         log::info!("Child1 stake: {}", child1_stake_1);
         log::info!("Child2 stake: {}", child2_stake_1);
 
-        assert_eq!(
-            parent_stake_1, 2,
-            "Parent should have 2 stake due to rounding"
-        );
-        assert_eq!(child1_stake_1, 499, "Child1 should have 499 stake");
-        assert_eq!(child2_stake_1, 499, "Child2 should have 499 stake");
+        let num1e3 = I32F32::from_num(1000);
+        assert!(is_within_tolerance(
+            parent_stake_1.saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(0).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).to_num::<u64>(),
+        ), "Parent should have 0 stake weight");
+        assert!(is_within_tolerance(
+            child1_stake_1.saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).saturating_div(I32F32::from_num(2)).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).to_num::<u64>(),
+        ), "Chidl 1 should have 1/2 stake weight");
+        assert!(is_within_tolerance(
+            child2_stake_1.saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).saturating_div(I32F32::from_num(2)).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).to_num::<u64>(),
+        ), "Chidl 2 should have 1/2 stake weight");
 
         // Step 2: Set children for child1
         assert_ok!(SubtensorModule::do_set_children(
@@ -3111,33 +3129,45 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
             SubtensorModule::get_parents(&grandchild, netuid)
         );
 
-        let parent_stake_2 = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
-        let child1_stake_2 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid);
-        let child2_stake_2 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
-        let grandchild_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&grandchild, netuid);
+        let (stake_after_2, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) = SubtensorModule::get_stake_weights_for_network(netuid);
+
+        let parent_stake_2: I32F32 = stake_after_2[parent_uid];
+        let child1_stake_2: I32F32 = stake_after_2[child1_uid];
+        let child2_stake_2: I32F32 = stake_after_2[child2_uid];
+        let grandchild_stake: I32F32 = stake_after_2[grandchild_uid];
 
         log::info!("Parent stake: {}", parent_stake_2);
         log::info!("Child1 stake: {}", child1_stake_2);
         log::info!("Child2 stake: {}", child2_stake_2);
         log::info!("Grandchild stake: {}", grandchild_stake);
 
-        assert_eq!(parent_stake_2, 2, "Parent stake should remain 2");
-        assert_eq!(
-            child1_stake_2, 499,
-            "Child1 stake should be be the same , as it doesnt have owned stake"
-        );
-        assert_eq!(child2_stake_2, 499, "Child2 should still have 499 stake");
-        assert_eq!(
-            grandchild_stake, 0,
-            "Grandchild should have 0 , as child1 doesnt have any  owned stake"
-        );
+        assert!(is_within_tolerance(
+            parent_stake_1.saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(0).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).to_num::<u64>(),
+        ), "Parent should have 0 stake weight");
+        assert!(is_within_tolerance(
+            child1_stake_1.saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).saturating_div(I32F32::from_num(2)).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).to_num::<u64>(),
+        ), "Chidl 1 should have 1/2 stake weight");
+        assert!(is_within_tolerance(
+            child2_stake_1.saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).saturating_div(I32F32::from_num(2)).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).to_num::<u64>(),
+        ), "Chidl 2 should have 1/2 stake weight");
+        assert!(is_within_tolerance(
+            grandchild_stake.saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(0).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).to_num::<u64>(),
+        ), "Grandchild should have 0 stake weight, as child1 doesnt have any own stake");
 
         // Check that the total stake is preserved
-        assert_eq!(
-            parent_stake_2 + child1_stake_2 + child2_stake_2 + grandchild_stake,
-            total_stake,
-            "Total stake should equal the initial stake"
-        );
+        assert!(is_within_tolerance(
+            (parent_stake_2 + child1_stake_2 + child2_stake_2 + grandchild_stake).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).to_num::<u64>(),
+        ), "Total stake weight should be 1");
 
         // Additional checks
         log::info!("Final parent-child relationships:");
