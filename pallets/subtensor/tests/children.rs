@@ -2461,6 +2461,105 @@ fn test_dynamic_parent_child_relationships() {
 //     });
 }
 
+// #[test]
+// fn test_childkey_parent_nominator_emission_child_take() {
+//     new_test_ext(1).execute_with(|| {
+//         // Define hotkeys
+//         let parent_hotkey: U256 = U256::from(1);
+//         let child_hotkey: U256 = U256::from(2);
+//         let miner_hotkey: U256 = U256::from(3);
+//         let subnet_owner_hotkey = U256::from(4);
+
+//         // Define coldkeys with more readable names
+//         let parent_coldkey: U256 = U256::from(5);
+//         let child_coldkey: U256 = U256::from(6);
+//         let miner_coldkey: U256 = U256::from(7);
+//         let subnet_owner_coldkey = U256::from(8);
+//         let nominator_coldkey: U256 = U256::from(9);
+
+//         // both tempos must be small prime numbers for testing
+//         let subnet_tempo = 7;
+//         let hotkey_tempo = 13;
+//         let netuid: u16 = 1;
+//         let stake = 100_000_000_000;
+
+//         setup_dynamic_network(&DynamicSubnetSetupParameters {
+//             netuid,
+//             owner: (subnet_owner_coldkey, subnet_owner_hotkey),
+//             subnet_tempo,
+//             hotkey_tempo,
+//             coldkeys: vec![parent_coldkey, child_coldkey, miner_coldkey],
+//             hotkeys: vec![parent_hotkey, child_hotkey, miner_hotkey],
+//             stakes: vec![stake, 0, 0],
+//             validators: 2,
+//             weights: vec![vec![(2u16, 0xFFFF)], vec![(2u16, 0xFFFF)]],
+//         });
+
+//         // Owner takes 0% cut
+//         pallet_subtensor::SubnetOwnerCut::<Test>::set(u16::MAX/5);
+
+//         // Nominate to childkey
+//         SubtensorModule::add_balance_to_coldkey_account(
+//             &nominator_coldkey,
+//             stake + ExistentialDeposit::get(),
+//         );
+//         assert_ok!(SubtensorModule::add_stake(
+//             RuntimeOrigin::signed(nominator_coldkey),
+//             child_hotkey,
+//             netuid,
+//             stake,
+//         ));
+
+//         // Childkey sets 0% delegate take
+//         pallet_subtensor::Delegates::<Test>::insert(child_hotkey, 0);
+
+//         // Make all stakes old enough and viable
+//         step_block((subnet_tempo * 2) as u16);
+
+//         // Set parent-child relationship (with 50% proportion and 20% childkey take)
+//         assert_ok!(SubtensorModule::do_set_children(
+//             RuntimeOrigin::signed(parent_coldkey),
+//             parent_hotkey,
+//             netuid,
+//             vec![(u64::MAX / 2, child_hotkey)]
+//         ));
+//         // pallet_subtensor::ChildkeyTake::<Test>::insert(child_hotkey, netuid, u16::MAX / 5);
+//         pallet_subtensor::ChildkeyTake::<Test>::insert(child_hotkey, netuid, 0);
+
+//         // Purge the system
+//         pallet_subtensor::Alpha::<Test>::insert((child_hotkey, child_coldkey, netuid), 0);
+//         step_block((hotkey_tempo * 100) as u16);
+
+//         // Mask the childkey alpha bug
+//         pallet_subtensor::Alpha::<Test>::insert((child_hotkey, child_coldkey, netuid), 0);
+
+//         // Check emission distribution
+//         let parent_emission: u64 = measure_hotkey_validation_emission(netuid, parent_coldkey, parent_hotkey, hotkey_tempo);
+//         let child_emission: u64 = measure_hotkey_validation_emission(netuid, child_coldkey, child_hotkey, hotkey_tempo);
+//         let miner_emission: u64 = 0;//measure_hotkey_validation_emission(netuid, coldkey, hotkey, hotkey_tempo);
+//         let nominator_emission: u64 = measure_hotkey_validation_emission(netuid, nominator_coldkey, child_hotkey, hotkey_tempo);
+
+//         println!("parent_emission {:?}", parent_emission);
+//         println!("child_emission {:?}", child_emission);
+//         println!("miner_emission {:?}", miner_emission);
+//         println!("nominator_emission {:?}", nominator_emission);
+//         println!("total emission {:?}", parent_emission + child_emission + miner_emission + nominator_emission);
+
+//         // assert!(
+//         //     parent_emission > 1_000_000_000,
+//         //     "Parent should have received emission"
+//         // );
+//         // assert!(
+//         //     child_emission == 0,
+//         //     "Child should NOT have received emission"
+//         // );
+//         // assert!(
+//         //     miner_emission > 1_000_000_000,
+//         //     "Miner should have received emission"
+//         // );
+//     });
+// }
+
 // 47: Test basic stake retrieval for a single hotkey on a subnet
 /// This test verifies the basic functionality of retrieving stake for a single hotkey on a subnet:
 /// - Sets up a network with one neuron
