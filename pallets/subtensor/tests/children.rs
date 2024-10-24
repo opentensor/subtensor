@@ -173,6 +173,12 @@ fn test_do_set_child_singular_old_children_cleanup() {
         ));
 
         // Set new child
+        SubtensorModule::set_last_transaction_block(
+            &hotkey,
+            netuid,
+            &TransactionType::SetChildren,
+            0,
+        );
         assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -262,6 +268,12 @@ fn test_do_set_child_singular_proportion_edge_cases() {
 
         // Set child with maximum proportion
         let max_proportion: u64 = u64::MAX;
+        SubtensorModule::set_last_transaction_block(
+            &hotkey,
+            netuid,
+            &TransactionType::SetChildren,
+            0,
+        );
         assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -307,6 +319,12 @@ fn test_do_set_child_singular_multiple_children() {
         ));
 
         // Set second child
+        SubtensorModule::set_last_transaction_block(
+            &hotkey,
+            netuid,
+            &TransactionType::SetChildren,
+            0,
+        );
         assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -450,9 +468,10 @@ fn test_do_revoke_child_singular_success() {
         let child = U256::from(3);
         let netuid: u16 = 1;
         let proportion: u64 = 1000;
+        let tempo = 13;
 
         // Add network and register hotkey
-        add_network(netuid, 13, 0);
+        add_network(netuid, tempo, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set child
@@ -468,6 +487,12 @@ fn test_do_revoke_child_singular_success() {
         assert_eq!(children, vec![(proportion, child)]);
 
         // Revoke child
+        SubtensorModule::set_last_transaction_block(
+            &hotkey,
+            netuid,
+            &TransactionType::SetChildren,
+            0,
+        );
         assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -765,6 +790,12 @@ fn test_do_set_children_multiple_old_children_cleanup() {
         ));
 
         // Set new children
+        SubtensorModule::set_last_transaction_block(
+            &hotkey,
+            netuid,
+            &TransactionType::SetChildren,
+            0,
+        );
         assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -855,6 +886,12 @@ fn test_do_set_children_multiple_overwrite_existing() {
         ));
 
         // Overwrite with new children
+        SubtensorModule::set_last_transaction_block(
+            &hotkey,
+            netuid,
+            &TransactionType::SetChildren,
+            0,
+        );
         assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -1200,6 +1237,12 @@ fn test_do_revoke_children_multiple_success() {
         ));
 
         // Revoke multiple children
+        SubtensorModule::set_last_transaction_block(
+            &hotkey,
+            netuid,
+            &TransactionType::SetChildren,
+            0,
+        );        
         assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -1314,6 +1357,12 @@ fn test_do_revoke_children_multiple_partial_revocation() {
         ));
 
         // Revoke only child3
+        SubtensorModule::set_last_transaction_block(
+            &hotkey,
+            netuid,
+            &TransactionType::SetChildren,
+            0,
+        );
         assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -1365,6 +1414,12 @@ fn test_do_revoke_children_multiple_non_existent_children() {
         ));
 
         // Attempt to revoke existing and non-existent children
+        SubtensorModule::set_last_transaction_block(
+            &hotkey,
+            netuid,
+            &TransactionType::SetChildren,
+            0,
+        );
         assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -1451,6 +1506,12 @@ fn test_do_revoke_children_multiple_complex_scenario() {
         ));
 
         // Revoke child2
+        SubtensorModule::set_last_transaction_block(
+            &hotkey,
+            netuid,
+            &TransactionType::SetChildren,
+            0,
+        );
         assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -1467,6 +1528,12 @@ fn test_do_revoke_children_multiple_complex_scenario() {
         assert!(parents2.is_empty());
 
         // Revoke remaining children
+        SubtensorModule::set_last_transaction_block(
+            &hotkey,
+            netuid,
+            &TransactionType::SetChildren,
+            0,
+        );        
         assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
             hotkey,
