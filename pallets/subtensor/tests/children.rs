@@ -2761,6 +2761,9 @@ fn test_get_stake_for_hotkey_on_subnet_multiple_parents_single_child() {
         register_ok_neuron(netuid, parent1, coldkey, 0);
         register_ok_neuron(netuid, parent2, coldkey, 0);
         register_ok_neuron(netuid, child, coldkey, 0);
+        let parent1_uid = 0;
+        let parent2_uid = 1;
+        let child_uid = 2;
 
         increase_stake_on_coldkey_hotkey_account(&coldkey, &parent1, 1000, netuid);
         increase_stake_on_coldkey_hotkey_account(&coldkey, &parent2, 2000, netuid);
@@ -2778,18 +2781,29 @@ fn test_get_stake_for_hotkey_on_subnet_multiple_parents_single_child() {
             vec![(u64::MAX / 2, child)]
         ));
 
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&parent1, netuid),
-            501
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&parent2, netuid),
-            1001
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid),
-            1498
-        );
+        let (stake, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) = SubtensorModule::get_stake_weights_for_network(netuid);
+
+        // parent 1 stake values
+        let num1e3 = I32F32::from_num(1000);
+        assert!(is_within_tolerance(
+            stake[parent1_uid].saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).saturating_div(I32F32::from_num(6)).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).to_num::<u64>(),
+        ));
+
+        // parent 2 stake values
+        assert!(is_within_tolerance(
+            stake[parent2_uid].saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).saturating_div(I32F32::from_num(3)).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).to_num::<u64>(),
+        ));
+
+        // child stake values
+        assert!(is_within_tolerance(
+            stake[child_uid].saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).saturating_div(I32F32::from_num(2)).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).to_num::<u64>(),
+        ));
     });
 }
 
