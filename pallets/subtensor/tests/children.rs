@@ -2895,20 +2895,19 @@ fn test_get_stake_for_hotkey_on_subnet_edge_cases() {
         register_ok_neuron(netuid, parent, coldkey, 0);
         register_ok_neuron(netuid, child1, coldkey, 0);
         register_ok_neuron(netuid, child2, coldkey, 0);
+        let parent_uid = 0;
+        let child1_uid = 1;
+        let child2_uid = 2;
 
-        // Set network max stake
-        let network_max_stake: u64 = 500_000_000_000_000; // 500_000 TAO
-        SubtensorModule::set_network_max_stake(netuid, network_max_stake);
-
-        // Increase stake to the network max
+        // Increase stake
         increase_stake_on_coldkey_hotkey_account(
             &coldkey,
             &parent,
-            network_max_stake,
+            100_000_000_000,
             netuid,
         );
 
-        // Test with 0% and 100% stake allocation
+        // Test with 100% stake allocation
         assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
             parent,
@@ -2916,27 +2915,87 @@ fn test_get_stake_for_hotkey_on_subnet_edge_cases() {
             vec![(0, child1), (u64::MAX, child2)]
         ));
 
-        let parent_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
-        let child1_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid);
-        let child2_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
+        let (stake, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) = SubtensorModule::get_stake_weights_for_network(netuid);
+
+        let parent_stake: I32F32 = stake[parent_uid];
+        let child1_stake: I32F32 = stake[child1_uid];
+        let child2_stake: I32F32 = stake[child2_uid];
 
         log::info!("Parent stake: {}", parent_stake);
         log::info!("Child1 stake: {}", child1_stake);
         log::info!("Child2 stake: {}", child2_stake);
 
-        assert_eq!(parent_stake, 0, "Parent should have 0 stake");
-        assert_eq!(child1_stake, 0, "Child1 should have 0 stake");
-        assert_eq!(
-            child2_stake, network_max_stake,
-            "Child2 should have all the stake"
+        let num1e3 = I32F32::from_num(1000);
+        assert_eq!(parent_stake, I32F32::from_num(0), "Parent should have 0 stake");
+        assert_eq!(child1_stake, I32F32::from_num(0), "Child1 should have 0 stake");
+        assert!(is_within_tolerance(
+            child2_stake.saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).to_num::<u64>(),
+        ), "Child2 should have all the stake");
+    });
+}
+
+// 52.1: Test stake retrieval for max network edge case
+#[test]
+fn test_get_stake_for_hotkey_on_subnet_max_network_stake() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let parent = U256::from(1);
+        let child = U256::from(2);
+        let coldkey = U256::from(4);
+
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, parent, coldkey, 0);
+        register_ok_neuron(netuid, child, coldkey, 0);
+        let parent_uid = 0;
+        let child_uid = 1;
+
+        // Set network max stake
+        let network_max_stake: u64 = 500_000_000_000_000; // 500_000 TAO
+        SubtensorModule::set_network_max_stake(netuid, network_max_stake);
+
+        // Increase stake to the network max on parent
+        increase_stake_on_coldkey_hotkey_account(
+            &coldkey,
+            &parent,
+            network_max_stake,
+            netuid,
+        );
+        // Increase stake to the network max on child
+        increase_stake_on_coldkey_hotkey_account(
+            &coldkey,
+            &child,
+            network_max_stake,
+            netuid,
         );
 
-        // Check that the total stake is preserved and equal to the network max stake
-        assert_eq!(
-            parent_stake + child1_stake + child2_stake,
-            network_max_stake,
-            "Total stake should equal the network max stake"
-        );
+        // Parent gives the child 50% of its stake ...
+        assert_ok!(SubtensorModule::do_set_children(
+            RuntimeOrigin::signed(coldkey),
+            parent,
+            netuid,
+            vec![(u64::MAX / 2, child)]
+        ));
+
+        // ... but stake weights are still (1/3, 2/3) because child maxes out.
+        // If he didn't max out, the weights would be (1/4, 3/4)
+        let (stake, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) = SubtensorModule::get_stake_weights_for_network(netuid);
+
+        let parent_stake: I32F32 = stake[parent_uid];
+        let child_stake: I32F32 = stake[child_uid];
+
+        let num1e3 = I32F32::from_num(1000);
+        assert!(is_within_tolerance(
+            parent_stake.saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).saturating_div(I32F32::from_num(3)).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).to_num::<u64>(),
+        ), "Parent should have 1/3 of the stake weight");
+        assert!(is_within_tolerance(
+            child_stake.saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(2).saturating_div(I32F32::from_num(3)).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).to_num::<u64>(),
+        ), "Child should have 2/3 of the stake weight");
     });
 }
 
