@@ -591,9 +591,9 @@ impl<T: Config> Pallet<T> {
         inplace_normalize(&mut normalized_combined_emission);
 
         // If emission is zero, replace emission with normalized stake.
-        if emission_sum == I32F32::from(0) {
+        if true || emission_sum == I32F32::from(0) {
             // no weights set | outdated weights | self_weights
-            if is_zero(&active_stake) {
+            if true || is_zero(&active_stake) {
                 // no active stake
                 normalized_validator_emission.clone_from(&stake); // do not mask inactive, assumes stake is normalized
                 normalized_combined_emission.clone_from(&stake);
