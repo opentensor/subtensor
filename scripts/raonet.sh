@@ -25,13 +25,13 @@ if [ "$raonet" == "False" ]; then
   echo "raonet is Off"
   : "${CHAIN:=raonet}"
   : "${BUILD_BINARY:=1}"
-  : "${FEATURES:="raonet runtime-benchmarks"}"
+  : "${FEATURES:="raonet"}"
 else
   # Block of code to execute if fast_blocks is not False
   echo "raonet is On"
   : "${CHAIN:=raonet}"
   : "${BUILD_BINARY:=1}"
-  : "${FEATURES:="raonet runtime-benchmarks"}"
+  : "${FEATURES:="raonet"}"
 fi
 
 SPEC_PATH="${SCRIPT_DIR}/specs/"
