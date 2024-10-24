@@ -8,6 +8,7 @@ use frame_support::{
 };
 use mock::*;
 use pallet_subtensor::{Error, Owner};
+use scale_info::prelude::collections::HashMap;
 use sp_core::{H256, U256};
 use sp_runtime::{
     traits::{BlakeTwo256, DispatchInfoOf, Hash, SignedExtension},
@@ -15,7 +16,6 @@ use sp_runtime::{
 };
 use sp_std::collections::vec_deque::VecDeque;
 use substrate_fixed::types::I32F32;
-use scale_info::prelude::collections::HashMap;
 
 /***************************
   pub fn set_weights() tests
