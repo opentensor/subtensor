@@ -4,6 +4,7 @@ use frame_support::{assert_err, assert_noop, assert_ok};
 mod mock;
 use pallet_subtensor::{utils::rate_limiting::TransactionType, *};
 use sp_core::U256;
+use substrate_fixed::types::I32F32;
 
 // 1: Successful setting of a single child
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_child_singular_success --exact --nocapture
@@ -2708,13 +2709,34 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_child() {
             vec![(u64::MAX, child)]
         ));
 
+        let (stake, raw_alpha_stake, raw_global_tao_stake): (Vec<I32F32>, Vec<u64>, Vec<u64>) = SubtensorModule::get_stake_weights_for_network(netuid);
+
+        // parent stake values
         assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid),
-            0
+            stake[0],
+            I32F32::from_num(0),
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid),
-            1000
+            raw_alpha_stake[0],
+            0_u64,
+        );
+        assert_eq!(
+            raw_global_tao_stake[0],
+            0_u64,
+        );
+
+        // child stake values
+        assert_eq!(
+            stake[1],
+            I32F32::from_num(1),
+        );
+        assert_eq!(
+            raw_alpha_stake[1],
+            1000_u64,
+        );
+        assert_eq!(
+            raw_global_tao_stake[1],
+            1000_u64,
         );
     });
 }
