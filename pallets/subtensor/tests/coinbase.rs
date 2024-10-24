@@ -1,12 +1,10 @@
 #![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
 use crate::mock::*;
 mod mock;
-// use frame_support::{assert_err, assert_ok};
 use sp_core::U256;
 
 // Test the ability to hash all sorts of hotkeys.
 #[test]
-
 fn test_hotkey_hashing() {
     new_test_ext(1).execute_with(|| {
         for i in 0..10000 {
@@ -18,7 +16,6 @@ fn test_hotkey_hashing() {
 // Test drain tempo on hotkeys.
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test coinbase test_hotkey_drain_time -- --nocapture
 #[test]
-
 fn test_hotkey_drain_time() {
     new_test_ext(1).execute_with(|| {
         // Block 0
@@ -46,7 +43,6 @@ fn test_hotkey_drain_time() {
 // To run this test specifically, use the following command:
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test coinbase test_coinbase_basic -- --nocapture
 #[test]
-
 fn test_coinbase_basic() {
     new_test_ext(1).execute_with(|| {
         // Define network ID
@@ -138,7 +134,6 @@ fn test_coinbase_basic() {
 // Test getting and setting hotkey emission tempo
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test coinbase test_set_and_get_hotkey_emission_tempo -- --nocapture
 #[test]
-
 fn test_set_and_get_hotkey_emission_tempo() {
     new_test_ext(1).execute_with(|| {
         // Get the default hotkey emission tempo
