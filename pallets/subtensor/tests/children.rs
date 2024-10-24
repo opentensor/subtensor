@@ -1563,10 +1563,11 @@ fn test_do_revoke_children_multiple_complex_scenario() {
 fn test_get_network_max_stake() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
+        let expected_default_max_stake = 500_000_000_000_000_u64;
         let default_max_stake = SubtensorModule::get_network_max_stake(netuid);
 
         // Check that the default value is set correctly
-        assert_eq!(default_max_stake, u64::MAX);
+        assert_eq!(default_max_stake, expected_default_max_stake);
 
         // Set a new max stake value
         let new_max_stake: u64 = 1_000_000;
