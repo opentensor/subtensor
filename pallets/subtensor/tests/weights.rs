@@ -15,6 +15,7 @@ use sp_runtime::{
 };
 use sp_std::collections::vec_deque::VecDeque;
 use substrate_fixed::types::I32F32;
+use scale_info::prelude::collections::HashMap;
 
 /***************************
   pub fn set_weights() tests
@@ -3674,4 +3675,282 @@ fn test_batch_reveal_with_out_of_order_commits() {
         let commits = pallet_subtensor::WeightCommits::<Test>::get(netuid, hotkey);
         assert!(commits.is_none());
     });
+}
+
+#[test]
+fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
+    new_test_ext(1).execute_with(|| {
+        // ==== Test Configuration ====
+        let netuid: u16 = 1;
+        let num_hotkeys: usize = 10;
+        let max_unrevealed_commits: usize = 10;
+        let commits_per_hotkey: usize = 20;
+        let initial_reveal_period: u64 = 5;
+        let initial_tempo: u16 = 100;
+
+        // ==== Setup Network ====
+        add_network(netuid, initial_tempo, 0);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        SubtensorModule::set_reveal_period(netuid, initial_reveal_period);
+        SubtensorModule::set_max_registrations_per_block(netuid, u16::MAX);
+        SubtensorModule::set_target_registrations_per_interval(netuid, u16::MAX);
+
+        // ==== Register Validators ====
+        for uid in 0..5 {
+            let validator_id = U256::from(100 + uid as u64);
+            register_ok_neuron(netuid, validator_id, U256::from(200 + uid as u64), 300_000);
+            SubtensorModule::set_validator_permit_for_uid(netuid, uid, true);
+        }
+
+        // ==== Register Hotkeys ====
+        let mut hotkeys: Vec<<Test as frame_system::Config>::AccountId> = Vec::new();
+        for i in 0..num_hotkeys {
+            let hotkey_id = U256::from(1000 + i as u64);
+            register_ok_neuron(netuid, hotkey_id, U256::from(2000 + i as u64), 100_000);
+            hotkeys.push(hotkey_id);
+        }
+
+        // ==== Initialize Commit Information ====
+        let mut commit_info_map: HashMap<
+            <Test as frame_system::Config>::AccountId,
+            Vec<(H256, Vec<u16>, Vec<u16>, Vec<u16>, u64)>,
+        > = HashMap::new();
+
+        // Initialize the map
+        for hotkey in &hotkeys {
+            commit_info_map.insert(*hotkey, Vec::new());
+        }
+
+        // ==== Function to Generate Unique Data ====
+        fn generate_unique_data(index: usize) -> (Vec<u16>, Vec<u16>, Vec<u16>, u64) {
+            let uids = vec![index as u16, (index + 1) as u16];
+            let values = vec![(index * 10) as u16, ((index + 1) * 10) as u16];
+            let salt = vec![(index % 100) as u16; 8];
+            let version_key = index as u64;
+            (uids, values, salt, version_key)
+        }
+
+        // ==== Simulate Concurrent Commits and Reveals ====
+        for i in 0..commits_per_hotkey {
+            for hotkey in &hotkeys {
+
+                let current_commits = pallet_subtensor::WeightCommits::<Test>::get(netuid, hotkey)
+                    .unwrap_or_default();
+                if current_commits.len() >= max_unrevealed_commits {
+                    continue;
+                }
+
+                let (uids, values, salt, version_key) = generate_unique_data(i);
+                let commit_hash: H256 = BlakeTwo256::hash_of(&(
+                    *hotkey,
+                    netuid,
+                    uids.clone(),
+                    values.clone(),
+                    salt.clone(),
+                    version_key,
+                ));
+
+                if let Some(commits) = commit_info_map.get_mut(hotkey) {
+                    commits.push((commit_hash, salt.clone(), uids.clone(), values.clone(), version_key));
+                }
+
+                assert_ok!(SubtensorModule::commit_weights(
+                    RuntimeOrigin::signed(*hotkey),
+                    netuid,
+                    commit_hash
+                ));
+            }
+
+            // ==== Reveal Phase ====
+            for hotkey in &hotkeys {
+                if let Some(commits) = commit_info_map.get_mut(hotkey) {
+                    if commits.is_empty() {
+                        continue; // No commits to reveal
+                    }
+
+                    let (_commit_hash, salt, uids, values, version_key) = commits.first().expect("expected a value");
+
+                    let reveal_result = SubtensorModule::reveal_weights(
+                        RuntimeOrigin::signed(*hotkey),
+                        netuid,
+                        uids.clone(),
+                        values.clone(),
+                        salt.clone(),
+                        *version_key,
+                    );
+
+                    match reveal_result {
+                        Ok(_) => {
+                            commits.remove(0);
+                        }
+                        Err(e) => {
+                            if e == Error::<Test>::RevealTooEarly.into()
+                                || e == Error::<Test>::ExpiredWeightCommit.into()
+                                || e == Error::<Test>::InvalidRevealCommitHashNotMatch.into()
+                            {
+                                log::info!("Expected error during reveal after epoch advancement: {:?}", e);
+                            } else {
+                                panic!(
+                                    "Unexpected error during reveal: {:?}, expected RevealTooEarly, ExpiredWeightCommit, or InvalidRevealCommitHashNotMatch",
+                                    e
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ==== Modify Network Parameters During Commits ====
+        SubtensorModule::set_tempo(netuid, 150);
+        SubtensorModule::set_reveal_period(netuid, 7);
+        log::info!("Changed tempo to 150 and reveal_period to 7 during commits.");
+
+        step_epochs(3, netuid);
+
+        // ==== Continue Reveals After Epoch Advancement ====
+        for hotkey in &hotkeys {
+            if let Some(commits) = commit_info_map.get_mut(hotkey) {
+                while !commits.is_empty() {
+                    let (_commit_hash, salt, uids, values, version_key) = &commits[0];
+
+                    // Attempt to reveal
+                    let reveal_result = SubtensorModule::reveal_weights(
+                        RuntimeOrigin::signed(*hotkey),
+                        netuid,
+                        uids.clone(),
+                        values.clone(),
+                        salt.clone(),
+                        *version_key,
+                    );
+
+                    match reveal_result {
+                        Ok(_) => {
+                            commits.remove(0);
+                        }
+                        Err(e) => {
+                            // Check if the error is due to reveal being too early or commit expired
+                            if e == Error::<Test>::RevealTooEarly.into()
+                                || e == Error::<Test>::ExpiredWeightCommit.into()
+                                || e == Error::<Test>::InvalidRevealCommitHashNotMatch.into()
+                            {
+                                log::info!("Expected error during reveal after epoch advancement: {:?}", e);
+                                break;
+                            } else {
+                                panic!(
+                                    "Unexpected error during reveal after epoch advancement: {:?}, expected RevealTooEarly, ExpiredWeightCommit, or InvalidRevealCommitHashNotMatch",
+                                    e
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ==== Change Network Parameters Again ====
+        SubtensorModule::set_tempo(netuid, 200);
+        SubtensorModule::set_reveal_period(netuid, 10);
+        log::info!("Changed tempo to 200 and reveal_period to 10 after initial reveals.");
+
+        step_epochs(10, netuid);
+
+        // ==== Final Reveal Attempts ====
+        for (hotkey, commits) in commit_info_map.iter_mut() {
+            for (_commit_hash, salt, uids, values, version_key) in commits.iter() {
+                let reveal_result = SubtensorModule::reveal_weights(
+                    RuntimeOrigin::signed(*hotkey),
+                    netuid,
+                    uids.clone(),
+                    values.clone(),
+                    salt.clone(),
+                    *version_key,
+                );
+
+                assert_eq!(
+                    reveal_result,
+                    Err(Error::<Test>::ExpiredWeightCommit.into()),
+                    "Expected ExpiredWeightCommit error, got {:?}",
+                    reveal_result
+                );
+            }
+        }
+
+        for hotkey in &hotkeys {
+            commit_info_map.insert(*hotkey, Vec::new());
+
+            for i in 0..max_unrevealed_commits {
+                let (uids, values, salt, version_key) = generate_unique_data(i + commits_per_hotkey);
+                let commit_hash: H256 = BlakeTwo256::hash_of(&(
+                    *hotkey,
+                    netuid,
+                    uids.clone(),
+                    values.clone(),
+                    salt.clone(),
+                    version_key,
+                ));
+
+                assert_ok!(SubtensorModule::commit_weights(
+                    RuntimeOrigin::signed(*hotkey),
+                    netuid,
+                    commit_hash
+                ));
+            }
+
+            let (uids, values, salt, version_key) = generate_unique_data(max_unrevealed_commits + commits_per_hotkey);
+            let commit_hash: H256 = BlakeTwo256::hash_of(&(
+                *hotkey,
+                netuid,
+                uids.clone(),
+                values.clone(),
+                salt.clone(),
+                version_key,
+            ));
+
+            assert_err!(
+                SubtensorModule::commit_weights(
+                    RuntimeOrigin::signed(*hotkey),
+                    netuid,
+                    commit_hash
+                ),
+                Error::<Test>::TooManyUnrevealedCommits
+            );
+        }
+
+        // Attempt unauthorized reveal
+        let unauthorized_hotkey = hotkeys[0];
+        let target_hotkey = hotkeys[1];
+        if let Some(commits) = commit_info_map.get(&target_hotkey) {
+            if let Some((_commit_hash, salt, uids, values, version_key)) = commits.first() {
+                assert_err!(
+                    SubtensorModule::reveal_weights(
+                        RuntimeOrigin::signed(unauthorized_hotkey),
+                        netuid,
+                        uids.clone(),
+                        values.clone(),
+                        salt.clone(),
+                        *version_key,
+                    ),
+                    Error::<Test>::InvalidRevealCommitHashNotMatch
+                );
+            }
+        }
+
+        let non_committing_hotkey: <Test as frame_system::Config>::AccountId = U256::from(9999);
+        assert_err!(
+            SubtensorModule::reveal_weights(
+                RuntimeOrigin::signed(non_committing_hotkey),
+                netuid,
+                vec![0, 1],
+                vec![10, 20],
+                vec![0; 8],
+                0,
+            ),
+            Error::<Test>::NoWeightsCommitFound
+        );
+
+        assert_eq!(SubtensorModule::get_reveal_period(netuid), 10);
+        assert_eq!(SubtensorModule::get_tempo(netuid), 200);
+    })
 }
