@@ -1050,6 +1050,10 @@ parameter_types! {
     pub const SubtensorInitialBondsMovingAverage: u64 = 990_000;
     pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
     pub const SubtensorInitialMinTake: u16 = 0; // 0%
+    pub const SubtensorInitialMinDelegateTake: u16 = 0; // Allow 0% delegate take
+    pub const SubtensorInitialDefaultChildKeyTake: u16 = 0; // Allow 0% childkey take
+    pub const SubtensorInitialMinChildKeyTake: u16 = 0; // 0 %
+    pub const SubtensorInitialMaxChildKeyTake: u16 = 11_796; // 18 %
     pub const SubtensorInitialWeightsVersionKey: u64 = 0;
     pub const SubtensorInitialMinDifficulty: u64 = 10_000_000;
     pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX / 4;
@@ -1059,6 +1063,7 @@ parameter_types! {
     pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
     pub const SubtensorInitialTxRateLimit: u64 = 0; // disable rate limiting.
     pub const SubtensorInitialTxDelegateTakeRateLimit: u64 = 216000; // 30 days at 12 seconds per block
+	pub const SubtensorInitialTxChildKeyTakeRateLimit: u64 = INITIAL_CHILDKEY_TAKE_RATELIMIT;
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
     pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
     pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
