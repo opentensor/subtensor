@@ -276,6 +276,18 @@ impl<T: Config> Pallet<T> {
                     weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
                 }
             }
+
+            // 9.7. Swap neuron TLS certificates.
+            // NeuronCertificates( netuid, hotkey ) -> Vec<u8> -- the neuron certificate for the hotkey.
+            if is_network_member {
+                if let Ok(old_neuron_certificates) =
+                    NeuronCertificates::<T>::try_get(netuid, old_hotkey)
+                {
+                    NeuronCertificates::<T>::remove(netuid, old_hotkey);
+                    NeuronCertificates::<T>::insert(netuid, new_hotkey, old_neuron_certificates);
+                    weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+                }
+            }
         }
 
         // 10. Swap Stake.

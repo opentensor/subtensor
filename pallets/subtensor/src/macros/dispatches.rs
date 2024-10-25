@@ -102,8 +102,11 @@ mod dispatches {
         ///   - The hash representing the committed weights.
         ///
         /// # Raises:
-        /// * `WeightsCommitNotAllowed`:
-        ///   - Attempting to commit when it is not allowed.
+        /// * `CommitRevealDisabled`:
+        ///   - Attempting to commit when the commit-reveal mechanism is disabled.
+        ///
+        /// * `TooManyUnrevealedCommits`:
+        ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
         ///
         #[pallet::call_index(96)]
         #[pallet::weight((Weight::from_parts(46_000_000, 0)
@@ -132,21 +135,27 @@ mod dispatches {
         /// * `values` (`Vec<u16>`):
         ///   - The values of the weights being revealed.
         ///
-        /// * `salt` (`Vec<u8>`):
-        ///   - The random salt to protect from brute-force guessing attack in case of small weight changes bit-wise.
+        /// * `salt` (`Vec<u16>`):
+        ///   - The salt used to generate the commit hash.
         ///
         /// * `version_key` (`u64`):
         ///   - The network version key.
         ///
         /// # Raises:
+        /// * `CommitRevealDisabled`:
+        ///   - Attempting to reveal weights when the commit-reveal mechanism is disabled.
+        ///
         /// * `NoWeightsCommitFound`:
         ///   - Attempting to reveal weights without an existing commit.
         ///
-        /// * `InvalidRevealCommitHashNotMatchTempo`:
-        ///   - Attempting to reveal weights outside the valid tempo.
+        /// * `ExpiredWeightCommit`:
+        ///   - Attempting to reveal a weight commit that has expired.
+        ///
+        /// * `RevealTooEarly`:
+        ///   - Attempting to reveal weights outside the valid reveal period.
         ///
         /// * `InvalidRevealCommitHashNotMatch`:
-        ///   - The revealed hash does not match the committed hash.
+        ///   - The revealed hash does not match any committed hash.
         ///
         #[pallet::call_index(97)]
         #[pallet::weight((Weight::from_parts(103_000_000, 0)
@@ -161,6 +170,67 @@ mod dispatches {
             version_key: u64,
         ) -> DispatchResult {
             Self::do_reveal_weights(origin, netuid, uids, values, salt, version_key)
+        }
+
+        /// ---- The implementation for batch revealing committed weights.
+        ///
+        /// # Args:
+        /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
+        ///   - The signature of the revealing hotkey.
+        ///
+        /// * `netuid` (`u16`):
+        ///   - The u16 network identifier.
+        ///
+        /// * `uids_list` (`Vec<Vec<u16>>`):
+        ///   - A list of uids for each set of weights being revealed.
+        ///
+        /// * `values_list` (`Vec<Vec<u16>>`):
+        ///   - A list of values for each set of weights being revealed.
+        ///
+        /// * `salts_list` (`Vec<Vec<u16>>`):
+        ///   - A list of salts used to generate the commit hashes.
+        ///
+        /// * `version_keys` (`Vec<u64>`):
+        ///   - A list of network version keys.
+        ///
+        /// # Raises:
+        /// * `CommitRevealDisabled`:
+        ///   - Attempting to reveal weights when the commit-reveal mechanism is disabled.
+        ///
+        /// * `NoWeightsCommitFound`:
+        ///   - Attempting to reveal weights without an existing commit.
+        ///
+        /// * `ExpiredWeightCommit`:
+        ///   - Attempting to reveal a weight commit that has expired.
+        ///
+        /// * `RevealTooEarly`:
+        ///   - Attempting to reveal weights outside the valid reveal period.
+        ///
+        /// * `InvalidRevealCommitHashNotMatch`:
+        ///   - The revealed hash does not match any committed hash.
+        ///
+        /// * `InvalidInputLengths`:
+        ///   - The input vectors are of mismatched lengths.
+        #[pallet::call_index(98)]
+        #[pallet::weight((Weight::from_parts(367_612_000, 0)
+		.saturating_add(T::DbWeight::get().reads(14))
+		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
+        pub fn batch_reveal_weights(
+            origin: T::RuntimeOrigin,
+            netuid: u16,
+            uids_list: Vec<Vec<u16>>,
+            values_list: Vec<Vec<u16>>,
+            salts_list: Vec<Vec<u16>>,
+            version_keys: Vec<u64>,
+        ) -> DispatchResult {
+            Self::do_batch_reveal_weights(
+                origin,
+                netuid,
+                uids_list,
+                values_list,
+                salts_list,
+                version_keys,
+            )
         }
 
         /// # Args:
@@ -435,7 +505,7 @@ mod dispatches {
             Self::do_remove_stake(origin, hotkey, amount_unstaked)
         }
 
-        /// Serves or updates axon /promethteus information for the neuron associated with the caller. If the caller is
+        /// Serves or updates axon /prometheus information for the neuron associated with the caller. If the caller is
         /// already registered the metadata is updated. If the caller is not registered this call throws NotRegistered.
         ///
         /// # Args:
@@ -511,6 +581,92 @@ mod dispatches {
                 protocol,
                 placeholder1,
                 placeholder2,
+                None,
+            )
+        }
+
+        /// Same as `serve_axon` but takes a certificate as an extra optional argument.
+        /// Serves or updates axon /prometheus information for the neuron associated with the caller. If the caller is
+        /// already registered the metadata is updated. If the caller is not registered this call throws NotRegistered.
+        ///
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the caller.
+        ///
+        /// * 'netuid' (u16):
+        /// 	- The u16 network identifier.
+        ///
+        /// * 'version' (u64):
+        /// 	- The bittensor version identifier.
+        ///
+        /// * 'ip' (u64):
+        /// 	- The endpoint ip information as a u128 encoded integer.
+        ///
+        /// * 'port' (u16):
+        /// 	- The endpoint port information as a u16 encoded integer.
+        ///
+        /// * 'ip_type' (u8):
+        /// 	- The endpoint ip version as a u8, 4 or 6.
+        ///
+        /// * 'protocol' (u8):
+        /// 	- UDP:1 or TCP:0
+        ///
+        /// * 'placeholder1' (u8):
+        /// 	- Placeholder for further extra params.
+        ///
+        /// * 'placeholder2' (u8):
+        /// 	- Placeholder for further extra params.
+        ///
+        /// * 'certificate' (Vec<u8>):
+        ///     - TLS certificate for inter neuron communitation.
+        ///
+        /// # Event:
+        /// * AxonServed;
+        /// 	- On successfully serving the axon info.
+        ///
+        /// # Raises:
+        /// * 'SubNetworkDoesNotExist':
+        /// 	- Attempting to set weights on a non-existent network.
+        ///
+        /// * 'NotRegistered':
+        /// 	- Attempting to set weights from a non registered account.
+        ///
+        /// * 'InvalidIpType':
+        /// 	- The ip type is not 4 or 6.
+        ///
+        /// * 'InvalidIpAddress':
+        /// 	- The numerically encoded ip address does not resolve to a proper ip.
+        ///
+        /// * 'ServingRateLimitExceeded':
+        /// 	- Attempting to set prometheus information withing the rate limit min.
+        ///
+        #[pallet::call_index(40)]
+        #[pallet::weight((Weight::from_parts(46_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(4))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
+        pub fn serve_axon_tls(
+            origin: OriginFor<T>,
+            netuid: u16,
+            version: u32,
+            ip: u128,
+            port: u16,
+            ip_type: u8,
+            protocol: u8,
+            placeholder1: u8,
+            placeholder2: u8,
+            certificate: Vec<u8>,
+        ) -> DispatchResult {
+            Self::do_serve_axon(
+                origin,
+                netuid,
+                version,
+                ip,
+                port,
+                ip_type,
+                protocol,
+                placeholder1,
+                placeholder2,
+                Some(certificate),
             )
         }
 
