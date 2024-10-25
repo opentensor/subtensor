@@ -1062,11 +1062,13 @@ fn test_hotkey_take_calculation_scenario() {
         let validating_emission = 1000;
         let mining_emission = 0;
 
+        step_block(1000); // should be past stake adding block by 2 tempos
+        LastAddStakeIncrease::<Test>::insert(&hotkey, coldkey, 1);
         ParentKeys::<Test>::insert(hotkey, netuid, vec![(1000, parent)]);
 
-        // Test with different delegation values
-        for &delegation in &[0, 16384, 32768, 49152, 65535] {
-            Delegates::<Test>::insert(hotkey, delegation);
+        // Test with different childkey take values
+        for &take in &[0, 16384, 32768, 49152, 65535] {
+            pallet_subtensor::ChildkeyTake::<Test>::insert(hotkey, netuid, take);
             SubtensorModule::stake_into_subnet(&parent, &coldkey, netuid, u64::MAX);
             ParentKeys::<Test>::insert(hotkey, netuid, vec![(u64::MAX, parent)]);
 
@@ -1085,7 +1087,7 @@ fn test_hotkey_take_calculation_scenario() {
                 .map(|(_, _, amount)| *amount)
                 .sum();
             let emission_fixed = I96F32::from_num(validating_emission);
-            let delegation_fixed = I96F32::from_num(delegation);
+            let delegation_fixed = I96F32::from_num(take);
             let max_delegation_fixed = I96F32::from_num(65535u16);
             let expected_take =
                 (emission_fixed * delegation_fixed / max_delegation_fixed).to_num::<u64>();
