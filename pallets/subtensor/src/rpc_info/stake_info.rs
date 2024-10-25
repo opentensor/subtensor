@@ -52,7 +52,7 @@ impl<T: Config> Pallet<T> {
                         locked: conviction.into(),
                         emission: emission.into(),
                         drain: drain.into(),
-                        is_registered: is_registered,
+                        is_registered,
                     });
                 }
             }
