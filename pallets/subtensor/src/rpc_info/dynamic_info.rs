@@ -2,8 +2,10 @@ use super::*;
 extern crate alloc;
 use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
+use subtensor_macros::freeze_struct;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
+#[freeze_struct("9a51de30632e7fb7")]
 pub struct DynamicInfo<T: Config> {
     owner: T::AccountId,
     netuid: Compact<u16>,
