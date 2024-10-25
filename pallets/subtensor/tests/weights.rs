@@ -2432,7 +2432,7 @@ fn test_expired_commits_handling_in_commit_and_reveal() {
         ));
 
         // 6. Verify that the number of unrevealed, non-expired commits is now 6
-        let commits: VecDeque<(H256, u64)> =
+        let commits: VecDeque<(H256, u64, u64, u64)> =
             pallet_subtensor::WeightCommits::<Test>::get(netuid, hotkey)
                 .expect("Expected a commit");
         assert_eq!(commits.len(), 6); // 5 non-expired commits from epoch 1 + new commit

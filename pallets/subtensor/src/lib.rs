@@ -1258,7 +1258,7 @@ pub mod pallet {
         u16,
         Twox64Concat,
         T::AccountId,
-        VecDeque<(H256, u64)>,
+        VecDeque<(H256, u64, u64, u64)>,
         OptionQuery,
     >;
     #[pallet::storage]
