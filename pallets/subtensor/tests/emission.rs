@@ -998,7 +998,7 @@ fn test_basic_emission_distribution_scenario() {
 
         // Set up stakes and delegations
         add_network(netuid, tempo, 0);
-        Delegates::<Test>::insert(hotkey, 16384); // 25% take
+        pallet_subtensor::ChildkeyTake::<Test>::insert(hotkey, netuid, 16384); // 25% childkey take
         SubtensorModule::stake_into_subnet(&parent1, &coldkey, netuid, 500);
         SubtensorModule::stake_into_subnet(&parent2, &coldkey, netuid, 500);
         ParentKeys::<Test>::insert(
@@ -1019,9 +1019,10 @@ fn test_basic_emission_distribution_scenario() {
             &mut emission_tuples,
         );
 
+        // We are only distributing validating emission among hotkeys, but mining emission stays with the miner
         assert_eq!(emission_tuples.len(), 3);
         let total_distributed: u64 = emission_tuples.iter().map(|(_, _, amount)| amount).sum();
-        assert_eq!(total_distributed, validating_emission + mining_emission);
+        assert_eq!(total_distributed, validating_emission);
 
         // Check hotkey take and mining emission
         let hotkey_emission = emission_tuples
