@@ -419,6 +419,8 @@ fn test_get_stake_for_hotkey_on_subnet() {
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, parent, coldkey1, 0);
         register_ok_neuron(netuid, child, coldkey2, 0);
+        let parent_uid = 0;
+        let child_uid = 1;
 
         // Stake 1000 to parent from coldkey1
         increase_stake_on_coldkey_hotkey_account(&coldkey1, &parent, 1000, netuid);
@@ -437,19 +439,27 @@ fn test_get_stake_for_hotkey_on_subnet() {
             vec![(u64::MAX, child)]
         ));
 
-        let parent_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
-        let child_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid);
+        let (stake, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) = SubtensorModule::get_stake_weights_for_network(netuid);
+
+        let parent_stake: I32F32 = stake[parent_uid];
+        let child_stake: I32F32 = stake[child_uid];
 
         log::info!("Parent stake: {}", parent_stake);
         log::info!("Child stake: {}", child_stake);
 
         // The parent should have 0 stake as it's all allocated to the child
-        assert_eq!(parent_stake, 0);
+        let num1e3 = I32F32::from_num(1000);
+        assert!(is_within_tolerance(
+            parent_stake.saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(0).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).to_num::<u64>(),
+        ));
         // The child should have its original stake (2000) plus the parent's stake (2000)
-        assert_eq!(child_stake, 4000);
-
-        // Ensure total stake is preserved
-        assert_eq!(parent_stake + child_stake, 4000);
+        assert!(is_within_tolerance(
+            child_stake.saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1).to_num::<u64>(),
+        ));
     });
 }
 

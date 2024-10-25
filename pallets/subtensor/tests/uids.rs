@@ -5,7 +5,6 @@ use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use pallet_subtensor::*;
 use sp_core::U256;
-use substrate_fixed::types::I32F32;
 
 mod mock;
 
