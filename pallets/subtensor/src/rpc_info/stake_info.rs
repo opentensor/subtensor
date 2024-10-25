@@ -3,7 +3,9 @@ use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
 use codec::Compact;
 use sp_core::hexdisplay::AsBytesRef;
+use subtensor_macros::freeze_struct;
 
+#[freeze_struct("c5e3871b39062f8e")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct StakeInfo<T: Config> {
     hotkey: T::AccountId,
