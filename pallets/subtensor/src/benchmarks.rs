@@ -293,13 +293,14 @@ benchmarks! {
     let seed : u32 = 1;
 
     let coldkey: T::AccountId = account("Test", 0, seed);
+    let hotkey: T::AccountId = account("TestHot", 0, seed);
 
     Subtensor::<T>::set_network_rate_limit(1);
 
     let amount: u64 = 1;
     let amount_to_be_staked = 100_000_000_000_000u64;
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
-  }: register_network(RawOrigin::Signed(coldkey))
+  }: register_network(RawOrigin::Signed(coldkey), hotkey, 1)
 
   // swap_hotkey {
   //   let seed: u32 = 1;
