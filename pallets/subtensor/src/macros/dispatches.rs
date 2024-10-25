@@ -172,6 +172,7 @@ mod dispatches {
             Self::do_reveal_weights(origin, netuid, uids, values, salt, version_key)
         }
 
+        /// docs
         #[pallet::call_index(180)]
         #[pallet::weight((Weight::from_parts(103_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(11))
