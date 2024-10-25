@@ -1074,8 +1074,8 @@ parameter_types! {
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const SubtensorInitialHotkeyEmissionTempo: u64 = 1000; // Drain every hour.
-    pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // 500_000 TAO
     pub const SubtensorInitialGlobalWeight: u64 = u64::MAX; // 100% global weight.
+    //pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // 500_000 TAO
     pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64, this make the make stake infinity
     pub const SubtensorInitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
 
