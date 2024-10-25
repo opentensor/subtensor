@@ -439,7 +439,8 @@ fn test_get_stake_for_hotkey_on_subnet() {
             vec![(u64::MAX, child)]
         ));
 
-        let (stake, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) = SubtensorModule::get_stake_weights_for_network(netuid);
+        let (stake, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) =
+            SubtensorModule::get_stake_weights_for_network(netuid);
 
         let parent_stake: I32F32 = stake[parent_uid];
         let child_stake: I32F32 = stake[child_uid];
@@ -1253,7 +1254,7 @@ fn test_do_revoke_children_multiple_success() {
             netuid,
             &TransactionType::SetChildren,
             0,
-        );        
+        );
         assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -1544,7 +1545,7 @@ fn test_do_revoke_children_multiple_complex_scenario() {
             netuid,
             &TransactionType::SetChildren,
             0,
-        );        
+        );
         assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -1721,12 +1722,7 @@ fn test_children_stake_values() {
         let child2_uid = 2;
         let child3_uid = 3;
 
-        increase_stake_on_coldkey_hotkey_account(
-            &coldkey,
-            &hotkey,
-            100_000_000_000_000,
-            netuid,
-        );
+        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, 100_000_000_000_000, netuid);
 
         // Set multiple children with proportions.
         assert_ok!(SubtensorModule::do_set_children(
@@ -1739,8 +1735,9 @@ fn test_children_stake_values() {
                 (proportion3, child3)
             ]
         ));
-        
-        let (stake, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) = SubtensorModule::get_stake_weights_for_network(netuid);
+
+        let (stake, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) =
+            SubtensorModule::get_stake_weights_for_network(netuid);
 
         let parent_stake: I32F32 = stake[parent_uid];
         let child1_stake: I32F32 = stake[child1_uid];
@@ -1750,7 +1747,9 @@ fn test_children_stake_values() {
         // Check that the total stake is preserved
         let num1e3 = I32F32::from_num(1000);
         assert!(is_within_tolerance(
-            (parent_stake + child1_stake + child2_stake + child3_stake).saturating_mul(num1e3).to_num::<u64>(),
+            (parent_stake + child1_stake + child2_stake + child3_stake)
+                .saturating_mul(num1e3)
+                .to_num::<u64>(),
             I32F32::from_num(1).saturating_mul(num1e3).to_num::<u64>(),
             I32F32::from_num(1).to_num::<u64>(),
         ));
@@ -1758,22 +1757,34 @@ fn test_children_stake_values() {
         // Each hotkey stake weight is approximately 1/4
         assert!(is_within_tolerance(
             parent_stake.saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).saturating_div(I32F32::from_num(4)).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1)
+                .saturating_div(I32F32::from_num(4))
+                .saturating_mul(num1e3)
+                .to_num::<u64>(),
             I32F32::from_num(1).to_num::<u64>(),
         ));
         assert!(is_within_tolerance(
             child1_stake.saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).saturating_div(I32F32::from_num(4)).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1)
+                .saturating_div(I32F32::from_num(4))
+                .saturating_mul(num1e3)
+                .to_num::<u64>(),
             I32F32::from_num(1).to_num::<u64>(),
         ));
         assert!(is_within_tolerance(
             child2_stake.saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).saturating_div(I32F32::from_num(4)).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1)
+                .saturating_div(I32F32::from_num(4))
+                .saturating_mul(num1e3)
+                .to_num::<u64>(),
             I32F32::from_num(1).to_num::<u64>(),
         ));
         assert!(is_within_tolerance(
             child3_stake.saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).saturating_div(I32F32::from_num(4)).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1)
+                .saturating_div(I32F32::from_num(4))
+                .saturating_mul(num1e3)
+                .to_num::<u64>(),
             I32F32::from_num(1).to_num::<u64>(),
         ));
     });
@@ -1981,12 +1992,15 @@ fn test_childkey_single_parent_emission() {
             pallet_subtensor::Alpha::<Test>::get((miner_hotkey, miner_coldkey, netuid));
 
         // Run run_coinbase until PendingHotkeyEmission are populated
-        while pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(parent_hotkey, netuid) == 0 {
+        while pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(parent_hotkey, netuid)
+            == 0
+        {
             step_block(1);
         }
 
         assert!(
-            pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(parent_hotkey, netuid) > 1_000_000_000,
+            pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(parent_hotkey, netuid)
+                > 1_000_000_000,
             "Parent should have received pending emission"
         );
         assert!(
@@ -2003,11 +2017,14 @@ fn test_childkey_single_parent_emission() {
 
         // Check emission distribution
         let parent_emission: u64 =
-            pallet_subtensor::Alpha::<Test>::get((parent_hotkey, parent_coldkey, netuid)) - parent_alpha_before;
+            pallet_subtensor::Alpha::<Test>::get((parent_hotkey, parent_coldkey, netuid))
+                - parent_alpha_before;
         let child_emission: u64 =
-            pallet_subtensor::Alpha::<Test>::get((child_hotkey, child_coldkey, netuid)) - child_alpha_before;
-        let miner_emission: u64 = 
-            pallet_subtensor::Alpha::<Test>::get((miner_hotkey, miner_coldkey, netuid)) - miner_alpha_before;
+            pallet_subtensor::Alpha::<Test>::get((child_hotkey, child_coldkey, netuid))
+                - child_alpha_before;
+        let miner_emission: u64 =
+            pallet_subtensor::Alpha::<Test>::get((miner_hotkey, miner_coldkey, netuid))
+                - miner_alpha_before;
 
         assert!(
             parent_emission > 1_000_000_000,
@@ -2035,171 +2052,171 @@ fn test_childkey_single_parent_emission() {
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test coinbase test_childkey_multiple_parents_emission -- --nocapture
 #[test]
 fn test_childkey_multiple_parents_emission() {
-//     new_test_ext(1).execute_with(|| {
-//         let netuid: u16 = 1;
-//         add_network(netuid, 1, 0);
+    //     new_test_ext(1).execute_with(|| {
+    //         let netuid: u16 = 1;
+    //         add_network(netuid, 1, 0);
 
-//         // Set registration parameters and emission tempo
-//         SubtensorModule::set_max_registrations_per_block(netuid, 1000);
-//         SubtensorModule::set_target_registrations_per_interval(netuid, 1000);
-//         SubtensorModule::set_hotkey_emission_tempo(10);
+    //         // Set registration parameters and emission tempo
+    //         SubtensorModule::set_max_registrations_per_block(netuid, 1000);
+    //         SubtensorModule::set_target_registrations_per_interval(netuid, 1000);
+    //         SubtensorModule::set_hotkey_emission_tempo(10);
 
-//         // Define hotkeys and coldkeys
-//         let parent1: U256 = U256::from(1);
-//         let parent2: U256 = U256::from(2);
-//         let child: U256 = U256::from(3);
-//         let weight_setter: U256 = U256::from(4);
-//         let coldkey_parent1: U256 = U256::from(100);
-//         let coldkey_parent2: U256 = U256::from(101);
-//         let coldkey_child: U256 = U256::from(102);
-//         let coldkey_weight_setter: U256 = U256::from(103);
+    //         // Define hotkeys and coldkeys
+    //         let parent1: U256 = U256::from(1);
+    //         let parent2: U256 = U256::from(2);
+    //         let child: U256 = U256::from(3);
+    //         let weight_setter: U256 = U256::from(4);
+    //         let coldkey_parent1: U256 = U256::from(100);
+    //         let coldkey_parent2: U256 = U256::from(101);
+    //         let coldkey_child: U256 = U256::from(102);
+    //         let coldkey_weight_setter: U256 = U256::from(103);
 
-//         // Register neurons and add initial stakes
-//         let initial_stakes: Vec<(U256, U256, u64)> = vec![
-//             (coldkey_parent1, parent1, 200_000),
-//             (coldkey_parent2, parent2, 150_000),
-//             (coldkey_child, child, 20_000),
-//             (coldkey_weight_setter, weight_setter, 100_000),
-//         ];
+    //         // Register neurons and add initial stakes
+    //         let initial_stakes: Vec<(U256, U256, u64)> = vec![
+    //             (coldkey_parent1, parent1, 200_000),
+    //             (coldkey_parent2, parent2, 150_000),
+    //             (coldkey_child, child, 20_000),
+    //             (coldkey_weight_setter, weight_setter, 100_000),
+    //         ];
 
-//         for (coldkey, hotkey, stake) in initial_stakes.iter() {
-//             SubtensorModule::add_balance_to_coldkey_account(coldkey, *stake);
-//             register_ok_neuron(netuid, *hotkey, *coldkey, 0);
-//             increase_stake_on_coldkey_hotkey_account(coldkey, hotkey, *stake, netuid);
-//         }
+    //         for (coldkey, hotkey, stake) in initial_stakes.iter() {
+    //             SubtensorModule::add_balance_to_coldkey_account(coldkey, *stake);
+    //             register_ok_neuron(netuid, *hotkey, *coldkey, 0);
+    //             increase_stake_on_coldkey_hotkey_account(coldkey, hotkey, *stake, netuid);
+    //         }
 
-//         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
-//         step_block(2);
+    //         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+    //         step_block(2);
 
-//         // Set parent-child relationships
-//         assert_ok!(SubtensorModule::do_set_children(
-//             RuntimeOrigin::signed(coldkey_parent1),
-//             parent1,
-//             netuid,
-//             vec![(100_000, child)]
-//         ));
-//         assert_ok!(SubtensorModule::do_set_children(
-//             RuntimeOrigin::signed(coldkey_parent2),
-//             parent2,
-//             netuid,
-//             vec![(75_000, child)]
-//         ));
+    //         // Set parent-child relationships
+    //         assert_ok!(SubtensorModule::do_set_children(
+    //             RuntimeOrigin::signed(coldkey_parent1),
+    //             parent1,
+    //             netuid,
+    //             vec![(100_000, child)]
+    //         ));
+    //         assert_ok!(SubtensorModule::do_set_children(
+    //             RuntimeOrigin::signed(coldkey_parent2),
+    //             parent2,
+    //             netuid,
+    //             vec![(75_000, child)]
+    //         ));
 
-//         // Set weights
-//         let uids: Vec<u16> = vec![0, 1, 2];
-//         let values: Vec<u16> = vec![0, 65354, 65354];
-//         let version_key = SubtensorModule::get_weights_version_key(netuid);
-//         assert_ok!(SubtensorModule::set_weights(
-//             RuntimeOrigin::signed(weight_setter),
-//             netuid,
-//             uids,
-//             values,
-//             version_key
-//         ));
+    //         // Set weights
+    //         let uids: Vec<u16> = vec![0, 1, 2];
+    //         let values: Vec<u16> = vec![0, 65354, 65354];
+    //         let version_key = SubtensorModule::get_weights_version_key(netuid);
+    //         assert_ok!(SubtensorModule::set_weights(
+    //             RuntimeOrigin::signed(weight_setter),
+    //             netuid,
+    //             uids,
+    //             values,
+    //             version_key
+    //         ));
 
-//         // Run epoch with a hardcoded emission value
-//         let hardcoded_emission: u64 = 1_000_000_000; // 1 billion
-//         let hotkey_emission: Vec<(U256, u64, u64)> =
-//             SubtensorModule::epoch(netuid, hardcoded_emission);
+    //         // Run epoch with a hardcoded emission value
+    //         let hardcoded_emission: u64 = 1_000_000_000; // 1 billion
+    //         let hotkey_emission: Vec<(U256, u64, u64)> =
+    //             SubtensorModule::epoch(netuid, hardcoded_emission);
 
-//         // Process the hotkey emission results
-//         for (hotkey, mining_emission, validator_emission) in hotkey_emission {
-//             SubtensorModule::accumulate_hotkey_emission(
-//                 &hotkey,
-//                 netuid,
-//                 validator_emission,
-//                 mining_emission,
-//             );
-//             log::debug!(
-//                 "Accumulated emissions on hotkey {:?} for netuid {:?}: mining {:?}, validator {:?}",
-//                 hotkey,
-//                 netuid,
-//                 mining_emission,
-//                 validator_emission
-//             );
-//         }
+    //         // Process the hotkey emission results
+    //         for (hotkey, mining_emission, validator_emission) in hotkey_emission {
+    //             SubtensorModule::accumulate_hotkey_emission(
+    //                 &hotkey,
+    //                 netuid,
+    //                 validator_emission,
+    //                 mining_emission,
+    //             );
+    //             log::debug!(
+    //                 "Accumulated emissions on hotkey {:?} for netuid {:?}: mining {:?}, validator {:?}",
+    //                 hotkey,
+    //                 netuid,
+    //                 mining_emission,
+    //                 validator_emission
+    //             );
+    //         }
 
-//         step_block(11);
+    //         step_block(11);
 
-//         // Check emission distribution
-//         let stakes: Vec<(U256, U256, &str)> = vec![
-//             (coldkey_parent1, parent1, "Parent1"),
-//             (coldkey_parent2, parent2, "Parent2"),
-//             (coldkey_child, child, "Child"),
-//             (coldkey_weight_setter, weight_setter, "Weight setter"),
-//         ];
+    //         // Check emission distribution
+    //         let stakes: Vec<(U256, U256, &str)> = vec![
+    //             (coldkey_parent1, parent1, "Parent1"),
+    //             (coldkey_parent2, parent2, "Parent2"),
+    //             (coldkey_child, child, "Child"),
+    //             (coldkey_weight_setter, weight_setter, "Weight setter"),
+    //         ];
 
-//         for (coldkey, hotkey, name) in stakes.iter() {
-//             let stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(coldkey, hotkey);
-//             let stake_on_subnet = SubtensorModule::get_stake_for_hotkey_on_subnet(hotkey, netuid);
-//             log::debug!(
-//                 "{} stake: {:?}, {} stake on subnet: {:?}",
-//                 name,
-//                 stake,
-//                 name,
-//                 stake_on_subnet
-//             );
-//         }
+    //         for (coldkey, hotkey, name) in stakes.iter() {
+    //             let stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(coldkey, hotkey);
+    //             let stake_on_subnet = SubtensorModule::get_stake_for_hotkey_on_subnet(hotkey, netuid);
+    //             log::debug!(
+    //                 "{} stake: {:?}, {} stake on subnet: {:?}",
+    //                 name,
+    //                 stake,
+    //                 name,
+    //                 stake_on_subnet
+    //             );
+    //         }
 
-//         let parent1_stake =
-//             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_parent1, &parent1);
-//         let parent2_stake =
-//             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_parent2, &parent2);
-//         let child_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_child, &child);
-//         let weight_setter_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(
-//             &coldkey_weight_setter,
-//             &weight_setter,
-//         );
+    //         let parent1_stake =
+    //             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_parent1, &parent1);
+    //         let parent2_stake =
+    //             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_parent2, &parent2);
+    //         let child_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_child, &child);
+    //         let weight_setter_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(
+    //             &coldkey_weight_setter,
+    //             &weight_setter,
+    //         );
 
-//         assert!(
-//             parent1_stake > 200_000,
-//             "Parent1 should have received emission"
-//         );
-//         assert!(
-//             parent2_stake > 150_000,
-//             "Parent2 should have received emission"
-//         );
-//         assert!(child_stake > 20_000, "Child should have received emission");
-//         assert!(
-//             weight_setter_stake > 100_000,
-//             "Weight setter should have received emission"
-//         );
+    //         assert!(
+    //             parent1_stake > 200_000,
+    //             "Parent1 should have received emission"
+    //         );
+    //         assert!(
+    //             parent2_stake > 150_000,
+    //             "Parent2 should have received emission"
+    //         );
+    //         assert!(child_stake > 20_000, "Child should have received emission");
+    //         assert!(
+    //             weight_setter_stake > 100_000,
+    //             "Weight setter should have received emission"
+    //         );
 
-//         // Check individual stake increases
-//         let parent1_stake_increase = parent1_stake - 200_000;
-//         let parent2_stake_increase = parent2_stake - 150_000;
-//         let child_stake_increase = child_stake - 20_000;
+    //         // Check individual stake increases
+    //         let parent1_stake_increase = parent1_stake - 200_000;
+    //         let parent2_stake_increase = parent2_stake - 150_000;
+    //         let child_stake_increase = child_stake - 20_000;
 
-//         log::debug!(
-//             "Stake increases - Parent1: {}, Parent2: {}, Child: {}",
-//             parent1_stake_increase,
-//             parent2_stake_increase,
-//             child_stake_increase
-//         );
+    //         log::debug!(
+    //             "Stake increases - Parent1: {}, Parent2: {}, Child: {}",
+    //             parent1_stake_increase,
+    //             parent2_stake_increase,
+    //             child_stake_increase
+    //         );
 
-//         // Assert that all neurons received some emission
-//         assert!(
-//             parent1_stake_increase > 0,
-//             "Parent1 should have received some emission"
-//         );
-//         assert!(
-//             parent2_stake_increase > 0,
-//             "Parent2 should have received some emission"
-//         );
-//         assert!(
-//             child_stake_increase > 0,
-//             "Child should have received some emission"
-//         );
+    //         // Assert that all neurons received some emission
+    //         assert!(
+    //             parent1_stake_increase > 0,
+    //             "Parent1 should have received some emission"
+    //         );
+    //         assert!(
+    //             parent2_stake_increase > 0,
+    //             "Parent2 should have received some emission"
+    //         );
+    //         assert!(
+    //             child_stake_increase > 0,
+    //             "Child should have received some emission"
+    //         );
 
-//         // Check that the total stake has increased by the hardcoded emission amount
-//         let total_stake = parent1_stake + parent2_stake + child_stake + weight_setter_stake;
-//         let initial_total_stake: u64 = initial_stakes.iter().map(|(_, _, stake)| stake).sum();
-//         assert_eq!(
-//             total_stake,
-//             initial_total_stake + hardcoded_emission - 2, // U64::MAX normalization rounding error
-//             "Total stake should have increased by the hardcoded emission amount"
-//         );
-//     });
+    //         // Check that the total stake has increased by the hardcoded emission amount
+    //         let total_stake = parent1_stake + parent2_stake + child_stake + weight_setter_stake;
+    //         let initial_total_stake: u64 = initial_stakes.iter().map(|(_, _, stake)| stake).sum();
+    //         assert_eq!(
+    //             total_stake,
+    //             initial_total_stake + hardcoded_emission - 2, // U64::MAX normalization rounding error
+    //             "Total stake should have increased by the hardcoded emission amount"
+    //         );
+    //     });
 }
 
 // 44: Test with a chain of parent-child relationships (e.g., A -> B -> C)
@@ -2213,145 +2230,145 @@ fn test_childkey_multiple_parents_emission() {
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test coinbase test_parent_child_chain_emission -- --nocapture
 #[test]
 fn test_parent_child_chain_emission() {
-//     new_test_ext(1).execute_with(|| {
-//         let netuid: u16 = 1;
-//         add_network(netuid, 1, 0);
+    //     new_test_ext(1).execute_with(|| {
+    //         let netuid: u16 = 1;
+    //         add_network(netuid, 1, 0);
 
-//         // Define hotkeys and coldkeys
-//         let hotkey_a: U256 = U256::from(1);
-//         let hotkey_b: U256 = U256::from(2);
-//         let hotkey_c: U256 = U256::from(3);
-//         let coldkey_a: U256 = U256::from(100);
-//         let coldkey_b: U256 = U256::from(101);
-//         let coldkey_c: U256 = U256::from(102);
+    //         // Define hotkeys and coldkeys
+    //         let hotkey_a: U256 = U256::from(1);
+    //         let hotkey_b: U256 = U256::from(2);
+    //         let hotkey_c: U256 = U256::from(3);
+    //         let coldkey_a: U256 = U256::from(100);
+    //         let coldkey_b: U256 = U256::from(101);
+    //         let coldkey_c: U256 = U256::from(102);
 
-//         // Register neurons with decreasing stakes
-//         register_ok_neuron(netuid, hotkey_a, coldkey_a, 0);
-//         register_ok_neuron(netuid, hotkey_b, coldkey_b, 0);
-//         register_ok_neuron(netuid, hotkey_c, coldkey_c, 0);
+    //         // Register neurons with decreasing stakes
+    //         register_ok_neuron(netuid, hotkey_a, coldkey_a, 0);
+    //         register_ok_neuron(netuid, hotkey_b, coldkey_b, 0);
+    //         register_ok_neuron(netuid, hotkey_c, coldkey_c, 0);
 
-//         // Add initial stakes
-//         SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 300_000);
-//         SubtensorModule::add_balance_to_coldkey_account(&coldkey_b, 100_000);
-//         SubtensorModule::add_balance_to_coldkey_account(&coldkey_c, 50_000);
+    //         // Add initial stakes
+    //         SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 300_000);
+    //         SubtensorModule::add_balance_to_coldkey_account(&coldkey_b, 100_000);
+    //         SubtensorModule::add_balance_to_coldkey_account(&coldkey_c, 50_000);
 
-//         increase_stake_on_coldkey_hotkey_account(&coldkey_a, &hotkey_a, 300_000, netuid);
-//         increase_stake_on_coldkey_hotkey_account(&coldkey_b, &hotkey_b, 100_000, netuid);
-//         increase_stake_on_coldkey_hotkey_account(&coldkey_c, &hotkey_c, 50_000, netuid);
+    //         increase_stake_on_coldkey_hotkey_account(&coldkey_a, &hotkey_a, 300_000, netuid);
+    //         increase_stake_on_coldkey_hotkey_account(&coldkey_b, &hotkey_b, 100_000, netuid);
+    //         increase_stake_on_coldkey_hotkey_account(&coldkey_c, &hotkey_c, 50_000, netuid);
 
-//         // Set parent-child relationships
-//         // A -> B (50% of A's stake)
-//         assert_ok!(SubtensorModule::do_set_children(
-//             RuntimeOrigin::signed(coldkey_a),
-//             hotkey_a,
-//             netuid,
-//             vec![(u64::MAX / 2, hotkey_b)]
-//         ));
-//         // B -> C (50% of B's stake)
-//         assert_ok!(SubtensorModule::do_set_children(
-//             RuntimeOrigin::signed(coldkey_b),
-//             hotkey_b,
-//             netuid,
-//             vec![(u64::MAX / 2, hotkey_c)]
-//         ));
+    //         // Set parent-child relationships
+    //         // A -> B (50% of A's stake)
+    //         assert_ok!(SubtensorModule::do_set_children(
+    //             RuntimeOrigin::signed(coldkey_a),
+    //             hotkey_a,
+    //             netuid,
+    //             vec![(u64::MAX / 2, hotkey_b)]
+    //         ));
+    //         // B -> C (50% of B's stake)
+    //         assert_ok!(SubtensorModule::do_set_children(
+    //             RuntimeOrigin::signed(coldkey_b),
+    //             hotkey_b,
+    //             netuid,
+    //             vec![(u64::MAX / 2, hotkey_c)]
+    //         ));
 
-//         step_block(2);
+    //         step_block(2);
 
-//         // Set weights
-//         let origin = RuntimeOrigin::signed(hotkey_a);
-//         let uids: Vec<u16> = vec![0, 1, 2]; // UIDs for hotkey_a, hotkey_b, hotkey_c
-//         let values: Vec<u16> = vec![65535, 65535, 65535]; // Set equal weights for all hotkeys
-//         let version_key = SubtensorModule::get_weights_version_key(netuid);
+    //         // Set weights
+    //         let origin = RuntimeOrigin::signed(hotkey_a);
+    //         let uids: Vec<u16> = vec![0, 1, 2]; // UIDs for hotkey_a, hotkey_b, hotkey_c
+    //         let values: Vec<u16> = vec![65535, 65535, 65535]; // Set equal weights for all hotkeys
+    //         let version_key = SubtensorModule::get_weights_version_key(netuid);
 
-//         // Ensure we can set weights without rate limiting
-//         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+    //         // Ensure we can set weights without rate limiting
+    //         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
-//         assert_ok!(SubtensorModule::set_weights(
-//             origin,
-//             netuid,
-//             uids,
-//             values,
-//             version_key
-//         ));
+    //         assert_ok!(SubtensorModule::set_weights(
+    //             origin,
+    //             netuid,
+    //             uids,
+    //             values,
+    //             version_key
+    //         ));
 
-//         // Run epoch with a hardcoded emission value
-//         let hardcoded_emission: u64 = 1_000_000; // 1 million (adjust as needed)
-//         let hotkey_emission: Vec<(U256, u64, u64)> =
-//             SubtensorModule::epoch(netuid, hardcoded_emission);
+    //         // Run epoch with a hardcoded emission value
+    //         let hardcoded_emission: u64 = 1_000_000; // 1 million (adjust as needed)
+    //         let hotkey_emission: Vec<(U256, u64, u64)> =
+    //             SubtensorModule::epoch(netuid, hardcoded_emission);
 
-//         // Process the hotkey emission results
-//         for (hotkey, mining_emission, validator_emission) in hotkey_emission {
-//             SubtensorModule::accumulate_hotkey_emission(
-//                 &hotkey,
-//                 netuid,
-//                 validator_emission,
-//                 mining_emission,
-//             );
-//         }
+    //         // Process the hotkey emission results
+    //         for (hotkey, mining_emission, validator_emission) in hotkey_emission {
+    //             SubtensorModule::accumulate_hotkey_emission(
+    //                 &hotkey,
+    //                 netuid,
+    //                 validator_emission,
+    //                 mining_emission,
+    //             );
+    //         }
 
-//         // Log PendingEmission Tuple for a, b, c
-//         let pending_emission_a = SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey_a);
-//         let pending_emission_b = SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey_b);
-//         let pending_emission_c = SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey_c);
+    //         // Log PendingEmission Tuple for a, b, c
+    //         let pending_emission_a = SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey_a);
+    //         let pending_emission_b = SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey_b);
+    //         let pending_emission_c = SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey_c);
 
-//         log::info!("Pending Emission for A: {:?}", pending_emission_a);
-//         log::info!("Pending Emission for B: {:?}", pending_emission_b);
-//         log::info!("Pending Emission for C: {:?}", pending_emission_c);
+    //         log::info!("Pending Emission for A: {:?}", pending_emission_a);
+    //         log::info!("Pending Emission for B: {:?}", pending_emission_b);
+    //         log::info!("Pending Emission for C: {:?}", pending_emission_c);
 
-//         // Assert that pending emissions are non-zero
-//         // A's pending emission: 2/3 of total emission (due to having 2/3 of total stake)
-//         assert!(
-//             pending_emission_a == 666667,
-//             "A should have pending emission of 2/3 of total emission"
-//         );
-//         // B's pending emission: 2/9 of total emission (1/3 of A's emission + 1/3 of total emission)
-//         assert!(
-//             pending_emission_b == 222222,
-//             "B should have pending emission of 2/9 of total emission"
-//         );
-//         // C's pending emission: 1/9 of total emission (1/2 of B's emission)
-//         assert!(
-//             pending_emission_c == 111109,
-//             "C should have pending emission of 1/9 of total emission"
-//         );
+    //         // Assert that pending emissions are non-zero
+    //         // A's pending emission: 2/3 of total emission (due to having 2/3 of total stake)
+    //         assert!(
+    //             pending_emission_a == 666667,
+    //             "A should have pending emission of 2/3 of total emission"
+    //         );
+    //         // B's pending emission: 2/9 of total emission (1/3 of A's emission + 1/3 of total emission)
+    //         assert!(
+    //             pending_emission_b == 222222,
+    //             "B should have pending emission of 2/9 of total emission"
+    //         );
+    //         // C's pending emission: 1/9 of total emission (1/2 of B's emission)
+    //         assert!(
+    //             pending_emission_c == 111109,
+    //             "C should have pending emission of 1/9 of total emission"
+    //         );
 
-//         SubtensorModule::set_hotkey_emission_tempo(10);
+    //         SubtensorModule::set_hotkey_emission_tempo(10);
 
-//         step_block(10 + 1);
-//         // Retrieve the current stake for each hotkey on the subnet
-//         let stake_a: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_a, netuid);
-//         let stake_b: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_b, netuid);
-//         let stake_c: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_c, netuid);
+    //         step_block(10 + 1);
+    //         // Retrieve the current stake for each hotkey on the subnet
+    //         let stake_a: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_a, netuid);
+    //         let stake_b: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_b, netuid);
+    //         let stake_c: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_c, netuid);
 
-//         // Log the current stakes for debugging purposes
-//         log::info!("Stake for hotkey A: {:?}", stake_a);
-//         log::info!("Stake for hotkey B: {:?}", stake_b);
-//         log::info!("Stake for hotkey C: {:?}", stake_c);
+    //         // Log the current stakes for debugging purposes
+    //         log::info!("Stake for hotkey A: {:?}", stake_a);
+    //         log::info!("Stake for hotkey B: {:?}", stake_b);
+    //         log::info!("Stake for hotkey C: {:?}", stake_c);
 
-//         // Assert that the stakes have been updated correctly after emission distribution
-//         assert_eq!(
-//             stake_a, 483334,
-//             "A's stake should be 483334 (initial 300_000 + 666667 emission - 483333 given to B)"
-//         );
-//         assert_eq!(
-//             stake_b, 644445,
-//             "B's stake should be 644445 (initial 100_000 + 222222 emission + 483333 from A - 161110 given to C)"
-//         );
-//         assert_eq!(
-//             stake_c, 322219,
-//             "C's stake should be 322219 (initial 50_000 + 111109 emission + 161110 from B)"
-//         );
+    //         // Assert that the stakes have been updated correctly after emission distribution
+    //         assert_eq!(
+    //             stake_a, 483334,
+    //             "A's stake should be 483334 (initial 300_000 + 666667 emission - 483333 given to B)"
+    //         );
+    //         assert_eq!(
+    //             stake_b, 644445,
+    //             "B's stake should be 644445 (initial 100_000 + 222222 emission + 483333 from A - 161110 given to C)"
+    //         );
+    //         assert_eq!(
+    //             stake_c, 322219,
+    //             "C's stake should be 322219 (initial 50_000 + 111109 emission + 161110 from B)"
+    //         );
 
-//         // Check that the total stake has increased by the hardcoded emission amount
-//         let total_stake = stake_a + stake_b + stake_c;
-//         let initial_total_stake = 300_000 + 100_000 + 50_000;
-//         let hardcoded_emission = 1_000_000; // Define the hardcoded emission value
-//         assert_eq!(
-//             total_stake,
-//             initial_total_stake + hardcoded_emission - 2, // U64::MAX normalization rounding error
-//             "Total stake should have increased by the hardcoded emission amount"
-//         );
-//     });
+    //         // Check that the total stake has increased by the hardcoded emission amount
+    //         let total_stake = stake_a + stake_b + stake_c;
+    //         let initial_total_stake = 300_000 + 100_000 + 50_000;
+    //         let hardcoded_emission = 1_000_000; // Define the hardcoded emission value
+    //         assert_eq!(
+    //             total_stake,
+    //             initial_total_stake + hardcoded_emission - 2, // U64::MAX normalization rounding error
+    //             "Total stake should have increased by the hardcoded emission amount"
+    //         );
+    //     });
 }
 
 // 46: Test emission distribution when adding/removing parent-child relationships mid-epoch
@@ -2366,197 +2383,197 @@ fn test_parent_child_chain_emission() {
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test children -- test_dynamic_parent_child_relationships --exact --nocapture
 #[test]
 fn test_dynamic_parent_child_relationships() {
-//     new_test_ext(1).execute_with(|| {
-//         let netuid: u16 = 1;
-//         add_network(netuid, 1, 0);
+    //     new_test_ext(1).execute_with(|| {
+    //         let netuid: u16 = 1;
+    //         add_network(netuid, 1, 0);
 
-//         // Define hotkeys and coldkeys
-//         let parent: U256 = U256::from(1);
-//         let child1: U256 = U256::from(2);
-//         let child2: U256 = U256::from(3);
-//         let coldkey_parent: U256 = U256::from(100);
-//         let coldkey_child1: U256 = U256::from(101);
-//         let coldkey_child2: U256 = U256::from(102);
+    //         // Define hotkeys and coldkeys
+    //         let parent: U256 = U256::from(1);
+    //         let child1: U256 = U256::from(2);
+    //         let child2: U256 = U256::from(3);
+    //         let coldkey_parent: U256 = U256::from(100);
+    //         let coldkey_child1: U256 = U256::from(101);
+    //         let coldkey_child2: U256 = U256::from(102);
 
-//         // Register neurons with varying stakes
-//         register_ok_neuron(netuid, parent, coldkey_parent, 0);
-//         register_ok_neuron(netuid, child1, coldkey_child1, 0);
-//         register_ok_neuron(netuid, child2, coldkey_child2, 0);
+    //         // Register neurons with varying stakes
+    //         register_ok_neuron(netuid, parent, coldkey_parent, 0);
+    //         register_ok_neuron(netuid, child1, coldkey_child1, 0);
+    //         register_ok_neuron(netuid, child2, coldkey_child2, 0);
 
-//         // Add initial stakes
-//         SubtensorModule::add_balance_to_coldkey_account(&coldkey_parent, 500_000);
-//         SubtensorModule::add_balance_to_coldkey_account(&coldkey_child1, 50_000);
-//         SubtensorModule::add_balance_to_coldkey_account(&coldkey_child2, 30_000);
+    //         // Add initial stakes
+    //         SubtensorModule::add_balance_to_coldkey_account(&coldkey_parent, 500_000);
+    //         SubtensorModule::add_balance_to_coldkey_account(&coldkey_child1, 50_000);
+    //         SubtensorModule::add_balance_to_coldkey_account(&coldkey_child2, 30_000);
 
-//         increase_stake_on_coldkey_hotkey_account(&coldkey_parent, &parent, 500_000, netuid);
-//         increase_stake_on_coldkey_hotkey_account(&coldkey_child1, &child1, 50_000, netuid);
-//         increase_stake_on_coldkey_hotkey_account(&coldkey_child2, &child2, 30_000, netuid);
+    //         increase_stake_on_coldkey_hotkey_account(&coldkey_parent, &parent, 500_000, netuid);
+    //         increase_stake_on_coldkey_hotkey_account(&coldkey_child1, &child1, 50_000, netuid);
+    //         increase_stake_on_coldkey_hotkey_account(&coldkey_child2, &child2, 30_000, netuid);
 
-//         // Set initial parent-child relationship
-//         assert_ok!(SubtensorModule::do_set_children(
-//             RuntimeOrigin::signed(coldkey_parent),
-//             parent,
-//             netuid,
-//             vec![(u64::MAX / 2, child1)]
-//         ));
+    //         // Set initial parent-child relationship
+    //         assert_ok!(SubtensorModule::do_set_children(
+    //             RuntimeOrigin::signed(coldkey_parent),
+    //             parent,
+    //             netuid,
+    //             vec![(u64::MAX / 2, child1)]
+    //         ));
 
-//         step_block(2);
+    //         step_block(2);
 
-//         // Set weights
-//         let origin = RuntimeOrigin::signed(parent);
-//         let uids: Vec<u16> = vec![0, 1, 2]; // UIDs for parent, child1, child2
-//         let values: Vec<u16> = vec![65535, 65535, 65535]; // Set equal weights for all hotkeys
-//         let version_key = SubtensorModule::get_weights_version_key(netuid);
+    //         // Set weights
+    //         let origin = RuntimeOrigin::signed(parent);
+    //         let uids: Vec<u16> = vec![0, 1, 2]; // UIDs for parent, child1, child2
+    //         let values: Vec<u16> = vec![65535, 65535, 65535]; // Set equal weights for all hotkeys
+    //         let version_key = SubtensorModule::get_weights_version_key(netuid);
 
-//         // Ensure we can set weights without rate limiting
-//         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+    //         // Ensure we can set weights without rate limiting
+    //         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
-//         assert_ok!(SubtensorModule::set_weights(
-//             origin,
-//             netuid,
-//             uids,
-//             values,
-//             version_key
-//         ));
+    //         assert_ok!(SubtensorModule::set_weights(
+    //             origin,
+    //             netuid,
+    //             uids,
+    //             values,
+    //             version_key
+    //         ));
 
-//         // Set hotkey emission tempo
-//         SubtensorModule::set_hotkey_emission_tempo(10);
+    //         // Set hotkey emission tempo
+    //         SubtensorModule::set_hotkey_emission_tempo(10);
 
-//         // Run first epoch
-//         let hardcoded_emission: u64 = 1_000_000; // 1 million (adjust as needed)
-//         let hotkey_emission: Vec<(U256, u64, u64)> = SubtensorModule::epoch(netuid, hardcoded_emission);
+    //         // Run first epoch
+    //         let hardcoded_emission: u64 = 1_000_000; // 1 million (adjust as needed)
+    //         let hotkey_emission: Vec<(U256, u64, u64)> = SubtensorModule::epoch(netuid, hardcoded_emission);
 
-//         // Process the hotkey emission results
-//         for (hotkey, mining_emission, validator_emission) in hotkey_emission {
-//             SubtensorModule::accumulate_hotkey_emission(&hotkey, netuid, validator_emission, mining_emission);
-//         }
+    //         // Process the hotkey emission results
+    //         for (hotkey, mining_emission, validator_emission) in hotkey_emission {
+    //             SubtensorModule::accumulate_hotkey_emission(&hotkey, netuid, validator_emission, mining_emission);
+    //         }
 
-//         // Step blocks to allow for emission distribution
-//         step_block(11);
+    //         // Step blocks to allow for emission distribution
+    //         step_block(11);
 
-//         // Change parent-child relationships
-//         assert_ok!(SubtensorModule::do_set_children(
-//             RuntimeOrigin::signed(coldkey_parent),
-//             parent,
-//             netuid,
-//             vec![(u64::MAX / 4, child1), (u64::MAX / 3, child2)]
-//         ));
+    //         // Change parent-child relationships
+    //         assert_ok!(SubtensorModule::do_set_children(
+    //             RuntimeOrigin::signed(coldkey_parent),
+    //             parent,
+    //             netuid,
+    //             vec![(u64::MAX / 4, child1), (u64::MAX / 3, child2)]
+    //         ));
 
-//         // Run second epoch
-//         let hotkey_emission: Vec<(U256, u64, u64)> = SubtensorModule::epoch(netuid, hardcoded_emission);
+    //         // Run second epoch
+    //         let hotkey_emission: Vec<(U256, u64, u64)> = SubtensorModule::epoch(netuid, hardcoded_emission);
 
-//         // Process the hotkey emission results
-//         for (hotkey, mining_emission, validator_emission) in hotkey_emission {
-//             SubtensorModule::accumulate_hotkey_emission(&hotkey, netuid, validator_emission, mining_emission);
-//         }
+    //         // Process the hotkey emission results
+    //         for (hotkey, mining_emission, validator_emission) in hotkey_emission {
+    //             SubtensorModule::accumulate_hotkey_emission(&hotkey, netuid, validator_emission, mining_emission);
+    //         }
 
-//         // Step blocks again to allow for emission distribution
-//         step_block(11);
+    //         // Step blocks again to allow for emission distribution
+    //         step_block(11);
 
-//         // Check final emission distribution
-//         let parent_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
-//         let child1_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid);
-//         let child2_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
+    //         // Check final emission distribution
+    //         let parent_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
+    //         let child1_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid);
+    //         let child2_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
 
-//         log::info!("Final stakes:");
-//         log::info!("Parent stake: {}", parent_stake);
-//         log::info!("Child1 stake: {}", child1_stake);
-//         log::info!("Child2 stake: {}", child2_stake);
+    //         log::info!("Final stakes:");
+    //         log::info!("Parent stake: {}", parent_stake);
+    //         log::info!("Child1 stake: {}", child1_stake);
+    //         log::info!("Child2 stake: {}", child2_stake);
 
-//         const TOLERANCE: u64 = 5; // Allow for a small discrepancy due to potential rounding
+    //         const TOLERANCE: u64 = 5; // Allow for a small discrepancy due to potential rounding
 
-//         // Precise assertions with tolerance
-//         assert!(
-//             (parent_stake as i64 - 926725).abs() <= TOLERANCE as i64,
-//             "Parent stake should be close to 926,725, but was {}",
-//             parent_stake
-//         );
-//         // Parent stake calculation:
-//         // Initial stake: 500,000
-//         // First epoch: ~862,500 (500,000 + 725,000 * 1/2)
-//         // Second epoch: ~926,725 (862,500 + 725,000 * 5/12)
+    //         // Precise assertions with tolerance
+    //         assert!(
+    //             (parent_stake as i64 - 926725).abs() <= TOLERANCE as i64,
+    //             "Parent stake should be close to 926,725, but was {}",
+    //             parent_stake
+    //         );
+    //         // Parent stake calculation:
+    //         // Initial stake: 500,000
+    //         // First epoch: ~862,500 (500,000 + 725,000 * 1/2)
+    //         // Second epoch: ~926,725 (862,500 + 725,000 * 5/12)
 
-//         assert!(
-//             (child1_stake as i64 - 778446).abs() <= TOLERANCE as i64,
-//             "Child1 stake should be close to 778,446, but was {}",
-//             child1_stake
-//         );
-//         // Child1 stake calculation:
-//         // Initial stake: 50,000
-//         // First epoch: ~412,500 (50,000 + 725,000 * 1/2)
-//         // Second epoch: ~778,446 (412,500 + 725,000 * 1/2 * 1/4 + 137,500)
+    //         assert!(
+    //             (child1_stake as i64 - 778446).abs() <= TOLERANCE as i64,
+    //             "Child1 stake should be close to 778,446, but was {}",
+    //             child1_stake
+    //         );
+    //         // Child1 stake calculation:
+    //         // Initial stake: 50,000
+    //         // First epoch: ~412,500 (50,000 + 725,000 * 1/2)
+    //         // Second epoch: ~778,446 (412,500 + 725,000 * 1/2 * 1/4 + 137,500)
 
-//         assert!(
-//             (child2_stake as i64 - 874826).abs() <= TOLERANCE as i64,
-//             "Child2 stake should be close to 874,826, but was {}",
-//             child2_stake
-//         );
-//         // Child2 stake calculation:
-//         // Initial stake: 30,000
-//         // First epoch: ~167,500 (30,000 + 137,500)
-//         // Second epoch: ~874,826 (167,500 + 725,000 * 1/2 * 1/3 + 137,500)
+    //         assert!(
+    //             (child2_stake as i64 - 874826).abs() <= TOLERANCE as i64,
+    //             "Child2 stake should be close to 874,826, but was {}",
+    //             child2_stake
+    //         );
+    //         // Child2 stake calculation:
+    //         // Initial stake: 30,000
+    //         // First epoch: ~167,500 (30,000 + 137,500)
+    //         // Second epoch: ~874,826 (167,500 + 725,000 * 1/2 * 1/3 + 137,500)
 
-//         // Check that the total stake has increased by approximately twice the hardcoded emission amount
-//         let total_stake: u64 = parent_stake + child1_stake + child2_stake;
-//         let initial_total_stake: u64 = 500_000 + 50_000 + 30_000;
-//         let total_emission: u64 = 2 * hardcoded_emission;
-//         assert!(
-//             (total_stake as i64 - (initial_total_stake + total_emission) as i64).abs() <= TOLERANCE as i64,
-//             "Total stake should have increased by approximately twice the hardcoded emission amount"
-//         );
-//         // Total stake calculation:
-//         // Initial total stake: 500,000 + 50,000 + 30,000 = 580,000
-//         // Total emission: 2 * 1,000,000 = 2,000,000
-//         // Expected total stake: 580,000 + 2,000,000 = 2,580,000
+    //         // Check that the total stake has increased by approximately twice the hardcoded emission amount
+    //         let total_stake: u64 = parent_stake + child1_stake + child2_stake;
+    //         let initial_total_stake: u64 = 500_000 + 50_000 + 30_000;
+    //         let total_emission: u64 = 2 * hardcoded_emission;
+    //         assert!(
+    //             (total_stake as i64 - (initial_total_stake + total_emission) as i64).abs() <= TOLERANCE as i64,
+    //             "Total stake should have increased by approximately twice the hardcoded emission amount"
+    //         );
+    //         // Total stake calculation:
+    //         // Initial total stake: 500,000 + 50,000 + 30,000 = 580,000
+    //         // Total emission: 2 * 1,000,000 = 2,000,000
+    //         // Expected total stake: 580,000 + 2,000,000 = 2,580,000
 
-//         // Additional checks for parent-child relationships
-//         let parent_children: Vec<(u64, U256)> = SubtensorModule::get_children(&parent, netuid);
-//         assert_eq!(
-//             parent_children,
-//             vec![(u64::MAX / 4, child1), (u64::MAX / 3, child2)],
-//             "Parent should have both children with correct proportions"
-//         );
-//         // Parent-child relationship:
-//         // child1: 1/4 of parent's stake
-//         // child2: 1/3 of parent's stake
+    //         // Additional checks for parent-child relationships
+    //         let parent_children: Vec<(u64, U256)> = SubtensorModule::get_children(&parent, netuid);
+    //         assert_eq!(
+    //             parent_children,
+    //             vec![(u64::MAX / 4, child1), (u64::MAX / 3, child2)],
+    //             "Parent should have both children with correct proportions"
+    //         );
+    //         // Parent-child relationship:
+    //         // child1: 1/4 of parent's stake
+    //         // child2: 1/3 of parent's stake
 
-//         let child1_parents: Vec<(u64, U256)> = SubtensorModule::get_parents(&child1, netuid);
-//         assert_eq!(
-//             child1_parents,
-//             vec![(u64::MAX / 4, parent)],
-//             "Child1 should have parent as its parent with correct proportion"
-//         );
-//         // Child1-parent relationship:
-//         // parent: 1/4 of child1's stake
+    //         let child1_parents: Vec<(u64, U256)> = SubtensorModule::get_parents(&child1, netuid);
+    //         assert_eq!(
+    //             child1_parents,
+    //             vec![(u64::MAX / 4, parent)],
+    //             "Child1 should have parent as its parent with correct proportion"
+    //         );
+    //         // Child1-parent relationship:
+    //         // parent: 1/4 of child1's stake
 
-//         let child2_parents: Vec<(u64, U256)> = SubtensorModule::get_parents(&child2, netuid);
-//         assert_eq!(
-//             child2_parents,
-//             vec![(u64::MAX / 3, parent)],
-//             "Child2 should have parent as its parent with correct proportion"
-//         );
-//         // Child2-parent relationship:
-//         // parent: 1/3 of child2's stake
+    //         let child2_parents: Vec<(u64, U256)> = SubtensorModule::get_parents(&child2, netuid);
+    //         assert_eq!(
+    //             child2_parents,
+    //             vec![(u64::MAX / 3, parent)],
+    //             "Child2 should have parent as its parent with correct proportion"
+    //         );
+    //         // Child2-parent relationship:
+    //         // parent: 1/3 of child2's stake
 
-//         // Check that child2 has received more stake than child1
-//         assert!(
-//             child2_stake > child1_stake,
-//             "Child2 should have received more emission than Child1 due to higher proportion"
-//         );
-//         // Child2 stake (874,826) > Child1 stake (778,446)
+    //         // Check that child2 has received more stake than child1
+    //         assert!(
+    //             child2_stake > child1_stake,
+    //             "Child2 should have received more emission than Child1 due to higher proportion"
+    //         );
+    //         // Child2 stake (874,826) > Child1 stake (778,446)
 
-//         // Check the approximate difference between child2 and child1 stakes
-//         let stake_difference: u64 = child2_stake - child1_stake;
-//         assert!(
-//             (stake_difference as i64 - 96_380).abs() <= TOLERANCE as i64,
-//             "The difference between Child2 and Child1 stakes should be close to 96,380, but was {}",
-//             stake_difference
-//         );
-//         // Stake difference calculation:
-//         // Child2 stake: 874,826
-//         // Child1 stake: 778,446
-//         // Difference: 874,826 - 778,446 = 96,380
-//     });
+    //         // Check the approximate difference between child2 and child1 stakes
+    //         let stake_difference: u64 = child2_stake - child1_stake;
+    //         assert!(
+    //             (stake_difference as i64 - 96_380).abs() <= TOLERANCE as i64,
+    //             "The difference between Child2 and Child1 stakes should be close to 96,380, but was {}",
+    //             stake_difference
+    //         );
+    //         // Stake difference calculation:
+    //         // Child2 stake: 874,826
+    //         // Child1 stake: 778,446
+    //         // Difference: 874,826 - 778,446 = 96,380
+    //     });
 }
 
 // #[test]
@@ -2738,35 +2755,18 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_child() {
             vec![(u64::MAX, child)]
         ));
 
-        let (stake, raw_alpha_stake, raw_global_tao_stake): (Vec<I32F32>, Vec<u64>, Vec<u64>) = SubtensorModule::get_stake_weights_for_network(netuid);
+        let (stake, raw_alpha_stake, raw_global_tao_stake): (Vec<I32F32>, Vec<u64>, Vec<u64>) =
+            SubtensorModule::get_stake_weights_for_network(netuid);
 
         // parent stake values
-        assert_eq!(
-            stake[0],
-            I32F32::from_num(0),
-        );
-        assert_eq!(
-            raw_alpha_stake[0],
-            0_u64,
-        );
-        assert_eq!(
-            raw_global_tao_stake[0],
-            0_u64,
-        );
+        assert_eq!(stake[0], I32F32::from_num(0),);
+        assert_eq!(raw_alpha_stake[0], 0_u64,);
+        assert_eq!(raw_global_tao_stake[0], 0_u64,);
 
         // child stake values
-        assert_eq!(
-            stake[1],
-            I32F32::from_num(1),
-        );
-        assert_eq!(
-            raw_alpha_stake[1],
-            1000_u64,
-        );
-        assert_eq!(
-            raw_global_tao_stake[1],
-            1000_u64,
-        );
+        assert_eq!(stake[1], I32F32::from_num(1),);
+        assert_eq!(raw_alpha_stake[1], 1000_u64,);
+        assert_eq!(raw_global_tao_stake[1], 1000_u64,);
     });
 }
 
@@ -2810,27 +2810,37 @@ fn test_get_stake_for_hotkey_on_subnet_multiple_parents_single_child() {
             vec![(u64::MAX / 2, child)]
         ));
 
-        let (stake, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) = SubtensorModule::get_stake_weights_for_network(netuid);
+        let (stake, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) =
+            SubtensorModule::get_stake_weights_for_network(netuid);
 
         // parent 1 stake values
         let num1e3 = I32F32::from_num(1000);
         assert!(is_within_tolerance(
             stake[parent1_uid].saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).saturating_div(I32F32::from_num(6)).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1)
+                .saturating_div(I32F32::from_num(6))
+                .saturating_mul(num1e3)
+                .to_num::<u64>(),
             I32F32::from_num(1).to_num::<u64>(),
         ));
 
         // parent 2 stake values
         assert!(is_within_tolerance(
             stake[parent2_uid].saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).saturating_div(I32F32::from_num(3)).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1)
+                .saturating_div(I32F32::from_num(3))
+                .saturating_mul(num1e3)
+                .to_num::<u64>(),
             I32F32::from_num(1).to_num::<u64>(),
         ));
 
         // child stake values
         assert!(is_within_tolerance(
             stake[child_uid].saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).saturating_div(I32F32::from_num(2)).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1)
+                .saturating_div(I32F32::from_num(2))
+                .saturating_mul(num1e3)
+                .to_num::<u64>(),
             I32F32::from_num(1).to_num::<u64>(),
         ));
     });
@@ -2870,7 +2880,8 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_multiple_children() {
             vec![(u64::MAX / 3, child1), (u64::MAX / 3, child2)]
         ));
 
-        let (stake, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) = SubtensorModule::get_stake_weights_for_network(netuid);
+        let (stake, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) =
+            SubtensorModule::get_stake_weights_for_network(netuid);
 
         let parent_stake: I32F32 = stake[parent_uid];
         let child1_stake: I32F32 = stake[child1_uid];
@@ -2879,7 +2890,9 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_multiple_children() {
         // Check that the total stake is preserved
         let num1e3 = I32F32::from_num(1000);
         assert!(is_within_tolerance(
-            (parent_stake + child1_stake + child2_stake).saturating_mul(num1e3).to_num::<u64>(),
+            (parent_stake + child1_stake + child2_stake)
+                .saturating_mul(num1e3)
+                .to_num::<u64>(),
             I32F32::from_num(1).saturating_mul(num1e3).to_num::<u64>(),
             I32F32::from_num(1).to_num::<u64>(),
         ));
@@ -2888,17 +2901,26 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_multiple_children() {
         // parent 1 stake values
         assert!(is_within_tolerance(
             parent_stake.saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).saturating_div(I32F32::from_num(3)).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1)
+                .saturating_div(I32F32::from_num(3))
+                .saturating_mul(num1e3)
+                .to_num::<u64>(),
             I32F32::from_num(1).to_num::<u64>(),
         ));
         assert!(is_within_tolerance(
             child1_stake.saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).saturating_div(I32F32::from_num(3)).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1)
+                .saturating_div(I32F32::from_num(3))
+                .saturating_mul(num1e3)
+                .to_num::<u64>(),
             I32F32::from_num(1).to_num::<u64>(),
         ));
         assert!(is_within_tolerance(
             child2_stake.saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).saturating_div(I32F32::from_num(3)).saturating_mul(num1e3).to_num::<u64>(),
+            I32F32::from_num(1)
+                .saturating_div(I32F32::from_num(3))
+                .saturating_mul(num1e3)
+                .to_num::<u64>(),
             I32F32::from_num(1).to_num::<u64>(),
         ));
     });
@@ -2929,12 +2951,7 @@ fn test_get_stake_for_hotkey_on_subnet_edge_cases() {
         let child2_uid = 2;
 
         // Increase stake
-        increase_stake_on_coldkey_hotkey_account(
-            &coldkey,
-            &parent,
-            100_000_000_000,
-            netuid,
-        );
+        increase_stake_on_coldkey_hotkey_account(&coldkey, &parent, 100_000_000_000, netuid);
 
         // Test with 100% stake allocation
         assert_ok!(SubtensorModule::do_set_children(
@@ -2944,7 +2961,8 @@ fn test_get_stake_for_hotkey_on_subnet_edge_cases() {
             vec![(0, child1), (u64::MAX, child2)]
         ));
 
-        let (stake, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) = SubtensorModule::get_stake_weights_for_network(netuid);
+        let (stake, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) =
+            SubtensorModule::get_stake_weights_for_network(netuid);
 
         let parent_stake: I32F32 = stake[parent_uid];
         let child1_stake: I32F32 = stake[child1_uid];
@@ -2955,13 +2973,24 @@ fn test_get_stake_for_hotkey_on_subnet_edge_cases() {
         log::info!("Child2 stake: {}", child2_stake);
 
         let num1e3 = I32F32::from_num(1000);
-        assert_eq!(parent_stake, I32F32::from_num(0), "Parent should have 0 stake");
-        assert_eq!(child1_stake, I32F32::from_num(0), "Child1 should have 0 stake");
-        assert!(is_within_tolerance(
-            child2_stake.saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).to_num::<u64>(),
-        ), "Child2 should have all the stake");
+        assert_eq!(
+            parent_stake,
+            I32F32::from_num(0),
+            "Parent should have 0 stake"
+        );
+        assert_eq!(
+            child1_stake,
+            I32F32::from_num(0),
+            "Child1 should have 0 stake"
+        );
+        assert!(
+            is_within_tolerance(
+                child2_stake.saturating_mul(num1e3).to_num::<u64>(),
+                I32F32::from_num(1).saturating_mul(num1e3).to_num::<u64>(),
+                I32F32::from_num(1).to_num::<u64>(),
+            ),
+            "Child2 should have all the stake"
+        );
     });
 }
 
@@ -3064,32 +3093,16 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
         let grandchild_uid = 3;
 
         let total_stake = 1000;
-        increase_stake_on_coldkey_hotkey_account(
-            &coldkey_parent,
-            &parent,
-            total_stake,
-            netuid,
-        );
+        increase_stake_on_coldkey_hotkey_account(&coldkey_parent, &parent, total_stake, netuid);
 
-        let (stake_before, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) = SubtensorModule::get_stake_weights_for_network(netuid);
+        let (stake_before, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) =
+            SubtensorModule::get_stake_weights_for_network(netuid);
 
         log::info!("Initial stakes:");
-        log::info!(
-            "Parent stake: {}",
-            stake_before[parent_uid]
-        );
-        log::info!(
-            "Child1 stake: {}",
-            stake_before[child1_uid]
-        );
-        log::info!(
-            "Child2 stake: {}",
-            stake_before[child2_uid]
-        );
-        log::info!(
-            "Grandchild stake: {}",
-            stake_before[grandchild_uid]
-        );
+        log::info!("Parent stake: {}", stake_before[parent_uid]);
+        log::info!("Child1 stake: {}", stake_before[child1_uid]);
+        log::info!("Child2 stake: {}", stake_before[child2_uid]);
+        log::info!("Grandchild stake: {}", stake_before[grandchild_uid]);
 
         // Step 1: Set children for parent
         assert_ok!(SubtensorModule::do_set_children(
@@ -3099,7 +3112,8 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
             vec![(u64::MAX / 2, child1), (u64::MAX / 2, child2)]
         ));
 
-        let (stake_after_1, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) = SubtensorModule::get_stake_weights_for_network(netuid);
+        let (stake_after_1, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) =
+            SubtensorModule::get_stake_weights_for_network(netuid);
 
         log::info!("After setting parent's children:");
         log::info!(
@@ -3124,21 +3138,36 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
         log::info!("Child2 stake: {}", child2_stake_1);
 
         let num1e3 = I32F32::from_num(1000);
-        assert!(is_within_tolerance(
-            parent_stake_1.saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(0).saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).to_num::<u64>(),
-        ), "Parent should have 0 stake weight");
-        assert!(is_within_tolerance(
-            child1_stake_1.saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).saturating_div(I32F32::from_num(2)).saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).to_num::<u64>(),
-        ), "Chidl 1 should have 1/2 stake weight");
-        assert!(is_within_tolerance(
-            child2_stake_1.saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).saturating_div(I32F32::from_num(2)).saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).to_num::<u64>(),
-        ), "Chidl 2 should have 1/2 stake weight");
+        assert!(
+            is_within_tolerance(
+                parent_stake_1.saturating_mul(num1e3).to_num::<u64>(),
+                I32F32::from_num(0).saturating_mul(num1e3).to_num::<u64>(),
+                I32F32::from_num(1).to_num::<u64>(),
+            ),
+            "Parent should have 0 stake weight"
+        );
+        assert!(
+            is_within_tolerance(
+                child1_stake_1.saturating_mul(num1e3).to_num::<u64>(),
+                I32F32::from_num(1)
+                    .saturating_div(I32F32::from_num(2))
+                    .saturating_mul(num1e3)
+                    .to_num::<u64>(),
+                I32F32::from_num(1).to_num::<u64>(),
+            ),
+            "Chidl 1 should have 1/2 stake weight"
+        );
+        assert!(
+            is_within_tolerance(
+                child2_stake_1.saturating_mul(num1e3).to_num::<u64>(),
+                I32F32::from_num(1)
+                    .saturating_div(I32F32::from_num(2))
+                    .saturating_mul(num1e3)
+                    .to_num::<u64>(),
+                I32F32::from_num(1).to_num::<u64>(),
+            ),
+            "Chidl 2 should have 1/2 stake weight"
+        );
 
         // Step 2: Set children for child1
         assert_ok!(SubtensorModule::do_set_children(
@@ -3158,7 +3187,8 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
             SubtensorModule::get_parents(&grandchild, netuid)
         );
 
-        let (stake_after_2, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) = SubtensorModule::get_stake_weights_for_network(netuid);
+        let (stake_after_2, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) =
+            SubtensorModule::get_stake_weights_for_network(netuid);
 
         let parent_stake_2: I32F32 = stake_after_2[parent_uid];
         let child1_stake_2: I32F32 = stake_after_2[child1_uid];
@@ -3170,33 +3200,56 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
         log::info!("Child2 stake: {}", child2_stake_2);
         log::info!("Grandchild stake: {}", grandchild_stake);
 
-        assert!(is_within_tolerance(
-            parent_stake_1.saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(0).saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).to_num::<u64>(),
-        ), "Parent should have 0 stake weight");
-        assert!(is_within_tolerance(
-            child1_stake_1.saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).saturating_div(I32F32::from_num(2)).saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).to_num::<u64>(),
-        ), "Chidl 1 should have 1/2 stake weight");
-        assert!(is_within_tolerance(
-            child2_stake_1.saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).saturating_div(I32F32::from_num(2)).saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).to_num::<u64>(),
-        ), "Chidl 2 should have 1/2 stake weight");
-        assert!(is_within_tolerance(
-            grandchild_stake.saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(0).saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).to_num::<u64>(),
-        ), "Grandchild should have 0 stake weight, as child1 doesnt have any own stake");
+        assert!(
+            is_within_tolerance(
+                parent_stake_1.saturating_mul(num1e3).to_num::<u64>(),
+                I32F32::from_num(0).saturating_mul(num1e3).to_num::<u64>(),
+                I32F32::from_num(1).to_num::<u64>(),
+            ),
+            "Parent should have 0 stake weight"
+        );
+        assert!(
+            is_within_tolerance(
+                child1_stake_1.saturating_mul(num1e3).to_num::<u64>(),
+                I32F32::from_num(1)
+                    .saturating_div(I32F32::from_num(2))
+                    .saturating_mul(num1e3)
+                    .to_num::<u64>(),
+                I32F32::from_num(1).to_num::<u64>(),
+            ),
+            "Chidl 1 should have 1/2 stake weight"
+        );
+        assert!(
+            is_within_tolerance(
+                child2_stake_1.saturating_mul(num1e3).to_num::<u64>(),
+                I32F32::from_num(1)
+                    .saturating_div(I32F32::from_num(2))
+                    .saturating_mul(num1e3)
+                    .to_num::<u64>(),
+                I32F32::from_num(1).to_num::<u64>(),
+            ),
+            "Chidl 2 should have 1/2 stake weight"
+        );
+        assert!(
+            is_within_tolerance(
+                grandchild_stake.saturating_mul(num1e3).to_num::<u64>(),
+                I32F32::from_num(0).saturating_mul(num1e3).to_num::<u64>(),
+                I32F32::from_num(1).to_num::<u64>(),
+            ),
+            "Grandchild should have 0 stake weight, as child1 doesnt have any own stake"
+        );
 
         // Check that the total stake is preserved
-        assert!(is_within_tolerance(
-            (parent_stake_2 + child1_stake_2 + child2_stake_2 + grandchild_stake).saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).saturating_mul(num1e3).to_num::<u64>(),
-            I32F32::from_num(1).to_num::<u64>(),
-        ), "Total stake weight should be 1");
+        assert!(
+            is_within_tolerance(
+                (parent_stake_2 + child1_stake_2 + child2_stake_2 + grandchild_stake)
+                    .saturating_mul(num1e3)
+                    .to_num::<u64>(),
+                I32F32::from_num(1).saturating_mul(num1e3).to_num::<u64>(),
+                I32F32::from_num(1).to_num::<u64>(),
+            ),
+            "Total stake weight should be 1"
+        );
 
         // Additional checks
         log::info!("Final parent-child relationships:");
@@ -3318,228 +3371,227 @@ fn test_get_stake_for_hotkey_on_subnet_multiple_networks() {
 ///     SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test children -- test_rank_trust_incentive_calculation_with_parent_child --exact --nocapture
 #[test]
 fn test_rank_trust_incentive_calculation_with_parent_child() {
-//     new_test_ext(1).execute_with(|| {
-//         // Initialize test environment
-//         let netuid: u16 = 1;
-//         let parent_hotkey: U256 = U256::from(1);
-//         let parent_coldkey: U256 = U256::from(101);
-//         let child_hotkey: U256 = U256::from(2);
-//         let child_coldkey: U256 = U256::from(102);
-//         let other_validators: Vec<(U256, U256)> = (3..6)
-//             .map(|i| (U256::from(i), U256::from(100 + i)))
-//             .collect();
-//         let miners: Vec<(U256, U256)> = (6..16)
-//             .map(|i| (U256::from(i), U256::from(100 + i)))
-//             .collect(); // 10 miners
+    //     new_test_ext(1).execute_with(|| {
+    //         // Initialize test environment
+    //         let netuid: u16 = 1;
+    //         let parent_hotkey: U256 = U256::from(1);
+    //         let parent_coldkey: U256 = U256::from(101);
+    //         let child_hotkey: U256 = U256::from(2);
+    //         let child_coldkey: U256 = U256::from(102);
+    //         let other_validators: Vec<(U256, U256)> = (3..6)
+    //             .map(|i| (U256::from(i), U256::from(100 + i)))
+    //             .collect();
+    //         let miners: Vec<(U256, U256)> = (6..16)
+    //             .map(|i| (U256::from(i), U256::from(100 + i)))
+    //             .collect(); // 10 miners
 
-//         // Setup network and set registration parameters
-//         add_network(netuid, 1, 0);
-//         SubtensorModule::set_max_registrations_per_block(netuid, 1000);
-//         SubtensorModule::set_target_registrations_per_interval(netuid, 1000);
-//         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
-//         SubtensorModule::set_hotkey_emission_tempo(10);
+    //         // Setup network and set registration parameters
+    //         add_network(netuid, 1, 0);
+    //         SubtensorModule::set_max_registrations_per_block(netuid, 1000);
+    //         SubtensorModule::set_target_registrations_per_interval(netuid, 1000);
+    //         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+    //         SubtensorModule::set_hotkey_emission_tempo(10);
 
-//         // Register neurons (validators and miners)
-//         register_ok_neuron(netuid, parent_hotkey, parent_coldkey, 0);
-//         register_ok_neuron(netuid, child_hotkey, child_coldkey, 0);
-//         for (hotkey, coldkey) in &other_validators {
-//             register_ok_neuron(netuid, *hotkey, *coldkey, 0);
-//         }
-//         for (hotkey, coldkey) in &miners {
-//             register_ok_neuron(netuid, *hotkey, *coldkey, 0);
-//         }
+    //         // Register neurons (validators and miners)
+    //         register_ok_neuron(netuid, parent_hotkey, parent_coldkey, 0);
+    //         register_ok_neuron(netuid, child_hotkey, child_coldkey, 0);
+    //         for (hotkey, coldkey) in &other_validators {
+    //             register_ok_neuron(netuid, *hotkey, *coldkey, 0);
+    //         }
+    //         for (hotkey, coldkey) in &miners {
+    //             register_ok_neuron(netuid, *hotkey, *coldkey, 0);
+    //         }
 
-//         step_block(2);
+    //         step_block(2);
 
-//         // Set initial stakes for validators only
-//         let initial_stake: u64 = 1_000_000_000; // 1000 TAO
-//         SubtensorModule::add_balance_to_coldkey_account(&parent_coldkey, initial_stake);
-//         increase_stake_on_coldkey_hotkey_account(
-//             &parent_coldkey,
-//             &parent_hotkey,
-//             initial_stake,
-//             netuid,
-//         );
-//         SubtensorModule::add_balance_to_coldkey_account(&child_coldkey, initial_stake);
-//         increase_stake_on_coldkey_hotkey_account(
-//             &child_coldkey,
-//             &child_hotkey,
-//             initial_stake,
-//             netuid,
-//         );
-//         for (hotkey, coldkey) in &other_validators {
-//             SubtensorModule::add_balance_to_coldkey_account(coldkey, initial_stake);
-//             increase_stake_on_coldkey_hotkey_account(
-//                 coldkey,
-//                 hotkey,
-//                 initial_stake,
-//                 netuid,
-//             );
-//         }
+    //         // Set initial stakes for validators only
+    //         let initial_stake: u64 = 1_000_000_000; // 1000 TAO
+    //         SubtensorModule::add_balance_to_coldkey_account(&parent_coldkey, initial_stake);
+    //         increase_stake_on_coldkey_hotkey_account(
+    //             &parent_coldkey,
+    //             &parent_hotkey,
+    //             initial_stake,
+    //             netuid,
+    //         );
+    //         SubtensorModule::add_balance_to_coldkey_account(&child_coldkey, initial_stake);
+    //         increase_stake_on_coldkey_hotkey_account(
+    //             &child_coldkey,
+    //             &child_hotkey,
+    //             initial_stake,
+    //             netuid,
+    //         );
+    //         for (hotkey, coldkey) in &other_validators {
+    //             SubtensorModule::add_balance_to_coldkey_account(coldkey, initial_stake);
+    //             increase_stake_on_coldkey_hotkey_account(
+    //                 coldkey,
+    //                 hotkey,
+    //                 initial_stake,
+    //                 netuid,
+    //             );
+    //         }
 
-//         step_block(2);
+    //         step_block(2);
 
-//         // Set initial weights for all validators
-//         let all_uids: Vec<u16> = (0..15).collect(); // 0-4 are validators, 5-14 are miners
-//         let validator_weights: Vec<u16> = vec![u16::MAX / 5; 5] // Equal weights for validators
-//             .into_iter()
-//             .chain(vec![u16::MAX / 10; 10]) // Equal weights for miners
-//             .collect();
+    //         // Set initial weights for all validators
+    //         let all_uids: Vec<u16> = (0..15).collect(); // 0-4 are validators, 5-14 are miners
+    //         let validator_weights: Vec<u16> = vec![u16::MAX / 5; 5] // Equal weights for validators
+    //             .into_iter()
+    //             .chain(vec![u16::MAX / 10; 10]) // Equal weights for miners
+    //             .collect();
 
-//         for hotkey in std::iter::once(&parent_hotkey)
-//             .chain(other_validators.iter().map(|(h, _)| h))
-//             .chain(std::iter::once(&child_hotkey))
-//         {
-//             assert_ok!(SubtensorModule::set_weights(
-//                 RuntimeOrigin::signed(*hotkey),
-//                 netuid,
-//                 all_uids.clone(),
-//                 validator_weights.clone(),
-//                 0
-//             ));
-//         }
+    //         for hotkey in std::iter::once(&parent_hotkey)
+    //             .chain(other_validators.iter().map(|(h, _)| h))
+    //             .chain(std::iter::once(&child_hotkey))
+    //         {
+    //             assert_ok!(SubtensorModule::set_weights(
+    //                 RuntimeOrigin::signed(*hotkey),
+    //                 netuid,
+    //                 all_uids.clone(),
+    //                 validator_weights.clone(),
+    //                 0
+    //             ));
+    //         }
 
-//         step_block(10);
+    //         step_block(10);
 
-//         // Run first epoch
-//         let rao_emission: u64 = 1_000_000_000;
-//         let initial_emission = SubtensorModule::epoch(netuid, rao_emission);
+    //         // Run first epoch
+    //         let rao_emission: u64 = 1_000_000_000;
+    //         let initial_emission = SubtensorModule::epoch(netuid, rao_emission);
 
-//         // Process initial emission
-//         for (hotkey, mining_emission, validator_emission) in initial_emission {
-//             SubtensorModule::accumulate_hotkey_emission(
-//                 &hotkey,
-//                 netuid,
-//                 validator_emission,
-//                 mining_emission,
-//             );
-//         }
+    //         // Process initial emission
+    //         for (hotkey, mining_emission, validator_emission) in initial_emission {
+    //             SubtensorModule::accumulate_hotkey_emission(
+    //                 &hotkey,
+    //                 netuid,
+    //                 validator_emission,
+    //                 mining_emission,
+    //             );
+    //         }
 
-//         step_block(11);
+    //         step_block(11);
 
-//         // Get initial rank, trust, incentive, and dividends for the child
-//         let initial_child_rank: u16 = SubtensorModule::get_rank_for_uid(netuid, 1);
-//         let initial_child_trust: u16 = SubtensorModule::get_trust_for_uid(netuid, 1);
-//         let initial_child_incentive: u16 = SubtensorModule::get_incentive_for_uid(netuid, 1);
-//         let initial_child_dividends: u16 = SubtensorModule::get_dividends_for_uid(netuid, 1);
+    //         // Get initial rank, trust, incentive, and dividends for the child
+    //         let initial_child_rank: u16 = SubtensorModule::get_rank_for_uid(netuid, 1);
+    //         let initial_child_trust: u16 = SubtensorModule::get_trust_for_uid(netuid, 1);
+    //         let initial_child_incentive: u16 = SubtensorModule::get_incentive_for_uid(netuid, 1);
+    //         let initial_child_dividends: u16 = SubtensorModule::get_dividends_for_uid(netuid, 1);
 
-//         log::debug!("Initial child rank: {:?}", initial_child_rank);
-//         log::debug!("Initial child trust: {:?}", initial_child_trust);
-//         log::debug!("Initial child incentive: {:?}", initial_child_incentive);
-//         log::debug!("Initial child dividends: {:?}", initial_child_dividends);
+    //         log::debug!("Initial child rank: {:?}", initial_child_rank);
+    //         log::debug!("Initial child trust: {:?}", initial_child_trust);
+    //         log::debug!("Initial child incentive: {:?}", initial_child_incentive);
+    //         log::debug!("Initial child dividends: {:?}", initial_child_dividends);
 
-//         // Parent sets the child with 100% of its weight
-//         assert_ok!(SubtensorModule::do_set_children(
-//             RuntimeOrigin::signed(parent_coldkey),
-//             parent_hotkey,
-//             netuid,
-//             vec![(u64::MAX, child_hotkey)]
-//         ));
+    //         // Parent sets the child with 100% of its weight
+    //         assert_ok!(SubtensorModule::do_set_children(
+    //             RuntimeOrigin::signed(parent_coldkey),
+    //             parent_hotkey,
+    //             netuid,
+    //             vec![(u64::MAX, child_hotkey)]
+    //         ));
 
-//         // Child now sets weights as a validator
-//         assert_ok!(SubtensorModule::set_weights(
-//             RuntimeOrigin::signed(child_hotkey),
-//             netuid,
-//             all_uids.clone(),
-//             validator_weights.clone(),
-//             1
-//         ));
+    //         // Child now sets weights as a validator
+    //         assert_ok!(SubtensorModule::set_weights(
+    //             RuntimeOrigin::signed(child_hotkey),
+    //             netuid,
+    //             all_uids.clone(),
+    //             validator_weights.clone(),
+    //             1
+    //         ));
 
-//         step_block(10);
+    //         step_block(10);
 
-//         // Run second epoch
-//         let final_emission = SubtensorModule::epoch(netuid, rao_emission);
+    //         // Run second epoch
+    //         let final_emission = SubtensorModule::epoch(netuid, rao_emission);
 
-//         // Process final emission
-//         for (hotkey, mining_emission, validator_emission) in final_emission {
-//             SubtensorModule::accumulate_hotkey_emission(
-//                 &hotkey,
-//                 netuid,
-//                 validator_emission,
-//                 mining_emission,
-//             );
-//         }
+    //         // Process final emission
+    //         for (hotkey, mining_emission, validator_emission) in final_emission {
+    //             SubtensorModule::accumulate_hotkey_emission(
+    //                 &hotkey,
+    //                 netuid,
+    //                 validator_emission,
+    //                 mining_emission,
+    //             );
+    //         }
 
-//         step_block(11);
+    //         step_block(11);
 
-//         // Get final rank, trust, incentive, and dividends for the child
-//         let final_child_rank: u16 = SubtensorModule::get_rank_for_uid(netuid, 1);
-//         let final_child_trust: u16 = SubtensorModule::get_trust_for_uid(netuid, 1);
-//         let final_child_incentive: u16 = SubtensorModule::get_incentive_for_uid(netuid, 1);
-//         let final_child_dividends: u16 = SubtensorModule::get_dividends_for_uid(netuid, 1);
+    //         // Get final rank, trust, incentive, and dividends for the child
+    //         let final_child_rank: u16 = SubtensorModule::get_rank_for_uid(netuid, 1);
+    //         let final_child_trust: u16 = SubtensorModule::get_trust_for_uid(netuid, 1);
+    //         let final_child_incentive: u16 = SubtensorModule::get_incentive_for_uid(netuid, 1);
+    //         let final_child_dividends: u16 = SubtensorModule::get_dividends_for_uid(netuid, 1);
 
-//         log::debug!("Final child rank: {:?}", final_child_rank);
-//         log::debug!("Final child trust: {:?}", final_child_trust);
-//         log::debug!("Final child incentive: {:?}", final_child_incentive);
-//         log::debug!("Final child dividends: {:?}", final_child_dividends);
+    //         log::debug!("Final child rank: {:?}", final_child_rank);
+    //         log::debug!("Final child trust: {:?}", final_child_trust);
+    //         log::debug!("Final child incentive: {:?}", final_child_incentive);
+    //         log::debug!("Final child dividends: {:?}", final_child_dividends);
 
-//         // Print ranks for all validators
-//         for i in 0..5 {
-//             log::debug!(
-//                 "Validator {} rank: {:?}",
-//                 i,
-//                 SubtensorModule::get_rank_for_uid(netuid, i)
-//             );
-//         }
+    //         // Print ranks for all validators
+    //         for i in 0..5 {
+    //             log::debug!(
+    //                 "Validator {} rank: {:?}",
+    //                 i,
+    //                 SubtensorModule::get_rank_for_uid(netuid, i)
+    //             );
+    //         }
 
-//         // Assert that rank has improved (decreased) for the child
-//         assert!(
-//             final_child_rank < initial_child_rank,
-//             "Child rank should have improved (decreased). Initial: {}, Final: {}",
-//             initial_child_rank,
-//             final_child_rank
-//         );
+    //         // Assert that rank has improved (decreased) for the child
+    //         assert!(
+    //             final_child_rank < initial_child_rank,
+    //             "Child rank should have improved (decreased). Initial: {}, Final: {}",
+    //             initial_child_rank,
+    //             final_child_rank
+    //         );
 
-//         // Assert that trust has increased or remained the same for the child
-//         assert!(
-//             final_child_trust >= initial_child_trust,
-//             "Child trust should have increased or remained the same. Initial: {}, Final: {}",
-//             initial_child_trust,
-//             final_child_trust
-//         );
+    //         // Assert that trust has increased or remained the same for the child
+    //         assert!(
+    //             final_child_trust >= initial_child_trust,
+    //             "Child trust should have increased or remained the same. Initial: {}, Final: {}",
+    //             initial_child_trust,
+    //             final_child_trust
+    //         );
 
+    //         // Assert that dividends have increased for the child
+    //         assert!(
+    //             final_child_dividends > initial_child_dividends,
+    //             "Child dividends should have increased. Initial: {}, Final: {}",
+    //             initial_child_dividends,
+    //             final_child_dividends
+    //         );
 
-//         // Assert that dividends have increased for the child
-//         assert!(
-//             final_child_dividends > initial_child_dividends,
-//             "Child dividends should have increased. Initial: {}, Final: {}",
-//             initial_child_dividends,
-//             final_child_dividends
-//         );
+    //         // Compare child's final values with other validators
+    //         for i in 2..5 {
+    //             let other_rank: u16 = SubtensorModule::get_rank_for_uid(netuid, i);
+    //             let other_trust: u16 = SubtensorModule::get_trust_for_uid(netuid, i);
+    //             let other_incentive: u16 = SubtensorModule::get_incentive_for_uid(netuid, i);
+    //             let other_dividends: u16 = SubtensorModule::get_dividends_for_uid(netuid, i);
 
-//         // Compare child's final values with other validators
-//         for i in 2..5 {
-//             let other_rank: u16 = SubtensorModule::get_rank_for_uid(netuid, i);
-//             let other_trust: u16 = SubtensorModule::get_trust_for_uid(netuid, i);
-//             let other_incentive: u16 = SubtensorModule::get_incentive_for_uid(netuid, i);
-//             let other_dividends: u16 = SubtensorModule::get_dividends_for_uid(netuid, i);
+    //             log::debug!(
+    //                 "Validator {} - Rank: {}, Trust: {}, Incentive: {}, Dividends: {}",
+    //                 i, other_rank, other_trust, other_incentive, other_dividends
+    //             );
 
-//             log::debug!(
-//                 "Validator {} - Rank: {}, Trust: {}, Incentive: {}, Dividends: {}",
-//                 i, other_rank, other_trust, other_incentive, other_dividends
-//             );
+    //             assert!(
+    //                 final_child_rank <= other_rank,
+    //                 "Child rank should be better than or equal to other validators. Child: {}, Other: {}",
+    //                 final_child_rank,
+    //                 other_rank
+    //             );
 
-//             assert!(
-//                 final_child_rank <= other_rank,
-//                 "Child rank should be better than or equal to other validators. Child: {}, Other: {}",
-//                 final_child_rank,
-//                 other_rank
-//             );
+    //             assert!(
+    //                 final_child_trust >= other_trust,
+    //                 "Child trust should be greater than or equal to other validators. Child: {}, Other: {}",
+    //                 final_child_trust,
+    //                 other_trust
+    //             );
 
-//             assert!(
-//                 final_child_trust >= other_trust,
-//                 "Child trust should be greater than or equal to other validators. Child: {}, Other: {}",
-//                 final_child_trust,
-//                 other_trust
-//             );
+    //             assert!(
+    //                 final_child_dividends >= other_dividends,
+    //                 "Child dividends should be greater than or equal to other validators. Child: {}, Other: {}",
+    //                 final_child_dividends,
+    //                 other_dividends
+    //             );
+    //         }
 
-//             assert!(
-//                 final_child_dividends >= other_dividends,
-//                 "Child dividends should be greater than or equal to other validators. Child: {}, Other: {}",
-//                 final_child_dividends,
-//                 other_dividends
-//             );
-//         }
-
-//     });
+    //     });
 }

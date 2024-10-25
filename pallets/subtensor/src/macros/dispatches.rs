@@ -1198,10 +1198,7 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(119_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
-        pub fn schedule_dissolve_network(
-            _origin: OriginFor<T>,
-            _netuid: u16,
-        ) -> DispatchResult {
+        pub fn schedule_dissolve_network(_origin: OriginFor<T>, _netuid: u16) -> DispatchResult {
             Ok(())
         }
 
@@ -1347,7 +1344,14 @@ mod dispatches {
             destination_netuid: u16,
             alpha_amount: u64,
         ) -> DispatchResult {
-            Self::do_move_stake(origin, origin_hotkey, destination_hotkey, origin_netuid, destination_netuid, alpha_amount)
+            Self::do_move_stake(
+                origin,
+                origin_hotkey,
+                destination_hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            )
         }
 
         /// ---- Set the identity information for a subnet.

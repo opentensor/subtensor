@@ -566,7 +566,7 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
 }
 
-/// Helper function to mock now missing increase_stake_on_coldkey_hotkey_account with 
+/// Helper function to mock now missing increase_stake_on_coldkey_hotkey_account with
 /// minimal changes
 #[allow(dead_code)]
 pub fn increase_stake_on_coldkey_hotkey_account(
@@ -578,7 +578,7 @@ pub fn increase_stake_on_coldkey_hotkey_account(
     SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked);
 }
 
-/// Helper function to mock now missing get_total_stake_for_hotkey with 
+/// Helper function to mock now missing get_total_stake_for_hotkey with
 /// minimal changes
 #[allow(dead_code)]
 pub fn get_total_stake_for_hotkey(hotkey: U256) -> u64 {
@@ -627,7 +627,9 @@ pub fn setup_dynamic_network(prm: &DynamicSubnetSetupParameters) {
     pallet_subtensor::SubnetOwnerHotkey::<Test>::insert(prm.netuid, prm.owner.1);
 
     // Register neurons
-    let uids: Vec<u16> = prm.coldkeys.iter()
+    let uids: Vec<u16> = prm
+        .coldkeys
+        .iter()
         .zip(prm.hotkeys.iter())
         .enumerate()
         .map(|(i, (&coldkey, &hotkey))| {
@@ -637,20 +639,21 @@ pub fn setup_dynamic_network(prm: &DynamicSubnetSetupParameters) {
         .collect();
 
     // Add balance to coldkeys
-    prm.coldkeys.iter()
+    prm.coldkeys
+        .iter()
         .zip(prm.stakes.iter())
         .for_each(|(&coldkey, stake)| {
-        SubtensorModule::add_balance_to_coldkey_account(
-            &coldkey,
-            stake + ExistentialDeposit::get(),
-        );
-    });
+            SubtensorModule::add_balance_to_coldkey_account(
+                &coldkey,
+                stake + ExistentialDeposit::get(),
+            );
+        });
 
     // Setup parameters
     SubtensorModule::set_hotkey_emission_tempo(prm.hotkey_tempo);
     SubtensorModule::set_weights_set_rate_limit(prm.netuid, 0);
     step_block(prm.subnet_tempo);
-    pallet_subtensor::SubnetOwnerCut::<Test>::set(u16::MAX/5);
+    pallet_subtensor::SubnetOwnerCut::<Test>::set(u16::MAX / 5);
     // All stake is active
     pallet_subtensor::ActivityCutoff::<Test>::set(prm.netuid, u16::MAX);
     // Validator limit
@@ -658,7 +661,8 @@ pub fn setup_dynamic_network(prm: &DynamicSubnetSetupParameters) {
     SubtensorModule::set_max_allowed_validators(prm.netuid, prm.validators);
 
     // Setup stakes
-    prm.coldkeys.iter()
+    prm.coldkeys
+        .iter()
         .zip(prm.hotkeys.iter())
         .zip(prm.stakes.iter())
         .for_each(|((&coldkey, &hotkey), &stake)| {
@@ -738,4 +742,3 @@ pub fn setup_dynamic_network(prm: &DynamicSubnetSetupParameters) {
 //     // (end_alpha - start_alpha) / (end_block - start_block)
 //     0
 // }
-

@@ -622,7 +622,8 @@ fn test_do_move_wrong_origin() {
         add_network(netuid, 0, 0);
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
-        assert_err!(SubtensorModule::do_move_stake(
+        assert_err!(
+            SubtensorModule::do_move_stake(
                 RuntimeOrigin::signed(wrong_coldkey),
                 origin_hotkey,
                 destination_hotkey,
@@ -868,7 +869,8 @@ fn test_do_move_rate_limit_enforced() {
             netuid,
             alpha,
         ));
-        assert_err!(SubtensorModule::do_move_stake(
+        assert_err!(
+            SubtensorModule::do_move_stake(
                 RuntimeOrigin::signed(coldkey),
                 hotkey2,
                 hotkey1,

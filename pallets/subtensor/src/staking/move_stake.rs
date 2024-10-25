@@ -2,7 +2,6 @@ use super::*;
 // use substrate_fixed::types::I96F32;
 
 impl<T: Config> Pallet<T> {
-   
     /// Moves stake from one hotkey to another across subnets.
     ///
     /// # Arguments
@@ -21,7 +20,7 @@ impl<T: Config> Pallet<T> {
     /// * Either the origin or destination subnet does not exist.
     /// * The `origin_hotkey` or `destination_hotkey` does not exist.
     /// * There are locked funds that cannot be moved across subnets.
-    /// 
+    ///
     /// # Events
     /// Emits a `StakeMoved` event upon successful completion of the stake movement.
     pub fn do_move_stake(
@@ -123,11 +122,7 @@ impl<T: Config> Pallet<T> {
                         );
                     } else {
                         Locks::<T>::insert(
-                            (
-                                origin_netuid,
-                                origin_hotkey.clone(),
-                                coldkey.clone(),
-                            ),
+                            (origin_netuid, origin_hotkey.clone(), coldkey.clone()),
                             (origin_alpha - alpha_amount, start, end),
                         );
                         Locks::<T>::insert(
@@ -157,7 +152,7 @@ impl<T: Config> Pallet<T> {
             unstakes_this_interval.saturating_add(1),
             current_block,
         );
-        
+
         // Set the last time the stake increased for nominator drain protection.
         if alpha_amount > 0 {
             LastAddStakeIncrease::<T>::insert(&destination_hotkey, &coldkey, current_block);

@@ -1161,7 +1161,6 @@ pub mod pallet {
 
             Ok(())
         }
-
     }
 }
 

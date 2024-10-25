@@ -12,8 +12,8 @@ impl<T: Config> Pallet<T> {
         let subnets: Vec<u16> = Self::get_all_subnet_netuids();
         log::debug!("All subnet netuids: {:?}", subnets);
 
-        // The root_epoch function used to be here. In rao the code from 2 to 5 inclusively 
-        // replaces root epoch and uses a different algorithm to calculate EmissionValues and 
+        // The root_epoch function used to be here. In rao the code from 2 to 5 inclusively
+        // replaces root epoch and uses a different algorithm to calculate EmissionValues and
         // PendingEmission for each subnet.
         // --- 2. Get the current coinbase emission.
         let block_emission: I96F32 = I96F32::from_num(Self::get_block_emission().unwrap_or(0));
@@ -121,7 +121,6 @@ impl<T: Config> Pallet<T> {
         for &netuid in subnets.iter() {
             // --- 6.1 Check to see if the subnet should run its epoch.
             if Self::should_run_epoch(netuid, current_block) {
-
                 // --- 6.2 Drain the subnet emission.
                 let subnet_emission: u64 = PendingEmission::<T>::get(netuid);
                 PendingEmission::<T>::insert(netuid, 0);
@@ -131,16 +130,18 @@ impl<T: Config> Pallet<T> {
                 Self::set_last_mechanism_step_block(netuid, current_block);
 
                 // --- 6.4 Distribute the owner cut.
-                let owner_cut: u64 = I96F32::from_num(subnet_emission).saturating_mul(Self::get_float_subnet_owner_cut()).to_num::<u64>();
+                let owner_cut: u64 = I96F32::from_num(subnet_emission)
+                    .saturating_mul(Self::get_float_subnet_owner_cut())
+                    .to_num::<u64>();
                 Self::distribute_owner_cut(netuid, owner_cut);
                 let remaining_emission: u64 = subnet_emission.saturating_sub(owner_cut);
 
                 // --- 6.5 Pass emission through epoch() --> hotkey emission.
-                let hotkey_emission: Vec<(T::AccountId, u64, u64)> = Self::epoch(netuid, remaining_emission);
+                let hotkey_emission: Vec<(T::AccountId, u64, u64)> =
+                    Self::epoch(netuid, remaining_emission);
 
                 // --- 6.6 Accumulate the tuples on hotkeys:
                 for (hotkey, mining_emission, validator_emission) in hotkey_emission {
-
                     // Accumulate the emission on the hotkey and parent hotkeys.
                     Self::accumulate_hotkey_emission(
                         &hotkey,
@@ -180,21 +181,22 @@ impl<T: Config> Pallet<T> {
     /// * `owner_cut` - The total amount of payment to distribute.
     ///
     /// * Emits an `OwnerPaymentDistributed` event for each distribution.
-    /// 
+    ///
     pub fn distribute_owner_cut(netuid: u16, owner_cut: u64) {
         // Check if the subnet has an owner and the owner has the hotkey
         if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
             // Use subnet owner coldkey as hotkey
-            let owner_hotkey = 
-                if let Ok(hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
-                    hotkey
-                } else {
-                    owner_coldkey.clone()
-                };
+            let owner_hotkey = if let Ok(hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
+                hotkey
+            } else {
+                owner_coldkey.clone()
+            };
             // Add subnet owner cut to owner's stake
             Self::emit_into_subnet(&owner_hotkey, &owner_coldkey, netuid, owner_cut);
             // Emit event
-            Self::deposit_event(Event::OwnerPaymentDistributed(netuid, owner_hotkey.clone(), owner_cut).into());
+            Self::deposit_event(
+                Event::OwnerPaymentDistributed(netuid, owner_hotkey.clone(), owner_cut).into(),
+            );
         }
     }
 
@@ -214,9 +216,9 @@ impl<T: Config> Pallet<T> {
     /// * `validating_emission` - The amount of validator emission allocated to the hotkey.
     /// * `mining_emission` - The amount of mining emission allocated to the hotkey.
     /// * `hotkey_emission_tuples` - A mutable reference to a vector that will be populated with emission distribution data.
-    /// 
+    ///
     /// # Returns
-    /// * `u64` - The portion of emission that should be immediately added to the hotkey stake. It consists of mining_emission 
+    /// * `u64` - The portion of emission that should be immediately added to the hotkey stake. It consists of mining_emission
     /// and childkey take
     ///
     /// # Effects
@@ -232,8 +234,7 @@ impl<T: Config> Pallet<T> {
         validating_emission: u64,
         mining_emission: u64,
         hotkey_emission_tuples: &mut Vec<(T::AccountId, u16, u64)>,
-    ) -> u64
-    {
+    ) -> u64 {
         // Calculate the hotkey's share of the validator emission based on its childkey take
         let validating_emission: I96F32 = I96F32::from_num(validating_emission);
         let childkey_take_proportion: I96F32 =
@@ -253,11 +254,14 @@ impl<T: Config> Pallet<T> {
         // Calculate total global and alpha (subnet-specific) stakes from all parents
         for (proportion, parent) in Self::get_parents(hotkey, netuid) {
             // Get the last block this parent added some stake
-            let stake_add_block = LastAddStakeIncrease::<T>::get(&hotkey, Self::get_coldkey_for_hotkey(&hotkey));
+            let stake_add_block =
+                LastAddStakeIncrease::<T>::get(&hotkey, Self::get_coldkey_for_hotkey(&hotkey));
 
-            // If the last block this parent added any stake is old enough (older than two subnet tempos), 
+            // If the last block this parent added any stake is old enough (older than two subnet tempos),
             // consider this parent's contribution
-            if Self::get_current_block_as_u64() - stake_add_block >= 2u64 * Self::get_tempo(netuid) as u64 {
+            if Self::get_current_block_as_u64() - stake_add_block
+                >= 2u64 * Self::get_tempo(netuid) as u64
+            {
                 // Convert the parent's stake proportion to a fractional value
                 let parent_proportion: I96F32 =
                     I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
@@ -268,7 +272,8 @@ impl<T: Config> Pallet<T> {
                     I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(&parent, netuid));
 
                 // Calculate the parent's contribution to the hotkey's stakes
-                let parent_alpha_contribution: I96F32 = parent_alpha.saturating_mul(parent_proportion);
+                let parent_alpha_contribution: I96F32 =
+                    parent_alpha.saturating_mul(parent_proportion);
                 let parent_global_contribution: I96F32 =
                     parent_global.saturating_mul(parent_proportion);
 
@@ -387,9 +392,10 @@ impl<T: Config> Pallet<T> {
             // Get the last block this nominator added some stake to this hotkey
             let stake_add_block = LastAddStakeIncrease::<T>::get(&hotkey, &nominator);
 
-            // If the last block this nominator added any stake is old enough (older than one hotkey tempo), 
+            // If the last block this nominator added any stake is old enough (older than one hotkey tempo),
             // consider this nominator's contribution
-            if Self::get_current_block_as_u64() - stake_add_block >= HotkeyEmissionTempo::<T>::get() {
+            if Self::get_current_block_as_u64() - stake_add_block >= HotkeyEmissionTempo::<T>::get()
+            {
                 let alpha_contribution: I96F32 =
                     I96F32::from_num(Alpha::<T>::get((&hotkey, nominator.clone(), netuid)));
                 let global_contribution: I96F32 =
@@ -435,9 +441,10 @@ impl<T: Config> Pallet<T> {
         }
 
         // Get the last block the neuron owner added some stake to this hotkey
-        let stake_add_block = LastAddStakeIncrease::<T>::get(&hotkey, Self::get_coldkey_for_hotkey(&hotkey));
+        let stake_add_block =
+            LastAddStakeIncrease::<T>::get(&hotkey, Self::get_coldkey_for_hotkey(&hotkey));
 
-        // If the last block this nominator added any stake is old enough (older than one hotkey tempo), 
+        // If the last block this nominator added any stake is old enough (older than one hotkey tempo),
         // consider this nominator's contribution
         if Self::get_current_block_as_u64() - stake_add_block >= HotkeyEmissionTempo::<T>::get() {
             // Calculate and distribute the remaining emission to the hotkey
@@ -483,7 +490,7 @@ impl<T: Config> Pallet<T> {
             hotkey,
             netuid,
             validating_emission, // Amount received from validating
-            mining_emission,    // Amount recieved from mining.
+            mining_emission,     // Amount recieved from mining.
             &mut hotkey_emission_tuples,
         );
 
@@ -494,13 +501,17 @@ impl<T: Config> Pallet<T> {
         // Accounting: Add emission to the pending hotkey emission for further distribution to nominators
         let mut processed_hotkeys_on_netuid: BTreeMap<T::AccountId, ()> = BTreeMap::new();
         for (hotkey, netuid_j, emission) in hotkey_emission_tuples {
-            PendingHotkeyEmissionOnNetuid::<T>::mutate( &hotkey, netuid_j, |total| { *total = total.saturating_add( emission ) });
+            PendingHotkeyEmissionOnNetuid::<T>::mutate(&hotkey, netuid_j, |total| {
+                *total = total.saturating_add(emission)
+            });
             // If the hotkey has not been processed yet, update the last emission drain block
-            if !processed_hotkeys_on_netuid.contains_key( &hotkey ) {
-                LastHotkeyEmissionOnNetuid::<T>::insert( &hotkey, netuid_j, emission);
-                processed_hotkeys_on_netuid.insert( hotkey.clone(), () );
+            if !processed_hotkeys_on_netuid.contains_key(&hotkey) {
+                LastHotkeyEmissionOnNetuid::<T>::insert(&hotkey, netuid_j, emission);
+                processed_hotkeys_on_netuid.insert(hotkey.clone(), ());
             } else {
-                LastHotkeyEmissionOnNetuid::<T>::mutate( &hotkey, netuid_j, |total| { *total = total.saturating_add(emission) });
+                LastHotkeyEmissionOnNetuid::<T>::mutate(&hotkey, netuid_j, |total| {
+                    *total = total.saturating_add(emission)
+                });
             }
         }
     }
@@ -520,17 +531,23 @@ impl<T: Config> Pallet<T> {
     ///   - `u16`: The subnet ID (netuid).
     ///   - `u64`: The emission value to be added.
     /// * `block` - The current block number.
-    pub fn accumulate_nominator_emission(nominator_tuples: &mut Vec<(T::AccountId, T::AccountId, u16, u64)>, block: u64) {
+    pub fn accumulate_nominator_emission(
+        nominator_tuples: &mut Vec<(T::AccountId, T::AccountId, u16, u64)>,
+        block: u64,
+    ) {
         // Track processed hotkeys to avoid redundant updates
         let mut processed_hotkeys: BTreeMap<T::AccountId, ()> = BTreeMap::new();
-        
+
         // Iterate over each tuple in the nominator_tuples vector
         for (hotkey, coldkey, netuid, emission) in nominator_tuples {
             // If the emission value is greater than 0, update the subnet emission
             if *emission > 0 {
                 Self::emit_into_subnet(hotkey, coldkey, *netuid, *emission);
                 // Record the last emission value for the hotkey-coldkey pair on the subnet
-                LastHotkeyColdkeyEmissionOnNetuid::<T>::insert((hotkey.clone(), coldkey.clone(), *netuid), *emission);
+                LastHotkeyColdkeyEmissionOnNetuid::<T>::insert(
+                    (hotkey.clone(), coldkey.clone(), *netuid),
+                    *emission,
+                );
             }
             // If the hotkey has not been processed yet, update the last emission drain block
             if !processed_hotkeys.contains_key(hotkey) {
@@ -541,15 +558,15 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Drains the accumulated hotkey emission through to the nominators. The hotkey takes a proportion of the emission.
-    /// 
+    ///
     /// The remainder is drained through to the nominators keeping track of the last stake increase event to ensure that the hotkey does not
     /// gain more emission than it's stake since the last drain.
     /// hotkeys --> nominators.
     ///
-    /// The untouchable part of pending hotkey emission that consists of mining emission and childkey 
+    /// The untouchable part of pending hotkey emission that consists of mining emission and childkey
     /// take has already been distributed in accumulate_hotkey_emission, so it is already excluded from
     /// PendingdHotkeyEmission
-    /// 
+    ///
     /// 1. It resets the accumulated emissions for the hotkey to zero.
     /// 4. It calculates the total stake for the hotkey and determines the hotkey's own take from the emissions based on its delegation status.
     /// 5. It then calculates the remaining emissions after the hotkey's take and distributes this remaining amount proportionally among the hotkey's nominators.
@@ -557,8 +574,13 @@ impl<T: Config> Pallet<T> {
     /// 7. Finally, the hotkey's own take and any undistributed emissions are added to the hotkey's total stake.
     ///
     /// This function ensures that emissions are fairly distributed according to stake proportions and delegation agreements, and it updates the necessary records to reflect these changes.
-    /// 
-    pub fn drain_hotkey_emission(hotkey: &T::AccountId, netuid: u16, emission: u64, block_number: u64) {
+    ///
+    pub fn drain_hotkey_emission(
+        hotkey: &T::AccountId,
+        netuid: u16,
+        emission: u64,
+        block_number: u64,
+    ) {
         let mut nominator_emission: Vec<(T::AccountId, T::AccountId, u16, u64)> = vec![];
 
         // Remove the hotkey emission from the pending emissions.

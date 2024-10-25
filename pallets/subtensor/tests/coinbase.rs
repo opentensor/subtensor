@@ -75,7 +75,10 @@ fn test_coinbase_basic() {
         let alpha_before = pallet_subtensor::Alpha::<Test>::get((hotkey, coldkey, netuid));
 
         // Hotkey has no pending emission
-        assert_eq!(SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey, netuid), 0);
+        assert_eq!(
+            SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey, netuid),
+            0
+        );
 
         // Hotkey has same stake
         assert_eq!(get_total_stake_for_hotkey(hotkey), stake);
@@ -90,7 +93,10 @@ fn test_coinbase_basic() {
         );
 
         // Hotkey has no pending emission
-        assert_eq!(SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey, netuid), 0);
+        assert_eq!(
+            SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey, netuid),
+            0
+        );
 
         // Run run_coinbase until PendingHotkeyEmission are populated
         while pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(hotkey, netuid) == 0 {
@@ -101,7 +107,8 @@ fn test_coinbase_basic() {
         assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
 
         // Hotkey has pending emission
-        let hotkey_pending_emission = SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey, netuid);
+        let hotkey_pending_emission =
+            SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey, netuid);
         assert!(hotkey_pending_emission != 0);
 
         // Hotkey has same stake
@@ -117,17 +124,20 @@ fn test_coinbase_basic() {
         step_block((hotkey_tempo * 2) as u16);
 
         // Hotkey pending drained.
-        assert_eq!(SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey, netuid), 0);
+        assert_eq!(
+            SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey, netuid),
+            0
+        );
 
         // Hotkey has NEW stake
         let alpha_after = pallet_subtensor::Alpha::<Test>::get((hotkey, coldkey, netuid));
-        assert_eq!(
-            alpha_after - alpha_before,
-            hotkey_pending_emission
-        );
+        assert_eq!(alpha_after - alpha_before, hotkey_pending_emission);
 
         // Hotkey pending drained.
-        assert_eq!(SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey, netuid), 0);
+        assert_eq!(
+            SubtensorModule::get_pending_hotkey_emission_on_netuid(&hotkey, netuid),
+            0
+        );
     });
 }
 
@@ -359,10 +369,7 @@ fn test_distribute_owner_cut_basic() {
         SubtensorModule::distribute_owner_cut(netuid, 1000);
 
         // Verify distribution
-        assert_eq!(
-            Alpha::<Test>::get((hotkey, coldkey, netuid)),
-            1000
-        );
+        assert_eq!(Alpha::<Test>::get((hotkey, coldkey, netuid)), 1000);
     });
 }
 
@@ -377,10 +384,7 @@ fn test_distribute_owner_cut_no_owner_hotkey() {
         SubtensorModule::distribute_owner_cut(netuid, 1000);
 
         // Verify distribution
-        assert_eq!(
-            Alpha::<Test>::get((coldkey, coldkey, netuid)),
-            1000
-        );
+        assert_eq!(Alpha::<Test>::get((coldkey, coldkey, netuid)), 1000);
     });
 }
 
@@ -411,16 +415,12 @@ fn test_distribute_owner_cut_is_actually_used() {
             weights: vec![vec![(0u16, 0xFFFF)]],
         });
 
-        assert!(
-            Alpha::<Test>::get((subnet_owner_hotkey, subnet_owner_coldkey, netuid)) == 0
-        );
+        assert!(Alpha::<Test>::get((subnet_owner_hotkey, subnet_owner_coldkey, netuid)) == 0);
 
         // Make all stakes old enough and viable
         step_block(600);
 
         // Verify distribution
-        assert!(
-            Alpha::<Test>::get((subnet_owner_hotkey, subnet_owner_coldkey, netuid)) > 0
-        );
+        assert!(Alpha::<Test>::get((subnet_owner_hotkey, subnet_owner_coldkey, netuid)) > 0);
     });
 }

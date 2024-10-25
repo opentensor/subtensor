@@ -5,7 +5,7 @@ use frame_support::{
 };
 use frame_system::Config;
 use pallet_admin_utils::Error;
-use pallet_subtensor::{migrations, Event, Error as SubtensorError};
+use pallet_subtensor::{migrations, Error as SubtensorError, Event};
 use sp_core::U256;
 
 mod mock;
@@ -1246,7 +1246,11 @@ fn test_sudo_get_set_alpha() {
             DispatchError::BadOrigin
         );
 
-        assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey, mechid));
+        assert_ok!(SubtensorModule::register_network(
+            signer.clone(),
+            hotkey,
+            mechid
+        ));
 
         assert_ok!(AdminUtils::sudo_set_alpha_values(
             signer.clone(),
@@ -1401,4 +1405,3 @@ fn test_sudo_set_coldkey_swap_schedule_duration() {
         System::assert_last_event(Event::ColdkeySwapScheduleDurationSet(new_duration).into());
     });
 }
-

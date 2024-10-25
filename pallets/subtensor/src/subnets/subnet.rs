@@ -197,7 +197,7 @@ impl<T: Config> Pallet<T> {
             SubnetIdentities::<T>::insert(netuid_to_register, identity_value);
             Self::deposit_event(Event::SubnetIdentitySet(netuid_to_register));
         }
-        
+
         // --- 16. Emit the NetworkAdded event.
         log::info!(
             "NetworkAdded( netuid:{:?}, mechanism:{:?} )",
