@@ -1254,6 +1254,9 @@ fn test_zero_stake_scenario_1() {
         SubtensorModule::stake_into_subnet(&parent, &coldkey, netuid, 0);
         Delegates::<Test>::insert(hotkey, 0);
 
+        // Make stake old enough and viable
+        step_block(1000);
+
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_hotkey_emission(
             &hotkey,
@@ -1288,6 +1291,9 @@ fn test_maximum_stake_values() {
         Alpha::<Test>::insert((&parent, coldkey, netuid), u64::MAX);
         // GlobalStake::<Test>::insert(&parent, u64::MAX);
         Delegates::<Test>::insert(hotkey, 0);
+
+        // Make stake old enough and viable
+        step_block(1000);
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_hotkey_emission(
@@ -1452,6 +1458,9 @@ fn test_maximum_parents() {
         ParentKeys::<Test>::insert(hotkey, netuid, parents);
         Delegates::<Test>::insert(hotkey, 0);
 
+        // Make stake old enough and viable
+        step_block(1000);
+
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_hotkey_emission(
             &hotkey,
@@ -1539,6 +1548,9 @@ fn test_edge_cases_parent_proportions() {
         }
         Delegates::<Test>::insert(hotkey, 0);
 
+        // Make stake old enough and viable
+        step_block(1000);
+
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_hotkey_emission(
             &hotkey,
@@ -1592,6 +1604,9 @@ fn test_overflow_handling_in_emission() {
         ParentKeys::<Test>::insert(hotkey, netuid, vec![(u64::MAX, parent)]);
         SubtensorModule::stake_into_subnet(&parent, &coldkey, netuid, u64::MAX);
         Delegates::<Test>::insert(hotkey, u16::MAX);
+
+        // Make stake old enough and viable
+        step_block(1000);
 
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_hotkey_emission(
@@ -1668,6 +1683,9 @@ fn test_maximum_emission_value() {
         // GlobalStake::<Test>::insert(&parent, 1000);
         Delegates::<Test>::insert(hotkey, 0);
 
+        // Make stake old enough and viable
+        step_block(1000);
+
         let mut emission_tuples = Vec::new();
         SubtensorModule::source_hotkey_emission(
             &hotkey,
@@ -1721,7 +1739,7 @@ fn test_fast_stake_unstake_protection_source_hotkey() {
 
         assert_eq!(emission_tuples.len(), 1);
         let total_distributed: u64 = emission_tuples.iter().map(|(_, _, amount)| amount).sum();
-        assert_eq!(total_distributed, validating_emission + mining_emission);
+        assert_eq!(total_distributed, validating_emission);
 
         // Check hotkey take and mining emission
         let hotkey_emission = emission_tuples.iter().find(|(h, _, _)| h == &hotkey).map(|(_, _, amount)| amount).unwrap();
