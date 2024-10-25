@@ -30,40 +30,74 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         // --- 1. Check the caller's signature (hotkey).
         let who = ensure_signed(origin)?;
+        log::debug!("Step 1: Caller identified as {:?}", who);
 
-        log::debug!("do_commit_weights( hotkey:{:?} netuid:{:?})", who, netuid);
+        log::debug!(
+            "do_commit_weights called with netuid: {:?}, commit_hash: {:?}",
+            netuid,
+            commit_hash
+        );
 
         // --- 2. Ensure commit-reveal is enabled for the network.
-        ensure!(
-            Self::get_commit_reveal_weights_enabled(netuid),
-            Error::<T>::CommitRevealDisabled
+        let commit_reveal_enabled = Self::get_commit_reveal_weights_enabled(netuid);
+        log::debug!(
+            "Step 2: Commit-reveal enabled for netuid {}: {}",
+            netuid,
+            commit_reveal_enabled
         );
+        ensure!(commit_reveal_enabled, Error::<T>::CommitRevealDisabled);
 
         // --- 3. Mutate the WeightCommits to retrieve existing commits for the user.
         WeightCommits::<T>::try_mutate(netuid, &who, |maybe_commits| -> DispatchResult {
+            log::debug!("Step 3: Mutating WeightCommits storage for user {:?}", who);
+
             // --- 4. Take the existing commits or create a new VecDeque.
             let mut commits: VecDeque<(H256, u64)> = maybe_commits.take().unwrap_or_default();
+            log::debug!("Step 4: Retrieved commits: {:?}", commits);
 
             // --- 5. Remove any expired commits from the front of the queue.
-            while let Some((_, commit_block)) = commits.front() {
+            while let Some((hash, commit_block)) = commits.front() {
+                log::debug!(
+                    "Step 5: Checking if commit {:?} at block {} is expired",
+                    hash,
+                    commit_block
+                );
                 if Self::is_commit_expired(netuid, *commit_block) {
-                    // Remove the expired commit
+                    log::debug!("Step 5: Commit {:?} is expired and will be removed", hash);
                     commits.pop_front();
                 } else {
+                    log::debug!("Step 5: Commit {:?} is not expired", hash);
                     break;
                 }
             }
+            log::debug!("Step 5: Commits after removing expired: {:?}", commits);
 
             // --- 6. Check if the current number of unrevealed commits is within the allowed limit.
-            ensure!(commits.len() < 10, Error::<T>::TooManyUnrevealedCommits);
+            let commit_count = commits.len();
+            log::debug!(
+                "Step 6: Current number of unrevealed commits: {}",
+                commit_count
+            );
+            ensure!(commit_count < 10, Error::<T>::TooManyUnrevealedCommits);
 
             // --- 7. Append the new commit to the queue.
-            commits.push_back((commit_hash, Self::get_current_block_as_u64()));
+            let current_block = Self::get_current_block_as_u64();
+            log::debug!(
+                "Step 7: Appending new commit with hash {:?} at block {}",
+                commit_hash,
+                current_block
+            );
+            commits.push_back((commit_hash, current_block));
 
             // --- 8. Store the updated queue back to storage.
-            *maybe_commits = Some(commits);
+            *maybe_commits = Some(commits.clone());
+            log::debug!("Step 8: Stored updated commits: {:?}", commits);
 
             // --- 9. Return ok.
+            log::debug!(
+                "Step 9: do_commit_weights completed successfully for user {:?}",
+                who
+            );
             Ok(())
         })
     }
@@ -114,32 +148,54 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         // --- 1. Check the caller's signature (hotkey).
         let who = ensure_signed(origin.clone())?;
+        log::debug!("Step 1: Caller identified as {:?}", who);
 
-        log::debug!("do_reveal_weights( hotkey:{:?} netuid:{:?})", who, netuid);
+        log::debug!(
+        "do_reveal_weights called with netuid: {:?}, uids: {:?}, values: {:?}, salt: {:?}, version_key: {:?}",
+        netuid,
+        uids,
+        values,
+        salt,
+        version_key
+    );
 
         // --- 2. Ensure commit-reveal is enabled for the network.
-        ensure!(
-            Self::get_commit_reveal_weights_enabled(netuid),
-            Error::<T>::CommitRevealDisabled
+        let commit_reveal_enabled = Self::get_commit_reveal_weights_enabled(netuid);
+        log::debug!(
+            "Step 2: Commit-reveal enabled for netuid {}: {}",
+            netuid,
+            commit_reveal_enabled
         );
+        ensure!(commit_reveal_enabled, Error::<T>::CommitRevealDisabled);
 
         // --- 3. Mutate the WeightCommits to retrieve existing commits for the user.
         WeightCommits::<T>::try_mutate_exists(netuid, &who, |maybe_commits| -> DispatchResult {
+            log::debug!("Step 3: Accessing WeightCommits storage for user {:?}", who);
+
             let commits = maybe_commits
                 .as_mut()
                 .ok_or(Error::<T>::NoWeightsCommitFound)?;
+            log::debug!("Step 3: Retrieved commits: {:?}", commits);
 
             // --- 4. Remove any expired commits from the front of the queue, collecting their hashes.
             let mut expired_hashes = Vec::new();
             while let Some((hash, commit_block)) = commits.front() {
+                log::debug!(
+                    "Step 4: Checking if commit {:?} at block {} is expired",
+                    hash,
+                    commit_block
+                );
                 if Self::is_commit_expired(netuid, *commit_block) {
-                    // Collect the expired commit hash
+                    log::debug!("Step 4: Commit {:?} is expired and will be removed", hash);
                     expired_hashes.push(*hash);
                     commits.pop_front();
                 } else {
+                    log::debug!("Step 4: Commit {:?} is not expired", hash);
                     break;
                 }
             }
+            log::debug!("Step 4: Expired hashes collected: {:?}", expired_hashes);
+            log::debug!("Step 4: Commits after removing expired: {:?}", commits);
 
             // --- 5. Hash the provided data.
             let provided_hash: H256 = BlakeTwo256::hash_of(&(
@@ -150,49 +206,97 @@ impl<T: Config> Pallet<T> {
                 salt.clone(),
                 version_key,
             ));
+            log::debug!("Step 5: Computed provided_hash: {:?}", provided_hash);
 
             // --- 6. After removing expired commits, check if any commits are left.
             if commits.is_empty() {
-                // No non-expired commits
+                log::debug!("Step 6: No non-expired commits remaining");
                 // Check if provided_hash matches any expired commits
                 if expired_hashes.contains(&provided_hash) {
+                    log::debug!(
+                        "Step 6: Provided hash {:?} matches an expired commit",
+                        provided_hash
+                    );
                     return Err(Error::<T>::ExpiredWeightCommit.into());
                 } else {
+                    log::debug!(
+                        "Step 6: Provided hash {:?} does not match any commits",
+                        provided_hash
+                    );
                     return Err(Error::<T>::NoWeightsCommitFound.into());
                 }
             }
+            log::debug!("Step 6: Non-expired commits are present");
 
             // --- 7. Search for the provided_hash in the non-expired commits.
             if let Some(position) = commits.iter().position(|(hash, _)| *hash == provided_hash) {
+                log::debug!(
+                    "Step 7: Found provided_hash {:?} at position {}",
+                    provided_hash,
+                    position
+                );
+
                 // --- 8. Get the commit block for the commit being revealed.
                 let (_, commit_block) = commits
                     .get(position)
                     .ok_or(Error::<T>::NoWeightsCommitFound)?;
-
-                // --- 9. Ensure the commit is ready to be revealed in the current block range.
-                ensure!(
-                    Self::is_reveal_block_range(netuid, *commit_block),
-                    Error::<T>::RevealTooEarly
+                log::debug!(
+                    "Step 8: Commit block for hash {:?} is {}",
+                    provided_hash,
+                    commit_block
                 );
 
+                // --- 9. Ensure the commit is ready to be revealed in the current block range.
+                let reveal_ready = Self::is_reveal_block_range(netuid, *commit_block);
+                log::debug!(
+                    "Step 9: Commit {:?} reveal ready: {}",
+                    provided_hash,
+                    reveal_ready
+                );
+                ensure!(reveal_ready, Error::<T>::RevealTooEarly);
+
                 // --- 10. Remove all commits up to and including the one being revealed.
+                log::debug!(
+                    "Step 10: Removing commits up to and including position {}",
+                    position
+                );
                 for _ in 0..=position {
-                    commits.pop_front();
+                    let removed = commits.pop_front();
+                    log::debug!("Step 10: Removed commit {:?}", removed);
                 }
 
                 // --- 11. If the queue is now empty, remove the storage entry for the user.
                 if commits.is_empty() {
+                    log::debug!(
+                        "Step 11: No remaining commits, removing storage entry for user {:?}",
+                        who
+                    );
                     *maybe_commits = None;
+                } else {
+                    log::debug!("Step 11: Remaining commits after removal: {:?}", commits);
                 }
 
                 // --- 12. Proceed to set the revealed weights.
+                log::debug!("Step 12: Setting revealed weights for user {:?}", who);
                 Self::do_set_weights(origin, netuid, uids, values, version_key)
             } else {
+                log::debug!(
+                    "Step 7: Provided hash {:?} not found in non-expired commits",
+                    provided_hash
+                );
                 // --- 13. The provided_hash does not match any non-expired commits.
                 // Check if provided_hash matches any expired commits
                 if expired_hashes.contains(&provided_hash) {
+                    log::debug!(
+                        "Step 13: Provided hash {:?} matches an expired commit",
+                        provided_hash
+                    );
                     Err(Error::<T>::ExpiredWeightCommit.into())
                 } else {
+                    log::debug!(
+                        "Step 13: Provided hash {:?} does not match any commits",
+                        provided_hash
+                    );
                     Err(Error::<T>::InvalidRevealCommitHashNotMatch.into())
                 }
             }
@@ -248,45 +352,69 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         // --- 1. Check that the input lists are of the same length.
         let num_reveals = uids_list.len();
+        log::debug!(
+        "Step 1: Number of reveals: {}, lengths - uids: {}, values: {}, salts: {}, version_keys: {}",
+        num_reveals,
+        uids_list.len(),
+        values_list.len(),
+        salts_list.len(),
+        version_keys.len()
+    );
         ensure!(
             num_reveals == values_list.len()
                 && num_reveals == salts_list.len()
                 && num_reveals == version_keys.len(),
             Error::<T>::InputLengthsUnequal
         );
+        log::debug!("Step 1: Input lengths are equal");
 
         // --- 2. Check the caller's signature (hotkey).
         let who = ensure_signed(origin.clone())?;
+        log::debug!("Step 2: Caller identified as {:?}", who);
 
         log::debug!(
-            "do_batch_reveal_weights( hotkey:{:?} netuid:{:?})",
-            who,
-            netuid
+            "do_batch_reveal_weights called with netuid: {:?}, number of reveals: {}",
+            netuid,
+            num_reveals
         );
 
         // --- 3. Ensure commit-reveal is enabled for the network.
-        ensure!(
-            Self::get_commit_reveal_weights_enabled(netuid),
-            Error::<T>::CommitRevealDisabled
+        let commit_reveal_enabled = Self::get_commit_reveal_weights_enabled(netuid);
+        log::debug!(
+            "Step 3: Commit-reveal enabled for netuid {}: {}",
+            netuid,
+            commit_reveal_enabled
         );
+        ensure!(commit_reveal_enabled, Error::<T>::CommitRevealDisabled);
 
         // --- 4. Mutate the WeightCommits to retrieve existing commits for the user.
         WeightCommits::<T>::try_mutate_exists(netuid, &who, |maybe_commits| -> DispatchResult {
+            log::debug!("Step 4: Accessing WeightCommits storage for user {:?}", who);
+
             let commits = maybe_commits
                 .as_mut()
                 .ok_or(Error::<T>::NoWeightsCommitFound)?;
+            log::debug!("Step 4: Retrieved commits: {:?}", commits);
 
             // --- 5. Remove any expired commits from the front of the queue, collecting their hashes.
             let mut expired_hashes = Vec::new();
             while let Some((hash, commit_block)) = commits.front() {
+                log::debug!(
+                    "Step 5: Checking if commit {:?} at block {} is expired",
+                    hash,
+                    commit_block
+                );
                 if Self::is_commit_expired(netuid, *commit_block) {
-                    // Collect the expired commit hash
+                    log::debug!("Step 5: Commit {:?} is expired and will be removed", hash);
                     expired_hashes.push(*hash);
                     commits.pop_front();
                 } else {
+                    log::debug!("Step 5: Commit {:?} is not expired", hash);
                     break;
                 }
             }
+            log::debug!("Step 5: Expired hashes collected: {:?}", expired_hashes);
+            log::debug!("Step 5: Commits after removing expired: {:?}", commits);
 
             // --- 6. Process each reveal.
             for ((uids, values), (salt, version_key)) in uids_list
@@ -294,6 +422,14 @@ impl<T: Config> Pallet<T> {
                 .zip(values_list)
                 .zip(salts_list.into_iter().zip(version_keys))
             {
+                log::debug!(
+                "Step 6: Processing reveal with uids: {:?}, values: {:?}, salt: {:?}, version_key: {:?}",
+                uids,
+                values,
+                salt,
+                version_key
+            );
+
                 // --- 6a. Hash the provided data.
                 let provided_hash: H256 = BlakeTwo256::hash_of(&(
                     who.clone(),
@@ -303,34 +439,67 @@ impl<T: Config> Pallet<T> {
                     salt.clone(),
                     version_key,
                 ));
+                log::debug!("Step 6a: Computed provided_hash: {:?}", provided_hash);
 
                 // --- 6b. Search for the provided_hash in the non-expired commits.
                 if let Some(position) = commits.iter().position(|(hash, _)| *hash == provided_hash)
                 {
+                    log::debug!(
+                        "Step 6b: Found provided_hash {:?} at position {}",
+                        provided_hash,
+                        position
+                    );
+
                     // --- 6c. Get the commit block for the commit being revealed.
                     let (_, commit_block) = commits
                         .get(position)
                         .ok_or(Error::<T>::NoWeightsCommitFound)?;
-
-                    // --- 6d. Ensure the commit is ready to be revealed in the current block range.
-                    ensure!(
-                        Self::is_reveal_block_range(netuid, *commit_block),
-                        Error::<T>::RevealTooEarly
+                    log::debug!(
+                        "Step 6c: Commit block for hash {:?} is {}",
+                        provided_hash,
+                        commit_block
                     );
 
+                    // --- 6d. Ensure the commit is ready to be revealed in the current block range.
+                    let reveal_ready = Self::is_reveal_block_range(netuid, *commit_block);
+                    log::debug!(
+                        "Step 6d: Commit {:?} reveal ready: {}",
+                        provided_hash,
+                        reveal_ready
+                    );
+                    ensure!(reveal_ready, Error::<T>::RevealTooEarly);
+
                     // --- 6e. Remove all commits up to and including the one being revealed.
+                    log::debug!(
+                        "Step 6e: Removing commits up to and including position {}",
+                        position
+                    );
                     for _ in 0..=position {
-                        commits.pop_front();
+                        let removed = commits.pop_front();
+                        log::debug!("Step 6e: Removed commit {:?}", removed);
                     }
 
                     // --- 6f. Proceed to set the revealed weights.
+                    log::debug!("Step 6f: Setting revealed weights for user {:?}", who);
                     Self::do_set_weights(origin.clone(), netuid, uids, values, version_key)?;
                 } else {
+                    log::debug!(
+                        "Step 6b: Provided hash {:?} not found in non-expired commits",
+                        provided_hash
+                    );
                     // The provided_hash does not match any non-expired commits.
                     // Check if it matches any expired commits
                     if expired_hashes.contains(&provided_hash) {
+                        log::debug!(
+                            "Step 6: Provided hash {:?} matches an expired commit",
+                            provided_hash
+                        );
                         return Err(Error::<T>::ExpiredWeightCommit.into());
                     } else {
+                        log::debug!(
+                            "Step 6: Provided hash {:?} does not match any commits",
+                            provided_hash
+                        );
                         return Err(Error::<T>::InvalidRevealCommitHashNotMatch.into());
                     }
                 }
@@ -338,11 +507,80 @@ impl<T: Config> Pallet<T> {
 
             // --- 7. If the queue is now empty, remove the storage entry for the user.
             if commits.is_empty() {
+                log::debug!(
+                    "Step 7: No remaining commits, removing storage entry for user {:?}",
+                    who
+                );
                 *maybe_commits = None;
+            } else {
+                log::debug!("Step 7: Remaining commits after processing: {:?}", commits);
             }
 
             // --- 8. Return ok.
+            log::debug!(
+                "Step 8: do_batch_reveal_weights completed successfully for user {:?}",
+                who
+            );
             Ok(())
+        })
+    }
+
+    /// ---- The implementation for clearing all commits for a validator.
+    ///
+    /// This extrinsic allows a validator to clear all their own commits for a specified network.
+    /// Only the validator themselves can clear their commits; users cannot wipe another user's commits.
+    ///
+    /// # Args:
+    /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
+    ///   - The signature of the validator who wants to clear their commits.
+    ///
+    /// * `netuid` (`u16`):
+    ///   - The u16 network identifier.
+    ///
+    /// # Raises:
+    /// * `NoWeightsCommitFound`:
+    ///   - Attempting to clear commits when there are no existing commits for the caller.
+    pub fn do_clear_commits(origin: T::RuntimeOrigin, netuid: u16) -> DispatchResult {
+        // --- 1. Check the caller's signature (validator).
+        let who = ensure_signed(origin.clone())?;
+        log::debug!(
+            "do_clear_commits called by {:?} for netuid {:?}",
+            who,
+            netuid
+        );
+
+        // --- 2. Attempt to mutate the WeightCommits storage for (netuid, who).
+        WeightCommits::<T>::try_mutate(netuid, &who, |maybe_commits| -> DispatchResult {
+            match maybe_commits.take() {
+                Some(commits) => {
+                    log::debug!(
+                        "Step 2: Found {} commits for {:?} in netuid {}. Proceeding to clear them.",
+                        commits.len(),
+                        who,
+                        netuid
+                    );
+
+                    // --- 3. Clear all commits by setting the storage entry to None.
+                    *maybe_commits = None;
+                    log::debug!(
+                        "Step 3: Successfully cleared all commits for {:?} in netuid {}.",
+                        who,
+                        netuid
+                    );
+
+                    // --- 4. Return Ok to indicate successful execution.
+                    Ok(())
+                }
+                None => {
+                    log::debug!(
+                        "Step 2: No commits found for {:?} in netuid {}. Cannot perform clearing.",
+                        who,
+                        netuid
+                    );
+                    // --- 4. Return an error indicating no commits were found.
+                    Err(Error::<T>::NoWeightsCommitFound.into())
+                }
+            }
         })
     }
 

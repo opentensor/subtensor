@@ -172,6 +172,14 @@ mod dispatches {
             Self::do_reveal_weights(origin, netuid, uids, values, salt, version_key)
         }
 
+        #[pallet::call_index(180)]
+        #[pallet::weight((Weight::from_parts(103_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(11))
+		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
+        pub fn clear_commits(origin: T::RuntimeOrigin, netuid: u16) -> DispatchResult {
+            Self::do_clear_commits(origin, netuid)
+        }
+
         /// ---- The implementation for batch revealing committed weights.
         ///
         /// # Args:
