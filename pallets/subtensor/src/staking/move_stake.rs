@@ -30,6 +30,7 @@ impl<T: Config> Pallet<T> {
         destination_hotkey: T::AccountId,
         origin_netuid: u16,
         destination_netuid: u16,
+        alpha_amount: u64,
     ) -> dispatch::DispatchResult {
         // --- 1. Check that the origin is signed by the origin_hotkey.
         let coldkey = ensure_signed(origin)?;
@@ -67,13 +68,33 @@ impl<T: Config> Pallet<T> {
 
         // --- 6. Get the current alpha stake for the origin hotkey-coldkey pair in the origin subnet
         let origin_alpha = Alpha::<T>::get((origin_hotkey.clone(), coldkey.clone(), origin_netuid));
+        ensure!(
+            alpha_amount <= origin_alpha,
+            Error::<T>::NotEnoughStakeToWithdraw
+        );
 
-        // --- 7. Unstake the full amount of alpha from the origin subnet, converting it to TAO
+        // Ensure we don't exceed stake rate limit for destination key
+        let stakes_this_interval =
+            Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &destination_hotkey);
+        ensure!(
+            stakes_this_interval < Self::get_target_stakes_per_interval(),
+            Error::<T>::StakeRateLimitExceeded
+        );
+
+        // Ensure we don't exceed stake rate limit for origin key
+        let unstakes_this_interval =
+            Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &origin_hotkey);
+        ensure!(
+            unstakes_this_interval < Self::get_target_stakes_per_interval(),
+            Error::<T>::UnstakeRateLimitExceeded
+        );
+
+        // --- 7. Unstake the amount of alpha from the origin subnet, converting it to TAO
         let origin_tao = Self::unstake_from_subnet(
             &origin_hotkey.clone(),
             &coldkey.clone(),
             origin_netuid,
-            origin_alpha,
+            alpha_amount,
         );
 
         // --- 8. Stake the resulting TAO into the destination subnet for the destination hotkey
@@ -84,18 +105,62 @@ impl<T: Config> Pallet<T> {
             origin_tao,
         );
 
-        // --- 9. Swap the locks.
-        if Locks::<T>::contains_key((origin_netuid, origin_hotkey.clone(), coldkey.clone())) {
-            let lock_data =
-                Locks::<T>::take((origin_netuid, origin_hotkey.clone(), coldkey.clone()));
-            Locks::<T>::insert(
-                (
-                    destination_netuid,
-                    destination_hotkey.clone(),
-                    coldkey.clone(),
-                ),
-                lock_data,
-            );
+        // --- 9. Swap the locks if full amount is moved within the subnet or adjust the locks otherwise.
+        let current_block = Self::get_current_block_as_u64();
+        if origin_netuid == destination_netuid {
+            if Locks::<T>::contains_key((origin_netuid, &origin_hotkey, &coldkey)) {
+                let (amount, start, end) =
+                    Locks::<T>::take((origin_netuid, &origin_hotkey, &coldkey));
+                if current_block < end {
+                    if alpha_amount == origin_alpha {
+                        Locks::<T>::insert(
+                            (
+                                destination_netuid,
+                                destination_hotkey.clone(),
+                                coldkey.clone(),
+                            ),
+                            (amount, start, end),
+                        );
+                    } else {
+                        Locks::<T>::insert(
+                            (
+                                origin_netuid,
+                                origin_hotkey.clone(),
+                                coldkey.clone(),
+                            ),
+                            (origin_alpha - alpha_amount, start, end),
+                        );
+                        Locks::<T>::insert(
+                            (
+                                destination_netuid,
+                                destination_hotkey.clone(),
+                                coldkey.clone(),
+                            ),
+                            (alpha_amount, start, end),
+                        );
+                    }
+                }
+            }
+        }
+
+        // Set last block for rate limiting
+        Self::set_last_tx_block(&coldkey, current_block);
+        Self::set_stakes_this_interval_for_coldkey_hotkey(
+            &coldkey,
+            &destination_hotkey,
+            stakes_this_interval.saturating_add(1),
+            current_block,
+        );
+        Self::set_stakes_this_interval_for_coldkey_hotkey(
+            &coldkey,
+            &origin_hotkey,
+            unstakes_this_interval.saturating_add(1),
+            current_block,
+        );
+        
+        // Set the last time the stake increased for nominator drain protection.
+        if alpha_amount > 0 {
+            LastAddStakeIncrease::<T>::insert(&destination_hotkey, &coldkey, current_block);
         }
 
         // --- 10. Log the event.
