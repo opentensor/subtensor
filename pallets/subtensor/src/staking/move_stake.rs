@@ -106,9 +106,10 @@ impl<T: Config> Pallet<T> {
 
         // --- 9. Swap the locks if full amount is moved within the subnet or adjust the locks otherwise.
         let current_block = Self::get_current_block_as_u64();
-        if origin_netuid == destination_netuid && Locks::<T>::contains_key((origin_netuid, &origin_hotkey, &coldkey)) {
-            let (amount, start, end) =
-                Locks::<T>::take((origin_netuid, &origin_hotkey, &coldkey));
+        if origin_netuid == destination_netuid
+            && Locks::<T>::contains_key((origin_netuid, &origin_hotkey, &coldkey))
+        {
+            let (amount, start, end) = Locks::<T>::take((origin_netuid, &origin_hotkey, &coldkey));
             if current_block < end {
                 if alpha_amount == origin_alpha {
                     Locks::<T>::insert(

@@ -32,9 +32,8 @@ impl<T: Config> Pallet<T> {
             } // Skip root network
             let mechid = SubnetMechanism::<T>::get(*netuid);
             let subnet_tao = I96F32::from_num(SubnetTAO::<T>::get(*netuid));
-            let new_subnet_tao = subnet_tao.saturating_add(
-                *mechanism_tao.entry(mechid).or_insert(I96F32::from_num(0))
-            );
+            let new_subnet_tao = subnet_tao
+                .saturating_add(*mechanism_tao.entry(mechid).or_insert(I96F32::from_num(0)));
             *mechanism_tao.entry(mechid).or_insert(I96F32::from_num(0)) = new_subnet_tao;
             total_active_tao = total_active_tao.saturating_add(subnet_tao);
         }
@@ -197,9 +196,11 @@ impl<T: Config> Pallet<T> {
             // Add subnet owner cut to owner's stake
             Self::emit_into_subnet(&owner_hotkey, &owner_coldkey, netuid, owner_cut);
             // Emit event
-            Self::deposit_event(
-                Event::OwnerPaymentDistributed(netuid, owner_hotkey.clone(), owner_cut),
-            );
+            Self::deposit_event(Event::OwnerPaymentDistributed(
+                netuid,
+                owner_hotkey.clone(),
+                owner_cut,
+            ));
         }
     }
 
@@ -397,7 +398,8 @@ impl<T: Config> Pallet<T> {
 
             // If the last block this nominator added any stake is old enough (older than one hotkey tempo),
             // consider this nominator's contribution
-            if Self::get_current_block_as_u64().saturating_sub(stake_add_block) >= HotkeyEmissionTempo::<T>::get()
+            if Self::get_current_block_as_u64().saturating_sub(stake_add_block)
+                >= HotkeyEmissionTempo::<T>::get()
             {
                 let alpha_contribution: I96F32 =
                     I96F32::from_num(Alpha::<T>::get((&hotkey, nominator.clone(), netuid)));
@@ -449,7 +451,9 @@ impl<T: Config> Pallet<T> {
 
         // If the last block this nominator added any stake is old enough (older than one hotkey tempo),
         // consider this nominator's contribution
-        if Self::get_current_block_as_u64().saturating_sub(stake_add_block) >= HotkeyEmissionTempo::<T>::get() {
+        if Self::get_current_block_as_u64().saturating_sub(stake_add_block)
+            >= HotkeyEmissionTempo::<T>::get()
+        {
             // Calculate and distribute the remaining emission to the hotkey
             let hotkey_owner: T::AccountId = Owner::<T>::get(hotkey);
             let remainder: u64 = emission
