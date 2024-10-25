@@ -1366,6 +1366,9 @@ fn test_different_network_ids_scenario_1() {
         let validating_emission = 10000;
         let mining_emission = 0;
 
+        // Make stake old enough and viable
+        step_block(1000);
+
         for netuid in 0..5 {
             ParentKeys::<Test>::insert(hotkey, netuid, vec![(u64::MAX, parent)]);
             Alpha::<Test>::insert((&parent, coldkey, netuid), 1000);
