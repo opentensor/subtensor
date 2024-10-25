@@ -67,12 +67,15 @@ pub mod pallet {
         traits::{
             tokens::fungible, OriginTrait, QueryPreimage, StorePreimage, UnfilteredDispatchable,
         },
+        BoundedVec,
     };
     use frame_system::pallet_prelude::*;
     use sp_core::H256;
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
+    use sp_std::collections::vec_deque::VecDeque;
     use sp_std::vec;
     use sp_std::vec::Vec;
+    use subtensor_macros::freeze_struct;
 
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
@@ -127,6 +130,36 @@ pub mod pallet {
         pub placeholder1: u8,
         ///  Axon proto placeholder 2.
         pub placeholder2: u8,
+    }
+
+    /// Struct for NeuronCertificate.
+    pub type NeuronCertificateOf = NeuronCertificate;
+    /// Data structure for NeuronCertificate information.
+    #[freeze_struct("1c232be200d9ec6c")]
+    #[derive(Decode, Encode, Default, TypeInfo, PartialEq, Eq, Clone, Debug)]
+    pub struct NeuronCertificate {
+        ///  The neuron TLS public key
+        pub public_key: BoundedVec<u8, ConstU32<64>>,
+        ///  The algorithm used to generate the public key
+        pub algorithm: u8,
+    }
+
+    impl TryFrom<Vec<u8>> for NeuronCertificate {
+        type Error = ();
+
+        fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+            if value.len() > 65 {
+                return Err(());
+            }
+            // take the first byte as the algorithm
+            let algorithm = value.first().ok_or(())?;
+            // and the rest as the public_key
+            let certificate = value.get(1..).ok_or(())?.to_vec();
+            Ok(Self {
+                public_key: BoundedVec::try_from(certificate).map_err(|_| ())?,
+                algorithm: *algorithm,
+            })
+        }
     }
 
     ///  Struct for Prometheus.
@@ -536,6 +569,11 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
+    /// Default minimum stake for weights.
+    pub fn DefaultRevealPeriodEpochs<T: Config>() -> u64 {
+        1
+    }
+    #[pallet::type_value]
     /// Value definition for vector of u16.
     pub fn EmptyU16Vec<T: Config>() -> Vec<u16> {
         vec![]
@@ -595,11 +633,6 @@ pub mod pallet {
     /// Default value for serving rate limit.
     pub fn DefaultServingRateLimit<T: Config>() -> u64 {
         T::InitialServingRateLimit::get()
-    }
-    #[pallet::type_value]
-    /// Default value for weight commit reveal interval.
-    pub fn DefaultWeightCommitRevealInterval<T: Config>() -> u64 {
-        1000
     }
     #[pallet::type_value]
     /// Default value for weight commit/reveal enabled.
@@ -1000,10 +1033,6 @@ pub mod pallet {
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultAdjustmentAlpha<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> interval
-    pub type WeightCommitRevealInterval<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultWeightCommitRevealInterval<T>>;
-    #[pallet::storage]
-    /// --- MAP ( netuid ) --> interval
     pub type CommitRevealWeightsEnabled<T> =
         StorageMap<_, Identity, u16, bool, ValueQuery, DefaultCommitRevealWeightsEnabled<T>>;
     #[pallet::storage]
@@ -1162,6 +1191,17 @@ pub mod pallet {
     /// --- MAP ( netuid, hotkey ) --> axon_info
     pub type Axons<T: Config> =
         StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, AxonInfoOf, OptionQuery>;
+    /// --- MAP ( netuid, hotkey ) --> certificate
+    #[pallet::storage]
+    pub type NeuronCertificates<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        u16,
+        Blake2_128Concat,
+        T::AccountId,
+        NeuronCertificateOf,
+        OptionQuery,
+    >;
     #[pallet::storage]
     /// --- MAP ( netuid, hotkey ) --> prometheus_info
     pub type Prometheus<T: Config> = StorageDoubleMap<
@@ -1211,16 +1251,20 @@ pub mod pallet {
     /// ITEM( weights_min_stake )
     pub type WeightsMinStake<T> = StorageValue<_, u64, ValueQuery, DefaultWeightsMinStake<T>>;
     #[pallet::storage]
-    /// --- MAP (netuid, who) --> (hash, weight) | Returns the hash and weight committed by an account for a given netuid.
+    /// --- MAP (netuid, who) --> VecDeque<(hash, commit_block)> | Stores a queue of commits for an account on a given netuid.
     pub type WeightCommits<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
         u16,
         Twox64Concat,
         T::AccountId,
-        (H256, u64),
+        VecDeque<(H256, u64)>,
         OptionQuery,
     >;
+    #[pallet::storage]
+    /// --- Map (netuid) --> Number of epochs allowed for commit reveal periods
+    pub type RevealPeriodEpochs<T: Config> =
+        StorageMap<_, Twox64Concat, u16, u64, ValueQuery, DefaultRevealPeriodEpochs<T>>;
 
     /// ==================
     /// ==== Genesis =====
@@ -1417,6 +1461,18 @@ where
                     Err(InvalidTransaction::Custom(2).into())
                 }
             }
+            Some(Call::batch_reveal_weights { netuid, .. }) => {
+                if Self::check_weights_min_stake(who) {
+                    let priority: u64 = Self::get_priority_set_weights(who, *netuid);
+                    Ok(ValidTransaction {
+                        priority,
+                        longevity: 1,
+                        ..Default::default()
+                    })
+                } else {
+                    Err(InvalidTransaction::Custom(6).into())
+                }
+            }
             Some(Call::set_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
@@ -1535,6 +1591,10 @@ where
                 Ok((CallType::Register, transaction_fee, who.clone()))
             }
             Some(Call::serve_axon { .. }) => {
+                let transaction_fee = 0;
+                Ok((CallType::Serve, transaction_fee, who.clone()))
+            }
+            Some(Call::serve_axon_tls { .. }) => {
                 let transaction_fee = 0;
                 Ok((CallType::Serve, transaction_fee, who.clone()))
             }
