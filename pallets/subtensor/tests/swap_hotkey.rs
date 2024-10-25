@@ -55,29 +55,6 @@ fn test_swap_owned_hotkeys() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_total_hotkey_stake --exact --nocapture
-#[test]
-fn test_swap_total_hotkey_stake() {
-    new_test_ext(1).execute_with(|| {
-        let old_hotkey = U256::from(1);
-        let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
-
-        TotalHotkeyStake::<Test>::insert(old_hotkey, 100);
-        TotalHotkeyStake::<Test>::insert(new_hotkey, 50);
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
-            &old_hotkey,
-            &new_hotkey,
-            &coldkey,
-            &mut weight
-        ));
-
-        assert!(!TotalHotkeyStake::<Test>::contains_key(old_hotkey));
-        assert_eq!(TotalHotkeyStake::<Test>::get(new_hotkey), 150);
-    });
-}
-
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_total_hotkey_coldkey_stakes_this_interval --exact --nocapture
 #[test]
 fn test_swap_total_hotkey_coldkey_stakes_this_interval() {
@@ -622,7 +599,6 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
         Stake::<Test>::insert(old_hotkey, coldkey2, 200);
         IsNetworkMember::<Test>::insert(old_hotkey, netuid1, true);
         IsNetworkMember::<Test>::insert(old_hotkey, netuid2, true);
-        TotalHotkeyStake::<Test>::insert(old_hotkey, 300);
 
         assert_ok!(SubtensorModule::perform_hotkey_swap(
             &old_hotkey,
@@ -646,10 +622,6 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
         assert!(IsNetworkMember::<Test>::get(new_hotkey, netuid2));
         assert!(!IsNetworkMember::<Test>::get(old_hotkey, netuid1));
         assert!(!IsNetworkMember::<Test>::get(old_hotkey, netuid2));
-
-        // Check total stake transfer
-        assert_eq!(TotalHotkeyStake::<Test>::get(new_hotkey), 300);
-        assert!(!TotalHotkeyStake::<Test>::contains_key(old_hotkey));
     });
 }
 
@@ -799,28 +771,6 @@ fn test_swap_owner_new_hotkey_already_exists() {
         // Verify the swap
         assert_eq!(Owner::<Test>::get(new_hotkey), coldkey);
         assert!(!Owner::<Test>::contains_key(old_hotkey));
-    });
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_total_hotkey_stake_success --exact --nocapture
-#[test]
-fn test_swap_total_hotkey_stake_success() {
-    new_test_ext(1).execute_with(|| {
-        let old_hotkey = U256::from(1);
-        let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
-        let total_stake = 1000u64;
-        let mut weight = Weight::zero();
-
-        // Initialize TotalHotkeyStake for old_hotkey
-        TotalHotkeyStake::<Test>::insert(old_hotkey, total_stake);
-
-        // Perform the swap
-        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
-
-        // Verify the swap
-        assert_eq!(TotalHotkeyStake::<Test>::get(new_hotkey), total_stake);
-        assert!(!TotalHotkeyStake::<Test>::contains_key(old_hotkey));
     });
 }
 
@@ -1146,4 +1096,140 @@ fn test_swap_complex_parent_child_structure() {
             vec![(200u64, new_hotkey), (600u64, U256::from(9))]
         );
     });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_hotkey_locks --exact --nocapture
+#[test]
+fn test_swap_hotkey_locks() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let netuid = 1;
+        let mut weight = Weight::zero();
+
+        // Set up initial locks
+        let lock_amount = 1000;
+        let start_block = 100;
+        let end_block = 200;
+        Locks::<Test>::insert(
+            (netuid, old_hotkey, coldkey),
+            (lock_amount, start_block, end_block),
+        );
+
+        // Perform the swap
+        assert_ok!(SubtensorModule::perform_hotkey_swap(
+            &old_hotkey,
+            &new_hotkey,
+            &coldkey,
+            &mut weight
+        ));
+
+        // Verify that the lock has been transferred to the new hotkey
+        assert!(Locks::<Test>::contains_key((netuid, new_hotkey, coldkey)));
+        assert_eq!(
+            Locks::<Test>::get((netuid, new_hotkey, coldkey)),
+            (lock_amount, start_block, end_block)
+        );
+
+        // Verify that the lock has been removed from the old hotkey
+        assert!(!Locks::<Test>::contains_key((netuid, old_hotkey, coldkey)));
+    });
+}
+
+#[test]
+fn test_swap_parent_hotkey_childkey_maps() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let parent_old = U256::from(1);
+        let coldkey = U256::from(2);
+        let child = U256::from(3);
+        let parent_new = U256::from(4);
+        add_network(netuid, 0, 0);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &parent_old);
+
+        // Set child and verify state maps
+        assert_ok!(SubtensorModule::do_set_children(
+            RuntimeOrigin::signed(coldkey),
+            parent_old,
+            netuid,
+            vec![(u64::MAX, child)]
+        ));
+        assert_eq!(
+            ParentKeys::<Test>::get(child, netuid),
+            vec![(u64::MAX, parent_old)]
+        );
+        assert_eq!(
+            ChildKeys::<Test>::get(parent_old, netuid),
+            vec![(u64::MAX, child)]
+        );
+
+        // Swap
+        let mut weight = Weight::zero();
+        assert_ok!(SubtensorModule::perform_hotkey_swap(
+            &parent_old,
+            &parent_new,
+            &coldkey,
+            &mut weight
+        ));
+
+        // Verify parent and child keys updates
+        assert_eq!(
+            ParentKeys::<Test>::get(child, netuid),
+            vec![(u64::MAX, parent_new)]
+        );
+        assert_eq!(
+            ChildKeys::<Test>::get(parent_new, netuid),
+            vec![(u64::MAX, child)]
+        );
+    })
+}
+
+#[test]
+fn test_swap_child_hotkey_childkey_maps() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let parent = U256::from(1);
+        let coldkey = U256::from(2);
+        let child_old = U256::from(3);
+        let child_new = U256::from(4);
+        add_network(netuid, 0, 0);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &child_old);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &parent);
+
+        // Set child and verify state maps
+        assert_ok!(SubtensorModule::do_set_children(
+            RuntimeOrigin::signed(coldkey),
+            parent,
+            netuid,
+            vec![(u64::MAX, child_old)]
+        ));
+        assert_eq!(
+            ParentKeys::<Test>::get(child_old, netuid),
+            vec![(u64::MAX, parent)]
+        );
+        assert_eq!(
+            ChildKeys::<Test>::get(parent, netuid),
+            vec![(u64::MAX, child_old)]
+        );
+
+        // Swap
+        let mut weight = Weight::zero();
+        assert_ok!(SubtensorModule::perform_hotkey_swap(
+            &child_old,
+            &child_new,
+            &coldkey,
+            &mut weight
+        ));
+
+        // Verify parent and child keys updates
+        assert_eq!(
+            ParentKeys::<Test>::get(child_new, netuid),
+            vec![(u64::MAX, parent)]
+        );
+        assert_eq!(
+            ChildKeys::<Test>::get(parent, netuid),
+            vec![(u64::MAX, child_new)]
+        );
+    })
 }

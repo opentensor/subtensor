@@ -1162,40 +1162,6 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Sets the duration of the dissolve network schedule.
-        ///
-        /// This extrinsic allows the root account to set the duration for the dissolve network schedule.
-        /// The dissolve network schedule determines how long it takes for a network dissolution operation to complete.
-        ///
-        /// # Arguments
-        /// * `origin` - The origin of the call, which must be the root account.
-        /// * `duration` - The new duration for the dissolve network schedule, in number of blocks.
-        ///
-        /// # Errors
-        /// * `BadOrigin` - If the caller is not the root account.
-        ///
-        /// # Weight
-        /// Weight is handled by the `#[pallet::weight]` attribute.
-        #[pallet::call_index(55)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_dissolve_network_schedule_duration(
-            origin: OriginFor<T>,
-            duration: BlockNumberFor<T>,
-        ) -> DispatchResult {
-            // Ensure the call is made by the root account
-            ensure_root(origin)?;
-
-            // Set the duration of schedule dissolve network
-            pallet_subtensor::Pallet::<T>::set_dissolve_network_schedule_duration(duration);
-
-            // Log the change
-            log::trace!(
-                "DissolveNetworkScheduleDurationSet( duration: {:?} )",
-                duration
-            );
-
-            Ok(())
-        }
     }
 }
 

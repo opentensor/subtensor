@@ -68,15 +68,6 @@ impl<T: Config> Pallet<T> {
             Error::<T>::TxRateLimitExceeded
         );
 
-        // Set last transaction block
-        let current_block = Self::get_current_block_as_u64();
-        Self::set_last_transaction_block(
-            &hotkey,
-            netuid,
-            &TransactionType::SetChildren,
-            current_block,
-        );
-
         // --- 2. Check that this delegation is not on the root network. Child hotkeys are not valid on root.
         ensure!(
             netuid != Self::get_root_netuid(),
@@ -153,6 +144,15 @@ impl<T: Config> Pallet<T> {
             // --- 7.2.3. Update the parents list in storage.
             ParentKeys::<T>::insert(new_child_i.clone(), netuid, new_child_previous_parents);
         }
+
+        // Set last transaction block
+        let current_block = Self::get_current_block_as_u64();
+        Self::set_last_transaction_block(
+            &hotkey,
+            netuid,
+            &TransactionType::SetChildren,
+            current_block,
+        );
 
         // --- 8. Log and return.
         log::trace!(

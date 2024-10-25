@@ -73,7 +73,7 @@ parameter_types! {
     pub const SDebug:u64 = 1;
     pub const InitialRho: u16 = 30;
     pub const InitialKappa: u16 = 32_767;
-    pub const InitialTempo: u16 = 0;
+    pub const InitialTempo: u16 = 300;
     pub const SelfOwnership: u64 = 2;
     pub const InitialImmunityPeriod: u16 = 2;
     pub const InitialMaxAllowedUids: u16 = 2;
@@ -122,9 +122,9 @@ parameter_types! {
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const InitialHotkeyEmissionTempo: u64 = 1;
-    pub const InitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64, this make the make stake infinity
+    pub const InitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
     pub const InitialColdkeySwapScheduleDuration: u64 = 5 * 24 * 60 * 60 / 12; // 5 days
-    pub const InitialDissolveNetworkScheduleDuration: u64 = 5 * 24 * 60 * 60 / 12; // 5 days
+    pub const InitialGlobalWeight: u64 = u64::MAX/2; // 50% global weight.
 }
 
 impl pallet_subtensor::Config for Test {
@@ -189,7 +189,7 @@ impl pallet_subtensor::Config for Test {
     type InitialNetworkMaxStake = InitialNetworkMaxStake;
     type Preimages = ();
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
-    type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
+    type InitialGlobalWeight = InitialGlobalWeight;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]

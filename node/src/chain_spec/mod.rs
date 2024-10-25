@@ -3,6 +3,7 @@
 
 pub mod finney;
 pub mod localnet;
+pub mod raonet;
 pub mod testnet;
 
 use node_subtensor_runtime::{AccountId, Block, Signature, WASM_BINARY};

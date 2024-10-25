@@ -184,5 +184,13 @@ mod errors {
         TxChildkeyTakeRateLimitExceeded,
         /// Invalid identity.
         InvalidIdentity,
+        /// Trying to register a subnet into a mechanism that does not exist.
+        MechanismDoesNotExist,
+        /// Trying to unstake your lock amount.
+        CannotUnstakeLock,
+        /// Trying to perform action on non-existent subnet.
+        SubnetNotExists,
+        /// Subnet has already been converted.
+        SubnetAlreadyConverted,
     }
 }
