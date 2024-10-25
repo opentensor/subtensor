@@ -1835,92 +1835,93 @@ fn test_get_parents_chain() {
 fn test_childkey_single_parent_emission() {
     new_test_ext(1).execute_with(|| {
         // Define hotkeys
-        let parent: U256 = U256::from(1);
-        let child: U256 = U256::from(2);
-        let weight_setter: U256 = U256::from(3);
+        let parent_hotkey: U256 = U256::from(1);
+        let child_hotkey: U256 = U256::from(2);
+        let miner_hotkey: U256 = U256::from(3);
+        let subnet_owner_hotkey = U256::from(4);
 
         // Define coldkeys with more readable names
-        let coldkey_parent: U256 = U256::from(4);
-        let coldkey_child: U256 = U256::from(5);
-        let coldkey_weight_setter: U256 = U256::from(6);
+        let parent_coldkey: U256 = U256::from(5);
+        let child_coldkey: U256 = U256::from(6);
+        let miner_coldkey: U256 = U256::from(7);
+        let subnet_owner_coldkey = U256::from(8);
 
         let netuid: u16 = 1;
-        let subnet_tempo = 13;
-        let hotkey_tempo = 7200;
+        let subnet_tempo = 10;
+        let hotkey_tempo = 20;
 
         setup_dynamic_network(&DynamicSubnetSetupParameters {
             netuid,
+            owner: (subnet_owner_coldkey, subnet_owner_hotkey),
             subnet_tempo,
             hotkey_tempo,
-            coldkeys: vec![coldkey_parent, coldkey_child, coldkey_weight_setter],
-            // coldkeys: vec![coldkey_weight_setter, coldkey_parent, coldkey_child],
-            hotkeys: vec![parent, child, weight_setter],
-            // hotkeys: vec![weight_setter, parent, child],
-            stakes: vec![109_999, 1, 1_000_000],
-            // stakes: vec![1_000_000, 109_999, 1],
-            validators: 1,
-            weights: vec![vec![], vec![], vec![(1u16, 0xFFFF)]], // Only set weight for the child (UID 1)
-            // weights: vec![vec![(1u16, 0xFFFF)], vec![], vec![]], // Only set weight for the child (UID 1)
+            coldkeys: vec![parent_coldkey, child_coldkey, miner_coldkey],
+            hotkeys: vec![parent_hotkey, child_hotkey, miner_hotkey],
+            stakes: vec![100_000_000_000, 0, 0],
+            validators: 2,
+            weights: vec![vec![(2u16, 0xFFFF)], vec![(2u16, 0xFFFF)]],
         });
 
-        // Set parent-child relationship
+        // Make all stakes old enough and viable
+        step_block((subnet_tempo * 2) as u16);
+
+        // Set parent-child relationship (with 50% proportion and 0 childkey take)
         assert_ok!(SubtensorModule::do_set_children(
-            RuntimeOrigin::signed(coldkey_parent),
-            parent,
+            RuntimeOrigin::signed(parent_coldkey),
+            parent_hotkey,
             netuid,
-            vec![(u64::MAX, child)]
+            vec![(u64::MAX / 2, child_hotkey)]
         ));
+        pallet_subtensor::ChildkeyTake::<Test>::insert(child_hotkey, netuid, 0);
+
+        // Starting point
+        let parent_alpha_before: u64 =
+            pallet_subtensor::Alpha::<Test>::get((parent_hotkey, parent_coldkey, netuid));
+        let child_alpha_before: u64 =
+            pallet_subtensor::Alpha::<Test>::get((child_hotkey, child_coldkey, netuid));
+        let miner_alpha_before: u64 =
+            pallet_subtensor::Alpha::<Test>::get((miner_hotkey, miner_coldkey, netuid));
 
         // Run run_coinbase until PendingHotkeyEmission are populated
-        while pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(parent, netuid) == 0 {
+        while pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(parent_hotkey, netuid) == 0 {
             step_block(1);
         }
 
-        println!("parent pending = {:?}", pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(parent, netuid));
-        println!("child pending = {:?}", pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(child, netuid));
-        println!("weight pending = {:?}", pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(weight_setter, netuid));
-
         assert!(
-            pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(parent, netuid) > 1_000_000_000,
+            pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(parent_hotkey, netuid) > 1_000_000_000,
             "Parent should have received pending emission"
         );
         assert!(
-            pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(child, netuid) > 1_000_000_000,
-            "Child should have received pending emission"
+            pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(child_hotkey, netuid) == 0,
+            "Child should NOT have received pending emission"
         );
         assert!(
-            pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(weight_setter, netuid) > 1_000_000_000,
-            "Weight setter should have received pending emission"
+            pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(miner_hotkey, netuid) == 0,
+            "Miner should NOT have received pending emission"
         );
-
-        // Prevent further subnet epochs
-        pallet_subtensor::Tempo::<Test>::set(netuid, u16::MAX);
 
         // Run run_coinbase until PendingHotkeyEmission is drained
         step_block((hotkey_tempo * 2) as u16);
 
         // Check emission distribution
-        let parent_stake: u64 =
-            pallet_subtensor::Alpha::<Test>::get((parent, coldkey_parent, netuid));
-        let child_stake: u64 =
-            pallet_subtensor::Alpha::<Test>::get((child, coldkey_child, netuid));
-        let weight_setter_stake: u64 = 
-            pallet_subtensor::Alpha::<Test>::get((weight_setter, coldkey_weight_setter, netuid));
+        let parent_emission: u64 =
+            pallet_subtensor::Alpha::<Test>::get((parent_hotkey, parent_coldkey, netuid)) - parent_alpha_before;
+        let child_emission: u64 =
+            pallet_subtensor::Alpha::<Test>::get((child_hotkey, child_coldkey, netuid)) - child_alpha_before;
+        let miner_emission: u64 = 
+            pallet_subtensor::Alpha::<Test>::get((miner_hotkey, miner_coldkey, netuid)) - miner_alpha_before;
 
-        println!("child stake = {:?}", child_stake);
-
-
-        assert!(parent_stake > 1, "Parent should have received emission");
-        assert!(child_stake > 109_999, "Child should have received emission");
         assert!(
-            weight_setter_stake > 1_000_000,
-            "Weight setter should have received emission"
+            parent_emission > 1_000_000_000,
+            "Parent should have received emission"
         );
-
-        // Additional assertion to verify that the weight setter received the most emission
         assert!(
-            weight_setter_stake > parent_stake && weight_setter_stake > child_stake,
-            "Weight setter should have received the most emission"
+            child_emission == 0,
+            "Child should NOT have received emission"
+        );
+        assert!(
+            miner_emission > 1_000_000_000,
+            "Miner should have received emission"
         );
     });
 }

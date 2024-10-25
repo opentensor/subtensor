@@ -53,6 +53,8 @@ fn test_coinbase_basic() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
+        let subnet_owner_coldkey = U256::from(3);
+        let subnet_owner_hotkey = U256::from(4);
         let netuid: u16 = 1;
         let subnet_tempo = 10;
         let hotkey_tempo = 20;
@@ -60,6 +62,7 @@ fn test_coinbase_basic() {
 
         setup_dynamic_network(&DynamicSubnetSetupParameters {
             netuid,
+            owner: (subnet_owner_coldkey, subnet_owner_hotkey),
             subnet_tempo,
             hotkey_tempo,
             coldkeys: vec![coldkey],
