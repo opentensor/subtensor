@@ -76,7 +76,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
     ) -> u64 {
         let (locked, _, end) = Locks::<T>::get((netuid, hotkey.clone(), coldkey.clone()));
-        
+
         Self::calculate_conviction(locked, end, Self::get_current_block_as_u64())
     }
 
@@ -344,7 +344,7 @@ impl<T: Config> Pallet<T> {
             -I96F32::from_num(lock_duration).saturating_div(I96F32::from_num(lock_interval_blocks));
         let exp_term = I96F32::from_num(1) - exp_safe_f96(I96F32::from_num(time_factor));
         let conviction_score = I96F32::from_num(lock_amount).saturating_mul(exp_term);
-        
+
         conviction_score.to_num::<u64>()
     }
 

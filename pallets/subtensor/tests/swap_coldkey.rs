@@ -1201,10 +1201,7 @@ fn test_swap_coldkey_locks() {
         SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 100_000_000_000);
 
         // Perform the coldkey swap
-        assert_ok!(SubtensorModule::do_swap_coldkey(
-            &old_coldkey,
-            &new_coldkey,
-        ));
+        assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey,));
 
         // Verify that the lock has been transferred to the new coldkey
         assert!(Locks::<Test>::contains_key((netuid, hotkey, new_coldkey)));

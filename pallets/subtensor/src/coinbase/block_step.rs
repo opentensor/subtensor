@@ -1,7 +1,7 @@
 use super::*;
 use frame_support::storage::IterableStorageMap;
-use substrate_fixed::types::I110F18;
 use sp_core::Get;
+use substrate_fixed::types::I110F18;
 
 impl<T: Config> Pallet<T> {
     /// Executes the necessary operations for each block.
@@ -16,7 +16,8 @@ impl<T: Config> Pallet<T> {
         // TODO(const) make this better.
         // Per const: remove dynamic tempos for now, just make the min and the max value always
         // 300 blocks. (not 360)
-        if block_number.saturating_add(1) % 300 == 0 { // adjust every hour.
+        if block_number.saturating_add(1) % 300 == 0 {
+            // adjust every hour.
             Self::adjust_tempos();
         }
         // --- 4. Anneal global weight
@@ -264,7 +265,10 @@ impl<T: Config> Pallet<T> {
                 let current_weight = GlobalWeight::<T>::get(netuid);
                 let diff = current_weight.saturating_sub(u64::MAX / 2);
                 if diff > 0 {
-                    GlobalWeight::<T>::insert(netuid, current_weight.saturating_sub(adjustment.min(diff)));
+                    GlobalWeight::<T>::insert(
+                        netuid,
+                        current_weight.saturating_sub(adjustment.min(diff)),
+                    );
                 }
             }
         }

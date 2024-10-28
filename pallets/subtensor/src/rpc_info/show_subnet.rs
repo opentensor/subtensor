@@ -3,7 +3,9 @@ extern crate alloc;
 use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I32F32;
+use subtensor_macros::freeze_struct;
 
+#[freeze_struct("8d1928a6434a43f5")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetState<T: Config> {
     netuid: Compact<u16>,
@@ -158,8 +160,8 @@ impl<T: Config> Pallet<T> {
             block_at_registration: block_at_registration.into(),
             local_stake: local_stake.into(),
             global_stake: global_stake.into(),
-            stake_weight: stake_weight,
-            emission_history: emission_history,
+            stake_weight,
+            emission_history,
         })
     }
 }

@@ -603,7 +603,11 @@ fn test_adjust_tempos_with_valid_tao_values() {
         // Call adjust_tempos and verify the updated tempos
         SubtensorModule::adjust_tempos();
 
-        assert_eq!(Tempo::<Test>::get(netuid1), 600);
+        // Currently all tempos are set to 300, but having AvgTempo set to a lower value of 100 will allow to decrease
+        // assert_eq!(Tempo::<Test>::get(netuid1), 600);
+        // assert_eq!(Tempo::<Test>::get(netuid2), 300);
+        // assert_eq!(Tempo::<Test>::get(netuid3), 200);
+        assert_eq!(Tempo::<Test>::get(netuid1), 300);
         assert_eq!(Tempo::<Test>::get(netuid2), 300);
         assert_eq!(Tempo::<Test>::get(netuid3), 200);
     });

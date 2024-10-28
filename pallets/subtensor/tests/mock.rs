@@ -566,7 +566,7 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
 }
 
-/// Helper function to mock now missing increase_stake_on_coldkey_hotkey_account with 
+/// Helper function to mock now missing increase_stake_on_coldkey_hotkey_account with
 /// minimal changes
 #[allow(dead_code)]
 pub fn increase_stake_on_coldkey_hotkey_account(
@@ -578,7 +578,7 @@ pub fn increase_stake_on_coldkey_hotkey_account(
     SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked);
 }
 
-/// Helper function to mock now missing get_total_stake_for_hotkey with 
+/// Helper function to mock now missing get_total_stake_for_hotkey with
 /// minimal changes
 #[allow(dead_code)]
 pub fn get_total_stake_for_hotkey(hotkey: U256) -> u64 {
@@ -626,9 +626,10 @@ pub fn setup_dynamic_network(prm: &DynamicSubnetSetupParameters) {
     pallet_subtensor::SubnetOwner::<Test>::insert(prm.netuid, prm.owner.0);
     pallet_subtensor::SubnetOwnerHotkey::<Test>::insert(prm.netuid, prm.owner.1);
 
-
     // Register neurons
-    let uids: Vec<u16> = prm.coldkeys.iter()
+    let uids: Vec<u16> = prm
+        .coldkeys
+        .iter()
         .zip(prm.hotkeys.iter())
         .enumerate()
         .map(|(i, (&coldkey, &hotkey))| {
@@ -638,20 +639,21 @@ pub fn setup_dynamic_network(prm: &DynamicSubnetSetupParameters) {
         .collect();
 
     // Add balance to coldkeys
-    prm.coldkeys.iter()
+    prm.coldkeys
+        .iter()
         .zip(prm.stakes.iter())
         .for_each(|(&coldkey, stake)| {
-        SubtensorModule::add_balance_to_coldkey_account(
-            &coldkey,
-            stake + ExistentialDeposit::get(),
-        );
-    });
+            SubtensorModule::add_balance_to_coldkey_account(
+                &coldkey,
+                stake + ExistentialDeposit::get(),
+            );
+        });
 
     // Setup parameters
     SubtensorModule::set_hotkey_emission_tempo(prm.hotkey_tempo);
     SubtensorModule::set_weights_set_rate_limit(prm.netuid, 0);
     step_block(prm.subnet_tempo);
-    pallet_subtensor::SubnetOwnerCut::<Test>::set(u16::MAX/5);
+    pallet_subtensor::SubnetOwnerCut::<Test>::set(u16::MAX / 5);
     // All stake is active
     pallet_subtensor::ActivityCutoff::<Test>::set(prm.netuid, u16::MAX);
     // Validator limit
@@ -659,7 +661,8 @@ pub fn setup_dynamic_network(prm: &DynamicSubnetSetupParameters) {
     SubtensorModule::set_max_allowed_validators(prm.netuid, prm.validators);
 
     // Setup stakes
-    prm.coldkeys.iter()
+    prm.coldkeys
+        .iter()
         .zip(prm.hotkeys.iter())
         .zip(prm.stakes.iter())
         .for_each(|((&coldkey, &hotkey), &stake)| {
@@ -689,3 +692,53 @@ pub fn setup_dynamic_network(prm: &DynamicSubnetSetupParameters) {
     pallet_subtensor::LastUpdate::<Test>::set(prm.netuid, last_update_vec);
     pallet_subtensor::Kappa::<Test>::set(prm.netuid, u16::MAX / 5);
 }
+
+// #[allow(dead_code)]
+// pub fn measure_hotkey_validation_emission(netuid: u16, coldkey: U256, hotkey: U256, hotkey_tempo: u64) -> u64 {
+//     // measure hotkey's alpha
+//     let start_alpha = pallet_subtensor::Alpha::<Test>::get((hotkey, coldkey, netuid));
+
+//     // wait for hotkey end of epoch that comes together with subnet end of epoch
+//     // for that to happen, subnet and hotkey tempos must be small prime numbers
+//     let mut subnet_epoch = false;
+//     let mut hotkey_epoch = false;
+//     let mut i=0;
+//     while !(subnet_epoch && hotkey_epoch) {
+//         step_block(1);
+//         let block = SubtensorModule::get_current_block_as_u64();
+//         subnet_epoch = SubtensorModule::should_run_epoch(netuid, block);
+//         // subnet_epoch = pallet_subtensor::PendingEmission::<Test>::get(netuid) == 0;
+//         hotkey_epoch = SubtensorModule::should_drain_hotkey(&hotkey, block, hotkey_tempo);
+//         println!("block = {:?}", block);
+//         println!("Subnet pending emission: {:?}", pallet_subtensor::PendingEmission::<Test>::get(netuid));
+
+//         i += 1;
+//         if i > 100 {
+//             break;
+//         }
+//     }
+//     step_block(1);
+
+//     println!("Subnet pending emission: {:?}", pallet_subtensor::PendingEmission::<Test>::get(netuid));
+//     println!("Hotkey pending emission: {:?}", pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(hotkey, netuid));
+
+//     // // This is the first block when emission is accumulating
+//     // let start_block = SubtensorModule::get_current_block_as_u64();
+
+//     // // wait for the pending hotkey emission to be NOT 0
+//     // while pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(hotkey, netuid) == 0 {
+//     //     step_block(1);
+//     // }
+//     // let end_block = SubtensorModule::get_current_block_as_u64();
+
+//     // // wait for the pending hotkey emission to be 0 again (drain)
+//     // while pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(hotkey, netuid) > 0 {
+//     //     step_block(1);
+//     // }
+
+//     // // measure hotkey's alpha
+//     // let end_alpha = pallet_subtensor::Alpha::<Test>::get((hotkey, coldkey, netuid));
+
+//     // (end_alpha - start_alpha) / (end_block - start_block)
+//     0
+// }

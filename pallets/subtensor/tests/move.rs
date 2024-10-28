@@ -1,6 +1,6 @@
 mod mock;
 use frame_support::assert_noop;
-use frame_support::assert_ok;
+use frame_support::{assert_err, assert_ok};
 use mock::*;
 use pallet_subtensor::*;
 use sp_core::U256;
@@ -22,6 +22,7 @@ fn test_do_move_success() {
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
         SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount);
+        let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, netuid));
 
         // Perform the move
         assert_ok!(SubtensorModule::do_move_stake(
@@ -29,7 +30,8 @@ fn test_do_move_success() {
             origin_hotkey,
             destination_hotkey,
             netuid,
-            netuid
+            netuid,
+            alpha,
         ));
 
         // Check that the stake has been moved
@@ -71,6 +73,7 @@ fn test_do_move_different_subnets() {
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
         SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, origin_netuid, stake_amount);
+        let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, origin_netuid));
 
         // Perform the move
         assert_ok!(SubtensorModule::do_move_stake(
@@ -78,7 +81,8 @@ fn test_do_move_different_subnets() {
             origin_hotkey,
             destination_hotkey,
             origin_netuid,
-            destination_netuid
+            destination_netuid,
+            alpha,
         ));
 
         // Check that the stake has been moved
@@ -128,15 +132,17 @@ fn test_do_move_locked_funds() {
             100,
             lock_amount
         ));
+        let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, origin_netuid));
 
         // Attempt to move locked funds
-        assert_noop!(
+        assert_err!(
             SubtensorModule::do_move_stake(
                 RuntimeOrigin::signed(coldkey),
                 origin_hotkey,
                 destination_hotkey,
                 origin_netuid,
-                destination_netuid
+                destination_netuid,
+                alpha,
             ),
             Error::<Test>::NotEnoughStakeToWithdraw
         );
@@ -176,6 +182,7 @@ fn test_do_move_nonexistent_subnet() {
 
         // Set up initial stake
         SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, origin_netuid, stake_amount);
+        let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, origin_netuid));
 
         // Attempt to move stake to a non-existent subnet
         assert_noop!(
@@ -184,7 +191,8 @@ fn test_do_move_nonexistent_subnet() {
                 origin_hotkey,
                 destination_hotkey,
                 origin_netuid,
-                nonexistent_netuid
+                nonexistent_netuid,
+                alpha,
             ),
             Error::<Test>::SubnetNotExists
         );
@@ -220,7 +228,8 @@ fn test_do_move_nonexistent_origin_hotkey() {
                 nonexistent_origin_hotkey,
                 destination_hotkey,
                 netuid,
-                netuid
+                netuid,
+                123
             ),
             Error::<Test>::HotKeyAccountNotExists
         );
@@ -268,7 +277,8 @@ fn test_do_move_nonexistent_destination_hotkey() {
                 origin_hotkey,
                 nonexistent_destination_hotkey,
                 netuid,
-                netuid
+                netuid,
+                123
             ),
             Error::<Test>::HotKeyAccountNotExists
         );
@@ -313,7 +323,8 @@ fn test_do_move_zero_stake() {
             origin_hotkey,
             destination_hotkey,
             netuid,
-            netuid
+            netuid,
+            0,
         ));
 
         // Check that no stake was moved
@@ -350,6 +361,7 @@ fn test_do_move_all_stake() {
 
         // Set up initial stake
         SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount);
+        let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, netuid));
 
         // Move all stake
         add_network(netuid, 0, 0);
@@ -360,7 +372,8 @@ fn test_do_move_all_stake() {
             origin_hotkey,
             destination_hotkey,
             netuid,
-            netuid
+            netuid,
+            alpha,
         ));
 
         // Check that all stake was moved
@@ -383,6 +396,52 @@ fn test_do_move_all_stake() {
     });
 }
 
+#[test]
+fn test_do_move_half_stake() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let origin_hotkey = U256::from(2);
+        let destination_hotkey = U256::from(3);
+        let netuid = 1;
+        let stake_amount = 1000;
+
+        // Set up initial stake
+        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount);
+        let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, netuid));
+
+        // Move all stake
+        add_network(netuid, 0, 0);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
+        assert_ok!(SubtensorModule::do_move_stake(
+            RuntimeOrigin::signed(coldkey),
+            origin_hotkey,
+            destination_hotkey,
+            netuid,
+            netuid,
+            alpha / 2,
+        ));
+
+        // Check that all stake was moved
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &origin_hotkey,
+                &coldkey,
+                netuid
+            ),
+            stake_amount / 2
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &destination_hotkey,
+                &coldkey,
+                netuid
+            ),
+            stake_amount / 2
+        );
+    });
+}
+
 // 9. test_do_move_partial_stake
 // Description: Test moving a portion of stake from one hotkey to another
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test move -- test_do_move_partial_stake --exact --nocapture
@@ -397,6 +456,7 @@ fn test_do_move_partial_stake() {
 
         // Set up initial stake
         SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, total_stake);
+        let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, netuid));
 
         // Move partial stake
         add_network(netuid, 0, 0);
@@ -407,7 +467,8 @@ fn test_do_move_partial_stake() {
             origin_hotkey,
             destination_hotkey,
             netuid,
-            netuid
+            netuid,
+            alpha,
         ));
 
         // Check that the correct amount of stake was moved
@@ -447,22 +508,26 @@ fn test_do_move_multiple_times() {
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey1);
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey2);
         SubtensorModule::stake_into_subnet(&hotkey1, &coldkey, netuid, initial_stake);
+        let alpha = Alpha::<Test>::get((hotkey1, coldkey, netuid));
 
         // Move stake multiple times
+        TargetStakesPerInterval::<Test>::set(1000);
         for _ in 0..3 {
             assert_ok!(SubtensorModule::do_move_stake(
                 RuntimeOrigin::signed(coldkey),
                 hotkey1,
                 hotkey2,
                 netuid,
-                netuid
+                netuid,
+                alpha,
             ));
             assert_ok!(SubtensorModule::do_move_stake(
                 RuntimeOrigin::signed(coldkey),
                 hotkey2,
                 hotkey1,
                 netuid,
-                netuid
+                netuid,
+                alpha,
             ));
         }
 
@@ -496,6 +561,7 @@ fn test_do_move_with_locks() {
         SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount);
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
+        let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, netuid));
 
         assert_ok!(SubtensorModule::do_lock(
             RuntimeOrigin::signed(coldkey),
@@ -511,7 +577,8 @@ fn test_do_move_with_locks() {
             origin_hotkey,
             destination_hotkey,
             netuid,
-            netuid
+            netuid,
+            alpha,
         ));
 
         // Check that only unlocked stake was moved
@@ -549,18 +616,23 @@ fn test_do_move_wrong_origin() {
 
         // Set up initial stake
         SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount);
+        let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, netuid));
 
         // Attempt to move stake with wrong origin
         add_network(netuid, 0, 0);
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
-        assert_ok!(SubtensorModule::do_move_stake(
-            RuntimeOrigin::signed(wrong_coldkey),
-            origin_hotkey,
-            destination_hotkey,
-            netuid,
-            netuid
-        ));
+        assert_err!(
+            SubtensorModule::do_move_stake(
+                RuntimeOrigin::signed(wrong_coldkey),
+                origin_hotkey,
+                destination_hotkey,
+                netuid,
+                netuid,
+                alpha,
+            ),
+            Error::<Test>::NotEnoughStakeToWithdraw
+        );
 
         // Check that no stake was moved
         assert_eq!(
@@ -597,6 +669,7 @@ fn test_do_move_same_hotkey() {
         add_network(netuid, 0, 0);
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
         SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, stake_amount);
+        let alpha = Alpha::<Test>::get((hotkey, coldkey, netuid));
 
         // Attempt to move stake to the same hotkey
         assert_ok!(SubtensorModule::do_move_stake(
@@ -604,7 +677,8 @@ fn test_do_move_same_hotkey() {
             hotkey,
             hotkey,
             netuid,
-            netuid
+            netuid,
+            alpha,
         ));
 
         // Check that stake remains unchanged
@@ -632,6 +706,7 @@ fn test_do_move_event_emission() {
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
         SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount);
+        let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, netuid));
 
         // Move stake and capture events
         System::reset_events();
@@ -640,7 +715,8 @@ fn test_do_move_event_emission() {
             origin_hotkey,
             destination_hotkey,
             netuid,
-            netuid
+            netuid,
+            alpha,
         ));
 
         // Check for the correct event emission
@@ -671,12 +747,15 @@ fn test_do_move_storage_updates() {
         add_network(destination_netuid, 0, 0);
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
+        let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, origin_netuid));
+
         assert_ok!(SubtensorModule::do_move_stake(
             RuntimeOrigin::signed(coldkey),
             origin_hotkey,
             destination_hotkey,
             origin_netuid,
-            destination_netuid
+            destination_netuid,
+            alpha,
         ));
 
         // Verify storage updates
@@ -732,6 +811,7 @@ fn test_do_move_max_values() {
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
         SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, max_stake);
+        let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, netuid));
 
         // Move maximum stake
         assert_ok!(SubtensorModule::do_move_stake(
@@ -739,7 +819,8 @@ fn test_do_move_max_values() {
             origin_hotkey,
             destination_hotkey,
             netuid,
-            netuid
+            netuid,
+            alpha,
         ));
 
         // Verify stake movement without overflow
@@ -758,6 +839,56 @@ fn test_do_move_max_values() {
                 netuid
             ),
             max_stake
+        );
+    });
+}
+
+#[test]
+fn test_do_move_rate_limit_enforced() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey1 = U256::from(2);
+        let hotkey2 = U256::from(3);
+        let netuid = 1;
+        let initial_stake = 1000;
+
+        // Set up initial stake
+        add_network(netuid, 0, 0);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey1);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey2);
+        SubtensorModule::stake_into_subnet(&hotkey1, &coldkey, netuid, initial_stake);
+        let alpha = Alpha::<Test>::get((hotkey1, coldkey, netuid));
+        TargetStakesPerInterval::<Test>::set(1);
+
+        // Move stake multiple times
+        assert_ok!(SubtensorModule::do_move_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey1,
+            hotkey2,
+            netuid,
+            netuid,
+            alpha,
+        ));
+        assert_err!(
+            SubtensorModule::do_move_stake(
+                RuntimeOrigin::signed(coldkey),
+                hotkey2,
+                hotkey1,
+                netuid,
+                netuid,
+                alpha,
+            ),
+            Error::<Test>::StakeRateLimitExceeded,
+        );
+
+        // Check final stake distribution
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &coldkey, netuid),
+            0,
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, netuid),
+            initial_stake,
         );
     });
 }

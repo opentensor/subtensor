@@ -61,7 +61,9 @@ pub fn migrate_rao<T: Config>() -> Weight {
     // Convert subnets and give them lock.
     let current_block = Pallet::<T>::get_current_block_as_u64();
     for netuid in netuids.iter().clone() {
-        if *netuid == 0 { continue; }
+        if *netuid == 0 {
+            continue;
+        }
         let owner: T::AccountId = SubnetOwner::<T>::get(netuid);
         let current_lock: u64 = SubnetLocked::<T>::get(netuid); // Get the current locked.
         // Return lock to the original owner less 1 RAO
