@@ -59,7 +59,6 @@ pub fn migrate_rao<T: Config>() -> Weight {
     });
 
     // Convert subnets and give them lock.
-    let current_block = Pallet::<T>::get_current_block_as_u64();
     for netuid in netuids.iter().clone() {
         if *netuid == 0 {
             continue;
@@ -91,15 +90,6 @@ pub fn migrate_rao<T: Config>() -> Weight {
         SubnetMechanism::<T>::insert(netuid, 1); // Convert to dynamic immediately with initialization.
         SubnetLocked::<T>::insert(netuid, lock);
         LargestLocked::<T>::insert(netuid, lock);
-        Locks::<T>::insert(
-            // Lock the initial funds making this key the owner.
-            (netuid, owner.clone(), owner.clone()), // Sets owner as initial lock.
-            (
-                lock,
-                current_block,
-                current_block.saturating_add(<LockIntervalBlocks<T>>::get()),
-            ), // Starts initial lock at 2 months.
-        );
         // Update all tempos to default
         Tempo::<T>::insert(netuid, DefaultTempo::<T>::get());
         // Set global weight to 1.0 for the start
