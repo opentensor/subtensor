@@ -3584,7 +3584,7 @@ fn test_batch_reveal_with_out_of_order_commits() {
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
 
-        // 1. Commit multiple times
+        // 1. Commit multiple times (A, B, C)
         let mut commit_info = Vec::new();
         for i in 0..3 {
             let salt: Vec<u16> = vec![i as u16; 8];
@@ -3606,25 +3606,25 @@ fn test_batch_reveal_with_out_of_order_commits() {
 
         step_epochs(1, netuid);
 
-        // 2. Prepare batch reveal parameters out of order
+        // 2. Prepare batch reveal parameters for commits A and C (out of order)
         let salts_list: Vec<Vec<u16>> = vec![
-            commit_info[2].1.clone(), // Third commit
-            commit_info[0].1.clone(), // First commit
-            commit_info[1].1.clone(), // Second commit
+            commit_info[2].1.clone(), // Third commit (C)
+            commit_info[0].1.clone(), // First commit (A)
         ];
         let uids_list_out_of_order = vec![
-            uids_list[2].clone(),
-            uids_list[0].clone(),
-            uids_list[1].clone(),
+            uids_list[2].clone(), // C
+            uids_list[0].clone(), // A
         ];
         let weight_values_list_out_of_order = vec![
-            weight_values_list[2].clone(),
-            weight_values_list[0].clone(),
-            weight_values_list[1].clone(),
+            weight_values_list[2].clone(), // C
+            weight_values_list[0].clone(), // A
         ];
-        let version_keys_out_of_order = vec![version_keys[2], version_keys[0], version_keys[1]];
+        let version_keys_out_of_order = vec![
+            version_keys[2], // C
+            version_keys[0], // A
+        ];
 
-        // 3. Attempt batch reveal out of order
+        // 3. Attempt batch reveal of A and C out of order
         let result = SubtensorModule::do_batch_reveal_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
@@ -3634,44 +3634,25 @@ fn test_batch_reveal_with_out_of_order_commits() {
             version_keys_out_of_order,
         );
 
-        // 4. Ensure the batch reveal fails with InvalidRevealCommitHashNotMatch
-        assert_err!(result, Error::<Test>::InvalidRevealCommitHashNotMatch);
+        // 4. Ensure the batch reveal succeeds
+        assert_ok!(result);
 
-        // 5. Reveal the first commit to proceed correctly
-        let first_salt = commit_info[0].1.clone();
-        let first_uids = uids_list[0].clone();
-        let first_weights = weight_values_list[0].clone();
-        let first_version_key = version_keys[0];
-
-        assert_ok!(SubtensorModule::do_batch_reveal_weights(
-            RuntimeOrigin::signed(hotkey),
-            netuid,
-            vec![first_uids],
-            vec![first_weights],
-            vec![first_salt],
-            vec![first_version_key],
-        ));
-
-        // 6. Now attempt to reveal the remaining commits in order
-        let remaining_salts = vec![
-            commit_info[1].1.clone(), // Second commit
-            commit_info[2].1.clone(), // Third commit
-        ];
-        let remaining_uids_list = vec![uids_list[1].clone(), uids_list[2].clone()];
-        let remaining_weight_values_list =
-            vec![weight_values_list[1].clone(), weight_values_list[2].clone()];
-        let remaining_version_keys = vec![version_keys[1], version_keys[2]];
+        // 5. Prepare and reveal the remaining commit (B)
+        let remaining_salt = commit_info[1].1.clone();
+        let remaining_uids = uids_list[1].clone();
+        let remaining_weights = weight_values_list[1].clone();
+        let remaining_version_key = version_keys[1];
 
         assert_ok!(SubtensorModule::do_batch_reveal_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
-            remaining_uids_list,
-            remaining_weight_values_list,
-            remaining_salts,
-            remaining_version_keys,
+            vec![remaining_uids],
+            vec![remaining_weights],
+            vec![remaining_salt],
+            vec![remaining_version_key],
         ));
 
-        // 7. Ensure all commits are removed
+        // 6. Ensure all commits are removed
         let commits = pallet_subtensor::WeightCommits::<Test>::get(netuid, hotkey);
         assert!(commits.is_none());
     });
