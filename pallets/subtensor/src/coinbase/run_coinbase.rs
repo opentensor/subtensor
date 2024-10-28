@@ -189,7 +189,7 @@ impl<T: Config> Pallet<T> {
             // Use subnet owner coldkey as hotkey
             Self::deposit_event(Event::OwnerPaymentDistributed(
                 netuid,
-                owner_hotkey.clone(),
+                owner_coldkey.clone(),
                 owner_cut,
             ));
 		}
