@@ -495,9 +495,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_commit_reveal_weights_interval(netuid: u16) -> u64 {
         WeightCommitRevealInterval::<T>::get(netuid)
     }
-    pub fn set_commit_reveal_weights_interval(netuid: u16, interval: u64) {
-        WeightCommitRevealInterval::<T>::set(netuid, interval);
-    }
+
     pub fn get_commit_reveal_weights_enabled(netuid: u16) -> bool {
         CommitRevealWeightsEnabled::<T>::get(netuid)
     }
