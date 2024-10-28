@@ -192,6 +192,7 @@ impl<T: Config> Pallet<T> {
                 owner_hotkey.clone(),
                 owner_cut,
             ));
+		}
     }
 
     /// Accumulates and distributes mining and validator emissions for a hotkey.
