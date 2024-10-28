@@ -239,21 +239,6 @@ impl<T: Config> Pallet<T> {
         }
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
 
-        // 8. Swap locks associated with the coldkey
-        // Locks: MAP ( netuid, hotkey, coldkey ) --> ( lock_amount, start_block, end_block ) | Lock on the hotkey for the coldkey.
-        for ((iter_netuid, hotkey, coldkey), (lock_amount, start_block, end_block)) in
-            Locks::<T>::iter()
-        {
-            if coldkey == *old_coldkey {
-                Locks::<T>::remove((iter_netuid, hotkey.clone(), old_coldkey.clone()));
-                Locks::<T>::insert(
-                    (iter_netuid, hotkey, new_coldkey.clone()),
-                    (lock_amount, start_block, end_block),
-                );
-                weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
-            }
-        }
-
         // Return ok.
         Ok(())
     }

@@ -56,15 +56,6 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyAccountNotExists
         );
 
-        // -- 5. Ensure we are not moving locked funds across subnets.
-        if origin_netuid != destination_netuid {
-            // You cannot move locked funds across subnets.
-            ensure!(
-                !Locks::<T>::contains_key((origin_netuid, origin_hotkey.clone(), coldkey.clone())),
-                Error::<T>::NotEnoughStakeToWithdraw
-            );
-        }
-
         // --- 6. Get the current alpha stake for the origin hotkey-coldkey pair in the origin subnet
         let origin_alpha = Alpha::<T>::get((origin_hotkey.clone(), coldkey.clone(), origin_netuid));
         ensure!(
@@ -104,40 +95,8 @@ impl<T: Config> Pallet<T> {
             origin_tao,
         );
 
-        // --- 9. Swap the locks if full amount is moved within the subnet or adjust the locks otherwise.
-        let current_block = Self::get_current_block_as_u64();
-        if origin_netuid == destination_netuid
-            && Locks::<T>::contains_key((origin_netuid, &origin_hotkey, &coldkey))
-        {
-            let (amount, start, end) = Locks::<T>::take((origin_netuid, &origin_hotkey, &coldkey));
-            if current_block < end {
-                if alpha_amount == origin_alpha {
-                    Locks::<T>::insert(
-                        (
-                            destination_netuid,
-                            destination_hotkey.clone(),
-                            coldkey.clone(),
-                        ),
-                        (amount, start, end),
-                    );
-                } else {
-                    Locks::<T>::insert(
-                        (origin_netuid, origin_hotkey.clone(), coldkey.clone()),
-                        (origin_alpha - alpha_amount, start, end),
-                    );
-                    Locks::<T>::insert(
-                        (
-                            destination_netuid,
-                            destination_hotkey.clone(),
-                            coldkey.clone(),
-                        ),
-                        (alpha_amount, start, end),
-                    );
-                }
-            }
-        }
-
         // Set last block for rate limiting
+        let current_block = Self::get_current_block_as_u64();
         Self::set_last_tx_block(&coldkey, current_block);
         Self::set_stakes_this_interval_for_coldkey_hotkey(
             &coldkey,

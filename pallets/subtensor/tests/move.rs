@@ -105,68 +105,6 @@ fn test_do_move_different_subnets() {
     });
 }
 
-// 3. test_do_move_locked_funds
-// Description: Attempt to move locked funds across subnets, which should fail
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test move -- test_do_move_locked_funds --exact --nocapture
-#[test]
-fn test_do_move_locked_funds() {
-    new_test_ext(1).execute_with(|| {
-        let coldkey = U256::from(1);
-        let origin_hotkey = U256::from(2);
-        let destination_hotkey = U256::from(3);
-        let origin_netuid = 1;
-        let destination_netuid = 2;
-        let stake_amount = 1000;
-        let lock_amount = 500;
-
-        // Set up initial stake, subnets, and lock
-        add_network(origin_netuid, 0, 0);
-        add_network(destination_netuid, 0, 0);
-        SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
-        SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
-        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, origin_netuid, stake_amount);
-        assert_ok!(SubtensorModule::do_lock(
-            RuntimeOrigin::signed(coldkey),
-            origin_hotkey,
-            origin_netuid,
-            100,
-            lock_amount
-        ));
-        let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, origin_netuid));
-
-        // Attempt to move locked funds
-        assert_err!(
-            SubtensorModule::do_move_stake(
-                RuntimeOrigin::signed(coldkey),
-                origin_hotkey,
-                destination_hotkey,
-                origin_netuid,
-                destination_netuid,
-                alpha,
-            ),
-            Error::<Test>::NotEnoughStakeToWithdraw
-        );
-
-        // Check that the stake and lock remain unchanged
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &origin_hotkey,
-                &coldkey,
-                origin_netuid
-            ),
-            stake_amount
-        );
-        assert_eq!(
-            SubtensorModule::get_locked_for_hotkey_and_coldkey_on_subnet(
-                &origin_hotkey,
-                &coldkey,
-                origin_netuid
-            ),
-            lock_amount
-        );
-    });
-}
-
 // 4. test_do_move_nonexistent_subnet
 // Description: Attempt to move stake to a non-existent subnet, which should fail
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test move -- test_do_move_nonexistent_subnet --exact --nocapture
@@ -543,64 +481,6 @@ fn test_do_move_multiple_times() {
     });
 }
 
-// 11. test_do_move_with_locks
-// Description: Test moving stake when locks are present in the same subnet
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test move -- test_do_move_with_locks --exact --nocapture
-#[test]
-fn test_do_move_with_locks() {
-    new_test_ext(1).execute_with(|| {
-        let coldkey = U256::from(1);
-        let origin_hotkey = U256::from(2);
-        let destination_hotkey = U256::from(3);
-        let netuid = 1;
-        let stake_amount = 1000;
-        let lock_amount = 500;
-
-        // Set up initial stake and lock
-        add_network(netuid, 0, 0);
-        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount);
-        SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
-        SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
-        let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, netuid));
-
-        assert_ok!(SubtensorModule::do_lock(
-            RuntimeOrigin::signed(coldkey),
-            origin_hotkey,
-            netuid,
-            100,
-            lock_amount
-        ));
-
-        // Attempt to move stake
-        assert_ok!(SubtensorModule::do_move_stake(
-            RuntimeOrigin::signed(coldkey),
-            origin_hotkey,
-            destination_hotkey,
-            netuid,
-            netuid,
-            alpha,
-        ));
-
-        // Check that only unlocked stake was moved
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &origin_hotkey,
-                &coldkey,
-                netuid
-            ),
-            0
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &destination_hotkey,
-                &coldkey,
-                netuid
-            ),
-            stake_amount
-        );
-    });
-}
-
 // 13. test_do_move_wrong_origin
 // Description: Attempt to move stake with a different origin than the coldkey, which should fail
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test move -- test_do_move_wrong_origin --exact --nocapture
@@ -774,22 +654,6 @@ fn test_do_move_storage_updates() {
                 destination_netuid
             ),
             stake_amount
-        );
-        assert_eq!(
-            SubtensorModule::get_locked_for_hotkey_and_coldkey_on_subnet(
-                &origin_hotkey,
-                &coldkey,
-                origin_netuid
-            ),
-            0
-        );
-        assert_eq!(
-            SubtensorModule::get_locked_for_hotkey_and_coldkey_on_subnet(
-                &destination_hotkey,
-                &coldkey,
-                destination_netuid
-            ),
-            0
         );
     });
 }

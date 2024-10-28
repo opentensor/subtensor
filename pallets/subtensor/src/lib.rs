@@ -902,19 +902,6 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> largest_locked
     pub type LargestLocked<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- ITEM( last_network_lock_cost )
-    pub type LockIntervalBlocks<T> = StorageValue<_, u64, ValueQuery, DefaultLockIntervalBlocks<T>>;
-    #[pallet::storage] // --- NMAP ( netuid, cold, hot ) --> (amount, start, end) | Returns the lock associated with a hotkey.
-    pub type Locks<T: Config> = StorageNMap<
-        _,
-        (
-            NMapKey<Identity, u16>,                  // subnet
-            NMapKey<Blake2_128Concat, T::AccountId>, // hot
-            NMapKey<Blake2_128Concat, T::AccountId>, // cold
-        ),
-        (u64, u64, u64), // Amount, Start, End
-        ValueQuery,
-    >;
 
     /// =================
     /// ==== Tempos =====
