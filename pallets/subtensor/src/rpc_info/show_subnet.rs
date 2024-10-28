@@ -157,9 +157,9 @@ impl<T: Config> Pallet<T> {
             consensus,
             trust,
             rank,
-            block_at_registration: block_at_registration,
-            local_stake: local_stake,
-            global_stake: global_stake,
+            block_at_registration,
+            local_stake,
+            global_stake,
             stake_weight,
             emission_history,
         })
