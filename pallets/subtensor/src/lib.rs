@@ -615,7 +615,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Global Weight adjustment interval.
     pub fn GlobalWeightAdjustmentInterval<T: Config>() -> u64 {
-        7200 // 1 day
+        50 // 10 minutes
     }
 
     #[pallet::type_value]
