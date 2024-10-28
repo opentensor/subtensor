@@ -16,19 +16,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 BASE_DIR="$SCRIPT_DIR/.."
 
 # get parameters
-# Get the value of fast_blocks from the first argument
-fast_blocks=${1:-"True"}
+# Get the value of fast_runtime from the first argument
+fast_runtime=${1:-"True"}
 
-# Check the value of fast_blocks
-if [ "$fast_blocks" == "False" ]; then
-  # Block of code to execute if fast_blocks is False
-  echo "fast_blocks is Off"
+# Check the value of fast_runtime
+if [ "$fast_runtime" == "False" ]; then
+  # Block of code to execute if fast_runtime is False
+  echo "fast_runtime is Off"
   : "${CHAIN:=local}"
   : "${BUILD_BINARY:=1}"
   : "${FEATURES:="pow-faucet"}"
 else
-  # Block of code to execute if fast_blocks is not False
-  echo "fast_blocks is On"
+  # Block of code to execute if fast_runtime is not False
+  echo "fast_runtime is On"
   : "${CHAIN:=local}"
   : "${BUILD_BINARY:=1}"
   : "${FEATURES:="pow-faucet fast-blocks"}"
