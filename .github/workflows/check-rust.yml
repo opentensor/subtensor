@@ -212,7 +212,7 @@ jobs:
   cargo-audit:
     name: cargo audit
     runs-on: SubtensorCI
-    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-cargo-audit') }}
+    if: ${{ github.event_name != 'push' && !contains(github.event.pull_request.labels.*.name, 'skip-cargo-audit') }}
     steps:
       - name: Check-out repositoroy under $GITHUB_WORKSPACE
         uses: actions/checkout@v4
