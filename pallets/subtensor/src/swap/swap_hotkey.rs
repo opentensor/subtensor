@@ -214,7 +214,7 @@ impl<T: Config> Pallet<T> {
             PendingdHotkeyEmission::<T>::insert(new_hotkey, old_pending_hotkey_emission);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
         }
-        
+
         // 10. Swap all subnet specific info.
         let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
         for netuid in all_netuids {

@@ -262,7 +262,7 @@ pub mod pallet {
     /// Default stake delta.
     pub fn DefaultStakeDelta<T: Config>() -> i128 {
         0
-    }    
+    }
     #[pallet::type_value]
     /// Default stakes per interval.
     pub fn DefaultStakesPerInterval<T: Config>() -> (u64, u64) {
@@ -806,7 +806,7 @@ pub mod pallet {
         i128,
         ValueQuery,
         DefaultStakeDelta<T>,
-    >;    
+    >;
     #[pallet::storage]
     /// DMAP ( parent, netuid ) --> Vec<(proportion,child)>
     pub type ChildKeys<T: Config> = StorageDoubleMap<
