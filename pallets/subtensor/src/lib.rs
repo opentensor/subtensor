@@ -540,7 +540,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for network immunity period.
     pub fn DefaultHotkeyEmissionTempo<T: Config>() -> u64 {
-        T::InitialHotkeyEmissionTempo::get()
+        60 // T::InitialHotkeyEmissionTempo::get()
     }
     #[pallet::type_value]
     /// Default value for rate limiting
