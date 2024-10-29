@@ -1042,7 +1042,7 @@ fn test_basic_emission_distribution_scenario() {
         );
 
         let mut emission_tuples = Vec::new();
-        SubtensorModule::source_hotkey_emission(
+        let untouchable = SubtensorModule::source_hotkey_emission(
             &hotkey,
             netuid,
             validating_emission,
@@ -1052,16 +1052,25 @@ fn test_basic_emission_distribution_scenario() {
 
         // We are only distributing validating emission among hotkeys, but mining emission stays with the miner
         assert_eq!(emission_tuples.len(), 3);
-        let total_distributed: u64 = emission_tuples.iter().map(|(_, _, amount)| amount).sum();
-        assert_eq!(total_distributed, validating_emission);
+        let total_distributed: u64 = emission_tuples
+            .iter()
+            .map(|(_, _, amount)| amount)
+            .sum::<u64>();
 
-        // Check hotkey take and mining emission
+        // untouchable is mining emission (500) + childkey take (25%)
+        assert_eq!(
+            total_distributed + untouchable,
+            validating_emission + mining_emission
+        );
+
+        // Hotkey child take and mining emission are in untouchable
         let hotkey_emission = emission_tuples
             .iter()
             .find(|(h, _, _)| h == &hotkey)
             .map(|(_, _, amount)| amount)
             .unwrap();
-        assert!(hotkey_emission > &0);
+        assert!(hotkey_emission == &0);
+        assert!(untouchable > 0);
 
         // Check parent distributions
         let parent1_emission = emission_tuples
@@ -1104,7 +1113,7 @@ fn test_hotkey_take_calculation_scenario() {
             ParentKeys::<Test>::insert(hotkey, netuid, vec![(u64::MAX, parent)]);
 
             let mut emission_tuples = Vec::new();
-            SubtensorModule::source_hotkey_emission(
+            let untouchable = SubtensorModule::source_hotkey_emission(
                 &hotkey,
                 netuid,
                 validating_emission,
@@ -1122,7 +1131,10 @@ fn test_hotkey_take_calculation_scenario() {
             let max_delegation_fixed = I96F32::from_num(65535u16);
             let expected_take =
                 (emission_fixed * delegation_fixed / max_delegation_fixed).to_num::<u64>();
-            assert!(hotkey_emission >= expected_take && hotkey_emission <= (expected_take + 1));
+            assert!(
+                hotkey_emission + untouchable >= expected_take
+                    && hotkey_emission <= (expected_take + 1)
+            );
         }
     });
 }
