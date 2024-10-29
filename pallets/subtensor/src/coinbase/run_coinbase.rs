@@ -139,7 +139,8 @@ impl<T: Config> Pallet<T> {
                 let remaining_emission: u64 = subnet_emission.saturating_sub(owner_cut);
 
                 // --- 6.5 Pass emission through epoch() --> hotkey emission.
-                let hotkey_emission: Vec<(T::AccountId, u64, u64)> = Self::epoch_mock(netuid, remaining_emission);
+                let hotkey_emission: Vec<(T::AccountId, u64, u64)> =
+                    Self::epoch_mock(netuid, remaining_emission);
 
                 // --- 6.6 Accumulate the tuples on hotkeys:
                 for (hotkey, mining_emission, validator_emission) in hotkey_emission {
@@ -181,13 +182,20 @@ impl<T: Config> Pallet<T> {
     pub fn distribute_owner_cut(netuid: u16, owner_cut: u64) {
         // Check if the subnet has an owner and the owner has the hotkey
         if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
+            let owner_hotkey = if let Ok(hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
+                hotkey
+            } else {
+                owner_coldkey.clone()
+            };
+            // Add subnet owner cut to owner's stake
+            Self::emit_into_subnet(&owner_hotkey, &owner_coldkey, netuid, owner_cut);
             // Use subnet owner coldkey as hotkey
             Self::deposit_event(Event::OwnerPaymentDistributed(
                 netuid,
-                owner_coldkey.clone(),
+                owner_hotkey.clone(),
                 owner_cut,
             ));
-		}
+        }
     }
 
     /// Accumulates and distributes mining and validator emissions for a hotkey.
