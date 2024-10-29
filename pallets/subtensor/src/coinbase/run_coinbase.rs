@@ -189,7 +189,7 @@ impl<T: Config> Pallet<T> {
             };
             // Add subnet owner cut to owner's stake
             Self::emit_into_subnet(&owner_hotkey, &owner_coldkey, netuid, owner_cut);
-            // Use subnet owner coldkey as hotkey
+            // Emit event
             Self::deposit_event(Event::OwnerPaymentDistributed(
                 netuid,
                 owner_hotkey.clone(),
