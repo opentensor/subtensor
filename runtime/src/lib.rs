@@ -323,9 +323,7 @@ impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
         !matches!(
             call,
             RuntimeCall::Balances(_)
-                | RuntimeCall::SubtensorModule(
-                    pallet_subtensor::Call::swap_coldkey { .. }
-                )
+                | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_coldkey { .. })
         )
     }
 }
@@ -1066,7 +1064,7 @@ parameter_types! {
     pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
     pub const SubtensorInitialTxRateLimit: u64 = 0; // disable rate limiting.
     pub const SubtensorInitialTxDelegateTakeRateLimit: u64 = 216000; // 30 days at 12 seconds per block
-	pub const SubtensorInitialTxChildKeyTakeRateLimit: u64 = INITIAL_CHILDKEY_TAKE_RATELIMIT;
+    pub const SubtensorInitialTxChildKeyTakeRateLimit: u64 = INITIAL_CHILDKEY_TAKE_RATELIMIT;
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
     pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
     pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;

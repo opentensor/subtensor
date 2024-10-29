@@ -65,7 +65,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
         }
         let owner: T::AccountId = SubnetOwner::<T>::get(netuid);
         let current_lock: u64 = SubnetLocked::<T>::get(netuid); // Get the current locked.
-        // Return lock to the original owner less 1 RAO
+                                                                // Return lock to the original owner less 1 RAO
         let tao = 1_u64;
         let lock_to_return: u64 = current_lock.saturating_sub(tao);
         let lock: u64 = current_lock.saturating_sub(lock_to_return);
@@ -95,7 +95,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
         // Set global weight to 1.0 for the start
         GlobalWeight::<T>::insert(netuid, u64::MAX);
 
-		HotkeyEmissionTempo::<T>::put(30); // same as subnet tempo
+        HotkeyEmissionTempo::<T>::put(30); // same as subnet tempo
     }
 
     // Mark the migration as completed
