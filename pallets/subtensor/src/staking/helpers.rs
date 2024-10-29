@@ -58,7 +58,9 @@ impl<T: Config> Pallet<T> {
 
         // If the current block number is beyond the reset point,
         // it indicates the end of the staking interval for the hotkey.
-        if block_to_reset_after <= current_block {
+        // Also reset if the current block is less than the last staked block, which can happen
+        // on chain clones when block number is rolled back.
+        if block_to_reset_after <= current_block || current_block <= block_last_staked_at {
             // Reset the stakes for this hotkey for the current interval.
             Self::set_stakes_this_interval_for_coldkey_hotkey(
                 coldkey,

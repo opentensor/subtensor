@@ -53,6 +53,12 @@ impl<T: Config> Pallet<T> {
         let limit: u64 = Self::get_rate_limit(tx_type);
         let last_block: u64 = Self::get_last_transaction_block(hotkey, netuid, tx_type);
 
+        // Check for future block numbers.
+        // This can happen on chain clones when the block number is rolled back.
+        if last_block > block {
+            return true; // Allow the transaction if the last block is in the future.
+        }
+
         // Allow the first transaction (when last_block is 0) or if the rate limit has passed
         last_block == 0 || block.saturating_sub(last_block) >= limit
     }
@@ -63,6 +69,13 @@ impl<T: Config> Pallet<T> {
         let block: u64 = Self::get_current_block_as_u64();
         let limit: u64 = Self::get_rate_limit(tx_type);
         let last_block: u64 = Self::get_last_transaction_block(hotkey, netuid, tx_type);
+
+        // Check for future block numbers.
+        // This can happen on chain clones when the block number is rolled back.
+        if last_block > block {
+            return true; // Allow the transaction if the last block is in the future.
+        }
+
         block.saturating_sub(last_block) >= limit
     }
 
@@ -108,7 +121,13 @@ impl<T: Config> Pallet<T> {
     }
     pub fn exceeds_tx_rate_limit(prev_tx_block: u64, current_block: u64) -> bool {
         let rate_limit: u64 = Self::get_tx_rate_limit();
-        if rate_limit == 0 || prev_tx_block == 0 {
+        if rate_limit == 0 || prev_tx_block == 0 || prev_tx_block > current_block {
+            return false;
+        }
+
+        // Check for future block numbers.
+        // This can happen on chain clones when the block number is rolled back.
+        if prev_tx_block > current_block {
             return false;
         }
 
@@ -117,6 +136,12 @@ impl<T: Config> Pallet<T> {
     pub fn exceeds_tx_delegate_take_rate_limit(prev_tx_block: u64, current_block: u64) -> bool {
         let rate_limit: u64 = Self::get_tx_delegate_take_rate_limit();
         if rate_limit == 0 || prev_tx_block == 0 {
+            return false;
+        }
+
+        // Check for future block numbers.
+        // This can happen on chain clones when the block number is rolled back.
+        if prev_tx_block > current_block {
             return false;
         }
 
