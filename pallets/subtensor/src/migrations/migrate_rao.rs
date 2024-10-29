@@ -96,6 +96,8 @@ pub fn migrate_rao<T: Config>() -> Weight {
         GlobalWeight::<T>::insert(netuid, u64::MAX);
 
         HotkeyEmissionTempo::<T>::put(30); // same as subnet tempo
+		// Set the target stakes per interval to 10.
+		TargetStakesPerInterval::<T>::put(10);
     }
 
     // Mark the migration as completed
