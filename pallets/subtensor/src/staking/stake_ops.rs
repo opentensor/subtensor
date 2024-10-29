@@ -395,8 +395,8 @@ impl<T: Config> Pallet<T> {
 
         // Step 15: Decrease total stake across all subnets
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(tao_unstaked_u64));
-        // Step 16: Update StakingHotkeys if the hotkey's total alpha is zero
-        if Alpha::<T>::get((hotkey, coldkey, netuid)) == 0 {
+        // Step 16: Update StakingHotkeys if the hotkey's total alpha, across all subnets, is zero
+        if Self::get_global_for_hotkey_and_coldkey(hotkey, coldkey) == 0 {
             StakingHotkeys::<T>::mutate(coldkey, |hotkeys| {
                 hotkeys.retain(|k| k != hotkey);
             });
