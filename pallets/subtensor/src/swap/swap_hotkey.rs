@@ -206,7 +206,16 @@ impl<T: Config> Pallet<T> {
             Delegates::<T>::insert(new_hotkey, old_delegate_take);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
         }
-        // 9. Swap all subnet specific info.
+
+        // 9. swap PendingdHotkeyEmission
+        if PendingdHotkeyEmission::<T>::contains_key(old_hotkey) {
+            let old_pending_hotkey_emission = PendingdHotkeyEmission::<T>::get(old_hotkey);
+            PendingdHotkeyEmission::<T>::remove(old_hotkey);
+            PendingdHotkeyEmission::<T>::insert(new_hotkey, old_pending_hotkey_emission);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+        }
+        
+        // 10. Swap all subnet specific info.
         let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
         for netuid in all_netuids {
             // 9.1 Remove the previous hotkey and insert the new hotkey from membership.
@@ -226,7 +235,7 @@ impl<T: Config> Pallet<T> {
                     Uids::<T>::insert(netuid, new_hotkey, old_uid);
                     weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
-                    // 9.2.2 Swap the keys.
+                    // 10.2.2 Swap the keys.
                     Keys::<T>::insert(netuid, old_uid, new_hotkey.clone());
                     weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
                 }
@@ -277,7 +286,7 @@ impl<T: Config> Pallet<T> {
                 }
             }
 
-            // 9.7. Swap neuron TLS certificates.
+            // 10.7. Swap neuron TLS certificates.
             // NeuronCertificates( netuid, hotkey ) -> Vec<u8> -- the neuron certificate for the hotkey.
             if is_network_member {
                 if let Ok(old_neuron_certificates) =
@@ -353,6 +362,19 @@ impl<T: Config> Pallet<T> {
                 // Update the parent's children list
                 ChildKeys::<T>::insert(parent_key_i, netuid, parent_children);
             }
+        }
+
+        // 14. Swap Stake Delta for all coldkeys.
+        for (coldkey, stake_delta) in StakeDeltaSinceLastEmissionDrain::<T>::iter_prefix(old_hotkey)
+        {
+            let new_stake_delta = StakeDeltaSinceLastEmissionDrain::<T>::get(new_hotkey, &coldkey);
+            StakeDeltaSinceLastEmissionDrain::<T>::insert(
+                new_hotkey,
+                &coldkey,
+                new_stake_delta.saturating_add(stake_delta),
+            );
+            StakeDeltaSinceLastEmissionDrain::<T>::remove(old_hotkey, &coldkey);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
         }
 
         // Return successful after swapping all the relevant terms.

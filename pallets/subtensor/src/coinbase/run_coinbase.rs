@@ -382,4 +382,18 @@ impl<T: Config> Pallet<T> {
         let remainder = block_plus_netuid.rem_euclid(tempo_plus_one);
         (tempo as u64).saturating_sub(remainder)
     }
+
+    /// Calculates the nonviable stake for a nominator.
+    /// The nonviable stake is the stake that was added by the nominator since the last emission drain.
+    /// This stake will not receive emission until the next emission drain.
+    /// Note: if the stake delta is below zero, we return zero. We don't allow more stake than the nominator has.
+    pub fn get_nonviable_stake(hotkey: &T::AccountId, nominator: &T::AccountId) -> u64 {
+        let stake_delta = StakeDeltaSinceLastEmissionDrain::<T>::get(hotkey, nominator);
+        if stake_delta.is_negative() {
+            0
+        } else {
+            // Should never fail the into, but we handle it anyway.
+            stake_delta.try_into().unwrap_or(u64::MAX)
+        }
+    }
 }
