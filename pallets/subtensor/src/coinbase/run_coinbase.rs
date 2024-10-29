@@ -333,7 +333,8 @@ impl<T: Config> Pallet<T> {
         // Calculate the final emission for the hotkey itself
         let final_hotkey_emission = validating_emission
             .to_num::<u64>()
-            .saturating_sub(to_parents);
+            .saturating_sub(to_parents)
+            .saturating_sub(total_childkey_take);
 
         // Add the hotkey's own emission to the distribution list
         hotkey_emission_tuples.push((hotkey.clone(), netuid, final_hotkey_emission));
