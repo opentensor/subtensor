@@ -416,17 +416,6 @@ reveal_weights {
 
   }: reveal_weights(RawOrigin::Signed(hotkey.clone()), netuid, uids, weight_values, salt, version_key)
 
-  benchmark_sudo_set_lock_interval_blocks {
-      let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
-      let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Root);
-      let new_interval: u64 = 100;
-
-      // Ensure the initial lock interval is different from the new one
-      let initial_interval = Subtensor::<T>::get_lock_interval_blocks();
-      assert_ne!(initial_interval, new_interval, "Initial interval should be different from the new one");
-
-  }: sudo_set_lock_interval_blocks(RawOrigin::Root, new_interval)
-
   schedule_swap_coldkey {
     let old_coldkey: T::AccountId = account("old_cold", 0, 1);
     let new_coldkey: T::AccountId = account("new_cold", 1, 2);

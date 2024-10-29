@@ -41,9 +41,6 @@ impl<T: Config> Pallet<T> {
                         *netuid_i,
                     ));
                     let drain: u64 = LastHotkeyEmissionDrain::<T>::get(hotkey_i.clone());
-                    let conviction: u64 = Self::get_conviction_for_hotkey_and_coldkey_on_subnet(
-                        hotkey_i, coldkey_i, *netuid_i,
-                    );
                     let is_registered: bool =
                         Self::is_hotkey_registered_on_network(*netuid_i, &hotkey_i);
                     stake_info_for_coldkey.push(StakeInfo {
@@ -51,7 +48,7 @@ impl<T: Config> Pallet<T> {
                         coldkey: coldkey_i.clone(),
                         netuid: (*netuid_i).into(),
                         stake: alpha.into(),
-                        locked: conviction.into(),
+                        locked: 0.into(),
                         emission: emission.into(),
                         drain: drain.into(),
                         is_registered,

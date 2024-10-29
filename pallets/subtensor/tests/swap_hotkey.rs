@@ -1099,45 +1099,6 @@ fn test_swap_complex_parent_child_structure() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_hotkey_locks --exact --nocapture
-#[test]
-fn test_swap_hotkey_locks() {
-    new_test_ext(1).execute_with(|| {
-        let old_hotkey = U256::from(1);
-        let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
-        let netuid = 1;
-        let mut weight = Weight::zero();
-
-        // Set up initial locks
-        let lock_amount = 1000;
-        let start_block = 100;
-        let end_block = 200;
-        Locks::<Test>::insert(
-            (netuid, old_hotkey, coldkey),
-            (lock_amount, start_block, end_block),
-        );
-
-        // Perform the swap
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
-            &old_hotkey,
-            &new_hotkey,
-            &coldkey,
-            &mut weight
-        ));
-
-        // Verify that the lock has been transferred to the new hotkey
-        assert!(Locks::<Test>::contains_key((netuid, new_hotkey, coldkey)));
-        assert_eq!(
-            Locks::<Test>::get((netuid, new_hotkey, coldkey)),
-            (lock_amount, start_block, end_block)
-        );
-
-        // Verify that the lock has been removed from the old hotkey
-        assert!(!Locks::<Test>::contains_key((netuid, old_hotkey, coldkey)));
-    });
-}
-
 #[test]
 fn test_swap_parent_hotkey_childkey_maps() {
     new_test_ext(1).execute_with(|| {
