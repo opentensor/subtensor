@@ -259,6 +259,11 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
+    /// Default stake delta.
+    pub fn DefaultStakeDelta<T: Config>() -> i128 {
+        0
+    }    
+    #[pallet::type_value]
     /// Default stakes per interval.
     pub fn DefaultStakesPerInterval<T: Config>() -> (u64, u64) {
         (0, 0)
