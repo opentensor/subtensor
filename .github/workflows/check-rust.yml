@@ -225,7 +225,7 @@ jobs:
       - name: Install Rust ${{ matrix.rust-branch }}
         uses: actions-rs/toolchain@v1.0.6
         with:
-          toolchain: ${{ matrix.rust-branch }}
+          toolchain: stable
           components: rustfmt, clippy
           profile: minimal
 
