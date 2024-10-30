@@ -3595,3 +3595,188 @@ fn test_rank_trust_incentive_calculation_with_parent_child() {
 
     //     });
 }
+
+// 56: Test getting stake for a hotkey on a subnet with global weight set
+// This test verifies the correct calculation of stake for a parent and child neuron, where the global weight is set:
+// - Sets up a network with a parent and child neuron
+// - Stakes tokens to both parent and child from different coldkeys
+// - Establishes a parent-child relationship with 100% stake allocation
+// - Sets the global weight to 1.0
+// - Checks that the parent's stake is correctly transferred to the child
+// - Ensures the total stake is preserved in the system
+// - Sets the global weight to 0.75, and checks again
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --package pallet-subtensor --test children -- test_get_stake_for_hotkey_on_subnet_with_global_weight_set --exact --nocapture
+#[test]
+fn test_get_stake_for_hotkey_on_subnet_with_global_weight_set() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let netuid_2: u16 = 2;
+        let netuid_3: u16 = 3;
+        let parent = U256::from(1);
+        let child = U256::from(2);
+        let coldkey1 = U256::from(3);
+        let coldkey2 = U256::from(4);
+
+        let global_weight_1: u64 = u64::MAX;
+        let global_weight_2: u64 = (u64::MAX as f64 * 0.75) as u64;
+
+        let child_weight: u64 = (u64::MAX as f64 * 0.75) as u64;
+
+        add_network(netuid, 0, 0);
+        add_network(netuid_2, 0, 0); // second network
+        add_network(netuid_3, 0, 0); // third network
+
+        register_ok_neuron(netuid, parent, coldkey1, 0);
+        register_ok_neuron(netuid, child, coldkey2, 0);
+        let parent_uid = 0;
+        let child_uid = 1;
+
+        // Register parent ONLY in the second network
+        register_ok_neuron(netuid_2, parent, coldkey1, 0);
+
+        // Register BOTH parent and child in the third network
+        register_ok_neuron(netuid_3, parent, coldkey1, 0);
+        register_ok_neuron(netuid_3, child, coldkey2, 0);
+
+        // Stake 1000 to parent from coldkey1
+        increase_stake_on_coldkey_hotkey_account(&coldkey1, &parent, 1000, netuid);
+        // Stake 1000 to parent from coldkey2
+        increase_stake_on_coldkey_hotkey_account(&coldkey2, &parent, 1000, netuid);
+        // Stake 1000 to child from coldkey1
+        increase_stake_on_coldkey_hotkey_account(&coldkey1, &child, 1000, netuid);
+        // Stake 1000 to child from coldkey2
+        increase_stake_on_coldkey_hotkey_account(&coldkey2, &child, 1000, netuid);
+
+        // Stake 2000 on netuid 2
+        increase_stake_on_coldkey_hotkey_account(&coldkey1, &parent, 2000, netuid_2);
+
+        // Only parent has stake on netuid 3
+        increase_stake_on_coldkey_hotkey_account(&coldkey1, &parent, 2000, netuid_3);
+
+        // Set parent-child relationship with 100% stake allocation
+        assert_ok!(SubtensorModule::do_set_children(
+            RuntimeOrigin::signed(coldkey1),
+            parent,
+            netuid,
+            vec![(child_weight, child)]
+        ));
+
+        log::info!("Setting global weight to 1.0");
+        // Set the global weight to 1.0
+        SubtensorModule::set_global_weight(global_weight_1, netuid);
+
+        let (stake, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) =
+            SubtensorModule::get_stake_weights_for_network(netuid);
+
+        let parent_stake: I32F32 = stake[parent_uid];
+        let child_stake: I32F32 = stake[child_uid];
+
+        log::info!("Parent stake: {}", parent_stake);
+        log::info!("Child stake: {}", child_stake);
+
+        let num1e3 = I32F32::from_num(1);
+        assert!(
+            is_within_tolerance_f::<I32F32>(
+                parent_stake.saturating_mul(num1e3),
+                I32F32::from_num(0.1875).saturating_mul(num1e3),
+                I32F32::from_num(0.00001),
+            ),
+            "Parent stake is not correct: {}",
+            parent_stake
+        );
+
+        assert!(
+            is_within_tolerance_f::<I32F32>(
+                child_stake.saturating_mul(num1e3),
+                I32F32::from_num(0.8125).saturating_mul(num1e3),
+                I32F32::from_num(0.00001),
+            ),
+            "Child stake is not correct: {}",
+            child_stake
+        );
+
+        log::info!("Setting global weight to 0.75");
+        // Set the global weight to 0.75
+        SubtensorModule::set_global_weight(global_weight_2, netuid);
+
+        let (stake, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) =
+            SubtensorModule::get_stake_weights_for_network(netuid);
+
+        let parent_stake: I32F32 = stake[parent_uid];
+        let child_stake: I32F32 = stake[child_uid];
+
+        log::info!("Parent stake: {}", parent_stake);
+        log::info!("Child stake: {}", child_stake);
+
+        let num1e3 = I32F32::from_num(1);
+        assert!(
+            is_within_tolerance_f::<I32F32>(
+                parent_stake.saturating_mul(num1e3),
+                I32F32::from_num(0.171875).saturating_mul(num1e3),
+                I32F32::from_num(0.00001),
+            ),
+            "Parent stake is not correct: {}",
+            parent_stake
+        );
+
+        assert!(
+            is_within_tolerance_f::<I32F32>(
+                child_stake.saturating_mul(num1e3),
+                I32F32::from_num(0.828125).saturating_mul(num1e3),
+                I32F32::from_num(0.00001),
+            ),
+            "Child stake is not correct: {}",
+            child_stake
+        );
+
+        log::info!("Getting stake for netuid 2");
+        let (stake, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) =
+            SubtensorModule::get_stake_weights_for_network(netuid_2);
+
+        let parent_stake: I32F32 = stake[parent_uid];
+
+        log::info!("Parent stake: {}", parent_stake);
+
+        let num1e3 = I32F32::from_num(1);
+        assert!(
+            is_within_tolerance_f::<I32F32>(
+                parent_stake.saturating_mul(num1e3),
+                I32F32::from_num(1.0).saturating_mul(num1e3), // Only uid registered in netuid 2
+                I32F32::from_num(0.00001),
+            ),
+            "Parent stake is not correct: {}",
+            parent_stake
+        );
+
+        log::info!("Getting stake for netuid 3");
+        let (stake, _, _): (Vec<I32F32>, Vec<u64>, Vec<u64>) =
+            SubtensorModule::get_stake_weights_for_network(netuid_3);
+
+        let parent_stake: I32F32 = stake[parent_uid];
+        let child_stake: I32F32 = stake[child_uid];
+
+        log::info!("Parent stake: {}", parent_stake);
+        log::info!("Child stake: {}", child_stake);
+
+        let num1e3 = I32F32::from_num(1);
+        assert!(
+            is_within_tolerance_f::<I32F32>(
+                parent_stake.saturating_mul(num1e3),
+                I32F32::from_num(1.0).saturating_mul(num1e3),
+                I32F32::from_num(0.00001),
+            ),
+            "Parent stake is not correct: {}",
+            parent_stake
+        );
+
+        assert!(
+            is_within_tolerance_f::<I32F32>(
+                child_stake.saturating_mul(num1e3),
+                I32F32::from_num(0.0).saturating_mul(num1e3), // Has no stake on netuid 3
+                I32F32::from_num(0.00001),
+            ),
+            "Child stake is not correct: {}",
+            child_stake
+        );
+    });
+}
