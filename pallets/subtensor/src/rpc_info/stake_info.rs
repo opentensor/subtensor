@@ -27,22 +27,22 @@ impl<T: Config> Pallet<T> {
         }
         let netuids: Vec<u16> = Self::get_all_subnet_netuids();
         let mut stake_info: Vec<(T::AccountId, Vec<StakeInfo<T>>)> = Vec::new();
-        for coldkey_i in coldkeys.clone().iter() {
+        for coldkey_i in coldkeys.iter() {
             // Get all hotkeys associated with this coldkey.
-            let staking_hotkeys = StakingHotkeys::<T>::get(coldkey_i.clone());
+            let staking_hotkeys = StakingHotkeys::<T>::get(coldkey_i);
             let mut stake_info_for_coldkey: Vec<StakeInfo<T>> = Vec::new();
-            for netuid_i in netuids.clone().iter() {
-                for hotkey_i in staking_hotkeys.clone().iter() {
+            for netuid_i in netuids.iter() {
+                for hotkey_i in staking_hotkeys.iter() {
                     let alpha: u64 =
-                        Alpha::<T>::get((hotkey_i.clone(), coldkey_i.clone(), netuid_i));
+                        Alpha::<T>::get((hotkey_i, coldkey_i, netuid_i));
                     let emission: u64 = LastHotkeyColdkeyEmissionOnNetuid::<T>::get((
-                        hotkey_i.clone(),
-                        coldkey_i.clone(),
+                        hotkey_i,
+                        coldkey_i,
                         *netuid_i,
                     ));
-                    let drain: u64 = LastHotkeyEmissionDrain::<T>::get(hotkey_i.clone());
+                    let drain: u64 = LastHotkeyEmissionDrain::<T>::get(hotkey_i);
                     let is_registered: bool =
-                        Self::is_hotkey_registered_on_network(*netuid_i, &hotkey_i);
+                        Self::is_hotkey_registered_on_network(*netuid_i, hotkey_i);
                     stake_info_for_coldkey.push(StakeInfo {
                         hotkey: hotkey_i.clone(),
                         coldkey: coldkey_i.clone(),
