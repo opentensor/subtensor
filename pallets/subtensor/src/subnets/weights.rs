@@ -163,7 +163,6 @@ impl<T: Config> Pallet<T> {
 
             // --- 6. After removing expired commits, check if any commits are left.
             if commits.is_empty() {
-                // No non-expired commits
                 // Check if provided_hash matches any expired commits
                 if expired_hashes.contains(&provided_hash) {
                     return Err(Error::<T>::ExpiredWeightCommit.into());
@@ -202,7 +201,6 @@ impl<T: Config> Pallet<T> {
                 Self::do_set_weights(origin, netuid, uids, values, version_key)
             } else {
                 // --- 13. The provided_hash does not match any non-expired commits.
-                // Check if provided_hash matches any expired commits
                 if expired_hashes.contains(&provided_hash) {
                     Err(Error::<T>::ExpiredWeightCommit.into())
                 } else {
@@ -324,7 +322,6 @@ impl<T: Config> Pallet<T> {
             }
 
             // --- 7. Validate all reveals first to ensure atomicity.
-            // This prevents partial updates if any reveal fails.
             for (_uids, _values, _version_key, provided_hash) in &reveals {
                 // --- 7a. Check if the provided_hash is in the non-expired commits.
                 if !commits
@@ -346,10 +343,8 @@ impl<T: Config> Pallet<T> {
                     .ok_or(Error::<T>::NoWeightsCommitFound)?;
 
                 // --- 7d. Check if the commit is within the reveal window.
-                let current_block: u64 = Self::get_current_block_as_u64();
-                let (_, _, first_reveal_block, last_reveal_block) = commit;
                 ensure!(
-                    current_block >= *first_reveal_block && current_block <= *last_reveal_block,
+                    Self::is_reveal_block_range(netuid, commit.1),
                     Error::<T>::RevealTooEarly
                 );
             }
@@ -366,14 +361,10 @@ impl<T: Config> Pallet<T> {
 
                     // --- 8c. Proceed to set the revealed weights.
                     Self::do_set_weights(origin.clone(), netuid, uids, values, version_key)?;
+                } else if expired_hashes.contains(&provided_hash) {
+                    return Err(Error::<T>::ExpiredWeightCommit.into());
                 } else {
-                    // This case should not occur as we've already validated the existence of the hash.
-                    // However, to ensure safety, we handle it.
-                    if expired_hashes.contains(&provided_hash) {
-                        return Err(Error::<T>::ExpiredWeightCommit.into());
-                    } else {
-                        return Err(Error::<T>::InvalidRevealCommitHashNotMatch.into());
-                    }
+                    return Err(Error::<T>::InvalidRevealCommitHashNotMatch.into());
                 }
             }
 

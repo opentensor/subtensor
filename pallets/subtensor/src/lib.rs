@@ -569,7 +569,7 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
-    /// Default minimum stake for weights.
+    /// Default Reveal Period Epochs
     pub fn DefaultRevealPeriodEpochs<T: Config>() -> u64 {
         1
     }
