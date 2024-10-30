@@ -73,7 +73,10 @@ impl<T: Config> Pallet<T> {
             // --- 9. Store the updated queue back to storage.
             *maybe_commits = Some(commits);
 
-            // --- 10. Return ok.
+            // --- 10. Emit the WeightsCommitted event.
+            Self::deposit_event(Event::WeightsCommitted(who.clone(), netuid, commit_hash));
+
+            // --- 11. Return ok.
             Ok(())
         })
     }
@@ -198,9 +201,15 @@ impl<T: Config> Pallet<T> {
                 }
 
                 // --- 12. Proceed to set the revealed weights.
-                Self::do_set_weights(origin, netuid, uids, values, version_key)
+                Self::do_set_weights(origin, netuid, uids.clone(), values.clone(), version_key)?;
+
+                // --- 13. Emit the WeightsRevealed event.
+                Self::deposit_event(Event::WeightsRevealed(who.clone(), netuid, provided_hash));
+
+                // --- 14. Return ok.
+                Ok(())
             } else {
-                // --- 13. The provided_hash does not match any non-expired commits.
+                // --- 15. The provided_hash does not match any non-expired commits.
                 if expired_hashes.contains(&provided_hash) {
                     Err(Error::<T>::ExpiredWeightCommit.into())
                 } else {
@@ -302,6 +311,7 @@ impl<T: Config> Pallet<T> {
             // --- 6. Prepare to collect all provided hashes and their corresponding reveals.
             let mut provided_hashes = Vec::new();
             let mut reveals = Vec::new();
+            let mut revealed_hashes: Vec<H256> = Vec::with_capacity(num_reveals);
 
             for ((uids, values), (salt, version_key)) in uids_list
                 .into_iter()
@@ -361,6 +371,9 @@ impl<T: Config> Pallet<T> {
 
                     // --- 8c. Proceed to set the revealed weights.
                     Self::do_set_weights(origin.clone(), netuid, uids, values, version_key)?;
+
+                    // --- 8d. Collect the revealed hash.
+                    revealed_hashes.push(provided_hash);
                 } else if expired_hashes.contains(&provided_hash) {
                     return Err(Error::<T>::ExpiredWeightCommit.into());
                 } else {
@@ -373,7 +386,14 @@ impl<T: Config> Pallet<T> {
                 *maybe_commits = None;
             }
 
-            // --- 10. Return ok.
+            // --- 10. Emit the WeightsBatchRevealed event with all revealed hashes.
+            Self::deposit_event(Event::WeightsBatchRevealed(
+                who.clone(),
+                netuid,
+                revealed_hashes,
+            ));
+
+            // --- 11. Return ok.
             Ok(())
         })
     }
