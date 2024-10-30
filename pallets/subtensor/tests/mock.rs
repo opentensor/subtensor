@@ -9,6 +9,7 @@ use frame_support::{
 };
 use frame_system as system;
 use frame_system::{limits, EnsureNever, EnsureRoot, RawOrigin};
+use sp_std::{ops::Sub, cmp::PartialOrd};
 use pallet_collective::MemberCount;
 use sp_core::{Get, H256, U256};
 use sp_runtime::Perbill;
@@ -597,6 +598,16 @@ pub fn setup_neuron_with_stake(netuid: u16, hotkey: U256, coldkey: U256, stake: 
 #[allow(dead_code)]
 pub fn is_within_tolerance(actual: u64, expected: u64, tolerance: u64) -> bool {
     let difference = if actual > expected {
+        actual - expected
+    } else {
+        expected - actual
+    };
+    difference <= tolerance
+}
+
+#[allow(dead_code)]
+pub fn is_within_tolerance_f<F: Sub<Output = F> + PartialOrd>(actual: F, expected: F, tolerance: F) -> bool {
+    let difference: F = if actual > expected {
         actual - expected
     } else {
         expected - actual
