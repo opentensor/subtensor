@@ -1815,7 +1815,7 @@ fn test_toggle_commit_reveal_weights_and_set_weights() {
 
 #[test]
 fn test_tempo_change_during_commit_reveal_process() {
-    new_test_ext(1).execute_with(|| {
+    new_test_ext(0).execute_with(|| {
         let netuid: u16 = 1;
         let uids: Vec<u16> = vec![0, 1];
         let weight_values: Vec<u16> = vec![10, 10];
@@ -1832,7 +1832,7 @@ fn test_tempo_change_during_commit_reveal_process() {
             version_key,
         ));
 
-        System::set_block_number(1);
+        System::set_block_number(0);
 
         let tempo: u16 = 100;
         add_network(netuid, tempo, 0);
@@ -4058,4 +4058,73 @@ fn test_get_reveal_blocks() {
             "Commits should be cleared after successful reveal"
         );
     })
+}
+
+#[test]
+fn test_commit_weights_rate_limit() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let uids: Vec<u16> = vec![0, 1];
+        let weight_values: Vec<u16> = vec![10, 10];
+        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let version_key: u64 = 0;
+        let hotkey: U256 = U256::from(1);
+
+        let commit_hash: H256 = BlakeTwo256::hash_of(&(
+            hotkey,
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            salt.clone(),
+            version_key,
+        ));
+        System::set_block_number(11);
+
+        let tempo: u16 = 5;
+        add_network(netuid, tempo, 0);
+
+        register_ok_neuron(netuid, U256::from(3), U256::from(4), 300_000);
+        register_ok_neuron(netuid, U256::from(1), U256::from(2), 100_000);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 10); // Rate limit is 10 blocks
+        SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey).unwrap();
+        SubtensorModule::set_last_update_for_uid(netuid, neuron_uid, 0);
+
+        assert_ok!(SubtensorModule::commit_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            commit_hash
+        ));
+
+        let new_salt: Vec<u16> = vec![9; 8];
+        let new_commit_hash: H256 = BlakeTwo256::hash_of(&(
+            hotkey,
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            new_salt.clone(),
+            version_key,
+        ));
+        assert_err!(
+            SubtensorModule::commit_weights(RuntimeOrigin::signed(hotkey), netuid, new_commit_hash),
+            Error::<Test>::CommittingWeightsTooFast
+        );
+
+        step_block(5);
+        assert_err!(
+            SubtensorModule::commit_weights(RuntimeOrigin::signed(hotkey), netuid, new_commit_hash),
+            Error::<Test>::CommittingWeightsTooFast
+        );
+
+        step_block(5); // Current block is now 21
+
+        assert_ok!(SubtensorModule::commit_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            new_commit_hash
+        ));
+    });
 }

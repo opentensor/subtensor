@@ -39,8 +39,19 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CommitRevealDisabled
         );
 
-        // --- 3. Calculate the reveal blocks based on tempo and reveal period.
+        ensure!(
+            Self::is_hotkey_registered_on_network(netuid, &who),
+            Error::<T>::HotKeyNotRegisteredInSubNet
+        );
+
         let commit_block: u64 = Self::get_current_block_as_u64();
+        let neuron_uid: u16 = Self::get_uid_for_net_and_hotkey(netuid, &who)?;
+        ensure!(
+            Self::check_rate_limit(netuid, neuron_uid, commit_block),
+            Error::<T>::CommittingWeightsTooFast
+        );
+
+        // --- 3. Calculate the reveal blocks based on tempo and reveal period.
         let (first_reveal_block, last_reveal_block) = Self::get_reveal_blocks(netuid, commit_block);
 
         // --- 4. Mutate the WeightCommits to retrieve existing commits for the user.
@@ -76,7 +87,10 @@ impl<T: Config> Pallet<T> {
             // --- 10. Emit the WeightsCommitted event.
             Self::deposit_event(Event::WeightsCommitted(who.clone(), netuid, commit_hash));
 
-            // --- 11. Return ok.
+            // --- 11. Set last update for the UID
+            Self::set_last_update_for_uid(netuid, neuron_uid, commit_block);
+
+            // --- 12. Return ok.
             Ok(())
         })
     }
@@ -563,7 +577,9 @@ impl<T: Config> Pallet<T> {
         Weights::<T>::insert(netuid, neuron_uid, zipped_weights);
 
         // --- 18. Set the activity for the weights on this network.
-        Self::set_last_update_for_uid(netuid, neuron_uid, current_block);
+        if !Self::get_commit_reveal_weights_enabled(netuid) {
+            Self::set_last_update_for_uid(netuid, neuron_uid, current_block);
+        }
 
         // --- 19. Emit the tracking event.
         log::debug!(
