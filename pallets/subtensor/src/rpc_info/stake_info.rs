@@ -33,12 +33,9 @@ impl<T: Config> Pallet<T> {
             let mut stake_info_for_coldkey: Vec<StakeInfo<T>> = Vec::new();
             for netuid_i in netuids.iter() {
                 for hotkey_i in staking_hotkeys.iter() {
-                    let alpha: u64 =
-                        Alpha::<T>::get((hotkey_i, coldkey_i, netuid_i));
+                    let alpha: u64 = Alpha::<T>::get((hotkey_i, coldkey_i, netuid_i));
                     let emission: u64 = LastHotkeyColdkeyEmissionOnNetuid::<T>::get((
-                        hotkey_i,
-                        coldkey_i,
-                        *netuid_i,
+                        hotkey_i, coldkey_i, *netuid_i,
                     ));
                     let drain: u64 = LastHotkeyEmissionDrain::<T>::get(hotkey_i);
                     let is_registered: bool =
