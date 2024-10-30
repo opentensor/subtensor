@@ -4090,7 +4090,8 @@ fn test_commit_weights_rate_limit() {
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
-        let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey).unwrap();
+        let neuron_uid =
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey).expect("expected uid");
         SubtensorModule::set_last_update_for_uid(netuid, neuron_uid, 0);
 
         assert_ok!(SubtensorModule::commit_weights(
