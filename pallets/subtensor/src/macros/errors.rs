@@ -196,5 +196,7 @@ mod errors {
         RevealTooEarly,
         /// Attempted to batch reveal weights with mismatched vector input lenghts.
         InputLengthsUnequal,
+        /// Nomination pool does not exist.
+		NominationPoolDoesNotExist,
     }
 }

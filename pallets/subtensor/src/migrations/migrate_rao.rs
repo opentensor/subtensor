@@ -42,10 +42,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
         SubnetAlphaIn::<T>::mutate(0, |total| {
             *total = total.saturating_add(stake);
         });
-        // Set all the stake on root 0 subnet.
-        Alpha::<T>::mutate((hotkey.clone(), coldkey.clone(), 0), |total| {
-            *total = total.saturating_add(stake)
-        });
+		Pallet::<T>::add_stake_to_hotkey_coldkey_on_subnet(hotkey.clone(), coldkey.clone(), 0, stake);
         // Set the total stake on the coldkey
         TotalColdkeyAlpha::<T>::mutate(coldkey.clone(), 0, |total| {
             *total = total.saturating_add(stake)

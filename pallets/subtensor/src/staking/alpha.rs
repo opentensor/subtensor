@@ -1,6 +1,6 @@
 use super::*;
 use crate::epoch::math::*;
-use frame_support::IterableStorageDoubleMap;
+use frame_support::{storage::PrefixIterator, IterableStorageDoubleMap};
 use substrate_fixed::types::{I32F32, I64F64, I96F32};
 
 impl<T: Config> Pallet<T> {
@@ -421,7 +421,7 @@ impl<T: Config> Pallet<T> {
     ) -> u64 {
         // Step 1: Retrieve the stake (alpha) for the specific hotkey-coldkey pair on this subnet.
         // This value represents the stake associated only with this particular combination.
-        let alpha: u64 = Alpha::<T>::get((hotkey, coldkey, netuid));
+        let alpha: u64 = Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
 
         // Step 2: Convert the alpha value to its TAO equivalent.
         // This conversion takes into account the current state of the subnet,
@@ -513,6 +513,165 @@ impl<T: Config> Pallet<T> {
         TotalColdkeyAlpha::<T>::get(coldkey, netuid)
     }
 
+	pub fn create_nomination_pool(hotkey: &T::AccountId, netuid: u16) {
+		if !Alpha::<T>::contains_key((hotkey, netuid)) {
+			Alpha::<T>::insert((hotkey, netuid), 0);
+		}
+
+		if !TotalNominationPoolShares::<T>::contains_key((hotkey, netuid)) {
+			TotalNominationPoolShares::<T>::insert((hotkey, netuid), 0);
+		}
+	}
+
+	pub fn create_nomination_pool_entry(hotkey: &T::AccountId, coldkey: &T::AccountId, netuid: u16) {
+		Self::create_nomination_pool(hotkey, netuid);
+
+		if !PreAlpha::<T>::contains_key((hotkey, coldkey, netuid)) {
+			PreAlpha::<T>::insert((hotkey, coldkey, netuid), 0);
+		}
+
+		if !NominationPool::<T>::contains_key((hotkey, coldkey, netuid)) {
+			NominationPool::<T>::insert((hotkey, coldkey, netuid), 0);
+		}
+	}
+
+	pub fn has_nomination_pool_entry(hotkey: &T::AccountId, coldkey: &T::AccountId, netuid: u16) -> bool {
+		NominationPool::<T>::contains_key((hotkey, coldkey, netuid))
+	}
+
+	pub fn get_nomination_pool_entry(hotkey: &T::AccountId, coldkey: &T::AccountId, netuid: u16) -> Option<u64> {
+		if !Self::has_nomination_pool_entry(hotkey, coldkey, netuid) {
+			return None;
+		}
+
+		Some(NominationPool::<T>::get((hotkey, coldkey, netuid)))
+	}
+
+	/// Handles calls to add stake. Not *emit* stake.
+	pub fn add_stake_to_hotkey_coldkey_on_subnet(hotkey: &T::AccountId, coldkey: &T::AccountId, netuid: u16, stake: u64) {
+		let nomination_pool_entry = Self::get_nomination_pool_entry(hotkey, coldkey, netuid);
+		if nomination_pool_entry.is_none() {
+			Self::create_nomination_pool_entry(hotkey, coldkey, netuid);
+		}
+
+		// Add the stake to the pre-alpha map.
+		// This is the amount of stake that will be added to the nomination pool *after* the hotkey emits next.
+		PreAlpha::<T>::mutate((hotkey, coldkey, netuid), |pre_alpha| {
+			*pre_alpha = pre_alpha.saturating_add(stake);
+		});
+	}
+
+	/// Handles calls to emit stake.
+	pub fn emit_stake_to_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16, stake: u64) {
+		let nomination_pool_entry_exists = NominationPool::<T>::contains_key((hotkey, netuid));
+		if !nomination_pool_entry_exists {
+			Self::create_nomination_pool(hotkey, netuid);
+		}
+
+		// Add the stake to the nomination pool directly.
+		Alpha::<T>::mutate((hotkey, netuid), |alpha| {
+			*alpha = alpha.saturating_add(stake);
+		});
+	}
+
+	/// Handles calls to emit stake to a hotkey-coldkey pair on a subnet.
+	/// This will actually add the stake to the nomination pool and update shares, as needed.
+	pub fn emit_stake_to_hotkey_coldkey_on_subnet(hotkey: &T::AccountId, coldkey: &T::AccountId, netuid: u16, alpha_to_emit: u64, attempt_two: bool) -> Result<(), Error<T>> {
+		let nomination_pool_entry = Self::get_nomination_pool_entry(hotkey, coldkey, netuid);
+		if nomination_pool_entry.is_none() {
+			Self::create_nomination_pool_entry(hotkey, coldkey, netuid);
+		}
+
+		// Get the current value of a share in the nomination pool.
+		let total_shares = I96F32::from_num( TotalNominationPoolShares::<T>::get((hotkey, netuid)) );
+		// Get the current alpha for the netuid
+		let curr_alpha = I96F32::from_num( Alpha::<T>::get((hotkey, netuid)) );
+
+		// Add the new alpha to the nomination pool.
+		Alpha::<T>::mutate((hotkey, netuid), |alpha| {
+			*alpha = alpha.saturating_add(alpha_to_emit);
+		});
+
+		let new_total_shares: Option<u64> = None;
+		let new_coldkey_shares: Option<u64> = None;
+
+		if curr_alpha.is_zero() {
+			// If the alpha was zero, then this coldkey should have all the shares.
+			// 1. Clear the total shares.
+			if total_shares != 0 {
+				// 1a. Clear the total shares for this hotkey on this netuid.
+				TotalNominationPoolShares::<T>::mutate((hotkey, netuid), |total_shares| {
+					*total_shares = 0;
+				});
+				// 1b. Clear all nomination pool entries for hotkey on netuid.
+				// -- Note: shouldn't be many, because we should kill the entry when it hits zero elsewhere.
+				for (coldkey, netuid_inner, shares) in NominationPool::<T>::iter_prefix((hotkey)) {
+					if netuid_inner == netuid {
+						NominationPool::<T>::remove((hotkey, coldkey, netuid_inner));
+					}
+				}
+			}
+
+			// 2. New shares are 1:1 with the new alpha.
+			new_coldkey_shares = Some(alpha_to_emit);
+			new_total_shares = Some(alpha_to_emit);
+		} else {
+
+			let new_alpha = I96F32::from_num(alpha_to_emit);
+			let pc_increase_in_alpha = new_alpha.checked_div(curr_alpha).unwrap_or(I96F32::from_num(0.0));
+
+			// Calculate the new number of shares for this hotkey-coldkey pair.
+			// This is done by multiplying the total shares by the percentage increase in alpha.
+			let new_shares = total_shares.checked_mul(pc_increase_in_alpha);
+			if new_shares.is_some() {
+				let new_shares_num = new_shares.unwrap().checked_to_num::<u64>();
+
+				let curr_coldkey_shares = NominationPool::<T>::get((hotkey, coldkey, netuid));
+				let new_total_shares: Option<u64> = None;
+				if !curr_coldkey_shares.is_none() {
+					new_total_shares = total_shares.checked_add(new_shares_num.unwrap_or(0));
+				}
+
+				let new_coldkey_shares = curr_coldkey_shares.checked_add(new_shares_num);
+			}
+
+			// If we get here, we've overflowed somewhere.
+			// Try again if this is the first attempt.
+			if !attempt_two {
+				// If we overflowed, rebalance the nomination pool.
+				Self::rebalance_nomination_pool(hotkey, netuid);
+				// Try again.
+				let second_attempt = Self::emit_stake_to_hotkey_coldkey_on_subnet(hotkey, coldkey, netuid, alpha_to_emit, true);
+				if second_attempt.is_err() {
+					return Err(Error::<T>::Overflow);
+				}
+			} else {
+				return Err(Error::<T>::Overflow);
+			}
+		}
+
+		// Update the nomination pool entry and total shares.
+		NominationPool::<T>::mutate((hotkey, coldkey, netuid), |shares| {
+			*shares = new_coldkey_shares.unwrap_or(0); // Should not happen because of previous check.
+		});
+		TotalNominationPoolShares::<T>::mutate((hotkey, netuid), |total_shares| {
+			*total_shares = new_total_shares.unwrap_or(0); // Should not happen because of previous check.
+		});
+	}
+
+	/// Handles calls to decrement stake.
+	pub fn remove_stake_from_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16, stake: u64) -> Result<(), Error<T>> {
+		let nomination_pool_entry_exists = NominationPool::<T>::contains_key((hotkey, coldkey, netuid));
+		if !nomination_pool_entry_exists {
+			Err(Error::<T>::NominationPoolDoesNotExist);
+		}
+
+		// Add the stake to the nomination pool
+		PreAlpha::<T>::mutate((hotkey, netuid), |pre_alpha| {
+			*pre_alpha = pre_alpha.saturating_add(stake);
+		});
+	}
+
     /// Checks if a specific hotkey-coldkey pair has enough stake on a subnet to fulfill a given decrement.
     ///
     /// This function performs the following steps:
@@ -573,5 +732,16 @@ impl<T: Config> Pallet<T> {
         // Step 2: Retrieve the stake value using the provided parameters
         // If no stake exists for this combination, the default value of 0 will be returned
         Alpha::<T>::get((hotkey, coldkey, netuid))
+    }
+
+    pub fn get_stakes_iter() -> PrefixIterator<(
+        (
+            <T as frame_system::Config>::AccountId,
+            <T as frame_system::Config>::AccountId,
+            u16,
+        ),
+        u64,
+    )> {
+        Alpha::<T>::iter()
     }
 }

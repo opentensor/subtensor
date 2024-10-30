@@ -578,25 +578,11 @@ impl<T: Config> Pallet<T> {
         let mut nominator_emission: BTreeMap<(T::AccountId, T::AccountId), Vec<(u16, u64)>> =
             BTreeMap::new();
 
-        let emission_tempo: u64 = Self::get_hotkey_emission_tempo();
 
         for (hotkey, netuid, hotkey_emission) in PendingHotkeyEmissionOnNetuid::<T>::iter() {
             if Self::should_drain_hotkey(&hotkey, current_block, emission_tempo) {
                 // Remove the hotkey emission from the pending emissions.
                 PendingHotkeyEmissionOnNetuid::<T>::remove(&hotkey, netuid);
-
-                // Drain the hotkey emission.
-                Self::source_nominator_emission(
-                    &hotkey,
-                    netuid,
-                    hotkey_emission,
-                    current_block,
-                    &mut nominator_emission,
-                );
-
-                log::debug!(
-                    "Drained hotkey emission for hotkey {:?} for netuid {:?} on block {:?}: {:?}",
-                    hotkey,
                     netuid,
                     current_block,
                     hotkey_emission,

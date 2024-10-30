@@ -634,6 +634,13 @@ pub mod pallet {
     pub fn DefaultColdkeySwapScheduleDuration<T: Config>() -> BlockNumberFor<T> {
         T::InitialColdkeySwapScheduleDuration::get()
     }
+	#[pallet::type_value]
+	/// Default value for nomination pool alpha
+	pub fn DefaultNominationPoolAlpha<T: Config>() -> (T::AccountId, u64) {
+		let zero_account: T::AccountId = T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
+			.expect("trailing zeroes always produce a valid account ID; qed");
+		(zero_account, 0_u64)
+	}
 
     #[pallet::storage]
     pub type ColdkeySwapScheduleDuration<T: Config> =
@@ -711,17 +718,7 @@ pub mod pallet {
     #[pallet::storage] // --- DMAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
     pub type SubnetAlphaOut<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- DMAP ( cold, netuid ) --> alpha | Returns the total amount of alpha a coldkey owns.
-    pub type TotalColdkeyAlpha<T: Config> = StorageDoubleMap<
-        _,
-        Blake2_128Concat,
-        T::AccountId,
-        Identity,
-        u16,
-        u64,
-        ValueQuery,
-        DefaultZeroU64<T>,
-    >;
+
     #[pallet::storage] // --- DMAP ( hot, netuid ) --> alpha | Returns the total amount of alpha a hotkey owns.
     pub type TotalHotkeyAlpha<T: Config> = StorageDoubleMap<
         _,
@@ -733,18 +730,50 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroU64<T>,
     >;
-    #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> alpha | Returns the alpha for an account on a subnet.
-    pub type Alpha<T: Config> = StorageNMap<
+
+    #[pallet::storage] // --- DMAP ( hotkey, netuid ) --> alpha | Returns the alpha for an nomination pool.
+    pub type Alpha<T: Config> = StorageDoubleMap<
         _,
-        (
-            NMapKey<Blake2_128Concat, T::AccountId>, // hot
-            NMapKey<Blake2_128Concat, T::AccountId>, // cold
-            NMapKey<Identity, u16>,                  // subnet
-        ),
+		Blake2_128Concat,
+		T::AccountId, // hot
+		Identity,
+		u16, // netuid
         u64, // Stake
         ValueQuery,
+		DefaultZeroU64<T>
     >;
-
+	#[pallet::storage] // --- DMAP ( hotkey, coldkey, netuid ) --> pre_alpha | Returns the pre_alpha for an nomination pool nominator. This is alpha that needs to be added to the nomination pool.
+    pub type PreAlpha<T: Config> = StorageNMap<
+	_,
+	(
+		NMapKey<Blake2_128Concat, T::AccountId>, // hot
+		NMapKey<Blake2_128Concat, T::AccountId>, // cold
+		NMapKey<Identity, u16>,                  // subnet
+	),
+	u64, // Alpha to be added
+	ValueQuery,
+>;
+	#[pallet::storage] /// --- NMAP ( hot, cold, netuid ) --> shares | Returns the shares for a hotkey-coldkey pair on a subnet.
+	pub type NominationPool<T: Config> = StorageNMap<
+		_,
+		(
+			NMapKey<Blake2_128Concat, T::AccountId>, // hot
+			NMapKey<Blake2_128Concat, T::AccountId>, // cold
+			NMapKey<Identity, u16>,                  // subnet
+		),
+		u64, // Shares
+		ValueQuery,
+	>;
+	#[pallet::storage] /// --- DMAP ( hot, netuid ) --> total_shares | Returns the total shares for a nomination pool on a subnet.
+	pub type TotalNominationPoolShares<T: Config> = StorageDoubleMap<
+		_,
+		(
+			NMapKey<Blake2_128Concat, T::AccountId>, // hot
+			NMapKey<Identity, u16>,                  // subnet
+		),
+		u64, // Shares total
+		ValueQuery,
+	>;
     /// ============================
     /// ==== Staking Variables ====
     /// ============================
