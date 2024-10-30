@@ -1,6 +1,7 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::arithmetic_side_effects)]
 
+use codec::Encode;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
 use frame_system::Config;
 mod mock;
@@ -2488,5 +2489,29 @@ fn test_anneal_global_weight() {
             pallet_subtensor::GlobalWeight::<Test>::get(netuid),
             u64::MAX / 2,
         );
+    });
+}
+
+//  SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_stake_value_is_alpha --exact --nocapture
+#[test]
+fn test_stake_value_is_alpha() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_id = U256::from(5445);
+        let coldkey_id = U256::from(5443433);
+        let amount: u64 = 10000;
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+        let start_nonce: u64 = 0;
+
+        add_network(netuid, tempo, 0);
+
+        register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
+
+        SubtensorModule::stake_into_subnet(&hotkey_id, &coldkey_id, netuid, amount);
+
+        let stake_info = SubtensorModule::get_stake_info_for_coldkey(Encode::encode(&coldkey_id));
+        let neuron_info = SubtensorModule::get_neuron_lite(netuid, 0);
+
+        assert_eq!(stake_info[0].stake(), neuron_info.unwrap().stake()[0].1);
     });
 }

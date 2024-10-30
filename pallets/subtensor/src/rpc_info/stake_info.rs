@@ -18,6 +18,12 @@ pub struct StakeInfo<T: Config> {
     is_registered: bool,
 }
 
+impl<T: Config> StakeInfo<T> {
+    pub fn stake(&self) -> Compact<u64> {
+        self.stake
+    }
+}
+
 impl<T: Config> Pallet<T> {
     fn _get_stake_info_for_coldkeys(
         coldkeys: Vec<T::AccountId>,

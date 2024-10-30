@@ -28,6 +28,12 @@ pub struct NeuronInfo<T: Config> {
     pruning_score: Compact<u16>,
 }
 
+impl<T: Config> NeuronInfo<T> {
+    pub fn stake(&self) -> &[(T::AccountId, Compact<u64>)] {
+        &self.stake
+    }
+}
+
 #[freeze_struct("c21f0f4f22bcb2a1")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct NeuronInfoLite<T: Config> {
@@ -50,6 +56,12 @@ pub struct NeuronInfoLite<T: Config> {
     validator_permit: bool,
     // has no weights or bonds
     pruning_score: Compact<u16>,
+}
+
+impl<T: Config> NeuronInfoLite<T> {
+    pub fn stake(&self) -> &[(T::AccountId, Compact<u64>)] {
+        &self.stake
+    }
 }
 
 impl<T: Config> Pallet<T> {
