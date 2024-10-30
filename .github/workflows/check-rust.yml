@@ -212,16 +212,7 @@ jobs:
   cargo-audit:
     name: cargo audit
     runs-on: SubtensorCI
-    strategy:
-      matrix:
-        rust-branch:
-          - stable
-        rust-target:
-          - x86_64-unknown-linux-gnu
-        # - x86_64-apple-darwin
-        os:
-          - ubuntu-latest
-          # - macos-latest
+    if: ${{ github.event_name != 'push' && !contains(github.event.pull_request.labels.*.name, 'skip-cargo-audit') }}
     steps:
       - name: Check-out repositoroy under $GITHUB_WORKSPACE
         uses: actions/checkout@v4
@@ -231,17 +222,17 @@ jobs:
           sudo apt-get update &&
           sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
 
-      - name: Install Rust ${{ matrix.rust-branch }}
+      - name: Install Rust Stable
         uses: actions-rs/toolchain@v1.0.6
         with:
-          toolchain: ${{ matrix.rust-branch }}
+          toolchain: stable
           components: rustfmt, clippy
           profile: minimal
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2.2.1
         with:
-          key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
+          key: ubuntu-latest-${{ env.RUST_BIN_DIR }}
 
       - name: Install cargo-audit
         run: cargo install cargo-audit
