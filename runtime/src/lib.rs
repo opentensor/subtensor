@@ -1712,6 +1712,7 @@ impl_runtime_apis! {
                     _ => (None, None),
                 };
 
+            let whitelist = pallet_evm::WhitelistedCreators::<Runtime>::get();
             <Runtime as pallet_evm::Config>::Runner::create(
                 from,
                 data,
@@ -1721,6 +1722,7 @@ impl_runtime_apis! {
                 max_priority_fee_per_gas,
                 nonce,
                 access_list.unwrap_or_default(),
+                whitelist,
                 false,
                 true,
                 weight_limit,
