@@ -192,5 +192,7 @@ mod errors {
         SubnetNotExists,
         /// Subnet has already been converted.
         SubnetAlreadyConverted,
+        /// Nomination pool does not exist.
+		NominationPoolDoesNotExist,
     }
 }

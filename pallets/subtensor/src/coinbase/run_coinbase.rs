@@ -374,7 +374,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         emission: u64,
         _block_number: u64,
-        emission_tuples: &mut Vec<(T::AccountId, T::AccountId, u16, u64)>,
+        emission_tuples: &mut Vec<(T::AccountId, Vec<T::AccountId>, u16, u64)>,
     ) {
         // Calculate the hotkey's share of the emission based on its delegation status
         let emission: I96F32 = I96F32::from_num(emission);
@@ -401,8 +401,9 @@ impl<T: Config> Pallet<T> {
             if Self::get_current_block_as_u64().saturating_sub(stake_add_block)
                 >= HotkeyEmissionTempo::<T>::get()
             {
-                let alpha_contribution: I96F32 =
-                    I96F32::from_num(Alpha::<T>::get((&hotkey, nominator.clone(), netuid)));
+                let alpha_contribution: I96F32 = I96F32::from_num(
+                    Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, &nominator, netuid),
+                );
                 let global_contribution: I96F32 =
                     I96F32::from_num(Self::get_global_for_hotkey_and_coldkey(hotkey, &nominator));
                 total_global = total_global.saturating_add(global_contribution);
@@ -539,22 +540,24 @@ impl<T: Config> Pallet<T> {
     ///   - `u64`: The emission value to be added.
     /// * `block` - The current block number.
     pub fn accumulate_nominator_emission(
-        nominator_tuples: &mut Vec<(T::AccountId, T::AccountId, u16, u64)>,
+        nominator_tuples: &mut Vec<(T::AccountId, Vec<T::AccountId>, u16, u64)>,
         block: u64,
     ) {
         // Track processed hotkeys to avoid redundant updates
         let mut processed_hotkeys: BTreeMap<T::AccountId, ()> = BTreeMap::new();
 
         // Iterate over each tuple in the nominator_tuples vector
-        for (hotkey, coldkey, netuid, emission) in nominator_tuples {
+        for (hotkey, coldkeys, netuid, emission) in nominator_tuples {
             // If the emission value is greater than 0, update the subnet emission
             if *emission > 0 {
-                Self::emit_into_subnet(hotkey, coldkey, *netuid, *emission);
-                // Record the last emission value for the hotkey-coldkey pair on the subnet
-                LastHotkeyColdkeyEmissionOnNetuid::<T>::insert(
-                    (hotkey.clone(), coldkey.clone(), *netuid),
-                    *emission,
-                );
+				for coldkey in coldkeys {
+					Self::emit_into_subnet(hotkey, coldkey, *netuid, *emission);
+					// Record the last emission value for the hotkey-coldkey pair on the subnet
+					LastHotkeyColdkeyEmissionOnNetuid::<T>::insert(
+						(hotkey.clone(), coldkey.clone(), *netuid),
+						*emission,
+					);
+				}
             }
             // If the hotkey has not been processed yet, update the last emission drain block
             if !processed_hotkeys.contains_key(hotkey) {
@@ -588,7 +591,11 @@ impl<T: Config> Pallet<T> {
         emission: u64,
         block_number: u64,
     ) {
-        let mut nominator_emission: Vec<(T::AccountId, T::AccountId, u16, u64)> = vec![];
+		// TODO (cam): the nomination pool changes should go here!
+
+		// (hotkey, vec<(coldkey)>, netuid, total_emission)
+		// Note: some hotkeys may be included multiple times; All entries are valid.
+        let mut nominator_emission: Vec<(T::AccountId, Vec<T::AccountId>, u16, u64)> = vec![];
 
         // Remove the hotkey emission from the pending emissions.
         PendingHotkeyEmissionOnNetuid::<T>::remove(&hotkey, netuid);

@@ -142,7 +142,7 @@ impl<T: Config> Pallet<T> {
         for hotkey in hotkeys {
             let owner = Owner::<T>::get(&hotkey);
 
-            for ((delegate, delegator, _), stake) in Alpha::<T>::iter() {
+            for ((delegate, delegator, _), stake) in Self::get_stakes_iter() {
                 if hotkey == delegate && delegator != owner {
                     total_delegated = total_delegated.saturating_add(stake);
                 }
