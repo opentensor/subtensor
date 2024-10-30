@@ -1414,7 +1414,7 @@ fn test_sudo_set_dissolve_network_schedule_duration() {
 }
 
 #[test]
-fn sudo_set_commit_reveal_weights_periods() {
+fn sudo_set_commit_reveal_weights_interval() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         add_network(netuid, 10);
@@ -1422,7 +1422,7 @@ fn sudo_set_commit_reveal_weights_periods() {
         let to_be_set = 55;
         let init_value = SubtensorModule::get_reveal_period(netuid);
 
-        assert_ok!(AdminUtils::sudo_set_commit_reveal_weights_periods(
+        assert_ok!(AdminUtils::sudo_set_commit_reveal_weights_interval(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
