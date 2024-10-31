@@ -4127,5 +4127,64 @@ fn test_commit_weights_rate_limit() {
             netuid,
             new_commit_hash
         ));
+
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+        let weights_keys: Vec<u16> = vec![0];
+        let weight_values: Vec<u16> = vec![1];
+
+        assert_err!(
+            SubtensorModule::set_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                weights_keys.clone(),
+                weight_values.clone(),
+                0
+            ),
+            Error::<Test>::SettingWeightsTooFast
+        );
+
+        step_block(10);
+
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            weights_keys.clone(),
+            weight_values.clone(),
+            0
+        ));
+
+        assert_err!(
+            SubtensorModule::set_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                weights_keys.clone(),
+                weight_values.clone(),
+                0
+            ),
+            Error::<Test>::SettingWeightsTooFast
+        );
+
+        step_block(5);
+
+        assert_err!(
+            SubtensorModule::set_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                weights_keys.clone(),
+                weight_values.clone(),
+                0
+            ),
+            Error::<Test>::SettingWeightsTooFast
+        );
+
+        step_block(5);
+
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            weights_keys.clone(),
+            weight_values.clone(),
+            0
+        ));
     });
 }
