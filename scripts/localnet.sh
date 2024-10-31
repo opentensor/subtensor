@@ -72,7 +72,7 @@ alice_start=(
   --chain="$FULL_PATH"
   --alice
   --port 30334
-  --rpc-port 9946
+  --rpc-port 9944
   --validator
   --rpc-cors=all
   --allow-private-ipv4
