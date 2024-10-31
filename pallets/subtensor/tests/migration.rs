@@ -446,7 +446,7 @@ fn test_migrate_commit_reveal_2() {
         // ------------------------------
         // Step 1: Simulate Old Storage Entries
         // ------------------------------
-        const MIGRATION_NAME: &str = "migrate_commit_reveal_2";
+        const MIGRATION_NAME: &str = "migrate_commit_reveal_2_v2";
 
         let pallet_prefix = twox_128("SubtensorModule".as_bytes());
         let storage_prefix_interval = twox_128("WeightCommitRevealInterval".as_bytes());
