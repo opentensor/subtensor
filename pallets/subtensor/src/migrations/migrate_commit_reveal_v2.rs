@@ -5,7 +5,7 @@ use scale_info::prelude::string::String;
 use sp_io::{hashing::twox_128, storage::clear_prefix, KillStorageResult};
 
 pub fn migrate_commit_reveal_2<T: Config>() -> Weight {
-    let migration_name = b"migrate_commit_reveal_2".to_vec();
+    let migration_name = b"migrate_commit_reveal_2_v2".to_vec();
     let mut weight = T::DbWeight::get().reads(1);
 
     if HasMigrationRun::<T>::get(&migration_name) {
