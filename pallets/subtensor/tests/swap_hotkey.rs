@@ -351,8 +351,8 @@ fn test_swap_weight_commits() {
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
         let netuid = 0u16;
-        let mut weight_commits: VecDeque<(H256, u64)> = VecDeque::new();
-        weight_commits.push_back((H256::from_low_u64_be(100), 200));
+        let mut weight_commits: VecDeque<(H256, u64, u64, u64)> = VecDeque::new();
+        weight_commits.push_back((H256::from_low_u64_be(100), 200, 1, 1));
         let mut weight = Weight::zero();
 
         add_network(netuid, 0, 1);

@@ -1187,12 +1187,12 @@ pub mod pallet {
         ///
         /// # Weight
         /// Weight is handled by the `#[pallet::weight]` attribute.
-        #[pallet::call_index(56)]
-        #[pallet::weight(T::WeightInfo::sudo_set_commit_reveal_weights_periods())]
-        pub fn sudo_set_commit_reveal_weights_periods(
+        #[pallet::call_index(57)]
+        #[pallet::weight(T::WeightInfo::sudo_set_commit_reveal_weights_interval())]
+        pub fn sudo_set_commit_reveal_weights_interval(
             origin: OriginFor<T>,
             netuid: u16,
-            periods: u64,
+            interval: u64,
         ) -> DispatchResult {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
 
@@ -1201,11 +1201,11 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
 
-            pallet_subtensor::Pallet::<T>::set_reveal_period(netuid, periods);
+            pallet_subtensor::Pallet::<T>::set_reveal_period(netuid, interval);
             log::debug!(
-                "SetWeightCommitPeriods( netuid: {:?}, periods: {:?} ) ",
+                "SetWeightCommitInterval( netuid: {:?}, interval: {:?} ) ",
                 netuid,
-                periods
+                interval
             );
             Ok(())
         }
