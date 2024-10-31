@@ -119,8 +119,12 @@ rocksdb = [
 	"sc-service/rocksdb",
 	"fc-db/rocksdb",
 	"fc-mapping-sync/rocksdb",
+	"fc-rpc/rocksdb"
 ]
-txpool = ["fc-rpc/txpool"]
+txpool = [
+	"fc-rpc/txpool",
+	"fc-rpc-core/txpool"
+]
 
 # Dependencies that are only required if runtime benchmarking should be build.
 runtime-benchmarks = [
