@@ -1,6 +1,5 @@
 use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
-use frame_support::storage::IterableStorageDoubleMap;
 extern crate alloc;
 use codec::Compact;
 
@@ -177,13 +176,8 @@ impl<T: Config> Pallet<T> {
         let last_update = Self::get_last_update_for_uid(netuid, uid);
         let validator_permit = Self::get_validator_permit_for_uid(netuid, uid);
 
-        let stake: Vec<(T::AccountId, Compact<u64>)> =
-            <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(
-                hotkey.clone(),
-            )
-            .map(|(coldkey, stake)| (coldkey, stake.into()))
-            .collect();
-
+        let stake_weight: u64 = Self::get_stake_weight(netuid, uid) as u64;
+        let stake: Vec<(T::AccountId, Compact<u64>)> = vec![(coldkey.clone(), stake_weight.into())];
         let neuron = NeuronInfoLite {
             hotkey: hotkey.clone(),
             coldkey: coldkey.clone(),
