@@ -19,61 +19,71 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Raises:
     /// * `CommitRevealDisabled`:
-    ///   - Attempting to commit when the commit-reveal mechanism is disabled.
+    ///   - Raised if commit-reveal is disabled for the specified network.
+    ///
+    /// * `HotKeyNotRegisteredInSubNet`:
+    ///   - Raised if the hotkey is not registered on the specified network.
+    ///
+    /// * `CommittingWeightsTooFast`:
+    ///   - Raised if the hotkey's commit rate exceeds the permitted limit.
     ///
     /// * `TooManyUnrevealedCommits`:
-    ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
+    ///   - Raised if the hotkey has reached the maximum number of unrevealed commits.
+    ///
+    /// # Events:
+    /// * `WeightsCommitted`:
+    ///   - Emitted upon successfully storing the weight hash.
     pub fn do_commit_weights(
         origin: T::RuntimeOrigin,
         netuid: u16,
         commit_hash: H256,
     ) -> DispatchResult {
-        // --- 1. Check the caller's signature (hotkey).
+        // 1. Verify the caller's signature (hotkey).
         let who = ensure_signed(origin)?;
 
-        log::debug!("do_commit_weights( hotkey:{:?} netuid:{:?})", who, netuid);
+        log::debug!("do_commit_weights(hotkey: {:?}, netuid: {:?})", who, netuid);
 
-        // --- 2. Ensure commit-reveal is enabled for the network.
+        // 2. Ensure commit-reveal is enabled.
         ensure!(
             Self::get_commit_reveal_weights_enabled(netuid),
             Error::<T>::CommitRevealDisabled
         );
 
+        // 3. Ensure the hotkey is registered on the network.
         ensure!(
             Self::is_hotkey_registered_on_network(netuid, &who),
             Error::<T>::HotKeyNotRegisteredInSubNet
         );
 
-        let commit_block: u64 = Self::get_current_block_as_u64();
-        let neuron_uid: u16 = Self::get_uid_for_net_and_hotkey(netuid, &who)?;
+        // 4. Check that the commit rate does not exceed the allowed frequency.
+        let commit_block = Self::get_current_block_as_u64();
+        let neuron_uid = Self::get_uid_for_net_and_hotkey(netuid, &who)?;
         ensure!(
             Self::check_rate_limit(netuid, neuron_uid, commit_block),
             Error::<T>::CommittingWeightsTooFast
         );
 
-        // --- 3. Calculate the reveal blocks based on tempo and reveal period.
+        // 5. Calculate the reveal blocks based on network tempo and reveal period.
         let (first_reveal_block, last_reveal_block) = Self::get_reveal_blocks(netuid, commit_block);
 
-        // --- 4. Mutate the WeightCommits to retrieve existing commits for the user.
+        // 6. Retrieve or initialize the VecDeque of commits for the hotkey.
         WeightCommits::<T>::try_mutate(netuid, &who, |maybe_commits| -> DispatchResult {
-            // --- 5. Take the existing commits or create a new VecDeque.
             let mut commits: VecDeque<(H256, u64, u64, u64)> =
                 maybe_commits.take().unwrap_or_default();
 
-            // --- 6. Remove any expired commits from the front of the queue.
+            // 7. Remove any expired commits from the front of the queue.
             while let Some((_, commit_block_existing, _, _)) = commits.front() {
                 if Self::is_commit_expired(netuid, *commit_block_existing) {
-                    // Remove the expired commit
                     commits.pop_front();
                 } else {
                     break;
                 }
             }
 
-            // --- 7. Check if the current number of unrevealed commits is within the allowed limit.
+            // 8. Verify that the number of unrevealed commits is within the allowed limit.
             ensure!(commits.len() < 10, Error::<T>::TooManyUnrevealedCommits);
 
-            // --- 8. Append the new commit to the queue.
+            // 9. Append the new commit with calculated reveal blocks.
             commits.push_back((
                 commit_hash,
                 commit_block,
@@ -81,16 +91,16 @@ impl<T: Config> Pallet<T> {
                 last_reveal_block,
             ));
 
-            // --- 9. Store the updated queue back to storage.
+            // 10. Store the updated commits queue back to storage.
             *maybe_commits = Some(commits);
 
-            // --- 10. Emit the WeightsCommitted event.
+            // 11. Emit the WeightsCommitted event
             Self::deposit_event(Event::WeightsCommitted(who.clone(), netuid, commit_hash));
 
-            // --- 11. Set last update for the UID
+            // 12. Update the last commit block for the hotkey's UID.
             Self::set_last_update_for_uid(netuid, neuron_uid, commit_block);
 
-            // --- 12. Return ok.
+            // 13. Return success.
             Ok(())
         })
     }
