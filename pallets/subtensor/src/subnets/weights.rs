@@ -19,51 +19,88 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Raises:
     /// * `CommitRevealDisabled`:
-    ///   - Attempting to commit when the commit-reveal mechanism is disabled.
+    ///   - Raised if commit-reveal is disabled for the specified network.
+    ///
+    /// * `HotKeyNotRegisteredInSubNet`:
+    ///   - Raised if the hotkey is not registered on the specified network.
+    ///
+    /// * `CommittingWeightsTooFast`:
+    ///   - Raised if the hotkey's commit rate exceeds the permitted limit.
     ///
     /// * `TooManyUnrevealedCommits`:
-    ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
+    ///   - Raised if the hotkey has reached the maximum number of unrevealed commits.
+    ///
+    /// # Events:
+    /// * `WeightsCommitted`:
+    ///   - Emitted upon successfully storing the weight hash.
     pub fn do_commit_weights(
         origin: T::RuntimeOrigin,
         netuid: u16,
         commit_hash: H256,
     ) -> DispatchResult {
-        // --- 1. Check the caller's signature (hotkey).
+        // 1. Verify the caller's signature (hotkey).
         let who = ensure_signed(origin)?;
 
-        log::debug!("do_commit_weights( hotkey:{:?} netuid:{:?})", who, netuid);
+        log::debug!("do_commit_weights(hotkey: {:?}, netuid: {:?})", who, netuid);
 
-        // --- 2. Ensure commit-reveal is enabled for the network.
+        // 2. Ensure commit-reveal is enabled.
         ensure!(
             Self::get_commit_reveal_weights_enabled(netuid),
             Error::<T>::CommitRevealDisabled
         );
 
-        // --- 3. Mutate the WeightCommits to retrieve existing commits for the user.
-        WeightCommits::<T>::try_mutate(netuid, &who, |maybe_commits| -> DispatchResult {
-            // --- 4. Take the existing commits or create a new VecDeque.
-            let mut commits: VecDeque<(H256, u64)> = maybe_commits.take().unwrap_or_default();
+        // 3. Ensure the hotkey is registered on the network.
+        ensure!(
+            Self::is_hotkey_registered_on_network(netuid, &who),
+            Error::<T>::HotKeyNotRegisteredInSubNet
+        );
 
-            // --- 5. Remove any expired commits from the front of the queue.
-            while let Some((_, commit_block)) = commits.front() {
-                if Self::is_commit_expired(netuid, *commit_block) {
-                    // Remove the expired commit
+        // 4. Check that the commit rate does not exceed the allowed frequency.
+        let commit_block = Self::get_current_block_as_u64();
+        let neuron_uid = Self::get_uid_for_net_and_hotkey(netuid, &who)?;
+        ensure!(
+            Self::check_rate_limit(netuid, neuron_uid, commit_block),
+            Error::<T>::CommittingWeightsTooFast
+        );
+
+        // 5. Calculate the reveal blocks based on network tempo and reveal period.
+        let (first_reveal_block, last_reveal_block) = Self::get_reveal_blocks(netuid, commit_block);
+
+        // 6. Retrieve or initialize the VecDeque of commits for the hotkey.
+        WeightCommits::<T>::try_mutate(netuid, &who, |maybe_commits| -> DispatchResult {
+            let mut commits: VecDeque<(H256, u64, u64, u64)> =
+                maybe_commits.take().unwrap_or_default();
+
+            // 7. Remove any expired commits from the front of the queue.
+            while let Some((_, commit_block_existing, _, _)) = commits.front() {
+                if Self::is_commit_expired(netuid, *commit_block_existing) {
                     commits.pop_front();
                 } else {
                     break;
                 }
             }
 
-            // --- 6. Check if the current number of unrevealed commits is within the allowed limit.
+            // 8. Verify that the number of unrevealed commits is within the allowed limit.
             ensure!(commits.len() < 10, Error::<T>::TooManyUnrevealedCommits);
 
-            // --- 7. Append the new commit to the queue.
-            commits.push_back((commit_hash, Self::get_current_block_as_u64()));
+            // 9. Append the new commit with calculated reveal blocks.
+            commits.push_back((
+                commit_hash,
+                commit_block,
+                first_reveal_block,
+                last_reveal_block,
+            ));
 
-            // --- 8. Store the updated queue back to storage.
+            // 10. Store the updated commits queue back to storage.
             *maybe_commits = Some(commits);
 
-            // --- 9. Return ok.
+            // 11. Emit the WeightsCommitted event
+            Self::deposit_event(Event::WeightsCommitted(who.clone(), netuid, commit_hash));
+
+            // 12. Update the last commit block for the hotkey's UID.
+            Self::set_last_update_for_uid(netuid, neuron_uid, commit_block);
+
+            // 13. Return success.
             Ok(())
         })
     }
@@ -131,7 +168,7 @@ impl<T: Config> Pallet<T> {
 
             // --- 4. Remove any expired commits from the front of the queue, collecting their hashes.
             let mut expired_hashes = Vec::new();
-            while let Some((hash, commit_block)) = commits.front() {
+            while let Some((hash, commit_block, _, _)) = commits.front() {
                 if Self::is_commit_expired(netuid, *commit_block) {
                     // Collect the expired commit hash
                     expired_hashes.push(*hash);
@@ -153,7 +190,6 @@ impl<T: Config> Pallet<T> {
 
             // --- 6. After removing expired commits, check if any commits are left.
             if commits.is_empty() {
-                // No non-expired commits
                 // Check if provided_hash matches any expired commits
                 if expired_hashes.contains(&provided_hash) {
                     return Err(Error::<T>::ExpiredWeightCommit.into());
@@ -163,9 +199,12 @@ impl<T: Config> Pallet<T> {
             }
 
             // --- 7. Search for the provided_hash in the non-expired commits.
-            if let Some(position) = commits.iter().position(|(hash, _)| *hash == provided_hash) {
+            if let Some(position) = commits
+                .iter()
+                .position(|(hash, _, _, _)| *hash == provided_hash)
+            {
                 // --- 8. Get the commit block for the commit being revealed.
-                let (_, commit_block) = commits
+                let (_, commit_block, _, _) = commits
                     .get(position)
                     .ok_or(Error::<T>::NoWeightsCommitFound)?;
 
@@ -186,10 +225,15 @@ impl<T: Config> Pallet<T> {
                 }
 
                 // --- 12. Proceed to set the revealed weights.
-                Self::do_set_weights(origin, netuid, uids, values, version_key)
+                Self::do_set_weights(origin, netuid, uids.clone(), values.clone(), version_key)?;
+
+                // --- 13. Emit the WeightsRevealed event.
+                Self::deposit_event(Event::WeightsRevealed(who.clone(), netuid, provided_hash));
+
+                // --- 14. Return ok.
+                Ok(())
             } else {
-                // --- 13. The provided_hash does not match any non-expired commits.
-                // Check if provided_hash matches any expired commits
+                // --- 15. The provided_hash does not match any non-expired commits.
                 if expired_hashes.contains(&provided_hash) {
                     Err(Error::<T>::ExpiredWeightCommit.into())
                 } else {
@@ -236,7 +280,7 @@ impl<T: Config> Pallet<T> {
     /// * `InvalidRevealCommitHashNotMatch`:
     ///   - The revealed hash does not match any committed hash.
     ///
-    /// * `InvalidInputLengths`:
+    /// * `InputLengthsUnequal`:
     ///   - The input vectors are of mismatched lengths.
     pub fn do_batch_reveal_weights(
         origin: T::RuntimeOrigin,
@@ -278,7 +322,7 @@ impl<T: Config> Pallet<T> {
 
             // --- 5. Remove any expired commits from the front of the queue, collecting their hashes.
             let mut expired_hashes = Vec::new();
-            while let Some((hash, commit_block)) = commits.front() {
+            while let Some((hash, commit_block, _, _)) = commits.front() {
                 if Self::is_commit_expired(netuid, *commit_block) {
                     // Collect the expired commit hash
                     expired_hashes.push(*hash);
@@ -288,7 +332,11 @@ impl<T: Config> Pallet<T> {
                 }
             }
 
-            // --- 6. Process each reveal.
+            // --- 6. Prepare to collect all provided hashes and their corresponding reveals.
+            let mut provided_hashes = Vec::new();
+            let mut reveals = Vec::new();
+            let mut revealed_hashes: Vec<H256> = Vec::with_capacity(num_reveals);
+
             for ((uids, values), (salt, version_key)) in uids_list
                 .into_iter()
                 .zip(values_list)
@@ -303,45 +351,73 @@ impl<T: Config> Pallet<T> {
                     salt.clone(),
                     version_key,
                 ));
+                provided_hashes.push(provided_hash);
+                reveals.push((uids, values, version_key, provided_hash));
+            }
 
-                // --- 6b. Search for the provided_hash in the non-expired commits.
-                if let Some(position) = commits.iter().position(|(hash, _)| *hash == provided_hash)
+            // --- 7. Validate all reveals first to ensure atomicity.
+            for (_uids, _values, _version_key, provided_hash) in &reveals {
+                // --- 7a. Check if the provided_hash is in the non-expired commits.
+                if !commits
+                    .iter()
+                    .any(|(hash, _, _, _)| *hash == *provided_hash)
                 {
-                    // --- 6c. Get the commit block for the commit being revealed.
-                    let (_, commit_block) = commits
-                        .get(position)
-                        .ok_or(Error::<T>::NoWeightsCommitFound)?;
-
-                    // --- 6d. Ensure the commit is ready to be revealed in the current block range.
-                    ensure!(
-                        Self::is_reveal_block_range(netuid, *commit_block),
-                        Error::<T>::RevealTooEarly
-                    );
-
-                    // --- 6e. Remove all commits up to and including the one being revealed.
-                    for _ in 0..=position {
-                        commits.pop_front();
-                    }
-
-                    // --- 6f. Proceed to set the revealed weights.
-                    Self::do_set_weights(origin.clone(), netuid, uids, values, version_key)?;
-                } else {
-                    // The provided_hash does not match any non-expired commits.
-                    // Check if it matches any expired commits
-                    if expired_hashes.contains(&provided_hash) {
+                    // --- 7b. If not found, check if it matches any expired commits.
+                    if expired_hashes.contains(provided_hash) {
                         return Err(Error::<T>::ExpiredWeightCommit.into());
                     } else {
                         return Err(Error::<T>::InvalidRevealCommitHashNotMatch.into());
                     }
                 }
+
+                // --- 7c. Find the commit corresponding to the provided_hash.
+                let commit = commits
+                    .iter()
+                    .find(|(hash, _, _, _)| *hash == *provided_hash)
+                    .ok_or(Error::<T>::NoWeightsCommitFound)?;
+
+                // --- 7d. Check if the commit is within the reveal window.
+                ensure!(
+                    Self::is_reveal_block_range(netuid, commit.1),
+                    Error::<T>::RevealTooEarly
+                );
             }
 
-            // --- 7. If the queue is now empty, remove the storage entry for the user.
+            // --- 8. All reveals are valid. Proceed to remove and process each reveal.
+            for (uids, values, version_key, provided_hash) in reveals {
+                // --- 8a. Find the position of the provided_hash.
+                if let Some(position) = commits
+                    .iter()
+                    .position(|(hash, _, _, _)| *hash == provided_hash)
+                {
+                    // --- 8b. Remove the commit from the queue.
+                    commits.remove(position);
+
+                    // --- 8c. Proceed to set the revealed weights.
+                    Self::do_set_weights(origin.clone(), netuid, uids, values, version_key)?;
+
+                    // --- 8d. Collect the revealed hash.
+                    revealed_hashes.push(provided_hash);
+                } else if expired_hashes.contains(&provided_hash) {
+                    return Err(Error::<T>::ExpiredWeightCommit.into());
+                } else {
+                    return Err(Error::<T>::InvalidRevealCommitHashNotMatch.into());
+                }
+            }
+
+            // --- 9. If the queue is now empty, remove the storage entry for the user.
             if commits.is_empty() {
                 *maybe_commits = None;
             }
 
-            // --- 8. Return ok.
+            // --- 10. Emit the WeightsBatchRevealed event with all revealed hashes.
+            Self::deposit_event(Event::WeightsBatchRevealed(
+                who.clone(),
+                netuid,
+                revealed_hashes,
+            ));
+
+            // --- 11. Return ok.
             Ok(())
         })
     }
@@ -464,10 +540,12 @@ impl<T: Config> Pallet<T> {
         // --- 9. Ensure the uid is not setting weights faster than the weights_set_rate_limit.
         let neuron_uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey)?;
         let current_block: u64 = Self::get_current_block_as_u64();
-        ensure!(
-            Self::check_rate_limit(netuid, neuron_uid, current_block),
-            Error::<T>::SettingWeightsTooFast
-        );
+        if !Self::get_commit_reveal_weights_enabled(netuid) {
+            ensure!(
+                Self::check_rate_limit(netuid, neuron_uid, current_block),
+                Error::<T>::SettingWeightsTooFast
+            );
+        }
 
         // --- 10. Check that the neuron uid is an allowed validator permitted to set non-self weights.
         ensure!(
@@ -509,7 +587,9 @@ impl<T: Config> Pallet<T> {
         Weights::<T>::insert(netuid, neuron_uid, zipped_weights);
 
         // --- 18. Set the activity for the weights on this network.
-        Self::set_last_update_for_uid(netuid, neuron_uid, current_block);
+        if !Self::get_commit_reveal_weights_enabled(netuid) {
+            Self::set_last_update_for_uid(netuid, neuron_uid, current_block);
+        }
 
         // --- 19. Emit the tracking event.
         log::debug!(
@@ -701,6 +781,23 @@ impl<T: Config> Pallet<T> {
         let reveal_period: u64 = Self::get_reveal_period(netuid);
 
         current_epoch > commit_epoch.saturating_add(reveal_period)
+    }
+
+    pub fn get_reveal_blocks(netuid: u16, commit_block: u64) -> (u64, u64) {
+        let reveal_period: u64 = Self::get_reveal_period(netuid);
+        let tempo: u64 = Self::get_tempo(netuid) as u64;
+        let tempo_plus_one: u64 = tempo.saturating_add(1);
+        let netuid_plus_one: u64 = (netuid as u64).saturating_add(1);
+
+        let commit_epoch: u64 = Self::get_epoch_index(netuid, commit_block);
+        let reveal_epoch: u64 = commit_epoch.saturating_add(reveal_period);
+
+        let first_reveal_block = reveal_epoch
+            .saturating_mul(tempo_plus_one)
+            .saturating_sub(netuid_plus_one);
+        let last_reveal_block = first_reveal_block.saturating_add(tempo);
+
+        (first_reveal_block, last_reveal_block)
     }
 
     pub fn set_reveal_period(netuid: u16, reveal_period: u64) {
