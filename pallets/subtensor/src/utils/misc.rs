@@ -234,6 +234,9 @@ impl<T: Config> Pallet<T> {
     pub fn get_pending_emission(netuid: u16) -> u64 {
         PendingEmission::<T>::get(netuid)
     }
+    pub fn get_pending_hotkey_emission_on_netuid(hotkey: &T::AccountId, netuid: u16) -> u64 {
+        PendingHotkeyEmissionOnNetuid::<T>::get(hotkey, netuid)
+    }
     pub fn get_last_adjustment_block(netuid: u16) -> u64 {
         LastAdjustmentBlock::<T>::get(netuid)
     }
@@ -490,13 +493,6 @@ impl<T: Config> Pallet<T> {
     pub fn set_kappa(netuid: u16, kappa: u16) {
         Kappa::<T>::insert(netuid, kappa);
         Self::deposit_event(Event::KappaSet(netuid, kappa));
-    }
-
-    pub fn get_commit_reveal_weights_interval(netuid: u16) -> u64 {
-        WeightCommitRevealInterval::<T>::get(netuid)
-    }
-    pub fn set_commit_reveal_weights_interval(netuid: u16, interval: u64) {
-        WeightCommitRevealInterval::<T>::set(netuid, interval);
     }
     pub fn get_commit_reveal_weights_enabled(netuid: u16) -> bool {
         CommitRevealWeightsEnabled::<T>::get(netuid)

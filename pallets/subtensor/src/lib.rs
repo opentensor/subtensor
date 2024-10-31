@@ -75,6 +75,7 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
     use sp_core::H256;
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
+    use sp_std::collections::vec_deque::VecDeque;
     use sp_std::vec;
     use sp_std::vec::Vec;
     use subtensor_macros::freeze_struct;
@@ -507,6 +508,16 @@ pub mod pallet {
         T::InitialAdjustmentAlpha::get()
     }
     #[pallet::type_value]
+    /// Default minimum stake for weights.
+    pub fn DefaultWeightsMinStake<T: Config>() -> u64 {
+        0
+    }
+    #[pallet::type_value]
+    /// Default minimum stake for weights.
+    pub fn DefaultRevealPeriodEpochs<T: Config>() -> u64 {
+        1
+    }
+    #[pallet::type_value]
     /// Value definition for vector of u16.
     pub fn EmptyU16Vec<T: Config>() -> Vec<u16> {
         vec![]
@@ -568,9 +579,9 @@ pub mod pallet {
         T::InitialServingRateLimit::get()
     }
     #[pallet::type_value]
-    /// Default value for weight commit reveal interval.
-    pub fn DefaultWeightCommitRevealInterval<T: Config>() -> u64 {
-        1000
+    /// Default value for weight commit/reveal enabled.
+    pub fn DefaultCommitRevealWeightsEnabled<T: Config>() -> bool {
+        false
     }
     #[pallet::type_value]
     /// Senate requirements
@@ -1045,10 +1056,8 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> adjustment_alpha
     pub type AdjustmentAlpha<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultAdjustmentAlpha<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> interval
-    pub type WeightCommitRevealInterval<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultWeightCommitRevealInterval<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> interval
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> enabled
     pub type CommitRevealWeightsEnabled<T> =
         StorageMap<_, Identity, u16, bool, ValueQuery, DefaultFalse<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> Burn
@@ -1230,19 +1239,25 @@ pub mod pallet {
     #[pallet::storage]
     /// --- MAP ( key ) --> last_tx_block_delegate_take
     pub type LastTxBlockDelegateTake<T: Config> =
-        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- ITEM( weights_min_stake )
-    pub type WeightsMinStake<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- MAP (netuid, who) --> (hash, weight) | Returns the hash and weight committed by an account for a given netuid.
+        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
+    #[pallet::storage]
+    /// ITEM( weights_min_stake )
+    pub type WeightsMinStake<T> = StorageValue<_, u64, ValueQuery, DefaultWeightsMinStake<T>>;
+    #[pallet::storage]
+    /// --- MAP (netuid, who) --> VecDeque<(hash, commit_block)> | Stores a queue of commits for an account on a given netuid.
     pub type WeightCommits<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
         u16,
         Twox64Concat,
         T::AccountId,
-        (H256, u64),
+        VecDeque<(H256, u64)>,
         OptionQuery,
     >;
+    #[pallet::storage]
+    /// --- Map (netuid) --> Number of epochs allowed for commit reveal periods
+    pub type RevealPeriodEpochs<T: Config> =
+        StorageMap<_, Twox64Concat, u16, u64, ValueQuery, DefaultRevealPeriodEpochs<T>>;
 
     /// ==================
     /// ==== Genesis =====

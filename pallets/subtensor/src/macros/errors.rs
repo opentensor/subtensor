@@ -114,12 +114,8 @@ mod errors {
         DelegateTakeTooLow,
         /// Delegate take is too high.
         DelegateTakeTooHigh,
-        /// Not allowed to commit weights.
-        WeightsCommitNotAllowed,
         /// No commit found for the provided hotkey+netuid combination when attempting to reveal the weights.
         NoWeightsCommitFound,
-        /// Not the correct block/range to reveal weights.
-        InvalidRevealCommitTempo,
         /// Committed hash does not equal the hashed reveal data.
         InvalidRevealCommitHashNotMatch,
         /// Attempting to call set_weights when commit/reveal is enabled
@@ -192,6 +188,14 @@ mod errors {
         SubnetNotExists,
         /// Subnet has already been converted.
         SubnetAlreadyConverted,
+        /// Maximum commit limit reached
+        TooManyUnrevealedCommits,
+        /// Attempted to reveal weights that are expired.
+        ExpiredWeightCommit,
+        /// Attempted to reveal weights too early.
+        RevealTooEarly,
+        /// Attempted to batch reveal weights with mismatched vector input lenghts.
+        InputLengthsUnequal,
         /// Nomination pool does not exist.
 		NominationPoolDoesNotExist,
     }
