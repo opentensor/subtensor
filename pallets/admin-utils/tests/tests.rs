@@ -1117,29 +1117,6 @@ fn test_sudo_set_min_delegate_take() {
 }
 
 #[test]
-fn test_sudo_set_weight_commit_interval() {
-    new_test_ext().execute_with(|| {
-        let netuid: u16 = 1;
-        add_network(netuid, 10);
-
-        let to_be_set = 55;
-        let init_value = SubtensorModule::get_commit_reveal_weights_interval(netuid);
-
-        assert_ok!(AdminUtils::sudo_set_commit_reveal_weights_interval(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            netuid,
-            to_be_set
-        ));
-
-        assert!(init_value != to_be_set);
-        assert_eq!(
-            SubtensorModule::get_commit_reveal_weights_interval(netuid),
-            to_be_set
-        );
-    });
-}
-
-#[test]
 fn test_sudo_set_commit_reveal_weights_enabled() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
@@ -1403,5 +1380,25 @@ fn test_sudo_set_coldkey_swap_schedule_duration() {
 
         // You might want to check for events here if your pallet emits them
         System::assert_last_event(Event::ColdkeySwapScheduleDurationSet(new_duration).into());
+    });
+}
+
+#[test]
+fn sudo_set_commit_reveal_weights_periods() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 10);
+
+        let to_be_set = 55;
+        let init_value = SubtensorModule::get_reveal_period(netuid);
+
+        assert_ok!(AdminUtils::sudo_set_commit_reveal_weights_periods(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+
+        assert!(init_value != to_be_set);
+        assert_eq!(SubtensorModule::get_reveal_period(netuid), to_be_set);
     });
 }
