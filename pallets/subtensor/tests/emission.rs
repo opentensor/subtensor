@@ -1,4 +1,6 @@
 mod mock;
+use std::collections::BTreeMap;
+
 use crate::mock::*;
 use pallet_subtensor::*;
 use sp_core::U256;
@@ -289,7 +291,7 @@ fn test_basic_emission_distribution() {
         SubtensorModule::stake_into_subnet(&hotkey, &nominator2, netuid, 500);
         Delegates::<Test>::insert(hotkey, 16384); // 25% take
 
-        let mut emission_tuples = Vec::new();
+        let mut emission_tuples: BTreeMap<(U256, U256), Vec<(u16, u64)>> = BTreeMap::new();
         SubtensorModule::source_nominator_emission(
             &hotkey,
             netuid,
@@ -299,36 +301,43 @@ fn test_basic_emission_distribution() {
         );
 
         assert_eq!(emission_tuples.len(), 3);
-        let total_distributed: u64 = emission_tuples.iter().map(|(_, _, _, amount)| amount).sum();
+        let total_distributed: u64 = emission_tuples
+            .iter()
+            .map(|((_, _), emission_vec)| {
+                emission_vec.iter().map(|(_, amount)| *amount).sum::<u64>()
+            })
+            .sum();
         assert_eq!(total_distributed, emission);
 
         // Check hotkey take
         let hotkey_emission: u64 = emission_tuples
             .iter()
-            .filter(|(h, _, _, _)| h == &hotkey)
-            .map(|(_, _, _, amount)| amount)
+            .filter(|((h, _), _)| h == &hotkey)
+            .map(|((_, _), emission_vec)| {
+                emission_vec.iter().map(|(_, amount)| *amount).sum::<u64>()
+            })
             .sum();
         assert!(hotkey_emission > 0);
 
         // Log the emission tuples
         println!("Emission tuples:");
-        for (hotkey, nominator, netuid, amount) in &emission_tuples {
+        for ((hotkey, nominator), emission_vec) in &emission_tuples {
             println!(
-                "Hotkey: {:?}, Nominator: {:?}, Netuid: {}, Amount: {}",
-                hotkey, nominator, netuid, amount
+                "Hotkey: {:?}, Nominator: {:?}, emissions by netuid: {:?}",
+                hotkey, nominator, emission_vec
             );
         }
 
         // Check nominator distributions
-        let nominator1_emission: u64 = *emission_tuples
+        let nominator1_emission: u64 = emission_tuples
             .iter()
-            .find(|(_, n, _, _)| n == &nominator1)
-            .map(|(_, _, _, amount)| amount)
+            .find(|((_, n), _)| n == &nominator1)
+            .map(|((_, _), emission_vec)| emission_vec[0].1)
             .unwrap();
-        let nominator2_emission: u64 = *emission_tuples
+        let nominator2_emission: u64 = emission_tuples
             .iter()
-            .find(|(_, n, _, _)| n == &nominator2)
-            .map(|(_, _, _, amount)| amount)
+            .find(|((_, n), _)| n == &nominator2)
+            .map(|((_, _), emission_vec)| emission_vec[0].1)
             .unwrap();
         assert!(nominator1_emission > 0);
         assert!(nominator2_emission > 0);
@@ -352,7 +361,7 @@ fn test_hotkey_take_calculation() {
             Delegates::<Test>::insert(hotkey, delegation);
             SubtensorModule::stake_into_subnet(&hotkey, &nominator, netuid, 500);
 
-            let mut emission_tuples = Vec::new();
+            let mut emission_tuples: BTreeMap<(U256, U256), Vec<(u16, u64)>> = BTreeMap::new();
             SubtensorModule::source_nominator_emission(
                 &hotkey,
                 netuid,
@@ -363,9 +372,9 @@ fn test_hotkey_take_calculation() {
 
             let hotkey_emission: u64 = emission_tuples
                 .iter()
-                .filter(|(h, _, _, _)| h == &hotkey)
+                .filter(|((h, c), _)| h == &hotkey && c == &U256::from(0))
                 .last()
-                .map(|(_, _, _, amount)| *amount)
+                .map(|((_, _), emission_vec)| emission_vec[0].1)
                 .unwrap_or(0);
             let emission_fixed = I96F32::from_num(emission);
             let delegation_fixed = I96F32::from_num(delegation);
@@ -401,7 +410,7 @@ fn test_nominator_distribution() {
         SubtensorModule::stake_into_subnet(&hotkey, &nominator3, netuid, 200);
         Delegates::<Test>::insert(hotkey, 0); // No hotkey take
 
-        let mut emission_tuples = Vec::new();
+        let mut emission_tuples: BTreeMap<(U256, U256), Vec<(u16, u64)>> = BTreeMap::new();
         SubtensorModule::source_nominator_emission(
             &hotkey,
             netuid,
@@ -412,31 +421,30 @@ fn test_nominator_distribution() {
 
         let nominator1_emission = emission_tuples
             .iter()
-            .find(|(_, n, _, _)| n == &nominator1)
-            .map(|(_, _, _, amount)| amount)
+            .find(|((_, n), _)| n == &nominator1)
+            .map(|((_, _), ev)| ev[0].1)
             .unwrap();
         let nominator2_emission = emission_tuples
             .iter()
-            .find(|(_, n, _, _)| n == &nominator2)
-            .map(|(_, _, _, amount)| amount)
+            .find(|((_, n), _)| n == &nominator2)
+            .map(|((_, _), ev)| ev[0].1)
             .unwrap();
         let nominator3_emission = emission_tuples
             .iter()
-            .find(|(_, n, _, _)| n == &nominator3)
-            .map(|(_, _, _, amount)| amount)
+            .find(|((_, n), _)| n == &nominator3)
+            .map(|((_, _), ev)| ev[0].1)
             .unwrap();
         let remainder: u64 = emission_tuples
             .iter()
-            .filter(|(h, _, _, _)| h == &hotkey)
-            .last()
-            .map(|(_, _, _, amount)| *amount)
-            .unwrap_or(0);
+            .find(|((h, c), _)| h == &hotkey && c == &U256::from(0))
+            .map(|((_, _), ev)| ev[0].1)
+            .unwrap();
 
         // Check proportional distribution
         assert!(nominator1_emission > nominator2_emission);
         assert!(nominator2_emission > nominator3_emission);
         assert_eq!(
-            *nominator1_emission + *nominator2_emission + *nominator3_emission,
+            nominator1_emission + nominator2_emission + nominator3_emission,
             emission - remainder
         );
 
@@ -473,7 +481,7 @@ fn test_global_and_alpha_weight_distribution() {
         SubtensorModule::stake_into_subnet(&hotkey, &nominator, netuid, 1000);
         Delegates::<Test>::insert(hotkey, 0); // No hotkey take
 
-        let mut emission_tuples = Vec::new();
+        let mut emission_tuples: BTreeMap<(U256, U256), Vec<(u16, u64)>> = BTreeMap::new();
         SubtensorModule::source_nominator_emission(
             &hotkey,
             netuid,
@@ -484,8 +492,8 @@ fn test_global_and_alpha_weight_distribution() {
 
         let nominator_emission = emission_tuples
             .iter()
-            .find(|(_, n, _, _)| n == &nominator)
-            .map(|(_, _, _, amount)| amount)
+            .find(|((_, n), _)| n == &nominator)
+            .map(|((_, _), ev)| ev[0].1)
             .unwrap();
 
         // Check if the distribution is close to expected
@@ -493,7 +501,7 @@ fn test_global_and_alpha_weight_distribution() {
         let expected_alpha = (emission as f64 * 0.7) as u64;
         let total_expected = expected_global + expected_alpha;
 
-        assert!((*nominator_emission as i64 - total_expected as i64).abs() <= 1);
+        assert!((nominator_emission as i64 - total_expected as i64).abs() <= 1);
     });
 }
 
@@ -512,7 +520,7 @@ fn test_zero_stake_scenario() {
         SubtensorModule::stake_into_subnet(&hotkey, &nominator, netuid, 0);
         Delegates::<Test>::insert(hotkey, 0);
 
-        let mut emission_tuples = Vec::new();
+        let mut emission_tuples: BTreeMap<(U256, U256), Vec<(u16, u64)>> = BTreeMap::new();
         SubtensorModule::source_nominator_emission(
             &hotkey,
             netuid,
@@ -523,9 +531,10 @@ fn test_zero_stake_scenario() {
 
         // Check that no errors occurred and all emission went to hotkey
         assert_eq!(emission_tuples.len(), 1);
-        let (_, recipient, _, amount) = &emission_tuples[0];
-        assert_eq!(recipient, &Owner::<Test>::get(hotkey));
-        assert_eq!(*amount, emission);
+        let recipient = emission_tuples.keys().next().unwrap().1;
+        let amount = emission_tuples.values().next().unwrap()[0].1;
+        assert_eq!(recipient, Owner::<Test>::get(hotkey));
+        assert_eq!(amount, emission);
     });
 }
 
@@ -543,7 +552,7 @@ fn test_single_nominator_scenario() {
         SubtensorModule::stake_into_subnet(&hotkey, &nominator, netuid, 1000);
         Delegates::<Test>::insert(hotkey, 0);
 
-        let mut emission_tuples = Vec::new();
+        let mut emission_tuples: BTreeMap<(U256, U256), Vec<(u16, u64)>> = BTreeMap::new();
         SubtensorModule::source_nominator_emission(
             &hotkey,
             netuid,
@@ -553,9 +562,10 @@ fn test_single_nominator_scenario() {
         );
 
         assert_eq!(emission_tuples.len(), 2); // with delegate and nominator position.
-        let (_, recipient, _, amount) = &emission_tuples[0];
-        assert_eq!(recipient, &nominator);
-        assert_eq!(*amount, emission);
+        let recipient = emission_tuples.keys().nth(1).unwrap().1;
+        let amount = emission_tuples.values().nth(1).unwrap()[0].1;
+        assert_eq!(recipient, nominator);
+        assert_eq!(amount, emission);
     });
 }
 
@@ -576,7 +586,7 @@ fn test_maximum_nominators_scenario() {
         }
         Delegates::<Test>::insert(hotkey, 0);
 
-        let mut emission_tuples = Vec::new();
+        let mut emission_tuples: BTreeMap<(U256, U256), Vec<(u16, u64)>> = BTreeMap::new();
         SubtensorModule::source_nominator_emission(
             &hotkey,
             netuid,
@@ -586,7 +596,10 @@ fn test_maximum_nominators_scenario() {
         );
 
         assert_eq!(emission_tuples.len(), max_nominators + 1);
-        let total_distributed: u64 = emission_tuples.iter().map(|(_, _, _, amount)| amount).sum();
+        let total_distributed: u64 = emission_tuples
+            .iter()
+            .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
+            .sum();
         assert_eq!(total_distributed, emission);
     });
 }
@@ -607,7 +620,7 @@ fn test_rounding_and_precision() {
         SubtensorModule::stake_into_subnet(&hotkey, &nominator2, netuid, 666667);
         Delegates::<Test>::insert(hotkey, 0);
 
-        let mut emission_tuples = Vec::new();
+        let mut emission_tuples: BTreeMap<(U256, U256), Vec<(u16, u64)>> = BTreeMap::new();
         SubtensorModule::source_nominator_emission(
             &hotkey,
             netuid,
@@ -616,7 +629,10 @@ fn test_rounding_and_precision() {
             &mut emission_tuples,
         );
 
-        let total_distributed: u64 = emission_tuples.iter().map(|(_, _, _, amount)| amount).sum();
+        let total_distributed: u64 = emission_tuples
+            .iter()
+            .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
+            .sum();
         assert_eq!(
             total_distributed, emission,
             "Total distributed should equal the original emission"
@@ -624,17 +640,17 @@ fn test_rounding_and_precision() {
 
         let nominator1_emission = emission_tuples
             .iter()
-            .find(|(_, n, _, _)| n == &nominator1)
-            .map(|(_, _, _, amount)| amount)
+            .find(|((_, n), _)| n == &nominator1)
+            .map(|((_, _), ev)| ev[0].1)
             .unwrap();
         let nominator2_emission = emission_tuples
             .iter()
-            .find(|(_, n, _, _)| n == &nominator2)
-            .map(|(_, _, _, amount)| amount)
+            .find(|((_, n), _)| n == &nominator2)
+            .map(|((_, _), ev)| ev[0].1)
             .unwrap();
 
         assert!(
-            nominator1_emission > &0 && nominator2_emission > &0,
+            nominator1_emission > 0 && nominator2_emission > 0,
             "Both nominators should receive non-zero emissions"
         );
         assert!(
@@ -658,7 +674,7 @@ fn test_emission_tuple_generation() {
         SubtensorModule::stake_into_subnet(&hotkey, &nominator, netuid, 1000);
         Delegates::<Test>::insert(hotkey, 16384); // 25% take
 
-        let mut emission_tuples = Vec::new();
+        let mut emission_tuples: BTreeMap<(U256, U256), Vec<(u16, u64)>> = BTreeMap::new();
         SubtensorModule::source_nominator_emission(
             &hotkey,
             netuid,
@@ -675,25 +691,29 @@ fn test_emission_tuple_generation() {
 
         let nominator_tuple = emission_tuples
             .iter()
-            .find(|(h, n, net, _)| h == &hotkey && n == &nominator && *net == netuid)
+            .find(|((h, n), ev)| {
+                h == &hotkey && n == &nominator && ev.iter().any(|(net, _)| *net == netuid)
+            })
             .expect("Nominator tuple should exist");
         let hotkey_tuple = emission_tuples
             .iter()
-            .find(|(h, n, net, _)| {
-                h == &hotkey && n == &Owner::<Test>::get(hotkey) && *net == netuid
+            .find(|((h, n), ev)| {
+                h == &hotkey
+                    && n == &Owner::<Test>::get(hotkey)
+                    && ev.iter().any(|(net, _)| *net == netuid)
             })
             .expect("Hotkey tuple should exist");
 
         assert!(
-            nominator_tuple.3 > 0,
+            nominator_tuple.1[0].1 > 0,
             "Nominator should receive non-zero emission"
         );
         assert!(
-            hotkey_tuple.3 > 0,
+            hotkey_tuple.1[0].1 > 0,
             "Hotkey should receive non-zero emission"
         );
         assert_eq!(
-            nominator_tuple.3 + hotkey_tuple.3,
+            nominator_tuple.1[0].1 + hotkey_tuple.1[0].1,
             emission,
             "Sum of emissions should equal total emission"
         );
@@ -716,7 +736,7 @@ fn test_remainder_distribution() {
         SubtensorModule::stake_into_subnet(&hotkey, &nominator2, netuid, 666);
         Delegates::<Test>::insert(hotkey, 16384); // 25% take
 
-        let mut emission_tuples = Vec::new();
+        let mut emission_tuples: BTreeMap<(U256, U256), Vec<(u16, u64)>> = BTreeMap::new();
         SubtensorModule::source_nominator_emission(
             &hotkey,
             netuid,
@@ -727,21 +747,24 @@ fn test_remainder_distribution() {
 
         let hotkey_emission = emission_tuples
             .iter()
-            .find(|(h, n, _, _)| h == &hotkey && n == &Owner::<Test>::get(hotkey))
-            .map(|(_, _, _, amount)| amount)
+            .find(|((h, n), _)| h == &hotkey && n == &Owner::<Test>::get(hotkey))
+            .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
             .unwrap();
         let expected_hotkey_take = (emission as u128 * 16384u128 / 65535u128) as u64;
 
         assert!(
-            hotkey_emission >= &expected_hotkey_take,
+            hotkey_emission >= expected_hotkey_take,
             "Hotkey emission should be at least the expected take"
         );
         assert!(
-            hotkey_emission > &expected_hotkey_take,
+            hotkey_emission > expected_hotkey_take,
             "Hotkey emission should include some remainder"
         );
 
-        let total_distributed: u64 = emission_tuples.iter().map(|(_, _, _, amount)| amount).sum();
+        let total_distributed: u64 = emission_tuples
+            .iter()
+            .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
+            .sum();
         assert_eq!(
             total_distributed, emission,
             "Total distributed should equal the original emission"
@@ -763,7 +786,7 @@ fn test_different_network_ids_scenario() {
             SubtensorModule::stake_into_subnet(&hotkey, &nominator, netuid, 1000);
             Delegates::<Test>::insert(hotkey, 16384); // 25% take
 
-            let mut emission_tuples = Vec::new();
+            let mut emission_tuples: BTreeMap<(U256, U256), Vec<(u16, u64)>> = BTreeMap::new();
             SubtensorModule::source_nominator_emission(
                 &hotkey,
                 netuid,
@@ -779,8 +802,10 @@ fn test_different_network_ids_scenario() {
                 netuid
             );
 
-            let total_distributed: u64 =
-                emission_tuples.iter().map(|(_, _, _, amount)| amount).sum();
+            let total_distributed: u64 = emission_tuples
+                .iter()
+                .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
+                .sum();
             assert_eq!(
                 total_distributed, emission,
                 "Total distributed should equal the original emission for netuid {}",
@@ -804,7 +829,7 @@ fn test_large_emission_values() {
         SubtensorModule::stake_into_subnet(&hotkey, &nominator, netuid, u64::MAX);
         Delegates::<Test>::insert(hotkey, 16384); // 25% take
 
-        let mut emission_tuples = Vec::new();
+        let mut emission_tuples: BTreeMap<(U256, U256), Vec<(u16, u64)>> = BTreeMap::new();
         SubtensorModule::source_nominator_emission(
             &hotkey,
             netuid,
@@ -819,7 +844,10 @@ fn test_large_emission_values() {
             "Should generate 2 tuples even with max emission"
         );
 
-        let total_distributed: u64 = emission_tuples.iter().map(|(_, _, _, amount)| amount).sum();
+        let total_distributed: u64 = emission_tuples
+            .iter()
+            .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
+            .sum();
         assert_eq!(
             total_distributed, emission,
             "Total distributed should equal the original emission even with max value"
@@ -827,21 +855,21 @@ fn test_large_emission_values() {
 
         let hotkey_emission = emission_tuples
             .iter()
-            .find(|(h, n, _, _)| h == &hotkey && n == &Owner::<Test>::get(hotkey))
-            .map(|(_, _, _, amount)| amount)
+            .find(|((h, n), _)| h == &hotkey && n == &Owner::<Test>::get(hotkey))
+            .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
             .unwrap();
         let nominator_emission = emission_tuples
             .iter()
-            .find(|(h, n, _, _)| h == &hotkey && n == &nominator)
-            .map(|(_, _, _, amount)| amount)
+            .find(|((h, n), _)| h == &hotkey && n == &nominator)
+            .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
             .unwrap();
 
         assert!(
-            hotkey_emission > &0,
+            hotkey_emission > 0,
             "Hotkey should receive non-zero emission even with max value"
         );
         assert!(
-            nominator_emission > &0,
+            nominator_emission > 0,
             "Nominator should receive non-zero emission even with max value"
         );
     });
@@ -860,7 +888,7 @@ fn test_small_emission_values() {
         SubtensorModule::stake_into_subnet(&hotkey, &nominator, netuid, 1000);
         Delegates::<Test>::insert(hotkey, 16384); // 25% take
 
-        let mut emission_tuples = Vec::new();
+        let mut emission_tuples: BTreeMap<(U256, U256), Vec<(u16, u64)>> = BTreeMap::new();
         SubtensorModule::source_nominator_emission(
             &hotkey,
             netuid,
@@ -875,7 +903,10 @@ fn test_small_emission_values() {
             "Should generate 2 tuples even with small emission"
         );
 
-        let total_distributed: u64 = emission_tuples.iter().map(|(_, _, _, amount)| amount).sum();
+        let total_distributed: u64 = emission_tuples
+            .iter()
+            .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
+            .sum();
         assert_eq!(
             total_distributed, emission,
             "Total distributed should equal the original emission even with small value"
@@ -883,11 +914,11 @@ fn test_small_emission_values() {
 
         let hotkey_emission = emission_tuples
             .iter()
-            .find(|(h, n, _, _)| h == &hotkey && n == &Owner::<Test>::get(hotkey))
-            .map(|(_, _, _, amount)| amount)
+            .find(|((h, n), _)| h == &hotkey && n == &Owner::<Test>::get(hotkey))
+            .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
             .unwrap();
         assert!(
-            *hotkey_emission == 0 || *hotkey_emission == 1,
+            hotkey_emission == 0 || hotkey_emission == 1,
             "Hotkey emission should be 0 or 1 with small value"
         );
     });
@@ -907,11 +938,11 @@ fn test_consistency_across_multiple_calls() {
         SubtensorModule::stake_into_subnet(&hotkey, &nominator, netuid, 1000);
         Delegates::<Test>::insert(hotkey, 16384); // 25% take
 
-        let mut first_result = Vec::new();
+        let mut first_result: BTreeMap<(U256, U256), Vec<(u16, u64)>> = BTreeMap::new();
         SubtensorModule::source_nominator_emission(&hotkey, netuid, emission, 0, &mut first_result);
 
         for _ in 0..10 {
-            let mut current_result = Vec::new();
+            let mut current_result: BTreeMap<(U256, U256), Vec<(u16, u64)>> = BTreeMap::new();
             SubtensorModule::source_nominator_emission(
                 &hotkey,
                 netuid,
@@ -946,7 +977,7 @@ fn test_performance_with_many_nominators() {
         Delegates::<Test>::insert(hotkey, 16384); // 25% take
 
         let start_time = std::time::Instant::now();
-        let mut emission_tuples = Vec::new();
+        let mut emission_tuples: BTreeMap<(U256, U256), Vec<(u16, u64)>> = BTreeMap::new();
         SubtensorModule::source_nominator_emission(
             &hotkey,
             netuid,
@@ -962,7 +993,10 @@ fn test_performance_with_many_nominators() {
             "Should generate tuples for all nominators plus hotkey"
         );
 
-        let total_distributed: u64 = emission_tuples.iter().map(|(_, _, _, amount)| amount).sum();
+        let total_distributed: u64 = emission_tuples
+            .iter()
+            .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
+            .sum();
         assert_eq!(
             total_distributed, emission,
             "Total distributed should equal the original emission"
@@ -1008,7 +1042,7 @@ fn test_basic_emission_distribution_scenario() {
         );
 
         let mut emission_tuples = Vec::new();
-        SubtensorModule::source_hotkey_emission(
+        let untouchable = SubtensorModule::source_hotkey_emission(
             &hotkey,
             netuid,
             validating_emission,
@@ -1018,16 +1052,25 @@ fn test_basic_emission_distribution_scenario() {
 
         // We are only distributing validating emission among hotkeys, but mining emission stays with the miner
         assert_eq!(emission_tuples.len(), 3);
-        let total_distributed: u64 = emission_tuples.iter().map(|(_, _, amount)| amount).sum();
-        assert_eq!(total_distributed, validating_emission);
+        let total_distributed: u64 = emission_tuples
+            .iter()
+            .map(|(_, _, amount)| amount)
+            .sum::<u64>();
 
-        // Check hotkey take and mining emission
+        // untouchable is mining emission (500) + childkey take (25%)
+        assert_eq!(
+            total_distributed + untouchable,
+            validating_emission + mining_emission
+        );
+
+        // Hotkey child take and mining emission are in untouchable
         let hotkey_emission = emission_tuples
             .iter()
             .find(|(h, _, _)| h == &hotkey)
             .map(|(_, _, amount)| amount)
             .unwrap();
-        assert!(hotkey_emission > &0);
+        assert!(hotkey_emission == &0);
+        assert!(untouchable > 0);
 
         // Check parent distributions
         let parent1_emission = emission_tuples
@@ -1070,7 +1113,7 @@ fn test_hotkey_take_calculation_scenario() {
             ParentKeys::<Test>::insert(hotkey, netuid, vec![(u64::MAX, parent)]);
 
             let mut emission_tuples = Vec::new();
-            SubtensorModule::source_hotkey_emission(
+            let untouchable = SubtensorModule::source_hotkey_emission(
                 &hotkey,
                 netuid,
                 validating_emission,
@@ -1088,7 +1131,10 @@ fn test_hotkey_take_calculation_scenario() {
             let max_delegation_fixed = I96F32::from_num(65535u16);
             let expected_take =
                 (emission_fixed * delegation_fixed / max_delegation_fixed).to_num::<u64>();
-            assert!(hotkey_emission >= expected_take && hotkey_emission <= (expected_take + 1));
+            assert!(
+                hotkey_emission + untouchable >= expected_take
+                    && hotkey_emission <= (expected_take + 1)
+            );
         }
     });
 }
@@ -1781,7 +1827,7 @@ fn test_fast_stake_unstake_protection_source_nominator() {
         Delegates::<Test>::insert(&hotkey, 16384); // 25% take
         HotkeyEmissionTempo::<Test>::put(10);
 
-        let mut emission_tuples = Vec::new();
+        let mut emission_tuples: BTreeMap<(U256, U256), Vec<(u16, u64)>> = BTreeMap::new();
         SubtensorModule::source_nominator_emission(
             &hotkey,
             netuid,
