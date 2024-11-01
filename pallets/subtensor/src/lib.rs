@@ -513,7 +513,7 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
-    /// Default minimum stake for weights.
+    /// Default Reveal Period Epochs
     pub fn DefaultRevealPeriodEpochs<T: Config>() -> u64 {
         1
     }
@@ -1215,14 +1215,14 @@ pub mod pallet {
     /// ITEM( weights_min_stake )
     pub type WeightsMinStake<T> = StorageValue<_, u64, ValueQuery, DefaultWeightsMinStake<T>>;
     #[pallet::storage]
-    /// --- MAP (netuid, who) --> VecDeque<(hash, commit_block)> | Stores a queue of commits for an account on a given netuid.
+    /// --- MAP (netuid, who) --> VecDeque<(hash, commit_block, first_reveal_block, last_reveal_block)> | Stores a queue of commits for an account on a given netuid.
     pub type WeightCommits<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
         u16,
         Twox64Concat,
         T::AccountId,
-        VecDeque<(H256, u64)>,
+        VecDeque<(H256, u64, u64, u64)>,
         OptionQuery,
     >;
     #[pallet::storage]

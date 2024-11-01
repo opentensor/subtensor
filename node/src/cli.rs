@@ -1,3 +1,4 @@
+use crate::ethereum::EthConfiguration;
 use sc_cli::RunCmd;
 
 #[derive(Debug, clap::Parser)]
@@ -7,6 +8,13 @@ pub struct Cli {
 
     #[clap(flatten)]
     pub run: RunCmd,
+
+    /// Choose sealing method.
+    #[arg(long, value_enum, ignore_case = true)]
+    pub sealing: Option<Sealing>,
+
+    #[command(flatten)]
+    pub eth: EthConfiguration,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -44,4 +52,14 @@ pub enum Subcommand {
 
     // Db meta columns information.
     ChainInfo(sc_cli::ChainInfoCmd),
+}
+
+/// Available Sealing methods.
+#[derive(Copy, Clone, Debug, Default, clap::ValueEnum)]
+pub enum Sealing {
+    /// Seal using rpc method.
+    #[default]
+    Manual,
+    /// Seal when transaction is executed.
+    Instant,
 }

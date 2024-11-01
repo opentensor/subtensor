@@ -196,5 +196,7 @@ mod errors {
         RevealTooEarly,
         /// Attempted to batch reveal weights with mismatched vector input lenghts.
         InputLengthsUnequal,
+        /// A transactor exceeded the rate limit for setting weights.
+        CommittingWeightsTooFast,
     }
 }

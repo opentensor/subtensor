@@ -7,7 +7,9 @@ mod service;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 mod cli;
+mod client;
 mod command;
+mod ethereum;
 mod rpc;
 
 fn main() -> sc_cli::Result<()> {

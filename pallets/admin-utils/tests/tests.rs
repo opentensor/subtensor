@@ -1384,6 +1384,43 @@ fn test_sudo_set_coldkey_swap_schedule_duration() {
 }
 
 #[test]
+fn test_sudo_set_dissolve_network_schedule_duration() {
+    new_test_ext().execute_with(|| {
+        // Arrange
+        let root = RuntimeOrigin::root();
+        let non_root = RuntimeOrigin::signed(U256::from(1));
+        let new_duration = 200u32.into();
+
+        // Act & Assert: Non-root account should fail
+        assert_noop!(
+            AdminUtils::sudo_set_dissolve_network_schedule_duration(non_root, new_duration),
+            DispatchError::BadOrigin
+        );
+
+        // Act: Root account should succeed
+        assert_ok!(AdminUtils::sudo_set_dissolve_network_schedule_duration(
+            root.clone(),
+            new_duration
+        ));
+
+        // Assert: Check if the duration was actually set
+        assert_eq!(
+            pallet_subtensor::DissolveNetworkScheduleDuration::<Test>::get(),
+            new_duration
+        );
+
+        // Act & Assert: Setting the same value again should succeed (idempotent operation)
+        assert_ok!(AdminUtils::sudo_set_dissolve_network_schedule_duration(
+            root,
+            new_duration
+        ));
+
+        // You might want to check for events here if your pallet emits them
+        System::assert_last_event(Event::DissolveNetworkScheduleDurationSet(new_duration).into());
+    });
+}
+
+#[test]
 fn sudo_set_commit_reveal_weights_periods() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
@@ -1392,7 +1429,7 @@ fn sudo_set_commit_reveal_weights_periods() {
         let to_be_set = 55;
         let init_value = SubtensorModule::get_reveal_period(netuid);
 
-        assert_ok!(AdminUtils::sudo_set_commit_reveal_weights_periods(
+        assert_ok!(AdminUtils::sudo_set_commit_reveal_weights_interval(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
