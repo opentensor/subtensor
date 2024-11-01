@@ -1835,27 +1835,15 @@ fn test_toggle_commit_reveal_weights_and_set_weights() {
     });
 }
 
-<<<<<<< HEAD
 // #[test]
 // fn test_tempo_change_during_commit_reveal_process() {
-//     new_test_ext(1).execute_with(|| {
+//     new_test_ext(0).execute_with(|| {
 //         let netuid: u16 = 1;
 //         let uids: Vec<u16> = vec![0, 1];
 //         let weight_values: Vec<u16> = vec![10, 10];
 //         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
 //         let version_key: u64 = 0;
 //         let hotkey: U256 = U256::from(1);
-=======
-#[test]
-fn test_tempo_change_during_commit_reveal_process() {
-    new_test_ext(0).execute_with(|| {
-        let netuid: u16 = 1;
-        let uids: Vec<u16> = vec![0, 1];
-        let weight_values: Vec<u16> = vec![10, 10];
-        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
-        let version_key: u64 = 0;
-        let hotkey: U256 = U256::from(1);
->>>>>>> devnet-ready
 
 //         let commit_hash: H256 = BlakeTwo256::hash_of(&(
 //             hotkey,
@@ -1866,11 +1854,7 @@ fn test_tempo_change_during_commit_reveal_process() {
 //             version_key,
 //         ));
 
-<<<<<<< HEAD
-//         System::set_block_number(1);
-=======
-        System::set_block_number(0);
->>>>>>> devnet-ready
+// System::set_block_number(0);
 
 //         let tempo: u16 = 100;
 //         add_network(netuid, tempo, 0);
