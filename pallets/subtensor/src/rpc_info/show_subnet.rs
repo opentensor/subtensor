@@ -1,5 +1,6 @@
 use super::*;
 extern crate alloc;
+use crate::epoch::math::fixed_proportion_to_u16;
 use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I32F32;
@@ -139,9 +140,9 @@ impl<T: Config> Pallet<T> {
             .map(Compact::from)
             .collect();
         let stake_weight: Vec<Compact<u16>> = stake
-            .into_iter()
-            .map(|x| Compact::from((x.to_num::<u64>() as u16).min(u16::MAX)))
-            .collect();
+			.iter()
+			.map(|xi| Compact::from( fixed_proportion_to_u16(*xi) ))
+			.collect::<Vec<Compact<u16>>>();
         let emission_history: Vec<Vec<Compact<u64>>> = Self::get_emissions_history(hotkeys.clone());
         Some(SubnetState {
             netuid: netuid.into(),
