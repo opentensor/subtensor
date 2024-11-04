@@ -9,6 +9,7 @@ use mock::*;
 use pallet_subtensor::*;
 use sp_core::H256;
 use sp_core::U256;
+use sp_runtime::SaturatedConversion;
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_owner --exact --nocapture
 #[test]

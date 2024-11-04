@@ -3322,7 +3322,7 @@ fn test_childkey_set_weights_single_parent() {
             Error::<Test>::NotEnoughStakeToSetWeights
         );
 
-        assert!(!SubtensorModule::check_weights_min_stake(&child, netuid));
+        assert!(!SubtensorModule::check_weights_min_stake(&child));
 
         // Set a minimum stake to set weights
         SubtensorModule::set_weights_min_stake(stake_to_give_child - 5);
@@ -3342,7 +3342,7 @@ fn test_childkey_set_weights_single_parent() {
             version_key
         ));
 
-        assert!(SubtensorModule::check_weights_min_stake(&child, netuid));
+        assert!(SubtensorModule::check_weights_min_stake(&child));
     });
 }
 
@@ -3405,7 +3405,7 @@ fn test_set_weights_no_parent() {
             Error::<Test>::NotEnoughStakeToSetWeights
         );
 
-        assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
+        assert!(!SubtensorModule::check_weights_min_stake(&hotkey));
 
         // Set a minimum stake to set weights
         SubtensorModule::set_weights_min_stake(stake_to_give_child - 5);
@@ -3425,7 +3425,7 @@ fn test_set_weights_no_parent() {
             version_key
         ));
 
-        assert!(SubtensorModule::check_weights_min_stake(&hotkey, netuid));
+        assert!(SubtensorModule::check_weights_min_stake(&hotkey));
     });
 }
 
