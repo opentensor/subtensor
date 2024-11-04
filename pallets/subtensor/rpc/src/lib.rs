@@ -41,7 +41,6 @@ pub trait SubtensorCustomApi<BlockHash> {
     fn get_neurons(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "neuronInfo_getNeuron")]
     fn get_neuron(&self, netuid: u16, uid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
-
     #[method(name = "subnetInfo_getSubnetInfo")]
     fn get_subnet_info(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetsInfo")]

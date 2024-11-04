@@ -70,8 +70,10 @@ impl<T: Config> Pallet<T> {
             Error::<T>::StakeRateLimitExceeded
         );
 
-        // Set the last time the stake increased for nominator drain protection.
-        LastAddStakeIncrease::<T>::insert(&hotkey, &coldkey, Self::get_current_block_as_u64());
+        // Track this addition in the stake delta.
+        StakeDeltaSinceLastEmissionDrain::<T>::mutate(&hotkey, &coldkey, |stake_delta| {
+            *stake_delta = stake_delta.saturating_add_unsigned(stake_to_be_added as u128);
+        });
 
         // If coldkey is not owner of the hotkey, it's a nomination stake.
         if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
