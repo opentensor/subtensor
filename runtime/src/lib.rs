@@ -663,6 +663,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::schedule_swap_coldkey { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey { .. })
             ),
             ProxyType::Transfer => matches!(
                 c,
@@ -704,6 +708,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_children { .. })
             ),
             ProxyType::Registration => matches!(
                 c,
