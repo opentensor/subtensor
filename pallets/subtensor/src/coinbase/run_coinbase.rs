@@ -655,31 +655,4 @@ impl<T: Config> Pallet<T> {
         let remainder = adjusted_block % tempo_plus_one;
         (tempo as u64).saturating_sub(remainder)
     }
-
-    /// Returns the emission value for the given subnet.
-    ///
-    /// This function retrieves the emission value for the given subnet.
-    ///
-    /// # Returns:
-    /// * 'u64': The emission value for the given subnet.
-    ///
-    pub fn get_subnet_emission_value(netuid: u16) -> u64 {
-        EmissionValues::<T>::get(netuid)
-    }
-
-    /// Returns the pending hotkey emission for a given hotkey on a specific subnet.
-    ///
-    /// This function retrieves the accumulated emission that is pending for a hotkey
-    /// on a particular subnet. This emission is accumulated during the coinbase process
-    /// and is typically distributed at the end of an epoch.
-    ///
-    /// # Arguments
-    /// * `hotkey` - The account ID of the hotkey.
-    /// * `netuid` - The unique identifier of the subnet.
-    ///
-    /// # Returns
-    /// * `u64` - The pending emission amount for the hotkey on the specified subnet.
-    pub fn get_pending_hotkey_emission_on_netuid(hotkey: &T::AccountId, netuid: u16) -> u64 {
-        PendingHotkeyEmissionOnNetuid::<T>::get(hotkey, netuid)
-    }
 }
