@@ -643,6 +643,7 @@ pub enum ProxyType {
     Transfer,
     SmallTransfer,
     RootWeights,
+    ChildKeys,
 }
 // Transfers below SMALL_TRANSFER_LIMIT are considered small transfers
 pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
@@ -708,7 +709,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_children { .. })
             ),
             ProxyType::Registration => matches!(
                 c,
@@ -718,6 +718,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
             ProxyType::RootWeights => matches!(
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_root_weights { .. })
+            ),
+            ProxyType::ChildKeys => matches!(
+                c,
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_children { .. })
             ),
         }
     }
