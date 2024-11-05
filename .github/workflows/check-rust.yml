@@ -157,9 +157,9 @@ jobs:
 
       - name: check lints
         run: |
-          set -o pipefail  # Ensure the pipeline fails if any command in the pipeline fails
-          cargo check 2>&1 | sed -r "s/\x1B\[[0-9;]*[mK]//g" | tee /dev/tty | grep -q "^warning:" && \
-          (echo "Build emitted the following warnings:" >&2 && exit 1) || echo "No warnings found."
+          set -o pipefail
+          cargo check 2>&1 | sed -r "s/\x1B\[[0-9;]*[mK]//g" | grep "warning:" && exit 1
+          echo "No warnings found."
 
   cargo-clippy-all-features:
     name: cargo clippy --all-features
@@ -208,6 +208,38 @@ jobs:
 
       - name: cargo clippy --workspace --all-targets --all-features -- -D warnings
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+  # runs cargo audit
+  cargo-audit:
+    name: cargo audit
+    runs-on: SubtensorCI
+    if: ${{ github.event_name != 'push' && !contains(github.event.pull_request.labels.*.name, 'skip-cargo-audit') }}
+    steps:
+      - name: Check-out repositoroy under $GITHUB_WORKSPACE
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update &&
+          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
+
+      - name: Install Rust Stable
+        uses: actions-rs/toolchain@v1.0.6
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+          profile: minimal
+
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2.2.1
+        with:
+          key: ubuntu-latest-${{ env.RUST_BIN_DIR }}
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+
+      - name: cargo audit
+        run: cargo audit --ignore RUSTSEC-2024-0336 # rustls issue; wait for upstream to resolve this
+
   # runs cargo test --workspace
   cargo-test:
     name: cargo test
@@ -254,57 +286,8 @@ jobs:
         with:
           key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
 
-      - name: cargo test --workspace
-        run: cargo test --workspace
-
-  # runs cargo test --workspace --features=runtime-benchmarks
-  cargo-test-benchmarks:
-    name: cargo test w/benchmarks
-    runs-on: SubtensorCI
-    strategy:
-      matrix:
-        rust-branch:
-          - stable
-        rust-target:
-          - x86_64-unknown-linux-gnu
-          # - x86_64-apple-darwin
-        os:
-          - ubuntu-latest
-          # - macos-latest
-        include:
-          - os: ubuntu-latest
-          # - os: macos-latest
-    env:
-      RELEASE_NAME: development
-      # RUSTFLAGS: -A warnings
-      RUSTV: ${{ matrix.rust-branch }}
-      RUST_BACKTRACE: full
-      RUST_BIN_DIR: target/${{ matrix.rust-target }}
-      SKIP_WASM_BUILD: 1
-      TARGET: ${{ matrix.rust-target }}
-    steps:
-      - name: Check-out repository under $GITHUB_WORKSPACE
-        uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update &&
-          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
-
-      - name: Install Rust ${{ matrix.rust-branch }}
-        uses: actions-rs/toolchain@v1.0.6
-        with:
-          toolchain: ${{ matrix.rust-branch }}
-          components: rustfmt, clippy
-          profile: minimal
-
-      - name: Utilize Rust shared cached
-        uses: Swatinem/rust-cache@v2.2.1
-        with:
-          key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
-
-      - name: cargo test --workspace --features=runtime-benchmarks
-        run: cargo test --workspace --features=runtime-benchmarks
+      - name: cargo test --workspace --all-features
+        run: cargo test --workspace --all-features
 
   # ensures cargo fix has no trivial changes that can be applied
   cargo-fix:

@@ -48,9 +48,6 @@ impl<T: Config> Pallet<T> {
         // --- 3. Drain the subnet block emission and accumulate it as subnet emission, which increases until the tempo is reached in #4.
         // subnet_blockwise_emission -> subnet_pending_emission
         for netuid in subnets.clone().iter() {
-            if *netuid == 0 {
-                continue;
-            }
             // --- 3.1 Get the network's block-wise emission amount.
             // This value is newly minted TAO which has not reached staking accounts yet.
             let subnet_blockwise_emission: u64 = EmissionValues::<T>::get(*netuid);
@@ -249,20 +246,6 @@ impl<T: Config> Pallet<T> {
         });
     }
 
-    /// Calculates the nonviable stake for a nominator.
-    /// The nonviable stake is the stake that was added by the nominator since the last emission drain.
-    /// This stake will not receive emission until the next emission drain.
-    /// Note: if the stake delta is below zero, we return zero. We don't allow more stake than the nominator has.
-    pub fn get_nonviable_stake(hotkey: &T::AccountId, nominator: &T::AccountId) -> u64 {
-        let stake_delta = StakeDeltaSinceLastEmissionDrain::<T>::get(hotkey, nominator);
-        if stake_delta.is_negative() {
-            0
-        } else {
-            // Should never fail the into, but we handle it anyway.
-            stake_delta.try_into().unwrap_or(u64::MAX)
-        }
-    }
-
     //. --- 4. Drains the accumulated hotkey emission through to the nominators. The hotkey takes a proportion of the emission.
     /// The remainder is drained through to the nominators keeping track of the last stake increase event to ensure that the hotkey does not
     /// gain more emission than it's stake since the last drain.
@@ -312,8 +295,8 @@ impl<T: Config> Pallet<T> {
         // --- 8 Iterate over each nominator.
         if total_viable_nominator_stake != 0 {
             for (nominator, nominator_stake) in Stake::<T>::iter_prefix(hotkey) {
-                // --- 9 Skip emission for any stake the was added by the nominator since the last emission drain.
-                // This means the nominator will get emission on existing stake, but not on new stake, until the next emission drain.
+                // --- 9 Check if the stake was manually increased by the user since the last emission drain for this hotkey.
+                // If it was, skip this nominator as they will not receive their proportion of the emission.
                 let viable_nominator_stake =
                     nominator_stake.saturating_sub(Self::get_nonviable_stake(hotkey, &nominator));
 
@@ -340,10 +323,7 @@ impl<T: Config> Pallet<T> {
         let hotkey_new_tao: u64 = hotkey_take.saturating_add(remainder);
         Self::increase_stake_on_hotkey_account(hotkey, hotkey_new_tao);
 
-        // --- 14 Reset the stake delta for the hotkey.
-        let _ = StakeDeltaSinceLastEmissionDrain::<T>::clear_prefix(hotkey, u32::MAX, None);
-
-        // --- 15 Record new tao creation event and return the amount created.
+        // --- 14 Record new tao creation event and return the amount created.
         total_new_tao = total_new_tao.saturating_add(hotkey_new_tao);
         total_new_tao
     }
@@ -397,5 +377,19 @@ impl<T: Config> Pallet<T> {
         let tempo_plus_one = (tempo as u64).saturating_add(1);
         let remainder = block_plus_netuid.rem_euclid(tempo_plus_one);
         (tempo as u64).saturating_sub(remainder)
+    }
+
+    /// Calculates the nonviable stake for a nominator.
+    /// The nonviable stake is the stake that was added by the nominator since the last emission drain.
+    /// This stake will not receive emission until the next emission drain.
+    /// Note: if the stake delta is below zero, we return zero. We don't allow more stake than the nominator has.
+    pub fn get_nonviable_stake(hotkey: &T::AccountId, nominator: &T::AccountId) -> u64 {
+        let stake_delta = StakeDeltaSinceLastEmissionDrain::<T>::get(hotkey, nominator);
+        if stake_delta.is_negative() {
+            0
+        } else {
+            // Should never fail the into, but we handle it anyway.
+            stake_delta.try_into().unwrap_or(u64::MAX)
+        }
     }
 }

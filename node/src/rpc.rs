@@ -15,8 +15,6 @@ use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 
-pub use sc_rpc_api::DenyUnsafe;
-
 /// Dependencies for GRANDPA
 pub struct GrandpaDeps<B> {
     /// Voting round info.
@@ -37,8 +35,6 @@ pub struct FullDeps<C, P, B> {
     pub client: Arc<C>,
     /// Transaction pool instance.
     pub pool: Arc<P>,
-    /// Whether to deny unsafe calls
-    pub deny_unsafe: DenyUnsafe,
     /// Grandpa block import setup.
     pub grandpa: GrandpaDeps<B>,
     /// Backend used by the node.
@@ -72,7 +68,6 @@ where
     let FullDeps {
         client,
         pool,
-        deny_unsafe,
         grandpa,
         _backend: _,
     } = deps;
@@ -80,7 +75,7 @@ where
     // Custom RPC methods for Paratensor
     module.merge(SubtensorCustom::new(client.clone()).into_rpc())?;
 
-    module.merge(System::new(client.clone(), pool.clone(), deny_unsafe).into_rpc())?;
+    module.merge(System::new(client.clone(), pool.clone()).into_rpc())?;
     module.merge(TransactionPayment::new(client).into_rpc())?;
 
     let GrandpaDeps {

@@ -24,16 +24,16 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
     pub enum Test
     {
-        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
-        Senate: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
-        SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>},
-        Utility: pallet_utility::{Pallet, Call, Storage, Event},
-        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
-        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
+        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 1,
+        Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>} = 2,
+        Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 3,
+        TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 4,
+        Senate: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 5,
+        SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 6,
+        SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>} = 7,
+        Utility: pallet_utility::{Pallet, Call, Storage, Event} = 8,
+        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 9,
+        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 10,
     }
 );
 
@@ -510,6 +510,24 @@ pub(crate) fn run_to_block(n: u64) {
         System::reset_events();
         SubtensorModule::on_initialize(System::block_number());
         Scheduler::on_initialize(System::block_number());
+    }
+}
+
+#[allow(dead_code)]
+pub(crate) fn step_epochs(count: u16, netuid: u16) {
+    for _ in 0..count {
+        let blocks_to_next_epoch = SubtensorModule::blocks_until_next_epoch(
+            netuid,
+            SubtensorModule::get_tempo(netuid),
+            SubtensorModule::get_current_block_as_u64(),
+        );
+        step_block(blocks_to_next_epoch as u16);
+
+        assert!(SubtensorModule::should_run_epoch(
+            netuid,
+            SubtensorModule::get_current_block_as_u64()
+        ));
+        step_block(1);
     }
 }
 

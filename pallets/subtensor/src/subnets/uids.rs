@@ -45,6 +45,9 @@ impl<T: Config> Pallet<T> {
         Uids::<T>::insert(netuid, new_hotkey.clone(), uid_to_replace); // Make uid - hotkey association.
         BlockAtRegistration::<T>::insert(netuid, uid_to_replace, block_number); // Fill block at registration.
         IsNetworkMember::<T>::insert(new_hotkey.clone(), netuid, true); // Fill network is member.
+
+        // 4. Clear neuron certificates
+        NeuronCertificates::<T>::remove(netuid, old_hotkey.clone());
     }
 
     /// Appends the uid to the network.
@@ -117,7 +120,7 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn get_stake_for_uid_and_subnetwork(netuid: u16, neuron_uid: u16) -> u64 {
         if let Ok(hotkey) = Self::get_hotkey_for_net_and_uid(netuid, neuron_uid) {
-            Self::get_stake_for_hotkey_on_subnet(&hotkey, netuid)
+            Self::get_total_stake_for_hotkey(&hotkey)
         } else {
             0
         }

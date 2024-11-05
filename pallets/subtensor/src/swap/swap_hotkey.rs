@@ -235,7 +235,7 @@ impl<T: Config> Pallet<T> {
                     Uids::<T>::insert(netuid, new_hotkey, old_uid);
                     weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
-                    // 9.2.2 Swap the keys.
+                    // 10.2.2 Swap the keys.
                     Keys::<T>::insert(netuid, old_uid, new_hotkey.clone());
                     weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
                 }
@@ -282,6 +282,18 @@ impl<T: Config> Pallet<T> {
                     }
                     LoadedEmission::<T>::remove(netuid);
                     LoadedEmission::<T>::insert(netuid, old_loaded_emission);
+                    weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+                }
+            }
+
+            // 10.7. Swap neuron TLS certificates.
+            // NeuronCertificates( netuid, hotkey ) -> Vec<u8> -- the neuron certificate for the hotkey.
+            if is_network_member {
+                if let Ok(old_neuron_certificates) =
+                    NeuronCertificates::<T>::try_get(netuid, old_hotkey)
+                {
+                    NeuronCertificates::<T>::remove(netuid, old_hotkey);
+                    NeuronCertificates::<T>::insert(netuid, new_hotkey, old_neuron_certificates);
                     weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
                 }
             }
@@ -365,7 +377,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // 13. Swap Stake Delta for all coldkeys.
+        // 14. Swap Stake Delta for all coldkeys.
         for (coldkey, stake_delta) in StakeDeltaSinceLastEmissionDrain::<T>::iter_prefix(old_hotkey)
         {
             let new_stake_delta = StakeDeltaSinceLastEmissionDrain::<T>::get(new_hotkey, &coldkey);

@@ -235,7 +235,7 @@ mod benchmarks {
         );
 
         #[extrinsic_call]
-		_(RawOrigin::Root, 1u16/*netuid*/, 3u64/*interval*/)/*set_commit_reveal_weights_interval()*/;
+		_(RawOrigin::Root, 1u16/*netuid*/, 3u64/*interval*/)/*sudo_set_commit_reveal_weights_interval()*/;
     }
 
     #[benchmark]
