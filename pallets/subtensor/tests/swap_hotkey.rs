@@ -342,7 +342,7 @@ fn test_swap_certificates() {
         );
     });
 }
-
+use sp_std::collections::vec_deque::VecDeque;
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_weight_commits --exact --nocapture
 #[test]
 fn test_swap_weight_commits() {
@@ -351,12 +351,13 @@ fn test_swap_weight_commits() {
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
         let netuid = 0u16;
-        let weight_commits = (H256::from_low_u64_be(100), 200);
+        let mut weight_commits: VecDeque<(H256, u64, u64, u64)> = VecDeque::new();
+        weight_commits.push_back((H256::from_low_u64_be(100), 200, 1, 1));
         let mut weight = Weight::zero();
 
         add_network(netuid, 0, 1);
         IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
-        WeightCommits::<Test>::insert(netuid, old_hotkey, weight_commits);
+        WeightCommits::<Test>::insert(netuid, old_hotkey, weight_commits.clone());
 
         assert_ok!(SubtensorModule::perform_hotkey_swap(
             &old_hotkey,
@@ -1146,4 +1147,101 @@ fn test_swap_complex_parent_child_structure() {
             vec![(200u64, new_hotkey), (600u64, U256::from(9))]
         );
     });
+}
+
+#[test]
+fn test_swap_parent_hotkey_childkey_maps() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let parent_old = U256::from(1);
+        let coldkey = U256::from(2);
+        let child = U256::from(3);
+        let parent_new = U256::from(4);
+        add_network(netuid, 0, 0);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &parent_old);
+
+        // Set child and verify state maps
+        assert_ok!(SubtensorModule::do_set_children(
+            RuntimeOrigin::signed(coldkey),
+            parent_old,
+            netuid,
+            vec![(u64::MAX, child)]
+        ));
+        assert_eq!(
+            ParentKeys::<Test>::get(child, netuid),
+            vec![(u64::MAX, parent_old)]
+        );
+        assert_eq!(
+            ChildKeys::<Test>::get(parent_old, netuid),
+            vec![(u64::MAX, child)]
+        );
+
+        // Swap
+        let mut weight = Weight::zero();
+        assert_ok!(SubtensorModule::perform_hotkey_swap(
+            &parent_old,
+            &parent_new,
+            &coldkey,
+            &mut weight
+        ));
+
+        // Verify parent and child keys updates
+        assert_eq!(
+            ParentKeys::<Test>::get(child, netuid),
+            vec![(u64::MAX, parent_new)]
+        );
+        assert_eq!(
+            ChildKeys::<Test>::get(parent_new, netuid),
+            vec![(u64::MAX, child)]
+        );
+    })
+}
+
+#[test]
+fn test_swap_child_hotkey_childkey_maps() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let parent = U256::from(1);
+        let coldkey = U256::from(2);
+        let child_old = U256::from(3);
+        let child_new = U256::from(4);
+        add_network(netuid, 0, 0);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &child_old);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &parent);
+
+        // Set child and verify state maps
+        assert_ok!(SubtensorModule::do_set_children(
+            RuntimeOrigin::signed(coldkey),
+            parent,
+            netuid,
+            vec![(u64::MAX, child_old)]
+        ));
+        assert_eq!(
+            ParentKeys::<Test>::get(child_old, netuid),
+            vec![(u64::MAX, parent)]
+        );
+        assert_eq!(
+            ChildKeys::<Test>::get(parent, netuid),
+            vec![(u64::MAX, child_old)]
+        );
+
+        // Swap
+        let mut weight = Weight::zero();
+        assert_ok!(SubtensorModule::perform_hotkey_swap(
+            &child_old,
+            &child_new,
+            &coldkey,
+            &mut weight
+        ));
+
+        // Verify parent and child keys updates
+        assert_eq!(
+            ParentKeys::<Test>::get(child_new, netuid),
+            vec![(u64::MAX, parent)]
+        );
+        assert_eq!(
+            ChildKeys::<Test>::get(parent, netuid),
+            vec![(u64::MAX, child_new)]
+        );
+    })
 }
