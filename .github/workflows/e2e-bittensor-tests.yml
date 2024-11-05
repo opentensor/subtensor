@@ -67,7 +67,7 @@ jobs:
         working-directory: ${{ github.workspace }}/bittensor
         run: |
           git checkout junius/arguments-create-network
-          python3 -m pip install -e .
+          python3 -m pip install -e . "[dev]"
           python3 -m pip install torch
           python3 -m pip install pytest
 
