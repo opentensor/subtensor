@@ -722,6 +722,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
             ProxyType::ChildKeys => matches!(
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_children { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::set_childkey_take { .. }
+                    )
             ),
         }
     }
