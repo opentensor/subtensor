@@ -848,7 +848,7 @@ fn test_coldkey_delegations() {
             &mut weight
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&delegate, netuid),
+            SubtensorModule::get_total_hotkey_alpha(&delegate, netuid),
             100
         );
         assert_eq!(

@@ -250,7 +250,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_inherited_alpha_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
         // Step 1: Retrieve the initial total stake (alpha) for the hotkey on the specified subnet.
         let initial_alpha: I96F32 =
-            I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
+            I96F32::from_num(Self::get_total_hotkey_alpha(hotkey, netuid));
 
         // Initialize variables to track alpha allocated to children and inherited from parents.
         let mut alpha_to_children: I96F32 = I96F32::from_num(0);
@@ -278,7 +278,7 @@ impl<T: Config> Pallet<T> {
         for (proportion, parent) in parents {
             // Retrieve the parent's total stake on this subnet.
             let parent_alpha: I96F32 =
-                I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(&parent, netuid));
+                I96F32::from_num(Self::get_total_hotkey_alpha(&parent, netuid));
 
             // Convert the proportion to a normalized value between 0 and 1.
             let normalized_proportion: I96F32 =
@@ -389,7 +389,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_global_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
         // Step 1: Retrieve the total stake (alpha) for the hotkey on this subnet.
         // This includes stakes from all coldkeys associated with this hotkey.
-        let alpha: u64 = Self::get_stake_for_hotkey_on_subnet(hotkey, netuid);
+        let alpha: u64 = Self::get_total_hotkey_alpha(hotkey, netuid);
 
         // Step 2: Convert the alpha value to its TAO equivalent.
         // This conversion takes into account the current state of the subnet,
@@ -467,30 +467,10 @@ impl<T: Config> Pallet<T> {
             .checked_div(alpha_outstanding)
             .unwrap_or(I96F32::from_num(0.0)) // If division fails, use 0 as fallback
             .saturating_mul(subnet_tao))
-        .to_num::<u64>(); // Step 5: Convert the result back to u64
+            .to_num::<u64>(); // Step 5: Convert the result back to u64
 
         // Return the calculated TAO equivalent
         tao_equivalent
-    }
-
-    /// Retrieves the total stake (alpha) for a given hotkey on a specific subnet.
-    ///
-    /// This function performs the following step:
-    /// 1. Retrieves and returns the total alpha value associated with the hotkey on the specified subnet.
-    ///
-    /// # Arguments
-    /// * `hotkey` - The account ID of the hotkey.
-    /// * `netuid` - The unique identifier of the subnet.
-    ///
-    /// # Returns
-    /// * `u64` - The total alpha value for the hotkey on the specified subnet.
-    ///
-    /// # Note
-    /// This function returns the cumulative stake across all coldkeys associated with this hotkey on the subnet.
-    pub fn get_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
-        // Retrieve and return the total alpha this hotkey owns on this subnet.
-        // This value represents the sum of stakes from all coldkeys associated with this hotkey.
-        TotalHotkeyAlpha::<T>::get(hotkey, netuid)
     }
 
     /// Retrieves the total stake (alpha) for a given coldkey on a specific subnet.

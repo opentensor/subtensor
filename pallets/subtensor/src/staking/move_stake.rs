@@ -57,7 +57,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 6. Get the current alpha stake for the origin hotkey-coldkey pair in the origin subnet
-        let origin_alpha = Alpha::<T>::get((origin_hotkey.clone(), coldkey.clone(), origin_netuid));
+        let origin_alpha = Self::get_hotkey_coldkey_alpha(&origin_hotkey, &coldkey, origin_netuid);
         ensure!(
             alpha_amount <= origin_alpha,
             Error::<T>::NotEnoughStakeToWithdraw
@@ -110,11 +110,6 @@ impl<T: Config> Pallet<T> {
             unstakes_this_interval.saturating_add(1),
             current_block,
         );
-
-        // Set the last time the stake increased for nominator drain protection.
-        if alpha_amount > 0 {
-            LastAddStakeIncrease::<T>::insert(&destination_hotkey, &coldkey, current_block);
-        }
 
         // --- 10. Log the event.
         log::info!(

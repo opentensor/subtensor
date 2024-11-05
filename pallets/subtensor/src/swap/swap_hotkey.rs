@@ -405,14 +405,6 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // 14. Swap-merge LastAddStakeIncrease for all coldkeys.
-        for (coldkey, block_old) in LastAddStakeIncrease::<T>::iter_prefix(old_hotkey) {
-            let block_new = LastAddStakeIncrease::<T>::get(new_hotkey, &coldkey);
-            LastAddStakeIncrease::<T>::insert(new_hotkey, &coldkey, block_old.max(block_new));
-            LastAddStakeIncrease::<T>::remove(old_hotkey, &coldkey);
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
-        }
-
         // Return successful after swapping all the relevant terms.
         Ok(())
     }

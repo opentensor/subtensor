@@ -115,7 +115,7 @@ fn test_senate_join_works() {
             100_000
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
+            SubtensorModule::get_total_hotkey_alpha(&hotkey_account_id, netuid),
             100_000
         );
 
@@ -191,7 +191,7 @@ fn test_senate_vote_works() {
             99_999
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
+            SubtensorModule::get_total_hotkey_alpha(&hotkey_account_id, netuid),
             99_999
         );
 
@@ -366,7 +366,7 @@ fn test_senate_leave_works() {
             99_999
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
+            SubtensorModule::get_total_hotkey_alpha(&hotkey_account_id, netuid),
             99_999
         );
 
@@ -442,7 +442,7 @@ fn test_senate_leave_vote_removal() {
             99_999
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
+            SubtensorModule::get_total_hotkey_alpha(&hotkey_account_id, netuid),
             99_999
         );
 
@@ -589,7 +589,7 @@ fn test_senate_not_leave_when_stake_removed() {
             stake_amount - 1 // Need to account for ED
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
+            SubtensorModule::get_total_hotkey_alpha(&hotkey_account_id, netuid),
             stake_amount - 1 // Need to account for ED
         );
 
@@ -820,7 +820,7 @@ fn test_adjust_senate_events() {
             2
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&replacement_hotkey_account_id, netuid),
+            SubtensorModule::get_total_hotkey_alpha(&replacement_hotkey_account_id, netuid),
             2
         );
 

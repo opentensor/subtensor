@@ -549,11 +549,6 @@ pub mod pallet {
             .expect("trailing zeroes always produce a valid account ID; qed")
     }
     #[pallet::type_value]
-    /// Default value for network immunity period.
-    pub fn DefaultHotkeyEmissionTempo<T: Config>() -> u64 {
-        T::InitialHotkeyEmissionTempo::get()
-    }
-    #[pallet::type_value]
     /// Default value for rate limiting
     pub fn DefaultTxRateLimit<T: Config>() -> u64 {
         T::InitialTxRateLimit::get()
@@ -619,11 +614,6 @@ pub mod pallet {
         T::InitialGlobalWeight::get()
     }
     #[pallet::type_value]
-    /// Default stake delta.
-    pub fn DefaultStakeDelta<T: Config>() -> i128 {
-        0
-    }
-    #[pallet::type_value]
     /// Global Weight adjustment interval.
     pub fn GlobalWeightAdjustmentInterval<T: Config>() -> u64 {
         7200 // 1 day
@@ -649,18 +639,6 @@ pub mod pallet {
     #[pallet::storage]
     /// --- ITEM ( global_block_emission )
     pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
-    #[pallet::storage]
-    /// --- DMap ( hot, netuid ) --> emission | Accumulated hotkey emission.
-    pub type PendingHotkeyEmissionOnNetuid<T: Config> = StorageDoubleMap<
-        _,
-        Blake2_128Concat,
-        T::AccountId,
-        Identity,
-        u16,
-        u64,
-        ValueQuery,
-        DefaultZeroU64<T>,
-    >;
     #[pallet::storage]
     /// --- DMap ( hot, netuid ) --> emission | last hotkey emission on network.
     pub type LastHotkeyEmissionOnNetuid<T: Config> = StorageDoubleMap<
@@ -711,39 +689,64 @@ pub mod pallet {
     #[pallet::storage] // --- DMAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
     pub type SubnetAlphaOut<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- DMAP ( cold, netuid ) --> alpha | Returns the total amount of alpha a coldkey owns.
-    pub type TotalColdkeyAlpha<T: Config> = StorageDoubleMap<
+    #[pallet::storage]
+    /// --- DMAP ( hotkey, netuid ) --> alpha | Returns the alpha for a nomination pool.
+    /// New Alpha. TODO: Rename to Alpha when done
+    pub type AlphaNP<T: Config> = StorageDoubleMap<
         _,
-        Blake2_128Concat,
-        T::AccountId,
-        Identity,
-        u16,
-        u64,
+        Blake2_128Concat, T::AccountId, // hot
+        Identity, u16, // subnet
+        u64, // Stake
         ValueQuery,
         DefaultZeroU64<T>,
     >;
-    #[pallet::storage] // --- DMAP ( hot, netuid ) --> alpha | Returns the total amount of alpha a hotkey owns.
-    pub type TotalHotkeyAlpha<T: Config> = StorageDoubleMap<
-        _,
-        Blake2_128Concat,
-        T::AccountId,
-        Identity,
-        u16,
-        u64,
-        ValueQuery,
-        DefaultZeroU64<T>,
-    >;
-    #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> alpha | Returns the alpha for an account on a subnet.
-    pub type Alpha<T: Config> = StorageNMap<
+    #[pallet::storage]
+    /// --- NMAP ( hot, cold, netuid ) --> pending_stake | Returns the pending TAO stake for an account on a subnet that 
+    /// will be converted to Alpha and added to this account in the beginning of the next epoch
+    pub type PendingStake<T: Config> = StorageNMap<
         _,
         (
             NMapKey<Blake2_128Concat, T::AccountId>, // hot
             NMapKey<Blake2_128Concat, T::AccountId>, // cold
             NMapKey<Identity, u16>,                  // subnet
         ),
-        u64, // Stake
+        u64, // Pending stake
         ValueQuery,
+        DefaultZeroU64<T>,
     >;
+	#[pallet::storage]
+    /// --- NMAP ( hot, cold, netuid ) --> shares | Returns the shares for a hotkey-coldkey pair on a subnet.
+	pub type NominationPoolShares<T: Config> = StorageNMap<
+		_,
+		(
+			NMapKey<Blake2_128Concat, T::AccountId>, // hot
+			NMapKey<Blake2_128Concat, T::AccountId>, // cold
+			NMapKey<Identity, u16>,                  // subnet
+		),
+		u64, // Shares
+		ValueQuery,
+        DefaultZeroU64<T>,
+	>;
+	#[pallet::storage]
+    /// --- DMAP ( hot, netuid ) --> total_shares | Returns the total shares for a nomination pool on a subnet.
+	pub type TotalNominationPoolShares<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat, T::AccountId, // hot
+		Identity, u16, // subnet
+		u64, // Shares total
+		ValueQuery,
+        DefaultZeroU64<T>,
+	>;
+	#[pallet::storage]
+    /// --- DMAP ( cold, netuid ) --> total_shares | Returns the total shares for a coldkey across all nomination pools on a subnet.
+	pub type TotalColdkeyNominationPoolShares<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat, T::AccountId, // hot
+		Identity, u16, // subnet
+		u64, // Shares total
+		ValueQuery,
+        DefaultZeroU64<T>,
+	>;
 
     /// ============================
     /// ==== Staking Variables ====
@@ -811,22 +814,6 @@ pub mod pallet {
     /// Map ( hot ) --> last_hotkey_emission_drain | Last block we drained this hotkey's emission.
     pub type LastHotkeyEmissionDrain<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage]
-    /// ITEM ( hotkey_emission_tempo )
-    pub type HotkeyEmissionTempo<T> =
-        StorageValue<_, u64, ValueQuery, DefaultHotkeyEmissionTempo<T>>;
-    #[pallet::storage]
-    /// Map ( hot, cold ) --> block_number | Last add stake increase.
-    pub type LastAddStakeIncrease<T: Config> = StorageDoubleMap<
-        _,
-        Blake2_128Concat,
-        T::AccountId,
-        Identity,
-        T::AccountId,
-        u64,
-        ValueQuery,
-        DefaultZeroU64<T>,
-    >;
     #[pallet::storage] // --- DMAP ( parent, netuid ) --> Vec<(proportion,child)>
     pub type ChildKeys<T: Config> = StorageDoubleMap<
         _,
@@ -1272,7 +1259,7 @@ pub mod pallet {
         pub fn check_weights_min_stake(hotkey: &T::AccountId, netuid: u16) -> bool {
             // Blacklist weights transactions for low stake peers.
             let min_stake = Self::get_weights_min_stake();
-            let hotkey_stake = Self::get_stake_for_hotkey_on_subnet(hotkey, netuid);
+            let hotkey_stake = Self::get_total_hotkey_tao(hotkey, netuid);
             let result = hotkey_stake >= min_stake;
             log::info!(
                 "Checking weights min stake for hotkey: {:?}, netuid: {}, min_stake: {}, hotkey_stake: {}, result: {}",

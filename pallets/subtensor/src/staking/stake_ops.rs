@@ -28,34 +28,34 @@ impl<T: Config> Pallet<T> {
     /// - `TotalHotkeyAlpha`: Increases the total alpha for the hotkey on the subnet.
     pub fn emit_into_subnet(
         hotkey: &T::AccountId,
-        coldkey: &T::AccountId,
         netuid: u16,
         emitted_alpha: u64,
     ) {
-        // Step 1: Increment the alpha (stake) for the specific hotkey-coldkey pair on the subnet
-        // This represents the stake of this particular neuron (hotkey) owned by this account (coldkey)
-        Alpha::<T>::mutate((hotkey, coldkey, netuid), |alpha| {
-            *alpha = alpha.saturating_add(emitted_alpha);
-        });
+        Self::add_to_stake_pool_for_all_coldkeys(hotkey, netuid, emitted_alpha);
 
-        // Step 2: Increase the total outstanding alpha in the subnet
+        // Increase the total outstanding alpha in the subnet
         // This represents the total stake emitted into this subnet
         SubnetAlphaOut::<T>::mutate(netuid, |total| {
             *total = total.saturating_add(emitted_alpha);
         });
+    }
 
-        // Step 3: Increase the total alpha associated with the coldkey for this subnet
-        // This represents the total stake owned by this account (coldkey) in this subnet
-        TotalColdkeyAlpha::<T>::mutate(coldkey, netuid, |total| {
-            *total = total.saturating_add(emitted_alpha);
-        });
+    pub fn emit_into_subnet_for_coldkey(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        netuid: u16,
+        emitted_alpha: u64,
+    ) {
+        // Add and increase this coldkey's share
+        Self::add_to_stake_pool(hotkey, coldkey, netuid, emitted_alpha);
 
-        // Step 4: Increase the total alpha associated with the hotkey for this subnet
-        // This represents the total stake associated with this neuron (hotkey) in this subnet
-        TotalHotkeyAlpha::<T>::mutate(hotkey, netuid, |total| {
+        // Increase the total outstanding alpha in the subnet
+        // This represents the total stake emitted into this subnet
+        SubnetAlphaOut::<T>::mutate(netuid, |total| {
             *total = total.saturating_add(emitted_alpha);
         });
     }
+
 
     /// Stakes TAO into a subnet for a given hotkey and coldkey pair.
     ///
@@ -154,11 +154,13 @@ impl<T: Config> Pallet<T> {
         // Step 5: Convert alpha_staked from I96F32 to u64 for storage
         let alpha_staked_u64: u64 = alpha_staked.to_num::<u64>();
 
-        // Step 6: Update hotkey alpha for the specific subnet
-        // This increases the alpha associated with this hotkey-coldkey pair
-        Alpha::<T>::mutate((hotkey, coldkey, netuid), |alpha| {
-            *alpha = alpha.saturating_add(alpha_staked_u64);
-        });
+        // Step 6: Update the total pool alpha for the specific hotkey and subnet
+        // and the nominator share. This increases the alpha associated with this 
+        // hotkey-coldkey pair, which can be calculated as Alpha * share
+        // Alpha::<T>::mutate((hotkey, coldkey, netuid), |alpha| {
+        //     *alpha = alpha.saturating_add(alpha_staked_u64);
+        // });
+        Self::add_to_stake_pool(hotkey, coldkey, netuid, alpha_staked_u64);
 
         // Step 7: Convert new_subnet_alpha from I96F32 to u64 for storage
         let new_subnet_alpha_u64: u64 = new_subnet_alpha.to_num::<u64>();
@@ -189,18 +191,6 @@ impl<T: Config> Pallet<T> {
         // This increases the TAO staked by this specific pair
         Stake::<T>::mutate(&hotkey, &coldkey, |stake| {
             *stake = stake.saturating_add(tao_staked);
-        });
-
-        // Step 13: Update total alpha for the coldkey in this subnet
-        // This increases the total alpha associated with this coldkey in this subnet
-        TotalColdkeyAlpha::<T>::mutate(coldkey, netuid, |total| {
-            *total = total.saturating_add(alpha_staked_u64);
-        });
-
-        // Step 14: Update total alpha for the hotkey in this subnet
-        // This increases the total alpha associated with this hotkey in this subnet
-        TotalHotkeyAlpha::<T>::mutate(hotkey, netuid, |total| {
-            *total = total.saturating_add(alpha_staked_u64);
         });
 
         // Step 15: Update the list of hotkeys staking for this coldkey
@@ -346,47 +336,9 @@ impl<T: Config> Pallet<T> {
             *total = total.saturating_sub(tao_unstaked_u64);
         });
 
-        // Step 11: Update or remove alpha for the hotkey-coldkey pair
-        Alpha::<T>::mutate_exists((hotkey, coldkey, netuid), |maybe_total| {
-            if let Some(total) = maybe_total {
-                let new_total = total.saturating_sub(alpha_unstaked);
-                if new_total == 0 {
-                    // Step 11a: Remove entry if new total is zero
-                    *maybe_total = None;
-                } else {
-                    // Step 11c: Update total if not zero
-                    *total = new_total;
-                }
-            }
-        });
-
-        // Step 12: Update or remove total alpha for coldkey
-        TotalColdkeyAlpha::<T>::mutate_exists(coldkey, netuid, |maybe_total| {
-            if let Some(total) = maybe_total {
-                let new_total = total.saturating_sub(alpha_unstaked);
-                if new_total == 0 {
-                    // Step 12a: Remove entry if new total is zero
-                    *maybe_total = None;
-                } else {
-                    // Step 12b: Update total if not zero
-                    *total = new_total;
-                }
-            }
-        });
-
-        // Step 13: Update or remove total alpha for hotkey
-        TotalHotkeyAlpha::<T>::mutate_exists(hotkey, netuid, |maybe_total| {
-            if let Some(total) = maybe_total {
-                let new_total = total.saturating_sub(alpha_unstaked);
-                if new_total == 0 {
-                    // Step 13a: Remove entry if new total is zero
-                    *maybe_total = None;
-                } else {
-                    // Step 13b: Update total if not zero
-                    *total = new_total;
-                }
-            }
-        });
+        // Step 11: Update or remove alpha for the hotkey-coldkey pair, which is updating the total
+        // Alpha the hotkey has and the share of the coldkey.
+        Self::remove_from_stake_pool(hotkey, coldkey, netuid, alpha_unstaked);
 
         // Step 14: Decrease total stake for the hotkey-coldkey pair
         Stake::<T>::mutate(&hotkey, &coldkey, |stake| {

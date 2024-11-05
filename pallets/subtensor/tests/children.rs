@@ -2694,7 +2694,7 @@ fn test_get_stake_for_hotkey_on_subnet_basic() {
         increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, 1000, netuid);
 
         assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid),
+            SubtensorModule::get_total_hotkey_alpha(&hotkey, netuid),
             1000
         );
     });
@@ -2721,7 +2721,7 @@ fn test_get_stake_for_hotkey_on_subnet_multiple_coldkeys() {
         increase_stake_on_coldkey_hotkey_account(&coldkey2, &hotkey, 2000, netuid);
 
         assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid),
+            SubtensorModule::get_total_hotkey_alpha(&hotkey, netuid),
             3000
         );
     });
@@ -3328,11 +3328,11 @@ fn test_get_stake_for_hotkey_on_subnet_multiple_networks() {
         increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, 1000, netuid2);
 
         assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid1),
+            SubtensorModule::get_total_hotkey_alpha(&hotkey, netuid1),
             1000
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid2),
+            SubtensorModule::get_total_hotkey_alpha(&hotkey, netuid2),
             1000
         );
     });

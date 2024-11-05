@@ -81,25 +81,22 @@ impl<T: Config> Pallet<T> {
             Error::<T>::StakeRateLimitExceeded
         );
 
-        // Set the last time the stake increased for nominator drain protection.
-        LastAddStakeIncrease::<T>::insert(&hotkey, &coldkey, Self::get_current_block_as_u64());
+        // Ensure the remove operation from the coldkey is a success.
+        let tao_staked: u64 =
+            Self::remove_balance_from_coldkey_account(&coldkey, stake_to_be_added)?;
+
+        // Convert and add stake to pending alpha on the subnet.
+        let alpha_staked: u64 = Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked);
 
         // If coldkey is not owner of the hotkey, it's a nomination stake.
         if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
             let total_stake_after_add: u64 =
-                Alpha::<T>::get((&hotkey, &coldkey, netuid)).saturating_add(stake_to_be_added);
+                Self::get_hotkey_coldkey_alpha(&hotkey, &coldkey, netuid).saturating_add(alpha_staked);
             ensure!(
                 total_stake_after_add >= NominatorMinRequiredStake::<T>::get(),
                 Error::<T>::NomStakeBelowMinimumThreshold
             );
         }
-
-        // Ensure the remove operation from the coldkey is a success.
-        let tao_staked: u64 =
-            Self::remove_balance_from_coldkey_account(&coldkey, stake_to_be_added)?;
-
-        // Convert and stake to alpha on the subnet.
-        let alpha_staked: u64 = Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked);
 
         // Set last block for rate limiting
         let block: u64 = Self::get_current_block_as_u64();
