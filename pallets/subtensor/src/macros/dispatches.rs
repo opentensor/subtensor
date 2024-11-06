@@ -70,24 +70,24 @@ mod dispatches {
         /// 	- Attempting to set weights with fewer weights than min.
         ///
         /// * 'MaxWeightExceeded':
-        /// 	- Attempting to set weights with max value exceeding limit.
-        #[pallet::call_index(0)]
-        #[pallet::weight((Weight::from_parts(22_060_000_000, 0)
-        .saturating_add(T::DbWeight::get().reads(4106))
-        .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
-        pub fn set_weights(
-            origin: OriginFor<T>,
-            netuid: u16,
-            dests: Vec<u16>,
-            weights: Vec<u16>,
-            version_key: u64,
-        ) -> DispatchResult {
-            if !Self::get_commit_reveal_weights_enabled(netuid) {
-                return Self::do_set_weights(origin, netuid, dests, weights, version_key);
-            }
+        // /// 	- Attempting to set weights with max value exceeding limit.
+        // #[pallet::call_index(0)]
+        // #[pallet::weight((Weight::from_parts(22_060_000_000, 0)
+        // .saturating_add(T::DbWeight::get().reads(4106))
+        // .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        // pub fn set_weights(
+        //     origin: OriginFor<T>,
+        //     netuid: u16,
+        //     dests: Vec<u16>,
+        //     weights: Vec<u16>,
+        //     version_key: u64,
+        // ) -> DispatchResult {
+        //     if !Self::get_commit_reveal_weights_enabled(netuid) {
+        //         return Self::do_set_weights(origin, netuid, dests, weights, version_key);
+        //     }
 
-            Err(Error::<T>::CommitRevealEnabled.into())
-        }
+        //     Err(Error::<T>::CommitRevealEnabled.into())
+        // }
 
         /// ---- Used to commit a hash of your weight values to later be revealed.
         ///
