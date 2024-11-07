@@ -323,7 +323,7 @@ impl<T: Config> Pallet<T> {
         let hotkey_new_tao: u64 = hotkey_take.saturating_add(remainder);
         Self::increase_stake_on_hotkey_account(hotkey, hotkey_new_tao);
 
-		// --- 14 Reset the stake delta for the hotkey.
+        // --- 14 Reset the stake delta for the hotkey.
         let _ = StakeDeltaSinceLastEmissionDrain::<T>::clear_prefix(hotkey, u32::MAX, None);
 
         // --- 15 Record new tao creation event and return the amount created.
