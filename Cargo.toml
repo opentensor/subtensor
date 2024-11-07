@@ -34,6 +34,7 @@ members = [
     "support/macros",
     "support/linting",
     "support/procedural-fork",
+    "pallets/drand",
 ]
 exclude = ["support/procedural-fork"]
 resolver = "2"
@@ -191,8 +192,9 @@ pallet-evm-precompile-simple = { git = "https://github.com/gztensor/frontier", r
 pallet-hotfix-sufficients = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
 
 #DRAND
-pallet-drand = { git = "https://github.com/ideal-lab5/pallets", subdir = "pallets/drand" }
+pallet-drand = { path = "pallets/drand", default-features = false }
 sp-crypto-ec-utils = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", features = ["bls12-381"] }
+getrandom = { version = "0.2.15", features = ["custom"], default-features = false }
 
 frame-metadata = "16"
 

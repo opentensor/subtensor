@@ -111,6 +111,11 @@ pallet-evm-precompile-simple = { workspace = true }
 pallet-hotfix-sufficients = { workspace = true }
 fp-account = { workspace = true }
 
+#drand
+pallet-drand = { workspace = true, default-features = false }
+getrandom = { workspace = true, default-features = false }
+
+
 [dev-dependencies]
 frame-metadata = { workspace = true }
 sp-io = { workspace = true }
@@ -190,6 +195,7 @@ std = [
 	"pallet-evm-precompile-simple/std",
 	"pallet-hotfix-sufficients/std",
 	"fp-account/std",
+	"pallet-drand/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

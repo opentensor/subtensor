@@ -38,6 +38,7 @@ use sp_core::{
     crypto::{ByteArray, KeyTypeId},
     OpaqueMetadata, H160, H256, U256,
 };
+use sp_runtime::generic::Era;
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     traits::{
@@ -86,6 +87,67 @@ use precompiles::FrontierPrecompiles;
 use fp_rpc::TransactionStatus;
 use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
 use pallet_evm::{Account as EVMAccount, BalanceConverter, FeeCalculator, Runner};
+
+// Drand
+impl pallet_drand::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = pallet_drand::weights::SubstrateWeight<Runtime>;
+    type AuthorityId = pallet_drand::crypto::TestAuthId;
+    type Verifier = pallet_drand::QuicknetVerifier;
+    type UnsignedPriority = ConstU64<{ 1 << 20 }>;
+    type HttpFetchTimeout = ConstU64<1_000>;
+}
+
+impl frame_system::offchain::SigningTypes for Runtime {
+    type Public = <Signature as Verify>::Signer;
+    type Signature = Signature;
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
+where
+    RuntimeCall: From<C>,
+{
+    type Extrinsic = UncheckedExtrinsic;
+    type OverarchingCall = RuntimeCall;
+}
+
+impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>> for Runtime {
+    fn create_transaction<S: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+        call: RuntimeCall, // Change parameter type to `RuntimeCall`
+        public: <Signature as Verify>::Signer,
+        account: AccountId,
+        index: Index,
+    ) -> Option<(
+        RuntimeCall,
+        <UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
+    )> {
+        use sp_runtime::traits::StaticLookup;
+
+        // No need to convert `call` since it's already `RuntimeCall`
+
+        let address = <Runtime as frame_system::Config>::Lookup::unlookup(account.clone());
+        let extra: SignedExtra = (
+            frame_system::CheckNonZeroSender::<Runtime>::new(),
+            frame_system::CheckSpecVersion::<Runtime>::new(),
+            frame_system::CheckTxVersion::<Runtime>::new(),
+            frame_system::CheckGenesis::<Runtime>::new(),
+            frame_system::CheckEra::<Runtime>::from(Era::Immortal),
+            check_nonce::CheckNonce::<Runtime>::from(index),
+            frame_system::CheckWeight::<Runtime>::new(),
+            pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
+            pallet_subtensor::SubtensorSignedExtension::<Runtime>::new(),
+            pallet_commitments::CommitmentsSignedExtension::<Runtime>::new(),
+            frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
+        );
+
+        let raw_payload = SignedPayload::new(call.clone(), extra.clone()).ok()?;
+        let signature = raw_payload.using_encoded(|payload| S::sign(payload, public))?;
+
+        let signature_payload = (address, signature.into(), extra);
+
+        Some((call, signature_payload))
+    }
+}
 
 // Subtensor module
 pub use pallet_scheduler;
@@ -1289,6 +1351,8 @@ construct_runtime!(
         EVMChainId: pallet_evm_chain_id = 23,
         DynamicFee: pallet_dynamic_fee = 24,
         BaseFee: pallet_base_fee = 25,
+
+        Drand: pallet_drand = 26,
     }
 );
 

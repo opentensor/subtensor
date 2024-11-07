@@ -13,7 +13,6 @@ use sc_client_api::{
     client::BlockchainEvents,
     AuxStore, UsageProvider,
 };
-use sc_executor::HostFunctions;
 use sc_network_sync::SyncingService;
 use sc_rpc::SubscriptionTaskExecutor;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
