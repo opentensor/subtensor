@@ -91,7 +91,7 @@ impl<T: Config> Pallet<T> {
                 Self::set_last_mechanism_step_block(*netuid, current_block);
 
                 if *netuid == 0 {
-                    // Skip netuid 0
+                    // Skip netuid 0 payouts
                     continue;
                 }
 
