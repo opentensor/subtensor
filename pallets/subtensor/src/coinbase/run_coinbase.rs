@@ -301,10 +301,10 @@ impl<T: Config> Pallet<T> {
                     nominator_stake.saturating_sub(Self::get_nonviable_stake(hotkey, &nominator));
 
                 // --- 10 Calculate this nominator's share of the emission.
-                let nominator_emission: I64F64 = I64F64::from_num(viable_nominator_stake)
+                let nominator_emission: I64F64 = I64F64::from_num(emission_minus_take)
+                    .saturating_mul(I64F64::from_num(viable_nominator_stake))
                     .checked_div(I64F64::from_num(total_viable_nominator_stake))
-                    .unwrap_or(I64F64::from_num(0))
-                    .saturating_mul(I64F64::from_num(emission_minus_take));
+                    .unwrap_or(I64F64::from_num(0));
 
                 // --- 11 Increase the stake for the nominator.
                 Self::increase_stake_on_coldkey_hotkey_account(
@@ -323,7 +323,10 @@ impl<T: Config> Pallet<T> {
         let hotkey_new_tao: u64 = hotkey_take.saturating_add(remainder);
         Self::increase_stake_on_hotkey_account(hotkey, hotkey_new_tao);
 
-        // --- 14 Record new tao creation event and return the amount created.
+        // --- 14 Reset the stake delta for the hotkey.
+        let _ = StakeDeltaSinceLastEmissionDrain::<T>::clear_prefix(hotkey, u32::MAX, None);
+
+        // --- 15 Record new tao creation event and return the amount created.
         total_new_tao = total_new_tao.saturating_add(hotkey_new_tao);
         total_new_tao
     }
