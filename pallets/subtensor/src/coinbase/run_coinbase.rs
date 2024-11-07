@@ -295,8 +295,8 @@ impl<T: Config> Pallet<T> {
         // --- 8 Iterate over each nominator.
         if total_viable_nominator_stake != 0 {
             for (nominator, nominator_stake) in Stake::<T>::iter_prefix(hotkey) {
-                // --- 9 Check if the stake was manually increased by the user since the last emission drain for this hotkey.
-                // If it was, skip this nominator as they will not receive their proportion of the emission.
+                // --- 9 Skip emission for any stake the was added by the nominator since the last emission drain.
+                // This means the nominator will get emission on existing stake, but not on new stake, until the next emission drain.
                 let viable_nominator_stake =
                     nominator_stake.saturating_sub(Self::get_nonviable_stake(hotkey, &nominator));
 
@@ -323,7 +323,10 @@ impl<T: Config> Pallet<T> {
         let hotkey_new_tao: u64 = hotkey_take.saturating_add(remainder);
         Self::increase_stake_on_hotkey_account(hotkey, hotkey_new_tao);
 
-        // --- 14 Record new tao creation event and return the amount created.
+		// --- 14 Reset the stake delta for the hotkey.
+        let _ = StakeDeltaSinceLastEmissionDrain::<T>::clear_prefix(hotkey, u32::MAX, None);
+
+        // --- 15 Record new tao creation event and return the amount created.
         total_new_tao = total_new_tao.saturating_add(hotkey_new_tao);
         total_new_tao
     }
