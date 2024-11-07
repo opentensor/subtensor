@@ -144,11 +144,11 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn spawn_frontier_tasks<B, RA, HF>(
+pub async fn spawn_frontier_tasks<B, RA>(
     task_manager: &TaskManager,
-    client: Arc<FullClient<B, RA, HF>>,
+    client: Arc<FullClient<B, RA>>,
     backend: Arc<FullBackend<B>>,
-    frontier_backend: Arc<FrontierBackend<B, FullClient<B, RA, HF>>>,
+    frontier_backend: Arc<FrontierBackend<B, FullClient<B, RA>>>,
     filter_pool: Option<FilterPool>,
     storage_override: Arc<dyn StorageOverride<B>>,
     fee_history_cache: FeeHistoryCache,
@@ -161,10 +161,9 @@ pub async fn spawn_frontier_tasks<B, RA, HF>(
     >,
 ) where
     B: BlockT<Hash = H256>,
-    RA: ConstructRuntimeApi<B, FullClient<B, RA, HF>>,
+    RA: ConstructRuntimeApi<B, FullClient<B, RA>>,
     RA: Send + Sync + 'static,
     RA::RuntimeApi: EthCompatRuntimeApiCollection<B>,
-    HF: HostFunctions + 'static,
 {
     // Spawn main mapping sync worker background task.
     match &*frontier_backend {

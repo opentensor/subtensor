@@ -40,35 +40,40 @@ const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
 pub type HostFunctions = (
     sp_io::SubstrateHostFunctions,
     frame_benchmarking::benchmarking::HostFunctions,
+    sp_crypto_ec_utils::bls12_381::host_calls::HostFunctions,
 );
 /// Otherwise we use empty host functions for ext host functions.
 #[cfg(not(feature = "runtime-benchmarks"))]
-pub type HostFunctions = sp_io::SubstrateHostFunctions;
+pub type HostFunctions = (
+    sp_io::SubstrateHostFunctions,
+    sp_crypto_ec_utils::bls12_381::host_calls::HostFunctions,
+);
 
+pub type RuntimeExecutor = sc_executor::WasmExecutor<HostFunctions>;
 pub type Backend = FullBackend<Block>;
-pub type Client = FullClient<Block, RuntimeApi, HostFunctions>;
+pub type Client = FullClient<Block, RuntimeApi>;
 
 type FullSelectChain<B> = sc_consensus::LongestChain<FullBackend<B>, B>;
 type GrandpaBlockImport<B, C> =
     sc_consensus_grandpa::GrandpaBlockImport<FullBackend<B>, B, C, FullSelectChain<B>>;
 type GrandpaLinkHalf<B, C> = sc_consensus_grandpa::LinkHalf<B, C, FullSelectChain<B>>;
 
-pub fn new_partial<B, RA, HF, BIQ>(
+pub fn new_partial<B, RA, BIQ>(
     config: &Configuration,
     eth_config: &EthConfiguration,
     build_import_queue: BIQ,
 ) -> Result<
     PartialComponents<
-        FullClient<B, RA, HF>,
+        FullClient<B, RA>,
         FullBackend<B>,
         FullSelectChain<B>,
         BasicQueue<B>,
-        FullPool<B, FullClient<B, RA, HF>>,
+        FullPool<B, FullClient<B, RA>>,
         (
             Option<Telemetry>,
             BoxBlockImport<B>,
-            GrandpaLinkHalf<B, FullClient<B, RA, HF>>,
-            FrontierBackend<B, FullClient<B, RA, HF>>,
+            GrandpaLinkHalf<B, FullClient<B, RA>>,
+            FrontierBackend<B, FullClient<B, RA>>,
             Arc<dyn StorageOverride<B>>,
         ),
     >,
@@ -76,17 +81,16 @@ pub fn new_partial<B, RA, HF, BIQ>(
 >
 where
     B: BlockT<Hash = H256>,
-    RA: ConstructRuntimeApi<B, FullClient<B, RA, HF>>,
+    RA: ConstructRuntimeApi<B, FullClient<B, RA>>,
     RA: Send + Sync + 'static,
     RA::RuntimeApi: RuntimeApiCollection<B, AuraId, AccountId, Nonce, Balance>,
-    HF: HostFunctionsT + 'static,
     BIQ: FnOnce(
-        Arc<FullClient<B, RA, HF>>,
+        Arc<FullClient<B, RA>>,
         &Configuration,
         &EthConfiguration,
         &TaskManager,
         Option<TelemetryHandle>,
-        GrandpaBlockImport<B, FullClient<B, RA, HF>>,
+        GrandpaBlockImport<B, FullClient<B, RA>>,
     ) -> Result<(BasicQueue<B>, BoxBlockImport<B>), ServiceError>,
 {
     let telemetry = config
@@ -100,13 +104,15 @@ where
         })
         .transpose()?;
 
-    let executor = sc_service::new_wasm_executor(&config.executor);
+    let executor = sc_service::new_wasm_executor::<HostFunctions>(&config.executor);
 
-    let (client, backend, keystore_container, task_manager) = sc_service::new_full_parts::<B, RA, _>(
-        config,
-        telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
-        executor,
-    )?;
+    let (client, backend, keystore_container, task_manager) =
+        sc_service::new_full_parts::<B, RA, RuntimeExecutor>(
+            config,
+            telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
+            executor,
+        )?;
+
     let client = Arc::new(client);
 
     let telemetry = telemetry.map(|(worker, telemetry)| {
@@ -191,21 +197,20 @@ where
 }
 
 /// Build the import queue for the template runtime (aura + grandpa).
-pub fn build_aura_grandpa_import_queue<B, RA, HF>(
-    client: Arc<FullClient<B, RA, HF>>,
+pub fn build_aura_grandpa_import_queue<B, RA>(
+    client: Arc<FullClient<B, RA>>,
     config: &Configuration,
     eth_config: &EthConfiguration,
     task_manager: &TaskManager,
     telemetry: Option<TelemetryHandle>,
-    grandpa_block_import: GrandpaBlockImport<B, FullClient<B, RA, HF>>,
+    grandpa_block_import: GrandpaBlockImport<B, FullClient<B, RA>>,
 ) -> Result<(BasicQueue<B>, BoxBlockImport<B>), ServiceError>
 where
     B: BlockT,
     NumberFor<B>: BlockNumberOps,
-    RA: ConstructRuntimeApi<B, FullClient<B, RA, HF>>,
+    RA: ConstructRuntimeApi<B, FullClient<B, RA>>,
     RA: Send + Sync + 'static,
     RA::RuntimeApi: RuntimeApiCollection<B, AuraId, AccountId, Nonce, Balance>,
-    HF: HostFunctionsT + 'static,
 {
     let frontier_block_import =
         FrontierBlockImport::new(grandpa_block_import.clone(), client.clone());
@@ -242,20 +247,19 @@ where
 }
 
 /// Build the import queue for the template runtime (manual seal).
-pub fn build_manual_seal_import_queue<B, RA, HF>(
-    client: Arc<FullClient<B, RA, HF>>,
+pub fn build_manual_seal_import_queue<B, RA>(
+    client: Arc<FullClient<B, RA>>,
     config: &Configuration,
     _eth_config: &EthConfiguration,
     task_manager: &TaskManager,
     _telemetry: Option<TelemetryHandle>,
-    _grandpa_block_import: GrandpaBlockImport<B, FullClient<B, RA, HF>>,
+    _grandpa_block_import: GrandpaBlockImport<B, FullClient<B, RA>>,
 ) -> Result<(BasicQueue<B>, BoxBlockImport<B>), ServiceError>
 where
     B: BlockT,
-    RA: ConstructRuntimeApi<B, FullClient<B, RA, HF>>,
+    RA: ConstructRuntimeApi<B, FullClient<B, RA>>,
     RA: Send + Sync + 'static,
     RA::RuntimeApi: RuntimeApiCollection<B, AuraId, AccountId, Nonce, Balance>,
-    HF: HostFunctionsT + 'static,
 {
     let frontier_block_import = FrontierBlockImport::new(client.clone(), client);
     Ok((
@@ -269,7 +273,7 @@ where
 }
 
 /// Builds a new service for a full client.
-pub async fn new_full<B, RA, HF, NB>(
+pub async fn new_full<B, RA, NB>(
     mut config: Configuration,
     eth_config: EthConfiguration,
     sealing: Option<Sealing>,
@@ -278,16 +282,15 @@ where
     B: BlockT<Hash = H256>,
     NumberFor<B>: BlockNumberOps,
     <B as BlockT>::Header: Unpin,
-    RA: ConstructRuntimeApi<B, FullClient<B, RA, HF>>,
+    RA: ConstructRuntimeApi<B, FullClient<B, RA>>,
     RA: Send + Sync + 'static,
     RA::RuntimeApi: RuntimeApiCollection<B, AuraId, AccountId, Nonce, Balance>,
-    HF: HostFunctionsT + 'static,
     NB: sc_network::NetworkBackend<B, <B as sp_runtime::traits::Block>::Hash>,
 {
     let build_import_queue = if sealing.is_some() {
-        build_manual_seal_import_queue::<B, RA, HF>
+        build_manual_seal_import_queue::<B, RA>
     } else {
-        build_aura_grandpa_import_queue::<B, RA, HF>
+        build_aura_grandpa_import_queue::<B, RA>
     };
 
     let PartialComponents {
@@ -641,13 +644,13 @@ pub async fn build_full(
 ) -> Result<TaskManager, ServiceError> {
     match config.network.network_backend {
         sc_network::config::NetworkBackendType::Libp2p => {
-            new_full::<Block, RuntimeApi, HostFunctions, sc_network::NetworkWorker<_, _>>(
+            new_full::<Block, RuntimeApi, sc_network::NetworkWorker<_, _>>(
                 config, eth_config, sealing,
             )
             .await
         }
         sc_network::config::NetworkBackendType::Litep2p => {
-            new_full::<Block, RuntimeApi, HostFunctions, sc_network::Litep2pNetworkBackend>(
+            new_full::<Block, RuntimeApi, sc_network::Litep2pNetworkBackend>(
                 config, eth_config, sealing,
             )
             .await
@@ -676,20 +679,16 @@ pub fn new_chain_ops(
         task_manager,
         other,
         ..
-    } = new_partial::<Block, RuntimeApi, HostFunctions, _>(
-        config,
-        eth_config,
-        build_aura_grandpa_import_queue,
-    )?;
+    } = new_partial::<Block, RuntimeApi, _>(config, eth_config, build_aura_grandpa_import_queue)?;
     Ok((client, backend, import_queue, task_manager, other.3))
 }
 
 #[allow(clippy::too_many_arguments)]
-fn run_manual_seal_authorship<B, RA, HF>(
+fn run_manual_seal_authorship<B, RA>(
     eth_config: &EthConfiguration,
     sealing: Sealing,
-    client: Arc<FullClient<B, RA, HF>>,
-    transaction_pool: Arc<FullPool<B, FullClient<B, RA, HF>>>,
+    client: Arc<FullClient<B, RA>>,
+    transaction_pool: Arc<FullPool<B, FullClient<B, RA>>>,
     select_chain: FullSelectChain<B>,
     block_import: BoxBlockImport<B>,
     task_manager: &TaskManager,
@@ -701,10 +700,9 @@ fn run_manual_seal_authorship<B, RA, HF>(
 ) -> Result<(), ServiceError>
 where
     B: BlockT,
-    RA: ConstructRuntimeApi<B, FullClient<B, RA, HF>>,
+    RA: ConstructRuntimeApi<B, FullClient<B, RA>>,
     RA: Send + Sync + 'static,
     RA::RuntimeApi: RuntimeApiCollection<B, AuraId, AccountId, Nonce, Balance>,
-    HF: HostFunctionsT + 'static,
 {
     let proposer_factory = sc_basic_authorship::ProposerFactory::new(
         task_manager.spawn_handle(),
