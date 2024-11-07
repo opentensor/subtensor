@@ -127,7 +127,7 @@ substrate-wasm-builder = { workspace = true, optional = true }
 [features]
 default = ["std"]
 pow-faucet = ["pallet-subtensor/pow-faucet"]
-fast-blocks = []
+fast-runtime = []
 std = [
 	"frame-try-runtime?/std",
 	"frame-system-benchmarking?/std",

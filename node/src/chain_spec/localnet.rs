@@ -42,8 +42,10 @@ pub fn localnet_config() -> Result<ChainSpec, String> {
         // aura | grandpa
         vec![
             // Keys for debug
-            authority_keys_from_seed("Alice"),
+            // authority_keys_from_seed("Alice"),
             authority_keys_from_seed("Bob"),
+            authority_keys_from_seed("Charlie"),
+            authority_keys_from_seed("Dave"),
         ],
         // Pre-funded accounts
         true,
@@ -83,9 +85,8 @@ fn localnet_genesis(
         ),
     ];
 
-    const STASH: u64 = 100 * UNITS;
     for a in initial_authorities.iter() {
-        balances.push((a.0.clone(), STASH.into()));
+        balances.push((a.0.clone(), 2000000000000u128));
     }
 
     // Check if the environment variable is set
@@ -109,6 +110,7 @@ fn localnet_genesis(
         get_account_id_from_seed::<sr25519::Public>("Ferdie"),
     ];
 
+    const STAKE: u64 = 1000 * UNITS;
     serde_json::json!({
         "balances": { "balances": balances },
         "session": {
@@ -132,7 +134,7 @@ fn localnet_genesis(
             "validatorCount": initial_authorities.len() as u32,
             "stakers": initial_authorities
                 .iter()
-                .map(|x| (x.0.clone(), x.0.clone(), STASH, StakerStatus::<AccountId>::Validator))
+                .map(|x| (x.0.clone(), x.0.clone(), STAKE, StakerStatus::<AccountId>::Validator))
                 .collect::<Vec<_>>(),
             "invulnerables": initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
             "forceEra": Forcing::NotForcing,

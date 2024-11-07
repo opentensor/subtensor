@@ -44,7 +44,6 @@ use scale_info::TypeInfo;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, RuntimeDebug};
-use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::traits::OpaqueKeys;
 use sp_runtime::transaction_validity::TransactionPriority;
 use sp_runtime::Percent;
@@ -215,12 +214,7 @@ pub const BABE_GENESIS_EPOCH_CONFIG: babe_primitives::BabeEpochConfiguration =
 /// up by `pallet_aura` to implement `fn slot_duration()`.
 ///
 /// Change this to adjust the block time.
-#[cfg(not(feature = "fast-blocks"))]
-pub const MILLISECS_PER_BLOCK: u64 = 12000;
-
-/// Fast blocks for development
-#[cfg(feature = "fast-blocks")]
-pub const MILLISECS_PER_BLOCK: u64 = 250;
+pub const MILLISECS_PER_BLOCK: u64 = prod_or_fast!(12_000, 1000);
 
 // NOTE: Currently it is not possible to change the slot duration after the chain has started.
 //       Attempting to do so will brick block production.
@@ -1343,17 +1337,9 @@ impl pallet_commitments::Config for Runtime {
     type RateLimit = CommitmentRateLimit;
 }
 
-#[cfg(not(feature = "fast-blocks"))]
-pub const INITIAL_SUBNET_TEMPO: u16 = 99;
+pub const INITIAL_SUBNET_TEMPO: u16 = prod_or_fast!(99, 10);
 
-#[cfg(feature = "fast-blocks")]
-pub const INITIAL_SUBNET_TEMPO: u16 = 10;
-
-#[cfg(not(feature = "fast-blocks"))]
-pub const INITIAL_CHILDKEY_TAKE_RATELIMIT: u64 = 216000; // 30 days at 12 seconds per block
-
-#[cfg(feature = "fast-blocks")]
-pub const INITIAL_CHILDKEY_TAKE_RATELIMIT: u64 = 5;
+pub const INITIAL_CHILDKEY_TAKE_RATELIMIT: u64 = prod_or_fast!(216000, 5); // 30 days at 12 seconds per block
 
 // Configure the pallet subtensor.
 parameter_types! {
@@ -2006,9 +1992,6 @@ impl_runtime_apis! {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-
 #[test]
 fn check_whitelist() {
     use crate::*;
@@ -2031,4 +2014,3 @@ fn check_whitelist() {
     // System Events
     assert!(whitelist.contains("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7"));
 }
-// }

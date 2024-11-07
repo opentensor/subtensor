@@ -31,7 +31,7 @@ else
   echo "fast_runtime is On"
   : "${CHAIN:=local}"
   : "${BUILD_BINARY:=1}"
-  : "${FEATURES:="pow-faucet fast-blocks"}"
+  : "${FEATURES:="pow-faucet fast-runtime"}"
 fi
 
 SPEC_PATH="${SCRIPT_DIR}/specs/"
@@ -54,7 +54,7 @@ fi
 
 echo "*** Building chainspec..."
 "$BASE_DIR/target/release/node-subtensor" build-spec --disable-default-bootnode --raw --chain $CHAIN >$FULL_PATH
-echo "*** Chainspec built and output to file"
+echo "*** Chainspec built and output to $FULL_PATH"
 
 if [ $NO_PURGE -eq 1 ]; then
   echo "*** Purging previous state skipped..."
@@ -62,6 +62,8 @@ else
   echo "*** Purging previous state..."
   "$BASE_DIR/target/release/node-subtensor" purge-chain -y --base-path /tmp/bob --chain="$FULL_PATH" >/dev/null 2>&1
   "$BASE_DIR/target/release/node-subtensor" purge-chain -y --base-path /tmp/alice --chain="$FULL_PATH" >/dev/null 2>&1
+  "$BASE_DIR/target/release/node-subtensor" purge-chain -y --base-path /tmp/charlie --chain="$FULL_PATH" >/dev/null 2>&1
+  "$BASE_DIR/target/release/node-subtensor" purge-chain -y --base-path /tmp/dave --chain="$FULL_PATH" >/dev/null 2>&1
   echo "*** Previous chainstate purged"
 fi
 
@@ -94,10 +96,40 @@ bob_start=(
   --unsafe-force-node-key-generation
 )
 
+charlie_start=(
+  "$BASE_DIR"/target/release/node-subtensor
+  --base-path /tmp/charlie
+  --chain="$FULL_PATH"
+  --charlie
+  --port 30335
+  --rpc-port 9944
+  --validator
+  --rpc-cors=all
+  --allow-private-ipv4
+  --discover-local
+  --unsafe-force-node-key-generation
+)
+
+dave_start=(
+  "$BASE_DIR"/target/release/node-subtensor
+  --base-path /tmp/dave
+  --chain="$FULL_PATH"
+  --dave
+  --port 30335
+  --rpc-port 9943
+  --validator
+  --rpc-cors=all
+  --allow-private-ipv4
+  --discover-local
+  --unsafe-force-node-key-generation
+)
+
 trap 'pkill -P $$' EXIT SIGINT SIGTERM
 
 (
-  ("${alice_start[@]}" 2>&1) &
-  ("${bob_start[@]}" 2>&1)
+  # ("${alice_start[@]}" 2>&1) &
+  ("${bob_start[@]}" 2>&1) &
+  ("${charlie_start[@]}" 2>&1) &
+  ("${dave_start[@]}" 2>&1)
   wait
 )
