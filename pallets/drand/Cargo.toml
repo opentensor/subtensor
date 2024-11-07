@@ -44,7 +44,7 @@ w3f-bls = { git = "https://github.com/w3f/bls", default-features = false }
 sp-keyring = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409",  default-features = false }
 
 [dev-dependencies]
-sp-keystore = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409",  default-features = false }
+sp-keystore = { workspace = true,  default-features = false }
 
 [features]
 default = ["std"]

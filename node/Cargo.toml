@@ -65,6 +65,7 @@ pallet-transaction-payment = { workspace = true }
 pallet-commitments = { path = "../pallets/commitments" }
 pallet-drand = { workspace = true }
 sp-crypto-ec-utils = { workspace = true }
+sp-keystore = { workspace = true,  default-features = false }
 
 
 # These dependencies are used for the subtensor's RPCs

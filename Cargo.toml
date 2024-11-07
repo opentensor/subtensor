@@ -195,6 +195,7 @@ pallet-hotfix-sufficients = { git = "https://github.com/gztensor/frontier", rev 
 pallet-drand = { path = "pallets/drand", default-features = false }
 sp-crypto-ec-utils = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", features = ["bls12-381"] }
 getrandom = { version = "0.2.15", features = ["custom"], default-features = false }
+sp-keystore = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409",  default-features = false }
 
 frame-metadata = "16"
 
