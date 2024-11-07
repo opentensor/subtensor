@@ -83,7 +83,15 @@ mod dispatches {
             version_key: u64,
         ) -> DispatchResult {
             if !Self::get_commit_reveal_weights_enabled(netuid) {
-                return Self::do_set_weights(origin, netuid, dests, weights, version_key);
+                let current_block: u64 = Self::get_current_block_as_u64();
+                return Self::do_set_weights(
+                    origin,
+                    netuid,
+                    dests,
+                    weights,
+                    version_key,
+                    current_block,
+                );
             }
 
             Err(Error::<T>::CommitRevealEnabled.into())

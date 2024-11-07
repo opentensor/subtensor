@@ -1554,6 +1554,7 @@ fn test_commit_reveal_tempo_interval() {
             ),
             Error::<Test>::NoWeightsCommitFound
         );
+        assert_eq!(SubtensorModule::get_last_update(netuid)[1], 0);
 
         assert_ok!(SubtensorModule::commit_weights(
             RuntimeOrigin::signed(hotkey),
@@ -1575,6 +1576,7 @@ fn test_commit_reveal_tempo_interval() {
             ),
             Error::<Test>::ExpiredWeightCommit
         );
+        assert_eq!(SubtensorModule::get_last_update(netuid)[1], 105);
 
         assert_ok!(SubtensorModule::commit_weights(
             RuntimeOrigin::signed(hotkey),
@@ -1595,6 +1597,7 @@ fn test_commit_reveal_tempo_interval() {
             ),
             Error::<Test>::RevealTooEarly
         );
+        assert_eq!(SubtensorModule::get_last_update(netuid)[1], 301);
 
         step_epochs(1, netuid);
 
@@ -1606,6 +1609,7 @@ fn test_commit_reveal_tempo_interval() {
             salt,
             version_key,
         ));
+        assert_eq!(SubtensorModule::get_last_update(netuid)[1], 301);
     });
 }
 

@@ -204,13 +204,13 @@ impl<T: Config> Pallet<T> {
                 .position(|(hash, _, _, _)| *hash == provided_hash)
             {
                 // --- 8. Get the commit block for the commit being revealed.
-                let (_, commit_block, _, _) = commits
+                let (_, commit_block, _, _) = *commits
                     .get(position)
                     .ok_or(Error::<T>::NoWeightsCommitFound)?;
 
                 // --- 9. Ensure the commit is ready to be revealed in the current block range.
                 ensure!(
-                    Self::is_reveal_block_range(netuid, *commit_block),
+                    Self::is_reveal_block_range(netuid, commit_block),
                     Error::<T>::RevealTooEarly
                 );
 
@@ -225,7 +225,14 @@ impl<T: Config> Pallet<T> {
                 }
 
                 // --- 12. Proceed to set the revealed weights.
-                Self::do_set_weights(origin, netuid, uids.clone(), values.clone(), version_key)?;
+                Self::do_set_weights(
+                    origin,
+                    netuid,
+                    uids.clone(),
+                    values.clone(),
+                    version_key,
+                    commit_block,
+                )?;
 
                 // --- 13. Emit the WeightsRevealed event.
                 Self::deposit_event(Event::WeightsRevealed(who.clone(), netuid, provided_hash));
@@ -391,10 +398,18 @@ impl<T: Config> Pallet<T> {
                     .position(|(hash, _, _, _)| *hash == provided_hash)
                 {
                     // --- 8b. Remove the commit from the queue.
-                    commits.remove(position);
+                    let (_, commit_block, _, _) =
+                        commits.remove(position).expect("commit_block exists");
 
                     // --- 8c. Proceed to set the revealed weights.
-                    Self::do_set_weights(origin.clone(), netuid, uids, values, version_key)?;
+                    Self::do_set_weights(
+                        origin.clone(),
+                        netuid,
+                        uids,
+                        values,
+                        version_key,
+                        commit_block,
+                    )?;
 
                     // --- 8d. Collect the revealed hash.
                     revealed_hashes.push(provided_hash);
@@ -484,15 +499,17 @@ impl<T: Config> Pallet<T> {
         uids: Vec<u16>,
         values: Vec<u16>,
         version_key: u64,
+        block: u64,
     ) -> dispatch::DispatchResult {
         // --- 1. Check the caller's signature. This is the hotkey of a registered account.
         let hotkey = ensure_signed(origin)?;
         log::debug!(
-            "do_set_weights( origin:{:?} netuid:{:?}, uids:{:?}, values:{:?})",
+            "do_set_weights( origin:{:?} netuid:{:?}, uids:{:?}, values:{:?}, block:{:?})",
             hotkey,
             netuid,
             uids,
-            values
+            values,
+            block
         );
 
         // --- Check that the netuid is not the root network.
@@ -588,7 +605,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 18. Set the activity for the weights on this network.
         if !Self::get_commit_reveal_weights_enabled(netuid) {
-            Self::set_last_update_for_uid(netuid, neuron_uid, current_block);
+            Self::set_last_update_for_uid(netuid, neuron_uid, block);
         }
 
         // --- 19. Emit the tracking event.
