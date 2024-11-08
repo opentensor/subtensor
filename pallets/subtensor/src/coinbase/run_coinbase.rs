@@ -203,7 +203,7 @@ impl<T: Config> Pallet<T> {
             I64F64::from_num(Self::get_childkey_take(hotkey, netuid))
                 .saturating_div(I64F64::from_num(u16::MAX));
         let mut total_childkey_take: u64 = 0;
-        
+
         // --- 2. Track the remaining emission for accounting purposes.
         let mut remaining_emission: u64 = validating_emission;
 
@@ -238,7 +238,7 @@ impl<T: Config> Pallet<T> {
 
                 // --- 4.4 Compute the remaining parent emission after the childkey's share is deducted.
                 let parent_emission_take: u64 = parent_emission.saturating_sub(child_emission_take);
-                
+
                 // --- 4.5. Accumulate emissions for the parent hotkey.
                 PendingdHotkeyEmission::<T>::mutate(parent, |parent_accumulated| {
                     *parent_accumulated = parent_accumulated.saturating_add(parent_emission_take)
@@ -306,7 +306,7 @@ impl<T: Config> Pallet<T> {
             .saturating_div(I64F64::from_num(u16::MAX));
         let hotkey_take: u64 = (take_proportion
             .saturating_mul(I64F64::from_num(emission_to_distribute)))
-            .to_num::<u64>();
+        .to_num::<u64>();
 
         // --- 5 Compute the remaining emission after deducting the hotkey's take and untouchable_emission.
         let emission_minus_take: u64 = emission_to_distribute.saturating_sub(hotkey_take);
