@@ -53,10 +53,10 @@ impl StakingPrecompile {
             .map_or_else(vec::Vec::new, |slice| slice.to_vec()); // Avoiding borrowing conflicts
 
         match method_id {
-            id if id == get_method_id("addStake(bytes32)") => {
+            id if id == get_method_id("addStake(bytes32,uint16)") => {
                 Self::add_stake(handle, &method_input)
             }
-            id if id == get_method_id("removeStake(bytes32,uint256)") => {
+            id if id == get_method_id("removeStake(bytes32,uint256,uint16)") => {
                 Self::remove_stake(handle, &method_input)
             }
             _ => Err(PrecompileFailure::Error {
