@@ -359,31 +359,38 @@ where
         })?;
 
     if config.offchain_worker.enabled {
-        sp_keystore::Keystore::sr25519_generate_new(
+        match sp_keystore::Keystore::sr25519_generate_new(
             &*keystore_container.keystore(),
             pallet_drand::KEY_TYPE,
             Some("//Alice"),
-        )
-        .expect("Creating key with account Alice should succeed.");
-
-        task_manager.spawn_handle().spawn(
-            "offchain-workers-runner",
-            "offchain-worker",
-            sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
-                runtime_api_provider: client.clone(),
-                is_validator: config.role.is_authority(),
-                keystore: Some(keystore_container.keystore()),
-                offchain_db: backend.offchain_storage(),
-                transaction_pool: Some(OffchainTransactionPoolFactory::new(
-                    transaction_pool.clone(),
-                )),
-                network_provider: Arc::new(network.clone()),
-                enable_http_requests: true,
-                custom_extensions: |_| vec![],
-            })
-            .run(client.clone(), task_manager.spawn_handle())
-            .boxed(),
-        );
+        ) {
+            Ok(_) => {
+                task_manager.spawn_handle().spawn(
+                    "offchain-workers-runner",
+                    "offchain-worker",
+                    sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
+                        runtime_api_provider: client.clone(),
+                        is_validator: config.role.is_authority(),
+                        keystore: Some(keystore_container.keystore()),
+                        offchain_db: backend.offchain_storage(),
+                        transaction_pool: Some(OffchainTransactionPoolFactory::new(
+                            transaction_pool.clone(),
+                        )),
+                        network_provider: Arc::new(network.clone()),
+                        enable_http_requests: true,
+                        custom_extensions: |_| vec![],
+                    })
+                    .run(client.clone(), task_manager.spawn_handle())
+                    .boxed(),
+                );
+            }
+            Err(e) => {
+                log::error!(
+                    "Failed to create SR25519 key for offchain worker with account Alice: {:?}",
+                    e
+                );
+            }
+        }
     }
 
     let role = config.role;
