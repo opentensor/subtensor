@@ -196,6 +196,7 @@ std = [
 	"pallet-hotfix-sufficients/std",
 	"fp-account/std",
 	"pallet-drand/std",
+	"getrandom/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -223,7 +224,8 @@ runtime-benchmarks = [
 	# EVM + Frontier
 	"pallet-ethereum/runtime-benchmarks",
 	"pallet-evm/runtime-benchmarks",
-    "pallet-hotfix-sufficients/runtime-benchmarks",
+	"pallet-hotfix-sufficients/runtime-benchmarks",
+	"pallet-drand/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
@@ -253,11 +255,12 @@ try-runtime = [
 	"pallet-registry/try-runtime",
 
 	# EVM + Frontier
-    "fp-self-contained/try-runtime",
+	"fp-self-contained/try-runtime",
 	"pallet-base-fee/try-runtime",
 	"pallet-dynamic-fee/try-runtime",
 	"pallet-ethereum/try-runtime",
 	"pallet-evm/try-runtime",
 	"pallet-evm-chain-id/try-runtime",
+	"pallet-drand/try-runtime"
 ]
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]

@@ -38,6 +38,7 @@ use sp_core::{
     crypto::{ByteArray, KeyTypeId},
     OpaqueMetadata, H160, H256, U256,
 };
+use sp_runtime::generic::Era;
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     traits::{
@@ -52,7 +53,6 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use sp_runtime::generic::Era;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -90,12 +90,12 @@ use pallet_evm::{Account as EVMAccount, BalanceConverter, FeeCalculator, Runner}
 
 // Drand
 impl pallet_drand::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = pallet_drand::weights::SubstrateWeight<Runtime>;
-	type AuthorityId = pallet_drand::crypto::TestAuthId;
-	type Verifier = pallet_drand::QuicknetVerifier;
-	type UnsignedPriority = ConstU64<{ 1 << 20 }>;
-	type HttpFetchTimeout = ConstU64<1_000>;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = pallet_drand::weights::SubstrateWeight<Runtime>;
+    type AuthorityId = pallet_drand::crypto::TestAuthId;
+    type Verifier = pallet_drand::QuicknetVerifier;
+    type UnsignedPriority = ConstU64<{ 1 << 20 }>;
+    type HttpFetchTimeout = ConstU64<1_000>;
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {
@@ -112,9 +112,7 @@ where
 }
 
 impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>> for Runtime {
-    fn create_transaction<
-        S: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
-    >(
+    fn create_transaction<S: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
         call: RuntimeCall,
         public: <Signature as Verify>::Signer,
         account: AccountId,
@@ -143,11 +141,7 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
         let raw_payload = SignedPayload::new(call.clone(), extra.clone()).ok()?;
         let signature = raw_payload.using_encoded(|payload| S::sign(payload, public))?;
 
-        let signature_payload = (
-            address,
-            signature.into(),
-            extra,
-        );
+        let signature_payload = (address, signature.into(), extra);
 
         Some((call, signature_payload))
     }

@@ -363,7 +363,8 @@ where
             &*keystore_container.keystore(),
             pallet_drand::KEY_TYPE,
             Some("//Alice"),
-        ).expect("Creating key with account Alice should succeed.");
+        )
+        .expect("Creating key with account Alice should succeed.");
 
         task_manager.spawn_handle().spawn(
             "offchain-workers-runner",
