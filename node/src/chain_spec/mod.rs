@@ -1,6 +1,7 @@
 // Allowed since it's actually better to panic during chain setup when there is an error
 #![allow(clippy::unwrap_used)]
 
+pub mod devnet;
 pub mod finney;
 pub mod localnet;
 pub mod testnet;
