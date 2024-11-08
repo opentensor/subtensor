@@ -12,18 +12,18 @@ publish = false
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
+codec = { workspace = true, default-features = false, features = [
 	"derive",
 ] }
-scale-info = { version = "2.10.0", default-features = false, features = [
+scale-info = { workspace = true, default-features = false, features = [
 	"derive",
 ] }
-serde = { version = "1.0.197", features = ["derive"], default-features = false }
-serde_json = { version = "1.0.114", default-features = false }
-log = { version = "0.4.21", default-features = false }
-hex = { version = "0.4", features = ["serde"], default-features = false }
-sha2 = { version = "0.10.8", default-features = false }
-anyhow = "1.0.81"
+serde = { workspace = true, features = ["derive"], default-features = false }
+serde_json = { workspace = true, default-features = false }
+log = { workspace = true, default-features = false }
+hex = { workspace = true, features = ["serde"], default-features = false }
+sha2 = { workspace = true }
+anyhow = { workspace = true }
 # frame deps
 frame-benchmarking = { workspace = true,  default-features = false, optional = true }
 frame-support = { workspace = true,  default-features = false }
@@ -32,16 +32,16 @@ sp-core = { workspace = true,  default-features = false }
 sp-io = { workspace = true,  default-features = false}
 sp-runtime = { workspace = true, default-features = false}
 # arkworks dependencies
-sp-ark-bls12-381 = { git = "https://github.com/paritytech/substrate-curves", default-features = false }
-ark-bls12-381 = { version = "0.4.0", features = ["curve"], default-features = false }
-ark-serialize = { version = "0.4.0", features = [ "derive" ], default-features = false }
-ark-ff = { version = "0.4.0", default-features = false }
-ark-ec = { version = "0.4.0", default-features = false }
-ark-std = { version = "0.4.0", default-features = false }
-ark-crypto-primitives = { version = "0.4.0", default-features = false, features = [ "r1cs", "snark" ] } 
-ark-scale = { version = "0.0.11", default-features = false, features = ["hazmat"] }
-w3f-bls = { git = "https://github.com/w3f/bls", default-features = false }
-sp-keyring = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409",  default-features = false }
+sp-ark-bls12-381 = { workspace = true, default-features = false }
+ark-bls12-381 = { workspace = true, features = ["curve"], default-features = false }
+ark-serialize = { workspace = true, features = [ "derive" ], default-features = false }
+ark-ff = { workspace = true, default-features = false }
+ark-ec = { workspace = true, default-features = false }
+ark-std = { workspace = true, default-features = false }
+ark-crypto-primitives = { workspace = true, default-features = false, features = [ "r1cs", "snark" ] } 
+ark-scale = { workspace = true, default-features = false, features = ["hazmat"] }
+w3f-bls = { workspace = true, default-features = false }
+sp-keyring = { workspace = true,  default-features = false }
 
 [dev-dependencies]
 sp-keystore = { workspace = true,  default-features = false }
