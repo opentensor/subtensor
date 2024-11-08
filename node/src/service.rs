@@ -35,15 +35,15 @@ use node_subtensor_runtime::{
 /// imported and generated.
 const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
 
-/// Only enable the benchmarking host functions when we actually want to benchmark.
-#[cfg(feature = "runtime-benchmarks")]
+/// Always enable runtime benchmark host functions, the genesis state
+/// was built with them so we're stuck with them forever.
+///
+/// They're just a noop, never actually get used if the runtime was not compiled with
+/// `runtime-benchmarks`.
 pub type HostFunctions = (
     sp_io::SubstrateHostFunctions,
     frame_benchmarking::benchmarking::HostFunctions,
 );
-/// Otherwise we use empty host functions for ext host functions.
-#[cfg(not(feature = "runtime-benchmarks"))]
-pub type HostFunctions = sp_io::SubstrateHostFunctions;
 
 pub type Backend = FullBackend<Block>;
 pub type Client = FullClient<Block, RuntimeApi, HostFunctions>;
