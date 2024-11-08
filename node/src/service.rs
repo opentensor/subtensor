@@ -17,8 +17,18 @@ use std::{sync::Arc, time::Duration};
 /// imported and generated.
 const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
 
+/// Always enable runtime benchmark host functions, the genesis state
+/// was built with them so we're stuck with them forever.
+///
+/// They're just a noop, never actually get used if the runtime was not compiled with
+/// `runtime-benchmarks`.
+pub type HostFunctions = (
+    sp_io::SubstrateHostFunctions,
+    frame_benchmarking::benchmarking::HostFunctions,
+);
+
 pub(crate) type FullClient =
-    sc_service::TFullClient<Block, RuntimeApi, WasmExecutor<sp_io::SubstrateHostFunctions>>;
+    sc_service::TFullClient<Block, RuntimeApi, WasmExecutor<HostFunctions>>;
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 
@@ -55,7 +65,7 @@ pub fn new_partial(
         })
         .transpose()?;
 
-    let executor = sc_service::new_wasm_executor::<sp_io::SubstrateHostFunctions>(&config.executor);
+    let executor = sc_service::new_wasm_executor::<HostFunctions>(&config.executor);
 
     let (client, backend, keystore_container, task_manager) =
         sc_service::new_full_parts::<Block, RuntimeApi, _>(
