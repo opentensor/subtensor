@@ -23,7 +23,7 @@ pub fn devnet_config() -> Result<ChainSpec, String> {
     .with_protocol_id("bittensor")
     .with_id("bittensor")
     .with_chain_type(ChainType::Development)
-    .with_genesis_config_patch(testnet_genesis(
+    .with_genesis_config_patch(devnet_genesis(
         // Initial PoA authorities (Validators)
         // aura | grandpa
         vec![
@@ -68,7 +68,7 @@ pub fn devnet_config() -> Result<ChainSpec, String> {
 
 // Configure initial storage state for FRAME modules.
 #[allow(clippy::too_many_arguments)]
-fn testnet_genesis(
+fn devnet_genesis(
     initial_authorities: Vec<(AuraId, GrandpaId)>,
     root_key: AccountId,
     _endowed_accounts: Vec<AccountId>,
