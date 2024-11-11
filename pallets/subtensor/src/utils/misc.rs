@@ -492,7 +492,10 @@ impl<T: Config> Pallet<T> {
     pub fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
         CommitRevealWeightsEnabled::<T>::set(netuid, enabled);
     }
-
+    pub fn set_owner_cut(netuid: u16, owner_cut: T::AccountId) {
+        SubnetOwner::<T>::insert(netuid, owner_cut);
+    }
+    
     pub fn get_rho(netuid: u16) -> u16 {
         Rho::<T>::get(netuid)
     }

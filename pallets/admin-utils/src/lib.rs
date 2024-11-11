@@ -1209,6 +1209,16 @@ pub mod pallet {
             );
             Ok(())
         }
+    
+        /// Sets the owner cut for a given subnet.
+        #[pallet::call_index(58)]
+        #[pallet::weight(T::WeightInfo::sudo_set_owner_cut())]
+        pub fn sudo_set_owner_cut(origin: OriginFor<T>, netuid: u16, owner_cut: T::AccountId) -> DispatchResult {
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            pallet_subtensor::Pallet::<T>::set_owner_cut(netuid, owner_cut.clone());
+            log::debug!("OwnerCutSet( netuid: {:?}) ", netuid);
+            Ok(())
+        }
     }
 }
 
