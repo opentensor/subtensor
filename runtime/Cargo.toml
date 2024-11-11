@@ -20,13 +20,12 @@ name = "spec_version"
 path = "src/spec_version.rs"
 
 [dependencies]
+ed25519-dalek = { workspace = true, default-features = false, features = ["alloc"] }
 subtensor-macros.workspace = true
 subtensor-custom-rpc-runtime-api = { path = "../pallets/subtensor/runtime-api", default-features = false }
 smallvec = { workspace = true }
 log = { workspace = true }
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
-	"derive",
-] }
+codec = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["alloc"] }
 pallet-aura = { workspace = true }
@@ -55,8 +54,8 @@ sp-session = { workspace = true }
 sp-std = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
-babe-primitives = { workspace = true }
-authority-discovery-primitives = { workspace = true }
+sp-consensus-babe = { workspace = true }
+sp-authority-discovery = { workspace = true }
 runtime-common = { workspace = true }
 polkadot-core-primitives = { workspace = true }
 
@@ -115,6 +114,22 @@ pallet-staking-reward-fn = { workspace = true }
 pallet-staking-reward-curve = { workspace = true }
 sp-staking = { workspace = true }
 sp-npos-elections = { workspace = true }
+# Frontier
+fp-evm = { workspace = true }
+fp-rpc = { workspace = true }
+fp-self-contained = { workspace = true }
+
+# Frontier FRAME
+pallet-base-fee = { workspace = true }
+pallet-dynamic-fee = { workspace = true }
+pallet-ethereum = { workspace = true }
+pallet-evm = { workspace = true }
+pallet-evm-chain-id = { workspace = true }
+pallet-evm-precompile-modexp = { workspace = true }
+pallet-evm-precompile-sha3fips = { workspace = true }
+pallet-evm-precompile-simple = { workspace = true }
+pallet-hotfix-sufficients = { workspace = true }
+fp-account = { workspace = true }
 
 [dev-dependencies]
 frame-metadata = { workspace = true }
@@ -129,146 +144,169 @@ default = ["std"]
 pow-faucet = ["pallet-subtensor/pow-faucet"]
 fast-runtime = []
 std = [
-	"frame-try-runtime?/std",
-	"frame-system-benchmarking?/std",
-	"frame-benchmarking/std",
-	"codec/std",
-	"scale-info/std",
+	"substrate-wasm-builder",
+	"fp-account/std",
+	"fp-evm/std",
+	"fp-rpc/std",
+	"fp-self-contained/std",
+	"pallet-base-fee/std",
+	"pallet-dynamic-fee/std",
+	"pallet-ethereum/std",
+	"pallet-evm-chain-id/std",
+	"pallet-evm-precompile-modexp/std",
+	"pallet-evm-precompile-sha3fips/std",
+	"pallet-evm-precompile-simple/std",
+	"pallet-evm/std",
+	"pallet-hotfix-sufficients/std",
+	"frame-benchmarking?/std",
+	"frame-election-provider-support/std",
 	"frame-executive/std",
 	"frame-metadata-hash-extension/std",
 	"frame-support/std",
+	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
-	"frame-try-runtime/std",
-	"pallet-subtensor/std",
+	"frame-try-runtime?/std",
 	"pallet-aura/std",
+	"pallet-authority-discovery/std",
+	"pallet-authorship/std",
+	"pallet-babe/std",
+	"pallet-bags-list/std",
 	"pallet-balances/std",
+	"pallet-election-provider-multi-phase/std",
+	"pallet-fast-unstake/std",
 	"pallet-grandpa/std",
 	"pallet-insecure-randomness-collective-flip/std",
+	"pallet-membership/std",
+	"pallet-multisig/std",
+	"pallet-nomination-pools-runtime-api/std",
+	"pallet-nomination-pools/std",
+	"pallet-offences/std",
+	"pallet-preimage/std",
+	"pallet-proxy/std",
 	"pallet-safe-mode/std",
+	"pallet-scheduler/std",
+	"pallet-session/std",
+	"pallet-staking-reward-fn/std",
+	"pallet-staking-runtime-api/std",
+	"pallet-staking/std",
+	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
-	"pallet-sudo/std",
-	"pallet-multisig/std",
-	"pallet-proxy/std",
-	"pallet-scheduler/std",
-	"pallet-preimage/std",
-	"pallet-commitments/std",
+	"polkadot-core-primitives/std",
+	"runtime-common/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
+	"sp-consensus-babe/std",
 	"sp-core/std",
+	"sp-genesis-builder/std",
 	"sp-inherents/std",
+	"sp-io/std",
+	"sp-npos-elections/std",
 	"sp-offchain/std",
 	"sp-runtime/std",
 	"sp-session/std",
+	"sp-staking/std",
 	"sp-std/std",
+	"sp-storage/std",
+	"sp-tracing/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
-	"substrate-wasm-builder",
-	"pallet-collective/std",
-	"pallet-membership/std",
-	"pallet-registry/std",
 	"pallet-admin-utils/std",
+	"pallet-collective/std",
+	"pallet-commitments/std",
+	"pallet-registry/std",
+	"pallet-subtensor/std",
 	"subtensor-custom-rpc-runtime-api/std",
-	"serde_json/std",
-	"sp-io/std",
-	"sp-tracing/std",
+	"ed25519-dalek/std",
 	"log/std",
-	"sp-storage/std",
-	"sp-genesis-builder/std",
-	"pallet-babe/std",
-	"pallet-session/std",
-	"pallet-staking/std",
-	"pallet-election-provider-multi-phase/std",
-	"frame-election-provider-support/std",
-	"pallet-authority-discovery/std",
-	"pallet-authorship/std",
-	"pallet-bags-list/std",
-	"pallet-fast-unstake/std",
-	"pallet-nomination-pools-runtime-api/std",
-	"pallet-nomination-pools/std",
-	"pallet-offences/std",
-	"pallet-staking-reward-fn/std",
-	"pallet-staking-runtime-api/std",
-	"runtime-common/std",
-	"authority-discovery-primitives/std",
-	"babe-primitives/std",
-	"sp-npos-elections/std",
-	"sp-staking/std",
-	"polkadot-core-primitives/std"
+	"codec/std",
+	"scale-info/std",
+	"serde_json/std",
+	"sp-authority-discovery/std"
 ]
 runtime-benchmarks = [
+	"pallet-ethereum/runtime-benchmarks",
+	"pallet-evm/runtime-benchmarks",
+	"pallet-hotfix-sufficients/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system-benchmarking/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-grandpa/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
-	"pallet-utility/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-	"pallet-safe-mode/runtime-benchmarks",
-	"pallet-subtensor/runtime-benchmarks",
-	"pallet-collective/runtime-benchmarks",
-	"pallet-membership/runtime-benchmarks",
-	"pallet-proxy/runtime-benchmarks",
-	"pallet-registry/runtime-benchmarks",
-	"pallet-commitments/runtime-benchmarks",
-	"pallet-admin-utils/runtime-benchmarks",
-	"pallet-multisig/runtime-benchmarks",
-	"pallet-preimage/runtime-benchmarks",
-	"pallet-scheduler/runtime-benchmarks",
-	"pallet-sudo/runtime-benchmarks",
-	"pallet-babe/runtime-benchmarks",
-	"pallet-staking/runtime-benchmarks",
-	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"frame-election-provider-support/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system-benchmarking?/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-babe/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
+	"pallet-grandpa/runtime-benchmarks",
+	"pallet-membership/runtime-benchmarks",
+	"pallet-multisig/runtime-benchmarks",
 	"pallet-nomination-pools/runtime-benchmarks",
 	"pallet-offences/runtime-benchmarks",
+	"pallet-preimage/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
+	"pallet-safe-mode/runtime-benchmarks",
+	"pallet-scheduler/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"pallet-sudo/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
 	"runtime-common/runtime-benchmarks",
-	"sp-staking/runtime-benchmarks"
+	"sp-runtime/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
+	"pallet-admin-utils/runtime-benchmarks",
+	"pallet-collective/runtime-benchmarks",
+	"pallet-commitments/runtime-benchmarks",
+	"pallet-registry/runtime-benchmarks",
+	"pallet-subtensor/runtime-benchmarks"
 ]
 try-runtime = [
-	"frame-try-runtime/try-runtime",
+	"fp-self-contained/try-runtime",
+	"pallet-base-fee/try-runtime",
+	"pallet-dynamic-fee/try-runtime",
+	"pallet-ethereum/try-runtime",
+	"pallet-evm-chain-id/try-runtime",
+	"pallet-evm/try-runtime",
+	"pallet-hotfix-sufficients/try-runtime",
+	"frame-election-provider-support/try-runtime",
 	"frame-executive/try-runtime",
-	"frame-system/try-runtime",
 	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"frame-try-runtime/try-runtime",
 	"pallet-aura/try-runtime",
-	"pallet-sudo/try-runtime",
+	"pallet-authority-discovery/try-runtime",
+	"pallet-authorship/try-runtime",
+	"pallet-babe/try-runtime",
+	"pallet-bags-list/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-election-provider-multi-phase/try-runtime",
+	"pallet-fast-unstake/try-runtime",
 	"pallet-grandpa/try-runtime",
 	"pallet-insecure-randomness-collective-flip/try-runtime",
+	"pallet-membership/try-runtime",
+	"pallet-multisig/try-runtime",
+	"pallet-nomination-pools/try-runtime",
+	"pallet-offences/try-runtime",
+	"pallet-preimage/try-runtime",
+	"pallet-proxy/try-runtime",
+	"pallet-safe-mode/try-runtime",
+	"pallet-scheduler/try-runtime",
+	"pallet-session/try-runtime",
+	"pallet-staking/try-runtime",
+	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-utility/try-runtime",
-	"pallet-safe-mode/try-runtime",
-	"pallet-subtensor/try-runtime",
-	"pallet-collective/try-runtime",
-	"pallet-membership/try-runtime",
-	"pallet-proxy/try-runtime",
-	"pallet-multisig/try-runtime",
-	"pallet-scheduler/try-runtime",
-	"pallet-preimage/try-runtime",
+	"runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
 	"pallet-admin-utils/try-runtime",
+	"pallet-collective/try-runtime",
 	"pallet-commitments/try-runtime",
 	"pallet-registry/try-runtime",
-	"pallet-babe/try-runtime",
-	"pallet-session/try-runtime",
-	"pallet-staking/try-runtime",
-	"pallet-election-provider-multi-phase/try-runtime",
-	"frame-election-provider-support/try-runtime",
-	"pallet-authority-discovery/try-runtime",
-	"pallet-authorship/try-runtime",
-	"pallet-bags-list/try-runtime",
-	"pallet-fast-unstake/try-runtime",
-	"pallet-nomination-pools/try-runtime",
-	"pallet-offences/try-runtime",
-	"runtime-common/try-runtime"
+	"pallet-subtensor/try-runtime"
 ]
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]

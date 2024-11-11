@@ -204,5 +204,25 @@ mod events {
         ColdkeySwapScheduleDurationSet(BlockNumberFor<T>),
         /// The duration of dissolve network has been set
         DissolveNetworkScheduleDurationSet(BlockNumberFor<T>),
+        /// Weights have been successfully committed.
+        ///
+        /// - **who**: The account ID of the user committing the weights.
+        /// - **netuid**: The network identifier.
+        /// - **commit_hash**: The hash representing the committed weights.
+        WeightsCommitted(T::AccountId, u16, H256),
+
+        /// Weights have been successfully revealed.
+        ///
+        /// - **who**: The account ID of the user revealing the weights.
+        /// - **netuid**: The network identifier.
+        /// - **commit_hash**: The hash of the revealed weights.
+        WeightsRevealed(T::AccountId, u16, H256),
+
+        /// Weights have been successfully batch revealed.
+        ///
+        /// - **who**: The account ID of the user revealing the weights.
+        /// - **netuid**: The network identifier.
+        /// - **revealed_hashes**: A vector of hashes representing each revealed weight set.
+        WeightsBatchRevealed(T::AccountId, u16, Vec<H256>),
     }
 }
