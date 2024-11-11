@@ -80,6 +80,7 @@ alice_start=(
   --validator
   --rpc-cors=all
   --allow-private-ipv4
+  --log warn
   --discover-local
   --unsafe-force-node-key-generation
 )
@@ -95,6 +96,7 @@ bob_start=(
   --rpc-cors=all
   --allow-private-ipv4
   --discover-local
+  --log warn
   --unsafe-force-node-key-generation
 )
 

@@ -35,7 +35,7 @@ pub fn localnet_config() -> Result<ChainSpec, String> {
         vec![
             // Keys for debug
             authority_keys_from_seed("Alice"),
-            authority_keys_from_seed("Bob"),
+            // authority_keys_from_seed("Bob"),
         ],
         // Pre-funded accounts
         true,

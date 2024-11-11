@@ -2069,6 +2069,7 @@ impl_runtime_apis! {
     impl subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<Block> for Runtime {
         fn get_neurons_lite(netuid: u16) -> Vec<u8> {
             let result = SubtensorModule::get_neurons_lite(netuid);
+			log::warn!("{:?}", result);
             result.encode()
         }
 
@@ -2089,6 +2090,7 @@ impl_runtime_apis! {
 
         fn get_neuron(netuid: u16, uid: u16) -> Vec<u8> {
             let _result = SubtensorModule::get_neuron(netuid, uid);
+			log::warn!("{:?}", _result);
             if _result.is_some() {
                 let result = _result.expect("Could not get NeuronInfo");
                 result.encode()

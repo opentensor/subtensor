@@ -2490,3 +2490,73 @@ fn test_anneal_global_weight() {
         );
     });
 }
+
+// https://github.com/opentensor/subtensor/issues/925
+// RUST_LOG=warn cargo test -p pallet-subtensor --test staking -- test_stake_weight_should_not_be_affected_by_zero_stakes --exact --nocapture
+#[test]
+fn test_stake_weight_should_not_be_affected_by_zero_stakes() {
+    new_test_ext(1).execute_with(|| {
+        let registrar = AccountId::from(42);
+        Balances::force_set_balance(RuntimeOrigin::root(), registrar, 10_000_000_000_000).unwrap();
+
+        // the root subnet
+        SubtensorModule::register_network_with_identity(
+            RuntimeOrigin::signed(registrar),
+            registrar,
+            1,
+            None,
+        )
+        .unwrap();
+
+        // our test subnet with id 1
+        SubtensorModule::register_network_with_identity(
+            RuntimeOrigin::signed(registrar),
+            registrar,
+            1,
+            None,
+        )
+        .unwrap();
+
+
+        // SubtensorModule::add_stake(
+        //     RuntimeOrigin::signed(registrar),
+        //     registrar,
+        //     1,
+        //     1000_000_000_000,
+        // )
+        // .unwrap();
+
+        // step_epochs(1, 1);
+
+
+        let neuron_1 = AccountId::from(123);
+        Balances::force_set_balance(RuntimeOrigin::root(), neuron_1, 10_000_000_000_000).unwrap();
+
+        SubtensorModule::burned_register(RuntimeOrigin::signed(neuron_1), 1, neuron_1).unwrap();
+        SubtensorModule::add_stake(
+            RuntimeOrigin::signed(neuron_1),
+            neuron_1,
+            1,
+            1000_000_000_000,
+        )
+        .unwrap();
+
+        // step_epochs(1, 1);
+
+        let neuron_2 = AccountId::from(321);
+        Balances::force_set_balance(RuntimeOrigin::root(), neuron_2, 10_000_000_000_000).unwrap();
+
+        SubtensorModule::burned_register(RuntimeOrigin::signed(neuron_2), 1, neuron_2).unwrap();
+        SubtensorModule::add_stake(
+            RuntimeOrigin::signed(neuron_2),
+            neuron_2,
+            1,
+            1000_000_000_000,
+        )
+        .unwrap();
+		SubtensorModule::epoch(1, 10_000_000_000_000);
+        // step_epochs(1, 1);
+
+        dbg!(SubtensorModule::get_neurons(1));
+    });
+}
