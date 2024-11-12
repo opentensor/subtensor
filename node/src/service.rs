@@ -45,6 +45,10 @@ pub type HostFunctions = (
     frame_benchmarking::benchmarking::HostFunctions,
 );
 
+pub(crate) type FullClient =
+    sc_service::TFullClient<Block, RuntimeApi, WasmExecutor<HostFunctions>>;
+type FullBackend = sc_service::TFullBackend<Block>;
+type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 pub type Backend = FullBackend<Block>;
 pub type Client = FullClient<Block, RuntimeApi, HostFunctions>;
 
@@ -100,8 +104,7 @@ where
         })
         .transpose()?;
 
-    let executor = sc_service::new_wasm_executor(&config.executor);
-
+    let executor = sc_service::new_wasm_executor::<HostFunctions>(&config.executor);
     let (client, backend, keystore_container, task_manager) = sc_service::new_full_parts::<B, RA, _>(
         config,
         telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
