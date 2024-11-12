@@ -281,7 +281,7 @@ fn signed_cannot_submit_beacon_info() {
         // Dispatch a signed extrinsic
         assert_noop!(
             Drand::set_beacon_config(
-                RuntimeOrigin::signed(alice.public().clone()),
+                RuntimeOrigin::signed(alice.public()),
                 config_payload,
                 signature
             ),

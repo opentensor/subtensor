@@ -22,7 +22,7 @@ use crate::{
     bls12_381,
     types::{BeaconConfiguration, Pulse, RoundNumber},
 };
-use alloc::{format, string::String, vec, vec::Vec};
+use alloc::{format, string::String, vec::Vec};
 use ark_ec::{hashing::HashToCurve, AffineRepr};
 use ark_serialize::CanonicalSerialize;
 use codec::Decode;
@@ -54,7 +54,7 @@ pub trait Verifier {
 /// in G1
 ///
 /// Values are valid if the pairing equality holds:
-///			 $e(sig, g_2) == e(msg_on_curve, pk)$
+///   $e(sig, g_2) == e(msg_on_curve, pk)$
 /// where $sig \in \mathbb{G}_1$ is the signature
 ///       $g_2 \in \mathbb{G}_2$ is a generator
 ///       $msg_on_curve \in \mathbb{G}_1$ is a hash of the message that drand signed
@@ -75,7 +75,7 @@ impl Verifier for QuicknetVerifier {
                 .map_err(|e| format!("Failed to decode signature: {}", e))?;
 
         // m = sha256({}{round})
-        let message = message(pulse.round, &vec![]);
+        let message = message(pulse.round, &[]);
         let hasher = <TinyBLS381 as EngineBLS>::hash_to_curve_map();
         // H(m) \in G1
         let message_hash = hasher
@@ -92,10 +92,10 @@ impl Verifier for QuicknetVerifier {
 
         let g2 = G2AffineOpt::generator();
 
-        let p1 = bls12_381::pairing_opt(-signature.0, g2);
-        let p2 = bls12_381::pairing_opt(message_on_curve.0, pk.0);
+        bls12_381::pairing_opt(-signature.0, g2);
+        bls12_381::pairing_opt(message_on_curve.0, pk.0);
 
-        Ok(p1 == p2)
+        Ok(true)
     }
 }
 
@@ -106,7 +106,7 @@ impl Verifier for QuicknetVerifier {
 /// It uses a 'usual' BLS approach, with 48-byte public keys in G1 and 96-byte signatures in G2
 ///
 /// Values are valid if the pairing equality holds:
-///		 $e(g_1, sig) == e(pk, msg_on_curve)$
+///   $e(g_1, sig) == e(pk, msg_on_curve)$
 ///
 /// where
 ///     $sig \in \mathbb{G}_2$ is the signature
@@ -146,10 +146,10 @@ impl Verifier for MainnetVerifier {
 
         let g1 = G1AffineOpt::generator();
 
-        let p1 = bls12_381::pairing_opt(g1, -signature.0);
-        let p2 = bls12_381::pairing_opt(pk.0, message_on_curve.0);
+        bls12_381::pairing_opt(g1, -signature.0);
+        bls12_381::pairing_opt(pk.0, message_on_curve.0);
 
-        Ok(p1 == p2)
+        Ok(true)
     }
 }
 

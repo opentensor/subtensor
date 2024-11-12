@@ -305,7 +305,7 @@ pub mod pallet {
 
                     if is_verified {
                         let current_block = frame_system::Pallet::<T>::block_number();
-                        let mut last_block = current_block.clone();
+                        let mut last_block = current_block;
 
                         // TODO: improve this, it's not efficient as it can be very slow when the
                         // history is large. We could set a new storage value with the latest
@@ -510,7 +510,7 @@ impl<T: Config> Pallet<T> {
     /// get the randomness at a specific block height
     /// returns [0u8;32] if it does not exist
     pub fn random_at(block_number: BlockNumberFor<T>) -> [u8; 32] {
-        let pulse = Pulses::<T>::get(block_number).unwrap_or(Pulse::default());
+        let pulse = Pulses::<T>::get(block_number).unwrap_or_default();
         let rand = pulse.randomness.clone();
         let bounded_rand: [u8; 32] = rand.into_inner().try_into().unwrap_or([0u8; 32]);
 
@@ -527,7 +527,7 @@ impl<T: Config> Pallet<T> {
         if !signature_valid {
             return InvalidTransaction::BadProof.into();
         }
-        Self::validate_transaction_parameters(&block_number)
+        Self::validate_transaction_parameters(block_number)
     }
 
     fn validate_transaction_parameters(block_number: &BlockNumberFor<T>) -> TransactionValidity {

@@ -15,7 +15,6 @@
  */
 
 //! Benchmarking setup for pallet-drand
-#![cfg(feature = "runtime-benchmarks")]
 use super::*;
 
 #[allow(unused)]
