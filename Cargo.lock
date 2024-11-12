@@ -2180,6 +2180,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "etf-crypto-primitives"
+version = "0.2.4"
+source = "git+https://github.com/ideal-lab5/etf-sdk?rev=0796744c10e4bce8c6202fd6c025be409f6a4ffe#0796744c10e4bce8c6202fd6c025be409f6a4ffe"
+dependencies = [
+ "aes-gcm",
+ "ark-bls12-377",
+ "ark-bls12-381",
+ "ark-ec",
+ "ark-ff",
+ "ark-poly",
+ "ark-serialize",
+ "ark-std",
+ "array-bytes",
+ "chacha20poly1305",
+ "generic-array 0.14.7",
+ "parity-scale-codec",
+ "rand_chacha",
+ "rand_core",
+ "scale-info",
+ "serde",
+ "serde_cbor",
+ "serde_json",
+ "sha2 0.10.8",
+ "sha3",
+ "w3f-bls",
+]
+
+[[package]]
 name = "ethbloom"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3406,6 +3434,12 @@ dependencies = [
  "tokio-util",
  "tracing",
 ]
+
+[[package]]
+name = "half"
+version = "1.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b43ede17f21864e81be2fa654110bf1e793774238d86ef8555c37e6519c0403"
 
 [[package]]
 name = "handlebars"
@@ -5623,7 +5657,9 @@ dependencies = [
 name = "node-subtensor-runtime"
 version = "4.0.0-dev"
 dependencies = [
+ "ark-serialize",
  "ed25519-dalek",
+ "etf-crypto-primitives",
  "fp-account",
  "fp-evm",
  "fp-rpc",
@@ -5638,6 +5674,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "getrandom",
+ "hex",
  "log",
  "pallet-admin-utils",
  "pallet-aura",
@@ -5670,8 +5707,10 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-utility",
  "parity-scale-codec",
+ "rand_chacha",
  "scale-info",
  "serde_json",
+ "sha2 0.10.8",
  "smallvec",
  "sp-api",
  "sp-block-builder",
@@ -5691,6 +5730,7 @@ dependencies = [
  "substrate-wasm-builder",
  "subtensor-custom-rpc-runtime-api",
  "subtensor-macros",
+ "w3f-bls",
 ]
 
 [[package]]
@@ -6138,7 +6178,7 @@ dependencies = [
  "sp-keyring",
  "sp-keystore",
  "sp-runtime",
- "w3f-bls 0.1.8",
+ "w3f-bls",
 ]
 
 [[package]]
@@ -9358,6 +9398,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_cbor"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bef2ebfde456fb76bbcf9f59315333decc4fda0b2b44b420243c11e0f5ec1f5"
+dependencies = [
+ "half",
+ "serde",
+]
+
+[[package]]
 name = "serde_derive"
 version = "1.0.214"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9872,7 +9922,7 @@ dependencies = [
  "substrate-bip39",
  "thiserror",
  "tracing",
- "w3f-bls 0.1.4",
+ "w3f-bls",
  "zeroize",
 ]
 
@@ -11733,29 +11783,6 @@ name = "w3f-bls"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c5da5fa2c6afa2c9158eaa7cd9aee249765eb32b5fb0c63ad8b9e79336a47ec"
-dependencies = [
- "ark-bls12-377",
- "ark-bls12-381",
- "ark-ec",
- "ark-ff",
- "ark-serialize",
- "ark-serialize-derive",
- "arrayref",
- "constcat",
- "digest 0.10.7",
- "rand",
- "rand_chacha",
- "rand_core",
- "sha2 0.10.8",
- "sha3",
- "thiserror",
- "zeroize",
-]
-
-[[package]]
-name = "w3f-bls"
-version = "0.1.8"
-source = "git+https://github.com/w3f/bls#85c4f76a64671c4cfa3ac713983a263f96709f0c"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-381",

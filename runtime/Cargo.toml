@@ -114,7 +114,12 @@ fp-account = { workspace = true }
 #drand
 pallet-drand = { workspace = true, default-features = false }
 getrandom = { workspace = true, default-features = false }
-
+etf-crypto-primitives = { workspace = true }
+hex = { workspace = true }
+rand_chacha = { workspace = true }
+w3f-bls = { workspace = true }
+sha2 = { workspace = true }
+ark-serialize = { workspace = true }
 
 [dev-dependencies]
 frame-metadata = { workspace = true }
@@ -196,7 +201,8 @@ std = [
 	"pallet-hotfix-sufficients/std",
 	"fp-account/std",
 	"pallet-drand/std",
-	"getrandom/std"
+	"getrandom/std",
+	"etf-crypto-primitives/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
