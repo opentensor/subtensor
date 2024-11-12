@@ -42,4 +42,16 @@ interface IStaking {
    * - The existing stake amount must be not lower than specified amount
    */
   function removeStake(bytes32 hotkey, uint256 amount, uint16 netuid) external;
+
+    /**
+   * @dev Returns the stake amount associated with the specified `hotkey` and `coldkey`.
+   *
+   * This function retrieves the current stake amount linked to a specific hotkey and coldkey pair.
+   * It is a view function, meaning it does not modify the state of the contract and is free to call.
+   *
+   * @param hotkey The hotkey public key (32 bytes).
+   * @param coldkey The coldkey public key (32 bytes).
+   * @return The current stake amount in uint64 format.
+   */
+  function getStake(bytes32 hotkey, bytes32 coldkey) external view returns (uint64);
 }
