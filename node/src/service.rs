@@ -45,10 +45,6 @@ pub type HostFunctions = (
     frame_benchmarking::benchmarking::HostFunctions,
 );
 
-pub(crate) type FullClient =
-    sc_service::TFullClient<Block, RuntimeApi, WasmExecutor<HostFunctions>>;
-type FullBackend = sc_service::TFullBackend<Block>;
-type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 pub type Backend = FullBackend<Block>;
 pub type Client = FullClient<Block, RuntimeApi, HostFunctions>;
 
