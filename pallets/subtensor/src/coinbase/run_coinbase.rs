@@ -199,9 +199,9 @@ impl<T: Config> Pallet<T> {
         mining_emission: u64,
     ) {
         // --- 1. First, calculate the hotkey's share of the emission.
-        let childkey_take_proportion: I64F64 =
-            I64F64::from_num(Self::get_childkey_take(hotkey, netuid))
-                .saturating_div(I64F64::from_num(u16::MAX));
+        let childkey_take_proportion: I96F32 =
+            I96F32::from_num(Self::get_childkey_take(hotkey, netuid))
+                .saturating_div(I96F32::from_num(u16::MAX));
         let mut total_childkey_take: u64 = 0;
 
         // --- 2. Track the remaining emission for accounting purposes.
@@ -225,19 +225,21 @@ impl<T: Config> Pallet<T> {
                 );
                 let proportion_from_parent: I96F32 =
                     stake_from_parent.saturating_div(I96F32::from_num(total_hotkey_stake));
-                let parent_emission: u64 = proportion_from_parent
-                    .saturating_mul(I96F32::from_num(validating_emission))
-                    .to_num::<u64>();
+                let parent_emission: I96F32 =
+                    proportion_from_parent.saturating_mul(I96F32::from_num(validating_emission));
 
                 // --- 4.3 Childkey take as part of parent emission
                 let child_emission_take: u64 = childkey_take_proportion
-                    .saturating_mul(I64F64::from_num(parent_emission))
+                    .saturating_mul(parent_emission)
                     .to_num::<u64>();
-                total_childkey_take = total_childkey_take.saturating_add(child_emission_take);
+                total_childkey_take =
+                    total_childkey_take.saturating_add(child_emission_take);
                 // NOTE: Only the validation emission should be split amongst parents.
 
                 // --- 4.4 Compute the remaining parent emission after the childkey's share is deducted.
-                let parent_emission_take: u64 = parent_emission.saturating_sub(child_emission_take);
+                let parent_emission_take: u64 = parent_emission
+                    .to_num::<u64>()
+                    .saturating_sub(child_emission_take);
 
                 // --- 4.5. Accumulate emissions for the parent hotkey.
                 PendingdHotkeyEmission::<T>::mutate(parent, |parent_accumulated| {
