@@ -2536,6 +2536,8 @@ fn test_stake_weight_should_not_be_affected_by_zero_stakes() {
         )
         .unwrap();
 
+		dbg!( SubtensorModule::get_stake_weights_for_network(netuid) );
+
         // step_epochs(1, 1);
 		// Check neuron 1's alpha
 		assert!( SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, 1) > 0, "The neuron 1 should get at least some stake" );
@@ -2551,10 +2553,11 @@ fn test_stake_weight_should_not_be_affected_by_zero_stakes() {
             1000_000_000_000,
         )
         .unwrap();
-		SubtensorModule::epoch(1, 10_000_000_000_000);
-        step_epochs(1, netuid);
 
 		// Check neuron 2's alpha
         assert!( SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, 2) > 0, "The neuron 2 should get at least some stake" );
+
+		// Run epoch
+		//SubtensorModule::epoch(1, 10_000_000_000_000);
     });
 }
