@@ -611,6 +611,26 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::SubnetOwnerCutSet(subnet_owner_cut));
     }
 
+    pub fn set_subnet_minter_cut(subnet_minter_cut: u16) {
+        SubnetMinterCut::<T>::set(subnet_minter_cut);
+        Self::deposit_event(Event::SubnetMinterCutSet(subnet_minter_cut));
+    }
+
+    pub fn get_subnet_minter_cut() -> u16 {
+        SubnetMinterCut::<T>::get()
+    }
+
+    pub fn set_subnet_validator_cut(subnet_validator_cut: u16) {
+        SubnetValidatorCut::<T>::set(subnet_validator_cut);
+        Self::deposit_event(Event::SubnetValidatorCutSet(subnet_validator_cut));
+    }
+    
+    pub fn get_subnet_validator_cut() -> u16 {
+        SubnetValidatorCut::<T>::get()
+    }
+
+
+
     pub fn get_owned_hotkeys(coldkey: &T::AccountId) -> Vec<T::AccountId> {
         OwnedHotkeys::<T>::get(coldkey)
     }

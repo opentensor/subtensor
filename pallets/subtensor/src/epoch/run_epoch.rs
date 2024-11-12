@@ -303,10 +303,13 @@ impl<T: Config> Pallet<T> {
 
         // Compute rao based emission scores. range: I96F32(0, rao_emission)
         let float_rao_emission: I96F32 = I96F32::from_num(rao_emission);
+        // Apply server and validator cuts to their respective emissions.
+        let server_cut: I96F32 = I96F32::from_num(Self::get_subnet_minter_cut()).saturating_div(I96F32::from_num(u16::MAX));
+        let validator_cut: I96F32 = I96F32::from_num(Self::get_subnet_validator_cut()).saturating_div(I96F32::from_num(u16::MAX));
 
         let server_emission: Vec<I96F32> = normalized_server_emission
             .iter()
-            .map(|se: &I32F32| I96F32::from_num(*se).saturating_mul(float_rao_emission))
+            .map(|se: &I32F32| I96F32::from_num(*se).saturating_mul(float_rao_emission).saturating_mul(server_cut))
             .collect();
         let server_emission: Vec<u64> = server_emission
             .iter()
@@ -315,13 +318,12 @@ impl<T: Config> Pallet<T> {
 
         let validator_emission: Vec<I96F32> = normalized_validator_emission
             .iter()
-            .map(|ve: &I32F32| I96F32::from_num(*ve).saturating_mul(float_rao_emission))
+            .map(|ve: &I32F32| I96F32::from_num(*ve).saturating_mul(float_rao_emission).saturating_mul(validator_cut))
             .collect();
         let validator_emission: Vec<u64> = validator_emission
             .iter()
             .map(|e: &I96F32| e.to_num::<u64>())
             .collect();
-
         // Used only to track combined emission in the storage.
         let combined_emission: Vec<I96F32> = normalized_combined_emission
             .iter()

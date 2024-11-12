@@ -718,6 +718,28 @@ pub mod pallet {
             Ok(())
         }
 
+        /// The extrinsic sets the subnet minter cut for a subnet.
+        /// It is only callable by the root account.
+        /// The extrinsic will call the Subtensor pallet to set the subnet minter cut.
+        #[pallet::call_index(58)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_subnet_minter_cut(origin: OriginFor<T>, subnet_minter_cut: u16) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_subnet_minter_cut(subnet_minter_cut);
+            Ok(())
+        }
+
+        /// The extrinsic sets the subnet validator cut for a subnet.
+        /// It is only callable by the root account.
+        /// The extrinsic will call the Subtensor pallet to set the subnet validator cut.
+        #[pallet::call_index(59)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_subnet_validator_cut(origin: OriginFor<T>, subnet_validator_cut: u16) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_subnet_validator_cut(subnet_validator_cut);
+            Ok(())
+        }
+
         /// The extrinsic sets the network rate limit for the network.
         /// It is only callable by the root account.
         /// The extrinsic will call the Subtensor pallet to set the network rate limit.
