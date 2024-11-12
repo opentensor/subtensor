@@ -42,6 +42,7 @@ ark-crypto-primitives = { workspace = true, default-features = false, features =
 ark-scale = { workspace = true, default-features = false, features = ["hazmat"] }
 w3f-bls = { workspace = true, default-features = false }
 sp-keyring = { workspace = true,  default-features = false }
+subtensor-macros.workspace = true
 
 [dev-dependencies]
 sp-keystore = { workspace = true,  default-features = false }

@@ -6114,6 +6114,7 @@ dependencies = [
  "sp-keyring",
  "sp-keystore",
  "sp-runtime",
+ "subtensor-macros",
  "w3f-bls 0.1.8",
 ]
 

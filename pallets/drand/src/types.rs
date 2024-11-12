@@ -18,6 +18,7 @@ use alloc::{string::String, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::*;
 use serde::{Deserialize, Serialize};
+use subtensor_macros::freeze_struct;
 
 /// Represents an opaque public key used in drand's mainnet
 #[cfg(not(feature = "mainnet"))]
@@ -31,6 +32,7 @@ pub type BoundedHash = BoundedVec<u8, ConstU32<32>>;
 pub type RoundNumber = u64;
 
 /// the expected response body from the drand api endpoint `api.drand.sh/{chainId}/info`
+#[freeze_struct("f9e09b3273fe00cd")]
 #[derive(Debug, Decode, Default, PartialEq, Encode, Serialize, Deserialize, TypeInfo, Clone)]
 pub struct BeaconInfoResponse {
     #[serde(with = "hex::serde")]
@@ -47,6 +49,7 @@ pub struct BeaconInfoResponse {
 }
 
 /// metadata associated with the drand info response
+#[freeze_struct("91c762d05dbf1d21")]
 #[derive(Debug, Decode, Default, PartialEq, Encode, Serialize, Deserialize, TypeInfo, Clone)]
 pub struct MetadataInfoResponse {
     #[serde(rename = "beaconID")]
@@ -84,6 +87,7 @@ impl BeaconInfoResponse {
 
 /// a pulse from the drand beacon
 /// the expected response body from the drand api endpoint `api.drand.sh/{chainId}/public/latest`
+#[freeze_struct("fa1e760d5c707d26")]
 #[derive(Debug, Decode, Default, PartialEq, Encode, Serialize, Deserialize)]
 pub struct DrandResponseBody {
     /// the randomness round number
@@ -126,6 +130,7 @@ impl DrandResponseBody {
     }
 }
 /// A drand chain configuration
+#[freeze_struct("1e01e739e2a5c940")]
 #[derive(
     Clone,
     Debug,
@@ -150,6 +155,7 @@ pub struct BeaconConfiguration {
 
 /// Payload used by to hold the beacon
 /// config required to submit a transaction.
+#[freeze_struct("2b7ebe4cb969cbd3")]
 #[derive(Encode, Decode, Debug, Clone, PartialEq, scale_info::TypeInfo)]
 pub struct BeaconConfigurationPayload<Public, BlockNumber> {
     pub block_number: BlockNumber,
@@ -158,6 +164,7 @@ pub struct BeaconConfigurationPayload<Public, BlockNumber> {
 }
 
 /// metadata for the drand beacon configuration
+#[freeze_struct("1363328ca13289b8")]
 #[derive(
     Clone,
     Debug,
@@ -175,6 +182,7 @@ pub struct Metadata {
 }
 
 /// A pulse from the drand beacon
+#[freeze_struct("79c521104ba6f05b")]
 #[derive(
     Clone,
     Debug,
@@ -203,6 +211,7 @@ pub struct Pulse {
 
 /// Payload used by to hold the pulse
 /// data required to submit a transaction.
+#[freeze_struct("7a2496a57cb1f3ba")]
 #[derive(Encode, Decode, Debug, Clone, PartialEq, scale_info::TypeInfo)]
 pub struct PulsePayload<Public, BlockNumber> {
     /// The block when the pulse was received

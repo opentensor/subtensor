@@ -19,8 +19,8 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
     pub enum Test
     {
-        System: frame_system,
-        Drand: pallet_drand_bridge,
+        System: frame_system = 1,
+        Drand: pallet_drand_bridge = 2,
     }
 );
 
