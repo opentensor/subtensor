@@ -2522,7 +2522,7 @@ fn test_stake_weight_should_not_be_affected_by_zero_stakes() {
 
 
         let neuron_1 = AccountId::from(123);
-        Balances::force_set_balance(RuntimeOrigin::root(), neuron_1, 10_000_000_000_000).unwrap();
+		SubtensorModule::add_balance_to_coldkey_account(&neuron_1, 10_000_000_000_000);
 
         SubtensorModule::burned_register(RuntimeOrigin::signed(neuron_1), netuid, neuron_1).unwrap();
         SubtensorModule::add_stake(
@@ -2538,7 +2538,7 @@ fn test_stake_weight_should_not_be_affected_by_zero_stakes() {
 		assert!( SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, 1) > 0, "The neuron 1 should get at least some stake" );
 
         let neuron_2 = AccountId::from(321);
-        Balances::force_set_balance(RuntimeOrigin::root(), neuron_2, 10_000_000_000_000).unwrap();
+		SubtensorModule::add_balance_to_coldkey_account(&neuron_2, 10_000_000_000_000);
 
         SubtensorModule::burned_register(RuntimeOrigin::signed(neuron_2), netuid, neuron_2).unwrap();
         SubtensorModule::add_stake(
