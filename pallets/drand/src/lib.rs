@@ -1,3 +1,19 @@
+/*
+ * Copyright 2024 by Ideal Labs, LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 //! # Drand Bridge Pallet
 //!
 //! A pallet to bridge to [drand](drand.love)'s Quicknet, injecting publicly verifiable randomness
@@ -22,9 +38,7 @@ extern crate alloc;
 use crate::alloc::string::ToString;
 
 use alloc::{format, string::String, vec, vec::Vec};
-use ark_ec::{hashing::HashToCurve, AffineRepr};
-use ark_serialize::CanonicalSerialize;
-use codec::{Decode, Encode};
+use codec::Encode;
 use frame_support::{pallet_prelude::*, traits::Randomness};
 use frame_system::{
     offchain::{
@@ -33,16 +47,21 @@ use frame_system::{
     },
     pallet_prelude::BlockNumberFor,
 };
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use sp_ark_bls12_381::{G1Affine as G1AffineOpt, G2Affine as G2AffineOpt};
 use sp_runtime::{
     offchain::{http, Duration},
     traits::{Hash, One, Zero},
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
     KeyTypeId,
 };
-use w3f_bls::{EngineBLS, TinyBLS381};
+
+pub mod bls12_381;
+pub mod types;
+pub mod utils;
+pub mod verifier;
+
+use types::*;
+use verifier::Verifier;
 
 #[cfg(test)]
 mod mock;
@@ -55,17 +74,24 @@ mod benchmarking;
 pub mod weights;
 pub use weights::*;
 
-pub mod bls12_381;
-pub mod utils;
-
-const USAGE: ark_scale::Usage = ark_scale::WIRE;
-type ArkScale<T> = ark_scale::ArkScale<T, USAGE>;
-
 /// the main drand api endpoint
-pub const API_ENDPOINT: &str = "https://api.drand.sh";
+pub const API_ENDPOINT: &str = "https://drand.cloudflare.com";
 /// the drand quicknet chain hash
+/// quicknet uses 'Tiny' BLS381, with small 48-byte sigs in G1 and 96-byte pubkeys in G2
 pub const QUICKNET_CHAIN_HASH: &str =
     "52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971";
+/// the drand mainnet chain hash
+/// mainnext uses 'Usual' BLS381, with 96-byte sigs in G2 and 48-byte pubkeys in G1
+pub const MAINNET_CHAIN_HASH: &str =
+    "8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce";
+
+#[cfg(feature = "mainnet")]
+#[allow(dead_code)]
+const CHAIN_HASH: &str = MAINNET_CHAIN_HASH;
+
+#[cfg(not(feature = "mainnet"))]
+const CHAIN_HASH: &str = QUICKNET_CHAIN_HASH;
+
 /// Defines application identifier for crypto keys of this module.
 ///
 /// Every module that deals with signatures needs to declare its unique identifier for
@@ -106,181 +132,12 @@ pub mod crypto {
     }
 }
 
-pub type OpaquePublicKeyG2 = BoundedVec<u8, ConstU32<96>>;
-/// an opaque hash type
-pub type BoundedHash = BoundedVec<u8, ConstU32<32>>;
-/// the round number to track rounds of the beacon
-pub type RoundNumber = u64;
-
-/// the expected response body from the drand api endpoint `api.drand.sh/{chainId}/info`
-#[derive(Debug, Decode, Default, PartialEq, Encode, Serialize, Deserialize, TypeInfo, Clone)]
-pub struct BeaconInfoResponse {
-    #[serde(with = "hex::serde")]
-    pub public_key: Vec<u8>,
-    pub period: u32,
-    pub genesis_time: u32,
-    #[serde(with = "hex::serde")]
-    pub hash: Vec<u8>,
-    #[serde(with = "hex::serde", rename = "groupHash")]
-    pub group_hash: Vec<u8>,
-    #[serde(rename = "schemeID")]
-    pub scheme_id: String,
-    pub metadata: MetadataInfoResponse,
-}
-
-/// metadata associated with the drand info response
-#[derive(Debug, Decode, Default, PartialEq, Encode, Serialize, Deserialize, TypeInfo, Clone)]
-pub struct MetadataInfoResponse {
-    #[serde(rename = "beaconID")]
-    beacon_id: String,
-}
-
-impl BeaconInfoResponse {
-    fn try_into_beacon_config(&self) -> Result<BeaconConfiguration, String> {
-        let bounded_pubkey = OpaquePublicKeyG2::try_from(self.public_key.clone())
-            .map_err(|_| "Failed to convert public_key")?;
-        let bounded_hash =
-            BoundedHash::try_from(self.hash.clone()).map_err(|_| "Failed to convert hash")?;
-        let bounded_group_hash = BoundedHash::try_from(self.group_hash.clone())
-            .map_err(|_| "Failed to convert group_hash")?;
-        let bounded_scheme_id = BoundedHash::try_from(self.scheme_id.as_bytes().to_vec().clone())
-            .map_err(|_| "Failed to convert scheme_id")?;
-        let bounded_beacon_id =
-            BoundedHash::try_from(self.metadata.beacon_id.as_bytes().to_vec().clone())
-                .map_err(|_| "Failed to convert beacon_id")?;
-
-        Ok(BeaconConfiguration {
-            public_key: bounded_pubkey,
-            period: self.period,
-            genesis_time: self.genesis_time,
-            hash: bounded_hash,
-            group_hash: bounded_group_hash,
-            scheme_id: bounded_scheme_id,
-            metadata: Metadata {
-                beacon_id: bounded_beacon_id,
-            },
-        })
-    }
-}
-
-/// a pulse from the drand beacon
-/// the expected response body from the drand api endpoint `api.drand.sh/{chainId}/public/latest`
-#[derive(Debug, Decode, Default, PartialEq, Encode, Serialize, Deserialize)]
-pub struct DrandResponseBody {
-    /// the randomness round number
-    pub round: RoundNumber,
-    /// the sha256 hash of the signature
-    // TODO: use Hash (https://github.com/ideal-lab5/pallet-drand/issues/2)
-    #[serde(with = "hex::serde")]
-    pub randomness: Vec<u8>,
-    /// BLS sig for the current round
-    // TODO: use Signature (https://github.com/ideal-lab5/pallet-drand/issues/2)
-    #[serde(with = "hex::serde")]
-    pub signature: Vec<u8>,
-}
-
-impl DrandResponseBody {
-    fn try_into_pulse(&self) -> Result<Pulse, String> {
-        let bounded_randomness = BoundedVec::<u8, ConstU32<32>>::try_from(self.randomness.clone())
-            .map_err(|_| "Failed to convert randomness")?;
-        let bounded_signature = BoundedVec::<u8, ConstU32<144>>::try_from(self.signature.clone())
-            .map_err(|_| "Failed to convert signature")?;
-
-        Ok(Pulse {
-            round: self.round,
-            randomness: bounded_randomness,
-            signature: bounded_signature,
-        })
-    }
-}
-/// a drand chain configuration
-#[derive(
-    Clone,
-    Debug,
-    Decode,
-    Default,
-    PartialEq,
-    Encode,
-    Serialize,
-    Deserialize,
-    MaxEncodedLen,
-    TypeInfo,
-)]
-pub struct BeaconConfiguration {
-    pub public_key: OpaquePublicKeyG2,
-    pub period: u32,
-    pub genesis_time: u32,
-    pub hash: BoundedHash,
-    pub group_hash: BoundedHash,
-    pub scheme_id: BoundedHash,
-    pub metadata: Metadata,
-}
-
-/// Payload used by to hold the beacon
-/// config required to submit a transaction.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, scale_info::TypeInfo)]
-pub struct BeaconConfigurationPayload<Public, BlockNumber> {
-    pub block_number: BlockNumber,
-    pub config: BeaconConfiguration,
-    pub public: Public,
-}
-
 impl<T: SigningTypes> SignedPayload<T>
     for BeaconConfigurationPayload<T::Public, BlockNumberFor<T>>
 {
     fn public(&self) -> T::Public {
         self.public.clone()
     }
-}
-
-/// metadata for the drand beacon configuration
-#[derive(
-    Clone,
-    Debug,
-    Decode,
-    Default,
-    PartialEq,
-    Encode,
-    Serialize,
-    Deserialize,
-    MaxEncodedLen,
-    TypeInfo,
-)]
-pub struct Metadata {
-    beacon_id: BoundedHash,
-}
-
-/// a pulse from the drand beacon
-#[derive(
-    Clone,
-    Debug,
-    Decode,
-    Default,
-    PartialEq,
-    Encode,
-    Serialize,
-    Deserialize,
-    MaxEncodedLen,
-    TypeInfo,
-)]
-pub struct Pulse {
-    /// the randomness round number
-    pub round: RoundNumber,
-    /// the sha256 hash of the signature
-    // TODO: use Hash (https://github.com/ideal-lab5/pallet-drand/issues/2)
-    pub randomness: BoundedVec<u8, ConstU32<32>>,
-    /// BLS sig for the current round
-    // TODO: use Signature (https://github.com/ideal-lab5/pallet-drand/issues/2)
-    pub signature: BoundedVec<u8, ConstU32<144>>,
-}
-
-/// Payload used by to hold the pulse
-/// data required to submit a transaction.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, scale_info::TypeInfo)]
-pub struct PulsePayload<Public, BlockNumber> {
-    pub block_number: BlockNumber,
-    pub pulse: Pulse,
-    pub public: Public,
 }
 
 impl<T: SigningTypes> SignedPayload<T> for PulsePayload<T::Public, BlockNumberFor<T>> {
@@ -613,13 +470,13 @@ impl<T: Config> Pallet<T> {
     /// Query the endpoint `{api}/{chainHash}/info` to receive information about the drand chain
     /// Valid response bodies are deserialized into `BeaconInfoResponse`
     fn fetch_drand_chain_info() -> Result<String, http::Error> {
-        let uri: &str = &format!("{}/{}/info", API_ENDPOINT, QUICKNET_CHAIN_HASH);
+        let uri: &str = &format!("{}/{}/info", API_ENDPOINT, CHAIN_HASH);
         Self::fetch(uri)
     }
 
     /// fetches the latest randomness from drand's API
     fn fetch_drand() -> Result<String, http::Error> {
-        let uri: &str = &format!("{}/{}/public/latest", API_ENDPOINT, QUICKNET_CHAIN_HASH);
+        let uri: &str = &format!("{}/{}/public/latest", API_ENDPOINT, CHAIN_HASH);
         Self::fetch(uri)
     }
 
@@ -716,72 +573,6 @@ pub fn message(current_round: RoundNumber, prev_sig: &[u8]) -> Vec<u8> {
     hasher.update(prev_sig);
     hasher.update(current_round.to_be_bytes());
     hasher.finalize().to_vec()
-}
-
-/// something to verify beacon pulses
-pub trait Verifier {
-    /// verify the given pulse using beacon_config
-    fn verify(beacon_config: BeaconConfiguration, pulse: Pulse) -> Result<bool, String>;
-}
-
-/// A verifier to check values received from quicknet. It outputs true if valid, false otherwise
-///
-/// [Quicknet](https://drand.love/blog/quicknet-is-live-on-the-league-of-entropy-mainnet) operates in an unchained mode,
-/// so messages contain only the round number. in addition, public keys are in G2 and signatures are
-/// in G1
-///
-/// Values are valid if the pairing equality holds:
-///			 $e(sig, g_2) == e(msg_on_curve, pk)$
-/// where $sig \in \mathbb{G}_1$ is the signature
-///       $g_2 \in \mathbb{G}_2$ is a generator
-///       $msg_on_curve \in \mathbb{G}_1$ is a hash of the message that drand signed
-/// (hash(round_number))       $pk \in \mathbb{G}_2$ is the public key, read from the input public
-/// parameters
-pub struct QuicknetVerifier;
-
-impl Verifier for QuicknetVerifier {
-    fn verify(beacon_config: BeaconConfiguration, pulse: Pulse) -> Result<bool, String> {
-        // decode public key (pk)
-        let pk =
-            ArkScale::<G2AffineOpt>::decode(&mut beacon_config.public_key.into_inner().as_slice())
-                .map_err(|e| format!("Failed to decode public key: {}", e))?;
-
-        // decode signature (sigma)
-        let signature =
-            ArkScale::<G1AffineOpt>::decode(&mut pulse.signature.into_inner().as_slice())
-                .map_err(|e| format!("Failed to decode signature: {}", e))?;
-
-        // m = sha256({}{round})
-        let message = message(pulse.round, &vec![]);
-        let hasher = <TinyBLS381 as EngineBLS>::hash_to_curve_map();
-        // H(m) \in G1
-        let message_hash = hasher
-            .hash(&message)
-            .map_err(|e| format!("Failed to hash message: {}", e))?;
-
-        let mut bytes = Vec::new();
-        message_hash
-            .serialize_compressed(&mut bytes)
-            .map_err(|e| format!("Failed to serialize message hash: {}", e))?;
-
-        let message_on_curve = ArkScale::<G1AffineOpt>::decode(&mut &bytes[..])
-            .map_err(|e| format!("Failed to decode message on curve: {}", e))?;
-
-        let g2 = G2AffineOpt::generator();
-
-        let p1 = bls12_381::pairing_opt(-signature.0, g2);
-        let p2 = bls12_381::pairing_opt(message_on_curve.0, pk.0);
-
-        Ok(p1 == p2)
-    }
-}
-
-pub struct UnsafeSkipVerifier;
-
-impl Verifier for UnsafeSkipVerifier {
-    fn verify(_beacon_config: BeaconConfiguration, _pulse: Pulse) -> Result<bool, String> {
-        Ok(true)
-    }
 }
 
 impl<T: Config> Randomness<T::Hash, BlockNumberFor<T>> for Pallet<T> {
