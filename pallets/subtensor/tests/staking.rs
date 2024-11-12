@@ -2500,6 +2500,9 @@ fn test_stake_weight_should_not_be_affected_by_zero_stakes() {
 		let netuid: u16 = 1;
         Balances::force_set_balance(RuntimeOrigin::root(), registrar, 10_000_000_000_000).unwrap();
 
+		// Add root network
+		add_network(0, 0, 0);
+
         // our test subnet with id 1
         SubtensorModule::register_network_with_identity(
             RuntimeOrigin::signed(registrar),
