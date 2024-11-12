@@ -25,9 +25,7 @@ use std::{sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
 
 // Runtime
-use node_subtensor_runtime::{
-    opaque::Block, RuntimeApi, TransactionConverter,
-};
+use node_subtensor_runtime::{opaque::Block, RuntimeApi, TransactionConverter};
 
 /// The minimum period of blocks on which justifications will be
 /// imported and generated.
@@ -314,9 +312,7 @@ where
     let metrics = NB::register_notification_metrics(maybe_registry);
 
     let grandpa_protocol_name = sc_consensus_grandpa::protocol_standard_name(
-        &client
-            .block_hash(0u32.into())?
-            .expect("Genesis block exists; qed"),
+        &client.block_hash(0u32)?.expect("Genesis block exists; qed"),
         &config.chain_spec,
     );
 
@@ -379,7 +375,7 @@ where
     let force_authoring = config.force_authoring;
     let backoff_authoring_blocks =
         Some(BackoffAuthoringOnFinalizedHeadLagging::<NumberFor<Block>> {
-            unfinalized_slack: 6u32.into(),
+            unfinalized_slack: 6u32,
             ..Default::default()
         });
     let name = config.network.node_name.clone();
