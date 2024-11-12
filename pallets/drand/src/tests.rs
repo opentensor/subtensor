@@ -395,14 +395,14 @@ fn can_execute_and_handle_valid_http_responses() {
         let mut state = state.write();
         state.expect_request(PendingRequest {
 			method: "GET".into(),
-			uri: "https://drand.cloudflare.com/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/info".into(),
+			uri: "https://drand.cloudflare.com/8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce/info".into(),
 			response: Some(DRAND_INFO_RESPONSE.as_bytes().to_vec()),
 			sent: true,
 			..Default::default()
 		});
         state.expect_request(PendingRequest {
 			method: "GET".into(),
-			uri: "https://drand.cloudflare.com/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/latest".into(),
+			uri: "https://drand.cloudflare.com/8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce/public/latest".into(),
 			response: Some(DRAND_PULSE.as_bytes().to_vec()),
 			sent: true,
 			..Default::default()
