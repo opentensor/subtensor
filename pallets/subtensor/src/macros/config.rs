@@ -204,11 +204,11 @@ mod config {
         /// Initial hotkey emission tempo.
         #[pallet::constant]
         type InitialHotkeyEmissionTempo: Get<u64>;
+        /// Initial global weight.
+        #[pallet::constant]
+        type InitialGlobalWeight: Get<u64>;
         /// Coldkey swap schedule duartion.
         #[pallet::constant]
         type InitialColdkeySwapScheduleDuration: Get<BlockNumberFor<Self>>;
-        /// Dissolve network schedule duration
-        #[pallet::constant]
-        type InitialDissolveNetworkScheduleDuration: Get<BlockNumberFor<Self>>;
     }
 }

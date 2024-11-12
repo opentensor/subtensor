@@ -174,11 +174,20 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 ///
 /// Change this to adjust the block time.
 #[cfg(not(feature = "fast-blocks"))]
+#[cfg(not(feature = "raonet"))]
 pub const MILLISECS_PER_BLOCK: u64 = 12000;
 
 /// Fast blocks for development
 #[cfg(feature = "fast-blocks")]
+#[cfg(not(feature = "raonet"))]
 pub const MILLISECS_PER_BLOCK: u64 = 250;
+
+#[cfg(feature = "raonet")]
+#[cfg(not(feature = "fast-blocks"))]
+pub const MILLISECS_PER_BLOCK: u64 = 3000; // 1 second blocks.
+
+#[cfg(feature = "runtime-benchmarks")]
+pub const MILLISECS_PER_BLOCK: u64 = 12000;
 
 // NOTE: Currently it is not possible to change the slot duration after the chain has started.
 //       Attempting to do so will brick block production.
@@ -684,8 +693,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
             ProxyType::Owner => matches!(c, RuntimeCall::AdminUtils(..)),
             ProxyType::NonCritical => !matches!(
                 c,
-                RuntimeCall::SubtensorModule(pallet_subtensor::Call::dissolve_network { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::Triumvirate(..)
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_root_weights { .. })
@@ -906,7 +914,7 @@ impl pallet_commitments::Config for Runtime {
 }
 
 #[cfg(not(feature = "fast-blocks"))]
-pub const INITIAL_SUBNET_TEMPO: u16 = 99;
+pub const INITIAL_SUBNET_TEMPO: u16 = 300;
 
 #[cfg(feature = "fast-blocks")]
 pub const INITIAL_SUBNET_TEMPO: u16 = 10;
@@ -918,6 +926,8 @@ pub const INITIAL_CHILDKEY_TAKE_RATELIMIT: u64 = 216000; // 30 days at 12 second
 pub const INITIAL_CHILDKEY_TAKE_RATELIMIT: u64 = 5;
 
 // Configure the pallet subtensor.
+#[cfg(not(feature = "fast-blocks"))]
+#[cfg(not(feature = "raonet"))]
 parameter_types! {
     pub const SubtensorInitialRho: u16 = 10;
     pub const SubtensorInitialKappa: u16 = 32_767; // 0.5 = 65535/2
@@ -969,10 +979,181 @@ parameter_types! {
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const SubtensorInitialHotkeyEmissionTempo: u64 = 7200; // Drain every day.
+    pub const SubtensorInitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
+    pub const SubtensorInitialGlobalWeight: u64 = u64::MAX; // 100% global weight.
+    pub const SubtensorInitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
+}
+// This is for the Local net.
+#[cfg(feature = "fast-blocks")]
+#[cfg(not(feature = "raonet"))]
+parameter_types! {
+    pub const SubtensorInitialRho: u16 = 10;
+    pub const SubtensorInitialKappa: u16 = 32_767; // 0.5 = 65535/2
+    pub const SubtensorInitialMaxAllowedUids: u16 = 4096;
+    pub const SubtensorInitialIssuance: u64 = 0;
+    pub const SubtensorInitialMinAllowedWeights: u16 = 1024;
+    pub const SubtensorInitialEmissionValue: u16 = 0;
+    pub const SubtensorInitialMaxWeightsLimit: u16 = 1000; // 1000/2^16 = 0.015
+    pub const SubtensorInitialValidatorPruneLen: u64 = 1;
+    pub const SubtensorInitialScalingLawPower: u16 = 50; // 0.5
+    pub const SubtensorInitialMaxAllowedValidators: u16 = 128;
+    pub const SubtensorInitialTempo: u16 = 99;
+    pub const SubtensorInitialDifficulty: u64 = 10_000_000;
+    pub const SubtensorInitialAdjustmentInterval: u16 = 100;
+    pub const SubtensorInitialAdjustmentAlpha: u64 = 0; // no weight to previous value.
+    pub const SubtensorInitialTargetRegistrationsPerInterval: u16 = 2;
+    pub const SubtensorInitialImmunityPeriod: u16 = 4096;
+    pub const SubtensorInitialActivityCutoff: u16 = 5000;
+    pub const SubtensorInitialMaxRegistrationsPerBlock: u16 = 1;
+    pub const SubtensorInitialPruningScore : u16 = u16::MAX;
+    pub const SubtensorInitialBondsMovingAverage: u64 = 900_000;
+    pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
+    pub const SubtensorInitialMinTake: u16 = 5_898; // 9%
+    pub const SubtensorInitialMinDelegateTake: u16 = 0; // Allow 0% delegate take
+    pub const SubtensorInitialDefaultChildKeyTake: u16 = 0; // Allow 0% childkey take
+    pub const SubtensorInitialMinChildKeyTake: u16 = 0; // 0 %
+    pub const SubtensorInitialMaxChildKeyTake: u16 = 11_796; // 18 %
+    pub const SubtensorInitialWeightsVersionKey: u64 = 0;
+    pub const SubtensorInitialMinDifficulty: u64 = 10_000_000;
+    pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX / 4;
+    pub const SubtensorInitialServingRateLimit: u64 = 50;
+    pub const SubtensorInitialBurn: u64 = 1_000_000_000; // 1 tao
+    pub const SubtensorInitialMinBurn: u64 = 1_000_000_000; // 1 tao
+    pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
+    pub const SubtensorInitialTxRateLimit: u64 = 0; // disable rate limiting.
+    pub const SubtensorInitialTxDelegateTakeRateLimit: u64 = 216000; // 30 days at 12 seconds per block
+    pub const SubtensorInitialTxChildKeyTakeRateLimit: u64 = INITIAL_CHILDKEY_TAKE_RATELIMIT;
+    pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
+    pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
+    pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
+    pub const SubtensorInitialMinAllowedUids: u16 = 128;
+    pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
+    pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
+    pub const SubtensorInitialSubnetLimit: u16 = 12;
+    pub const SubtensorInitialNetworkLockReductionInterval: u64 = 10; // create a new network every 10 blocks.
+    pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
+    pub const SubtensorInitialTargetStakesPerInterval: u16 = 1;
+    pub const SubtensorInitialKeySwapCost: u64 = 1_000_000_000;
+    pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
+    pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
+    pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
+    pub const SubtensorInitialHotkeyEmissionTempo: u64 = 7200; // Drain every day.
+    pub const SubtensorInitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
+    pub const SubtensorInitialGlobalWeight: u64 = u64::MAX; // 100% global weigh.
+    pub const SubtensorInitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
+}
+// This is for the Local net.
+#[cfg(not(feature = "fast-blocks"))]
+#[cfg(feature = "raonet")]
+parameter_types! {
+    pub const SubtensorInitialRho: u16 = 10;
+    pub const SubtensorInitialKappa: u16 = 32_767; // 0.5 = 65535/2
+    pub const SubtensorInitialMaxAllowedUids: u16 = 4096;
+    pub const SubtensorInitialIssuance: u64 = 0;
+    pub const SubtensorInitialMinAllowedWeights: u16 = 1024;
+    pub const SubtensorInitialEmissionValue: u16 = 0;
+    pub const SubtensorInitialMaxWeightsLimit: u16 = 1000; // 1000/2^16 = 0.015
+    pub const SubtensorInitialValidatorPruneLen: u64 = 1;
+    pub const SubtensorInitialScalingLawPower: u16 = 50; // 0.5
+    pub const SubtensorInitialMaxAllowedValidators: u16 = 128;
+    pub const SubtensorInitialTempo: u16 = 99;
+    pub const SubtensorInitialDifficulty: u64 = 10_000_000;
+    pub const SubtensorInitialAdjustmentInterval: u16 = 100;
+    pub const SubtensorInitialAdjustmentAlpha: u64 = 0; // no weight to previous value.
+    pub const SubtensorInitialTargetRegistrationsPerInterval: u16 = 4;
+    pub const SubtensorInitialImmunityPeriod: u16 = 4096;
+    pub const SubtensorInitialActivityCutoff: u16 = 5000;
+    pub const SubtensorInitialMaxRegistrationsPerBlock: u16 = 4;
+    pub const SubtensorInitialPruningScore : u16 = u16::MAX;
+    pub const SubtensorInitialBondsMovingAverage: u64 = 990_000;
+    pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
+    pub const SubtensorInitialMinTake: u16 = 0; // 0%
+    pub const SubtensorInitialWeightsVersionKey: u64 = 0;
+    pub const SubtensorInitialMinDifficulty: u64 = 10_000_000;
+    pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX / 4;
+    pub const SubtensorInitialServingRateLimit: u64 = 50;
+    pub const SubtensorInitialBurn: u64 = 1_000_000_000; // 1 tao
+    pub const SubtensorInitialMinBurn: u64 = 1_000_000_000; // 1 tao
+    pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
+    pub const SubtensorInitialTxRateLimit: u64 = 0; // disable rate limiting.
+    pub const SubtensorInitialTxDelegateTakeRateLimit: u64 = 216000; // 30 days at 12 seconds per block
+    pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
+    pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
+    pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
+    pub const SubtensorInitialMinAllowedUids: u16 = 128;
+    pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000; // 1 TAO
+    pub const SubtensorInitialSubnetOwnerCut: u16 = 5_898; // 9 percent
+    pub const SubtensorInitialSubnetLimit: u16 = u16::MAX;
+    pub const SubtensorInitialNetworkLockReductionInterval: u64 = 1200; // create a new network every 1 hours.
+    pub const SubtensorInitialNetworkRateLimit: u64 = 10; // 1 hour in 12 second blocks. Or 5 minutes at second blocks.
+    pub const SubtensorInitialTargetStakesPerInterval: u16 = u16::MAX;
+    pub const SubtensorInitialKeySwapCost: u64 = 1_000_000_000;
+    pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
+    pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
+    pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
+    pub const SubtensorInitialHotkeyEmissionTempo: u64 = 1000; // Drain every hour.
+    pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // 500_000 TAO
+    pub const SubtensorInitialGlobalWeight: u64 = u64::MAX; // 100% global weight.
     pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64, this make the make stake infinity
-    pub const  InitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
-    pub const  InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
+    pub const SubtensorInitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
 
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+parameter_types! {
+    pub const SubtensorInitialRho: u16 = 10;
+    pub const SubtensorInitialKappa: u16 = 32_767; // 0.5 = 65535/2
+    pub const SubtensorInitialMaxAllowedUids: u16 = 4096;
+    pub const SubtensorInitialIssuance: u64 = 0;
+    pub const SubtensorInitialMinAllowedWeights: u16 = 1024;
+    pub const SubtensorInitialEmissionValue: u16 = 0;
+    pub const SubtensorInitialMaxWeightsLimit: u16 = 1000; // 1000/2^16 = 0.015
+    pub const SubtensorInitialValidatorPruneLen: u64 = 1;
+    pub const SubtensorInitialScalingLawPower: u16 = 50; // 0.5
+    pub const SubtensorInitialMaxAllowedValidators: u16 = 128;
+    pub const SubtensorInitialTempo: u16 = INITIAL_SUBNET_TEMPO;
+    pub const SubtensorInitialDifficulty: u64 = 10_000_000;
+    pub const SubtensorInitialAdjustmentInterval: u16 = 100;
+    pub const SubtensorInitialAdjustmentAlpha: u64 = 0; // no weight to previous value.
+    pub const SubtensorInitialTargetRegistrationsPerInterval: u16 = 2;
+    pub const SubtensorInitialImmunityPeriod: u16 = 4096;
+    pub const SubtensorInitialActivityCutoff: u16 = 5000;
+    pub const SubtensorInitialMaxRegistrationsPerBlock: u16 = 1;
+    pub const SubtensorInitialPruningScore : u16 = u16::MAX;
+    pub const SubtensorInitialBondsMovingAverage: u64 = 900_000;
+    pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
+    pub const SubtensorInitialMinDelegateTake: u16 = 0; // Allow 0% delegate take
+    pub const SubtensorInitialDefaultChildKeyTake: u16 = 0; // Allow 0% childkey take
+    pub const SubtensorInitialMinChildKeyTake: u16 = 0; // 0 %
+    pub const SubtensorInitialMaxChildKeyTake: u16 = 11_796; // 18 %
+    pub const SubtensorInitialWeightsVersionKey: u64 = 0;
+    pub const SubtensorInitialMinDifficulty: u64 = 10_000_000;
+    pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX / 4;
+    pub const SubtensorInitialServingRateLimit: u64 = 50;
+    pub const SubtensorInitialBurn: u64 = 1_000_000_000; // 1 tao
+    pub const SubtensorInitialMinBurn: u64 = 1_000_000_000; // 1 tao
+    pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
+    pub const SubtensorInitialTxRateLimit: u64 = 1000;
+    pub const SubtensorInitialTxDelegateTakeRateLimit: u64 = 216000; // 30 days at 12 seconds per block
+    pub const SubtensorInitialTxChildKeyTakeRateLimit: u64 = INITIAL_CHILDKEY_TAKE_RATELIMIT;
+    pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
+    pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
+    pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
+    pub const SubtensorInitialMinAllowedUids: u16 = 128;
+    pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
+    pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
+    pub const SubtensorInitialSubnetLimit: u16 = 12;
+    pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
+    pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
+    pub const SubtensorInitialTargetStakesPerInterval: u16 = 1;
+    pub const SubtensorInitialKeySwapCost: u64 = 1_000_000_000;
+    pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
+    pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
+    pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
+    pub const SubtensorInitialHotkeyEmissionTempo: u64 = 7200; // Drain every day.
+    pub const SubtensorInitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
+    pub const SubtensorInitialGlobalWeight: u64 = u64::MAX; // 100% global weight.
+    pub const SubtensorInitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1035,9 +1216,9 @@ impl pallet_subtensor::Config for Runtime {
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     type InitialHotkeyEmissionTempo = SubtensorInitialHotkeyEmissionTempo;
     type InitialNetworkMaxStake = SubtensorInitialNetworkMaxStake;
+    type InitialGlobalWeight = SubtensorInitialGlobalWeight;
     type Preimages = Preimage;
-    type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
-    type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
+    type InitialColdkeySwapScheduleDuration = SubtensorInitialColdkeySwapScheduleDuration;
 }
 
 use sp_runtime::BoundedVec;
@@ -1941,8 +2122,20 @@ impl_runtime_apis! {
             }
         }
 
+        fn get_subnet_state(netuid: u16) -> Vec<u8> {
+            let result = SubtensorModule::get_subnet_state( netuid );
+            result.encode()
+        }
         fn get_subnets_info() -> Vec<u8> {
             let result = SubtensorModule::get_subnets_info();
+            result.encode()
+        }
+        fn get_all_dynamic_info() -> Vec<u8> {
+            let result = SubtensorModule::get_all_dynamic_info();
+            result.encode()
+        }
+        fn get_dynamic_info(netuid: u16) -> Vec<u8> {
+            let result = SubtensorModule::get_dynamic_info(netuid);
             result.encode()
         }
 

@@ -5,8 +5,7 @@ use frame_support::{
 };
 use frame_system::Config;
 use pallet_admin_utils::Error;
-use pallet_subtensor::Error as SubtensorError;
-use pallet_subtensor::{migrations, Event};
+use pallet_subtensor::{migrations, Error as SubtensorError, Event};
 use sp_core::U256;
 
 mod mock;
@@ -967,10 +966,11 @@ mod sudo_set_nominator_min_required_stake {
             assert_ok!(SubtensorModule::add_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(cold1),
                 hot1,
+                netuid,
                 1
             ));
             assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
+                SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold1, netuid),
                 1
             );
             assert_eq!(Balances::free_balance(cold1), 4);
@@ -980,10 +980,11 @@ mod sudo_set_nominator_min_required_stake {
             assert_ok!(SubtensorModule::add_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(cold2),
                 hot1,
+                netuid,
                 1
             ));
             assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
+                SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold2, netuid),
                 1
             );
             assert_eq!(Balances::free_balance(cold2), 4);
@@ -993,10 +994,11 @@ mod sudo_set_nominator_min_required_stake {
             assert_ok!(SubtensorModule::add_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(cold1),
                 hot2,
+                netuid,
                 1
             ));
             assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
+                SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold1, netuid),
                 1
             );
             assert_eq!(Balances::free_balance(cold1), 8);
@@ -1006,10 +1008,11 @@ mod sudo_set_nominator_min_required_stake {
             assert_ok!(SubtensorModule::add_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(cold2),
                 hot2,
+                netuid,
                 1
             ));
             assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
+                SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold2, netuid),
                 1
             );
             assert_eq!(Balances::free_balance(cold2), 8);
@@ -1020,19 +1023,19 @@ mod sudo_set_nominator_min_required_stake {
                 0u64
             ));
             assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
+                SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold1, netuid),
                 1
             );
             assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
+                SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold1, netuid),
                 1
             );
             assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
+                SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold2, netuid),
                 1
             );
             assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
+                SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold2, netuid),
                 1
             );
 
@@ -1042,19 +1045,19 @@ mod sudo_set_nominator_min_required_stake {
                 10u64
             ));
             assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
+                SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold1, netuid),
                 1
             );
             assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
+                SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold1, netuid),
                 0
             );
             assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
+                SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold2, netuid),
                 0
             );
             assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
+                SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold2, netuid),
                 1
             );
 
@@ -1200,6 +1203,7 @@ fn test_set_alpha_values_dispatch_info_ok() {
 fn test_sudo_get_set_alpha() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
+        let mechid: u16 = 1;
         let alpha_low: u16 = 12_u16;
         let alpha_high: u16 = u16::MAX - 10;
 
@@ -1212,7 +1216,6 @@ fn test_sudo_get_set_alpha() {
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
-        assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, 1000));
 
         // Should fail as signer does not own the subnet
         assert_err!(
@@ -1220,7 +1223,11 @@ fn test_sudo_get_set_alpha() {
             DispatchError::BadOrigin
         );
 
-        assert_ok!(SubtensorModule::register_network(signer.clone()));
+        assert_ok!(SubtensorModule::register_network(
+            signer.clone(),
+            hotkey,
+            mechid
+        ));
 
         assert_ok!(AdminUtils::sudo_set_alpha_values(
             signer.clone(),
@@ -1414,7 +1421,7 @@ fn test_sudo_set_dissolve_network_schedule_duration() {
 }
 
 #[test]
-fn sudo_set_commit_reveal_weights_interval() {
+fn sudo_set_commit_reveal_weights_periods() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         add_network(netuid, 10);

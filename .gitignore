@@ -17,6 +17,9 @@
 # The cache for docker container dependency
 .cargo
 
+# Jupyter Notebook files
+*.ipynb
+
 # The cache for chain data in container
 .local
 

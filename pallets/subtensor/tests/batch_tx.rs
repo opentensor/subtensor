@@ -4,6 +4,7 @@ use sp_core::U256;
 mod mock;
 use mock::*;
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test alpha -- test_batch_txs --exact --nocapture
 #[test]
 fn test_batch_txs() {
     let alice = U256::from(0);

@@ -1,4 +1,5 @@
 use super::*;
+// use substrate_fixed::types::I96F32;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic add_stake: Adds stake to a hotkey account.
@@ -33,6 +34,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_add_stake(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
+        netuid: u16,
         stake_to_be_added: u64,
     ) -> dispatch::DispatchResult {
         // We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
@@ -44,6 +46,9 @@ impl<T: Config> Pallet<T> {
             stake_to_be_added
         );
 
+        // Ensure that the subnet exists.
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+
         // Ensure the callers coldkey has enough stake to perform the transaction.
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, stake_to_be_added),
@@ -51,18 +56,24 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure that the hotkey account exists this is only possible through registration.
-        ensure!(
-            Self::hotkey_account_exists(&hotkey),
-            Error::<T>::HotKeyAccountNotExists
-        );
+        // Remove this requirement.
+        if !Self::hotkey_account_exists(&hotkey) {
+            Self::create_account_if_non_existent(&coldkey, &hotkey);
+        }
+        // ensure!(
+        //     Self::hotkey_account_exists(&hotkey),
+        //     Error::<T>::HotKeyAccountNotExists
+        // );
 
         // Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
-        ensure!(
-            Self::hotkey_is_delegate(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
-            Error::<T>::HotKeyNotDelegateAndSignerNotOwnHotKey
-        );
+        // DEPRECATED.
+        // ensure!(
+        //     Self::hotkey_is_delegate(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+        //     Error::<T>::HotKeyNotDelegateAndSignerNotOwnHotKey
+        // );
 
         // Ensure we don't exceed stake rate limit
+        // DEPRECATED
         let stakes_this_interval =
             Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey);
         ensure!(
@@ -70,16 +81,13 @@ impl<T: Config> Pallet<T> {
             Error::<T>::StakeRateLimitExceeded
         );
 
-        // Track this addition in the stake delta.
-        StakeDeltaSinceLastEmissionDrain::<T>::mutate(&hotkey, &coldkey, |stake_delta| {
-            *stake_delta = stake_delta.saturating_add_unsigned(stake_to_be_added as u128);
-        });
+        // Set the last time the stake increased for nominator drain protection.
+        LastAddStakeIncrease::<T>::insert(&hotkey, &coldkey, Self::get_current_block_as_u64());
 
         // If coldkey is not owner of the hotkey, it's a nomination stake.
         if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
-            let total_stake_after_add =
-                Stake::<T>::get(&hotkey, &coldkey).saturating_add(stake_to_be_added);
-
+            let total_stake_after_add: u64 =
+                Alpha::<T>::get((&hotkey, &coldkey, netuid)).saturating_add(stake_to_be_added);
             ensure!(
                 total_stake_after_add >= NominatorMinRequiredStake::<T>::get(),
                 Error::<T>::NomStakeBelowMinimumThreshold
@@ -87,11 +95,11 @@ impl<T: Config> Pallet<T> {
         }
 
         // Ensure the remove operation from the coldkey is a success.
-        let actual_amount_to_stake =
+        let tao_staked: u64 =
             Self::remove_balance_from_coldkey_account(&coldkey, stake_to_be_added)?;
 
-        // If we reach here, add the balance to the hotkey.
-        Self::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, actual_amount_to_stake);
+        // Convert and stake to alpha on the subnet.
+        let alpha_staked: u64 = Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked);
 
         // Set last block for rate limiting
         let block: u64 = Self::get_current_block_as_u64();
@@ -104,12 +112,11 @@ impl<T: Config> Pallet<T> {
             stakes_this_interval.saturating_add(1),
             block,
         );
-        log::debug!(
-            "StakeAdded( hotkey:{:?}, stake_to_be_added:{:?} )",
+        log::info!(
+            "StakeAdded( hotkey:{:?}, alpha_staked:{:?} )",
             hotkey,
-            actual_amount_to_stake
+            alpha_staked
         );
-        Self::deposit_event(Event::StakeAdded(hotkey, actual_amount_to_stake));
 
         // Ok and return.
         Ok(())

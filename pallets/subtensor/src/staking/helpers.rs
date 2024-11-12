@@ -1,13 +1,10 @@
 use super::*;
-use frame_support::{
-    storage::IterableStorageDoubleMap,
-    traits::{
-        tokens::{
-            fungible::{Balanced as _, Inspect as _, Mutate as _},
-            Fortitude, Precision, Preservation,
-        },
-        Imbalance,
+use frame_support::traits::{
+    tokens::{
+        fungible::{Balanced as _, Inspect as _},
+        Fortitude, Precision, Preservation,
     },
+    Imbalance,
 };
 
 impl<T: Config> Pallet<T> {
@@ -39,24 +36,6 @@ impl<T: Config> Pallet<T> {
     //
     pub fn decrease_total_stake(decrement: u64) {
         TotalStake::<T>::put(Self::get_total_stake().saturating_sub(decrement));
-    }
-
-    // Returns the total amount of stake under a hotkey (delegative or otherwise)
-    //
-    pub fn get_total_stake_for_hotkey(hotkey: &T::AccountId) -> u64 {
-        TotalHotkeyStake::<T>::get(hotkey)
-    }
-
-    // Returns the total amount of stake held by the coldkey (delegative or otherwise)
-    //
-    pub fn get_total_stake_for_coldkey(coldkey: &T::AccountId) -> u64 {
-        TotalColdkeyStake::<T>::get(coldkey)
-    }
-
-    // Returns the stake under the cold - hot pairing in the staking table.
-    //
-    pub fn get_stake_for_coldkey_and_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
-        Stake::<T>::get(hotkey, coldkey)
     }
 
     // Retrieves the total stakes for a given hotkey (account ID) for the current staking interval.
@@ -297,9 +276,6 @@ impl<T: Config> Pallet<T> {
         staking_hotkeys.retain(|h| h != hotkey);
         StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
 
-        // Update stake delta
-        StakeDeltaSinceLastEmissionDrain::<T>::remove(hotkey, coldkey);
-
         current_stake
     }
 
@@ -307,15 +283,18 @@ impl<T: Config> Pallet<T> {
     pub fn clear_small_nomination_if_required(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
+        netuid: u16,
         stake: u64,
     ) {
         // Verify if the account is a nominator account by checking ownership of the hotkey by the coldkey.
         if !Self::coldkey_owns_hotkey(coldkey, hotkey) {
             // If the stake is below the minimum required, it's considered a small nomination and needs to be cleared.
+            // Log if the stake is below the minimum required
             if stake < Self::get_nominator_min_required_stake() {
+                // Log the clearing of a small nomination
                 // Remove the stake from the nominator account. (this is a more forceful unstake operation which )
                 // Actually deletes the staking account.
-                let cleared_stake = Self::empty_stake_on_coldkey_hotkey_account(coldkey, hotkey);
+                let cleared_stake = Self::unstake_from_subnet(hotkey, coldkey, netuid, stake);
                 // Add the stake to the coldkey account.
                 Self::add_balance_to_coldkey_account(coldkey, cleared_stake);
             }
@@ -328,8 +307,8 @@ impl<T: Config> Pallet<T> {
     /// used with caution.
     pub fn clear_small_nominations() {
         // Loop through all staking accounts to identify and clear nominations below the minimum stake.
-        for (hotkey, coldkey, stake) in Stake::<T>::iter() {
-            Self::clear_small_nomination_if_required(&hotkey, &coldkey, stake);
+        for ((hotkey, coldkey, netuid), stake) in Alpha::<T>::iter() {
+            Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid, stake);
         }
     }
 
@@ -339,13 +318,6 @@ impl<T: Config> Pallet<T> {
     ) {
         // infallible
         let _ = T::Currency::deposit(coldkey, amount, Precision::BestEffort);
-    }
-
-    pub fn set_balance_on_coldkey_account(
-        coldkey: &T::AccountId,
-        amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
-    ) {
-        T::Currency::set_balance(coldkey, amount);
     }
 
     pub fn can_remove_balance_from_coldkey_account(
@@ -434,9 +406,6 @@ impl<T: Config> Pallet<T> {
 
             // Add the balance to the coldkey account.
             Self::add_balance_to_coldkey_account(&delegate_coldkey_i, stake_i);
-
-            // Remove stake delta
-            StakeDeltaSinceLastEmissionDrain::<T>::remove(hotkey, &delegate_coldkey_i);
         }
     }
 }
