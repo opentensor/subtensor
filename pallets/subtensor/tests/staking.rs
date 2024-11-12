@@ -2497,11 +2497,11 @@ fn test_anneal_global_weight() {
 fn test_stake_weight_should_not_be_affected_by_zero_stakes() {
     new_test_ext(1).execute_with(|| {
         let registrar = AccountId::from(42); // SN Owner
-		let netuid: u16 = 1;
+        let netuid: u16 = 1;
         Balances::force_set_balance(RuntimeOrigin::root(), registrar, 10_000_000_000_000).unwrap();
 
-		// Add root network
-		add_network(0, 0, 0);
+        // Add root network
+        add_network(0, 0, 0);
 
         // our test subnet with id 1
         SubtensorModule::register_network_with_identity(
@@ -2512,6 +2512,7 @@ fn test_stake_weight_should_not_be_affected_by_zero_stakes() {
         )
         .unwrap();
 
+        dbg!(SubtensorModule::get_all_subnet_netuids());
 
         // SubtensorModule::add_stake(
         //     RuntimeOrigin::signed(registrar),
@@ -2523,41 +2524,47 @@ fn test_stake_weight_should_not_be_affected_by_zero_stakes() {
 
         // step_epochs(1, netuid);
 
-
         let neuron_1 = AccountId::from(123);
-		SubtensorModule::add_balance_to_coldkey_account(&neuron_1, 10_000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&neuron_1, 10_000_000_000_000);
 
-        SubtensorModule::burned_register(RuntimeOrigin::signed(neuron_1), netuid, neuron_1).unwrap();
+        SubtensorModule::burned_register(RuntimeOrigin::signed(neuron_1), netuid, neuron_1)
+            .unwrap();
         SubtensorModule::add_stake(
             RuntimeOrigin::signed(neuron_1),
             neuron_1,
             netuid,
-            1000_000_000_000,
+            50_000_000,
         )
         .unwrap();
 
-		dbg!( SubtensorModule::get_stake_weights_for_network(netuid) );
+        let stake_weights_1 = SubtensorModule::get_stake_weights_for_network(netuid);
 
         // step_epochs(1, 1);
-		// Check neuron 1's alpha
-		assert!( SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, 1) > 0, "The neuron 1 should get at least some stake" );
+        // Check neuron 1's alpha
+        assert!(
+            stake_weights_1.0[1] > 0,
+            "The neuron 1 should get at least some stake"
+        );
 
         let neuron_2 = AccountId::from(321);
-		SubtensorModule::add_balance_to_coldkey_account(&neuron_2, 10_000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&neuron_2, 10_000_000_000_000);
 
-        SubtensorModule::burned_register(RuntimeOrigin::signed(neuron_2), netuid, neuron_2).unwrap();
+        SubtensorModule::burned_register(RuntimeOrigin::signed(neuron_2), netuid, neuron_2)
+            .unwrap();
         SubtensorModule::add_stake(
             RuntimeOrigin::signed(neuron_2),
             neuron_2,
-            1,
-            1000_000_000_000,
+            netuid,
+            50_000_000,
         )
         .unwrap();
 
-		// Check neuron 2's alpha
-        assert!( SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, 2) > 0, "The neuron 2 should get at least some stake" );
+        let stake_weights_2 = SubtensorModule::get_stake_weights_for_network(netuid);
 
-		// Run epoch
-		//SubtensorModule::epoch(1, 10_000_000_000_000);
+        // Check neuron 2's alpha
+        assert!(
+            stake_weights_2.0[2] > 0,
+            "The neuron 2 should get at least some stake"
+        );
     });
 }
