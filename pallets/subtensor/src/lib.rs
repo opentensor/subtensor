@@ -434,6 +434,19 @@ pub mod pallet {
     pub fn DefaultSubnetOwnerCut<T: Config>() -> u16 {
         T::InitialSubnetOwnerCut::get()
     }
+
+    #[pallet::type_value]
+    /// Default value for subnet minter cut.
+    pub fn DefaultSubnetMinterCut<T: Config>() -> u16 {
+        T::InitialSubnetMinterCut::get()
+    }
+
+    #[pallet::type_value]
+    /// Default value for subnet validator cut.
+    pub fn DefaultSubnetValidatorCut<T: Config>() -> u16 {
+        T::InitialSubnetValidatorCut::get()
+    }
+
     #[pallet::type_value]
     /// Default value for subnet limit.
     pub fn DefaultSubnetLimit<T: Config>() -> u16 {
@@ -884,6 +897,14 @@ pub mod pallet {
     #[pallet::storage]
     /// ITEM( subnet_owner_cut )
     pub type SubnetOwnerCut<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetOwnerCut<T>>;
+    
+    #[pallet::storage]
+    /// ITEM( subnet_minter_cut )
+    pub type SubnetMinterCut<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetMinterCut<T>>;
+    #[pallet::storage]
+    /// ITEM( subnet_validator_cut )
+    pub type SubnetValidatorCut<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetValidatorCut<T>>;
+    
     #[pallet::storage]
     /// ITEM( network_rate_limit )
     pub type NetworkRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkRateLimit<T>>;

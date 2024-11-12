@@ -113,6 +113,8 @@ parameter_types! {
     pub const InitialNetworkMinAllowedUids: u16 = 128;
     pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
     pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
+    pub const InitialSubnetMinterCut: u16 = 11_796; // 18%
+    pub const InitialSubnetValidatorCut: u16 = 11_796; // 18%
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
@@ -177,6 +179,8 @@ impl pallet_subtensor::Config for Test {
     type InitialNetworkMinAllowedUids = InitialNetworkMinAllowedUids;
     type InitialNetworkMinLockCost = InitialNetworkMinLockCost;
     type InitialSubnetOwnerCut = InitialSubnetOwnerCut;
+    type InitialSubnetMinterCut = InitialSubnetMinterCut;
+    type InitialSubnetValidatorCut = InitialSubnetValidatorCut;
     type InitialNetworkLockReductionInterval = InitialNetworkLockReductionInterval;
     type InitialSubnetLimit = InitialSubnetLimit;
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
