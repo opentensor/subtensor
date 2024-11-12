@@ -226,7 +226,7 @@ pub mod pallet {
             // if the beacon config isn't available, get it now
             if BeaconConfig::<T>::get().is_none() {
                 if let Err(e) = Self::fetch_drand_config_and_send(block_number) {
-                    log::error!(
+                    log::debug!(
 						"Failed to fetch chain config from drand, are you sure the chain hash is valid? {:?}",
 						e
 					);
@@ -234,7 +234,7 @@ pub mod pallet {
             } else {
                 // otherwise query drand
                 if let Err(e) = Self::fetch_drand_pulse_and_send_unsigned(block_number) {
-                    log::error!(
+                    log::debug!(
 						"Failed to fetch pulse from drand, are you sure the chain hash is valid? {:?}",
 						e
 					);
@@ -459,8 +459,8 @@ impl<T: Config> Pallet<T> {
 
         for (acc, res) in &results {
             match res {
-                Ok(()) => log::info!("[{:?}] Submitted new pulse: {:?}", acc.id, pulse.round),
-                Err(e) => log::info!("[{:?}] Failed to submit transaction: {:?}", acc.id, e),
+                Ok(()) => log::debug!("[{:?}] Submitted new pulse: {:?}", acc.id, pulse.round),
+                Err(e) => log::error!("[{:?}] Failed to submit transaction: {:?}", acc.id, e),
             }
         }
 
