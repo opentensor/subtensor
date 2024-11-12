@@ -1,7 +1,7 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 use crate::cli::Sealing;
-use crate::client::{FullBackend, FullClient, RuntimeApiCollection};
+use crate::client::{FullBackend, FullClient};
 use crate::ethereum::{
     db_config_dir, new_frontier_partial, spawn_frontier_tasks, BackendType, EthConfiguration,
     FrontierBackend, FrontierBlockImport, FrontierPartialComponents, StorageOverride,
@@ -12,15 +12,13 @@ use sc_client_api::{Backend as BackendT, BlockBackend};
 use sc_consensus::{BasicQueue, BoxBlockImport};
 use sc_consensus_grandpa::BlockNumberOps;
 use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
-use sc_executor::HostFunctions as HostFunctionsT;
 use sc_network_sync::strategy::warp::{WarpSyncConfig, WarpSyncProvider};
 use sc_service::{error::Error as ServiceError, Configuration, PartialComponents, TaskManager};
 use sc_telemetry::{log, Telemetry, TelemetryHandle, TelemetryWorker};
 use sc_transaction_pool::FullPool;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_api::ConstructRuntimeApi;
-use sp_consensus_aura::sr25519::{AuthorityId as AuraId, AuthorityPair as AuraPair};
-use sp_core::{H256, U256};
+use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
+use sp_core::U256;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 use std::{cell::RefCell, path::Path};
 use std::{sync::Arc, time::Duration};
@@ -28,7 +26,7 @@ use substrate_prometheus_endpoint::Registry;
 
 // Runtime
 use node_subtensor_runtime::{
-    opaque::Block, AccountId, Balance, Nonce, RuntimeApi, TransactionConverter,
+    opaque::Block, RuntimeApi, TransactionConverter,
 };
 
 /// The minimum period of blocks on which justifications will be
