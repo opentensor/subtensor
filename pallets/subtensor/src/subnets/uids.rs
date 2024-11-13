@@ -29,6 +29,7 @@ impl<T: Config> Pallet<T> {
         // 2. Remove previous set memberships.
         Uids::<T>::remove(netuid, old_hotkey.clone());
         IsNetworkMember::<T>::remove(old_hotkey.clone(), netuid);
+        #[allow(unknown_lints)]
         Keys::<T>::remove(netuid, uid_to_replace);
 
         // 2a. Check if the uid is registered in any other subnetworks.
