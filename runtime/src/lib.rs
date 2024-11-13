@@ -952,8 +952,9 @@ parameter_types! {
     pub const SubtensorInitialMinAllowedUids: u16 = 128;
     pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
-    pub const SubtensorInitialSubnetMinterCut: u16 = 11_796; // 18 percent
+    pub const SubtensorInitialSubnetMinerCut: u16 = 11_796; // 18 percent
     pub const SubtensorInitialSubnetValidatorCut: u16 = 11_796; // 18 percent
+    pub const SubtensorInitialSubnetBurnCut: u16 = 30_146; // Remaining 46 percent
     pub const SubtensorInitialSubnetLimit: u16 = 12;
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
     pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
@@ -1020,8 +1021,9 @@ impl pallet_subtensor::Config for Runtime {
     type InitialNetworkMinLockCost = SubtensorInitialMinLockCost;
     type InitialNetworkLockReductionInterval = SubtensorInitialNetworkLockReductionInterval;
     type InitialSubnetOwnerCut = SubtensorInitialSubnetOwnerCut;
-    type InitialSubnetMinterCut = SubtensorInitialSubnetMinterCut;
+    type InitialSubnetMinerCut = SubtensorInitialSubnetMinerCut;
     type InitialSubnetValidatorCut = SubtensorInitialSubnetValidatorCut;
+    type InitialSubnetBurnCut = SubtensorInitialSubnetBurnCut;
     type InitialSubnetLimit = SubtensorInitialSubnetLimit;
     type InitialNetworkRateLimit = SubtensorInitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = SubtensorInitialTargetStakesPerInterval;

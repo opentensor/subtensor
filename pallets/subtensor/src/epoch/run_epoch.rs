@@ -304,8 +304,8 @@ impl<T: Config> Pallet<T> {
         // Compute rao based emission scores. range: I96F32(0, rao_emission)
         let float_rao_emission: I96F32 = I96F32::from_num(rao_emission);
         // Apply server and validator cuts to their respective emissions.
-        let server_cut: I96F32 = I96F32::from_num(Self::get_subnet_minter_cut()).saturating_div(I96F32::from_num(u16::MAX));
-        let validator_cut: I96F32 = I96F32::from_num(Self::get_subnet_validator_cut()).saturating_div(I96F32::from_num(u16::MAX));
+        let server_cut: I96F32 = I96F32::from_num(Self::get_subnet_miner_cut(netuid)).saturating_div(I96F32::from_num(u16::MAX));
+        let validator_cut: I96F32 = I96F32::from_num(Self::get_subnet_validator_cut(netuid)).saturating_div(I96F32::from_num(u16::MAX));
 
         let server_emission: Vec<I96F32> = normalized_server_emission
             .iter()

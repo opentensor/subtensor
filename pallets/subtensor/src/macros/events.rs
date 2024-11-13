@@ -110,11 +110,13 @@ mod events {
         /// the faucet it called on the test net.
         Faucet(T::AccountId, u64),
         /// the subnet owner cut is set.
-        SubnetOwnerCutSet(u16),
+        SubnetOwnerCutSet(u16, u16),
         /// the subnet minter cut is set.
-        SubnetMinterCutSet(u16),
+        SubnetMinterCutSet(u16, u16),
         /// the subnet validator cut is set.
-        SubnetValidatorCutSet(u16),
+        SubnetValidatorCutSet(u16, u16),
+        /// the subnet burn cut is set.
+        SubnetBurnCutSet(u16, u16),
         /// the network creation rate limit is set.
         NetworkRateLimitSet(u64),
         /// the network immunity period is set.

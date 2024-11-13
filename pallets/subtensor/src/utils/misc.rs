@@ -22,6 +22,27 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    pub fn calculate_burn_cut(total_cut: u32) -> Result<u16, DispatchError> {
+        if total_cut < 10000 {
+            Ok((10000 - total_cut) as u16)
+        } else {
+            Err(Error::<T>::InvalidCut.into())
+        }
+    }
+
+    pub fn ensure_subnet_miner_cut(netuid: u16, cut: u16) -> Result<u16, DispatchError> {
+        let validator_cut = SubnetValidatorCut::<T>::get(netuid);
+        let owner_cut = SubnetOwnerCut::<T>::get(netuid);
+        let total_cut = cut as u32 + validator_cut as u32 + owner_cut as u32;
+        Self::calculate_burn_cut(total_cut)
+    }
+
+    pub fn ensure_subnet_validator_cut(netuid: u16, cut: u16) -> Result<u16, DispatchError> {
+        let validator_cut = SubnetValidatorCut::<T>::get(netuid);
+        let total_cut = cut as u32 + validator_cut as u32;
+        Self::calculate_burn_cut(total_cut)
+    }
+
     // ========================
     // ==== Global Setters ====
     // ========================
@@ -603,30 +624,35 @@ impl<T: Config> Pallet<T> {
     pub fn get_subnet_owner(netuid: u16) -> T::AccountId {
         SubnetOwner::<T>::get(netuid)
     }
-    pub fn get_subnet_owner_cut() -> u16 {
-        SubnetOwnerCut::<T>::get()
+    pub fn get_subnet_owner_cut(netuid: u16) -> u16 {
+        SubnetOwnerCut::<T>::get(netuid)
     }
-    pub fn set_subnet_owner_cut(subnet_owner_cut: u16) {
-        SubnetOwnerCut::<T>::set(subnet_owner_cut);
-        Self::deposit_event(Event::SubnetOwnerCutSet(subnet_owner_cut));
-    }
-
-    pub fn set_subnet_minter_cut(subnet_minter_cut: u16) {
-        SubnetMinterCut::<T>::set(subnet_minter_cut);
-        Self::deposit_event(Event::SubnetMinterCutSet(subnet_minter_cut));
+    pub fn set_subnet_owner_cut(netuid: u16, subnet_owner_cut: u16) {
+        SubnetOwnerCut::<T>::insert(netuid, subnet_owner_cut);
+        Self::deposit_event(Event::SubnetOwnerCutSet(netuid, subnet_owner_cut));
     }
 
-    pub fn get_subnet_minter_cut() -> u16 {
-        SubnetMinterCut::<T>::get()
+    pub fn set_subnet_miner_cut(netuid: u16, subnet_minter_cut: u16) {
+        SubnetMinterCut::<T>::insert(netuid, subnet_minter_cut);
+        Self::deposit_event(Event::SubnetMinterCutSet(netuid, subnet_minter_cut));
     }
 
-    pub fn set_subnet_validator_cut(subnet_validator_cut: u16) {
-        SubnetValidatorCut::<T>::set(subnet_validator_cut);
-        Self::deposit_event(Event::SubnetValidatorCutSet(subnet_validator_cut));
+    pub fn set_subnet_burn_cut(netuid: u16, subnet_burn_cut: u16) {
+        SubnetBurnCut::<T>::insert(netuid, subnet_burn_cut);
+        Self::deposit_event(Event::SubnetBurnCutSet(netuid, subnet_burn_cut));
+    }
+
+    pub fn get_subnet_miner_cut(netuid: u16) -> u16 {
+        SubnetMinterCut::<T>::get(netuid)
+    }
+
+    pub fn set_subnet_validator_cut(netuid: u16, subnet_validator_cut: u16) {
+        SubnetValidatorCut::<T>::insert(netuid, subnet_validator_cut);
+        Self::deposit_event(Event::SubnetValidatorCutSet(netuid, subnet_validator_cut));
     }
     
-    pub fn get_subnet_validator_cut() -> u16 {
-        SubnetValidatorCut::<T>::get()
+    pub fn get_subnet_validator_cut(netuid: u16) -> u16 {
+        SubnetValidatorCut::<T>::get(netuid)
     }
 
 

@@ -176,11 +176,13 @@ mod config {
         type InitialSubnetOwnerCut: Get<u16>;
         /// Initial subnet minter cut.
         #[pallet::constant]
-        type InitialSubnetMinterCut: Get<u16>;
+        type InitialSubnetMinerCut: Get<u16>;
         /// Initial subnet validator cut.
         #[pallet::constant]
         type InitialSubnetValidatorCut: Get<u16>;
-        
+        /// Initial subnet burn cut.
+        #[pallet::constant]
+        type InitialSubnetBurnCut: Get<u16>;
         /// Initial lock reduction interval.
         #[pallet::constant]
         type InitialNetworkLockReductionInterval: Get<u64>;
