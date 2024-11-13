@@ -23,8 +23,9 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn calculate_burn_cut(total_cut: u32) -> Result<u16, DispatchError> {
-        if total_cut < 10000 {
-            let burn_cut = 10000_u32
+        let total_max = u32::from(u16::MAX);
+        if total_cut < total_max {
+            let burn_cut = total_max
                 .checked_sub(total_cut)
                 .ok_or(Error::<T>::InvalidCut)?;
             u16::try_from(burn_cut).map_err(|_| Error::<T>::InvalidCut.into())

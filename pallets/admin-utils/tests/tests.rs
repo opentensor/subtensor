@@ -292,12 +292,13 @@ fn test_sudo_subnet_miner_cut() {
         let to_be_set: u16 = 1000;
         let netuid: u16 = 1;
         add_network(netuid, 10);
+
         let init_value: u16 = SubtensorModule::get_subnet_miner_cut(netuid);
 
         // Test non-root access (should fail)
         assert_eq!(
             AdminUtils::sudo_set_subnet_miner_cut(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
                 to_be_set
             ),
@@ -327,12 +328,13 @@ fn test_sudo_subnet_miner_cut() {
         // Verify new value
         assert_eq!(SubtensorModule::get_subnet_miner_cut(netuid), to_be_set);
 
+        let sum = SubtensorModule::get_subnet_owner_cut(netuid)
+            + SubtensorModule::get_subnet_miner_cut(netuid)
+            + SubtensorModule::get_subnet_validator_cut(netuid)
+            + SubtensorModule::get_subnet_burn_cut(netuid);
+
         // Verify total cut sum is 100%
-        assert_eq!(
-            SubtensorModule::get_subnet_owner_cut(netuid)
-                + SubtensorModule::get_subnet_miner_cut(netuid),
-            u16::MAX
-        );
+        assert_eq!(sum, u16::MAX);
     });
 }
 
@@ -347,7 +349,7 @@ fn test_sudo_subnet_validator_cut() {
         // Test non-root access (should fail)
         assert_eq!(
             AdminUtils::sudo_set_subnet_validator_cut(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
                 to_be_set
             ),
@@ -380,14 +382,12 @@ fn test_sudo_subnet_validator_cut() {
         // Verify new value
         assert_eq!(SubtensorModule::get_subnet_validator_cut(netuid), to_be_set);
 
+        let sum = SubtensorModule::get_subnet_owner_cut(netuid)
+            + SubtensorModule::get_subnet_miner_cut(netuid)
+            + SubtensorModule::get_subnet_validator_cut(netuid)
+            + SubtensorModule::get_subnet_burn_cut(netuid);
         // Verify total cut sum is 100%
-        assert_eq!(
-            SubtensorModule::get_subnet_owner_cut(netuid)
-                + SubtensorModule::get_subnet_validator_cut(netuid)
-                + SubtensorModule::get_subnet_miner_cut(netuid)
-                + SubtensorModule::get_subnet_burn_cut(netuid),
-            u16::MAX
-        );
+        assert_eq!(sum, u16::MAX);
     });
 }
 

@@ -711,6 +711,10 @@ pub mod pallet {
             subnet_owner_cut: u16,
         ) -> DispatchResult {
             ensure_root(origin)?;
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
             pallet_subtensor::Pallet::<T>::set_subnet_owner_cut(netuid, subnet_owner_cut);
             log::debug!(
                 "SubnetOwnerCut( subnet_owner_cut: {:?} ) ",
@@ -730,6 +734,11 @@ pub mod pallet {
             subnet_minter_cut: u16,
         ) -> DispatchResult {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+
             match pallet_subtensor::Pallet::<T>::ensure_subnet_miner_cut(netuid, subnet_minter_cut)
             {
                 Ok(cut) => pallet_subtensor::Pallet::<T>::set_subnet_burn_cut(netuid, cut),
@@ -750,6 +759,10 @@ pub mod pallet {
             subnet_validator_cut: u16,
         ) -> DispatchResult {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
             match pallet_subtensor::Pallet::<T>::ensure_subnet_miner_cut(
                 netuid,
                 subnet_validator_cut,
