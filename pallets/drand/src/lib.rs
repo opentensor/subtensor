@@ -86,7 +86,6 @@ pub const MAINNET_CHAIN_HASH: &str =
     "8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce";
 
 #[cfg(feature = "mainnet")]
-#[allow(dead_code)]
 const CHAIN_HASH: &str = MAINNET_CHAIN_HASH;
 
 #[cfg(not(feature = "mainnet"))]

@@ -28,7 +28,7 @@ use ark_serialize::CanonicalSerialize;
 use codec::Decode;
 use sha2::{Digest, Sha256};
 use sp_ark_bls12_381::{G1Affine as G1AffineOpt, G2Affine as G2AffineOpt};
-use w3f_bls::{EngineBLS, TinyBLS381, ZBLS};
+use w3f_bls::{EngineBLS, TinyBLS381};
 
 const USAGE: ark_scale::Usage = ark_scale::WIRE;
 pub type ArkScale<T> = ark_scale::ArkScale<T, USAGE>;
