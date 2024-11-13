@@ -24,7 +24,10 @@ impl<T: Config> Pallet<T> {
 
     pub fn calculate_burn_cut(total_cut: u32) -> Result<u16, DispatchError> {
         if total_cut < 10000 {
-            Ok((10000 - total_cut) as u16)
+            let burn_cut = 10000_u32
+                .checked_sub(total_cut)
+                .ok_or(Error::<T>::InvalidCut)?;
+            u16::try_from(burn_cut).map_err(|_| Error::<T>::InvalidCut.into())
         } else {
             Err(Error::<T>::InvalidCut.into())
         }
@@ -33,13 +36,15 @@ impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_miner_cut(netuid: u16, cut: u16) -> Result<u16, DispatchError> {
         let validator_cut = SubnetValidatorCut::<T>::get(netuid);
         let owner_cut = SubnetOwnerCut::<T>::get(netuid);
-        let total_cut = cut as u32 + validator_cut as u32 + owner_cut as u32;
+        let total_cut = (cut as u32)
+            .saturating_add(validator_cut as u32)
+            .saturating_add(owner_cut as u32);
         Self::calculate_burn_cut(total_cut)
     }
 
     pub fn ensure_subnet_validator_cut(netuid: u16, cut: u16) -> Result<u16, DispatchError> {
         let validator_cut = SubnetValidatorCut::<T>::get(netuid);
-        let total_cut = cut as u32 + validator_cut as u32;
+        let total_cut = (cut as u32).saturating_add(validator_cut as u32);
         Self::calculate_burn_cut(total_cut)
     }
 
@@ -645,11 +650,11 @@ impl<T: Config> Pallet<T> {
         SubnetValidatorCut::<T>::insert(netuid, subnet_validator_cut);
         Self::deposit_event(Event::SubnetValidatorCutSet(netuid, subnet_validator_cut));
     }
-    
+
     pub fn get_subnet_validator_cut(netuid: u16) -> u16 {
         SubnetValidatorCut::<T>::get(netuid)
     }
-    
+
     pub fn set_subnet_burn_cut(netuid: u16, subnet_burn_cut: u16) {
         SubnetBurnCut::<T>::insert(netuid, subnet_burn_cut);
         Self::deposit_event(Event::SubnetBurnCutSet(netuid, subnet_burn_cut));
@@ -658,9 +663,6 @@ impl<T: Config> Pallet<T> {
     pub fn get_subnet_burn_cut(netuid: u16) -> u16 {
         SubnetBurnCut::<T>::get(netuid)
     }
-
-
-
 
     pub fn get_owned_hotkeys(coldkey: &T::AccountId) -> Vec<T::AccountId> {
         OwnedHotkeys::<T>::get(coldkey)

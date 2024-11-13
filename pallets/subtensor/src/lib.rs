@@ -900,22 +900,26 @@ pub mod pallet {
     /// ITEM( network_lock_reduction_interval )
     pub type NetworkLockReductionInterval<T> =
         StorageValue<_, u64, ValueQuery, DefaultNetworkLockReductionInterval<T>>;
-    
+
     #[pallet::storage]
     /// MAP ( netuid ) --> subnet_owner_cut
-    pub type SubnetOwnerCut<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultSubnetOwnerCut<T>>;
-    
+    pub type SubnetOwnerCut<T> =
+        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultSubnetOwnerCut<T>>;
+
     #[pallet::storage]
-    /// MAP ( netuid ) --> subnet_miner_cut 
-    pub type SubnetMinterCut<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultSubnetMinerCut<T>>;
-    
+    /// MAP ( netuid ) --> subnet_miner_cut
+    pub type SubnetMinterCut<T> =
+        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultSubnetMinerCut<T>>;
+
     #[pallet::storage]
     /// MAP ( netuid ) --> subnet_validator_cut
-    pub type SubnetValidatorCut<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultSubnetValidatorCut<T>>;
+    pub type SubnetValidatorCut<T> =
+        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultSubnetValidatorCut<T>>;
 
     #[pallet::storage]
     /// MAP ( netuid ) --> subnet_burn_cut
-    pub type SubnetBurnCut<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultSubnetBurnCut<T>>;
+    pub type SubnetBurnCut<T> =
+        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultSubnetBurnCut<T>>;
 
     #[pallet::storage]
     /// ITEM( network_rate_limit )

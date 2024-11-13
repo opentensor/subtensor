@@ -293,7 +293,7 @@ fn test_sudo_subnet_miner_cut() {
         let netuid: u16 = 1;
         add_network(netuid, 10);
         let init_value: u16 = SubtensorModule::get_subnet_miner_cut(netuid);
-        
+
         // Test non-root access (should fail)
         assert_eq!(
             AdminUtils::sudo_set_subnet_miner_cut(
@@ -303,7 +303,7 @@ fn test_sudo_subnet_miner_cut() {
             ),
             Err(DispatchError::BadOrigin)
         );
-        
+
         // Test non-existent subnet (should fail)
         assert_eq!(
             AdminUtils::sudo_set_subnet_miner_cut(
@@ -313,22 +313,26 @@ fn test_sudo_subnet_miner_cut() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        
+
         // Verify value hasn't changed
         assert_eq!(SubtensorModule::get_subnet_miner_cut(netuid), init_value);
-        
+
         // Test successful update
         assert_ok!(AdminUtils::sudo_set_subnet_miner_cut(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        
+
         // Verify new value
         assert_eq!(SubtensorModule::get_subnet_miner_cut(netuid), to_be_set);
 
         // Verify total cut sum is 100%
-        assert_eq!(SubtensorModule::get_subnet_owner_cut(netuid) + SubtensorModule::get_subnet_miner_cut(netuid), u16::MAX);
+        assert_eq!(
+            SubtensorModule::get_subnet_owner_cut(netuid)
+                + SubtensorModule::get_subnet_miner_cut(netuid),
+            u16::MAX
+        );
     });
 }
 
@@ -339,7 +343,7 @@ fn test_sudo_subnet_validator_cut() {
         let netuid: u16 = 1;
         add_network(netuid, 10);
         let init_value: u16 = SubtensorModule::get_subnet_validator_cut(netuid);
-        
+
         // Test non-root access (should fail)
         assert_eq!(
             AdminUtils::sudo_set_subnet_validator_cut(
@@ -349,7 +353,7 @@ fn test_sudo_subnet_validator_cut() {
             ),
             Err(DispatchError::BadOrigin)
         );
-        
+
         // Test non-existent subnet (should fail)
         assert_eq!(
             AdminUtils::sudo_set_subnet_validator_cut(
@@ -359,31 +363,33 @@ fn test_sudo_subnet_validator_cut() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        
+
         // Verify value hasn't changed
-        assert_eq!(SubtensorModule::get_subnet_validator_cut(netuid), init_value);
-        
+        assert_eq!(
+            SubtensorModule::get_subnet_validator_cut(netuid),
+            init_value
+        );
+
         // Test successful update
         assert_ok!(AdminUtils::sudo_set_subnet_validator_cut(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        
+
         // Verify new value
         assert_eq!(SubtensorModule::get_subnet_validator_cut(netuid), to_be_set);
 
         // Verify total cut sum is 100%
         assert_eq!(
-            SubtensorModule::get_subnet_owner_cut(netuid) + 
-            SubtensorModule::get_subnet_validator_cut(netuid) + 
-            SubtensorModule::get_subnet_miner_cut(netuid) + 
-            SubtensorModule::get_subnet_burn_cut(netuid), 
+            SubtensorModule::get_subnet_owner_cut(netuid)
+                + SubtensorModule::get_subnet_validator_cut(netuid)
+                + SubtensorModule::get_subnet_miner_cut(netuid)
+                + SubtensorModule::get_subnet_burn_cut(netuid),
             u16::MAX
         );
     });
 }
-
 
 #[test]
 fn test_sudo_set_max_weight_limit() {

@@ -724,10 +724,15 @@ pub mod pallet {
         /// The extrinsic will call the Subtensor pallet to set the subnet minter cut.
         #[pallet::call_index(58)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_subnet_miner_cut(origin: OriginFor<T>, netuid: u16, subnet_minter_cut: u16) -> DispatchResult {
+        pub fn sudo_set_subnet_miner_cut(
+            origin: OriginFor<T>,
+            netuid: u16,
+            subnet_minter_cut: u16,
+        ) -> DispatchResult {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
-            match pallet_subtensor::Pallet::<T>::ensure_subnet_miner_cut(netuid, subnet_minter_cut) {
-                Ok(cut) =>  pallet_subtensor::Pallet::<T>::set_subnet_burn_cut(netuid, cut),
+            match pallet_subtensor::Pallet::<T>::ensure_subnet_miner_cut(netuid, subnet_minter_cut)
+            {
+                Ok(cut) => pallet_subtensor::Pallet::<T>::set_subnet_burn_cut(netuid, cut),
                 Err(_) => return Ok(()),
             };
             pallet_subtensor::Pallet::<T>::set_subnet_miner_cut(netuid, subnet_minter_cut);
@@ -739,10 +744,17 @@ pub mod pallet {
         /// The extrinsic will call the Subtensor pallet to set the subnet validator cut.
         #[pallet::call_index(59)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_subnet_validator_cut(origin: OriginFor<T>, netuid: u16, subnet_validator_cut: u16) -> DispatchResult {
+        pub fn sudo_set_subnet_validator_cut(
+            origin: OriginFor<T>,
+            netuid: u16,
+            subnet_validator_cut: u16,
+        ) -> DispatchResult {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
-            match pallet_subtensor::Pallet::<T>::ensure_subnet_miner_cut(netuid, subnet_validator_cut) {
-                Ok(cut) =>  pallet_subtensor::Pallet::<T>::set_subnet_burn_cut(netuid, cut),
+            match pallet_subtensor::Pallet::<T>::ensure_subnet_miner_cut(
+                netuid,
+                subnet_validator_cut,
+            ) {
+                Ok(cut) => pallet_subtensor::Pallet::<T>::set_subnet_burn_cut(netuid, cut),
                 Err(_) => return Ok(()),
             };
             pallet_subtensor::Pallet::<T>::set_subnet_validator_cut(netuid, subnet_validator_cut);

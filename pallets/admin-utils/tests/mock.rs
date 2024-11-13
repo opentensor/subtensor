@@ -181,6 +181,7 @@ impl pallet_subtensor::Config for Test {
     type InitialSubnetOwnerCut = InitialSubnetOwnerCut;
     type InitialSubnetMinerCut = InitialSubnetMinerCut;
     type InitialSubnetValidatorCut = InitialSubnetValidatorCut;
+    type InitialSubnetBurnCut = InitialSubnetBurnCut;
     type InitialNetworkLockReductionInterval = InitialNetworkLockReductionInterval;
     type InitialSubnetLimit = InitialSubnetLimit;
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
