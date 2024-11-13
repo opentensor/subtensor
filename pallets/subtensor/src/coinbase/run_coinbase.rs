@@ -232,8 +232,7 @@ impl<T: Config> Pallet<T> {
                 let child_emission_take: u64 = childkey_take_proportion
                     .saturating_mul(parent_emission)
                     .to_num::<u64>();
-                total_childkey_take =
-                    total_childkey_take.saturating_add(child_emission_take);
+                total_childkey_take = total_childkey_take.saturating_add(child_emission_take);
                 // NOTE: Only the validation emission should be split amongst parents.
 
                 // --- 4.4 Compute the remaining parent emission after the childkey's share is deducted.
