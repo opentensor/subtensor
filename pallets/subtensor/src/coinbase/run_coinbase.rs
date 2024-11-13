@@ -100,6 +100,13 @@ impl<T: Config> Pallet<T> {
                     // --- 4.4.2 Remove the cut from the subnet emission
                     subnet_emission = subnet_emission.saturating_sub(owner_cut.to_num::<u64>());
 
+                    let subnet_burn_cut: I96F32 = I96F32::from_num(subnet_emission).saturating_mul(
+                        I96F32::from_num(Self::get_subnet_burn_cut(*netuid))
+                            .saturating_div(I96F32::from_num(u16::MAX)),
+                    );
+                    subnet_emission = subnet_emission.saturating_sub(subnet_burn_cut.to_num::<u64>());
+                    Self::burn_tokens(subnet_burn_cut.to_num::<u64>());
+
                     // --- 4.4.3 Add the cut to the balance of the owner
                     Self::add_balance_to_coldkey_account(
                         &Self::get_subnet_owner(*netuid),

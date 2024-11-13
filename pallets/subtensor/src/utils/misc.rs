@@ -637,11 +637,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::SubnetMinterCutSet(netuid, subnet_minter_cut));
     }
 
-    pub fn set_subnet_burn_cut(netuid: u16, subnet_burn_cut: u16) {
-        SubnetBurnCut::<T>::insert(netuid, subnet_burn_cut);
-        Self::deposit_event(Event::SubnetBurnCutSet(netuid, subnet_burn_cut));
-    }
-
     pub fn get_subnet_miner_cut(netuid: u16) -> u16 {
         SubnetMinterCut::<T>::get(netuid)
     }
@@ -654,6 +649,16 @@ impl<T: Config> Pallet<T> {
     pub fn get_subnet_validator_cut(netuid: u16) -> u16 {
         SubnetValidatorCut::<T>::get(netuid)
     }
+    
+    pub fn set_subnet_burn_cut(netuid: u16, subnet_burn_cut: u16) {
+        SubnetBurnCut::<T>::insert(netuid, subnet_burn_cut);
+        Self::deposit_event(Event::SubnetBurnCutSet(netuid, subnet_burn_cut));
+    }
+
+    pub fn get_subnet_burn_cut(netuid: u16) -> u16 {
+        SubnetBurnCut::<T>::get(netuid)
+    }
+
 
 
 
