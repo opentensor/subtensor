@@ -61,7 +61,7 @@
         ],
         "name": "removeStake",
         "outputs": [],
-        "stateMutability": "nonpayable",
+        "stateMutability": "payable",
         "type": "function"
     }
 ]
