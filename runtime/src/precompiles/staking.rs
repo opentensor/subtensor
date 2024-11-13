@@ -105,7 +105,7 @@ impl StakingPrecompile {
     }
 
     fn get_stake(data: &[u8]) -> PrecompileResult {
-        let (hotkey, coldkey) = Self::parse_hotkey_coldkey(data)?.into();
+        let (hotkey, coldkey) = Self::parse_hotkey_coldkey(data)?;
 
         let stake = pallet_subtensor::Pallet::<Runtime>::get_stake_for_coldkey_and_hotkey(
             &hotkey.into(),
