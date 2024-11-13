@@ -381,7 +381,12 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 3. Ensure the supplied work passes the difficulty.
-        let difficulty: U256 = U256::from(1_000_000); // Base faucet difficulty.
+        let difficulty: U256 = if !cfg!(feature = "fast-blocks") {
+            U256::from(1_000_000) // Base faucet difficulty.
+        } else {
+            U256::from(100) // Lowered for fast blocks
+        };
+
         let work_hash: H256 = Self::vec_to_hash(work.clone());
         ensure!(
             Self::hash_meets_difficulty(&work_hash, difficulty),

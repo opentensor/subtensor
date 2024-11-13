@@ -5,6 +5,11 @@
                 "internalType": "bytes32",
                 "name": "hotkey",
                 "type": "bytes32"
+            },
+            {
+                "internalType": "uint16",
+                "name": "netuid",
+                "type": "uint16"
             }
         ],
         "name": "addStake",
@@ -23,6 +28,11 @@
                 "internalType": "uint256",
                 "name": "amount",
                 "type": "uint256"
+            },
+            {
+                "internalType": "uint16",
+                "name": "netuid",
+                "type": "uint16"
             }
         ],
         "name": "removeStake",
