@@ -125,7 +125,7 @@ parameter_types! {
     pub const SDebug:u64 = 1;
     pub const InitialRho: u16 = 30;
     pub const InitialKappa: u16 = 32_767;
-    pub const InitialTempo: u16 = 0;
+    pub const InitialTempo: u16 = 300;
     pub const SelfOwnership: u64 = 2;
     pub const InitialImmunityPeriod: u16 = 2;
     pub const InitialMaxAllowedUids: u16 = 2;
@@ -174,9 +174,9 @@ parameter_types! {
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const InitialHotkeyEmissionTempo: u64 = 0; // Defaults to draining every block.
-    pub const InitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64
+    pub const InitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500,000 TAO
     pub const InitialColdkeySwapScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
-    pub const InitialDissolveNetworkScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
+    pub const InitialGlobalWeight: u64 = 0; // zero global weight.
 }
 
 // Configure collective pallet for council
@@ -400,7 +400,7 @@ impl pallet_subtensor::Config for Test {
     type InitialNetworkMaxStake = InitialNetworkMaxStake;
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
-    type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
+    type InitialGlobalWeight = InitialGlobalWeight;
 }
 
 pub struct OriginPrivilegeCmp;
@@ -584,11 +584,31 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
 }
 
+/// Helper function to mock now missing increase_stake_on_coldkey_hotkey_account with
+/// minimal changes
+#[allow(dead_code)]
+pub fn increase_stake_on_coldkey_hotkey_account(
+    coldkey: &U256,
+    hotkey: &U256,
+    tao_staked: u64,
+    netuid: u16,
+) {
+    SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked);
+}
+
+/// Helper function to mock now missing get_total_stake_for_hotkey with
+/// minimal changes
+#[allow(dead_code)]
+pub fn get_total_stake_for_hotkey(hotkey: U256) -> u64 {
+    let coldkey = pallet_subtensor::Owner::<Test>::get(hotkey);
+    pallet_subtensor::Stake::<Test>::get(hotkey, coldkey)
+}
+
 // Helper function to set up a neuron with stake
 #[allow(dead_code)]
 pub fn setup_neuron_with_stake(netuid: u16, hotkey: U256, coldkey: U256, stake: u64) {
     register_ok_neuron(netuid, hotkey, coldkey, stake);
-    SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake);
+    increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake, netuid);
 }
 
 // Helper function to check if a value is within tolerance of an expected value
@@ -600,4 +620,93 @@ pub fn is_within_tolerance(actual: u64, expected: u64, tolerance: u64) -> bool {
         expected - actual
     };
     difference <= tolerance
+}
+
+#[allow(dead_code)]
+pub struct DynamicSubnetSetupParameters {
+    pub netuid: u16,
+    pub owner: (U256, U256),
+    pub subnet_tempo: u16,
+    pub hotkey_tempo: u64,
+    pub coldkeys: Vec<U256>,
+    pub hotkeys: Vec<U256>,
+    pub stakes: Vec<u64>,
+    pub validators: u16,
+    pub weights: Vec<Vec<(u16, u16)>>,
+}
+
+#[allow(dead_code)]
+pub fn setup_dynamic_network(prm: &DynamicSubnetSetupParameters) {
+    add_network(prm.netuid, prm.subnet_tempo as u16, 0);
+    pallet_subtensor::SubnetMechanism::<Test>::insert(prm.netuid, 1);
+    pallet_subtensor::SubnetTAO::<Test>::insert(prm.netuid, 1);
+    pallet_subtensor::SubnetAlphaIn::<Test>::insert(prm.netuid, 1);
+    pallet_subtensor::SubnetOwner::<Test>::insert(prm.netuid, prm.owner.0);
+    pallet_subtensor::SubnetOwnerHotkey::<Test>::insert(prm.netuid, prm.owner.1);
+
+    // Register neurons
+    let uids: Vec<u16> = prm
+        .coldkeys
+        .iter()
+        .zip(prm.hotkeys.iter())
+        .enumerate()
+        .map(|(i, (&coldkey, &hotkey))| {
+            register_ok_neuron(prm.netuid, hotkey, coldkey, 0);
+            i as u16
+        })
+        .collect();
+
+    // Add balance to coldkeys
+    prm.coldkeys
+        .iter()
+        .zip(prm.stakes.iter())
+        .for_each(|(&coldkey, stake)| {
+            SubtensorModule::add_balance_to_coldkey_account(
+                &coldkey,
+                stake + ExistentialDeposit::get(),
+            );
+        });
+
+    // Setup parameters
+    SubtensorModule::set_hotkey_emission_tempo(prm.hotkey_tempo);
+    SubtensorModule::set_weights_set_rate_limit(prm.netuid, 0);
+    step_block(prm.subnet_tempo);
+    pallet_subtensor::SubnetOwnerCut::<Test>::set(u16::MAX / 5);
+    // All stake is active
+    pallet_subtensor::ActivityCutoff::<Test>::set(prm.netuid, u16::MAX);
+    // Validator limit
+    pallet_subtensor::MaxAllowedUids::<Test>::set(prm.netuid, prm.coldkeys.len() as u16);
+    SubtensorModule::set_max_allowed_validators(prm.netuid, prm.validators);
+
+    // Setup stakes
+    prm.coldkeys
+        .iter()
+        .zip(prm.hotkeys.iter())
+        .zip(prm.stakes.iter())
+        .for_each(|((&coldkey, &hotkey), &stake)| {
+            if stake > 0 {
+                assert_ok!(SubtensorModule::add_stake(
+                    RuntimeOrigin::signed(coldkey),
+                    hotkey,
+                    prm.netuid,
+                    stake,
+                ));
+            }
+        });
+
+    // Setup YUMA so that it creates emissions:
+    //   Validators set weights
+    //   Last weight update is after block at registration
+    uids.iter()
+        .zip(prm.weights.iter())
+        .for_each(|(uid, weights)| {
+            if weights.len() > 0 {
+                pallet_subtensor::Weights::<Test>::insert(prm.netuid, uid, weights);
+            }
+            pallet_subtensor::BlockAtRegistration::<Test>::set(prm.netuid, uid, 1);
+        });
+
+    let last_update_vec = uids.iter().map(|_| 2).collect();
+    pallet_subtensor::LastUpdate::<Test>::set(prm.netuid, last_update_vec);
+    pallet_subtensor::Kappa::<Test>::set(prm.netuid, u16::MAX / 5);
 }

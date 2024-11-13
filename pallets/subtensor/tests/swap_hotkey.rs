@@ -56,29 +56,6 @@ fn test_swap_owned_hotkeys() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_total_hotkey_stake --exact --nocapture
-#[test]
-fn test_swap_total_hotkey_stake() {
-    new_test_ext(1).execute_with(|| {
-        let old_hotkey = U256::from(1);
-        let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
-
-        TotalHotkeyStake::<Test>::insert(old_hotkey, 100);
-        TotalHotkeyStake::<Test>::insert(new_hotkey, 50);
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
-            &old_hotkey,
-            &new_hotkey,
-            &coldkey,
-            &mut weight
-        ));
-
-        assert!(!TotalHotkeyStake::<Test>::contains_key(old_hotkey));
-        assert_eq!(TotalHotkeyStake::<Test>::get(new_hotkey), 150);
-    });
-}
-
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_total_hotkey_coldkey_stakes_this_interval --exact --nocapture
 #[test]
 fn test_swap_total_hotkey_coldkey_stakes_this_interval() {
@@ -624,7 +601,6 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
         Stake::<Test>::insert(old_hotkey, coldkey2, 200);
         IsNetworkMember::<Test>::insert(old_hotkey, netuid1, true);
         IsNetworkMember::<Test>::insert(old_hotkey, netuid2, true);
-        TotalHotkeyStake::<Test>::insert(old_hotkey, 300);
 
         assert_ok!(SubtensorModule::perform_hotkey_swap(
             &old_hotkey,
@@ -648,10 +624,6 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
         assert!(IsNetworkMember::<Test>::get(new_hotkey, netuid2));
         assert!(!IsNetworkMember::<Test>::get(old_hotkey, netuid1));
         assert!(!IsNetworkMember::<Test>::get(old_hotkey, netuid2));
-
-        // Check total stake transfer
-        assert_eq!(TotalHotkeyStake::<Test>::get(new_hotkey), 300);
-        assert!(!TotalHotkeyStake::<Test>::contains_key(old_hotkey));
     });
 }
 
@@ -801,28 +773,6 @@ fn test_swap_owner_new_hotkey_already_exists() {
         // Verify the swap
         assert_eq!(Owner::<Test>::get(new_hotkey), coldkey);
         assert!(!Owner::<Test>::contains_key(old_hotkey));
-    });
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_total_hotkey_stake_success --exact --nocapture
-#[test]
-fn test_swap_total_hotkey_stake_success() {
-    new_test_ext(1).execute_with(|| {
-        let old_hotkey = U256::from(1);
-        let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
-        let total_stake = 1000u64;
-        let mut weight = Weight::zero();
-
-        // Initialize TotalHotkeyStake for old_hotkey
-        TotalHotkeyStake::<Test>::insert(old_hotkey, total_stake);
-
-        // Perform the swap
-        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
-
-        // Verify the swap
-        assert_eq!(TotalHotkeyStake::<Test>::get(new_hotkey), total_stake);
-        assert!(!TotalHotkeyStake::<Test>::contains_key(old_hotkey));
     });
 }
 
@@ -1247,90 +1197,39 @@ fn test_swap_child_hotkey_childkey_maps() {
     })
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_hotkey_swap_stake_delta --exact --nocapture
-#[test]
-fn test_hotkey_swap_stake_delta() {
-    new_test_ext(1).execute_with(|| {
-        let old_hotkey = U256::from(3);
-        let new_hotkey = U256::from(4);
-        let coldkey = U256::from(7);
+// // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_hotkey_with_pending_emissions --exact --nocapture
+// #[test]
+// fn test_swap_hotkey_with_pending_emissions() {
+//     new_test_ext(1).execute_with(|| {
+//         let old_hotkey = U256::from(1);
+//         let new_hotkey = U256::from(2);
+//         let coldkey = U256::from(3);
+//         let netuid = 0u16;
+//         let mut weight = Weight::zero();
 
-        let coldkeys = [U256::from(1), U256::from(2), U256::from(5)];
+//         let pending_emission = 123_456_789u64;
 
-        let mut weight = Weight::zero();
+//         // Set up initial state
+//         add_network(netuid, 0, 1);
 
-        // Set up initial state
-        // Add stake delta for each coldkey and the old_hotkey
-        for &coldkey in coldkeys.iter() {
-            StakeDeltaSinceLastEmissionDrain::<Test>::insert(
-                old_hotkey,
-                coldkey,
-                (123 + coldkey.saturated_into::<i128>()),
-            );
+//         // Set up pending emissions
+//         PendingdHotkeyEmission::<Test>::insert(old_hotkey, pending_emission);
+//         // Verify the pending emissions are set
+//         assert_eq!(
+//             PendingdHotkeyEmission::<Test>::get(old_hotkey),
+//             pending_emission
+//         );
+//         // Verify the new hotkey does not have any pending emissions
+//         assert!(!PendingdHotkeyEmission::<Test>::contains_key(new_hotkey));
 
-            StakingHotkeys::<Test>::insert(coldkey, vec![old_hotkey]);
-        }
+//         // Perform the swap
+//         SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
 
-        // Add stake delta for one coldkey and the new_hotkey
-        StakeDeltaSinceLastEmissionDrain::<Test>::insert(new_hotkey, coldkeys[0], 456);
-        // Add corresponding StakingHotkeys
-        StakingHotkeys::<Test>::insert(coldkeys[0], vec![old_hotkey, new_hotkey]);
-
-        // Perform the swap
-        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
-
-        // Ensure the stake delta is correctly transferred for each coldkey
-        // -- coldkey[0] maintains its stake delta from the new_hotkey and the old_hotkey
-        assert_eq!(
-            StakeDeltaSinceLastEmissionDrain::<Test>::get(new_hotkey, coldkeys[0]),
-            123 + coldkeys[0].saturated_into::<i128>() + 456
-        );
-        // -- coldkey[1..] maintains its stake delta from the old_hotkey
-        for &coldkey in coldkeys[1..].iter() {
-            assert_eq!(
-                StakeDeltaSinceLastEmissionDrain::<Test>::get(new_hotkey, coldkey),
-                123 + coldkey.saturated_into::<i128>()
-            );
-            assert!(!StakeDeltaSinceLastEmissionDrain::<Test>::contains_key(
-                old_hotkey, coldkey
-            ));
-        }
-    });
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_hotkey_with_pending_emissions --exact --nocapture
-#[test]
-fn test_swap_hotkey_with_pending_emissions() {
-    new_test_ext(1).execute_with(|| {
-        let old_hotkey = U256::from(1);
-        let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
-        let netuid = 0u16;
-        let mut weight = Weight::zero();
-
-        let pending_emission = 123_456_789u64;
-
-        // Set up initial state
-        add_network(netuid, 0, 1);
-
-        // Set up pending emissions
-        PendingdHotkeyEmission::<Test>::insert(old_hotkey, pending_emission);
-        // Verify the pending emissions are set
-        assert_eq!(
-            PendingdHotkeyEmission::<Test>::get(old_hotkey),
-            pending_emission
-        );
-        // Verify the new hotkey does not have any pending emissions
-        assert!(!PendingdHotkeyEmission::<Test>::contains_key(new_hotkey));
-
-        // Perform the swap
-        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
-
-        // Verify the pending emissions are transferred
-        assert_eq!(
-            PendingdHotkeyEmission::<Test>::get(new_hotkey),
-            pending_emission
-        );
-        assert!(!PendingdHotkeyEmission::<Test>::contains_key(old_hotkey));
-    });
-}
+//         // Verify the pending emissions are transferred
+//         assert_eq!(
+//             PendingdHotkeyEmission::<Test>::get(new_hotkey),
+//             pending_emission
+//         );
+//         assert!(!PendingdHotkeyEmission::<Test>::contains_key(old_hotkey));
+//     });
+// }
