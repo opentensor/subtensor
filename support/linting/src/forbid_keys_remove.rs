@@ -58,11 +58,12 @@ fn is_keys_remove_call(func: &Expr, args: &Punctuated<Expr, Comma>) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use quote::quote;
 
-    fn lint(input: &str) -> Result {
+    fn lint(input: proc_macro2::TokenStream) -> Result {
         let mut visitor = KeysRemoveVisitor::default();
-        visitor
-            .visit_expr_call(&syn::parse_str(input).expect("should only use on a function call"));
+        let expr: syn::ExprCall = syn::parse2(input).expect("should be a valid function call");
+        visitor.visit_expr_call(&expr);
 
         if visitor.errors.is_empty() {
             Ok(())
@@ -73,46 +74,46 @@ mod tests {
 
     #[test]
     fn test_keys_remove_forbidden() {
-        let input = r#"Keys::<T>::remove(netuid, uid_to_replace)"#;
+        let input = quote! { Keys::<T>::remove(netuid, uid_to_replace) };
         assert!(lint(input).is_err());
-        let input = r#"Keys::<U>::remove(netuid, uid_to_replace)"#;
+        let input = quote! { Keys::<U>::remove(netuid, uid_to_replace) };
         assert!(lint(input).is_err());
-        let input = r#"Keys::<U>::remove(1, "2".parse().unwrap(),)"#;
+        let input = quote! { Keys::<U>::remove(1, "2".parse().unwrap(),) };
         assert!(lint(input).is_err());
     }
 
     #[test]
     fn test_non_keys_remove_not_forbidden() {
-        let input = r#"remove(netuid, uid_to_replace)"#;
+        let input = quote! { remove(netuid, uid_to_replace) };
         assert!(lint(input).is_ok());
-        let input = r#"Keys::remove(netuid, uid_to_replace)"#;
+        let input = quote! { Keys::remove(netuid, uid_to_replace) };
         assert!(lint(input).is_ok());
-        let input = r#"Keys::<T>::remove::<U>(netuid, uid_to_replace)"#;
+        let input = quote! { Keys::<T>::remove::<U>(netuid, uid_to_replace) };
         assert!(lint(input).is_ok());
-        let input = r#"Keys::<T>::remove(netuid, uid_to_replace, third_wheel)"#;
+        let input = quote! { Keys::<T>::remove(netuid, uid_to_replace, third_wheel) };
         assert!(lint(input).is_ok());
-        let input = r#"ParentKeys::remove(netuid, uid_to_replace)"#;
+        let input = quote! { ParentKeys::remove(netuid, uid_to_replace) };
         assert!(lint(input).is_ok());
-        let input = r#"ChildKeys::<T>::remove(netuid, uid_to_replace)"#;
+        let input = quote! { ChildKeys::<T>::remove(netuid, uid_to_replace) };
         assert!(lint(input).is_ok());
     }
 
     #[test]
     fn test_keys_remove_allowed() {
-        let input = r#"
-        #[allow(unknown_lints)]
-        Keys::<T>::remove(netuid, uid_to_replace)
-        "#;
+        let input = quote! {
+            #[allow(unknown_lints)]
+            Keys::<T>::remove(netuid, uid_to_replace)
+        };
         assert!(lint(input).is_ok());
-        let input = r#"
-        #[allow(unknown_lints)]
-        Keys::<U>::remove(netuid, uid_to_replace)
-        "#;
+        let input = quote! {
+            #[allow(unknown_lints)]
+            Keys::<U>::remove(netuid, uid_to_replace)
+        };
         assert!(lint(input).is_ok());
-        let input = r#"
-        #[allow(unknown_lints)]
-        Keys::<U>::remove(1, "2".parse().unwrap(),)
-        "#;
+        let input = quote! {
+            #[allow(unknown_lints)]
+            Keys::<U>::remove(1, "2".parse().unwrap(),)
+        };
         assert!(lint(input).is_ok());
     }
 }
