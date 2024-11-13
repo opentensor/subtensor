@@ -115,6 +115,7 @@ parameter_types! {
     pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
     pub const InitialSubnetMinerCut: u16 = 11_796; // 18%
     pub const InitialSubnetValidatorCut: u16 = 11_796; // 18%
+    pub const InitialSubnetBurnCut: u16 = 30_146; // 0%
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;

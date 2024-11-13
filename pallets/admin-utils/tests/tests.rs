@@ -289,7 +289,7 @@ fn test_sudo_subnet_owner_cut() {
 #[test]
 fn test_sudo_subnet_miner_cut() {
     new_test_ext().execute_with(|| {
-        let to_be_set: u16 = 10;
+        let to_be_set: u16 = 1000;
         let netuid: u16 = 1;
         add_network(netuid, 10);
         let init_value: u16 = SubtensorModule::get_subnet_miner_cut(netuid);
