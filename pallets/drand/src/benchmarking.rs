@@ -34,9 +34,9 @@ pub const DRAND_PULSE: &str = "{\"round\":1000,\"randomness\":\"a40d3e0e7e3c71f2
 pub const DRAND_INFO_RESPONSE: &str = "{\"public_key\":\"868f005eb8e6e4ca0a47c8a77ceaa5309a47978a7c71bc5cce96366b5d7a569937c529eeda66c7293784a9402801af31\",\"period\":30,\"genesis_time\":1595431050,\"hash\":\"8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce\",\"groupHash\":\"176f93498eac9ca337150b46d21dd58673ea4e3581185f869672e59fa4cb390a\",\"schemeID\":\"pedersen-bls-chained\",\"metadata\":{\"beaconID\":\"default\"}}";
 
 #[benchmarks(
-	where
-		T::Public: From<sp_core::sr25519::Public>,
-)]
+     where
+         T::Public: From<sp_core::sr25519::Public>,
+ )]
 mod benchmarks {
     use super::*;
 
@@ -60,21 +60,30 @@ mod benchmarks {
 
     #[benchmark]
     fn write_pulse() {
-        // TODO: bechmkark the longest `write_pulse` branch https://github.com/ideal-lab5/pallet-drand/issues/8
-
+        // Deserialize the beacon info and pulse
+        let info: BeaconInfoResponse = serde_json::from_str(DRAND_INFO_RESPONSE).unwrap();
+        let config = info.try_into_beacon_config().unwrap();
         let u_p: DrandResponseBody = serde_json::from_str(DRAND_PULSE).unwrap();
         let p: Pulse = u_p.try_into_pulse().unwrap();
+
         let block_number = 1u32.into();
         let alice = sp_keyring::Sr25519Keyring::Alice.public();
-        let pulse_payload = PulsePayload {
+
+        // Set the beacon configuration
+        BeaconConfig::<T>::put(config);
+
+        // Create PulsesPayload with a vector of pulses
+        let pulses_payload = PulsesPayload {
             block_number,
-            pulse: p.clone(),
+            pulses: vec![p.clone()], // Wrap the pulse in a vector
             public: alice.into(),
         };
 
         #[extrinsic_call]
-        write_pulse(RawOrigin::None, pulse_payload.clone(), None);
-        assert_eq!(Pulses::<T>::get(block_number), None);
+        write_pulse(RawOrigin::None, pulses_payload.clone(), None);
+
+        // Check that the pulse has been stored
+        assert_eq!(Pulses::<T>::get(p.round), Some(p));
     }
 
     impl_benchmark_test_suite!(Drand, crate::mock::new_test_ext(), crate::mock::Test);

@@ -47,10 +47,11 @@ use frame_system::{
     },
     pallet_prelude::BlockNumberFor,
 };
+use scale_info::prelude::cmp;
 use sha2::{Digest, Sha256};
 use sp_runtime::{
     offchain::{http, Duration},
-    traits::{Hash, One, Zero},
+    traits::{Hash, One},
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
     KeyTypeId,
 };
@@ -90,6 +91,8 @@ const CHAIN_HASH: &str = MAINNET_CHAIN_HASH;
 
 #[cfg(not(feature = "mainnet"))]
 const CHAIN_HASH: &str = QUICKNET_CHAIN_HASH;
+
+pub const MAX_PULSES_TO_FETCH: u64 = 100;
 
 /// Defines application identifier for crypto keys of this module.
 ///
@@ -139,7 +142,7 @@ impl<T: SigningTypes> SignedPayload<T>
     }
 }
 
-impl<T: SigningTypes> SignedPayload<T> for PulsePayload<T::Public, BlockNumberFor<T>> {
+impl<T: SigningTypes> SignedPayload<T> for PulsesPayload<T::Public, BlockNumberFor<T>> {
     fn public(&self) -> T::Public {
         self.public.clone()
     }
@@ -181,8 +184,10 @@ pub mod pallet {
 
     /// map block number to round number of pulse authored during that block
     #[pallet::storage]
-    pub type Pulses<T: Config> =
-        StorageMap<_, Blake2_128Concat, BlockNumberFor<T>, Pulse, OptionQuery>;
+    pub type Pulses<T: Config> = StorageMap<_, Blake2_128Concat, RoundNumber, Pulse, OptionQuery>;
+
+    #[pallet::storage]
+    pub(super) type LastStoredRound<T: Config> = StorageValue<_, RoundNumber, ValueQuery>;
 
     /// Defines the block when next unsigned transaction will be accepted.
     ///
@@ -199,7 +204,7 @@ pub mod pallet {
         /// A user has successfully set a new value.
         NewPulse {
             /// The new value set.
-            round: RoundNumber,
+            rounds: Vec<RoundNumber>,
         },
     }
 
@@ -267,7 +272,7 @@ pub mod pallet {
                     )
                 }
                 Call::write_pulse {
-                    pulse_payload: ref payload,
+                    pulses_payload: ref payload,
                     ref signature,
                 } => {
                     let signature = signature.as_ref().ok_or(InvalidTransaction::BadSigner)?;
@@ -286,58 +291,49 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// Verify and write a pulse from the beacon into the runtime
         #[pallet::call_index(0)]
-        #[pallet::weight(T::WeightInfo::write_pulse())]
+        #[pallet::weight(T::WeightInfo::write_pulse(pulses_payload.pulses.len() as u32))]
         pub fn write_pulse(
             origin: OriginFor<T>,
-            pulse_payload: PulsePayload<T::Public, BlockNumberFor<T>>,
+            pulses_payload: PulsesPayload<T::Public, BlockNumberFor<T>>,
             _signature: Option<T::Signature>,
         ) -> DispatchResult {
             ensure_none(origin)?;
+            let config = BeaconConfig::<T>::get().ok_or(Error::<T>::NoneValue)?;
 
-            match BeaconConfig::<T>::get() {
-                Some(config) => {
-                    let is_verified = T::Verifier::verify(config, pulse_payload.pulse.clone())
-                        .map_err(|s| {
-                            log::error!("Could not verify the pulse due to: {}", s);
-                            Error::<T>::PulseVerificationError
-                        })?;
+            let mut last_stored_round = LastStoredRound::<T>::get();
+            let mut new_rounds = Vec::new();
 
-                    if is_verified {
-                        let current_block = frame_system::Pallet::<T>::block_number();
-                        let mut last_block = current_block;
+            for pulse in &pulses_payload.pulses {
+                let is_verified = T::Verifier::verify(config.clone(), pulse.clone())
+                    .map_err(|_| Error::<T>::PulseVerificationError)?;
 
-                        // TODO: improve this, it's not efficient as it can be very slow when the
-                        // history is large. We could set a new storage value with the latest
-                        // round. Retrieve the lastest pulse and verify the round number
-                        // https://github.com/ideal-lab5/pallet-drand/issues/4
-                        loop {
-                            if let Some(last_pulse) = Pulses::<T>::get(last_block) {
-                                frame_support::ensure!(
-                                    last_pulse.round < pulse_payload.pulse.round,
-                                    Error::<T>::InvalidRoundNumber
-                                );
-                                break;
-                            }
-                            if last_block == Zero::zero() {
-                                break;
-                            }
-                            last_block -= One::one();
-                        }
+                if is_verified {
+                    ensure!(
+                        pulse.round > last_stored_round,
+                        Error::<T>::InvalidRoundNumber
+                    );
 
-                        // Store the new pulse
-                        Pulses::<T>::insert(current_block, pulse_payload.pulse.clone());
-                        // now increment the block number at which we expect next unsigned
-                        // transaction.
-                        <NextUnsignedAt<T>>::put(current_block + One::one());
-                        // Emit event for new pulse
-                        Self::deposit_event(Event::NewPulse {
-                            round: pulse_payload.pulse.round,
-                        });
-                    }
+                    // Store the pulse
+                    Pulses::<T>::insert(pulse.round, pulse.clone());
+
+                    // Update last stored round
+                    last_stored_round = pulse.round;
+
+                    // Collect the new round
+                    new_rounds.push(pulse.round);
                 }
-                None => {
-                    log::warn!("No beacon config available");
-                }
+            }
+
+            // Update LastStoredRound storage
+            LastStoredRound::<T>::put(last_stored_round);
+
+            // Update the next unsigned block number
+            let current_block = frame_system::Pallet::<T>::block_number();
+            <NextUnsignedAt<T>>::put(current_block + One::one());
+
+            // Emit a single event with all new rounds
+            if !new_rounds.is_empty() {
+                Self::deposit_event(Event::NewPulse { rounds: new_rounds });
             }
 
             Ok(())
@@ -425,41 +421,68 @@ impl<T: Config> Pallet<T> {
     fn fetch_drand_pulse_and_send_unsigned(
         block_number: BlockNumberFor<T>,
     ) -> Result<(), &'static str> {
-        // Make sure we don't fetch the price if the transaction is going to be rejected
-        // anyway.
+        // Ensure we can send an unsigned transaction
         let next_unsigned_at = NextUnsignedAt::<T>::get();
         if next_unsigned_at > block_number {
             return Err("Too early to send unsigned transaction");
         }
 
-        let signer = Signer::<T, T::AuthorityId>::all_accounts();
-
-        let pulse_body = Self::fetch_drand().map_err(|_| "Failed to query drand")?;
-        let unbounded_pulse: DrandResponseBody = serde_json::from_str(&pulse_body)
+        let mut last_stored_round = LastStoredRound::<T>::get();
+        let latest_pulse_body = Self::fetch_drand_latest().map_err(|_| "Failed to query drand")?;
+        let latest_unbounded_pulse: DrandResponseBody = serde_json::from_str(&latest_pulse_body)
             .map_err(|_| "Failed to serialize response body to pulse")?;
-        let pulse = unbounded_pulse
+        let latest_pulse = latest_unbounded_pulse
             .try_into_pulse()
             .map_err(|_| "Received pulse contains invalid data")?;
+        let current_round = latest_pulse.round;
 
-        // TODO: verify, before sending the tx that the pulse.round is greater than the stored one
-        // https://github.com/ideal-lab5/pallet-drand/issues/4
+        // If last_stored_round is zero, set it to current_round - 1
+        if last_stored_round == 0 {
+            last_stored_round = current_round.saturating_sub(1);
+            LastStoredRound::<T>::put(last_stored_round);
+        }
 
-        let results = signer.send_unsigned_transaction(
-            |account| PulsePayload {
-                block_number,
-                pulse: pulse.clone(),
-                public: account.public.clone(),
-            },
-            |pulse_payload, signature| Call::write_pulse {
-                pulse_payload,
-                signature: Some(signature),
-            },
-        );
+        if current_round > last_stored_round {
+            let rounds_to_fetch = cmp::min(
+                current_round.saturating_sub(last_stored_round),
+                MAX_PULSES_TO_FETCH,
+            );
+            let mut pulses = Vec::new();
 
-        for (acc, res) in &results {
-            match res {
-                Ok(()) => log::debug!("[{:?}] Submitted new pulse: {:?}", acc.id, pulse.round),
-                Err(e) => log::error!("[{:?}] Failed to submit transaction: {:?}", acc.id, e),
+            for round in (last_stored_round + 1)..=(last_stored_round + rounds_to_fetch) {
+                let pulse_body = Self::fetch_drand_by_round(round)
+                    .map_err(|_| "Failed to query drand for round")?;
+                let unbounded_pulse: DrandResponseBody = serde_json::from_str(&pulse_body)
+                    .map_err(|_| "Failed to serialize response body to pulse")?;
+                let pulse = unbounded_pulse
+                    .try_into_pulse()
+                    .map_err(|_| "Received pulse contains invalid data")?;
+                pulses.push(pulse);
+            }
+
+            let signer = Signer::<T, T::AuthorityId>::all_accounts();
+
+            let results = signer.send_unsigned_transaction(
+                |account| PulsesPayload {
+                    block_number,
+                    pulses: pulses.clone(),
+                    public: account.public.clone(),
+                },
+                |pulses_payload, signature| Call::write_pulse {
+                    pulses_payload,
+                    signature: Some(signature),
+                },
+            );
+
+            for (acc, res) in &results {
+                match res {
+                    Ok(()) => log::debug!(
+                        "[{:?}] Submitted new pulses up to round: {:?}",
+                        acc.id,
+                        last_stored_round + rounds_to_fetch
+                    ),
+                    Err(e) => log::error!("[{:?}] Failed to submit transaction: {:?}", acc.id, e),
+                }
             }
         }
 
@@ -472,9 +495,11 @@ impl<T: Config> Pallet<T> {
         let uri: &str = &format!("{}/{}/info", API_ENDPOINT, CHAIN_HASH);
         Self::fetch(uri)
     }
-
-    /// fetches the latest randomness from drand's API
-    fn fetch_drand() -> Result<String, http::Error> {
+    fn fetch_drand_by_round(round: RoundNumber) -> Result<String, http::Error> {
+        let uri: &str = &format!("{}/{}/public/{}", API_ENDPOINT, CHAIN_HASH, round);
+        Self::fetch(uri)
+    }
+    fn fetch_drand_latest() -> Result<String, http::Error> {
         let uri: &str = &format!("{}/{}/public/latest", API_ENDPOINT, CHAIN_HASH);
         Self::fetch(uri)
     }
@@ -508,8 +533,8 @@ impl<T: Config> Pallet<T> {
 
     /// get the randomness at a specific block height
     /// returns [0u8;32] if it does not exist
-    pub fn random_at(block_number: BlockNumberFor<T>) -> [u8; 32] {
-        let pulse = Pulses::<T>::get(block_number).unwrap_or_default();
+    pub fn random_at(round: RoundNumber) -> [u8; 32] {
+        let pulse = Pulses::<T>::get(round).unwrap_or_default();
         let rand = pulse.randomness.clone();
         let bounded_rand: [u8; 32] = rand.into_inner().try_into().unwrap_or([0u8; 32]);
 
@@ -579,8 +604,10 @@ impl<T: Config> Randomness<T::Hash, BlockNumberFor<T>> for Pallet<T> {
     fn random(subject: &[u8]) -> (T::Hash, BlockNumberFor<T>) {
         let block_number_minus_one = <frame_system::Pallet<T>>::block_number() - One::one();
 
+        let last_stored_round = LastStoredRound::<T>::get();
+
         let mut entropy = T::Hash::default();
-        if let Some(pulse) = Pulses::<T>::get(block_number_minus_one) {
+        if let Some(pulse) = Pulses::<T>::get(last_stored_round) {
             entropy = (subject, block_number_minus_one, pulse.randomness.clone())
                 .using_encoded(T::Hashing::hash);
         }

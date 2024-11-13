@@ -182,7 +182,7 @@ pub struct Metadata {
 }
 
 /// A pulse from the drand beacon
-#[freeze_struct("79c521104ba6f05b")]
+#[freeze_struct("cedd7283835f3f56")]
 #[derive(
     Clone,
     Debug,
@@ -194,6 +194,7 @@ pub struct Metadata {
     Deserialize,
     MaxEncodedLen,
     TypeInfo,
+    Eq,
 )]
 pub struct Pulse {
     /// the randomness round number
@@ -211,13 +212,10 @@ pub struct Pulse {
 
 /// Payload used by to hold the pulse
 /// data required to submit a transaction.
-#[freeze_struct("7a2496a57cb1f3ba")]
-#[derive(Encode, Decode, Debug, Clone, PartialEq, scale_info::TypeInfo)]
-pub struct PulsePayload<Public, BlockNumber> {
-    /// The block when the pulse was received
+#[freeze_struct("4a9f01b1d8fbbe89")]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+pub struct PulsesPayload<Public, BlockNumber> {
     pub block_number: BlockNumber,
-    /// The pulse
-    pub pulse: Pulse,
-    /// The public key of the signer
+    pub pulses: Vec<Pulse>,
     pub public: Public,
 }

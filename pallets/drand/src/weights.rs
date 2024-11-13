@@ -49,8 +49,8 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for pallet_template.
 pub trait WeightInfo {
-	fn set_beacon_config() -> Weight;
-	fn write_pulse() -> Weight;
+    fn write_pulse(pulses_count: u32) -> Weight;
+    fn set_beacon_config() -> Weight;
 }
 
 /// Weights for pallet_template using the Substrate node and recommended hardware.
@@ -71,13 +71,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// Storage: `Drand::BeaconConfig` (r:1 w:0)
 	/// Proof: `Drand::BeaconConfig` (`max_values`: Some(1), `max_size`: Some(238), added: 733, mode: `MaxEncodedLen`)
-	fn write_pulse() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `6`
-		//  Estimated: `1723`
-		// Minimum execution time: 5_000_000 picoseconds.
-		Weight::from_parts(6_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 1723))
-			.saturating_add(T::DbWeight::get().reads(1))
-	}
+	fn write_pulse(pulses_count: u32) -> Weight {
+		// Adjust the weight calculation based on pulses_count
+		Weight::from_parts(6_000_000 * pulses_count as u64, 0)
+			.saturating_add(Weight::from_parts(0, 1723 * pulses_count as u64))
+			.saturating_add(T::DbWeight::get().reads_writes(1, pulses_count as u64))
+	}	
 }

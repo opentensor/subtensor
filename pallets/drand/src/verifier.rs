@@ -116,6 +116,8 @@ impl Verifier for QuicknetVerifier {
 ///
 pub struct MainnetVerifier;
 #[cfg(feature = "mainnet")]
+use w3f_bls::ZBLS;
+#[cfg(feature = "mainnet")]
 impl Verifier for MainnetVerifier {
     fn verify(beacon_config: BeaconConfiguration, pulse: Pulse) -> Result<bool, String> {
         // decode public key (pk)
