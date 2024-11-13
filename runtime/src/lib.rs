@@ -643,6 +643,7 @@ pub enum ProxyType {
     Transfer,
     SmallTransfer,
     RootWeights,
+    ChildKeys,
     SudoUncheckedSetCode,
 }
 // Transfers below SMALL_TRANSFER_LIMIT are considered small transfers
@@ -664,6 +665,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::schedule_swap_coldkey { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey { .. })
             ),
             ProxyType::Transfer => matches!(
                 c,
@@ -715,6 +720,13 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
             ProxyType::RootWeights => matches!(
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_root_weights { .. })
+            ),
+            ProxyType::ChildKeys => matches!(
+                c,
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_children { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::set_childkey_take { .. }
+                    )
             ),
             ProxyType::SudoUncheckedSetCode => match c {
                 RuntimeCall::Sudo(pallet_sudo::Call::sudo_unchecked_weight { call, weight: _ }) => {
