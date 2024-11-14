@@ -231,7 +231,7 @@ pub mod pallet {
             if BeaconConfig::<T>::get().is_none() {
                 if let Err(e) = Self::fetch_drand_config_and_send(block_number) {
                     log::debug!(
-						"Failed to fetch chain config from drand, are you sure the chain hash is valid? {:?}",
+						"Drand: Failed to fetch chain config from drand, are you sure the chain hash is valid? {:?}",
 						e
 					);
                 }
@@ -239,7 +239,7 @@ pub mod pallet {
                 // otherwise query drand
                 if let Err(e) = Self::fetch_drand_pulse_and_send_unsigned(block_number) {
                     log::debug!(
-						"Failed to fetch pulse from drand, are you sure the chain hash is valid? {:?}",
+						"Drand: Failed to fetch pulse from drand, are you sure the chain hash is valid? {:?}",
 						e
 					);
                 }
@@ -372,23 +372,23 @@ impl<T: Config> Pallet<T> {
         // anyway.
         let next_unsigned_at = NextUnsignedAt::<T>::get();
         if next_unsigned_at > block_number {
-            return Err("Too early to send unsigned transaction");
+            return Err("Drand: Too early to send unsigned transaction");
         }
 
         let signer = Signer::<T, T::AuthorityId>::all_accounts();
         if !signer.can_sign() {
             return Err(
-                "No local accounts available. Consider adding one via `author_insertKey` RPC.",
+                "Drand: No local accounts available. Consider adding one via `author_insertKey` RPC.",
             )?;
         }
 
         let body_str =
             Self::fetch_drand_chain_info().map_err(|_| "Failed to fetch drand chain info")?;
         let beacon_config: BeaconInfoResponse = serde_json::from_str(&body_str)
-            .map_err(|_| "Failed to convert response body to beacon configuration")?;
+            .map_err(|_| "Drand: Failed to convert response body to beacon configuration")?;
         let config = beacon_config
             .try_into_beacon_config()
-            .map_err(|_| "Failed to convert BeaconInfoResponse to BeaconConfiguration")?;
+            .map_err(|_| "Drand: Failed to convert BeaconInfoResponse to BeaconConfiguration")?;
 
         let results = signer.send_unsigned_transaction(
             |account| BeaconConfigurationPayload {
@@ -403,13 +403,17 @@ impl<T: Config> Pallet<T> {
         );
 
         if results.is_empty() {
-            log::error!("Empty result from config: {:?}", config);
+            log::error!("Drand: Empty result from config: {:?}", config);
         }
 
         for (acc, res) in &results {
             match res {
-                Ok(()) => log::info!("[{:?}] Submitted new config: {:?}", acc.id, config),
-                Err(e) => log::error!("[{:?}] Failed to submit transaction: {:?}", acc.id, e),
+                Ok(()) => log::info!("Drand: [{:?}] Submitted new config: {:?}", acc.id, config),
+                Err(e) => log::error!(
+                    "Drand: [{:?}] Failed to submit transaction: {:?}",
+                    acc.id,
+                    e
+                ),
             }
         }
 
@@ -424,16 +428,16 @@ impl<T: Config> Pallet<T> {
         // Ensure we can send an unsigned transaction
         let next_unsigned_at = NextUnsignedAt::<T>::get();
         if next_unsigned_at > block_number {
-            return Err("Too early to send unsigned transaction");
+            return Err("Drand: Too early to send unsigned transaction");
         }
 
         let mut last_stored_round = LastStoredRound::<T>::get();
         let latest_pulse_body = Self::fetch_drand_latest().map_err(|_| "Failed to query drand")?;
         let latest_unbounded_pulse: DrandResponseBody = serde_json::from_str(&latest_pulse_body)
-            .map_err(|_| "Failed to serialize response body to pulse")?;
+            .map_err(|_| "Drand: Failed to serialize response body to pulse")?;
         let latest_pulse = latest_unbounded_pulse
             .try_into_pulse()
-            .map_err(|_| "Received pulse contains invalid data")?;
+            .map_err(|_| "Drand: Received pulse contains invalid data")?;
         let current_round = latest_pulse.round;
 
         // If last_stored_round is zero, set it to current_round - 1
@@ -451,12 +455,12 @@ impl<T: Config> Pallet<T> {
 
             for round in (last_stored_round + 1)..=(last_stored_round + rounds_to_fetch) {
                 let pulse_body = Self::fetch_drand_by_round(round)
-                    .map_err(|_| "Failed to query drand for round")?;
+                    .map_err(|_| "Drand: Failed to query drand for round")?;
                 let unbounded_pulse: DrandResponseBody = serde_json::from_str(&pulse_body)
-                    .map_err(|_| "Failed to serialize response body to pulse")?;
+                    .map_err(|_| "Drand: Failed to serialize response body to pulse")?;
                 let pulse = unbounded_pulse
                     .try_into_pulse()
-                    .map_err(|_| "Received pulse contains invalid data")?;
+                    .map_err(|_| "Drand: Received pulse contains invalid data")?;
                 pulses.push(pulse);
             }
 
@@ -477,11 +481,15 @@ impl<T: Config> Pallet<T> {
             for (acc, res) in &results {
                 match res {
                     Ok(()) => log::debug!(
-                        "[{:?}] Submitted new pulses up to round: {:?}",
+                        "Drand: [{:?}] Submitted new pulses up to round: {:?}",
                         acc.id,
                         last_stored_round + rounds_to_fetch
                     ),
-                    Err(e) => log::error!("[{:?}] Failed to submit transaction: {:?}", acc.id, e),
+                    Err(e) => log::error!(
+                        "Drand: [{:?}] Failed to submit transaction: {:?}",
+                        acc.id,
+                        e
+                    ),
                 }
             }
         }
@@ -510,21 +518,21 @@ impl<T: Config> Pallet<T> {
             sp_io::offchain::timestamp().add(Duration::from_millis(T::HttpFetchTimeout::get()));
         let request = http::Request::get(uri);
         let pending = request.deadline(deadline).send().map_err(|_| {
-            log::warn!("HTTP IO Error");
+            log::warn!("Drand: HTTP IO Error");
             http::Error::IoError
         })?;
         let response = pending.try_wait(deadline).map_err(|_| {
-            log::warn!("HTTP Deadline Reached");
+            log::warn!("Drand: HTTP Deadline Reached");
             http::Error::DeadlineReached
         })??;
 
         if response.code != 200 {
-            log::warn!("Unexpected status code: {}", response.code);
+            log::warn!("Drand: Unexpected status code: {}", response.code);
             return Err(http::Error::Unknown);
         }
         let body = response.body().collect::<Vec<u8>>();
         let body_str = alloc::str::from_utf8(&body).map_err(|_| {
-            log::warn!("No UTF8 body");
+            log::warn!("Drand: No UTF8 body");
             http::Error::Unknown
         })?;
 
