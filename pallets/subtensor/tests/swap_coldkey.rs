@@ -1180,39 +1180,45 @@ fn test_coldkey_swap_no_identity_no_changes_newcoldkey_exists() {
 }
 
 // // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap_coldkey -- test_coldkey_swap_stake_delta --exact --nocapture
-// #[test]
-// fn test_coldkey_swap_stake_delta() {
-//     new_test_ext(1).execute_with(|| {
-//         let old_coldkey = U256::from(3);
-//         let new_coldkey = U256::from(4);
-//         let hotkey = U256::from(5);
+#[test]
+fn test_coldkey_swap_stake_delta() {
+    new_test_ext(1).execute_with(|| {
+        let old_coldkey = U256::from(3);
+        let new_coldkey = U256::from(4);
+        let hotkey = U256::from(5);
 
-//         let netuid = 1;
-//         let burn_cost = 10;
-//         let tempo = 1;
+        let netuid = 1;
+        let burn_cost = 10;
+        let tempo = 1;
+        add_network(netuid, tempo, 0);
 
-//         // Give the old coldkey a stake delta on hotkey
-//         StakeDeltaSinceLastEmissionDrain::<Test>::insert(hotkey, old_coldkey, 123);
-//         // Give the new coldkey a stake delta on hotkey
-//         StakeDeltaSinceLastEmissionDrain::<Test>::insert(hotkey, new_coldkey, 456);
-//         let expected_stake_delta = 123 + 456;
-//         // Add StakingHotkeys entry
-//         StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
+        // Give the old coldkey a stake delta on hotkey
+        Stake::<Test>::insert(hotkey, old_coldkey, 123);
+        TotalColdkeyAlpha::<Test>::insert(old_coldkey, netuid, 1234);
+        // Give the new coldkey a stake delta on hotkey
+        Stake::<Test>::insert(hotkey, new_coldkey, 456);
+        TotalColdkeyAlpha::<Test>::insert(new_coldkey, netuid, 5678);
+        let expected_stake_delta = 123 + 456;
+        let expected_alpha_delta = 1234 + 5678;
+        // Add StakingHotkeys entry
+        StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
 
-//         // Give balance for the swap fees
-//         SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 100e9 as u64);
+        // Give balance for the swap fees
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 100e9 as u64);
 
-//         // Perform the coldkey swap
-//         assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey));
+        // Perform the coldkey swap
+        assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey));
 
-//         // Ensure the stake delta is correctly transferred
-//         assert_eq!(
-//             StakeDeltaSinceLastEmissionDrain::<Test>::get(hotkey, new_coldkey),
-//             expected_stake_delta
-//         );
-//         assert_eq!(
-//             StakeDeltaSinceLastEmissionDrain::<Test>::get(hotkey, old_coldkey),
-//             0
-//         );
-//     });
-// }
+        // Ensure the stake delta is correctly transferred
+        assert_eq!(
+            Stake::<Test>::get(hotkey, new_coldkey),
+            expected_stake_delta
+        );
+        assert_eq!(Stake::<Test>::get(hotkey, old_coldkey), 0);
+        assert_eq!(
+            TotalColdkeyAlpha::<Test>::get(new_coldkey, netuid),
+            expected_alpha_delta
+        );
+        assert_eq!(TotalColdkeyAlpha::<Test>::get(old_coldkey, netuid), 0);
+    });
+}

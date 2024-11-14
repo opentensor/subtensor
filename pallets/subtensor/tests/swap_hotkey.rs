@@ -1104,6 +1104,7 @@ fn test_swap_complex_parent_child_structure() {
 #[test]
 fn test_hotkey_swap_stake_delta() {
     new_test_ext(1).execute_with(|| {
+        let netuid = 0;
         let old_hotkey = U256::from(3);
         let new_hotkey = U256::from(4);
         let coldkey = U256::from(7);
@@ -1111,21 +1112,23 @@ fn test_hotkey_swap_stake_delta() {
         let coldkeys = [U256::from(1), U256::from(2), U256::from(5)];
 
         let mut weight = Weight::zero();
+        add_network(netuid, 1, 0);
 
         // Set up initial state
         // Add stake delta for each coldkey and the old_hotkey
         for &coldkey in coldkeys.iter() {
-            StakeDeltaSinceLastEmissionDrain::<Test>::insert(
-                old_hotkey,
-                coldkey,
-                (123 + coldkey.saturated_into::<i128>()),
+            Stake::<Test>::insert(old_hotkey, coldkey, 123 + coldkey.saturated_into::<u64>());
+            Alpha::<Test>::insert(
+                (old_hotkey, coldkey, netuid),
+                1234 + coldkey.saturated_into::<u64>(),
             );
 
             StakingHotkeys::<Test>::insert(coldkey, vec![old_hotkey]);
         }
 
         // Add stake delta for one coldkey and the new_hotkey
-        StakeDeltaSinceLastEmissionDrain::<Test>::insert(new_hotkey, coldkeys[0], 456);
+        Stake::<Test>::insert(new_hotkey, coldkeys[0], 456);
+        Alpha::<Test>::insert((new_hotkey, coldkeys[0], netuid), 5678);
         // Add corresponding StakingHotkeys
         StakingHotkeys::<Test>::insert(coldkeys[0], vec![old_hotkey, new_hotkey]);
 
@@ -1135,18 +1138,26 @@ fn test_hotkey_swap_stake_delta() {
         // Ensure the stake delta is correctly transferred for each coldkey
         // -- coldkey[0] maintains its stake delta from the new_hotkey and the old_hotkey
         assert_eq!(
-            StakeDeltaSinceLastEmissionDrain::<Test>::get(new_hotkey, coldkeys[0]),
-            123 + coldkeys[0].saturated_into::<i128>() + 456
+            Stake::<Test>::get(new_hotkey, coldkeys[0]),
+            123 + coldkeys[0].saturated_into::<u64>() + 456
+        );
+
+        assert_eq!(
+            Alpha::<Test>::get((new_hotkey, coldkeys[0], netuid)),
+            1234 + coldkeys[0].saturated_into::<u64>() + 5678
         );
         // -- coldkey[1..] maintains its stake delta from the old_hotkey
         for &coldkey in coldkeys[1..].iter() {
             assert_eq!(
-                StakeDeltaSinceLastEmissionDrain::<Test>::get(new_hotkey, coldkey),
-                123 + coldkey.saturated_into::<i128>()
+                Stake::<Test>::get(new_hotkey, coldkey),
+                123 + coldkey.saturated_into::<u64>()
             );
-            assert!(!StakeDeltaSinceLastEmissionDrain::<Test>::contains_key(
-                old_hotkey, coldkey
-            ));
+            assert_eq!(
+                Alpha::<Test>::get((new_hotkey, coldkey, netuid)),
+                1234 + coldkey.saturated_into::<u64>()
+            );
+            assert!(!Stake::<Test>::contains_key(old_hotkey, coldkey));
+            assert!(!Alpha::<Test>::contains_key((old_hotkey, coldkey, 0)));
         }
     });
 }
@@ -1167,24 +1178,28 @@ fn test_swap_hotkey_with_pending_emissions() {
         add_network(netuid, 0, 1);
 
         // Set up pending emissions
-        PendingdHotkeyEmission::<Test>::insert(old_hotkey, pending_emission);
+        PendingHotkeyEmissionOnNetuid::<Test>::insert(old_hotkey, netuid, pending_emission);
         // Verify the pending emissions are set
         assert_eq!(
-            PendingdHotkeyEmission::<Test>::get(old_hotkey),
+            PendingHotkeyEmissionOnNetuid::<Test>::get(old_hotkey, netuid,),
             pending_emission
         );
         // Verify the new hotkey does not have any pending emissions
-        assert!(!PendingdHotkeyEmission::<Test>::contains_key(new_hotkey));
+        assert!(!PendingHotkeyEmissionOnNetuid::<Test>::contains_key(
+            new_hotkey, netuid,
+        ));
 
         // Perform the swap
         SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
 
         // Verify the pending emissions are transferred
         assert_eq!(
-            PendingdHotkeyEmission::<Test>::get(new_hotkey),
+            PendingHotkeyEmissionOnNetuid::<Test>::get(new_hotkey, netuid,),
             pending_emission
         );
-        assert!(!PendingdHotkeyEmission::<Test>::contains_key(old_hotkey));
+        assert!(!PendingHotkeyEmissionOnNetuid::<Test>::contains_key(
+            old_hotkey, netuid,
+        ));
     });
 }
 
