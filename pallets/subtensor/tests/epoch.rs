@@ -124,7 +124,7 @@ fn distribute_nodes(
 fn uid_stats(netuid: u16, uid: u16) {
     log::info!(
         "stake: {:?}",
-        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid)))
+        SubtensorModule::get_stake_for_hotkey_on_subnet(&(U256::from(uid)), netuid)
     );
     log::info!("rank: {:?}", SubtensorModule::get_rank_for_uid(netuid, uid));
     log::info!(
@@ -184,11 +184,7 @@ fn init_run_epochs(
         // let stake: u64 = 1; // alternative test: all nodes receive stake, should be same outcome, except stake
         SubtensorModule::add_balance_to_coldkey_account(&(U256::from(key)), stake);
         SubtensorModule::append_neuron(netuid, &(U256::from(key)), 0);
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-            &U256::from(key),
-            &U256::from(key),
-            stake,
-        );
+        SubtensorModule::stake_into_subnet(&U256::from(key), &U256::from(key), netuid, stake);
     }
     assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
 
@@ -551,6 +547,7 @@ fn init_run_epochs(
 //     });
 // }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test epoch test_1_graph -- --nocapture
 // Test an epoch on a graph with a single item.
 #[test]
 fn test_1_graph() {
@@ -564,7 +561,7 @@ fn test_1_graph() {
         add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
         SubtensorModule::set_max_allowed_uids(netuid, 1);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_amount);
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_amount);
+        SubtensorModule::stake_into_subnet(&coldkey, &hotkey, netuid, stake_amount);
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
         run_to_block(1); // run to next block to ensure weights are set on nodes after their registration block
@@ -577,14 +574,14 @@ fn test_1_graph() {
         ));
         // SubtensorModule::set_weights_for_testing( netuid, i as u16, vec![ ( 0, u16::MAX )]); // doesn't set update status
         // SubtensorModule::set_bonds_for_testing( netuid, uid, vec![ ( 0, u16::MAX )]); // rather, bonds are calculated in epoch
-        SubtensorModule::set_emission_values(&[netuid], vec![1_000_000_000]).unwrap();
+        EmissionValues::<Test>::insert(netuid, 1_000_000_000);
         assert_eq!(
             SubtensorModule::get_subnet_emission_value(netuid),
             1_000_000_000
         );
         SubtensorModule::epoch(netuid, 1_000_000_000);
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid),
             stake_amount
         );
         assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
@@ -615,11 +612,7 @@ fn test_10_graph() {
                 stake_amount,
                 SubtensorModule::get_subnetwork_n(netuid),
             );
-            SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-                &coldkey,
-                &hotkey,
-                stake_amount,
-            );
+            SubtensorModule::stake_into_subnet(&coldkey, &hotkey, netuid, stake_amount);
             SubtensorModule::append_neuron(netuid, &hotkey, 0);
             assert_eq!(SubtensorModule::get_subnetwork_n(netuid) - 1, uid);
         }
@@ -648,7 +641,7 @@ fn test_10_graph() {
         // Check return values.
         for i in 0..n {
             assert_eq!(
-                SubtensorModule::get_total_stake_for_hotkey(&(U256::from(i))),
+                SubtensorModule::get_stake_for_hotkey_on_subnet(&(U256::from(i)), netuid),
                 1
             );
             assert_eq!(SubtensorModule::get_rank_for_uid(netuid, i as u16), 0);
@@ -703,7 +696,7 @@ fn test_512_graph() {
                 let bonds = SubtensorModule::get_bonds(netuid);
                 for uid in validators {
                     assert_eq!(
-                        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
+                        SubtensorModule::get_stake_for_hotkey_on_subnet(&(U256::from(uid)), netuid),
                         max_stake_per_validator
                     );
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
@@ -718,7 +711,7 @@ fn test_512_graph() {
                 }
                 for uid in servers {
                     assert_eq!(
-                        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
+                        SubtensorModule::get_stake_for_hotkey_on_subnet(&(U256::from(uid)), netuid),
                         0
                     );
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 146); // Note R = floor(1 / (512 - 64) * 65_535) = 146
@@ -879,7 +872,10 @@ fn test_4096_graph() {
                 let bonds = SubtensorModule::get_bonds(netuid);
                 for uid in &validators {
                     assert_eq!(
-                        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(*uid as u64))),
+                        SubtensorModule::get_stake_for_hotkey_on_subnet(
+                            &(U256::from(*uid as u64)),
+                            netuid
+                        ),
                         max_stake_per_validator
                     );
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, *uid), 0);
@@ -896,7 +892,10 @@ fn test_4096_graph() {
                 }
                 for uid in &servers {
                     assert_eq!(
-                        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(*uid as u64))),
+                        SubtensorModule::get_stake_for_hotkey_on_subnet(
+                            &(U256::from(*uid as u64)),
+                            netuid
+                        ),
                         0
                     );
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, *uid), 17); // Note R = floor(1 / (4096 - 256) * 65_535) = 17
@@ -945,7 +944,7 @@ fn test_16384_graph_sparse() {
         let bonds = SubtensorModule::get_bonds(netuid);
         for uid in validators {
             assert_eq!(
-                SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
+                SubtensorModule::get_stake_for_hotkey_on_subnet(&(U256::from(uid)), netuid),
                 1
             );
             assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
@@ -962,7 +961,7 @@ fn test_16384_graph_sparse() {
         }
         for uid in servers {
             assert_eq!(
-                SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
+                SubtensorModule::get_stake_for_hotkey_on_subnet(&(U256::from(uid)), netuid),
                 0
             );
             assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 4); // Note R = floor(1 / (16384 - 512) * 65_535) = 4
@@ -977,9 +976,10 @@ fn test_16384_graph_sparse() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test epoch test_go_bonds -- --nocapture
 // Test bonds exponential moving average over a sequence of epochs.
 #[test]
-fn test_bonds() {
+fn test_do_bonds() {
     new_test_ext(1).execute_with(|| {
 		let sparse: bool = true;
 		let n: u16 = 8;
@@ -1002,7 +1002,7 @@ fn test_bonds() {
 			SubtensorModule::add_balance_to_coldkey_account( &U256::from(key), max_stake );
 			let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, key * 1_000_000, &U256::from(key));
 			assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(U256::from(key)), netuid, block_number, nonce, work, U256::from(key), U256::from(key)));
-			SubtensorModule::increase_stake_on_coldkey_hotkey_account( &U256::from(key), &U256::from(key), stakes[key as usize] );
+			SubtensorModule::stake_into_subnet( &U256::from(key), &U256::from(key), netuid, stakes[key as usize] );
 		}
 		assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
 		assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
@@ -1272,8 +1272,9 @@ fn test_bonds() {
 	});
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test epoch test_do_bonds_with_liquid_alpha -- --nocapture
 #[test]
-fn test_bonds_with_liquid_alpha() {
+fn test_do_bonds_with_liquid_alpha() {
     new_test_ext(1).execute_with(|| {
         let sparse: bool = true;
         let n: u16 = 8;
@@ -1308,9 +1309,10 @@ fn test_bonds_with_liquid_alpha() {
                 U256::from(key),
                 U256::from(key)
             ));
-            SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+            SubtensorModule::stake_into_subnet(
                 &U256::from(key),
                 &U256::from(key),
+                netuid,
                 stakes[key as usize],
             );
         }
@@ -1486,40 +1488,6 @@ fn test_bonds_with_liquid_alpha() {
     });
 }
 
-#[test]
-fn test_set_alpha_disabled() {
-    new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
-        let hotkey: U256 = U256::from(1);
-        let coldkey: U256 = U256::from(1 + 456);
-        let signer = <<Test as Config>::RuntimeOrigin>::signed(coldkey);
-
-        // Enable Liquid Alpha and setup
-        SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
-        assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
-        assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, 1000));
-        // Only owner can set alpha values
-        assert_ok!(SubtensorModule::register_network(signer.clone()));
-
-        // Explicitly set to false
-        SubtensorModule::set_liquid_alpha_enabled(netuid, false);
-        assert_err!(
-            SubtensorModule::do_set_alpha_values(signer.clone(), netuid, 12_u16, u16::MAX),
-            Error::<Test>::LiquidAlphaDisabled
-        );
-
-        SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-        assert_ok!(SubtensorModule::do_set_alpha_values(
-            signer.clone(),
-            netuid,
-            12_u16,
-            u16::MAX
-        ));
-    });
-}
-
 // Test that epoch masks out inactive stake of validators with outdated weights beyond activity cutoff.
 #[test]
 fn test_active_stake() {
@@ -1557,11 +1525,7 @@ fn test_active_stake() {
                 U256::from(key),
                 U256::from(key)
             ));
-            SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-                &U256::from(key),
-                &U256::from(key),
-                stake,
-            );
+            SubtensorModule::stake_into_subnet(&U256::from(key), &U256::from(key), netuid, stake);
         }
         assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
@@ -1764,11 +1728,7 @@ fn test_outdated_weights() {
                 U256::from(key),
                 U256::from(key)
             ));
-            SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-                &U256::from(key),
-                &U256::from(key),
-                stake,
-            );
+            SubtensorModule::stake_into_subnet(&U256::from(key), &U256::from(key), netuid, stake);
         }
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
         assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 4);
@@ -1950,9 +1910,10 @@ fn test_zero_weights() {
         }
         for validator in 0..(n / 2) as u64 {
             SubtensorModule::add_balance_to_coldkey_account(&U256::from(validator), stake);
-            SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+            SubtensorModule::stake_into_subnet(
                 &U256::from(validator),
                 &U256::from(validator),
+                netuid,
                 stake,
             );
         }
@@ -2165,9 +2126,10 @@ fn test_validator_permits() {
                             U256::from(key),
                             U256::from(key)
                         ));
-                        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+                        SubtensorModule::stake_into_subnet(
                             &U256::from(key),
                             &U256::from(key),
+                            netuid,
                             stake[key as usize],
                         );
                     }
@@ -2199,9 +2161,10 @@ fn test_validator_permits() {
                             &(U256::from(*server as u64)),
                             2 * network_n as u64,
                         );
-                        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+                        SubtensorModule::stake_into_subnet(
                             &(U256::from(*server as u64)),
                             &(U256::from(*server as u64)),
+                            netuid,
                             2 * network_n as u64,
                         );
                     }
@@ -2230,55 +2193,156 @@ fn test_validator_permits() {
 }
 
 #[test]
-fn test_compute_alpha_values() {
-    // Define the consensus values.
-    let consensus = vec![
-        I32F32::from_num(0.1),
-        I32F32::from_num(0.5),
-        I32F32::from_num(0.9),
-    ];
-    // Define the logistic function parameters 'a' and 'b'.
-    let a = I32F32::from_num(1.0);
-    let b = I32F32::from_num(0.0);
+fn test_coinbase_nominator_drainage_overflow() {
+    // new_test_ext(1).execute_with(|| {
+    //     // 1. Set up the network and accounts
+    //     let netuid: u16 = 1;
+    //     let hotkey = U256::from(0);
+    //     let coldkey = U256::from(3);
+    //     let nominator1 = U256::from(1);
+    //     let nominator2 = U256::from(2);
 
-    // Compute the alpha values using the function.
-    let alpha = SubtensorModule::compute_alpha_values(&consensus, a, b);
+    //     log::debug!("Setting up network with netuid: {}", netuid);
+    //     log::debug!("Hotkey: {:?}, Coldkey: {:?}", hotkey, coldkey);
+    //     log::debug!("Nominators: {:?}, {:?}", nominator1, nominator2);
 
-    // Ensure the length of the alpha vector matches the consensus vector.
-    assert_eq!(alpha.len(), consensus.len());
+    //     // 2. Create network and register neuron
+    //     add_network(netuid, 1, 0);
+    //     register_ok_neuron(netuid, hotkey, coldkey, 100000);
+    //     SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
 
-    // Manually compute the expected alpha values for each consensus value.
-    // The logistic function is: 1 / (1 + exp(b - a * c))
-    // where c is the consensus value.
+    //     log::debug!("Network created and neuron registered");
 
-    // For consensus[0] = 0.1:
-    // exp_val = exp(0.0 - 1.0 * 0.1) = exp(-0.1)
-    // alpha[0] = 1 / (1 + exp(-0.1)) ~ 0.9048374180359595
-    let exp_val_0 = I32F32::from_num(0.9048374180359595);
-    let expected_alpha_0 =
-        I32F32::from_num(1.0).saturating_div(I32F32::from_num(1.0).saturating_add(exp_val_0));
+    //     // 3. Set up balances and stakes
+    //     SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1000);
+    //     SubtensorModule::add_balance_to_coldkey_account(&nominator1, 1500);
+    //     SubtensorModule::add_balance_to_coldkey_account(&nominator2, 1500);
 
-    // For consensus[1] = 0.5:
-    // exp_val = exp(0.0 - 1.0 * 0.5) = exp(-0.5)
-    // alpha[1] = 1 / (1 + exp(-0.5)) ~ 0.6065306597126334
-    let exp_val_1 = I32F32::from_num(0.6065306597126334);
-    let expected_alpha_1 =
-        I32F32::from_num(1.0).saturating_div(I32F32::from_num(1.0).saturating_add(exp_val_1));
+    //     log::debug!("Balances added to accounts");
 
-    // For consensus[2] = 0.9:
-    // exp_val = exp(0.0 - 1.0 * 0.9) = exp(-0.9)
-    // alpha[2] = 1 / (1 + exp(-0.9)) ~ 0.4065696597405991
-    let exp_val_2 = I32F32::from_num(0.4065696597405991);
-    let expected_alpha_2 =
-        I32F32::from_num(1.0).saturating_div(I32F32::from_num(1.0).saturating_add(exp_val_2));
+    //     // 4. Make the hotkey a delegate
+    //     let vali_take = u16::MAX as u64 / 10;
+    //     assert_ok!(SubtensorModule::do_become_delegate(
+    //         RuntimeOrigin::signed(coldkey),
+    //         hotkey,
+    //         vali_take as u16
+    //     ));
 
-    // Define an epsilon for approximate equality checks.
-    let epsilon = I32F32::from_num(1e-6);
+    //     log::debug!("Hotkey became a delegate with minimum take");
 
-    // Assert that the computed alpha values match the expected values within the epsilon.
-    assert_approx_eq(alpha[0], expected_alpha_0, epsilon);
-    assert_approx_eq(alpha[1], expected_alpha_1, epsilon);
-    assert_approx_eq(alpha[2], expected_alpha_2, epsilon);
+    //     // Add stakes for nominators
+    //     // Add the stake directly to their coldkey-hotkey account
+    //     // This bypasses the accounting in stake delta
+    //     SubtensorModule::increase_stake_on_coldkey_hotkey_account(&nominator1, &hotkey, 5e9 as u64);
+    //     SubtensorModule::increase_stake_on_coldkey_hotkey_account(&nominator2, &hotkey, 5e9 as u64);
+    //     let initial_stake = 5e9 as u64;
+
+    //     // Log the stakes for hotkey, nominator1, and nominator2
+    //     log::debug!(
+    //         "Initial stakes - Hotkey: {}, Nominator1: {}, Nominator2: {}",
+    //         SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey),
+    //         SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey),
+    //         SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator2, &hotkey)
+    //     );
+    //     log::debug!("Stakes added for nominators");
+
+    //     // 5. Set emission and verify initial states
+    //     let to_emit = 20_000e9 as u64;
+    //     SubtensorModule::set_emission_values(&[netuid], vec![to_emit]).unwrap();
+    //     assert_eq!(SubtensorModule::get_subnet_emission_value(netuid), to_emit);
+    //     assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
+    //     assert_eq!(
+    //         SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+    //         initial_stake * 2
+    //     );
+    //     assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+
+    //     log::debug!("Emission set and initial states verified");
+
+    //     // 6. Set hotkey emission tempo
+    //     SubtensorModule::set_hotkey_emission_tempo(1);
+    //     log::debug!("Hotkey emission tempo set to 1");
+
+    //     // 7. Simulate blocks and check emissions
+    //     next_block();
+    //     assert_eq!(SubtensorModule::get_pending_emission(netuid), to_emit);
+    //     log::debug!(
+    //         "After first block, pending emission: {}",
+    //         SubtensorModule::get_pending_emission(netuid)
+    //     );
+
+    //     next_block();
+    //     assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+    //     assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
+    //     log::debug!("After second block, pending emission drained");
+
+    //     // 8. Check final stakes
+    //     let hotkey_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey);
+    //     let nominator1_stake =
+    //         SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey);
+    //     let nominator2_stake =
+    //         SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator2, &hotkey);
+
+    //     log::debug!(
+    //         "Final stakes - Hotkey: {}, Nominator1: {}, Nominator2: {}",
+    //         hotkey_stake,
+    //         nominator1_stake,
+    //         nominator2_stake
+    //     );
+
+    //     // 9. Verify distribution
+    //     let total_emission = to_emit * 2; // to_emit per block for 2 blocks
+    //     let hotkey_emission = (I64F64::from_num(total_emission) / I64F64::from_num(u16::MAX)
+    //         * I64F64::from_num(vali_take))
+    //     .to_num::<u64>();
+    //     let remaining_emission = total_emission - hotkey_emission;
+    //     let nominator_emission = remaining_emission / 2;
+
+    //     log::debug!(
+    //         "Calculated emissions - Hotkey: {}, Each Nominator: {}",
+    //         hotkey_emission,
+    //         nominator_emission
+    //     );
+
+    //     // Debug: Print the actual stakes
+    //     log::debug!("Actual hotkey stake: {}", hotkey_stake);
+    //     log::debug!("Actual nominator1 stake: {}", nominator1_stake);
+    //     log::debug!("Actual nominator2 stake: {}", nominator2_stake);
+
+    //     // Debug: Check the total stake for the hotkey
+    //     let total_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
+    //     log::debug!("Total stake for hotkey: {}", total_stake);
+
+    //     // Assertions
+    //     let expected_hotkey_stake = 4_000e9 as u64;
+    //     let eps = 0.5e9 as u64;
+    //     assert!(
+    //         hotkey_stake >= expected_hotkey_stake - eps
+    //             && hotkey_stake <= expected_hotkey_stake + eps,
+    //         "Hotkey stake mismatch - expected: {}, actual: {}",
+    //         expected_hotkey_stake,
+    //         hotkey_stake
+    //     );
+    //     assert_eq!(
+    //         nominator1_stake,
+    //         initial_stake + nominator_emission,
+    //         "Nominator1 stake mismatch"
+    //     );
+    //     assert_eq!(
+    //         nominator2_stake,
+    //         initial_stake + nominator_emission,
+    //         "Nominator2 stake mismatch"
+    //     );
+
+    //     // 10. Check total stake
+    //     assert_eq!(
+    //         total_stake,
+    //         initial_stake + initial_stake + total_emission,
+    //         "Total stake mismatch"
+    //     );
+
+    //     log::debug!("Test completed");
+    // });
 }
 
 #[test]
@@ -2576,7 +2640,6 @@ fn test_get_set_alpha() {
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
-        assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, 1000));
 
         // Should fail as signer does not own the subnet
         assert_err!(
@@ -2584,7 +2647,7 @@ fn test_get_set_alpha() {
             DispatchError::BadOrigin
         );
 
-        assert_ok!(SubtensorModule::register_network(signer.clone()));
+        assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey, 1));
 
         assert_ok!(SubtensorModule::do_set_alpha_values(
             signer.clone(),
@@ -2709,7 +2772,7 @@ fn test_blocks_since_last_step() {
         System::set_block_number(0);
 
         let netuid: u16 = 1;
-        let tempo: u16 = 7200;
+        let tempo: u16 = 300;
         add_network(netuid, tempo, 0);
 
         let original_blocks: u64 = SubtensorModule::get_blocks_since_last_step(netuid);
@@ -2750,6 +2813,7 @@ fn test_blocks_since_last_step() {
         assert_eq!(SubtensorModule::get_blocks_since_last_step(netuid), 27);
     });
 }
+
 // // Map the retention graph for consensus guarantees with an single epoch on a graph with 512 nodes, of which the first 64 are validators, the graph is split into a major and minor set, each setting specific weight on itself and the complement on the other.
 // //
 // // ```import torch
