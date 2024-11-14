@@ -593,7 +593,7 @@ pub fn increase_stake_on_coldkey_hotkey_account(
     tao_staked: u64,
     netuid: u16,
 ) {
-    SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked);
+    SubtensorModule::stake_into_subnet(hotkey, coldkey, netuid, tao_staked);
 }
 
 /// Helper function to mock now missing get_total_stake_for_hotkey with
@@ -637,7 +637,7 @@ pub struct DynamicSubnetSetupParameters {
 
 #[allow(dead_code)]
 pub fn setup_dynamic_network(prm: &DynamicSubnetSetupParameters) {
-    add_network(prm.netuid, prm.subnet_tempo as u16, 0);
+    add_network(prm.netuid, prm.subnet_tempo, 0);
     pallet_subtensor::SubnetMechanism::<Test>::insert(prm.netuid, 1);
     pallet_subtensor::SubnetTAO::<Test>::insert(prm.netuid, 1);
     pallet_subtensor::SubnetAlphaIn::<Test>::insert(prm.netuid, 1);
@@ -700,7 +700,7 @@ pub fn setup_dynamic_network(prm: &DynamicSubnetSetupParameters) {
     uids.iter()
         .zip(prm.weights.iter())
         .for_each(|(uid, weights)| {
-            if weights.len() > 0 {
+            if !weights.is_empty() {
                 pallet_subtensor::Weights::<Test>::insert(prm.netuid, uid, weights);
             }
             pallet_subtensor::BlockAtRegistration::<Test>::set(prm.netuid, uid, 1);

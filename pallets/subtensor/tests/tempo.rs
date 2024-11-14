@@ -1,3 +1,4 @@
+#[allow(clippy::indexing_slicing)]
 mod mock;
 use mock::*;
 use pallet_subtensor::*;

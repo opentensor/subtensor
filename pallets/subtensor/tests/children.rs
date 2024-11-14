@@ -1989,7 +1989,7 @@ fn test_childkey_single_parent_emission() {
         });
 
         // Make all stakes old enough and viable
-        step_block((subnet_tempo * 2) as u16);
+        step_block(subnet_tempo * 2);
 
         // Set parent-child relationship (with 50% proportion and 0 childkey take)
         assert_ok!(SubtensorModule::do_set_children(
