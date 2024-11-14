@@ -116,3 +116,4 @@ try-runtime = [
 	"pallet-collective/try-runtime"
 ]
 pow-faucet = []
+fast-blocks = []
