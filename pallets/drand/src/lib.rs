@@ -55,7 +55,7 @@ use sp_runtime::{
     offchain::{http, Duration},
     traits::{Hash, One},
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
-    KeyTypeId,
+    KeyTypeId, Saturating,
 };
 
 pub mod bls12_381;
@@ -331,7 +331,7 @@ pub mod pallet {
 
             // Update the next unsigned block number
             let current_block = frame_system::Pallet::<T>::block_number();
-            <NextUnsignedAt<T>>::put(current_block + One::one());
+            <NextUnsignedAt<T>>::put(current_block.saturating_add(One::one()));
 
             // Emit a single event with all new rounds
             if !new_rounds.is_empty() {
@@ -358,7 +358,7 @@ pub mod pallet {
 
             // now increment the block number at which we expect next unsigned transaction.
             let current_block = frame_system::Pallet::<T>::block_number();
-            <NextUnsignedAt<T>>::put(current_block + One::one());
+            <NextUnsignedAt<T>>::put(current_block.saturating_add(One::one()));
 
             Self::deposit_event(Event::BeaconConfigChanged {});
             Ok(())
@@ -455,7 +455,9 @@ impl<T: Config> Pallet<T> {
             );
             let mut pulses = Vec::new();
 
-            for round in (last_stored_round + 1)..=(last_stored_round + rounds_to_fetch) {
+            for round in (last_stored_round.saturating_add(1))
+                ..=(last_stored_round.saturating_add(rounds_to_fetch))
+            {
                 let pulse_body = Self::fetch_drand_by_round(round)
                     .map_err(|_| "Drand: Failed to query drand for round")?;
                 let unbounded_pulse: DrandResponseBody = serde_json::from_str(&pulse_body)
@@ -485,7 +487,7 @@ impl<T: Config> Pallet<T> {
                     Ok(()) => log::debug!(
                         "Drand: [{:?}] Submitted new pulses up to round: {:?}",
                         acc.id,
-                        last_stored_round + rounds_to_fetch
+                        last_stored_round.saturating_add(rounds_to_fetch)
                     ),
                     Err(e) => log::error!(
                         "Drand: [{:?}] Failed to submit transaction: {:?}",
@@ -612,7 +614,8 @@ pub fn message(current_round: RoundNumber, prev_sig: &[u8]) -> Vec<u8> {
 impl<T: Config> Randomness<T::Hash, BlockNumberFor<T>> for Pallet<T> {
     // this function hashes together the subject with the latest known randomness from quicknet
     fn random(subject: &[u8]) -> (T::Hash, BlockNumberFor<T>) {
-        let block_number_minus_one = <frame_system::Pallet<T>>::block_number() - One::one();
+        let block_number_minus_one =
+            <frame_system::Pallet<T>>::block_number().saturating_sub(One::one());
 
         let last_stored_round = LastStoredRound::<T>::get();
 
