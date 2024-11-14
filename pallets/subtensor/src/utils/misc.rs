@@ -638,13 +638,13 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::SubnetOwnerCutSet(netuid, subnet_owner_cut));
     }
 
-    pub fn set_subnet_miner_cut(netuid: u16, subnet_minter_cut: u16) {
-        SubnetMinterCut::<T>::insert(netuid, subnet_minter_cut);
-        Self::deposit_event(Event::SubnetMinterCutSet(netuid, subnet_minter_cut));
+    pub fn set_subnet_miner_cut(netuid: u16, subnet_miner_cut: u16) {
+        SubnetMinerCut::<T>::insert(netuid, subnet_miner_cut);
+        Self::deposit_event(Event::SubnetMinerCutSet(netuid, subnet_miner_cut));
     }
 
     pub fn get_subnet_miner_cut(netuid: u16) -> u16 {
-        SubnetMinterCut::<T>::get(netuid)
+        SubnetMinerCut::<T>::get(netuid)
     }
 
     pub fn set_subnet_validator_cut(netuid: u16, subnet_validator_cut: u16) {

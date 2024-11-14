@@ -908,7 +908,7 @@ pub mod pallet {
 
     #[pallet::storage]
     /// MAP ( netuid ) --> subnet_miner_cut
-    pub type SubnetMinterCut<T> =
+    pub type SubnetMinerCut<T> =
         StorageMap<_, Identity, u16, u16, ValueQuery, DefaultSubnetMinerCut<T>>;
 
     #[pallet::storage]

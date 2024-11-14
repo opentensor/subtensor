@@ -111,8 +111,8 @@ mod events {
         Faucet(T::AccountId, u64),
         /// the subnet owner cut is set.
         SubnetOwnerCutSet(u16, u16),
-        /// the subnet minter cut is set.
-        SubnetMinterCutSet(u16, u16),
+        /// the subnet miner cut is set.
+        SubnetMinerCutSet(u16, u16),
         /// the subnet validator cut is set.
         SubnetValidatorCutSet(u16, u16),
         /// the subnet burn cut is set.

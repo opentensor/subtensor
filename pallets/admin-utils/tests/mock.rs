@@ -112,10 +112,10 @@ parameter_types! {
     pub const InitialNetworkImmunityPeriod: u64 = 7200 * 7;
     pub const InitialNetworkMinAllowedUids: u16 = 128;
     pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
-    pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
-    pub const InitialSubnetMinerCut: u16 = 11_796; // 18%
-    pub const InitialSubnetValidatorCut: u16 = 11_796; // 18%
-    pub const InitialSubnetBurnCut: u16 = 30_146; // 0%
+    pub const InitialSubnetOwnerCut: u16 = 11_796; // 18%
+    pub const InitialSubnetMinerCut: u16 = 30_146; // 41%
+    pub const InitialSubnetValidatorCut: u16 = 30_146; // 41%
+    pub const InitialSubnetBurnCut: u16 = 0; // 0%
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
