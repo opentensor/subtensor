@@ -1,4 +1,5 @@
 mod mock;
+
 use crate::mock::*;
 use pallet_subtensor::*;
 use sp_core::Get;
@@ -6,6 +7,7 @@ use sp_core::Get;
 // 1. Test Zero Issuance
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_zero_issuance -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_zero_issuance() {
     new_test_ext(1).execute_with(|| {
         let result = SubtensorModule::get_block_emission_for_issuance(0);
@@ -18,6 +20,7 @@ fn test_zero_issuance() {
 // 2. Test Maximum Issuance (Equal to Total Supply)
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_maximum_issuance -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_maximum_issuance() {
     new_test_ext(1).execute_with(|| {
         let total_supply = TotalSupply::<Test>::get();
@@ -31,6 +34,7 @@ fn test_maximum_issuance() {
 // 3. Test Issuance Just Below Total Supply
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_issuance_just_below_total_supply -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_issuance_just_below_total_supply() {
     new_test_ext(1).execute_with(|| {
         let total_supply = TotalSupply::<Test>::get();
@@ -45,6 +49,7 @@ fn test_issuance_just_below_total_supply() {
 // 4. Test Minimum Non-Zero Issuance
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_minimum_non_zero_issuance -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_minimum_non_zero_issuance() {
     new_test_ext(1).execute_with(|| {
         let result = SubtensorModule::get_block_emission_for_issuance(1);
@@ -58,6 +63,7 @@ fn test_minimum_non_zero_issuance() {
 // 5. Test Default Block Emission
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_default_block_emission -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_default_block_emission() {
     new_test_ext(1).execute_with(|| {
         let result = SubtensorModule::get_block_emission();
@@ -93,6 +99,7 @@ fn test_logarithm_calculation_boundary() {
 // 7. Test Rounding Behavior
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_rounding_behavior -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_rounding_behavior() {
     new_test_ext(1).execute_with(|| {
         let total_supply = TotalSupply::<Test>::get();
@@ -112,6 +119,7 @@ fn test_rounding_behavior() {
 // 8. Test Precision Loss
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_precision_loss -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_precision_loss() {
     new_test_ext(1).execute_with(|| {
         let total_supply = TotalSupply::<Test>::get();
@@ -133,6 +141,7 @@ fn test_precision_loss() {
 // 9. Test Overflow Handling in Intermediate Calculations
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_overflow_handling -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_overflow_handling() {
     new_test_ext(1).execute_with(|| {
         let total_supply = TotalSupply::<Test>::get();
@@ -151,6 +160,7 @@ fn test_overflow_handling() {
 // 10. Test Underflow Handling in Intermediate Calculations
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_underflow_handling -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_underflow_handling() {
     new_test_ext(1).execute_with(|| {
         // Test with very small issuance values
@@ -167,6 +177,7 @@ fn test_underflow_handling() {
 // 11. Test Division by Zero Prevention
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_division_by_zero_prevention -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_division_by_zero_prevention() {
     new_test_ext(1).execute_with(|| {
         let total_supply = TotalSupply::<Test>::get();
@@ -186,6 +197,7 @@ fn test_division_by_zero_prevention() {
 // 12. Test Emission Rate Decrease with Increasing Issuance
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_emission_rate_decrease -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_emission_rate_decrease() {
     new_test_ext(1).execute_with(|| {
         let total_supply = TotalSupply::<Test>::get();
@@ -205,6 +217,7 @@ fn test_emission_rate_decrease() {
 // 14. Test Block Emission Storage Update
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_block_emission_storage_update -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_block_emission_storage_update() {
     new_test_ext(1).execute_with(|| {
         let initial_emission = BlockEmission::<Test>::get();
@@ -232,6 +245,7 @@ fn test_block_emission_storage_update() {
 // 15. Test Consistency Between get_block_emission() and get_block_emission_for_issuance()
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_emission_consistency -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_emission_consistency() {
     new_test_ext(1).execute_with(|| {
         let emission_from_get = SubtensorModule::get_block_emission().unwrap();
@@ -249,6 +263,7 @@ fn test_emission_consistency() {
 // 16. Test Performance with Large Issuance Values
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_performance_large_issuance -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_performance_large_issuance() {
     new_test_ext(1).execute_with(|| {
         let large_issuance = TotalSupply::<Test>::get() - 1_000_000_000;
@@ -271,6 +286,7 @@ fn test_performance_large_issuance() {
 // 17. Test Performance with Small Issuance Values
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_performance_small_issuance -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_performance_small_issuance() {
     new_test_ext(1).execute_with(|| {
         let small_issuance = 1000; // A small issuance value
@@ -294,6 +310,7 @@ fn test_performance_small_issuance() {
 // 18. Test Emission at Key Issuance Milestones (e.g., 25%, 50%, 75% of Total Supply)
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_emission_at_key_milestones -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_emission_at_key_milestones() {
     new_test_ext(1).execute_with(|| {
         let total_supply = TotalSupply::<Test>::get();
@@ -321,6 +338,7 @@ fn test_emission_at_key_milestones() {
 // 19. Test Behavior Near Total Supply Limit
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_behavior_near_total_supply -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_behavior_near_total_supply() {
     new_test_ext(1).execute_with(|| {
         let total_supply = TotalSupply::<Test>::get();
@@ -351,6 +369,7 @@ fn test_behavior_near_total_supply() {
 // 20. Test with Maximum u64 Value as Issuance
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_maximum_u64_issuance -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_maximum_u64_issuance() {
     new_test_ext(1).execute_with(|| {
         let max_issuance = u64::MAX;
@@ -365,6 +384,7 @@ fn test_maximum_u64_issuance() {
 // 21. Test with Issuance Values That Cause Extreme Residuals
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_extreme_residuals -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_extreme_residuals() {
     new_test_ext(1).execute_with(|| {
         let total_supply = TotalSupply::<Test>::get();
@@ -388,6 +408,7 @@ fn test_extreme_residuals() {
 // 22. Test Stability of Output Across Multiple Calls
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_output_stability -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_output_stability() {
     new_test_ext(1).execute_with(|| {
         let test_issuance = 1_000_000_000; // 1 billion
@@ -408,6 +429,7 @@ fn test_output_stability() {
 // 25. Test with Issuance Values That Produce Very Small Emissions
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_very_small_emissions -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_very_small_emissions() {
     new_test_ext(1).execute_with(|| {
         let total_supply = TotalSupply::<Test>::get();
@@ -429,6 +451,7 @@ fn test_very_small_emissions() {
 // 26. Test Emission Calculation Time Complexity
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_emission_calculation_time_complexity -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_emission_calculation_time_complexity() {
     new_test_ext(1).execute_with(|| {
         use std::time::Instant;
@@ -460,6 +483,7 @@ fn test_emission_calculation_time_complexity() {
 // 27. Test Emission Values Across Full Range of Possible Issuances
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_emission_values_across_issuance_range -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_emission_values_across_issuance_range() {
     new_test_ext(1).execute_with(|| {
         let total_supply = TotalSupply::<Test>::get();
@@ -487,6 +511,7 @@ fn test_emission_values_across_issuance_range() {
 // 28. Test Consistency of Emission Decrease Rate
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_consistency_of_emission_decrease_rate -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_consistency_of_emission_decrease_rate() {
     new_test_ext(1).execute_with(|| {
         let total_supply = TotalSupply::<Test>::get();
@@ -524,6 +549,7 @@ fn test_consistency_of_emission_decrease_rate() {
 // 30. Test Impact of Floating Point Precision on Final Emission Value
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_floating_point_precision_impact -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_floating_point_precision_impact() {
     new_test_ext(1).execute_with(|| {
         let total_supply = TotalSupply::<Test>::get();

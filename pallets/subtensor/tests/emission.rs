@@ -278,6 +278,8 @@ fn test_periodic_behavior() {
 // Description: Verify that the function correctly distributes emissions between the hotkey and its nominators.
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_basic_emission_distribution -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
+#[allow(clippy::indexing_slicing)]
 fn test_basic_emission_distribution() {
     new_test_ext(1).execute_with(|| {
         let hotkey = U256::from(1);
@@ -349,6 +351,7 @@ fn test_basic_emission_distribution() {
 // Description: Ensure that the hotkey's take is calculated correctly based on the delegation status.
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_hotkey_take_calculation -- --exact --nocapture
 #[test]
+#[allow(clippy::indexing_slicing)]
 fn test_hotkey_take_calculation() {
     new_test_ext(1).execute_with(|| {
         let hotkey = U256::from(1);
@@ -395,6 +398,8 @@ fn test_hotkey_take_calculation() {
 // Description: Check that the remaining emissions are distributed proportionally among nominators.
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_nominator_distribution -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
+#[allow(clippy::indexing_slicing)]
 fn test_nominator_distribution() {
     new_test_ext(1).execute_with(|| {
         let hotkey = U256::from(1);
@@ -464,6 +469,8 @@ fn test_nominator_distribution() {
 // Description: Verify that the distribution considers both global and alpha weights correctly.
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_global_and_alpha_weight_distribution -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
+#[allow(clippy::indexing_slicing)]
 fn test_global_and_alpha_weight_distribution() {
     new_test_ext(1).execute_with(|| {
         let hotkey = U256::from(1);
@@ -509,6 +516,8 @@ fn test_global_and_alpha_weight_distribution() {
 // Description: Ensure the function handles cases where a nominator or hotkey has zero stake without errors.
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_zero_stake_scenario -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
+#[allow(clippy::indexing_slicing)]
 fn test_zero_stake_scenario() {
     new_test_ext(1).execute_with(|| {
         let hotkey = U256::from(1);
@@ -542,6 +551,8 @@ fn test_zero_stake_scenario() {
 // Description: Check the behavior when a hotkey has only one nominator.
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_single_nominator_scenario -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
+#[allow(clippy::indexing_slicing)]
 fn test_single_nominator_scenario() {
     new_test_ext(1).execute_with(|| {
         let hotkey = U256::from(1);
@@ -573,6 +584,7 @@ fn test_single_nominator_scenario() {
 // Description: Verify the function's performance and correctness with the maximum possible number of nominators.
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_maximum_nominators_scenario -- --exact --nocapture
 #[test]
+#[allow(clippy::indexing_slicing)]
 fn test_maximum_nominators_scenario() {
     new_test_ext(1).execute_with(|| {
         let hotkey = U256::from(1);
@@ -597,8 +609,8 @@ fn test_maximum_nominators_scenario() {
 
         assert_eq!(emission_tuples.len(), max_nominators + 1);
         let total_distributed: u64 = emission_tuples
-            .iter()
-            .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
+            .values()
+            .map(|ev| ev.iter().map(|(_, amount)| amount).sum::<u64>())
             .sum();
         assert_eq!(total_distributed, emission);
     });
@@ -608,6 +620,8 @@ fn test_maximum_nominators_scenario() {
 // Description: Ensure that rounding errors don't accumulate and all emissions are accounted for.
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_rounding_and_precision -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
+#[allow(clippy::indexing_slicing)]
 fn test_rounding_and_precision() {
     new_test_ext(1).execute_with(|| {
         let hotkey = U256::from(1);
@@ -630,8 +644,8 @@ fn test_rounding_and_precision() {
         );
 
         let total_distributed: u64 = emission_tuples
-            .iter()
-            .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
+            .values()
+            .map(|ev| ev.iter().map(|(_, amount)| amount).sum::<u64>())
             .sum();
         assert_eq!(
             total_distributed, emission,
@@ -664,6 +678,7 @@ fn test_rounding_and_precision() {
 // Description: Verify that the emission tuples are correctly generated and contain accurate information.
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_emission_tuple_generation -- --exact --nocapture
 #[test]
+#[allow(clippy::indexing_slicing)]
 fn test_emission_tuple_generation() {
     new_test_ext(1).execute_with(|| {
         let hotkey = U256::from(1);
@@ -724,6 +739,7 @@ fn test_emission_tuple_generation() {
 // Description: Check that any undistributed remainder is correctly added to the hotkey's emission.
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_remainder_distribution -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_remainder_distribution() {
     new_test_ext(1).execute_with(|| {
         let hotkey = U256::from(1);
@@ -762,8 +778,8 @@ fn test_remainder_distribution() {
         );
 
         let total_distributed: u64 = emission_tuples
-            .iter()
-            .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
+            .values()
+            .map(|ev| ev.iter().map(|(_, amount)| amount).sum::<u64>())
             .sum();
         assert_eq!(
             total_distributed, emission,
@@ -803,8 +819,8 @@ fn test_different_network_ids_scenario() {
             );
 
             let total_distributed: u64 = emission_tuples
-                .iter()
-                .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
+                .values()
+                .map(|ev| ev.iter().map(|(_, amount)| amount).sum::<u64>())
                 .sum();
             assert_eq!(
                 total_distributed, emission,
@@ -819,6 +835,7 @@ fn test_different_network_ids_scenario() {
 // Description: Verify the function's behavior with very large emission values to check for overflow.
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_large_emission_values -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_large_emission_values() {
     new_test_ext(1).execute_with(|| {
         let hotkey = U256::from(1);
@@ -845,8 +862,8 @@ fn test_large_emission_values() {
         );
 
         let total_distributed: u64 = emission_tuples
-            .iter()
-            .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
+            .values()
+            .map(|ev| ev.iter().map(|(_, amount)| amount).sum::<u64>())
             .sum();
         assert_eq!(
             total_distributed, emission,
@@ -878,6 +895,7 @@ fn test_large_emission_values() {
 // Description: Check the function's precision with very small emission values.
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_small_emission_values -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_small_emission_values() {
     new_test_ext(1).execute_with(|| {
         let hotkey = U256::from(1);
@@ -904,8 +922,8 @@ fn test_small_emission_values() {
         );
 
         let total_distributed: u64 = emission_tuples
-            .iter()
-            .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
+            .values()
+            .map(|ev| ev.iter().map(|(_, amount)| amount).sum::<u64>())
             .sum();
         assert_eq!(
             total_distributed, emission,
@@ -994,8 +1012,8 @@ fn test_performance_with_many_nominators() {
         );
 
         let total_distributed: u64 = emission_tuples
-            .iter()
-            .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
+            .values()
+            .map(|ev| ev.iter().map(|(_, amount)| amount).sum::<u64>())
             .sum();
         assert_eq!(
             total_distributed, emission,
@@ -1015,6 +1033,7 @@ fn test_performance_with_many_nominators() {
 // Description: Verify that the function correctly distributes emissions between the hotkey and its parents.
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_basic_emission_distribution_scenario -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_basic_emission_distribution_scenario() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
@@ -1103,7 +1122,7 @@ fn test_hotkey_take_calculation_scenario() {
         let mining_emission = 0;
 
         step_block(1000); // should be past stake adding block by 2 tempos
-        LastAddStakeIncrease::<Test>::insert(&hotkey, coldkey, 1);
+        LastAddStakeIncrease::<Test>::insert(hotkey, coldkey, 1);
         ParentKeys::<Test>::insert(hotkey, netuid, vec![(1000, parent)]);
 
         // Test with different childkey take values
@@ -1143,6 +1162,8 @@ fn test_hotkey_take_calculation_scenario() {
 // Description: Check that the remaining emissions are distributed proportionally among parents.
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_parent_distribution -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
+#[allow(clippy::indexing_slicing)]
 fn test_parent_distribution() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
@@ -1232,6 +1253,7 @@ fn test_parent_distribution() {
 // Description: Verify that the distribution considers both global and alpha weights correctly.
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_global_and_alpha_weight_distribution_scenario -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_global_and_alpha_weight_distribution_scenario() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
@@ -1283,6 +1305,7 @@ fn test_global_and_alpha_weight_distribution_scenario() {
 // Description: Ensure the function handles cases where a parent or hotkey has zero stake without errors.
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_zero_stake_scenario_1 -- --exact --nocapture
 #[test]
+#[allow(clippy::indexing_slicing)]
 fn test_zero_stake_scenario_1() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
@@ -1404,6 +1427,7 @@ fn test_rounding_and_precision_scenario() {
 // Description: Ensure the function works correctly for different network IDs (netuids).
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_different_network_ids -- --exact --nocapture
 #[test]
+#[allow(clippy::indexing_slicing)]
 fn test_different_network_ids_scenario_1() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
@@ -1444,6 +1468,7 @@ fn test_different_network_ids_scenario_1() {
 // Description: Check the behavior when the hotkey has no parents.
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_with_no_parents -- --exact --nocapture
 #[test]
+#[allow(clippy::indexing_slicing)]
 fn test_with_no_parents() {
     new_test_ext(1).execute_with(|| {
         let hotkey = U256::from(1);
@@ -1562,6 +1587,7 @@ fn test_consistency_across_calls() {
 // Description: Verify correct handling of edge cases in parent proportion values (0, u64::MAX, etc.).
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test emission test_edge_cases_parent_proportions -- --exact --nocapture
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_edge_cases_parent_proportions() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
@@ -1752,6 +1778,7 @@ fn test_maximum_emission_value() {
 }
 
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_fast_stake_unstake_protection_source_hotkey() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
@@ -1765,16 +1792,13 @@ fn test_fast_stake_unstake_protection_source_hotkey() {
 
         // Set up stakes and delegations
         add_network(netuid, tempo, 0);
-        Delegates::<Test>::insert(&hotkey, 16384); // 25% take
+        Delegates::<Test>::insert(hotkey, 16384); // 25% take
         SubtensorModule::stake_into_subnet(&parent1, &coldkey, netuid, 500);
         SubtensorModule::stake_into_subnet(&parent2, &coldkey, netuid, 500);
         ParentKeys::<Test>::insert(
-            &hotkey,
+            hotkey,
             netuid,
-            vec![
-                (u64::MAX / 2, parent1.clone()),
-                (u64::MAX / 2, parent2.clone()),
-            ],
+            vec![(u64::MAX / 2, parent1), (u64::MAX / 2, parent2)],
         );
 
         let mut emission_tuples = Vec::new();
@@ -1824,7 +1848,7 @@ fn test_fast_stake_unstake_protection_source_nominator() {
         // Set up stakes and delegations
         SubtensorModule::stake_into_subnet(&hotkey, &nominator1, netuid, 500);
         SubtensorModule::stake_into_subnet(&hotkey, &nominator2, netuid, 500);
-        Delegates::<Test>::insert(&hotkey, 16384); // 25% take
+        Delegates::<Test>::insert(hotkey, 16384); // 25% take
         HotkeyEmissionTempo::<Test>::put(10);
 
         let mut emission_tuples: BTreeMap<(U256, U256), Vec<(u16, u64)>> = BTreeMap::new();

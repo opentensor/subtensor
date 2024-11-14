@@ -1,4 +1,3 @@
-#[allow(clippy::indexing_slicing)]
 mod mock;
 use mock::*;
 use pallet_subtensor::*;
@@ -8,6 +7,7 @@ use pallet_subtensor::*;
 // 1. test_calculate_subnet_tempos_normal_case
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test tempo -- test_calculate_subnet_tempos_normal_case --exact --nocapture
 #[test]
+#[allow(clippy::indexing_slicing)]
 fn test_calculate_subnet_tempos_normal_case() {
     // This test checks the normal case where TAO values are provided and ensures that the calculated tempos
     // are in descending order and within the specified min and max tempo limits.
@@ -31,6 +31,7 @@ fn test_calculate_subnet_tempos_normal_case() {
 // 2. test_calculate_subnet_tempos_min_tempo_greater_than_max_tempo
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test tempo -- test_calculate_subnet_tempos_min_tempo_greater_than_max_tempo --exact --nocapture
 #[test]
+#[allow(clippy::indexing_slicing)]
 fn test_calculate_subnet_tempos_min_tempo_greater_than_max_tempo() {
     // This test checks the behavior when the minimum tempo is greater than the maximum tempo,
     // ensuring that all calculated tempos are set to the minimum tempo.
@@ -51,6 +52,7 @@ fn test_calculate_subnet_tempos_min_tempo_greater_than_max_tempo() {
 // 3. test_calculate_subnet_tempos_min_tempo_equal_max_tempo
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test tempo -- test_calculate_subnet_tempos_min_tempo_equal_max_tempo --exact --nocapture
 #[test]
+#[allow(clippy::indexing_slicing)]
 fn test_calculate_subnet_tempos_min_tempo_equal_max_tempo() {
     // This test checks the scenario where the minimum tempo is equal to the maximum tempo,
     // ensuring that all calculated tempos are set to this value.
@@ -71,6 +73,7 @@ fn test_calculate_subnet_tempos_min_tempo_equal_max_tempo() {
 // 4. test_calculate_subnet_tempos_zero_total_tao
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test tempo -- test_calculate_subnet_tempos_zero_total_tao --exact --nocapture
 #[test]
+#[allow(clippy::indexing_slicing)]
 fn test_calculate_subnet_tempos_zero_total_tao() {
     // This test checks the case where all TAO values are zero, ensuring that all calculated tempos
     // are set to the average tempo k.
@@ -92,6 +95,7 @@ fn test_calculate_subnet_tempos_zero_total_tao() {
 // 5. test_calculate_subnet_tempos_single_subnet
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test tempo -- test_calculate_subnet_tempos_single_subnet --exact --nocapture
 #[test]
+#[allow(clippy::indexing_slicing)]
 fn test_calculate_subnet_tempos_single_subnet() {
     // This test checks the case where there is only a single subnet, ensuring that the calculated tempo
     // is equal to the average tempo k.
@@ -111,6 +115,7 @@ fn test_calculate_subnet_tempos_single_subnet() {
 // 6. test_calculate_subnet_tempos_many_subnets
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test tempo -- test_calculate_subnet_tempos_many_subnets --exact --nocapture
 #[test]
+#[allow(clippy::indexing_slicing)]
 fn test_calculate_subnet_tempos_many_subnets() {
     // This test checks the case with many subnets, ensuring that the calculated tempos are in descending order
     // and within the specified min and max tempo limits.
@@ -134,6 +139,7 @@ fn test_calculate_subnet_tempos_many_subnets() {
 // 7. test_calculate_subnet_tempos_all_equal_taos
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test tempo -- test_calculate_subnet_tempos_all_equal_taos --exact --nocapture
 #[test]
+#[allow(clippy::indexing_slicing)]
 fn test_calculate_subnet_tempos_all_equal_taos() {
     // This test checks that when all TAO values are equal, the calculated tempos for all subnets
     // should be the same.
@@ -156,6 +162,7 @@ fn test_calculate_subnet_tempos_all_equal_taos() {
 // 8. test_calculate_subnet_tempos_one_subnet_zero_tao
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test tempo -- test_calculate_subnet_tempos_one_subnet_zero_tao --exact --nocapture
 #[test]
+#[allow(clippy::indexing_slicing)]
 fn test_calculate_subnet_tempos_one_subnet_zero_tao() {
     // This test checks the behavior when one subnet has a TAO of zero. The expected result is that
     // the subnet with zero TAO should receive the maximum tempo, while others should be adjusted accordingly.
@@ -198,6 +205,7 @@ fn test_calculate_subnet_tempos_all_subnets_zero_tao() {
 // 10. test_calculate_subnet_tempos_one_subnet_very_high_tao
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test tempo -- test_calculate_subnet_tempos_one_subnet_very_high_tao --exact --nocapture
 #[test]
+#[allow(clippy::indexing_slicing)]
 fn test_calculate_subnet_tempos_one_subnet_very_high_tao() {
     // This test checks the case where one subnet has a very high TAO compared to others. The expected
     // result is that the subnet with high TAO should receive the minimum tempo, while others should be
@@ -220,6 +228,7 @@ fn test_calculate_subnet_tempos_one_subnet_very_high_tao() {
 // 11. test_calculate_subnet_tempos_one_subnet_very_low_tao
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test tempo -- test_calculate_subnet_tempos_one_subnet_very_low_tao --exact --nocapture
 #[test]
+#[allow(clippy::indexing_slicing)]
 fn test_calculate_subnet_tempos_one_subnet_very_low_tao() {
     // This test checks the scenario where one subnet has a very low TAO. The expected result is that
     // the subnet with low TAO should receive the maximum tempo, while others should be lower than the average tempo k.
@@ -239,6 +248,7 @@ fn test_calculate_subnet_tempos_one_subnet_very_low_tao() {
 // 12. test_calculate_subnet_tempos_extreme_tao_differences
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test tempo -- test_calculate_subnet_tempos_extreme_tao_differences --exact --nocapture
 #[test]
+#[allow(clippy::indexing_slicing)]
 fn test_calculate_subnet_tempos_extreme_tao_differences() {
     // This test checks the behavior when there are extreme differences in TAO values among subnets.
     // The expected result is that the subnet with the lowest TAO should receive the maximum tempo,
