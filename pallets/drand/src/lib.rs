@@ -92,7 +92,7 @@ const CHAIN_HASH: &str = MAINNET_CHAIN_HASH;
 #[cfg(not(feature = "mainnet"))]
 const CHAIN_HASH: &str = QUICKNET_CHAIN_HASH;
 
-pub const MAX_PULSES_TO_FETCH: u64 = 100;
+pub const MAX_PULSES_TO_FETCH: u64 = 20;
 
 /// Defines application identifier for crypto keys of this module.
 ///
