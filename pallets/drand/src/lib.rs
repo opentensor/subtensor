@@ -30,6 +30,8 @@
 
 // We make sure this pallet uses `no_std` for compiling to Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
+// Many errors are transformed throughout the pallet.
+#![allow(clippy::manual_inspect)]
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;

@@ -141,7 +141,7 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
         let raw_payload = SignedPayload::new(call.clone(), extra.clone()).ok()?;
         let signature = raw_payload.using_encoded(|payload| S::sign(payload, public))?;
 
-        let signature_payload = (address, signature.into(), extra);
+        let signature_payload = (address, signature, extra);
 
         Some((call, signature_payload))
     }
@@ -220,7 +220,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 208,
+    spec_version: 209,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,

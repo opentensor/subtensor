@@ -100,12 +100,11 @@ where
 
     let executor = sc_service::new_wasm_executor::<HostFunctions>(&config.executor);
     let (client, backend, keystore_container, task_manager) =
-       
         sc_service::new_full_parts::<Block, RuntimeApi, RuntimeExecutor>(
-                config,
-                telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
-                executor,
-            )?;
+            config,
+            telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
+            executor,
+        )?;
 
     let client = Arc::new(client);
 
