@@ -2,7 +2,19 @@ use super::*;
 use substrate_fixed::types::I64F64;
 use substrate_fixed::types::I96F32;
 
-impl<T: Config> Pallet<T> {
+impl<T: Config + pallet_drand::Config> Pallet<T> {
+    /// The `reveal_crv3_commits` function is used for revealing commitments whos drand round has
+    /// passed.
+    pub fn reveal_commits() {
+        // TODO: Get drand pallet round number
+
+        // TODO: Get encrypted commits
+
+        // TODO: Get oldest commit round
+
+        // TODO: While oldest commit round < drand round, decrypt and store results in Weights
+    }
+
     /// The `coinbase` function performs a four-part emission distribution process involving
     /// subnets, epochs, hotkeys, and nominators.
     // It is divided into several steps, each handling a specific part of the distribution:

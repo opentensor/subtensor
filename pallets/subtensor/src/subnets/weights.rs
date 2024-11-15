@@ -1,7 +1,10 @@
 use super::*;
 use crate::epoch::math::*;
-use sp_core::H256;
-use sp_runtime::traits::{BlakeTwo256, Hash};
+use sp_core::{ConstU32, H256};
+use sp_runtime::{
+    traits::{BlakeTwo256, Hash},
+    BoundedVec,
+};
 use sp_std::{collections::vec_deque::VecDeque, vec};
 
 impl<T: Config> Pallet<T> {
@@ -99,6 +102,118 @@ impl<T: Config> Pallet<T> {
 
             // 12. Update the last commit block for the hotkey's UID.
             Self::set_last_update_for_uid(netuid, neuron_uid, commit_block);
+
+            // 13. Return success.
+            Ok(())
+        })
+    }
+
+    /// ---- The implementation for committing commit-reveal v3 weights.
+    ///
+    /// # Args:
+    /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
+    ///   - The signature of the committing hotkey.
+    ///
+    /// * `netuid` (`u16`):
+    ///   - The u16 network identifier.
+    ///
+    /// * `commit` (`Vec<u8>`):
+    ///   - The encrypted commit
+    ///
+    /// # Raises:
+    /// * `CommitRevealDisabled`:
+    ///   - Raised if commit-reveal v3 is disabled for the specified network.
+    ///
+    /// * `HotKeyNotRegisteredInSubNet`:
+    ///   - Raised if the hotkey is not registered on the specified network.
+    ///
+    /// * `CommittingWeightsTooFast`:
+    ///   - Raised if the hotkey's commit rate exceeds the permitted limit.
+    ///
+    /// * `TooManyUnrevealedCommits`:
+    ///   - Raised if the hotkey has reached the maximum number of unrevealed commits.
+    ///
+    /// # Events:
+    /// * `WeightsCommitted`:
+    ///   - Emitted upon successfully storing the weight hash.
+    pub fn do_commit_crv3_weights(
+        origin: T::RuntimeOrigin,
+        netuid: u16,
+        commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
+        reveal_round: u64,
+    ) -> DispatchResult {
+        // 1. Verify the caller's signature (hotkey).
+        let who = ensure_signed(origin)?;
+
+        log::debug!(
+            "do_commit_v3_weights(hotkey: {:?}, netuid: {:?})",
+            who,
+            netuid
+        );
+
+        // 2. Ensure commit-reveal v3 is enabled.
+        ensure!(
+            CRV3WeightsEnabled::<T>::get(netuid),
+            Error::<T>::CommitRevealV3Disabled
+        );
+
+        // 3. Ensure the hotkey is registered on the network.
+        ensure!(
+            Self::is_hotkey_registered_on_network(netuid, &who),
+            Error::<T>::HotKeyNotRegisteredInSubNet
+        );
+
+        // 4. Check that the commit rate does not exceed the allowed frequency.
+        let commit_block = Self::get_current_block_as_u64();
+        let neuron_uid = Self::get_uid_for_net_and_hotkey(netuid, &who)?;
+        ensure!(
+            Self::check_crv3_rate_limit(netuid, neuron_uid, commit_block),
+            Error::<T>::CommittingWeightsTooFast
+        );
+
+        // 5. Calculate the reveal blocks based on network tempo and reveal period.
+        // TODO: Double check this is not done on-chain for CRV3
+        // let (first_reveal_block, last_reveal_block) = Self::get_reveal_blocks(netuid, commit_block);
+
+        // 6. Retrieve or initialize the VecDeque of commits for the hotkey.
+        CRV3WeightCommits::<T>::try_mutate(netuid, &who, |maybe_commits| -> DispatchResult {
+            let mut commits: VecDeque<(
+                BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
+                u64,
+                u64,
+            )> = maybe_commits.take().unwrap_or_default();
+
+            // TODO: Check it is OK to remove this code block, and do the "expiring"/"reveal" step
+            // entirely in block_step
+            // 7. Remove any expired commits from the front of the queue.
+            // while let Some((_, commit_block_existing, _, _)) = commits.front() {
+            //     if Self::is_commit_expired(netuid, *commit_block_existing) {
+            //         commits.pop_front();
+            //     } else {
+            //         break;
+            //     }
+            // }
+
+            // 8. Verify that the number of unrevealed commits is within the allowed limit.
+            ensure!(commits.len() < 10, Error::<T>::TooManyUnrevealedCommits);
+
+            // 9. Append the new commit with calculated reveal blocks.
+            // Hash the commit before it is moved, for the event
+            let commit_hash = BlakeTwo256::hash(&commit);
+            commits.push_back((commit, commit_block, reveal_round));
+
+            // 10. Store the updated commits queue back to storage.
+            *maybe_commits = Some(commits);
+
+            // 11. Emit the WeightsCommitted event
+            Self::deposit_event(Event::CRV3WeightsCommitted(
+                who.clone(),
+                netuid,
+                commit_hash,
+            ));
+
+            // 12. Update the last commit block for the hotkey's UID.
+            Self::set_last_crv3_update_for_uid(netuid, neuron_uid, commit_block);
 
             // 13. Return success.
             Ok(())
@@ -617,6 +732,22 @@ impl<T: Config> Pallet<T> {
             version_key
         );
         network_version_key == 0 || version_key >= network_version_key
+    }
+
+    /// Checks if the neuron has set weights within the weights_set_rate_limit.
+    ///
+    pub fn check_crv3_rate_limit(netuid: u16, neuron_uid: u16, current_block: u64) -> bool {
+        if Self::is_uid_exist_on_network(netuid, neuron_uid) {
+            // --- 1. Ensure that the diff between current and last_set weights is greater than limit.
+            let last_set_weights: u64 = Self::get_last_crv3_update_for_uid(netuid, neuron_uid);
+            if last_set_weights == 0 {
+                return true;
+            } // (Storage default) Never set weights.
+            return current_block.saturating_sub(last_set_weights)
+                >= Self::get_v3_weights_set_rate_limit(netuid);
+        }
+        // --- 3. Non registered peers cant pass.
+        false
     }
 
     /// Checks if the neuron has set weights within the weights_set_rate_limit.

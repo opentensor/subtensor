@@ -51,6 +51,8 @@ use macros::{config, dispatches, errors, events, genesis, hooks};
 // apparently this is stabilized since rust 1.36
 extern crate alloc;
 
+pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 128;
+
 #[deny(missing_docs)]
 #[import_section(errors::errors)]
 #[import_section(events::events)]
@@ -70,7 +72,7 @@ pub mod pallet {
         BoundedVec,
     };
     use frame_system::pallet_prelude::*;
-    use sp_core::H256;
+    use sp_core::{ConstU32, H256};
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::collections::vec_deque::VecDeque;
     use sp_std::vec;
@@ -484,6 +486,11 @@ pub mod pallet {
         T::InitialTempo::get()
     }
     #[pallet::type_value]
+    /// Default value for v3 commit-reveal weights set rate limit.
+    pub fn DefaultV3WeightsSetRateLimit<T: Config>() -> u64 {
+        100
+    }
+    #[pallet::type_value]
     /// Default value for weights set rate limit.
     pub fn DefaultWeightsSetRateLimit<T: Config>() -> u64 {
         100
@@ -638,6 +645,12 @@ pub mod pallet {
     /// Default value for serving rate limit.
     pub fn DefaultServingRateLimit<T: Config>() -> u64 {
         T::InitialServingRateLimit::get()
+    }
+    #[pallet::type_value]
+    /// Default value for commit-reveal v3 enabled.
+    pub fn DefaultCR3WeightsEnabled<T: Config>() -> bool {
+        // TODO: On "new" subnet registration, this value should be set to true
+        false
     }
     #[pallet::type_value]
     /// Default value for weight commit/reveal enabled.
@@ -1017,7 +1030,11 @@ pub mod pallet {
     pub type BondsMovingAverage<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBondsMovingAverage<T>>;
     #[pallet::storage]
+    /// --- MAP ( netuid ) --> v3_weights_set_rate_limit
+    pub type V3WeightsSetRateLimit<T> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultV3WeightsSetRateLimit<T>>;
     /// --- MAP ( netuid ) --> weights_set_rate_limit
+    #[pallet::storage]
     pub type WeightsSetRateLimit<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultWeightsSetRateLimit<T>>;
     #[pallet::storage]
@@ -1037,9 +1054,13 @@ pub mod pallet {
     pub type AdjustmentAlpha<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultAdjustmentAlpha<T>>;
     #[pallet::storage]
-    /// --- MAP ( netuid ) --> interval
+    /// --- MAP ( netuid ) --> commit reveal v2 weights are enabled
     pub type CommitRevealWeightsEnabled<T> =
         StorageMap<_, Identity, u16, bool, ValueQuery, DefaultCommitRevealWeightsEnabled<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> commit reveal v3 weights are enabled
+    pub type CRV3WeightsEnabled<T> =
+        StorageMap<_, Identity, u16, bool, ValueQuery, DefaultCR3WeightsEnabled<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Burn
     pub type Burn<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBurn<T>>;
@@ -1139,6 +1160,10 @@ pub mod pallet {
     #[pallet::storage]
     /// --- DMAP ( netuid ) --> emission
     pub type Emission<T: Config> =
+        StorageMap<_, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
+    #[pallet::storage]
+    /// --- DMAP ( netuid ) --> last_update
+    pub type LastCRV3Update<T: Config> =
         StorageMap<_, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
     #[pallet::storage]
     /// --- DMAP ( netuid ) --> last_update
@@ -1264,6 +1289,21 @@ pub mod pallet {
         Twox64Concat,
         T::AccountId,
         VecDeque<(H256, u64, u64, u64)>,
+        OptionQuery,
+    >;
+    #[pallet::storage]
+    /// --- MAP (netuid, who) --> VecDeque<(commit, commit_block, reveal_round)> | Stores a queue of v3 commits for an account on a given netuid.
+    pub type CRV3WeightCommits<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        u16,
+        Twox64Concat,
+        T::AccountId,
+        VecDeque<(
+            BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
+            u64,
+            u64,
+        )>,
         OptionQuery,
     >;
     #[pallet::storage]

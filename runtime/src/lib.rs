@@ -220,7 +220,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 207,
+    spec_version: 208,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -2056,14 +2056,15 @@ impl_runtime_apis! {
 #[cfg(test)]
 mod tests {
     use ark_serialize::CanonicalDeserialize;
-    use etf_crypto_primitives::{ibe::fullident::Identity, tlock::tlock::tle};
     use rand_chacha::rand_core::SeedableRng;
     use rand_chacha::ChaCha20Rng;
     use sha2::Digest;
+    use tle::ibe::fullident::Identity;
+    use tle::tlock::tle;
     use w3f_bls::{EngineBLS, Message, TinyBLS381};
 
     #[test]
-    fn tlock_encrypt_decrypt_drand_works() {
+    pub fn tlock_encrypt_decrypt_drand_quicknet_works() {
         // using a pulse from drand's QuickNet
         // https://api.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/1000
         // the beacon public key
@@ -2072,36 +2073,35 @@ mod tests {
         let round: u64 = 1000;
         // the signature produced in that round
         let signature =	b"b44679b9a59af2ec876b1a6b1ad52ea9b1615fc3982b19576350f93447cb1125e342b73a8dd2bacbe47e4b6b63ed5e39";
+
         // Convert hex string to bytes
         let pub_key_bytes = hex::decode(pk_bytes).expect("Decoding failed");
         // Deserialize to G1Affine
         let pub_key =
             <TinyBLS381 as EngineBLS>::PublicKeyGroup::deserialize_compressed(&*pub_key_bytes)
                 .unwrap();
+
         // then we tlock a message for the pubkey
         let plaintext = b"this is a test".as_slice();
         let esk = [2; 32];
-        let id: &Vec<u8> = {
-            let mut hasher = sha2::Sha256::new();
-            hasher.update(&round.to_be_bytes());
-            &hasher.finalize().to_vec()
-        };
+
         let sig_bytes = hex::decode(signature).expect("The signature should be well formatted");
         let sig =
             <TinyBLS381 as EngineBLS>::SignatureGroup::deserialize_compressed(&*sig_bytes).unwrap();
+
         let message = {
             let mut hasher = sha2::Sha256::new();
             hasher.update(round.to_be_bytes());
             hasher.finalize().to_vec()
         };
-        let pk = w3f_bls::PublicKey::<TinyBLS381>(pub_key);
-        // Create message object and verify
-        let msg = Message::new(b"", &message);
-        let identity = Identity::new(b"", vec![msg.1.to_vec()]);
+
+        let identity = Identity::new(b"", vec![message]);
+
         let rng = ChaCha20Rng::seed_from_u64(0);
         let ct = tle::<TinyBLS381, ChaCha20Rng>(pub_key, esk, plaintext, identity, rng).unwrap();
+
         // then we can decrypt the ciphertext using the signature
-        let result = ct.tld(sig).unwrap();
+        let result: tle::tlock::DecryptionResult = ct.tld(sig).unwrap();
         assert!(result.message == plaintext);
     }
 

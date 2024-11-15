@@ -90,6 +90,9 @@ impl<T: Config> Pallet<T> {
     pub fn get_dividends(netuid: u16) -> Vec<u16> {
         Dividends::<T>::get(netuid)
     }
+    pub fn get_last_crv3_update(netuid: u16) -> Vec<u64> {
+        LastCRV3Update::<T>::get(netuid)
+    }
     pub fn get_last_update(netuid: u16) -> Vec<u64> {
         LastUpdate::<T>::get(netuid)
     }
@@ -106,8 +109,16 @@ impl<T: Config> Pallet<T> {
     // ==================================
     // ==== YumaConsensus UID params ====
     // ==================================
+    pub fn set_last_crv3_update_for_uid(netuid: u16, uid: u16, last_update: u64) {
+        let mut updated_last_update_vec = Self::get_last_crv3_update(netuid);
+        let Some(updated_last_update) = updated_last_update_vec.get_mut(uid as usize) else {
+            return;
+        };
+        *updated_last_update = last_update;
+        LastCRV3Update::<T>::insert(netuid, updated_last_update_vec);
+    }
     pub fn set_last_update_for_uid(netuid: u16, uid: u16, last_update: u64) {
-        let mut updated_last_update_vec = Self::get_last_update(netuid);
+        let mut updated_last_update_vec = Self::get_last_crv3_update(netuid);
         let Some(updated_last_update) = updated_last_update_vec.get_mut(uid as usize) else {
             return;
         };
@@ -195,6 +206,10 @@ impl<T: Config> Pallet<T> {
     }
     pub fn get_dividends_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Dividends::<T>::get(netuid);
+        vec.get(uid as usize).copied().unwrap_or(0)
+    }
+    pub fn get_last_crv3_update_for_uid(netuid: u16, uid: u16) -> u64 {
+        let vec = LastCRV3Update::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
     }
     pub fn get_last_update_for_uid(netuid: u16, uid: u16) -> u64 {
@@ -397,6 +412,9 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::WeightsVersionKeySet(netuid, weights_version_key));
     }
 
+    pub fn get_v3_weights_set_rate_limit(netuid: u16) -> u64 {
+        V3WeightsSetRateLimit::<T>::get(netuid)
+    }
     pub fn get_weights_set_rate_limit(netuid: u16) -> u64 {
         WeightsSetRateLimit::<T>::get(netuid)
     }
