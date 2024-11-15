@@ -51,6 +51,7 @@ pub trait RuntimeApiCollection<
     + subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<Block>
     + subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block>
     + subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block>
+    + subtensor_custom_rpc_runtime_api::RateLimitInfoRuntimeApi<Block>
 {
 }
 
@@ -71,6 +72,7 @@ where
         + subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi<Block>
         + subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<Block>
         + subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block>
-        + subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block>,
+        + subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block>
+        + subtensor_custom_rpc_runtime_api::RateLimitInfoRuntimeApi<Block>,
 {
 }

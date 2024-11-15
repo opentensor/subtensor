@@ -1,14 +1,14 @@
-//! API for getting transaction rate limits associated with coldkeys and hotkeys.
-
+//! API for getting rate-limited transactions info.
 use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
 
 use crate::{
-    utils::rate_limiting::TransactionType, Config, Pallet, TargetStakesPerInterval, TxRateLimit,
+    freeze_struct, utils::rate_limiting::TransactionType, Config, Pallet, TargetStakesPerInterval,
+    TxRateLimit,
 };
 
 /// Transaction rate limits.
-// #[freeze_struct("fe79d58173da662a")]
+#[freeze_struct("e3734bd0690f2da8")]
 #[derive(Decode, Encode, Clone, Debug)]
 pub struct RateLimits {
     transaction: Compact<u64>,
@@ -18,7 +18,7 @@ pub struct RateLimits {
 }
 
 /// Contains last blocks, when rate-limited transactions was evaluated.
-// #[freeze_struct("fe79d58173da662a")]
+#[freeze_struct("9154106cd720ce08")]
 #[derive(Decode, Encode, Clone, Debug)]
 pub struct HotkeyLimitedTxInfo<AccountId> {
     hotkey: AccountId,
@@ -48,7 +48,7 @@ impl<T: Config> Pallet<T> {
             Self::get_last_transaction_block(hotkey, netuid, &TransactionType::SetChildkeyTake)
                 .into();
         HotkeyLimitedTxInfo {
-            hotkey: hotkey.to_owned(),
+            hotkey: hotkey.clone(),
             last_block_set_children,
             last_block_set_childkey_take,
         }
