@@ -196,9 +196,8 @@ pallet-drand = { path = "pallets/drand", default-features = false }
 sp-crypto-ec-utils = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", features = ["bls12-381"] }
 getrandom = { version = "0.2.15", features = ["custom"], default-features = false }
 sp-keystore = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409",  default-features = false }
-# w3f-bls = { git = "https://github.com/w3f/bls", default-features = false, version = "0.1.8" }
 w3f-bls = { version = "=0.1.3", default-features = false }
-ark-crypto-primitives = { version = "0.4.0", default-features = false, features = [ "r1cs", "snark" ] }
+ark-crypto-primitives = { version = "0.4.0", default-features = false, features = [ "r1cs", "snark" ] } 
 ark-scale = { version = "0.0.11", default-features = false, features = ["hazmat"] }
 sp-ark-bls12-381 = { git = "https://github.com/paritytech/substrate-curves", default-features = false }
 ark-bls12-381 = { version = "0.4.0", features = ["curve"], default-features = false }

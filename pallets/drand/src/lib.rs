@@ -1,3 +1,19 @@
+/*
+ * Copyright 2024 by Ideal Labs, LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 //! # Drand Bridge Pallet
 //!
 //! A pallet to bridge to [drand](drand.love)'s Quicknet, injecting publicly verifiable randomness
@@ -14,6 +30,8 @@
 
 // We make sure this pallet uses `no_std` for compiling to Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
+// Many errors are transformed throughout the pallet.
+#![allow(clippy::manual_inspect)]
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
@@ -22,9 +40,7 @@ extern crate alloc;
 use crate::alloc::string::ToString;
 
 use alloc::{format, string::String, vec, vec::Vec};
-use ark_ec::{hashing::HashToCurve, AffineRepr};
-use ark_serialize::CanonicalSerialize;
-use codec::{Decode, Encode};
+use codec::Encode;
 use frame_support::{pallet_prelude::*, traits::Randomness};
 use frame_system::{
     offchain::{
@@ -33,16 +49,22 @@ use frame_system::{
     },
     pallet_prelude::BlockNumberFor,
 };
-use serde::{Deserialize, Serialize};
+use scale_info::prelude::cmp;
 use sha2::{Digest, Sha256};
-use sp_ark_bls12_381::{G1Affine as G1AffineOpt, G2Affine as G2AffineOpt};
 use sp_runtime::{
     offchain::{http, Duration},
-    traits::{Hash, One, Zero},
+    traits::{Hash, One},
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
-    KeyTypeId,
+    KeyTypeId, Saturating,
 };
-use w3f_bls::{EngineBLS, TinyBLS381};
+
+pub mod bls12_381;
+pub mod types;
+pub mod utils;
+pub mod verifier;
+
+use types::*;
+use verifier::Verifier;
 
 #[cfg(test)]
 mod mock;
@@ -55,17 +77,25 @@ mod benchmarking;
 pub mod weights;
 pub use weights::*;
 
-pub mod bls12_381;
-pub mod utils;
-
-const USAGE: ark_scale::Usage = ark_scale::WIRE;
-type ArkScale<T> = ark_scale::ArkScale<T, USAGE>;
-
 /// the main drand api endpoint
-pub const API_ENDPOINT: &str = "https://api.drand.sh";
+pub const API_ENDPOINT: &str = "https://drand.cloudflare.com";
 /// the drand quicknet chain hash
+/// quicknet uses 'Tiny' BLS381, with small 48-byte sigs in G1 and 96-byte pubkeys in G2
 pub const QUICKNET_CHAIN_HASH: &str =
     "52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971";
+/// the drand mainnet chain hash
+/// mainnext uses 'Usual' BLS381, with 96-byte sigs in G2 and 48-byte pubkeys in G1
+pub const MAINNET_CHAIN_HASH: &str =
+    "8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce";
+
+#[cfg(feature = "mainnet")]
+const CHAIN_HASH: &str = MAINNET_CHAIN_HASH;
+
+#[cfg(not(feature = "mainnet"))]
+const CHAIN_HASH: &str = QUICKNET_CHAIN_HASH;
+
+pub const MAX_PULSES_TO_FETCH: u64 = 20;
+
 /// Defines application identifier for crypto keys of this module.
 ///
 /// Every module that deals with signatures needs to declare its unique identifier for
@@ -106,125 +136,6 @@ pub mod crypto {
     }
 }
 
-pub type OpaquePublicKeyG2 = BoundedVec<u8, ConstU32<96>>;
-/// an opaque hash type
-pub type BoundedHash = BoundedVec<u8, ConstU32<32>>;
-/// the round number to track rounds of the beacon
-pub type RoundNumber = u64;
-
-/// the expected response body from the drand api endpoint `api.drand.sh/{chainId}/info`
-#[derive(Debug, Decode, Default, PartialEq, Encode, Serialize, Deserialize, TypeInfo, Clone)]
-pub struct BeaconInfoResponse {
-    #[serde(with = "hex::serde")]
-    pub public_key: Vec<u8>,
-    pub period: u32,
-    pub genesis_time: u32,
-    #[serde(with = "hex::serde")]
-    pub hash: Vec<u8>,
-    #[serde(with = "hex::serde", rename = "groupHash")]
-    pub group_hash: Vec<u8>,
-    #[serde(rename = "schemeID")]
-    pub scheme_id: String,
-    pub metadata: MetadataInfoResponse,
-}
-
-/// metadata associated with the drand info response
-#[derive(Debug, Decode, Default, PartialEq, Encode, Serialize, Deserialize, TypeInfo, Clone)]
-pub struct MetadataInfoResponse {
-    #[serde(rename = "beaconID")]
-    beacon_id: String,
-}
-
-impl BeaconInfoResponse {
-    fn try_into_beacon_config(&self) -> Result<BeaconConfiguration, String> {
-        let bounded_pubkey = OpaquePublicKeyG2::try_from(self.public_key.clone())
-            .map_err(|_| "Failed to convert public_key")?;
-        let bounded_hash =
-            BoundedHash::try_from(self.hash.clone()).map_err(|_| "Failed to convert hash")?;
-        let bounded_group_hash = BoundedHash::try_from(self.group_hash.clone())
-            .map_err(|_| "Failed to convert group_hash")?;
-        let bounded_scheme_id = BoundedHash::try_from(self.scheme_id.as_bytes().to_vec().clone())
-            .map_err(|_| "Failed to convert scheme_id")?;
-        let bounded_beacon_id =
-            BoundedHash::try_from(self.metadata.beacon_id.as_bytes().to_vec().clone())
-                .map_err(|_| "Failed to convert beacon_id")?;
-
-        Ok(BeaconConfiguration {
-            public_key: bounded_pubkey,
-            period: self.period,
-            genesis_time: self.genesis_time,
-            hash: bounded_hash,
-            group_hash: bounded_group_hash,
-            scheme_id: bounded_scheme_id,
-            metadata: Metadata {
-                beacon_id: bounded_beacon_id,
-            },
-        })
-    }
-}
-
-/// a pulse from the drand beacon
-/// the expected response body from the drand api endpoint `api.drand.sh/{chainId}/public/latest`
-#[derive(Debug, Decode, Default, PartialEq, Encode, Serialize, Deserialize)]
-pub struct DrandResponseBody {
-    /// the randomness round number
-    pub round: RoundNumber,
-    /// the sha256 hash of the signature
-    // TODO: use Hash (https://github.com/ideal-lab5/pallet-drand/issues/2)
-    #[serde(with = "hex::serde")]
-    pub randomness: Vec<u8>,
-    /// BLS sig for the current round
-    // TODO: use Signature (https://github.com/ideal-lab5/pallet-drand/issues/2)
-    #[serde(with = "hex::serde")]
-    pub signature: Vec<u8>,
-}
-
-impl DrandResponseBody {
-    fn try_into_pulse(&self) -> Result<Pulse, String> {
-        let bounded_randomness = BoundedVec::<u8, ConstU32<32>>::try_from(self.randomness.clone())
-            .map_err(|_| "Failed to convert randomness")?;
-        let bounded_signature = BoundedVec::<u8, ConstU32<144>>::try_from(self.signature.clone())
-            .map_err(|_| "Failed to convert signature")?;
-
-        Ok(Pulse {
-            round: self.round,
-            randomness: bounded_randomness,
-            signature: bounded_signature,
-        })
-    }
-}
-/// a drand chain configuration
-#[derive(
-    Clone,
-    Debug,
-    Decode,
-    Default,
-    PartialEq,
-    Encode,
-    Serialize,
-    Deserialize,
-    MaxEncodedLen,
-    TypeInfo,
-)]
-pub struct BeaconConfiguration {
-    pub public_key: OpaquePublicKeyG2,
-    pub period: u32,
-    pub genesis_time: u32,
-    pub hash: BoundedHash,
-    pub group_hash: BoundedHash,
-    pub scheme_id: BoundedHash,
-    pub metadata: Metadata,
-}
-
-/// Payload used by to hold the beacon
-/// config required to submit a transaction.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, scale_info::TypeInfo)]
-pub struct BeaconConfigurationPayload<Public, BlockNumber> {
-    pub block_number: BlockNumber,
-    pub config: BeaconConfiguration,
-    pub public: Public,
-}
-
 impl<T: SigningTypes> SignedPayload<T>
     for BeaconConfigurationPayload<T::Public, BlockNumberFor<T>>
 {
@@ -233,57 +144,7 @@ impl<T: SigningTypes> SignedPayload<T>
     }
 }
 
-/// metadata for the drand beacon configuration
-#[derive(
-    Clone,
-    Debug,
-    Decode,
-    Default,
-    PartialEq,
-    Encode,
-    Serialize,
-    Deserialize,
-    MaxEncodedLen,
-    TypeInfo,
-)]
-pub struct Metadata {
-    beacon_id: BoundedHash,
-}
-
-/// a pulse from the drand beacon
-#[derive(
-    Clone,
-    Debug,
-    Decode,
-    Default,
-    PartialEq,
-    Encode,
-    Serialize,
-    Deserialize,
-    MaxEncodedLen,
-    TypeInfo,
-)]
-pub struct Pulse {
-    /// the randomness round number
-    pub round: RoundNumber,
-    /// the sha256 hash of the signature
-    // TODO: use Hash (https://github.com/ideal-lab5/pallet-drand/issues/2)
-    pub randomness: BoundedVec<u8, ConstU32<32>>,
-    /// BLS sig for the current round
-    // TODO: use Signature (https://github.com/ideal-lab5/pallet-drand/issues/2)
-    pub signature: BoundedVec<u8, ConstU32<144>>,
-}
-
-/// Payload used by to hold the pulse
-/// data required to submit a transaction.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, scale_info::TypeInfo)]
-pub struct PulsePayload<Public, BlockNumber> {
-    pub block_number: BlockNumber,
-    pub pulse: Pulse,
-    pub public: Public,
-}
-
-impl<T: SigningTypes> SignedPayload<T> for PulsePayload<T::Public, BlockNumberFor<T>> {
+impl<T: SigningTypes> SignedPayload<T> for PulsesPayload<T::Public, BlockNumberFor<T>> {
     fn public(&self) -> T::Public {
         self.public.clone()
     }
@@ -325,8 +186,10 @@ pub mod pallet {
 
     /// map block number to round number of pulse authored during that block
     #[pallet::storage]
-    pub type Pulses<T: Config> =
-        StorageMap<_, Blake2_128Concat, BlockNumberFor<T>, Pulse, OptionQuery>;
+    pub type Pulses<T: Config> = StorageMap<_, Blake2_128Concat, RoundNumber, Pulse, OptionQuery>;
+
+    #[pallet::storage]
+    pub(super) type LastStoredRound<T: Config> = StorageValue<_, RoundNumber, ValueQuery>;
 
     /// Defines the block when next unsigned transaction will be accepted.
     ///
@@ -343,7 +206,7 @@ pub mod pallet {
         /// A user has successfully set a new value.
         NewPulse {
             /// The new value set.
-            round: RoundNumber,
+            rounds: Vec<RoundNumber>,
         },
     }
 
@@ -369,16 +232,16 @@ pub mod pallet {
             // if the beacon config isn't available, get it now
             if BeaconConfig::<T>::get().is_none() {
                 if let Err(e) = Self::fetch_drand_config_and_send(block_number) {
-                    log::error!(
-						"Failed to fetch chain config from drand, are you sure the chain hash is valid? {:?}",
+                    log::debug!(
+						"Drand: Failed to fetch chain config from drand, are you sure the chain hash is valid? {:?}",
 						e
 					);
                 }
             } else {
                 // otherwise query drand
                 if let Err(e) = Self::fetch_drand_pulse_and_send_unsigned(block_number) {
-                    log::error!(
-						"Failed to fetch pulse from drand, are you sure the chain hash is valid? {:?}",
+                    log::debug!(
+						"Drand: Failed to fetch pulse from drand, are you sure the chain hash is valid? {:?}",
 						e
 					);
                 }
@@ -411,7 +274,7 @@ pub mod pallet {
                     )
                 }
                 Call::write_pulse {
-                    pulse_payload: ref payload,
+                    pulses_payload: ref payload,
                     ref signature,
                 } => {
                     let signature = signature.as_ref().ok_or(InvalidTransaction::BadSigner)?;
@@ -430,58 +293,49 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// Verify and write a pulse from the beacon into the runtime
         #[pallet::call_index(0)]
-        #[pallet::weight(T::WeightInfo::write_pulse())]
+        #[pallet::weight(T::WeightInfo::write_pulse(pulses_payload.pulses.len() as u32))]
         pub fn write_pulse(
             origin: OriginFor<T>,
-            pulse_payload: PulsePayload<T::Public, BlockNumberFor<T>>,
+            pulses_payload: PulsesPayload<T::Public, BlockNumberFor<T>>,
             _signature: Option<T::Signature>,
         ) -> DispatchResult {
             ensure_none(origin)?;
+            let config = BeaconConfig::<T>::get().ok_or(Error::<T>::NoneValue)?;
 
-            match BeaconConfig::<T>::get() {
-                Some(config) => {
-                    let is_verified = T::Verifier::verify(config, pulse_payload.pulse.clone())
-                        .map_err(|s| {
-                            log::error!("Could not verify the pulse due to: {}", s);
-                            Error::<T>::PulseVerificationError
-                        })?;
+            let mut last_stored_round = LastStoredRound::<T>::get();
+            let mut new_rounds = Vec::new();
 
-                    if is_verified {
-                        let current_block = frame_system::Pallet::<T>::block_number();
-                        let mut last_block = current_block.clone();
+            for pulse in &pulses_payload.pulses {
+                let is_verified = T::Verifier::verify(config.clone(), pulse.clone())
+                    .map_err(|_| Error::<T>::PulseVerificationError)?;
 
-                        // TODO: improve this, it's not efficient as it can be very slow when the
-                        // history is large. We could set a new storage value with the latest
-                        // round. Retrieve the lastest pulse and verify the round number
-                        // https://github.com/ideal-lab5/pallet-drand/issues/4
-                        loop {
-                            if let Some(last_pulse) = Pulses::<T>::get(last_block) {
-                                frame_support::ensure!(
-                                    last_pulse.round < pulse_payload.pulse.round,
-                                    Error::<T>::InvalidRoundNumber
-                                );
-                                break;
-                            }
-                            if last_block == Zero::zero() {
-                                break;
-                            }
-                            last_block -= One::one();
-                        }
+                if is_verified {
+                    ensure!(
+                        pulse.round > last_stored_round,
+                        Error::<T>::InvalidRoundNumber
+                    );
 
-                        // Store the new pulse
-                        Pulses::<T>::insert(current_block, pulse_payload.pulse.clone());
-                        // now increment the block number at which we expect next unsigned
-                        // transaction.
-                        <NextUnsignedAt<T>>::put(current_block + One::one());
-                        // Emit event for new pulse
-                        Self::deposit_event(Event::NewPulse {
-                            round: pulse_payload.pulse.round,
-                        });
-                    }
+                    // Store the pulse
+                    Pulses::<T>::insert(pulse.round, pulse.clone());
+
+                    // Update last stored round
+                    last_stored_round = pulse.round;
+
+                    // Collect the new round
+                    new_rounds.push(pulse.round);
                 }
-                None => {
-                    log::warn!("No beacon config available");
-                }
+            }
+
+            // Update LastStoredRound storage
+            LastStoredRound::<T>::put(last_stored_round);
+
+            // Update the next unsigned block number
+            let current_block = frame_system::Pallet::<T>::block_number();
+            <NextUnsignedAt<T>>::put(current_block.saturating_add(One::one()));
+
+            // Emit a single event with all new rounds
+            if !new_rounds.is_empty() {
+                Self::deposit_event(Event::NewPulse { rounds: new_rounds });
             }
 
             Ok(())
@@ -504,7 +358,7 @@ pub mod pallet {
 
             // now increment the block number at which we expect next unsigned transaction.
             let current_block = frame_system::Pallet::<T>::block_number();
-            <NextUnsignedAt<T>>::put(current_block + One::one());
+            <NextUnsignedAt<T>>::put(current_block.saturating_add(One::one()));
 
             Self::deposit_event(Event::BeaconConfigChanged {});
             Ok(())
@@ -520,23 +374,23 @@ impl<T: Config> Pallet<T> {
         // anyway.
         let next_unsigned_at = NextUnsignedAt::<T>::get();
         if next_unsigned_at > block_number {
-            return Err("Too early to send unsigned transaction");
+            return Err("Drand: Too early to send unsigned transaction");
         }
 
         let signer = Signer::<T, T::AuthorityId>::all_accounts();
         if !signer.can_sign() {
             return Err(
-                "No local accounts available. Consider adding one via `author_insertKey` RPC.",
+                "Drand: No local accounts available. Consider adding one via `author_insertKey` RPC.",
             )?;
         }
 
         let body_str =
             Self::fetch_drand_chain_info().map_err(|_| "Failed to fetch drand chain info")?;
         let beacon_config: BeaconInfoResponse = serde_json::from_str(&body_str)
-            .map_err(|_| "Failed to convert response body to beacon configuration")?;
+            .map_err(|_| "Drand: Failed to convert response body to beacon configuration")?;
         let config = beacon_config
             .try_into_beacon_config()
-            .map_err(|_| "Failed to convert BeaconInfoResponse to BeaconConfiguration")?;
+            .map_err(|_| "Drand: Failed to convert BeaconInfoResponse to BeaconConfiguration")?;
 
         let results = signer.send_unsigned_transaction(
             |account| BeaconConfigurationPayload {
@@ -551,13 +405,17 @@ impl<T: Config> Pallet<T> {
         );
 
         if results.is_empty() {
-            log::error!("Empty result from config: {:?}", config);
+            log::error!("Drand: Empty result from config: {:?}", config);
         }
 
         for (acc, res) in &results {
             match res {
-                Ok(()) => log::info!("[{:?}] Submitted new config: {:?}", acc.id, config),
-                Err(e) => log::error!("[{:?}] Failed to submit transaction: {:?}", acc.id, e),
+                Ok(()) => log::info!("Drand: [{:?}] Submitted new config: {:?}", acc.id, config),
+                Err(e) => log::error!(
+                    "Drand: [{:?}] Failed to submit transaction: {:?}",
+                    acc.id,
+                    e
+                ),
             }
         }
 
@@ -569,41 +427,74 @@ impl<T: Config> Pallet<T> {
     fn fetch_drand_pulse_and_send_unsigned(
         block_number: BlockNumberFor<T>,
     ) -> Result<(), &'static str> {
-        // Make sure we don't fetch the price if the transaction is going to be rejected
-        // anyway.
+        // Ensure we can send an unsigned transaction
         let next_unsigned_at = NextUnsignedAt::<T>::get();
         if next_unsigned_at > block_number {
-            return Err("Too early to send unsigned transaction");
+            return Err("Drand: Too early to send unsigned transaction");
         }
 
-        let signer = Signer::<T, T::AuthorityId>::all_accounts();
-
-        let pulse_body = Self::fetch_drand().map_err(|_| "Failed to query drand")?;
-        let unbounded_pulse: DrandResponseBody = serde_json::from_str(&pulse_body)
-            .map_err(|_| "Failed to serialize response body to pulse")?;
-        let pulse = unbounded_pulse
+        let mut last_stored_round = LastStoredRound::<T>::get();
+        let latest_pulse_body = Self::fetch_drand_latest().map_err(|_| "Failed to query drand")?;
+        let latest_unbounded_pulse: DrandResponseBody = serde_json::from_str(&latest_pulse_body)
+            .map_err(|_| "Drand: Failed to serialize response body to pulse")?;
+        let latest_pulse = latest_unbounded_pulse
             .try_into_pulse()
-            .map_err(|_| "Received pulse contains invalid data")?;
+            .map_err(|_| "Drand: Received pulse contains invalid data")?;
+        let current_round = latest_pulse.round;
 
-        // TODO: verify, before sending the tx that the pulse.round is greater than the stored one
-        // https://github.com/ideal-lab5/pallet-drand/issues/4
+        // If last_stored_round is zero, set it to current_round - 1
+        if last_stored_round == 0 {
+            last_stored_round = current_round.saturating_sub(1);
+            LastStoredRound::<T>::put(last_stored_round);
+        }
 
-        let results = signer.send_unsigned_transaction(
-            |account| PulsePayload {
-                block_number,
-                pulse: pulse.clone(),
-                public: account.public.clone(),
-            },
-            |pulse_payload, signature| Call::write_pulse {
-                pulse_payload,
-                signature: Some(signature),
-            },
-        );
+        if current_round > last_stored_round {
+            let rounds_to_fetch = cmp::min(
+                current_round.saturating_sub(last_stored_round),
+                MAX_PULSES_TO_FETCH,
+            );
+            let mut pulses = Vec::new();
 
-        for (acc, res) in &results {
-            match res {
-                Ok(()) => log::info!("[{:?}] Submitted new pulse: {:?}", acc.id, pulse.round),
-                Err(e) => log::info!("[{:?}] Failed to submit transaction: {:?}", acc.id, e),
+            for round in (last_stored_round.saturating_add(1))
+                ..=(last_stored_round.saturating_add(rounds_to_fetch))
+            {
+                let pulse_body = Self::fetch_drand_by_round(round)
+                    .map_err(|_| "Drand: Failed to query drand for round")?;
+                let unbounded_pulse: DrandResponseBody = serde_json::from_str(&pulse_body)
+                    .map_err(|_| "Drand: Failed to serialize response body to pulse")?;
+                let pulse = unbounded_pulse
+                    .try_into_pulse()
+                    .map_err(|_| "Drand: Received pulse contains invalid data")?;
+                pulses.push(pulse);
+            }
+
+            let signer = Signer::<T, T::AuthorityId>::all_accounts();
+
+            let results = signer.send_unsigned_transaction(
+                |account| PulsesPayload {
+                    block_number,
+                    pulses: pulses.clone(),
+                    public: account.public.clone(),
+                },
+                |pulses_payload, signature| Call::write_pulse {
+                    pulses_payload,
+                    signature: Some(signature),
+                },
+            );
+
+            for (acc, res) in &results {
+                match res {
+                    Ok(()) => log::debug!(
+                        "Drand: [{:?}] Submitted new pulses up to round: {:?}",
+                        acc.id,
+                        last_stored_round.saturating_add(rounds_to_fetch)
+                    ),
+                    Err(e) => log::error!(
+                        "Drand: [{:?}] Failed to submit transaction: {:?}",
+                        acc.id,
+                        e
+                    ),
+                }
             }
         }
 
@@ -613,13 +504,15 @@ impl<T: Config> Pallet<T> {
     /// Query the endpoint `{api}/{chainHash}/info` to receive information about the drand chain
     /// Valid response bodies are deserialized into `BeaconInfoResponse`
     fn fetch_drand_chain_info() -> Result<String, http::Error> {
-        let uri: &str = &format!("{}/{}/info", API_ENDPOINT, QUICKNET_CHAIN_HASH);
+        let uri: &str = &format!("{}/{}/info", API_ENDPOINT, CHAIN_HASH);
         Self::fetch(uri)
     }
-
-    /// fetches the latest randomness from drand's API
-    fn fetch_drand() -> Result<String, http::Error> {
-        let uri: &str = &format!("{}/{}/public/latest", API_ENDPOINT, QUICKNET_CHAIN_HASH);
+    fn fetch_drand_by_round(round: RoundNumber) -> Result<String, http::Error> {
+        let uri: &str = &format!("{}/{}/public/{}", API_ENDPOINT, CHAIN_HASH, round);
+        Self::fetch(uri)
+    }
+    fn fetch_drand_latest() -> Result<String, http::Error> {
+        let uri: &str = &format!("{}/{}/public/latest", API_ENDPOINT, CHAIN_HASH);
         Self::fetch(uri)
     }
 
@@ -629,21 +522,21 @@ impl<T: Config> Pallet<T> {
             sp_io::offchain::timestamp().add(Duration::from_millis(T::HttpFetchTimeout::get()));
         let request = http::Request::get(uri);
         let pending = request.deadline(deadline).send().map_err(|_| {
-            log::warn!("HTTP IO Error");
+            log::warn!("Drand: HTTP IO Error");
             http::Error::IoError
         })?;
         let response = pending.try_wait(deadline).map_err(|_| {
-            log::warn!("HTTP Deadline Reached");
+            log::warn!("Drand: HTTP Deadline Reached");
             http::Error::DeadlineReached
         })??;
 
         if response.code != 200 {
-            log::warn!("Unexpected status code: {}", response.code);
+            log::warn!("Drand: Unexpected status code: {}", response.code);
             return Err(http::Error::Unknown);
         }
         let body = response.body().collect::<Vec<u8>>();
         let body_str = alloc::str::from_utf8(&body).map_err(|_| {
-            log::warn!("No UTF8 body");
+            log::warn!("Drand: No UTF8 body");
             http::Error::Unknown
         })?;
 
@@ -652,8 +545,8 @@ impl<T: Config> Pallet<T> {
 
     /// get the randomness at a specific block height
     /// returns [0u8;32] if it does not exist
-    pub fn random_at(block_number: BlockNumberFor<T>) -> [u8; 32] {
-        let pulse = Pulses::<T>::get(block_number).unwrap_or(Pulse::default());
+    pub fn random_at(round: RoundNumber) -> [u8; 32] {
+        let pulse = Pulses::<T>::get(round).unwrap_or_default();
         let rand = pulse.randomness.clone();
         let bounded_rand: [u8; 32] = rand.into_inner().try_into().unwrap_or([0u8; 32]);
 
@@ -670,7 +563,7 @@ impl<T: Config> Pallet<T> {
         if !signature_valid {
             return InvalidTransaction::BadProof.into();
         }
-        Self::validate_transaction_parameters(&block_number)
+        Self::validate_transaction_parameters(block_number)
     }
 
     fn validate_transaction_parameters(block_number: &BlockNumberFor<T>) -> TransactionValidity {
@@ -718,79 +611,16 @@ pub fn message(current_round: RoundNumber, prev_sig: &[u8]) -> Vec<u8> {
     hasher.finalize().to_vec()
 }
 
-/// something to verify beacon pulses
-pub trait Verifier {
-    /// verify the given pulse using beacon_config
-    fn verify(beacon_config: BeaconConfiguration, pulse: Pulse) -> Result<bool, String>;
-}
-
-/// A verifier to check values received from quicknet. It outputs true if valid, false otherwise
-///
-/// [Quicknet](https://drand.love/blog/quicknet-is-live-on-the-league-of-entropy-mainnet) operates in an unchained mode,
-/// so messages contain only the round number. in addition, public keys are in G2 and signatures are
-/// in G1
-///
-/// Values are valid if the pairing equality holds:
-///			 $e(sig, g_2) == e(msg_on_curve, pk)$
-/// where $sig \in \mathbb{G}_1$ is the signature
-///       $g_2 \in \mathbb{G}_2$ is a generator
-///       $msg_on_curve \in \mathbb{G}_1$ is a hash of the message that drand signed
-/// (hash(round_number))       $pk \in \mathbb{G}_2$ is the public key, read from the input public
-/// parameters
-pub struct QuicknetVerifier;
-
-impl Verifier for QuicknetVerifier {
-    fn verify(beacon_config: BeaconConfiguration, pulse: Pulse) -> Result<bool, String> {
-        // decode public key (pk)
-        let pk =
-            ArkScale::<G2AffineOpt>::decode(&mut beacon_config.public_key.into_inner().as_slice())
-                .map_err(|e| format!("Failed to decode public key: {}", e))?;
-
-        // decode signature (sigma)
-        let signature =
-            ArkScale::<G1AffineOpt>::decode(&mut pulse.signature.into_inner().as_slice())
-                .map_err(|e| format!("Failed to decode signature: {}", e))?;
-
-        // m = sha256({}{round})
-        let message = message(pulse.round, &vec![]);
-        let hasher = <TinyBLS381 as EngineBLS>::hash_to_curve_map();
-        // H(m) \in G1
-        let message_hash = hasher
-            .hash(&message)
-            .map_err(|e| format!("Failed to hash message: {}", e))?;
-
-        let mut bytes = Vec::new();
-        message_hash
-            .serialize_compressed(&mut bytes)
-            .map_err(|e| format!("Failed to serialize message hash: {}", e))?;
-
-        let message_on_curve = ArkScale::<G1AffineOpt>::decode(&mut &bytes[..])
-            .map_err(|e| format!("Failed to decode message on curve: {}", e))?;
-
-        let g2 = G2AffineOpt::generator();
-
-        let p1 = bls12_381::pairing_opt(-signature.0, g2);
-        let p2 = bls12_381::pairing_opt(message_on_curve.0, pk.0);
-
-        Ok(p1 == p2)
-    }
-}
-
-pub struct UnsafeSkipVerifier;
-
-impl Verifier for UnsafeSkipVerifier {
-    fn verify(_beacon_config: BeaconConfiguration, _pulse: Pulse) -> Result<bool, String> {
-        Ok(true)
-    }
-}
-
 impl<T: Config> Randomness<T::Hash, BlockNumberFor<T>> for Pallet<T> {
     // this function hashes together the subject with the latest known randomness from quicknet
     fn random(subject: &[u8]) -> (T::Hash, BlockNumberFor<T>) {
-        let block_number_minus_one = <frame_system::Pallet<T>>::block_number() - One::one();
+        let block_number_minus_one =
+            <frame_system::Pallet<T>>::block_number().saturating_sub(One::one());
+
+        let last_stored_round = LastStoredRound::<T>::get();
 
         let mut entropy = T::Hash::default();
-        if let Some(pulse) = Pulses::<T>::get(block_number_minus_one) {
+        if let Some(pulse) = Pulses::<T>::get(last_stored_round) {
             entropy = (subject, block_number_minus_one, pulse.randomness.clone())
                 .using_encoded(T::Hashing::hash);
         }

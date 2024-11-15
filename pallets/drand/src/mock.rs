@@ -1,4 +1,5 @@
 use crate as pallet_drand_bridge;
+use crate::verifier::*;
 use crate::*;
 use frame_support::{
     derive_impl, parameter_types,
@@ -18,8 +19,8 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
     pub enum Test
     {
-        System: frame_system,
-        Drand: pallet_drand_bridge,
+        System: frame_system = 1,
+        Drand: pallet_drand_bridge = 2,
     }
 );
 
@@ -88,7 +89,12 @@ impl pallet_drand_bridge::Config for Test {
     type AuthorityId = crypto::TestAuthId;
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = pallet_drand_bridge::weights::SubstrateWeight<Test>;
+
+    #[cfg(feature = "mainnet")]
+    type Verifier = MainnetVerifier;
+    #[cfg(not(feature = "mainnet"))]
     type Verifier = QuicknetVerifier;
+
     type UnsignedPriority = UnsignedPriority;
     type HttpFetchTimeout = ConstU64<1_000>;
 }

@@ -93,7 +93,7 @@ impl pallet_drand::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = pallet_drand::weights::SubstrateWeight<Runtime>;
     type AuthorityId = pallet_drand::crypto::TestAuthId;
-    type Verifier = pallet_drand::QuicknetVerifier;
+    type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;
     type HttpFetchTimeout = ConstU64<1_000>;
 }
@@ -141,7 +141,7 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
         let raw_payload = SignedPayload::new(call.clone(), extra.clone()).ok()?;
         let signature = raw_payload.using_encoded(|payload| S::sign(payload, public))?;
 
-        let signature_payload = (address, signature.into(), extra);
+        let signature_payload = (address, signature, extra);
 
         Some((call, signature_payload))
     }
@@ -220,7 +220,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 208,
+    spec_version: 209,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -703,6 +703,7 @@ pub enum ProxyType {
     Transfer,
     SmallTransfer,
     RootWeights,
+    ChildKeys,
     SudoUncheckedSetCode,
 }
 // Transfers below SMALL_TRANSFER_LIMIT are considered small transfers
@@ -724,6 +725,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::schedule_swap_coldkey { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey { .. })
             ),
             ProxyType::Transfer => matches!(
                 c,
@@ -775,6 +780,13 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
             ProxyType::RootWeights => matches!(
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_root_weights { .. })
+            ),
+            ProxyType::ChildKeys => matches!(
+                c,
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_children { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::set_childkey_take { .. }
+                    )
             ),
             ProxyType::SudoUncheckedSetCode => match c {
                 RuntimeCall::Sudo(pallet_sudo::Call::sudo_unchecked_weight { call, weight: _ }) => {
