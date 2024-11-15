@@ -1,10 +1,9 @@
 use frame_system::RawOrigin;
 use pallet_evm::{
-    BalanceConverter, ExitError, ExitSucceed, PrecompileFailure, PrecompileHandle,
-    PrecompileOutput, PrecompileResult,
+    ExitError, ExitSucceed, PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult,
 };
 use sp_core::U256;
-use sp_runtime::traits::{Dispatchable, UniqueSaturatedInto};
+use sp_runtime::traits::Dispatchable;
 use sp_std::vec;
 
 use crate::{Balance, Runtime, RuntimeCall};
@@ -25,29 +24,10 @@ impl BalanceTransferPrecompile {
             // Forward all received value to the destination address
             let amount: U256 = handle.context().apparent_value;
 
-            // Precision adjustment factor: 18 (EVM) - 9 (TAO)
-            const PRECISION_FACTOR: u128 = 1_000_000_000; // 10^9
-
-            // Calculate remainder to detect precision loss
-            let remainder = amount % U256::from(PRECISION_FACTOR);
-            if remainder > U256::zero() {
-                log::warn!(
-                    "Precision loss detected during transfer: lost {:?} wei",
-                    remainder
-                );
-            }
-
-            // Adjust `amount` to substrate balance type
-            let amount_sub: Balance =
-                (amount / U256::from(PRECISION_FACTOR))
-                    .try_into()
-                    .map_err(|_| {
-                        log::error!(
-                            "Failed to convert amount {:?} to substrate balance type",
-                            amount
-                        );
-                        ExitError::OutOfFund
-                    })?;
+            // Use BalanceConverter to convert EVM amount to Substrate balance
+            let amount_sub =
+                <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
+                    .ok_or_else(|| ExitError::OutOfFund)?;
 
             if amount_sub == 0 {
                 return Ok(PrecompileOutput {
