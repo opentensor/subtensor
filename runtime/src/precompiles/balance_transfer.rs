@@ -25,6 +25,19 @@ impl BalanceTransferPrecompile {
             // Forward all received value to the destination address
             let amount: U256 = handle.context().apparent_value;
 
+            // Define precision adjustment (e.g., 18 decimals for EVM)
+            const PRECISION: u32 = 18;
+
+            // Adjust `amount` to fit within substrate `Balance` type (u64)
+            let amount_sub: <Runtime as pallet_evm::Config>::Balance = {
+                // Divide `amount` by 10^(18 - N) where N is substrate precision (e.g., 12)
+                let adjusted_amount = amount
+                    / U256::exp10(PRECISION - <Runtime as pallet_evm::Config>::BalancePrecision);
+                adjusted_amount
+                    .try_into()
+                    .map_err(|_| ExitError::OutOfFund)? // Ensure it fits in `Balance`
+            };
+
             // This is hardcoded hashed address mapping of
             // 0x0000000000000000000000000000000000000800 to ss58 public key
             // i.e. the contract sends funds it received to the destination address
@@ -37,14 +50,11 @@ impl BalanceTransferPrecompile {
             let address_bytes_dst: &[u8] = get_slice(txdata, 4, 36)?;
             let account_id_src = bytes_to_account_id(&address_bytes_src)?;
             let account_id_dst = bytes_to_account_id(address_bytes_dst)?;
-            let amount_sub =
-                <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
-                    .ok_or(ExitError::OutOfFund)?;
 
             let call =
                 RuntimeCall::Balances(pallet_balances::Call::<Runtime>::transfer_allow_death {
                     dest: account_id_dst.into(),
-                    value: amount_sub.unique_saturated_into(),
+                    value: amount_sub,
                 });
 
             let result = call.dispatch(RawOrigin::Signed(account_id_src).into());
