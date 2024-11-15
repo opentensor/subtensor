@@ -1,12 +1,13 @@
 use frame_system::RawOrigin;
 use pallet_evm::{
-    ExitError, ExitSucceed, PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult,
+    BalanceConverter, ExitError, ExitSucceed, PrecompileFailure, PrecompileHandle,
+    PrecompileOutput, PrecompileResult,
 };
 use sp_core::U256;
 use sp_runtime::traits::Dispatchable;
 use sp_std::vec;
 
-use crate::{Balance, Runtime, RuntimeCall};
+use crate::{Runtime, RuntimeCall};
 
 use crate::precompiles::{bytes_to_account_id, get_method_id, get_slice};
 
@@ -29,7 +30,7 @@ impl BalanceTransferPrecompile {
                 <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
                     .ok_or_else(|| ExitError::OutOfFund)?;
 
-            if amount_sub == 0 {
+            if amount_sub.is_zero() {
                 return Ok(PrecompileOutput {
                     exit_status: ExitSucceed::Returned,
                     output: vec![],
@@ -52,7 +53,7 @@ impl BalanceTransferPrecompile {
             let call =
                 RuntimeCall::Balances(pallet_balances::Call::<Runtime>::transfer_allow_death {
                     dest: account_id_dst.into(),
-                    value: amount_sub,
+                    value: amount_sub.unique_saturated_into(),
                 });
 
             // Dispatch the call

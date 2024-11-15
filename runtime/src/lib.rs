@@ -1119,7 +1119,6 @@ parameter_types! {
 const EVM_DECIMALS_FACTOR: u64 = 1_000_000_000_u64;
 
 pub struct SubtensorEvmBalanceConverter;
-pub struct SubtensorEvmBalanceConverter;
 
 impl BalanceConverter for SubtensorEvmBalanceConverter {
     /// Convert from Substrate balance to EVM balance
