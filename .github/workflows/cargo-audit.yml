@@ -30,11 +30,6 @@ jobs:
           components: rustfmt, clippy
           profile: minimal
 
-      - name: Utilize Shared Rust Cache
-        uses: Swatinem/rust-cache@v2.2.1
-        with:
-          key: ubuntu-latest-${{ env.RUST_BIN_DIR }}
-
       - name: Install cargo-audit
         run: cargo install --version 0.20.1 --force cargo-audit
 
