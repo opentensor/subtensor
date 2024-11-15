@@ -19,7 +19,7 @@ use std::{sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
 
 use crate::cli::Sealing;
-use crate::client::{FullBackend, FullClient};
+use crate::client::{FullBackend, FullClient, HostFunctions, RuntimeExecutor};
 use crate::ethereum::{
     db_config_dir, new_frontier_partial, spawn_frontier_tasks, BackendType, EthConfiguration,
     FrontierBackend, FrontierBlockImport, FrontierPartialComponents, StorageOverride,
