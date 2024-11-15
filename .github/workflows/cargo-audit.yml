@@ -23,13 +23,6 @@ jobs:
           sudo apt-get update &&
           sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
 
-      - name: Install Rust Stable
-        uses: actions-rs/toolchain@v1.0.6
-        with:
-          toolchain: stable
-          components: rustfmt, clippy
-          profile: minimal
-
       - name: Install cargo-audit
         run: cargo install --version 0.20.1 --force cargo-audit
 
