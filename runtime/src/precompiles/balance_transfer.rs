@@ -28,7 +28,7 @@ impl BalanceTransferPrecompile {
             // Use BalanceConverter to convert EVM amount to Substrate balance
             let amount_sub =
                 <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
-                    .ok_or_else(|| ExitError::OutOfFund)?;
+                    .ok_or(ExitError::OutOfFund)?;
 
             if amount_sub.is_zero() {
                 return Ok(PrecompileOutput {
