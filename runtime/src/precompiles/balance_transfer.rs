@@ -42,7 +42,7 @@ impl BalanceTransferPrecompile {
                 (amount / U256::from(PRECISION_FACTOR))
                     .try_into()
                     .map_err(|_| {
-                        tracing::error!(
+                        log::error!(
                             "Failed to convert amount {:?} to substrate balance type",
                             amount
                         );
