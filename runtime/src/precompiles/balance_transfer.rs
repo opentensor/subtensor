@@ -7,7 +7,7 @@ use sp_core::U256;
 use sp_runtime::traits::{Dispatchable, UniqueSaturatedInto};
 use sp_std::vec;
 
-use crate::{Runtime, RuntimeCall};
+use crate::{Balance, Runtime, RuntimeCall};
 
 use crate::precompiles::{bytes_to_account_id, get_method_id, get_slice};
 
