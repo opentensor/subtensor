@@ -31,7 +31,7 @@ impl BalanceTransferPrecompile {
             // Calculate remainder to detect precision loss
             let remainder = amount % U256::from(PRECISION_FACTOR);
             if remainder > U256::zero() {
-                tracing::warn!(
+                log::warn!(
                     "Precision loss detected during transfer: lost {:?} wei",
                     remainder
                 );
@@ -42,7 +42,7 @@ impl BalanceTransferPrecompile {
                 / U256::from(PRECISION_FACTOR))
             .try_into()
             .map_err(|_| {
-                tracing::error!(
+                log::error!(
                     "Failed to convert amount {:?} to substrate balance type",
                     amount
                 );
