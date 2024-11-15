@@ -25,30 +25,48 @@ impl BalanceTransferPrecompile {
             // Forward all received value to the destination address
             let amount: U256 = handle.context().apparent_value;
 
-            // Define precision adjustment (e.g., 18 decimals for EVM)
-            const PRECISION: u32 = 18;
+            // Precision adjustment factor: 18 (EVM) - 9 (TAO)
+            const PRECISION_FACTOR: u128 = 1_000_000_000; // 10^9
 
-            // Adjust `amount` to fit within substrate `Balance` type (u64)
-            let amount_sub: <Runtime as pallet_evm::Config>::Balance = {
-                // Divide `amount` by 10^(18 - N) where N is substrate precision (e.g., 12)
-                let adjusted_amount = amount
-                    / U256::exp10(PRECISION - <Runtime as pallet_evm::Config>::BalancePrecision);
-                adjusted_amount
-                    .try_into()
-                    .map_err(|_| ExitError::OutOfFund)? // Ensure it fits in `Balance`
-            };
+            // Calculate remainder to detect precision loss
+            let remainder = amount % U256::from(PRECISION_FACTOR);
+            if remainder > U256::zero() {
+                tracing::warn!(
+                    "Precision loss detected during transfer: lost {:?} wei",
+                    remainder
+                );
+            }
 
-            // This is hardcoded hashed address mapping of
-            // 0x0000000000000000000000000000000000000800 to ss58 public key
-            // i.e. the contract sends funds it received to the destination address
-            // from the method parameter
-            let address_bytes_src: [u8; 32] = [
+            // Adjust `amount` to substrate balance type
+            let amount_sub: <Runtime as pallet_evm::Config>::Balance = (amount
+                / U256::from(PRECISION_FACTOR))
+            .try_into()
+            .map_err(|_| {
+                tracing::error!(
+                    "Failed to convert amount {:?} to substrate balance type",
+                    amount
+                );
+                ExitError::OutOfFund
+            })?;
+
+            if amount_sub == 0 {
+                return Ok(PrecompileOutput {
+                    exit_status: ExitSucceed::Returned,
+                    output: vec![],
+                });
+            }
+
+            // This is a hardcoded hashed address mapping of
+            // 0x0000000000000000000000000000000000000800 to an ss58 public key
+            // i.e., the contract sends funds it received to the destination address
+            // from the method parameter.
+            const ADDRESS_BYTES_SRC: [u8; 32] = [
                 0x07, 0xec, 0x71, 0x2a, 0x5d, 0x38, 0x43, 0x4d, 0xdd, 0x03, 0x3f, 0x8f, 0x02, 0x4e,
                 0xcd, 0xfc, 0x4b, 0xb5, 0x95, 0x1c, 0x13, 0xc3, 0x08, 0x5c, 0x39, 0x9c, 0x8a, 0x5f,
                 0x62, 0x93, 0x70, 0x5d,
             ];
             let address_bytes_dst: &[u8] = get_slice(txdata, 4, 36)?;
-            let account_id_src = bytes_to_account_id(&address_bytes_src)?;
+            let account_id_src = bytes_to_account_id(&ADDRESS_BYTES_SRC)?;
             let account_id_dst = bytes_to_account_id(address_bytes_dst)?;
 
             let call =
@@ -57,6 +75,7 @@ impl BalanceTransferPrecompile {
                     value: amount_sub,
                 });
 
+            // Dispatch the call
             let result = call.dispatch(RawOrigin::Signed(account_id_src).into());
             if result.is_err() {
                 return Err(PrecompileFailure::Error {
