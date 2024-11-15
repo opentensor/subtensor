@@ -36,7 +36,7 @@ jobs:
           key: ubuntu-latest-${{ env.RUST_BIN_DIR }}
 
       - name: Install cargo-audit
-        run: cargo install --version 0.20.1 cargo-audit
+        run: cargo install --version 0.20.1 --force cargo-audit
 
       - name: cargo audit
         run: cargo audit --ignore RUSTSEC-2024-0336 # rustls issue; wait for upstream to resolve this
