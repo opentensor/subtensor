@@ -184,7 +184,7 @@ pub mod pallet {
     #[pallet::storage]
     pub type BeaconConfig<T: Config> = StorageValue<_, BeaconConfiguration, OptionQuery>;
 
-    /// map block number to round number of pulse authored during that block
+    /// map round number to pulse
     #[pallet::storage]
     pub type Pulses<T: Config> = StorageMap<_, Blake2_128Concat, RoundNumber, Pulse, OptionQuery>;
 
