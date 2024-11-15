@@ -4,7 +4,7 @@ use pallet_evm::{
     PrecompileOutput, PrecompileResult,
 };
 use sp_core::U256;
-use sp_runtime::traits::Dispatchable;
+use sp_runtime::traits::{Dispatchable, UniqueSaturatedInto};
 use sp_std::vec;
 
 use crate::{Runtime, RuntimeCall};
