@@ -796,6 +796,16 @@ pub mod pallet {
         DefaultAccumulatedEmission<T>,
     >;
     #[pallet::storage]
+    /// Map ( hot ) --> emission | Part of accumulated hotkey emission that will not be distributed to nominators.
+    pub type PendingdHotkeyEmissionUntouchable<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        u64,
+        ValueQuery,
+        DefaultAccumulatedEmission<T>,
+    >;
+    #[pallet::storage]
     /// Map ( hot, cold ) --> stake: i128 | Stake added/removed since last emission drain.
     pub type StakeDeltaSinceLastEmissionDrain<T: Config> = StorageDoubleMap<
         _,
