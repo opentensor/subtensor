@@ -38,16 +38,16 @@ impl BalanceTransferPrecompile {
             }
 
             // Adjust `amount` to substrate balance type
-            let amount_sub: <Runtime as pallet_evm::Config>::Balance = (amount
-                / U256::from(PRECISION_FACTOR))
-            .try_into()
-            .map_err(|_| {
-                log::error!(
-                    "Failed to convert amount {:?} to substrate balance type",
-                    amount
-                );
-                ExitError::OutOfFund
-            })?;
+            let amount_sub: Balance =
+                (amount / U256::from(PRECISION_FACTOR))
+                    .try_into()
+                    .map_err(|_| {
+                        tracing::error!(
+                            "Failed to convert amount {:?} to substrate balance type",
+                            amount
+                        );
+                        ExitError::OutOfFund
+                    })?;
 
             if amount_sub == 0 {
                 return Ok(PrecompileOutput {
