@@ -1119,18 +1119,28 @@ parameter_types! {
 const EVM_DECIMALS_FACTOR: u64 = 1_000_000_000_u64;
 
 pub struct SubtensorEvmBalanceConverter;
+pub struct SubtensorEvmBalanceConverter;
+
 impl BalanceConverter for SubtensorEvmBalanceConverter {
+    /// Convert from Substrate balance to EVM balance
     fn into_evm_balance(value: U256) -> Option<U256> {
-        U256::from(UniqueSaturatedInto::<u128>::unique_saturated_into(value))
-            .checked_mul(U256::from(EVM_DECIMALS_FACTOR))
+        // Scale up by EVM_DECIMALS_FACTOR, ensuring no overflow
+        value.checked_mul(U256::from(EVM_DECIMALS_FACTOR))
     }
 
+    /// Convert from EVM balance to Substrate balance
     fn into_substrate_balance(value: U256) -> Option<U256> {
-        if value <= U256::from(u64::MAX) {
-            value.checked_div(U256::from(EVM_DECIMALS_FACTOR))
-        } else {
-            None
-        }
+        // Scale down by EVM_DECIMALS_FACTOR, truncating precision safely
+        value
+            .checked_div(U256::from(EVM_DECIMALS_FACTOR))
+            .and_then(|substrate_value| {
+                // Ensure the result fits in Substrate's Balance type (u128)
+                if substrate_value <= U256::from(u128::MAX) {
+                    Some(substrate_value)
+                } else {
+                    None
+                }
+            })
     }
 }
 
