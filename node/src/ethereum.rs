@@ -1,30 +1,23 @@
-use crate::rpc::EthDeps;
+pub use fc_consensus::FrontierBlockImport;
 use fc_rpc::{
     pending::AuraConsensusDataProvider, Debug, DebugApiServer, Eth, EthApiServer, EthConfig,
     EthDevSigner, EthFilter, EthFilterApiServer, EthPubSub, EthPubSubApiServer, EthSigner, EthTask,
     Net, NetApiServer, Web3, Web3ApiServer,
 };
-use fp_rpc::{ConvertTransaction, ConvertTransactionRuntimeApi, EthereumRuntimeRPCApi};
+pub use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
+/// Frontier DB backend type.
+pub use fc_storage::{StorageOverride, StorageOverrideHandler};
+use fp_rpc::ConvertTransaction;
 use futures::future;
 use futures::StreamExt;
 use jsonrpsee::RpcModule;
-use sc_client_api::{
-    backend::{Backend, StorageProvider},
-    client::BlockchainEvents,
-    AuxStore, UsageProvider,
-};
-use sc_executor::HostFunctions;
+use node_subtensor_runtime::opaque::Block;
+use sc_client_api::client::BlockchainEvents;
 use sc_network_sync::SyncingService;
 use sc_rpc::SubscriptionTaskExecutor;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_transaction_pool::ChainApi;
 use sc_transaction_pool_api::TransactionPool;
-use sp_api::{CallApiAt, ConstructRuntimeApi, ProvideRuntimeApi};
-use sp_block_builder::BlockBuilder as BlockBuilderApi;
-use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_consensus_aura::AuraApi;
-use sp_core::H256;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::Block as BlockT;
 use std::path::PathBuf;
@@ -34,14 +27,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-pub use fc_consensus::FrontierBlockImport;
-pub use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
-/// Frontier DB backend type.
-pub use fc_storage::{StorageOverride, StorageOverrideHandler};
-
 use crate::client::{FullBackend, FullClient};
+use crate::rpc::EthDeps;
 
-pub type FrontierBackend<B, C> = fc_db::Backend<B, C>;
+pub type FrontierBackend = fc_db::Backend<Block, FullClient>;
 
 /// Avalailable frontier backend types.
 #[derive(Debug, Copy, Clone, Default, clap::ValueEnum)]
@@ -126,46 +115,23 @@ pub fn new_frontier_partial(
     })
 }
 
-/// A set of APIs that ethereum-compatible runtimes must implement.
-pub trait EthCompatRuntimeApiCollection<Block: BlockT>:
-    sp_api::ApiExt<Block>
-    + fp_rpc::ConvertTransactionRuntimeApi<Block>
-    + fp_rpc::EthereumRuntimeRPCApi<Block>
-{
-}
-
-impl<Block, Api> EthCompatRuntimeApiCollection<Block> for Api
-where
-    Block: BlockT,
-    Api: sp_api::ApiExt<Block>
-        + fp_rpc::ConvertTransactionRuntimeApi<Block>
-        + fp_rpc::EthereumRuntimeRPCApi<Block>,
-{
-}
-
 #[allow(clippy::too_many_arguments)]
-pub async fn spawn_frontier_tasks<B, RA, HF>(
+pub async fn spawn_frontier_tasks(
     task_manager: &TaskManager,
-    client: Arc<FullClient<B, RA, HF>>,
-    backend: Arc<FullBackend<B>>,
-    frontier_backend: Arc<FrontierBackend<B, FullClient<B, RA, HF>>>,
+    client: Arc<FullClient>,
+    backend: Arc<FullBackend>,
+    frontier_backend: Arc<FrontierBackend>,
     filter_pool: Option<FilterPool>,
-    storage_override: Arc<dyn StorageOverride<B>>,
+    storage_override: Arc<dyn StorageOverride<Block>>,
     fee_history_cache: FeeHistoryCache,
     fee_history_cache_limit: FeeHistoryCacheLimit,
-    sync: Arc<SyncingService<B>>,
+    sync: Arc<SyncingService<Block>>,
     pubsub_notification_sinks: Arc<
         fc_mapping_sync::EthereumBlockNotificationSinks<
-            fc_mapping_sync::EthereumBlockNotification<B>,
+            fc_mapping_sync::EthereumBlockNotification<Block>,
         >,
     >,
-) where
-    B: BlockT<Hash = H256>,
-    RA: ConstructRuntimeApi<B, FullClient<B, RA, HF>>,
-    RA: Send + Sync + 'static,
-    RA::RuntimeApi: EthCompatRuntimeApiCollection<B>,
-    HF: HostFunctions + 'static,
-{
+) {
     // Spawn main mapping sync worker background task.
     match &*frontier_backend {
         fc_db::Backend::KeyValue(b) => {
@@ -180,7 +146,7 @@ pub async fn spawn_frontier_tasks<B, RA, HF>(
                     storage_override.clone(),
                     b.clone(),
                     3,
-                    0u32.into(),
+                    0u32,
                     fc_mapping_sync::SyncStrategy::Normal,
                     sync,
                     pubsub_notification_sinks,
@@ -233,25 +199,16 @@ pub async fn spawn_frontier_tasks<B, RA, HF>(
     );
 }
 
-fn extend_rpc_aet_api<B, C, BE, P, A, CT, CIDP, EC>(
+fn extend_rpc_aet_api<P, A, CT, CIDP, EC>(
     io: &mut RpcModule<()>,
-    deps: &EthDeps<B, C, P, A, CT, CIDP>,
+    deps: &EthDeps<P, A, CT, CIDP>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
-    B: BlockT<Hash = H256>,
-    C: CallApiAt<B> + ProvideRuntimeApi<B>,
-    C::Api: AuraApi<B, AuraId>
-        + BlockBuilderApi<B>
-        + ConvertTransactionRuntimeApi<B>
-        + EthereumRuntimeRPCApi<B>,
-    C: HeaderBackend<B> + HeaderMetadata<B, Error = BlockChainError>,
-    C: BlockchainEvents<B> + AuxStore + UsageProvider<B> + StorageProvider<B, BE> + 'static,
-    BE: Backend<B> + 'static,
-    P: TransactionPool<Block = B> + 'static,
-    A: ChainApi<Block = B> + 'static,
-    CT: ConvertTransaction<<B as BlockT>::Extrinsic> + Send + Sync + Clone + 'static,
-    CIDP: CreateInherentDataProviders<B, ()> + Send + Clone + 'static,
-    EC: EthConfig<B, C>,
+    P: TransactionPool<Block = Block> + 'static,
+    A: ChainApi<Block = Block> + 'static,
+    CT: ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + Clone + 'static,
+    CIDP: CreateInherentDataProviders<Block, ()> + Send + Clone + 'static,
+    EC: EthConfig<Block, FullClient>,
 {
     let mut signers = Vec::new();
     if deps.enable_dev_signer {
@@ -259,7 +216,7 @@ where
     }
 
     io.merge(
-        Eth::<B, C, P, CT, BE, A, CIDP, EC>::new(
+        Eth::<Block, FullClient, P, CT, FullBackend, A, CIDP, EC>::new(
             deps.client.clone(),
             deps.pool.clone(),
             deps.graph.clone(),
@@ -285,24 +242,15 @@ where
     Ok(())
 }
 
-fn extend_rpc_eth_filter<B, C, BE, P, A, CT, CIDP>(
+fn extend_rpc_eth_filter<P, A, CT, CIDP>(
     io: &mut RpcModule<()>,
-    deps: &EthDeps<B, C, P, A, CT, CIDP>,
+    deps: &EthDeps<P, A, CT, CIDP>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
-    B: BlockT<Hash = H256>,
-    C: CallApiAt<B> + ProvideRuntimeApi<B>,
-    C::Api: AuraApi<B, AuraId>
-        + BlockBuilderApi<B>
-        + ConvertTransactionRuntimeApi<B>
-        + EthereumRuntimeRPCApi<B>,
-    C: HeaderBackend<B> + HeaderMetadata<B, Error = BlockChainError>,
-    C: BlockchainEvents<B> + AuxStore + UsageProvider<B> + StorageProvider<B, BE> + 'static,
-    BE: Backend<B> + 'static,
-    P: TransactionPool<Block = B> + 'static,
-    A: ChainApi<Block = B> + 'static,
-    CT: ConvertTransaction<<B as BlockT>::Extrinsic> + Send + Sync + Clone + 'static,
-    CIDP: CreateInherentDataProviders<B, ()> + Send + Clone + 'static,
+    P: TransactionPool<Block = Block> + 'static,
+    A: ChainApi<Block = Block> + 'static,
+    CT: ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + Clone + 'static,
+    CIDP: CreateInherentDataProviders<Block, ()> + Send + Clone + 'static,
 {
     if let Some(filter_pool) = deps.filter_pool.clone() {
         io.merge(
@@ -322,30 +270,21 @@ where
 }
 
 // Function for EthPubSub merge
-fn extend_rpc_eth_pubsub<B, C, BE, P, A, CT, CIDP>(
+fn extend_rpc_eth_pubsub<P, A, CT, CIDP>(
     io: &mut RpcModule<()>,
-    deps: &EthDeps<B, C, P, A, CT, CIDP>,
+    deps: &EthDeps<P, A, CT, CIDP>,
     subscription_task_executor: SubscriptionTaskExecutor,
     pubsub_notification_sinks: Arc<
         fc_mapping_sync::EthereumBlockNotificationSinks<
-            fc_mapping_sync::EthereumBlockNotification<B>,
+            fc_mapping_sync::EthereumBlockNotification<Block>,
         >,
     >,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
-    B: BlockT<Hash = H256>,
-    C: CallApiAt<B> + ProvideRuntimeApi<B>,
-    C::Api: AuraApi<B, AuraId>
-        + BlockBuilderApi<B>
-        + ConvertTransactionRuntimeApi<B>
-        + EthereumRuntimeRPCApi<B>,
-    C: HeaderBackend<B> + HeaderMetadata<B, Error = BlockChainError>,
-    C: BlockchainEvents<B> + AuxStore + UsageProvider<B> + StorageProvider<B, BE> + 'static,
-    BE: Backend<B> + 'static,
-    P: TransactionPool<Block = B> + 'static,
-    A: ChainApi<Block = B> + 'static,
-    CT: ConvertTransaction<<B as BlockT>::Extrinsic> + Send + Sync + 'static,
-    CIDP: CreateInherentDataProviders<B, ()> + Send + 'static,
+    P: TransactionPool<Block = Block> + 'static,
+    A: ChainApi<Block = Block> + 'static,
+    CT: ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + 'static,
+    CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
 {
     io.merge(
         EthPubSub::new(
@@ -361,24 +300,15 @@ where
     Ok(())
 }
 
-fn extend_rpc_net<B, C, BE, P, A, CT, CIDP>(
+fn extend_rpc_net<P, A, CT, CIDP>(
     io: &mut RpcModule<()>,
-    deps: &EthDeps<B, C, P, A, CT, CIDP>,
+    deps: &EthDeps<P, A, CT, CIDP>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
-    B: BlockT<Hash = H256>,
-    C: CallApiAt<B> + ProvideRuntimeApi<B>,
-    C::Api: AuraApi<B, AuraId>
-        + BlockBuilderApi<B>
-        + ConvertTransactionRuntimeApi<B>
-        + EthereumRuntimeRPCApi<B>,
-    C: HeaderBackend<B> + HeaderMetadata<B, Error = BlockChainError>,
-    C: BlockchainEvents<B> + AuxStore + UsageProvider<B> + StorageProvider<B, BE> + 'static,
-    BE: Backend<B> + 'static,
-    P: TransactionPool<Block = B> + 'static,
-    A: ChainApi<Block = B> + 'static,
-    CT: ConvertTransaction<<B as BlockT>::Extrinsic> + Send + Sync + 'static,
-    CIDP: CreateInherentDataProviders<B, ()> + Send + 'static,
+    P: TransactionPool<Block = Block> + 'static,
+    A: ChainApi<Block = Block> + 'static,
+    CT: ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + 'static,
+    CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
 {
     io.merge(
         Net::new(
@@ -391,47 +321,29 @@ where
     Ok(())
 }
 
-fn extend_rpc_web3<B, C, BE, P, A, CT, CIDP>(
+fn extend_rpc_web3<P, A, CT, CIDP>(
     io: &mut RpcModule<()>,
-    deps: &EthDeps<B, C, P, A, CT, CIDP>,
+    deps: &EthDeps<P, A, CT, CIDP>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
-    B: BlockT<Hash = H256>,
-    C: CallApiAt<B> + ProvideRuntimeApi<B>,
-    C::Api: AuraApi<B, AuraId>
-        + BlockBuilderApi<B>
-        + ConvertTransactionRuntimeApi<B>
-        + EthereumRuntimeRPCApi<B>,
-    C: HeaderBackend<B> + HeaderMetadata<B, Error = BlockChainError>,
-    C: BlockchainEvents<B> + AuxStore + UsageProvider<B> + StorageProvider<B, BE> + 'static,
-    BE: Backend<B> + 'static,
-    P: TransactionPool<Block = B> + 'static,
-    A: ChainApi<Block = B> + 'static,
-    CT: ConvertTransaction<<B as BlockT>::Extrinsic> + Send + Sync + 'static,
-    CIDP: CreateInherentDataProviders<B, ()> + Send + 'static,
+    P: TransactionPool<Block = Block> + 'static,
+    A: ChainApi<Block = Block> + 'static,
+    CT: ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + 'static,
+    CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
 {
     io.merge(Web3::new(deps.client.clone()).into_rpc())?;
     Ok(())
 }
 
-fn extend_rpc_debug<B, C, BE, P, A, CT, CIDP>(
+fn extend_rpc_debug<P, A, CT, CIDP>(
     io: &mut RpcModule<()>,
-    deps: &EthDeps<B, C, P, A, CT, CIDP>,
+    deps: &EthDeps<P, A, CT, CIDP>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
-    B: BlockT<Hash = H256>,
-    C: CallApiAt<B> + ProvideRuntimeApi<B>,
-    C::Api: AuraApi<B, AuraId>
-        + BlockBuilderApi<B>
-        + ConvertTransactionRuntimeApi<B>
-        + EthereumRuntimeRPCApi<B>,
-    C: HeaderBackend<B> + HeaderMetadata<B, Error = BlockChainError>,
-    C: BlockchainEvents<B> + AuxStore + UsageProvider<B> + StorageProvider<B, BE> + 'static,
-    BE: Backend<B> + 'static,
-    P: TransactionPool<Block = B> + 'static,
-    A: ChainApi<Block = B> + 'static,
-    CT: ConvertTransaction<<B as BlockT>::Extrinsic> + Send + Sync + 'static,
-    CIDP: CreateInherentDataProviders<B, ()> + Send + 'static,
+    P: TransactionPool<Block = Block> + 'static,
+    A: ChainApi<Block = Block> + 'static,
+    CT: ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + 'static,
+    CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
 {
     io.merge(
         Debug::new(
@@ -446,43 +358,34 @@ where
 }
 
 /// Extend RpcModule with Eth RPCs
-pub fn create_eth<B, C, BE, P, A, CT, CIDP, EC>(
+pub fn create_eth<P, A, CT, CIDP, EC>(
     mut io: RpcModule<()>,
-    deps: EthDeps<B, C, P, A, CT, CIDP>,
+    deps: EthDeps<P, A, CT, CIDP>,
     subscription_task_executor: SubscriptionTaskExecutor,
     pubsub_notification_sinks: Arc<
         fc_mapping_sync::EthereumBlockNotificationSinks<
-            fc_mapping_sync::EthereumBlockNotification<B>,
+            fc_mapping_sync::EthereumBlockNotification<Block>,
         >,
     >,
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
-    B: BlockT<Hash = H256>,
-    C: CallApiAt<B> + ProvideRuntimeApi<B>,
-    C::Api: AuraApi<B, AuraId>
-        + BlockBuilderApi<B>
-        + ConvertTransactionRuntimeApi<B>
-        + EthereumRuntimeRPCApi<B>,
-    C: HeaderBackend<B> + HeaderMetadata<B, Error = BlockChainError>,
-    C: BlockchainEvents<B> + AuxStore + UsageProvider<B> + StorageProvider<B, BE> + 'static,
-    BE: Backend<B> + 'static,
-    P: TransactionPool<Block = B> + 'static,
-    A: ChainApi<Block = B> + 'static,
-    CT: ConvertTransaction<<B as BlockT>::Extrinsic> + Send + Sync + Clone + 'static,
-    CIDP: CreateInherentDataProviders<B, ()> + Send + Clone + 'static,
-    EC: EthConfig<B, C>,
+    P: TransactionPool<Block = Block> + 'static,
+    A: ChainApi<Block = Block> + 'static,
+    CT: ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + Clone + 'static,
+    CIDP: CreateInherentDataProviders<Block, ()> + Send + Clone + 'static,
+    EC: EthConfig<Block, FullClient>,
 {
-    extend_rpc_aet_api::<B, C, BE, P, A, CT, CIDP, EC>(&mut io, &deps)?;
-    extend_rpc_eth_filter::<B, C, BE, P, A, CT, CIDP>(&mut io, &deps)?;
-    extend_rpc_eth_pubsub::<B, C, BE, P, A, CT, CIDP>(
+    extend_rpc_aet_api::<P, A, CT, CIDP, EC>(&mut io, &deps)?;
+    extend_rpc_eth_filter::<P, A, CT, CIDP>(&mut io, &deps)?;
+    extend_rpc_eth_pubsub::<P, A, CT, CIDP>(
         &mut io,
         &deps,
         subscription_task_executor,
         pubsub_notification_sinks,
     )?;
-    extend_rpc_net::<B, C, BE, P, A, CT, CIDP>(&mut io, &deps)?;
-    extend_rpc_web3::<B, C, BE, P, A, CT, CIDP>(&mut io, &deps)?;
-    extend_rpc_debug::<B, C, BE, P, A, CT, CIDP>(&mut io, &deps)?;
+    extend_rpc_net::<P, A, CT, CIDP>(&mut io, &deps)?;
+    extend_rpc_web3::<P, A, CT, CIDP>(&mut io, &deps)?;
+    extend_rpc_debug::<P, A, CT, CIDP>(&mut io, &deps)?;
 
     Ok(io)
 }
