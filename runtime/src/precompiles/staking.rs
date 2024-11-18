@@ -77,8 +77,6 @@ impl StakingPrecompile {
                 exit_status: ExitError::InvalidRange,
             })?))?;
 
-        // let netuid_u16 = netuid.as_u32();
-
         // Create the add_stake call
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::<Runtime>::add_stake {
             hotkey,
