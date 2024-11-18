@@ -9,34 +9,31 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use futures::channel::mpsc;
 
-use crate::{client::RuntimeApiCollection, ethereum::create_eth};
 pub use fc_rpc::EthBlockDataCacheTask;
 pub use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
 use fc_storage::StorageOverride;
 use jsonrpsee::RpcModule;
-use node_subtensor_runtime::{AccountId, Balance, Hash, Nonce};
-use sc_client_api::{
-    backend::{Backend, StorageProvider},
-    client::BlockchainEvents,
-    AuxStore, UsageProvider,
-};
+use node_subtensor_runtime::opaque::Block;
+use node_subtensor_runtime::Hash;
 use sc_consensus_manual_seal::EngineCommand;
 use sc_network::service::traits::NetworkService;
 use sc_network_sync::SyncingService;
 use sc_rpc::SubscriptionTaskExecutor;
 use sc_transaction_pool::{ChainApi, Pool};
 use sc_transaction_pool_api::TransactionPool;
-use sp_api::{CallApiAt, ProvideRuntimeApi};
-use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::H256;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::Block as BlockT;
 
+use crate::{
+    client::{FullBackend, FullClient},
+    ethereum::create_eth,
+};
+
 /// Extra dependencies for Ethereum compatibility.
-pub struct EthDeps<B: BlockT, C, P, A: ChainApi, CT, CIDP> {
+pub struct EthDeps<P, A: ChainApi, CT, CIDP> {
     /// The client instance to use.
-    pub client: Arc<C>,
+    pub client: Arc<FullClient>,
     /// Transaction pool instance.
     pub pool: Arc<P>,
     /// Graph pool instance.
@@ -50,13 +47,13 @@ pub struct EthDeps<B: BlockT, C, P, A: ChainApi, CT, CIDP> {
     /// Network service
     pub network: Arc<dyn NetworkService>,
     /// Chain syncing service
-    pub sync: Arc<SyncingService<B>>,
+    pub sync: Arc<SyncingService<Block>>,
     /// Frontier Backend.
-    pub frontier_backend: Arc<dyn fc_api::Backend<B>>,
+    pub frontier_backend: Arc<dyn fc_api::Backend<Block>>,
     /// Ethereum data access overrides.
-    pub storage_override: Arc<dyn StorageOverride<B>>,
+    pub storage_override: Arc<dyn StorageOverride<Block>>,
     /// Cache for Ethereum block data.
-    pub block_data_cache: Arc<EthBlockDataCacheTask<B>>,
+    pub block_data_cache: Arc<EthBlockDataCacheTask<Block>>,
     /// EthFilterApi pool.
     pub filter_pool: Option<FilterPool>,
     /// Maximum number of logs in a query.
@@ -75,52 +72,44 @@ pub struct EthDeps<B: BlockT, C, P, A: ChainApi, CT, CIDP> {
 }
 
 /// Default Eth RPC configuration
-pub struct DefaultEthConfig<C, BE>(std::marker::PhantomData<(C, BE)>);
+pub struct DefaultEthConfig;
 
-impl<B, C, BE> fc_rpc::EthConfig<B, C> for DefaultEthConfig<C, BE>
-where
-    B: BlockT,
-    C: StorageProvider<B, BE> + Sync + Send + 'static,
-    BE: Backend<B> + 'static,
-{
+impl fc_rpc::EthConfig<Block, FullClient> for DefaultEthConfig {
     type EstimateGasAdapter = ();
-    type RuntimeStorageOverride =
-        fc_rpc::frontier_backend_client::SystemAccountId20StorageOverride<B, C, BE>;
+    type RuntimeStorageOverride = fc_rpc::frontier_backend_client::SystemAccountId20StorageOverride<
+        Block,
+        FullClient,
+        FullBackend,
+    >;
 }
 
 /// Full client dependencies.
-pub struct FullDeps<B: BlockT, C, P, A: ChainApi, CT, CIDP> {
+pub struct FullDeps<P, A: ChainApi, CT, CIDP> {
     /// The client instance to use.
-    pub client: Arc<C>,
+    pub client: Arc<FullClient>,
     /// Transaction pool instance.
     pub pool: Arc<P>,
     /// Manual seal command sink
     pub command_sink: Option<mpsc::Sender<EngineCommand<Hash>>>,
     /// Ethereum-compatibility specific dependencies.
-    pub eth: EthDeps<B, C, P, A, CT, CIDP>,
+    pub eth: EthDeps<P, A, CT, CIDP>,
 }
 
 /// Instantiate all full RPC extensions.
-pub fn create_full<B, C, P, BE, A, CT, CIDP>(
-    deps: FullDeps<B, C, P, A, CT, CIDP>,
+pub fn create_full<P, A, CT, CIDP>(
+    deps: FullDeps<P, A, CT, CIDP>,
     subscription_task_executor: SubscriptionTaskExecutor,
     pubsub_notification_sinks: Arc<
         fc_mapping_sync::EthereumBlockNotificationSinks<
-            fc_mapping_sync::EthereumBlockNotification<B>,
+            fc_mapping_sync::EthereumBlockNotification<Block>,
         >,
     >,
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
-    B: BlockT<Hash = sp_core::H256>,
-    C: CallApiAt<B> + ProvideRuntimeApi<B>,
-    C::Api: RuntimeApiCollection<B, AuraId, AccountId, Nonce, Balance>,
-    C: HeaderBackend<B> + HeaderMetadata<B, Error = BlockChainError> + 'static,
-    C: BlockchainEvents<B> + AuxStore + UsageProvider<B> + StorageProvider<B, BE>,
-    BE: Backend<B> + 'static,
-    P: TransactionPool<Block = B> + 'static,
-    A: ChainApi<Block = B> + 'static,
-    CIDP: CreateInherentDataProviders<B, ()> + Send + Clone + 'static,
-    CT: fp_rpc::ConvertTransaction<<B as BlockT>::Extrinsic> + Send + Sync + Clone + 'static,
+    P: TransactionPool<Block = Block> + 'static,
+    A: ChainApi<Block = Block> + 'static,
+    CIDP: CreateInherentDataProviders<Block, ()> + Send + Clone + 'static,
+    CT: fp_rpc::ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + Clone + 'static,
 {
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
     use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
@@ -155,7 +144,7 @@ where
     }
 
     // Ethereum compatibility RPCs
-    let module = create_eth::<_, _, _, _, _, _, _, DefaultEthConfig<C, BE>>(
+    let module = create_eth::<_, _, _, _, DefaultEthConfig>(
         module,
         eth,
         subscription_task_executor,

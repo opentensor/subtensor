@@ -25,21 +25,30 @@ impl BalanceTransferPrecompile {
             // Forward all received value to the destination address
             let amount: U256 = handle.context().apparent_value;
 
-            // This is hardcoded hashed address mapping of
-            // 0x0000000000000000000000000000000000000800 to ss58 public key
-            // i.e. the contract sends funds it received to the destination address
-            // from the method parameter
-            let address_bytes_src: [u8; 32] = [
+            // Use BalanceConverter to convert EVM amount to Substrate balance
+            let amount_sub =
+                <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
+                    .ok_or(ExitError::OutOfFund)?;
+
+            if amount_sub.is_zero() {
+                return Ok(PrecompileOutput {
+                    exit_status: ExitSucceed::Returned,
+                    output: vec![],
+                });
+            }
+
+            // This is a hardcoded hashed address mapping of
+            // 0x0000000000000000000000000000000000000800 to an ss58 public key
+            // i.e., the contract sends funds it received to the destination address
+            // from the method parameter.
+            const ADDRESS_BYTES_SRC: [u8; 32] = [
                 0x07, 0xec, 0x71, 0x2a, 0x5d, 0x38, 0x43, 0x4d, 0xdd, 0x03, 0x3f, 0x8f, 0x02, 0x4e,
                 0xcd, 0xfc, 0x4b, 0xb5, 0x95, 0x1c, 0x13, 0xc3, 0x08, 0x5c, 0x39, 0x9c, 0x8a, 0x5f,
                 0x62, 0x93, 0x70, 0x5d,
             ];
             let address_bytes_dst: &[u8] = get_slice(txdata, 4, 36)?;
-            let account_id_src = bytes_to_account_id(&address_bytes_src)?;
+            let account_id_src = bytes_to_account_id(&ADDRESS_BYTES_SRC)?;
             let account_id_dst = bytes_to_account_id(address_bytes_dst)?;
-            let amount_sub =
-                <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
-                    .ok_or(ExitError::OutOfFund)?;
 
             let call =
                 RuntimeCall::Balances(pallet_balances::Call::<Runtime>::transfer_allow_death {
@@ -47,6 +56,7 @@ impl BalanceTransferPrecompile {
                     value: amount_sub.unique_saturated_into(),
                 });
 
+            // Dispatch the call
             let result = call.dispatch(RawOrigin::Signed(account_id_src).into());
             if result.is_err() {
                 return Err(PrecompileFailure::Error {
