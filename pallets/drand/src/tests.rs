@@ -16,7 +16,7 @@
 
 use crate::{
     mock::*, BeaconConfig, BeaconConfigurationPayload, BeaconInfoResponse, Call, DrandResponseBody,
-    Error, Event, Pulse, Pulses, PulsesPayload,
+    Error, Pulse, Pulses, PulsesPayload,
 };
 use codec::Encode;
 use frame_support::{
@@ -122,13 +122,6 @@ fn it_can_submit_valid_pulse_when_beacon_config_exists() {
         let pulse = Pulses::<Test>::get(ROUND_NUMBER);
         assert!(pulse.is_some());
         assert_eq!(pulse, Some(p));
-        // Assert that the correct event was deposited
-        System::assert_last_event(
-            Event::NewPulse {
-                rounds: vec![ROUND_NUMBER],
-            }
-            .into(),
-        );
     });
 }
 
@@ -219,12 +212,6 @@ fn it_rejects_pulses_with_non_incremental_round_numbers() {
         let pulse = Pulses::<Test>::get(ROUND_NUMBER);
         assert!(pulse.is_some());
 
-        System::assert_last_event(
-            Event::NewPulse {
-                rounds: vec![ROUND_NUMBER],
-            }
-            .into(),
-        );
         System::set_block_number(2);
 
         // Attempt to submit the same pulse again, which should fail

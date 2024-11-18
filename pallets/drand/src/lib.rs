@@ -94,7 +94,7 @@ const CHAIN_HASH: &str = MAINNET_CHAIN_HASH;
 #[cfg(not(feature = "mainnet"))]
 const CHAIN_HASH: &str = QUICKNET_CHAIN_HASH;
 
-pub const MAX_PULSES_TO_FETCH: u64 = 20;
+pub const MAX_PULSES_TO_FETCH: u64 = 50;
 
 /// Defines application identifier for crypto keys of this module.
 ///
@@ -184,7 +184,7 @@ pub mod pallet {
     #[pallet::storage]
     pub type BeaconConfig<T: Config> = StorageValue<_, BeaconConfiguration, OptionQuery>;
 
-    /// map block number to round number of pulse authored during that block
+    /// map round number to pulse
     #[pallet::storage]
     pub type Pulses<T: Config> = StorageMap<_, Blake2_128Concat, RoundNumber, Pulse, OptionQuery>;
 
@@ -203,11 +203,12 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         BeaconConfigChanged,
-        /// A user has successfully set a new value.
-        NewPulse {
-            /// The new value set.
-            rounds: Vec<RoundNumber>,
-        },
+        // Disabled because too spammy
+        // /// A user has successfully set a new value.
+        // NewPulse {
+        //     /// The new value set.
+        //     rounds: Vec<RoundNumber>,
+        // },
     }
 
     #[pallet::error]
@@ -332,11 +333,6 @@ pub mod pallet {
             // Update the next unsigned block number
             let current_block = frame_system::Pallet::<T>::block_number();
             <NextUnsignedAt<T>>::put(current_block.saturating_add(One::one()));
-
-            // Emit a single event with all new rounds
-            if !new_rounds.is_empty() {
-                Self::deposit_event(Event::NewPulse { rounds: new_rounds });
-            }
 
             Ok(())
         }

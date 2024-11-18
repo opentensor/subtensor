@@ -327,58 +327,73 @@ impl<T: Config> Pallet<T> {
         mining_emission: u64,
     ) {
         // --- 1. First, calculate the hotkey's share of the emission.
-        let take_proportion: I64F64 = I64F64::from_num(Self::get_childkey_take(hotkey, netuid))
-            .saturating_div(I64F64::from_num(u16::MAX));
-        let hotkey_take: u64 = take_proportion
-            .saturating_mul(I64F64::from_num(validating_emission))
-            .to_num::<u64>();
-        // NOTE: Only the validation emission should be split amongst parents.
+        let childkey_take_proportion: I96F32 =
+            I96F32::from_num(Self::get_childkey_take(hotkey, netuid))
+                .saturating_div(I96F32::from_num(u16::MAX));
+        let mut total_childkey_take: u64 = 0;
 
-        // --- 2. Compute the remaining emission after the hotkey's share is deducted.
-        let emission_minus_take: u64 = validating_emission.saturating_sub(hotkey_take);
+        // --- 2. Track the remaining emission for accounting purposes.
+        let mut remaining_emission: u64 = validating_emission;
 
-        // --- 3. Track the remaining emission for accounting purposes.
-        let mut remaining_emission: u64 = emission_minus_take;
-
-        // --- 4. Calculate the total stake of the hotkey, adjusted by the stakes of parents and children.
+        // --- 3. Calculate the total stake of the hotkey, adjusted by the stakes of parents and children.
         // Parents contribute to the stake, while children reduce it.
         // If this value is zero, no distribution to anyone is necessary.
         let total_hotkey_stake: u64 = Self::get_stake_for_hotkey_on_subnet(hotkey, netuid);
         if total_hotkey_stake != 0 {
-            // --- 5. If the total stake is not zero, iterate over each parent to determine their contribution to the hotkey's stake,
+            // --- 4. If the total stake is not zero, iterate over each parent to determine their contribution to the hotkey's stake,
             // and calculate their share of the emission accordingly.
             for (proportion, parent) in Self::get_parents(hotkey, netuid) {
-                // --- 5.1 Retrieve the parent's stake. This is the raw stake value including nominators.
+                // --- 4.1 Retrieve the parent's stake. This is the raw stake value including nominators.
                 let parent_stake: u64 = Self::get_total_stake_for_hotkey(&parent);
 
-                // --- 5.2 Calculate the portion of the hotkey's total stake contributed by this parent.
+                // --- 4.2 Calculate the portion of the hotkey's total stake contributed by this parent.
                 // Then, determine the parent's share of the remaining emission.
                 let stake_from_parent: I96F32 = I96F32::from_num(parent_stake).saturating_mul(
                     I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX)),
                 );
                 let proportion_from_parent: I96F32 =
                     stake_from_parent.saturating_div(I96F32::from_num(total_hotkey_stake));
-                let parent_emission_take: u64 = proportion_from_parent
-                    .saturating_mul(I96F32::from_num(emission_minus_take))
-                    .to_num::<u64>();
+                let parent_emission: I96F32 =
+                    proportion_from_parent.saturating_mul(I96F32::from_num(validating_emission));
 
-                // --- 5.5. Accumulate emissions for the parent hotkey.
+                // --- 4.3 Childkey take as part of parent emission
+                let child_emission_take: u64 = childkey_take_proportion
+                    .saturating_mul(parent_emission)
+                    .to_num::<u64>();
+                total_childkey_take = total_childkey_take.saturating_add(child_emission_take);
+                // NOTE: Only the validation emission should be split amongst parents.
+
+                // --- 4.4 Compute the remaining parent emission after the childkey's share is deducted.
+                let parent_emission_take: u64 = parent_emission
+                    .to_num::<u64>()
+                    .saturating_sub(child_emission_take);
+
+                // --- 4.5. Accumulate emissions for the parent hotkey.
                 PendingdHotkeyEmission::<T>::mutate(parent, |parent_accumulated| {
                     *parent_accumulated = parent_accumulated.saturating_add(parent_emission_take)
                 });
 
-                // --- 5.6. Subtract the parent's share from the remaining emission for this hotkey.
-                remaining_emission = remaining_emission.saturating_sub(parent_emission_take);
+                // --- 4.6. Subtract the parent's share from the remaining emission for this hotkey.
+                remaining_emission = remaining_emission
+                    .saturating_sub(parent_emission_take)
+                    .saturating_sub(child_emission_take);
             }
         }
 
-        // --- 6. Add the remaining emission plus the hotkey's initial take to the pending emission for this hotkey.
+        // --- 5. Add the remaining emission plus the hotkey's initial take to the pending emission for this hotkey.
         PendingdHotkeyEmission::<T>::mutate(hotkey, |hotkey_pending| {
             *hotkey_pending = hotkey_pending.saturating_add(
                 remaining_emission
-                    .saturating_add(hotkey_take)
+                    .saturating_add(total_childkey_take)
                     .saturating_add(mining_emission),
             )
+        });
+
+        // --- 6. Update untouchable part of hotkey emission (that will not be distributed to nominators)
+        //        This doesn't include remaining_emission, which should be distributed in drain_hotkey_emission
+        PendingdHotkeyEmissionUntouchable::<T>::mutate(hotkey, |hotkey_pending| {
+            *hotkey_pending =
+                hotkey_pending.saturating_add(total_childkey_take.saturating_add(mining_emission))
         });
     }
 
@@ -398,8 +413,14 @@ impl<T: Config> Pallet<T> {
         // --- 0. For accounting purposes record the total new added stake.
         let mut total_new_tao: u64 = 0;
 
+        // Get the untouchable part of pending hotkey emission, so that we don't distribute this part of
+        // PendingdHotkeyEmission to nominators
+        let untouchable_emission = PendingdHotkeyEmissionUntouchable::<T>::get(hotkey);
+        let emission_to_distribute = emission.saturating_sub(untouchable_emission);
+
         // --- 1.0 Drain the hotkey emission.
         PendingdHotkeyEmission::<T>::insert(hotkey, 0);
+        PendingdHotkeyEmissionUntouchable::<T>::insert(hotkey, 0);
 
         // --- 2 Update the block value to the current block number.
         LastHotkeyEmissionDrain::<T>::insert(hotkey, block_number);
@@ -408,13 +429,16 @@ impl<T: Config> Pallet<T> {
         let total_hotkey_stake: u64 = Self::get_total_stake_for_hotkey(hotkey);
 
         // --- 4 Calculate the emission take for the hotkey.
+        // This is only the hotkey take. Childkey take was already deducted from validator emissions in
+        // accumulate_hotkey_emission and now it is included in untouchable_emission.
         let take_proportion: I64F64 = I64F64::from_num(Delegates::<T>::get(hotkey))
             .saturating_div(I64F64::from_num(u16::MAX));
-        let hotkey_take: u64 =
-            (take_proportion.saturating_mul(I64F64::from_num(emission))).to_num::<u64>();
+        let hotkey_take: u64 = (take_proportion
+            .saturating_mul(I64F64::from_num(emission_to_distribute)))
+        .to_num::<u64>();
 
-        // --- 5 Compute the remaining emission after deducting the hotkey's take.
-        let emission_minus_take: u64 = emission.saturating_sub(hotkey_take);
+        // --- 5 Compute the remaining emission after deducting the hotkey's take and untouchable_emission.
+        let emission_minus_take: u64 = emission_to_distribute.saturating_sub(hotkey_take);
 
         // --- 6 Calculate the remaining emission after the hotkey's take.
         let mut remainder: u64 = emission_minus_take;
@@ -455,8 +479,11 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // --- 13 Finally, add the stake to the hotkey itself, including its take and the remaining emission.
-        let hotkey_new_tao: u64 = hotkey_take.saturating_add(remainder);
+        // --- 13 Finally, add the stake to the hotkey itself, including its take, the remaining emission, and
+        // the untouchable_emission (part of pending hotkey emission that consists of mining emission and childkey take)
+        let hotkey_new_tao: u64 = hotkey_take
+            .saturating_add(remainder)
+            .saturating_add(untouchable_emission);
         Self::increase_stake_on_hotkey_account(hotkey, hotkey_new_tao);
 
         // --- 14 Reset the stake delta for the hotkey.
