@@ -106,25 +106,16 @@ subtensor-custom-rpc-runtime-api = { path = "../pallets/subtensor/runtime-api" }
 substrate-build-script-utils = { workspace = true }
 
 [features]
-default = [
-	"rocksdb",
-	"sql",
-	"txpool",
-]
-sql = [
-	"fc-db/sql",
-	"fc-mapping-sync/sql",
-]
+default = ["rocksdb", "sql", "txpool"]
+fast-blocks = ["node-subtensor-runtime/fast-blocks"]
+sql = ["fc-db/sql", "fc-mapping-sync/sql"]
 rocksdb = [
 	"sc-service/rocksdb",
 	"fc-db/rocksdb",
 	"fc-mapping-sync/rocksdb",
-	"fc-rpc/rocksdb"
+	"fc-rpc/rocksdb",
 ]
-txpool = [
-	"fc-rpc/txpool",
-	"fc-rpc-core/txpool"
-]
+txpool = ["fc-rpc/txpool", "fc-rpc-core/txpool"]
 
 # Dependencies that are only required if runtime benchmarking should be build.
 runtime-benchmarks = [
