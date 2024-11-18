@@ -204,7 +204,12 @@ std = [
 	"fp-account/std",
 	"pallet-drand/std",
 	"getrandom/std",
-	"tle/std"
+	"tle/std",
+	"ark-serialize/std",
+	"hex/std",
+	"rand_chacha/std",
+	"sha2/std",
+	"w3f-bls/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
