@@ -231,7 +231,7 @@ impl<T: Config> Pallet<T> {
                 Ok(c) => c,
                 Err(e) => {
                     log::warn!(
-						"Failed to reveal commit for subnet {} submitted by {:?} due to deserialization error: {:?}",
+						"Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing the commit: {:?}",
 						netuid,
 						who,
 						e
@@ -255,26 +255,26 @@ impl<T: Config> Pallet<T> {
                 }
             };
             let sig_reader = &mut &pulse.signature[..];
-            let sig =
-                match <TinyBLS381 as EngineBLS>::SignatureGroup::deserialize_compressed(sig_reader)
-                {
-                    Ok(s) => s,
-                    Err(e) => {
-                        log::error!(
-						"Failed to reveal commit for subnet {} submitted by {:?} due to deserialization error: {:?}",
+            let sig = match <TinyBLS381 as EngineBLS>::SignatureGroup::deserialize_compressed(
+                sig_reader,
+            ) {
+                Ok(s) => s,
+                Err(e) => {
+                    log::error!(
+						"Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing signature from drand pallet: {:?}",
 						netuid,
 						who,
 						e
 					);
-                        continue;
-                    }
-                };
+                    continue;
+                }
+            };
 
             let decrypted_bytes: Vec<u8> = match commit.tld(sig) {
                 Ok(d) => d.message,
                 Err(e) => {
                     log::warn!(
-							"Failed to reveal commit for subnet {} submitted by {:?} due to decryption error: {:?}",
+							"Failed to reveal commit for subnet {} submitted by {:?} due to error decrypting the commit: {:?}",
 							netuid,
 							who,
 							e
@@ -288,23 +288,32 @@ impl<T: Config> Pallet<T> {
             let payload: WeightsPayload = match Decode::decode(&mut reader) {
                 Ok(w) => w,
                 Err(e) => {
-                    log::warn!("Failed to reveal commit for subnet {} submitted by {:?} due to deserialization error: {:?}", netuid, who, e);
+                    log::warn!("Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing WeightsPayload: {:?}", netuid, who, e);
                     continue;
                 }
             };
 
-            // TODO: Set Weights
-            Self::do_set_weights(
-                T::RuntimeOrigin::signed(who),
+            if let Err(e) = Self::do_set_weights(
+                T::RuntimeOrigin::signed(who.clone()),
                 netuid,
                 payload.values,
                 payload.uids,
                 payload.version_key,
-            )?;
+            ) {
+                log::warn!(
+                    "Failed to `do_set_weights` for subnet {} submitted by {:?}: {:?}",
+                    netuid,
+                    who,
+                    e
+                );
+                continue;
+            };
+
+            // If we reached here, we sucessfully set weights!
             return Ok(());
         }
 
-        return Ok(());
+        Ok(())
     }
 
     /// Accumulates the mining and validator emissions on a hotkey and distributes the validator emission among its parents.

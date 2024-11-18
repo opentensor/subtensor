@@ -184,7 +184,7 @@ impl<T: Config> Pallet<T> {
         // 5. Retrieve or initialize the VecDeque of commits for the hotkey.
         let cur_block = Self::get_current_block_as_u64();
         let cur_epoch = Self::get_epoch_index(netuid, cur_block);
-        CRV3WeightCommits::<T>::try_mutate(netuid, &cur_epoch, |commits| -> DispatchResult {
+        CRV3WeightCommits::<T>::try_mutate(netuid, cur_epoch, |commits| -> DispatchResult {
             // 6. Verify that the number of unrevealed commits is within the allowed limit.
             ensure!(commits.len() < 10, Error::<T>::TooManyUnrevealedCommits);
 
