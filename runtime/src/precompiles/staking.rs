@@ -72,11 +72,17 @@ impl StakingPrecompile {
             <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
                 .ok_or(ExitError::OutOfFund)?;
 
+        let netuid =
+            Self::parse_netuid(data.get(56..64).unwrap_or(Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            })?))?;
+
+        // let netuid_u16 = netuid.as_u32();
+
         // Create the add_stake call
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::<Runtime>::add_stake {
             hotkey,
-            // TODO update contract to add netuid
-            netuid: 1,
+            netuid,
             amount_staked: amount_sub.unique_saturated_into(),
         });
         // Dispatch the add_stake call
@@ -96,10 +102,14 @@ impl StakingPrecompile {
             <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
                 .ok_or(ExitError::OutOfFund)?;
 
+        let netuid =
+            Self::parse_netuid(data.get(64..72).unwrap_or(Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            })?))?;
+
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::<Runtime>::remove_stake {
             hotkey,
-            // TODO update contract to add netuid
-            netuid: 1,
+            netuid,
             amount_unstaked: amount_sub.unique_saturated_into(),
         });
         Self::dispatch(handle, call)
@@ -114,6 +124,23 @@ impl StakingPrecompile {
         let mut hotkey = [0u8; 32];
         hotkey.copy_from_slice(get_slice(data, 0, 32)?);
         Ok(hotkey)
+    }
+
+    fn parse_netuid(data: &[u8]) -> Result<u16, PrecompileFailure> {
+        let netuid = data
+            .get(0..8)
+            .map(U256::from_big_endian)
+            .ok_or(ExitError::InvalidRange)?;
+
+        let u16_max_u256 = U256::from(u16::MAX);
+        if netuid > u16_max_u256 {
+            // if netuid.as_u128() > u16::MAX as u128 {
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+
+        Ok(netuid.as_u32() as u16)
     }
 
     fn dispatch(handle: &mut impl PrecompileHandle, call: RuntimeCall) -> PrecompileResult {
