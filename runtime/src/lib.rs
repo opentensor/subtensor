@@ -2067,13 +2067,14 @@ impl_runtime_apis! {
 
 #[cfg(test)]
 mod tests {
-    use ark_serialize::CanonicalDeserialize;
+    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
     use rand_chacha::rand_core::SeedableRng;
     use rand_chacha::ChaCha20Rng;
     use sha2::Digest;
+    use tle::curves::drand::TinyBLS381;
     use tle::ibe::fullident::Identity;
     use tle::tlock::tle;
-    use w3f_bls::{EngineBLS, Message, TinyBLS381};
+    use w3f_bls::{EngineBLS, Message};
 
     #[test]
     pub fn tlock_encrypt_decrypt_drand_quicknet_works() {

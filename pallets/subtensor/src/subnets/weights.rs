@@ -118,7 +118,17 @@ impl<T: Config> Pallet<T> {
     ///   - The u16 network identifier.
     ///
     /// * `commit` (`Vec<u8>`):
-    ///   - The encrypted commit
+    ///   - The encrypted compressed commit.
+    ///     The steps for this are:
+    ///     1. Instantiate [`WeightsPayload`]
+    ///     2. Serialize it using the `parity_scale_codec::Encode` trait
+    ///     3. Encrypt it following the steps (here)[https://github.com/ideal-lab5/tle/blob/f8e6019f0fb02c380ebfa6b30efb61786dede07b/timelock/src/tlock.rs#L283-L336]
+    ///        to produce a [`TLECiphertext<TinyBLS381>`] type.
+    ///     4. Serialize and compress using the `ark-serialize` `CanonicalSerialize` trait.
+    ///
+    /// * reveal_round (`u64`):
+    ///    - The drand reveal round which will be avaliable during epoch `n+1` from the current
+    ///      epoch.
     ///
     /// # Raises:
     /// * `CommitRevealDisabled`:
@@ -171,51 +181,29 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CommittingWeightsTooFast
         );
 
-        // 5. Calculate the reveal blocks based on network tempo and reveal period.
-        // TODO: Double check this is not done on-chain for CRV3
-        // let (first_reveal_block, last_reveal_block) = Self::get_reveal_blocks(netuid, commit_block);
-
-        // 6. Retrieve or initialize the VecDeque of commits for the hotkey.
-        CRV3WeightCommits::<T>::try_mutate(netuid, &who, |maybe_commits| -> DispatchResult {
-            let mut commits: VecDeque<(
-                BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
-                u64,
-                u64,
-            )> = maybe_commits.take().unwrap_or_default();
-
-            // TODO: Check it is OK to remove this code block, and do the "expiring"/"reveal" step
-            // entirely in block_step
-            // 7. Remove any expired commits from the front of the queue.
-            // while let Some((_, commit_block_existing, _, _)) = commits.front() {
-            //     if Self::is_commit_expired(netuid, *commit_block_existing) {
-            //         commits.pop_front();
-            //     } else {
-            //         break;
-            //     }
-            // }
-
-            // 8. Verify that the number of unrevealed commits is within the allowed limit.
+        // 5. Retrieve or initialize the VecDeque of commits for the hotkey.
+        let cur_block = Self::get_current_block_as_u64();
+        let cur_epoch = Self::get_epoch_index(netuid, cur_block);
+        CRV3WeightCommits::<T>::try_mutate(netuid, &cur_epoch, |commits| -> DispatchResult {
+            // 6. Verify that the number of unrevealed commits is within the allowed limit.
             ensure!(commits.len() < 10, Error::<T>::TooManyUnrevealedCommits);
 
-            // 9. Append the new commit with calculated reveal blocks.
+            // 7. Append the new commit with calculated reveal blocks.
             // Hash the commit before it is moved, for the event
             let commit_hash = BlakeTwo256::hash(&commit);
-            commits.push_back((commit, commit_block, reveal_round));
+            commits.push_back((who.clone(), commit, reveal_round));
 
-            // 10. Store the updated commits queue back to storage.
-            *maybe_commits = Some(commits);
-
-            // 11. Emit the WeightsCommitted event
+            // 8. Emit the WeightsCommitted event
             Self::deposit_event(Event::CRV3WeightsCommitted(
                 who.clone(),
                 netuid,
                 commit_hash,
             ));
 
-            // 12. Update the last commit block for the hotkey's UID.
+            // 9. Update the last commit block for the hotkey's UID.
             Self::set_last_crv3_update_for_uid(netuid, neuron_uid, commit_block);
 
-            // 13. Return success.
+            // 10. Return success.
             Ok(())
         })
     }

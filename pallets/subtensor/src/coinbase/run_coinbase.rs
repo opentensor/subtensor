@@ -2,19 +2,19 @@ use super::*;
 use substrate_fixed::types::I64F64;
 use substrate_fixed::types::I96F32;
 
-impl<T: Config + pallet_drand::Config> Pallet<T> {
-    /// The `reveal_crv3_commits` function is used for revealing commitments whos drand round has
-    /// passed.
-    pub fn reveal_commits() {
-        // TODO: Get drand pallet round number
+/// Contains all necesarry information to set weights.
+///
+/// In the context of commit-reveal v3, this is the payload which should be
+/// encrypted, compressed, serialized, and submitted to the `commit_crv3_weights`
+/// extrinsic.
+#[derive(Encode, Decode)]
+pub struct WeightsPayload {
+    pub uids: Vec<u16>,
+    pub values: Vec<u16>,
+    pub version_key: u64,
+}
 
-        // TODO: Get encrypted commits
-
-        // TODO: Get oldest commit round
-
-        // TODO: While oldest commit round < drand round, decrypt and store results in Weights
-    }
-
+impl<T: Config> Pallet<T> {
     /// The `coinbase` function performs a four-part emission distribution process involving
     /// subnets, epochs, hotkeys, and nominators.
     // It is divided into several steps, each handling a specific part of the distribution:
@@ -89,7 +89,16 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         for netuid in subnets.clone().iter() {
             // --- 4.1 Check to see if the subnet should run its epoch.
             if Self::should_run_epoch(*netuid, current_block) {
-                // --- 4.2 Drain the subnet emission.
+                // --- 4.2 Reveal weights from the n-2nd epoch.
+                if let Err(e) = Self::reveal_crv3_commits(*netuid) {
+                    log::warn!(
+                        "Failed to reveal commits for subnet {} due to error: {:?}",
+                        *netuid,
+                        e
+                    );
+                };
+
+                // --- 4.3 Drain the subnet emission.
                 let mut subnet_emission: u64 = PendingEmission::<T>::get(*netuid);
                 PendingEmission::<T>::insert(*netuid, 0);
                 log::debug!(
@@ -98,7 +107,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                     subnet_emission
                 );
 
-                // --- 4.3 Set last step counter.
+                // --- 4.4 Set last step counter.
                 Self::set_blocks_since_last_step(*netuid, 0);
                 Self::set_last_mechanism_step_block(*netuid, current_block);
 
@@ -107,30 +116,30 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                     continue;
                 }
 
-                // --- 4.4 Distribute owner take.
+                // --- 4.5 Distribute owner take.
                 if SubnetOwner::<T>::contains_key(netuid) {
                     // Does the subnet have an owner?
 
-                    // --- 4.4.1 Compute the subnet owner cut.
+                    // --- 4.5.1 Compute the subnet owner cut.
                     let owner_cut: I96F32 = I96F32::from_num(subnet_emission).saturating_mul(
                         I96F32::from_num(Self::get_subnet_owner_cut())
                             .saturating_div(I96F32::from_num(u16::MAX)),
                     );
 
-                    // --- 4.4.2 Remove the cut from the subnet emission
+                    // --- 4.5.2 Remove the cut from the subnet emission
                     subnet_emission = subnet_emission.saturating_sub(owner_cut.to_num::<u64>());
 
-                    // --- 4.4.3 Add the cut to the balance of the owner
+                    // --- 4.5.3 Add the cut to the balance of the owner
                     Self::add_balance_to_coldkey_account(
                         &Self::get_subnet_owner(*netuid),
                         owner_cut.to_num::<u64>(),
                     );
 
-                    // --- 4.4.4 Increase total issuance on the chain.
+                    // --- 4.5.4 Increase total issuance on the chain.
                     Self::coinbase(owner_cut.to_num::<u64>());
                 }
 
-                // 4.3 Pass emission through epoch() --> hotkey emission.
+                // 4.6 Pass emission through epoch() --> hotkey emission.
                 let hotkey_emission: Vec<(T::AccountId, u64, u64)> =
                     Self::epoch(*netuid, subnet_emission);
                 log::debug!(
@@ -139,9 +148,9 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                     hotkey_emission
                 );
 
-                // 4.4 Accumulate the tuples on hotkeys:
+                // 4.7 Accumulate the tuples on hotkeys:
                 for (hotkey, mining_emission, validator_emission) in hotkey_emission {
-                    // 4.5 Accumulate the emission on the hotkey and parent hotkeys.
+                    // 4.8 Accumulate the emission on the hotkey and parent hotkeys.
                     Self::accumulate_hotkey_emission(
                         &hotkey,
                         *netuid,
@@ -189,6 +198,113 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                 log::debug!("Increased total issuance by {:?}", total_new_tao);
             }
         }
+    }
+
+    /// The `reveal_crv3_commits` function is run at the very beginning of epoch `n`,
+    /// revealing commitments from epoch `n - 2`.
+    /// n - 2.
+    pub fn reveal_crv3_commits(netuid: u16) -> dispatch::DispatchResult {
+        use ark_serialize::CanonicalDeserialize;
+        use frame_support::traits::OriginTrait;
+        use tle::curves::drand::TinyBLS381;
+        use tle::tlock::TLECiphertext;
+        use w3f_bls::EngineBLS;
+
+        let cur_block = Self::get_current_block_as_u64();
+        let cur_epoch = Self::get_epoch_index(netuid, cur_block);
+
+        // No commits to reveal until at least epoch 2.
+        if cur_epoch < 2 {
+            return Ok(());
+        }
+
+        // This fn is run at the VERY BEGINNING of epoch `n`, therefore the weights revealed
+        // must have been committed during epoch `n-2`.
+        let reveal_epoch = cur_epoch.saturating_sub(2);
+
+        let mut entries = CRV3WeightCommits::<T>::take(netuid, reveal_epoch);
+
+        // Keep popping item off the end of the queue until we sucessfully reveal a commit.
+        while let Some((who, serialized_compresssed_commit, round_number)) = entries.pop_front() {
+            let reader = &mut &serialized_compresssed_commit[..];
+            let commit = match TLECiphertext::<TinyBLS381>::deserialize_compressed(reader) {
+                Ok(c) => c,
+                Err(e) => {
+                    log::warn!(
+						"Failed to reveal commit for subnet {} submitted by {:?} due to deserialization error: {:?}",
+						netuid,
+						who,
+						e
+					);
+                    continue;
+                }
+            };
+
+            // Try to get the round number from pallet_drand.
+            let pulse = match pallet_drand::Pulses::<T>::get(round_number) {
+                Some(p) => p,
+                None => {
+                    // Round number used was not found on the chain. Skip this commit.
+                    log::warn!(
+                        "Failed to reveal commit for subnet {} submitted by {:?} due to missing round number {} at time of reveal.",
+						netuid,
+						who,
+                        round_number
+                    );
+                    continue;
+                }
+            };
+            let sig_reader = &mut &pulse.signature[..];
+            let sig =
+                match <TinyBLS381 as EngineBLS>::SignatureGroup::deserialize_compressed(sig_reader)
+                {
+                    Ok(s) => s,
+                    Err(e) => {
+                        log::error!(
+						"Failed to reveal commit for subnet {} submitted by {:?} due to deserialization error: {:?}",
+						netuid,
+						who,
+						e
+					);
+                        continue;
+                    }
+                };
+
+            let decrypted_bytes: Vec<u8> = match commit.tld(sig) {
+                Ok(d) => d.message,
+                Err(e) => {
+                    log::warn!(
+							"Failed to reveal commit for subnet {} submitted by {:?} due to decryption error: {:?}",
+							netuid,
+							who,
+							e
+												);
+                    continue;
+                }
+            };
+
+            // Decrypt the bytes into Vec<(u64, u64)>
+            let mut reader = &decrypted_bytes[..];
+            let payload: WeightsPayload = match Decode::decode(&mut reader) {
+                Ok(w) => w,
+                Err(e) => {
+                    log::warn!("Failed to reveal commit for subnet {} submitted by {:?} due to deserialization error: {:?}", netuid, who, e);
+                    continue;
+                }
+            };
+
+            // TODO: Set Weights
+            Self::do_set_weights(
+                T::RuntimeOrigin::signed(who),
+                netuid,
+                payload.values,
+                payload.uids,
+                payload.version_key,
+            )?;
+            return Ok(());
+        }
+
+        return Ok(());
     }
 
     /// Accumulates the mining and validator emissions on a hotkey and distributes the validator emission among its parents.

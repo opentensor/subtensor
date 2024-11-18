@@ -11,8 +11,6 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         Self::adjust_registration_terms_for_networks();
         // --- 2. Run emission through network.
         Self::run_coinbase();
-        // --- 3. Reveal commits
-        Self::reveal_commits();
         // Return ok.
         Ok(())
     }

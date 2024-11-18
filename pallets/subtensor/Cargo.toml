@@ -46,7 +46,10 @@ pallet-drand = { path = "../drand", default-features = false }
 pallet-membership = { workspace = true }
 hex-literal = { workspace = true }
 num-traits = { version = "0.2.19", default-features = false, features = ["libm"] }
-
+tle = { workspace = true, default-features = false }
+ark-bls12-381 = { workspace = true, default-features = false }
+ark-serialize = { workspace = true, default-features = false }
+w3f-bls = { workspace = true, default-features = false }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }

@@ -72,6 +72,7 @@ pub mod pallet {
         BoundedVec,
     };
     use frame_system::pallet_prelude::*;
+    use pallet_drand::types::RoundNumber;
     use sp_core::{ConstU32, H256};
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::collections::vec_deque::VecDeque;
@@ -1292,19 +1293,19 @@ pub mod pallet {
         OptionQuery,
     >;
     #[pallet::storage]
-    /// --- MAP (netuid, who) --> VecDeque<(commit, commit_block, reveal_round)> | Stores a queue of v3 commits for an account on a given netuid.
+    /// --- MAP (netuid, commit_epoch) --> VecDeque<(who, serialized_compressed_commit, reveal_round)> | Stores a queue of v3 commits for an account on a given netuid.
     pub type CRV3WeightCommits<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
         u16,
         Twox64Concat,
-        T::AccountId,
+        u64,
         VecDeque<(
+            T::AccountId,
             BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
-            u64,
-            u64,
+            RoundNumber,
         )>,
-        OptionQuery,
+        ValueQuery,
     >;
     #[pallet::storage]
     /// --- Map (netuid) --> Number of epochs allowed for commit reveal periods
