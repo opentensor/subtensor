@@ -2498,6 +2498,7 @@ fn test_anneal_global_weight() {
 // https://github.com/opentensor/subtensor/issues/925
 // cargo test -p pallet-subtensor --test staking -- test_stake_weight_should_not_be_affected_by_zero_stakes --exact --nocapture
 #[test]
+#[allow(clippy::indexing_slicing)]
 fn test_stake_weight_should_not_be_affected_by_zero_stakes() {
     new_test_ext(1).execute_with(|| {
         let registrar = AccountId::from(42); // SN Owner
@@ -2562,6 +2563,7 @@ fn test_stake_weight_should_not_be_affected_by_zero_stakes() {
 
 // cargo test -p pallet-subtensor --test staking -- test_stake_weight_no_subnet_stake --exact --nocapture
 #[test]
+#[allow(clippy::indexing_slicing)]
 fn test_stake_weight_no_subnet_stake() {
     new_test_ext(1).execute_with(|| {
         let registrar = AccountId::from(42); // SN Owner
@@ -2609,4 +2611,3 @@ fn test_stake_weight_no_subnet_stake() {
         );
     });
 }
-
