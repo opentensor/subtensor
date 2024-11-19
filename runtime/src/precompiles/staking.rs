@@ -137,7 +137,14 @@ impl StakingPrecompile {
                 exit_status: ExitError::InvalidRange,
             });
         }
-        Ok(netuid.as_u32() as u16)
+        let result: u16 = netuid
+            .as_u32()
+            .try_into()
+            .map_err(|_| PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            })?;
+
+        Ok(result)
     }
 
     fn dispatch(handle: &mut impl PrecompileHandle, call: RuntimeCall) -> PrecompileResult {
