@@ -66,16 +66,24 @@ impl StakingPrecompile {
     }
 
     fn add_stake(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
+        log::error!("++++++ add_stake data as {:?}", data);
         let hotkey = Self::parse_hotkey(data)?.into();
         let amount: U256 = handle.context().apparent_value;
         let amount_sub =
             <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
                 .ok_or(ExitError::OutOfFund)?;
 
-        let netuid =
-            Self::parse_netuid(data.get(56..64).unwrap_or(Err(PrecompileFailure::Error {
-                exit_status: ExitError::InvalidRange,
-            })?))?;
+        log::error!("++++++ amount_sub {:?}", &amount_sub);
+
+        let netuid_vec = data.get(56..64).ok_or(PrecompileFailure::Error {
+            exit_status: ExitError::InvalidRange,
+        })?;
+
+        log::error!("++++++ netuid_vec is {:?}", netuid_vec);
+
+        let netuid = Self::parse_netuid(netuid_vec)?;
+
+        log::error!("++++++ netuid is {}", netuid);
 
         // Create the add_stake call
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::<Runtime>::add_stake {
@@ -87,6 +95,8 @@ impl StakingPrecompile {
         Self::dispatch(handle, call)
     }
     fn remove_stake(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
+        log::error!("------ add_stake data as {:?}", data);
+
         let hotkey = Self::parse_hotkey(data)?.into();
 
         // We have to treat this as uint256 (because of Solidity ABI encoding rules, it pads uint64),
@@ -100,10 +110,21 @@ impl StakingPrecompile {
             <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
                 .ok_or(ExitError::OutOfFund)?;
 
-        let netuid =
-            Self::parse_netuid(data.get(64..72).unwrap_or(Err(PrecompileFailure::Error {
-                exit_status: ExitError::InvalidRange,
-            })?))?;
+        log::error!("------ add_stake amount as {:?}", amount);
+
+        let netuid_vec = data.get(88..96).ok_or(PrecompileFailure::Error {
+            exit_status: ExitError::InvalidRange,
+        })?;
+
+        log::error!("------ netuid_vec is {:?}", netuid_vec);
+
+        let netuid = Self::parse_netuid(netuid_vec)?;
+        log::error!("------ add_stake netuid as {:?}", netuid);
+
+        // let netuid =
+        //     Self::parse_netuid(data.get(64..72).unwrap_or(Err(PrecompileFailure::Error {
+        //         exit_status: ExitError::InvalidRange,
+        //     })?))?;
 
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::<Runtime>::remove_stake {
             hotkey,
@@ -125,18 +146,27 @@ impl StakingPrecompile {
     }
 
     fn parse_netuid(data: &[u8]) -> Result<u16, PrecompileFailure> {
+        log::error!("++++++ parse_netuid data is {:?}", &data);
+
         let netuid = data
             .get(0..8)
             .map(U256::from_big_endian)
             .ok_or(ExitError::InvalidRange)?;
 
+        log::error!("++++++ parse_netuid is {:?}", &netuid);
+
         let u16_max_u256 = U256::from(u16::MAX);
+
+        log::error!("++++++ parse_netuid u16_max_u256 {:?}", &u16_max_u256);
+
         if netuid > u16_max_u256 {
             // if netuid.as_u128() > u16::MAX as u128 {
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
             });
         }
+
+        log::error!("++++++ parse_netuid netuid.as_u32() {:?}", &netuid.as_u32());
 
         Ok(netuid.as_u32() as u16)
     }
