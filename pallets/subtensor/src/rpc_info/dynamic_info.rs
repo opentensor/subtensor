@@ -29,7 +29,7 @@ impl<T: Config> Pallet<T> {
         let current_block: u64 = Pallet::<T>::get_current_block_as_u64();
         let blocks_since_last_step: u64 = current_block - last_step;
         Some(DynamicInfo {
-            owner: SubnetOwner::<T>::get(netuid).into(),
+            owner: SubnetOwner::<T>::get(netuid),
             netuid: netuid.into(),
             tempo: Tempo::<T>::get(netuid).into(),
             last_step: last_step.into(),

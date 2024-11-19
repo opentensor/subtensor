@@ -42,7 +42,7 @@ impl<T: Config> Pallet<T> {
                     ));
                     let drain: u64 = LastHotkeyEmissionDrain::<T>::get(hotkey_i.clone());
                     let is_registered: bool =
-                        Self::is_hotkey_registered_on_network(*netuid_i, &hotkey_i);
+                        Self::is_hotkey_registered_on_network(*netuid_i, hotkey_i);
                     stake_info_for_coldkey.push(StakeInfo {
                         hotkey: hotkey_i.clone(),
                         coldkey: coldkey_i.clone(),

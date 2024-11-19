@@ -58,7 +58,7 @@ impl<T: Config> Pallet<T> {
             for hotkey in hotkeys.clone() {
                 let last_emission: Compact<u64> =
                     LastHotkeyEmissionOnNetuid::<T>::get(hotkey.clone(), netuid).into();
-                hotkeys_emissions.push(last_emission.into());
+                hotkeys_emissions.push(last_emission);
             }
             result.push(hotkeys_emissions.clone());
         }
@@ -146,21 +146,21 @@ impl<T: Config> Pallet<T> {
         let emission_history: Vec<Vec<Compact<u64>>> = Self::get_emissions_history(hotkeys.clone());
         Some(SubnetState {
             netuid: netuid.into(),
-            hotkeys: hotkeys.into(),
-            coldkeys: coldkeys.into(),
-            active: active.into(),
-            validator_permit: validator_permit.into(),
-            pruning_score: pruning_score.into(),
-            last_update: last_update.into(),
-            emission: emission.into(),
-            dividends: dividends.into(),
-            incentives: incentives.into(),
-            consensus: consensus.into(),
-            trust: trust.into(),
-            rank: rank.into(),
-            block_at_registration: block_at_registration.into(),
-            local_stake: local_stake.into(),
-            global_stake: global_stake.into(),
+            hotkeys,
+            coldkeys,
+            active,
+            validator_permit,
+            pruning_score,
+            last_update,
+            emission,
+            dividends,
+            incentives,
+            consensus,
+            trust,
+            rank,
+            block_at_registration,
+            local_stake,
+            global_stake,
             stake_weight,
             emission_history,
         })

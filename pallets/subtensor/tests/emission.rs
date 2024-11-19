@@ -596,9 +596,7 @@ fn test_maximum_nominators_scenario() {
         );
 
         assert_eq!(emission_tuples.len(), max_nominators + 1);
-        let total_distributed: u64 = emission_tuples
-            .iter()
-            .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
+        let total_distributed: u64 = emission_tuples.values().map(|ev| ev.iter().map(|(_, amount)| amount).sum::<u64>())
             .sum();
         assert_eq!(total_distributed, emission);
     });
@@ -629,9 +627,7 @@ fn test_rounding_and_precision() {
             &mut emission_tuples,
         );
 
-        let total_distributed: u64 = emission_tuples
-            .iter()
-            .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
+        let total_distributed: u64 = emission_tuples.values().map(|ev| ev.iter().map(|(_, amount)| amount).sum::<u64>())
             .sum();
         assert_eq!(
             total_distributed, emission,
@@ -761,9 +757,7 @@ fn test_remainder_distribution() {
             "Hotkey emission should include some remainder"
         );
 
-        let total_distributed: u64 = emission_tuples
-            .iter()
-            .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
+        let total_distributed: u64 = emission_tuples.values().map(|ev| ev.iter().map(|(_, amount)| amount).sum::<u64>())
             .sum();
         assert_eq!(
             total_distributed, emission,
@@ -802,9 +796,7 @@ fn test_different_network_ids_scenario() {
                 netuid
             );
 
-            let total_distributed: u64 = emission_tuples
-                .iter()
-                .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
+            let total_distributed: u64 = emission_tuples.values().map(|ev| ev.iter().map(|(_, amount)| amount).sum::<u64>())
                 .sum();
             assert_eq!(
                 total_distributed, emission,
@@ -844,9 +836,7 @@ fn test_large_emission_values() {
             "Should generate 2 tuples even with max emission"
         );
 
-        let total_distributed: u64 = emission_tuples
-            .iter()
-            .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
+        let total_distributed: u64 = emission_tuples.values().map(|ev| ev.iter().map(|(_, amount)| amount).sum::<u64>())
             .sum();
         assert_eq!(
             total_distributed, emission,
@@ -903,9 +893,7 @@ fn test_small_emission_values() {
             "Should generate 2 tuples even with small emission"
         );
 
-        let total_distributed: u64 = emission_tuples
-            .iter()
-            .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
+        let total_distributed: u64 = emission_tuples.values().map(|ev| ev.iter().map(|(_, amount)| amount).sum::<u64>())
             .sum();
         assert_eq!(
             total_distributed, emission,
@@ -993,9 +981,7 @@ fn test_performance_with_many_nominators() {
             "Should generate tuples for all nominators plus hotkey"
         );
 
-        let total_distributed: u64 = emission_tuples
-            .iter()
-            .map(|(_, ev)| ev.iter().map(|(_, amount)| amount).sum::<u64>())
+        let total_distributed: u64 = emission_tuples.values().map(|ev| ev.iter().map(|(_, amount)| amount).sum::<u64>())
             .sum();
         assert_eq!(
             total_distributed, emission,
@@ -1103,7 +1089,7 @@ fn test_hotkey_take_calculation_scenario() {
         let mining_emission = 0;
 
         step_block(1000); // should be past stake adding block by 2 tempos
-        LastAddStakeIncrease::<Test>::insert(&hotkey, coldkey, 1);
+        LastAddStakeIncrease::<Test>::insert(hotkey, coldkey, 1);
         ParentKeys::<Test>::insert(hotkey, netuid, vec![(1000, parent)]);
 
         // Test with different childkey take values
@@ -1765,15 +1751,15 @@ fn test_fast_stake_unstake_protection_source_hotkey() {
 
         // Set up stakes and delegations
         add_network(netuid, tempo, 0);
-        Delegates::<Test>::insert(&hotkey, 16384); // 25% take
+        Delegates::<Test>::insert(hotkey, 16384); // 25% take
         SubtensorModule::stake_into_subnet(&parent1, &coldkey, netuid, 500);
         SubtensorModule::stake_into_subnet(&parent2, &coldkey, netuid, 500);
         ParentKeys::<Test>::insert(
-            &hotkey,
+            hotkey,
             netuid,
             vec![
-                (u64::MAX / 2, parent1.clone()),
-                (u64::MAX / 2, parent2.clone()),
+                (u64::MAX / 2, parent1),
+                (u64::MAX / 2, parent2),
             ],
         );
 
@@ -1824,7 +1810,7 @@ fn test_fast_stake_unstake_protection_source_nominator() {
         // Set up stakes and delegations
         SubtensorModule::stake_into_subnet(&hotkey, &nominator1, netuid, 500);
         SubtensorModule::stake_into_subnet(&hotkey, &nominator2, netuid, 500);
-        Delegates::<Test>::insert(&hotkey, 16384); // 25% take
+        Delegates::<Test>::insert(hotkey, 16384); // 25% take
         HotkeyEmissionTempo::<Test>::put(10);
 
         let mut emission_tuples: BTreeMap<(U256, U256), Vec<(u16, u64)>> = BTreeMap::new();

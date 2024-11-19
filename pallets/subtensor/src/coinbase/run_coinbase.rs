@@ -436,7 +436,7 @@ impl<T: Config> Pallet<T> {
                     to_nominators = to_nominators.saturating_add(total_emission);
                     emission_tuples
                         .entry((hotkey.clone(), nominator.clone()))
-                        .or_insert_with(Vec::new)
+                        .or_default()
                         .push((netuid, total_emission));
                 }
             }
@@ -459,7 +459,7 @@ impl<T: Config> Pallet<T> {
             let final_hotkey_emission: u64 = hotkey_take.to_num::<u64>().saturating_add(remainder);
             emission_tuples
                 .entry((hotkey.clone(), hotkey_owner.clone()))
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push((netuid, final_hotkey_emission));
         }
     }
