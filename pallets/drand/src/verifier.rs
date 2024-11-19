@@ -63,6 +63,8 @@ pub trait Verifier {
 pub struct QuicknetVerifier;
 
 impl Verifier for QuicknetVerifier {
+    #[allow(clippy::let_unit_value)]
+    #[allow(clippy::unit_cmp)]
     fn verify(beacon_config: BeaconConfiguration, pulse: Pulse) -> Result<bool, String> {
         // decode public key (pk)
         let pk =
@@ -92,10 +94,10 @@ impl Verifier for QuicknetVerifier {
 
         let g2 = G2AffineOpt::generator();
 
-        bls12_381::pairing_opt(-signature.0, g2);
-        bls12_381::pairing_opt(message_on_curve.0, pk.0);
+        let p1 = bls12_381::pairing_opt(-signature.0, g2);
+        let p2 = bls12_381::pairing_opt(message_on_curve.0, pk.0);
 
-        Ok(true)
+        Ok(p1 == p2)
     }
 }
 
@@ -118,6 +120,8 @@ pub struct MainnetVerifier;
 #[cfg(feature = "mainnet")]
 use w3f_bls::ZBLS;
 #[cfg(feature = "mainnet")]
+#[allow(clippy::let_unit_value)]
+#[allow(clippy::unit_cmp)]
 impl Verifier for MainnetVerifier {
     fn verify(beacon_config: BeaconConfiguration, pulse: Pulse) -> Result<bool, String> {
         // decode public key (pk)
@@ -148,10 +152,10 @@ impl Verifier for MainnetVerifier {
 
         let g1 = G1AffineOpt::generator();
 
-        bls12_381::pairing_opt(g1, -signature.0);
-        bls12_381::pairing_opt(pk.0, message_on_curve.0);
+        let p1 = bls12_381::pairing_opt(g1, -signature.0);
+        let p2 = bls12_381::pairing_opt(pk.0, message_on_curve.0);
 
-        Ok(true)
+        Ok(p1 == p2)
     }
 }
 
