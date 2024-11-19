@@ -11,6 +11,7 @@ on:
     paths-ignore:
       - "devnet/**"
       - "testnet/**"
+      - "main/**"
 
   workflow_dispatch:
     inputs:
