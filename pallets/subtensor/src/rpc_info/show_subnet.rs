@@ -140,9 +140,9 @@ impl<T: Config> Pallet<T> {
             .map(Compact::from)
             .collect();
         let stake_weight: Vec<Compact<u16>> = stake
-			.iter()
-			.map(|xi| Compact::from( fixed_proportion_to_u16(*xi) ))
-			.collect::<Vec<Compact<u16>>>();
+            .iter()
+            .map(|xi| Compact::from(fixed_proportion_to_u16(*xi)))
+            .collect::<Vec<Compact<u16>>>();
         let emission_history: Vec<Vec<Compact<u64>>> = Self::get_emissions_history(hotkeys.clone());
         Some(SubnetState {
             netuid: netuid.into(),

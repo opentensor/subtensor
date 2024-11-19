@@ -191,8 +191,8 @@ impl<T: Config> Pallet<T> {
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
 
         // --- 14. Init the pool by putting the lock as the initial alpha.
-        SubnetTAO::<T>::insert(netuid_to_register, 1_e9 as u64); // add the TAO to the pool.
-        SubnetAlphaIn::<T>::insert(netuid_to_register, 1e9 as u64); // Set the alpha in based on the lock.
+        SubnetTAO::<T>::insert(netuid_to_register, 1_000_000_000); // add the TAO to the pool.
+        SubnetAlphaIn::<T>::insert(netuid_to_register, 1_000_000_000); // Set the alpha in based on the lock.
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
         SubnetOwnerHotkey::<T>::insert(netuid_to_register, hotkey.clone());
 

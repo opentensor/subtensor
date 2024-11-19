@@ -669,7 +669,6 @@ impl<T: Config> Pallet<T> {
         // ===================
         // == Value storage ==
         // ===================
-		log::warn!("netuid = {}, &stake = {:?}", netuid, &stake);
         let cloned_stake_weight: Vec<u16> = stake
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))

@@ -126,13 +126,6 @@ impl<T: Config> Pallet<T> {
             let subnet_tao: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(netuid));
             let subnet_alpha: I96F32 = I96F32::from_num(SubnetAlphaIn::<T>::get(netuid));
 
-            log::warn!(
-                "hotkey = {:?}, subnet_tao = {:?}, subnet_alpha = {:?}",
-                &hotkey,
-                subnet_tao,
-                subnet_alpha
-            );
-
             // Step 3b: Compute constant product k = alpha * tao
             // This is the key to the dynamic mechanism: k remains constant
             let k: I96F32 = subnet_alpha.saturating_mul(subnet_tao);

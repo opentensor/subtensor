@@ -84,7 +84,6 @@ impl<T: Config> Pallet<T> {
     pub fn get_stake_weights_for_network(netuid: u16) -> (Vec<I32F32>, Vec<u64>, Vec<u64>) {
         // Step 1: Get the subnet size (number of neurons).
         let n: u16 = Self::get_subnetwork_n(netuid);
-		log::warn!("netuid = {:?}", netuid);
 
         // Step 2: Retrieve all hotkeys (neuron keys) on this subnet.
         let hotkeys: Vec<(u16, T::AccountId)> =
@@ -97,7 +96,6 @@ impl<T: Config> Pallet<T> {
         let mut raw_alpha_stake: Vec<u64> = vec![0; n as usize];
         for (uid_i, hotkey) in &hotkeys {
             let alpha: u64 = Self::get_inherited_alpha_for_hotkey_on_subnet(hotkey, netuid);
-			log::warn!("uid = {:?}, alpha = {:?}", uid_i, alpha);
             alpha_stake[*uid_i as usize] = I64F64::from_num(alpha);
             raw_alpha_stake[*uid_i as usize] = alpha;
         }
