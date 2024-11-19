@@ -164,7 +164,7 @@ pub struct BeaconConfigurationPayload<Public, BlockNumber> {
 }
 
 /// metadata for the drand beacon configuration
-#[freeze_struct("1363328ca13289b8")]
+#[freeze_struct("d87f51d2ad39c10e")]
 #[derive(
     Clone,
     Debug,
@@ -178,7 +178,7 @@ pub struct BeaconConfigurationPayload<Public, BlockNumber> {
     TypeInfo,
 )]
 pub struct Metadata {
-    beacon_id: BoundedHash,
+    pub beacon_id: BoundedHash,
 }
 
 /// A pulse from the drand beacon

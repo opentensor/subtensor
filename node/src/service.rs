@@ -314,11 +314,11 @@ where
             metrics,
         })?;
 
-    if config.offchain_worker.enabled {
+    if config.offchain_worker.enabled && config.role.is_authority() {
         match sp_keystore::Keystore::sr25519_generate_new(
             &*keystore_container.keystore(),
             pallet_drand::KEY_TYPE,
-            Some("//Alice"),
+            None,
         ) {
             Ok(_) => {
                 task_manager.spawn_handle().spawn(

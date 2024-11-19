@@ -54,8 +54,9 @@ mod benchmarks {
         };
 
         #[extrinsic_call]
-        set_beacon_config(RawOrigin::None, config_payload.clone(), None);
-        assert_eq!(BeaconConfig::<T>::get(), Some(config));
+        set_beacon_config(RawOrigin::Root, config_payload.clone(), None);
+
+        assert_eq!(BeaconConfig::<T>::get(), config);
     }
 
     #[benchmark]

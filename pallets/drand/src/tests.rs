@@ -16,13 +16,14 @@
 
 use crate::{
     mock::*, BeaconConfig, BeaconConfigurationPayload, BeaconInfoResponse, Call, DrandResponseBody,
-    Error, Pulse, Pulses, PulsesPayload,
+    Error, Pulse, Pulses, PulsesPayload, RoundNumber,
 };
 use codec::Encode;
 use frame_support::{
     assert_noop, assert_ok,
     pallet_prelude::{InvalidTransaction, TransactionSource},
 };
+use frame_system::RawOrigin;
 use sp_runtime::{
     offchain::{
         testing::{PendingRequest, TestOffchainExt},
@@ -47,38 +48,6 @@ pub const DRAND_PULSE: &str = "{\"round\":1000,\"randomness\":\"a40d3e0e7e3c71f2
 pub const DRAND_INFO_RESPONSE: &str = "{\"public_key\":\"868f005eb8e6e4ca0a47c8a77ceaa5309a47978a7c71bc5cce96366b5d7a569937c529eeda66c7293784a9402801af31\",\"period\":30,\"genesis_time\":1595431050,\"hash\":\"8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce\",\"groupHash\":\"176f93498eac9ca337150b46d21dd58673ea4e3581185f869672e59fa4cb390a\",\"schemeID\":\"pedersen-bls-chained\",\"metadata\":{\"beaconID\":\"default\"}}";
 
 #[test]
-fn it_fails_to_submit_valid_pulse_when_beacon_config_missing() {
-    new_test_ext().execute_with(|| {
-        let u_p: DrandResponseBody = serde_json::from_str(DRAND_PULSE).unwrap();
-        let p: Pulse = u_p.try_into_pulse().unwrap();
-
-        let alice = sp_keyring::Sr25519Keyring::Alice;
-
-        let block_number = 1;
-        System::set_block_number(block_number);
-
-        let pulses_payload = PulsesPayload {
-            block_number,
-            pulses: vec![p.clone()],
-            public: alice.public(),
-        };
-
-        // The signature doesn't really matter here because the signature is validated in the
-        // transaction validation phase not in the dispatchable itself.
-        let signature = None;
-
-        // Dispatch an unsigned extrinsic and expect it to fail.
-        assert_noop!(
-            Drand::write_pulse(RuntimeOrigin::none(), pulses_payload, signature),
-            Error::<Test>::NoneValue
-        );
-
-        let pulse = Pulses::<Test>::get(p.round);
-        assert_eq!(pulse, None);
-    });
-}
-
-#[test]
 fn it_can_submit_valid_pulse_when_beacon_config_exists() {
     new_test_ext().execute_with(|| {
         let u_p: DrandResponseBody = serde_json::from_str(DRAND_PULSE).unwrap();
@@ -100,7 +69,7 @@ fn it_can_submit_valid_pulse_when_beacon_config_exists() {
         // transaction validation phase not in the dispatchable itself.
         let signature = None;
         assert_ok!(Drand::set_beacon_config(
-            RuntimeOrigin::none(),
+            RuntimeOrigin::root(),
             config_payload,
             signature
         ));
@@ -126,29 +95,28 @@ fn it_can_submit_valid_pulse_when_beacon_config_exists() {
 }
 
 #[test]
-fn it_rejects_invalid_pulse_bad_signature() {
+fn it_rejects_invalid_pulse_due_to_bad_signature() {
     new_test_ext().execute_with(|| {
         let alice = sp_keyring::Sr25519Keyring::Alice;
         let block_number = 1;
         System::set_block_number(block_number);
 
-        // Set the beacon config
+        // Set the beacon config using Root origin
         let info: BeaconInfoResponse = serde_json::from_str(DRAND_INFO_RESPONSE).unwrap();
         let config_payload = BeaconConfigurationPayload {
             block_number,
-            config: info.clone().try_into_beacon_config().unwrap(),
+            config: info.try_into_beacon_config().unwrap(),
             public: alice.public(),
         };
-        // The signature doesn't really matter here because the signature is validated in the
-        // transaction validation phase not in the dispatchable itself.
-        let signature = None;
+        // Signature is not required for Root origin
+        let config_signature = None;
         assert_ok!(Drand::set_beacon_config(
-            RuntimeOrigin::none(),
-            config_payload,
-            signature
+            RuntimeOrigin::root(),
+            config_payload.clone(),
+            config_signature
         ));
 
-        // Get a bad pulse
+        // Get a bad pulse (invalid signature within the pulse data)
         #[cfg(not(feature = "mainnet"))]
         let bad_http_response = "{\"round\":1000,\"randomness\":\"87f03ef5f62885390defedf60d5b8132b4dc2115b1efc6e99d166a37ab2f3a02\",\"signature\":\"b0a8b04e009cf72534321aca0f50048da596a3feec1172a0244d9a4a623a3123d0402da79854d4c705e94bc73224c341\"}";
         #[cfg(feature = "mainnet")]
@@ -156,17 +124,23 @@ fn it_rejects_invalid_pulse_bad_signature() {
         let u_p: DrandResponseBody = serde_json::from_str(bad_http_response).unwrap();
         let p: Pulse = u_p.try_into_pulse().unwrap();
 
-        // Set the pulse
+        // Prepare the pulses payload
         let pulses_payload = PulsesPayload {
             pulses: vec![p.clone()],
             block_number,
             public: alice.public(),
         };
-        let signature = alice.sign(&pulses_payload.encode());
+        let pulses_signature = alice.sign(&pulses_payload.encode());
+
         assert_noop!(
-            Drand::write_pulse(RuntimeOrigin::none(), pulses_payload, Some(signature)),
+            Drand::write_pulse(
+                RawOrigin::None.into(),
+                pulses_payload.clone(),
+                Some(pulses_signature.clone())
+            ),
             Error::<Test>::PulseVerificationError
         );
+
         let pulse = Pulses::<Test>::get(ROUND_NUMBER);
         assert!(pulse.is_none());
     });
@@ -190,7 +164,7 @@ fn it_rejects_pulses_with_non_incremental_round_numbers() {
         // transaction validation phase not in the dispatchable itself.
         let signature = None;
         assert_ok!(Drand::set_beacon_config(
-            RuntimeOrigin::none(),
+            RuntimeOrigin::root(),
             config_payload,
             signature
         ));
@@ -223,34 +197,62 @@ fn it_rejects_pulses_with_non_incremental_round_numbers() {
 }
 
 #[test]
-fn it_blocks_root_from_submit_beacon_info() {
+fn it_blocks_non_root_from_submit_beacon_info() {
     new_test_ext().execute_with(|| {
-        assert!(BeaconConfig::<Test>::get().is_none());
         let block_number = 1;
         let alice = sp_keyring::Sr25519Keyring::Alice;
         System::set_block_number(block_number);
 
-        // Set the beacon config
+        // Prepare the beacon configuration payload
         let info: BeaconInfoResponse = serde_json::from_str(DRAND_INFO_RESPONSE).unwrap();
         let config_payload = BeaconConfigurationPayload {
             block_number,
-            config: info.clone().try_into_beacon_config().unwrap(),
+            config: info.try_into_beacon_config().unwrap(),
             public: alice.public(),
         };
-        // The signature doesn't really matter here because the signature is validated in the
-        // transaction validation phase not in the dispatchable itself.
+
+        // Signature is not required when using Root origin, but we'll include it for completeness
         let signature = None;
+
+        // Attempt to set the beacon config with a non-root origin (signed by Alice)
+        // Expect it to fail with BadOrigin
         assert_noop!(
-            Drand::set_beacon_config(RuntimeOrigin::root(), config_payload, signature),
+            Drand::set_beacon_config(
+                RuntimeOrigin::signed(alice.public()),
+                config_payload.clone(),
+                signature.clone()
+            ),
             sp_runtime::DispatchError::BadOrigin
         );
+
+        // Attempt to set the beacon config with an unsigned origin
+        // Expect it to fail with BadOrigin
+        assert_noop!(
+            Drand::set_beacon_config(
+                RuntimeOrigin::none(),
+                config_payload.clone(),
+                signature.clone()
+            ),
+            sp_runtime::DispatchError::BadOrigin
+        );
+
+        // Now attempt to set the beacon config with Root origin
+        // Expect it to succeed
+        assert_ok!(Drand::set_beacon_config(
+            RuntimeOrigin::root(),
+            config_payload,
+            signature
+        ));
+
+        // Verify that the BeaconConfig storage item has been updated
+        let stored_config = BeaconConfig::<Test>::get();
+        assert_eq!(stored_config, info.try_into_beacon_config().unwrap());
     });
 }
 
 #[test]
 fn signed_cannot_submit_beacon_info() {
     new_test_ext().execute_with(|| {
-        assert!(BeaconConfig::<Test>::get().is_none());
         let block_number = 1;
         let alice = sp_keyring::Sr25519Keyring::Alice;
         System::set_block_number(block_number);
@@ -382,8 +384,8 @@ fn can_execute_and_handle_valid_http_responses() {
         let mut state = state.write();
         state.expect_request(PendingRequest {
             method: "GET".into(),
-            uri: "https://drand.cloudflare.com/8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce/info".into(),
-            response: Some(DRAND_INFO_RESPONSE.as_bytes().to_vec()),
+            uri: "https://drand.cloudflare.com/8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce/public/1".into(),
+            response: Some(DRAND_PULSE.as_bytes().to_vec()),
             sent: true,
             ..Default::default()
         });
@@ -397,10 +399,36 @@ fn can_execute_and_handle_valid_http_responses() {
     }
 
     t.execute_with(|| {
-        let actual_config = Drand::fetch_drand_chain_info().unwrap();
-        assert_eq!(actual_config, DRAND_INFO_RESPONSE);
+        let actual_specific = Drand::fetch_drand_by_round(RoundNumber::from(1u64)).unwrap();
+        assert_eq!(actual_specific, DRAND_PULSE);
 
         let actual_pulse = Drand::fetch_drand_latest().unwrap();
         assert_eq!(actual_pulse, DRAND_PULSE);
+    });
+}
+
+#[test]
+fn validate_unsigned_rejects_future_block_number() {
+    new_test_ext().execute_with(|| {
+        let block_number = 1;
+        let future_block_number = 100;
+        let alice = sp_keyring::Sr25519Keyring::Alice;
+        System::set_block_number(block_number);
+        let pulses_payload = PulsesPayload {
+            block_number: future_block_number,
+            pulses: vec![],
+            public: alice.public(),
+        };
+        let signature = alice.sign(&pulses_payload.encode());
+
+        let call = Call::write_pulse {
+            pulses_payload: pulses_payload.clone(),
+            signature: Some(signature),
+        };
+
+        let source = TransactionSource::External;
+        let validity = Drand::validate_unsigned(source, &call);
+
+        assert_noop!(validity, InvalidTransaction::Future);
     });
 }
