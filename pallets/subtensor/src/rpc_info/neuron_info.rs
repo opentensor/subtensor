@@ -175,7 +175,6 @@ impl<T: Config> Pallet<T> {
         let pruning_score = Self::get_pruning_score_for_uid(netuid, uid);
         let last_update = Self::get_last_update_for_uid(netuid, uid);
         let validator_permit = Self::get_validator_permit_for_uid(netuid, uid);
-
         let stake_weight: u64 = Self::get_stake_weight(netuid, uid) as u64;
         let stake: Vec<(T::AccountId, Compact<u64>)> = vec![(coldkey.clone(), stake_weight.into())];
 
