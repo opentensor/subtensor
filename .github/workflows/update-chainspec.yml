@@ -12,6 +12,7 @@ on:
       - "devnet/**"
       - "testnet/**"
       - "main/**"
+      - "devnet-ready/**"
 
   workflow_dispatch:
     inputs:
