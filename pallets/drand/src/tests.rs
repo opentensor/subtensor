@@ -136,7 +136,7 @@ fn it_rejects_invalid_pulse_due_to_bad_signature() {
             Drand::write_pulse(
                 RawOrigin::None.into(),
                 pulses_payload.clone(),
-                Some(pulses_signature.clone())
+                Some(pulses_signature)
             ),
             Error::<Test>::PulseVerificationError
         );
@@ -220,7 +220,7 @@ fn it_blocks_non_root_from_submit_beacon_info() {
             Drand::set_beacon_config(
                 RuntimeOrigin::signed(alice.public()),
                 config_payload.clone(),
-                signature.clone()
+                signature
             ),
             sp_runtime::DispatchError::BadOrigin
         );
@@ -231,7 +231,7 @@ fn it_blocks_non_root_from_submit_beacon_info() {
             Drand::set_beacon_config(
                 RuntimeOrigin::none(),
                 config_payload.clone(),
-                signature.clone()
+                signature
             ),
             sp_runtime::DispatchError::BadOrigin
         );
