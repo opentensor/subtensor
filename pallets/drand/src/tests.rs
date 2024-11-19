@@ -228,11 +228,7 @@ fn it_blocks_non_root_from_submit_beacon_info() {
         // Attempt to set the beacon config with an unsigned origin
         // Expect it to fail with BadOrigin
         assert_noop!(
-            Drand::set_beacon_config(
-                RuntimeOrigin::none(),
-                config_payload.clone(),
-                signature
-            ),
+            Drand::set_beacon_config(RuntimeOrigin::none(), config_payload.clone(), signature),
             sp_runtime::DispatchError::BadOrigin
         );
 
