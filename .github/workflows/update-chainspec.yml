@@ -6,13 +6,6 @@ concurrency:
 
 on:
   pull_request:
-    branches:
-      - "**" # This ensures it triggers on all target branches
-    paths-ignore:
-      - "devnet/**"
-      - "testnet/**"
-      - "main/**"
-      - "devnet-ready/**"
 
   workflow_dispatch:
     inputs:
@@ -30,6 +23,11 @@ jobs:
     runs-on: SubtensorCI
     permissions:
       contents: write
+    if: >
+      github.event.pull_request.head.ref != 'devnet-ready' &&
+      github.event.pull_request.head.ref != 'devnet' &&
+      github.event.pull_request.head.ref != 'testnet' &&
+      github.event.pull_request.head.ref != 'main'
 
     strategy:
       matrix:
