@@ -3,6 +3,7 @@ use alloc::string::String;
 use frame_support::IterableStorageMap;
 use frame_support::{traits::Get, weights::Weight};
 use log;
+use subnets::Mechanism;
 
 pub fn migrate_rao<T: Config>() -> Weight {
     let migration_name = b"migrate_rao".to_vec();
@@ -87,7 +88,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
             *total = total.saturating_add(lock);
         }); // Increase the stake.
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(lock)); // Increase the total stake.
-        SubnetMechanism::<T>::insert(netuid, 1); // Convert to dynamic immediately with initialization.
+        SubnetMechanism::<T>::insert(netuid, Mechanism::Dynamic); // Convert to dynamic immediately with initialization.
         SubnetLocked::<T>::insert(netuid, lock);
         // Update all tempos to default
         Tempo::<T>::insert(netuid, DefaultTempo::<T>::get());
