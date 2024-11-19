@@ -23,6 +23,11 @@ jobs:
     runs-on: SubtensorCI
     permissions:
       contents: write
+    if: >
+      github.event.pull_request.head.ref != 'devnet-ready' &&
+      github.event.pull_request.head.ref != 'devnet' &&
+      github.event.pull_request.head.ref != 'testnet' &&
+      github.event.pull_request.head.ref != 'main'
 
     strategy:
       matrix:
