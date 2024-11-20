@@ -26,7 +26,7 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-runtime = { workspace = true }
 log = { workspace = true }
-pallet-subtensor = { version = "4.0.0-dev", default-features = false, path = "../subtensor" }
+pallet-subtensor = { workspace = true }
 sp-weights = { workspace = true }
 substrate-fixed = { workspace = true }
 pallet-drand = { workspace = true, default-features = false }
@@ -41,8 +41,13 @@ pallet-balances = { workspace = true, features = ["std"] }
 pallet-scheduler = { workspace = true }
 sp-std = { workspace = true }
 
+[build-dependencies]
+subtensor-code-coverage = {workspace = true }
+subtensor-linting = { workspace = true }
+
 [features]
 default = ["std"]
+code-coverage = []
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",

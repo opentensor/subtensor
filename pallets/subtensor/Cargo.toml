@@ -41,17 +41,20 @@ pallet-utility = { workspace = true }
 ndarray = { workspace = true }
 hex = { workspace = true }
 
-pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../collective" }
-pallet-drand = { path = "../drand", default-features = false }
+pallet-collective = { workspace = true }
+pallet-drand = { workspace = true }
 pallet-membership = { workspace = true }
-hex-literal = { workspace = true }
-num-traits = { version = "0.2.19", default-features = false, features = ["libm"] }
+num-traits = { version = "0.2.19", default-features = false, features = [
+	"libm",
+] }
 tle = { workspace = true, default-features = false }
 ark-bls12-381 = { workspace = true, default-features = false }
 ark-serialize = { workspace = true, default-features = false }
 w3f-bls = { workspace = true, default-features = false }
 sha2 = { workspace = true }
 rand_chacha = { workspace = true }
+# Used for sudo decentralization
+hex-literal = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
@@ -65,8 +68,11 @@ sp-core = { workspace = true }
 sp-std = { workspace = true }
 pallet-preimage = { workspace = true }
 
+[build-dependencies]
+subtensor-code-coverage = { workspace = true }
+subtensor-linting = { workspace = true }
+
 [features]
-default = ["std"]
 std = [
 	"codec/std",
 	"frame-benchmarking/std",
@@ -104,19 +110,6 @@ std = [
 	"rand_chacha/std",
 	"sha2/std"
 ]
-runtime-benchmarks = [
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-membership/runtime-benchmarks",
-	"pallet-utility/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-	"pallet-collective/runtime-benchmarks",
-	"pallet-preimage/runtime-benchmarks",
-	"pallet-scheduler/runtime-benchmarks",
-	"pallet-drand/runtime-benchmarks"
-]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
@@ -129,6 +122,22 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 	"pallet-collective/try-runtime",
 	"pallet-drand/try-runtime"
+]
+
+default = ["std"]
+code-coverage = []
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-membership/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"pallet-collective/runtime-benchmarks",
+	"pallet-preimage/runtime-benchmarks",
+	"pallet-scheduler/runtime-benchmarks",
+	"pallet-drand/runtime-benchmarks",
 ]
 pow-faucet = []
 fast-blocks = []

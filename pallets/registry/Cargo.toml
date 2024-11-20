@@ -33,8 +33,13 @@ enumflags2 = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 
+[build-dependencies]
+subtensor-code-coverage = {workspace = true }
+subtensor-linting = { workspace = true }
+
 [features]
 default = ["std"]
+code-coverage = []
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",

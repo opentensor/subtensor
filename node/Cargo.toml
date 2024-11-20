@@ -62,7 +62,7 @@ sp-session = { workspace = true }
 frame-metadata-hash-extension = { workspace = true }
 frame-system = { workspace = true }
 pallet-transaction-payment = { workspace = true }
-pallet-commitments = { path = "../pallets/commitments" }
+pallet-commitments = { workspace = true }
 pallet-drand = { workspace = true }
 sp-crypto-ec-utils = { workspace = true }
 sp-keystore = { workspace = true,  default-features = false }
@@ -104,12 +104,13 @@ fp-consensus = { workspace = true }
 thiserror = { workspace = true }
 
 # Local Dependencies
-node-subtensor-runtime = { path = "../runtime" }
-subtensor-custom-rpc = { path = "../pallets/subtensor/rpc" }
-subtensor-custom-rpc-runtime-api = { path = "../pallets/subtensor/runtime-api" }
+node-subtensor-runtime = { workspace = true }
+subtensor-custom-rpc = { workspace = true }
+subtensor-custom-rpc-runtime-api = { workspace = true }
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true }
+subtensor-linting = {workspace = true}
 
 [features]
 default = ["rocksdb", "sql", "txpool"]

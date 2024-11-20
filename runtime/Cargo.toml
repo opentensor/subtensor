@@ -22,7 +22,7 @@ path = "src/spec_version.rs"
 [dependencies]
 ed25519-dalek = { workspace = true, default-features = false, features = ["alloc"] }
 subtensor-macros.workspace = true
-subtensor-custom-rpc-runtime-api = { path = "../pallets/subtensor/runtime-api", default-features = false }
+subtensor-custom-rpc-runtime-api = { workspace = true }
 smallvec = { workspace = true }
 log = { workspace = true }
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
@@ -32,7 +32,7 @@ scale-info = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["alloc"] }
 pallet-aura = { workspace = true }
 pallet-balances = { workspace = true }
-pallet-subtensor = { default-features = false, path = "../pallets/subtensor" }
+pallet-subtensor = { workspace = true }
 frame-support = { workspace = true }
 pallet-grandpa = { workspace = true }
 pallet-insecure-randomness-collective-flip = { workspace = true }
@@ -60,10 +60,10 @@ sp-version = { workspace = true }
 # Temporary sudo
 pallet-sudo = { workspace = true }
 
-pallet-admin-utils = { default-features = false, path = "../pallets/admin-utils" }
+pallet-admin-utils = { workspace = true }
 
 # Used for sudo decentralization
-pallet-collective = { default-features = false, path = "../pallets/collective" }
+pallet-collective = { workspace = true }
 pallet-membership = { workspace = true }
 
 # Multisig
@@ -89,10 +89,10 @@ frame-benchmarking = { workspace = true, optional = true }
 frame-system-benchmarking = { workspace = true, optional = true }
 
 # Identity registry pallet for registering project info
-pallet-registry = { default-features = false, path = "../pallets/registry" }
+pallet-registry = { workspace = true }
 
 # Metadata commitment pallet
-pallet-commitments = { default-features = false, path = "../pallets/commitments" }
+pallet-commitments = { workspace = true }
 
 # Frontier
 fp-evm = { workspace = true }
@@ -128,6 +128,7 @@ sp-tracing = { workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { workspace = true, optional = true }
+subtensor-linting = { workspace = true }
 
 [features]
 default = ["std"]

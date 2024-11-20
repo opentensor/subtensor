@@ -1,6 +1,6 @@
 use build_print::*;
 use proc_macro2::TokenStream as TokenStream2;
-use procedural_fork::{exports::pallet::parse::Def, simulate_manifest_dir};
+use procedural_fork::exports::pallet::parse::Def;
 use quote::ToTokens;
 use rayon::{
     iter::{IntoParallelRefIterator, ParallelIterator},
@@ -350,94 +350,90 @@ impl<'ast> Visit<'ast> for BenchmarkVisitor {
 
 /// Tries to parse a pallet from a module
 pub fn try_parse_pallet(item_mod: &ItemMod, file_path: &Path, root_path: &Path) -> Option<Def> {
-    simulate_manifest_dir("pallets/subtensor", || -> Option<Def> {
-        // skip non-inline modules
-        let mut item_mod = item_mod.clone();
-        let Some((_, ref mut content)) = item_mod.content else {
-            return None;
+    // skip non-inline modules
+    let mut item_mod = item_mod.clone();
+    let (_, ref mut content) = item_mod.content.as_mut()?;
+
+    // skip non-pallet modules
+    if item_mod.ident != "pallet" {
+        return None;
+    }
+
+    let mut section_announced = false;
+
+    // manually import foreign sections defined by the `#[import_section]` attribute
+    for attr in item_mod.attrs.iter() {
+        if attr.meta.path().segments.last().unwrap().ident != "import_section" {
+            continue;
+        }
+
+        // Extract the section name from the attribute's args
+        let Ok(inner_path) = attr.parse_args::<syn::Path>() else {
+            continue;
         };
+        let section_name = &inner_path.segments.last().unwrap().ident;
 
-        // skip non-pallet modules
-        if item_mod.ident != "pallet" {
-            return None;
+        if !section_announced {
+            custom_println!(
+                "[code-coverage]",
+                cyan,
+                "importing pallet sections for '{}' ({})...",
+                extract_pallet_name(file_path).unwrap_or("unknown".to_string()),
+                strip_common_suffix(
+                    "/src/lib.rs".as_ref(),
+                    strip_common_prefix(root_path, file_path)
+                )
+                .display(),
+            );
+            section_announced = true;
         }
 
-        let mut section_announced = false;
-
-        // manually import foreign sections defined by the `#[import_section]` attribute
-        for attr in item_mod.attrs.iter() {
-            if attr.meta.path().segments.last().unwrap().ident != "import_section" {
-                continue;
-            }
-
-            // Extract the section name from the attribute's args
-            let Ok(inner_path) = attr.parse_args::<syn::Path>() else {
+        if let Some((section_mod, section_path)) =
+            find_matching_pallet_section(file_path, section_name)
+        {
+            let Some((_, mut section_content)) = section_mod.content else {
                 continue;
             };
-            let section_name = &inner_path.segments.last().unwrap().ident;
-
-            if !section_announced {
-                custom_println!(
-                    "[code-coverage]",
-                    cyan,
-                    "importing pallet sections for '{}' ({})...",
-                    extract_pallet_name(file_path).unwrap_or("unknown".to_string()),
-                    strip_common_suffix(
-                        "/src/lib.rs".as_ref(),
-                        strip_common_prefix(root_path, file_path)
-                    )
-                    .display(),
-                );
-                section_announced = true;
-            }
-
-            if let Some((section_mod, section_path)) =
-                find_matching_pallet_section(file_path, section_name)
-            {
-                let Some((_, mut section_content)) = section_mod.content else {
-                    continue;
-                };
-                content.append(&mut section_content);
-                custom_println!(
-                    "[code-coverage]",
-                    cyan,
-                    "└ imported '{}' ({})",
-                    section_name,
-                    strip_common_suffix(
-                        "/src/lib.rs".as_ref(),
-                        strip_common_prefix(file_path, &section_path)
-                    )
-                    .display()
-                );
-            } else {
-                custom_println!(
-                    "[code-coverage]",
-                    red,
-                    "could not find matching section for: '{}'",
-                    section_name,
-                );
-            }
-        }
-
-        if let Ok(pallet) = Def::try_from(item_mod.clone(), false) {
-            Some(pallet)
-        } else if let Ok(pallet) = Def::try_from(item_mod.clone(), true) {
-            Some(pallet)
+            content.append(&mut section_content);
+            custom_println!(
+                "[code-coverage]",
+                cyan,
+                "└ imported '{}' ({})",
+                section_name,
+                strip_common_suffix(
+                    "/src/lib.rs".as_ref(),
+                    strip_common_prefix(file_path, &section_path)
+                )
+                .display()
+            );
         } else {
-            let err = match Def::try_from(item_mod.clone(), false) {
-                Err(e) => e,
-                Ok(_) => unreachable!(),
-            };
             custom_println!(
                 "[code-coverage]",
                 red,
-                "unable to parse pallet in {}:",
-                file_path.display()
+                "could not find matching section for: '{}'",
+                section_name,
             );
-            custom_println!("[code-coverage]", red, "{}", err);
-            None
         }
-    })
+    }
+
+    if let Ok(pallet) = Def::try_from(item_mod.clone(), false) {
+        Some(pallet)
+    } else if let Ok(pallet) = Def::try_from(item_mod.clone(), true) {
+        Some(pallet)
+    } else {
+        let err = match Def::try_from(item_mod.clone(), false) {
+            Err(e) => e,
+            Ok(_) => unreachable!(),
+        };
+        custom_println!(
+            "[code-coverage]",
+            red,
+            "unable to parse pallet in {}:",
+            file_path.display()
+        );
+        custom_println!("[code-coverage]", red, "{}", err);
+        None
+    }
 }
 
 fn find_matching_pallet_section(

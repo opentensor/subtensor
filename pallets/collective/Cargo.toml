@@ -30,8 +30,13 @@ sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 
+[build-dependencies]
+subtensor-code-coverage = {workspace = true }
+subtensor-linting = { workspace = true }
+
 [features]
 default = ["std"]
+code-coverage = []
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",

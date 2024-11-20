@@ -16,4 +16,6 @@ fn main() {
             .enable_metadata_hash("TAO", 9)
             .build();
     }
+
+    subtensor_linting::walk_src();
 }
