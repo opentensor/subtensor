@@ -138,7 +138,7 @@ impl StakingPrecompile {
         }
         let mut two_bytes = [0_u8; 2];
         two_bytes.copy_from_slice(&bytes[6..8]);
-        let result: u16 = u16::from_le_bytes(two_bytes);
+        let result: u16 = u16::from_be_bytes(two_bytes);
 
         Ok(result)
     }
