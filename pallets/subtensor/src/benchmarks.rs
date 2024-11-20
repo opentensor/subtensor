@@ -300,7 +300,7 @@ benchmarks! {
     let amount: u64 = 1;
     let amount_to_be_staked = 100_000_000_000_000u64;
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
-  }: register_network(RawOrigin::Signed(coldkey), hotkey, 1)
+  }: register_network(RawOrigin::Signed(coldkey), hotkey, Mechanism::Dynamic)
 
   // swap_hotkey {
   //   let seed: u32 = 1;
