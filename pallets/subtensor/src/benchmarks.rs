@@ -2,8 +2,8 @@
 #![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 #![cfg(feature = "runtime-benchmarks")]
 
-use crate::Pallet as Subtensor;
 use crate::*;
+use crate::{subnets::Mechanism, Pallet as Subtensor};
 use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
