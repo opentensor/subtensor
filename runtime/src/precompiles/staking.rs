@@ -132,7 +132,6 @@ impl StakingPrecompile {
         let u16_max_u256 = U256::from(u16::MAX);
 
         if netuid > u16_max_u256 {
-            // if netuid.as_u128() > u16::MAX as u128 {
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
             });
