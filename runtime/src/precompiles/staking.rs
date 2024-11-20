@@ -124,10 +124,10 @@ impl StakingPrecompile {
     }
 
     fn parse_netuid(data: &[u8]) -> Result<u16, PrecompileFailure> {
-        let netuid = data
-            .get(0..8)
-            .map(U256::from_big_endian)
-            .ok_or(ExitError::InvalidRange)?;
+        let mut bytes = [0_u8; 8];
+        bytes.copy_from_slice(data.get(0..8).ok_or(ExitError::InvalidRange)?);
+
+        let netuid = U256::from_big_endian(&bytes);
 
         let u16_max_u256 = U256::from(u16::MAX);
 
@@ -136,12 +136,9 @@ impl StakingPrecompile {
                 exit_status: ExitError::InvalidRange,
             });
         }
-        let result: u16 = netuid
-            .as_u32()
-            .try_into()
-            .map_err(|_| PrecompileFailure::Error {
-                exit_status: ExitError::InvalidRange,
-            })?;
+        let mut two_bytes = [0_u8; 2];
+        two_bytes.copy_from_slice(&bytes[6..8]);
+        let result: u16 = u16::from_le_bytes(two_bytes);
 
         Ok(result)
     }
