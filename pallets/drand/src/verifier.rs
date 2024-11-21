@@ -28,7 +28,8 @@ use ark_serialize::CanonicalSerialize;
 use codec::Decode;
 use sha2::{Digest, Sha256};
 use sp_ark_bls12_381::{G1Affine as G1AffineOpt, G2Affine as G2AffineOpt};
-use w3f_bls::{EngineBLS, TinyBLS381};
+use tle::curves::drand::TinyBLS381;
+use w3f_bls::engine::EngineBLS;
 
 const USAGE: ark_scale::Usage = ark_scale::WIRE;
 pub type ArkScale<T> = ark_scale::ArkScale<T, USAGE>;
@@ -63,8 +64,6 @@ pub trait Verifier {
 pub struct QuicknetVerifier;
 
 impl Verifier for QuicknetVerifier {
-    #[allow(clippy::let_unit_value)]
-    #[allow(clippy::unit_cmp)]
     fn verify(beacon_config: BeaconConfiguration, pulse: Pulse) -> Result<bool, String> {
         // decode public key (pk)
         let pk =
@@ -76,7 +75,7 @@ impl Verifier for QuicknetVerifier {
             ArkScale::<G1AffineOpt>::decode(&mut pulse.signature.into_inner().as_slice())
                 .map_err(|e| format!("Failed to decode signature: {}", e))?;
 
-        // m = sha256({}{round})
+        // m = sha256({} || {round})
         let message = message(pulse.round, &[]);
         let hasher = <TinyBLS381 as EngineBLS>::hash_to_curve_map();
         // H(m) \in G1
@@ -94,10 +93,12 @@ impl Verifier for QuicknetVerifier {
 
         let g2 = G2AffineOpt::generator();
 
-        let p1 = bls12_381::pairing_opt(-signature.0, g2);
-        let p2 = bls12_381::pairing_opt(message_on_curve.0, pk.0);
-
-        Ok(p1 == p2)
+        Ok(bls12_381::fast_pairing_opt(
+            signature.0,
+            g2,
+            message_on_curve.0,
+            pk.0,
+        ))
     }
 }
 

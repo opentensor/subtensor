@@ -43,6 +43,7 @@ ark-scale = { workspace = true, default-features = false, features = ["hazmat"] 
 w3f-bls = { workspace = true, default-features = false }
 sp-keyring = { workspace = true,  default-features = false }
 subtensor-macros.workspace = true
+tle = { workspace = true, default-features = false }
 
 [dev-dependencies]
 sp-keystore = { workspace = true,  default-features = false }
@@ -74,6 +75,7 @@ std = [
 	"ark-crypto-primitives/std",
 	"ark-scale/std",
 	"w3f-bls/std",
+	"tle/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
