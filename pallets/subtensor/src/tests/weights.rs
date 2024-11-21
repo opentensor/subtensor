@@ -1,13 +1,12 @@
 #![allow(clippy::indexing_slicing)]
 
-
+use super::mock::*;
+use crate::{Error, Owner};
 use frame_support::{
     assert_err, assert_ok,
     dispatch::{DispatchClass, DispatchInfo, DispatchResult, GetDispatchInfo, Pays},
     pallet_prelude::{InvalidTransaction, TransactionValidityError},
 };
-use super::mock::*;
-use crate::{Error, Owner};
 use scale_info::prelude::collections::HashMap;
 use sp_core::{H256, U256};
 use sp_runtime::{
@@ -2433,8 +2432,7 @@ fn test_expired_commits_handling_in_commit_and_reveal() {
 
         // 6. Verify that the number of unrevealed, non-expired commits is now 6
         let commits: VecDeque<(H256, u64, u64, u64)> =
-            crate::WeightCommits::<Test>::get(netuid, hotkey)
-                .expect("Expected a commit");
+            crate::WeightCommits::<Test>::get(netuid, hotkey).expect("Expected a commit");
         assert_eq!(commits.len(), 6); // 5 non-expired commits from epoch 1 + new commit
 
         // 7. Attempt to reveal an expired commit (from epoch 0)
@@ -2903,8 +2901,8 @@ fn test_commit_reveal_order_enforcement() {
         ));
 
         // Check that commits A and B are removed
-        let remaining_commits = crate::WeightCommits::<Test>::get(netuid, hotkey)
-            .expect("expected 1 remaining commit");
+        let remaining_commits =
+            crate::WeightCommits::<Test>::get(netuid, hotkey).expect("expected 1 remaining commit");
         assert_eq!(remaining_commits.len(), 1); // Only commit C should remain
 
         // Attempt to reveal C (index 2), should succeed
@@ -3247,8 +3245,8 @@ fn test_batch_reveal_with_expired_commits() {
         assert_err!(result, Error::<Test>::ExpiredWeightCommit);
 
         // 5. Expired commit is not removed until a successful call
-        let commits = crate::WeightCommits::<Test>::get(netuid, hotkey)
-            .expect("Expected remaining commits");
+        let commits =
+            crate::WeightCommits::<Test>::get(netuid, hotkey).expect("Expected remaining commits");
         assert_eq!(commits.len(), 3);
 
         // 6. Try revealing the remaining commits

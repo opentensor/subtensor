@@ -1,6 +1,5 @@
 #![allow(clippy::unwrap_used)]
 
-
 use super::mock::*;
 
 use codec::Encode;
@@ -12,11 +11,11 @@ use sp_runtime::{
     BuildStorage,
 };
 
+use crate::migrations;
+use crate::Error;
 use frame_system::pallet_prelude::*;
 use frame_system::Config;
 use pallet_collective::Event as CollectiveEvent;
-use crate::migrations;
-use crate::Error;
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();

@@ -1,5 +1,7 @@
 #![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
 
+use super::mock::*;
+use crate::*;
 use codec::{Decode, Encode};
 use frame_support::{
     assert_ok,
@@ -9,8 +11,6 @@ use frame_support::{
     StorageHasher, Twox64Concat,
 };
 use frame_system::Config;
-use super::mock::*;
-use crate::*;
 use sp_core::{crypto::Ss58Codec, H256, U256};
 use sp_io::hashing::twox_128;
 use sp_runtime::traits::Zero;
@@ -99,7 +99,8 @@ fn test_migration_fix_total_stake_maps() {
         assert_ne!(SubtensorModule::get_total_stake(), total_stake_amount);
 
         // Run the migration to fix the total stake maps
-        crate::migrations::migrate_to_v2_fixed_total_stake::migrate_to_v2_fixed_total_stake::<Test>();
+        crate::migrations::migrate_to_v2_fixed_total_stake::migrate_to_v2_fixed_total_stake::<Test>(
+        );
 
         // Verify that the total stake is now correct
         assert_eq!(SubtensorModule::get_total_stake(), total_stake_amount);
@@ -126,14 +127,8 @@ fn test_migration_fix_total_stake_maps() {
 
         // Verify that the Stake map has no extra entries
         assert_eq!(crate::Stake::<Test>::iter().count(), 4); // 4 entries total
-        assert_eq!(
-            crate::Stake::<Test>::iter_key_prefix(hk1).count(),
-            2
-        ); // 2 stake entries for hk1
-        assert_eq!(
-            crate::Stake::<Test>::iter_key_prefix(hk2).count(),
-            2
-        ); // 2 stake entries for hk2
+        assert_eq!(crate::Stake::<Test>::iter_key_prefix(hk1).count(), 2); // 2 stake entries for hk1
+        assert_eq!(crate::Stake::<Test>::iter_key_prefix(hk2).count(), 2); // 2 stake entries for hk2
     })
 }
 
@@ -322,7 +317,9 @@ fn test_migrate_fix_total_coldkey_stake() {
         Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
         Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
         Stake::<Test>::insert(U256::from(3), U256::from(0), 10000);
-        crate::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<Test>();
+        crate::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<
+            Test,
+        >();
         assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
     })
 }
@@ -338,7 +335,9 @@ fn test_migrate_fix_total_coldkey_stake_value_already_in_total() {
         Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
         Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
         Stake::<Test>::insert(U256::from(3), U256::from(0), 10000);
-        crate::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<Test>();
+        crate::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<
+            Test,
+        >();
         assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
     })
 }
@@ -353,7 +352,9 @@ fn test_migrate_fix_total_coldkey_stake_no_entry() {
         Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
         Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
         Stake::<Test>::insert(U256::from(3), U256::from(0), 10000);
-        crate::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<Test>();
+        crate::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<
+            Test,
+        >();
         assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
     })
 }
@@ -366,7 +367,9 @@ fn test_migrate_fix_total_coldkey_stake_no_entry_in_hotkeys() {
         let coldkey = U256::from(0);
         TotalColdkeyStake::<Test>::insert(coldkey, 100000000);
         StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
-        crate::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<Test>();
+        crate::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<
+            Test,
+        >();
         assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 0);
     })
 }
@@ -381,7 +384,9 @@ fn test_migrate_fix_total_coldkey_stake_one_hotkey_stake_missing() {
         StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
         Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
         Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
-        crate::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<Test>();
+        crate::migrations::migrate_fix_total_coldkey_stake::do_migrate_fix_total_coldkey_stake::<
+            Test,
+        >();
         assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 20000);
     })
 }
@@ -430,7 +435,9 @@ fn test_migrate_fix_total_coldkey_stake_starts_with_value_no_stake_map_entries()
 
 fn run_migration_and_check(migration_name: &'static str) -> frame_support::weights::Weight {
     // Execute the migration and store its weight
-    let weight: frame_support::weights::Weight = crate::migrations::migrate_fix_total_coldkey_stake::migrate_fix_total_coldkey_stake::<Test>();
+    let weight: frame_support::weights::Weight =
+        crate::migrations::migrate_fix_total_coldkey_stake::migrate_fix_total_coldkey_stake::<Test>(
+        );
 
     // Check if the migration has been marked as completed
     assert!(HasMigrationRun::<Test>::get(
@@ -502,9 +509,7 @@ fn test_migrate_commit_reveal_2() {
         // ------------------------------
         // Step 2: Run the Migration
         // ------------------------------
-        let weight =
-            crate::migrations::migrate_commit_reveal_v2::migrate_commit_reveal_2::<Test>(
-            );
+        let weight = crate::migrations::migrate_commit_reveal_v2::migrate_commit_reveal_2::<Test>();
 
         assert!(
             HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),

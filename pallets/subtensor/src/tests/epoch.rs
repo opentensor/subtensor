@@ -5,29 +5,15 @@
 )]
 
 use super::mock::*;
-use frame_support::{assert_err, assert_ok};
-use frame_system::Config;
 use crate::epoch::math::safe_exp;
 use crate::*;
+use frame_support::{assert_err, assert_ok};
+use frame_system::Config;
 use rand::{distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
 use sp_core::U256;
 use sp_runtime::DispatchError;
 use std::time::Instant;
 use substrate_fixed::types::I32F32;
-
-
-
-pub fn fixed(val: f32) -> I32F32 {
-    I32F32::from_num(val)
-}
-
-pub fn fixed_to_u16(x: I32F32) -> u16 {
-    x.to_num::<u16>()
-}
-
-pub fn fixed_proportion_to_u16(x: I32F32) -> u16 {
-    fixed_to_u16(x * I32F32::from_num(u16::MAX))
-}
 
 // Normalizes (sum to 1 except 0) the input vector directly in-place.
 #[allow(dead_code)]

@@ -4,10 +4,10 @@
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
 use frame_system::Config;
 
-use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
-use frame_support::sp_runtime::DispatchError;
 use super::mock::*;
 use crate::*;
+use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
+use frame_support::sp_runtime::DispatchError;
 use sp_core::{H256, U256};
 
 /***********************************************************
@@ -2613,21 +2613,9 @@ fn test_mining_emission_drain_with_validation() {
             half_stake
         ));
         // Make all stakes viable
-        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(
-            validator_miner1,
-            coldkey,
-            -1,
-        );
-        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(
-            validator_miner2,
-            coldkey,
-            -1,
-        );
-        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(
-            validator_miner2,
-            nominator,
-            -1,
-        );
+        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(validator_miner1, coldkey, -1);
+        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(validator_miner2, coldkey, -1);
+        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(validator_miner2, nominator, -1);
 
         // Setup YUMA so that it creates emissions:
         //   Validators set weights for each other
@@ -2737,11 +2725,7 @@ fn test_mining_emission_drain_validator_valiminer_miner() {
         ));
         // Make all stakes viable
         crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(validator, coldkey, -1);
-        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(
-            validator_miner,
-            coldkey,
-            -1,
-        );
+        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(validator_miner, coldkey, -1);
 
         // Setup YUMA so that it creates emissions:
         //   Validator 1 sets weight for valiminer       |- to achieve equal incentive for both miners
@@ -2786,8 +2770,7 @@ fn test_mining_emission_drain_validator_valiminer_miner() {
         //   - Valiminer gets 25% as a validator and 25% as miner
         //   - Miner gets 25% as miner
         let validator_emission = crate::Stake::<Test>::get(validator, coldkey) - stake;
-        let valiminer_emission =
-            crate::Stake::<Test>::get(validator_miner, coldkey) - stake;
+        let valiminer_emission = crate::Stake::<Test>::get(validator_miner, coldkey) - stake;
         let miner_emission = crate::Stake::<Test>::get(miner, coldkey);
         let total_emission = validator_emission + valiminer_emission + miner_emission;
 

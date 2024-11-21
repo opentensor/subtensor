@@ -1,10 +1,8 @@
 use super::mock::*;
+use crate::{ColdkeySwapScheduleDuration, DissolveNetworkScheduleDuration, Event};
 use frame_support::assert_ok;
 use frame_system::Config;
-use crate::{ColdkeySwapScheduleDuration, DissolveNetworkScheduleDuration, Event};
 use sp_core::U256;
-
-
 
 #[test]
 fn test_registration_ok() {

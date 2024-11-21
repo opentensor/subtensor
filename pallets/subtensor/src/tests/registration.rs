@@ -3,15 +3,13 @@
 use frame_support::traits::Currency;
 
 use super::mock::*;
+use crate::{AxonInfoOf, Error, SubtensorSignedExtension};
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
 use frame_support::sp_runtime::{transaction_validity::InvalidTransaction, DispatchError};
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::Config;
-use crate::{AxonInfoOf, Error, SubtensorSignedExtension};
 use sp_core::U256;
 use sp_runtime::traits::{DispatchInfoOf, SignedExtension};
-
-
 
 /********************************************
     subscribing::subscribe() tests
@@ -306,11 +304,10 @@ fn test_burned_registration_under_limit() {
         let max_registrants = target_registrants * 3; // Maximum is 3 times the target
         SubtensorModule::set_target_registrations_per_interval(netuid, target_registrants);
 
-        let call_burned_register: crate::Call<Test> =
-            crate::Call::burned_register {
-                netuid,
-                hotkey: hotkey_account_id,
-            };
+        let call_burned_register: crate::Call<Test> = crate::Call::burned_register {
+            netuid,
+            hotkey: hotkey_account_id,
+        };
 
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
@@ -347,11 +344,10 @@ fn test_burned_registration_rate_limit_exceeded() {
         // Set the current registrations to the maximum; should not be able to register more
         SubtensorModule::set_registrations_this_interval(netuid, max_registrants);
 
-        let call_burned_register: crate::Call<Test> =
-            crate::Call::burned_register {
-                netuid,
-                hotkey: hotkey_account_id,
-            };
+        let call_burned_register: crate::Call<Test> = crate::Call::burned_register {
+            netuid,
+            hotkey: hotkey_account_id,
+        };
 
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
@@ -390,11 +386,10 @@ fn test_burned_registration_rate_allows_burn_adjustment() {
         SubtensorModule::set_registrations_this_interval(netuid, target_registrants);
 
         // Register one more, so the current registrations are above the target
-        let call_burned_register: crate::Call<Test> =
-            crate::Call::burned_register {
-                netuid,
-                hotkey: hotkey_account_id,
-            };
+        let call_burned_register: crate::Call<Test> = crate::Call::burned_register {
+            netuid,
+            hotkey: hotkey_account_id,
+        };
 
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();

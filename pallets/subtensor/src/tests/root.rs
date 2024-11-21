@@ -1,15 +1,13 @@
 #![allow(clippy::indexing_slicing, clippy::unwrap_used)]
 
 use super::mock::*;
-use frame_support::{assert_err, assert_ok};
-use frame_system::Config;
-use frame_system::{EventRecord, Phase};
 use crate::Error;
 use crate::{migrations, SubnetIdentity};
 use crate::{SubnetIdentities, SubnetIdentityOf};
+use frame_support::{assert_err, assert_ok};
+use frame_system::Config;
+use frame_system::{EventRecord, Phase};
 use sp_core::{Get, H256, U256};
-
-
 
 #[allow(dead_code)]
 fn record(event: RuntimeEvent) -> EventRecord<RuntimeEvent, H256> {
