@@ -452,20 +452,10 @@ fn test_do_move_multiple_times() {
         TargetStakesPerInterval::<Test>::set(1000);
         for _ in 0..3 {
             assert_ok!(SubtensorModule::do_move_stake(
-                coldkey,
-                hotkey1,
-                hotkey2,
-                netuid,
-                netuid,
-                alpha,
+                coldkey, hotkey1, hotkey2, netuid, netuid, alpha,
             ));
             assert_ok!(SubtensorModule::do_move_stake(
-                coldkey,
-                hotkey2,
-                hotkey1,
-                netuid,
-                netuid,
-                alpha,
+                coldkey, hotkey2, hotkey1, netuid, netuid, alpha,
             ));
         }
 
@@ -553,12 +543,7 @@ fn test_do_move_same_hotkey() {
 
         // Attempt to move stake to the same hotkey
         assert_ok!(SubtensorModule::do_move_stake(
-            coldkey,
-            hotkey,
-            hotkey,
-            netuid,
-            netuid,
-            alpha,
+            coldkey, hotkey, hotkey, netuid, netuid, alpha,
         ));
 
         // Check that stake remains unchanged
@@ -726,22 +711,10 @@ fn test_do_move_rate_limit_enforced() {
 
         // Move stake multiple times
         assert_ok!(SubtensorModule::do_move_stake(
-            coldkey,
-            hotkey1,
-            hotkey2,
-            netuid,
-            netuid,
-            alpha,
+            coldkey, hotkey1, hotkey2, netuid, netuid, alpha,
         ));
         assert_err!(
-            SubtensorModule::do_move_stake(
-                coldkey,
-                hotkey2,
-                hotkey1,
-                netuid,
-                netuid,
-                alpha,
-            ),
+            SubtensorModule::do_move_stake(coldkey, hotkey2, hotkey1, netuid, netuid, alpha,),
             Error::<Test>::StakeRateLimitExceeded,
         );
 
