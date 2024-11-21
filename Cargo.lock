@@ -6151,6 +6151,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "subtensor-macros",
+ "tle",
  "w3f-bls",
 ]
 
@@ -11198,7 +11199,7 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 [[package]]
 name = "tle"
 version = "0.1.0"
-source = "git+https://github.com/ideal-lab5/tle?rev=6226d8a73b6c0dcc5d4f3671193d58ada21ce88f#6226d8a73b6c0dcc5d4f3671193d58ada21ce88f"
+source = "git+https://github.com/ideal-lab5/timelock?rev=5416406cfd32799e31e1795393d4916894de4468#5416406cfd32799e31e1795393d4916894de4468"
 dependencies = [
  "aes-gcm",
  "ark-bls12-377",

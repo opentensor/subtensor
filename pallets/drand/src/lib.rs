@@ -83,15 +83,7 @@ pub const API_ENDPOINT: &str = "https://drand.cloudflare.com";
 /// quicknet uses 'Tiny' BLS381, with small 48-byte sigs in G1 and 96-byte pubkeys in G2
 pub const QUICKNET_CHAIN_HASH: &str =
     "52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971";
-/// the drand mainnet chain hash
-/// mainnext uses 'Usual' BLS381, with 96-byte sigs in G2 and 48-byte pubkeys in G1
-pub const MAINNET_CHAIN_HASH: &str =
-    "8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce";
 
-#[cfg(feature = "mainnet")]
-const CHAIN_HASH: &str = MAINNET_CHAIN_HASH;
-
-#[cfg(not(feature = "mainnet"))]
 const CHAIN_HASH: &str = QUICKNET_CHAIN_HASH;
 
 pub const MAX_PULSES_TO_FETCH: u64 = 50;
@@ -182,7 +174,39 @@ pub mod pallet {
 
     /// the drand beacon configuration
     #[pallet::storage]
-    pub type BeaconConfig<T: Config> = StorageValue<_, BeaconConfiguration, OptionQuery>;
+    pub type BeaconConfig<T: Config> =
+        StorageValue<_, BeaconConfiguration, ValueQuery, DefaultBeaconConfig<T>>;
+
+    #[pallet::type_value]
+    pub fn DefaultBeaconConfig<T: Config>() -> BeaconConfiguration {
+        BeaconConfiguration {
+            public_key: OpaquePublicKey::truncate_from(vec![
+                131, 207, 15, 40, 150, 173, 238, 126, 184, 181, 240, 31, 202, 211, 145, 34, 18,
+                196, 55, 224, 7, 62, 145, 31, 185, 0, 34, 211, 231, 96, 24, 60, 140, 75, 69, 11,
+                106, 10, 108, 58, 198, 165, 119, 106, 45, 16, 100, 81, 13, 31, 236, 117, 140, 146,
+                28, 194, 43, 14, 23, 230, 58, 175, 75, 203, 94, 214, 99, 4, 222, 156, 248, 9, 189,
+                39, 76, 167, 59, 171, 74, 245, 166, 233, 199, 106, 75, 192, 158, 118, 234, 232,
+                153, 30, 245, 236, 228, 90,
+            ]),
+            period: 3,
+            genesis_time: 1_692_803_367,
+            hash: BoundedHash::truncate_from(vec![
+                82, 219, 155, 167, 14, 12, 192, 246, 234, 247, 128, 61, 208, 116, 71, 161, 245, 71,
+                119, 53, 253, 63, 102, 23, 146, 186, 148, 96, 12, 132, 233, 113,
+            ]),
+            group_hash: BoundedHash::truncate_from(vec![
+                244, 119, 213, 200, 159, 33, 161, 124, 134, 58, 127, 147, 124, 106, 109, 21, 133,
+                148, 20, 210, 190, 9, 205, 68, 141, 66, 121, 175, 51, 28, 93, 62,
+            ]),
+            scheme_id: BoundedHash::truncate_from(vec![
+                98, 108, 115, 45, 117, 110, 99, 104, 97, 105, 110, 101, 100, 45, 103, 49, 45, 114,
+                102, 99, 57, 51, 56, 48,
+            ]),
+            metadata: Metadata {
+                beacon_id: BoundedVec::truncate_from(vec![113, 117, 105, 99, 107, 110, 101, 116]),
+            },
+        }
+    }
 
     /// map round number to pulse
     #[pallet::storage]
@@ -230,22 +254,8 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: BlockNumberFor<T>) {
-            // if the beacon config isn't available, get it now
-            if BeaconConfig::<T>::get().is_none() {
-                if let Err(e) = Self::fetch_drand_config_and_send(block_number) {
-                    log::debug!(
-						"Drand: Failed to fetch chain config from drand, are you sure the chain hash is valid? {:?}",
-						e
-					);
-                }
-            } else {
-                // otherwise query drand
-                if let Err(e) = Self::fetch_drand_pulse_and_send_unsigned(block_number) {
-                    log::debug!(
-						"Drand: Failed to fetch pulse from drand, are you sure the chain hash is valid? {:?}",
-						e
-					);
-                }
+            if let Err(e) = Self::fetch_drand_pulse_and_send_unsigned(block_number) {
+                log::debug!("Drand: Failed to fetch pulse from drand. {:?}", e);
             }
         }
     }
@@ -266,8 +276,6 @@ pub mod pallet {
                     ref signature,
                 } => {
                     let signature = signature.as_ref().ok_or(InvalidTransaction::BadSigner)?;
-                    // TODO validate it is a trusted source as any well-formatted config would pass
-                    // https://github.com/ideal-lab5/pallet-drand/issues/3
                     Self::validate_signature_and_parameters(
                         payload,
                         signature,
@@ -301,7 +309,7 @@ pub mod pallet {
             _signature: Option<T::Signature>,
         ) -> DispatchResult {
             ensure_none(origin)?;
-            let config = BeaconConfig::<T>::get().ok_or(Error::<T>::NoneValue)?;
+            let config = BeaconConfig::<T>::get();
 
             let mut last_stored_round = LastStoredRound::<T>::get();
             let mut new_rounds = Vec::new();
@@ -349,7 +357,7 @@ pub mod pallet {
             config_payload: BeaconConfigurationPayload<T::Public, BlockNumberFor<T>>,
             _signature: Option<T::Signature>,
         ) -> DispatchResult {
-            ensure_none(origin)?;
+            ensure_root(origin)?;
             BeaconConfig::<T>::put(config_payload.config);
 
             // now increment the block number at which we expect next unsigned transaction.
@@ -363,61 +371,6 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    /// query drand's /info endpoint for the quicknet chain
-    /// then send a signed transaction to encode it on-chain
-    fn fetch_drand_config_and_send(block_number: BlockNumberFor<T>) -> Result<(), &'static str> {
-        // Make sure we don't fetch the config if the transaction is going to be rejected
-        // anyway.
-        let next_unsigned_at = NextUnsignedAt::<T>::get();
-        if next_unsigned_at > block_number {
-            return Err("Drand: Too early to send unsigned transaction");
-        }
-
-        let signer = Signer::<T, T::AuthorityId>::all_accounts();
-        if !signer.can_sign() {
-            return Err(
-                "Drand: No local accounts available. Consider adding one via `author_insertKey` RPC.",
-            )?;
-        }
-
-        let body_str =
-            Self::fetch_drand_chain_info().map_err(|_| "Failed to fetch drand chain info")?;
-        let beacon_config: BeaconInfoResponse = serde_json::from_str(&body_str)
-            .map_err(|_| "Drand: Failed to convert response body to beacon configuration")?;
-        let config = beacon_config
-            .try_into_beacon_config()
-            .map_err(|_| "Drand: Failed to convert BeaconInfoResponse to BeaconConfiguration")?;
-
-        let results = signer.send_unsigned_transaction(
-            |account| BeaconConfigurationPayload {
-                block_number,
-                config: config.clone(),
-                public: account.public.clone(),
-            },
-            |config_payload, signature| Call::set_beacon_config {
-                config_payload,
-                signature: Some(signature),
-            },
-        );
-
-        if results.is_empty() {
-            log::error!("Drand: Empty result from config: {:?}", config);
-        }
-
-        for (acc, res) in &results {
-            match res {
-                Ok(()) => log::info!("Drand: [{:?}] Submitted new config: {:?}", acc.id, config),
-                Err(e) => log::error!(
-                    "Drand: [{:?}] Failed to submit transaction: {:?}",
-                    acc.id,
-                    e
-                ),
-            }
-        }
-
-        Ok(())
-    }
-
     /// fetch the latest public pulse from the configured drand beacon
     /// then send a signed transaction to include it on-chain
     fn fetch_drand_pulse_and_send_unsigned(
@@ -499,10 +452,6 @@ impl<T: Config> Pallet<T> {
 
     /// Query the endpoint `{api}/{chainHash}/info` to receive information about the drand chain
     /// Valid response bodies are deserialized into `BeaconInfoResponse`
-    fn fetch_drand_chain_info() -> Result<String, http::Error> {
-        let uri: &str = &format!("{}/{}/info", API_ENDPOINT, CHAIN_HASH);
-        Self::fetch(uri)
-    }
     fn fetch_drand_by_round(round: RoundNumber) -> Result<String, http::Error> {
         let uri: &str = &format!("{}/{}/public/{}", API_ENDPOINT, CHAIN_HASH, round);
         Self::fetch(uri)

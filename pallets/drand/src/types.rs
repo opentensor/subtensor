@@ -20,12 +20,9 @@ use frame_support::pallet_prelude::*;
 use serde::{Deserialize, Serialize};
 use subtensor_macros::freeze_struct;
 
-/// Represents an opaque public key used in drand's mainnet
-#[cfg(not(feature = "mainnet"))]
-pub type OpaquePublicKey = BoundedVec<u8, ConstU32<96>>;
 /// Represents an opaque public key used in drand's quicknet
-#[cfg(feature = "mainnet")]
-pub type OpaquePublicKey = BoundedVec<u8, ConstU32<48>>;
+pub type OpaquePublicKey = BoundedVec<u8, ConstU32<96>>;
+
 /// an opaque hash type
 pub type BoundedHash = BoundedVec<u8, ConstU32<32>>;
 /// the round number to track rounds of the beacon
@@ -87,7 +84,7 @@ impl BeaconInfoResponse {
 
 /// a pulse from the drand beacon
 /// the expected response body from the drand api endpoint `api.drand.sh/{chainId}/public/latest`
-#[freeze_struct("fa1e760d5c707d26")]
+#[freeze_struct("a3fed2c99a0638bf")]
 #[derive(Debug, Decode, Default, PartialEq, Encode, Serialize, Deserialize)]
 pub struct DrandResponseBody {
     /// the randomness round number
@@ -100,10 +97,6 @@ pub struct DrandResponseBody {
     // TODO: use Signature (https://github.com/ideal-lab5/pallet-drand/issues/2)
     #[serde(with = "hex::serde")]
     pub signature: Vec<u8>,
-    /// only used when running in 'chained' mode using drand's mainnet
-    #[cfg(feature = "mainnet")]
-    #[serde(with = "hex::serde")]
-    pub previous_signature: Vec<u8>,
 }
 
 impl DrandResponseBody {
@@ -115,17 +108,10 @@ impl DrandResponseBody {
         let bounded_signature = BoundedVec::<u8, ConstU32<144>>::try_from(self.signature.clone())
             .map_err(|_| "Failed to convert signature")?;
 
-        #[cfg(feature = "mainnet")]
-        let bounded_prev_signature =
-            BoundedVec::<u8, ConstU32<144>>::try_from(self.signature.clone())
-                .map_err(|_| "Failed to convert signature")?;
-
         Ok(Pulse {
             round: self.round,
             randomness: bounded_randomness,
             signature: bounded_signature,
-            #[cfg(feature = "mainnet")]
-            previous_signature: bounded_prev_signature,
         })
     }
 }
@@ -164,7 +150,7 @@ pub struct BeaconConfigurationPayload<Public, BlockNumber> {
 }
 
 /// metadata for the drand beacon configuration
-#[freeze_struct("1363328ca13289b8")]
+#[freeze_struct("d87f51d2ad39c10e")]
 #[derive(
     Clone,
     Debug,
@@ -178,11 +164,11 @@ pub struct BeaconConfigurationPayload<Public, BlockNumber> {
     TypeInfo,
 )]
 pub struct Metadata {
-    beacon_id: BoundedHash,
+    pub beacon_id: BoundedHash,
 }
 
 /// A pulse from the drand beacon
-#[freeze_struct("cedd7283835f3f56")]
+#[freeze_struct("de1a209f66f482b4")]
 #[derive(
     Clone,
     Debug,
@@ -206,8 +192,6 @@ pub struct Pulse {
     // TODO: use Signature (https://github.com/ideal-lab5/pallet-drand/issues/2)
     // maybe add the sig size as a generic?
     pub signature: BoundedVec<u8, ConstU32<144>>,
-    #[cfg(feature = "mainnet")]
-    pub previous_signature: BoundedVec<u8, ConstU32<144>>,
 }
 
 /// Payload used by to hold the pulse

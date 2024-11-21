@@ -1,6 +1,8 @@
 use super::*;
 use substrate_fixed::types::I64F64;
 use substrate_fixed::types::I96F32;
+use tle::stream_ciphers::AESGCMStreamCipherProvider;
+use tle::tlock::tld;
 
 /// Contains all necesarry information to set weights.
 ///
@@ -8,7 +10,7 @@ use substrate_fixed::types::I96F32;
 /// encrypted, compressed, serialized, and submitted to the `commit_crv3_weights`
 /// extrinsic.
 #[derive(Encode, Decode)]
-pub struct WeightsPayload {
+pub struct WeightsTlockPayload {
     pub uids: Vec<u16>,
     pub values: Vec<u16>,
     pub version_key: u64,
@@ -270,8 +272,10 @@ impl<T: Config> Pallet<T> {
                 }
             };
 
-            let decrypted_bytes: Vec<u8> = match commit.tld(sig) {
-                Ok(d) => d.message,
+            let decrypted_bytes: Vec<u8> = match tld::<TinyBLS381, AESGCMStreamCipherProvider>(
+                commit, sig,
+            ) {
+                Ok(d) => d,
                 Err(e) => {
                     log::warn!(
 							"Failed to reveal commit for subnet {} submitted by {:?} due to error decrypting the commit: {:?}",
@@ -283,9 +287,9 @@ impl<T: Config> Pallet<T> {
                 }
             };
 
-            // Decrypt the bytes into Vec<(u64, u64)>
+            // Decrypt the bytes into WeightsPayload
             let mut reader = &decrypted_bytes[..];
-            let payload: WeightsPayload = match Decode::decode(&mut reader) {
+            let payload: WeightsTlockPayload = match Decode::decode(&mut reader) {
                 Ok(w) => w,
                 Err(e) => {
                     log::warn!("Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing WeightsPayload: {:?}", netuid, who, e);

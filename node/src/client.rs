@@ -12,7 +12,7 @@ pub type FullClient = sc_service::TFullClient<Block, RuntimeApi, RuntimeExecutor
 /// `runtime-benchmarks`.
 pub type HostFunctions = (
     sp_io::SubstrateHostFunctions,
-    sp_crypto_ec_utils::bls12_381::host_calls::HostFunctions,
     frame_benchmarking::benchmarking::HostFunctions,
+    sp_crypto_ec_utils::bls12_381::host_calls::HostFunctions,
 );
 pub type RuntimeExecutor = WasmExecutor<HostFunctions>;
