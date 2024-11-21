@@ -186,7 +186,17 @@ mod dispatches {
         ///   - The u16 network identifier.
         ///
         /// * `commit` (`Vec<u8>`):
-        ///   - The encrypted weights commit.
+        ///   - The encrypted compressed commit.
+        ///     The steps for this are:
+        ///     1. Instantiate [`WeightsTlockPayload`]
+        ///     2. Serialize it using the `parity_scale_codec::Encode` trait
+        ///     3. Encrypt it following the steps (here)[https://github.com/ideal-lab5/tle/blob/f8e6019f0fb02c380ebfa6b30efb61786dede07b/timelock/src/tlock.rs#L283-L336]
+        ///        to produce a [`TLECiphertext<TinyBLS381>`] type.
+        ///     4. Serialize and compress using the `ark-serialize` `CanonicalSerialize` trait.
+        ///
+        /// * reveal_round (`u64`):
+        ///    - The drand reveal round which will be avaliable during epoch `n+1` from the current
+        ///      epoch.
         ///
         /// # Raises:
         /// * `CommitRevealV3Disabled`:

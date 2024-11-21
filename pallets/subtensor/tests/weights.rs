@@ -4188,3 +4188,27 @@ fn test_commit_weights_rate_limit() {
         ));
     });
 }
+
+#[test]
+fn test_commit_weights_dispatch_info_ok() {
+    new_test_ext(0).execute_with(|| {
+        let dests = vec![1, 1];
+        let weights = vec![1, 1];
+        let netuid: u16 = 1;
+        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let version_key: u64 = 0;
+        let hotkey: U256 = U256::from(1);
+
+        let commit_hash: H256 =
+            BlakeTwo256::hash_of(&(hotkey, netuid, dests, weights, salt, version_key));
+
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::commit_weights {
+            netuid,
+            commit_hash,
+        });
+        let dispatch_info = call.get_dispatch_info();
+
+        assert_eq!(dispatch_info.class, DispatchClass::Normal);
+        assert_eq!(dispatch_info.pays_fee, Pays::No);
+    });
+}
