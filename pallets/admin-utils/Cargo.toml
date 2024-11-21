@@ -29,6 +29,7 @@ log = { workspace = true }
 pallet-subtensor = { version = "4.0.0-dev", default-features = false, path = "../subtensor" }
 sp-weights = { workspace = true }
 substrate-fixed = { workspace = true }
+pallet-drand = { workspace = true, default-features = false }
 
 
 [dev-dependencies]

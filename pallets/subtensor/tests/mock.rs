@@ -10,7 +10,7 @@ use frame_support::{
 use frame_system as system;
 use frame_system::{limits, EnsureNever, EnsureRoot, RawOrigin};
 use pallet_collective::MemberCount;
-use sp_core::{Get, H256, U256};
+use sp_core::{offchain::KeyTypeId, ConstU64, Get, H256, U256};
 use sp_runtime::Perbill;
 use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
@@ -34,6 +34,7 @@ frame_support::construct_runtime!(
         Utility: pallet_utility::{Pallet, Call, Storage, Event} = 8,
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 9,
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 10,
+        Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 11,
     }
 );
 
@@ -49,10 +50,9 @@ pub type BalanceCall = pallet_balances::Call<Test>;
 #[allow(dead_code)]
 pub type TestRuntimeCall = frame_system::Call<Test>;
 
-parameter_types! {
-    pub const BlockHashCount: u64 = 250;
-    pub const SS58Prefix: u8 = 42;
-}
+pub type Index = u64;
+
+pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"test");
 
 #[allow(dead_code)]
 pub type AccountId = U256;
@@ -110,6 +110,11 @@ impl system::Config for Test {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
     type Nonce = u64;
     type Block = Block;
+}
+
+parameter_types! {
+    pub const BlockHashCount: u64 = 250;
+    pub const SS58Prefix: u8 = 42;
 }
 
 parameter_types! {
@@ -452,6 +457,80 @@ impl pallet_preimage::Config for Test {
     type Consideration = ();
 }
 
+mod test_crypto {
+    use super::KEY_TYPE;
+    use sp_core::{
+        sr25519::{Public as Sr25519Public, Signature as Sr25519Signature},
+        U256,
+    };
+    use sp_runtime::{
+        app_crypto::{app_crypto, sr25519},
+        traits::IdentifyAccount,
+    };
+
+    app_crypto!(sr25519, KEY_TYPE);
+
+    pub struct TestAuthId;
+
+    // Implement AppCrypto for TestAuthId using test_crypto::Public and test_crypto::Signature
+    impl frame_system::offchain::AppCrypto<Public, Signature> for TestAuthId {
+        type RuntimeAppPublic = Public;
+        type GenericSignature = Sr25519Signature;
+        type GenericPublic = Sr25519Public;
+    }
+
+    // Implement IdentifyAccount for Public
+    impl IdentifyAccount for Public {
+        type AccountId = U256;
+
+        fn into_account(self) -> U256 {
+            let mut bytes = [0u8; 32];
+            bytes.copy_from_slice(self.as_ref());
+            U256::from_big_endian(&bytes)
+        }
+    }
+}
+
+pub type TestAuthId = test_crypto::TestAuthId;
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+where
+    RuntimeCall: From<C>,
+{
+    type Extrinsic = UncheckedExtrinsic;
+    type OverarchingCall = RuntimeCall;
+}
+
+impl pallet_drand::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = pallet_drand::weights::SubstrateWeight<Test>;
+    type AuthorityId = TestAuthId;
+    type Verifier = pallet_drand::verifier::QuicknetVerifier;
+    type UnsignedPriority = ConstU64<{ 1 << 20 }>;
+    type HttpFetchTimeout = ConstU64<1_000>;
+}
+
+impl frame_system::offchain::SigningTypes for Test {
+    type Public = test_crypto::Public;
+    type Signature = test_crypto::Signature;
+}
+
+pub type UncheckedExtrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
+
+impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Test>> for Test {
+    fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+        call: RuntimeCall,
+        _public: Self::Public,
+        _account: Self::AccountId,
+        nonce: Index,
+    ) -> Option<(
+        RuntimeCall,
+        <UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
+    )> {
+        Some((call, (nonce, ())))
+    }
+}
+
 #[allow(dead_code)]
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext(block_number: BlockNumber) -> sp_io::TestExternalities {
@@ -531,7 +610,7 @@ pub(crate) fn step_epochs(count: u16, netuid: u16) {
     }
 }
 
-/// Increments current block by `1`, running all hooks associated with doing so, and asserts
+/// Increments current block by 1, running all hooks associated with doing so, and asserts
 /// that the block number was in fact incremented.
 ///
 /// Returns the new block number.

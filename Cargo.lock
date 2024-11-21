@@ -6014,6 +6014,7 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
+ "pallet-drand",
  "pallet-scheduler",
  "pallet-subtensor",
  "parity-scale-codec",
