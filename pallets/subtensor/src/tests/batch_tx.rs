@@ -1,8 +1,8 @@
 use frame_support::{assert_ok, traits::Currency};
 use frame_system::Config;
 use sp_core::U256;
-mod mock;
-use mock::*;
+
+use super::mock::*;
 
 #[test]
 fn test_batch_txs() {

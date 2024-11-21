@@ -1,5 +1,5 @@
-mod mock;
-use mock::*;
+
+use super::mock::*;
 
 use sp_core::U256;
 

@@ -30,7 +30,7 @@ frame_support::construct_runtime!(
         TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 4,
         Senate: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 5,
         SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>} = 6,
-        SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>} = 7,
+        SubtensorModule: crate::{Pallet, Call, Storage, Event<T>} = 7,
         Utility: pallet_utility::{Pallet, Call, Storage, Event} = 8,
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 9,
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 10,
@@ -38,10 +38,10 @@ frame_support::construct_runtime!(
 );
 
 #[allow(dead_code)]
-pub type SubtensorCall = pallet_subtensor::Call<Test>;
+pub type SubtensorCall = crate::Call<Test>;
 
 #[allow(dead_code)]
-pub type SubtensorEvent = pallet_subtensor::Event<Test>;
+pub type SubtensorEvent = crate::Event<Test>;
 
 #[allow(dead_code)]
 pub type BalanceCall = pallet_balances::Call<Test>;
@@ -207,7 +207,7 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
     }
 }
 
-use pallet_subtensor::{CollectiveInterface, MemberManagement};
+use crate::{CollectiveInterface, MemberManagement};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {

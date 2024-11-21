@@ -1,5 +1,5 @@
-use crate::mock::*;
-mod mock;
+use super::mock::*;
+
 use frame_support::assert_noop;
 use frame_support::pallet_prelude::Weight;
 use frame_support::{
@@ -7,8 +7,8 @@ use frame_support::{
     dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays},
 };
 use frame_system::Config;
-use pallet_subtensor::Error;
-use pallet_subtensor::*;
+use crate::Error;
+use crate::*;
 use sp_core::U256;
 
 mod test {
@@ -860,7 +860,7 @@ fn test_migrate_set_hotkey_identities() {
     new_test_ext(1).execute_with(|| {
         // Run the migration
         let weight =
-            pallet_subtensor::migrations::migrate_chain_identity::migrate_set_hotkey_identities::<
+            crate::migrations::migrate_chain_identity::migrate_set_hotkey_identities::<
                 Test,
             >();
 

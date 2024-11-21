@@ -4,18 +4,18 @@
     clippy::unwrap_used
 )]
 
-use crate::mock::*;
+use super::mock::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
-use pallet_subtensor::epoch::math::safe_exp;
-use pallet_subtensor::*;
+use crate::epoch::math::safe_exp;
+use crate::*;
 use rand::{distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
 use sp_core::U256;
 use sp_runtime::DispatchError;
 use std::time::Instant;
 use substrate_fixed::types::I32F32;
 
-mod mock;
+
 
 pub fn fixed(val: f32) -> I32F32 {
     I32F32::from_num(val)

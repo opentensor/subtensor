@@ -4,13 +4,14 @@ use frame_support::{
     dispatch::{DispatchClass, GetDispatchInfo, Pays},
 };
 use frame_system::Config;
-use pallet_admin_utils::Error;
 use pallet_subtensor::Error as SubtensorError;
 use pallet_subtensor::{migrations, Event};
 use sp_core::U256;
 
-mod mock;
+use crate::Error;
 use mock::*;
+
+mod mock;
 
 #[test]
 fn test_sudo_set_default_take() {
@@ -1183,7 +1184,7 @@ fn test_set_alpha_values_dispatch_info_ok() {
         let netuid: u16 = 1;
         let alpha_low: u16 = 12_u16;
         let alpha_high: u16 = u16::MAX - 10;
-        let call = RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_alpha_values {
+        let call = RuntimeCall::AdminUtils(crate::Call::sudo_set_alpha_values {
             netuid,
             alpha_low,
             alpha_high,

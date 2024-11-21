@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used)]
 
-mod mock;
-use mock::*;
+
+use super::mock::*;
 
 use codec::Encode;
 use frame_support::{assert_noop, assert_ok};
@@ -15,8 +15,8 @@ use sp_runtime::{
 use frame_system::pallet_prelude::*;
 use frame_system::Config;
 use pallet_collective::Event as CollectiveEvent;
-use pallet_subtensor::migrations;
-use pallet_subtensor::Error;
+use crate::migrations;
+use crate::Error;
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();

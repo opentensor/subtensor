@@ -1,15 +1,15 @@
 #![allow(clippy::indexing_slicing, clippy::unwrap_used)]
 
-use crate::mock::*;
+use super::mock::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use frame_system::{EventRecord, Phase};
-use pallet_subtensor::Error;
-use pallet_subtensor::{migrations, SubnetIdentity};
-use pallet_subtensor::{SubnetIdentities, SubnetIdentityOf};
+use crate::Error;
+use crate::{migrations, SubnetIdentity};
+use crate::{SubnetIdentities, SubnetIdentityOf};
 use sp_core::{Get, H256, U256};
 
-mod mock;
+
 
 #[allow(dead_code)]
 fn record(event: RuntimeEvent) -> EventRecord<RuntimeEvent, H256> {
@@ -871,7 +871,7 @@ fn test_halving() {
 #[test]
 fn test_get_emission_across_entire_issuance_range() {
     new_test_ext(1).execute_with(|| {
-        let total_supply: u64 = pallet_subtensor::TotalSupply::<Test>::get();
+        let total_supply: u64 = crate::TotalSupply::<Test>::get();
         let original_emission: u64 = pallet_subtensor::DefaultBlockEmission::<Test>::get();
         let halving_issuance: u64 = total_supply / 2;
 

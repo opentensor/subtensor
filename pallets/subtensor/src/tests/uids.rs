@@ -1,12 +1,12 @@
 #![allow(clippy::unwrap_used)]
 
-use crate::mock::*;
+use super::mock::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
-use pallet_subtensor::*;
+use crate::*;
 use sp_core::U256;
 
-mod mock;
+
 
 /********************************************
     tests for uids.rs file

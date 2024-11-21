@@ -3,11 +3,11 @@
 
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
 use frame_system::Config;
-mod mock;
+
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
 use frame_support::sp_runtime::DispatchError;
-use mock::*;
-use pallet_subtensor::*;
+use super::mock::*;
+use crate::*;
 use sp_core::{H256, U256};
 
 /***********************************************************
@@ -1578,7 +1578,7 @@ fn test_add_stake_below_minimum_threshold() {
                 hotkey1,
                 amount_below
             ),
-            pallet_subtensor::Error::<Test>::NomStakeBelowMinimumThreshold
+            crate::Error::<Test>::NomStakeBelowMinimumThreshold
         );
     });
 }
@@ -2443,11 +2443,11 @@ fn test_mining_emission_drain() {
         SubtensorModule::set_hotkey_emission_tempo(hotkey_tempo);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         step_block(subnet_tempo);
-        pallet_subtensor::SubnetOwnerCut::<Test>::set(0);
+        crate::SubnetOwnerCut::<Test>::set(0);
         // All stake is active
-        pallet_subtensor::ActivityCutoff::<Test>::set(netuid, u16::MAX);
+        crate::ActivityCutoff::<Test>::set(netuid, u16::MAX);
         // There's only one validator
-        pallet_subtensor::MaxAllowedUids::<Test>::set(netuid, 2);
+        crate::MaxAllowedUids::<Test>::set(netuid, 2);
         SubtensorModule::set_max_allowed_validators(netuid, 1);
 
         // Set zero hotkey take for validator
@@ -2486,39 +2486,39 @@ fn test_mining_emission_drain() {
             stake
         ));
         // Make all stakes viable
-        pallet_subtensor::StakeDeltaSinceLastEmissionDrain::<Test>::set(validator, coldkey, -1);
-        pallet_subtensor::StakeDeltaSinceLastEmissionDrain::<Test>::set(miner, nominator, -1);
+        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(validator, coldkey, -1);
+        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(miner, nominator, -1);
 
         // Setup YUMA so that it creates emissions:
         //   Validator sets weight for miner
         //   Validator registers on root and
         //   Sets root weights
         //   Last weight update is after block at registration
-        pallet_subtensor::Weights::<Test>::insert(netuid, 0, vec![(1, 0xFFFF)]);
+        crate::Weights::<Test>::insert(netuid, 0, vec![(1, 0xFFFF)]);
         assert_ok!(SubtensorModule::do_root_register(
             RuntimeOrigin::signed(coldkey),
             validator,
         ));
-        pallet_subtensor::Weights::<Test>::insert(root_id, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
-        pallet_subtensor::BlockAtRegistration::<Test>::set(netuid, 0, 1);
-        pallet_subtensor::LastUpdate::<Test>::set(netuid, vec![2, 2]);
-        pallet_subtensor::Kappa::<Test>::set(netuid, u16::MAX / 5);
+        crate::Weights::<Test>::insert(root_id, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        crate::BlockAtRegistration::<Test>::set(netuid, 0, 1);
+        crate::LastUpdate::<Test>::set(netuid, vec![2, 2]);
+        crate::Kappa::<Test>::set(netuid, u16::MAX / 5);
 
         // Run run_coinbase until root epoch is run
-        while pallet_subtensor::PendingEmission::<Test>::get(netuid) == 0 {
+        while crate::PendingEmission::<Test>::get(netuid) == 0 {
             step_block(1);
         }
 
         // Prevent further root epochs
-        pallet_subtensor::Tempo::<Test>::set(root_id, u16::MAX);
+        crate::Tempo::<Test>::set(root_id, u16::MAX);
 
         // Run run_coinbase until PendingHotkeyEmission are populated
-        while pallet_subtensor::PendingdHotkeyEmission::<Test>::get(miner) == 0 {
+        while crate::PendingdHotkeyEmission::<Test>::get(miner) == 0 {
             step_block(1);
         }
 
         // Prevent further subnet epochs
-        pallet_subtensor::Tempo::<Test>::set(netuid, u16::MAX);
+        crate::Tempo::<Test>::set(netuid, u16::MAX);
 
         // Run run_coinbase until PendingHotkeyEmission is drained for both validator and miner
         step_block((hotkey_tempo * 2) as u16);
@@ -2527,9 +2527,9 @@ fn test_mining_emission_drain() {
         //   - Validator stake increased by 50% of total emission
         //   - Miner stake increased by 50% of total emission
         //   - Nominator gets nothing because he staked to miner
-        let miner_emission = pallet_subtensor::Stake::<Test>::get(miner, coldkey) - miner_stake;
-        let validator_emission = pallet_subtensor::Stake::<Test>::get(validator, coldkey) - stake;
-        let nominator_emission = pallet_subtensor::Stake::<Test>::get(miner, nominator) - stake;
+        let miner_emission = crate::Stake::<Test>::get(miner, coldkey) - miner_stake;
+        let validator_emission = crate::Stake::<Test>::get(validator, coldkey) - stake;
+        let nominator_emission = crate::Stake::<Test>::get(miner, nominator) - stake;
         let total_emission = validator_emission + miner_emission + nominator_emission;
 
         assert_eq!(validator_emission, total_emission / 2);
@@ -2571,11 +2571,11 @@ fn test_mining_emission_drain_with_validation() {
         SubtensorModule::set_hotkey_emission_tempo(hotkey_tempo);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         step_block(subnet_tempo);
-        pallet_subtensor::SubnetOwnerCut::<Test>::set(0);
+        crate::SubnetOwnerCut::<Test>::set(0);
         // All stake is active
-        pallet_subtensor::ActivityCutoff::<Test>::set(netuid, u16::MAX);
+        crate::ActivityCutoff::<Test>::set(netuid, u16::MAX);
         // There are two validators
-        pallet_subtensor::MaxAllowedUids::<Test>::set(netuid, 2);
+        crate::MaxAllowedUids::<Test>::set(netuid, 2);
         SubtensorModule::set_max_allowed_validators(netuid, 2);
 
         // Set zero hotkey take for validator
@@ -2613,17 +2613,17 @@ fn test_mining_emission_drain_with_validation() {
             half_stake
         ));
         // Make all stakes viable
-        pallet_subtensor::StakeDeltaSinceLastEmissionDrain::<Test>::set(
+        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(
             validator_miner1,
             coldkey,
             -1,
         );
-        pallet_subtensor::StakeDeltaSinceLastEmissionDrain::<Test>::set(
+        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(
             validator_miner2,
             coldkey,
             -1,
         );
-        pallet_subtensor::StakeDeltaSinceLastEmissionDrain::<Test>::set(
+        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(
             validator_miner2,
             nominator,
             -1,
@@ -2634,33 +2634,33 @@ fn test_mining_emission_drain_with_validation() {
         //   Validator registers on root and
         //   Sets root weights
         //   Last weight update is after block at registration
-        pallet_subtensor::Weights::<Test>::insert(netuid, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
-        pallet_subtensor::Weights::<Test>::insert(netuid, 1, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        crate::Weights::<Test>::insert(netuid, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        crate::Weights::<Test>::insert(netuid, 1, vec![(0, 0xFFFF), (1, 0xFFFF)]);
         assert_ok!(SubtensorModule::do_root_register(
             RuntimeOrigin::signed(coldkey),
             validator_miner1,
         ));
-        pallet_subtensor::Weights::<Test>::insert(root_id, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
-        pallet_subtensor::BlockAtRegistration::<Test>::set(netuid, 0, 1);
-        pallet_subtensor::BlockAtRegistration::<Test>::set(netuid, 1, 1);
-        pallet_subtensor::LastUpdate::<Test>::set(netuid, vec![2, 2]);
-        pallet_subtensor::Kappa::<Test>::set(netuid, u16::MAX / 5);
+        crate::Weights::<Test>::insert(root_id, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        crate::BlockAtRegistration::<Test>::set(netuid, 0, 1);
+        crate::BlockAtRegistration::<Test>::set(netuid, 1, 1);
+        crate::LastUpdate::<Test>::set(netuid, vec![2, 2]);
+        crate::Kappa::<Test>::set(netuid, u16::MAX / 5);
 
         // Run run_coinbase until root epoch is run
-        while pallet_subtensor::PendingEmission::<Test>::get(netuid) == 0 {
+        while crate::PendingEmission::<Test>::get(netuid) == 0 {
             step_block(1);
         }
 
         // Prevent further root epochs
-        pallet_subtensor::Tempo::<Test>::set(root_id, u16::MAX);
+        crate::Tempo::<Test>::set(root_id, u16::MAX);
 
         // Run run_coinbase until PendingHotkeyEmission are populated
-        while pallet_subtensor::PendingdHotkeyEmission::<Test>::get(validator_miner1) == 0 {
+        while crate::PendingdHotkeyEmission::<Test>::get(validator_miner1) == 0 {
             step_block(1);
         }
 
         // Prevent further subnet epochs
-        pallet_subtensor::Tempo::<Test>::set(netuid, u16::MAX);
+        crate::Tempo::<Test>::set(netuid, u16::MAX);
 
         // Run run_coinbase until PendingHotkeyEmission is drained for both validator and miner
         step_block((hotkey_tempo * 2) as u16);
@@ -2672,11 +2672,11 @@ fn test_mining_emission_drain_with_validation() {
         //   - Neuron 2 stake is increased by 37.5% of total emission (mining portion is intact, validation portion is split 50%)
         //   - Nominator stake is increased by 12.5% of total emission (validation portion is distributed in 50% proportion)
         let validator_miner_emission1 =
-            pallet_subtensor::Stake::<Test>::get(validator_miner1, coldkey) - stake;
+            crate::Stake::<Test>::get(validator_miner1, coldkey) - stake;
         let validator_miner_emission2 =
-            pallet_subtensor::Stake::<Test>::get(validator_miner2, coldkey) - half_stake;
+            crate::Stake::<Test>::get(validator_miner2, coldkey) - half_stake;
         let nominator_emission =
-            pallet_subtensor::Stake::<Test>::get(validator_miner2, nominator) - half_stake;
+            crate::Stake::<Test>::get(validator_miner2, nominator) - half_stake;
         let total_emission =
             validator_miner_emission1 + validator_miner_emission2 + nominator_emission;
 
@@ -2715,11 +2715,11 @@ fn test_mining_emission_drain_validator_valiminer_miner() {
         SubtensorModule::set_hotkey_emission_tempo(hotkey_tempo);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         step_block(subnet_tempo);
-        pallet_subtensor::SubnetOwnerCut::<Test>::set(0);
+        crate::SubnetOwnerCut::<Test>::set(0);
         // All stake is active
-        pallet_subtensor::ActivityCutoff::<Test>::set(netuid, u16::MAX);
+        crate::ActivityCutoff::<Test>::set(netuid, u16::MAX);
         // There are two validators and three neurons
-        pallet_subtensor::MaxAllowedUids::<Test>::set(netuid, 3);
+        crate::MaxAllowedUids::<Test>::set(netuid, 3);
         SubtensorModule::set_max_allowed_validators(netuid, 2);
 
         // Setup stakes:
@@ -2736,8 +2736,8 @@ fn test_mining_emission_drain_validator_valiminer_miner() {
             stake
         ));
         // Make all stakes viable
-        pallet_subtensor::StakeDeltaSinceLastEmissionDrain::<Test>::set(validator, coldkey, -1);
-        pallet_subtensor::StakeDeltaSinceLastEmissionDrain::<Test>::set(
+        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(validator, coldkey, -1);
+        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(
             validator_miner,
             coldkey,
             -1,
@@ -2749,33 +2749,33 @@ fn test_mining_emission_drain_validator_valiminer_miner() {
         //   Validator registers on root and
         //   Sets root weights
         //   Last weight update is after block at registration
-        pallet_subtensor::Weights::<Test>::insert(netuid, 0, vec![(1, 0xFFFF)]);
-        pallet_subtensor::Weights::<Test>::insert(netuid, 1, vec![(2, 0xFFFF)]);
+        crate::Weights::<Test>::insert(netuid, 0, vec![(1, 0xFFFF)]);
+        crate::Weights::<Test>::insert(netuid, 1, vec![(2, 0xFFFF)]);
         assert_ok!(SubtensorModule::do_root_register(
             RuntimeOrigin::signed(coldkey),
             validator,
         ));
-        pallet_subtensor::Weights::<Test>::insert(root_id, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
-        pallet_subtensor::BlockAtRegistration::<Test>::set(netuid, 0, 1);
-        pallet_subtensor::BlockAtRegistration::<Test>::set(netuid, 1, 1);
-        pallet_subtensor::LastUpdate::<Test>::set(netuid, vec![2, 2, 2]);
-        pallet_subtensor::Kappa::<Test>::set(netuid, u16::MAX / 5);
+        crate::Weights::<Test>::insert(root_id, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        crate::BlockAtRegistration::<Test>::set(netuid, 0, 1);
+        crate::BlockAtRegistration::<Test>::set(netuid, 1, 1);
+        crate::LastUpdate::<Test>::set(netuid, vec![2, 2, 2]);
+        crate::Kappa::<Test>::set(netuid, u16::MAX / 5);
 
         // Run run_coinbase until root epoch is run
-        while pallet_subtensor::PendingEmission::<Test>::get(netuid) == 0 {
+        while crate::PendingEmission::<Test>::get(netuid) == 0 {
             step_block(1);
         }
 
         // Prevent further root epochs
-        pallet_subtensor::Tempo::<Test>::set(root_id, u16::MAX);
+        crate::Tempo::<Test>::set(root_id, u16::MAX);
 
         // Run run_coinbase until PendingHotkeyEmission are populated
-        while pallet_subtensor::PendingdHotkeyEmission::<Test>::get(validator) == 0 {
+        while crate::PendingdHotkeyEmission::<Test>::get(validator) == 0 {
             step_block(1);
         }
 
         // Prevent further subnet epochs
-        pallet_subtensor::Tempo::<Test>::set(netuid, u16::MAX);
+        crate::Tempo::<Test>::set(netuid, u16::MAX);
 
         // Run run_coinbase until PendingHotkeyEmission is drained for both validator and miner
         step_block((hotkey_tempo * 2) as u16);
@@ -2785,10 +2785,10 @@ fn test_mining_emission_drain_validator_valiminer_miner() {
         //   - Validator gets 25% because there are two validators
         //   - Valiminer gets 25% as a validator and 25% as miner
         //   - Miner gets 25% as miner
-        let validator_emission = pallet_subtensor::Stake::<Test>::get(validator, coldkey) - stake;
+        let validator_emission = crate::Stake::<Test>::get(validator, coldkey) - stake;
         let valiminer_emission =
-            pallet_subtensor::Stake::<Test>::get(validator_miner, coldkey) - stake;
-        let miner_emission = pallet_subtensor::Stake::<Test>::get(miner, coldkey);
+            crate::Stake::<Test>::get(validator_miner, coldkey) - stake;
+        let miner_emission = crate::Stake::<Test>::get(miner, coldkey);
         let total_emission = validator_emission + valiminer_emission + miner_emission;
 
         assert_eq!(validator_emission, total_emission / 4);

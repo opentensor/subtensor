@@ -25,7 +25,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system = 1,
         Balances: pallet_balances = 2,
-        AdminUtils: pallet_admin_utils = 3,
+        AdminUtils: crate = 3,
         SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>, Error<T>} = 4,
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 5,
     }
@@ -243,7 +243,7 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
     }
 }
 
-impl pallet_admin_utils::Config for Test {
+impl crate::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type AuthorityId = AuraId;
     type MaxAuthorities = ConstU32<32>;

@@ -5,7 +5,7 @@
 )]
 use substrate_fixed::types::{I32F32, I64F64};
 
-use pallet_subtensor::epoch::math::*;
+use crate::epoch::math::*;
 use rand::{seq::SliceRandom, thread_rng, Rng};
 use substrate_fixed::{
     transcendental::exp,

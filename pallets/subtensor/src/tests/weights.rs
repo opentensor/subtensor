@@ -1,13 +1,13 @@
 #![allow(clippy::indexing_slicing)]
 
-mod mock;
+
 use frame_support::{
     assert_err, assert_ok,
     dispatch::{DispatchClass, DispatchInfo, DispatchResult, GetDispatchInfo, Pays},
     pallet_prelude::{InvalidTransaction, TransactionValidityError},
 };
-use mock::*;
-use pallet_subtensor::{Error, Owner};
+use super::mock::*;
+use crate::{Error, Owner};
 use scale_info::prelude::collections::HashMap;
 use sp_core::{H256, U256};
 use sp_runtime::{
@@ -102,7 +102,7 @@ fn test_set_rootweights_validate() {
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = pallet_subtensor::SubtensorSignedExtension::<Test>::new();
+        let extension = crate::SubtensorSignedExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
         // Should fail
@@ -202,7 +202,7 @@ fn test_commit_weights_validate() {
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = pallet_subtensor::SubtensorSignedExtension::<Test>::new();
+        let extension = crate::SubtensorSignedExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
         // Should fail
@@ -296,7 +296,7 @@ fn test_set_weights_validate() {
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = pallet_subtensor::SubtensorSignedExtension::<Test>::new();
+        let extension = crate::SubtensorSignedExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
         // Should fail due to insufficient stake
@@ -361,7 +361,7 @@ fn test_reveal_weights_validate() {
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = pallet_subtensor::SubtensorSignedExtension::<Test>::new();
+        let extension = crate::SubtensorSignedExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
         // Should fail
@@ -2028,7 +2028,7 @@ fn test_commit_reveal_multiple_commits() {
         ));
 
         // Check that commits before the revealed one are removed
-        let remaining_commits = pallet_subtensor::WeightCommits::<Test>::get(netuid, hotkey)
+        let remaining_commits = crate::WeightCommits::<Test>::get(netuid, hotkey)
             .expect("expected 8 remaining commits");
         assert_eq!(remaining_commits.len(), 8); // 10 commits - 2 removed (index 0 and 1)
 
@@ -2044,7 +2044,7 @@ fn test_commit_reveal_multiple_commits() {
         ));
 
         // Remaining commits should have removed up to index 9
-        let remaining_commits = pallet_subtensor::WeightCommits::<Test>::get(netuid, hotkey);
+        let remaining_commits = crate::WeightCommits::<Test>::get(netuid, hotkey);
         assert!(remaining_commits.is_none()); // All commits removed
 
         // After revealing all commits, attempt to commit again should now succeed
@@ -2289,7 +2289,7 @@ fn test_commit_reveal_multiple_commits() {
         ));
 
         // Check that the first commit has been removed
-        let remaining_commits = pallet_subtensor::WeightCommits::<Test>::get(netuid, hotkey);
+        let remaining_commits = crate::WeightCommits::<Test>::get(netuid, hotkey);
         assert!(remaining_commits.is_none());
 
         // Attempting to reveal the first commit should fail as it was removed
@@ -2433,7 +2433,7 @@ fn test_expired_commits_handling_in_commit_and_reveal() {
 
         // 6. Verify that the number of unrevealed, non-expired commits is now 6
         let commits: VecDeque<(H256, u64, u64, u64)> =
-            pallet_subtensor::WeightCommits::<Test>::get(netuid, hotkey)
+            crate::WeightCommits::<Test>::get(netuid, hotkey)
                 .expect("Expected a commit");
         assert_eq!(commits.len(), 6); // 5 non-expired commits from epoch 1 + new commit
 
@@ -2480,7 +2480,7 @@ fn test_expired_commits_handling_in_commit_and_reveal() {
         ));
 
         // 10. Verify that all commits have been revealed and the queue is empty
-        let commits = pallet_subtensor::WeightCommits::<Test>::get(netuid, hotkey);
+        let commits = crate::WeightCommits::<Test>::get(netuid, hotkey);
         assert!(commits.is_none());
 
         // 11. Attempt to reveal again, should fail with NoWeightsCommitFound
@@ -2655,7 +2655,7 @@ fn test_reveal_at_exact_epoch() {
                 Error::<Test>::ExpiredWeightCommit
             );
 
-            pallet_subtensor::WeightCommits::<Test>::remove(netuid, hotkey);
+            crate::WeightCommits::<Test>::remove(netuid, hotkey);
         }
     });
 }
@@ -2903,7 +2903,7 @@ fn test_commit_reveal_order_enforcement() {
         ));
 
         // Check that commits A and B are removed
-        let remaining_commits = pallet_subtensor::WeightCommits::<Test>::get(netuid, hotkey)
+        let remaining_commits = crate::WeightCommits::<Test>::get(netuid, hotkey)
             .expect("expected 1 remaining commit");
         assert_eq!(remaining_commits.len(), 1); // Only commit C should remain
 
@@ -3100,7 +3100,7 @@ fn test_reveal_at_exact_block() {
             );
 
             // Clean up for next iteration
-            pallet_subtensor::WeightCommits::<Test>::remove(netuid, hotkey);
+            crate::WeightCommits::<Test>::remove(netuid, hotkey);
         }
     });
 }
@@ -3162,7 +3162,7 @@ fn test_successful_batch_reveal() {
         ));
 
         // 4. Ensure all commits are removed
-        let commits = pallet_subtensor::WeightCommits::<Test>::get(netuid, hotkey);
+        let commits = crate::WeightCommits::<Test>::get(netuid, hotkey);
         assert!(commits.is_none());
     });
 }
@@ -3247,7 +3247,7 @@ fn test_batch_reveal_with_expired_commits() {
         assert_err!(result, Error::<Test>::ExpiredWeightCommit);
 
         // 5. Expired commit is not removed until a successful call
-        let commits = pallet_subtensor::WeightCommits::<Test>::get(netuid, hotkey)
+        let commits = crate::WeightCommits::<Test>::get(netuid, hotkey)
             .expect("Expected remaining commits");
         assert_eq!(commits.len(), 3);
 
@@ -3267,7 +3267,7 @@ fn test_batch_reveal_with_expired_commits() {
         ));
 
         // 7. Ensure all commits are removed
-        let commits = pallet_subtensor::WeightCommits::<Test>::get(netuid, hotkey);
+        let commits = crate::WeightCommits::<Test>::get(netuid, hotkey);
         assert!(commits.is_none());
     });
 }
@@ -3653,7 +3653,7 @@ fn test_batch_reveal_with_out_of_order_commits() {
         ));
 
         // 6. Ensure all commits are removed
-        let commits = pallet_subtensor::WeightCommits::<Test>::get(netuid, hotkey);
+        let commits = crate::WeightCommits::<Test>::get(netuid, hotkey);
         assert!(commits.is_none());
     });
 }
@@ -3716,7 +3716,7 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
         for i in 0..commits_per_hotkey {
             for hotkey in &hotkeys {
 
-                let current_commits = pallet_subtensor::WeightCommits::<Test>::get(netuid, hotkey)
+                let current_commits = crate::WeightCommits::<Test>::get(netuid, hotkey)
                     .unwrap_or_default();
                 if current_commits.len() >= max_unrevealed_commits {
                     continue;
@@ -4052,7 +4052,7 @@ fn test_get_reveal_blocks() {
         assert_err!(result, Error::<Test>::NoWeightsCommitFound);
 
         // **15. Verify that All Commits Have Been Removed from Storage**
-        let commits = pallet_subtensor::WeightCommits::<Test>::get(netuid, hotkey);
+        let commits = crate::WeightCommits::<Test>::get(netuid, hotkey);
         assert!(
             commits.is_none(),
             "Commits should be cleared after successful reveal"

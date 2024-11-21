@@ -1,8 +1,8 @@
 #![allow(clippy::indexing_slicing)]
-use crate::mock::*;
+use super::mock::*;
 use frame_support::{assert_err, assert_noop, assert_ok};
-mod mock;
-use pallet_subtensor::{utils::rate_limiting::TransactionType, *};
+
+use crate::{utils::rate_limiting::TransactionType, *};
 use sp_core::U256;
 
 // 1: Successful setting of a single child
@@ -3461,7 +3461,7 @@ fn test_childkey_take_drain() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_allowed_validators(netuid, 2);
         step_block(subnet_tempo);
-        pallet_subtensor::SubnetOwnerCut::<Test>::set(0);
+        crate::SubnetOwnerCut::<Test>::set(0);
 
         // Set 20% childkey take
         let max_take: u16 = 0xFFFF / 5;
@@ -3509,15 +3509,15 @@ fn test_childkey_take_drain() {
             vec![(proportion, child)]
         ));
         // Make all stakes viable
-        pallet_subtensor::StakeDeltaSinceLastEmissionDrain::<Test>::set(parent, coldkey, -1);
-        pallet_subtensor::StakeDeltaSinceLastEmissionDrain::<Test>::set(child, nominator, -1);
+        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(parent, coldkey, -1);
+        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(child, nominator, -1);
 
         // Setup YUMA so that it creates emissions:
         //   Parent and child both set weights
         //   Parent and child register on root and
         //   Set root weights
-        pallet_subtensor::Weights::<Test>::insert(netuid, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
-        pallet_subtensor::Weights::<Test>::insert(netuid, 1, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        crate::Weights::<Test>::insert(netuid, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        crate::Weights::<Test>::insert(netuid, 1, vec![(0, 0xFFFF), (1, 0xFFFF)]);
         assert_ok!(SubtensorModule::do_root_register(
             RuntimeOrigin::signed(coldkey),
             parent,
@@ -3526,17 +3526,17 @@ fn test_childkey_take_drain() {
             RuntimeOrigin::signed(coldkey),
             child,
         ));
-        pallet_subtensor::Weights::<Test>::insert(root_id, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
-        pallet_subtensor::Weights::<Test>::insert(root_id, 1, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        crate::Weights::<Test>::insert(root_id, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        crate::Weights::<Test>::insert(root_id, 1, vec![(0, 0xFFFF), (1, 0xFFFF)]);
 
         // Run run_coinbase until PendingHotkeyEmission are populated
-        while pallet_subtensor::PendingdHotkeyEmission::<Test>::get(child) == 0 {
+        while crate::PendingdHotkeyEmission::<Test>::get(child) == 0 {
             step_block(1);
         }
 
         // Prevent further subnet epochs
-        pallet_subtensor::Tempo::<Test>::set(netuid, u16::MAX);
-        pallet_subtensor::Tempo::<Test>::set(root_id, u16::MAX);
+        crate::Tempo::<Test>::set(netuid, u16::MAX);
+        crate::Tempo::<Test>::set(root_id, u16::MAX);
 
         // Run run_coinbase until PendingHotkeyEmission is drained for both child and parent
         step_block((hotkey_tempo * 2) as u16);
@@ -3545,9 +3545,9 @@ fn test_childkey_take_drain() {
         //   - Child stake increased by its child key take only (20% * 50% = 10% of total emission)
         //   - Parent stake increased by 40% of total emission
         //   - Nominator stake increased by 50% of total emission
-        let child_emission = pallet_subtensor::Stake::<Test>::get(child, coldkey);
-        let parent_emission = pallet_subtensor::Stake::<Test>::get(parent, coldkey) - stake;
-        let nominator_emission = pallet_subtensor::Stake::<Test>::get(child, nominator) - stake;
+        let child_emission = crate::Stake::<Test>::get(child, coldkey);
+        let parent_emission = crate::Stake::<Test>::get(parent, coldkey) - stake;
+        let nominator_emission = crate::Stake::<Test>::get(child, nominator) - stake;
         let total_emission = child_emission + parent_emission + nominator_emission;
 
         assert!(is_within_tolerance(
@@ -3600,7 +3600,7 @@ fn test_childkey_take_drain_validator_take() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_allowed_validators(netuid, 2);
         step_block(subnet_tempo);
-        pallet_subtensor::SubnetOwnerCut::<Test>::set(0);
+        crate::SubnetOwnerCut::<Test>::set(0);
 
         // Set 20% childkey take
         let max_take: u16 = 0xFFFF / 5;
@@ -3648,15 +3648,15 @@ fn test_childkey_take_drain_validator_take() {
             vec![(proportion, child)]
         ));
         // Make all stakes viable
-        pallet_subtensor::StakeDeltaSinceLastEmissionDrain::<Test>::set(parent, coldkey, -1);
-        pallet_subtensor::StakeDeltaSinceLastEmissionDrain::<Test>::set(child, nominator, -1);
+        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(parent, coldkey, -1);
+        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(child, nominator, -1);
 
         // Setup YUMA so that it creates emissions:
         //   Parent and child both set weights
         //   Parent and child register on root and
         //   Set root weights
-        pallet_subtensor::Weights::<Test>::insert(netuid, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
-        pallet_subtensor::Weights::<Test>::insert(netuid, 1, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        crate::Weights::<Test>::insert(netuid, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        crate::Weights::<Test>::insert(netuid, 1, vec![(0, 0xFFFF), (1, 0xFFFF)]);
         assert_ok!(SubtensorModule::do_root_register(
             RuntimeOrigin::signed(coldkey),
             parent,
@@ -3665,17 +3665,17 @@ fn test_childkey_take_drain_validator_take() {
             RuntimeOrigin::signed(coldkey),
             child,
         ));
-        pallet_subtensor::Weights::<Test>::insert(root_id, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
-        pallet_subtensor::Weights::<Test>::insert(root_id, 1, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        crate::Weights::<Test>::insert(root_id, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        crate::Weights::<Test>::insert(root_id, 1, vec![(0, 0xFFFF), (1, 0xFFFF)]);
 
         // Run run_coinbase until PendingHotkeyEmission are populated
-        while pallet_subtensor::PendingdHotkeyEmission::<Test>::get(child) == 0 {
+        while crate::PendingdHotkeyEmission::<Test>::get(child) == 0 {
             step_block(1);
         }
 
         // Prevent further subnet epochs
-        pallet_subtensor::Tempo::<Test>::set(netuid, u16::MAX);
-        pallet_subtensor::Tempo::<Test>::set(root_id, u16::MAX);
+        crate::Tempo::<Test>::set(netuid, u16::MAX);
+        crate::Tempo::<Test>::set(root_id, u16::MAX);
 
         // Run run_coinbase until PendingHotkeyEmission is drained for both child and parent
         step_block((hotkey_tempo * 2) as u16);
@@ -3684,9 +3684,9 @@ fn test_childkey_take_drain_validator_take() {
         //   - Child stake increased by its child key take (20% * 50% = 10% of total emission) plus childkey's delegate take (10%)
         //   - Parent stake increased by 40% of total emission
         //   - Nominator stake increased by 40% of total emission
-        let child_emission = pallet_subtensor::Stake::<Test>::get(child, coldkey);
-        let parent_emission = pallet_subtensor::Stake::<Test>::get(parent, coldkey) - stake;
-        let nominator_emission = pallet_subtensor::Stake::<Test>::get(child, nominator) - stake;
+        let child_emission = crate::Stake::<Test>::get(child, coldkey);
+        let parent_emission = crate::Stake::<Test>::get(parent, coldkey) - stake;
+        let nominator_emission = crate::Stake::<Test>::get(child, nominator) - stake;
         let total_emission = child_emission + parent_emission + nominator_emission;
 
         assert!(is_within_tolerance(child_emission, total_emission / 5, 500));

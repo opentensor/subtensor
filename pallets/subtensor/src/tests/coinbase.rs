@@ -1,11 +1,11 @@
 #![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
-use crate::mock::*;
-mod mock;
+use super::mock::*;
+
 use frame_support::assert_ok;
 use sp_core::U256;
 use substrate_fixed::types::I64F64;
 
-use pallet_subtensor::TargetStakesPerInterval;
+use crate::TargetStakesPerInterval;
 
 // Test the ability to hash all sorts of hotkeys.
 #[test]

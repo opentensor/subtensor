@@ -1,10 +1,10 @@
-use crate::mock::*;
+use super::mock::*;
 use frame_support::assert_ok;
 use frame_system::Config;
-use pallet_subtensor::{ColdkeySwapScheduleDuration, DissolveNetworkScheduleDuration, Event};
+use crate::{ColdkeySwapScheduleDuration, DissolveNetworkScheduleDuration, Event};
 use sp_core::U256;
 
-mod mock;
+
 
 #[test]
 fn test_registration_ok() {
@@ -199,7 +199,7 @@ fn test_new_owner_schedule_dissolve_network_execution() {
         );
         run_to_block(current_block + 1);
         // become network owner after call scheduled
-        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, new_network_owner_account_id);
+        crate::SubnetOwner::<Test>::insert(netuid, new_network_owner_account_id);
 
         run_to_block(execution_block);
         // network exists since the caller is no the network owner
