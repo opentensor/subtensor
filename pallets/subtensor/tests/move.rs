@@ -26,7 +26,7 @@ fn test_do_move_success() {
 
         // Perform the move
         assert_ok!(SubtensorModule::do_move_stake(
-            RuntimeOrigin::signed(coldkey),
+            coldkey,
             origin_hotkey,
             destination_hotkey,
             netuid,
@@ -77,7 +77,7 @@ fn test_do_move_different_subnets() {
 
         // Perform the move
         assert_ok!(SubtensorModule::do_move_stake(
-            RuntimeOrigin::signed(coldkey),
+            coldkey,
             origin_hotkey,
             destination_hotkey,
             origin_netuid,
@@ -125,7 +125,7 @@ fn test_do_move_nonexistent_subnet() {
         // Attempt to move stake to a non-existent subnet
         assert_noop!(
             SubtensorModule::do_move_stake(
-                RuntimeOrigin::signed(coldkey),
+                coldkey,
                 origin_hotkey,
                 destination_hotkey,
                 origin_netuid,
@@ -162,7 +162,7 @@ fn test_do_move_nonexistent_origin_hotkey() {
         add_network(netuid, 0, 0);
         assert_noop!(
             SubtensorModule::do_move_stake(
-                RuntimeOrigin::signed(coldkey),
+                coldkey,
                 nonexistent_origin_hotkey,
                 destination_hotkey,
                 netuid,
@@ -211,7 +211,7 @@ fn test_do_move_nonexistent_destination_hotkey() {
         add_network(netuid, 0, 0);
         assert_noop!(
             SubtensorModule::do_move_stake(
-                RuntimeOrigin::signed(coldkey),
+                coldkey,
                 origin_hotkey,
                 nonexistent_destination_hotkey,
                 netuid,
@@ -257,7 +257,7 @@ fn test_do_move_zero_stake() {
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
         assert_ok!(SubtensorModule::do_move_stake(
-            RuntimeOrigin::signed(coldkey),
+            coldkey,
             origin_hotkey,
             destination_hotkey,
             netuid,
@@ -306,7 +306,7 @@ fn test_do_move_all_stake() {
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
         assert_ok!(SubtensorModule::do_move_stake(
-            RuntimeOrigin::signed(coldkey),
+            coldkey,
             origin_hotkey,
             destination_hotkey,
             netuid,
@@ -352,7 +352,7 @@ fn test_do_move_half_stake() {
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
         assert_ok!(SubtensorModule::do_move_stake(
-            RuntimeOrigin::signed(coldkey),
+            coldkey,
             origin_hotkey,
             destination_hotkey,
             netuid,
@@ -401,7 +401,7 @@ fn test_do_move_partial_stake() {
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
         assert_ok!(SubtensorModule::do_move_stake(
-            RuntimeOrigin::signed(coldkey),
+            coldkey,
             origin_hotkey,
             destination_hotkey,
             netuid,
@@ -452,7 +452,7 @@ fn test_do_move_multiple_times() {
         TargetStakesPerInterval::<Test>::set(1000);
         for _ in 0..3 {
             assert_ok!(SubtensorModule::do_move_stake(
-                RuntimeOrigin::signed(coldkey),
+                coldkey,
                 hotkey1,
                 hotkey2,
                 netuid,
@@ -460,7 +460,7 @@ fn test_do_move_multiple_times() {
                 alpha,
             ));
             assert_ok!(SubtensorModule::do_move_stake(
-                RuntimeOrigin::signed(coldkey),
+                coldkey,
                 hotkey2,
                 hotkey1,
                 netuid,
@@ -504,7 +504,7 @@ fn test_do_move_wrong_origin() {
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
         assert_err!(
             SubtensorModule::do_move_stake(
-                RuntimeOrigin::signed(wrong_coldkey),
+                wrong_coldkey,
                 origin_hotkey,
                 destination_hotkey,
                 netuid,
@@ -553,7 +553,7 @@ fn test_do_move_same_hotkey() {
 
         // Attempt to move stake to the same hotkey
         assert_ok!(SubtensorModule::do_move_stake(
-            RuntimeOrigin::signed(coldkey),
+            coldkey,
             hotkey,
             hotkey,
             netuid,
@@ -591,7 +591,7 @@ fn test_do_move_event_emission() {
         // Move stake and capture events
         System::reset_events();
         assert_ok!(SubtensorModule::do_move_stake(
-            RuntimeOrigin::signed(coldkey),
+            coldkey,
             origin_hotkey,
             destination_hotkey,
             netuid,
@@ -630,7 +630,7 @@ fn test_do_move_storage_updates() {
         let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, origin_netuid));
 
         assert_ok!(SubtensorModule::do_move_stake(
-            RuntimeOrigin::signed(coldkey),
+            coldkey,
             origin_hotkey,
             destination_hotkey,
             origin_netuid,
@@ -679,7 +679,7 @@ fn test_do_move_max_values() {
 
         // Move maximum stake
         assert_ok!(SubtensorModule::do_move_stake(
-            RuntimeOrigin::signed(coldkey),
+            coldkey,
             origin_hotkey,
             destination_hotkey,
             netuid,
@@ -726,7 +726,7 @@ fn test_do_move_rate_limit_enforced() {
 
         // Move stake multiple times
         assert_ok!(SubtensorModule::do_move_stake(
-            RuntimeOrigin::signed(coldkey),
+            coldkey,
             hotkey1,
             hotkey2,
             netuid,
@@ -735,7 +735,7 @@ fn test_do_move_rate_limit_enforced() {
         ));
         assert_err!(
             SubtensorModule::do_move_stake(
-                RuntimeOrigin::signed(coldkey),
+                coldkey,
                 hotkey2,
                 hotkey1,
                 netuid,
