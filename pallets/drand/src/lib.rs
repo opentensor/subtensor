@@ -83,15 +83,7 @@ pub const API_ENDPOINT: &str = "https://drand.cloudflare.com";
 /// quicknet uses 'Tiny' BLS381, with small 48-byte sigs in G1 and 96-byte pubkeys in G2
 pub const QUICKNET_CHAIN_HASH: &str =
     "52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971";
-/// the drand mainnet chain hash
-/// mainnext uses 'Usual' BLS381, with 96-byte sigs in G2 and 48-byte pubkeys in G1
-pub const MAINNET_CHAIN_HASH: &str =
-    "8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce";
 
-#[cfg(feature = "mainnet")]
-const CHAIN_HASH: &str = MAINNET_CHAIN_HASH;
-
-#[cfg(not(feature = "mainnet"))]
 const CHAIN_HASH: &str = QUICKNET_CHAIN_HASH;
 
 pub const MAX_PULSES_TO_FETCH: u64 = 50;

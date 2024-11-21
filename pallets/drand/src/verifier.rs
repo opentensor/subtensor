@@ -102,64 +102,6 @@ impl Verifier for QuicknetVerifier {
     }
 }
 
-/// A verifier to check values received from drand's mainnet. It outputs true if valid, false otherwise
-///
-/// The [Mainnet](https://drand.love/) operates in an chained mode.
-/// so each round signs messages that hash the previous signature with the round number.
-/// It uses a 'usual' BLS approach, with 48-byte public keys in G1 and 96-byte signatures in G2
-///
-/// Values are valid if the pairing equality holds:
-///   $e(g_1, sig) == e(pk, msg_on_curve)$
-///
-/// where
-///     $sig \in \mathbb{G}_2$ is the signature
-///     $g_1 \in \mathbb{G}_1$ is a generator
-///     $msg_on_curve \in \mathbb{G}_1$ is a hash of the previous signature and current round number (hash(prev_sig || round_number))
-///     $pk \in \mathbb{G}_1$ is the public key, read from the input public parameters
-///
-pub struct MainnetVerifier;
-#[cfg(feature = "mainnet")]
-use w3f_bls::ZBLS;
-#[cfg(feature = "mainnet")]
-#[allow(clippy::let_unit_value)]
-#[allow(clippy::unit_cmp)]
-impl Verifier for MainnetVerifier {
-    fn verify(beacon_config: BeaconConfiguration, pulse: Pulse) -> Result<bool, String> {
-        // decode public key (pk)
-        let pk =
-            ArkScale::<G1AffineOpt>::decode(&mut beacon_config.public_key.into_inner().as_slice())
-                .map_err(|e| format!("Failed to decode public key: {}", e))?;
-
-        // decode signature (sigma)
-        let signature =
-            ArkScale::<G2AffineOpt>::decode(&mut pulse.signature.into_inner().as_slice())
-                .map_err(|e| format!("Failed to decode signature: {}", e))?;
-
-        // m = sha256(previous_signature || round)
-        let message = message(pulse.round, &pulse.previous_signature);
-        let hasher = <ZBLS as EngineBLS>::hash_to_curve_map();
-        // H(m) \in G1
-        let message_hash = hasher
-            .hash(&message)
-            .map_err(|e| format!("Failed to hash message: {}", e))?;
-
-        let mut bytes = Vec::new();
-        message_hash
-            .serialize_compressed(&mut bytes)
-            .map_err(|e| format!("Failed to serialize message hash: {}", e))?;
-
-        let message_on_curve = ArkScale::<G2AffineOpt>::decode(&mut &bytes[..])
-            .map_err(|e| format!("Failed to decode message on curve: {}", e))?;
-
-        let g1 = G1AffineOpt::generator();
-
-        let p1 = bls12_381::pairing_opt(g1, -signature.0);
-        let p2 = bls12_381::pairing_opt(pk.0, message_on_curve.0);
-
-        Ok(p1 == p2)
-    }
-}
-
 /// The unsafe skip verifier is just a pass-through verification, always returns true
 pub struct UnsafeSkipVerifier;
 impl Verifier for UnsafeSkipVerifier {
