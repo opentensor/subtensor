@@ -47,6 +47,8 @@ pallet-membership = { workspace = true }
 hex-literal = { workspace = true }
 num-traits = { version = "0.2.19", default-features = false, features = ["libm"] }
 
+share-pool = { default-features = false, path = "../../primitives/share-pool" }
+
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
 pallet-scheduler = { workspace = true }

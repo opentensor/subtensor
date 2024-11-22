@@ -1,6 +1,8 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 use sp_std::ops::Neg;
 use substrate_fixed::types::U64F64;
-
+use sp_std::marker::PhantomData;
 pub trait SharePoolDataOperations<Key> {
     /// Gets shared value
     fn get_shared_value(&self) -> U64F64;
@@ -19,22 +21,22 @@ pub trait SharePoolDataOperations<Key> {
 /// SharePool struct that depends on the Key type and uses the SharePoolDataOperations
 pub struct SharePool<K, Ops>
 where
-    K: Eq + std::hash::Hash,
+    K: Eq,
     Ops: SharePoolDataOperations<K>,
 {
     state_ops: Ops,
-    phantom_key: std::marker::PhantomData<K>,
+    phantom_key: PhantomData<K>,
 }
 
 impl<K, Ops> SharePool<K, Ops>
 where
-    K: Eq + std::hash::Hash,
+    K: Eq,
     Ops: SharePoolDataOperations<K>,
 {
     pub fn new(ops: Ops) -> Self {
         SharePool {
             state_ops: ops,
-            phantom_key: std::marker::PhantomData,
+            phantom_key: PhantomData,
         }
     }
 

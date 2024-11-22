@@ -6184,6 +6184,7 @@ dependencies = [
  "serde_bytes",
  "serde_json",
  "serde_with",
+ "share-pool",
  "sp-core",
  "sp-io",
  "sp-runtime",

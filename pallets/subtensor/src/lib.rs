@@ -76,6 +76,7 @@ pub mod pallet {
     use sp_std::vec;
     use sp_std::vec::Vec;
     use subtensor_macros::freeze_struct;
+    use substrate_fixed::types::U64F64;
 
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
@@ -716,6 +717,11 @@ pub mod pallet {
     pub fn GlobalWeightAdjustmentInterval<T: Config>() -> u64 {
         7200 // 1 day
     }
+    #[pallet::type_value]
+    /// Default value for Share Pool variables
+    pub fn DefaultSharePoolZero<T: Config>() -> U64F64 {
+        U64F64::from_num(0)
+    }
 
     #[pallet::storage]
     pub type ColdkeySwapScheduleDuration<T: Config> =
@@ -826,6 +832,101 @@ pub mod pallet {
         u64, // Stake
         ValueQuery,
     >;
+
+    /// ============================
+    /// ======== RAO Shares ========
+    /// ============================
+
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> alpha_shared_value | Returns the total alpha shared value for a subnet.
+    pub type AlphaSharedValue<T: Config> = StorageMap<
+        _,
+        Identity,
+        u16, // subnet ID
+        U64F64, // Alpha Share
+        ValueQuery,
+        DefaultSharePoolZero<T>,
+    >;
+
+    #[pallet::storage]
+    /// --- NMAP ( hot, cold, netuid ) --> share | Returns the alpha share for an account for a subnet.
+    pub type AlphaShare<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+            NMapKey<Identity, u16>,                  // subnet
+        ),
+        U64F64, // Share
+        ValueQuery,
+    >;
+
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> alpha_share_denominator | Returns the denominator for Alpha shares for a subnet.
+    pub type AlphaShareDenominator<T: Config> = StorageMap<
+        _,
+        Identity,
+        u16, // subnet ID
+        U64F64, // Alpha Share Denominator
+        ValueQuery,
+        DefaultSharePoolZero<T>,
+    >;
+
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> delta_alpha_shared_value | Returns the total delta alpha shared value for a subnet.
+    pub type DeltaAlphaSharedValue<T: Config> = StorageMap<
+        _,
+        Identity,
+        u16, // subnet ID
+        U64F64, // Alpha Share
+        ValueQuery,
+        DefaultSharePoolZero<T>,
+    >;
+
+    #[pallet::storage]
+    /// --- NMAP ( hot, cold, netuid ) --> share | Returns the delta alpha share for an account for a subnet.
+    pub type DeltaAlphaShare<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+            NMapKey<Identity, u16>,                  // subnet
+        ),
+        U64F64, // Share
+        ValueQuery,
+    >;
+
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> delta_alpha_share_denominator | Returns the denominator for delta Alpha shares for a subnet.
+    pub type DeltaAlphaShareDenominator<T: Config> = StorageMap<
+        _,
+        Identity,
+        u16, // subnet ID
+        U64F64, // Alpha Share Denominator
+        ValueQuery,
+        DefaultSharePoolZero<T>,
+    >;
+
+    #[pallet::storage]
+    /// --- ITEM ( global_shared_value ) | Returns the total staked TAO 
+    pub type GlobalSharedValue<T> = StorageValue<_, U64F64, ValueQuery, DefaultSharePoolZero<T>>;
+
+    #[pallet::storage]
+    /// --- NMAP ( hot, cold, netuid ) --> share | Returns the Global share for an account for a subnet.
+    pub type GlobalShare<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId, // hot
+        Identity,
+        T::AccountId, // cold
+        U64F64, // share
+        ValueQuery,
+        DefaultSharePoolZero<T>,
+    >;
+
+    #[pallet::storage]
+    /// --- ITEM ( global_shared_denominator ) | Returns the denominator for Global shares.
+    pub type GlobalShareDenominator<T: Config> = StorageValue<_, U64F64, ValueQuery, DefaultSharePoolZero<T>>;
 
     /// ============================
     /// ==== Staking Variables ====

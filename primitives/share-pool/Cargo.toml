@@ -9,3 +9,11 @@ sp-std = { workspace = true }
 
 [lints]
 workspace = true
+
+[features]
+default = ["std"]
+runtime-benchmarks = []
+std = [
+	"substrate-fixed/std",
+	"sp-std/std",
+]

@@ -2,6 +2,8 @@ use super::*;
 use crate::epoch::math::*;
 use frame_support::IterableStorageDoubleMap;
 use substrate_fixed::types::{I32F32, I64F64, I96F32};
+use share_pool::{SharePool, SharePoolDataOperations};
+use substrate_fixed::types::U64F64;
 
 impl<T: Config> Pallet<T> {
     /// Retrieves the global global weight as a normalized value between 0 and 1.
@@ -580,6 +582,148 @@ impl<T: Config> Pallet<T> {
 
         // Step 2: Retrieve the stake value using the provided parameters
         // If no stake exists for this combination, the default value of 0 will be returned
-        Alpha::<T>::get((hotkey, coldkey, netuid))
+
+        let alpha_share_pool = Self::get_alpha_share_pool(netuid);
+        let key = (hotkey.clone(), coldkey.clone());
+        alpha_share_pool.get_value(&key)
+    }
+
+    fn get_alpha_share_pool(netuid: u16) -> SharePool<AlphaShareKey<T>, AlphaSharePoolDataOperations<T>> {
+        let ops = AlphaSharePoolDataOperations::new(netuid);
+        SharePool::<AlphaShareKey<T>, AlphaSharePoolDataOperations<T>>::new(ops)
+    }
+
+}
+
+///////////////////////////////////////////
+// Alpha share pool chain data layer
+
+struct AlphaSharePoolDataOperations<T> {
+    netuid: u16,
+    _marker: sp_std::marker::PhantomData<T>,
+}
+
+impl<T: Config> AlphaSharePoolDataOperations<T> {
+    fn new(netuid: u16) -> Self {
+        AlphaSharePoolDataOperations {
+            netuid,
+            _marker: sp_std::marker::PhantomData,
+        }
+    }
+}
+
+// Alpha share key is (coldkey, hotkey) because the struct already has netuid
+type AlphaShareKey<T> = (<T as frame_system::Config>::AccountId, <T as frame_system::Config>::AccountId);
+
+impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>> for AlphaSharePoolDataOperations<T> {
+    fn get_shared_value(&self) -> U64F64 {
+        crate::AlphaSharedValue::<T>::get(self.netuid)
+    }
+
+    fn get_share(&self, key: &AlphaShareKey<T>) -> U64F64 {
+        crate::AlphaShare::<T>::get((key.0.clone(), key.1.clone(), self.netuid))
+    }
+
+    fn get_denominator(&self) -> U64F64 {
+        crate::AlphaShareDenominator::<T>::get(self.netuid)
+    }
+
+    fn set_shared_value(&mut self, value: U64F64) {
+        crate::AlphaSharedValue::<T>::insert(self.netuid, value);
+    }
+
+    fn set_share(&mut self, key: &AlphaShareKey<T>, share: U64F64) {
+        crate::AlphaShare::<T>::insert((key.0.clone(), key.1.clone(), self.netuid), share);
+    }
+
+    fn set_denominator(&mut self, update: U64F64) {
+        crate::AlphaShareDenominator::<T>::insert(self.netuid, update);
+    }
+}
+
+///////////////////////////////////////////
+// DeltaAlpha share pool chain data layer
+
+struct DeltaAlphaSharePoolDataOperations<T> {
+    netuid: u16,
+    _marker: sp_std::marker::PhantomData<T>,
+}
+
+impl<T: Config> DeltaAlphaSharePoolDataOperations<T> {
+    fn new(netuid: u16) -> Self {
+        DeltaAlphaSharePoolDataOperations {
+            netuid,
+            _marker: sp_std::marker::PhantomData,
+        }
+    }
+}
+
+impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>> for DeltaAlphaSharePoolDataOperations<T> {
+    fn get_shared_value(&self) -> U64F64 {
+        crate::DeltaAlphaSharedValue::<T>::get(self.netuid)
+    }
+
+    fn get_share(&self, key: &AlphaShareKey<T>) -> U64F64 {
+        crate::DeltaAlphaShare::<T>::get((key.0.clone(), key.1.clone(), self.netuid))
+    }
+
+    fn get_denominator(&self) -> U64F64 {
+        crate::DeltaAlphaShareDenominator::<T>::get(self.netuid)
+    }
+
+    fn set_shared_value(&mut self, value: U64F64) {
+        crate::DeltaAlphaSharedValue::<T>::insert(self.netuid, value);
+    }
+
+    fn set_share(&mut self, key: &AlphaShareKey<T>, share: U64F64) {
+        crate::DeltaAlphaShare::<T>::insert((key.0.clone(), key.1.clone(), self.netuid), share);
+    }
+
+    fn set_denominator(&mut self, update: U64F64) {
+        crate::DeltaAlphaShareDenominator::<T>::insert(self.netuid, update);
+    }
+}
+
+///////////////////////////////////////////
+// Global share pool chain data layer
+
+struct GlobalSharePoolDataOperations<T> {
+    _marker: sp_std::marker::PhantomData<T>,
+}
+
+impl<T: Config> GlobalSharePoolDataOperations<T> {
+    fn new() -> Self {
+        GlobalSharePoolDataOperations {
+            _marker: sp_std::marker::PhantomData,
+        }
+    }
+}
+
+// Global share key is (coldkey, hotkey)
+type GlobalShareKey<T> = (<T as frame_system::Config>::AccountId, <T as frame_system::Config>::AccountId);
+
+impl<T: Config> SharePoolDataOperations<GlobalShareKey<T>> for GlobalSharePoolDataOperations<T> {
+    fn get_shared_value(&self) -> U64F64 {
+        crate::GlobalSharedValue::<T>::get()
+    }
+
+    fn get_share(&self, key: &GlobalShareKey<T>) -> U64F64 {
+        crate::GlobalShare::<T>::get(key.0.clone(), key.1.clone())
+    }
+
+    fn get_denominator(&self) -> U64F64 {
+        crate::GlobalShareDenominator::<T>::get()
+    }
+
+    fn set_shared_value(&mut self, value: U64F64) {
+        crate::GlobalSharedValue::<T>::set(value);
+    }
+
+    fn set_share(&mut self, key: &GlobalShareKey<T>, share: U64F64) {
+        crate::GlobalShare::<T>::insert(key.0.clone(), key.1.clone(), share);
+    }
+
+    fn set_denominator(&mut self, update: U64F64) {
+        crate::GlobalShareDenominator::<T>::set(update);
     }
 }
