@@ -12,5 +12,9 @@ procedural-fork.workspace = true
 walkdir.workspace = true
 rayon.workspace = true
 
+[dev-dependencies]
+frame-system.workspace = true
+frame-support.workspace = true
+
 [lints]
 workspace = true

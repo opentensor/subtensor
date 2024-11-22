@@ -47,7 +47,6 @@ subtensor-linting = { workspace = true }
 
 [features]
 default = ["std"]
-code-coverage = []
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",

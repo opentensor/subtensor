@@ -9,7 +9,7 @@ use rayon::{
 use std::{
     collections::{HashMap, HashSet},
     ffi::OsStr,
-    fs::{self},
+    fs,
     path::{Path, PathBuf},
     str::FromStr,
 };

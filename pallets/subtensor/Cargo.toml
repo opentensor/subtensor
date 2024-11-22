@@ -73,6 +73,7 @@ subtensor-code-coverage = { workspace = true }
 subtensor-linting = { workspace = true }
 
 [features]
+default = ["std"]
 std = [
 	"codec/std",
 	"frame-benchmarking/std",
@@ -124,7 +125,6 @@ try-runtime = [
 	"pallet-drand/try-runtime"
 ]
 
-default = ["std"]
 code-coverage = []
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
