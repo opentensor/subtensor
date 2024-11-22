@@ -10,7 +10,7 @@
   "properties": {
     "ss58Format": 42,
     "tokenDecimals": 9,
-    "tokenSymbol": "TAO"
+    "tokenSymbol": "testTAO"
   },
   "forkBlocks": null,
   "badBlocks": [],

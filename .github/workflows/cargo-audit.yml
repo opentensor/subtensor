@@ -23,20 +23,11 @@ jobs:
           sudo apt-get update &&
           sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
 
-      - name: Install Rust Stable
-        uses: actions-rs/toolchain@v1.0.6
-        with:
-          toolchain: stable
-          components: rustfmt, clippy
-          profile: minimal
-
-      - name: Utilize Shared Rust Cache
-        uses: Swatinem/rust-cache@v2.2.1
-        with:
-          key: ubuntu-latest-${{ env.RUST_BIN_DIR }}
-
       - name: Install cargo-audit
-        run: cargo install --version 0.20.1 cargo-audit
+        run: cargo install --version 0.20.1 --force cargo-audit
+
+      - name: Display cargo-audit --version
+        run: cargo audit --version
 
       - name: cargo audit
         run: cargo audit --ignore RUSTSEC-2024-0336 # rustls issue; wait for upstream to resolve this
