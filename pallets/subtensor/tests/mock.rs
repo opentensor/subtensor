@@ -472,14 +472,12 @@ mod test_crypto {
 
     pub struct TestAuthId;
 
-    // Implement AppCrypto for TestAuthId using test_crypto::Public and test_crypto::Signature
     impl frame_system::offchain::AppCrypto<Public, Signature> for TestAuthId {
         type RuntimeAppPublic = Public;
         type GenericSignature = Sr25519Signature;
         type GenericPublic = Sr25519Public;
     }
 
-    // Implement IdentifyAccount for Public
     impl IdentifyAccount for Public {
         type AccountId = U256;
 
