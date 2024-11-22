@@ -1460,6 +1460,7 @@ mod benches {
         [pallet_commitments, Commitments]
         [pallet_admin_utils, AdminUtils]
         [pallet_subtensor, SubtensorModule]
+        [pallet_drand, Drand]
     );
 }
 
