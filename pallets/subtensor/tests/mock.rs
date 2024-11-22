@@ -10,6 +10,7 @@ use frame_support::{
 use frame_system as system;
 use frame_system::{limits, EnsureNever, EnsureRoot, RawOrigin};
 use pallet_collective::MemberCount;
+use pallet_subtensor::subnets::Mechanism;
 use sp_core::{Get, H256, U256};
 use sp_runtime::Perbill;
 use sp_runtime::{
@@ -638,7 +639,7 @@ pub struct DynamicSubnetSetupParameters {
 #[allow(dead_code)]
 pub fn setup_dynamic_network(prm: &DynamicSubnetSetupParameters) {
     add_network(prm.netuid, prm.subnet_tempo, 0);
-    pallet_subtensor::SubnetMechanism::<Test>::insert(prm.netuid, 1);
+    pallet_subtensor::SubnetMechanism::<Test>::insert(prm.netuid, Mechanism::Dynamic);
     pallet_subtensor::SubnetTAO::<Test>::insert(prm.netuid, 1);
     pallet_subtensor::SubnetAlphaIn::<Test>::insert(prm.netuid, 1);
     pallet_subtensor::SubnetOwner::<Test>::insert(prm.netuid, prm.owner.0);

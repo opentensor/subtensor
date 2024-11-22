@@ -2,8 +2,8 @@
 #![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 #![cfg(feature = "runtime-benchmarks")]
 
-use crate::Pallet as Subtensor;
 use crate::*;
+use crate::{subnets::Mechanism, Pallet as Subtensor};
 use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
@@ -300,7 +300,7 @@ benchmarks! {
     let amount: u64 = 1;
     let amount_to_be_staked = 100_000_000_000_000u64;
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
-  }: register_network(RawOrigin::Signed(coldkey), hotkey, 1)
+  }: register_network(RawOrigin::Signed(coldkey), hotkey, Mechanism::Dynamic)
 
   // swap_hotkey {
   //   let seed: u32 = 1;

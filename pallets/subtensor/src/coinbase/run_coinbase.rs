@@ -1,6 +1,7 @@
 use super::*;
 use crate::epoch::math::safe_modulo;
 use alloc::collections::BTreeMap;
+use subnets::Mechanism;
 use substrate_fixed::types::I96F32;
 
 impl<T: Config> Pallet<T> {
@@ -28,7 +29,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 4. Sum all the SubnetTAO associated with the same mechanism
         let mut total_active_tao: I96F32 = I96F32::from_num(0);
-        let mut mechanism_tao: BTreeMap<u16, I96F32> = BTreeMap::new();
+        let mut mechanism_tao: BTreeMap<Mechanism, I96F32> = BTreeMap::new();
         for netuid in subnets.iter() {
             if *netuid == 0 {
                 continue;
@@ -63,7 +64,7 @@ impl<T: Config> Pallet<T> {
                 continue;
             }
             // 1. Get subnet mechanism ID
-            let mechid: u16 = SubnetMechanism::<T>::get(*netuid);
+            let mechid: Mechanism = SubnetMechanism::<T>::get(*netuid);
             // 2. Get subnet TAO (T_s)
             let subnet_tao: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(*netuid));
             // 3. Get the denominator as the sum of all TAO associated with a specific mechanism (T_m)
@@ -94,7 +95,7 @@ impl<T: Config> Pallet<T> {
             // 11. Increase total issuance: I_new = I_old + E_s
             TotalIssuance::<T>::mutate(|total| *total = total.saturating_add(subnet_emission));
             // 12. Switch on dynamic or Stable.
-            if mechid == 1 {
+            if mechid.is_dynamic() {
                 // 12a Dynamic: Add the SubnetAlpha directly into the pool immediately: A_s_new = A_s_old + E_m
                 SubnetAlphaIn::<T>::mutate(*netuid, |total| {
                     *total = total.saturating_add(block_emission.to_num::<u64>())

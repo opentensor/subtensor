@@ -2,6 +2,7 @@ mod mock;
 use mock::*;
 use pallet_subtensor::*;
 use sp_core::U256;
+use subnets::Mechanism;
 use substrate_fixed::types::I96F32;
 
 // Test titles and descriptions for exhaustive testing of stake_into_subnet function:
@@ -16,7 +17,7 @@ fn test_stake_into_subnet_dynamic_mechanism() {
         let tao_to_stake = 1_000_000_000; // 1 TAO
 
         // Set up the subnet with dynamic mechanism
-        SubnetMechanism::<Test>::insert(netuid, 1);
+        SubnetMechanism::<Test>::insert(netuid, Mechanism::Dynamic);
 
         // Initialize subnet with some existing TAO and Alpha
         let initial_subnet_tao = 10_000_000_000; // 10 TAO
@@ -103,7 +104,7 @@ fn test_stake_into_subnet_stable_mechanism() {
         let tao_to_stake = 1_000_000_000; // 1 TAO
 
         // Set up the subnet with stable mechanism
-        SubnetMechanism::<Test>::insert(netuid, 0);
+        SubnetMechanism::<Test>::insert(netuid, Mechanism::Stable);
 
         // Initialize subnet with some existing TAO and Alpha
         let initial_subnet_tao = 10_000_000_000; // 10 TAO
@@ -194,7 +195,7 @@ fn test_stake_into_subnet_zero_amount() {
         let tao_to_stake = 0; // Staking zero amount
 
         // Set up the subnet with stable mechanism
-        SubnetMechanism::<Test>::insert(netuid, 0);
+        SubnetMechanism::<Test>::insert(netuid, Mechanism::Stable);
 
         // Initialize subnet with some existing TAO and Alpha
         let initial_subnet_tao = 10_000_000_000; // 10 TAO
@@ -281,7 +282,7 @@ fn test_stake_into_subnet_max_amount() {
         let max_tao = u64::MAX;
 
         // Set up the subnet with stable mechanism
-        SubnetMechanism::<Test>::insert(netuid, 0);
+        SubnetMechanism::<Test>::insert(netuid, Mechanism::Stable);
 
         // Initialize subnet with some existing TAO and Alpha
         let initial_subnet_tao = 1_000_000_000; // 1 TAO
@@ -367,7 +368,7 @@ fn test_stake_into_subnet_multiple_stakes() {
         let stake_amount = 1_000_000; // 1 TAO
 
         // Set up the subnet with stable mechanism
-        SubnetMechanism::<Test>::insert(netuid, 0);
+        SubnetMechanism::<Test>::insert(netuid, Mechanism::Stable);
 
         // Initialize subnet with some existing TAO and Alpha
         let initial_subnet_tao = 1_000_000_000; // 1000 TAO
@@ -460,8 +461,8 @@ fn test_stake_into_subnet_different_subnets() {
         // Set up two subnets with different mechanisms
         let netuid1 = 1;
         let netuid2 = 2;
-        SubnetMechanism::<Test>::insert(netuid1, 0); // Stable mechanism
-        SubnetMechanism::<Test>::insert(netuid2, 1); // Dynamic mechanism
+        SubnetMechanism::<Test>::insert(netuid1, Mechanism::Stable);
+        SubnetMechanism::<Test>::insert(netuid2, Mechanism::Dynamic);
 
         // Initialize subnets with some existing TAO and Alpha
         let initial_subnet_tao = 1_000_000_000; // 1000 TAO
@@ -585,7 +586,7 @@ fn test_stake_into_subnet_hotkey_coldkey_combination() {
     new_test_ext(1).execute_with(|| {
         let netuid = 1;
         let stake_amount = 1_000_000; // 1 TAO
-        SubnetMechanism::<Test>::insert(netuid, 0); // Stable mechanism
+        SubnetMechanism::<Test>::insert(netuid, Mechanism::Stable);
 
         let hotkey1 = U256::from(1);
         let hotkey2 = U256::from(2);
@@ -734,7 +735,7 @@ fn test_stake_into_subnet_edge_cases() {
         let coldkey = U256::from(2);
 
         // Test with very large existing alpha and TAO in subnet
-        SubnetMechanism::<Test>::insert(netuid, 1); // Dynamic mechanism
+        SubnetMechanism::<Test>::insert(netuid, Mechanism::Dynamic);
         SubnetTAO::<Test>::insert(netuid, u64::MAX / 2);
         let large_stake = u64::MAX / 1000; // 1 billion
         SubnetAlphaIn::<Test>::insert(netuid, large_stake );
@@ -871,7 +872,7 @@ fn test_stake_into_subnet_return_value() {
         let coldkey = U256::from(2);
 
         // Scenario 1: Stable mechanism (mechanism_id = 0)
-        SubnetMechanism::<Test>::insert(netuid, 0);
+        SubnetMechanism::<Test>::insert(netuid, Mechanism::Stable);
         let stake_amount_1 = 1_000_000; // 1 million
         let alpha_staked_1 =
             SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, stake_amount_1);
@@ -892,7 +893,7 @@ fn test_stake_into_subnet_return_value() {
         SubnetTAO::<Test>::remove(netuid);
 
         // Scenario 2: Dynamic mechanism (mechanism_id = 1)
-        SubnetMechanism::<Test>::insert(netuid, 1);
+        SubnetMechanism::<Test>::insert(netuid, Mechanism::Dynamic);
         let initial_subnet_tao = 10_000_000; // 10 million
         let initial_subnet_alpha = 5_000_000; // 5 million
         SubnetTAO::<Test>::insert(netuid, initial_subnet_tao);
@@ -944,7 +945,7 @@ fn test_unstake_from_subnet_dynamic_mechanism() {
         let coldkey = U256::from(2);
 
         // Set up the subnet with dynamic mechanism
-        SubnetMechanism::<Test>::insert(netuid, 1);
+        SubnetMechanism::<Test>::insert(netuid, Mechanism::Dynamic);
 
         // Initialize subnet with some existing TAO and Alpha
         let initial_subnet_tao = 10_000_000_000; // 10 TAO
@@ -1033,7 +1034,7 @@ fn test_unstake_from_subnet_stable_mechanism() {
         let coldkey = U256::from(2);
 
         // Set up the subnet with stable mechanism
-        SubnetMechanism::<Test>::insert(netuid, 0);
+        SubnetMechanism::<Test>::insert(netuid, Mechanism::Stable);
 
         // Initialize subnet with some existing TAO and Alpha
         let initial_subnet_tao = 10_000_000_000; // 10 TAO
@@ -1118,7 +1119,7 @@ fn test_unstake_from_subnet_zero_alpha() {
         let coldkey = U256::from(2);
 
         // Set up the subnet with dynamic mechanism
-        SubnetMechanism::<Test>::insert(netuid, 1);
+        SubnetMechanism::<Test>::insert(netuid, Mechanism::Dynamic);
 
         // Initialize subnet with some existing TAO and Alpha
         let initial_subnet_tao = 10_000_000_000; // 10 TAO
@@ -1192,7 +1193,7 @@ fn test_unstake_from_subnet_all_alpha() {
         let coldkey = U256::from(2);
 
         // Set up the subnet with dynamic mechanism
-        SubnetMechanism::<Test>::insert(netuid, 1);
+        SubnetMechanism::<Test>::insert(netuid, Mechanism::Dynamic);
 
         // Initialize subnet with some existing TAO and Alpha
         let initial_subnet_tao = 10_000_000_000; // 10 TAO
@@ -1269,7 +1270,7 @@ fn test_unstake_from_subnet_partial_alpha() {
         let coldkey = U256::from(2);
 
         // Set up the subnet with dynamic mechanism
-        SubnetMechanism::<Test>::insert(netuid, 1);
+        SubnetMechanism::<Test>::insert(netuid, Mechanism::Dynamic);
 
         // Initialize subnet with some existing TAO and Alpha
         let initial_subnet_tao = 10_000_000_000; // 10 TAO
@@ -1340,7 +1341,7 @@ fn test_unstake_from_subnet_nonexistent_stake() {
         let coldkey = U256::from(2);
 
         // Set up the subnet with dynamic mechanism
-        SubnetMechanism::<Test>::insert(netuid, 1);
+        SubnetMechanism::<Test>::insert(netuid, Mechanism::Dynamic);
 
         // Initialize subnet with some existing TAO and Alpha
         let initial_subnet_tao = 10_000_000_000; // 10 TAO
@@ -1404,7 +1405,7 @@ fn test_unstake_from_subnet_multiple_hotkeys() {
         let coldkey = U256::from(3);
 
         // Set up the subnet with dynamic mechanism
-        SubnetMechanism::<Test>::insert(netuid, 1);
+        SubnetMechanism::<Test>::insert(netuid, Mechanism::Dynamic);
 
         // Initialize subnet with some existing TAO and Alpha
         let initial_subnet_tao = 10_000_000_000; // 10 TAO
@@ -1506,7 +1507,7 @@ fn test_unstake_from_subnet_edge_cases() {
         let coldkey = U256::from(2);
 
         // Set up the subnet with stable mechanism
-        SubnetMechanism::<Test>::insert(netuid, 0);
+        SubnetMechanism::<Test>::insert(netuid, Mechanism::Stable);
 
         // Test case 1: Maximum u64 values
         let max_u64 = u64::MAX;
@@ -1553,7 +1554,7 @@ fn test_unstake_from_subnet_concurrent_stakes() {
         let coldkey = U256::from(3);
 
         // Set up the subnet with stable mechanism
-        SubnetMechanism::<Test>::insert(netuid, 0);
+        SubnetMechanism::<Test>::insert(netuid, Mechanism::Stable);
 
         // Initialize subnet with some existing TAO and Alpha
         SubnetTAO::<Test>::insert(netuid, 10_000);
@@ -1595,7 +1596,7 @@ fn test_unstake_from_subnet_return_value() {
         let coldkey = U256::from(2);
 
         // Set up the subnet with stable mechanism
-        SubnetMechanism::<Test>::insert(netuid, 0);
+        SubnetMechanism::<Test>::insert(netuid, Mechanism::Stable);
 
         // Initialize subnet with some existing TAO and Alpha
         SubnetTAO::<Test>::insert(netuid, 10_000);

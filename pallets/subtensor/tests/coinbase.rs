@@ -5,6 +5,7 @@ use coinbase::block_emission;
 use frame_support::{assert_err, assert_ok};
 use pallet_subtensor::*;
 use sp_core::{Get, U256};
+use subnets::Mechanism;
 use substrate_fixed::types::I64F64;
 
 use pallet_subtensor::TargetStakesPerInterval;
@@ -301,8 +302,8 @@ fn test_run_coinbase_different_mechanisms() {
         add_network(netuid2, 110, 100);
 
         // Set different mechanisms for each subnet
-        SubnetMechanism::<Test>::insert(netuid1, 0); // Stable mechanism
-        SubnetMechanism::<Test>::insert(netuid2, 1); // Dynamic mechanism
+        SubnetMechanism::<Test>::insert(netuid1, Mechanism::Stable);
+        SubnetMechanism::<Test>::insert(netuid2, Mechanism::Dynamic);
 
         // Set initial values
         let initial_issuance = 1_000_000;

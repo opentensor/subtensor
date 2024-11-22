@@ -13,6 +13,7 @@ use rand::{distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng, R
 use sp_core::U256;
 use sp_runtime::DispatchError;
 use std::time::Instant;
+use subnets::Mechanism;
 use substrate_fixed::types::I32F32;
 
 mod mock;
@@ -2647,7 +2648,11 @@ fn test_get_set_alpha() {
             DispatchError::BadOrigin
         );
 
-        assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey, 1));
+        assert_ok!(SubtensorModule::register_network(
+            signer.clone(),
+            hotkey,
+            Mechanism::Dynamic
+        ));
 
         assert_ok!(SubtensorModule::do_set_alpha_values(
             signer.clone(),

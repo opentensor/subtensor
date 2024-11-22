@@ -5,7 +5,7 @@ use frame_support::{
 };
 use frame_system::Config;
 use pallet_admin_utils::Error;
-use pallet_subtensor::{migrations, Error as SubtensorError, Event};
+use pallet_subtensor::{migrations, subnets, Error as SubtensorError, Event};
 use sp_core::U256;
 
 mod mock;
@@ -1203,7 +1203,7 @@ fn test_set_alpha_values_dispatch_info_ok() {
 fn test_sudo_get_set_alpha() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
-        let mechid: u16 = 1;
+        let mechid: subnets::Mechanism = subnets::Mechanism::Dynamic;
         let alpha_low: u16 = 12_u16;
         let alpha_high: u16 = u16::MAX - 10;
 
