@@ -16,6 +16,11 @@ use sp_runtime::{
 };
 use sp_std::collections::vec_deque::VecDeque;
 use substrate_fixed::types::I32F32;
+use ark_serialize::CanonicalDeserialize;
+use rand_chacha::{ChaCha20Rng, rand_core::SeedableRng};
+use sha2::Digest;
+use tle::{tlock::{tld, tle}, ibe::fullident::Identity, curves::drand::TinyBLS381, stream_ciphers::AESGCMStreamCipherProvider};
+use w3f_bls::EngineBLS;
 
 /***************************
   pub fn set_weights() tests
@@ -4188,16 +4193,6 @@ fn test_commit_weights_rate_limit() {
         ));
     });
 }
-
-use ark_serialize::CanonicalDeserialize;
-use rand_chacha::rand_core::SeedableRng;
-use rand_chacha::ChaCha20Rng;
-use sha2::Digest;
-use tle::ibe::fullident::Identity;
-use tle::tlock::tld;
-use tle::tlock::tle;
-use tle::{curves::drand::TinyBLS381, stream_ciphers::AESGCMStreamCipherProvider};
-use w3f_bls::EngineBLS;
 
 #[test]
 pub fn tlock_encrypt_decrypt_drand_quicknet_works() {
