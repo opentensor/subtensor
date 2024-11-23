@@ -86,11 +86,13 @@ mod dispatches {
             weights: Vec<u16>,
             version_key: u64,
         ) -> DispatchResult {
-            if !Self::get_commit_reveal_weights_enabled(netuid) {
-                return Self::do_set_weights(origin, netuid, dests, weights, version_key);
+            if Self::get_commit_reveal_weights_enabled(netuid) {
+                Err(Error::<T>::CommitRevealEnabled.into())
+            } else if Self::get_crv3_weights_enabled(netuid) {
+                Err(Error::<T>::CommitRevealV3Disabled.into())
+            } else {
+                Self::do_set_weights(origin, netuid, dests, weights, version_key)
             }
-
-            Err(Error::<T>::CommitRevealEnabled.into())
         }
 
         /// ---- Used to commit a hash of your weight values to later be revealed.

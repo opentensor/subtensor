@@ -163,7 +163,7 @@ impl<T: Config> Pallet<T> {
 
         // 2. Ensure commit-reveal v3 is enabled.
         ensure!(
-            CRV3WeightsEnabled::<T>::get(netuid),
+            Self::get_crv3_weights_enabled(netuid),
             Error::<T>::CommitRevealV3Disabled
         );
 
@@ -690,7 +690,9 @@ impl<T: Config> Pallet<T> {
         Weights::<T>::insert(netuid, neuron_uid, zipped_weights);
 
         // --- 18. Set the activity for the weights on this network.
-        if !Self::get_commit_reveal_weights_enabled(netuid) {
+        if !Self::get_commit_reveal_weights_enabled(netuid)
+            && !Self::get_crv3_weights_enabled(netuid)
+        {
             Self::set_last_update_for_uid(netuid, neuron_uid, current_block);
         }
 
