@@ -50,6 +50,8 @@ tle = { workspace = true, default-features = false }
 ark-bls12-381 = { workspace = true, default-features = false }
 ark-serialize = { workspace = true, default-features = false }
 w3f-bls = { workspace = true, default-features = false }
+sha2 = { workspace = true }
+rand_chacha = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
