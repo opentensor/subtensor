@@ -1174,10 +1174,6 @@ pub mod pallet {
         StorageMap<_, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
     #[pallet::storage]
     /// --- DMAP ( netuid ) --> last_update
-    pub type LastCRV3Update<T: Config> =
-        StorageMap<_, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
-    #[pallet::storage]
-    /// --- DMAP ( netuid ) --> last_update
     pub type LastUpdate<T: Config> =
         StorageMap<_, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
     #[pallet::storage]
