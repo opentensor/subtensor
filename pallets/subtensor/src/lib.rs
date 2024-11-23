@@ -48,6 +48,9 @@ pub mod utils;
 use crate::utils::rate_limiting::TransactionType;
 use macros::{config, dispatches, errors, events, genesis, hooks};
 
+#[cfg(test)]
+mod tests;
+
 // apparently this is stabilized since rust 1.36
 extern crate alloc;
 
