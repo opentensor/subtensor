@@ -220,9 +220,8 @@ impl<T: Config> Pallet<T> {
             return Ok(());
         }
 
-        // This fn is run at the VERY BEGINNING of epoch `n`, therefore the weights revealed
-        // must have been committed during epoch `n-2`.
-        let reveal_epoch = cur_epoch.saturating_sub(2);
+        // Weights revealed must have been committed during epoch `cur_epoch - reveal_period`.
+        let reveal_epoch = cur_epoch.saturating_sub(Self::get_reveal_period(netuid));
 
         let mut entries = CRV3WeightCommits::<T>::take(netuid, reveal_epoch);
 

@@ -2067,64 +2067,6 @@ impl_runtime_apis! {
 
 #[cfg(test)]
 mod tests {
-    use ark_serialize::CanonicalDeserialize;
-    use rand_chacha::rand_core::SeedableRng;
-    use rand_chacha::ChaCha20Rng;
-    use sha2::Digest;
-    use tle::ibe::fullident::Identity;
-    use tle::tlock::tld;
-    use tle::tlock::tle;
-    use tle::{curves::drand::TinyBLS381, stream_ciphers::AESGCMStreamCipherProvider};
-    use w3f_bls::EngineBLS;
-
-    #[test]
-    pub fn tlock_encrypt_decrypt_drand_quicknet_works() {
-        // using a pulse from drand's QuickNet
-        // https://api.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/1000
-        // the beacon public key
-        let pk_bytes =
-	b"83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c8c4b450b6a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809bd274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a"
-	; // a round number that we know a signature for
-        let round: u64 = 1000;
-        // the signature produced in that round
-        let signature =
-	b"b44679b9a59af2ec876b1a6b1ad52ea9b1615fc3982b19576350f93447cb1125e342b73a8dd2bacbe47e4b6b63ed5e39"
-	;
-
-        // Convert hex string to bytes
-        let pub_key_bytes = hex::decode(pk_bytes).expect("Decoding failed");
-        // Deserialize to G1Affine
-        let pub_key =
-            <TinyBLS381 as EngineBLS>::PublicKeyGroup::deserialize_compressed(&*pub_key_bytes)
-                .unwrap();
-
-        // then we tlock a message for the pubkey
-        let plaintext = b"this is a test".as_slice();
-        let esk = [2; 32];
-
-        let sig_bytes = hex::decode(signature).expect("The signature should be well formatted");
-        let sig =
-            <TinyBLS381 as EngineBLS>::SignatureGroup::deserialize_compressed(&*sig_bytes).unwrap();
-
-        let message = {
-            let mut hasher = sha2::Sha256::new();
-            hasher.update(round.to_be_bytes());
-            hasher.finalize().to_vec()
-        };
-
-        let identity = Identity::new(b"", vec![message]);
-
-        let rng = ChaCha20Rng::seed_from_u64(0);
-        let ct = tle::<TinyBLS381, AESGCMStreamCipherProvider, ChaCha20Rng>(
-            pub_key, esk, plaintext, identity, rng,
-        )
-        .unwrap();
-
-        // then we can decrypt the ciphertext using the signature
-        let result = tld::<TinyBLS381, AESGCMStreamCipherProvider>(ct, sig).unwrap();
-        assert!(result == plaintext);
-    }
-
     #[test]
     fn check_whitelist() {
         use crate::*;

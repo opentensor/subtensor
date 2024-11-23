@@ -201,7 +201,7 @@ impl<T: Config> Pallet<T> {
             ));
 
             // 9. Update the last commit block for the hotkey's UID.
-            Self::set_last_crv3_update_for_uid(netuid, neuron_uid, commit_block);
+            Self::set_last_update_for_uid(netuid, neuron_uid, commit_block);
 
             // 10. Return success.
             Ok(())
@@ -727,7 +727,7 @@ impl<T: Config> Pallet<T> {
     pub fn check_crv3_rate_limit(netuid: u16, neuron_uid: u16, current_block: u64) -> bool {
         if Self::is_uid_exist_on_network(netuid, neuron_uid) {
             // --- 1. Ensure that the diff between current and last_set weights is greater than limit.
-            let last_set_weights: u64 = Self::get_last_crv3_update_for_uid(netuid, neuron_uid);
+            let last_set_weights: u64 = Self::get_last_update_for_uid(netuid, neuron_uid);
             if last_set_weights == 0 {
                 return true;
             } // (Storage default) Never set weights.

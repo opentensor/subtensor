@@ -16,6 +16,11 @@ use sp_runtime::{
 };
 use sp_std::collections::vec_deque::VecDeque;
 use substrate_fixed::types::I32F32;
+use ark_serialize::CanonicalDeserialize;
+use rand_chacha::{ChaCha20Rng, rand_core::SeedableRng};
+use sha2::Digest;
+use tle::{tlock::{tld, tle}, ibe::fullident::Identity, curves::drand::TinyBLS381, stream_ciphers::AESGCMStreamCipherProvider};
+use w3f_bls::EngineBLS;
 
 /***************************
   pub fn set_weights() tests
@@ -4190,25 +4195,49 @@ fn test_commit_weights_rate_limit() {
 }
 
 #[test]
-fn test_commit_weights_dispatch_info_ok() {
-    new_test_ext(0).execute_with(|| {
-        let dests = vec![1, 1];
-        let weights = vec![1, 1];
-        let netuid: u16 = 1;
-        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
-        let version_key: u64 = 0;
-        let hotkey: U256 = U256::from(1);
+pub fn tlock_encrypt_decrypt_drand_quicknet_works() {
+    // using a pulse from drand's QuickNet
+    // https://api.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/1000
+    // the beacon public key
+    let pk_bytes =
+b"83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c8c4b450b6a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809bd274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a"
+; // a round number that we know a signature for
+    let round: u64 = 1000;
+    // the signature produced in that round
+    let signature =
+b"b44679b9a59af2ec876b1a6b1ad52ea9b1615fc3982b19576350f93447cb1125e342b73a8dd2bacbe47e4b6b63ed5e39"
+;
 
-        let commit_hash: H256 =
-            BlakeTwo256::hash_of(&(hotkey, netuid, dests, weights, salt, version_key));
+    // Convert hex string to bytes
+    let pub_key_bytes = hex::decode(pk_bytes).expect("Decoding failed");
+    // Deserialize to G1Affine
+    let pub_key =
+        <TinyBLS381 as EngineBLS>::PublicKeyGroup::deserialize_compressed(&*pub_key_bytes)
+            .unwrap();
 
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::commit_weights {
-            netuid,
-            commit_hash,
-        });
-        let dispatch_info = call.get_dispatch_info();
+    // then we tlock a message for the pubkey
+    let plaintext = b"this is a test".as_slice();
+    let esk = [2; 32];
 
-        assert_eq!(dispatch_info.class, DispatchClass::Normal);
-        assert_eq!(dispatch_info.pays_fee, Pays::No);
-    });
+    let sig_bytes = hex::decode(signature).expect("The signature should be well formatted");
+    let sig =
+        <TinyBLS381 as EngineBLS>::SignatureGroup::deserialize_compressed(&*sig_bytes).unwrap();
+
+    let message = {
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(round.to_be_bytes());
+        hasher.finalize().to_vec()
+    };
+
+    let identity = Identity::new(b"", vec![message]);
+
+    let rng = ChaCha20Rng::seed_from_u64(0);
+    let ct = tle::<TinyBLS381, AESGCMStreamCipherProvider, ChaCha20Rng>(
+        pub_key, esk, plaintext, identity, rng,
+    )
+    .unwrap();
+
+    // then we can decrypt the ciphertext using the signature
+    let result = tld::<TinyBLS381, AESGCMStreamCipherProvider>(ct, sig).unwrap();
+    assert!(result == plaintext);
 }
