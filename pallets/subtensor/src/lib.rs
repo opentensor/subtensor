@@ -61,6 +61,7 @@ extern crate alloc;
 #[frame_support::pallet]
 pub mod pallet {
     use crate::migrations;
+    use crate::subnets::Mechanism;
     use frame_support::{
         dispatch::GetDispatchInfo,
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
@@ -223,11 +224,6 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for zero.
     pub fn DefaultZeroU64<T: Config>() -> u64 {
-        0
-    }
-    #[pallet::type_value]
-    /// Default value for zero.
-    pub fn DefaultZeroU16<T: Config>() -> u16 {
         0
     }
     #[pallet::type_value]
@@ -1113,8 +1109,7 @@ pub mod pallet {
     /// ==== Subnet Parameters =====
     /// ============================
     #[pallet::storage] // --- MAP ( netuid ) --> subnet mechanism
-    pub type SubnetMechanism<T: Config> =
-        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultZeroU16<T>>;
+    pub type SubnetMechanism<T: Config> = StorageMap<_, Identity, u16, Mechanism, ValueQuery>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> subnetwork_n (Number of UIDs in the network).
     pub type SubnetworkN<T: Config> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultN<T>>;

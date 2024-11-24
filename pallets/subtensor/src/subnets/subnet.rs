@@ -1,6 +1,7 @@
 use super::*;
 use frame_support::IterableStorageMap;
 use sp_core::Get;
+use subnets::Mechanism;
 
 impl<T: Config> Pallet<T> {
     /// Fetches the total count of subnets.
@@ -81,7 +82,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns:
     /// * 'u16': The subnet mechanism
     ///
-    pub fn get_subnet_mechanism(netuid: u16) -> u16 {
+    pub fn get_subnet_mechanism(netuid: u16) -> Mechanism {
         SubnetMechanism::<T>::get(netuid)
     }
 
@@ -122,7 +123,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_register_network(
         origin: T::RuntimeOrigin,
         hotkey: &T::AccountId,
-        mechid: u16,
+        mechid: Mechanism,
         identity: Option<SubnetIdentityOf>,
     ) -> DispatchResult {
         // --- 1. Ensure the caller is a signed user.
@@ -135,7 +136,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 3. Ensure the mechanism is Dynamic.
-        ensure!(mechid == 1, Error::<T>::MechanismDoesNotExist);
+        ensure!(mechid.is_dynamic(), Error::<T>::MechanismDoesNotExist);
 
         // --- 4. Rate limit for network registrations.
         let current_block = Self::get_current_block_as_u64();

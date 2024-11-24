@@ -1,4 +1,5 @@
 use super::*;
+use subnets::Mechanism;
 use substrate_fixed::types::I96F32;
 
 impl<T: Config> Pallet<T> {
@@ -116,14 +117,14 @@ impl<T: Config> Pallet<T> {
         tao_staked: u64,
     ) -> u64 {
         // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
-        let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
+        let mechanism_id: Mechanism = SubnetMechanism::<T>::get(netuid);
 
         let alpha_staked: I96F32;
         let new_subnet_alpha: I96F32;
         // Step 2: Convert tao_staked to a fixed-point number for precise calculations
         let tao_staked_float: I96F32 = I96F32::from_num(tao_staked);
 
-        if mechanism_id == 1 {
+        if mechanism_id.is_dynamic() {
             // Step 3: Dynamic mechanism calculations
             // Step 3a: Get current TAO and Alpha in the subnet
             let subnet_tao: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(netuid));
@@ -286,7 +287,7 @@ impl<T: Config> Pallet<T> {
         alpha_unstaked: u64,
     ) -> u64 {
         // Step 1: Get the mechanism type for this subnet
-        let mechid: u16 = SubnetMechanism::<T>::get(netuid);
+        let mechid: Mechanism = SubnetMechanism::<T>::get(netuid);
 
         // Step 2: Initialize variables for TAO unstaked and new subnet alpha
         let tao_unstaked: I96F32;
@@ -306,7 +307,7 @@ impl<T: Config> Pallet<T> {
             return 0;
         }
 
-        if mechid == 1 {
+        if mechid.is_dynamic() {
             // Step 4: Dynamic mechanism
             // Step 4a: Get current TAO in the subnet
             let subnet_tao: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(netuid));
