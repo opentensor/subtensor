@@ -294,7 +294,8 @@ impl<T: Config> Pallet<T> {
         let new_subnet_alpha: I96F32;
 
         // Step 3a: Get the current stake for the hotkey-coldkey pair in this subnet
-        let current_stake = Alpha::<T>::get((hotkey, coldkey, netuid));
+        let current_stake =
+            Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
 
         // Step 3b: Calculate the actual amount to unstake (minimum of requested and available)
         let actual_unstake = alpha_unstaked.min(current_stake);
@@ -400,7 +401,7 @@ impl<T: Config> Pallet<T> {
         // Step 15: Decrease total stake across all subnets
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(tao_unstaked_u64));
         // Step 16: Update StakingHotkeys if the hotkey's total alpha is zero
-        if Alpha::<T>::get((hotkey, coldkey, netuid)) == 0 {
+        if Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid) == 0 {
             StakingHotkeys::<T>::mutate(coldkey, |hotkeys| {
                 hotkeys.retain(|k| k != hotkey);
             });

@@ -431,7 +431,7 @@ impl<T: Config> Pallet<T> {
     ) -> u64 {
         // Step 1: Retrieve the stake (alpha) for the specific hotkey-coldkey pair on this subnet.
         // This value represents the stake associated only with this particular combination.
-        let alpha: u64 = Alpha::<T>::get((hotkey, coldkey, netuid));
+        let alpha: u64 = Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
 
         // Step 2: Convert the alpha value to its TAO equivalent.
         // This conversion takes into account the current state of the subnet,

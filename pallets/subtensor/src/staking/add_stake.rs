@@ -85,8 +85,9 @@ impl<T: Config> Pallet<T> {
 
         // If coldkey is not owner of the hotkey, it's a nomination stake.
         if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
-            let total_stake_after_add: u64 =
-                Alpha::<T>::get((&hotkey, &coldkey, netuid)).saturating_add(stake_to_be_added);
+            let stake_before =
+                Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+            let total_stake_after_add: u64 = stake_before.saturating_add(stake_to_be_added);
 
             ensure!(
                 total_stake_after_add >= NominatorMinRequiredStake::<T>::get(),

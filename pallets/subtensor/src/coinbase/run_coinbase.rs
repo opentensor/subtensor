@@ -404,8 +404,9 @@ impl<T: Config> Pallet<T> {
             // If the last block this nominator added any stake is old enough (older than one hotkey tempo),
             // consider this nominator's contribution
             if stake_added_block_diff >= hotkey_tempo {
-                let alpha_contribution: I96F32 =
-                    I96F32::from_num(Alpha::<T>::get((&hotkey, nominator.clone(), netuid)));
+                let nominator_alpha =
+                    Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &nominator, netuid);
+                let alpha_contribution: I96F32 = I96F32::from_num(nominator_alpha);
                 let global_contribution: I96F32 =
                     I96F32::from_num(Self::get_global_for_hotkey_and_coldkey(hotkey, &nominator));
                 total_global = total_global.saturating_add(global_contribution);

@@ -1143,7 +1143,11 @@ fn test_hotkey_swap_stake_delta() {
         );
 
         assert_eq!(
-            Alpha::<Test>::get((new_hotkey, coldkeys[0], netuid)),
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &new_hotkey,
+                &coldkeys[0],
+                netuid
+            ),
             1234 + coldkeys[0].saturated_into::<u64>() + 5678
         );
         // -- coldkey[1..] maintains its stake delta from the old_hotkey
@@ -1153,11 +1157,22 @@ fn test_hotkey_swap_stake_delta() {
                 123 + coldkey.saturated_into::<u64>()
             );
             assert_eq!(
-                Alpha::<Test>::get((new_hotkey, coldkey, netuid)),
+                SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    &new_hotkey,
+                    &coldkey,
+                    netuid
+                ),
                 1234 + coldkey.saturated_into::<u64>()
             );
             assert!(!Stake::<Test>::contains_key(old_hotkey, coldkey));
-            assert!(!Alpha::<Test>::contains_key((old_hotkey, coldkey, 0)));
+            assert!(
+                !SubtensorModule::try_get_stake_for_hotkey_and_coldkey_on_subnet(
+                    &old_hotkey,
+                    &coldkey,
+                    0
+                )
+                .is_ok()
+            );
         }
     });
 }

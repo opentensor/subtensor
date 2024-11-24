@@ -168,9 +168,11 @@ impl<T: Config> Pallet<T> {
             // 3.1 Swap Alpha
             for netuid in Self::get_all_subnet_netuids() {
                 // Get the stake on the old (hot,coldkey) account.
-                let old_alpha: u64 = Alpha::<T>::get((&hotkey, old_coldkey, netuid));
+                let old_alpha: u64 =
+                    Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, old_coldkey, netuid);
                 // Get the stake on the new (hot,coldkey) account.
-                let new_alpha: u64 = Alpha::<T>::get((&hotkey, new_coldkey, netuid));
+                let new_alpha: u64 =
+                    Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, new_coldkey, netuid);
                 // Add the stake to new account.
                 Alpha::<T>::insert(
                     (&hotkey, new_coldkey, netuid),
