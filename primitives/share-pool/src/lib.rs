@@ -8,6 +8,8 @@ pub trait SharePoolDataOperations<Key> {
     fn get_shared_value(&self) -> U64F64;
     /// Gets single share for a given key
     fn get_share(&self, key: &Key) -> U64F64;
+    // Tries to get a single share for a given key, as a result.
+    fn try_get_share(&self, key: &Key) -> Result<U64F64, ()>;
     /// Gets share pool denominator
     fn get_denominator(&self) -> U64F64;
     /// Updates shared value by provided signed value
@@ -50,6 +52,13 @@ where
             .unwrap_or(U64F64::from_num(0))
             .saturating_mul(current_share)
             .to_num::<u64>()
+    }
+
+    pub fn try_get_value(&self, key: &K) -> Result<u64, ()> {
+        match self.state_ops.try_get_share(key) {
+            Ok(_) => Ok(self.get_value(key)),
+            Err(i) => Err(i),
+        }
     }
 
     /// Update the total shared value.
@@ -142,6 +151,13 @@ mod tests {
 
         fn get_share(&self, key: &u16) -> U64F64 {
             self.share.get(key).unwrap_or(&U64F64::from_num(0)).clone()
+        }
+
+        fn try_get_share(&self, key: &u16) -> Result<U64F64, ()> {
+            match self.share.get(key) {
+                Some(&value) => Ok(value),
+                None => Err(()),
+            }
         }
 
         fn get_denominator(&self) -> U64F64 {

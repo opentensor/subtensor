@@ -588,7 +588,42 @@ impl<T: Config> Pallet<T> {
         alpha_share_pool.get_value(&key)
     }
 
-    fn get_alpha_share_pool(netuid: u16) -> SharePool<AlphaShareKey<T>, AlphaSharePoolDataOperations<T>> {
+    /// Tries to retrieve the alpha (stake) value for a given hotkey and coldkey pair on a specific subnet as a Result.
+    ///
+    /// This function performs the following steps:
+    /// 1. Takes the hotkey, coldkey, and subnet ID as input parameters.
+    /// 2. Accesses the Alpha storage map to retrieve the stake value.
+    /// 3. Returns the retrieved stake value as a u64.
+    ///
+    /// # Arguments
+    /// * `hotkey` - The account ID of the hotkey (neuron).
+    /// * `coldkey` - The account ID of the coldkey (owner).
+    /// * `netuid` - The unique identifier of the subnet.
+    ///
+    /// # Returns
+    /// * `Result<u64, ()>` - The alpha (stake) value for the specified hotkey-coldkey pair on the given subnet or Err if the entry does not exist.
+    ///
+    /// # Note
+    /// This function retrieves the stake specific to the hotkey-coldkey pair, not the total stake of the hotkey or coldkey individually.
+    pub fn try_get_stake_for_hotkey_and_coldkey_on_subnet(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        netuid: u16,
+    ) -> Result<u64, ()> {
+        // Step 1: Access the Alpha storage map
+        // The Alpha map stores stake values for each (hotkey, coldkey, netuid) combination
+
+        // Step 2: Retrieve the stake value using the provided parameters
+        // If no stake exists for this combination, the default value of 0 will be returned
+
+        let alpha_share_pool = Self::get_alpha_share_pool(netuid);
+        let key = (hotkey.clone(), coldkey.clone());
+        alpha_share_pool.try_get_value(&key)
+    }
+
+    fn get_alpha_share_pool(
+        netuid: u16,
+    ) -> SharePool<AlphaShareKey<T>, AlphaSharePoolDataOperations<T>> {
         let ops = AlphaSharePoolDataOperations::new(netuid);
         SharePool::<AlphaShareKey<T>, AlphaSharePoolDataOperations<T>>::new(ops)
     }
@@ -622,6 +657,10 @@ impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>> for AlphaSharePoolData
 
     fn get_share(&self, key: &AlphaShareKey<T>) -> U64F64 {
         crate::AlphaShare::<T>::get((key.0.clone(), key.1.clone(), self.netuid))
+    }
+
+    fn try_get_share(&self, key: &AlphaShareKey<T>) -> Result<U64F64, ()> {
+        crate::AlphaShare::<T>::try_get((key.0.clone(), key.1.clone(), self.netuid))
     }
 
     fn get_denominator(&self) -> U64F64 {
@@ -667,6 +706,10 @@ impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>> for DeltaAlphaSharePoo
         crate::DeltaAlphaShare::<T>::get((key.0.clone(), key.1.clone(), self.netuid))
     }
 
+    fn try_get_share(&self, key: &AlphaShareKey<T>) -> Result<U64F64, ()> {
+        crate::DeltaAlphaShare::<T>::try_get((key.0.clone(), key.1.clone(), self.netuid))
+    }
+
     fn get_denominator(&self) -> U64F64 {
         crate::DeltaAlphaShareDenominator::<T>::get(self.netuid)
     }
@@ -709,6 +752,10 @@ impl<T: Config> SharePoolDataOperations<GlobalShareKey<T>> for GlobalSharePoolDa
 
     fn get_share(&self, key: &GlobalShareKey<T>) -> U64F64 {
         crate::GlobalShare::<T>::get(key.0.clone(), key.1.clone())
+    }
+
+    fn try_get_share(&self, key: &GlobalShareKey<T>) -> Result<U64F64, ()> {
+        crate::GlobalShare::<T>::try_get(key.0.clone(), key.1.clone())
     }
 
     fn get_denominator(&self) -> U64F64 {
