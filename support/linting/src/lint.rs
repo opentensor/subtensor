@@ -53,7 +53,8 @@ pub fn is_allowed(attibutes: &[Attribute]) -> bool {
 }
 
 pub fn walk_src() {
-    let source_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    let source_dir =
+        env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is expected to be set");
     let source_dir = Path::new(&source_dir);
 
     let rust_files = collect_rust_files(source_dir);

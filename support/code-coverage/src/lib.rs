@@ -1,3 +1,6 @@
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::arithmetic_side_effects)]
+
 use build_print::*;
 use proc_macro2::TokenStream as TokenStream2;
 use procedural_fork::exports::pallet::parse::Def;
@@ -185,9 +188,11 @@ fn analyze_file(path: &Path, root_path: &Path) -> Vec<PalletInfo> {
             strip_common_suffix("/src/lib.rs".as_ref(), strip_common_prefix(root_path, path))
                 .display(),
         );
-        let mut info = PalletInfo::default();
-        info.path = path.to_path_buf();
-        info.pallet_name = extract_pallet_name(path).unwrap_or("pallet".to_string());
+		let mut info = PalletInfo {
+			path: path.to_path_buf(),
+			pallet_name:extract_pallet_name(path).unwrap_or("pallet".to_string()),
+			..Default::default()
+		};
 
         // collect all Call methods
         if let Some(call) = &pallet.call {
@@ -306,8 +311,14 @@ impl<'ast> Visit<'ast> for MethodCallVisitor<'_> {
     }
 
     fn visit_expr_path(&mut self, i: &'ast syn::ExprPath) {
-        self.method_calls
-            .insert(i.path.segments.last().unwrap().ident.to_string());
+        self.method_calls.insert(
+            i.path
+                .segments
+                .last()
+                .expect("at least one element is expected in path")
+                .ident
+                .to_string(),
+        );
         syn::visit::visit_expr_path(self, i);
     }
 }
@@ -363,7 +374,15 @@ pub fn try_parse_pallet(item_mod: &ItemMod, file_path: &Path, root_path: &Path) 
 
     // manually import foreign sections defined by the `#[import_section]` attribute
     for attr in item_mod.attrs.iter() {
-        if attr.meta.path().segments.last().unwrap().ident != "import_section" {
+        if attr
+            .meta
+            .path()
+            .segments
+            .last()
+            .expect("at least one element is expected in path")
+            .ident
+            != "import_section"
+        {
             continue;
         }
 
@@ -371,7 +390,11 @@ pub fn try_parse_pallet(item_mod: &ItemMod, file_path: &Path, root_path: &Path) 
         let Ok(inner_path) = attr.parse_args::<syn::Path>() else {
             continue;
         };
-        let section_name = &inner_path.segments.last().unwrap().ident;
+        let section_name = &inner_path
+            .segments
+            .last()
+            .expect("at least one element is expected in path")
+            .ident;
 
         if !section_announced {
             custom_println!(
@@ -440,19 +463,19 @@ fn find_matching_pallet_section(
     src_path: &Path,
     section_name: &Ident,
 ) -> Option<(ItemMod, PathBuf)> {
-    let Some(base_path) = src_path.parent() else {
-        return None;
-    };
-    let rust_files = WalkDir::new(base_path.parent().unwrap())
-        .into_iter()
-        .filter_map(Result::ok)
-        .filter(|e| {
-            e.path() != src_path
-                && e.path().is_file()
-                && e.path().extension() == Some(OsStr::new("rs"))
-        })
-        .map(|e| e.path().to_path_buf())
-        .collect::<Vec<PathBuf>>();
+    let base_path = src_path.parent()?;
+    let rust_files = WalkDir::new(
+        base_path
+            .parent()
+            .expect("the base path is not a top level directory"),
+    )
+    .into_iter()
+    .filter_map(Result::ok)
+    .filter(|e| {
+        e.path() != src_path && e.path().is_file() && e.path().extension() == Some(OsStr::new("rs"))
+    })
+    .map(|e| e.path().to_path_buf())
+    .collect::<Vec<PathBuf>>();
     let section_name = section_name.to_string().trim().to_string();
     rust_files
         .par_iter()
