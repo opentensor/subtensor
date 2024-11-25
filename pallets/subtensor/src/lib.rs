@@ -707,11 +707,6 @@ pub mod pallet {
     pub fn DefaultStakeDelta<T: Config>() -> i128 {
         0
     }
-    #[pallet::type_value]
-    /// Global Weight adjustment interval.
-    pub fn GlobalWeightAdjustmentInterval<T: Config>() -> u64 {
-        7200 // 1 day
-    }
 
     #[pallet::storage]
     pub type ColdkeySwapScheduleDuration<T: Config> =
