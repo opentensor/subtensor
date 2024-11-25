@@ -9235,14 +9235,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "share-pool"
-version = "0.1.0"
-dependencies = [
- "sp-std",
- "substrate-fixed",
-]
-
-[[package]]
 name = "shlex"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
