@@ -53,6 +53,14 @@ impl<T: Config> Pallet<T> {
         GlobalWeight::<T>::insert(netuid, weight);
     }
 
+    /// Retrieves the global global weight as a raw u64.
+    ///
+    /// # Returns
+    /// * `u64` - The raw global global weight (gamma) as a u64.
+    pub fn get_raw_global_weight(netuid: u16) -> u64 {
+        GlobalWeight::<T>::get(netuid)
+    }
+
     /// Calculates the weighted combination of alpha and global tao for hotkeys on a subnet.
     ///
     /// This function performs the following steps:

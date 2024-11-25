@@ -1402,3 +1402,31 @@ fn sudo_set_commit_reveal_weights_interval() {
         assert_eq!(SubtensorModule::get_reveal_period(netuid), to_be_set);
     });
 }
+
+#[test]
+fn test_sudo_set_global_weight() {
+    new_test_ext().execute_with(|| {
+        let netuid = 123;
+        // Create network
+        add_network(netuid, 10);
+
+        let to_be_set: u64 = 123456;
+        let init_value: u64 = SubtensorModule::get_raw_global_weight(netuid);
+
+        assert_eq!(
+            AdminUtils::sudo_set_global_weight(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin) // Don't allow random
+        );
+        assert_eq!(SubtensorModule::get_raw_global_weight(netuid), init_value);
+        assert_ok!(AdminUtils::sudo_set_global_weight(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_raw_global_weight(netuid), to_be_set);
+    });
+}
