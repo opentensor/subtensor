@@ -76,7 +76,8 @@ fn test_coinbase_basic() {
             weights: vec![vec![(0u16, 0xFFFF)]],
         });
 
-        let alpha_before = pallet_subtensor::Alpha::<Test>::get((hotkey, coldkey, netuid));
+        let alpha_before =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
 
         // Hotkey has no pending emission
         assert_eq!(
@@ -134,7 +135,8 @@ fn test_coinbase_basic() {
         );
 
         // Hotkey has NEW stake
-        let alpha_after = pallet_subtensor::Alpha::<Test>::get((hotkey, coldkey, netuid));
+        let alpha_after =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
         assert_eq!(alpha_after - alpha_before, hotkey_pending_emission);
 
         // Hotkey pending drained.
@@ -373,7 +375,10 @@ fn test_distribute_owner_cut_basic() {
         SubtensorModule::distribute_owner_cut(netuid, 1000);
 
         // Verify distribution
-        assert_eq!(Alpha::<Test>::get((hotkey, coldkey, netuid)), 1000);
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid),
+            1000
+        );
     });
 }
 
@@ -388,7 +393,10 @@ fn test_distribute_owner_cut_no_owner_hotkey() {
         SubtensorModule::distribute_owner_cut(netuid, 1000);
 
         // Verify distribution
-        assert_eq!(Alpha::<Test>::get((coldkey, coldkey, netuid)), 1000);
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&coldkey, &coldkey, netuid),
+            1000
+        );
     });
 }
 
@@ -419,13 +427,25 @@ fn test_distribute_owner_cut_is_actually_used() {
             weights: vec![vec![(0u16, 0xFFFF)]],
         });
 
-        assert!(Alpha::<Test>::get((subnet_owner_hotkey, subnet_owner_coldkey, netuid)) == 0);
+        assert!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &subnet_owner_hotkey,
+                &subnet_owner_coldkey,
+                netuid
+            ) == 0
+        );
 
         // Make all stakes old enough and viable
         step_block(600);
 
         // Verify distribution
-        assert!(Alpha::<Test>::get((subnet_owner_hotkey, subnet_owner_coldkey, netuid)) > 0);
+        assert!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &subnet_owner_hotkey,
+                &subnet_owner_coldkey,
+                netuid
+            ) > 0
+        );
     });
 }
 

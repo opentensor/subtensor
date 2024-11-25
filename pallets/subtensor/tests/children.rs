@@ -2001,12 +2001,21 @@ fn test_childkey_single_parent_emission() {
         pallet_subtensor::ChildkeyTake::<Test>::insert(child_hotkey, netuid, 0);
 
         // Starting point
-        let parent_alpha_before: u64 =
-            pallet_subtensor::Alpha::<Test>::get((parent_hotkey, parent_coldkey, netuid));
-        let child_alpha_before: u64 =
-            pallet_subtensor::Alpha::<Test>::get((child_hotkey, child_coldkey, netuid));
-        let miner_alpha_before: u64 =
-            pallet_subtensor::Alpha::<Test>::get((miner_hotkey, miner_coldkey, netuid));
+        let parent_alpha_before: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &parent_hotkey,
+            &parent_coldkey,
+            netuid,
+        );
+        let child_alpha_before: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &child_hotkey,
+            &child_coldkey,
+            netuid,
+        );
+        let miner_alpha_before: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &miner_hotkey,
+            &miner_coldkey,
+            netuid,
+        );
 
         // Run run_coinbase until PendingHotkeyEmission are populated
         while pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(parent_hotkey, netuid)
@@ -2033,15 +2042,21 @@ fn test_childkey_single_parent_emission() {
         step_block((hotkey_tempo * 2) as u16);
 
         // Check emission distribution
-        let parent_emission: u64 =
-            pallet_subtensor::Alpha::<Test>::get((parent_hotkey, parent_coldkey, netuid))
-                - parent_alpha_before;
-        let child_emission: u64 =
-            pallet_subtensor::Alpha::<Test>::get((child_hotkey, child_coldkey, netuid))
-                - child_alpha_before;
-        let miner_emission: u64 =
-            pallet_subtensor::Alpha::<Test>::get((miner_hotkey, miner_coldkey, netuid))
-                - miner_alpha_before;
+        let parent_emission: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &parent_hotkey,
+            &parent_coldkey,
+            netuid,
+        ) - parent_alpha_before;
+        let child_emission: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &child_hotkey,
+            &child_coldkey,
+            netuid,
+        ) - child_alpha_before;
+        let miner_emission: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &miner_hotkey,
+            &miner_coldkey,
+            netuid,
+        ) - miner_alpha_before;
 
         assert!(
             parent_emission > 1_000_000_000,
