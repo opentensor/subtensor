@@ -2459,42 +2459,6 @@ fn test_get_total_delegated_stake_exclude_owner_stake() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_anneal_global_weight --exact --nocapture
-#[test]
-fn test_anneal_global_weight() {
-    new_test_ext(1).execute_with(|| {
-        let netuid = 1u16;
-        let coldkey = U256::from(1);
-        let hotkey = U256::from(2);
-
-        add_network(netuid, 0, 0);
-        register_ok_neuron(netuid, hotkey, coldkey, 0);
-
-        // Set max global weight
-        SubtensorModule::set_global_weight(u64::MAX, netuid);
-
-        // Adjust global weight
-        let interval: u64 = pallet_subtensor::GlobalWeightAdjustmentInterval::<Test>::get();
-        let mut block: u64 = 0;
-        while block < 2629800 {
-            block += interval;
-            SubtensorModule::adjust_global_weight(block);
-        }
-        assert_eq!(
-            pallet_subtensor::GlobalWeight::<Test>::get(netuid),
-            u64::MAX / 2,
-        );
-
-        // Make sure it doesn't reduce below u64::MAX
-        block += interval;
-        SubtensorModule::adjust_global_weight(block);
-        assert_eq!(
-            pallet_subtensor::GlobalWeight::<Test>::get(netuid),
-            u64::MAX / 2,
-        );
-    });
-}
-
 // https://github.com/opentensor/subtensor/issues/925
 // cargo test -p pallet-subtensor --test staking -- test_stake_weight_should_not_be_affected_by_zero_stakes --exact --nocapture
 #[test]

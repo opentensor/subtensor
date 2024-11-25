@@ -1174,6 +1174,45 @@ pub mod pallet {
             );
             Ok(())
         }
+
+        /// Sets the global weight for a subnet.
+        ///
+        /// This extrinsic allows the root account to set the global weight for a subnet. This is the weight that global TAO has in a subnet mechanism.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the root account.
+        /// * `netuid` - The unique identifier of the subnet for which the global weight is being set.
+        /// * `global_weight` - The global weight to set for this subnet.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the caller is not the root account.
+        /// * `SubnetDoesNotExist` - If the specified subnet does not exist.
+        ///
+        /// # Weight
+        /// Weight is handled by the `#[pallet::weight]` attribute.
+        #[pallet::call_index(58)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_global_weight(
+            origin: OriginFor<T>,
+            netuid: u16,
+            global_weight: u64,
+        ) -> DispatchResult {
+            // Only root can set the global weight.
+            ensure_root(origin)?;
+
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+
+            pallet_subtensor::Pallet::<T>::set_global_weight(global_weight, netuid);
+            log::debug!(
+                "SetGlobalWeight( netuid: {:?}, global_weight: {:?} ) ",
+                netuid,
+                global_weight
+            );
+            Ok(())
+        }
     }
 }
 

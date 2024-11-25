@@ -92,8 +92,8 @@ pub fn migrate_rao<T: Config>() -> Weight {
         SubnetLocked::<T>::insert(netuid, lock);
         // Update all tempos to default
         Tempo::<T>::insert(netuid, DefaultTempo::<T>::get());
-        // Set global weight to 1.0 for the start
-        GlobalWeight::<T>::insert(netuid, u64::MAX);
+        // Set global weight to default for start.
+        GlobalWeight::<T>::insert(netuid, DefaultGlobalWeight::<T>::get());
     }
 
     // Mark the migration as completed
