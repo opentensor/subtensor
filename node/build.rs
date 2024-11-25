@@ -5,5 +5,5 @@ fn main() {
     rerun_if_git_head_changed();
 
     println!("cargo:rerun-if-changed=src");
-	subtensor_linting::walk_src();
+    subtensor_linting::walk_src();
 }

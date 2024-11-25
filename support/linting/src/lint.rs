@@ -1,12 +1,12 @@
-use proc_macro2::TokenTree;
-use syn::{Attribute, File, Meta, MetaList, Path};
 use std::env;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::{fs, str::FromStr};
 
+use proc_macro2::TokenTree;
+use syn::{Attribute, File, Meta, MetaList, Path as SynPath};
+
 use rayon::prelude::*;
-use syn::File;
 use walkdir::WalkDir;
 
 use crate::{
@@ -31,7 +31,7 @@ pub fn is_allowed(attibutes: &[Attribute]) -> bool {
         let Attribute {
             meta:
                 Meta::List(MetaList {
-                    path: Path { segments: attr, .. },
+                    path: SynPath { segments: attr, .. },
                     tokens: attr_args,
                     ..
                 }),

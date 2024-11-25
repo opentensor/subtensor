@@ -2,7 +2,7 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
-	// should we instead provide an argument to set the directory?
+    // should we instead provide an argument to set the directory?
     let source_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let mut source_dir = PathBuf::from(&source_dir);
     source_dir.pop();
