@@ -1,5 +1,3 @@
-use core::u16;
-
 use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
 use frame_support::storage::IterableStorageMap;
