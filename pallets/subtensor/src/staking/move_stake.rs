@@ -24,17 +24,14 @@ impl<T: Config> Pallet<T> {
     /// # Events
     /// Emits a `StakeMoved` event upon successful completion of the stake movement.
     pub fn do_move_stake(
-        origin: T::RuntimeOrigin,
+        coldkey: T::AccountId,
         origin_hotkey: T::AccountId,
         destination_hotkey: T::AccountId,
         origin_netuid: u16,
         destination_netuid: u16,
         alpha_amount: u64,
     ) -> dispatch::DispatchResult {
-        // --- 1. Check that the origin is signed by the origin_hotkey.
-        let coldkey = ensure_signed(origin)?;
-
-        // --- 2. Check that the subnet exists.
+        // --- 1. Check that the subnet exists.
         ensure!(
             Self::if_subnet_exist(origin_netuid),
             Error::<T>::SubnetNotExists
@@ -44,19 +41,19 @@ impl<T: Config> Pallet<T> {
             Error::<T>::SubnetNotExists
         );
 
-        // --- 3. Check that the origin_hotkey exists.
+        // --- 2. Check that the origin_hotkey exists.
         ensure!(
             Self::hotkey_account_exists(&origin_hotkey),
             Error::<T>::HotKeyAccountNotExists
         );
 
-        // --- 4. Check that the destination_hotkey exists.
+        // --- 3. Check that the destination_hotkey exists.
         ensure!(
             Self::hotkey_account_exists(&destination_hotkey),
             Error::<T>::HotKeyAccountNotExists
         );
 
-        // --- 6. Get the current alpha stake for the origin hotkey-coldkey pair in the origin subnet
+        // --- 4. Get the current alpha stake for the origin hotkey-coldkey pair in the origin subnet
         let origin_alpha = Alpha::<T>::get((origin_hotkey.clone(), coldkey.clone(), origin_netuid));
         ensure!(
             alpha_amount <= origin_alpha,
@@ -79,7 +76,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::UnstakeRateLimitExceeded
         );
 
-        // --- 7. Unstake the amount of alpha from the origin subnet, converting it to TAO
+        // --- 5. Unstake the amount of alpha from the origin subnet, converting it to TAO
         let origin_tao = Self::unstake_from_subnet(
             &origin_hotkey.clone(),
             &coldkey.clone(),
@@ -87,7 +84,7 @@ impl<T: Config> Pallet<T> {
             alpha_amount,
         );
 
-        // --- 8. Stake the resulting TAO into the destination subnet for the destination hotkey
+        // --- 6. Stake the resulting TAO into the destination subnet for the destination hotkey
         Self::stake_into_subnet(
             &destination_hotkey.clone(),
             &coldkey.clone(),
@@ -116,7 +113,7 @@ impl<T: Config> Pallet<T> {
             LastAddStakeIncrease::<T>::insert(&destination_hotkey, &coldkey, current_block);
         }
 
-        // --- 10. Log the event.
+        // --- 7. Log the event.
         log::info!(
             "StakeMoved( coldkey:{:?}, origin_hotkey:{:?}, origin_netuid:{:?}, destination_hotkey:{:?}, destination_netuid:{:?} )",
             coldkey.clone(),
@@ -133,7 +130,7 @@ impl<T: Config> Pallet<T> {
             destination_netuid,
         ));
 
-        // -- 11. Ok and return.
+        // -- 8. Ok and return.
         Ok(())
     }
 }
