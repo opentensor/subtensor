@@ -1,3 +1,5 @@
+use core::u16;
+
 use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
 use frame_support::storage::IterableStorageMap;
@@ -64,7 +66,8 @@ impl<T: Config> Pallet<T> {
 
         let return_per_1000: U64F64 = if total_stake > U64F64::from_num(0) {
             emissions_per_day
-                .saturating_mul(U64F64::from_num(0.82))
+                .saturating_mul(U64F64::from_num(u16::MAX.saturating_sub(take.0)))
+                .saturating_div(U64F64::from_num(u16::MAX))
                 .saturating_div(total_stake.saturating_div(U64F64::from_num(1000)))
         } else {
             U64F64::from_num(0)
