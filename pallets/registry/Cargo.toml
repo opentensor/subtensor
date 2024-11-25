@@ -34,7 +34,6 @@ sp-core = { workspace = true }
 sp-io = { workspace = true }
 
 [build-dependencies]
-subtensor-code-coverage = {workspace = true }
 subtensor-linting = { workspace = true }
 
 [features]

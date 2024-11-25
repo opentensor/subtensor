@@ -35,7 +35,6 @@ sp-io = { workspace = true }
 pallet-balances = { workspace = true }
 
 [build-dependencies]
-subtensor-code-coverage = {workspace = true }
 subtensor-linting = { workspace = true }
 
 [features]
