@@ -29,6 +29,7 @@ impl<T: Config> Pallet<T> {
         // 2. Remove previous set memberships.
         Uids::<T>::remove(netuid, old_hotkey.clone());
         IsNetworkMember::<T>::remove(old_hotkey.clone(), netuid);
+        #[allow(unknown_lints)]
         Keys::<T>::remove(netuid, uid_to_replace);
 
         // 2a. Check if the uid is registered in any other subnetworks.
@@ -120,7 +121,7 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn get_stake_for_uid_and_subnetwork(netuid: u16, neuron_uid: u16) -> u64 {
         if let Ok(hotkey) = Self::get_hotkey_for_net_and_uid(netuid, neuron_uid) {
-            Self::get_total_stake_for_hotkey(&hotkey)
+            Self::get_stake_for_hotkey_on_subnet(&hotkey, netuid)
         } else {
             0
         }
