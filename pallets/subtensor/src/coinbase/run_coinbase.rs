@@ -10,6 +10,7 @@ use tle::tlock::tld;
 /// encrypted, compressed, serialized, and submitted to the `commit_crv3_weights`
 /// extrinsic.
 #[derive(Encode, Decode)]
+#[freeze_struct("46e75a8326ba3665")]
 pub struct WeightsTlockPayload {
     pub uids: Vec<u16>,
     pub values: Vec<u16>,
