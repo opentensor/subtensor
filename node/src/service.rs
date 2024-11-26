@@ -264,17 +264,19 @@ where
     type Error = ConsensusError;
 
     async fn check_block(&self, block: BlockCheckParams<B>) -> Result<ImportResult, Self::Error> {
+        log::warn!("Checking block...");
         self.inner.check_block(block).await.map_err(Into::into)
     }
 
     async fn import_block(&self, block: BlockImportParams<B>) -> Result<ImportResult, Self::Error> {
         // Skip bad blocks
-        let block_number = *block.header.number();
+        let block_number = block.header.number();
         let bad_blocks: Vec<<<B as BlockT>::Header as Header>::Number> = vec![
             U256::from(2_585_476).try_into().unwrap_or_default(),
             U256::from(2_585_477).try_into().unwrap_or_default(),
         ];
         if bad_blocks.contains(&block_number) {
+            log::warn!("Skipping bad block import");
             return Ok(ImportResult::KnownBad);
         }
 
