@@ -725,7 +725,7 @@ impl<T: Config> Pallet<T> {
             .map(|((&netuid, w), &version_key)| {
                 let origin_cloned = origin.clone();
 
-                if !Self::get_commit_reveal_weights_enabled(netuid.into()) {
+                if Self::get_commit_reveal_weights_enabled(netuid.into()) {
                     return Err(Error::<T>::CommitRevealEnabled.into());
                 }
 
