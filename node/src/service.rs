@@ -6,7 +6,7 @@ use futures::{channel::mpsc, future, FutureExt};
 use node_subtensor_runtime::{opaque::Block, RuntimeApi, TransactionConverter};
 use sc_client_api::{Backend as BackendT, BlockBackend};
 use sc_consensus::{
-    BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxBlockImport, ImportResult
+    BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxBlockImport, ImportResult, ImportedAux
 };
 use sc_consensus_grandpa::BlockNumberOps;
 use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
