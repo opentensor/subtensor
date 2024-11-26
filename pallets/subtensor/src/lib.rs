@@ -703,6 +703,11 @@ pub mod pallet {
         T::InitialGlobalWeight::get()
     }
     #[pallet::type_value]
+    /// Default value for global weight.
+    pub fn DefaultRootWeight<T: Config>() -> u64 {
+        T::InitialRootWeight::get()
+    }
+    #[pallet::type_value]
     /// Default stake delta.
     pub fn DefaultStakeDelta<T: Config>() -> i128 {
         0
@@ -825,6 +830,9 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> Global weight
     pub type GlobalWeight<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultGlobalWeight<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> Root weight
+    pub type RootWeight<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultRootWeight<T>>;
     #[pallet::storage]
     /// --- ITEM ( default_delegate_take )
     pub type MaxDelegateTake<T> = StorageValue<_, u16, ValueQuery, DefaultDelegateTake<T>>;

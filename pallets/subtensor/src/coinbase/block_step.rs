@@ -1,7 +1,6 @@
 use super::*;
 use crate::epoch::math::safe_modulo;
 use frame_support::storage::IterableStorageMap;
-use sp_core::Get;
 use substrate_fixed::types::I110F18;
 
 impl<T: Config> Pallet<T> {

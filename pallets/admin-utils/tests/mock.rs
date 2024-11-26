@@ -125,6 +125,7 @@ parameter_types! {
     pub const InitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
     pub const InitialColdkeySwapScheduleDuration: u64 = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const InitialGlobalWeight: u64 = u64::MAX/2; // 50% global weight.
+    pub const InitialRootWeight: u64 = 3_320_413_900_000_000_000; // 18% root weight
 }
 
 impl pallet_subtensor::Config for Test {
@@ -190,6 +191,7 @@ impl pallet_subtensor::Config for Test {
     type Preimages = ();
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialGlobalWeight = InitialGlobalWeight;
+    type InitialRootWeight = InitialRootWeight;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]

@@ -445,6 +445,43 @@ impl<T: Config> Pallet<T> {
         Self::alpha_to_global(alpha, netuid)
     }
 
+    /// Set the weight value for the stake on root for a subnet.
+    ///
+    /// # Arguments
+    /// * `netuid` - The unique identifier of the subnet.
+    /// * `root_weight` - The u64-scaled weight to set.
+    pub fn set_root_weight(netuid: u16, root_weight: u64) {
+        RootWeight::<T>::insert(netuid, root_weight);
+    }
+
+    /// Retrieves the weight value for the stake on root for a subnet.
+    ///
+    /// This function performs the following steps:
+    /// 1. Retrieves the raw root weight as a u64 from the state.
+    /// 2. Normalizes the root weight by the u64 max and returns as a float between 0 and 1.0
+    ///
+    /// # Arguments
+    /// * `netuid` - The unique identifier of the subnet.
+    ///
+    /// # Returns
+    /// * `I96F32` - The root weight for this subnet as a float.
+    pub fn get_root_weight(netuid: u16) -> I96F32 {
+        let raw_root_weight: u64 = RootWeight::<T>::get(netuid);
+
+        I96F32::from_num(raw_root_weight).saturating_div(I96F32::from_num(u64::MAX))
+    }
+
+    /// Retrieves the *raw* weight value for the stake on root for a subnet.
+    ///
+    /// # Arguments
+    /// * `netuid` - The unique identifier of the subnet.
+    ///
+    /// # Returns
+    /// * `u64` - The raw root weight for this subnet.
+    pub fn get_raw_root_weight(netuid: u16) -> u64 {
+        RootWeight::<T>::get(netuid)
+    }
+
     /// Converts an alpha value to its global TAO equivalent on a specific subnet.
     ///
     /// This function performs the following steps:

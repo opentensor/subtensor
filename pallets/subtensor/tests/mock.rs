@@ -178,6 +178,7 @@ parameter_types! {
     pub const InitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500,000 TAO
     pub const InitialColdkeySwapScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
     pub const InitialGlobalWeight: u64 = 0; // zero global weight.
+    pub const InitialRootWeight: u64 = 3_320_413_900_000_000_000; // 18% root weight
 }
 
 // Configure collective pallet for council
@@ -402,6 +403,7 @@ impl pallet_subtensor::Config for Test {
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialGlobalWeight = InitialGlobalWeight;
+    type InitialRootWeight = InitialRootWeight;
 }
 
 pub struct OriginPrivilegeCmp;

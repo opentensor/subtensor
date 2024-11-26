@@ -207,6 +207,9 @@ mod config {
         /// Initial global weight.
         #[pallet::constant]
         type InitialGlobalWeight: Get<u64>;
+        /// Initial root weight.
+        #[pallet::constant]
+        type InitialRootWeight: Get<u64>;
         /// Coldkey swap schedule duartion.
         #[pallet::constant]
         type InitialColdkeySwapScheduleDuration: Get<BlockNumberFor<Self>>;

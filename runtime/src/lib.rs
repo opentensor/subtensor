@@ -982,6 +982,7 @@ parameter_types! {
     pub const SubtensorInitialHotkeyEmissionTempo: u64 = 7200; // Drain every day.
     pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64, this make the make stake infinity
     pub const SubtensorInitialGlobalWeight: u64 = u64::MAX; // 100% global weight.
+    pub const SubtensorInitialRootWeight: u64 = 3_320_413_900_000_000_000; // 18% root weight
     pub const SubtensorInitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
 }
 
@@ -1048,6 +1049,7 @@ impl pallet_subtensor::Config for Runtime {
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = SubtensorInitialColdkeySwapScheduleDuration;
     type InitialGlobalWeight = SubtensorInitialGlobalWeight;
+    type InitialRootWeight = SubtensorRootWeight;
 }
 
 use sp_runtime::BoundedVec;
