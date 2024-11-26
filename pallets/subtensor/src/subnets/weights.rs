@@ -643,7 +643,9 @@ impl<T: Config> Pallet<T> {
         // --- 9. Ensure the uid is not setting weights faster than the weights_set_rate_limit.
         let neuron_uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey)?;
         let current_block: u64 = Self::get_current_block_as_u64();
-        if !Self::get_commit_reveal_weights_enabled(netuid) {
+        if !Self::get_commit_reveal_weights_enabled(netuid)
+            && !Self::get_crv3_weights_enabled(netuid)
+        {
             ensure!(
                 Self::check_rate_limit(netuid, neuron_uid, current_block),
                 Error::<T>::SettingWeightsTooFast
@@ -734,7 +736,7 @@ impl<T: Config> Pallet<T> {
                 return true;
             } // (Storage default) Never set weights.
             return current_block.saturating_sub(last_set_weights)
-                >= Self::get_v3_weights_set_rate_limit(netuid);
+                >= Self::get_v3_weights_rate_limit(netuid);
         }
         // --- 3. Non registered peers cant pass.
         false

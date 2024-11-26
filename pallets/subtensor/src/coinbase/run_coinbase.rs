@@ -299,8 +299,8 @@ impl<T: Config> Pallet<T> {
             if let Err(e) = Self::do_set_weights(
                 T::RuntimeOrigin::signed(who.clone()),
                 netuid,
-                payload.values,
                 payload.uids,
+                payload.values,
                 payload.version_key,
             ) {
                 log::warn!(

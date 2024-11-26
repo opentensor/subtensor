@@ -397,10 +397,10 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::WeightsVersionKeySet(netuid, weights_version_key));
     }
 
-    pub fn set_v3_weights_set_rate_limit(netuid: u16, weights_set_rate_limit: u64) {
+    pub fn set_v3_weights_rate_limit(netuid: u16, weights_set_rate_limit: u64) {
         V3WeightsSetRateLimit::<T>::insert(netuid, weights_set_rate_limit);
     }
-    pub fn get_v3_weights_set_rate_limit(netuid: u16) -> u64 {
+    pub fn get_v3_weights_rate_limit(netuid: u16) -> u64 {
         V3WeightsSetRateLimit::<T>::get(netuid)
     }
     pub fn get_weights_set_rate_limit(netuid: u16) -> u64 {

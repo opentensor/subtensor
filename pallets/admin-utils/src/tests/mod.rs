@@ -1458,7 +1458,7 @@ fn test_sudo_set_weights_crv3_set_rate_limit() {
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
         assert_eq!(
-            SubtensorModule::get_v3_weights_set_rate_limit(netuid),
+            SubtensorModule::get_v3_weights_rate_limit(netuid),
             init_value
         );
         assert_ok!(
@@ -1469,7 +1469,7 @@ fn test_sudo_set_weights_crv3_set_rate_limit() {
             )
         );
         assert_eq!(
-            SubtensorModule::get_v3_weights_set_rate_limit(netuid),
+            SubtensorModule::get_v3_weights_rate_limit(netuid),
             to_be_set
         );
     });

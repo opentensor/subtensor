@@ -1229,7 +1229,7 @@ pub mod pallet {
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
-            pallet_subtensor::Pallet::<T>::set_v3_weights_set_rate_limit(
+            pallet_subtensor::Pallet::<T>::set_v3_weights_rate_limit(
                 netuid,
                 weights_set_rate_limit,
             );

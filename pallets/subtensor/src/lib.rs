@@ -54,7 +54,7 @@ mod tests;
 // apparently this is stabilized since rust 1.36
 extern crate alloc;
 
-pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 128;
+pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 2048;
 
 #[deny(missing_docs)]
 #[import_section(errors::errors)]
