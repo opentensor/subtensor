@@ -218,11 +218,15 @@ impl<T: Config> Pallet<T> {
 
         // No commits to reveal until at least epoch 2.
         if cur_epoch < 2 {
+            log::warn!(
+                "Failed to reveal commit for subnet {} Too early",
+                netuid
+            );
             return Ok(());
         }
 
         // Weights revealed must have been committed during epoch `cur_epoch - reveal_period`.
-        let reveal_epoch = cur_epoch.saturating_sub(Self::get_reveal_period(netuid));
+        let reveal_epoch = cur_epoch.saturating_sub(Self::get_reveal_period(netuid) - 1);
 
         let mut entries = CRV3WeightCommits::<T>::take(netuid, reveal_epoch);
 

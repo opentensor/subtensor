@@ -4263,6 +4263,7 @@ fn test_reveal_crv3_commits_success() {
         register_ok_neuron(netuid, hotkey2, U256::from(4), 100_000);
         SubtensorModule::set_v3_weights_rate_limit(netuid, 0);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        SubtensorModule::set_reveal_period(netuid, 3);
 
         let neuron_uid1 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey1)
             .expect("Failed to get neuron UID for hotkey1");
@@ -4317,8 +4318,6 @@ fn test_reveal_crv3_commits_success() {
             reveal_round
         ));
 
-        step_epochs(1, netuid);
-
         let sig_bytes = hex::decode("b44679b9a59af2ec876b1a6b1ad52ea9b1615fc3982b19576350f93447cb1125e342b73a8dd2bacbe47e4b6b63ed5e39")
             .expect("Failed to decode signature bytes");
 
@@ -4331,10 +4330,16 @@ fn test_reveal_crv3_commits_success() {
             },
         );
 
-        assert_ok!(SubtensorModule::reveal_crv3_commits(netuid));
+        // Step epochs to run the epoch via the blockstep
+        step_epochs(3, netuid);
 
         let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
         let weights = weights_sparse.get(neuron_uid1 as usize).cloned().unwrap_or_default();
+
+        assert!(
+            !weights.is_empty(),
+            "Weights for neuron_uid1 are empty, expected weights to be set."
+        );
 
         let expected_weights: Vec<(u16, I32F32)> = payload
             .uids
@@ -4350,16 +4355,24 @@ fn test_reveal_crv3_commits_success() {
             .map(|&(uid, w)| (uid, w * I32F32::from_num(30) / total_weight))
             .collect();
 
-        let epsilon = I32F32::from_num(0.001);
-        // Iterate over the weights and compare them with acceptable tolerance
         for ((uid_a, w_a), (uid_b, w_b)) in normalized_weights.iter().zip(expected_weights.iter()) {
             assert_eq!(uid_a, uid_b);
+
+            let actual_weight_f64: f64 = w_a.to_num::<f64>();
+            let rounded_actual_weight = actual_weight_f64.round() as i64;
+
             assert!(
-                (*w_a - *w_b).abs() <= epsilon,
+                rounded_actual_weight != 0,
+                "Actual weight for uid {} is zero",
+                uid_a
+            );
+
+            let expected_weight = w_b.to_num::<i64>();
+
+            assert_eq!(
+                rounded_actual_weight, expected_weight,
                 "Weight mismatch for uid {}: expected {}, got {}",
-                uid_a,
-                w_b,
-                w_a
+                uid_a, expected_weight, rounded_actual_weight
             );
         }
     });
