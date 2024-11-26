@@ -1548,6 +1548,18 @@ where
                     Err(InvalidTransaction::Custom(4).into())
                 }
             }
+            Some(Call::commit_crv3_weights { netuid, .. }) => {
+                if Self::check_weights_min_stake(who, *netuid) {
+                    let priority: u64 = Self::get_priority_set_weights(who, *netuid);
+                    Ok(ValidTransaction {
+                        priority,
+                        longevity: 1,
+                        ..Default::default()
+                    })
+                } else {
+                    Err(InvalidTransaction::Custom(7).into())
+                }
+            }
             Some(Call::add_stake { .. }) => Ok(ValidTransaction {
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
