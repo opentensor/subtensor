@@ -272,7 +272,7 @@ where
 
         // Skip bad blocks
         let block_number = block.header.number();
-        log::warn!("Importing block: {:?}, hash: {:?}", block_number, block.header.hash());
+        log::warn!("Importing block: {:?}, hash: {:?}", block_number, block.header.hash().to_string());
 
         let bad_blocks: Vec<<<B as BlockT>::Header as Header>::Number> = vec![
             // U256::from(2_585_476).try_into().unwrap_or_default(),
@@ -281,19 +281,39 @@ where
         let unknown_parent_blocks: Vec<<<B as BlockT>::Header as Header>::Number> = vec![
             U256::from(2_585_478).try_into().unwrap_or_default(),
         ];
+
         if bad_blocks.contains(&block_number) {
-            log::warn!("Skipping bad block import");
-            // return Ok(ImportResult::KnownBad);
-            return Ok(ImportResult::Imported(
-                ImportedAux {
-                    header_only: true,
-                    clear_justification_requests: true,
-                    needs_justification: false,
-                    bad_justification: false,
-                    is_new_best: true,
-                }
-            ));
+            if block.header.hash().to_string() == "0x55240159861bf33a60ec91e89929becfccf67ec4224084eb906e7871422a5def" {
+                log::warn!("Importing {:?} as good, hash: {:?}", block_number, block.header.hash());
+                // return Ok(ImportResult::KnownBad);
+                return Ok(ImportResult::Imported(
+                    ImportedAux {
+                        header_only: true,
+                        clear_justification_requests: true,
+                        needs_justification: false,
+                        bad_justification: false,
+                        is_new_best: true,
+                    }
+                ));
+            } else {
+                log::warn!("Refusing {:?} as bad, hash: {:?}", block_number, block.header.hash());
+                return Ok(ImportResult::KnownBad);
+            }
         }
+        
+        // if bad_blocks.contains(&block_number) {
+        //     log::warn!("Skipping bad block import");
+        //     // return Ok(ImportResult::KnownBad);
+        //     return Ok(ImportResult::Imported(
+        //         ImportedAux {
+        //             header_only: true,
+        //             clear_justification_requests: true,
+        //             needs_justification: false,
+        //             bad_justification: false,
+        //             is_new_best: true,
+        //         }
+        //     ));
+        // }
         if unknown_parent_blocks.contains(&block_number) {
             log::warn!("Skipping block import with unknown parent");
             // return Ok(ImportResult::UnknownParent);
