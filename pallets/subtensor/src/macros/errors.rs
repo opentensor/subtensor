@@ -71,7 +71,7 @@ mod errors {
         /// An axon or prometheus serving exceeded the rate limit for a registered neuron.
         ServingRateLimitExceeded,
         /// The caller is attempting to set weights with more UIDs than allowed.
-        UidsLengthExceedUidsInSubNet,
+        UidsLengthExceedUidsInSubNet, // 32
         /// A transactor exceeded the rate limit for add network transaction.
         NetworkTxRateLimitExceeded,
         /// A transactor exceeded the rate limit for delegate transaction.
@@ -135,7 +135,7 @@ mod errors {
         /// The coldkey swap transaction rate limit exceeded
         ColdKeySwapTxRateLimitExceeded,
         /// The new coldkey is the same as the old coldkey
-        NewColdKeyIsSameWithOld,
+        NewColdKeyIsSameWithOld, // 64
         /// The coldkey does not exist
         NotExistColdkey,
         /// The coldkey balance is not enough to pay for the swap
