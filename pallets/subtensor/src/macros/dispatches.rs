@@ -89,35 +89,20 @@ mod dispatches {
             Err(Error::<T>::CommitRevealEnabled.into())
         }
 
-        /// --- Sets the caller weights for the incentive mechanism. The call can be
-        /// made from the hotkey account so is potentially insecure, however, the damage
-        /// of changing weights is minimal if caught early. This function includes all the
-        /// checks that the passed weights meet the requirements. Stored as u16s they represent
-        /// rational values in the range [0,1] which sum to 1 and can be interpreted as
-        /// probabilities. The specific weights determine how inflation propagates outward
-        /// from this peer.
-        ///
-        /// Note: The 16 bit integers weights should represent 1.0 as the max u16.
-        /// However, the function normalizes all integers to u16_max anyway. This means that if the sum of all
-        /// elements is larger or smaller than the amount of elements * u16_max, all elements
-        /// will be corrected for this deviation.
+        /// --- Allows a hotkey to set weights for multiple netuids as a batch.
         ///
         /// # Args:
         /// * `origin`: (<T as frame_system::Config>Origin):
         ///     - The caller, a hotkey who wishes to set their weights.
         ///
-        /// * `netuid` (u16):
-        /// 	- The network uid we are setting these weights on.
+        /// * `netuids` (Vec<Compact<u16>>):
+        /// 	- The network uids we are setting these weights on.
         ///
-        /// * `dests` (Vec<u16>):
-        /// 	- The edge endpoint for the weight, i.e. j for w_ij.
+        /// * `weights` (Vec<Vec<(Compact<u16>, Compact<u16>)>):
+        /// 	- The weights to set for each network. [(uid, weight), ...]
         ///
-        /// * 'weights' (Vec<u16>):
-        /// 	- The u16 integer encoded weights. Interpreted as rational
-        /// 		values in the range [0,1]. They must sum to in32::MAX.
-        ///
-        /// * 'version_key' ( u64 ):
-        /// 	- The network version key to check if the validator is up to date.
+        /// * `version_keys` (Vec<Compact<u64>>):
+        /// 	- The network version keys to check if the validator is up to date.
         ///
         /// # Event:
         /// * WeightsSet;
