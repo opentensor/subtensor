@@ -61,6 +61,7 @@ std = [
 	"sp-io/std",
 	"sp-std/std",
 	"substrate-fixed/std",
+	"pallet-drand/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -70,6 +71,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"pallet-subtensor/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
+	"pallet-drand/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -77,5 +79,6 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"sp-runtime/try-runtime",
-	"pallet-subtensor/try-runtime"
+	"pallet-subtensor/try-runtime",
+	"pallet-drand/try-runtime"
 ]
