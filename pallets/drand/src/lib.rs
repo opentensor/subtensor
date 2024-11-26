@@ -227,12 +227,10 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         BeaconConfigChanged,
-        // Disabled because too spammy
-        // /// A user has successfully set a new value.
-        // NewPulse {
-        //     /// The new value set.
-        //     rounds: Vec<RoundNumber>,
-        // },
+        /// Successfully set a new pulse(s).
+        NewPulse {
+            rounds: Vec<RoundNumber>,
+        },
     }
 
     #[pallet::error]
@@ -341,6 +339,11 @@ pub mod pallet {
             // Update the next unsigned block number
             let current_block = frame_system::Pallet::<T>::block_number();
             <NextUnsignedAt<T>>::put(current_block.saturating_add(One::one()));
+
+            // Emit event with all new rounds
+            if !new_rounds.is_empty() {
+                Self::deposit_event(Event::NewPulse { rounds: new_rounds });
+            }
 
             Ok(())
         }
