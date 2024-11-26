@@ -272,7 +272,7 @@ where
 
         // Skip bad blocks
         let block_number = block.header.number();
-        log::warn!("Importing block: {:?}", block_number);
+        log::warn!("Importing block: {:?}, hash: {:?}", block_number, block.header.hash());
 
         let bad_blocks: Vec<<<B as BlockT>::Header as Header>::Number> = vec![
             // U256::from(2_585_476).try_into().unwrap_or_default(),
