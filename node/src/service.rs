@@ -283,7 +283,16 @@ where
         ];
         if bad_blocks.contains(&block_number) {
             log::warn!("Skipping bad block import");
-            return Ok(ImportResult::KnownBad);
+            // return Ok(ImportResult::KnownBad);
+            return Ok(ImportResult::Imported(
+                ImportedAux {
+                    header_only: true,
+                    clear_justification_requests: true,
+                    needs_justification: false,
+                    bad_justification: false,
+                    is_new_best: true,
+                }
+            ));
         }
         if unknown_parent_blocks.contains(&block_number) {
             log::warn!("Skipping block import with unknown parent");
