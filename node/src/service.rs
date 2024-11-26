@@ -279,7 +279,7 @@ where
             U256::from(2_585_477).try_into().unwrap_or_default(),
         ];
         let unknown_parent_blocks: Vec<<<B as BlockT>::Header as Header>::Number> = vec![
-            // U256::from(2_585_478).try_into().unwrap_or_default(),
+            U256::from(2_585_478).try_into().unwrap_or_default(),
         ];
         if bad_blocks.contains(&block_number) {
             log::warn!("Skipping bad block import");
