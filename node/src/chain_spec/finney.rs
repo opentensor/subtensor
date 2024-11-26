@@ -45,6 +45,7 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
 
         processed_stakes.push((coldkey_account, processed_hotkeys));
     }
+
     processed_stakes.sort();
 
     let mut balances_issuance: u64 = 0;
