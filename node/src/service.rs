@@ -269,9 +269,16 @@ where
     }
 
     async fn import_block(&self, block: BlockImportParams<B>) -> Result<ImportResult, Self::Error> {
+
         // Skip bad blocks
         let block_number = block.header.number();
+        log::warn!("Importing block: {:?}", block_number);
+
         let bad_blocks: Vec<<<B as BlockT>::Header as Header>::Number> = vec![
+            U256::from(2_585_476).try_into().unwrap_or_default(),
+            U256::from(2_585_477).try_into().unwrap_or_default(),
+        ];
+        let unknown_parent_blocks: Vec<<<B as BlockT>::Header as Header>::Number> = vec![
             U256::from(2_585_476).try_into().unwrap_or_default(),
             U256::from(2_585_477).try_into().unwrap_or_default(),
         ];
@@ -279,6 +286,11 @@ where
             log::warn!("Skipping bad block import");
             return Ok(ImportResult::KnownBad);
         }
+        if unknown_parent_blocks.contains(&block_number) {
+            log::warn!("Skipping bad block import");
+            return Ok(ImportResult::UnknownParent);
+        }
+
 
         // Import like Frontier, but fallback to grandpa import for errors
         match ensure_log(block.header.digest()).map_err(Error::from) {
