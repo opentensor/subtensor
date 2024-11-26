@@ -296,7 +296,16 @@ where
         }
         if unknown_parent_blocks.contains(&block_number) {
             log::warn!("Skipping block import with unknown parent");
-            return Ok(ImportResult::UnknownParent);
+            // return Ok(ImportResult::UnknownParent);
+            return Ok(ImportResult::Imported(
+                ImportedAux {
+                    header_only: true,
+                    clear_justification_requests: true,
+                    needs_justification: false,
+                    bad_justification: false,
+                    is_new_best: true,
+                }
+            ));
         }
 
         // Import like Frontier, but fallback to grandpa import for errors
