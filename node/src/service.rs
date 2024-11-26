@@ -6,7 +6,7 @@ use futures::{channel::mpsc, future, FutureExt};
 use node_subtensor_runtime::{opaque::Block, RuntimeApi, TransactionConverter};
 use sc_client_api::{Backend as BackendT, BlockBackend};
 use sc_consensus::{
-    BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxBlockImport, ImportResult,
+    BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxBlockImport, ImportResult
 };
 use sc_consensus_grandpa::BlockNumberOps;
 use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
@@ -20,7 +20,7 @@ use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_consensus::Error as ConsensusError;
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use sp_core::U256;
-use sp_runtime::traits::{Block as BlockT, Header, NumberFor};
+use sp_runtime::traits::{Block as BlockT, BlockNumber, Header, NumberFor};
 use std::{cell::RefCell, path::Path};
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
@@ -252,6 +252,8 @@ where
 impl<B, I, F, C> BlockImport<B> for ConditionalEVMBlockImport<B, I, F, C>
 where
     B: BlockT,
+    NumberFor<Block>: BlockNumberOps,
+    <<B as BlockT>::Header as Header>::Number: BlockNumber,
     I: BlockImport<B> + Send + Sync,
     I::Error: Into<ConsensusError>,
     F: BlockImport<B> + Send + Sync,
@@ -266,6 +268,16 @@ where
     }
 
     async fn import_block(&self, block: BlockImportParams<B>) -> Result<ImportResult, Self::Error> {
+        // Skip bad blocks
+        let block_number = *block.header.number();
+        let bad_blocks: Vec<<<B as BlockT>::Header as Header>::Number> = vec![
+            U256::from(2_585_476).try_into().unwrap_or_default(),
+            U256::from(2_585_477).try_into().unwrap_or_default(),
+        ];
+        if bad_blocks.contains(&block_number) {
+            return Ok(ImportResult::KnownBad);
+        }
+
         // Import like Frontier, but fallback to grandpa import for errors
         match ensure_log(block.header.digest()).map_err(Error::from) {
             Ok(()) => self.inner.import_block(block).await.map_err(Into::into),
