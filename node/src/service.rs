@@ -293,9 +293,18 @@ where
 
 
         // Import like Frontier, but fallback to grandpa import for errors
+        let block_number = block_number.clone();
         match ensure_log(block.header.digest()).map_err(Error::from) {
             Ok(()) => self.inner.import_block(block).await.map_err(Into::into),
-            _ => self.inner.import_block(block).await.map_err(Into::into),
+            _ => {
+                match self.inner.import_block(block).await.map_err(Into::into) {
+                    Ok(result) => Ok(result),
+                    Err(err) => {
+                        log::error!("Block {:?} import error: {:?}", block_number.clone(), err);
+                        Err(err)
+                    }
+                }
+            },
         }
     }
 }
