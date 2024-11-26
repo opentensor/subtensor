@@ -4262,7 +4262,7 @@ fn test_reveal_crv3_commits_success() {
         register_ok_neuron(netuid, hotkey1, U256::from(3), 100_000);
         register_ok_neuron(netuid, hotkey2, U256::from(4), 100_000);
         SubtensorModule::set_v3_weights_rate_limit(netuid, 0);
-        SubtensorModule::set_crv3_weights_enabled(netuid, true);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
         let neuron_uid1 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey1)
             .expect("Failed to get neuron UID for hotkey1");
@@ -4376,7 +4376,7 @@ fn test_do_commit_crv3_weights_success() {
         add_network(netuid, 5, 0);
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
         SubtensorModule::set_v3_weights_rate_limit(netuid, 0);
-        SubtensorModule::set_crv3_weights_enabled(netuid, true);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
         assert_ok!(SubtensorModule::do_commit_crv3_weights(
             RuntimeOrigin::signed(hotkey),
@@ -4410,7 +4410,7 @@ fn test_do_commit_crv3_weights_disabled() {
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
         SubtensorModule::set_v3_weights_rate_limit(netuid, 5);
 
-        SubtensorModule::set_crv3_weights_enabled(netuid, false);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
         assert_err!(
             SubtensorModule::do_commit_crv3_weights(
                 RuntimeOrigin::signed(hotkey),
@@ -4420,7 +4420,7 @@ fn test_do_commit_crv3_weights_disabled() {
                     .expect("Failed to convert commit data into bounded vector"),
                 reveal_round
             ),
-            Error::<Test>::CommitRevealV3Disabled
+            Error::<Test>::CommitRevealDisabled
         );
     });
 }
@@ -4437,7 +4437,7 @@ fn test_do_commit_crv3_weights_hotkey_not_registered() {
         add_network(netuid, 5, 0);
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
         SubtensorModule::set_v3_weights_rate_limit(netuid, 5);
-        SubtensorModule::set_crv3_weights_enabled(netuid, true);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
         assert_err!(
             SubtensorModule::do_commit_crv3_weights(
@@ -4465,7 +4465,7 @@ fn test_do_commit_crv3_weights_committing_too_fast() {
         add_network(netuid, 5, 0);
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
         SubtensorModule::set_v3_weights_rate_limit(netuid, 5);
-        SubtensorModule::set_crv3_weights_enabled(netuid, true);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         let neuron_uid =
             SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey).expect("Expected uid");
         SubtensorModule::set_last_update_for_uid(netuid, neuron_uid, 0);
@@ -4531,7 +4531,7 @@ fn test_do_commit_crv3_weights_too_many_unrevealed_commits() {
         add_network(netuid, 5, 0);
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
         SubtensorModule::set_v3_weights_rate_limit(netuid, 0);
-        SubtensorModule::set_crv3_weights_enabled(netuid, true);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
         // Simulate 10 unrevealed commits
         let cur_epoch =
@@ -4578,7 +4578,7 @@ fn test_reveal_crv3_commits_decryption_failure() {
         add_network(netuid, 5, 0);
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
         SubtensorModule::set_v3_weights_rate_limit(netuid, 0);
-        SubtensorModule::set_crv3_weights_enabled(netuid, true);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
         let commit_bytes: Vec<u8> = vec![0xff; 100];
         let bounded_commit_bytes = commit_bytes

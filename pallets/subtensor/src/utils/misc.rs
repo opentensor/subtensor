@@ -499,13 +499,6 @@ impl<T: Config> Pallet<T> {
         CommitRevealWeightsEnabled::<T>::set(netuid, enabled);
     }
 
-    pub fn get_crv3_weights_enabled(netuid: u16) -> bool {
-        CRV3WeightsEnabled::<T>::get(netuid)
-    }
-    pub fn set_crv3_weights_enabled(netuid: u16, enabled: bool) {
-        CRV3WeightsEnabled::<T>::set(netuid, enabled);
-    }
-
     pub fn get_rho(netuid: u16) -> u16 {
         Rho::<T>::get(netuid)
     }

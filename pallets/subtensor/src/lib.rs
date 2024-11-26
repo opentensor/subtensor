@@ -1072,10 +1072,6 @@ pub mod pallet {
     pub type CommitRevealWeightsEnabled<T> =
         StorageMap<_, Identity, u16, bool, ValueQuery, DefaultCommitRevealWeightsEnabled<T>>;
     #[pallet::storage]
-    /// --- MAP ( netuid ) --> commit reveal v3 weights are enabled
-    pub type CRV3WeightsEnabled<T> =
-        StorageMap<_, Identity, u16, bool, ValueQuery, DefaultCR3WeightsEnabled<T>>;
-    #[pallet::storage]
     /// --- MAP ( netuid ) --> Burn
     pub type Burn<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBurn<T>>;
     #[pallet::storage]

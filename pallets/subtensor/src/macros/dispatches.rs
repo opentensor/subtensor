@@ -88,8 +88,6 @@ mod dispatches {
         ) -> DispatchResult {
             if Self::get_commit_reveal_weights_enabled(netuid) {
                 Err(Error::<T>::CommitRevealEnabled.into())
-            } else if Self::get_crv3_weights_enabled(netuid) {
-                Err(Error::<T>::CommitRevealV3Disabled.into())
             } else {
                 Self::do_set_weights(origin, netuid, dests, weights, version_key)
             }

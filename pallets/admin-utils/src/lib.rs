@@ -1240,28 +1240,6 @@ pub mod pallet {
             );
             Ok(())
         }
-
-        /// The extrinsic enabled/disables commit-reaveal-3 for a given subnet.
-        /// It is only callable by the root account or subnet owner.
-        /// The extrinsic will call the Subtensor pallet to set the value.
-        #[pallet::call_index(59)]
-        #[pallet::weight(<T as Config>::WeightInfo::sudo_set_commit_reveal_weights_enabled())]
-        pub fn sudo_set_commit_reveal_v3_weights_enabled(
-            origin: OriginFor<T>,
-            netuid: u16,
-            enabled: bool,
-        ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
-
-            ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
-                Error::<T>::SubnetDoesNotExist
-            );
-
-            pallet_subtensor::Pallet::<T>::set_crv3_weights_enabled(netuid, enabled);
-            log::debug!("ToggleCrv3SetWeightsCommitReveal( netuid: {:?} ) ", netuid);
-            Ok(())
-        }
     }
 }
 

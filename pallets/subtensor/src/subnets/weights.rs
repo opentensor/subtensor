@@ -161,10 +161,10 @@ impl<T: Config> Pallet<T> {
             netuid
         );
 
-        // 2. Ensure commit-reveal v3 is enabled.
+        // 2. Ensure commit-reveal is enabled.
         ensure!(
-            Self::get_crv3_weights_enabled(netuid),
-            Error::<T>::CommitRevealV3Disabled
+            Self::get_commit_reveal_weights_enabled(netuid),
+            Error::<T>::CommitRevealDisabled
         );
 
         // 3. Ensure the hotkey is registered on the network.
@@ -643,9 +643,7 @@ impl<T: Config> Pallet<T> {
         // --- 9. Ensure the uid is not setting weights faster than the weights_set_rate_limit.
         let neuron_uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey)?;
         let current_block: u64 = Self::get_current_block_as_u64();
-        if !Self::get_commit_reveal_weights_enabled(netuid)
-            && !Self::get_crv3_weights_enabled(netuid)
-        {
+        if !Self::get_commit_reveal_weights_enabled(netuid) {
             ensure!(
                 Self::check_rate_limit(netuid, neuron_uid, current_block),
                 Error::<T>::SettingWeightsTooFast
@@ -692,9 +690,7 @@ impl<T: Config> Pallet<T> {
         Weights::<T>::insert(netuid, neuron_uid, zipped_weights);
 
         // --- 18. Set the activity for the weights on this network.
-        if !Self::get_commit_reveal_weights_enabled(netuid)
-            && !Self::get_crv3_weights_enabled(netuid)
-        {
+        if !Self::get_commit_reveal_weights_enabled(netuid) {
             Self::set_last_update_for_uid(netuid, neuron_uid, current_block);
         }
 

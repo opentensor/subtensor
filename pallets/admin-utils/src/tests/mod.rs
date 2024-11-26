@@ -1474,23 +1474,3 @@ fn test_sudo_set_weights_crv3_set_rate_limit() {
         );
     });
 }
-
-#[test]
-fn test_sudo_set_commit_reveal_weights_v3_enabled() {
-    new_test_ext().execute_with(|| {
-        let netuid: u16 = 1;
-        add_network(netuid, 10);
-
-        let to_be_set: bool = true;
-        let init_value: bool = SubtensorModule::get_crv3_weights_enabled(netuid);
-
-        assert_ok!(AdminUtils::sudo_set_commit_reveal_v3_weights_enabled(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            netuid,
-            to_be_set
-        ));
-
-        assert!(init_value != to_be_set);
-        assert_eq!(SubtensorModule::get_crv3_weights_enabled(netuid), to_be_set);
-    });
-}
