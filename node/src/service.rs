@@ -264,7 +264,7 @@ where
     type Error = ConsensusError;
 
     async fn check_block(&self, block: BlockCheckParams<B>) -> Result<ImportResult, Self::Error> {
-        log::warn!("Checking block...");
+        log::warn!("Checking block {:?}, hash: {:?}", block.number, block.hash);
         self.inner.check_block(block).await.map_err(Into::into)
     }
 
