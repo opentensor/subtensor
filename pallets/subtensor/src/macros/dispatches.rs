@@ -122,31 +122,13 @@ mod dispatches {
         /// # Event:
         /// * WeightsSet;
         /// 	- On successfully setting the weights on chain.
+        /// * BatchWeightsCompleted;
+        /// 	- On success of the batch.
+        /// * BatchCompletedWithErrors;
+        /// 	- On failure of any of the weights in the batch.
+        /// * BatchWeightItemFailed;
+        /// 	- On failure for each failed item in the batch.
         ///
-        /// # Raises:
-        /// * 'SubNetworkDoesNotExist':
-        /// 	- Attempting to set weights on a non-existent network.
-        ///
-        /// * 'NotRegistered':
-        /// 	- Attempting to set weights from a non registered account.
-        ///
-        /// * 'WeightVecNotEqualSize':
-        /// 	- Attempting to set weights with uids not of same length.
-        ///
-        /// * 'DuplicateUids':
-        /// 	- Attempting to set weights with duplicate uids.
-        ///
-        ///     * 'UidsLengthExceedUidsInSubNet':
-        /// 	- Attempting to set weights above the max allowed uids.
-        ///
-        /// * 'UidVecContainInvalidOne':
-        /// 	- Attempting to set weights with invalid uids.
-        ///
-        /// * 'WeightVecLengthIsLow':
-        /// 	- Attempting to set weights with fewer weights than min.
-        ///
-        /// * 'MaxWeightExceeded':
-        /// 	- Attempting to set weights with max value exceeding limit.
         #[pallet::call_index(80)]
         #[pallet::weight((Weight::from_parts(22_060_000_000, 0)
         .saturating_add(T::DbWeight::get().reads(4106))
