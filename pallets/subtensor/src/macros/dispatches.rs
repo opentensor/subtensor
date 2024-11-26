@@ -89,6 +89,77 @@ mod dispatches {
             Err(Error::<T>::CommitRevealEnabled.into())
         }
 
+        /// --- Sets the caller weights for the incentive mechanism. The call can be
+        /// made from the hotkey account so is potentially insecure, however, the damage
+        /// of changing weights is minimal if caught early. This function includes all the
+        /// checks that the passed weights meet the requirements. Stored as u16s they represent
+        /// rational values in the range [0,1] which sum to 1 and can be interpreted as
+        /// probabilities. The specific weights determine how inflation propagates outward
+        /// from this peer.
+        ///
+        /// Note: The 16 bit integers weights should represent 1.0 as the max u16.
+        /// However, the function normalizes all integers to u16_max anyway. This means that if the sum of all
+        /// elements is larger or smaller than the amount of elements * u16_max, all elements
+        /// will be corrected for this deviation.
+        ///
+        /// # Args:
+        /// * `origin`: (<T as frame_system::Config>Origin):
+        ///     - The caller, a hotkey who wishes to set their weights.
+        ///
+        /// * `netuid` (u16):
+        /// 	- The network uid we are setting these weights on.
+        ///
+        /// * `dests` (Vec<u16>):
+        /// 	- The edge endpoint for the weight, i.e. j for w_ij.
+        ///
+        /// * 'weights' (Vec<u16>):
+        /// 	- The u16 integer encoded weights. Interpreted as rational
+        /// 		values in the range [0,1]. They must sum to in32::MAX.
+        ///
+        /// * 'version_key' ( u64 ):
+        /// 	- The network version key to check if the validator is up to date.
+        ///
+        /// # Event:
+        /// * WeightsSet;
+        /// 	- On successfully setting the weights on chain.
+        ///
+        /// # Raises:
+        /// * 'SubNetworkDoesNotExist':
+        /// 	- Attempting to set weights on a non-existent network.
+        ///
+        /// * 'NotRegistered':
+        /// 	- Attempting to set weights from a non registered account.
+        ///
+        /// * 'WeightVecNotEqualSize':
+        /// 	- Attempting to set weights with uids not of same length.
+        ///
+        /// * 'DuplicateUids':
+        /// 	- Attempting to set weights with duplicate uids.
+        ///
+        ///     * 'UidsLengthExceedUidsInSubNet':
+        /// 	- Attempting to set weights above the max allowed uids.
+        ///
+        /// * 'UidVecContainInvalidOne':
+        /// 	- Attempting to set weights with invalid uids.
+        ///
+        /// * 'WeightVecLengthIsLow':
+        /// 	- Attempting to set weights with fewer weights than min.
+        ///
+        /// * 'MaxWeightExceeded':
+        /// 	- Attempting to set weights with max value exceeding limit.
+        #[pallet::call_index(80)]
+        #[pallet::weight((Weight::from_parts(22_060_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(4106))
+        .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        pub fn batch_set_weights(
+            origin: OriginFor<T>,
+            netuids: Vec<Compact<u16>>,
+            weights: Vec<Vec<(Compact<u16>, Compact<u16>)>>,
+            version_keys: Vec<Compact<u64>>,
+        ) -> DispatchResult {
+            Self::do_batch_set_weights(origin, netuids, weights, version_keys)
+        }
+
         /// ---- Used to commit a hash of your weight values to later be revealed.
         ///
         /// # Args:
