@@ -218,10 +218,7 @@ impl<T: Config> Pallet<T> {
 
         // No commits to reveal until at least epoch 2.
         if cur_epoch < 2 {
-            log::warn!(
-                "Failed to reveal commit for subnet {} Too early",
-                netuid
-            );
+            log::warn!("Failed to reveal commit for subnet {} Too early", netuid);
             return Ok(());
         }
 
