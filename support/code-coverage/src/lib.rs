@@ -188,11 +188,11 @@ fn analyze_file(path: &Path, root_path: &Path) -> Vec<PalletInfo> {
             strip_common_suffix("/src/lib.rs".as_ref(), strip_common_prefix(root_path, path))
                 .display(),
         );
-		let mut info = PalletInfo {
-			path: path.to_path_buf(),
-			pallet_name:extract_pallet_name(path).unwrap_or("pallet".to_string()),
-			..Default::default()
-		};
+        let mut info = PalletInfo {
+            path: path.to_path_buf(),
+            pallet_name: extract_pallet_name(path).unwrap_or("pallet".to_string()),
+            ..Default::default()
+        };
 
         // collect all Call methods
         if let Some(call) = &pallet.call {
