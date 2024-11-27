@@ -984,6 +984,7 @@ parameter_types! {
     pub const SubtensorInitialGlobalWeight: u64 = u64::MAX; // 100% global weight.
     pub const SubtensorInitialRootWeight: u64 = 3_320_413_900_000_000_000; // 18% root weight
     pub const SubtensorInitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
+    pub const SubtensorInitialMaxNominators: u16 = 100; // Per-subnet maximum amount of nominators. TODO (cam): pick decent value
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1049,7 +1050,8 @@ impl pallet_subtensor::Config for Runtime {
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = SubtensorInitialColdkeySwapScheduleDuration;
     type InitialGlobalWeight = SubtensorInitialGlobalWeight;
-    type InitialRootWeight = SubtensorRootWeight;
+    type InitialRootWeight = SubtensorInitialRootWeight;
+    type InitialMaxNominators = SubtensorInitialMaxNominators;
 }
 
 use sp_runtime::BoundedVec;

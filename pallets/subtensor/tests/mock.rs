@@ -179,6 +179,7 @@ parameter_types! {
     pub const InitialColdkeySwapScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
     pub const InitialGlobalWeight: u64 = 0; // zero global weight.
     pub const InitialRootWeight: u64 = 3_320_413_900_000_000_000; // 18% root weight
+    pub const InitialMaxNominators: u16 = 10_000; // Per-subnet maximum amount of nominators.
 }
 
 // Configure collective pallet for council
@@ -404,6 +405,7 @@ impl pallet_subtensor::Config for Test {
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialGlobalWeight = InitialGlobalWeight;
     type InitialRootWeight = InitialRootWeight;
+    type InitialMaxNominators = InitialMaxNominators;
 }
 
 pub struct OriginPrivilegeCmp;

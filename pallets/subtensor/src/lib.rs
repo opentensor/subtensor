@@ -712,6 +712,16 @@ pub mod pallet {
     pub fn DefaultStakeDelta<T: Config>() -> i128 {
         0
     }
+    #[pallet::type_value]
+    /// Default value for maximum nominator count.
+    pub fn DefaultMaxNominators<T: Config>() -> u16 {
+        T::InitialMaxNominators::get()
+    }
+    #[pallet::type_value]
+    /// Default value for minimum stake a nominator has.
+    pub fn DefaultMinNominatorStake<T: Config>() -> u64 {
+        u64::MAX
+    }
 
     #[pallet::storage]
     pub type ColdkeySwapScheduleDuration<T: Config> =

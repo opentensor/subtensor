@@ -213,5 +213,8 @@ mod config {
         /// Coldkey swap schedule duartion.
         #[pallet::constant]
         type InitialColdkeySwapScheduleDuration: Get<BlockNumberFor<Self>>;
+        /// Default value for maximum nominator count.
+        #[pallet::constant]
+        type InitialMaxNominators: Get<u16>;
     }
 }
