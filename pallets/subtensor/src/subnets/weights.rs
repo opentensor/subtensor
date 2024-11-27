@@ -129,6 +129,8 @@ impl<T: Config> Pallet<T> {
     ///    - Emitted for each error within the batch.
     ///  * BatchWeightsCompleted
     ///    - Emitted when the batch of weights is completed.
+    ///  * InputLengthsUnequal;
+    ///    - Emitted when the lengths of the input vectors are not equal.
     ///
     pub fn do_batch_commit_weights(
         origin: T::RuntimeOrigin,
@@ -707,6 +709,8 @@ impl<T: Config> Pallet<T> {
     ///    - Emitted for each error within the batch.
     ///  * BatchWeightsCompleted;
     ///    - Emitted when the batch of weights is completed.
+    ///  * InputLengthsUnequal;
+    ///    - Emitted when the lengths of the input vectors are not equal.
     ///
     pub fn do_batch_set_weights(
         origin: T::RuntimeOrigin,
