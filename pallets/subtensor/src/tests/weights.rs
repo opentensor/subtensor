@@ -4314,6 +4314,16 @@ fn test_reveal_crv3_commits_success() {
         ct.serialize_compressed(&mut commit_bytes)
             .expect("Failed to serialize commit");
 
+        assert!(
+            !commit_bytes.is_empty(),
+            "commit_bytes is empty after serialization"
+        );
+
+        log::debug!(
+            "Commit bytes now contain {:#?}",
+            commit_bytes
+        );
+
         assert_ok!(SubtensorModule::do_commit_crv3_weights(
             RuntimeOrigin::signed(hotkey1),
             netuid,
