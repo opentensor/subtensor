@@ -516,14 +516,21 @@ impl<T: Config> Pallet<T> {
         // a) Converting the input alpha to I96F32 for precise calculation
         // b) Dividing it by the total outstanding alpha to get the proportion
         // c) Multiplying this proportion by the total subnet TAO
-        let tao_equivalent: u64 = (I96F32::from_num(alpha)
+        let mut tao_equivalent: I96F32 = I96F32::from_num(alpha)
             .checked_div(alpha_outstanding)
             .unwrap_or(I96F32::from_num(0.0)) // If division fails, use 0 as fallback
-            .saturating_mul(subnet_tao))
-        .to_num::<u64>(); // Step 5: Convert the result back to u64
+            .saturating_mul(subnet_tao);
+
+        let root_adjustment_factor: I96F32 = if netuid == 0 {
+            // If root, adjust by weight
+            Self::get_root_weight(netuid)
+        } else {
+            I96F32::from_num(1.0)
+        }; // Step 5: Adjust the global value if the stake is from root.
+        tao_equivalent = tao_equivalent.saturating_mul(root_adjustment_factor);
 
         // Return the calculated TAO equivalent
-        tao_equivalent
+        tao_equivalent.to_num::<u64>() // Step 6: Convert the result back to u64
     }
 
     /// Retrieves the total stake (alpha) for a given hotkey on a specific subnet.
