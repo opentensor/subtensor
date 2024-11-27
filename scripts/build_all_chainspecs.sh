@@ -13,6 +13,8 @@ raw_finney="chainspecs/raw_spec_finney.json"
 plain_finney="chainspecs/plain_spec_finney.json"
 raw_testfinney="chainspecs/raw_spec_testfinney.json"
 plain_testfinney="chainspecs/plain_spec_testfinney.json"
+raw_devnet="chainspecs/raw_spec_devnet.json"
+plain_devnet="chainspecs/plain_spec_devnet.json"
 
 save_genesis() {
   jq -r ".genesis" "$1" >"$2"
@@ -68,5 +70,6 @@ cargo build -p node-subtensor
 
 update_spec finney "$raw_finney" "$plain_finney"
 update_spec test_finney "$raw_testfinney" "$plain_testfinney"
+update_spec devnet "$raw_devnet" "$plain_devnet"
 
 echo "*** Done!"
