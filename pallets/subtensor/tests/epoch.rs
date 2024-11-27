@@ -14,7 +14,10 @@ use sp_core::U256;
 use sp_runtime::DispatchError;
 use std::time::Instant;
 use subnets::Mechanism;
-use substrate_fixed::types::I32F32;
+use substrate_fixed::{
+    traits::FixedSigned,
+    types::{I32F32, I96F32},
+};
 
 mod mock;
 
@@ -2926,7 +2929,7 @@ fn test_blocks_since_last_step() {
 /// * `left` - The first value to compare.
 /// * `right` - The second value to compare.
 /// * `epsilon` - The maximum allowed difference between the two values.
-fn assert_approx_eq(left: I32F32, right: I32F32, epsilon: I32F32) {
+fn assert_approx_eq<F: FixedSigned>(left: F, right: F, epsilon: F) {
     if (left - right).abs() > epsilon {
         panic!(
             "assertion failed: `(left ≈ right)`\n  left: `{:?}`,\n right: `{:?}`,\n epsilon: `{:?}`",
@@ -2960,4 +2963,102 @@ fn assert_approx_eq_vec_of_vec(
             );
         }
     }
+}
+
+// cargo test --package pallet-subtensor --test epoch -- test_emission_from_root_stake_is_weighted_by_root_weight --exact --show-output
+#[test]
+fn test_emission_from_root_stake_is_weighted_by_root_weight() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        // One coldkey
+        let coldkey = AccountId::from(1);
+        // Create two hotkeys
+        let hotkey_1 = AccountId::from(1);
+        let hotkey_2 = AccountId::from(2);
+
+        // Give balance to coldkey
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 10_000_000_000_000);
+
+        // Add root network
+        add_network(0, 0, 0);
+        // Create network
+        add_network(netuid, 300, 0);
+
+        // Set global weight to 50%
+        let global_weight: I96F32 = I96F32::from_num(0.5); // 50%
+        SubtensorModule::set_global_weight(
+            (global_weight * I96F32::from_num(u64::MAX)).to_num::<u64>(),
+            netuid,
+        ); // 50%
+
+        // Register hotkeys
+        SubtensorModule::burned_register(RuntimeOrigin::signed(coldkey), netuid, hotkey_1).unwrap();
+        SubtensorModule::burned_register(RuntimeOrigin::signed(coldkey), netuid, hotkey_2).unwrap();
+
+        // Add stake to one hotkey on alpha
+        let stake_1 = I96F32::from_num(100e9); // 100 TAO
+        SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey_1,
+            netuid,
+            stake_1.to_num::<u64>(),
+        )
+        .unwrap();
+
+        // Get value of stake as global TAO
+        let hotkey_1_gtao = SubtensorModule::get_global_for_hotkey_on_subnet(&hotkey_1, netuid);
+        println!("hotkey_1_gtao: {}", hotkey_1_gtao);
+
+        // Add stake to the other hotkey on root
+        // Add a bit more TAO value than the global TAO value from hotkey 1
+        SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey_2,
+            0,
+            stake_1.to_num::<u64>() + 1_000_u64,
+        )
+        .unwrap();
+
+        // Get the stake weights
+        let stake_weights = SubtensorModule::get_stake_weights_for_network(netuid);
+        println!("stake_weights: {:?}", stake_weights);
+
+        // Run the epoch
+        let to_emit = I96F32::from_num(200e9);
+        let hotkey_emission = SubtensorModule::epoch(netuid, to_emit.to_num::<u64>()); // Emit 200 TAO
+
+        // Get the root weight
+        let root_weight: I96F32 = I96F32::from_num(SubtensorModule::get_root_weight(netuid));
+        assert_approx_eq(
+            root_weight,
+            I96F32::from_num(0.18),
+            I96F32::from_num(0.00001),
+        );
+        // global weight * 50% of global TAO * root_weight * emission
+        let expected_2: I96F32 =
+            ((root_weight * stake_1) / (stake_1 + root_weight * stake_1)) * global_weight * to_emit;
+        let expected_1: I96F32 = to_emit - expected_2;
+
+        let actual_1 = hotkey_emission[0].2;
+        let actual_2 = hotkey_emission[1].2;
+
+        // Assert that the emission from hotkey 2 is less than the emission from hotkey 1
+        assert!(
+            actual_2 < actual_1,
+            "Emission from hotkey 2 {} is not less than emission from hotkey 1 {}",
+            actual_2,
+            actual_1
+        );
+        // Assert amounts are close to expected
+        assert_approx_eq(
+            I96F32::from_num(actual_1),
+            expected_1,
+            I96F32::from_num(1_000),
+        );
+        assert_approx_eq(
+            I96F32::from_num(actual_2),
+            expected_2,
+            I96F32::from_num(1_000),
+        );
+    })
 }
