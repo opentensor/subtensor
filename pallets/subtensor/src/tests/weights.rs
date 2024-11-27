@@ -4458,9 +4458,6 @@ fn test_reveal_crv3_commits_cannot_reveal_after_reveal_epoch() {
         // Advance epochs to reach the reveal epoch (3 epochs as reveal_period is 3)
         step_epochs(3, netuid);
 
-        // Attempt to reveal commits during the reveal epoch
-        assert_ok!(SubtensorModule::reveal_crv3_commits(netuid));
-
         // Verify that weights are not set
         let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
         let weights = weights_sparse
@@ -5169,5 +5166,148 @@ fn test_do_commit_crv3_weights_commit_size_exceeds_limit() {
             bounded_commit_data,
             reveal_round
         ));
+    });
+}
+
+#[test]
+fn test_reveal_crv3_commits_with_empty_commit_queue() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+
+        add_network(netuid, 5, 0);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        SubtensorModule::set_v3_weights_rate_limit(netuid, 0);
+
+        step_epochs(2, netuid);
+
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        assert!(
+            weights_sparse.is_empty(),
+            "Weights should be empty as there were no commits to reveal"
+        );
+    });
+}
+
+#[test]
+fn test_reveal_crv3_commits_with_incorrect_identity_message() {
+    new_test_ext(1).execute_with(|| {
+        use ark_serialize::CanonicalSerialize;
+
+        let netuid: u16 = 1;
+        let hotkey: AccountId = U256::from(1);
+        let reveal_round: u64 = 1000;
+
+        add_network(netuid, 5, 0);
+        register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        SubtensorModule::set_reveal_period(netuid, 1);
+        SubtensorModule::set_v3_weights_rate_limit(netuid, 0);
+
+        // Prepare a valid payload but use incorrect identity message during encryption
+        let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey)
+            .expect("Failed to get neuron UID for hotkey");
+        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let payload = WeightsTlockPayload {
+            values: vec![10],
+            uids: vec![neuron_uid],
+            version_key,
+        };
+        let serialized_payload = payload.encode();
+
+        let esk = [2; 32];
+        let rng = ChaCha20Rng::seed_from_u64(0);
+
+        let pk_bytes = hex::decode("83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c8c4b450b6a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809bd274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a")
+            .expect("Failed to decode public key bytes");
+        let pub_key = <TinyBLS381 as EngineBLS>::PublicKeyGroup::deserialize_compressed(&*pk_bytes)
+            .expect("Failed to deserialize public key");
+
+        // Use incorrect message for identity (e.g., reveal_round + 1)
+        let incorrect_message = {
+            let mut hasher = sha2::Sha256::new();
+            hasher.update((reveal_round + 1).to_be_bytes());
+            hasher.finalize().to_vec()
+        };
+        let identity = Identity::new(b"", vec![incorrect_message]);
+
+        let ct = tle::<TinyBLS381, AESGCMStreamCipherProvider, ChaCha20Rng>(
+            pub_key,
+            esk,
+            &serialized_payload,
+            identity,
+            rng,
+        )
+        .expect("Encryption failed");
+
+        let mut commit_bytes = Vec::new();
+        ct.serialize_compressed(&mut commit_bytes)
+            .expect("Failed to serialize commit");
+
+        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            commit_bytes.try_into().expect("Failed to convert commit data into bounded vector"),
+            reveal_round
+        ));
+
+        let sig_bytes = hex::decode("b44679b9a59af2ec876b1a6b1ad52ea9b1615fc3982b19576350f93447cb1125e342b73a8dd2bacbe47e4b6b63ed5e39")
+            .expect("Failed to decode signature bytes");
+
+        pallet_drand::Pulses::<Test>::insert(
+            reveal_round,
+            Pulse {
+                round: reveal_round,
+                randomness: vec![0; 32].try_into().expect("Failed to convert randomness vector"),
+                signature: sig_bytes.try_into().expect("Failed to convert signature bytes"),
+            },
+        );
+
+        step_epochs(1, netuid);
+
+        // Verify that weights are not set due to decryption failure
+        let neuron_uid = neuron_uid as usize;
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+        let weights = weights_sparse.get(neuron_uid).cloned().unwrap_or_default();
+        assert!(
+            weights.is_empty(),
+            "Weights for neuron_uid should be empty due to incorrect identity message"
+        );
+    });
+}
+
+#[test]
+fn test_multiple_commits_by_same_hotkey_within_limit() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let hotkey: AccountId = U256::from(1);
+        let reveal_round: u64 = 1000;
+
+        add_network(netuid, 5, 0);
+        register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        SubtensorModule::set_reveal_period(netuid, 1);
+        SubtensorModule::set_v3_weights_rate_limit(netuid, 0);
+        SubtensorModule::set_v3_weights_rate_limit(netuid, 0);
+
+        for i in 0..10 {
+            let commit_data: Vec<u8> = vec![i; 5];
+            assert_ok!(SubtensorModule::do_commit_crv3_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                commit_data
+                    .try_into()
+                    .expect("Failed to convert commit data into bounded vector"),
+                reveal_round + i as u64
+            ));
+        }
+
+        let cur_epoch =
+            SubtensorModule::get_epoch_index(netuid, SubtensorModule::get_current_block_as_u64());
+        let commits = CRV3WeightCommits::<Test>::get(netuid, cur_epoch);
+        assert_eq!(
+            commits.len(),
+            10,
+            "Expected 10 commits stored for the hotkey"
+        );
     });
 }
