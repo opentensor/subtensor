@@ -191,7 +191,10 @@ fn test_batch_set_weights() {
         // Set version key higher for just one network
         SubtensorModule::set_weights_version_key(netuid_2, u64::from(version_key_2) + 1_u64);
         // Verify the version key is *not* correct
-        assert!(!SubtensorModule::check_version_key(netuid_2, version_key_2.into()));
+        assert!(!SubtensorModule::check_version_key(
+            netuid_2,
+            version_key_2.into()
+        ));
         assert_ok!(SubtensorModule::batch_set_weights(
             RuntimeOrigin::signed(hotkey),
             netuids_vec.clone(),
