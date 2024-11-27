@@ -651,12 +651,6 @@ pub mod pallet {
         T::InitialServingRateLimit::get()
     }
     #[pallet::type_value]
-    /// Default value for commit-reveal v3 enabled.
-    pub fn DefaultCR3WeightsEnabled<T: Config>() -> bool {
-        // TODO: On "new" subnet registration, this value should be set to true
-        false
-    }
-    #[pallet::type_value]
     /// Default value for weight commit/reveal enabled.
     pub fn DefaultCommitRevealWeightsEnabled<T: Config>() -> bool {
         false
