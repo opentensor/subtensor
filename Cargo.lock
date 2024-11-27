@@ -5765,6 +5765,7 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
+ "pallet-evm-chain-id",
  "pallet-scheduler",
  "pallet-subtensor",
  "parity-scale-codec",
