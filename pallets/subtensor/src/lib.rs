@@ -54,6 +54,8 @@ mod tests;
 // apparently this is stabilized since rust 1.36
 extern crate alloc;
 
+pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 2048;
+
 #[deny(missing_docs)]
 #[import_section(errors::errors)]
 #[import_section(events::events)]
@@ -73,7 +75,8 @@ pub mod pallet {
         BoundedVec,
     };
     use frame_system::pallet_prelude::*;
-    use sp_core::H256;
+    use pallet_drand::types::RoundNumber;
+    use sp_core::{ConstU32, H256};
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::collections::vec_deque::VecDeque;
     use sp_std::vec;
@@ -485,6 +488,11 @@ pub mod pallet {
     /// Default value for network tempo
     pub fn DefaultTempo<T: Config>() -> u16 {
         T::InitialTempo::get()
+    }
+    #[pallet::type_value]
+    /// Default value for v3 commit-reveal weights set rate limit.
+    pub fn DefaultV3WeightsSetRateLimit<T: Config>() -> u64 {
+        100
     }
     #[pallet::type_value]
     /// Default value for weights set rate limit.
@@ -1030,7 +1038,11 @@ pub mod pallet {
     pub type BondsMovingAverage<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBondsMovingAverage<T>>;
     #[pallet::storage]
+    /// --- MAP ( netuid ) --> v3_weights_set_rate_limit
+    pub type V3WeightsSetRateLimit<T> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultV3WeightsSetRateLimit<T>>;
     /// --- MAP ( netuid ) --> weights_set_rate_limit
+    #[pallet::storage]
     pub type WeightsSetRateLimit<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultWeightsSetRateLimit<T>>;
     #[pallet::storage]
@@ -1050,7 +1062,7 @@ pub mod pallet {
     pub type AdjustmentAlpha<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultAdjustmentAlpha<T>>;
     #[pallet::storage]
-    /// --- MAP ( netuid ) --> interval
+    /// --- MAP ( netuid ) --> commit reveal v2 weights are enabled
     pub type CommitRevealWeightsEnabled<T> =
         StorageMap<_, Identity, u16, bool, ValueQuery, DefaultCommitRevealWeightsEnabled<T>>;
     #[pallet::storage]
@@ -1278,6 +1290,21 @@ pub mod pallet {
         T::AccountId,
         VecDeque<(H256, u64, u64, u64)>,
         OptionQuery,
+    >;
+    #[pallet::storage]
+    /// --- MAP (netuid, commit_epoch) --> VecDeque<(who, serialized_compressed_commit, reveal_round)> | Stores a queue of v3 commits for an account on a given netuid.
+    pub type CRV3WeightCommits<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        u16,
+        Twox64Concat,
+        u64,
+        VecDeque<(
+            T::AccountId,
+            BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
+            RoundNumber,
+        )>,
+        ValueQuery,
     >;
     #[pallet::storage]
     /// --- Map (netuid) --> Number of epochs allowed for commit reveal periods
@@ -1513,6 +1540,18 @@ where
                     })
                 } else {
                     Err(InvalidTransaction::Custom(4).into())
+                }
+            }
+            Some(Call::commit_crv3_weights { netuid, .. }) => {
+                if Self::check_weights_min_stake(who, *netuid) {
+                    let priority: u64 = Self::get_priority_set_weights(who, *netuid);
+                    Ok(ValidTransaction {
+                        priority,
+                        longevity: 1,
+                        ..Default::default()
+                    })
+                } else {
+                    Err(InvalidTransaction::Custom(7).into())
                 }
             }
             Some(Call::add_stake { .. }) => Ok(ValidTransaction {
