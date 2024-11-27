@@ -28,6 +28,7 @@ frame_support::construct_runtime!(
         AdminUtils: crate = 3,
         SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>, Error<T>} = 4,
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 5,
+        EVMChainId: pallet_evm_chain_id = 6,
     }
 );
 
@@ -271,6 +272,8 @@ impl pallet_scheduler::Config for Test {
     type OriginPrivilegeCmp = OriginPrivilegeCmp;
     type Preimages = ();
 }
+
+impl pallet_evm_chain_id::Config for Test {}
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
