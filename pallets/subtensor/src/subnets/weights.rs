@@ -144,6 +144,11 @@ impl<T: Config> Pallet<T> {
             commit_hashes
         );
 
+        ensure!(
+            netuids.len() == commit_hashes.len(),
+            Error::<T>::InputLengthsUnequal
+        );
+
         let results: Vec<dispatch::DispatchResult> = netuids
             .iter()
             .zip(commit_hashes.iter())
@@ -716,6 +721,11 @@ impl<T: Config> Pallet<T> {
             hotkey,
             netuids,
             weights
+        );
+
+        ensure!(
+            netuids.len() == weights.len() && netuids.len() == version_keys.len(),
+            Error::<T>::InputLengthsUnequal
         );
 
         let results: Vec<dispatch::DispatchResult> = netuids
