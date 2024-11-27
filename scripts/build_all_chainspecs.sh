@@ -23,7 +23,7 @@ save_genesis() {
 buildspec() {
   local chain="$1"
   shift
-  ./target/debug/node-subtensor build-spec --chain "$chain" "$@"
+  ./target/debug/node-subtensor build-spec --chain "$chain" --disable-default-bootnode "$@"
 }
 
 # Update genesis in new chainspecs using the extracted genesis data from the
