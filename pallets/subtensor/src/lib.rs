@@ -742,6 +742,19 @@ pub mod pallet {
         ValueQuery,
         DefaultStakesPerInterval<T>,
     >;
+
+    #[pallet::storage]
+    /// DMAP ( netuid, hotkey ) --> u64 | Returns the total stake for a hotkey on a specific subnet.
+    pub type TotalSubnetStake<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        u16, // First key: netuid
+        Identity,
+        T::AccountId, // Second key: hotkey
+        u64,          // Value: total stake
+        ValueQuery,
+    >;
+
     #[pallet::storage]
     /// MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
     pub type Owner<T: Config> =
