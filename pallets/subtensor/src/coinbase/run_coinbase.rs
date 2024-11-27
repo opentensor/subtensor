@@ -90,7 +90,7 @@ impl<T: Config> Pallet<T> {
                 Self::set_blocks_since_last_step(*netuid, 0);
                 Self::set_last_mechanism_step_block(*netuid, current_block);
 
-                if *netuid == 0 && !Self::is_registration_allowed(*netuid) {
+                if *netuid == 0 || !Self::is_registration_allowed(*netuid) {
                     // Skip netuid 0 payouts
                     continue;
                 }
