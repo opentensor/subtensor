@@ -1,7 +1,7 @@
 #![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
 use crate::mock::*;
 mod mock;
-use frame_support::assert_ok;
+use frame_support::{assert_err, assert_ok};
 use sp_core::U256;
 use substrate_fixed::types::I64F64;
 
@@ -1446,5 +1446,60 @@ fn test_coinbase_nominator_drainage_with_net_negative_delta() {
         );
 
         log::debug!("Test completed");
+    });
+}
+
+/// Tests that emission rewards are not distributed when subnet registration is disabled
+/// This test verifies that:
+/// 1. A subnet with registration disabled does not distribute emissions
+/// 2. Pending emissions remain at 0 even after multiple blocks
+/// 3. Total stake remains unchanged when registration is disabled
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --test coinbase test_emission_with_registration_disabled_subnet -- --nocapture
+
+#[test]
+fn test_emission_with_registration_disabled_subnet() {
+    new_test_ext(1).execute_with(|| {
+        // Initialize test network and accounts
+        let netuid: u16 = 1;
+        let hotkey = U256::from(0); // Validator hotkey
+        let coldkey = U256::from(1); // Validator coldkey
+
+        // Create network and disable registration
+        add_network(netuid, 1, 0); // Creates subnet with netuid=1, tempo=1, modality=0
+        SubtensorModule::set_network_registration_allowed(netuid, false); // Disable registration
+
+        // Set up validator accounts and stake
+        // This simulates an existing validator before registration was disabled
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, 1000);
+
+        // Configure emission rate for the subnet
+        SubtensorModule::set_emission_values(&[netuid], vec![10]).unwrap();
+        assert_eq!(SubtensorModule::get_subnet_emission_value(netuid), 10);
+
+        // Verify initial emission state is zero
+        assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+        assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
+
+        // Advance chain by 100 blocks
+        step_block(100);
+
+        // Verify no emissions were distributed after 100 blocks
+        assert_eq!(
+            SubtensorModule::get_pending_hotkey_emission(&hotkey),
+            0,
+            "Hotkey pending emission should remain zero"
+        );
+
+        // Advance chain by 1000 more blocks
+        step_block(1000);
+
+        // Verify total stake remains unchanged after many blocks
+        // This confirms no emissions were added to stake
+        let total_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
+        assert_eq!(
+            total_stake, 1000,
+            "Total stake should not increase when registration is disabled"
+        );
     });
 }
