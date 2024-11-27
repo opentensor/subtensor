@@ -8,7 +8,7 @@ use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays
 use frame_support::sp_runtime::DispatchError;
 use mock::*;
 use pallet_subtensor::*;
-use sp_core::{Get, H256, U256};
+use sp_core::{H256, U256};
 
 /***********************************************************
     staking::add_stake() tests
@@ -2476,7 +2476,7 @@ fn test_stake_weight_should_not_be_affected_by_zero_stakes() {
         SubtensorModule::register_network_with_identity(
             RuntimeOrigin::signed(registrar),
             registrar,
-            1,
+            subnets::Mechanism::Dynamic,
             None,
         )
         .unwrap();
@@ -2541,7 +2541,7 @@ fn test_stake_weight_no_subnet_stake() {
         SubtensorModule::register_network_with_identity(
             RuntimeOrigin::signed(registrar),
             registrar,
-            1,
+            subnets::Mechanism::Dynamic,
             None,
         )
         .unwrap();
@@ -2573,5 +2573,75 @@ fn test_stake_weight_no_subnet_stake() {
             stake_weights_2.0[2] == 0,
             "The neuron 2's stake should be 0"
         );
+    });
+}
+
+// cargo test -p pallet-subtensor --test staking -- test_stake_weight_from_root_impacted_by_root_weight --exact --nocapture
+#[test]
+#[allow(clippy::indexing_slicing)]
+fn test_stake_weight_from_root_impacted_by_root_weight() {
+    new_test_ext(1).execute_with(|| {
+        let registrar = AccountId::from(42); // SN Owner
+        let netuid: u16 = 1;
+        Balances::force_set_balance(RuntimeOrigin::root(), registrar, 10_000_000_000_000).unwrap();
+
+        // Add root network
+        add_network(0, 0, 0);
+
+        // our test subnet with id 1
+        SubtensorModule::register_network_with_identity(
+            RuntimeOrigin::signed(registrar),
+            registrar,
+            subnets::Mechanism::Dynamic,
+            None,
+        )
+        .unwrap();
+
+        let neuron_1 = AccountId::from(123);
+        let neuron_2 = AccountId::from(321);
+        SubtensorModule::add_balance_to_coldkey_account(&neuron_1, 10_000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&neuron_2, 10_000_000_000_000);
+
+        SubtensorModule::burned_register(RuntimeOrigin::signed(neuron_1), netuid, neuron_1)
+            .unwrap();
+
+        SubtensorModule::burned_register(RuntimeOrigin::signed(neuron_2), netuid, neuron_2)
+            .unwrap();
+
+        SubtensorModule::add_stake(
+            RuntimeOrigin::signed(neuron_1),
+            neuron_1,
+            netuid,
+            50_000_000,
+        )
+        .unwrap();
+
+        let stake_weights_1 = SubtensorModule::get_stake_weights_for_network(netuid);
+
+        // Check neuron 1's alpha
+        assert!(
+            stake_weights_1.0[1] > 0,
+            "The neuron 1 should get at least some stake"
+        );
+
+        // Get the TAO value of the stake
+        let neuron_1_gtao = SubtensorModule::get_global_for_hotkey_on_subnet(&neuron_1, netuid);
+
+        // Give neuron 2 some stake on root
+        SubtensorModule::add_stake(
+            RuntimeOrigin::signed(neuron_2),
+            neuron_2,
+            0,
+            neuron_1_gtao + 1_000, // Give neuron 2 a slightly higher direct-global TAO value
+        ) // This will be worth less due to the weight of the root stake
+        .unwrap();
+
+        let stake_weights_2 = SubtensorModule::get_stake_weights_for_network(netuid);
+
+        // Make sure neuron 2's stake is less than neuron 1's stake
+        assert!(
+            stake_weights_2.0[2] < stake_weights_1.0[1],
+            "The neuron 2's stake should be less than neuron 1's stake"
+        ); // Even though they have similar value in TAO, the root stake is weighted lower.
     });
 }
