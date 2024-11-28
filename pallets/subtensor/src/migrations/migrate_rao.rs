@@ -48,11 +48,11 @@ pub fn migrate_rao<T: Config>() -> Weight {
             *total = total.saturating_add(stake)
         });
         // Set the total stake on the coldkey
-        TotalColdkeyAlpha::<T>::mutate(coldkey.clone(), 0, |total| {
+        TotalColdkeyStakedAlpha::<T>::mutate(coldkey.clone(), 0, |total| {
             *total = total.saturating_add(stake)
         });
         // Set the total stake on the hotkey
-        TotalHotkeyAlpha::<T>::mutate(hotkey.clone(), 0, |total| {
+        TotalHotkeyStakedAlpha::<T>::mutate(hotkey.clone(), 0, |total| {
             *total = total.saturating_add(stake)
         });
         // 3 reads and 3 writes.
@@ -75,10 +75,10 @@ pub fn migrate_rao<T: Config>() -> Weight {
         SubnetTAO::<T>::insert(netuid, lock); // Set TAO to the lock.
         SubnetAlphaIn::<T>::insert(netuid, 1); // Set AlphaIn to the initial alpha distribution.
         SubnetAlphaOut::<T>::insert(netuid, lock); // Set AlphaOut to the initial alpha distribution.
-        TotalColdkeyAlpha::<T>::mutate(owner.clone(), 0, |total| {
+        TotalColdkeyStakedAlpha::<T>::mutate(owner.clone(), 0, |total| {
             *total = total.saturating_add(lock)
         }); // Set the total coldkey alpha.
-        TotalHotkeyAlpha::<T>::mutate(owner.clone(), 0, |total| {
+        TotalHotkeyStakedAlpha::<T>::mutate(owner.clone(), 0, |total| {
             *total = total.saturating_add(lock)
         }); // Set the total hotkey alpha.
         StakedAlpha::<T>::mutate((owner.clone(), owner.clone(), netuid), |total| {

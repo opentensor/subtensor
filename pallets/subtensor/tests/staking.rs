@@ -1555,10 +1555,10 @@ fn test_clear_small_nominations() {
         );
 
         // Set min nomination to 10
-        let total_cold1_stake_before = TotalColdkeyAlpha::<Test>::get(cold1, netuid);
-        let total_cold2_stake_before = TotalColdkeyAlpha::<Test>::get(cold2, netuid);
-        let total_hot1_stake_before = TotalHotkeyAlpha::<Test>::get(hot1, netuid);
-        let total_hot2_stake_before = TotalHotkeyAlpha::<Test>::get(hot2, netuid);
+        let total_cold1_stake_before = TotalColdkeyStakedAlpha::<Test>::get(cold1, netuid);
+        let total_cold2_stake_before = TotalColdkeyStakedAlpha::<Test>::get(cold2, netuid);
+        let total_hot1_stake_before = TotalHotkeyStakedAlpha::<Test>::get(hot1, netuid);
+        let total_hot2_stake_before = TotalHotkeyStakedAlpha::<Test>::get(hot2, netuid);
         let total_stake_before = TotalStake::<Test>::get();
         SubtensorModule::set_nominator_min_required_stake(10);
 
@@ -1587,19 +1587,19 @@ fn test_clear_small_nominations() {
 
         // Internal storage is updated
         assert_eq!(
-            TotalColdkeyAlpha::<Test>::get(cold2, netuid),
+            TotalColdkeyStakedAlpha::<Test>::get(cold2, netuid),
             total_cold2_stake_before - 1
         );
         assert_eq!(
-            TotalHotkeyAlpha::<Test>::get(hot2, netuid),
+            TotalHotkeyStakedAlpha::<Test>::get(hot2, netuid),
             total_hot2_stake_before - 1
         );
         assert_eq!(
-            TotalColdkeyAlpha::<Test>::get(cold1, netuid),
+            TotalColdkeyStakedAlpha::<Test>::get(cold1, netuid),
             total_cold1_stake_before - 1
         );
         assert_eq!(
-            TotalHotkeyAlpha::<Test>::get(hot1, netuid),
+            TotalHotkeyStakedAlpha::<Test>::get(hot1, netuid),
             total_hot1_stake_before - 1
         );
         assert_eq!(TotalStake::<Test>::get(), total_stake_before - 2);
@@ -1790,9 +1790,9 @@ fn test_remove_stake_below_minimum_threshold() {
         // Stake map entry is removed
         assert!(StakedAlpha::<Test>::try_get((hotkey1, coldkey2, netuid)).is_err(),);
         // Stake tracking is updated
-        assert!(TotalColdkeyAlpha::<Test>::try_get(coldkey2, netuid).is_err());
+        assert!(TotalColdkeyStakedAlpha::<Test>::try_get(coldkey2, netuid).is_err());
         assert_eq!(
-            TotalHotkeyAlpha::<Test>::try_get(hotkey1, netuid).unwrap(),
+            TotalHotkeyStakedAlpha::<Test>::try_get(hotkey1, netuid).unwrap(),
             total_hotkey_stake_before - stake_removed // Stake was removed from hotkey1 tracker
         );
         assert_eq!(

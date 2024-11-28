@@ -550,7 +550,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
         // Retrieve and return the total alpha this hotkey owns on this subnet.
         // This value represents the sum of stakes from all coldkeys associated with this hotkey.
-        TotalHotkeyAlpha::<T>::get(hotkey, netuid)
+        TotalHotkeyStakedAlpha::<T>::get(hotkey, netuid)
     }
 
     /// Retrieves the total stake (alpha) for a given coldkey on a specific subnet.
@@ -570,7 +570,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_stake_for_coldkey_on_subnet(coldkey: &T::AccountId, netuid: u16) -> u64 {
         // Retrieve and return the total alpha this coldkey owns on this subnet.
         // This value represents the sum of stakes across all hotkeys associated with this coldkey.
-        TotalColdkeyAlpha::<T>::get(coldkey, netuid)
+        TotalColdkeyStakedAlpha::<T>::get(coldkey, netuid)
     }
 
     /// Checks if a specific hotkey-coldkey pair has enough stake on a subnet to fulfill a given decrement.

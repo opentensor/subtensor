@@ -800,7 +800,7 @@ pub mod pallet {
     pub type SubnetAlphaOut<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- DMAP ( cold, netuid ) --> alpha | Returns the total amount of alpha a coldkey owns.
-    pub type TotalColdkeyAlpha<T: Config> = StorageDoubleMap<
+    pub type TotalColdkeyStakedAlpha<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         T::AccountId,
@@ -811,7 +811,7 @@ pub mod pallet {
         DefaultZeroU64<T>,
     >;
     #[pallet::storage] // --- DMAP ( hot, netuid ) --> alpha | Returns the total amount of alpha a hotkey owns.
-    pub type TotalHotkeyAlpha<T: Config> = StorageDoubleMap<
+    pub type TotalHotkeyStakedAlpha<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         T::AccountId,

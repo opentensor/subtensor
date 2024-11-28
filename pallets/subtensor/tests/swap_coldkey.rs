@@ -1194,10 +1194,10 @@ fn test_coldkey_swap_stake_delta() {
 
         // Give the old coldkey a stake delta on hotkey
         Stake::<Test>::insert(hotkey, old_coldkey, 123);
-        TotalColdkeyAlpha::<Test>::insert(old_coldkey, netuid, 1234);
+        TotalColdkeyStakedAlpha::<Test>::insert(old_coldkey, netuid, 1234);
         // Give the new coldkey a stake delta on hotkey
         Stake::<Test>::insert(hotkey, new_coldkey, 456);
-        TotalColdkeyAlpha::<Test>::insert(new_coldkey, netuid, 5678);
+        TotalColdkeyStakedAlpha::<Test>::insert(new_coldkey, netuid, 5678);
         let expected_stake_delta = 123 + 456;
         let expected_alpha_delta = 1234 + 5678;
         // Add StakingHotkeys entry
@@ -1216,9 +1216,9 @@ fn test_coldkey_swap_stake_delta() {
         );
         assert_eq!(Stake::<Test>::get(hotkey, old_coldkey), 0);
         assert_eq!(
-            TotalColdkeyAlpha::<Test>::get(new_coldkey, netuid),
+            TotalColdkeyStakedAlpha::<Test>::get(new_coldkey, netuid),
             expected_alpha_delta
         );
-        assert_eq!(TotalColdkeyAlpha::<Test>::get(old_coldkey, netuid), 0);
+        assert_eq!(TotalColdkeyStakedAlpha::<Test>::get(old_coldkey, netuid), 0);
     });
 }

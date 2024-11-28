@@ -25,8 +25,8 @@ impl<T: Config> Pallet<T> {
     /// This function modifies the following storage items:
     /// - `StakedAlpha`: Increases the stake for the specific hotkey-coldkey pair on the subnet.
     /// - `SubnetAlphaOut`: Increases the total outstanding alpha in the subnet.
-    /// - `TotalColdkeyAlpha`: Increases the total alpha for the coldkey on the subnet.
-    /// - `TotalHotkeyAlpha`: Increases the total alpha for the hotkey on the subnet.
+    /// - `TotalColdkeyStakedAlpha`: Increases the total alpha for the coldkey on the subnet.
+    /// - `TotalHotkeyStakedAlpha`: Increases the total alpha for the hotkey on the subnet.
     pub fn emit_into_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
@@ -47,13 +47,13 @@ impl<T: Config> Pallet<T> {
 
         // Step 3: Increase the total alpha associated with the coldkey for this subnet
         // This represents the total stake owned by this account (coldkey) in this subnet
-        TotalColdkeyAlpha::<T>::mutate(coldkey, netuid, |total| {
+        TotalColdkeyStakedAlpha::<T>::mutate(coldkey, netuid, |total| {
             *total = total.saturating_add(emitted_alpha);
         });
 
         // Step 4: Increase the total alpha associated with the hotkey for this subnet
         // This represents the total stake associated with this neuron (hotkey) in this subnet
-        TotalHotkeyAlpha::<T>::mutate(hotkey, netuid, |total| {
+        TotalHotkeyStakedAlpha::<T>::mutate(hotkey, netuid, |total| {
             *total = total.saturating_add(emitted_alpha);
         });
     }
@@ -82,8 +82,8 @@ impl<T: Config> Pallet<T> {
     /// 8. Increases the total TAO in the subnet (SubnetTAO) by the staked TAO.
     /// 9. Increases the global total of staked TAO (TotalStake).
     /// 10. Increases the stake for the specific hotkey-coldkey pair (Stake).
-    /// 11. Increases the total alpha for the coldkey in this subnet (TotalColdkeyAlpha).
-    /// 12. Increases the total alpha for the hotkey in this subnet (TotalHotkeyAlpha).
+    /// 11. Increases the total alpha for the coldkey in this subnet (TotalColdkeyStakedAlpha).
+    /// 12. Increases the total alpha for the hotkey in this subnet (TotalHotkeyStakedAlpha).
     /// 13. Updates the list of hotkeys staking for this coldkey (StakingHotkeys) if necessary.
     ///
     /// # Arguments
@@ -107,8 +107,8 @@ impl<T: Config> Pallet<T> {
     /// - `StakedAlpha`: Increased for the specific hotkey-coldkey pair.
     /// - `TotalStake`: Increased by the staked TAO amount.
     /// - `Stake`: Increased for the specific hotkey-coldkey pair.
-    /// - `TotalColdkeyAlpha`: Increased for the coldkey in this subnet.
-    /// - `TotalHotkeyAlpha`: Increased for the hotkey in this subnet.
+    /// - `TotalColdkeyStakedAlpha`: Increased for the coldkey in this subnet.
+    /// - `TotalHotkeyStakedAlpha`: Increased for the hotkey in this subnet.
     /// - `StakingHotkeys`: Updated if a new hotkey is staking for this coldkey.
     pub fn stake_into_subnet(
         hotkey: &T::AccountId,
@@ -197,13 +197,13 @@ impl<T: Config> Pallet<T> {
 
         // Step 13: Update total alpha for the coldkey in this subnet
         // This increases the total alpha associated with this coldkey in this subnet
-        TotalColdkeyAlpha::<T>::mutate(coldkey, netuid, |total| {
+        TotalColdkeyStakedAlpha::<T>::mutate(coldkey, netuid, |total| {
             *total = total.saturating_add(alpha_staked_u64);
         });
 
         // Step 14: Update total alpha for the hotkey in this subnet
         // This increases the total alpha associated with this hotkey in this subnet
-        TotalHotkeyAlpha::<T>::mutate(hotkey, netuid, |total| {
+        TotalHotkeyStakedAlpha::<T>::mutate(hotkey, netuid, |total| {
             *total = total.saturating_add(alpha_staked_u64);
         });
 
@@ -247,10 +247,10 @@ impl<T: Config> Pallet<T> {
     /// 7. Updates or removes alpha for the hotkey-coldkey pair (StakedAlpha):
     ///    - If new total is zero, removes the entry and updates StakingHotkeys.
     ///    - Otherwise, updates the total.
-    /// 8. Updates or removes total alpha for the coldkey (TotalColdkeyAlpha):
+    /// 8. Updates or removes total alpha for the coldkey (TotalColdkeyStakedAlpha):
     ///    - If new total is zero, removes the entry.
     ///    - Otherwise, updates the total.
-    /// 9. Updates or removes total alpha for the hotkey (TotalHotkeyAlpha):
+    /// 9. Updates or removes total alpha for the hotkey (TotalHotkeyStakedAlpha):
     ///    - If new total is zero, removes the entry.
     ///    - Otherwise, updates the total.
     /// 10. Decreases the total stake for the hotkey-coldkey pair (Stake).
@@ -276,8 +276,8 @@ impl<T: Config> Pallet<T> {
     /// - `SubnetAlphaOut`: Decreased by the unstaked alpha.
     /// - `StakedAlpha`: Updated or removed for the hotkey-coldkey pair.
     /// - `StakingHotkeys`: Updated if a hotkey is fully unstaked.
-    /// - `TotalColdkeyAlpha`: Updated or removed for the coldkey.
-    /// - `TotalHotkeyAlpha`: Updated or removed for the hotkey.
+    /// - `TotalColdkeyStakedAlpha`: Updated or removed for the coldkey.
+    /// - `TotalHotkeyStakedAlpha`: Updated or removed for the hotkey.
     /// - `Stake`: Decreased for the hotkey-coldkey pair.
     /// - `TotalStake`: Decreased by the unstaked TAO.
     pub fn unstake_from_subnet(
@@ -365,7 +365,7 @@ impl<T: Config> Pallet<T> {
         });
 
         // Step 12: Update or remove total alpha for coldkey
-        TotalColdkeyAlpha::<T>::mutate_exists(coldkey, netuid, |maybe_total| {
+        TotalColdkeyStakedAlpha::<T>::mutate_exists(coldkey, netuid, |maybe_total| {
             if let Some(total) = maybe_total {
                 let new_total = total.saturating_sub(alpha_unstaked);
                 if new_total == 0 {
@@ -379,7 +379,7 @@ impl<T: Config> Pallet<T> {
         });
 
         // Step 13: Update or remove total alpha for hotkey
-        TotalHotkeyAlpha::<T>::mutate_exists(hotkey, netuid, |maybe_total| {
+        TotalHotkeyStakedAlpha::<T>::mutate_exists(hotkey, netuid, |maybe_total| {
             if let Some(total) = maybe_total {
                 let new_total = total.saturating_sub(alpha_unstaked);
                 if new_total == 0 {

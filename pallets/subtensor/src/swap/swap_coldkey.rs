@@ -183,16 +183,16 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
         }
 
-        // 4. Swap TotalColdkeyAlpha
+        // 4. Swap TotalColdkeyStakedAlpha
         for netuid in Self::get_all_subnet_netuids() {
-            let old_alpha_stake: u64 = TotalColdkeyAlpha::<T>::get(old_coldkey, netuid);
-            let new_alpha_stake: u64 = TotalColdkeyAlpha::<T>::get(new_coldkey, netuid);
-            TotalColdkeyAlpha::<T>::insert(
+            let old_alpha_stake: u64 = TotalColdkeyStakedAlpha::<T>::get(old_coldkey, netuid);
+            let new_alpha_stake: u64 = TotalColdkeyStakedAlpha::<T>::get(new_coldkey, netuid);
+            TotalColdkeyStakedAlpha::<T>::insert(
                 new_coldkey,
                 netuid,
                 new_alpha_stake.saturating_add(old_alpha_stake),
             );
-            TotalColdkeyAlpha::<T>::remove(old_coldkey, netuid);
+            TotalColdkeyStakedAlpha::<T>::remove(old_coldkey, netuid);
         }
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
 
