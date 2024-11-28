@@ -1433,4 +1433,3 @@ fn sudo_set_commit_reveal_weights_interval() {
         assert_eq!(SubtensorModule::get_reveal_period(netuid), to_be_set);
     });
 }
-

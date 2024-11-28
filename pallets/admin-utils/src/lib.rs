@@ -1212,7 +1212,6 @@ pub mod pallet {
             );
             Ok(())
         }
-
     }
 }
 
