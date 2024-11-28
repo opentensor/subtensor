@@ -999,7 +999,7 @@ fn test_childkey_take_rate_limiting() {
                 &hotkey,
                 netuid,
             );
-            let limit = SubtensorModule::get_rate_limit(&TransactionType::SetChildkeyTake);
+            let limit = SubtensorModule::get_rate_limit(&TransactionType::SetChildkeyTake, 0);
             log::info!(
                 "Rate limit info: current_block: {}, last_block: {}, limit: {}, passes: {}, diff: {}",
                 current_block,
@@ -3700,5 +3700,80 @@ fn test_childkey_take_drain_validator_take() {
             total_emission / 10 * 4,
             500
         ));
+    });
+}
+
+// 60: Test set_children rate limiting - Fail then succeed
+// This test ensures that an immediate second `set_children` transaction fails due to rate limiting:
+// - Sets up a network and registers a hotkey
+// - Performs a `set_children` transaction
+// - Attempts a second `set_children` transaction immediately
+// - Verifies that the second transaction fails with `TxRateLimitExceeded`
+// Then the rate limit period passes and the second transaction succeeds
+// - Steps blocks for the rate limit period
+// - Attempts the second transaction again and verifies it succeeds
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_set_children_rate_limit_fail_then_succeed --exact --nocapture
+#[test]
+fn test_set_children_rate_limit_fail_then_succeed() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let child = U256::from(3);
+        let child2 = U256::from(4);
+        let netuid: u16 = 1;
+        let tempo = 13;
+
+        // Add network and register hotkey
+        add_network(netuid, tempo, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // First set_children transaction
+        assert_ok!(SubtensorModule::do_set_children(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            vec![(100, child)]
+        ));
+
+        // Immediate second transaction should fail due to rate limit
+        assert_noop!(
+            SubtensorModule::do_set_children(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                vec![(100, child2)]
+            ),
+            Error::<Test>::TxRateLimitExceeded
+        );
+
+        // Verify first children assignment remains
+        let children = SubtensorModule::get_children(&hotkey, netuid);
+        assert_eq!(children, vec![(100, child)]);
+
+        // Try again after rate limit period has passed
+        // Check rate limit
+        let limit = SubtensorModule::get_rate_limit(&TransactionType::SetChildren, netuid);
+
+        // Step that many blocks
+        step_block(limit as u16);
+
+        // Verify rate limit passes
+        assert!(SubtensorModule::passes_rate_limit_on_subnet(
+            &TransactionType::SetChildren,
+            &hotkey,
+            netuid
+        ));
+
+        // Try again
+        assert_ok!(SubtensorModule::do_set_children(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            vec![(100, child2)]
+        ));
+
+        // Verify children assignment has changed
+        let children = SubtensorModule::get_children(&hotkey, netuid);
+        assert_eq!(children, vec![(100, child2)]);
     });
 }
