@@ -424,9 +424,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::AdjustmentAlphaSet(netuid, adjustment_alpha));
     }
 
-    pub fn get_validator_prune_len(netuid: u16) -> u64 {
-        ValidatorPruneLen::<T>::get(netuid)
-    }
     pub fn set_validator_prune_len(netuid: u16, validator_prune_len: u64) {
         ValidatorPruneLen::<T>::insert(netuid, validator_prune_len);
         Self::deposit_event(Event::ValidatorPruneLenSet(netuid, validator_prune_len));

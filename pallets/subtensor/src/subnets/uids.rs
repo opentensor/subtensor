@@ -127,12 +127,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Return the total number of subnetworks available on the chain.
-    ///
-    pub fn get_number_of_subnets() -> u16 {
-        <SubnetworkN<T> as IterableStorageMap<u16, u16>>::iter().count() as u16
-    }
-
     /// Return a list of all networks a hotkey is registered on.
     ///
     pub fn get_registered_networks_for_hotkey(hotkey: &T::AccountId) -> Vec<u16> {

@@ -341,13 +341,6 @@ impl<T: Config> Pallet<T> {
         let _ = T::Currency::deposit(coldkey, amount, Precision::BestEffort);
     }
 
-    pub fn set_balance_on_coldkey_account(
-        coldkey: &T::AccountId,
-        amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
-    ) {
-        T::Currency::set_balance(coldkey, amount);
-    }
-
     pub fn can_remove_balance_from_coldkey_account(
         coldkey: &T::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
