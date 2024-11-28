@@ -315,38 +315,45 @@ where
         })?;
 
     if config.offchain_worker.enabled && config.role.is_authority() {
-        match sp_keystore::Keystore::sr25519_generate_new(
-            &*keystore_container.keystore(),
-            pallet_drand::KEY_TYPE,
-            None,
-        ) {
-            Ok(_) => {
-                task_manager.spawn_handle().spawn(
-                    "offchain-workers-runner",
-                    "offchain-worker",
-                    sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
-                        runtime_api_provider: client.clone(),
-                        is_validator: config.role.is_authority(),
-                        keystore: Some(keystore_container.keystore()),
-                        offchain_db: backend.offchain_storage(),
-                        transaction_pool: Some(OffchainTransactionPoolFactory::new(
-                            transaction_pool.clone(),
-                        )),
-                        network_provider: Arc::new(network.clone()),
-                        enable_http_requests: true,
-                        custom_extensions: |_| vec![],
-                    })
-                    .run(client.clone(), task_manager.spawn_handle())
-                    .boxed(),
-                );
+        let public_keys = keystore_container
+            .keystore()
+            .sr25519_public_keys(pallet_drand::KEY_TYPE);
+
+        if public_keys.is_empty() {
+            match sp_keystore::Keystore::sr25519_generate_new(
+                &*keystore_container.keystore(),
+                pallet_drand::KEY_TYPE,
+                None,
+            ) {
+                Ok(_) => {
+                    log::debug!("Offchain worker key generated");
+                }
+                Err(e) => {
+                    log::error!("Failed to create SR25519 key for offchain worker: {:?}", e);
+                }
             }
-            Err(e) => {
-                log::error!(
-                    "Failed to create SR25519 key for offchain worker with account Alice: {:?}",
-                    e
-                );
-            }
+        } else {
+            log::debug!("Offchain worker key already exists");
         }
+
+        task_manager.spawn_essential_handle().spawn(
+            "offchain-workers-runner",
+            None,
+            sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
+                runtime_api_provider: client.clone(),
+                is_validator: config.role.is_authority(),
+                keystore: Some(keystore_container.keystore()),
+                offchain_db: backend.offchain_storage(),
+                transaction_pool: Some(OffchainTransactionPoolFactory::new(
+                    transaction_pool.clone(),
+                )),
+                network_provider: Arc::new(network.clone()),
+                enable_http_requests: true,
+                custom_extensions: |_| vec![],
+            })
+            .run(client.clone(), task_manager.spawn_handle())
+            .boxed(),
+        );
     }
 
     let role = config.role;
