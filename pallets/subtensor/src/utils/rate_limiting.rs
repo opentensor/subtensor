@@ -1,5 +1,4 @@
 use super::*;
-use sp_core::Get;
 
 /// Enum representing different types of transactions
 #[derive(Copy, Clone)]
