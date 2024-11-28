@@ -172,6 +172,8 @@ fn test_do_set_child_singular_old_children_cleanup() {
             vec![(proportion, old_child)]
         ));
 
+        step_rate_limit(&TransactionType::SetChildren, netuid);
+
         // Set new child
         assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
@@ -260,6 +262,8 @@ fn test_do_set_child_singular_proportion_edge_cases() {
         let children = SubtensorModule::get_children(&hotkey, netuid);
         assert_eq!(children, vec![(min_proportion, child)]);
 
+        step_rate_limit(&TransactionType::SetChildren, netuid);
+
         // Set child with maximum proportion
         let max_proportion: u64 = u64::MAX;
         assert_ok!(SubtensorModule::do_set_children(
@@ -305,6 +309,8 @@ fn test_do_set_child_singular_multiple_children() {
             netuid,
             vec![(proportion1, child1)]
         ));
+
+        step_rate_limit(&TransactionType::SetChildren, netuid);
 
         // Set second child
         assert_ok!(SubtensorModule::do_set_children(
@@ -466,6 +472,8 @@ fn test_do_revoke_child_singular_success() {
         // Verify child assignment
         let children = SubtensorModule::get_children(&hotkey, netuid);
         assert_eq!(children, vec![(proportion, child)]);
+
+        step_rate_limit(&TransactionType::SetChildren, netuid);
 
         // Revoke child
         assert_ok!(SubtensorModule::do_set_children(
@@ -764,6 +772,8 @@ fn test_do_set_children_multiple_old_children_cleanup() {
             vec![(proportion, old_child)]
         ));
 
+        step_rate_limit(&TransactionType::SetChildren, netuid);
+
         // Set new children
         assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
@@ -853,6 +863,8 @@ fn test_do_set_children_multiple_overwrite_existing() {
             netuid,
             vec![(proportion, child1), (proportion, child2)]
         ));
+
+        step_rate_limit(&TransactionType::SetChildren, netuid);
 
         // Overwrite with new children
         assert_ok!(SubtensorModule::do_set_children(
@@ -1199,6 +1211,8 @@ fn test_do_revoke_children_multiple_success() {
             vec![(proportion1, child1), (proportion2, child2)]
         ));
 
+        step_rate_limit(&TransactionType::SetChildren, netuid);
+
         // Revoke multiple children
         assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
@@ -1313,6 +1327,8 @@ fn test_do_revoke_children_multiple_partial_revocation() {
             ]
         ));
 
+        step_rate_limit(&TransactionType::SetChildren, netuid);
+
         // Revoke only child3
         assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
@@ -1363,6 +1379,8 @@ fn test_do_revoke_children_multiple_non_existent_children() {
             netuid,
             vec![(proportion, child1)]
         ));
+
+        step_rate_limit(&TransactionType::SetChildren, netuid);
 
         // Attempt to revoke existing and non-existent children
         assert_ok!(SubtensorModule::do_set_children(
@@ -1450,6 +1468,8 @@ fn test_do_revoke_children_multiple_complex_scenario() {
             ]
         ));
 
+        step_rate_limit(&TransactionType::SetChildren, netuid);
+
         // Revoke child2
         assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
@@ -1465,6 +1485,8 @@ fn test_do_revoke_children_multiple_complex_scenario() {
         // Verify parent removal for child2
         let parents2 = SubtensorModule::get_parents(&child2, netuid);
         assert!(parents2.is_empty());
+
+        step_rate_limit(&TransactionType::SetChildren, netuid);
 
         // Revoke remaining children
         assert_ok!(SubtensorModule::do_set_children(
