@@ -45,6 +45,11 @@ impl<T: Config> Pallet<T> {
             *total = total.saturating_add(emitted_alpha);
         });
 
+        // Step 2.5: Increase the total staked alpha in the subnet
+        SubnetAlphaStaked::<T>::mutate(netuid, |total| {
+            *total = total.saturating_add(emitted_alpha);
+        });
+
         // Step 3: Increase the total alpha associated with the coldkey for this subnet
         // This represents the total stake owned by this account (coldkey) in this subnet
         TotalColdkeyStakedAlpha::<T>::mutate(coldkey, netuid, |total| {
@@ -174,6 +179,11 @@ impl<T: Config> Pallet<T> {
         // Step 9: Update total subnet alpha outstanding (includes staked alpha)
         // This increases the total alpha in circulation for this subnet
         SubnetAlphaOut::<T>::mutate(netuid, |total| {
+            *total = total.saturating_add(alpha_staked_u64);
+        });
+
+        // Step 9.5: Update total staked alpha in the subnet
+        SubnetAlphaStaked::<T>::mutate(netuid, |total| {
             *total = total.saturating_add(alpha_staked_u64);
         });
 
@@ -342,6 +352,11 @@ impl<T: Config> Pallet<T> {
 
         // Step 9: Decrease outstanding alpha in the subnet
         SubnetAlphaOut::<T>::mutate(netuid, |total| {
+            *total = total.saturating_sub(alpha_unstaked);
+        });
+
+        // Step 9.5: Decrease total staked alpha in the subnet
+        SubnetAlphaStaked::<T>::mutate(netuid, |total| {
             *total = total.saturating_sub(alpha_unstaked);
         });
 

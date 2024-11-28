@@ -799,7 +799,10 @@ pub mod pallet {
     #[pallet::storage] // --- DMAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
     pub type SubnetAlphaOut<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- DMAP ( cold, netuid ) --> alpha | Returns the total amount of alpha a coldkey owns.
+    #[pallet::storage] // --- DMAP ( netuid ) --> alpha_staked_in_subnet | Returns the amount of staked alpha in the subnet.
+    pub type SubnetAlphaStaked<T: Config> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage] // --- DMAP ( cold, netuid ) --> alpha | Returns the total amount of staked alpha a coldkey owns.
     pub type TotalColdkeyStakedAlpha<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -810,7 +813,7 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroU64<T>,
     >;
-    #[pallet::storage] // --- DMAP ( hot, netuid ) --> alpha | Returns the total amount of alpha a hotkey owns.
+    #[pallet::storage] // --- DMAP ( hot, netuid ) --> alpha | Returns the total amount of staked alpha on a hotkey.
     pub type TotalHotkeyStakedAlpha<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -821,8 +824,19 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroU64<T>,
     >;
-    #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> alpha | Returns the alpha for an account on a subnet.
+    #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> alpha | Returns the staked alpha for an account on a subnet.
     pub type StakedAlpha<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+            NMapKey<Identity, u16>,                  // subnet
+        ),
+        u64, // Stake
+        ValueQuery,
+    >;
+    #[pallet::storage] // --- DMAP ( cold, netuid ) --> alpha | Returns the alpha for an account.
+    pub type Alpha<T: Config> = StorageNMap<
         _,
         (
             NMapKey<Blake2_128Concat, T::AccountId>, // hot

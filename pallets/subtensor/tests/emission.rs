@@ -2067,10 +2067,16 @@ fn test_basic_emission_two_validators() {
         });
 
         // Starting point
-        let validator1_alpha_before: u64 =
-            pallet_subtensor::StakedAlpha::<Test>::get((validator1_hotkey, validator1_coldkey, netuid));
-        let validator2_alpha_before: u64 =
-            pallet_subtensor::StakedAlpha::<Test>::get((validator2_hotkey, validator2_coldkey, netuid));
+        let validator1_alpha_before: u64 = pallet_subtensor::StakedAlpha::<Test>::get((
+            validator1_hotkey,
+            validator1_coldkey,
+            netuid,
+        ));
+        let validator2_alpha_before: u64 = pallet_subtensor::StakedAlpha::<Test>::get((
+            validator2_hotkey,
+            validator2_coldkey,
+            netuid,
+        ));
         let miner_alpha_before: u64 =
             pallet_subtensor::StakedAlpha::<Test>::get((miner_hotkey, miner_coldkey, netuid));
 
@@ -2102,12 +2108,16 @@ fn test_basic_emission_two_validators() {
         step_block((hotkey_tempo * 2) as u16);
 
         // Check emission distribution
-        let validator1_emission: u64 =
-            pallet_subtensor::StakedAlpha::<Test>::get((validator1_hotkey, validator1_coldkey, netuid))
-                - validator1_alpha_before;
-        let validator2_emission: u64 =
-            pallet_subtensor::StakedAlpha::<Test>::get((validator2_hotkey, validator2_coldkey, netuid))
-                - validator2_alpha_before;
+        let validator1_emission: u64 = pallet_subtensor::StakedAlpha::<Test>::get((
+            validator1_hotkey,
+            validator1_coldkey,
+            netuid,
+        )) - validator1_alpha_before;
+        let validator2_emission: u64 = pallet_subtensor::StakedAlpha::<Test>::get((
+            validator2_hotkey,
+            validator2_coldkey,
+            netuid,
+        )) - validator2_alpha_before;
         let miner_emission: u64 =
             pallet_subtensor::StakedAlpha::<Test>::get((miner_hotkey, miner_coldkey, netuid))
                 - miner_alpha_before;

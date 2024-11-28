@@ -5,7 +5,7 @@ use frame_support::pallet_prelude::{Decode, Encode};
 use subtensor_macros::freeze_struct;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
-#[freeze_struct("9a51de30632e7fb7")]
+#[freeze_struct("56ddda237707dc1d")]
 pub struct DynamicInfo<T: Config> {
     owner: T::AccountId,
     netuid: Compact<u16>,
@@ -15,6 +15,7 @@ pub struct DynamicInfo<T: Config> {
     emission: Compact<u64>,
     alpha_in: Compact<u64>,
     alpha_out: Compact<u64>,
+    alpha_staked: Compact<u64>,
     tao_in: Compact<u64>,
     total_locked: Compact<u64>,
     owner_locked: Compact<u64>,
@@ -37,6 +38,7 @@ impl<T: Config> Pallet<T> {
             emission: EmissionValues::<T>::get(netuid).into(),
             alpha_in: SubnetAlphaIn::<T>::get(netuid).into(),
             alpha_out: SubnetAlphaOut::<T>::get(netuid).into(),
+            alpha_staked: SubnetAlphaStaked::<T>::get(netuid).into(),
             tao_in: SubnetTAO::<T>::get(netuid).into(),
             total_locked: SubnetLocked::<T>::get(netuid).into(),
             owner_locked: SubnetLocked::<T>::get(netuid).into(),

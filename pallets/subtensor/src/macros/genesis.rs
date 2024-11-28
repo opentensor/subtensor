@@ -70,6 +70,7 @@ mod genesis {
                 TotalHotkeyStakedAlpha::<T>::insert(hotkey.clone(), netuid, 1_000_000_000);
                 TotalColdkeyStakedAlpha::<T>::insert(hotkey.clone(), netuid, 1_000_000_000);
                 SubnetAlphaOut::<T>::insert(netuid, 1_000_000_000);
+                SubnetAlphaStaked::<T>::insert(netuid, 1_000_000_000);
                 let mut staking_hotkeys = StakingHotkeys::<T>::get(hotkey.clone());
                 if !staking_hotkeys.contains(&hotkey) {
                     staking_hotkeys.push(hotkey.clone());

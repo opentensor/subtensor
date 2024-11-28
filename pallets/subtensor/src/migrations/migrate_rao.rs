@@ -39,6 +39,10 @@ pub fn migrate_rao<T: Config>() -> Weight {
         SubnetAlphaOut::<T>::mutate(0, |total| {
             *total = total.saturating_add(stake);
         });
+        // Increase SubnetAlphaStaked on root.
+        SubnetAlphaStaked::<T>::mutate(0, |total| {
+            *total = total.saturating_add(stake);
+        });
         // Increase SubnetAlphaIn on root.
         SubnetAlphaIn::<T>::mutate(0, |total| {
             *total = total.saturating_add(stake);
@@ -75,6 +79,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
         SubnetTAO::<T>::insert(netuid, lock); // Set TAO to the lock.
         SubnetAlphaIn::<T>::insert(netuid, 1); // Set AlphaIn to the initial alpha distribution.
         SubnetAlphaOut::<T>::insert(netuid, lock); // Set AlphaOut to the initial alpha distribution.
+        SubnetAlphaStaked::<T>::insert(netuid, lock); // Set AlphaStaked to the initial alpha distribution.
         TotalColdkeyStakedAlpha::<T>::mutate(owner.clone(), 0, |total| {
             *total = total.saturating_add(lock)
         }); // Set the total coldkey alpha.
