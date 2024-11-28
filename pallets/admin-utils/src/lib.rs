@@ -1213,33 +1213,6 @@ pub mod pallet {
             Ok(())
         }
 
-        /// The extrinsic sets the commit-reveal-3 weights set rate limit for a subnet.
-        /// It is only callable by the root account or subnet owner.
-        /// The extrinsic will call the Subtensor pallet to set the weights set rate limit.
-        #[pallet::call_index(58)]
-        #[pallet::weight(<T as Config>::WeightInfo::sudo_set_weights_set_rate_limit())]
-        pub fn sudo_set_commit_reveal_v3_weights_set_rate_limit(
-            origin: OriginFor<T>,
-            netuid: u16,
-            weights_set_rate_limit: u64,
-        ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
-
-            ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
-                Error::<T>::SubnetDoesNotExist
-            );
-            pallet_subtensor::Pallet::<T>::set_v3_weights_rate_limit(
-                netuid,
-                weights_set_rate_limit,
-            );
-            log::debug!(
-                "Crv3WeightsSetRateLimitSet( netuid: {:?} weights_set_rate_limit: {:?} ) ",
-                netuid,
-                weights_set_rate_limit
-            );
-            Ok(())
-        }
     }
 }
 

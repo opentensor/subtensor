@@ -177,7 +177,7 @@ impl<T: Config> Pallet<T> {
         let commit_block = Self::get_current_block_as_u64();
         let neuron_uid = Self::get_uid_for_net_and_hotkey(netuid, &who)?;
         ensure!(
-            Self::check_crv3_rate_limit(netuid, neuron_uid, commit_block),
+            Self::check_rate_limit(netuid, neuron_uid, commit_block),
             Error::<T>::CommittingWeightsTooFast
         );
 
@@ -720,22 +720,6 @@ impl<T: Config> Pallet<T> {
             version_key
         );
         network_version_key == 0 || version_key >= network_version_key
-    }
-
-    /// Checks if the neuron has set weights within the weights_set_rate_limit.
-    ///
-    pub fn check_crv3_rate_limit(netuid: u16, neuron_uid: u16, current_block: u64) -> bool {
-        if Self::is_uid_exist_on_network(netuid, neuron_uid) {
-            // --- 1. Ensure that the diff between current and last_set weights is greater than limit.
-            let last_set_weights: u64 = Self::get_last_update_for_uid(netuid, neuron_uid);
-            if last_set_weights == 0 {
-                return true;
-            } // (Storage default) Never set weights.
-            return current_block.saturating_sub(last_set_weights)
-                >= Self::get_v3_weights_rate_limit(netuid);
-        }
-        // --- 3. Non registered peers cant pass.
-        false
     }
 
     /// Checks if the neuron has set weights within the weights_set_rate_limit.

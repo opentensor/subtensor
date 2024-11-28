@@ -490,11 +490,6 @@ pub mod pallet {
         T::InitialTempo::get()
     }
     #[pallet::type_value]
-    /// Default value for v3 commit-reveal weights set rate limit.
-    pub fn DefaultV3WeightsSetRateLimit<T: Config>() -> u64 {
-        100
-    }
-    #[pallet::type_value]
     /// Default value for weights set rate limit.
     pub fn DefaultWeightsSetRateLimit<T: Config>() -> u64 {
         100
@@ -1037,10 +1032,6 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> bonds_moving_average
     pub type BondsMovingAverage<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBondsMovingAverage<T>>;
-    #[pallet::storage]
-    /// --- MAP ( netuid ) --> v3_weights_set_rate_limit
-    pub type V3WeightsSetRateLimit<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultV3WeightsSetRateLimit<T>>;
     /// --- MAP ( netuid ) --> weights_set_rate_limit
     #[pallet::storage]
     pub type WeightsSetRateLimit<T> =
