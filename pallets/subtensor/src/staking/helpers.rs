@@ -3,7 +3,7 @@ use frame_support::{
     storage::IterableStorageDoubleMap,
     traits::{
         tokens::{
-            fungible::{Balanced as _, Inspect as _, Mutate as _},
+            fungible::{Balanced as _, Inspect as _},
             Fortitude, Precision, Preservation,
         },
         Imbalance,
