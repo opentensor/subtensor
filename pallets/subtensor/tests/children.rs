@@ -2002,11 +2002,11 @@ fn test_childkey_single_parent_emission() {
 
         // Starting point
         let parent_alpha_before: u64 =
-            pallet_subtensor::Alpha::<Test>::get((parent_hotkey, parent_coldkey, netuid));
+            pallet_subtensor::StakedAlpha::<Test>::get((parent_hotkey, parent_coldkey, netuid));
         let child_alpha_before: u64 =
-            pallet_subtensor::Alpha::<Test>::get((child_hotkey, child_coldkey, netuid));
+            pallet_subtensor::StakedAlpha::<Test>::get((child_hotkey, child_coldkey, netuid));
         let miner_alpha_before: u64 =
-            pallet_subtensor::Alpha::<Test>::get((miner_hotkey, miner_coldkey, netuid));
+            pallet_subtensor::StakedAlpha::<Test>::get((miner_hotkey, miner_coldkey, netuid));
 
         // Run run_coinbase until PendingHotkeyEmission are populated
         while pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(parent_hotkey, netuid)
@@ -2034,13 +2034,13 @@ fn test_childkey_single_parent_emission() {
 
         // Check emission distribution
         let parent_emission: u64 =
-            pallet_subtensor::Alpha::<Test>::get((parent_hotkey, parent_coldkey, netuid))
+            pallet_subtensor::StakedAlpha::<Test>::get((parent_hotkey, parent_coldkey, netuid))
                 - parent_alpha_before;
         let child_emission: u64 =
-            pallet_subtensor::Alpha::<Test>::get((child_hotkey, child_coldkey, netuid))
+            pallet_subtensor::StakedAlpha::<Test>::get((child_hotkey, child_coldkey, netuid))
                 - child_alpha_before;
         let miner_emission: u64 =
-            pallet_subtensor::Alpha::<Test>::get((miner_hotkey, miner_coldkey, netuid))
+            pallet_subtensor::StakedAlpha::<Test>::get((miner_hotkey, miner_coldkey, netuid))
                 - miner_alpha_before;
 
         assert!(

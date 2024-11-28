@@ -62,7 +62,7 @@ mod genesis {
                 NetworkRegistrationAllowed::<T>::insert(netuid, true);
                 SubnetOwner::<T>::insert(netuid, hotkey.clone());
                 SubnetLocked::<T>::insert(netuid, 1);
-                Alpha::<T>::insert(
+                StakedAlpha::<T>::insert(
                     // Lock the initial funds making this key the owner.
                     (hotkey.clone(), hotkey.clone(), netuid),
                     1_000_000_000,

@@ -165,19 +165,19 @@ impl<T: Config> Pallet<T> {
             Stake::<T>::insert(&hotkey, new_coldkey, new_stake.saturating_add(old_stake));
             // Remove the value from the old account.
             Stake::<T>::remove(&hotkey, old_coldkey);
-            // 3.1 Swap Alpha
+            // 3.1 Swap StakedAlpha
             for netuid in Self::get_all_subnet_netuids() {
                 // Get the stake on the old (hot,coldkey) account.
-                let old_alpha: u64 = Alpha::<T>::get((&hotkey, old_coldkey, netuid));
+                let old_alpha: u64 = StakedAlpha::<T>::get((&hotkey, old_coldkey, netuid));
                 // Get the stake on the new (hot,coldkey) account.
-                let new_alpha: u64 = Alpha::<T>::get((&hotkey, new_coldkey, netuid));
+                let new_alpha: u64 = StakedAlpha::<T>::get((&hotkey, new_coldkey, netuid));
                 // Add the stake to new account.
-                Alpha::<T>::insert(
+                StakedAlpha::<T>::insert(
                     (&hotkey, new_coldkey, netuid),
                     new_alpha.saturating_add(old_alpha),
                 );
                 // Remove the value from the old account.
-                Alpha::<T>::remove((&hotkey, old_coldkey, netuid));
+                StakedAlpha::<T>::remove((&hotkey, old_coldkey, netuid));
             }
             // Add the weight for the read and write.
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));

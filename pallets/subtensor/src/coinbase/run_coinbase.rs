@@ -405,7 +405,7 @@ impl<T: Config> Pallet<T> {
             // consider this nominator's contribution
             if stake_added_block_diff >= hotkey_tempo {
                 let alpha_contribution: I96F32 =
-                    I96F32::from_num(Alpha::<T>::get((&hotkey, nominator.clone(), netuid)));
+                    I96F32::from_num(StakedAlpha::<T>::get((&hotkey, nominator.clone(), netuid)));
                 let global_contribution: I96F32 =
                     I96F32::from_num(Self::get_global_for_hotkey_and_coldkey(hotkey, &nominator));
                 total_global = total_global.saturating_add(global_contribution);

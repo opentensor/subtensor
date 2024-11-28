@@ -1118,7 +1118,7 @@ fn test_hotkey_swap_stake_delta() {
         // Add stake delta for each coldkey and the old_hotkey
         for &coldkey in coldkeys.iter() {
             Stake::<Test>::insert(old_hotkey, coldkey, 123 + coldkey.saturated_into::<u64>());
-            Alpha::<Test>::insert(
+            StakedAlpha::<Test>::insert(
                 (old_hotkey, coldkey, netuid),
                 1234 + coldkey.saturated_into::<u64>(),
             );
@@ -1128,7 +1128,7 @@ fn test_hotkey_swap_stake_delta() {
 
         // Add stake delta for one coldkey and the new_hotkey
         Stake::<Test>::insert(new_hotkey, coldkeys[0], 456);
-        Alpha::<Test>::insert((new_hotkey, coldkeys[0], netuid), 5678);
+        StakedAlpha::<Test>::insert((new_hotkey, coldkeys[0], netuid), 5678);
         // Add corresponding StakingHotkeys
         StakingHotkeys::<Test>::insert(coldkeys[0], vec![old_hotkey, new_hotkey]);
 
@@ -1143,7 +1143,7 @@ fn test_hotkey_swap_stake_delta() {
         );
 
         assert_eq!(
-            Alpha::<Test>::get((new_hotkey, coldkeys[0], netuid)),
+            StakedAlpha::<Test>::get((new_hotkey, coldkeys[0], netuid)),
             1234 + coldkeys[0].saturated_into::<u64>() + 5678
         );
         // -- coldkey[1..] maintains its stake delta from the old_hotkey
@@ -1153,11 +1153,11 @@ fn test_hotkey_swap_stake_delta() {
                 123 + coldkey.saturated_into::<u64>()
             );
             assert_eq!(
-                Alpha::<Test>::get((new_hotkey, coldkey, netuid)),
+                StakedAlpha::<Test>::get((new_hotkey, coldkey, netuid)),
                 1234 + coldkey.saturated_into::<u64>()
             );
             assert!(!Stake::<Test>::contains_key(old_hotkey, coldkey));
-            assert!(!Alpha::<Test>::contains_key((old_hotkey, coldkey, 0)));
+            assert!(!StakedAlpha::<Test>::contains_key((old_hotkey, coldkey, 0)));
         }
     });
 }

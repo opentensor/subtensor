@@ -437,7 +437,7 @@ impl<T: Config> Pallet<T> {
     ) -> u64 {
         // Step 1: Retrieve the stake (alpha) for the specific hotkey-coldkey pair on this subnet.
         // This value represents the stake associated only with this particular combination.
-        let alpha: u64 = Alpha::<T>::get((hotkey, coldkey, netuid));
+        let alpha: u64 = StakedAlpha::<T>::get((hotkey, coldkey, netuid));
 
         // Step 2: Convert the alpha value to its TAO equivalent.
         // This conversion takes into account the current state of the subnet,
@@ -609,7 +609,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// This function performs the following steps:
     /// 1. Takes the hotkey, coldkey, and subnet ID as input parameters.
-    /// 2. Accesses the Alpha storage map to retrieve the stake value.
+    /// 2. Accesses the StakedAlpha storage map to retrieve the stake value.
     /// 3. Returns the retrieved stake value as a u64.
     ///
     /// # Arguments
@@ -627,11 +627,11 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         netuid: u16,
     ) -> u64 {
-        // Step 1: Access the Alpha storage map
-        // The Alpha map stores stake values for each (hotkey, coldkey, netuid) combination
+        // Step 1: Access the StakedAlpha storage map
+        // The StakedAlpha map stores stake values for each (hotkey, coldkey, netuid) combination
 
         // Step 2: Retrieve the stake value using the provided parameters
         // If no stake exists for this combination, the default value of 0 will be returned
-        Alpha::<T>::get((hotkey, coldkey, netuid))
+        StakedAlpha::<T>::get((hotkey, coldkey, netuid))
     }
 }

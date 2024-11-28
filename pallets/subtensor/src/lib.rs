@@ -822,7 +822,7 @@ pub mod pallet {
         DefaultZeroU64<T>,
     >;
     #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> alpha | Returns the alpha for an account on a subnet.
-    pub type Alpha<T: Config> = StorageNMap<
+    pub type StakedAlpha<T: Config> = StorageNMap<
         _,
         (
             NMapKey<Blake2_128Concat, T::AccountId>, // hot

@@ -23,7 +23,7 @@ impl<T: Config> Pallet<T> {
     /// # Effects
     ///
     /// This function modifies the following storage items:
-    /// - `Alpha`: Increases the stake for the specific hotkey-coldkey pair on the subnet.
+    /// - `StakedAlpha`: Increases the stake for the specific hotkey-coldkey pair on the subnet.
     /// - `SubnetAlphaOut`: Increases the total outstanding alpha in the subnet.
     /// - `TotalColdkeyAlpha`: Increases the total alpha for the coldkey on the subnet.
     /// - `TotalHotkeyAlpha`: Increases the total alpha for the hotkey on the subnet.
@@ -35,7 +35,7 @@ impl<T: Config> Pallet<T> {
     ) {
         // Step 1: Increment the alpha (stake) for the specific hotkey-coldkey pair on the subnet
         // This represents the stake of this particular neuron (hotkey) owned by this account (coldkey)
-        Alpha::<T>::mutate((hotkey, coldkey, netuid), |alpha| {
+        StakedAlpha::<T>::mutate((hotkey, coldkey, netuid), |alpha| {
             *alpha = alpha.saturating_add(emitted_alpha);
         });
 
@@ -66,7 +66,7 @@ impl<T: Config> Pallet<T> {
     /// 3. Calculates the alpha to be staked based on the subnet's mechanism:
     ///
     ///      3.1. For Dynamic mechanism (mechanism_id == 1):
-    ///       - Retrieves current TAO and Alpha in the subnet.
+    ///       - Retrieves current TAO and StakedAlpha in the subnet.
     ///       - Computes the constant product k = alpha * tao.
     ///       - Calculates alpha staked using the formula: alpha_staked = current_alpha - (k / (current_tao + new_tao)).
     ///       - Calculates new subnet alpha after staking.
@@ -104,7 +104,7 @@ impl<T: Config> Pallet<T> {
     /// - `SubnetTAO`: Increased by the staked TAO amount.
     /// - `SubnetAlphaIn`: Updated with the new subnet alpha.
     /// - `SubnetAlphaOut`: Increased by the staked alpha amount.
-    /// - `Alpha`: Increased for the specific hotkey-coldkey pair.
+    /// - `StakedAlpha`: Increased for the specific hotkey-coldkey pair.
     /// - `TotalStake`: Increased by the staked TAO amount.
     /// - `Stake`: Increased for the specific hotkey-coldkey pair.
     /// - `TotalColdkeyAlpha`: Increased for the coldkey in this subnet.
@@ -126,7 +126,7 @@ impl<T: Config> Pallet<T> {
 
         if mechanism_id.is_dynamic() {
             // Step 3: Dynamic mechanism calculations
-            // Step 3a: Get current TAO and Alpha in the subnet
+            // Step 3a: Get current TAO and StakedAlpha in the subnet
             let subnet_tao: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(netuid));
             let subnet_alpha: I96F32 = I96F32::from_num(SubnetAlphaIn::<T>::get(netuid));
 
@@ -160,7 +160,7 @@ impl<T: Config> Pallet<T> {
 
         // Step 6: Update hotkey alpha for the specific subnet
         // This increases the alpha associated with this hotkey-coldkey pair
-        Alpha::<T>::mutate((hotkey, coldkey, netuid), |alpha| {
+        StakedAlpha::<T>::mutate((hotkey, coldkey, netuid), |alpha| {
             *alpha = alpha.saturating_add(alpha_staked_u64);
         });
 
@@ -244,7 +244,7 @@ impl<T: Config> Pallet<T> {
     /// 4. Updates the subnet's alpha in the pool (SubnetAlphaIn).
     /// 5. Decreases the outstanding alpha in the subnet (SubnetAlphaOut).
     /// 6. Decreases the total TAO in the subnet (SubnetTAO).
-    /// 7. Updates or removes alpha for the hotkey-coldkey pair (Alpha):
+    /// 7. Updates or removes alpha for the hotkey-coldkey pair (StakedAlpha):
     ///    - If new total is zero, removes the entry and updates StakingHotkeys.
     ///    - Otherwise, updates the total.
     /// 8. Updates or removes total alpha for the coldkey (TotalColdkeyAlpha):
@@ -274,7 +274,7 @@ impl<T: Config> Pallet<T> {
     /// - `SubnetTAO`: Read and updated to reflect the unstaked TAO.
     /// - `SubnetAlphaIn`: Updated with the new subnet alpha.
     /// - `SubnetAlphaOut`: Decreased by the unstaked alpha.
-    /// - `Alpha`: Updated or removed for the hotkey-coldkey pair.
+    /// - `StakedAlpha`: Updated or removed for the hotkey-coldkey pair.
     /// - `StakingHotkeys`: Updated if a hotkey is fully unstaked.
     /// - `TotalColdkeyAlpha`: Updated or removed for the coldkey.
     /// - `TotalHotkeyAlpha`: Updated or removed for the hotkey.
@@ -294,7 +294,7 @@ impl<T: Config> Pallet<T> {
         let new_subnet_alpha: I96F32;
 
         // Step 3a: Get the current stake for the hotkey-coldkey pair in this subnet
-        let current_stake = Alpha::<T>::get((hotkey, coldkey, netuid));
+        let current_stake = StakedAlpha::<T>::get((hotkey, coldkey, netuid));
 
         // Step 3b: Calculate the actual amount to unstake (minimum of requested and available)
         let actual_unstake = alpha_unstaked.min(current_stake);
@@ -351,7 +351,7 @@ impl<T: Config> Pallet<T> {
         });
 
         // Step 11: Update or remove alpha for the hotkey-coldkey pair
-        Alpha::<T>::mutate_exists((hotkey, coldkey, netuid), |maybe_total| {
+        StakedAlpha::<T>::mutate_exists((hotkey, coldkey, netuid), |maybe_total| {
             if let Some(total) = maybe_total {
                 let new_total = total.saturating_sub(alpha_unstaked);
                 if new_total == 0 {
@@ -400,7 +400,7 @@ impl<T: Config> Pallet<T> {
         // Step 15: Decrease total stake across all subnets
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(tao_unstaked_u64));
         // Step 16: Update StakingHotkeys if the hotkey's total alpha is zero
-        if Alpha::<T>::get((hotkey, coldkey, netuid)) == 0 {
+        if StakedAlpha::<T>::get((hotkey, coldkey, netuid)) == 0 {
             StakingHotkeys::<T>::mutate(coldkey, |hotkeys| {
                 hotkeys.retain(|k| k != hotkey);
             });

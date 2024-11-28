@@ -34,7 +34,7 @@ impl<T: Config> Pallet<T> {
             for netuid_i in netuids.clone().iter() {
                 for hotkey_i in staking_hotkeys.clone().iter() {
                     let alpha: u64 =
-                        Alpha::<T>::get((hotkey_i.clone(), coldkey_i.clone(), netuid_i));
+                        StakedAlpha::<T>::get((hotkey_i.clone(), coldkey_i.clone(), netuid_i));
                     let emission: u64 = LastHotkeyColdkeyEmissionOnNetuid::<T>::get((
                         hotkey_i.clone(),
                         coldkey_i.clone(),

@@ -19,9 +19,9 @@ fn test_stake_into_subnet_dynamic_mechanism() {
         // Set up the subnet with dynamic mechanism
         SubnetMechanism::<Test>::insert(netuid, Mechanism::Dynamic);
 
-        // Initialize subnet with some existing TAO and Alpha
+        // Initialize subnet with some existing TAO and StakedAlpha
         let initial_subnet_tao = 10_000_000_000; // 10 TAO
-        let initial_subnet_alpha = 5_000_000; // 5 Alpha
+        let initial_subnet_alpha = 5_000_000; // 5 StakedAlpha
         SubnetTAO::<Test>::insert(netuid, initial_subnet_tao);
         SubnetAlphaIn::<Test>::insert(netuid, initial_subnet_alpha);
         SubnetAlphaOut::<Test>::insert(netuid, initial_subnet_alpha);
@@ -41,7 +41,7 @@ fn test_stake_into_subnet_dynamic_mechanism() {
         let expected_alpha_staked_u64 = expected_alpha_staked.to_num::<u64>();
         assert_eq!(
             alpha_staked, expected_alpha_staked_u64,
-            "Alpha staked calculation is incorrect"
+            "StakedAlpha staked calculation is incorrect"
         );
 
         // Check subnet alpha and TAO updates
@@ -80,9 +80,9 @@ fn test_stake_into_subnet_dynamic_mechanism() {
             "Total coldkey alpha not updated correctly"
         );
         assert_eq!(
-            Alpha::<Test>::get((&hotkey, &coldkey, netuid)),
+            StakedAlpha::<Test>::get((&hotkey, &coldkey, netuid)),
             expected_alpha_staked_u64,
-            "Alpha for hotkey-coldkey pair not updated correctly"
+            "StakedAlpha for hotkey-coldkey pair not updated correctly"
         );
 
         // Check StakingHotkeys update
@@ -106,9 +106,9 @@ fn test_stake_into_subnet_stable_mechanism() {
         // Set up the subnet with stable mechanism
         SubnetMechanism::<Test>::insert(netuid, Mechanism::Stable);
 
-        // Initialize subnet with some existing TAO and Alpha
+        // Initialize subnet with some existing TAO and StakedAlpha
         let initial_subnet_tao = 10_000_000_000; // 10 TAO
-        let initial_subnet_alpha = 5_000_000; // 5 Alpha
+        let initial_subnet_alpha = 5_000_000; // 5 StakedAlpha
         SubnetTAO::<Test>::insert(netuid, initial_subnet_tao);
         SubnetAlphaIn::<Test>::insert(netuid, initial_subnet_alpha);
         SubnetAlphaOut::<Test>::insert(netuid, initial_subnet_alpha);
@@ -123,7 +123,7 @@ fn test_stake_into_subnet_stable_mechanism() {
         // Verify alpha staked equals TAO staked
         assert_eq!(
             alpha_staked, tao_to_stake,
-            "Alpha staked should equal TAO staked in stable mechanism"
+            "StakedAlpha staked should equal TAO staked in stable mechanism"
         );
 
         // Check subnet alpha is set to initial
@@ -163,9 +163,9 @@ fn test_stake_into_subnet_stable_mechanism() {
             "Total coldkey alpha not updated correctly"
         );
         assert_eq!(
-            Alpha::<Test>::get((&hotkey, &coldkey, netuid)),
+            StakedAlpha::<Test>::get((&hotkey, &coldkey, netuid)),
             alpha_staked,
-            "Alpha for hotkey-coldkey pair not updated correctly"
+            "StakedAlpha for hotkey-coldkey pair not updated correctly"
         );
 
         // Check StakingHotkeys update
@@ -197,9 +197,9 @@ fn test_stake_into_subnet_zero_amount() {
         // Set up the subnet with stable mechanism
         SubnetMechanism::<Test>::insert(netuid, Mechanism::Stable);
 
-        // Initialize subnet with some existing TAO and Alpha
+        // Initialize subnet with some existing TAO and StakedAlpha
         let initial_subnet_tao = 10_000_000_000; // 10 TAO
-        let initial_subnet_alpha = 5_000_000; // 5 Alpha
+        let initial_subnet_alpha = 5_000_000; // 5 StakedAlpha
         SubnetTAO::<Test>::insert(netuid, initial_subnet_tao);
         SubnetAlphaIn::<Test>::insert(netuid, initial_subnet_alpha);
         SubnetAlphaOut::<Test>::insert(netuid, initial_subnet_alpha);
@@ -209,7 +209,7 @@ fn test_stake_into_subnet_zero_amount() {
         let initial_stake = Stake::<Test>::get(hotkey, coldkey);
         let initial_total_hotkey_alpha = TotalHotkeyAlpha::<Test>::get(hotkey, netuid);
         let initial_total_coldkey_alpha = TotalColdkeyAlpha::<Test>::get(coldkey, netuid);
-        let initial_alpha = Alpha::<Test>::get((&hotkey, &coldkey, netuid));
+        let initial_alpha = StakedAlpha::<Test>::get((&hotkey, &coldkey, netuid));
         let _initial_staking_hotkeys = StakingHotkeys::<Test>::get(coldkey);
 
         // Perform staking
@@ -219,7 +219,7 @@ fn test_stake_into_subnet_zero_amount() {
         // Verify alpha staked is zero
         assert_eq!(
             alpha_staked, 0,
-            "Alpha staked should be zero when staking zero amount"
+            "StakedAlpha staked should be zero when staking zero amount"
         );
 
         // Check that all storage items remain unchanged
@@ -231,12 +231,12 @@ fn test_stake_into_subnet_zero_amount() {
         assert_eq!(
             SubnetAlphaIn::<Test>::get(netuid),
             initial_subnet_alpha,
-            "Subnet Alpha In should not change"
+            "Subnet StakedAlpha In should not change"
         );
         assert_eq!(
             SubnetAlphaOut::<Test>::get(netuid),
             initial_subnet_alpha,
-            "Subnet Alpha Out should not change"
+            "Subnet StakedAlpha Out should not change"
         );
         assert_eq!(
             TotalStake::<Test>::get(),
@@ -259,9 +259,9 @@ fn test_stake_into_subnet_zero_amount() {
             "Total coldkey alpha should not change"
         );
         assert_eq!(
-            Alpha::<Test>::get((&hotkey, &coldkey, netuid)),
+            StakedAlpha::<Test>::get((&hotkey, &coldkey, netuid)),
             initial_alpha,
-            "Alpha for hotkey-coldkey pair should not change"
+            "StakedAlpha for hotkey-coldkey pair should not change"
         );
         // This changes because we created a new connection.
         assert_eq!(
@@ -284,9 +284,9 @@ fn test_stake_into_subnet_max_amount() {
         // Set up the subnet with stable mechanism
         SubnetMechanism::<Test>::insert(netuid, Mechanism::Stable);
 
-        // Initialize subnet with some existing TAO and Alpha
+        // Initialize subnet with some existing TAO and StakedAlpha
         let initial_subnet_tao = 1_000_000_000; // 1 TAO
-        let initial_subnet_alpha = 500_000; // 0.5 Alpha
+        let initial_subnet_alpha = 500_000; // 0.5 StakedAlpha
         SubnetTAO::<Test>::insert(netuid, initial_subnet_tao);
         SubnetAlphaIn::<Test>::insert(netuid, initial_subnet_alpha);
         SubnetAlphaOut::<Test>::insert(netuid, initial_subnet_alpha);
@@ -296,7 +296,7 @@ fn test_stake_into_subnet_max_amount() {
         let initial_stake = Stake::<Test>::get(hotkey, coldkey);
         let initial_total_hotkey_alpha = TotalHotkeyAlpha::<Test>::get(hotkey, netuid);
         let initial_total_coldkey_alpha = TotalColdkeyAlpha::<Test>::get(coldkey, netuid);
-        let initial_alpha = Alpha::<Test>::get((&hotkey, &coldkey, netuid));
+        let initial_alpha = StakedAlpha::<Test>::get((&hotkey, &coldkey, netuid));
 
         // Perform staking with maximum amount
         let alpha_staked = SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, max_tao);
@@ -304,7 +304,7 @@ fn test_stake_into_subnet_max_amount() {
         // Verify alpha staked is equal to max_tao (for stable mechanism)
         assert_eq!(
             alpha_staked, max_tao,
-            "Alpha staked should be equal to max TAO for stable mechanism"
+            "StakedAlpha staked should be equal to max TAO for stable mechanism"
         );
 
         // Check storage updates
@@ -316,12 +316,12 @@ fn test_stake_into_subnet_max_amount() {
         assert_eq!(
             SubnetAlphaIn::<Test>::get(netuid),
             initial_subnet_alpha,
-            "Subnet Alpha In should not change for stable mechanism"
+            "Subnet StakedAlpha In should not change for stable mechanism"
         );
         assert_eq!(
             SubnetAlphaOut::<Test>::get(netuid),
             initial_subnet_alpha.saturating_add(max_tao),
-            "Subnet Alpha Out should increase by max_tao"
+            "Subnet StakedAlpha Out should increase by max_tao"
         );
         assert_eq!(
             TotalStake::<Test>::get(),
@@ -344,9 +344,9 @@ fn test_stake_into_subnet_max_amount() {
             "Total coldkey alpha should increase by max_tao"
         );
         assert_eq!(
-            Alpha::<Test>::get((&hotkey, &coldkey, netuid)),
+            StakedAlpha::<Test>::get((&hotkey, &coldkey, netuid)),
             initial_alpha.saturating_add(max_tao),
-            "Alpha for hotkey-coldkey pair should increase by max_tao"
+            "StakedAlpha for hotkey-coldkey pair should increase by max_tao"
         );
 
         // Verify StakingHotkeys is updated
@@ -370,9 +370,9 @@ fn test_stake_into_subnet_multiple_stakes() {
         // Set up the subnet with stable mechanism
         SubnetMechanism::<Test>::insert(netuid, Mechanism::Stable);
 
-        // Initialize subnet with some existing TAO and Alpha
+        // Initialize subnet with some existing TAO and StakedAlpha
         let initial_subnet_tao = 1_000_000_000; // 1000 TAO
-        let initial_subnet_alpha = 500_000_000; // 500 Alpha
+        let initial_subnet_alpha = 500_000_000; // 500 StakedAlpha
         SubnetTAO::<Test>::insert(netuid, initial_subnet_tao);
         SubnetAlphaIn::<Test>::insert(netuid, initial_subnet_alpha);
         SubnetAlphaOut::<Test>::insert(netuid, initial_subnet_alpha);
@@ -382,7 +382,7 @@ fn test_stake_into_subnet_multiple_stakes() {
         let initial_stake = Stake::<Test>::get(hotkey, coldkey);
         let initial_total_hotkey_alpha = TotalHotkeyAlpha::<Test>::get(hotkey, netuid);
         let initial_total_coldkey_alpha = TotalColdkeyAlpha::<Test>::get(coldkey, netuid);
-        let initial_alpha = Alpha::<Test>::get((&hotkey, &coldkey, netuid));
+        let initial_alpha = StakedAlpha::<Test>::get((&hotkey, &coldkey, netuid));
 
         // Perform multiple stakes
         let num_stakes = 5;
@@ -403,12 +403,12 @@ fn test_stake_into_subnet_multiple_stakes() {
         assert_eq!(
             SubnetAlphaIn::<Test>::get(netuid),
             initial_subnet_alpha,
-            "Subnet Alpha In should not change for stable mechanism"
+            "Subnet StakedAlpha In should not change for stable mechanism"
         );
         assert_eq!(
             SubnetAlphaOut::<Test>::get(netuid),
             initial_subnet_alpha + total_alpha_staked,
-            "Subnet Alpha Out should increase by total alpha staked"
+            "Subnet StakedAlpha Out should increase by total alpha staked"
         );
         assert_eq!(
             TotalStake::<Test>::get(),
@@ -431,9 +431,9 @@ fn test_stake_into_subnet_multiple_stakes() {
             "Total coldkey alpha should increase by total alpha staked"
         );
         assert_eq!(
-            Alpha::<Test>::get((&hotkey, &coldkey, netuid)),
+            StakedAlpha::<Test>::get((&hotkey, &coldkey, netuid)),
             initial_alpha + total_alpha_staked,
-            "Alpha for hotkey-coldkey pair should increase by total alpha staked"
+            "StakedAlpha for hotkey-coldkey pair should increase by total alpha staked"
         );
 
         // Verify StakingHotkeys is updated
@@ -464,9 +464,9 @@ fn test_stake_into_subnet_different_subnets() {
         SubnetMechanism::<Test>::insert(netuid1, Mechanism::Stable);
         SubnetMechanism::<Test>::insert(netuid2, Mechanism::Dynamic);
 
-        // Initialize subnets with some existing TAO and Alpha
+        // Initialize subnets with some existing TAO and StakedAlpha
         let initial_subnet_tao = 1_000_000_000; // 1000 TAO
-        let initial_subnet_alpha = 500_000_000; // 500 Alpha
+        let initial_subnet_alpha = 500_000_000; // 500 StakedAlpha
         for netuid in [netuid1, netuid2].iter() {
             SubnetTAO::<Test>::insert(netuid, initial_subnet_tao);
             SubnetAlphaIn::<Test>::insert(netuid, initial_subnet_alpha);
@@ -486,12 +486,12 @@ fn test_stake_into_subnet_different_subnets() {
         assert_eq!(
             SubnetAlphaIn::<Test>::get(netuid1),
             initial_subnet_alpha,
-            "Subnet 1 Alpha In should not change for stable mechanism"
+            "Subnet 1 StakedAlpha In should not change for stable mechanism"
         );
         assert_eq!(
             SubnetAlphaOut::<Test>::get(netuid1),
             initial_subnet_alpha + alpha_staked1,
-            "Subnet 1 Alpha Out should increase by alpha staked"
+            "Subnet 1 StakedAlpha Out should increase by alpha staked"
         );
         assert_eq!(
             alpha_staked1, stake_amount,
@@ -510,12 +510,12 @@ fn test_stake_into_subnet_different_subnets() {
         );
         assert!(
             SubnetAlphaIn::<Test>::get(netuid2) < initial_subnet_alpha,
-            "Subnet 2 Alpha In should decrease for dynamic mechanism"
+            "Subnet 2 StakedAlpha In should decrease for dynamic mechanism"
         );
         assert_eq!(
             SubnetAlphaOut::<Test>::get(netuid2),
             initial_subnet_alpha + alpha_staked2,
-            "Subnet 2 Alpha Out should increase by alpha staked"
+            "Subnet 2 StakedAlpha Out should increase by alpha staked"
         );
         assert!(
             alpha_staked2 < stake_amount,
@@ -531,7 +531,7 @@ fn test_stake_into_subnet_different_subnets() {
         assert_eq!(
             SubnetAlphaOut::<Test>::get(netuid1),
             initial_subnet_alpha + alpha_staked1,
-            "Subnet 1 Alpha Out should remain unchanged after staking in subnet 2"
+            "Subnet 1 StakedAlpha Out should remain unchanged after staking in subnet 2"
         );
 
         // Verify global effects
@@ -598,12 +598,12 @@ fn test_stake_into_subnet_hotkey_coldkey_combination() {
             SubtensorModule::stake_into_subnet(&hotkey1, &coldkey1, netuid, stake_amount);
         assert_eq!(
             alpha_staked1, stake_amount,
-            "Alpha staked should equal TAO staked for stable mechanism"
+            "StakedAlpha staked should equal TAO staked for stable mechanism"
         );
         assert_eq!(
-            Alpha::<Test>::get((hotkey1, coldkey1, netuid)),
+            StakedAlpha::<Test>::get((hotkey1, coldkey1, netuid)),
             stake_amount,
-            "Alpha storage should be updated correctly"
+            "StakedAlpha storage should be updated correctly"
         );
         assert_eq!(
             Stake::<Test>::get(hotkey1, coldkey1),
@@ -638,12 +638,12 @@ fn test_stake_into_subnet_hotkey_coldkey_combination() {
             SubtensorModule::stake_into_subnet(&hotkey2, &coldkey1, netuid, stake_amount);
         assert_eq!(
             alpha_staked2, stake_amount,
-            "Alpha staked should equal TAO staked for stable mechanism"
+            "StakedAlpha staked should equal TAO staked for stable mechanism"
         );
         assert_eq!(
-            Alpha::<Test>::get((hotkey2, coldkey1, netuid)),
+            StakedAlpha::<Test>::get((hotkey2, coldkey1, netuid)),
             stake_amount,
-            "Alpha storage should be updated correctly"
+            "StakedAlpha storage should be updated correctly"
         );
         assert_eq!(
             Stake::<Test>::get(hotkey2, coldkey1),
@@ -682,12 +682,12 @@ fn test_stake_into_subnet_hotkey_coldkey_combination() {
             SubtensorModule::stake_into_subnet(&hotkey1, &coldkey2, netuid, stake_amount);
         assert_eq!(
             alpha_staked3, stake_amount,
-            "Alpha staked should equal TAO staked for stable mechanism"
+            "StakedAlpha staked should equal TAO staked for stable mechanism"
         );
         assert_eq!(
-            Alpha::<Test>::get((hotkey1, coldkey2, netuid)),
+            StakedAlpha::<Test>::get((hotkey1, coldkey2, netuid)),
             stake_amount,
-            "Alpha storage should be updated correctly"
+            "StakedAlpha storage should be updated correctly"
         );
         assert_eq!(
             Stake::<Test>::get(hotkey1, coldkey2),
@@ -740,9 +740,9 @@ fn test_stake_into_subnet_edge_cases() {
         let large_stake = u64::MAX / 1000; // 1 billion
         SubnetAlphaIn::<Test>::insert(netuid, large_stake );
         let alpha_staked_large = SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, large_stake);
-        log::debug!(target: "subtensor", "Alpha staked large: {:?}", alpha_staked_large);
-        assert!(alpha_staked_large > 0, "Alpha staked should be non-zero for large stake");
-        assert!(alpha_staked_large < large_stake, "Alpha staked should be less than TAO staked for dynamic mechanism");
+        log::debug!(target: "subtensor", "StakedAlpha staked large: {:?}", alpha_staked_large);
+        assert!(alpha_staked_large > 0, "StakedAlpha staked should be non-zero for large stake");
+        assert!(alpha_staked_large < large_stake, "StakedAlpha staked should be less than TAO staked for dynamic mechanism");
 
         // Reset subnet values
         SubnetTAO::<Test>::insert(netuid, 0);
@@ -753,8 +753,8 @@ fn test_stake_into_subnet_edge_cases() {
         SubnetAlphaIn::<Test>::insert(netuid, u64::MAX / 2);
         let precision_stake = u64::MAX / 2;
         let alpha_staked_precision = SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, precision_stake);
-        assert!(alpha_staked_precision > 0, "Alpha staked should be non-zero for large stake with potential precision loss");
-        assert!(alpha_staked_precision < precision_stake, "Alpha staked should be less than TAO staked for dynamic mechanism with potential precision loss");
+        assert!(alpha_staked_precision > 0, "StakedAlpha staked should be non-zero for large stake with potential precision loss");
+        assert!(alpha_staked_precision < precision_stake, "StakedAlpha staked should be less than TAO staked for dynamic mechanism with potential precision loss");
     });
 }
 
@@ -772,7 +772,7 @@ fn test_stake_into_subnet_storage_consistency() {
         let initial_subnet_alpha_in = SubnetAlphaIn::<Test>::get(netuid);
         let initial_subnet_alpha_out = SubnetAlphaOut::<Test>::get(netuid);
         let initial_total_stake = TotalStake::<Test>::get();
-        let initial_alpha = Alpha::<Test>::get((hotkey, coldkey, netuid));
+        let initial_alpha = StakedAlpha::<Test>::get((hotkey, coldkey, netuid));
         let initial_stake = Stake::<Test>::get(hotkey, coldkey);
         let initial_total_coldkey_alpha = TotalColdkeyAlpha::<Test>::get(coldkey, netuid);
         let initial_total_hotkey_alpha = TotalHotkeyAlpha::<Test>::get(hotkey, netuid);
@@ -802,9 +802,9 @@ fn test_stake_into_subnet_storage_consistency() {
             "TotalStake should be increased by stake amount"
         );
         assert_eq!(
-            Alpha::<Test>::get((hotkey, coldkey, netuid)),
+            StakedAlpha::<Test>::get((hotkey, coldkey, netuid)),
             initial_alpha + alpha_staked,
-            "Alpha for hotkey-coldkey pair should be increased by alpha staked"
+            "StakedAlpha for hotkey-coldkey pair should be increased by alpha staked"
         );
         assert_eq!(
             Stake::<Test>::get(hotkey, coldkey),
@@ -846,9 +846,9 @@ fn test_stake_into_subnet_storage_consistency() {
             "SubnetAlphaOut for other subnets should not be affected"
         );
         assert_eq!(
-            Alpha::<Test>::get((hotkey, coldkey, netuid + 1)),
+            StakedAlpha::<Test>::get((hotkey, coldkey, netuid + 1)),
             0,
-            "Alpha for other subnets should not be affected"
+            "StakedAlpha for other subnets should not be affected"
         );
         assert_eq!(
             TotalColdkeyAlpha::<Test>::get(coldkey, netuid + 1),
@@ -881,13 +881,13 @@ fn test_stake_into_subnet_return_value() {
             "For stable mechanism, alpha_staked should equal stake_amount"
         );
         assert_eq!(
-            Alpha::<Test>::get((hotkey, coldkey, netuid)),
+            StakedAlpha::<Test>::get((hotkey, coldkey, netuid)),
             alpha_staked_1,
-            "Alpha in storage should match returned value"
+            "StakedAlpha in storage should match returned value"
         );
 
         // Reset storage
-        Alpha::<Test>::remove((hotkey, coldkey, netuid));
+        StakedAlpha::<Test>::remove((hotkey, coldkey, netuid));
         SubnetAlphaIn::<Test>::remove(netuid);
         SubnetAlphaOut::<Test>::remove(netuid);
         SubnetTAO::<Test>::remove(netuid);
@@ -915,9 +915,9 @@ fn test_stake_into_subnet_return_value() {
             "For dynamic mechanism, alpha_staked should match the calculated value"
         );
         assert_eq!(
-            Alpha::<Test>::get((hotkey, coldkey, netuid)),
+            StakedAlpha::<Test>::get((hotkey, coldkey, netuid)),
             alpha_staked_2,
-            "Alpha in storage should match returned value"
+            "StakedAlpha in storage should match returned value"
         );
 
         // Verify consistency with other storage updates
@@ -947,16 +947,16 @@ fn test_unstake_from_subnet_dynamic_mechanism() {
         // Set up the subnet with dynamic mechanism
         SubnetMechanism::<Test>::insert(netuid, Mechanism::Dynamic);
 
-        // Initialize subnet with some existing TAO and Alpha
+        // Initialize subnet with some existing TAO and StakedAlpha
         let initial_subnet_tao = 10_000_000_000; // 10 TAO
-        let initial_subnet_alpha = 5_000_000; // 5 Alpha
+        let initial_subnet_alpha = 5_000_000; // 5 StakedAlpha
         SubnetTAO::<Test>::insert(netuid, initial_subnet_tao);
         SubnetAlphaIn::<Test>::insert(netuid, initial_subnet_alpha);
         SubnetAlphaOut::<Test>::insert(netuid, initial_subnet_alpha);
 
         // Stake some alpha first
-        let alpha_to_stake = 1_000_000; // 1 Alpha
-        Alpha::<Test>::insert((hotkey, coldkey, netuid), alpha_to_stake);
+        let alpha_to_stake = 1_000_000; // 1 StakedAlpha
+        StakedAlpha::<Test>::insert((hotkey, coldkey, netuid), alpha_to_stake);
         TotalColdkeyAlpha::<Test>::insert(coldkey, netuid, alpha_to_stake);
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, alpha_to_stake);
 
@@ -1011,9 +1011,9 @@ fn test_unstake_from_subnet_dynamic_mechanism() {
             "Total coldkey alpha not updated correctly"
         );
         assert_eq!(
-            Alpha::<Test>::get((hotkey, coldkey, netuid)),
+            StakedAlpha::<Test>::get((hotkey, coldkey, netuid)),
             0,
-            "Alpha for hotkey-coldkey pair not updated correctly"
+            "StakedAlpha for hotkey-coldkey pair not updated correctly"
         );
 
         // Verify StakingHotkeys update
@@ -1036,16 +1036,16 @@ fn test_unstake_from_subnet_stable_mechanism() {
         // Set up the subnet with stable mechanism
         SubnetMechanism::<Test>::insert(netuid, Mechanism::Stable);
 
-        // Initialize subnet with some existing TAO and Alpha
+        // Initialize subnet with some existing TAO and StakedAlpha
         let initial_subnet_tao = 10_000_000_000; // 10 TAO
-        let initial_subnet_alpha = 5_000_000; // 5 Alpha
+        let initial_subnet_alpha = 5_000_000; // 5 StakedAlpha
         SubnetTAO::<Test>::insert(netuid, initial_subnet_tao);
         SubnetAlphaIn::<Test>::insert(netuid, initial_subnet_alpha);
         SubnetAlphaOut::<Test>::insert(netuid, initial_subnet_alpha);
 
         // Stake some alpha first
-        let alpha_to_stake = 1_000_000; // 1 Alpha
-        Alpha::<Test>::insert((hotkey, coldkey, netuid), alpha_to_stake);
+        let alpha_to_stake = 1_000_000; // 1 StakedAlpha
+        StakedAlpha::<Test>::insert((hotkey, coldkey, netuid), alpha_to_stake);
         TotalColdkeyAlpha::<Test>::insert(coldkey, netuid, alpha_to_stake);
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, alpha_to_stake);
         Stake::<Test>::insert(hotkey, coldkey, alpha_to_stake);
@@ -1096,9 +1096,9 @@ fn test_unstake_from_subnet_stable_mechanism() {
             "Total coldkey alpha not updated correctly"
         );
         assert_eq!(
-            Alpha::<Test>::get((hotkey, coldkey, netuid)),
+            StakedAlpha::<Test>::get((hotkey, coldkey, netuid)),
             0,
-            "Alpha for hotkey-coldkey pair not updated correctly"
+            "StakedAlpha for hotkey-coldkey pair not updated correctly"
         );
 
         // Verify StakingHotkeys update
@@ -1121,16 +1121,16 @@ fn test_unstake_from_subnet_zero_alpha() {
         // Set up the subnet with dynamic mechanism
         SubnetMechanism::<Test>::insert(netuid, Mechanism::Dynamic);
 
-        // Initialize subnet with some existing TAO and Alpha
+        // Initialize subnet with some existing TAO and StakedAlpha
         let initial_subnet_tao = 10_000_000_000; // 10 TAO
-        let initial_subnet_alpha = 5_000_000; // 5 Alpha
+        let initial_subnet_alpha = 5_000_000; // 5 StakedAlpha
         SubnetTAO::<Test>::insert(netuid, initial_subnet_tao);
         SubnetAlphaIn::<Test>::insert(netuid, initial_subnet_alpha);
         SubnetAlphaOut::<Test>::insert(netuid, initial_subnet_alpha);
 
         // Stake some alpha first
-        let alpha_to_stake = 1_000_000; // 1 Alpha
-        Alpha::<Test>::insert((hotkey, coldkey, netuid), alpha_to_stake);
+        let alpha_to_stake = 1_000_000; // 1 StakedAlpha
+        StakedAlpha::<Test>::insert((hotkey, coldkey, netuid), alpha_to_stake);
         TotalColdkeyAlpha::<Test>::insert(coldkey, netuid, alpha_to_stake);
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, alpha_to_stake);
         Stake::<Test>::insert(hotkey, coldkey, alpha_to_stake);
@@ -1157,9 +1157,9 @@ fn test_unstake_from_subnet_zero_alpha() {
             "Subnet alpha out should not change"
         );
         assert_eq!(
-            Alpha::<Test>::get((hotkey, coldkey, netuid)),
+            StakedAlpha::<Test>::get((hotkey, coldkey, netuid)),
             alpha_to_stake,
-            "Alpha for hotkey-coldkey pair should not change"
+            "StakedAlpha for hotkey-coldkey pair should not change"
         );
         assert_eq!(
             TotalColdkeyAlpha::<Test>::get(coldkey, netuid),
@@ -1195,16 +1195,16 @@ fn test_unstake_from_subnet_all_alpha() {
         // Set up the subnet with dynamic mechanism
         SubnetMechanism::<Test>::insert(netuid, Mechanism::Dynamic);
 
-        // Initialize subnet with some existing TAO and Alpha
+        // Initialize subnet with some existing TAO and StakedAlpha
         let initial_subnet_tao = 10_000_000_000; // 10 TAO
-        let initial_subnet_alpha = 5_000_000; // 5 Alpha
+        let initial_subnet_alpha = 5_000_000; // 5 StakedAlpha
         SubnetTAO::<Test>::insert(netuid, initial_subnet_tao);
         SubnetAlphaIn::<Test>::insert(netuid, initial_subnet_alpha);
         SubnetAlphaOut::<Test>::insert(netuid, initial_subnet_alpha);
 
         // Stake some alpha first
-        let alpha_to_stake = 1_000_000; // 1 Alpha
-        Alpha::<Test>::insert((hotkey, coldkey, netuid), alpha_to_stake);
+        let alpha_to_stake = 1_000_000; // 1 StakedAlpha
+        StakedAlpha::<Test>::insert((hotkey, coldkey, netuid), alpha_to_stake);
         TotalColdkeyAlpha::<Test>::insert(coldkey, netuid, alpha_to_stake);
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, alpha_to_stake);
         Stake::<Test>::insert(hotkey, coldkey, alpha_to_stake);
@@ -1231,9 +1231,9 @@ fn test_unstake_from_subnet_all_alpha() {
             "Subnet alpha out should be updated"
         );
         assert_eq!(
-            Alpha::<Test>::get((hotkey, coldkey, netuid)),
+            StakedAlpha::<Test>::get((hotkey, coldkey, netuid)),
             0,
-            "Alpha for hotkey-coldkey pair should be zero"
+            "StakedAlpha for hotkey-coldkey pair should be zero"
         );
         assert_eq!(
             TotalColdkeyAlpha::<Test>::get(coldkey, netuid),
@@ -1272,23 +1272,23 @@ fn test_unstake_from_subnet_partial_alpha() {
         // Set up the subnet with dynamic mechanism
         SubnetMechanism::<Test>::insert(netuid, Mechanism::Dynamic);
 
-        // Initialize subnet with some existing TAO and Alpha
+        // Initialize subnet with some existing TAO and StakedAlpha
         let initial_subnet_tao = 10_000_000_000; // 10 TAO
-        let initial_subnet_alpha = 50_000_000_000; // 5 Alpha
+        let initial_subnet_alpha = 50_000_000_000; // 5 StakedAlpha
         SubnetTAO::<Test>::insert(netuid, initial_subnet_tao);
         SubnetAlphaIn::<Test>::insert(netuid, initial_subnet_alpha);
         SubnetAlphaOut::<Test>::insert(netuid, initial_subnet_alpha);
 
         // Stake some alpha first
-        let alpha_to_stake = 2_000_000; // 2 Alpha
-        Alpha::<Test>::insert((hotkey, coldkey, netuid), alpha_to_stake);
+        let alpha_to_stake = 2_000_000; // 2 StakedAlpha
+        StakedAlpha::<Test>::insert((hotkey, coldkey, netuid), alpha_to_stake);
         TotalColdkeyAlpha::<Test>::insert(coldkey, netuid, alpha_to_stake);
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, alpha_to_stake);
         Stake::<Test>::insert(hotkey, coldkey, alpha_to_stake);
         TotalStake::<Test>::put(alpha_to_stake);
 
         // Perform partial unstaking
-        let alpha_to_unstake = 1_000_000; // 1 Alpha
+        let alpha_to_unstake = 1_000_000; // 1 StakedAlpha
         let tao_unstaked =
             SubtensorModule::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha_to_unstake);
 
@@ -1305,9 +1305,9 @@ fn test_unstake_from_subnet_partial_alpha() {
             "Subnet alpha out should be updated"
         );
         assert_eq!(
-            Alpha::<Test>::get((hotkey, coldkey, netuid)),
+            StakedAlpha::<Test>::get((hotkey, coldkey, netuid)),
             alpha_to_stake - alpha_to_unstake,
-            "Alpha for hotkey-coldkey pair should be updated"
+            "StakedAlpha for hotkey-coldkey pair should be updated"
         );
         assert_eq!(
             TotalColdkeyAlpha::<Test>::get(coldkey, netuid),
@@ -1343,15 +1343,15 @@ fn test_unstake_from_subnet_nonexistent_stake() {
         // Set up the subnet with dynamic mechanism
         SubnetMechanism::<Test>::insert(netuid, Mechanism::Dynamic);
 
-        // Initialize subnet with some existing TAO and Alpha
+        // Initialize subnet with some existing TAO and StakedAlpha
         let initial_subnet_tao = 10_000_000_000; // 10 TAO
-        let initial_subnet_alpha = 5_000_000; // 5 Alpha
+        let initial_subnet_alpha = 5_000_000; // 5 StakedAlpha
         SubnetTAO::<Test>::insert(netuid, initial_subnet_tao);
         SubnetAlphaIn::<Test>::insert(netuid, initial_subnet_alpha);
         SubnetAlphaOut::<Test>::insert(netuid, initial_subnet_alpha);
 
         // Attempt to unstake from a non-existent stake
-        let alpha_to_unstake = 1_000_000; // 1 Alpha
+        let alpha_to_unstake = 1_000_000; // 1 StakedAlpha
         let tao_unstaked =
             SubtensorModule::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha_to_unstake);
 
@@ -1368,9 +1368,9 @@ fn test_unstake_from_subnet_nonexistent_stake() {
             "Subnet alpha out should remain unchanged"
         );
         assert_eq!(
-            Alpha::<Test>::get((hotkey, coldkey, netuid)),
+            StakedAlpha::<Test>::get((hotkey, coldkey, netuid)),
             0,
-            "Alpha for hotkey-coldkey pair should remain zero"
+            "StakedAlpha for hotkey-coldkey pair should remain zero"
         );
         assert_eq!(
             TotalColdkeyAlpha::<Test>::get(coldkey, netuid),
@@ -1407,17 +1407,17 @@ fn test_unstake_from_subnet_multiple_hotkeys() {
         // Set up the subnet with dynamic mechanism
         SubnetMechanism::<Test>::insert(netuid, Mechanism::Dynamic);
 
-        // Initialize subnet with some existing TAO and Alpha
+        // Initialize subnet with some existing TAO and StakedAlpha
         let initial_subnet_tao = 10_000_000_000; // 10 TAO
-        let initial_subnet_alpha = 5_000_000; // 5 Alpha
+        let initial_subnet_alpha = 5_000_000; // 5 StakedAlpha
         SubnetTAO::<Test>::insert(netuid, initial_subnet_tao);
         SubnetAlphaIn::<Test>::insert(netuid, initial_subnet_alpha);
         SubnetAlphaOut::<Test>::insert(netuid, initial_subnet_alpha);
 
         // Stake some alpha for both hotkeys
-        let alpha_to_stake = 1_000_000; // 1 Alpha
-        Alpha::<Test>::insert((hotkey1, coldkey, netuid), alpha_to_stake);
-        Alpha::<Test>::insert((hotkey2, coldkey, netuid), alpha_to_stake);
+        let alpha_to_stake = 1_000_000; // 1 StakedAlpha
+        StakedAlpha::<Test>::insert((hotkey1, coldkey, netuid), alpha_to_stake);
+        StakedAlpha::<Test>::insert((hotkey2, coldkey, netuid), alpha_to_stake);
         TotalColdkeyAlpha::<Test>::insert(coldkey, netuid, alpha_to_stake * 2);
         TotalHotkeyAlpha::<Test>::insert(hotkey1, netuid, alpha_to_stake);
         TotalHotkeyAlpha::<Test>::insert(hotkey2, netuid, alpha_to_stake);
@@ -1445,14 +1445,14 @@ fn test_unstake_from_subnet_multiple_hotkeys() {
             "Subnet alpha out should be updated"
         );
         assert_eq!(
-            Alpha::<Test>::get((hotkey1, coldkey, netuid)),
+            StakedAlpha::<Test>::get((hotkey1, coldkey, netuid)),
             0,
-            "Alpha for hotkey1-coldkey pair should be zero"
+            "StakedAlpha for hotkey1-coldkey pair should be zero"
         );
         assert_eq!(
-            Alpha::<Test>::get((hotkey2, coldkey, netuid)),
+            StakedAlpha::<Test>::get((hotkey2, coldkey, netuid)),
             alpha_to_stake,
-            "Alpha for hotkey2-coldkey pair should remain unchanged"
+            "StakedAlpha for hotkey2-coldkey pair should remain unchanged"
         );
         assert_eq!(
             TotalColdkeyAlpha::<Test>::get(coldkey, netuid),
@@ -1514,7 +1514,7 @@ fn test_unstake_from_subnet_edge_cases() {
         SubnetTAO::<Test>::insert(netuid, max_u64);
         SubnetAlphaIn::<Test>::insert(netuid, max_u64);
         SubnetAlphaOut::<Test>::insert(netuid, max_u64);
-        Alpha::<Test>::insert((hotkey, coldkey, netuid), max_u64);
+        StakedAlpha::<Test>::insert((hotkey, coldkey, netuid), max_u64);
         TotalColdkeyAlpha::<Test>::insert(coldkey, netuid, max_u64);
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, max_u64);
         Stake::<Test>::insert(hotkey, coldkey, max_u64);
@@ -1530,7 +1530,7 @@ fn test_unstake_from_subnet_edge_cases() {
         SubnetTAO::<Test>::insert(netuid, 1000);
         SubnetAlphaIn::<Test>::insert(netuid, 1000);
         SubnetAlphaOut::<Test>::insert(netuid, 1000);
-        Alpha::<Test>::insert((hotkey, coldkey, netuid), 500);
+        StakedAlpha::<Test>::insert((hotkey, coldkey, netuid), 500);
         let unstaked = SubtensorModule::unstake_from_subnet(&hotkey, &coldkey, netuid, 1000);
         assert_eq!(unstaked, 500, "Should only unstake available amount");
 
@@ -1538,7 +1538,7 @@ fn test_unstake_from_subnet_edge_cases() {
         SubnetTAO::<Test>::insert(netuid, 0);
         SubnetAlphaIn::<Test>::insert(netuid, 0);
         SubnetAlphaOut::<Test>::insert(netuid, 0);
-        Alpha::<Test>::insert((hotkey, coldkey, netuid), 0);
+        StakedAlpha::<Test>::insert((hotkey, coldkey, netuid), 0);
         let unstaked = SubtensorModule::unstake_from_subnet(&hotkey, &coldkey, netuid, 100);
         assert_eq!(unstaked, 0, "Should not unstake from empty subnet");
     });
@@ -1556,14 +1556,14 @@ fn test_unstake_from_subnet_concurrent_stakes() {
         // Set up the subnet with stable mechanism
         SubnetMechanism::<Test>::insert(netuid, Mechanism::Stable);
 
-        // Initialize subnet with some existing TAO and Alpha
+        // Initialize subnet with some existing TAO and StakedAlpha
         SubnetTAO::<Test>::insert(netuid, 10_000);
         SubnetAlphaIn::<Test>::insert(netuid, 10_000);
         SubnetAlphaOut::<Test>::insert(netuid, 10_000);
 
         // Stake for both hotkeys
-        Alpha::<Test>::insert((hotkey1, coldkey, netuid), 5000);
-        Alpha::<Test>::insert((hotkey2, coldkey, netuid), 5000);
+        StakedAlpha::<Test>::insert((hotkey1, coldkey, netuid), 5000);
+        StakedAlpha::<Test>::insert((hotkey2, coldkey, netuid), 5000);
         TotalColdkeyAlpha::<Test>::insert(coldkey, netuid, 10_000);
         TotalHotkeyAlpha::<Test>::insert(hotkey1, netuid, 5000);
         TotalHotkeyAlpha::<Test>::insert(hotkey2, netuid, 5000);
@@ -1576,8 +1576,8 @@ fn test_unstake_from_subnet_concurrent_stakes() {
         assert_eq!(unstaked, 3000, "Should unstake 3000 from hotkey1");
 
         // Verify storage updates
-        assert_eq!(Alpha::<Test>::get((hotkey1, coldkey, netuid)), 2000);
-        assert_eq!(Alpha::<Test>::get((hotkey2, coldkey, netuid)), 5000);
+        assert_eq!(StakedAlpha::<Test>::get((hotkey1, coldkey, netuid)), 2000);
+        assert_eq!(StakedAlpha::<Test>::get((hotkey2, coldkey, netuid)), 5000);
         assert_eq!(TotalColdkeyAlpha::<Test>::get(coldkey, netuid), 7000);
         assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey1, netuid), 2000);
         assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey2, netuid), 5000);
@@ -1598,18 +1598,18 @@ fn test_unstake_from_subnet_return_value() {
         // Set up the subnet with stable mechanism
         SubnetMechanism::<Test>::insert(netuid, Mechanism::Stable);
 
-        // Initialize subnet with some existing TAO and Alpha
+        // Initialize subnet with some existing TAO and StakedAlpha
         SubnetTAO::<Test>::insert(netuid, 10_000);
         SubnetAlphaIn::<Test>::insert(netuid, 10_000);
         SubnetAlphaOut::<Test>::insert(netuid, 10_000);
-        Alpha::<Test>::insert((hotkey, coldkey, netuid), 5000);
+        StakedAlpha::<Test>::insert((hotkey, coldkey, netuid), 5000);
 
         // Test case 1: Unstake exact amount
         let unstaked = SubtensorModule::unstake_from_subnet(&hotkey, &coldkey, netuid, 5000);
         assert_eq!(unstaked, 5000, "Should return exact unstaked amount");
 
         // Test case 2: Unstake more than available
-        Alpha::<Test>::insert((hotkey, coldkey, netuid), 3000);
+        StakedAlpha::<Test>::insert((hotkey, coldkey, netuid), 3000);
         let unstaked = SubtensorModule::unstake_from_subnet(&hotkey, &coldkey, netuid, 5000);
         assert_eq!(
             unstaked, 3000,
@@ -1617,7 +1617,7 @@ fn test_unstake_from_subnet_return_value() {
         );
 
         // Test case 3: Unstake from empty stake
-        Alpha::<Test>::insert((hotkey, coldkey, netuid), 0);
+        StakedAlpha::<Test>::insert((hotkey, coldkey, netuid), 0);
         let unstaked = SubtensorModule::unstake_from_subnet(&hotkey, &coldkey, netuid, 1000);
         assert_eq!(
             unstaked, 0,
