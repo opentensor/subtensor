@@ -662,7 +662,7 @@ fn test_adjust_senate_events() {
         let hotkey_account_id = U256::from(6);
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667);
-        let root_netuid = SubtensorModule::get_root_netuid();
+        let root_netuid = SubtensorModule::ROOT_NETUID;
 
         let max_senate_size: u16 = SenateMaxMembers::get() as u16;
         let stake_threshold: u64 = 100_000; // Give this much to every senator

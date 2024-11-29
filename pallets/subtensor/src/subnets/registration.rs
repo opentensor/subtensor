@@ -50,7 +50,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Ensure the passed network is valid.
         ensure!(
-            netuid != Self::get_root_netuid(),
+            netuid != Self::ROOT_NETUID,
             Error::<T>::RegistrationNotPermittedOnRootSubnet
         );
         ensure!(
@@ -235,7 +235,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Ensure the passed network is valid.
         ensure!(
-            netuid != Self::get_root_netuid(),
+            netuid != Self::ROOT_NETUID,
             Error::<T>::RegistrationNotPermittedOnRootSubnet
         );
         ensure!(
