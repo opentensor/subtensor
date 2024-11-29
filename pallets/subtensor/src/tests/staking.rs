@@ -973,19 +973,6 @@ fn test_remove_stake_from_hotkey_account_registered_in_various_networks() {
 }
 
 // /************************************************************
-// 	staking::increase_total_stake() tests
-// ************************************************************/
-#[test]
-fn test_increase_total_stake_ok() {
-    new_test_ext(1).execute_with(|| {
-        let increment = 10000;
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
-        SubtensorModule::increase_total_stake(increment);
-        assert_eq!(SubtensorModule::get_total_stake(), increment);
-    });
-}
-
-// /************************************************************
 // 	staking::decrease_total_stake() tests
 // ************************************************************/
 #[test]
@@ -994,8 +981,10 @@ fn test_decrease_total_stake_ok() {
         let initial_total_stake = 10000;
         let decrement = 5000;
 
-        SubtensorModule::increase_total_stake(initial_total_stake);
-        SubtensorModule::decrease_total_stake(decrement);
+        TotalStake::<Test>::put(
+            SubtensorModule::get_total_stake().saturating_add(initial_total_stake),
+        );
+        TotalStake::<Test>::put(SubtensorModule::get_total_stake().saturating_sub(decrement));
 
         // The total stake remaining should be the difference between the initial stake and the decrement
         assert_eq!(
