@@ -3,7 +3,7 @@
 use frame_support::traits::Currency;
 
 use super::mock::*;
-use crate::{AxonInfoOf, Error, SubtensorSignedExtension};
+use crate::{Axons, Error, SubtensorSignedExtension};
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
 use frame_support::sp_runtime::{transaction_validity::InvalidTransaction, DispatchError};
 use frame_support::{assert_err, assert_noop, assert_ok};
@@ -1363,7 +1363,7 @@ fn test_registration_get_neuron_metadata() {
         //
         //let neuron_id = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id);
         // let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey( netuid, &hotkey_account_id ).unwrap();
-        let neuron: AxonInfoOf = SubtensorModule::get_axon_info(netuid, &hotkey_account_id);
+        let neuron = Axons::<Test>::get(netuid, &hotkey_account_id).unwrap_or_default();
         assert_eq!(neuron.ip, 0);
         assert_eq!(neuron.version, 0);
         assert_eq!(neuron.port, 0);
