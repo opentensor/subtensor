@@ -739,7 +739,8 @@ impl<T: Config> Pallet<T> {
 
         // --- 10. Check that the neuron uid is an allowed validator permitted to set non-self weights.
         ensure!(
-            Self::check_validator_permit(netuid, neuron_uid, &uids, &values),
+            Self::is_self_weight(neuron_uid, &uids, &values)
+                || Self::get_validator_permit_for_uid(netuid, neuron_uid),
             Error::<T>::NeuronNoValidatorPermit
         );
 
@@ -953,16 +954,6 @@ impl<T: Config> Pallet<T> {
             parsed.push(*item);
         }
         false
-    }
-
-    /// Returns True if setting self-weight or has validator permit.
-    pub fn check_validator_permit(netuid: u16, uid: u16, uids: &[u16], weights: &[u16]) -> bool {
-        // Check self weight. Allowed to set single value for self weight.
-        if Self::is_self_weight(uid, uids, weights) {
-            return true;
-        }
-        // Check if uid has validator permit.
-        Self::get_validator_permit_for_uid(netuid, uid)
     }
 
     /// Returns True if the uids and weights are have a valid length for uid on network.
