@@ -29,18 +29,6 @@ impl<T: Config> Pallet<T> {
         TotalStake::<T>::get()
     }
 
-    // Increases the total amount of stake by the passed amount.
-    //
-    pub fn increase_total_stake(increment: u64) {
-        TotalStake::<T>::put(Self::get_total_stake().saturating_add(increment));
-    }
-
-    // Decreases the total amount of stake by the passed amount.
-    //
-    pub fn decrease_total_stake(decrement: u64) {
-        TotalStake::<T>::put(Self::get_total_stake().saturating_sub(decrement));
-    }
-
     // Returns the total amount of stake under a hotkey (delegative or otherwise)
     //
     pub fn get_total_stake_for_hotkey(hotkey: &T::AccountId) -> u64 {
