@@ -83,7 +83,8 @@ impl<T: Config> Pallet<T> {
         );
 
         // Get the previous axon information.
-        let mut prev_axon = Self::get_axon_info(netuid, &hotkey_id);
+        let mut prev_axon = Axons::<T>::get(netuid, &hotkey_id).unwrap_or_default();
+
         let current_block: u64 = Self::get_current_block_as_u64();
         ensure!(
             Self::axon_passes_rate_limit(netuid, &prev_axon, current_block),
@@ -244,23 +245,6 @@ impl<T: Config> Pallet<T> {
         let rate_limit: u64 = Self::get_serving_rate_limit(netuid);
         let last_serve = prev_prometheus_info.block;
         rate_limit == 0 || last_serve == 0 || current_block.saturating_sub(last_serve) >= rate_limit
-    }
-
-    pub fn get_axon_info(netuid: u16, hotkey: &T::AccountId) -> AxonInfoOf {
-        if let Some(axons) = Axons::<T>::get(netuid, hotkey) {
-            axons
-        } else {
-            AxonInfo {
-                block: 0,
-                version: 0,
-                ip: 0,
-                port: 0,
-                ip_type: 0,
-                protocol: 0,
-                placeholder1: 0,
-                placeholder2: 0,
-            }
-        }
     }
 
     pub fn get_prometheus_info(netuid: u16, hotkey: &T::AccountId) -> PrometheusInfoOf {
