@@ -659,17 +659,6 @@ impl<T: Config> Pallet<T> {
         T::SenateMembers::is_member(hotkey)
     }
 
-    pub fn do_set_senate_required_stake_perc(
-        origin: T::RuntimeOrigin,
-        required_percent: u64,
-    ) -> DispatchResult {
-        ensure_root(origin)?;
-
-        Self::set_senate_required_stake_perc(required_percent);
-        Self::deposit_event(Event::SenateRequiredStakePercentSet(required_percent));
-        Ok(())
-    }
-
     pub fn is_subnet_owner(address: &T::AccountId) -> bool {
         SubnetOwner::<T>::iter_values().any(|owner| *address == owner)
     }
