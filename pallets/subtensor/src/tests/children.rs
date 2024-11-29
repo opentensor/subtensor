@@ -118,7 +118,7 @@ fn test_do_set_child_singular_root_network() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = SubtensorModule::get_root_netuid(); // Root network
+        let netuid: u16 = SubtensorModule::ROOT_NETUID; // Root network
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -663,7 +663,7 @@ fn test_do_schedule_children_multiple_root_network() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = SubtensorModule::get_root_netuid(); // Root network
+        let netuid: u16 = SubtensorModule::ROOT_NETUID; // Root network
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
