@@ -897,7 +897,11 @@ fn test_remove_stake_from_hotkey_account() {
         );
 
         // Remove stake
-        SubtensorModule::decrease_stake_on_hotkey_account(&hotkey_id, amount);
+        SubtensorModule::decrease_stake_on_coldkey_hotkey_account(
+            &SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_id),
+            &hotkey_id,
+            amount,
+        );
 
         // The stake on the hotkey account should be 0
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
@@ -950,7 +954,12 @@ fn test_remove_stake_from_hotkey_account_registered_in_various_networks() {
         );
 
         // Remove stake
-        SubtensorModule::decrease_stake_on_hotkey_account(&hotkey_id, amount);
+        SubtensorModule::decrease_stake_on_coldkey_hotkey_account(
+            &SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_id),
+            &hotkey_id,
+            amount,
+        );
+
         //
         assert_eq!(
             SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
