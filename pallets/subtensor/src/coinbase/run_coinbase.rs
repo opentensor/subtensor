@@ -258,7 +258,13 @@ impl<T: Config> Pallet<T> {
                     continue;
                 }
             };
-            let sig_reader = &mut &pulse.signature[..];
+
+            let signature_bytes = pulse
+                .signature
+                .strip_prefix(b"0x")
+                .unwrap_or(&pulse.signature);
+
+            let sig_reader = &mut &signature_bytes[..];
             let sig = match <TinyBLS381 as EngineBLS>::SignatureGroup::deserialize_compressed(
                 sig_reader,
             ) {
