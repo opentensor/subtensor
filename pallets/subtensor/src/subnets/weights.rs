@@ -608,7 +608,7 @@ impl<T: Config> Pallet<T> {
 
         // --- Check that the netuid is not the root network.
         ensure!(
-            netuid != Self::get_root_netuid(),
+            netuid != Self::ROOT_NETUID,
             Error::<T>::CanNotSetRootNetworkWeights
         );
 
@@ -793,7 +793,7 @@ impl<T: Config> Pallet<T> {
 
         // Check self weight. Allowed to set single value for self weight.
         // Or check that this is the root netuid.
-        if netuid != Self::get_root_netuid() && Self::is_self_weight(uid, uids, weights) {
+        if netuid != Self::ROOT_NETUID && Self::is_self_weight(uid, uids, weights) {
             return true;
         }
         // Check if number of weights exceeds min.

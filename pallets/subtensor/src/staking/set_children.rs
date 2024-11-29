@@ -79,7 +79,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Check that this delegation is not on the root network. Child hotkeys are not valid on root.
         ensure!(
-            netuid != Self::get_root_netuid(),
+            netuid != Self::ROOT_NETUID,
             Error::<T>::RegistrationNotPermittedOnRootSubnet
         );
 
