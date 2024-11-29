@@ -29,16 +29,8 @@ use substrate_fixed::{
 };
 
 impl<T: Config> Pallet<T> {
-    /// Retrieves the unique identifier (UID) for the root network.
-    ///
     /// The root network is a special case and has a fixed UID of 0.
-    ///
-    /// # Returns:
-    /// * 'u16': The UID for the root network.
-    ///
-    pub fn get_root_netuid() -> u16 {
-        0
-    }
+	pub(crate) const ROOT_NETUID: u16 = 0;
 
     /// Fetches the total count of subnets.
     ///
@@ -79,7 +71,7 @@ impl<T: Config> Pallet<T> {
     /// * 'u16': The total number of root network validators
     ///
     pub fn get_num_root_validators() -> u16 {
-        Self::get_subnetwork_n(Self::get_root_netuid())
+        Self::get_subnetwork_n(Self::ROOT_NETUID)
     }
 
     /// Fetches the max validators count of root network.
@@ -90,7 +82,7 @@ impl<T: Config> Pallet<T> {
     /// * 'u16': The max validators count of root network.
     ///
     pub fn get_max_root_validators() -> u16 {
-        Self::get_max_allowed_uids(Self::get_root_netuid())
+        Self::get_max_allowed_uids(Self::ROOT_NETUID)
     }
 
     /// Returns the emission value for the given subnet.
@@ -268,7 +260,7 @@ impl<T: Config> Pallet<T> {
         // --- 3. Iterate over stored weights and fill the matrix.
         for (uid_i, weights_i) in
             <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(
-                Self::get_root_netuid(),
+                Self::ROOT_NETUID,
             )
         {
             // --- 4. Iterate over each weight entry in `weights_i` to update the corresponding value in the
@@ -325,7 +317,7 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn root_epoch(block_number: u64) -> Result<(), &'static str> {
         // --- 0. The unique ID associated with the root network.
-        let root_netuid: u16 = Self::get_root_netuid();
+        let root_netuid: u16 = Self::ROOT_NETUID;
 
         // --- 1. Check if we should update the emission values based on blocks since emission was last set.
         let blocks_until_next_epoch: u64 =
@@ -478,7 +470,7 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn do_root_register(origin: T::RuntimeOrigin, hotkey: T::AccountId) -> DispatchResult {
         // --- 0. Get the unique identifier (UID) for the root network.
-        let root_netuid: u16 = Self::get_root_netuid();
+        let root_netuid: u16 = Self::ROOT_NETUID;
         let current_block_number: u64 = Self::get_current_block_as_u64();
         ensure!(
             Self::if_subnet_exist(root_netuid),
@@ -615,7 +607,7 @@ impl<T: Config> Pallet<T> {
     //
     pub fn do_adjust_senate(origin: T::RuntimeOrigin, hotkey: T::AccountId) -> DispatchResult {
         // --- 0. Get the unique identifier (UID) for the root network.
-        let root_netuid: u16 = Self::get_root_netuid();
+        let root_netuid: u16 = Self::ROOT_NETUID;
         ensure!(
             Self::if_subnet_exist(root_netuid),
             Error::<T>::RootNetworkDoesNotExist
@@ -677,7 +669,7 @@ impl<T: Config> Pallet<T> {
     //
     fn join_senate_if_eligible(hotkey: &T::AccountId) -> Result<Option<&T::AccountId>, Error<T>> {
         // Get the root network UID.
-        let root_netuid: u16 = Self::get_root_netuid();
+        let root_netuid: u16 = Self::ROOT_NETUID;
 
         // --- 1. Check the hotkey is registered in the root network.
         ensure!(
@@ -761,7 +753,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Check that this is the root network.
-        ensure!(netuid == Self::get_root_netuid(), Error::<T>::NotRootSubnet);
+        ensure!(netuid == Self::ROOT_NETUID, Error::<T>::NotRootSubnet);
 
         // Check that the length of uid list and value list are equal for this network.
         ensure!(
@@ -1165,7 +1157,7 @@ impl<T: Config> Pallet<T> {
         // --- 9. Iterate over stored weights and fill the matrix.
         for (uid_i, weights_i) in
             <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(
-                Self::get_root_netuid(),
+                Self::ROOT_NETUID,
             )
         {
             // Create a new vector to hold modified weights.
@@ -1177,7 +1169,7 @@ impl<T: Config> Pallet<T> {
                     *weight = 0; // Set weight to 0 for the matching subnet_id.
                 }
             }
-            Weights::<T>::insert(Self::get_root_netuid(), uid_i, modified_weights);
+            Weights::<T>::insert(Self::ROOT_NETUID, uid_i, modified_weights);
         }
 
         // --- 10. Remove various network-related parameters.
