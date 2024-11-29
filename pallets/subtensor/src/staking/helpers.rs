@@ -161,19 +161,6 @@ impl<T: Config> Pallet<T> {
         );
     }
 
-    /// Decreases the stake on the hotkey account under its owning coldkey.
-    ///
-    /// # Arguments
-    /// * `hotkey` - The hotkey account ID.
-    /// * `decrement` - The amount to be decremented.
-    pub fn decrease_stake_on_hotkey_account(hotkey: &T::AccountId, decrement: u64) {
-        Self::decrease_stake_on_coldkey_hotkey_account(
-            &Self::get_owning_coldkey_for_hotkey(hotkey),
-            hotkey,
-            decrement,
-        );
-    }
-
     // Increases the stake on the cold - hot pairing by increment while also incrementing other counters.
     // This function should be called rather than set_stake under account.
     //
