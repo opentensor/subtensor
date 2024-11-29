@@ -1373,30 +1373,6 @@ pub mod pallet {
             // Blacklist weights transactions for low stake peers.
             Self::get_stake_for_hotkey_on_subnet(hotkey, netuid) >= Self::get_stake_threshold()
         }
-
-        /// Helper function to check if register is allowed
-        pub fn checked_allowed_register(netuid: u16) -> bool {
-            if netuid == Self::get_root_netuid() {
-                return false;
-            }
-            if !Self::if_subnet_exist(netuid) {
-                return false;
-            }
-            if !Self::get_network_registration_allowed(netuid) {
-                return false;
-            }
-            if Self::get_registrations_this_block(netuid)
-                >= Self::get_max_registrations_per_block(netuid)
-            {
-                return false;
-            }
-            if Self::get_registrations_this_interval(netuid)
-                >= Self::get_target_registrations_per_interval(netuid).saturating_mul(3)
-            {
-                return false;
-            }
-            true
-        }
     }
 }
 
