@@ -77,9 +77,9 @@ impl<T: Config> Pallet<T> {
             Err(_) => return None,
         };
 
-        let axon_info = Self::get_axon_info(netuid, &hotkey.clone());
+        let axon_info = Axons::<T>::get(netuid, &hotkey).unwrap_or_default();
 
-        let prometheus_info = Self::get_prometheus_info(netuid, &hotkey.clone());
+        let prometheus_info = Self::get_prometheus_info(netuid, &hotkey);
 
         let coldkey = Owner::<T>::get(hotkey.clone()).clone();
 
@@ -160,11 +160,11 @@ impl<T: Config> Pallet<T> {
             Err(_) => return None,
         };
 
-        let axon_info = Self::get_axon_info(netuid, &hotkey.clone());
+        let axon_info = Axons::<T>::get(netuid, &hotkey).unwrap_or_default();
 
-        let prometheus_info = Self::get_prometheus_info(netuid, &hotkey.clone());
+        let prometheus_info = Self::get_prometheus_info(netuid, &hotkey);
 
-        let coldkey = Owner::<T>::get(hotkey.clone()).clone();
+        let coldkey = Owner::<T>::get(&hotkey).clone();
 
         let active = Self::get_active_for_uid(netuid, uid);
         let rank = Self::get_rank_for_uid(netuid, uid);
@@ -184,8 +184,8 @@ impl<T: Config> Pallet<T> {
         )];
 
         let neuron = NeuronInfoLite {
-            hotkey: hotkey.clone(),
-            coldkey: coldkey.clone(),
+            hotkey,
+            coldkey,
             uid: uid.into(),
             netuid: netuid.into(),
             active,
