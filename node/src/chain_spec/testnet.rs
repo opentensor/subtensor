@@ -34,6 +34,7 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
             .checked_add(*amount)
             .ok_or("Balances issuance overflowed".to_string())?;
     }
+    processed_balances.sort();
 
     // Give front-ends necessary data to present to users
     let mut properties = sc_service::Properties::new();
