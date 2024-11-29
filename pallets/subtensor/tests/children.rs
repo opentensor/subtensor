@@ -357,6 +357,7 @@ fn test_add_singular_child() {
             Err(Error::<Test>::SubNetworkDoesNotExist.into())
         );
         add_network(netuid, 0, 0);
+        step_rate_limit(&TransactionType::SetChildren, netuid);
         assert_eq!(
             SubtensorModule::do_set_children(
                 RuntimeOrigin::signed(coldkey),
@@ -367,6 +368,7 @@ fn test_add_singular_child() {
             Err(Error::<Test>::NonAssociatedColdKey.into())
         );
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        step_rate_limit(&TransactionType::SetChildren, netuid);
         assert_eq!(
             SubtensorModule::do_set_children(
                 RuntimeOrigin::signed(coldkey),
@@ -377,6 +379,7 @@ fn test_add_singular_child() {
             Err(Error::<Test>::InvalidChild.into())
         );
         let child = U256::from(3);
+        step_rate_limit(&TransactionType::SetChildren, netuid);
         assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -2396,6 +2399,7 @@ fn test_dynamic_parent_child_relationships() {
         step_block(11);
 
         // Change parent-child relationships
+        step_rate_limit(&TransactionType::SetChildren, netuid);
         assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey_parent),
             parent,

@@ -34,10 +34,9 @@ impl<T: Config> Pallet<T> {
     // ==== Rate Limiting =====
     // ========================
     /// Get the rate limit for a specific transaction type
-    pub fn get_rate_limit(tx_type: &TransactionType, netuid: u16) -> u64 {
-        let subnet_tempo = Self::get_tempo(netuid);
+    pub fn get_rate_limit(tx_type: &TransactionType, _netuid: u16) -> u64 {
         match tx_type {
-            TransactionType::SetChildren => (subnet_tempo.saturating_mul(2)).into(), // Cannot set children twice within the default tempo period.
+            TransactionType::SetChildren => 7200, // Cannot set children twice within a day
             TransactionType::SetChildkeyTake => TxChildkeyTakeRateLimit::<T>::get(),
             TransactionType::Unknown => 0, // Default to no limit for unknown types (no limit)
         }
