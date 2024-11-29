@@ -11,6 +11,8 @@ use frame_system::Config;
 use sp_core::U256;
 use sp_runtime::traits::{DispatchInfoOf, SignedExtension};
 
+use crate::RAORecycledForRegistration;
+
 /********************************************
     subscribing::subscribe() tests
 *********************************************/
@@ -1465,7 +1467,7 @@ fn test_burn_registration_increase_recycled_rao() {
             netuid,
             hotkey_account_id
         ));
-        assert_eq!(SubtensorModule::get_rao_recycled(netuid), burn_amount);
+        assert_eq!(RAORecycledForRegistration::<Test>::get(netuid), burn_amount);
 
         run_to_block(2);
 
@@ -1480,9 +1482,12 @@ fn test_burn_registration_increase_recycled_rao() {
             netuid2,
             U256::from(2)
         ));
-        assert_eq!(SubtensorModule::get_rao_recycled(netuid2), burn_amount2 * 2);
+        assert_eq!(
+            RAORecycledForRegistration::<Test>::get(netuid2),
+            burn_amount2 * 2
+        );
         // Validate netuid is not affected.
-        assert_eq!(SubtensorModule::get_rao_recycled(netuid), burn_amount);
+        assert_eq!(RAORecycledForRegistration::<Test>::get(netuid), burn_amount);
     });
 }
 
