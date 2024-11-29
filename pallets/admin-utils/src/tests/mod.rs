@@ -5,8 +5,7 @@ use frame_support::{
     traits::Hooks,
 };
 use frame_system::Config;
-use pallet_subtensor::Error as SubtensorError;
-use pallet_subtensor::{migrations, Event};
+use pallet_subtensor::{migrations, Error as SubtensorError, Event, RAORecycledForRegistration};
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{ed25519, Pair, U256};
 
@@ -746,7 +745,7 @@ fn test_sudo_set_rao_recycled() {
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
-        let init_value: u64 = SubtensorModule::get_rao_recycled(netuid);
+        let init_value: u64 = RAORecycledForRegistration::<Test>::get(netuid);
 
         // Need to run from genesis block
         run_to_block(1);
@@ -767,7 +766,8 @@ fn test_sudo_set_rao_recycled() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_rao_recycled(netuid), init_value);
+
+        assert_eq!(RAORecycledForRegistration::<Test>::get(netuid), init_value);
 
         // Verify no events emitted matching the expected event
         assert_eq!(
@@ -786,7 +786,7 @@ fn test_sudo_set_rao_recycled() {
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_rao_recycled(netuid), to_be_set);
+        assert_eq!(RAORecycledForRegistration::<Test>::get(netuid), to_be_set);
 
         // Verify event emitted with correct values
         assert_eq!(
