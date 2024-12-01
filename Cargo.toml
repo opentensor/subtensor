@@ -79,6 +79,7 @@ syn = { version = "2", features = [
 ] }
 quote = "1"
 proc-macro2 = { version = "1", features = ["span-locations"] }
+thiserror = "1.0"
 walkdir = "2"
 
 subtensor-macros = { path = "support/macros" }
@@ -173,6 +174,7 @@ fp-account = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", de
 fc-storage = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
 fc-db = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
 fc-consensus = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
+fp-consensus = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
 fp-dynamic-fee = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
 fc-api = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
 fc-rpc = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
