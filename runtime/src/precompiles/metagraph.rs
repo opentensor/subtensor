@@ -9,28 +9,11 @@ use fp_evm::{
     ExitError, ExitSucceed, LinearCostPrecompile, PrecompileFailure, PrecompileHandle,
     PrecompileOutput, PrecompileResult,
 };
-use sp_core::U256;
+use sp_core::{ByteArray, U256};
 use sp_std::vec;
 pub const METAGRAPH_PRECOMPILE_INDEX: u64 = 2050;
+use sp_runtime::AccountId32;
 pub struct MetagraphPrecompile;
-
-/*
-get_uid_count	SubnetworkN
-get_stake	Total stake of the neuron in Tao
-get_rank	Rank score of the neuron
-get_trust	Trust score assigned to the neuron by other neurons
-get_consensus	Consensus score of the neuron
-get_incentive	Incentive score representing the neuron's incentive alignment
-get_dividends	Dividends earned by the neuron
-get_emission	Emission received by the neuron (with 18 decimals)
-get_vtrust	Validator trust score indicating the network's trust in the neuron as a validator
-get_validator_status	Validator status of the neuron
-get_last_updated	Number of blocks since the neuron's last update
-get_is_active	Activity status of the neuron
-get_axon	Network endpoint information of the neuron
-get_hotkey	Hotkey (public key as bytes32) of the neuron
-get_coldkey	Coldkey (public key as bytes32) of the neuron
- */
 
 impl MetagraphPrecompile {
     pub fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
@@ -43,22 +26,40 @@ impl MetagraphPrecompile {
 
         match method_id {
             id if id == get_method_id("getUidCount(uint16)") => Self::get_uid_count(&method_input),
-            id if id == get_method_id("getUidCount(uint16)") => Self::get_stake(&method_input),
-            id if id == get_method_id("getUidCount(uint16)") => Self::get_rank(&method_input),
-            id if id == get_method_id("getUidCount(uint16)") => Self::get_trust(&method_input),
-            id if id == get_method_id("getUidCount(uint16)") => Self::get_consensus(&method_input),
-            id if id == get_method_id("getUidCount(uint16)") => Self::get_emission(&method_input),
-            id if id == get_method_id("getUidCount(uint16)") => Self::get_vtrust(&method_input),
-            id if id == get_method_id("getUidCount(uint16)") => {
+            id if id == get_method_id("getStake(uint16,uint16)") => Self::get_stake(&method_input),
+            id if id == get_method_id("getRank(uint16,uint16)") => Self::get_rank(&method_input),
+            id if id == get_method_id("getTrust(uint16,uint16)") => Self::get_trust(&method_input),
+            id if id == get_method_id("getConsensus(uint16,uint16)") => {
+                Self::get_consensus(&method_input)
+            }
+            id if id == get_method_id("getIncentive(uint16,uint16)") => {
+                Self::get_incentive(&method_input)
+            }
+            id if id == get_method_id("getDividends(uint16,uint16)") => {
+                Self::get_dividends(&method_input)
+            }
+            id if id == get_method_id("getEmission(uint16,uint16)") => {
+                Self::get_emission(&method_input)
+            }
+            id if id == get_method_id("getVtrust(uint16,uint16)") => {
+                Self::get_vtrust(&method_input)
+            }
+            id if id == get_method_id("getValidatorStatus(uint16,uint16)") => {
                 Self::get_validator_status(&method_input)
             }
-            id if id == get_method_id("getUidCount(uint16)") => {
-                Self::get_last_updated(&method_input)
+            id if id == get_method_id("getLastUpdate(uint16,uint16)") => {
+                Self::get_last_update(&method_input)
             }
-            id if id == get_method_id("getUidCount(uint16)") => Self::get_is_active(&method_input),
-            id if id == get_method_id("getUidCount(uint16)") => Self::get_axon(&method_input),
-            id if id == get_method_id("getUidCount(uint16)") => Self::get_hotkey(&method_input),
-            id if id == get_method_id("getUidCount(uint16)") => Self::get_coldkey(&method_input),
+            id if id == get_method_id("getIsActive(uint16,uint16)") => {
+                Self::get_is_active(&method_input)
+            }
+            id if id == get_method_id("getAxon(uint16,uint16)") => Self::get_axon(&method_input),
+            id if id == get_method_id("getHotkey(uint16,uint16)") => {
+                Self::get_hotkey(&method_input)
+            }
+            id if id == get_method_id("getColdkey(uint16,uint16)") => {
+                Self::get_coldkey(&method_input)
+            }
 
             _ => Err(PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
@@ -67,14 +68,9 @@ impl MetagraphPrecompile {
     }
 
     fn get_uid_count(data: &[u8]) -> PrecompileResult {
-        if data.len() < 2 {
-            return Err(PrecompileFailure::Error {
-                exit_status: ExitError::InvalidRange,
-            });
-        }
-        let mut netuid = [0u8; 2];
-        netuid.copy_from_slice(get_slice(data, 0, 2)?);
-        let netuid = u16::from_be_bytes(netuid);
+        log::error!("++++++ data len is {:?}", data.len());
+
+        let netuid = Self::parse_netuid(data)?;
 
         log::error!("++++++ netuid is {:?}", netuid);
 
@@ -91,6 +87,20 @@ impl MetagraphPrecompile {
     }
 
     fn get_stake(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+        let uid = Self::parse_uid(&data[32..])?;
+
+        let hotkey = pallet_subtensor::Pallet::<Runtime>::get_hotkey_for_net_and_uid(netuid, uid)
+            .map_err(|_| PrecompileFailure::Error {
+            exit_status: ExitError::InvalidRange,
+        })?;
+
+        let stake = pallet_subtensor::TotalHotkeyStake::<Runtime>::get(&hotkey);
+
+        let result_u256 = U256::from(stake);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&result_u256, &mut result);
+
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
             output: [].into(),
@@ -98,93 +108,251 @@ impl MetagraphPrecompile {
     }
 
     fn get_rank(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+        let uid = Self::parse_uid(&data[32..])?;
+
+        let rank = pallet_subtensor::Pallet::<Runtime>::get_rank_for_uid(netuid, uid);
+
+        let result_u256 = U256::from(rank);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&result_u256, &mut result);
+
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
-            output: [].into(),
+            output: result.into(),
         })
     }
 
     fn get_trust(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+        let uid = Self::parse_uid(&data[32..])?;
+
+        let trust = pallet_subtensor::Pallet::<Runtime>::get_trust_for_uid(netuid, uid);
+
+        let result_u256 = U256::from(trust);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&result_u256, &mut result);
+
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
-            output: [].into(),
+            output: result.into(),
         })
     }
 
     fn get_consensus(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+        let uid = Self::parse_uid(&data[32..])?;
+
+        let consensus = pallet_subtensor::Pallet::<Runtime>::get_consensus_for_uid(netuid, uid);
+
+        let result_u256 = U256::from(consensus);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&result_u256, &mut result);
+
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
-            output: [].into(),
+            output: result.into(),
         })
     }
 
     fn get_incentive(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+        let uid = Self::parse_uid(&data[32..])?;
+
+        let incentive = pallet_subtensor::Pallet::<Runtime>::get_incentive_for_uid(netuid, uid);
+
+        let result_u256 = U256::from(incentive);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&result_u256, &mut result);
+
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
-            output: [].into(),
+            output: result.into(),
         })
     }
 
     fn get_dividends(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+        let uid = Self::parse_uid(&data[32..])?;
+
+        let dividends = pallet_subtensor::Pallet::<Runtime>::get_dividends_for_uid(netuid, uid);
+
+        let result_u256 = U256::from(dividends);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&result_u256, &mut result);
+
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
-            output: [].into(),
+            output: result.into(),
         })
     }
 
     fn get_emission(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+        let uid = Self::parse_uid(&data[32..])?;
+
+        let emission = pallet_subtensor::Pallet::<Runtime>::get_emission_for_uid(netuid, uid);
+
+        let result_u256 = U256::from(emission);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&result_u256, &mut result);
+
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
-            output: [].into(),
+            output: result.into(),
         })
     }
 
     fn get_vtrust(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+        let uid = Self::parse_uid(&data[32..])?;
+
+        let vtrust = pallet_subtensor::Pallet::<Runtime>::get_validator_trust_for_uid(netuid, uid);
+
+        let result_u256 = U256::from(vtrust);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&result_u256, &mut result);
+
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
-            output: [].into(),
+            output: result.into(),
         })
     }
 
     fn get_validator_status(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+        let uid = Self::parse_uid(&data[32..])?;
+
+        let validator_permit =
+            pallet_subtensor::Pallet::<Runtime>::get_validator_permit_for_uid(netuid, uid);
+
+        // let result_u256 = U256::from(validator_status);
+        // let mut result = [0_u8; 32];
+        // U256::to_big_endian(&result_u256, &mut result);
+
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
             output: [].into(),
         })
     }
 
-    fn get_last_updated(data: &[u8]) -> PrecompileResult {
+    fn get_last_update(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+        let uid = Self::parse_uid(&data[32..])?;
+
+        let last_update = pallet_subtensor::Pallet::<Runtime>::get_last_update_for_uid(netuid, uid);
+
+        let result_u256 = U256::from(last_update);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&result_u256, &mut result);
+
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
-            output: [].into(),
+            output: result.into(),
         })
     }
 
     fn get_is_active(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+        let uid = Self::parse_uid(&data[32..])?;
+
+        let rank = pallet_subtensor::Pallet::<Runtime>::get_rank_for_uid(netuid, uid);
+
+        let result_u256 = U256::from(rank);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&result_u256, &mut result);
+
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
-            output: [].into(),
+            output: result.into(),
         })
     }
 
     fn get_axon(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+        let uid = Self::parse_uid(&data[32..])?;
+
+        let hotkey = pallet_subtensor::Pallet::<Runtime>::get_hotkey_for_net_and_uid(netuid, uid)
+            .map_err(|_| PrecompileFailure::Error {
+            exit_status: ExitError::InvalidRange,
+        })?;
+
+        let axon = pallet_subtensor::Pallet::<Runtime>::get_axon_info(netuid, &hotkey);
+
+        // let result_u256 = U256::from(rank);
+        // let mut result = [0_u8; 32];
+        // U256::to_big_endian(&result_u256, &mut result);
+
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
-            output: [].into(),
+            output: axon.decode().into(),
         })
     }
 
     fn get_hotkey(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+        let uid = Self::parse_uid(&data[32..])?;
+
+        let hotkey = pallet_subtensor::Pallet::<Runtime>::get_hotkey_for_net_and_uid(netuid, uid)
+            .map_err(|_| PrecompileFailure::Error {
+            exit_status: ExitError::InvalidRange,
+        })?;
+
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
-            output: [].into(),
+            output: hotkey.as_slice().into(),
         })
     }
 
     fn get_coldkey(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+        let uid = Self::parse_uid(&data[32..])?;
+
+        let hotkey = pallet_subtensor::Pallet::<Runtime>::get_hotkey_for_net_and_uid(netuid, uid)
+            .map_err(|_| PrecompileFailure::Error {
+            exit_status: ExitError::InvalidRange,
+        })?;
+
+        let coldkey = pallet_subtensor::Owner::<Runtime>::get(&hotkey);
+
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
-            output: [].into(),
+            output: coldkey.as_slice().into(),
         })
+    }
+
+    fn parse_netuid(data: &[u8]) -> Result<u16, PrecompileFailure> {
+        if data.len() < 32 {
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+        let mut netuid = [0u8; 2];
+        netuid.copy_from_slice(get_slice(data, 30, 32)?);
+        let result = u16::from_be_bytes(netuid);
+        Ok(result)
+    }
+
+    fn parse_uid(data: &[u8]) -> Result<u16, PrecompileFailure> {
+        if data.len() < 32 {
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+        let mut uid = [0u8; 2];
+        uid.copy_from_slice(get_slice(data, 30, 32)?);
+        let result = u16::from_be_bytes(uid);
+        Ok(result)
+    }
+
+    fn parse_hotkey(data: &[u8]) -> Result<[u8; 32], PrecompileFailure> {
+        if data.len() < 32 {
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+        let mut hotkey = [0u8; 32];
+        hotkey.copy_from_slice(get_slice(data, 0, 32)?);
+        Ok(hotkey)
     }
 }
