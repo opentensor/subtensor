@@ -432,9 +432,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::AdjustmentIntervalSet(netuid, adjustment_interval));
     }
 
-    pub fn get_adjustment_alpha(netuid: u16) -> u64 {
-        AdjustmentAlpha::<T>::get(netuid)
-    }
     pub fn set_adjustment_alpha(netuid: u16, adjustment_alpha: u64) {
         AdjustmentAlpha::<T>::insert(netuid, adjustment_alpha);
         Self::deposit_event(Event::AdjustmentAlphaSet(netuid, adjustment_alpha));
@@ -513,9 +510,6 @@ impl<T: Config> Pallet<T> {
         Rho::<T>::insert(netuid, rho);
     }
 
-    pub fn get_activity_cutoff(netuid: u16) -> u16 {
-        ActivityCutoff::<T>::get(netuid)
-    }
     pub fn set_activity_cutoff(netuid: u16, activity_cutoff: u16) {
         ActivityCutoff::<T>::insert(netuid, activity_cutoff);
         Self::deposit_event(Event::ActivityCutoffSet(netuid, activity_cutoff));
