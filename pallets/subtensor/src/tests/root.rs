@@ -1,13 +1,12 @@
 #![allow(clippy::indexing_slicing, clippy::unwrap_used)]
 
-use super::mock::*;
-use crate::Error;
-use crate::{migrations, SubnetIdentity};
-use crate::{SubnetIdentities, SubnetIdentityOf};
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use frame_system::{EventRecord, Phase};
 use sp_core::{Get, H256, U256};
+
+use super::mock::*;
+use crate::{SubnetIdentities, SubnetIdentityOf, Error, SubnetworkN, migrations, SubnetIdentity};
 
 #[allow(dead_code)]
 fn record(event: RuntimeEvent) -> EventRecord<RuntimeEvent, H256> {
@@ -389,7 +388,7 @@ fn test_root_set_weights_out_of_order_netuids() {
         log::info!("netuids: {:?}", SubtensorModule::get_all_subnet_netuids());
         log::info!(
             "root network count: {:?}",
-            SubtensorModule::get_subnetwork_n(0)
+            SubnetworkN::<Test>::get(0)
         );
 
         let subnets = SubtensorModule::get_all_subnet_netuids();
@@ -553,7 +552,7 @@ fn test_network_pruning() {
         SubtensorModule::set_max_allowed_uids(root_netuid, n as u16 + 1);
         SubtensorModule::set_tempo(root_netuid, 1);
         // No validators yet.
-        assert_eq!(SubtensorModule::get_subnetwork_n(root_netuid), 0);
+        assert_eq!(SubnetworkN::<Test>::get(root_netuid), 0);
 
         for i in 0..n {
             let hot: U256 = U256::from(i);
@@ -596,7 +595,7 @@ fn test_network_pruning() {
                 hot
             ));
             assert_eq!(
-                SubtensorModule::get_subnetwork_n(root_netuid),
+                SubnetworkN::<Test>::get(root_netuid),
                 (i as u16) + 1
             );
         }
@@ -688,7 +687,7 @@ fn test_weights_after_network_pruning() {
         SubtensorModule::set_weights_set_rate_limit(root_netuid, 0_u64);
 
         // No validators yet.
-        assert_eq!(SubtensorModule::get_subnetwork_n(root_netuid), 0);
+        assert_eq!(SubnetworkN::<Test>::get(root_netuid), 0);
 
         for i in 0..n {
             // Register a validator

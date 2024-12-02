@@ -1,10 +1,5 @@
 #![allow(clippy::indexing_slicing)]
 
-use super::mock::*;
-use crate::{
-    coinbase::run_coinbase::WeightsTlockPayload, CRV3WeightCommits, Error, Owner,
-    MAX_CRV3_COMMIT_SIZE_BYTES,
-};
 use ark_serialize::CanonicalDeserialize;
 use frame_support::{
     assert_err, assert_ok,
@@ -31,6 +26,12 @@ use w3f_bls::EngineBLS;
 
 use pallet_drand::types::Pulse;
 use sp_core::Encode;
+
+use super::mock::*;
+use crate::{
+    coinbase::run_coinbase::WeightsTlockPayload, CRV3WeightCommits, Error, Owner, SubnetworkN,
+    MAX_CRV3_COMMIT_SIZE_BYTES,
+};
 
 /***************************
   pub fn set_weights() tests
@@ -721,7 +722,7 @@ fn test_weights_err_has_duplicate_ids() {
         SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(3))
             .expect("Not registered.");
 
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 4);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 4);
 
         let weights_keys: Vec<u16> = vec![1, 1, 1]; // Contains duplicates
         let weight_values: Vec<u16> = vec![1, 2, 3];
@@ -759,7 +760,7 @@ fn test_weights_err_max_weight_limit() {
         let neuron_uid: u16 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(0))
             .expect("Not registered.");
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 1);
         assert!(SubtensorModule::is_hotkey_registered_on_network(
             netuid,
             &U256::from(0)
@@ -772,7 +773,7 @@ fn test_weights_err_max_weight_limit() {
             netuid,
             &U256::from(1)
         ));
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 2);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 2);
         step_block(1);
 
         println!("+Registering: net:{:?}, cold:{:?}, hot:{:?}", netuid, 2, 2);
@@ -781,7 +782,7 @@ fn test_weights_err_max_weight_limit() {
             netuid,
             &U256::from(2)
         ));
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 3);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 3);
         step_block(1);
 
         println!("+Registering: net:{:?}, cold:{:?}, hot:{:?}", netuid, 3, 3);
@@ -790,7 +791,7 @@ fn test_weights_err_max_weight_limit() {
             netuid,
             &U256::from(3)
         ));
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 4);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 4);
         step_block(1);
 
         println!("+Registering: net:{:?}, cold:{:?}, hot:{:?}", netuid, 4, 4);
@@ -799,7 +800,7 @@ fn test_weights_err_max_weight_limit() {
             netuid,
             &U256::from(4)
         ));
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 5);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 5);
         step_block(1);
 
         // Non self-weight fails.
@@ -1296,7 +1297,7 @@ fn test_check_len_uids_within_allowed_within_network_pool() {
         register_ok_neuron(netuid, U256::from(1), U256::from(1), 0);
         register_ok_neuron(netuid, U256::from(3), U256::from(3), 65555);
         register_ok_neuron(netuid, U256::from(5), U256::from(5), 75555);
-        let max_allowed: u16 = SubtensorModule::get_subnetwork_n(netuid);
+        let max_allowed: u16 = SubnetworkN::<Test>::get(netuid);
 
         SubtensorModule::set_max_allowed_uids(netuid, max_allowed);
         SubtensorModule::set_max_registrations_per_block(netuid, max_registrations_per_block);
@@ -1329,7 +1330,7 @@ fn test_check_len_uids_within_allowed_not_within_network_pool() {
         register_ok_neuron(netuid, U256::from(1), U256::from(1), 0);
         register_ok_neuron(netuid, U256::from(3), U256::from(3), 65555);
         register_ok_neuron(netuid, U256::from(5), U256::from(5), 75555);
-        let max_allowed: u16 = SubtensorModule::get_subnetwork_n(netuid);
+        let max_allowed: u16 = SubnetworkN::<Test>::get(netuid);
 
         SubtensorModule::set_max_allowed_uids(netuid, max_allowed);
         SubtensorModule::set_max_registrations_per_block(netuid, max_registrations_per_block);
