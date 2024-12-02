@@ -113,8 +113,7 @@ pub fn vec_max_upscale_to_u16(vec: &[I32F32]) -> Vec<u16> {
                     })
                     .collect();
             }
-            vec
-                .iter()
+            vec.iter()
                 .map(|e: &I32F32| {
                     e.saturating_mul(u16_max)
                         .saturating_div(*val)
@@ -125,8 +124,7 @@ pub fn vec_max_upscale_to_u16(vec: &[I32F32]) -> Vec<u16> {
         }
         None => {
             let sum: I32F32 = vec.iter().sum();
-            vec
-                .iter()
+            vec.iter()
                 .map(|e: &I32F32| {
                     e.saturating_mul(u16_max)
                         .saturating_div(sum)
