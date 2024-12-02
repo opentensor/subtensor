@@ -4,18 +4,17 @@ use super::mock::*;
 
 use codec::Encode;
 use frame_support::{assert_noop, assert_ok};
+use frame_system::pallet_prelude::*;
+use frame_system::Config;
 use frame_system::{EventRecord, Phase};
+use pallet_collective::Event as CollectiveEvent;
 use sp_core::{bounded_vec, H256, U256};
 use sp_runtime::{
     traits::{BlakeTwo256, Hash},
     BuildStorage,
 };
 
-use crate::migrations;
-use crate::Error;
-use frame_system::pallet_prelude::*;
-use frame_system::Config;
-use pallet_collective::Event as CollectiveEvent;
+use crate::{migrations, Error, SubnetworkN};
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
@@ -82,7 +81,7 @@ fn test_senate_join_works() {
             (10000 - burn_cost)
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 1);
         // Check if hotkey is added to the Hotkeys
         assert_eq!(
             SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
@@ -151,7 +150,7 @@ fn test_senate_vote_works() {
             (10000 - burn_cost)
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 1);
         // Check if hotkey is added to the Hotkeys
         assert_eq!(
             SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
@@ -259,7 +258,7 @@ fn test_senate_vote_not_member() {
             (10000 - burn_cost)
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 1);
         // Check if hotkey is added to the Hotkeys
         assert_eq!(
             SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
@@ -319,7 +318,7 @@ fn test_senate_leave_works() {
             (10000 - burn_cost)
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 1);
         // Check if hotkey is added to the Hotkeys
         assert_eq!(
             SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
@@ -389,7 +388,7 @@ fn test_senate_leave_vote_removal() {
             (10000 - burn_cost)
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 1);
         // Check if hotkey is added to the Hotkeys
         assert_eq!(
             SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
@@ -528,7 +527,7 @@ fn test_senate_not_leave_when_stake_removed() {
             (10000 - burn_cost)
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 1);
         // Check if hotkey is added to the Hotkeys
         assert_eq!(
             SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
@@ -607,7 +606,7 @@ fn test_senate_join_current_delegate() {
             (10000 - burn_cost)
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 1);
         // Check if hotkey is added to the Hotkeys
         assert_eq!(
             SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
@@ -696,7 +695,7 @@ fn test_adjust_senate_events() {
             (balance_to_add - burn_cost)
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 1);
         // Check if hotkey is added to the Hotkeys
         assert_eq!(
             SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),

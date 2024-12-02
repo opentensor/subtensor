@@ -116,7 +116,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 11. Append neuron or prune it.
         let subnetwork_uid: u16;
-        let current_subnetwork_n: u16 = Self::get_subnetwork_n(netuid);
+        let current_subnetwork_n: u16 = SubnetworkN::<T>::get(netuid);
 
         // Possibly there is no neuron slots at all.
         ensure!(
@@ -311,7 +311,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 11. Append neuron or prune it.
         let subnetwork_uid: u16;
-        let current_subnetwork_n: u16 = Self::get_subnetwork_n(netuid);
+        let current_subnetwork_n: u16 = SubnetworkN::<T>::get(netuid);
 
         // Possibly there is no neuron slots at all.
         ensure!(
@@ -441,7 +441,7 @@ impl<T: Config> Pallet<T> {
         // This may be unlikely in practice.
         let mut found_non_immune = false;
 
-        let neurons_n = Self::get_subnetwork_n(netuid);
+        let neurons_n = SubnetworkN::<T>::get(netuid);
         if neurons_n == 0 {
             return 0; // If there are no neurons in this network.
         }
