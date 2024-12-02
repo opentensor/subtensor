@@ -4,8 +4,10 @@ use frame_support::{
     dispatch::{DispatchClass, GetDispatchInfo, Pays},
 };
 use frame_system::Config;
-use pallet_subtensor::Error as SubtensorError;
-use pallet_subtensor::{migrations, Event, RAORecycledForRegistration};
+use pallet_subtensor::{
+    migrations, ActivityCutoff, AdjustmentAlpha, Error as SubtensorError, Event,
+    RAORecycledForRegistration,
+};
 use sp_core::U256;
 
 use crate::Error;
@@ -235,7 +237,7 @@ fn test_sudo_set_adjustment_alpha() {
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
-        let init_value: u64 = SubtensorModule::get_adjustment_alpha(netuid);
+        let init_value: u64 = AdjustmentAlpha::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_adjustment_alpha(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -252,13 +254,13 @@ fn test_sudo_set_adjustment_alpha() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_adjustment_alpha(netuid), init_value);
+        assert_eq!(AdjustmentAlpha::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_adjustment_alpha(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_adjustment_alpha(netuid), to_be_set);
+        assert_eq!(AdjustmentAlpha::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -543,7 +545,7 @@ fn test_sudo_set_activity_cutoff() {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
-        let init_value: u16 = SubtensorModule::get_activity_cutoff(netuid);
+        let init_value: u16 = ActivityCutoff::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_activity_cutoff(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -560,13 +562,13 @@ fn test_sudo_set_activity_cutoff() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_activity_cutoff(netuid), init_value);
+        assert_eq!(ActivityCutoff::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_activity_cutoff(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_activity_cutoff(netuid), to_be_set);
+        assert_eq!(ActivityCutoff::<Test>::get(netuid), to_be_set);
     });
 }
 
