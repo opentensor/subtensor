@@ -9,6 +9,9 @@ use sp_runtime::{traits::Member, RuntimeAppPublic};
 
 mod benchmarking;
 
+#[cfg(test)]
+mod tests;
+
 #[deny(missing_docs)]
 #[frame_support::pallet]
 pub mod pallet {

@@ -22,29 +22,6 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
     let old_state: ColdkeyHotkeys =
         json::from_slice(&bytes).map_err(|e| format!("Error parsing genesis file: {e}"))?;
 
-    let mut processed_stakes: Vec<(
-        sp_runtime::AccountId32,
-        Vec<(sp_runtime::AccountId32, (u64, u16))>,
-    )> = Vec::new();
-    for (coldkey_str, hotkeys) in old_state.stakes.iter() {
-        let coldkey = <sr25519::Public as Ss58Codec>::from_ss58check(coldkey_str)
-            .map_err(|e| e.to_string())?;
-        let coldkey_account = sp_runtime::AccountId32::from(coldkey);
-
-        let mut processed_hotkeys: Vec<(sp_runtime::AccountId32, (u64, u16))> = Vec::new();
-
-        for (hotkey_str, amount_uid) in hotkeys.iter() {
-            let (amount, uid) = amount_uid;
-            let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(hotkey_str)
-                .map_err(|e| e.to_string())?;
-            let hotkey_account = sp_runtime::AccountId32::from(hotkey);
-
-            processed_hotkeys.push((hotkey_account, (*amount, *uid)));
-        }
-
-        processed_stakes.push((coldkey_account, processed_hotkeys));
-    }
-
     let mut balances_issuance: u64 = 0;
     let mut processed_balances: Vec<(sp_runtime::AccountId32, u64)> = Vec::new();
     for (key_str, amount) in old_state.balances.iter() {
@@ -57,10 +34,11 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
             .checked_add(*amount)
             .ok_or("Balances issuance overflowed".to_string())?;
     }
+    processed_balances.sort();
 
     // Give front-ends necessary data to present to users
     let mut properties = sc_service::Properties::new();
-    properties.insert("tokenSymbol".into(), "TAO".into());
+    properties.insert("tokenSymbol".into(), "testTAO".into());
     properties.insert("tokenDecimals".into(), 9.into());
     properties.insert("ss58Format".into(), 42.into());
 
@@ -116,8 +94,8 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
         // Pre-funded accounts
         vec![],
         true,
-        processed_stakes.clone(),
-        processed_balances.clone(),
+        vec![],
+        processed_balances,
         balances_issuance,
     ))
     .with_properties(properties)
@@ -128,7 +106,7 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
 #[allow(clippy::too_many_arguments)]
 fn testnet_genesis(
     initial_authorities: Vec<(AuraId, GrandpaId)>,
-    _root_key: AccountId,
+    root_key: AccountId,
     _endowed_accounts: Vec<AccountId>,
     _enable_println: bool,
     _stakes: Vec<(AccountId, Vec<(AccountId, (u64, u16))>)>,
@@ -138,11 +116,7 @@ fn testnet_genesis(
     serde_json::json!({
         "balances": {
             // Configure sudo balance
-            "balances": vec![(
-                <AccountId32 as Ss58Codec>::from_ss58check("5GpzQgpiAKHMWNSH3RN4GLf96GVTDct9QxYEFAY7LWcVzTbx")
-                    .unwrap(),
-                1000000000000u128,
-            )],
+            "balances": vec![(root_key.clone(), 1_000_000_000_000u128)],
         },
         "aura": {
             "authorities": initial_authorities.iter().map(|x| (x.0.clone())).collect::<Vec<_>>(),
@@ -154,10 +128,7 @@ fn testnet_genesis(
                 .collect::<Vec<_>>(),
         },
         "sudo": {
-            "key": Some(
-                <AccountId32 as Ss58Codec>::from_ss58check("5GpzQgpiAKHMWNSH3RN4GLf96GVTDct9QxYEFAY7LWcVzTbx")
-                    .unwrap(),
-            ),
+            "key": Some(root_key),
         },
     })
 }
