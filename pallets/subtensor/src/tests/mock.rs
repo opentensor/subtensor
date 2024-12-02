@@ -1,4 +1,5 @@
 #![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
+use crate::utils::rate_limiting::TransactionType;
 use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
 use frame_support::weights::constants::RocksDbWeight;
@@ -600,4 +601,14 @@ pub fn is_within_tolerance(actual: u64, expected: u64, tolerance: u64) -> bool {
         expected - actual
     };
     difference <= tolerance
+}
+
+// Helper function to wait for the rate limit
+#[allow(dead_code)]
+pub fn step_rate_limit(transaction_type: &TransactionType, netuid: u16) {
+    // Check rate limit
+    let limit = SubtensorModule::get_rate_limit(transaction_type, netuid);
+
+    // Step that many blocks
+    step_block(limit as u16);
 }
