@@ -113,26 +113,24 @@ pub fn vec_max_upscale_to_u16(vec: &[I32F32]) -> Vec<u16> {
                     })
                     .collect();
             }
-            return vec
-                .iter()
+            vec.iter()
                 .map(|e: &I32F32| {
                     e.saturating_mul(u16_max)
                         .saturating_div(*val)
                         .round()
                         .to_num::<u16>()
                 })
-                .collect();
+                .collect()
         }
         None => {
             let sum: I32F32 = vec.iter().sum();
-            return vec
-                .iter()
+            vec.iter()
                 .map(|e: &I32F32| {
                     e.saturating_mul(u16_max)
                         .saturating_div(sum)
                         .to_num::<u16>()
                 })
-                .collect();
+                .collect()
         }
     }
 }
@@ -246,7 +244,7 @@ pub fn is_topk(vector: &[I32F32], k: usize) -> Vec<bool> {
 pub fn normalize(x: &[I32F32]) -> Vec<I32F32> {
     let x_sum: I32F32 = sum(x);
     if x_sum != I32F32::from_num(0.0_f32) {
-        return x.iter().map(|xi| xi.saturating_div(x_sum)).collect();
+        x.iter().map(|xi| xi.saturating_div(x_sum)).collect()
     } else {
         x.to_vec()
     }
