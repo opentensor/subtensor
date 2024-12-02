@@ -1304,10 +1304,8 @@ fn test_check_len_uids_within_allowed_within_network_pool() {
 
         let uids: Vec<u16> = Vec::from_iter(0..max_allowed);
 
-        let expected = true;
-        let result = SubtensorModule::check_len_uids_within_allowed(netuid, &uids);
-        assert_eq!(
-            expected, result,
+        assert!(
+            uids.len() <= SubnetworkN::<Test>::get(netuid) as usize,
             "netuid network length and uids length incompatible"
         );
     });
@@ -1337,10 +1335,8 @@ fn test_check_len_uids_within_allowed_not_within_network_pool() {
 
         let uids: Vec<u16> = Vec::from_iter(0..(max_allowed + 1));
 
-        let expected = false;
-        let result = SubtensorModule::check_len_uids_within_allowed(netuid, &uids);
-        assert_eq!(
-            expected, result,
+        assert!(
+            uids.len() > SubnetworkN::<Test>::get(netuid) as usize,
             "Failed to detect incompatible uids for network"
         );
     });

@@ -705,7 +705,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 4. Check to see if the number of uids is within the max allowed uids for this network.
         ensure!(
-            Self::check_len_uids_within_allowed(netuid, &uids),
+			uids.len() <= SubnetworkN::<T>::get(netuid) as usize,
             Error::<T>::UidsLengthExceedUidsInSubNet
         );
 
@@ -1025,13 +1025,6 @@ impl<T: Config> Pallet<T> {
             return false;
         }
         true
-    }
-
-    /// Returns False is the number of uids exceeds the allowed number of uids for this network.
-    pub fn check_len_uids_within_allowed(netuid: u16, uids: &[u16]) -> bool {
-        let subnetwork_n = SubnetworkN::<T>::get(netuid);
-        // we should expect at most subnetwork_n uids.
-        uids.len() <= subnetwork_n as usize
     }
 
     pub fn is_reveal_block_range(netuid: u16, commit_block: u64) -> bool {
