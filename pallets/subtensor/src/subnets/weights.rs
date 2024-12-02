@@ -958,7 +958,7 @@ impl<T: Config> Pallet<T> {
 
     /// Returns True if the uids and weights are have a valid length for uid on network.
     pub fn check_length(netuid: u16, uid: u16, uids: &[u16], weights: &[u16]) -> bool {
-        let subnet_n: usize = Self::get_subnetwork_n(netuid) as usize;
+        let subnet_n: usize = SubnetworkN::<T>::get(netuid) as usize;
         let min_allowed_length: usize = Self::get_min_allowed_weights(netuid) as usize;
         let min_allowed: usize = {
             if subnet_n < min_allowed_length {
@@ -1029,7 +1029,7 @@ impl<T: Config> Pallet<T> {
 
     /// Returns False is the number of uids exceeds the allowed number of uids for this network.
     pub fn check_len_uids_within_allowed(netuid: u16, uids: &[u16]) -> bool {
-        let subnetwork_n: u16 = Self::get_subnetwork_n(netuid);
+        let subnetwork_n = SubnetworkN::<T>::get(netuid);
         // we should expect at most subnetwork_n uids.
         uids.len() <= subnetwork_n as usize
     }

@@ -71,7 +71,7 @@ impl<T: Config> Pallet<T> {
     /// * 'u16': The total number of root network validators
     ///
     pub fn get_num_root_validators() -> u16 {
-        Self::get_subnetwork_n(Self::ROOT_NETUID)
+        SubnetworkN::<T>::get(Self::ROOT_NETUID)
     }
 
     /// Fetches the max validators count of root network.

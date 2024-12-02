@@ -59,7 +59,7 @@ impl<T: Config> Pallet<T> {
         }
 
         let mut neurons = Vec::new();
-        let n = Self::get_subnetwork_n(netuid);
+        let n = SubnetworkN::<T>::get(netuid);
         for uid in 0..n {
             let neuron = match Self::get_neuron_subnet_exists(netuid, uid) {
                 Some(n) => n,
@@ -213,7 +213,7 @@ impl<T: Config> Pallet<T> {
         }
 
         let mut neurons: Vec<NeuronInfoLite<T>> = Vec::new();
-        let n = Self::get_subnetwork_n(netuid);
+        let n = SubnetworkN::<T>::get(netuid);
         for uid in 0..n {
             let neuron = match Self::get_neuron_lite_subnet_exists(netuid, uid) {
                 Some(n) => n,
