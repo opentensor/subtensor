@@ -7,7 +7,7 @@ use frame_support::{
 use frame_system::Config;
 use pallet_subtensor::{
     migrations, ActivityCutoff, AdjustmentAlpha, Error as SubtensorError, Event,
-    RAORecycledForRegistration,
+    RAORecycledForRegistration, AdjustmentInterval,
 };
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{ed25519, Pair, U256};
@@ -206,7 +206,7 @@ fn test_sudo_set_adjustment_interval() {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
-        let init_value: u16 = SubtensorModule::get_adjustment_interval(netuid);
+        let init_value: u16 = AdjustmentInterval::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_adjustment_interval(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -223,13 +223,13 @@ fn test_sudo_set_adjustment_interval() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_adjustment_interval(netuid), init_value);
+        assert_eq!(AdjustmentInterval::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_adjustment_interval(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_adjustment_interval(netuid), to_be_set);
+        assert_eq!(AdjustmentInterval::<Test>::get(netuid), to_be_set);
     });
 }
 
