@@ -3,6 +3,7 @@
 use sp_core::U256;
 
 use super::mock::*;
+use crate::SubnetworkN;
 
 #[test]
 fn test_registration_difficulty_adjustment() {
@@ -61,7 +62,7 @@ fn test_registration_difficulty_adjustment() {
             hotkey2
         );
 
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 3); // All 3 are registered.
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 3); // All 3 are registered.
         assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 3); // 3 Registrations.
         assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 3); // 3 Registrations this interval.
 
