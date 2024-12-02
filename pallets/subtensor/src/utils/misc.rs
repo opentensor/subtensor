@@ -424,9 +424,6 @@ impl<T: Config> Pallet<T> {
         ));
     }
 
-    pub fn get_adjustment_interval(netuid: u16) -> u16 {
-        AdjustmentInterval::<T>::get(netuid)
-    }
     pub fn set_adjustment_interval(netuid: u16, adjustment_interval: u16) {
         AdjustmentInterval::<T>::insert(netuid, adjustment_interval);
         Self::deposit_event(Event::AdjustmentIntervalSet(netuid, adjustment_interval));
