@@ -241,7 +241,7 @@ impl<T: Config> Pallet<T> {
         let weights_version = Self::get_weights_version_key(netuid);
         let weights_rate_limit = Self::get_weights_set_rate_limit(netuid);
         let adjustment_interval = Self::get_adjustment_interval(netuid);
-        let activity_cutoff = Self::get_activity_cutoff(netuid);
+        let activity_cutoff = ActivityCutoff::<T>::get(netuid);
         let registration_allowed = Self::get_network_registration_allowed(netuid);
         let target_regs_per_interval = Self::get_target_registrations_per_interval(netuid);
         let min_burn = Self::get_min_burn_as_u64(netuid);
@@ -250,7 +250,7 @@ impl<T: Config> Pallet<T> {
         let max_regs_per_block = Self::get_max_registrations_per_block(netuid);
         let serving_rate_limit = Self::get_serving_rate_limit(netuid);
         let max_validators = Self::get_max_allowed_validators(netuid);
-        let adjustment_alpha = Self::get_adjustment_alpha(netuid);
+        let adjustment_alpha = AdjustmentAlpha::<T>::get(netuid);
         let difficulty = Self::get_difficulty_as_u64(netuid);
         let commit_reveal_periods = Self::get_reveal_period(netuid);
         let commit_reveal_weights_enabled = Self::get_commit_reveal_weights_enabled(netuid);
