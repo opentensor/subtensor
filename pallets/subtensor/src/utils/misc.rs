@@ -75,9 +75,6 @@ impl<T: Config> Pallet<T> {
     pub fn get_trust(netuid: u16) -> Vec<u16> {
         Trust::<T>::get(netuid)
     }
-    pub fn get_active(netuid: u16) -> Vec<bool> {
-        Active::<T>::get(netuid)
-    }
     pub fn get_emission(netuid: u16) -> Vec<u64> {
         Emission::<T>::get(netuid)
     }
@@ -115,7 +112,7 @@ impl<T: Config> Pallet<T> {
         LastUpdate::<T>::insert(netuid, updated_last_update_vec);
     }
     pub fn set_active_for_uid(netuid: u16, uid: u16, active: bool) {
-        let mut updated_active_vec = Self::get_active(netuid);
+        let mut updated_active_vec = Active::<T>::get(netuid);
         let Some(updated_active) = updated_active_vec.get_mut(uid as usize) else {
             return;
         };
