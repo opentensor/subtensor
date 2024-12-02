@@ -2835,7 +2835,7 @@ fn test_blocks_since_last_step() {
 //     println!("]");
 // }
 
-/// Helpers
+// Helpers
 
 /// Asserts that two I32F32 values are approximately equal within a given epsilon.
 ///
