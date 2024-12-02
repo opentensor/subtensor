@@ -1,6 +1,8 @@
-use super::*;
 use frame_support::storage::IterableStorageMap;
 use substrate_fixed::types::I110F18;
+
+use super::*;
+use crate::AdjustmentAlpha;
 
 impl<T: Config + pallet_drand::Config> Pallet<T> {
     /// Executes the necessary operations for each block.
@@ -188,7 +190,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
             .saturating_div(I110F18::from_num(
                 target_registrations_per_interval.saturating_add(target_registrations_per_interval),
             ));
-        let alpha: I110F18 = I110F18::from_num(Self::get_adjustment_alpha(netuid))
+        let alpha: I110F18 = I110F18::from_num(AdjustmentAlpha::<T>::get(netuid))
             .saturating_div(I110F18::from_num(u64::MAX));
         let next_value: I110F18 = alpha
             .saturating_mul(I110F18::from_num(current_difficulty))
@@ -222,7 +224,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
             .saturating_div(I110F18::from_num(
                 target_registrations_per_interval.saturating_add(target_registrations_per_interval),
             ));
-        let alpha: I110F18 = I110F18::from_num(Self::get_adjustment_alpha(netuid))
+        let alpha: I110F18 = I110F18::from_num(AdjustmentAlpha::<T>::get(netuid))
             .saturating_div(I110F18::from_num(u64::MAX));
         let next_value: I110F18 = alpha
             .saturating_mul(I110F18::from_num(current_burn))

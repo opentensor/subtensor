@@ -1,5 +1,5 @@
 use super::*;
-use crate::epoch::math::*;
+use crate::{epoch::math::*, ActivityCutoff};
 use frame_support::IterableStorageDoubleMap;
 use sp_std::vec;
 use substrate_fixed::types::{I32F32, I64F64, I96F32};
@@ -103,7 +103,7 @@ impl<T: Config> Pallet<T> {
         log::trace!("current_block:\n{:?}\n", current_block);
 
         // Get activity cutoff.
-        let activity_cutoff: u64 = Self::get_activity_cutoff(netuid) as u64;
+        let activity_cutoff = ActivityCutoff::<T>::get(netuid) as u64;
         log::trace!("activity_cutoff:\n{:?}\n", activity_cutoff);
 
         // Last update vector.
@@ -449,7 +449,7 @@ impl<T: Config> Pallet<T> {
         log::trace!("current_block: {:?}", current_block);
 
         // Get activity cutoff.
-        let activity_cutoff: u64 = Self::get_activity_cutoff(netuid) as u64;
+        let activity_cutoff = ActivityCutoff::<T>::get(netuid) as u64;
         log::trace!("activity_cutoff: {:?}", activity_cutoff);
 
         // Last update vector.
