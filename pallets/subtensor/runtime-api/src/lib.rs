@@ -30,11 +30,21 @@ sp_api::decl_runtime_apis! {
     }
 
     pub trait StakeInfoRuntimeApi {
-        fn get_stake_info_for_coldkey( coldkey_account_vec: Vec<u8> ) -> Vec<u8>;
-        fn get_stake_info_for_coldkeys( coldkey_account_vecs: Vec<Vec<u8>> ) -> Vec<u8>;
+        fn get_stake_info_for_coldkey(coldkey_account_vec: Vec<u8>) -> Vec<u8>;
+        fn get_stake_info_for_coldkeys(coldkey_account_vecs: Vec<Vec<u8>>) -> Vec<u8>;
     }
 
     pub trait SubnetRegistrationRuntimeApi {
         fn get_network_registration_cost() -> u64;
+    }
+
+    /// API for getting transaction rate limits associated with coldkeys and hotkeys.
+    pub trait RateLimitInfoRuntimeApi {
+        /// Get transactions rate limits.
+        fn get_rate_limits() -> Vec<u8>;
+        /// Get transaction rate limits associated with the `hotkey`.
+        fn get_limited_tx_info_for_hotkey(hotkey: Vec<u8>, netuid: u16) -> Vec<u8>;
+        /// Get number of stakes associated with coldkey/hotkey pair, made during `StakeInterval`.
+        fn get_stakes_this_interval(coldkey: Vec<u8>, hotkey: Vec<u8>) -> u64;
     }
 }
