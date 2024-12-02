@@ -1,4 +1,5 @@
 #![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
+use crate::utils::rate_limiting::TransactionType;
 use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
 use frame_support::weights::constants::RocksDbWeight;
@@ -10,7 +11,6 @@ use frame_support::{
 use frame_system as system;
 use frame_system::{limits, EnsureNever, EnsureRoot, RawOrigin};
 use pallet_collective::MemberCount;
-use pallet_subtensor::utils::rate_limiting::TransactionType;
 use sp_core::{Get, H256, U256};
 use sp_runtime::Perbill;
 use sp_runtime::{
