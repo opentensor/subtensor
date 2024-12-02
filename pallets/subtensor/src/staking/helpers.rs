@@ -221,7 +221,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `coldkey` - A reference to the AccountId of the coldkey involved in the staking.
     /// * `hotkey` - A reference to the AccountId of the hotkey associated with the coldkey.
-    pub fn empty_stake_on_coldkey_hotkey_account(
+    fn empty_stake_on_coldkey_hotkey_account(
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
     ) -> u64 {
