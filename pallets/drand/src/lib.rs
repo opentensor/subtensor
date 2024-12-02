@@ -51,6 +51,7 @@ use frame_system::{
 };
 use scale_info::prelude::cmp;
 use sha2::{Digest, Sha256};
+use sp_core::blake2_256;
 use sp_runtime::{
     offchain::{http, Duration},
     traits::{Hash, One},
@@ -279,6 +280,7 @@ pub mod pallet {
                         payload,
                         signature,
                         &payload.block_number,
+                        &payload.public,
                     )
                 }
                 Call::write_pulse {
@@ -290,6 +292,7 @@ pub mod pallet {
                         payload,
                         signature,
                         &payload.block_number,
+                        &payload.public,
                     )
                 }
                 _ => InvalidTransaction::Call.into(),
@@ -506,16 +509,20 @@ impl<T: Config> Pallet<T> {
         payload: &impl SignedPayload<T>,
         signature: &T::Signature,
         block_number: &BlockNumberFor<T>,
+        public: &T::Public,
     ) -> TransactionValidity {
         let signature_valid =
             SignedPayload::<T>::verify::<T::AuthorityId>(payload, signature.clone());
         if !signature_valid {
             return InvalidTransaction::BadProof.into();
         }
-        Self::validate_transaction_parameters(block_number)
+        Self::validate_transaction_parameters(block_number, public)
     }
 
-    fn validate_transaction_parameters(block_number: &BlockNumberFor<T>) -> TransactionValidity {
+    fn validate_transaction_parameters(
+        block_number: &BlockNumberFor<T>,
+        public: &T::Public,
+    ) -> TransactionValidity {
         // Now let's check if the transaction has any chance to succeed.
         let next_unsigned_at = NextUnsignedAt::<T>::get();
         if &next_unsigned_at > block_number {
@@ -526,6 +533,8 @@ impl<T: Config> Pallet<T> {
         if &current_block < block_number {
             return InvalidTransaction::Future.into();
         }
+
+        let provides_tag = (next_unsigned_at, public.encode()).using_encoded(blake2_256);
 
         ValidTransaction::with_tag_prefix("DrandOffchainWorker")
             // We set the priority to the value stored at `UnsignedPriority`.
@@ -538,7 +547,7 @@ impl<T: Config> Pallet<T> {
             // get to the transaction pool and will end up in the block.
             // We can still have multiple transactions compete for the same "spot",
             // and the one with higher priority will replace other one in the pool.
-            .and_provides(next_unsigned_at)
+            .and_provides(provides_tag)
             // The transaction is only valid for next block. After that it's
             // going to be revalidated by the pool.
             .longevity(1)
