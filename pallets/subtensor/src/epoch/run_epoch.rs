@@ -40,7 +40,7 @@ impl<T: Config> Pallet<T> {
 
         // Retrieve lists of parents and children from storage, based on the hotkey and network ID.
         let parents: Vec<(u64, T::AccountId)> = Self::get_parents(hotkey, netuid);
-        let children: Vec<(u64, T::AccountId)> = Self::get_children(hotkey, netuid);
+        let children: Vec<(u64, T::AccountId)> = ChildKeys::<T>::get(hotkey, netuid);
 
         // Iterate over children to calculate the total stake allocated to them.
         for (proportion, _) in children {
