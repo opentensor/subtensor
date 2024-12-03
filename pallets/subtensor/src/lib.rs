@@ -718,9 +718,9 @@ pub mod pallet {
         T::InitialMaxNominators::get()
     }
     #[pallet::type_value]
-    /// Default value for minimum stake a nominator has.
-    pub fn DefaultMinNominatorStake<T: Config>() -> u64 {
-        u64::MAX
+    /// Default value for minimum stake a nominator has and which nominator has the minimum stake.
+    pub fn DefaultMinNominator<T: Config>() -> (u64, T::AccountId) {
+        (u64::MAX, T::AccountId::default())
     }
 
     #[pallet::storage]
@@ -966,6 +966,13 @@ pub mod pallet {
     #[pallet::storage] // --- DMAP ( cold ) --> () | Maps coldkey to if a coldkey swap is scheduled.
     pub type ColdkeySwapScheduled<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, (), ValueQuery>;
+
+    #[pallet::storage] // MAP ( netuid ) --> u16 | Maximum nominators per subnet
+    pub type MaxNominatorsPerSubnet<T: Config> =
+        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultMaxNominators<T>>;
+    #[pallet::storage] // DMAP ( netuid ) --> (u64, coldkey) | Minimum nominator stake and which nominator has the minimum stake.
+    pub type MinNominator<T: Config> =
+        StorageMap<_, Identity, u16, (u64, T::AccountId), ValueQuery, DefaultMinNominator<T>>;
 
     /// ============================
     /// ==== Global Parameters =====
