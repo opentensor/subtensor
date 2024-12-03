@@ -15,6 +15,8 @@ pub const METAGRAPH_PRECOMPILE_INDEX: u64 = 2050;
 use sp_runtime::AccountId32;
 pub struct MetagraphPrecompile;
 
+const NO_HOTKEY: &str = "no hotkey";
+
 impl MetagraphPrecompile {
     pub fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
         log::error!("++++++ execute metagraph");
@@ -274,18 +276,40 @@ impl MetagraphPrecompile {
 
         let hotkey = pallet_subtensor::Pallet::<Runtime>::get_hotkey_for_net_and_uid(netuid, uid)
             .map_err(|_| PrecompileFailure::Error {
-            exit_status: ExitError::InvalidRange,
+            exit_status: ExitError::Other(sp_version::Cow::Borrowed(NO_HOTKEY)),
         })?;
 
         let axon = pallet_subtensor::Pallet::<Runtime>::get_axon_info(netuid, &hotkey);
 
-        // let result_u256 = U256::from(rank);
-        // let mut result = [0_u8; 32];
-        // U256::to_big_endian(&result_u256, &mut result);
+        let mut block_result = [0_u8; 32];
+        U256::to_big_endian(&U256::from(axon.block), &mut block_result);
+
+        let mut version_result = [0_u8; 32];
+        U256::to_big_endian(&U256::from(axon.version), &mut version_result);
+
+        let mut ip_result = [0_u8; 32];
+        U256::to_big_endian(&U256::from(axon.ip), &mut ip_result);
+
+        let mut port_result = [0_u8; 32];
+        U256::to_big_endian(&U256::from(axon.port), &mut port_result);
+
+        let mut ip_type_result = [0_u8; 32];
+        U256::to_big_endian(&U256::from(axon.ip_type), &mut ip_type_result);
+
+        let mut protocol_result = [0_u8; 32];
+        U256::to_big_endian(&U256::from(axon.protocol), &mut protocol_result);
+
+        let mut result = [0_u8; 192];
+        result[..32].copy_from_slice(&block_result);
+        result[32..64].copy_from_slice(&version_result);
+        result[64..96].copy_from_slice(&ip_result);
+        result[96..128].copy_from_slice(&port_result);
+        result[128..160].copy_from_slice(&ip_type_result);
+        result[160..].copy_from_slice(&protocol_result);
 
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
-            output: axon.decode().into(),
+            output: result.into(),
         })
     }
 
