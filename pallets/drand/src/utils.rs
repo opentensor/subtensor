@@ -74,6 +74,8 @@ pub fn make_msm_args<Group: ark_ec::VariableBaseMSM>(
 
 pub fn serialize_argument(argument: impl CanonicalSerialize) -> Vec<u8> {
     let mut buf = vec![0; argument.serialized_size(Compress::No)];
-    argument.serialize_uncompressed(buf.as_mut_slice()).unwrap_or_default();
+    argument
+        .serialize_uncompressed(buf.as_mut_slice())
+        .unwrap_or_default();
     buf
 }
