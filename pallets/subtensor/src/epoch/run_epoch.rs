@@ -1081,7 +1081,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
     ) -> Vec<Vec<(u16, I32F32)>> {
         // Retrieve the bonds moving average for the given network ID and scale it down.
-        let bonds_moving_average: I64F64 = I64F64::from_num(Self::get_bonds_moving_average(netuid))
+        let bonds_moving_average: I64F64 = I64F64::from_num(BondsMovingAverage::<T>::get(netuid))
             .saturating_div(I64F64::from_num(1_000_000));
 
         // Calculate the alpha value for the EMA calculation.
@@ -1114,7 +1114,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
     ) -> Vec<Vec<I32F32>> {
         // Retrieve the bonds moving average for the given network ID and scale it down.
-        let bonds_moving_average: I64F64 = I64F64::from_num(Self::get_bonds_moving_average(netuid))
+        let bonds_moving_average: I64F64 = I64F64::from_num(BondsMovingAverage::<T>::get(netuid))
             .saturating_div(I64F64::from_num(1_000_000));
 
         // Calculate the alpha value for the EMA calculation.

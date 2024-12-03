@@ -7,7 +7,7 @@ use frame_support::{
 use frame_system::Config;
 use pallet_subtensor::{
     migrations, ActivityCutoff, AdjustmentAlpha, AdjustmentInterval, AlphaValues,
-    Error as SubtensorError, Event, RAORecycledForRegistration,
+    BondsMovingAverage, Error as SubtensorError, Event, RAORecycledForRegistration,
 };
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{ed25519, Pair, U256};
@@ -712,7 +712,7 @@ fn test_sudo_set_bonds_moving_average() {
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
-        let init_value: u64 = SubtensorModule::get_bonds_moving_average(netuid);
+        let init_value = BondsMovingAverage::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_bonds_moving_average(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -729,16 +729,13 @@ fn test_sudo_set_bonds_moving_average() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(
-            SubtensorModule::get_bonds_moving_average(netuid),
-            init_value
-        );
+        assert_eq!(BondsMovingAverage::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_bonds_moving_average(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_bonds_moving_average(netuid), to_be_set);
+        assert_eq!(BondsMovingAverage::<Test>::get(netuid), to_be_set);
     });
 }
 

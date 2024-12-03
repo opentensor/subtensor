@@ -246,7 +246,7 @@ impl<T: Config> Pallet<T> {
         let target_regs_per_interval = Self::get_target_registrations_per_interval(netuid);
         let min_burn = Self::get_min_burn_as_u64(netuid);
         let max_burn = Self::get_max_burn_as_u64(netuid);
-        let bonds_moving_avg = Self::get_bonds_moving_average(netuid);
+        let bonds_moving_avg = BondsMovingAverage::<T>::get(netuid);
         let max_regs_per_block = Self::get_max_registrations_per_block(netuid);
         let serving_rate_limit = Self::get_serving_rate_limit(netuid);
         let max_validators = Self::get_max_allowed_validators(netuid);
