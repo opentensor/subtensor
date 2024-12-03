@@ -876,7 +876,7 @@ fn test_childkey_take_functionality() {
         ));
 
         // Verify childkey take was set correctly
-        let stored_take = SubtensorModule::get_childkey_take(&hotkey, netuid);
+        let stored_take = ChildkeyTake::<Test>::get(&hotkey, netuid);
         log::info!("Stored take: {}", stored_take);
         assert_eq!(stored_take, new_take);
 
@@ -1001,7 +1001,7 @@ fn test_childkey_take_rate_limiting() {
         log_rate_limit_info();
 
         // Verify the final take was set
-        let stored_take = SubtensorModule::get_childkey_take(&hotkey, netuid);
+        let stored_take = ChildkeyTake::<Test>::get(&hotkey, netuid);
         assert_eq!(stored_take, 700);
     });
 }
@@ -1039,7 +1039,7 @@ fn test_multiple_networks_childkey_take() {
             ));
 
             // Verify the childkey take was set correctly
-            let stored_take = SubtensorModule::get_childkey_take(&hotkey, netuid);
+            let stored_take = ChildkeyTake::<Test>::get(&hotkey, netuid);
             assert_eq!(
                 stored_take, take_value,
                 "Childkey take not set correctly for network {}",
@@ -1053,8 +1053,8 @@ fn test_multiple_networks_childkey_take() {
         // Verify all networks have different childkey take values
         for i in 1..NUM_NETWORKS {
             for j in (i + 1)..NUM_NETWORKS {
-                let take_i = SubtensorModule::get_childkey_take(&hotkey, i);
-                let take_j = SubtensorModule::get_childkey_take(&hotkey, j);
+                let take_i = ChildkeyTake::<Test>::get(&hotkey, i);
+                let take_j = ChildkeyTake::<Test>::get(&hotkey, j);
                 assert_ne!(
                     take_i, take_j,
                     "Childkey take values should be different for networks {} and {}",
@@ -1080,7 +1080,7 @@ fn test_multiple_networks_childkey_take() {
         ));
 
         // Verify the new take value
-        let new_take = SubtensorModule::get_childkey_take(&hotkey, 1);
+        let new_take = ChildkeyTake::<Test>::get(&hotkey, 1);
         assert_eq!(new_take, 1100, "Childkey take not updated after rate limit");
     });
 }
