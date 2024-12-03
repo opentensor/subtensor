@@ -658,10 +658,6 @@ impl<T: Config> Pallet<T> {
         T::KeySwapCost::get()
     }
 
-    pub fn get_alpha_values(netuid: u16) -> (u16, u16) {
-        AlphaValues::<T>::get(netuid)
-    }
-
     pub fn get_alpha_values_32(netuid: u16) -> (I32F32, I32F32) {
         let (alpha_low, alpha_high): (u16, u16) = AlphaValues::<T>::get(netuid);
         let converted_low = I32F32::from_num(alpha_low).saturating_div(I32F32::from_num(u16::MAX));
