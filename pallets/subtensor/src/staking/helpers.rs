@@ -277,4 +277,12 @@ impl<T: Config> Pallet<T> {
 
         Ok(credit)
     }
+
+    pub fn get_min_nominator(netuid: u16) -> (u64, T::AccountId) {
+        MinNominator::<T>::get(netuid)
+    }
+
+    pub fn get_max_nominators_per_subnet(netuid: u16) -> u16 {
+        MaxNominatorsPerSubnet::<T>::get(netuid)
+    }
 }
