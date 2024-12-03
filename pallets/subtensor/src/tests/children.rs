@@ -3,7 +3,7 @@ use super::mock::*;
 use frame_support::{assert_err, assert_noop, assert_ok};
 
 use crate::{utils::rate_limiting::TransactionType, *};
-use sp_core::U256;
+use sp_core::{Get, U256};
 
 // 1: Successful setting of a single child
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_child_singular_success --exact --nocapture
@@ -3706,5 +3706,44 @@ fn test_do_remove_stake_clears_pending_childkeys() {
         let pending_after = PendingChildKeys::<Test>::get(netuid, hotkey);
         assert_eq!(pending_after.0.len(), 0); // zero child vec
         assert_eq!(pending_after.1, 0); // zero cooldown block
+    });
+}
+
+// Test that pending childkeys do not apply immediately and apply after cooldown period
+#[test]
+fn test_do_set_child_cooldown_period() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let parent = U256::from(2);
+        let child = U256::from(3);
+        let netuid: u16 = 1;
+        let proportion: u64 = 1000;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, parent, coldkey, 0);
+
+        // Set minimum stake for setting children
+        let parent_total_stake_original = TotalHotkeyStake::<Test>::get(parent);
+        TotalHotkeyStake::<Test>::insert(parent, DefaultMinStake::<Test>::get());
+
+        // Schedule parent-child relationship
+        assert_ok!(SubtensorModule::do_schedule_children(
+            RuntimeOrigin::signed(coldkey),
+            parent,
+            netuid,
+            vec![(proportion, child)],
+        ));
+
+        // Ensure the childkeys are not yet applied
+        let children_before = SubtensorModule::get_children(&parent, netuid);
+        assert_eq!(children_before, vec![]);
+
+        wait_and_set_pending_children(netuid);
+        TotalHotkeyStake::<Test>::insert(parent, parent_total_stake_original);
+
+        // Verify child assignment
+        let children_after = SubtensorModule::get_children(&parent, netuid);
+        assert_eq!(children_after, vec![(proportion, child)]);
     });
 }
