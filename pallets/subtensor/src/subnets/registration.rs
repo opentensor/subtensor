@@ -92,7 +92,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 7. Ensure the callers coldkey has enough stake to perform the transaction.
         let current_block_number: u64 = Self::get_current_block_as_u64();
-        let registration_cost = Self::get_burn_as_u64(netuid);
+        let registration_cost = Burn::<T>::get(netuid);
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, registration_cost),
             Error::<T>::NotEnoughBalanceToStake
@@ -146,7 +146,7 @@ impl<T: Config> Pallet<T> {
         BurnRegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
         RegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
         RegistrationsThisBlock::<T>::mutate(netuid, |val| val.saturating_inc());
-        Self::increase_rao_recycled(netuid, Self::get_burn_as_u64(netuid));
+        Self::increase_rao_recycled(netuid, Burn::<T>::get(netuid));
 
         // --- 15. Deposit successful event.
         log::debug!(
