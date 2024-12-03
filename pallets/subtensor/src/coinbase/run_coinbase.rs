@@ -93,13 +93,15 @@ impl<T: Config> Pallet<T> {
             // --- 4.1 Check to see if the subnet should run its epoch.
             if Self::should_run_epoch(*netuid, current_block) {
                 // --- 4.2 Reveal weights from the n-2nd epoch.
-                if let Err(e) = Self::reveal_crv3_commits(*netuid) {
-                    log::warn!(
-                        "Failed to reveal commits for subnet {} due to error: {:?}",
-                        *netuid,
-                        e
-                    );
-                };
+                if Self::get_commit_reveal_weights_enabled(*netuid) {
+                    if let Err(e) = Self::reveal_crv3_commits(*netuid) {
+                        log::warn!(
+                            "Failed to reveal commits for subnet {} due to error: {:?}",
+                            *netuid,
+                            e
+                        );
+                    };
+                }
 
                 // --- 4.3 Drain the subnet emission.
                 let mut subnet_emission: u64 = PendingEmission::<T>::get(*netuid);
@@ -204,8 +206,6 @@ impl<T: Config> Pallet<T> {
     }
 
     /// The `reveal_crv3_commits` function is run at the very beginning of epoch `n`,
-    /// revealing commitments from epoch `n - 2`.
-    /// n - 2.
     pub fn reveal_crv3_commits(netuid: u16) -> dispatch::DispatchResult {
         use ark_serialize::CanonicalDeserialize;
         use frame_support::traits::OriginTrait;
@@ -216,15 +216,22 @@ impl<T: Config> Pallet<T> {
         let cur_block = Self::get_current_block_as_u64();
         let cur_epoch = Self::get_epoch_index(netuid, cur_block);
 
+        // Weights revealed must have been committed during epoch `cur_epoch - reveal_period`.
+        let reveal_epoch =
+            cur_epoch.saturating_sub(Self::get_reveal_period(netuid).saturating_sub(1));
+
+        // Clean expired commits
+        for (epoch, _) in CRV3WeightCommits::<T>::iter_prefix(netuid) {
+            if epoch < reveal_epoch {
+                CRV3WeightCommits::<T>::remove(netuid, epoch);
+            }
+        }
+
         // No commits to reveal until at least epoch 2.
         if cur_epoch < 2 {
             log::warn!("Failed to reveal commit for subnet {} Too early", netuid);
             return Ok(());
         }
-
-        // Weights revealed must have been committed during epoch `cur_epoch - reveal_period`.
-        let reveal_epoch =
-            cur_epoch.saturating_sub(Self::get_reveal_period(netuid).saturating_sub(1));
 
         let mut entries = CRV3WeightCommits::<T>::take(netuid, reveal_epoch);
 

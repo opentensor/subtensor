@@ -5320,3 +5320,67 @@ fn test_multiple_commits_by_same_hotkey_within_limit() {
         );
     });
 }
+
+#[test]
+fn test_reveal_crv3_commits_removes_past_epoch_commits() {
+    new_test_ext(100).execute_with(|| {
+        let netuid: u16 = 1;
+        let hotkey: AccountId = U256::from(1);
+        let reveal_round: u64 = 1000;
+
+        // Initialize network and neuron
+        add_network(netuid, 5, 0);
+        register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        SubtensorModule::set_reveal_period(netuid, 1);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        let current_epoch = SubtensorModule::get_epoch_index(netuid, current_block);
+
+        // Simulate commits in past epochs
+        let past_epochs = vec![current_epoch - 2, current_epoch - 1];
+        for epoch in &past_epochs {
+            let commit_data: Vec<u8> = vec![*epoch as u8; 5];
+            let bounded_commit_data = commit_data
+                .clone()
+                .try_into()
+                .expect("Failed to convert commit data into bounded vector");
+            assert_ok!(CRV3WeightCommits::<Test>::try_mutate(
+                netuid,
+                *epoch,
+                |commits| -> DispatchResult {
+                    commits.push_back((hotkey, bounded_commit_data, reveal_round));
+                    Ok(())
+                }
+            ));
+        }
+
+        for epoch in &past_epochs {
+            let commits = CRV3WeightCommits::<Test>::get(netuid, *epoch);
+            assert!(
+                !commits.is_empty(),
+                "Expected commits to be present for past epoch {}",
+                epoch
+            );
+        }
+
+        assert_ok!(SubtensorModule::reveal_crv3_commits(netuid));
+
+        for epoch in &past_epochs {
+            let commits = CRV3WeightCommits::<Test>::get(netuid, *epoch);
+            assert!(
+                commits.is_empty(),
+                "Expected commits for past epoch {} to be removed",
+                epoch
+            );
+        }
+
+        let current_epoch_commits = CRV3WeightCommits::<Test>::get(netuid, current_epoch);
+        assert!(
+            current_epoch_commits.is_empty(),
+            "Expected no commits for current epoch {}",
+            current_epoch
+        );
+    });
+}
