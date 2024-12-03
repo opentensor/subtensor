@@ -720,7 +720,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for minimum stake a nominator has and which nominator has the minimum stake.
     pub fn DefaultMinNominator<T: Config>() -> (u64, T::AccountId) {
-        (u64::MAX, T::AccountId::default())
+        (u64::MAX, DefaultKey::<T>::get())
     }
 
     #[pallet::storage]
