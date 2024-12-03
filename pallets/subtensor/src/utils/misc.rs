@@ -585,9 +585,6 @@ impl<T: Config> Pallet<T> {
         ));
     }
 
-    pub fn get_bonds_moving_average(netuid: u16) -> u64 {
-        BondsMovingAverage::<T>::get(netuid)
-    }
     pub fn set_bonds_moving_average(netuid: u16, bonds_moving_average: u64) {
         BondsMovingAverage::<T>::insert(netuid, bonds_moving_average);
         Self::deposit_event(Event::BondsMovingAverageSet(netuid, bonds_moving_average));
