@@ -2,8 +2,6 @@
 
 use frame_support::traits::Currency;
 
-use super::mock::*;
-use crate::{Axons, Error, SubtensorSignedExtension};
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
 use frame_support::sp_runtime::{transaction_validity::InvalidTransaction, DispatchError};
 use frame_support::{assert_err, assert_noop, assert_ok};
@@ -11,7 +9,10 @@ use frame_system::Config;
 use sp_core::U256;
 use sp_runtime::traits::{DispatchInfoOf, SignedExtension};
 
-use crate::{RAORecycledForRegistration, SubnetworkN};
+use super::mock::*;
+use crate::{
+    Axons, Burn, Error, RAORecycledForRegistration, SubnetworkN, SubtensorSignedExtension,
+};
 
 /********************************************
     subscribing::subscribe() tests
@@ -528,7 +529,7 @@ fn test_burn_adjustment() {
         step_block(1);
 
         // Check the adjusted burn.
-        assert_eq!(SubtensorModule::get_burn_as_u64(netuid), 1500);
+        assert_eq!(Burn::<Test>::get(netuid), 1500);
     });
 }
 
@@ -1461,7 +1462,7 @@ fn test_burn_registration_increase_recycled_rao() {
 
         run_to_block(1);
 
-        let burn_amount = SubtensorModule::get_burn_as_u64(netuid);
+        let burn_amount = Burn::<Test>::get(netuid);
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid,
@@ -1471,7 +1472,7 @@ fn test_burn_registration_increase_recycled_rao() {
 
         run_to_block(2);
 
-        let burn_amount2 = SubtensorModule::get_burn_as_u64(netuid2);
+        let burn_amount2 = Burn::<Test>::get(netuid2);
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid2,
