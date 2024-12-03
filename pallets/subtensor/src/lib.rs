@@ -821,13 +821,13 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroU64<T>,
     >;
-    #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> alpha | Returns the alpha for an account on a subnet.
+    #[pallet::storage] // --- NMAP ( hot, netuid, cold ) --> alpha | Returns the alpha for an account on a subnet.
     pub type Alpha<T: Config> = StorageNMap<
         _,
         (
             NMapKey<Blake2_128Concat, T::AccountId>, // hot
-            NMapKey<Blake2_128Concat, T::AccountId>, // cold
             NMapKey<Identity, u16>,                  // subnet
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
         ),
         u64, // Stake
         ValueQuery,

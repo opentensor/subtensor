@@ -64,7 +64,7 @@ mod genesis {
                 SubnetLocked::<T>::insert(netuid, 1);
                 Alpha::<T>::insert(
                     // Lock the initial funds making this key the owner.
-                    (hotkey.clone(), hotkey.clone(), netuid),
+                    (hotkey.clone(), netuid, hotkey.clone()),
                     1_000_000_000,
                 );
                 TotalHotkeyAlpha::<T>::insert(hotkey.clone(), netuid, 1_000_000_000);

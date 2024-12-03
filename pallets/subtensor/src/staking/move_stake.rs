@@ -54,7 +54,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 4. Get the current alpha stake for the origin hotkey-coldkey pair in the origin subnet
-        let origin_alpha = Alpha::<T>::get((origin_hotkey.clone(), coldkey.clone(), origin_netuid));
+        let origin_alpha = Alpha::<T>::get((origin_hotkey.clone(), origin_netuid, coldkey.clone()));
         ensure!(
             alpha_amount <= origin_alpha,
             Error::<T>::NotEnoughStakeToWithdraw

@@ -22,7 +22,7 @@ fn test_do_move_success() {
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
         SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount);
-        let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, netuid));
+        let alpha = Alpha::<Test>::get((origin_hotkey, netuid, coldkey));
 
         // Perform the move
         assert_ok!(SubtensorModule::do_move_stake(
@@ -73,7 +73,7 @@ fn test_do_move_different_subnets() {
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
         SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, origin_netuid, stake_amount);
-        let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, origin_netuid));
+        let alpha = Alpha::<Test>::get((origin_hotkey, origin_netuid, coldkey));
 
         // Perform the move
         assert_ok!(SubtensorModule::do_move_stake(
@@ -120,7 +120,7 @@ fn test_do_move_nonexistent_subnet() {
 
         // Set up initial stake
         SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, origin_netuid, stake_amount);
-        let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, origin_netuid));
+        let alpha = Alpha::<Test>::get((origin_hotkey, origin_netuid, coldkey));
 
         // Attempt to move stake to a non-existent subnet
         assert_noop!(
@@ -299,7 +299,7 @@ fn test_do_move_all_stake() {
 
         // Set up initial stake
         SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount);
-        let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, netuid));
+        let alpha = Alpha::<Test>::get((origin_hotkey, netuid, coldkey));
 
         // Move all stake
         add_network(netuid, 0, 0);
@@ -345,7 +345,7 @@ fn test_do_move_half_stake() {
 
         // Set up initial stake
         SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount);
-        let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, netuid));
+        let alpha = Alpha::<Test>::get((origin_hotkey, netuid, coldkey));
 
         // Move all stake
         add_network(netuid, 0, 0);
@@ -394,7 +394,7 @@ fn test_do_move_partial_stake() {
 
         // Set up initial stake
         SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, total_stake);
-        let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, netuid));
+        let alpha = Alpha::<Test>::get((origin_hotkey, netuid, coldkey));
 
         // Move partial stake
         add_network(netuid, 0, 0);
@@ -446,7 +446,7 @@ fn test_do_move_multiple_times() {
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey1);
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey2);
         SubtensorModule::stake_into_subnet(&hotkey1, &coldkey, netuid, initial_stake);
-        let alpha = Alpha::<Test>::get((hotkey1, coldkey, netuid));
+        let alpha = Alpha::<Test>::get((hotkey1, netuid, coldkey));
 
         // Move stake multiple times
         TargetStakesPerInterval::<Test>::set(1000);
@@ -486,7 +486,7 @@ fn test_do_move_wrong_origin() {
 
         // Set up initial stake
         SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount);
-        let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, netuid));
+        let alpha = Alpha::<Test>::get((origin_hotkey, netuid, coldkey));
 
         // Attempt to move stake with wrong origin
         add_network(netuid, 0, 0);
@@ -539,7 +539,7 @@ fn test_do_move_same_hotkey() {
         add_network(netuid, 0, 0);
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
         SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, stake_amount);
-        let alpha = Alpha::<Test>::get((hotkey, coldkey, netuid));
+        let alpha = Alpha::<Test>::get((hotkey, netuid, coldkey));
 
         // Attempt to move stake to the same hotkey
         assert_ok!(SubtensorModule::do_move_stake(
@@ -571,7 +571,7 @@ fn test_do_move_event_emission() {
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
         SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount);
-        let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, netuid));
+        let alpha = Alpha::<Test>::get((origin_hotkey, netuid, coldkey));
 
         // Move stake and capture events
         System::reset_events();
@@ -612,7 +612,7 @@ fn test_do_move_storage_updates() {
         add_network(destination_netuid, 0, 0);
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
-        let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, origin_netuid));
+        let alpha = Alpha::<Test>::get((origin_hotkey, origin_netuid, coldkey));
 
         assert_ok!(SubtensorModule::do_move_stake(
             coldkey,
@@ -660,7 +660,7 @@ fn test_do_move_max_values() {
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
         SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, max_stake);
-        let alpha = Alpha::<Test>::get((origin_hotkey, coldkey, netuid));
+        let alpha = Alpha::<Test>::get((origin_hotkey, netuid, coldkey));
 
         // Move maximum stake
         assert_ok!(SubtensorModule::do_move_stake(
@@ -706,7 +706,7 @@ fn test_do_move_rate_limit_enforced() {
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey1);
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey2);
         SubtensorModule::stake_into_subnet(&hotkey1, &coldkey, netuid, initial_stake);
-        let alpha = Alpha::<Test>::get((hotkey1, coldkey, netuid));
+        let alpha = Alpha::<Test>::get((hotkey1, netuid, coldkey));
         TargetStakesPerInterval::<Test>::set(1);
 
         // Move stake multiple times

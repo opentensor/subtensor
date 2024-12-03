@@ -1354,7 +1354,7 @@ fn test_maximum_stake_values() {
 
         // Set up maximum stake values
         ParentKeys::<Test>::insert(hotkey, netuid, vec![(u64::MAX, parent)]);
-        Alpha::<Test>::insert((&parent, coldkey, netuid), u64::MAX);
+        Alpha::<Test>::insert((&parent, netuid, coldkey), u64::MAX);
         // GlobalStake::<Test>::insert(&parent, u64::MAX);
         Delegates::<Test>::insert(hotkey, 0);
 
@@ -1441,7 +1441,7 @@ fn test_different_network_ids_scenario_1() {
 
         for netuid in 0..5 {
             ParentKeys::<Test>::insert(hotkey, netuid, vec![(u64::MAX, parent)]);
-            Alpha::<Test>::insert((&parent, coldkey, netuid), 1000);
+            Alpha::<Test>::insert((&parent, netuid, coldkey), 1000);
             // GlobalStake::<Test>::insert(&parent, 1000);
             Delegates::<Test>::insert(hotkey, 0);
 
@@ -1517,7 +1517,7 @@ fn test_maximum_parents() {
         for i in 0..max_parents {
             let parent = U256::from(i + 2);
             parents.push((u64::MAX / max_parents as u64, parent));
-            Alpha::<Test>::insert((&parent, coldkey, netuid), 1000);
+            Alpha::<Test>::insert((&parent, netuid, coldkey), 1000);
             // GlobalStake::<Test>::insert(&parent, 1000);
         }
         ParentKeys::<Test>::insert(hotkey, netuid, parents);
@@ -1556,7 +1556,7 @@ fn test_consistency_across_calls() {
         let mining_emission = 0;
 
         ParentKeys::<Test>::insert(hotkey, netuid, vec![(u64::MAX, parent)]);
-        Alpha::<Test>::insert((&parent, coldkey, netuid), 1000);
+        Alpha::<Test>::insert((&parent, netuid, coldkey), 1000);
         // GlobalStake::<Test>::insert(&parent, 1000);
         Delegates::<Test>::insert(hotkey, 16384); // 25% take
 
@@ -1705,7 +1705,7 @@ fn test_minimum_emission_value() {
         let mining_emission = 0;
 
         ParentKeys::<Test>::insert(hotkey, netuid, vec![(u64::MAX / 2, parent)]);
-        Alpha::<Test>::insert((&parent, coldkey, netuid), 1000);
+        Alpha::<Test>::insert((&parent, netuid, coldkey), 1000);
         // GlobalStake::<Test>::insert(&parent, 1000);
         Delegates::<Test>::insert(hotkey, 0);
 
@@ -1896,9 +1896,9 @@ fn test_basic_emission() {
 
         // Starting point
         let validator_alpha_before: u64 =
-            pallet_subtensor::Alpha::<Test>::get((validator, coldkey_validator, netuid));
+            pallet_subtensor::Alpha::<Test>::get((validator, netuid, coldkey_validator));
         let miner_alpha_before: u64 =
-            pallet_subtensor::Alpha::<Test>::get((miner, coldkey_miner, netuid));
+            pallet_subtensor::Alpha::<Test>::get((miner, netuid, coldkey_miner));
 
         // Run run_coinbase until PendingHotkeyEmission are populated
         while pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(validator, netuid) == 0 {
@@ -1925,14 +1925,14 @@ fn test_basic_emission() {
         // Check emission distribution
         let owner_emission = pallet_subtensor::Alpha::<Test>::get((
             subnet_owner_hotkey,
-            subnet_owner_coldkey,
             netuid,
+            subnet_owner_coldkey,
         ));
         let validator_emission: u64 =
-            pallet_subtensor::Alpha::<Test>::get((validator, coldkey_validator, netuid))
+            pallet_subtensor::Alpha::<Test>::get((validator, netuid, coldkey_validator))
                 - validator_alpha_before;
         let miner_emission: u64 =
-            pallet_subtensor::Alpha::<Test>::get((miner, coldkey_miner, netuid))
+            pallet_subtensor::Alpha::<Test>::get((miner, netuid, coldkey_miner))
                 - miner_alpha_before;
 
         assert!(
@@ -1981,9 +1981,9 @@ fn test_basic_emission_reverse_order() {
 
         // Starting point
         let validator_alpha_before: u64 =
-            pallet_subtensor::Alpha::<Test>::get((validator, coldkey_validator, netuid));
+            pallet_subtensor::Alpha::<Test>::get((validator, netuid, coldkey_validator));
         let miner_alpha_before: u64 =
-            pallet_subtensor::Alpha::<Test>::get((miner, coldkey_miner, netuid));
+            pallet_subtensor::Alpha::<Test>::get((miner, netuid, coldkey_miner));
 
         // Run run_coinbase until PendingHotkeyEmission are populated
         while pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(validator, netuid) == 0 {
@@ -2010,14 +2010,14 @@ fn test_basic_emission_reverse_order() {
         // Check emission distribution
         let owner_emission = pallet_subtensor::Alpha::<Test>::get((
             subnet_owner_hotkey,
-            subnet_owner_coldkey,
             netuid,
+            subnet_owner_coldkey,
         ));
         let validator_emission: u64 =
-            pallet_subtensor::Alpha::<Test>::get((validator, coldkey_validator, netuid))
+            pallet_subtensor::Alpha::<Test>::get((validator, netuid, coldkey_validator))
                 - validator_alpha_before;
         let miner_emission: u64 =
-            pallet_subtensor::Alpha::<Test>::get((miner, coldkey_miner, netuid))
+            pallet_subtensor::Alpha::<Test>::get((miner, netuid, coldkey_miner))
                 - miner_alpha_before;
 
         assert!(
@@ -2068,11 +2068,11 @@ fn test_basic_emission_two_validators() {
 
         // Starting point
         let validator1_alpha_before: u64 =
-            pallet_subtensor::Alpha::<Test>::get((validator1_hotkey, validator1_coldkey, netuid));
+            pallet_subtensor::Alpha::<Test>::get((validator1_hotkey, netuid, validator1_coldkey));
         let validator2_alpha_before: u64 =
-            pallet_subtensor::Alpha::<Test>::get((validator2_hotkey, validator2_coldkey, netuid));
+            pallet_subtensor::Alpha::<Test>::get((validator2_hotkey, netuid, validator2_coldkey));
         let miner_alpha_before: u64 =
-            pallet_subtensor::Alpha::<Test>::get((miner_hotkey, miner_coldkey, netuid));
+            pallet_subtensor::Alpha::<Test>::get((miner_hotkey, netuid, miner_coldkey));
 
         // Run run_coinbase until PendingHotkeyEmission are populated
         while pallet_subtensor::PendingHotkeyEmissionOnNetuid::<Test>::get(
@@ -2109,7 +2109,7 @@ fn test_basic_emission_two_validators() {
             pallet_subtensor::Alpha::<Test>::get((validator2_hotkey, validator2_coldkey, netuid))
                 - validator2_alpha_before;
         let miner_emission: u64 =
-            pallet_subtensor::Alpha::<Test>::get((miner_hotkey, miner_coldkey, netuid))
+            pallet_subtensor::Alpha::<Test>::get((miner_hotkey, netuid, miner_coldkey))
                 - miner_alpha_before;
 
         assert!(

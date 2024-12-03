@@ -1430,7 +1430,7 @@ mod dispatches {
         ) -> DispatchResult {
             let coldkey = ensure_signed(origin.clone())?;
             let alpha_amount =
-                Alpha::<T>::get((origin_hotkey.clone(), coldkey.clone(), origin_netuid));
+                Alpha::<T>::get((origin_hotkey.clone(), origin_netuid, coldkey.clone()));
             Self::do_move_stake(
                 coldkey,
                 origin_hotkey,

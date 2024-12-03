@@ -35,7 +35,7 @@ impl<T: Config> Pallet<T> {
     ) {
         // Step 1: Increment the alpha (stake) for the specific hotkey-coldkey pair on the subnet
         // This represents the stake of this particular neuron (hotkey) owned by this account (coldkey)
-        Alpha::<T>::mutate((hotkey, coldkey, netuid), |alpha| {
+        Alpha::<T>::mutate((hotkey, netuid, coldkey), |alpha| {
             *alpha = alpha.saturating_add(emitted_alpha);
         });
 
@@ -160,7 +160,7 @@ impl<T: Config> Pallet<T> {
 
         // Step 6: Update hotkey alpha for the specific subnet
         // This increases the alpha associated with this hotkey-coldkey pair
-        Alpha::<T>::mutate((hotkey, coldkey, netuid), |alpha| {
+        Alpha::<T>::mutate((hotkey, netuid, coldkey), |alpha| {
             *alpha = alpha.saturating_add(alpha_staked_u64);
         });
 
@@ -294,7 +294,7 @@ impl<T: Config> Pallet<T> {
         let new_subnet_alpha: I96F32;
 
         // Step 3a: Get the current stake for the hotkey-coldkey pair in this subnet
-        let current_stake = Alpha::<T>::get((hotkey, coldkey, netuid));
+        let current_stake = Alpha::<T>::get((hotkey, netuid, coldkey));
 
         // Step 3b: Calculate the actual amount to unstake (minimum of requested and available)
         let actual_unstake = alpha_unstaked.min(current_stake);
@@ -351,7 +351,7 @@ impl<T: Config> Pallet<T> {
         });
 
         // Step 11: Update or remove alpha for the hotkey-coldkey pair
-        Alpha::<T>::mutate_exists((hotkey, coldkey, netuid), |maybe_total| {
+        Alpha::<T>::mutate_exists((hotkey, netuid, coldkey), |maybe_total| {
             if let Some(total) = maybe_total {
                 let new_total = total.saturating_sub(alpha_unstaked);
                 if new_total == 0 {
@@ -400,7 +400,7 @@ impl<T: Config> Pallet<T> {
         // Step 15: Decrease total stake across all subnets
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(tao_unstaked_u64));
         // Step 16: Update StakingHotkeys if the hotkey's total alpha is zero
-        if Alpha::<T>::get((hotkey, coldkey, netuid)) == 0 {
+        if Alpha::<T>::get((hotkey, netuid, coldkey)) == 0 {
             StakingHotkeys::<T>::mutate(coldkey, |hotkeys| {
                 hotkeys.retain(|k| k != hotkey);
             });
