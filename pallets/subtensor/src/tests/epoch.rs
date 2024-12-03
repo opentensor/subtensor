@@ -2736,6 +2736,7 @@ fn test_blocks_since_last_step() {
         assert_eq!(SubtensorModule::get_blocks_since_last_step(netuid), 27);
     });
 }
+
 // // Map the retention graph for consensus guarantees with an single epoch on a graph with 512 nodes, of which the first 64 are validators, the graph is split into a major and minor set, each setting specific weight on itself and the complement on the other.
 // //
 // // ```import torch
@@ -2835,7 +2836,7 @@ fn test_blocks_since_last_step() {
 //     println!("]");
 // }
 
-/// Helpers
+// Helpers
 
 /// Asserts that two I32F32 values are approximately equal within a given epsilon.
 ///

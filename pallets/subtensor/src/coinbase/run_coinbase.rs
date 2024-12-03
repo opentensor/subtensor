@@ -5,28 +5,28 @@ use substrate_fixed::types::I96F32;
 impl<T: Config> Pallet<T> {
     /// The `coinbase` function performs a four-part emission distribution process involving
     /// subnets, epochs, hotkeys, and nominators.
-    // It is divided into several steps, each handling a specific part of the distribution:
-
-    // Step 1: Compute the block-wise emission for each subnet.
-    // This involves calculating how much (TAO) should be emitted into each subnet using the
-    // root epoch function.
-
-    // Step 2: Accumulate the subnet block emission.
-    // After calculating the block-wise emission, these values are accumulated to keep track
-    // of how much each subnet should emit before the next distribution phase. This accumulation
-    // is a running total that gets updated each block.
-
-    // Step 3: Distribute the accumulated emissions through epochs.
-    // Subnets periodically distribute their accumulated emissions to hotkeys (active validators/miners)
-    // in the network on a `tempo` --- the time between epochs. This step runs Yuma consensus to
-    // determine how emissions are split among hotkeys based on their contributions and roles.
-    // The accumulation of hotkey emissions is done through the `accumulate_hotkey_emission` function.
-    // The function splits the rewards for a hotkey amongst itself and its `parents`. The parents are
-    // the hotkeys that are delegating their stake to the hotkey.
-
-    // Step 4: Further distribute emissions from hotkeys to nominators.
-    // Finally, the emissions received by hotkeys are further distributed to their nominators,
-    // who are stakeholders that support the hotkeys.
+    /// It is divided into several steps, each handling a specific part of the distribution:
+    ///
+    /// Step 1: Compute the block-wise emission for each subnet.
+    /// This involves calculating how much (TAO) should be emitted into each subnet using the
+    /// root epoch function.
+    ///
+    /// Step 2: Accumulate the subnet block emission.
+    /// After calculating the block-wise emission, these values are accumulated to keep track
+    /// of how much each subnet should emit before the next distribution phase. This accumulation
+    /// is a running total that gets updated each block.
+    ///
+    /// Step 3: Distribute the accumulated emissions through epochs.
+    /// Subnets periodically distribute their accumulated emissions to hotkeys (active validators/miners)
+    /// in the network on a `tempo` --- the time between epochs. This step runs Yuma consensus to
+    /// determine how emissions are split among hotkeys based on their contributions and roles.
+    /// The accumulation of hotkey emissions is done through the `accumulate_hotkey_emission` function.
+    /// The function splits the rewards for a hotkey amongst itself and its `parents`. The parents are
+    /// the hotkeys that are delegating their stake to the hotkey.
+    ///
+    /// Step 4: Further distribute emissions from hotkeys to nominators.
+    /// Finally, the emissions received by hotkeys are further distributed to their nominators,
+    /// who are stakeholders that support the hotkeys.
     pub fn run_coinbase() {
         // --- 0. Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
@@ -48,7 +48,7 @@ impl<T: Config> Pallet<T> {
         // --- 3. Drain the subnet block emission and accumulate it as subnet emission, which increases until the tempo is reached in #4.
         // subnet_blockwise_emission -> subnet_pending_emission
         for netuid in subnets.clone().iter() {
-            if *netuid == 0 {
+            if *netuid == 0 || !Self::is_registration_allowed(*netuid) {
                 continue;
             }
             // --- 3.1 Get the network's block-wise emission amount.
@@ -90,7 +90,7 @@ impl<T: Config> Pallet<T> {
                 Self::set_blocks_since_last_step(*netuid, 0);
                 Self::set_last_mechanism_step_block(*netuid, current_block);
 
-                if *netuid == 0 {
+                if *netuid == 0 || !Self::is_registration_allowed(*netuid) {
                     // Skip netuid 0 payouts
                     continue;
                 }
@@ -134,7 +134,7 @@ impl<T: Config> Pallet<T> {
                         &hotkey,
                         *netuid,
                         validator_emission, // Amount received from validating
-                        mining_emission,    // Amount recieved from mining.
+                        mining_emission,    // Amount received from mining.
                     );
                     log::debug!("Accumulated emissions on hotkey {:?} for netuid {:?}: mining {:?}, validator {:?}", hotkey, *netuid, mining_emission, validator_emission);
                 }
