@@ -372,15 +372,4 @@ impl MetagraphPrecompile {
         let result = u16::from_be_bytes(uid);
         Ok(result)
     }
-
-    fn parse_hotkey(data: &[u8]) -> Result<[u8; 32], PrecompileFailure> {
-        if data.len() < 32 {
-            return Err(PrecompileFailure::Error {
-                exit_status: ExitError::InvalidRange,
-            });
-        }
-        let mut hotkey = [0u8; 32];
-        hotkey.copy_from_slice(get_slice(data, 0, 32)?);
-        Ok(hotkey)
-    }
 }
