@@ -20,6 +20,20 @@ interface IMetagraph {
    */
   function getUidCount(uint16 netuid) external view returns (uint16);
 
-  function getAxon(uint16 netuid, uint16 uid) external view returns (AxonInfo memory);
+  function getStake(uint16 netuid, uint16 uid) external view returns (uint64);
 
+  function getRank(uint16 netuid, uint16 uid) external view returns (uint16);
+
+  function getTrust(uint16 netuid, uint16 uid) external view returns (uint16);
+  function getConsensus(uint16 netuid, uint16 uid) external view returns (uint16);
+  function getIncentive(uint16 netuid, uint16 uid) external view returns (uint16);
+  function getDividends(uint16 netuid, uint16 uid) external view returns (uint16);
+  function getEmission(uint16 netuid, uint16 uid) external view returns (uint64);
+  function getVtrust(uint16 netuid, uint16 uid) external view returns (uint16);
+  function getValidatorStatus(uint16 netuid, uint16 uid) external view returns (bool);
+  function getLastUpdate(uint16 netuid, uint16 uid) external view returns (uint64);
+  function getIsActive(uint16 netuid, uint16 uid) external view returns (bool);
+  function getAxon(uint16 netuid, uint16 uid) external view returns (AxonInfo memory);
+  function getHotkey(uint16 netuid, uint16 uid) external view returns (bytes32);
+  function getColdkey(uint16 netuid, uint16 uid) external view returns (bytes32);
 }

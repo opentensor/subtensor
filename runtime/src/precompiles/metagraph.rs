@@ -228,9 +228,13 @@ impl MetagraphPrecompile {
         let validator_permit =
             pallet_subtensor::Pallet::<Runtime>::get_validator_permit_for_uid(netuid, uid);
 
-        // let result_u256 = U256::from(validator_status);
-        // let mut result = [0_u8; 32];
-        // U256::to_big_endian(&result_u256, &mut result);
+        let result_u256 = if validator_permit {
+            U256::from(1)
+        } else {
+            U256::from(0)
+        };
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&result_u256, &mut result);
 
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
@@ -258,9 +262,9 @@ impl MetagraphPrecompile {
         let netuid = Self::parse_netuid(data)?;
         let uid = Self::parse_uid(&data[32..])?;
 
-        let rank = pallet_subtensor::Pallet::<Runtime>::get_rank_for_uid(netuid, uid);
+        let active = pallet_subtensor::Pallet::<Runtime>::get_active_for_uid(netuid, uid);
 
-        let result_u256 = U256::from(rank);
+        let result_u256 = if active { U256::from(1) } else { U256::from(0) };
         let mut result = [0_u8; 32];
         U256::to_big_endian(&result_u256, &mut result);
 
