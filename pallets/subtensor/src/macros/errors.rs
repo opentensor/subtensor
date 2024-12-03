@@ -32,6 +32,8 @@ mod errors {
         NotEnoughStakeToWithdraw,
         /// The caller is requesting to set weights but the caller has less than minimum stake required to set weights (less than WeightsMinStake).
         NotEnoughStakeToSetWeights,
+        /// The parent hotkey doesn't have enough own stake to set childkeys.
+        NotEnoughStakeToSetChildkeys,
         /// The caller is requesting adding more stake than there exists in the coldkey account. See: "[add_stake()]"
         NotEnoughBalanceToStake,
         /// The caller is trying to add stake, but for some reason the requested amount could not be withdrawn from the coldkey account.

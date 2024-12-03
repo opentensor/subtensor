@@ -179,6 +179,8 @@ mod events {
             /// The account ID of the coldkey
             coldkey: T::AccountId,
         },
+        /// Setting of children of a hotkey have been scheduled
+        SetChildrenScheduled(T::AccountId, u16, u64, Vec<(u64, T::AccountId)>),
         /// The children of a hotkey have been set
         SetChildren(T::AccountId, u16, Vec<(u64, T::AccountId)>),
         /// The hotkey emission tempo has been set

@@ -308,6 +308,11 @@ pub mod pallet {
         vec![]
     }
     #[pallet::type_value]
+    /// Default pending childkeys
+    pub fn DefaultPendingChildkeys<T: Config>() -> (Vec<(u64, T::AccountId)>, u64) {
+        (vec![], 0)
+    }
+    #[pallet::type_value]
     /// Default account linkage
     pub fn DefaultProportion<T: Config>() -> u64 {
         0
@@ -674,6 +679,18 @@ pub mod pallet {
         T::InitialColdkeySwapScheduleDuration::get()
     }
 
+    #[pallet::type_value]
+    /// Default value for applying pending items (e.g. childkeys).
+    pub fn DefaultPendingCooldown<T: Config>() -> u64 {
+        7200
+    }
+
+    #[pallet::type_value]
+    /// Default value for minimum stake.
+    pub fn DefaultMinStake<T: Config>() -> u64 {
+        1_000_000_000
+    }
+
     #[pallet::storage]
     pub type ColdkeySwapScheduleDuration<T: Config> =
         StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapScheduleDuration<T>>;
@@ -819,6 +836,18 @@ pub mod pallet {
         i128,
         ValueQuery,
         DefaultStakeDelta<T>,
+    >;
+    #[pallet::storage]
+    /// DMAP ( netuid, parent ) --> (Vec<(proportion,child)>, cool_down_block)
+    pub type PendingChildKeys<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        u16,
+        Blake2_128Concat,
+        T::AccountId,
+        (Vec<(u64, T::AccountId)>, u64),
+        ValueQuery,
+        DefaultPendingChildkeys<T>,
     >;
     #[pallet::storage]
     /// DMAP ( parent, netuid ) --> Vec<(proportion,child)>

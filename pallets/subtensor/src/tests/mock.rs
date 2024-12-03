@@ -207,7 +207,7 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
     }
 }
 
-use crate::{CollectiveInterface, MemberManagement};
+use crate::{CollectiveInterface, DefaultMinStake, MemberManagement, TotalHotkeyStake};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
@@ -600,4 +600,29 @@ pub fn is_within_tolerance(actual: u64, expected: u64, tolerance: u64) -> bool {
         expected - actual
     };
     difference <= tolerance
+}
+
+#[allow(dead_code)]
+pub fn wait_and_set_pending_children(netuid: u16) {
+    let original_block = System::block_number();
+    System::set_block_number(System::block_number() + 7300);
+    SubtensorModule::do_set_pending_children(netuid);
+    System::set_block_number(original_block);
+}
+
+#[allow(dead_code)]
+pub fn mock_set_children(coldkey: &U256, parent: &U256, netuid: u16, child_vec: &Vec<(u64, U256)>) {
+    // Set minimum stake for setting children
+    let parent_total_stake_original = TotalHotkeyStake::<Test>::get(parent);
+    TotalHotkeyStake::<Test>::insert(parent, DefaultMinStake::<Test>::get());
+
+    // Set initial parent-child relationship
+    assert_ok!(SubtensorModule::do_schedule_children(
+        RuntimeOrigin::signed(*coldkey),
+        *parent,
+        netuid,
+        child_vec.clone()
+    ));
+    wait_and_set_pending_children(netuid);
+    TotalHotkeyStake::<Test>::insert(parent, parent_total_stake_original);
 }
