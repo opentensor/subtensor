@@ -49,6 +49,25 @@ impl<T: Config> Pallet<T> {
             children
         );
 
+        // Ensure the hotkey passes the rate limit.
+        ensure!(
+            Self::passes_rate_limit_on_subnet(
+                &TransactionType::SetChildren, // Set children.
+                &hotkey,                       // Specific to a hotkey.
+                netuid,                        // Specific to a subnet.
+            ),
+            Error::<T>::TxRateLimitExceeded
+        );
+
+        // Set last transaction block
+        let current_block = Self::get_current_block_as_u64();
+        Self::set_last_transaction_block(
+            &hotkey,
+            netuid,
+            &TransactionType::SetChildren,
+            current_block,
+        );
+
         // Check that this delegation is not on the root network. Child hotkeys are not valid on root.
         ensure!(
             netuid != Self::get_root_netuid(),
