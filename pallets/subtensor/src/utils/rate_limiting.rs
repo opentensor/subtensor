@@ -1,5 +1,4 @@
 use super::*;
-use sp_core::Get;
 
 /// Enum representing different types of transactions
 #[derive(Copy, Clone)]
@@ -35,9 +34,9 @@ impl<T: Config> Pallet<T> {
     // ==== Rate Limiting =====
     // ========================
     /// Get the rate limit for a specific transaction type
-    pub fn get_rate_limit(tx_type: &TransactionType) -> u64 {
+    pub fn get_rate_limit(tx_type: &TransactionType, _netuid: u16) -> u64 {
         match tx_type {
-            TransactionType::SetChildren => (DefaultTempo::<T>::get().saturating_mul(2)).into(), // Cannot set children twice within the default tempo period.
+            TransactionType::SetChildren => 7200, // Cannot set children twice within a day
             TransactionType::SetChildkeyTake => TxChildkeyTakeRateLimit::<T>::get(),
             TransactionType::Unknown => 0, // Default to no limit for unknown types (no limit)
         }
@@ -50,7 +49,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
     ) -> bool {
         let block: u64 = Self::get_current_block_as_u64();
-        let limit: u64 = Self::get_rate_limit(tx_type);
+        let limit: u64 = Self::get_rate_limit(tx_type, netuid);
         let last_block: u64 = Self::get_last_transaction_block(hotkey, netuid, tx_type);
 
         // Allow the first transaction (when last_block is 0) or if the rate limit has passed
@@ -61,7 +60,7 @@ impl<T: Config> Pallet<T> {
     pub fn passes_rate_limit_globally(tx_type: &TransactionType, hotkey: &T::AccountId) -> bool {
         let netuid: u16 = u16::MAX;
         let block: u64 = Self::get_current_block_as_u64();
-        let limit: u64 = Self::get_rate_limit(tx_type);
+        let limit: u64 = Self::get_rate_limit(tx_type, 0);
         let last_block: u64 = Self::get_last_transaction_block(hotkey, netuid, tx_type);
         block.saturating_sub(last_block) >= limit
     }
