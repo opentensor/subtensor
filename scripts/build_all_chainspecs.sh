@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# The genesis is not allowed to change. Since the wasm genesis will change
-# depending on the system architecture used, we need to extract the genesis from
-# the old chain specs and insert them into the new chain specs to ensure there
-# are no genesis mismatch issues.
+# The genesis and codeSubstitutes are not allowed to change. Since the wasm
+# genesis will change depending on the system architecture used, we need to
+# extract the genesis from the old chain specs and insert them into the new
+# chain specs to ensure there are no genesis mismatch issues.
 
 # This script updates the chain spec files keeping the genesis unchanged.
 
@@ -20,16 +20,23 @@ save_genesis() {
   jq -r ".genesis" "$1" >"$2"
 }
 
+save_code_substitutes() {
+  jq -r ".codeSubstitutes" "$1" >"$2"
+}
+
 buildspec() {
   local chain="$1"
   shift
   ./target/debug/node-subtensor build-spec --chain "$chain" --disable-default-bootnode "$@"
 }
 
-# Update genesis in new chainspecs using the extracted genesis data from the
-# temporary files
-update_genesis() {
-  jq --slurpfile genesis "$1" '.genesis = $genesis[0]' "$2" >"$3"
+# Update genesis and codeSubstitutes in new chainspecs using the extracted
+# genesis and codeSubstitutes data from the temporary files
+update_genesis_and_code_substitutes() {
+  jq --slurpfile genesis "$1" \
+    --slurpfile codeSubstitutes "$2" \
+    '.genesis = $genesis[0] | .codeSubstitutes = $codeSubstitutes[0]' \
+    "$3" >"$4"
 }
 
 update_spec() {
@@ -37,6 +44,8 @@ update_spec() {
   local raw_path="$2"
   local plain_path="$3"
 
+  raw_code_substitutes_temp=$(mktemp)
+  plain_code_substitutes_temp=$(mktemp)
   raw_genesis_temp=$(mktemp)
   plain_genesis_temp=$(mktemp)
   raw_spec_temp=$(mktemp)
@@ -47,6 +56,11 @@ update_spec() {
   save_genesis "$raw_path" "$raw_genesis_temp"
   save_genesis "$plain_path" "$plain_genesis_temp"
 
+  echo "*** Backing up codeSubstitutes for '$chain'..."
+
+  save_code_substitutes "$raw_path" "$raw_code_substitutes_temp"
+  save_code_substitutes "$plain_path" "$plain_code_substitutes_temp"
+
   echo "*** Building new chainspec for '$chain'..."
 
   # Build new chainspecs
@@ -55,8 +69,8 @@ update_spec() {
 
   echo "*** Restoring genesis in '$chain'..."
 
-  update_genesis "$raw_genesis_temp" "$raw_spec_temp" "$raw_path"
-  update_genesis "$plain_genesis_temp" "$plain_spec_temp" "$plain_path"
+  update_genesis_and_code_substitutes "$raw_genesis_temp" "$raw_code_substitutes_temp" "$raw_spec_temp" "$raw_path"
+  update_genesis_and_code_substitutes "$plain_genesis_temp" "$plain_code_substitutes_temp" "$plain_spec_temp" "$plain_path"
 
   # cleanup
   rm -f "$raw_genesis_temp" "$plain_genesis_temp" "$raw_spec_temp" \
