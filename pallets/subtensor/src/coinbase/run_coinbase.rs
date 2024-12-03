@@ -358,7 +358,7 @@ impl<T: Config> Pallet<T> {
     ) {
         // --- 1. First, calculate the hotkey's share of the emission.
         let childkey_take_proportion: I96F32 =
-            I96F32::from_num(Self::get_childkey_take(hotkey, netuid))
+            I96F32::from_num(ChildkeyTake::<T>::get(hotkey, netuid))
                 .saturating_div(I96F32::from_num(u16::MAX));
         let mut total_childkey_take: u64 = 0;
 
