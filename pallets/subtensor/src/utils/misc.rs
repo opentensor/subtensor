@@ -266,9 +266,6 @@ impl<T: Config> Pallet<T> {
     pub fn get_pow_registrations_this_interval(netuid: u16) -> u16 {
         POWRegistrationsThisInterval::<T>::get(netuid)
     }
-    pub fn get_burn_registrations_this_interval(netuid: u16) -> u16 {
-        BurnRegistrationsThisInterval::<T>::get(netuid)
-    }
     pub fn get_neuron_block_at_registration(netuid: u16, neuron_uid: u16) -> u64 {
         BlockAtRegistration::<T>::get(netuid, neuron_uid)
     }
