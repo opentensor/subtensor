@@ -26,7 +26,7 @@ use std::{marker::PhantomData, sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
 
 use crate::cli::Sealing;
-use crate::client::{FullBackend, FullClient};
+use crate::client::{FullBackend, FullClient, HostFunctions, RuntimeExecutor};
 use crate::ethereum::{
     db_config_dir, new_frontier_partial, spawn_frontier_tasks, BackendType, EthConfiguration,
     FrontierBackend, FrontierBlockImport, FrontierPartialComponents, StorageOverride,
@@ -84,13 +84,14 @@ where
         })
         .transpose()?;
 
-    let executor = sc_service::new_wasm_executor(&config.executor);
+    let executor = sc_service::new_wasm_executor::<HostFunctions>(&config.executor);
     let (client, backend, keystore_container, task_manager) =
-        sc_service::new_full_parts::<Block, RuntimeApi, _>(
+        sc_service::new_full_parts::<Block, RuntimeApi, RuntimeExecutor>(
             config,
             telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
             executor,
         )?;
+
     let client = Arc::new(client);
 
     let telemetry = telemetry.map(|(worker, telemetry)| {
@@ -427,10 +428,31 @@ where
             metrics,
         })?;
 
-    if config.offchain_worker.enabled {
-        task_manager.spawn_handle().spawn(
+    if config.offchain_worker.enabled && config.role.is_authority() {
+        let public_keys = keystore_container
+            .keystore()
+            .sr25519_public_keys(pallet_drand::KEY_TYPE);
+
+        if public_keys.is_empty() {
+            match sp_keystore::Keystore::sr25519_generate_new(
+                &*keystore_container.keystore(),
+                pallet_drand::KEY_TYPE,
+                None,
+            ) {
+                Ok(_) => {
+                    log::debug!("Offchain worker key generated");
+                }
+                Err(e) => {
+                    log::error!("Failed to create SR25519 key for offchain worker: {:?}", e);
+                }
+            }
+        } else {
+            log::debug!("Offchain worker key already exists");
+        }
+
+        task_manager.spawn_essential_handle().spawn(
             "offchain-workers-runner",
-            "offchain-worker",
+            None,
             sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
                 runtime_api_provider: client.clone(),
                 is_validator: config.role.is_authority(),
