@@ -2579,7 +2579,7 @@ fn test_get_set_alpha() {
             alpha_high
         ));
         let (grabbed_alpha_low, grabbed_alpha_high): (u16, u16) =
-            SubtensorModule::get_alpha_values(netuid);
+            AlphaValues::<Test>::get(netuid);
 
         log::info!(
             "alpha_low: {:?} alpha_high: {:?}",
