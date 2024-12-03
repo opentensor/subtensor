@@ -11,8 +11,9 @@ use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::U256;
 use sp_core::{ConstU64, H256};
 use sp_runtime::{
+    testing::TestXt,
     traits::{BlakeTwo256, ConstU32, IdentityLookup},
-    BuildStorage, Perbill,
+    BuildStorage, KeyTypeId, Perbill,
 };
 use sp_std::cmp::Ordering;
 use sp_weights::Weight;
@@ -21,14 +22,14 @@ type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
-    pub enum Test
-    {
+    pub enum Test {
         System: frame_system = 1,
         Balances: pallet_balances = 2,
         AdminUtils: crate = 3,
         SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>, Error<T>} = 4,
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 5,
-        EVMChainId: pallet_evm_chain_id = 6,
+        Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 6,
+        EVMChainId: pallet_evm_chain_id = 7,
     }
 );
 
@@ -63,6 +64,10 @@ pub type Balance = u64;
 // An index to a block.
 #[allow(dead_code)]
 pub type BlockNumber = u64;
+
+pub type TestAuthId = test_crypto::TestAuthId;
+pub type Index = u64;
+pub type UncheckedExtrinsic = TestXt<RuntimeCall, ()>;
 
 parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
@@ -274,6 +279,73 @@ impl pallet_scheduler::Config for Test {
 }
 
 impl pallet_evm_chain_id::Config for Test {}
+impl pallet_drand::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = pallet_drand::weights::SubstrateWeight<Test>;
+    type AuthorityId = TestAuthId;
+    type Verifier = pallet_drand::verifier::QuicknetVerifier;
+    type UnsignedPriority = ConstU64<{ 1 << 20 }>;
+    type HttpFetchTimeout = ConstU64<1_000>;
+}
+
+impl frame_system::offchain::SigningTypes for Test {
+    type Public = test_crypto::Public;
+    type Signature = test_crypto::Signature;
+}
+
+pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"test");
+
+mod test_crypto {
+    use super::KEY_TYPE;
+    use sp_core::sr25519::{Public as Sr25519Public, Signature as Sr25519Signature};
+    use sp_core::U256;
+    use sp_runtime::{
+        app_crypto::{app_crypto, sr25519},
+        traits::IdentifyAccount,
+    };
+
+    app_crypto!(sr25519, KEY_TYPE);
+
+    pub struct TestAuthId;
+
+    impl frame_system::offchain::AppCrypto<Public, Signature> for TestAuthId {
+        type RuntimeAppPublic = Public;
+        type GenericSignature = Sr25519Signature;
+        type GenericPublic = Sr25519Public;
+    }
+
+    impl IdentifyAccount for Public {
+        type AccountId = U256;
+
+        fn into_account(self) -> U256 {
+            let mut bytes = [0u8; 32];
+            bytes.copy_from_slice(self.as_ref());
+            U256::from_big_endian(&bytes)
+        }
+    }
+}
+
+impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Test>> for Test {
+    fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+        call: RuntimeCall,
+        _public: Self::Public,
+        _account: Self::AccountId,
+        nonce: Index,
+    ) -> Option<(
+        RuntimeCall,
+        <UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
+    )> {
+        Some((call, (nonce, ())))
+    }
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+where
+    RuntimeCall: From<C>,
+{
+    type Extrinsic = UncheckedExtrinsic;
+    type OverarchingCall = RuntimeCall;
+}
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
