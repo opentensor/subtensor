@@ -3543,3 +3543,77 @@ fn test_childkey_take_drain_validator_take() {
         ));
     });
 }
+
+// Test that min stake is enforced for setting children
+#[test]
+fn test_do_set_child_below_min_stake() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let child = U256::from(3);
+        let netuid: u16 = 1;
+        let proportion: u64 = 1000;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Attempt to set child
+        assert_err!(
+            SubtensorModule::do_schedule_children(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                vec![(proportion, child)]
+            ),
+            Error::<Test>::NotEnoughStakeToSetChildkeys
+        );
+    });
+}
+
+// Test that removing stake clears pending childkeys
+#[test]
+fn test_do_remove_stake_clears_pending_childkeys() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let child = U256::from(3);
+        let netuid: u16 = 1;
+        let proportion: u64 = 1000;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+            &coldkey,
+            &hotkey,
+            100_000_000_000,
+        );
+
+        // Attempt to set child
+        assert_ok!(SubtensorModule::do_schedule_children(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            vec![(proportion, child)]
+        ));
+
+        // Check that pending child exists
+        let pending_before = PendingChildKeys::<Test>::get(netuid, hotkey);
+        assert!(pending_before.0.len() > 0);
+        assert!(pending_before.1 > 0);
+
+        // Remove stake
+        let _ = SubtensorModule::do_remove_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            100_000_000_000,
+        );
+
+        // Assert that pending child is removed
+        let pending_after = PendingChildKeys::<Test>::get(netuid, hotkey);
+        assert_eq!(pending_after.0.len(), 0); // zero child vec
+        assert_eq!(pending_after.1, 0); // zero cooldown block
+    });
+}
