@@ -5,8 +5,8 @@ use frame_support::{
 };
 use frame_system::Config;
 use pallet_subtensor::{
-    migrations, ActivityCutoff, AdjustmentAlpha, Error as SubtensorError, Event,
-    RAORecycledForRegistration, AdjustmentInterval,
+    migrations, ActivityCutoff, AdjustmentAlpha, AdjustmentInterval, AlphaValues,
+    Error as SubtensorError, Event, RAORecycledForRegistration,
 };
 use sp_core::U256;
 
@@ -1232,8 +1232,7 @@ fn test_sudo_get_set_alpha() {
             alpha_low,
             alpha_high
         ));
-        let (grabbed_alpha_low, grabbed_alpha_high): (u16, u16) =
-            SubtensorModule::get_alpha_values(netuid);
+        let (grabbed_alpha_low, grabbed_alpha_high): (u16, u16) = AlphaValues::<Test>::get(netuid);
 
         log::info!(
             "alpha_low: {:?} alpha_high: {:?}",
