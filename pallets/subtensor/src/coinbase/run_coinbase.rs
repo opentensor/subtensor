@@ -1,6 +1,7 @@
 use super::*;
 use crate::epoch::math::safe_modulo;
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BinaryHeap};
+
 use subnets::Mechanism;
 use substrate_fixed::types::I96F32;
 
@@ -371,6 +372,14 @@ impl<T: Config> Pallet<T> {
     /// # Note
     /// This function ensures fair distribution of emissions based on stake proportions and delegation agreements.
     /// It handles edge cases such as zero contributions and potential overflows using saturating arithmetic.
+    ///
+    /// # Runtime
+    /// - Gets the nominator contributions and sum. O(n)
+    /// - Calculates each nominator's contribution as a weight. O(n)
+    /// - Constructs MaxHeap at the same time as the above. ~O(1)
+    /// - Gets the top k weights and their weight sum. O(k log n)
+    /// - Calculates the normalized weights for only the top k nominators. O(n)
+    /// Total: O(3n + k log n)
     pub fn source_nominator_emission(
         hotkey: &T::AccountId,
         netuid: u16,
@@ -396,7 +405,7 @@ impl<T: Config> Pallet<T> {
         let hotkey_tempo = HotkeyEmissionTempo::<T>::get();
 
         // Calculate total global and alpha scores for all nominators
-        for (nominator, _) in Stake::<T>::iter_prefix(hotkey) {
+        for (nominator, nominator_alpha) in Alpha::<T>::iter_prefix((hotkey, netuid)) {
             // Get the last block this nominator added some stake to this hotkey
             let stake_add_block = LastAddStakeIncrease::<T>::get(&hotkey, &nominator);
             let stake_added_block_diff: u64 = current_block.saturating_sub(stake_add_block);
@@ -404,8 +413,7 @@ impl<T: Config> Pallet<T> {
             // If the last block this nominator added any stake is old enough (older than one hotkey tempo),
             // consider this nominator's contribution
             if stake_added_block_diff >= hotkey_tempo {
-                let alpha_contribution: I96F32 =
-                    I96F32::from_num(Alpha::<T>::get((&hotkey, nominator.clone(), netuid)));
+                let alpha_contribution: I96F32 = I96F32::from_num(nominator_alpha);
                 let global_contribution: I96F32 =
                     I96F32::from_num(Self::get_global_for_hotkey_and_coldkey(hotkey, &nominator));
                 total_global = total_global.saturating_add(global_contribution);
@@ -420,20 +428,50 @@ impl<T: Config> Pallet<T> {
 
         // Distribute emission to nominators based on their contributions
         if total_alpha > I96F32::from_num(0) || total_global > I96F32::from_num(0) {
+            let max_nominators: u16 = Self::get_max_nominators_per_subnet(netuid);
+            let mut top_k_heap: BinaryHeap<I96F32> = BinaryHeap::new(); // Max heap
+
+            let mut contributions_as_weight: Vec<(T::AccountId, I96F32)> = vec![];
             for (nominator, alpha_contribution, global_contribution) in contributions {
-                // Calculate emission for this nominator based on alpha and global scores
-                let alpha_emission: I96F32 = nominator_emission
-                    .saturating_mul(alpha_weight)
-                    .saturating_mul(alpha_contribution)
+                // Calculate the nominator's contribution as a weight
+                let alpha_emission_weight: I96F32 = alpha_contribution
                     .checked_div(total_alpha)
-                    .unwrap_or(I96F32::from_num(0));
-                let global_emission: I96F32 = nominator_emission
-                    .saturating_mul(global_weight)
-                    .saturating_mul(global_contribution)
+                    .unwrap_or(I96F32::from_num(0))
+                    .saturating_mul(alpha_weight);
+
+                let global_emission_weight: I96F32 = global_contribution
                     .checked_div(total_global)
+                    .unwrap_or(I96F32::from_num(0))
+                    .saturating_mul(global_weight);
+
+                let nominator_weight: I96F32 =
+                    alpha_emission_weight.saturating_add(global_emission_weight);
+
+                contributions_as_weight.push((nominator, nominator_weight));
+                top_k_heap.push(nominator_weight);
+            }
+
+            let mut popped: u16 = 0;
+            let mut top_k_sum: I96F32 = I96F32::from_num(0);
+            while popped < max_nominators {
+                // Pop the largest weights first
+                top_k_sum = top_k_sum.saturating_add(top_k_heap.pop().unwrap()); // Sum the top k weights
+                popped += 1;
+            }
+            let top_k_min = top_k_heap.pop().unwrap(); // This is the smallest weight in the top k
+            top_k_sum = top_k_sum.saturating_add(top_k_min); // Also add the smallest weight
+
+            for (nominator, nominator_weight) in contributions_as_weight {
+                if nominator_weight < top_k_min {
+                    continue; // Skip nominator if it's not in the top k
+                }
+
+                let normalized_weight: I96F32 = nominator_weight
+                    .checked_div(top_k_sum) // Normalize the nominator's weight against the top k weights
                     .unwrap_or(I96F32::from_num(0));
-                let total_emission: u64 = alpha_emission
-                    .saturating_add(global_emission)
+
+                let total_emission: u64 = nominator_emission
+                    .saturating_mul(normalized_weight)
                     .to_num::<u64>();
                 if total_emission > 0 {
                     // Record the emission for this nominator
