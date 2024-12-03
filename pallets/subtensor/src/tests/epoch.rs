@@ -2698,11 +2698,11 @@ fn test_blocks_since_last_step() {
         let tempo: u16 = 7200;
         add_network(netuid, tempo, 0);
 
-        let original_blocks: u64 = SubtensorModule::get_blocks_since_last_step(netuid);
+        let original_blocks: u64 = BlocksSinceLastStep::<Test>::get(netuid);
 
         step_block(5);
 
-        let new_blocks: u64 = SubtensorModule::get_blocks_since_last_step(netuid);
+        let new_blocks: u64 = BlocksSinceLastStep::<Test>::get(netuid);
 
         assert!(new_blocks > original_blocks);
         assert_eq!(new_blocks, 5);
@@ -2715,7 +2715,7 @@ fn test_blocks_since_last_step() {
             + 10;
         step_block(blocks_to_step);
 
-        let post_blocks: u64 = SubtensorModule::get_blocks_since_last_step(netuid);
+        let post_blocks: u64 = BlocksSinceLastStep::<Test>::get(netuid);
 
         assert_eq!(post_blocks, 10);
 
@@ -2727,13 +2727,13 @@ fn test_blocks_since_last_step() {
             + 20;
         step_block(blocks_to_step);
 
-        let new_post_blocks: u64 = SubtensorModule::get_blocks_since_last_step(netuid);
+        let new_post_blocks: u64 = BlocksSinceLastStep::<Test>::get(netuid);
 
         assert_eq!(new_post_blocks, 20);
 
         step_block(7);
 
-        assert_eq!(SubtensorModule::get_blocks_since_last_step(netuid), 27);
+        assert_eq!(BlocksSinceLastStep::<Test>::get(netuid), 27);
     });
 }
 
