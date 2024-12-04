@@ -2732,12 +2732,7 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
         assert_eq!(child2_stake_1, 499, "Child2 should have 499 stake");
 
         // Step 2: Set children for child1
-        mock_set_children(
-            &coldkey_child1,
-            &child1,
-            netuid,
-            &[(u64::MAX, grandchild)],
-        );
+        mock_set_children(&coldkey_child1, &child1, netuid, &[(u64::MAX, grandchild)]);
 
         log::info!("After setting child1's children:");
         log::info!(
