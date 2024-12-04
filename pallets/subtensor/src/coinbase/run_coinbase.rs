@@ -453,12 +453,12 @@ impl<T: Config> Pallet<T> {
 
             let mut popped: u16 = 0;
             let mut top_k_sum: I96F32 = I96F32::from_num(0);
-            while popped < max_nominators.saturating_sub(1) {
+            while popped < max_nominators.saturating_sub(1) && !top_k_heap.is_empty() {
                 // Pop the largest weights first
                 top_k_sum = top_k_sum.saturating_add(top_k_heap.pop().unwrap()); // Sum the top k weights
                 popped += 1;
             }
-            let top_k_min = top_k_heap.pop().unwrap(); // This is the smallest weight in the top k
+            let top_k_min = top_k_heap.pop().unwrap_or(I96F32::from_num(0)); // This is the smallest weight in the top k
             top_k_sum = top_k_sum.saturating_add(top_k_min); // Also add the smallest weight
 
             for (nominator, nominator_weight) in contributions_as_weight {
