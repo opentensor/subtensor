@@ -1249,7 +1249,7 @@ fn test_swap_parent_hotkey_childkey_maps() {
         SubtensorModule::create_account_if_non_existent(&coldkey, &parent_old);
 
         // Set child and verify state maps
-        mock_set_children(&coldkey, &parent_old, netuid, &vec![(u64::MAX, child)]);
+        mock_set_children(&coldkey, &parent_old, netuid, &[(u64::MAX, child)]);
         assert_eq!(
             ParentKeys::<Test>::get(child, netuid),
             vec![(u64::MAX, parent_old)]
@@ -1293,7 +1293,7 @@ fn test_swap_child_hotkey_childkey_maps() {
         SubtensorModule::create_account_if_non_existent(&coldkey, &parent);
 
         // Set child and verify state maps
-        mock_set_children(&coldkey, &parent, netuid, &vec![(u64::MAX, child_old)]);
+        mock_set_children(&coldkey, &parent, netuid, &[(u64::MAX, child_old)]);
 
         assert_eq!(
             ParentKeys::<Test>::get(child_old, netuid),

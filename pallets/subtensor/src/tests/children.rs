@@ -21,7 +21,7 @@ fn test_do_set_child_singular_success() {
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set child
-        mock_set_children(&coldkey, &hotkey, netuid, &vec![(proportion, child)]);
+        mock_set_children(&coldkey, &hotkey, netuid, &[(proportion, child)]);
 
         // Verify child assignment
         let children = SubtensorModule::get_children(&hotkey, netuid);
@@ -160,12 +160,12 @@ fn test_do_set_child_singular_old_children_cleanup() {
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set old child
-        mock_set_children(&coldkey, &hotkey, netuid, &vec![(proportion, old_child)]);
+        mock_set_children(&coldkey, &hotkey, netuid, &[(proportion, old_child)]);
 
         step_rate_limit(&TransactionType::SetChildren, netuid);
 
         // Set new child
-        mock_set_children(&coldkey, &hotkey, netuid, &vec![(proportion, new_child)]);
+        mock_set_children(&coldkey, &hotkey, netuid, &[(proportion, new_child)]);
 
         // Verify old child is removed
         let old_child_parents = SubtensorModule::get_parents(&old_child, netuid);
@@ -198,7 +198,7 @@ fn test_do_set_child_singular_new_children_assignment() {
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set child
-        mock_set_children(&coldkey, &hotkey, netuid, &vec![(proportion, child)]);
+        mock_set_children(&coldkey, &hotkey, netuid, &[(proportion, child)]);
 
         // Verify child assignment
         let children = SubtensorModule::get_children(&hotkey, netuid);
@@ -231,7 +231,7 @@ fn test_do_set_child_singular_proportion_edge_cases() {
 
         // Set child with minimum proportion
         let min_proportion: u64 = 0;
-        mock_set_children(&coldkey, &hotkey, netuid, &vec![(min_proportion, child)]);
+        mock_set_children(&coldkey, &hotkey, netuid, &[(min_proportion, child)]);
 
         // Verify child assignment with minimum proportion
         let children = SubtensorModule::get_children(&hotkey, netuid);
@@ -241,7 +241,7 @@ fn test_do_set_child_singular_proportion_edge_cases() {
 
         // Set child with maximum proportion
         let max_proportion: u64 = u64::MAX;
-        mock_set_children(&coldkey, &hotkey, netuid, &vec![(max_proportion, child)]);
+        mock_set_children(&coldkey, &hotkey, netuid, &[(max_proportion, child)]);
 
         // Verify child assignment with maximum proportion
         let children = SubtensorModule::get_children(&hotkey, netuid);
@@ -273,12 +273,12 @@ fn test_do_set_child_singular_multiple_children() {
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set first child
-        mock_set_children(&coldkey, &hotkey, netuid, &vec![(proportion1, child1)]);
+        mock_set_children(&coldkey, &hotkey, netuid, &[(proportion1, child1)]);
 
         step_rate_limit(&TransactionType::SetChildren, netuid);
 
         // Set second child
-        mock_set_children(&coldkey, &hotkey, netuid, &vec![(proportion1, child2)]);
+        mock_set_children(&coldkey, &hotkey, netuid, &[(proportion1, child2)]);
 
         // Verify children assignment
         let children = SubtensorModule::get_children(&hotkey, netuid);
@@ -341,7 +341,7 @@ fn test_add_singular_child() {
         let child = U256::from(3);
         step_rate_limit(&TransactionType::SetChildren, netuid);
 
-        mock_set_children(&coldkey, &hotkey, netuid, &vec![(u64::MAX, child)]);
+        mock_set_children(&coldkey, &hotkey, netuid, &[(u64::MAX, child)]);
     })
 }
 
@@ -367,7 +367,7 @@ fn test_get_stake_for_hotkey_on_subnet() {
         register_ok_neuron(netuid, child, coldkey2, 0);
 
         // Set parent-child relationship with 100% stake allocation
-        mock_set_children(&coldkey1, &parent, netuid, &vec![(u64::MAX, child)]);
+        mock_set_children(&coldkey1, &parent, netuid, &[(u64::MAX, child)]);
 
         // Stake 1000 to parent from coldkey1
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey1, &parent, 1000);
@@ -416,7 +416,7 @@ fn test_do_revoke_child_singular_success() {
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set child
-        mock_set_children(&coldkey, &hotkey, netuid, &vec![(proportion, child)]);
+        mock_set_children(&coldkey, &hotkey, netuid, &[(proportion, child)]);
 
         // Verify child assignment
         let children = SubtensorModule::get_children(&hotkey, netuid);
@@ -425,7 +425,7 @@ fn test_do_revoke_child_singular_success() {
         step_rate_limit(&TransactionType::SetChildren, netuid);
 
         // Revoke child
-        mock_set_children(&coldkey, &hotkey, netuid, &vec![]);
+        mock_set_children(&coldkey, &hotkey, netuid, &[]);
 
         // Verify child removal
         let children = SubtensorModule::get_children(&hotkey, netuid);
@@ -545,7 +545,7 @@ fn test_do_schedule_children_multiple_success() {
             &coldkey,
             &hotkey,
             netuid,
-            &vec![(proportion1, child1), (proportion2, child2)],
+            &[(proportion1, child1), (proportion2, child2)],
         );
 
         // Verify children assignment
@@ -706,7 +706,7 @@ fn test_do_schedule_children_multiple_old_children_cleanup() {
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set old child
-        mock_set_children(&coldkey, &hotkey, netuid, &vec![(proportion, old_child)]);
+        mock_set_children(&coldkey, &hotkey, netuid, &[(proportion, old_child)]);
 
         step_rate_limit(&TransactionType::SetChildren, netuid);
 
@@ -715,7 +715,7 @@ fn test_do_schedule_children_multiple_old_children_cleanup() {
             &coldkey,
             &hotkey,
             netuid,
-            &vec![(proportion, new_child1), (proportion, new_child2)],
+            &[(proportion, new_child1), (proportion, new_child2)],
         );
 
         // Verify old child is removed
@@ -757,7 +757,7 @@ fn test_do_schedule_children_multiple_proportion_edge_cases() {
             &coldkey,
             &hotkey,
             netuid,
-            &vec![(min_proportion, child1), (max_proportion, child2)],
+            &[(min_proportion, child1), (max_proportion, child2)],
         );
 
         // Verify children assignment
@@ -797,7 +797,7 @@ fn test_do_schedule_children_multiple_overwrite_existing() {
             &coldkey,
             &hotkey,
             netuid,
-            &vec![(proportion, child1), (proportion, child2)],
+            &[(proportion, child1), (proportion, child2)],
         );
 
         step_rate_limit(&TransactionType::SetChildren, netuid);
@@ -807,7 +807,7 @@ fn test_do_schedule_children_multiple_overwrite_existing() {
             &coldkey,
             &hotkey,
             netuid,
-            &vec![(proportion * 2, child2), (proportion * 3, child3)],
+            &[(proportion * 2, child2), (proportion * 3, child3)],
         );
 
         // Verify final children assignment
@@ -1103,7 +1103,7 @@ fn test_do_schedule_children_multiple_empty_list() {
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set empty children list
-        mock_set_children(&coldkey, &hotkey, netuid, &vec![]);
+        mock_set_children(&coldkey, &hotkey, netuid, &[]);
 
         // Verify children assignment is empty
         let children = SubtensorModule::get_children(&hotkey, netuid);
@@ -1139,13 +1139,13 @@ fn test_do_revoke_children_multiple_success() {
             &coldkey,
             &hotkey,
             netuid,
-            &vec![(proportion1, child1), (proportion2, child2)],
+            &[(proportion1, child1), (proportion2, child2)],
         );
 
         step_rate_limit(&TransactionType::SetChildren, netuid);
 
         // Revoke multiple children
-        mock_set_children(&coldkey, &hotkey, netuid, &vec![]);
+        mock_set_children(&coldkey, &hotkey, netuid, &[]);
 
         // Verify children removal
         let children = SubtensorModule::get_children(&hotkey, netuid);
@@ -1246,7 +1246,7 @@ fn test_do_revoke_children_multiple_partial_revocation() {
             &coldkey,
             &hotkey,
             netuid,
-            &vec![
+            &[
                 (proportion, child1),
                 (proportion, child2),
                 (proportion, child3),
@@ -1260,7 +1260,7 @@ fn test_do_revoke_children_multiple_partial_revocation() {
             &coldkey,
             &hotkey,
             netuid,
-            &vec![(proportion, child1), (proportion, child2)],
+            &[(proportion, child1), (proportion, child2)],
         );
 
         // Verify children removal
@@ -1299,12 +1299,12 @@ fn test_do_revoke_children_multiple_non_existent_children() {
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set one child
-        mock_set_children(&coldkey, &hotkey, netuid, &vec![(proportion, child1)]);
+        mock_set_children(&coldkey, &hotkey, netuid, &[(proportion, child1)]);
 
         step_rate_limit(&TransactionType::SetChildren, netuid);
 
         // Attempt to revoke existing and non-existent children
-        mock_set_children(&coldkey, &hotkey, netuid, &vec![]);
+        mock_set_children(&coldkey, &hotkey, netuid, &[]);
 
         // Verify all children are removed
         let children = SubtensorModule::get_children(&hotkey, netuid);
@@ -1334,7 +1334,7 @@ fn test_do_revoke_children_multiple_empty_list() {
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Attempt to revoke with an empty list
-        mock_set_children(&coldkey, &hotkey, netuid, &vec![]);
+        mock_set_children(&coldkey, &hotkey, netuid, &[]);
 
         // Verify no changes in children
         let children = SubtensorModule::get_children(&hotkey, netuid);
@@ -1372,7 +1372,7 @@ fn test_do_revoke_children_multiple_complex_scenario() {
             &coldkey,
             &hotkey,
             netuid,
-            &vec![
+            &[
                 (proportion1, child1),
                 (proportion2, child2),
                 (proportion3, child3),
@@ -1386,7 +1386,7 @@ fn test_do_revoke_children_multiple_complex_scenario() {
             &coldkey,
             &hotkey,
             netuid,
-            &vec![(proportion1, child1), (proportion3, child3)],
+            &[(proportion1, child1), (proportion3, child3)],
         );
 
         // Verify remaining children
@@ -1400,7 +1400,7 @@ fn test_do_revoke_children_multiple_complex_scenario() {
         step_rate_limit(&TransactionType::SetChildren, netuid);
 
         // Revoke remaining children
-        mock_set_children(&coldkey, &hotkey, netuid, &vec![]);
+        mock_set_children(&coldkey, &hotkey, netuid, &[]);
 
         // Verify all children are removed
         let children = SubtensorModule::get_children(&hotkey, netuid);
@@ -1576,7 +1576,7 @@ fn test_children_stake_values() {
             &coldkey,
             &hotkey,
             netuid,
-            &vec![
+            &[
                 (proportion1, child1),
                 (proportion2, child2),
                 (proportion3, child3),
@@ -1660,7 +1660,7 @@ fn test_get_parents_chain() {
                 &coldkey,
                 &hotkeys[i],
                 netuid,
-                &vec![(proportion, hotkeys[i + 1])],
+                &[(proportion, hotkeys[i + 1])],
             );
             log::info!(
                 "Set parent-child relationship: parent={}, child={}, proportion={}",
@@ -1719,7 +1719,7 @@ fn test_get_parents_chain() {
             &coldkey,
             &new_parent,
             netuid,
-            &vec![(proportion / 2, last_hotkey)],
+            &[(proportion / 2, last_hotkey)],
         );
 
         log::info!(
@@ -1800,7 +1800,7 @@ fn test_childkey_single_parent_emission() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         // Set parent-child relationship
-        mock_set_children(&coldkey_parent, &parent, netuid, &vec![(u64::MAX, child)]);
+        mock_set_children(&coldkey_parent, &parent, netuid, &[(u64::MAX, child)]);
         step_block(7200 + 1);
         // Set weights on the child using the weight_setter account
         let origin = RuntimeOrigin::signed(weight_setter);
@@ -1936,8 +1936,8 @@ fn test_childkey_multiple_parents_emission() {
         step_block(2);
 
         // Set parent-child relationships
-        mock_set_children(&coldkey_parent1, &parent1, netuid, &vec![(100_000, child)]);
-        mock_set_children(&coldkey_parent2, &parent2, netuid, &vec![(75_000, child)]);
+        mock_set_children(&coldkey_parent1, &parent1, netuid, &[(100_000, child)]);
+        mock_set_children(&coldkey_parent2, &parent2, netuid, &[(75_000, child)]);
 
         // Set weights
         let uids: Vec<u16> = vec![0, 1, 2];
@@ -2095,10 +2095,10 @@ fn test_parent_child_chain_emission() {
 
         // Set parent-child relationships
         // A -> B (50% of A's stake)
-        mock_set_children(&coldkey_a, &hotkey_a, netuid, &vec![(u64::MAX / 2, hotkey_b)]);
+        mock_set_children(&coldkey_a, &hotkey_a, netuid, &[(u64::MAX / 2, hotkey_b)]);
 
         // B -> C (50% of B's stake)
-        mock_set_children(&coldkey_b, &hotkey_b, netuid, &vec![(u64::MAX / 2, hotkey_c)]);
+        mock_set_children(&coldkey_b, &hotkey_b, netuid, &[(u64::MAX / 2, hotkey_c)]);
 
         step_block(2);
 
@@ -2237,7 +2237,7 @@ fn test_dynamic_parent_child_relationships() {
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_child1, &child1, 50_000);
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_child2, &child2, 30_000);
 
-        mock_set_children(&coldkey_parent, &parent, netuid, &vec![(u64::MAX / 2, child1)]);
+        mock_set_children(&coldkey_parent, &parent, netuid, &[(u64::MAX / 2, child1)]);
 
         step_block(2);
 
@@ -2275,7 +2275,7 @@ fn test_dynamic_parent_child_relationships() {
         step_rate_limit(&TransactionType::SetChildren, netuid);
 
         // Change parent-child relationships
-        mock_set_children(&coldkey_parent, &parent, netuid, &vec![(u64::MAX / 4, child1), (u64::MAX / 3, child2)]);
+        mock_set_children(&coldkey_parent, &parent, netuid, &[(u64::MAX / 4, child1), (u64::MAX / 3, child2)]);
 
         // Run second epoch
         let hotkey_emission: Vec<(U256, u64, u64)> = SubtensorModule::epoch(netuid, hardcoded_emission);
@@ -2467,7 +2467,7 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_child() {
 
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &parent, 1000);
 
-        mock_set_children(&coldkey, &parent, netuid, &vec![(u64::MAX, child)]);
+        mock_set_children(&coldkey, &parent, netuid, &[(u64::MAX, child)]);
 
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid),
@@ -2504,8 +2504,8 @@ fn test_get_stake_for_hotkey_on_subnet_multiple_parents_single_child() {
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &parent1, 1000);
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &parent2, 2000);
 
-        mock_set_children(&coldkey, &parent1, netuid, &vec![(u64::MAX / 2, child)]);
-        mock_set_children(&coldkey, &parent2, netuid, &vec![(u64::MAX / 2, child)]);
+        mock_set_children(&coldkey, &parent1, netuid, &[(u64::MAX / 2, child)]);
+        mock_set_children(&coldkey, &parent2, netuid, &[(u64::MAX / 2, child)]);
 
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&parent1, netuid),
@@ -2550,7 +2550,7 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_multiple_children() {
             &coldkey,
             &parent,
             netuid,
-            &vec![(u64::MAX / 3, child1), (u64::MAX / 3, child2)],
+            &[(u64::MAX / 3, child1), (u64::MAX / 3, child2)],
         );
 
         let parent_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
@@ -2611,7 +2611,7 @@ fn test_get_stake_for_hotkey_on_subnet_edge_cases() {
             &coldkey,
             &parent,
             netuid,
-            &vec![(0, child1), (u64::MAX, child2)],
+            &[(0, child1), (u64::MAX, child2)],
         );
 
         let parent_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
@@ -2699,7 +2699,7 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
             &coldkey_parent,
             &parent,
             netuid,
-            &vec![(u64::MAX / 2, child1), (u64::MAX / 2, child2)],
+            &[(u64::MAX / 2, child1), (u64::MAX / 2, child2)],
         );
 
         log::info!("After setting parent's children:");
@@ -2736,7 +2736,7 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
             &coldkey_child1,
             &child1,
             netuid,
-            &vec![(u64::MAX, grandchild)],
+            &[(u64::MAX, grandchild)],
         );
 
         log::info!("After setting child1's children:");
@@ -3004,7 +3004,7 @@ fn test_rank_trust_incentive_calculation_with_parent_child() {
         log::debug!("Initial child dividends: {:?}", initial_child_dividends);
 
         // Parent sets the child with 100% of its weight
-        mock_set_children(&parent_coldkey, &parent_hotkey, netuid, &vec![(u64::MAX, child_hotkey)]);
+        mock_set_children(&parent_coldkey, &parent_hotkey, netuid, &[(u64::MAX, child_hotkey)]);
 
         // Child now sets weights as a validator
         assert_ok!(SubtensorModule::set_weights(
@@ -3157,7 +3157,7 @@ fn test_childkey_set_weights_single_parent() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         // Set parent-child relationship
-        mock_set_children(&coldkey_parent, &parent, netuid, &vec![(u64::MAX, child)]);
+        mock_set_children(&coldkey_parent, &parent, netuid, &[(u64::MAX, child)]);
 
         step_block(7200 + 1);
         // Set weights on the child using the weight_setter account
@@ -3323,7 +3323,7 @@ fn test_childkey_take_drain() {
         register_ok_neuron(netuid, parent, coldkey, 1);
 
         // Set children
-        mock_set_children(&coldkey, &parent, netuid, &vec![(proportion, child)]);
+        mock_set_children(&coldkey, &parent, netuid, &[(proportion, child)]);
 
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey,
@@ -3473,7 +3473,7 @@ fn test_childkey_take_drain_validator_take() {
         crate::SubnetOwnerCut::<Test>::set(0);
 
         // Set children
-        mock_set_children(&coldkey, &parent, netuid, &vec![(proportion, child)]);
+        mock_set_children(&coldkey, &parent, netuid, &[(proportion, child)]);
 
         // Set 20% childkey take
         let max_take: u16 = 0xFFFF / 5;
@@ -3595,7 +3595,7 @@ fn test_set_children_rate_limit_fail_then_succeed() {
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // First set_children transaction
-        mock_set_children(&coldkey, &hotkey, netuid, &vec![(100, child)]);
+        mock_set_children(&coldkey, &hotkey, netuid, &[(100, child)]);
 
         // Immediate second transaction should fail due to rate limit
         assert_noop!(
@@ -3627,7 +3627,7 @@ fn test_set_children_rate_limit_fail_then_succeed() {
         ));
 
         // Try again
-        mock_set_children(&coldkey, &hotkey, netuid, &vec![(100, child2)]);
+        mock_set_children(&coldkey, &hotkey, netuid, &[(100, child2)]);
 
         // Verify children assignment has changed
         let children = SubtensorModule::get_children(&hotkey, netuid);
@@ -3692,7 +3692,7 @@ fn test_do_remove_stake_clears_pending_childkeys() {
 
         // Check that pending child exists
         let pending_before = PendingChildKeys::<Test>::get(netuid, hotkey);
-        assert!(pending_before.0.len() > 0);
+        assert!(pending_before.0.is_empty());
         assert!(pending_before.1 > 0);
 
         // Remove stake

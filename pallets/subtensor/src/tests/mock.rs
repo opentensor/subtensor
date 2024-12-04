@@ -612,7 +612,7 @@ pub fn wait_and_set_pending_children(netuid: u16) {
 }
 
 #[allow(dead_code)]
-pub fn mock_set_children(coldkey: &U256, parent: &U256, netuid: u16, child_vec: &Vec<(u64, U256)>) {
+pub fn mock_set_children(coldkey: &U256, parent: &U256, netuid: u16, child_vec: &[(u64, U256)]) {
     // Set minimum stake for setting children
     let parent_total_stake_original = TotalHotkeyStake::<Test>::get(parent);
     TotalHotkeyStake::<Test>::insert(parent, DefaultMinStake::<Test>::get());
@@ -622,7 +622,7 @@ pub fn mock_set_children(coldkey: &U256, parent: &U256, netuid: u16, child_vec: 
         RuntimeOrigin::signed(*coldkey),
         *parent,
         netuid,
-        child_vec.clone()
+        child_vec.to_vec()
     ));
     wait_and_set_pending_children(netuid);
     TotalHotkeyStake::<Test>::insert(parent, parent_total_stake_original);
