@@ -96,6 +96,7 @@ bob_start=(
   --allow-private-ipv4
   --discover-local
   --unsafe-force-node-key-generation
+#  --offchain-worker=Never
 )
 
 trap 'pkill -P $$' EXIT SIGINT SIGTERM
