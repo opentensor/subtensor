@@ -73,7 +73,7 @@ update_spec() {
   update_genesis_and_code_substitutes "$plain_genesis_temp" "$plain_code_substitutes_temp" "$plain_spec_temp" "$plain_path"
 
   # cleanup
-  rm -f "$raw_genesis_temp" "$plain_genesis_temp" "$raw_spec_temp" \
+  rm -f "$raw_genesis_temp" "$plain_genesis_temp" "$raw_code_substitutes_temp" "$plain_code_substitutes_temp" "$raw_spec_temp" \
     "$plain_spec_temp"
 }
 
