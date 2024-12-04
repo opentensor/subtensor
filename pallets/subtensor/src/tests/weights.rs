@@ -5501,7 +5501,7 @@ fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
         let delta = I32F32::from_num(0.0001);
 
         for (hotkey, expected_payload) in commits {
-            let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey)
+            let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, hotkey)
                 .expect("Failed to get neuron UID for hotkey") as usize;
             let weights = weights_sparse
                 .get(neuron_uid)
@@ -5687,7 +5687,7 @@ fn test_reveal_crv3_commits_max_neurons() {
         let delta = I32F32::from_num(0.0001); // Adjust delta as needed
 
         for (hotkey, expected_payload) in commits {
-            let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey)
+            let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, hotkey)
                 .expect("Failed to get neuron UID for hotkey") as usize;
             let weights = weights_sparse
                 .get(neuron_uid)
