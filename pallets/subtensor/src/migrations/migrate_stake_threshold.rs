@@ -36,6 +36,9 @@ pub fn migrate_stake_threshold<T: Config>() -> Weight {
 
     weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 
+    HasMigrationRun::<T>::insert(&migration_name, true);
+    weight = weight.saturating_add(T::DbWeight::get().writes(1));
+
     log::info!(
         "Migration '{:?}' completed successfully.",
         String::from_utf8_lossy(&migration_name)
