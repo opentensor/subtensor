@@ -4677,46 +4677,103 @@ fn test_do_commit_crv3_weights_committing_too_fast() {
 fn test_do_commit_crv3_weights_too_many_unrevealed_commits() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
-        let hotkey: AccountId = U256::from(1);
+        let hotkey1: AccountId = U256::from(1);
+        let hotkey2: AccountId = U256::from(2);
         let reveal_round: u64 = 1000;
 
         add_network(netuid, 5, 0);
-        register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        register_ok_neuron(netuid, hotkey1, U256::from(2), 100_000);
+        register_ok_neuron(netuid, hotkey2, U256::from(3), 100_000);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
-        // Simulate 10 unrevealed commits
-        let cur_epoch =
-            SubtensorModule::get_epoch_index(netuid, SubtensorModule::get_current_block_as_u64());
+        // Hotkey1 submits 10 commits successfully
         for i in 0..10 {
             let commit_data: Vec<u8> = vec![i as u8; 5];
             let bounded_commit_data = commit_data
                 .try_into()
                 .expect("Failed to convert commit data into bounded vector");
-            assert_ok!(CRV3WeightCommits::<Test>::try_mutate(
+
+            assert_ok!(SubtensorModule::do_commit_crv3_weights(
+                RuntimeOrigin::signed(hotkey1),
                 netuid,
-                cur_epoch,
-                |commits| -> DispatchResult {
-                    commits.push_back((hotkey, bounded_commit_data, reveal_round));
-                    Ok(())
-                }
+                bounded_commit_data,
+                reveal_round
             ));
         }
 
-        // Attempt to commit an 11th time, should fail
+        // Hotkey1 attempts to commit an 11th time, should fail with TooManyUnrevealedCommits
         let new_commit_data: Vec<u8> = vec![11; 5];
         let bounded_new_commit_data = new_commit_data
             .try_into()
             .expect("Failed to convert new commit data into bounded vector");
+
         assert_err!(
             SubtensorModule::do_commit_crv3_weights(
-                RuntimeOrigin::signed(hotkey),
+                RuntimeOrigin::signed(hotkey1),
                 netuid,
                 bounded_new_commit_data,
                 reveal_round
             ),
             Error::<Test>::TooManyUnrevealedCommits
         );
+
+        // Hotkey2 can still submit commits independently
+        let commit_data_hotkey2: Vec<u8> = vec![0; 5];
+        let bounded_commit_data_hotkey2 = commit_data_hotkey2
+            .try_into()
+            .expect("Failed to convert commit data into bounded vector");
+
+        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+            RuntimeOrigin::signed(hotkey2),
+            netuid,
+            bounded_commit_data_hotkey2,
+            reveal_round
+        ));
+
+        // Hotkey2 can submit up to 10 commits
+        for i in 1..10 {
+            let commit_data: Vec<u8> = vec![i as u8; 5];
+            let bounded_commit_data = commit_data
+                .try_into()
+                .expect("Failed to convert commit data into bounded vector");
+
+            assert_ok!(SubtensorModule::do_commit_crv3_weights(
+                RuntimeOrigin::signed(hotkey2),
+                netuid,
+                bounded_commit_data,
+                reveal_round
+            ));
+        }
+
+        // Hotkey2 attempts to commit an 11th time, should fail
+        let new_commit_data: Vec<u8> = vec![11; 5];
+        let bounded_new_commit_data = new_commit_data
+            .try_into()
+            .expect("Failed to convert new commit data into bounded vector");
+
+        assert_err!(
+            SubtensorModule::do_commit_crv3_weights(
+                RuntimeOrigin::signed(hotkey2),
+                netuid,
+                bounded_new_commit_data,
+                reveal_round
+            ),
+            Error::<Test>::TooManyUnrevealedCommits
+        );
+
+        step_epochs(10, netuid);
+
+        let new_commit_data: Vec<u8> = vec![11; 5];
+        let bounded_new_commit_data = new_commit_data
+            .try_into()
+            .expect("Failed to convert new commit data into bounded vector");
+        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+            RuntimeOrigin::signed(hotkey1),
+            netuid,
+            bounded_new_commit_data,
+            reveal_round
+        ));
     });
 }
 
