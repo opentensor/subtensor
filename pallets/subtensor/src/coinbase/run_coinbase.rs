@@ -453,7 +453,7 @@ impl<T: Config> Pallet<T> {
 
             let mut popped: u16 = 0;
             let mut top_k_sum: I96F32 = I96F32::from_num(0);
-            while popped < max_nominators {
+            while popped < (max_nominators - 1) {
                 // Pop the largest weights first
                 top_k_sum = top_k_sum.saturating_add(top_k_heap.pop().unwrap()); // Sum the top k weights
                 popped += 1;
