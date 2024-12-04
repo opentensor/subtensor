@@ -327,9 +327,6 @@ impl<T: Config> Pallet<T> {
                 );
                 continue;
             };
-
-            // If we reached here, we sucessfully set weights!
-            return Ok(());
         }
 
         Ok(())

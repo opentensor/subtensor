@@ -5384,3 +5384,377 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
         );
     });
 }
+
+#[test]
+fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
+    new_test_ext(100).execute_with(|| {
+        use ark_serialize::CanonicalSerialize;
+
+        let netuid: u16 = 1;
+        let reveal_round: u64 = 1000;
+
+        // Initialize the network
+        add_network(netuid, 5, 0);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        SubtensorModule::set_reveal_period(netuid, 1);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        SubtensorModule::set_max_registrations_per_block(netuid, 100);
+        SubtensorModule::set_target_registrations_per_interval(netuid, 100);
+
+        // Register multiple neurons (e.g., 5 neurons)
+        let num_neurons = 5;
+        let mut hotkeys = Vec::new();
+        let mut neuron_uids = Vec::new();
+        for i in 0..num_neurons {
+            let hotkey: AccountId = U256::from(i + 1);
+            register_ok_neuron(netuid, hotkey, U256::from(i + 100), 100_000);
+            SubtensorModule::set_validator_permit_for_uid(netuid, i as u16, true);
+            hotkeys.push(hotkey);
+            neuron_uids.push(
+                SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey)
+                    .expect("Failed to get neuron UID"),
+            );
+        }
+
+        let version_key = SubtensorModule::get_weights_version_key(netuid);
+
+        // Prepare payloads and commits for each hotkey
+        let esk = [2; 32];
+        let pk_bytes = hex::decode("83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c8c4b450b6a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809bd274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a")
+            .expect("Failed to decode public key bytes");
+        let pub_key = <TinyBLS381 as EngineBLS>::PublicKeyGroup::deserialize_compressed(&*pk_bytes)
+            .expect("Failed to deserialize public key");
+
+        let message = {
+            let mut hasher = sha2::Sha256::new();
+            hasher.update(reveal_round.to_be_bytes());
+            hasher.finalize().to_vec()
+        };
+        let identity = Identity::new(b"", vec![message]);
+
+        let mut commits = Vec::new();
+        for (i, hotkey) in hotkeys.iter().enumerate() {
+            // Each neuron will assign weights to all neurons, including itself
+            let values: Vec<u16> = (0..num_neurons as u16)
+                .map(|v| (v + i as u16 + 1) * 10)
+                .collect();
+            let payload = WeightsTlockPayload {
+                values: values.clone(),
+                uids: neuron_uids.clone(),
+                version_key,
+            };
+            let serialized_payload = payload.encode();
+
+            let rng = ChaCha20Rng::seed_from_u64(i as u64);
+
+            let ct = tle::<TinyBLS381, AESGCMStreamCipherProvider, ChaCha20Rng>(
+                pub_key,
+                esk,
+                &serialized_payload,
+                identity.clone(),
+                rng,
+            )
+            .expect("Encryption failed");
+
+            let mut commit_bytes = Vec::new();
+            ct.serialize_compressed(&mut commit_bytes)
+                .expect("Failed to serialize commit");
+
+            // Submit the commit
+            assert_ok!(SubtensorModule::do_commit_crv3_weights(
+                RuntimeOrigin::signed(*hotkey),
+                netuid,
+                commit_bytes
+                    .try_into()
+                    .expect("Failed to convert commit data"),
+                reveal_round
+            ));
+
+            // Store the expected weights for later comparison
+            commits.push((hotkey, payload));
+        }
+
+        // Insert the pulse
+        let sig_bytes = hex::decode("b44679b9a59af2ec876b1a6b1ad52ea9b1615fc3982b19576350f93447cb1125e342b73a8dd2bacbe47e4b6b63ed5e39")
+            .expect("Failed to decode signature bytes");
+
+        pallet_drand::Pulses::<Test>::insert(
+            reveal_round,
+            Pulse {
+                round: reveal_round,
+                randomness: vec![0; 32]
+                    .try_into()
+                    .expect("Failed to convert randomness vector"),
+                signature: sig_bytes
+                    .try_into()
+                    .expect("Failed to convert signature bytes"),
+            },
+        );
+
+        // Advance epoch to trigger reveal
+        step_epochs(1, netuid);
+
+        // Verify weights for all hotkeys
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+
+        // Set acceptable delta for `I32F32` weights
+        let delta = I32F32::from_num(0.0001);
+
+        for (hotkey, expected_payload) in commits {
+            let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, hotkey)
+                .expect("Failed to get neuron UID for hotkey") as usize;
+            let weights = weights_sparse
+                .get(neuron_uid)
+                .cloned()
+                .unwrap_or_default();
+
+            assert!(
+                !weights.is_empty(),
+                "Weights for neuron_uid {} should be set",
+                neuron_uid
+            );
+
+            // Normalize expected weights
+            let expected_weights: Vec<(u16, I32F32)> = expected_payload
+                .uids
+                .iter()
+                .zip(expected_payload.values.iter())
+                .map(|(&uid, &value)| (uid, I32F32::from_num(value)))
+                .collect();
+
+            let total_expected_weight: I32F32 =
+                expected_weights.iter().map(|&(_, w)| w).sum();
+
+            let normalized_expected_weights: Vec<(u16, I32F32)> = expected_weights
+                .iter()
+                .map(|&(uid, w)| (uid, w / total_expected_weight * I32F32::from_num(30)))
+                .collect();
+
+            // Normalize actual weights
+            let total_weight: I32F32 = weights.iter().map(|&(_, w)| w).sum();
+
+            let normalized_weights: Vec<(u16, I32F32)> = weights
+                .iter()
+                .map(|&(uid, w)| (uid, w / total_weight * I32F32::from_num(30)))
+                .collect();
+
+            // Compare expected and actual weights with acceptable delta
+            for ((uid_expected, weight_expected), (uid_actual, weight_actual)) in
+                normalized_expected_weights.iter().zip(normalized_weights.iter())
+            {
+                assert_eq!(
+                    uid_expected, uid_actual,
+                    "UID mismatch: expected {}, got {}",
+                    uid_expected, uid_actual
+                );
+
+                let diff = (*weight_expected - *weight_actual).abs();
+                assert!(
+                    diff <= delta,
+                    "Weight mismatch for uid {}: expected {}, got {}, diff {}",
+                    uid_expected,
+                    weight_expected,
+                    weight_actual,
+                    diff
+                );
+            }
+        }
+
+        // Verify that commits storage is empty
+        let cur_epoch = SubtensorModule::get_epoch_index(
+            netuid,
+            SubtensorModule::get_current_block_as_u64(),
+        );
+        let commits = CRV3WeightCommits::<Test>::get(netuid, cur_epoch);
+        assert!(
+            commits.is_empty(),
+            "Expected no commits left in storage after reveal"
+        );
+    });
+}
+
+#[test]
+fn test_reveal_crv3_commits_max_neurons() {
+    new_test_ext(100).execute_with(|| {
+        use ark_serialize::CanonicalSerialize;
+
+        let netuid: u16 = 1;
+        let reveal_round: u64 = 1000;
+
+        add_network(netuid, 5, 0);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        SubtensorModule::set_reveal_period(netuid, 1);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        SubtensorModule::set_max_registrations_per_block(netuid, 10000);
+        SubtensorModule::set_target_registrations_per_interval(netuid, 10000);
+        SubtensorModule::set_max_allowed_uids(netuid, 10024);
+
+        let num_neurons = 1_024;
+        let mut hotkeys = Vec::new();
+        let mut neuron_uids = Vec::new();
+        for i in 0..num_neurons {
+            let hotkey: AccountId = U256::from(i + 1);
+            register_ok_neuron(netuid, hotkey, U256::from(i + 100), 100_000);
+            SubtensorModule::set_validator_permit_for_uid(netuid, i as u16, true);
+            hotkeys.push(hotkey);
+            neuron_uids.push(
+                SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey)
+                    .expect("Failed to get neuron UID"),
+            );
+        }
+
+        let version_key = SubtensorModule::get_weights_version_key(netuid);
+
+        // Prepare payloads and commits for 3 hotkeys
+        let esk = [2; 32];
+        let pk_bytes = hex::decode("83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c8c4b450b6a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809bd274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a")
+            .expect("Failed to decode public key bytes");
+        let pub_key = <TinyBLS381 as EngineBLS>::PublicKeyGroup::deserialize_compressed(&*pk_bytes)
+            .expect("Failed to deserialize public key");
+
+        let message = {
+            let mut hasher = sha2::Sha256::new();
+            hasher.update(reveal_round.to_be_bytes());
+            hasher.finalize().to_vec()
+        };
+        let identity = Identity::new(b"", vec![message]);
+
+        let hotkeys_to_commit = &hotkeys[0..3]; // First 3 hotkeys will submit weight commits
+        let mut commits = Vec::new();
+        for (i, hotkey) in hotkeys_to_commit.iter().enumerate() {
+            // Each neuron will assign weights to all neurons
+            let values: Vec<u16> = vec![10; num_neurons]; // Assign weight of 10 to each neuron
+            let payload = WeightsTlockPayload {
+                values: values.clone(),
+                uids: neuron_uids.clone(),
+                version_key,
+            };
+            let serialized_payload = payload.encode();
+
+            let rng = ChaCha20Rng::seed_from_u64(i as u64);
+
+            let ct = tle::<TinyBLS381, AESGCMStreamCipherProvider, ChaCha20Rng>(
+                pub_key,
+                esk,
+                &serialized_payload,
+                identity.clone(),
+                rng,
+            )
+            .expect("Encryption failed");
+
+            let mut commit_bytes = Vec::new();
+            ct.serialize_compressed(&mut commit_bytes)
+                .expect("Failed to serialize commit");
+
+            // Submit the commit
+            assert_ok!(SubtensorModule::do_commit_crv3_weights(
+                RuntimeOrigin::signed(*hotkey),
+                netuid,
+                commit_bytes
+                    .try_into()
+                    .expect("Failed to convert commit data"),
+                reveal_round
+            ));
+
+            // Store the expected weights for later comparison
+            commits.push((hotkey, payload));
+        }
+
+        // Insert the pulse
+        let sig_bytes = hex::decode("b44679b9a59af2ec876b1a6b1ad52ea9b1615fc3982b19576350f93447cb1125e342b73a8dd2bacbe47e4b6b63ed5e39")
+            .expect("Failed to decode signature bytes");
+
+        pallet_drand::Pulses::<Test>::insert(
+            reveal_round,
+            Pulse {
+                round: reveal_round,
+                randomness: vec![0; 32]
+                    .try_into()
+                    .expect("Failed to convert randomness vector"),
+                signature: sig_bytes
+                    .try_into()
+                    .expect("Failed to convert signature bytes"),
+            },
+        );
+
+        // Advance epoch to trigger reveal
+        step_epochs(1, netuid);
+
+        // Verify weights for the hotkeys that submitted commits
+        let weights_sparse = SubtensorModule::get_weights_sparse(netuid);
+
+        // Set acceptable delta for `I32F32` weights
+        let delta = I32F32::from_num(0.0001); // Adjust delta as needed
+
+        for (hotkey, expected_payload) in commits {
+            let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, hotkey)
+                .expect("Failed to get neuron UID for hotkey") as usize;
+            let weights = weights_sparse
+                .get(neuron_uid)
+                .cloned()
+                .unwrap_or_default();
+
+            assert!(
+                !weights.is_empty(),
+                "Weights for neuron_uid {} should be set",
+                neuron_uid
+            );
+
+            // Normalize expected weights
+            let expected_weights: Vec<(u16, I32F32)> = expected_payload
+                .uids
+                .iter()
+                .zip(expected_payload.values.iter())
+                .map(|(&uid, &value)| (uid, I32F32::from_num(value)))
+                .collect();
+
+            let total_expected_weight: I32F32 =
+                expected_weights.iter().map(|&(_, w)| w).sum();
+
+            let normalized_expected_weights: Vec<(u16, I32F32)> = expected_weights
+                .iter()
+                .map(|&(uid, w)| (uid, w / total_expected_weight * I32F32::from_num(30)))
+                .collect();
+
+            // Normalize actual weights
+            let total_weight: I32F32 = weights.iter().map(|&(_, w)| w).sum();
+
+            let normalized_weights: Vec<(u16, I32F32)> = weights
+                .iter()
+                .map(|&(uid, w)| (uid, w / total_weight * I32F32::from_num(30)))
+                .collect();
+
+            // Compare expected and actual weights with acceptable delta
+            for ((uid_expected, weight_expected), (uid_actual, weight_actual)) in
+                normalized_expected_weights.iter().zip(normalized_weights.iter())
+            {
+                assert_eq!(
+                    uid_expected, uid_actual,
+                    "UID mismatch: expected {}, got {}",
+                    uid_expected, uid_actual
+                );
+
+                let diff = (*weight_expected - *weight_actual).abs();
+                assert!(
+                    diff <= delta,
+                    "Weight mismatch for uid {}: expected {}, got {}, diff {}",
+                    uid_expected,
+                    weight_expected,
+                    weight_actual,
+                    diff
+                );
+            }
+        }
+
+        // Verify that commits storage is empty
+        let cur_epoch = SubtensorModule::get_epoch_index(
+            netuid,
+            SubtensorModule::get_current_block_as_u64(),
+        );
+        let commits = CRV3WeightCommits::<Test>::get(netuid, cur_epoch);
+        assert!(
+            commits.is_empty(),
+            "Expected no commits left in storage after reveal"
+        );
+    });
+}
