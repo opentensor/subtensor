@@ -578,7 +578,7 @@ pub mod pallet {
     }
     #[pallet::type_value]
     /// Default minimum stake for weights.
-    pub fn DefaultWeightsMinStake<T: Config>() -> u64 {
+    pub fn DefaultStakeThreshold<T: Config>() -> u64 {
         0
     }
     #[pallet::type_value]
@@ -1296,10 +1296,7 @@ pub mod pallet {
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
     #[pallet::storage]
     /// ITEM( weights_min_stake )
-    pub type WeightsMinStake<T> = StorageValue<_, u64, ValueQuery, DefaultWeightsMinStake<T>>;
-    #[pallet::storage]
-    /// ITEM( childkeys_min_stake )
-    pub type ChildkeysMinStake<T> = StorageValue<_, u64, ValueQuery, DefaultChildkeysMinStake<T>>;
+    pub type StakeThreshold<T> = StorageValue<_, u64, ValueQuery, DefaultStakeThreshold<T>>;
     #[pallet::storage]
     /// --- MAP (netuid, who) --> VecDeque<(hash, commit_block, first_reveal_block, last_reveal_block)> | Stores a queue of commits for an account on a given netuid.
     pub type WeightCommits<T: Config> = StorageDoubleMap<
@@ -1356,7 +1353,7 @@ pub mod pallet {
         /// Is the caller allowed to set weights
         pub fn check_weights_min_stake(hotkey: &T::AccountId, netuid: u16) -> bool {
             // Blacklist weights transactions for low stake peers.
-            Self::get_stake_for_hotkey_on_subnet(hotkey, netuid) >= Self::get_weights_min_stake()
+            Self::get_stake_for_hotkey_on_subnet(hotkey, netuid) >= Self::get_stake_threshold()
         }
 
         /// Helper function to check if register is allowed

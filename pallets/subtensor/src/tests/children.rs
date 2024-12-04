@@ -3169,12 +3169,12 @@ fn test_childkey_set_weights_single_parent() {
         ));
 
         // Set the min stake very high
-        SubtensorModule::set_weights_min_stake(stake_to_give_child * 5);
+        SubtensorModule::set_stake_threshold(stake_to_give_child * 5);
 
         // Check the child has less stake than required
         assert!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid)
-                < SubtensorModule::get_weights_min_stake()
+                < SubtensorModule::get_stake_threshold()
         );
 
         // Check the child cannot set weights
@@ -3192,12 +3192,12 @@ fn test_childkey_set_weights_single_parent() {
         assert!(!SubtensorModule::check_weights_min_stake(&child, netuid));
 
         // Set a minimum stake to set weights
-        SubtensorModule::set_weights_min_stake(stake_to_give_child - 5);
+        SubtensorModule::set_stake_threshold(stake_to_give_child - 5);
 
         // Check if the stake for the child is above
         assert!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid)
-                >= SubtensorModule::get_weights_min_stake()
+                >= SubtensorModule::get_stake_threshold()
         );
 
         // Check the child can set weights
@@ -3252,12 +3252,12 @@ fn test_set_weights_no_parent() {
         let version_key = SubtensorModule::get_weights_version_key(netuid);
 
         // Set the min stake very high
-        SubtensorModule::set_weights_min_stake(stake_to_give_child * 5);
+        SubtensorModule::set_stake_threshold(stake_to_give_child * 5);
 
         // Check the key has less stake than required
         assert!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid)
-                < SubtensorModule::get_weights_min_stake()
+                < SubtensorModule::get_stake_threshold()
         );
 
         // Check the hotkey cannot set weights
@@ -3275,12 +3275,12 @@ fn test_set_weights_no_parent() {
         assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
 
         // Set a minimum stake to set weights
-        SubtensorModule::set_weights_min_stake(stake_to_give_child - 5);
+        SubtensorModule::set_stake_threshold(stake_to_give_child - 5);
 
         // Check if the stake for the hotkey is above
         assert!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid)
-                >= SubtensorModule::get_weights_min_stake()
+                >= SubtensorModule::get_stake_threshold()
         );
 
         // Check the hotkey can set weights
@@ -3643,6 +3643,7 @@ fn test_do_set_child_below_min_stake() {
         // Add network and register hotkey
         add_network(netuid, 13, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
+        StakeThreshold::<Test>::set(1_000_000_000_000);
 
         // Attempt to set child
         assert_err!(
@@ -3671,10 +3672,13 @@ fn test_do_remove_stake_clears_pending_childkeys() {
         add_network(netuid, 13, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
+        // Set non-default value for childkey stake threshold
+        StakeThreshold::<Test>::set(1_000_000_000_000);
+
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
             &coldkey,
             &hotkey,
-            ChildkeysMinStake::<Test>::get(),
+            StakeThreshold::<Test>::get(),
         );
 
         // Attempt to set child
@@ -3720,7 +3724,7 @@ fn test_do_set_child_cooldown_period() {
 
         // Set minimum stake for setting children
         let parent_total_stake_original = TotalHotkeyStake::<Test>::get(parent);
-        TotalHotkeyStake::<Test>::insert(parent, ChildkeysMinStake::<Test>::get());
+        TotalHotkeyStake::<Test>::insert(parent, StakeThreshold::<Test>::get());
 
         // Schedule parent-child relationship
         assert_ok!(SubtensorModule::do_schedule_children(

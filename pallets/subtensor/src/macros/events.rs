@@ -102,7 +102,7 @@ mod events {
         /// setting the RAO recycled for registration.
         RAORecycledForRegistrationSet(u16, u64),
         /// min stake is set for validators to set weights.
-        WeightsMinStake(u64),
+        StakeThresholdSet(u64),
         /// setting the minimum required stake amount for senate registration.
         SenateRequiredStakePercentSet(u64),
         /// setting the adjustment alpha on a subnet.
