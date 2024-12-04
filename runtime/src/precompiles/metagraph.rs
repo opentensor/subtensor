@@ -1,25 +1,18 @@
 extern crate alloc;
-
-use alloc::vec::Vec;
-
 use crate::precompiles::{get_method_id, get_slice};
-use crate::{Runtime, RuntimeCall};
-use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+use crate::Runtime;
 use fp_evm::{
-    ExitError, ExitSucceed, LinearCostPrecompile, PrecompileFailure, PrecompileHandle,
-    PrecompileOutput, PrecompileResult,
+    ExitError, ExitSucceed, PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult,
 };
 use sp_core::{ByteArray, U256};
 use sp_std::vec;
 pub const METAGRAPH_PRECOMPILE_INDEX: u64 = 2050;
-use sp_runtime::AccountId32;
 pub struct MetagraphPrecompile;
 
 const NO_HOTKEY: &str = "no hotkey";
 
 impl MetagraphPrecompile {
     pub fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
-        log::error!("++++++ execute metagraph");
         let txdata = handle.input();
         let method_id = get_slice(txdata, 0, 4)?;
         let method_input = txdata
@@ -70,12 +63,7 @@ impl MetagraphPrecompile {
     }
 
     fn get_uid_count(data: &[u8]) -> PrecompileResult {
-        log::error!("++++++ data len is {:?}", data.len());
-
         let netuid = Self::parse_netuid(data)?;
-
-        log::error!("++++++ netuid is {:?}", netuid);
-
         let uid_count = pallet_subtensor::SubnetworkN::<Runtime>::get(netuid);
 
         let uid_count_u256 = U256::from(uid_count);
@@ -90,29 +78,26 @@ impl MetagraphPrecompile {
 
     fn get_stake(data: &[u8]) -> PrecompileResult {
         let netuid = Self::parse_netuid(data)?;
-        let uid = Self::parse_uid(&data[32..])?;
-
+        let uid = Self::parse_uid(get_slice(data, 32, 64)?)?;
         let hotkey = pallet_subtensor::Pallet::<Runtime>::get_hotkey_for_net_and_uid(netuid, uid)
             .map_err(|_| PrecompileFailure::Error {
             exit_status: ExitError::InvalidRange,
         })?;
 
         let stake = pallet_subtensor::TotalHotkeyStake::<Runtime>::get(&hotkey);
-
         let result_u256 = U256::from(stake);
         let mut result = [0_u8; 32];
         U256::to_big_endian(&result_u256, &mut result);
 
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
-            output: [].into(),
+            output: result.into(),
         })
     }
 
     fn get_rank(data: &[u8]) -> PrecompileResult {
         let netuid = Self::parse_netuid(data)?;
-        let uid = Self::parse_uid(&data[32..])?;
-
+        let uid = Self::parse_uid(get_slice(data, 32, 64)?)?;
         let rank = pallet_subtensor::Pallet::<Runtime>::get_rank_for_uid(netuid, uid);
 
         let result_u256 = U256::from(rank);
@@ -127,7 +112,7 @@ impl MetagraphPrecompile {
 
     fn get_trust(data: &[u8]) -> PrecompileResult {
         let netuid = Self::parse_netuid(data)?;
-        let uid = Self::parse_uid(&data[32..])?;
+        let uid = Self::parse_uid(get_slice(data, 32, 64)?)?;
 
         let trust = pallet_subtensor::Pallet::<Runtime>::get_trust_for_uid(netuid, uid);
 
@@ -143,7 +128,7 @@ impl MetagraphPrecompile {
 
     fn get_consensus(data: &[u8]) -> PrecompileResult {
         let netuid = Self::parse_netuid(data)?;
-        let uid = Self::parse_uid(&data[32..])?;
+        let uid = Self::parse_uid(get_slice(data, 32, 64)?)?;
 
         let consensus = pallet_subtensor::Pallet::<Runtime>::get_consensus_for_uid(netuid, uid);
 
@@ -159,7 +144,7 @@ impl MetagraphPrecompile {
 
     fn get_incentive(data: &[u8]) -> PrecompileResult {
         let netuid = Self::parse_netuid(data)?;
-        let uid = Self::parse_uid(&data[32..])?;
+        let uid = Self::parse_uid(get_slice(data, 32, 64)?)?;
 
         let incentive = pallet_subtensor::Pallet::<Runtime>::get_incentive_for_uid(netuid, uid);
 
@@ -175,7 +160,7 @@ impl MetagraphPrecompile {
 
     fn get_dividends(data: &[u8]) -> PrecompileResult {
         let netuid = Self::parse_netuid(data)?;
-        let uid = Self::parse_uid(&data[32..])?;
+        let uid = Self::parse_uid(get_slice(data, 32, 64)?)?;
 
         let dividends = pallet_subtensor::Pallet::<Runtime>::get_dividends_for_uid(netuid, uid);
 
@@ -191,7 +176,7 @@ impl MetagraphPrecompile {
 
     fn get_emission(data: &[u8]) -> PrecompileResult {
         let netuid = Self::parse_netuid(data)?;
-        let uid = Self::parse_uid(&data[32..])?;
+        let uid = Self::parse_uid(get_slice(data, 32, 64)?)?;
 
         let emission = pallet_subtensor::Pallet::<Runtime>::get_emission_for_uid(netuid, uid);
 
@@ -207,7 +192,7 @@ impl MetagraphPrecompile {
 
     fn get_vtrust(data: &[u8]) -> PrecompileResult {
         let netuid = Self::parse_netuid(data)?;
-        let uid = Self::parse_uid(&data[32..])?;
+        let uid = Self::parse_uid(get_slice(data, 32, 64)?)?;
 
         let vtrust = pallet_subtensor::Pallet::<Runtime>::get_validator_trust_for_uid(netuid, uid);
 
@@ -223,7 +208,7 @@ impl MetagraphPrecompile {
 
     fn get_validator_status(data: &[u8]) -> PrecompileResult {
         let netuid = Self::parse_netuid(data)?;
-        let uid = Self::parse_uid(&data[32..])?;
+        let uid = Self::parse_uid(get_slice(data, 32, 64)?)?;
 
         let validator_permit =
             pallet_subtensor::Pallet::<Runtime>::get_validator_permit_for_uid(netuid, uid);
@@ -238,13 +223,13 @@ impl MetagraphPrecompile {
 
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
-            output: [].into(),
+            output: result.into(),
         })
     }
 
     fn get_last_update(data: &[u8]) -> PrecompileResult {
         let netuid = Self::parse_netuid(data)?;
-        let uid = Self::parse_uid(&data[32..])?;
+        let uid = Self::parse_uid(get_slice(data, 32, 64)?)?;
 
         let last_update = pallet_subtensor::Pallet::<Runtime>::get_last_update_for_uid(netuid, uid);
 
@@ -260,7 +245,7 @@ impl MetagraphPrecompile {
 
     fn get_is_active(data: &[u8]) -> PrecompileResult {
         let netuid = Self::parse_netuid(data)?;
-        let uid = Self::parse_uid(&data[32..])?;
+        let uid = Self::parse_uid(get_slice(data, 32, 64)?)?;
 
         let active = pallet_subtensor::Pallet::<Runtime>::get_active_for_uid(netuid, uid);
 
@@ -276,7 +261,7 @@ impl MetagraphPrecompile {
 
     fn get_axon(data: &[u8]) -> PrecompileResult {
         let netuid = Self::parse_netuid(data)?;
-        let uid = Self::parse_uid(&data[32..])?;
+        let uid = Self::parse_uid(get_slice(data, 32, 64)?)?;
 
         let hotkey = pallet_subtensor::Pallet::<Runtime>::get_hotkey_for_net_and_uid(netuid, uid)
             .map_err(|_| PrecompileFailure::Error {
@@ -319,7 +304,7 @@ impl MetagraphPrecompile {
 
     fn get_hotkey(data: &[u8]) -> PrecompileResult {
         let netuid = Self::parse_netuid(data)?;
-        let uid = Self::parse_uid(&data[32..])?;
+        let uid = Self::parse_uid(get_slice(data, 32, 64)?)?;
 
         let hotkey = pallet_subtensor::Pallet::<Runtime>::get_hotkey_for_net_and_uid(netuid, uid)
             .map_err(|_| PrecompileFailure::Error {
@@ -334,7 +319,7 @@ impl MetagraphPrecompile {
 
     fn get_coldkey(data: &[u8]) -> PrecompileResult {
         let netuid = Self::parse_netuid(data)?;
-        let uid = Self::parse_uid(&data[32..])?;
+        let uid = Self::parse_uid(get_slice(data, 32, 64)?)?;
 
         let hotkey = pallet_subtensor::Pallet::<Runtime>::get_hotkey_for_net_and_uid(netuid, uid)
             .map_err(|_| PrecompileFailure::Error {
