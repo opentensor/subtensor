@@ -38,7 +38,7 @@ jobs:
           COMMENT_BODY=$(cat <<EOF
           ## 🚨🚨🚨 HOTFIX DETECTED 🚨🚨🚨
 
-          It looks like you are trying to merge a hotfix PR into `main`. If this isn't what you wanted to do, and you just wanted to make a regular PR, please close this PR, base your changes off the `devnet-ready` branch and open a new PR into `devnet ready`.
+          It looks like you are trying to merge a hotfix PR into \`main\`. If this isn't what you wanted to do, and you just wanted to make a regular PR, please close this PR, base your changes off the \`devnet-ready\` branch and open a new PR into \`devnet ready\`.
 
           If you _are_ trying to merge a hotfix PR, please complete the following essential steps:
           1. [ ] go ahead and get this PR into \`main\` merged, so we can get the change in as quickly as possible!

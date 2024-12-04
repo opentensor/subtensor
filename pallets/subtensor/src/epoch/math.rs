@@ -113,26 +113,24 @@ pub fn vec_max_upscale_to_u16(vec: &[I32F32]) -> Vec<u16> {
                     })
                     .collect();
             }
-            return vec
-                .iter()
+            vec.iter()
                 .map(|e: &I32F32| {
                     e.saturating_mul(u16_max)
                         .saturating_div(*val)
                         .round()
                         .to_num::<u16>()
                 })
-                .collect();
+                .collect()
         }
         None => {
             let sum: I32F32 = vec.iter().sum();
-            return vec
-                .iter()
+            vec.iter()
                 .map(|e: &I32F32| {
                     e.saturating_mul(u16_max)
                         .saturating_div(sum)
                         .to_num::<u16>()
                 })
-                .collect();
+                .collect()
         }
     }
 }
@@ -152,7 +150,7 @@ pub fn check_vec_max_limited(vec: &[u16], max_limit: u16) -> bool {
     let mut vec_fixed: Vec<I32F32> = vec.iter().map(|e: &u16| I32F32::from_num(*e)).collect();
     inplace_normalize(&mut vec_fixed);
     let max_value: Option<&I32F32> = vec_fixed.iter().max();
-    max_value.map_or(true, |v| *v <= max_limit_fixed)
+    max_value.is_none_or(|v| *v <= max_limit_fixed)
 }
 
 #[allow(dead_code)]
@@ -246,7 +244,7 @@ pub fn is_topk(vector: &[I32F32], k: usize) -> Vec<bool> {
 pub fn normalize(x: &[I32F32]) -> Vec<I32F32> {
     let x_sum: I32F32 = sum(x);
     if x_sum != I32F32::from_num(0.0_f32) {
-        return x.iter().map(|xi| xi.saturating_div(x_sum)).collect();
+        x.iter().map(|xi| xi.saturating_div(x_sum)).collect()
     } else {
         x.to_vec()
     }
@@ -1231,7 +1229,7 @@ pub fn mat_ema_alpha_vec(
     alpha: &[I32F32],
 ) -> Vec<Vec<I32F32>> {
     // Check if the new matrix is empty or its first row is empty.
-    if new.is_empty() || new.first().map_or(true, |row| row.is_empty()) {
+    if new.is_empty() || new.first().is_none_or(|row| row.is_empty()) {
         return vec![vec![]; 1];
     }
 
