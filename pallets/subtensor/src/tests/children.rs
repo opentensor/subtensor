@@ -3687,7 +3687,7 @@ fn test_do_remove_stake_clears_pending_childkeys() {
 
         // Check that pending child exists
         let pending_before = PendingChildKeys::<Test>::get(netuid, hotkey);
-        assert!(pending_before.0.is_empty());
+        assert!(pending_before.0.len() > 0);
         assert!(pending_before.1 > 0);
 
         // Remove stake
@@ -3699,7 +3699,7 @@ fn test_do_remove_stake_clears_pending_childkeys() {
 
         // Assert that pending child is removed
         let pending_after = PendingChildKeys::<Test>::get(netuid, hotkey);
-        assert_eq!(pending_after.0.len(), 0); // zero child vec
+        assert!(pending_after.0.is_empty()); // zero child vec
         assert_eq!(pending_after.1, 0); // zero cooldown block
     });
 }
