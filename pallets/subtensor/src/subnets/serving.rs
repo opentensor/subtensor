@@ -246,14 +246,6 @@ impl<T: Config> Pallet<T> {
         rate_limit == 0 || last_serve == 0 || current_block.saturating_sub(last_serve) >= rate_limit
     }
 
-    pub fn has_axon_info(netuid: u16, hotkey: &T::AccountId) -> bool {
-        Axons::<T>::contains_key(netuid, hotkey)
-    }
-
-    pub fn has_prometheus_info(netuid: u16, hotkey: &T::AccountId) -> bool {
-        Prometheus::<T>::contains_key(netuid, hotkey)
-    }
-
     pub fn get_axon_info(netuid: u16, hotkey: &T::AccountId) -> AxonInfoOf {
         if let Some(axons) = Axons::<T>::get(netuid, hotkey) {
             axons
