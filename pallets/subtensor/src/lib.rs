@@ -686,9 +686,9 @@ pub mod pallet {
     }
 
     #[pallet::type_value]
-    /// Default value for minimum stake.
-    pub fn DefaultMinStake<T: Config>() -> u64 {
-        1_000_000_000
+    /// Default minimum stake for setting childkeys.
+    pub fn DefaultChildkeysMinStake<T: Config>() -> u64 {
+        1_000_000_000_000
     }
 
     #[pallet::storage]
@@ -1297,6 +1297,9 @@ pub mod pallet {
     #[pallet::storage]
     /// ITEM( weights_min_stake )
     pub type WeightsMinStake<T> = StorageValue<_, u64, ValueQuery, DefaultWeightsMinStake<T>>;
+    #[pallet::storage]
+    /// ITEM( childkeys_min_stake )
+    pub type ChildkeysMinStake<T> = StorageValue<_, u64, ValueQuery, DefaultChildkeysMinStake<T>>;
     #[pallet::storage]
     /// --- MAP (netuid, who) --> VecDeque<(hash, commit_block, first_reveal_block, last_reveal_block)> | Stores a queue of commits for an account on a given netuid.
     pub type WeightCommits<T: Config> = StorageDoubleMap<

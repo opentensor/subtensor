@@ -1,5 +1,4 @@
 use super::*;
-use sp_core::Get;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
@@ -92,7 +91,7 @@ impl<T: Config> Pallet<T> {
         Self::clear_small_nomination_if_required(&hotkey, &coldkey, new_stake);
 
         // Check if stake lowered below MinStake and remove Pending children if it did
-        if Self::get_total_stake_for_hotkey(&hotkey) < DefaultMinStake::<T>::get() {
+        if Self::get_total_stake_for_hotkey(&hotkey) < ChildkeysMinStake::<T>::get() {
             Self::get_all_subnet_netuids().iter().for_each(|netuid| {
                 PendingChildKeys::<T>::remove(netuid, &hotkey);
             })

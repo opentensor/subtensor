@@ -208,7 +208,7 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
     }
 }
 
-use crate::{CollectiveInterface, DefaultMinStake, MemberManagement, TotalHotkeyStake};
+use crate::{ChildkeysMinStake, CollectiveInterface, MemberManagement, TotalHotkeyStake};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
@@ -615,7 +615,7 @@ pub fn wait_and_set_pending_children(netuid: u16) {
 pub fn mock_set_children(coldkey: &U256, parent: &U256, netuid: u16, child_vec: &[(u64, U256)]) {
     // Set minimum stake for setting children
     let parent_total_stake_original = TotalHotkeyStake::<Test>::get(parent);
-    TotalHotkeyStake::<Test>::insert(parent, DefaultMinStake::<Test>::get());
+    TotalHotkeyStake::<Test>::insert(parent, ChildkeysMinStake::<Test>::get());
 
     // Set initial parent-child relationship
     assert_ok!(SubtensorModule::do_schedule_children(

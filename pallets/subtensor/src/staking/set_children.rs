@@ -113,7 +113,7 @@ impl<T: Config> Pallet<T> {
         // (checking with check_weights_min_stake wouldn't work because it considers
         // grandparent stake in this case)
         ensure!(
-            Self::get_total_stake_for_hotkey(&hotkey) >= DefaultMinStake::<T>::get(),
+            Self::get_total_stake_for_hotkey(&hotkey) >= ChildkeysMinStake::<T>::get(),
             Error::<T>::NotEnoughStakeToSetChildkeys
         );
 

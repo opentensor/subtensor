@@ -3,7 +3,7 @@ use super::mock::*;
 use frame_support::{assert_err, assert_noop, assert_ok};
 
 use crate::{utils::rate_limiting::TransactionType, *};
-use sp_core::{Get, U256};
+use sp_core::U256;
 
 // 1: Successful setting of a single child
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_child_singular_success --exact --nocapture
@@ -3674,7 +3674,7 @@ fn test_do_remove_stake_clears_pending_childkeys() {
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
             &coldkey,
             &hotkey,
-            100_000_000_000,
+            ChildkeysMinStake::<Test>::get(),
         );
 
         // Attempt to set child
@@ -3687,7 +3687,7 @@ fn test_do_remove_stake_clears_pending_childkeys() {
 
         // Check that pending child exists
         let pending_before = PendingChildKeys::<Test>::get(netuid, hotkey);
-        assert!(pending_before.0.len() > 0);
+        assert!(!pending_before.0.is_empty());
         assert!(pending_before.1 > 0);
 
         // Remove stake
@@ -3720,7 +3720,7 @@ fn test_do_set_child_cooldown_period() {
 
         // Set minimum stake for setting children
         let parent_total_stake_original = TotalHotkeyStake::<Test>::get(parent);
-        TotalHotkeyStake::<Test>::insert(parent, DefaultMinStake::<Test>::get());
+        TotalHotkeyStake::<Test>::insert(parent, ChildkeysMinStake::<Test>::get());
 
         // Schedule parent-child relationship
         assert_ok!(SubtensorModule::do_schedule_children(
