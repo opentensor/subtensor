@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ubuntu:20.04
+ARG BASE_IMAGE=ubuntu:24.04
 
 FROM $BASE_IMAGE AS builder
 SHELL ["/bin/bash", "-c"]
@@ -15,7 +15,7 @@ LABEL ai.opentensor.image.authors="operations@opentensor.ai" \
 # Set up Rust environment
 ENV RUST_BACKTRACE=1
 RUN apt-get update && \
-  apt-get install -y curl build-essential protobuf-compiler clang git && \
+  apt-get install -y curl build-essential protobuf-compiler clang git pkg-config libssl-dev && \
   rm -rf /var/lib/apt/lists/*
 
 RUN set -o pipefail && curl https://sh.rustup.rs -sSf | sh -s -- -y
@@ -38,7 +38,7 @@ EXPOSE 30333 9933 9944
 FROM $BASE_IMAGE AS subtensor
 
 # Copy all chainspec files
-COPY --from=builder /build/*.json /
+COPY --from=builder /build/chainspecs/*.json /
 
 # Copy final binary
 COPY --from=builder /build/target/production/node-subtensor /usr/local/bin

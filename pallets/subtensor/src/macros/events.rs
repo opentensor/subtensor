@@ -206,6 +206,12 @@ mod events {
         ColdkeySwapScheduleDurationSet(BlockNumberFor<T>),
         /// The duration of dissolve network has been set
         DissolveNetworkScheduleDurationSet(BlockNumberFor<T>),
+        /// Commit-reveal v3 weights have been successfully committed.
+        ///
+        /// - **who**: The account ID of the user committing the weights.
+        /// - **netuid**: The network identifier.
+        /// - **commit_hash**: The hash representing the committed weights.
+        CRV3WeightsCommitted(T::AccountId, u16, H256),
         /// Weights have been successfully committed.
         ///
         /// - **who**: The account ID of the user committing the weights.
