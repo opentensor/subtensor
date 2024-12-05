@@ -253,7 +253,7 @@ impl<T: Config> Pallet<T> {
         let adjustment_alpha = AdjustmentAlpha::<T>::get(netuid);
         let difficulty = Self::get_difficulty_as_u64(netuid);
         let commit_reveal_periods = Self::get_reveal_period(netuid);
-        let commit_reveal_weights_enabled = Self::get_commit_reveal_weights_enabled(netuid);
+        let commit_reveal_weights_enabled = CommitRevealWeightsEnabled::<T>::get(netuid);
         let liquid_alpha_enabled = Self::get_liquid_alpha_enabled(netuid);
         let (alpha_low, alpha_high): (u16, u16) = AlphaValues::<T>::get(netuid);
 

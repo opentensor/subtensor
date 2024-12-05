@@ -7,7 +7,8 @@ use frame_support::{
 use frame_system::Config;
 use pallet_subtensor::{
     migrations, ActivityCutoff, AdjustmentAlpha, AdjustmentInterval, AlphaValues,
-    BondsMovingAverage, Error as SubtensorError, Event, RAORecycledForRegistration,
+    BondsMovingAverage, CommitRevealWeightsEnabled, Error as SubtensorError, Event,
+    RAORecycledForRegistration,
 };
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{ed25519, Pair, U256};
@@ -1123,7 +1124,7 @@ fn test_sudo_set_commit_reveal_weights_enabled() {
         add_network(netuid, 10);
 
         let to_be_set: bool = true;
-        let init_value: bool = SubtensorModule::get_commit_reveal_weights_enabled(netuid);
+        let init_value: bool = CommitRevealWeightsEnabled::<Test>::get(netuid);
 
         assert_ok!(AdminUtils::sudo_set_commit_reveal_weights_enabled(
             <<Test as Config>::RuntimeOrigin>::root(),
@@ -1132,10 +1133,7 @@ fn test_sudo_set_commit_reveal_weights_enabled() {
         ));
 
         assert!(init_value != to_be_set);
-        assert_eq!(
-            SubtensorModule::get_commit_reveal_weights_enabled(netuid),
-            to_be_set
-        );
+        assert_eq!(CommitRevealWeightsEnabled::<Test>::get(netuid), to_be_set);
     });
 }
 
