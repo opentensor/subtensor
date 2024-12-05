@@ -163,7 +163,7 @@ impl<T: Config> Pallet<T> {
 
         // 2. Ensure commit-reveal is enabled.
         ensure!(
-            Self::get_commit_reveal_weights_enabled(netuid),
+            CommitRevealWeightsEnabled::<T>::get(netuid),
             Error::<T>::CommitRevealDisabled
         );
 

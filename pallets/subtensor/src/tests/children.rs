@@ -3773,7 +3773,7 @@ fn test_set_children_rate_limit_fail_then_succeed() {
         );
 
         // Verify first children assignment remains
-        let children = SubtensorModule::get_children(&hotkey, netuid);
+        let children = ChildKeys::<Test>::get(&hotkey, netuid);
         assert_eq!(children, vec![(100, child)]);
 
         // Try again after rate limit period has passed
@@ -3799,7 +3799,7 @@ fn test_set_children_rate_limit_fail_then_succeed() {
         ));
 
         // Verify children assignment has changed
-        let children = SubtensorModule::get_children(&hotkey, netuid);
+        let children = ChildKeys::<Test>::get(&hotkey, netuid);
         assert_eq!(children, vec![(100, child2)]);
     });
 }
