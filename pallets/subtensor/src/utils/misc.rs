@@ -490,9 +490,6 @@ impl<T: Config> Pallet<T> {
         Kappa::<T>::insert(netuid, kappa);
         Self::deposit_event(Event::KappaSet(netuid, kappa));
     }
-    pub fn get_commit_reveal_weights_enabled(netuid: u16) -> bool {
-        CommitRevealWeightsEnabled::<T>::get(netuid)
-    }
     pub fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
         CommitRevealWeightsEnabled::<T>::set(netuid, enabled);
     }
