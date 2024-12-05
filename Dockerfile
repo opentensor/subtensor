@@ -38,7 +38,7 @@ EXPOSE 30333 9933 9944
 FROM $BASE_IMAGE AS subtensor
 
 # Copy all chainspec files
-COPY --from=builder /build/*.json /
+COPY --from=builder /build/chainspecs/*.json /
 
 # Copy final binary
 COPY --from=builder /build/target/production/node-subtensor /usr/local/bin
