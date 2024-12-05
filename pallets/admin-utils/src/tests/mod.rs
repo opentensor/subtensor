@@ -4,8 +4,11 @@ use frame_support::{
     dispatch::{DispatchClass, GetDispatchInfo, Pays},
 };
 use frame_system::Config;
-use pallet_subtensor::Error as SubtensorError;
-use pallet_subtensor::{migrations, Event};
+use pallet_subtensor::{
+    migrations, ActivityCutoff, AdjustmentAlpha, AdjustmentInterval, AlphaValues,
+    BondsMovingAverage, CommitRevealWeightsEnabled, Error as SubtensorError, Event,
+    RAORecycledForRegistration,
+};
 use sp_core::U256;
 
 use crate::Error;
@@ -202,7 +205,7 @@ fn test_sudo_set_adjustment_interval() {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
-        let init_value: u16 = SubtensorModule::get_adjustment_interval(netuid);
+        let init_value: u16 = AdjustmentInterval::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_adjustment_interval(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -219,13 +222,13 @@ fn test_sudo_set_adjustment_interval() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_adjustment_interval(netuid), init_value);
+        assert_eq!(AdjustmentInterval::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_adjustment_interval(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_adjustment_interval(netuid), to_be_set);
+        assert_eq!(AdjustmentInterval::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -235,7 +238,7 @@ fn test_sudo_set_adjustment_alpha() {
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
-        let init_value: u64 = SubtensorModule::get_adjustment_alpha(netuid);
+        let init_value: u64 = AdjustmentAlpha::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_adjustment_alpha(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -252,13 +255,13 @@ fn test_sudo_set_adjustment_alpha() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_adjustment_alpha(netuid), init_value);
+        assert_eq!(AdjustmentAlpha::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_adjustment_alpha(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_adjustment_alpha(netuid), to_be_set);
+        assert_eq!(AdjustmentAlpha::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -543,7 +546,7 @@ fn test_sudo_set_activity_cutoff() {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
-        let init_value: u16 = SubtensorModule::get_activity_cutoff(netuid);
+        let init_value: u16 = ActivityCutoff::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_activity_cutoff(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -560,13 +563,13 @@ fn test_sudo_set_activity_cutoff() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_activity_cutoff(netuid), init_value);
+        assert_eq!(ActivityCutoff::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_activity_cutoff(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_activity_cutoff(netuid), to_be_set);
+        assert_eq!(ActivityCutoff::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -708,7 +711,7 @@ fn test_sudo_set_bonds_moving_average() {
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
-        let init_value: u64 = SubtensorModule::get_bonds_moving_average(netuid);
+        let init_value = BondsMovingAverage::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_bonds_moving_average(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -725,16 +728,13 @@ fn test_sudo_set_bonds_moving_average() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(
-            SubtensorModule::get_bonds_moving_average(netuid),
-            init_value
-        );
+        assert_eq!(BondsMovingAverage::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_bonds_moving_average(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_bonds_moving_average(netuid), to_be_set);
+        assert_eq!(BondsMovingAverage::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -744,7 +744,7 @@ fn test_sudo_set_rao_recycled() {
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
-        let init_value: u64 = SubtensorModule::get_rao_recycled(netuid);
+        let init_value: u64 = RAORecycledForRegistration::<Test>::get(netuid);
 
         // Need to run from genesis block
         run_to_block(1);
@@ -765,7 +765,8 @@ fn test_sudo_set_rao_recycled() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_rao_recycled(netuid), init_value);
+
+        assert_eq!(RAORecycledForRegistration::<Test>::get(netuid), init_value);
 
         // Verify no events emitted matching the expected event
         assert_eq!(
@@ -784,7 +785,7 @@ fn test_sudo_set_rao_recycled() {
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_rao_recycled(netuid), to_be_set);
+        assert_eq!(RAORecycledForRegistration::<Test>::get(netuid), to_be_set);
 
         // Verify event emitted with correct values
         assert_eq!(
@@ -1121,7 +1122,7 @@ fn test_sudo_set_commit_reveal_weights_enabled() {
         add_network(netuid, 10);
 
         let to_be_set: bool = true;
-        let init_value: bool = SubtensorModule::get_commit_reveal_weights_enabled(netuid);
+        let init_value: bool = CommitRevealWeightsEnabled::<Test>::get(netuid);
 
         assert_ok!(AdminUtils::sudo_set_commit_reveal_weights_enabled(
             <<Test as Config>::RuntimeOrigin>::root(),
@@ -1130,10 +1131,7 @@ fn test_sudo_set_commit_reveal_weights_enabled() {
         ));
 
         assert!(init_value != to_be_set);
-        assert_eq!(
-            SubtensorModule::get_commit_reveal_weights_enabled(netuid),
-            to_be_set
-        );
+        assert_eq!(CommitRevealWeightsEnabled::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -1229,8 +1227,7 @@ fn test_sudo_get_set_alpha() {
             alpha_low,
             alpha_high
         ));
-        let (grabbed_alpha_low, grabbed_alpha_high): (u16, u16) =
-            SubtensorModule::get_alpha_values(netuid);
+        let (grabbed_alpha_low, grabbed_alpha_high): (u16, u16) = AlphaValues::<Test>::get(netuid);
 
         log::info!(
             "alpha_low: {:?} alpha_high: {:?}",

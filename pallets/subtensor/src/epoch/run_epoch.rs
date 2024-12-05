@@ -1,5 +1,5 @@
 use super::*;
-use crate::epoch::math::*;
+use crate::{epoch::math::*, ActivityCutoff};
 use frame_support::IterableStorageDoubleMap;
 use sp_std::vec;
 use substrate_fixed::types::{I32F32, I64F64, I96F32};
@@ -40,7 +40,7 @@ impl<T: Config> Pallet<T> {
 
         // Retrieve lists of parents and children from storage, based on the hotkey and network ID.
         let parents: Vec<(u64, T::AccountId)> = Self::get_parents(hotkey, netuid);
-        let children: Vec<(u64, T::AccountId)> = Self::get_children(hotkey, netuid);
+        let children: Vec<(u64, T::AccountId)> = ChildKeys::<T>::get(hotkey, netuid);
 
         // Iterate over children to calculate the total stake allocated to them.
         for (proportion, _) in children {
@@ -91,7 +91,7 @@ impl<T: Config> Pallet<T> {
     #[allow(clippy::indexing_slicing)]
     pub fn epoch_dense(netuid: u16, rao_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
         // Get subnetwork size.
-        let n: u16 = Self::get_subnetwork_n(netuid);
+        let n: u16 = SubnetworkN::<T>::get(netuid);
         log::trace!("n:\n{:?}\n", n);
 
         // ======================
@@ -103,7 +103,7 @@ impl<T: Config> Pallet<T> {
         log::trace!("current_block:\n{:?}\n", current_block);
 
         // Get activity cutoff.
-        let activity_cutoff: u64 = Self::get_activity_cutoff(netuid) as u64;
+        let activity_cutoff = ActivityCutoff::<T>::get(netuid) as u64;
         log::trace!("activity_cutoff:\n{:?}\n", activity_cutoff);
 
         // Last update vector.
@@ -437,7 +437,7 @@ impl<T: Config> Pallet<T> {
     #[allow(clippy::indexing_slicing)]
     pub fn epoch(netuid: u16, rao_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
         // Get subnetwork size.
-        let n: u16 = Self::get_subnetwork_n(netuid);
+        let n: u16 = SubnetworkN::<T>::get(netuid);
         log::trace!("Number of Neurons in Network: {:?}", n);
 
         // ======================
@@ -449,7 +449,7 @@ impl<T: Config> Pallet<T> {
         log::trace!("current_block: {:?}", current_block);
 
         // Get activity cutoff.
-        let activity_cutoff: u64 = Self::get_activity_cutoff(netuid) as u64;
+        let activity_cutoff = ActivityCutoff::<T>::get(netuid) as u64;
         log::trace!("activity_cutoff: {:?}", activity_cutoff);
 
         // Last update vector.
@@ -804,7 +804,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_block_at_registration(netuid: u16) -> Vec<u64> {
-        let n = Self::get_subnetwork_n(netuid);
+        let n = SubnetworkN::<T>::get(netuid);
         let block_at_registration: Vec<u64> = (0..n)
             .map(|neuron_uid| {
                 if Keys::<T>::contains_key(netuid, neuron_uid) {
@@ -819,7 +819,7 @@ impl<T: Config> Pallet<T> {
 
     /// Output unnormalized sparse weights, input weights are assumed to be row max-upscaled in u16.
     pub fn get_weights_sparse(netuid: u16) -> Vec<Vec<(u16, I32F32)>> {
-        let n: usize = Self::get_subnetwork_n(netuid) as usize;
+        let n: usize = SubnetworkN::<T>::get(netuid) as usize;
         let mut weights: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
         for (uid_i, weights_i) in
             <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid)
@@ -837,7 +837,7 @@ impl<T: Config> Pallet<T> {
 
     /// Output unnormalized weights in [n, n] matrix, input weights are assumed to be row max-upscaled in u16.
     pub fn get_weights(netuid: u16) -> Vec<Vec<I32F32>> {
-        let n: usize = Self::get_subnetwork_n(netuid) as usize;
+        let n: usize = SubnetworkN::<T>::get(netuid) as usize;
         let mut weights: Vec<Vec<I32F32>> = vec![vec![I32F32::from_num(0.0); n]; n];
         for (uid_i, weights_vec) in
             <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid)
@@ -860,7 +860,7 @@ impl<T: Config> Pallet<T> {
 
     /// Output unnormalized sparse bonds, input bonds are assumed to be column max-upscaled in u16.
     pub fn get_bonds_sparse(netuid: u16) -> Vec<Vec<(u16, I32F32)>> {
-        let n: usize = Self::get_subnetwork_n(netuid) as usize;
+        let n: usize = SubnetworkN::<T>::get(netuid) as usize;
         let mut bonds: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
         for (uid_i, bonds_vec) in
             <Bonds<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid)
@@ -878,7 +878,7 @@ impl<T: Config> Pallet<T> {
 
     /// Output unnormalized bonds in [n, n] matrix, input bonds are assumed to be column max-upscaled in u16.
     pub fn get_bonds(netuid: u16) -> Vec<Vec<I32F32>> {
-        let n: usize = Self::get_subnetwork_n(netuid) as usize;
+        let n: usize = SubnetworkN::<T>::get(netuid) as usize;
         let mut bonds: Vec<Vec<I32F32>> = vec![vec![I32F32::from_num(0.0); n]; n];
         for (uid_i, bonds_vec) in
             <Bonds<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid)
@@ -1081,7 +1081,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
     ) -> Vec<Vec<(u16, I32F32)>> {
         // Retrieve the bonds moving average for the given network ID and scale it down.
-        let bonds_moving_average: I64F64 = I64F64::from_num(Self::get_bonds_moving_average(netuid))
+        let bonds_moving_average: I64F64 = I64F64::from_num(BondsMovingAverage::<T>::get(netuid))
             .saturating_div(I64F64::from_num(1_000_000));
 
         // Calculate the alpha value for the EMA calculation.
@@ -1114,7 +1114,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
     ) -> Vec<Vec<I32F32>> {
         // Retrieve the bonds moving average for the given network ID and scale it down.
-        let bonds_moving_average: I64F64 = I64F64::from_num(Self::get_bonds_moving_average(netuid))
+        let bonds_moving_average: I64F64 = I64F64::from_num(BondsMovingAverage::<T>::get(netuid))
             .saturating_div(I64F64::from_num(1_000_000));
 
         // Calculate the alpha value for the EMA calculation.

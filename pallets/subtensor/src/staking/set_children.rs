@@ -79,7 +79,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Check that this delegation is not on the root network. Child hotkeys are not valid on root.
         ensure!(
-            netuid != Self::get_root_netuid(),
+            netuid != Self::ROOT_NETUID,
             Error::<T>::RegistrationNotPermittedOnRootSubnet
         );
 
@@ -165,23 +165,6 @@ impl<T: Config> Pallet<T> {
 
         // Ok and return.
         Ok(())
-    }
-
-    /* Retrieves the list of children for a given hotkey and network.
-    ///
-    /// # Arguments
-    /// * `hotkey` - The hotkey whose children are to be retrieved.
-    /// * `netuid` - The network identifier.
-    ///
-    /// # Returns
-    /// * `Vec<(u64, T::AccountId)>` - A vector of tuples containing the proportion and child account ID.
-    ///
-    /// # Example
-    /// ```
-    /// let children = SubtensorModule::get_children(&hotkey, netuid);
-     */
-    pub fn get_children(hotkey: &T::AccountId, netuid: u16) -> Vec<(u64, T::AccountId)> {
-        ChildKeys::<T>::get(hotkey, netuid)
     }
 
     /* Retrieves the list of parents for a given child and network.
@@ -284,21 +267,5 @@ impl<T: Config> Pallet<T> {
             take
         );
         Ok(())
-    }
-
-    /// Gets the childkey take for a given hotkey.
-    ///
-    /// This function retrieves the current childkey take value for a specified hotkey.
-    /// If no specific take value has been set, it returns the default childkey take.
-    ///
-    /// # Arguments:
-    /// * `hotkey` (&T::AccountId):
-    ///     - The hotkey for which to retrieve the childkey take.
-    ///
-    /// # Returns:
-    /// * `u16` - The childkey take value. This is a percentage represented as a value between 0 and 10000,
-    ///           where 10000 represents 100%.
-    pub fn get_childkey_take(hotkey: &T::AccountId, netuid: u16) -> u16 {
-        ChildkeyTake::<T>::get(hotkey, netuid)
     }
 }

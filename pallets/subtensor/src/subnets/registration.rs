@@ -50,7 +50,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Ensure the passed network is valid.
         ensure!(
-            netuid != Self::get_root_netuid(),
+            netuid != Self::ROOT_NETUID,
             Error::<T>::RegistrationNotPermittedOnRootSubnet
         );
         ensure!(
@@ -92,7 +92,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 7. Ensure the callers coldkey has enough stake to perform the transaction.
         let current_block_number: u64 = Self::get_current_block_as_u64();
-        let registration_cost = Self::get_burn_as_u64(netuid);
+        let registration_cost = Burn::<T>::get(netuid);
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, registration_cost),
             Error::<T>::NotEnoughBalanceToStake
@@ -116,7 +116,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 11. Append neuron or prune it.
         let subnetwork_uid: u16;
-        let current_subnetwork_n: u16 = Self::get_subnetwork_n(netuid);
+        let current_subnetwork_n: u16 = SubnetworkN::<T>::get(netuid);
 
         // Possibly there is no neuron slots at all.
         ensure!(
@@ -146,7 +146,7 @@ impl<T: Config> Pallet<T> {
         BurnRegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
         RegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
         RegistrationsThisBlock::<T>::mutate(netuid, |val| val.saturating_inc());
-        Self::increase_rao_recycled(netuid, Self::get_burn_as_u64(netuid));
+        Self::increase_rao_recycled(netuid, Burn::<T>::get(netuid));
 
         // --- 15. Deposit successful event.
         log::debug!(
@@ -235,7 +235,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Ensure the passed network is valid.
         ensure!(
-            netuid != Self::get_root_netuid(),
+            netuid != Self::ROOT_NETUID,
             Error::<T>::RegistrationNotPermittedOnRootSubnet
         );
         ensure!(
@@ -311,7 +311,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 11. Append neuron or prune it.
         let subnetwork_uid: u16;
-        let current_subnetwork_n: u16 = Self::get_subnetwork_n(netuid);
+        let current_subnetwork_n: u16 = SubnetworkN::<T>::get(netuid);
 
         // Possibly there is no neuron slots at all.
         ensure!(
@@ -441,7 +441,7 @@ impl<T: Config> Pallet<T> {
         // This may be unlikely in practice.
         let mut found_non_immune = false;
 
-        let neurons_n = Self::get_subnetwork_n(netuid);
+        let neurons_n = SubnetworkN::<T>::get(netuid);
         if neurons_n == 0 {
             return 0; // If there are no neurons in this network.
         }

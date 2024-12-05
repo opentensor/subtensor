@@ -95,7 +95,7 @@ impl<T: Config> Pallet<T> {
             // --- 4.1 Check to see if the subnet should run its epoch.
             if Self::should_run_epoch(*netuid, current_block) {
                 // --- 4.2 Reveal weights from the n-2nd epoch.
-                if Self::get_commit_reveal_weights_enabled(*netuid) {
+                if CommitRevealWeightsEnabled::<T>::get(*netuid) {
                     if let Err(e) = Self::reveal_crv3_commits(*netuid) {
                         log::warn!(
                             "Failed to reveal commits for subnet {} due to error: {:?}",
@@ -170,7 +170,7 @@ impl<T: Config> Pallet<T> {
                 // No epoch, increase blocks since last step and continue
                 Self::set_blocks_since_last_step(
                     *netuid,
-                    Self::get_blocks_since_last_step(*netuid).saturating_add(1),
+                    BlocksSinceLastStep::<T>::get(*netuid).saturating_add(1),
                 );
                 log::debug!("Tempo not reached for subnet: {:?}", *netuid);
             }
@@ -355,7 +355,7 @@ impl<T: Config> Pallet<T> {
     ) {
         // --- 1. First, calculate the hotkey's share of the emission.
         let childkey_take_proportion: I96F32 =
-            I96F32::from_num(Self::get_childkey_take(hotkey, netuid))
+            I96F32::from_num(ChildkeyTake::<T>::get(hotkey, netuid))
                 .saturating_div(I96F32::from_num(u16::MAX));
         let mut total_childkey_take: u64 = 0;
 

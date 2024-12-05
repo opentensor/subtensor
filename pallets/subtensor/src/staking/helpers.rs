@@ -29,18 +29,6 @@ impl<T: Config> Pallet<T> {
         TotalStake::<T>::get()
     }
 
-    // Increases the total amount of stake by the passed amount.
-    //
-    pub fn increase_total_stake(increment: u64) {
-        TotalStake::<T>::put(Self::get_total_stake().saturating_add(increment));
-    }
-
-    // Decreases the total amount of stake by the passed amount.
-    //
-    pub fn decrease_total_stake(decrement: u64) {
-        TotalStake::<T>::put(Self::get_total_stake().saturating_sub(decrement));
-    }
-
     // Returns the total amount of stake under a hotkey (delegative or otherwise)
     //
     pub fn get_total_stake_for_hotkey(hotkey: &T::AccountId) -> u64 {
@@ -197,19 +185,6 @@ impl<T: Config> Pallet<T> {
         );
     }
 
-    /// Decreases the stake on the hotkey account under its owning coldkey.
-    ///
-    /// # Arguments
-    /// * `hotkey` - The hotkey account ID.
-    /// * `decrement` - The amount to be decremented.
-    pub fn decrease_stake_on_hotkey_account(hotkey: &T::AccountId, decrement: u64) {
-        Self::decrease_stake_on_coldkey_hotkey_account(
-            &Self::get_owning_coldkey_for_hotkey(hotkey),
-            hotkey,
-            decrement,
-        );
-    }
-
     // Increases the stake on the cold - hot pairing by increment while also incrementing other counters.
     // This function should be called rather than set_stake under account.
     //
@@ -282,7 +257,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `coldkey` - A reference to the AccountId of the coldkey involved in the staking.
     /// * `hotkey` - A reference to the AccountId of the hotkey associated with the coldkey.
-    pub fn empty_stake_on_coldkey_hotkey_account(
+    fn empty_stake_on_coldkey_hotkey_account(
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
     ) -> u64 {

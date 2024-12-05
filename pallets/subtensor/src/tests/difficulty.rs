@@ -3,6 +3,7 @@
 use sp_core::U256;
 
 use super::mock::*;
+use crate::{SubnetworkN, AdjustmentInterval};
 
 #[test]
 fn test_registration_difficulty_adjustment() {
@@ -29,7 +30,7 @@ fn test_registration_difficulty_adjustment() {
         SubtensorModule::set_max_allowed_uids(netuid, 3);
         SubtensorModule::set_network_registration_allowed(netuid, true);
         assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 20000); // Check set difficutly.
-        assert_eq!(SubtensorModule::get_adjustment_interval(netuid), 1); // Check set adjustment interval.
+        assert_eq!(AdjustmentInterval::<Test>::get(netuid), 1); // Check set adjustment interval.
         assert_eq!(
             SubtensorModule::get_target_registrations_per_interval(netuid),
             1
@@ -61,7 +62,7 @@ fn test_registration_difficulty_adjustment() {
             hotkey2
         );
 
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 3); // All 3 are registered.
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 3); // All 3 are registered.
         assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 3); // 3 Registrations.
         assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 3); // 3 Registrations this interval.
 
@@ -78,7 +79,7 @@ fn test_registration_difficulty_adjustment() {
 
         // Lets change the adjustment interval
         SubtensorModule::set_adjustment_interval(netuid, 3);
-        assert_eq!(SubtensorModule::get_adjustment_interval(netuid), 3); // Check set adjustment interval.
+        assert_eq!(AdjustmentInterval::<Test>::get(netuid), 3); // Check set adjustment interval.
 
         SubtensorModule::set_target_registrations_per_interval(netuid, 3);
         assert_eq!(

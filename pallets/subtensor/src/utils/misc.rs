@@ -75,9 +75,6 @@ impl<T: Config> Pallet<T> {
     pub fn get_trust(netuid: u16) -> Vec<u16> {
         Trust::<T>::get(netuid)
     }
-    pub fn get_active(netuid: u16) -> Vec<bool> {
-        Active::<T>::get(netuid)
-    }
     pub fn get_emission(netuid: u16) -> Vec<u64> {
         Emission::<T>::get(netuid)
     }
@@ -115,7 +112,7 @@ impl<T: Config> Pallet<T> {
         LastUpdate::<T>::insert(netuid, updated_last_update_vec);
     }
     pub fn set_active_for_uid(netuid: u16, uid: u16, active: bool) {
-        let mut updated_active_vec = Self::get_active(netuid);
+        let mut updated_active_vec = Active::<T>::get(netuid);
         let Some(updated_active) = updated_active_vec.get_mut(uid as usize) else {
             return;
         };
@@ -249,9 +246,6 @@ impl<T: Config> Pallet<T> {
     }
     pub fn get_pow_registrations_this_interval(netuid: u16) -> u16 {
         POWRegistrationsThisInterval::<T>::get(netuid)
-    }
-    pub fn get_burn_registrations_this_interval(netuid: u16) -> u16 {
-        BurnRegistrationsThisInterval::<T>::get(netuid)
     }
     pub fn get_neuron_block_at_registration(netuid: u16, neuron_uid: u16) -> u64 {
         BlockAtRegistration::<T>::get(netuid, neuron_uid)
@@ -408,17 +402,11 @@ impl<T: Config> Pallet<T> {
         ));
     }
 
-    pub fn get_adjustment_interval(netuid: u16) -> u16 {
-        AdjustmentInterval::<T>::get(netuid)
-    }
     pub fn set_adjustment_interval(netuid: u16, adjustment_interval: u16) {
         AdjustmentInterval::<T>::insert(netuid, adjustment_interval);
         Self::deposit_event(Event::AdjustmentIntervalSet(netuid, adjustment_interval));
     }
 
-    pub fn get_adjustment_alpha(netuid: u16) -> u64 {
-        AdjustmentAlpha::<T>::get(netuid)
-    }
     pub fn set_adjustment_alpha(netuid: u16, adjustment_alpha: u64) {
         AdjustmentAlpha::<T>::insert(netuid, adjustment_alpha);
         Self::deposit_event(Event::AdjustmentAlphaSet(netuid, adjustment_alpha));
@@ -483,9 +471,6 @@ impl<T: Config> Pallet<T> {
         Kappa::<T>::insert(netuid, kappa);
         Self::deposit_event(Event::KappaSet(netuid, kappa));
     }
-    pub fn get_commit_reveal_weights_enabled(netuid: u16) -> bool {
-        CommitRevealWeightsEnabled::<T>::get(netuid)
-    }
     pub fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
         CommitRevealWeightsEnabled::<T>::set(netuid, enabled);
     }
@@ -497,9 +482,6 @@ impl<T: Config> Pallet<T> {
         Rho::<T>::insert(netuid, rho);
     }
 
-    pub fn get_activity_cutoff(netuid: u16) -> u16 {
-        ActivityCutoff::<T>::get(netuid)
-    }
     pub fn set_activity_cutoff(netuid: u16, activity_cutoff: u16) {
         ActivityCutoff::<T>::insert(netuid, activity_cutoff);
         Self::deposit_event(Event::ActivityCutoffSet(netuid, activity_cutoff));
@@ -578,9 +560,6 @@ impl<T: Config> Pallet<T> {
         ));
     }
 
-    pub fn get_bonds_moving_average(netuid: u16) -> u64 {
-        BondsMovingAverage::<T>::get(netuid)
-    }
     pub fn set_bonds_moving_average(netuid: u16, bonds_moving_average: u64) {
         BondsMovingAverage::<T>::insert(netuid, bonds_moving_average);
         Self::deposit_event(Event::BondsMovingAverageSet(netuid, bonds_moving_average));
@@ -611,23 +590,18 @@ impl<T: Config> Pallet<T> {
     pub fn get_owned_hotkeys(coldkey: &T::AccountId) -> Vec<T::AccountId> {
         OwnedHotkeys::<T>::get(coldkey)
     }
-    pub fn get_all_staked_hotkeys(coldkey: &T::AccountId) -> Vec<T::AccountId> {
-        StakingHotkeys::<T>::get(coldkey)
-    }
 
     pub fn set_total_issuance(total_issuance: u64) {
         TotalIssuance::<T>::put(total_issuance);
     }
 
-    pub fn get_rao_recycled(netuid: u16) -> u64 {
-        RAORecycledForRegistration::<T>::get(netuid)
-    }
     pub fn set_rao_recycled(netuid: u16, rao_recycled: u64) {
         RAORecycledForRegistration::<T>::insert(netuid, rao_recycled);
         Self::deposit_event(Event::RAORecycledForRegistrationSet(netuid, rao_recycled));
     }
+
     pub fn increase_rao_recycled(netuid: u16, inc_rao_recycled: u64) {
-        let curr_rao_recycled = Self::get_rao_recycled(netuid);
+        let curr_rao_recycled = RAORecycledForRegistration::<T>::get(netuid);
         let rao_recycled = curr_rao_recycled.saturating_add(inc_rao_recycled);
         Self::set_rao_recycled(netuid, rao_recycled);
     }
@@ -638,17 +612,6 @@ impl<T: Config> Pallet<T> {
 
     pub fn is_senate_member(hotkey: &T::AccountId) -> bool {
         T::SenateMembers::is_member(hotkey)
-    }
-
-    pub fn do_set_senate_required_stake_perc(
-        origin: T::RuntimeOrigin,
-        required_percent: u64,
-    ) -> DispatchResult {
-        ensure_root(origin)?;
-
-        Self::set_senate_required_stake_perc(required_percent);
-        Self::deposit_event(Event::SenateRequiredStakePercentSet(required_percent));
-        Ok(())
     }
 
     pub fn is_subnet_owner(address: &T::AccountId) -> bool {
@@ -665,10 +628,6 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_key_swap_cost() -> u64 {
         T::KeySwapCost::get()
-    }
-
-    pub fn get_alpha_values(netuid: u16) -> (u16, u16) {
-        AlphaValues::<T>::get(netuid)
     }
 
     pub fn get_alpha_values_32(netuid: u16) -> (I32F32, I32F32) {

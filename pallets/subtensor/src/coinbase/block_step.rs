@@ -1,6 +1,8 @@
-use super::*;
 use frame_support::storage::IterableStorageMap;
 use substrate_fixed::types::I110F18;
+
+use super::*;
+use crate::AdjustmentAlpha;
 
 impl<T: Config + pallet_drand::Config> Pallet<T> {
     /// Executes the necessary operations for each block.
@@ -24,7 +26,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         for (netuid, _) in <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter() {
             // --- 2. Pull counters for network difficulty.
             let last_adjustment_block: u64 = Self::get_last_adjustment_block(netuid);
-            let adjustment_interval: u16 = Self::get_adjustment_interval(netuid);
+            let adjustment_interval: u16 = AdjustmentInterval::<T>::get(netuid);
             let current_block: u64 = Self::get_current_block_as_u64();
             log::debug!("netuid: {:?} last_adjustment_block: {:?} adjustment_interval: {:?} current_block: {:?}",
                 netuid,
@@ -39,14 +41,14 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                 log::debug!("interval reached.");
 
                 // --- 4. Get the current counters for this network w.r.t burn and difficulty values.
-                let current_burn: u64 = Self::get_burn_as_u64(netuid);
+                let current_burn: u64 = Burn::<T>::get(netuid);
                 let current_difficulty: u64 = Self::get_difficulty_as_u64(netuid);
                 let registrations_this_interval: u16 =
                     Self::get_registrations_this_interval(netuid);
                 let pow_registrations_this_interval: u16 =
                     Self::get_pow_registrations_this_interval(netuid);
                 let burn_registrations_this_interval: u16 =
-                    Self::get_burn_registrations_this_interval(netuid);
+                    BurnRegistrationsThisInterval::<T>::get(netuid);
                 let target_registrations_this_interval: u16 =
                     Self::get_target_registrations_per_interval(netuid);
                 // --- 5. Adjust burn + pow
@@ -188,7 +190,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
             .saturating_div(I110F18::from_num(
                 target_registrations_per_interval.saturating_add(target_registrations_per_interval),
             ));
-        let alpha: I110F18 = I110F18::from_num(Self::get_adjustment_alpha(netuid))
+        let alpha: I110F18 = I110F18::from_num(AdjustmentAlpha::<T>::get(netuid))
             .saturating_div(I110F18::from_num(u64::MAX));
         let next_value: I110F18 = alpha
             .saturating_mul(I110F18::from_num(current_difficulty))
@@ -222,7 +224,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
             .saturating_div(I110F18::from_num(
                 target_registrations_per_interval.saturating_add(target_registrations_per_interval),
             ));
-        let alpha: I110F18 = I110F18::from_num(Self::get_adjustment_alpha(netuid))
+        let alpha: I110F18 = I110F18::from_num(AdjustmentAlpha::<T>::get(netuid))
             .saturating_div(I110F18::from_num(u64::MAX));
         let next_value: I110F18 = alpha
             .saturating_mul(I110F18::from_num(current_burn))

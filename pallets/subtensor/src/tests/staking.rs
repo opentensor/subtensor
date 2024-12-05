@@ -112,7 +112,7 @@ fn test_dividends_with_run_to_block() {
         );
 
         // Check if all three neurons are registered
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 3);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 3);
 
         // Run a couple of blocks to check if emission works
         run_to_block(2);
@@ -904,7 +904,11 @@ fn test_remove_stake_from_hotkey_account() {
         );
 
         // Remove stake
-        SubtensorModule::decrease_stake_on_hotkey_account(&hotkey_id, amount);
+        SubtensorModule::decrease_stake_on_coldkey_hotkey_account(
+            &SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_id),
+            &hotkey_id,
+            amount,
+        );
 
         // The stake on the hotkey account should be 0
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
@@ -957,7 +961,12 @@ fn test_remove_stake_from_hotkey_account_registered_in_various_networks() {
         );
 
         // Remove stake
-        SubtensorModule::decrease_stake_on_hotkey_account(&hotkey_id, amount);
+        SubtensorModule::decrease_stake_on_coldkey_hotkey_account(
+            &SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_id),
+            &hotkey_id,
+            amount,
+        );
+
         //
         assert_eq!(
             SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
@@ -971,19 +980,6 @@ fn test_remove_stake_from_hotkey_account_registered_in_various_networks() {
 }
 
 // /************************************************************
-// 	staking::increase_total_stake() tests
-// ************************************************************/
-#[test]
-fn test_increase_total_stake_ok() {
-    new_test_ext(1).execute_with(|| {
-        let increment = 10000;
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
-        SubtensorModule::increase_total_stake(increment);
-        assert_eq!(SubtensorModule::get_total_stake(), increment);
-    });
-}
-
-// /************************************************************
 // 	staking::decrease_total_stake() tests
 // ************************************************************/
 #[test]
@@ -992,8 +988,10 @@ fn test_decrease_total_stake_ok() {
         let initial_total_stake = 10000;
         let decrement = 5000;
 
-        SubtensorModule::increase_total_stake(initial_total_stake);
-        SubtensorModule::decrease_total_stake(decrement);
+        TotalStake::<Test>::put(
+            SubtensorModule::get_total_stake().saturating_add(initial_total_stake),
+        );
+        TotalStake::<Test>::put(SubtensorModule::get_total_stake().saturating_sub(decrement));
 
         // The total stake remaining should be the difference between the initial stake and the decrement
         assert_eq!(
