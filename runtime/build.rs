@@ -16,4 +16,7 @@ fn main() {
             .enable_metadata_hash("TAO", 9)
             .build();
     }
+
+    println!("cargo:rerun-if-changed=src");
+    subtensor_linting::walk_src();
 }

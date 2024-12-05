@@ -1,3 +1,4 @@
+#![cfg(not(doc))]
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -37,7 +38,6 @@ pub mod tasks;
 pub mod type_value;
 pub mod validate_unsigned;
 
-#[cfg(test)]
 pub mod tests;
 
 use composite::{keyword::CompositeKeyword, CompositeDef};

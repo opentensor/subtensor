@@ -22,17 +22,15 @@ path = "src/spec_version.rs"
 [dependencies]
 ed25519-dalek = { workspace = true, default-features = false, features = ["alloc"] }
 subtensor-macros.workspace = true
-subtensor-custom-rpc-runtime-api = { path = "../pallets/subtensor/runtime-api", default-features = false }
+subtensor-custom-rpc-runtime-api = { workspace = true }
 smallvec = { workspace = true }
 log = { workspace = true }
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
-	"derive",
-] }
+codec = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["alloc"] }
 pallet-aura = { workspace = true }
 pallet-balances = { workspace = true }
-pallet-subtensor = { default-features = false, path = "../pallets/subtensor" }
+pallet-subtensor = { workspace = true }
 frame-support = { workspace = true }
 pallet-grandpa = { workspace = true }
 pallet-insecure-randomness-collective-flip = { workspace = true }
@@ -60,10 +58,10 @@ sp-version = { workspace = true }
 # Temporary sudo
 pallet-sudo = { workspace = true }
 
-pallet-admin-utils = { default-features = false, path = "../pallets/admin-utils" }
+pallet-admin-utils = { workspace = true }
 
 # Used for sudo decentralization
-pallet-collective = { default-features = false, path = "../pallets/collective" }
+pallet-collective = { workspace = true }
 pallet-membership = { workspace = true }
 
 # Multisig
@@ -89,10 +87,10 @@ frame-benchmarking = { workspace = true, optional = true }
 frame-system-benchmarking = { workspace = true, optional = true }
 
 # Identity registry pallet for registering project info
-pallet-registry = { default-features = false, path = "../pallets/registry" }
+pallet-registry = { workspace = true }
 
 # Metadata commitment pallet
-pallet-commitments = { default-features = false, path = "../pallets/commitments" }
+pallet-commitments = { workspace = true }
 
 # Frontier
 fp-evm = { workspace = true }
@@ -108,7 +106,6 @@ pallet-evm-chain-id = { workspace = true }
 pallet-evm-precompile-modexp = { workspace = true }
 pallet-evm-precompile-sha3fips = { workspace = true }
 pallet-evm-precompile-simple = { workspace = true }
-pallet-hotfix-sufficients = { workspace = true }
 fp-account = { workspace = true }
 
 #drand
@@ -128,6 +125,7 @@ sp-tracing = { workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { workspace = true, optional = true }
+subtensor-linting = { workspace = true }
 
 [features]
 default = ["std"]
@@ -200,7 +198,6 @@ std = [
 	"pallet-evm-precompile-modexp/std",
 	"pallet-evm-precompile-sha3fips/std",
 	"pallet-evm-precompile-simple/std",
-	"pallet-hotfix-sufficients/std",
 	"fp-account/std",
 	"pallet-drand/std",
 	"getrandom/std",
@@ -237,7 +234,6 @@ runtime-benchmarks = [
 	# EVM + Frontier
 	"pallet-ethereum/runtime-benchmarks",
 	"pallet-evm/runtime-benchmarks",
-	"pallet-hotfix-sufficients/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks"
 ]
 try-runtime = [
@@ -249,7 +245,6 @@ try-runtime = [
 	"pallet-sudo/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-grandpa/try-runtime",
-	"pallet-hotfix-sufficients/try-runtime",
 	"pallet-insecure-randomness-collective-flip/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
