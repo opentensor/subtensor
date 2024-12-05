@@ -242,7 +242,7 @@ impl<T: Config> Pallet<T> {
 
         // 2. Ensure commit-reveal is enabled.
         ensure!(
-            Self::get_commit_reveal_weights_enabled(netuid),
+            CommitRevealWeightsEnabled::<T>::get(netuid),
             Error::<T>::CommitRevealDisabled
         );
 
@@ -851,7 +851,7 @@ impl<T: Config> Pallet<T> {
             .map(|((&netuid, w), &version_key)| {
                 let origin_cloned = origin.clone();
 
-                if Self::get_commit_reveal_weights_enabled(netuid.into()) {
+                if CommitRevealWeightsEnabled::<T>::get::<u16>(netuid.into()) {
                     return Err(Error::<T>::CommitRevealEnabled.into());
                 }
 

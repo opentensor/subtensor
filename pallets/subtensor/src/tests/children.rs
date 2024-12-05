@@ -3604,7 +3604,7 @@ fn test_set_children_rate_limit_fail_then_succeed() {
         );
 
         // Verify first children assignment remains
-        let children = SubtensorModule::get_children(&hotkey, netuid);
+        let children = ChildKeys::<Test>::get(&hotkey, netuid);
         assert_eq!(children, vec![(100, child)]);
 
         // Try again after rate limit period has passed
@@ -3626,7 +3626,7 @@ fn test_set_children_rate_limit_fail_then_succeed() {
         mock_set_children(&coldkey, &hotkey, netuid, &[(100, child2)]);
 
         // Verify children assignment has changed
-        let children = SubtensorModule::get_children(&hotkey, netuid);
+        let children = ChildKeys::<Test>::get(&hotkey, netuid);
         assert_eq!(children, vec![(100, child2)]);
     });
 }
@@ -3736,14 +3736,14 @@ fn test_do_set_child_cooldown_period() {
         ));
 
         // Ensure the childkeys are not yet applied
-        let children_before = SubtensorModule::get_children(&parent, netuid);
+        let children_before = ChildKeys::<Test>::get(&parent, netuid);
         assert_eq!(children_before, vec![]);
 
         wait_and_set_pending_children(netuid);
         TotalHotkeyStake::<Test>::insert(parent, parent_total_stake_original);
 
         // Verify child assignment
-        let children_after = SubtensorModule::get_children(&parent, netuid);
+        let children_after = ChildKeys::<Test>::get(&parent, netuid);
         assert_eq!(children_after, vec![(proportion, child)]);
     });
 }

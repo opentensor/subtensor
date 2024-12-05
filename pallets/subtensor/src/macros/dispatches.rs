@@ -86,9 +86,11 @@ mod dispatches {
             weights: Vec<u16>,
             version_key: u64,
         ) -> DispatchResult {
-            if !CommitRevealWeightsEnabled::<T>::get(netuid) {
-                return Self::do_set_weights(origin, netuid, dests, weights, version_key);
-            }
+            ensure!(
+                !CommitRevealWeightsEnabled::<T>::get(netuid),
+                Error::<T>::CommitRevealEnabled
+            );
+            Self::do_set_weights(origin, netuid, dests, weights, version_key)
         }
 
         /// --- Allows a hotkey to set weights for multiple netuids as a batch.

@@ -95,7 +95,7 @@ impl<T: Config> Pallet<T> {
             // --- 4.1 Check to see if the subnet should run its epoch.
             if Self::should_run_epoch(*netuid, current_block) {
                 // --- 4.2 Reveal weights from the n-2nd epoch.
-                if Self::get_commit_reveal_weights_enabled(*netuid) {
+                if CommitRevealWeightsEnabled::<T>::get(*netuid) {
                     if let Err(e) = Self::reveal_crv3_commits(*netuid) {
                         log::warn!(
                             "Failed to reveal commits for subnet {} due to error: {:?}",
