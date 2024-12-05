@@ -1,10 +1,10 @@
-name: Publish Docker Image
+name: Build Docker Image
 
 on:
   pull_request:
 
 jobs:
-  publish:
+  build:
     runs-on: SubtensorCI
 
     steps:
