@@ -56,15 +56,6 @@ impl<T: Config> Pallet<T> {
         last_block == 0 || block.saturating_sub(last_block) >= limit
     }
 
-    /// Check if a transaction should be rate limited globally
-    pub fn passes_rate_limit_globally(tx_type: &TransactionType, hotkey: &T::AccountId) -> bool {
-        let netuid: u16 = u16::MAX;
-        let block: u64 = Self::get_current_block_as_u64();
-        let limit: u64 = Self::get_rate_limit(tx_type, 0);
-        let last_block: u64 = Self::get_last_transaction_block(hotkey, netuid, tx_type);
-        block.saturating_sub(last_block) >= limit
-    }
-
     /// Get the block number of the last transaction for a specific hotkey, network, and transaction type
     pub fn get_last_transaction_block(
         hotkey: &T::AccountId,
@@ -97,10 +88,6 @@ impl<T: Config> Pallet<T> {
     }
     pub fn get_last_tx_block_delegate_take(key: &T::AccountId) -> u64 {
         LastTxBlockDelegateTake::<T>::get(key)
-    }
-
-    pub fn set_last_tx_block_childkey_take(key: &T::AccountId, block: u64) {
-        LastTxBlockChildKeyTake::<T>::insert(key, block)
     }
     pub fn get_last_tx_block_childkey_take(key: &T::AccountId) -> u64 {
         LastTxBlockChildKeyTake::<T>::get(key)

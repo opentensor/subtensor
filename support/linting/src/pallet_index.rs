@@ -31,7 +31,7 @@ impl<'ast> syn::visit::Visit<'ast> for ConstructRuntimeVisitor {
             .path
             .segments
             .last()
-            .map_or(false, |segment| segment.ident == "construct_runtime");
+            .is_some_and(|segment| segment.ident == "construct_runtime");
 
         if is_construct_runtime {
             let tokens = node.mac.tokens.clone();

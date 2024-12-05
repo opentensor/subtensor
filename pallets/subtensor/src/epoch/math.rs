@@ -150,7 +150,7 @@ pub fn check_vec_max_limited(vec: &[u16], max_limit: u16) -> bool {
     let mut vec_fixed: Vec<I32F32> = vec.iter().map(|e: &u16| I32F32::from_num(*e)).collect();
     inplace_normalize(&mut vec_fixed);
     let max_value: Option<&I32F32> = vec_fixed.iter().max();
-    max_value.map_or(true, |v| *v <= max_limit_fixed)
+    max_value.is_none_or(|v| *v <= max_limit_fixed)
 }
 
 #[allow(dead_code)]
@@ -1229,7 +1229,7 @@ pub fn mat_ema_alpha_vec(
     alpha: &[I32F32],
 ) -> Vec<Vec<I32F32>> {
     // Check if the new matrix is empty or its first row is empty.
-    if new.is_empty() || new.first().map_or(true, |row| row.is_empty()) {
+    if new.is_empty() || new.first().is_none_or(|row| row.is_empty()) {
         return vec![vec![]; 1];
     }
 
