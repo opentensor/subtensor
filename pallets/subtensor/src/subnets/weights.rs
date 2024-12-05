@@ -1,8 +1,11 @@
 use super::*;
 use crate::epoch::math::*;
 use codec::Compact;
-use sp_core::{H256, ConstU32};
-use sp_runtime::{traits::{BlakeTwo256, Hash}, BoundedVec};
+use sp_core::{ConstU32, H256};
+use sp_runtime::{
+    traits::{BlakeTwo256, Hash},
+    BoundedVec,
+};
 use sp_std::{collections::vec_deque::VecDeque, vec};
 
 impl<T: Config> Pallet<T> {
