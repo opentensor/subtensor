@@ -186,7 +186,15 @@ impl<T: Config> Pallet<T> {
         let cur_epoch = Self::get_epoch_index(netuid, cur_block);
         CRV3WeightCommits::<T>::try_mutate(netuid, cur_epoch, |commits| -> DispatchResult {
             // 6. Verify that the number of unrevealed commits is within the allowed limit.
-            ensure!(commits.len() < 10, Error::<T>::TooManyUnrevealedCommits);
+
+            let unrevealed_commits_for_who = commits
+                .iter()
+                .filter(|(account, _, _)| account == &who)
+                .count();
+            ensure!(
+                unrevealed_commits_for_who < 10,
+                Error::<T>::TooManyUnrevealedCommits
+            );
 
             // 7. Append the new commit with calculated reveal blocks.
             // Hash the commit before it is moved, for the event
