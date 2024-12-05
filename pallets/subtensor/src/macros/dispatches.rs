@@ -86,10 +86,8 @@ mod dispatches {
             weights: Vec<u16>,
             version_key: u64,
         ) -> DispatchResult {
-            if Self::get_commit_reveal_weights_enabled(netuid) {
-                Err(Error::<T>::CommitRevealEnabled.into())
-            } else {
-                Self::do_set_weights(origin, netuid, dests, weights, version_key)
+            if !CommitRevealWeightsEnabled::<T>::get(netuid) {
+                return Self::do_set_weights(origin, netuid, dests, weights, version_key);
             }
         }
 

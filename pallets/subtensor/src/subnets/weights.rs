@@ -48,7 +48,7 @@ impl<T: Config> Pallet<T> {
 
         // 2. Ensure commit-reveal is enabled.
         ensure!(
-            Self::get_commit_reveal_weights_enabled(netuid),
+            CommitRevealWeightsEnabled::<T>::get(netuid),
             Error::<T>::CommitRevealDisabled
         );
 
@@ -267,7 +267,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Ensure commit-reveal is enabled for the network.
         ensure!(
-            Self::get_commit_reveal_weights_enabled(netuid),
+            CommitRevealWeightsEnabled::<T>::get(netuid),
             Error::<T>::CommitRevealDisabled
         );
 
@@ -421,7 +421,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Ensure commit-reveal is enabled for the network.
         ensure!(
-            Self::get_commit_reveal_weights_enabled(netuid),
+            CommitRevealWeightsEnabled::<T>::get(netuid),
             Error::<T>::CommitRevealDisabled
         );
 
@@ -651,7 +651,7 @@ impl<T: Config> Pallet<T> {
         // --- 9. Ensure the uid is not setting weights faster than the weights_set_rate_limit.
         let neuron_uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey)?;
         let current_block: u64 = Self::get_current_block_as_u64();
-        if !Self::get_commit_reveal_weights_enabled(netuid) {
+        if !CommitRevealWeightsEnabled::<T>::get(netuid) {
             ensure!(
                 Self::check_rate_limit(netuid, neuron_uid, current_block),
                 Error::<T>::SettingWeightsTooFast
@@ -699,7 +699,7 @@ impl<T: Config> Pallet<T> {
         Weights::<T>::insert(netuid, neuron_uid, zipped_weights);
 
         // --- 18. Set the activity for the weights on this network.
-        if !Self::get_commit_reveal_weights_enabled(netuid) {
+        if !CommitRevealWeightsEnabled::<T>::get(netuid) {
             Self::set_last_update_for_uid(netuid, neuron_uid, current_block);
         }
 
