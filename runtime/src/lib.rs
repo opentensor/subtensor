@@ -1970,6 +1970,73 @@ impl_runtime_apis! {
         }
     }
 
+    #[api_version(2)]
+    impl subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi<Block> for Runtime {
+        fn get_delegates() -> Vec<DelegateInfo<AccountId32>> {
+            SubtensorModule::get_delegates()
+        }
+
+        fn get_delegate(delegate_account: AccountId32) -> Option<DelegateInfo<AccountId32>> {
+            SubtensorModule::get_delegate(delegate_account)
+        }
+
+        fn get_delegated(delegatee_account: AccountId32) -> Vec<(DelegateInfo<AccountId32>, Compact<u64>)> {
+            SubtensorModule::get_delegated(delegatee_account)
+        }
+    }
+
+    #[api_version(2)]
+    impl subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<Block> for Runtime {
+        fn get_neurons_lite(netuid: u16) -> Vec<NeuronInfoLite<AccountId32>> {
+            SubtensorModule::get_neurons_lite(netuid)
+        }
+
+        fn get_neuron_lite(netuid: u16, uid: u16) -> Option<NeuronInfoLite<AccountId32>> {
+            SubtensorModule::get_neuron_lite(netuid, uid)
+        }
+
+        fn get_neurons(netuid: u16) -> Vec<NeuronInfo<AccountId32>> {
+            SubtensorModule::get_neurons(netuid)
+        }
+
+        fn get_neuron(netuid: u16, uid: u16) -> Option<NeuronInfo<AccountId32>> {
+            SubtensorModule::get_neuron(netuid, uid)
+        }
+    }
+
+    #[api_version(2)]
+    impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
+        fn get_subnet_info(netuid: u16) -> Option<SubnetInfov2<AccountId32>> {
+            SubtensorModule::get_subnet_info_v2(netuid)
+        }
+
+        fn get_subnets_info() -> Vec<Option<SubnetInfov2<AccountId32>>> {
+            SubtensorModule::get_subnets_info_v2()
+        }
+
+        fn get_subnet_hyperparams(netuid: u16) -> Option<SubnetHyperparams> {
+            SubtensorModule::get_subnet_hyperparams(netuid)
+        }
+    }
+
+    #[api_version(2)]
+    impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {
+        fn get_stake_info_for_coldkey( coldkey_account: AccountId32 ) -> Vec<StakeInfo<AccountId32>> {
+            SubtensorModule::get_stake_info_for_coldkey( coldkey_account )
+        }
+
+        fn get_stake_info_for_coldkeys( coldkey_accounts: Vec<AccountId32> ) -> Vec<(AccountId32, Vec<StakeInfo<AccountId32>>)> {
+               SubtensorModule::get_stake_info_for_coldkeys( coldkey_accounts )
+        }
+    }
+
+    impl subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block> for Runtime {
+        fn get_network_registration_cost() -> u64 {
+            SubtensorModule::get_network_lock_cost()
+        }
+    }
+
+    #[api_version(3)]
     impl subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi<Block> for Runtime {
         fn get_delegates() -> Vec<u8> {
             let result = SubtensorModule::get_delegates();
@@ -1992,6 +2059,7 @@ impl_runtime_apis! {
         }
     }
 
+    #[api_version(3)]
     impl subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<Block> for Runtime {
         fn get_neurons_lite(netuid: u16) -> Vec<u8> {
             let result = SubtensorModule::get_neurons_lite(netuid);
@@ -2024,6 +2092,7 @@ impl_runtime_apis! {
         }
     }
 
+    #[api_version(3)]
     impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
         fn get_subnet_info(netuid: u16) -> Vec<u8> {
             let _result = SubtensorModule::get_subnet_info(netuid);
@@ -2066,6 +2135,7 @@ impl_runtime_apis! {
         }
     }
 
+    #[api_version(3)]
     impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {
         fn get_stake_info_for_coldkey( coldkey_account_vec: Vec<u8> ) -> Vec<u8> {
             let result = SubtensorModule::get_stake_info_for_coldkey( coldkey_account_vec );
@@ -2075,12 +2145,6 @@ impl_runtime_apis! {
         fn get_stake_info_for_coldkeys( coldkey_account_vecs: Vec<Vec<u8>> ) -> Vec<u8> {
             let result = SubtensorModule::get_stake_info_for_coldkeys( coldkey_account_vecs );
             result.encode()
-        }
-    }
-
-    impl subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block> for Runtime {
-        fn get_network_registration_cost() -> u64 {
-            SubtensorModule::get_network_lock_cost()
         }
     }
 }

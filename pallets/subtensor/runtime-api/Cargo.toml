@@ -1,6 +1,6 @@
 [package]
 name = "subtensor-custom-rpc-runtime-api"
-version = "0.0.2"
+version = "0.1.0"
 edition = "2021"
 authors = ['Cameron Fairchild <https://github.com/camfairchild>']
 repository = 'https://github.com/opentensor/subtensor'
@@ -13,6 +13,7 @@ workspace = true
 
 [dependencies]
 sp-api = { workspace = true }
+codec = { workspace = true }
 frame-support = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 
