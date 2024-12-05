@@ -255,7 +255,7 @@ pub mod pallet {
         fn offchain_worker(block_number: BlockNumberFor<T>) {
             log::debug!("Drand OCW working on block: {:?}", block_number);
             if let Err(e) = Self::fetch_drand_pulse_and_send_unsigned(block_number) {
-                log::warn!("Drand: Failed to fetch pulse from drand. {:?}", e);
+                log::debug!("Drand: Failed to fetch pulse from drand. {:?}", e);
             }
         }
     }
