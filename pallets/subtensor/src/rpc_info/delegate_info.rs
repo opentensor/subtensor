@@ -64,8 +64,8 @@ impl<T: Config> Pallet<T> {
 
         let return_per_1000: U64F64 = if total_stake > U64F64::from_num(0) {
             emissions_per_day
-                .saturating_mul(U64F64::from_num(u16::MAX.saturating_sub(take.0)))
-                .saturating_div(U64F64::from_num(u16::MAX))
+                .saturating_mul(u16::MAX.saturating_sub(take.0).into())
+                .saturating_div(u16::MAX.into())
                 .saturating_div(total_stake.saturating_div(U64F64::from_num(1000)))
         } else {
             U64F64::from_num(0)
