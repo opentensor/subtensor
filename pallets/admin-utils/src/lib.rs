@@ -890,9 +890,9 @@ pub mod pallet {
         /// The extrinsic will call the Subtensor pallet to set the weights min stake.
         #[pallet::call_index(42)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_weights_min_stake(origin: OriginFor<T>, min_stake: u64) -> DispatchResult {
+        pub fn sudo_set_stake_threshold(origin: OriginFor<T>, min_stake: u64) -> DispatchResult {
             ensure_root(origin)?;
-            pallet_subtensor::Pallet::<T>::set_weights_min_stake(min_stake);
+            pallet_subtensor::Pallet::<T>::set_stake_threshold(min_stake);
             Ok(())
         }
 

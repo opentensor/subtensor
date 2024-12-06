@@ -110,7 +110,7 @@ fn test_set_rootweights_validate() {
 
         let min_stake = 500_000_000_000;
         // Set the minimum stake
-        SubtensorModule::set_weights_min_stake(min_stake);
+        SubtensorModule::set_stake_threshold(min_stake);
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
@@ -210,7 +210,7 @@ fn test_commit_weights_validate() {
 
         let min_stake = 500_000_000_000;
         // Set the minimum stake
-        SubtensorModule::set_weights_min_stake(min_stake);
+        SubtensorModule::set_stake_threshold(min_stake);
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
@@ -304,7 +304,7 @@ fn test_set_weights_validate() {
 
         let min_stake = 500_000_000_000;
         // Set the minimum stake
-        SubtensorModule::set_weights_min_stake(min_stake);
+        SubtensorModule::set_stake_threshold(min_stake);
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
@@ -369,7 +369,7 @@ fn test_reveal_weights_validate() {
 
         let min_stake = 500_000_000_000;
         // Set the minimum stake
-        SubtensorModule::set_weights_min_stake(min_stake);
+        SubtensorModule::set_stake_threshold(min_stake);
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
@@ -479,9 +479,9 @@ fn test_weights_err_no_validator_permit() {
     });
 }
 
-// To execute this test: cargo test --package pallet-subtensor --test weights test_set_weights_min_stake_failed -- --nocapture`
+// To execute this test: cargo test --package pallet-subtensor --test weights test_set_stake_threshold_failed -- --nocapture`
 #[test]
-fn test_set_weights_min_stake_failed() {
+fn test_set_stake_threshold_failed() {
     new_test_ext(0).execute_with(|| {
         let dests = vec![0];
         let weights = vec![1];
@@ -492,10 +492,10 @@ fn test_set_weights_min_stake_failed() {
 
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 2143124);
-        SubtensorModule::set_weights_min_stake(20_000_000_000_000);
+        SubtensorModule::set_stake_threshold(20_000_000_000_000);
 
         // Check the signed extension function.
-        assert_eq!(SubtensorModule::get_weights_min_stake(), 20_000_000_000_000);
+        assert_eq!(SubtensorModule::get_stake_threshold(), 20_000_000_000_000);
         assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 19_000_000_000_000);
         assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
@@ -503,7 +503,7 @@ fn test_set_weights_min_stake_failed() {
         assert!(SubtensorModule::check_weights_min_stake(&hotkey, netuid));
 
         // Check that it fails at the pallet level.
-        SubtensorModule::set_weights_min_stake(100_000_000_000_000);
+        SubtensorModule::set_stake_threshold(100_000_000_000_000);
         assert_eq!(
             SubtensorModule::set_weights(
                 RuntimeOrigin::signed(hotkey),
