@@ -27,6 +27,7 @@ fn eval(cmd: impl Display, print: bool) -> Result<String, String> {
 enum Network {
     Mainnet,
     Testnet,
+    Devnet,
 }
 
 impl FromStr for Network {
@@ -34,6 +35,7 @@ impl FromStr for Network {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
+            "devnet" => Ok(Network::Devnet),
             "mainnet" => Ok(Network::Mainnet),
             "testnet" => Ok(Network::Testnet),
             _ => Err(()),
@@ -63,6 +65,7 @@ fn main() {
             .iter()
             .find(|tag| tag.starts_with("v") && tag.ends_with("-pre-release"))
             .expect("could not find a valid testnet tag!"),
+        Network::Devnet => &"origin/devnet".to_string(),
     };
     println!("Previous release tag: {}", previous_tag);
 
@@ -70,6 +73,7 @@ fn main() {
         match network {
             Network::Mainnet => "testnet",
             Network::Testnet => "devnet",
+            Network::Devnet => "devnet",
         }
         .to_string(),
     );
