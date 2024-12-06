@@ -39,7 +39,7 @@ where
     pub fn new() -> Self {
         Self(Default::default())
     }
-    pub fn used_addresses() -> [H160; 10] {
+    pub fn used_addresses() -> [H160; 11] {
         [
             hash(1),
             hash(2),
@@ -51,6 +51,7 @@ where
             hash(EDVERIFY_PRECOMPILE_INDEX),
             hash(BALANCE_TRANSFER_INDEX),
             hash(STAKING_PRECOMPILE_INDEX),
+            hash(METAGRAPH_PRECOMPILE_INDEX),
         ]
     }
 }

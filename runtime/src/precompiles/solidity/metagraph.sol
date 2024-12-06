@@ -19,13 +19,6 @@ interface IMetagraph {
    * @return The count of UIDs associated with the specified netuid.
    */
   function getUidCount(uint16 netuid) external view returns (uint16);
-  
-  /**
-   * @dev Checks if a subnet with the given network identifier (netuid) is registered.
-   * @param netuid The network identifier of the subnet to check.
-   * @return Returns true if the subnet is registered, false otherwise.
-   */
-  function getIsSubnetRegistered(uint16 netuid) external view returns (bool);
 
   /**
    * @dev Retrieves the stake amount associated with a given network identifier (netuid) and unique identifier (uid).

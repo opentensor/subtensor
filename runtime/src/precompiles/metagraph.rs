@@ -21,9 +21,6 @@ impl MetagraphPrecompile {
 
         match method_id {
             id if id == get_method_id("getUidCount(uint16)") => Self::get_uid_count(&method_input),
-            id if id == get_method_id("getIsSubnetRegistered(uint16)") => {
-                Self::get_is_subnet_registered(&method_input)
-            }
             id if id == get_method_id("getStake(uint16,uint16)") => Self::get_stake(&method_input),
             id if id == get_method_id("getRank(uint16,uint16)") => Self::get_rank(&method_input),
             id if id == get_method_id("getTrust(uint16,uint16)") => Self::get_trust(&method_input),
@@ -72,24 +69,6 @@ impl MetagraphPrecompile {
         let uid_count_u256 = U256::from(uid_count);
         let mut result = [0_u8; 32];
         U256::to_big_endian(&uid_count_u256, &mut result);
-
-        Ok(PrecompileOutput {
-            exit_status: ExitSucceed::Returned,
-            output: result.into(),
-        })
-    }
-
-    fn get_is_subnet_registered(data: &[u8]) -> PrecompileResult {
-        let netuid = Self::parse_netuid(data)?;
-        let is_registered = pallet_subtensor::Pallet::<Runtime>::if_subnet_exist(netuid);
-
-        let result_u256 = if is_registered {
-            U256::from(1)
-        } else {
-            U256::from(0)
-        };
-        let mut result = [0_u8; 32];
-        U256::to_big_endian(&result_u256, &mut result);
 
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
