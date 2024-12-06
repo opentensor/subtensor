@@ -104,7 +104,7 @@ mod events {
         /// setting the RAO recycled for registration.
         RAORecycledForRegistrationSet(u16, u64),
         /// min stake is set for validators to set weights.
-        WeightsMinStake(u64),
+        StakeThresholdSet(u64),
         /// setting the minimum required stake amount for senate registration.
         SenateRequiredStakePercentSet(u64),
         /// setting the adjustment alpha on a subnet.
@@ -181,6 +181,8 @@ mod events {
             /// The account ID of the coldkey
             coldkey: T::AccountId,
         },
+        /// Setting of children of a hotkey have been scheduled
+        SetChildrenScheduled(T::AccountId, u16, u64, Vec<(u64, T::AccountId)>),
         /// The children of a hotkey have been set
         SetChildren(T::AccountId, u16, Vec<(u64, T::AccountId)>),
         /// The hotkey emission tempo has been set

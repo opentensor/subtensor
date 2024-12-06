@@ -784,7 +784,7 @@ impl<T: Config> Pallet<T> {
 
         // Check to see if the hotkey has enough stake to set weights.
         ensure!(
-            Self::get_total_stake_for_hotkey(&hotkey) >= Self::get_weights_min_stake(),
+            Self::get_total_stake_for_hotkey(&hotkey) >= Self::get_stake_threshold(),
             Error::<T>::NotEnoughStakeToSetWeights
         );
 

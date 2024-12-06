@@ -29,8 +29,8 @@ log = { workspace = true }
 pallet-subtensor = { version = "4.0.0-dev", default-features = false, path = "../subtensor" }
 sp-weights = { workspace = true }
 substrate-fixed = { workspace = true }
+pallet-evm-chain-id = { workspace = true }
 pallet-drand = { workspace = true, default-features = false }
-
 
 [dev-dependencies]
 sp-core = { workspace = true }
@@ -52,6 +52,7 @@ std = [
 	"pallet-subtensor/std",
 	"sp-consensus-aura/std",
 	"pallet-balances/std",
+	"pallet-evm-chain-id/std",
 	"pallet-scheduler/std",
 	"sp-runtime/std",
 	"sp-tracing/std",
@@ -77,6 +78,7 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-evm-chain-id/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"sp-runtime/try-runtime",
 	"pallet-subtensor/try-runtime",

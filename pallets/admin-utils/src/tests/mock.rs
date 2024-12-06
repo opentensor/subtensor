@@ -29,6 +29,7 @@ frame_support::construct_runtime!(
         SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>, Error<T>} = 4,
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 5,
         Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 6,
+        EVMChainId: pallet_evm_chain_id = 7,
     }
 );
 
@@ -277,6 +278,7 @@ impl pallet_scheduler::Config for Test {
     type Preimages = ();
 }
 
+impl pallet_evm_chain_id::Config for Test {}
 impl pallet_drand::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = pallet_drand::weights::SubstrateWeight<Test>;
