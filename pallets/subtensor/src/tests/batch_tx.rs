@@ -290,7 +290,7 @@ fn test_batch_commit_weights() {
         assert_ok!(SubtensorModule::batch_commit_weights(
             RuntimeOrigin::signed(hotkey),
             netuids_vec.clone(),
-            vec![hash.clone(), hash.clone(), hash.clone()], // One per network
+            vec![hash, hash, hash], // One per network
         ));
 
         // Check the events are emitted, three errors about commit reveal disabled
@@ -340,7 +340,7 @@ fn test_batch_commit_weights() {
         assert_ok!(SubtensorModule::batch_commit_weights(
             RuntimeOrigin::signed(hotkey),
             netuids_vec.clone(),
-            vec![hash.clone(), hash.clone(), hash.clone()]
+            vec![hash, hash, hash]
         ));
 
         assert!(SubtensorModule::check_weights_min_stake(&hotkey, netuid_0));
@@ -370,7 +370,7 @@ fn test_batch_commit_weights() {
         assert_ok!(SubtensorModule::batch_commit_weights(
             RuntimeOrigin::signed(hotkey),
             netuids_vec.clone(),
-            vec![hash.clone(), hash.clone(), hash.clone()]
+            vec![hash, hash, hash]
         ));
 
         // Check the events are emitted, one error
