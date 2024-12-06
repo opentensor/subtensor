@@ -93,6 +93,44 @@ mod dispatches {
             }
         }
 
+        /// --- Allows a hotkey to set weights for multiple netuids as a batch.
+        ///
+        /// # Args:
+        /// * `origin`: (<T as frame_system::Config>Origin):
+        ///     - The caller, a hotkey who wishes to set their weights.
+        ///
+        /// * `netuids` (Vec<Compact<u16>>):
+        /// 	- The network uids we are setting these weights on.
+        ///
+        /// * `weights` (Vec<Vec<(Compact<u16>, Compact<u16>)>):
+        /// 	- The weights to set for each network. [(uid, weight), ...]
+        ///
+        /// * `version_keys` (Vec<Compact<u64>>):
+        /// 	- The network version keys to check if the validator is up to date.
+        ///
+        /// # Event:
+        /// * WeightsSet;
+        /// 	- On successfully setting the weights on chain.
+        /// * BatchWeightsCompleted;
+        /// 	- On success of the batch.
+        /// * BatchCompletedWithErrors;
+        /// 	- On failure of any of the weights in the batch.
+        /// * BatchWeightItemFailed;
+        /// 	- On failure for each failed item in the batch.
+        ///
+        #[pallet::call_index(80)]
+        #[pallet::weight((Weight::from_parts(22_060_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(4106))
+        .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        pub fn batch_set_weights(
+            origin: OriginFor<T>,
+            netuids: Vec<Compact<u16>>,
+            weights: Vec<Vec<(Compact<u16>, Compact<u16>)>>,
+            version_keys: Vec<Compact<u64>>,
+        ) -> DispatchResult {
+            Self::do_batch_set_weights(origin, netuids, weights, version_keys)
+        }
+
         /// ---- Used to commit a hash of your weight values to later be revealed.
         ///
         /// # Args:
@@ -122,6 +160,40 @@ mod dispatches {
             commit_hash: H256,
         ) -> DispatchResult {
             Self::do_commit_weights(origin, netuid, commit_hash)
+        }
+
+        /// --- Allows a hotkey to commit weight hashes for multiple netuids as a batch.
+        ///
+        /// # Args:
+        /// * `origin`: (<T as frame_system::Config>Origin):
+        ///     - The caller, a hotkey who wishes to set their weights.
+        ///
+        /// * `netuids` (Vec<Compact<u16>>):
+        /// 	- The network uids we are setting these weights on.
+        ///
+        /// * `commit_hashes` (Vec<H256>):
+        /// 	- The commit hashes to commit.
+        ///
+        /// # Event:
+        /// * WeightsSet;
+        /// 	- On successfully setting the weights on chain.
+        /// * BatchWeightsCompleted;
+        /// 	- On success of the batch.
+        /// * BatchCompletedWithErrors;
+        /// 	- On failure of any of the weights in the batch.
+        /// * BatchWeightItemFailed;
+        /// 	- On failure for each failed item in the batch.
+        ///
+        #[pallet::call_index(100)]
+        #[pallet::weight((Weight::from_parts(46_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(1))
+        .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        pub fn batch_commit_weights(
+            origin: OriginFor<T>,
+            netuids: Vec<Compact<u16>>,
+            commit_hashes: Vec<H256>,
+        ) -> DispatchResult {
+            Self::do_batch_commit_weights(origin, netuids, commit_hashes)
         }
 
         /// ---- Used to reveal the weights for a previously committed hash.

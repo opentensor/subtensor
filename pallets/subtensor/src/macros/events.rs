@@ -4,6 +4,8 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod events {
+    use codec::Compact;
+
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
@@ -232,5 +234,19 @@ mod events {
         /// - **netuid**: The network identifier.
         /// - **revealed_hashes**: A vector of hashes representing each revealed weight set.
         WeightsBatchRevealed(T::AccountId, u16, Vec<H256>),
+
+        /// A batch of weights (or commits) have been force-set.
+        ///
+        /// - **netuids**: The netuids these weights were successfully set/committed for.
+        /// - **who**: The hotkey that set this batch.
+        BatchWeightsCompleted(Vec<Compact<u16>>, T::AccountId),
+
+        /// A batch extrinsic completed but with some errors.
+        BatchCompletedWithErrors(),
+
+        /// A weight set among a batch of weights failed.
+        ///
+        /// - **error**: The dispatch error emitted by the failed item.
+        BatchWeightItemFailed(sp_runtime::DispatchError),
     }
 }
