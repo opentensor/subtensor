@@ -35,6 +35,8 @@ mod errors {
         /// The caller is requesting to set weights but the caller has less than minimum stake
         /// required to set weights (less than WeightsMinStake).
         NotEnoughStakeToSetWeights,
+        /// The parent hotkey doesn't have enough own stake to set childkeys.
+        NotEnoughStakeToSetChildkeys,
         /// The caller is requesting adding more stake than there exists in the coldkey account.
         /// See: "[add_stake()]"
         NotEnoughBalanceToStake,
@@ -81,7 +83,7 @@ mod errors {
         /// An axon or prometheus serving exceeded the rate limit for a registered neuron.
         ServingRateLimitExceeded,
         /// The caller is attempting to set weights with more UIDs than allowed.
-        UidsLengthExceedUidsInSubNet,
+        UidsLengthExceedUidsInSubNet, // 32
         /// A transactor exceeded the rate limit for add network transaction.
         NetworkTxRateLimitExceeded,
         /// A transactor exceeded the rate limit for delegate transaction.

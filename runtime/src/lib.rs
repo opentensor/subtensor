@@ -220,7 +220,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 214,
+    spec_version: 215,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1130,13 +1130,19 @@ impl pallet_admin_utils::Config for Runtime {
     type WeightInfo = pallet_admin_utils::weights::SubstrateWeight<Runtime>;
 }
 
-// Define the ChainId
-parameter_types! {
-    pub const SubtensorChainId: u64 = 0x03B1; // Unicode for lowercase alpha
-    // pub const SubtensorChainId: u64 = 0x03C4; // Unicode for lowercase tau
-}
-
+/// Define the ChainId
+/// EVM Chain ID will be set by sudo transaction for each chain
+///     Mainnet Finney: 0x03C4 - Unicode for lowercase tau
+///     TestNet Finney: 0x03B1 - Unicode for lowercase alpha
 impl pallet_evm_chain_id::Config for Runtime {}
+
+pub struct ConfigurableChainId;
+
+impl Get<u64> for ConfigurableChainId {
+    fn get() -> u64 {
+        pallet_evm_chain_id::ChainId::<Runtime>::get()
+    }
+}
 
 pub struct FindAuthorTruncated<F>(PhantomData<F>);
 impl<F: FindAuthor<u32>> FindAuthor<H160> for FindAuthorTruncated<F> {
@@ -1222,7 +1228,7 @@ impl pallet_evm::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type PrecompilesType = FrontierPrecompiles<Self>;
     type PrecompilesValue = PrecompilesValue;
-    type ChainId = SubtensorChainId;
+    type ChainId = ConfigurableChainId;
     type BlockGasLimit = BlockGasLimit;
     type Runner = pallet_evm::runner::stack::Runner<Self>;
     type OnChargeTransaction = ();

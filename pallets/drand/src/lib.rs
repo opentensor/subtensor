@@ -392,7 +392,13 @@ impl<T: Config> Pallet<T> {
         let mut last_stored_round = LastStoredRound::<T>::get();
         let latest_pulse_body = Self::fetch_drand_latest().map_err(|_| "Failed to query drand")?;
         let latest_unbounded_pulse: DrandResponseBody = serde_json::from_str(&latest_pulse_body)
-            .map_err(|_| "Drand: Failed to serialize response body to pulse")?;
+            .map_err(|_| {
+                log::warn!(
+                    "Drand: Response that failed to deserialize: {}",
+                    latest_pulse_body
+                );
+                "Drand: Failed to serialize response body to pulse"
+            })?;
         let latest_pulse = latest_unbounded_pulse
             .try_into_pulse()
             .map_err(|_| "Drand: Received pulse contains invalid data")?;
@@ -417,7 +423,14 @@ impl<T: Config> Pallet<T> {
                 let pulse_body = Self::fetch_drand_by_round(round)
                     .map_err(|_| "Drand: Failed to query drand for round")?;
                 let unbounded_pulse: DrandResponseBody = serde_json::from_str(&pulse_body)
-                    .map_err(|_| "Drand: Failed to serialize response body to pulse")?;
+                    .map_err(|_| {
+                        log::warn!(
+                            "Drand: Response that failed to deserialize for round {}: {}",
+                            round,
+                            pulse_body
+                        );
+                        "Drand: Failed to serialize response body to pulse"
+                    })?;
                 let pulse = unbounded_pulse
                     .try_into_pulse()
                     .map_err(|_| "Drand: Received pulse contains invalid data")?;

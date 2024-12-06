@@ -27,6 +27,7 @@ fn eval(cmd: impl Display, print: bool) -> Result<String, String> {
 enum Network {
     Mainnet,
     Testnet,
+    Devnet,
 }
 
 impl FromStr for Network {
@@ -34,6 +35,7 @@ impl FromStr for Network {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
+            "devnet" => Ok(Network::Devnet),
             "mainnet" => Ok(Network::Mainnet),
             "testnet" => Ok(Network::Testnet),
             _ => Err(()),
@@ -63,13 +65,15 @@ fn main() {
             .iter()
             .find(|tag| tag.starts_with("v") && tag.ends_with("-pre-release"))
             .expect("could not find a valid testnet tag!"),
+        Network::Devnet => &"devnet-ready".to_string(),
     };
     println!("Previous release tag: {}", previous_tag);
 
     let branch = env::var("BRANCH").unwrap_or(
         match network {
-            Network::Mainnet => "testnet",
-            Network::Testnet => "devnet",
+            Network::Mainnet => "origin/testnet",
+            Network::Testnet => "origin/devnet",
+            Network::Devnet => "origin/devnet",
         }
         .to_string(),
     );
@@ -79,25 +83,24 @@ fn main() {
         "Generating release notes for all merges since {}...",
         previous_tag,
     );
-    let merges = eval(
-        format!(
-            "git log --merges --pretty=format:'%s' {}..{}",
-            branch, previous_tag,
-        ),
-        false,
-    )
-    .unwrap()
-    .split("\n")
-    .map(|s| s.trim().to_string())
-    .filter(|s| {
-        !s.is_empty()
-            && s.starts_with("Merge pull request #")
-            && !s.ends_with("from opentensor/devnet-ready")
-            && !s.ends_with("from opentensor/testnet-ready")
-            && !s.ends_with("from opentensor/devnet")
-            && !s.ends_with("from opentensor/testnet")
-    })
-    .collect::<Vec<String>>();
+    let cmd = format!(
+        "git log --merges --pretty=format:'%s' {}..{}",
+        branch, previous_tag,
+    );
+    println!("$ {}", cmd);
+    let merges = eval(cmd, false)
+        .unwrap()
+        .split("\n")
+        .map(|s| s.trim().to_string())
+        .filter(|s| {
+            !s.is_empty()
+                && s.starts_with("Merge pull request #")
+                && !s.ends_with("from opentensor/devnet-ready")
+                && !s.ends_with("from opentensor/testnet-ready")
+                && !s.ends_with("from opentensor/devnet")
+                && !s.ends_with("from opentensor/testnet")
+        })
+        .collect::<Vec<String>>();
 
     println!("");
     println!("Filtered merges:\n{}", merges.join("\n"));
@@ -153,7 +156,21 @@ fn main() {
         .collect::<Vec<String>>();
 
     println!("");
-    println!("generated release notes:");
+    println!("generated release notes (gh comment):");
+    let release_notes = "## What's Changed\n".to_string();
+    let release_notes = release_notes
+        + &pr_numbers
+            .iter()
+            .zip(pr_titles.iter())
+            .zip(pr_authors.iter())
+            .map(|((pr_number, pr_title), pr_author)| {
+                format!("- #{} by @{}\n", pr_number, pr_author)
+            })
+            .collect::<String>();
+    println!("{}", release_notes);
+
+    println!("");
+    println!("generated release notes (release):");
     let release_notes = "## What's Changed\n".to_string();
     let release_notes = release_notes
         + &pr_numbers

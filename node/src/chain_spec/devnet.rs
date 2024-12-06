@@ -30,27 +30,23 @@ pub fn devnet_config() -> Result<ChainSpec, String> {
             // Keys for debug
             authority_keys_from_ss58(
                 "5D5ABUyMsdmJdH7xrsz9vREq5eGXr5pXhHxix2dENQR62dEo",
-                "5H3qMjQjoeZxZ98jzDmoCwbz2sugd5fDN1wrr8Phf49zemKL",
+                "5DLBJuPvyPYit5h5ZaYiF8NvCweXCozUs6pLx3fng1mdVcbw",
             ),
             authority_keys_from_ss58(
                 "5GbRc5sNDdhcPAU9suV2g9P5zyK1hjAQ9JHeeadY1mb8kXoM",
-                "5GbkysfaCjK3cprKPhi3CUwaB5xWpBwcfrkzs6FmqHxej8HZ",
+                "5ELAzpniRUzAtvydVLmfs5ogbjzoBVxfn6XrN91ahBeDukoY",
             ),
             authority_keys_from_ss58(
                 "5CoVWwBwXz2ndEChGcS46VfSTb3RMUZzZzAYdBKo263zDhEz",
-                "5HTLp4BvPp99iXtd8YTBZA1sMfzo8pd4mZzBJf7HYdCn2boU",
+                "5EHVLDoMqjWrBnUrNtj8FAb1sFFg97vydLGydH8vz7BGs9Qf",
             ),
             authority_keys_from_ss58(
                 "5EekcbqupwbgWqF8hWGY4Pczsxp9sbarjDehqk7bdyLhDCwC",
-                "5GAemcU4Pzyfe8DwLwDFx3aWzyg3FuqYUCCw2h4sdDZhyFvE",
+                "5CdFyer8NZ4m8QXAHkgZ7zQ8oM8U6N5XrMSDzcMWdDjbAwUg",
             ),
             authority_keys_from_ss58(
                 "5GgdEQyS5DZzUwKuyucEPEZLxFKGmasUFm1mqM3sx1MRC5RV",
-                "5EibpMomXmgekxcfs25SzFBpGWUsG9Lc8ALNjXN3TYH5Tube",
-            ),
-            authority_keys_from_ss58(
-                "5Ek5JLCGk2PuoT1fS23GXiWYUT98HVUBERFQBu5g57sNf44x",
-                "5Gyrc6b2mx1Af6zWJYHdx3gwgtXgZvD9YkcG9uTUPYry4V2a",
+                "5FYgXyYc59s9c161swNEf4VEGezLd3q5ca6rSYWuJPjbBNKf",
             ),
         ],
         // Sudo account

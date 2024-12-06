@@ -166,6 +166,9 @@ impl<T: Config> Pallet<T> {
                     );
                     log::debug!("Accumulated emissions on hotkey {:?} for netuid {:?}: mining {:?}, validator {:?}", hotkey, *netuid, mining_emission, validator_emission);
                 }
+
+                // 4.5 Apply pending childkeys of this subnet for the next epoch
+                Self::do_set_pending_children(*netuid);
             } else {
                 // No epoch, increase blocks since last step and continue
                 Self::set_blocks_since_last_step(

@@ -110,7 +110,7 @@ fn test_set_rootweights_validate() {
 
         let min_stake = 500_000_000_000;
         // Set the minimum stake
-        SubtensorModule::set_weights_min_stake(min_stake);
+        SubtensorModule::set_stake_threshold(min_stake);
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
@@ -210,7 +210,7 @@ fn test_commit_weights_validate() {
 
         let min_stake = 500_000_000_000;
         // Set the minimum stake
-        SubtensorModule::set_weights_min_stake(min_stake);
+        SubtensorModule::set_stake_threshold(min_stake);
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
@@ -304,7 +304,7 @@ fn test_set_weights_validate() {
 
         let min_stake = 500_000_000_000;
         // Set the minimum stake
-        SubtensorModule::set_weights_min_stake(min_stake);
+        SubtensorModule::set_stake_threshold(min_stake);
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
@@ -369,7 +369,7 @@ fn test_reveal_weights_validate() {
 
         let min_stake = 500_000_000_000;
         // Set the minimum stake
-        SubtensorModule::set_weights_min_stake(min_stake);
+        SubtensorModule::set_stake_threshold(min_stake);
 
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
@@ -479,9 +479,9 @@ fn test_weights_err_no_validator_permit() {
     });
 }
 
-// To execute this test: cargo test --package pallet-subtensor --test weights test_set_weights_min_stake_failed -- --nocapture`
+// To execute this test: cargo test --package pallet-subtensor --test weights test_set_stake_threshold_failed -- --nocapture`
 #[test]
-fn test_set_weights_min_stake_failed() {
+fn test_set_stake_threshold_failed() {
     new_test_ext(0).execute_with(|| {
         let dests = vec![0];
         let weights = vec![1];
@@ -492,10 +492,10 @@ fn test_set_weights_min_stake_failed() {
 
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 2143124);
-        SubtensorModule::set_weights_min_stake(20_000_000_000_000);
+        SubtensorModule::set_stake_threshold(20_000_000_000_000);
 
         // Check the signed extension function.
-        assert_eq!(SubtensorModule::get_weights_min_stake(), 20_000_000_000_000);
+        assert_eq!(SubtensorModule::get_stake_threshold(), 20_000_000_000_000);
         assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 19_000_000_000_000);
         assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
@@ -503,7 +503,7 @@ fn test_set_weights_min_stake_failed() {
         assert!(SubtensorModule::check_weights_min_stake(&hotkey, netuid));
 
         // Check that it fails at the pallet level.
-        SubtensorModule::set_weights_min_stake(100_000_000_000_000);
+        SubtensorModule::set_stake_threshold(100_000_000_000_000);
         assert_eq!(
             SubtensorModule::set_weights(
                 RuntimeOrigin::signed(hotkey),
@@ -4677,46 +4677,103 @@ fn test_do_commit_crv3_weights_committing_too_fast() {
 fn test_do_commit_crv3_weights_too_many_unrevealed_commits() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
-        let hotkey: AccountId = U256::from(1);
+        let hotkey1: AccountId = U256::from(1);
+        let hotkey2: AccountId = U256::from(2);
         let reveal_round: u64 = 1000;
 
         add_network(netuid, 5, 0);
-        register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        register_ok_neuron(netuid, hotkey1, U256::from(2), 100_000);
+        register_ok_neuron(netuid, hotkey2, U256::from(3), 100_000);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
-        // Simulate 10 unrevealed commits
-        let cur_epoch =
-            SubtensorModule::get_epoch_index(netuid, SubtensorModule::get_current_block_as_u64());
+        // Hotkey1 submits 10 commits successfully
         for i in 0..10 {
             let commit_data: Vec<u8> = vec![i as u8; 5];
             let bounded_commit_data = commit_data
                 .try_into()
                 .expect("Failed to convert commit data into bounded vector");
-            assert_ok!(CRV3WeightCommits::<Test>::try_mutate(
+
+            assert_ok!(SubtensorModule::do_commit_crv3_weights(
+                RuntimeOrigin::signed(hotkey1),
                 netuid,
-                cur_epoch,
-                |commits| -> DispatchResult {
-                    commits.push_back((hotkey, bounded_commit_data, reveal_round));
-                    Ok(())
-                }
+                bounded_commit_data,
+                reveal_round
             ));
         }
 
-        // Attempt to commit an 11th time, should fail
+        // Hotkey1 attempts to commit an 11th time, should fail with TooManyUnrevealedCommits
         let new_commit_data: Vec<u8> = vec![11; 5];
         let bounded_new_commit_data = new_commit_data
             .try_into()
             .expect("Failed to convert new commit data into bounded vector");
+
         assert_err!(
             SubtensorModule::do_commit_crv3_weights(
-                RuntimeOrigin::signed(hotkey),
+                RuntimeOrigin::signed(hotkey1),
                 netuid,
                 bounded_new_commit_data,
                 reveal_round
             ),
             Error::<Test>::TooManyUnrevealedCommits
         );
+
+        // Hotkey2 can still submit commits independently
+        let commit_data_hotkey2: Vec<u8> = vec![0; 5];
+        let bounded_commit_data_hotkey2 = commit_data_hotkey2
+            .try_into()
+            .expect("Failed to convert commit data into bounded vector");
+
+        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+            RuntimeOrigin::signed(hotkey2),
+            netuid,
+            bounded_commit_data_hotkey2,
+            reveal_round
+        ));
+
+        // Hotkey2 can submit up to 10 commits
+        for i in 1..10 {
+            let commit_data: Vec<u8> = vec![i as u8; 5];
+            let bounded_commit_data = commit_data
+                .try_into()
+                .expect("Failed to convert commit data into bounded vector");
+
+            assert_ok!(SubtensorModule::do_commit_crv3_weights(
+                RuntimeOrigin::signed(hotkey2),
+                netuid,
+                bounded_commit_data,
+                reveal_round
+            ));
+        }
+
+        // Hotkey2 attempts to commit an 11th time, should fail
+        let new_commit_data: Vec<u8> = vec![11; 5];
+        let bounded_new_commit_data = new_commit_data
+            .try_into()
+            .expect("Failed to convert new commit data into bounded vector");
+
+        assert_err!(
+            SubtensorModule::do_commit_crv3_weights(
+                RuntimeOrigin::signed(hotkey2),
+                netuid,
+                bounded_new_commit_data,
+                reveal_round
+            ),
+            Error::<Test>::TooManyUnrevealedCommits
+        );
+
+        step_epochs(10, netuid);
+
+        let new_commit_data: Vec<u8> = vec![11; 5];
+        let bounded_new_commit_data = new_commit_data
+            .try_into()
+            .expect("Failed to convert new commit data into bounded vector");
+        assert_ok!(SubtensorModule::do_commit_crv3_weights(
+            RuntimeOrigin::signed(hotkey1),
+            netuid,
+            bounded_new_commit_data,
+            reveal_round
+        ));
     });
 }
 
