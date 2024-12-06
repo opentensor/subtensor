@@ -157,7 +157,21 @@ fn main() {
         .collect::<Vec<String>>();
 
     println!("");
-    println!("generated release notes:");
+    println!("generated release notes (gh comment):");
+    let release_notes = "## What's Changed\n".to_string();
+    let release_notes = release_notes
+        + &pr_numbers
+            .iter()
+            .zip(pr_titles.iter())
+            .zip(pr_authors.iter())
+            .map(|((pr_number, pr_title), pr_author)| {
+                format!("- #{} by @{}\n", pr_number, pr_author)
+            })
+            .collect::<String>();
+    println!("{}", release_notes);
+
+    println!("");
+    println!("generated release notes (release):");
     let release_notes = "## What's Changed\n".to_string();
     let release_notes = release_notes
         + &pr_numbers
