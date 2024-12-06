@@ -1433,3 +1433,36 @@ fn sudo_set_commit_reveal_weights_interval() {
         assert_eq!(SubtensorModule::get_reveal_period(netuid), to_be_set);
     });
 }
+
+#[test]
+fn test_sudo_root_sets_evm_chain_id() {
+    new_test_ext().execute_with(|| {
+        let chain_id: u64 = 945;
+        assert_eq!(pallet_evm_chain_id::ChainId::<Test>::get(), 0);
+
+        assert_ok!(AdminUtils::sudo_set_evm_chain_id(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            chain_id
+        ));
+
+        assert_eq!(pallet_evm_chain_id::ChainId::<Test>::get(), chain_id);
+    });
+}
+
+#[test]
+fn test_sudo_non_root_cannot_set_evm_chain_id() {
+    new_test_ext().execute_with(|| {
+        let chain_id: u64 = 945;
+        assert_eq!(pallet_evm_chain_id::ChainId::<Test>::get(), 0);
+
+        assert_eq!(
+            AdminUtils::sudo_set_evm_chain_id(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                chain_id
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+
+        assert_eq!(pallet_evm_chain_id::ChainId::<Test>::get(), 0);
+    });
+}

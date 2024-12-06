@@ -20,6 +20,7 @@ pub mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_support::traits::tokens::Balance;
     use frame_system::pallet_prelude::*;
+    use pallet_evm_chain_id::{self, ChainId};
     use sp_runtime::BoundedVec;
 
     /// The main data structure of the module.
@@ -29,7 +30,11 @@ pub mod pallet {
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
-    pub trait Config: frame_system::Config + pallet_subtensor::pallet::Config {
+    pub trait Config:
+        frame_system::Config
+        + pallet_subtensor::pallet::Config
+        + pallet_evm_chain_id::pallet::Config
+    {
         /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -1210,6 +1215,27 @@ pub mod pallet {
                 netuid,
                 interval
             );
+            Ok(())
+        }
+
+        /// Sets the EVM ChainID.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the subnet owner or the root account.
+        /// * `chainId` - The u64 chain ID
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the caller is neither the subnet owner nor the root account.
+        ///
+        /// # Weight
+        /// Weight is handled by the `#[pallet::weight]` attribute.
+        #[pallet::call_index(58)]
+        #[pallet::weight(<T as Config>::WeightInfo::sudo_set_evm_chain_id())]
+        pub fn sudo_set_evm_chain_id(origin: OriginFor<T>, chain_id: u64) -> DispatchResult {
+            // Ensure the call is made by the root account
+            ensure_root(origin)?;
+
+            ChainId::<T>::set(chain_id);
             Ok(())
         }
     }
