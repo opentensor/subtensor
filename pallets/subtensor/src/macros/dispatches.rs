@@ -184,7 +184,7 @@ mod dispatches {
         /// * BatchWeightItemFailed;
         /// 	- On failure for each failed item in the batch.
         ///
-        #[pallet::call_index(99)]
+        #[pallet::call_index(100)]
         #[pallet::weight((Weight::from_parts(46_000_000, 0)
         .saturating_add(T::DbWeight::get().reads(1))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
