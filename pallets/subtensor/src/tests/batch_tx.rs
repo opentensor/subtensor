@@ -97,12 +97,12 @@ fn test_batch_set_weights() {
         let version_key_2: Compact<u64> = SubtensorModule::get_weights_version_key(netuid_2).into();
 
         // Set the min stake very high
-        SubtensorModule::set_weights_min_stake(stake_to_give_child * 5);
+        SubtensorModule::set_stake_threshold(stake_to_give_child * 5);
 
         // Check the key has less stake than required
         assert!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid_0)
-                < SubtensorModule::get_weights_min_stake()
+                < SubtensorModule::get_stake_threshold()
         );
 
         let netuids_vec: Vec<Compact<u16>> =
@@ -150,12 +150,12 @@ fn test_batch_set_weights() {
         assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid_0));
 
         // Set a minimum stake to set weights
-        SubtensorModule::set_weights_min_stake(stake_to_give_child - 5);
+        SubtensorModule::set_stake_threshold(stake_to_give_child - 5);
 
         // Check if the stake for the hotkey is above
         assert!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid_0)
-                >= SubtensorModule::get_weights_min_stake()
+                >= SubtensorModule::get_stake_threshold()
         );
 
         // Try with enough stake
@@ -328,12 +328,12 @@ fn test_batch_commit_weights() {
         SubtensorModule::set_commit_reveal_weights_enabled(netuid_2, true);
 
         // Set a minimum stake to set weights
-        SubtensorModule::set_weights_min_stake(stake_to_give_child - 5);
+        SubtensorModule::set_stake_threshold(stake_to_give_child - 5);
 
         // Check if the stake for the hotkey is above
         assert!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid_0)
-                >= SubtensorModule::get_weights_min_stake()
+                >= SubtensorModule::get_stake_threshold()
         );
 
         // Try with commit reveal enabled
