@@ -682,23 +682,23 @@ fn test_sudo_set_max_allowed_validators() {
 }
 
 #[test]
-fn test_sudo_set_weights_min_stake() {
+fn test_sudo_set_stake_threshold() {
     new_test_ext().execute_with(|| {
         let to_be_set: u64 = 10;
-        let init_value: u64 = SubtensorModule::get_weights_min_stake();
+        let init_value: u64 = SubtensorModule::get_stake_threshold();
         assert_eq!(
-            AdminUtils::sudo_set_weights_min_stake(
+            AdminUtils::sudo_set_stake_threshold(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 to_be_set
             ),
             Err(DispatchError::BadOrigin)
         );
-        assert_eq!(SubtensorModule::get_weights_min_stake(), init_value);
-        assert_ok!(AdminUtils::sudo_set_weights_min_stake(
+        assert_eq!(SubtensorModule::get_stake_threshold(), init_value);
+        assert_ok!(AdminUtils::sudo_set_stake_threshold(
             <<Test as Config>::RuntimeOrigin>::root(),
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_weights_min_stake(), to_be_set);
+        assert_eq!(SubtensorModule::get_stake_threshold(), to_be_set);
     });
 }
 
@@ -1431,5 +1431,38 @@ fn sudo_set_commit_reveal_weights_interval() {
 
         assert!(init_value != to_be_set);
         assert_eq!(SubtensorModule::get_reveal_period(netuid), to_be_set);
+    });
+}
+
+#[test]
+fn test_sudo_root_sets_evm_chain_id() {
+    new_test_ext().execute_with(|| {
+        let chain_id: u64 = 945;
+        assert_eq!(pallet_evm_chain_id::ChainId::<Test>::get(), 0);
+
+        assert_ok!(AdminUtils::sudo_set_evm_chain_id(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            chain_id
+        ));
+
+        assert_eq!(pallet_evm_chain_id::ChainId::<Test>::get(), chain_id);
+    });
+}
+
+#[test]
+fn test_sudo_non_root_cannot_set_evm_chain_id() {
+    new_test_ext().execute_with(|| {
+        let chain_id: u64 = 945;
+        assert_eq!(pallet_evm_chain_id::ChainId::<Test>::get(), 0);
+
+        assert_eq!(
+            AdminUtils::sudo_set_evm_chain_id(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                chain_id
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+
+        assert_eq!(pallet_evm_chain_id::ChainId::<Test>::get(), 0);
     });
 }

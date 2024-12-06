@@ -62,6 +62,7 @@ pub trait WeightInfo {
 	fn sudo_set_tempo() -> Weight;
 	fn sudo_set_commit_reveal_weights_interval() -> Weight;
 	fn sudo_set_commit_reveal_weights_enabled() -> Weight;
+	fn sudo_set_evm_chain_id() -> Weight;
 }
 
 /// Weights for `pallet_admin_utils` using the Substrate node and recommended hardware.
@@ -430,6 +431,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(47_279_000, 4697)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	fn sudo_set_evm_chain_id() -> Weight {
+		Weight::from_parts(20_200_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
 
@@ -803,6 +808,10 @@ impl WeightInfo for () {
 		// Recorded proof Size = 456
 		Weight::from_parts(19_780_000, 456)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn sudo_set_evm_chain_id() -> Weight {
+		Weight::from_parts(20_200_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }

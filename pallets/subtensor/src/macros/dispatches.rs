@@ -1197,7 +1197,7 @@ mod dispatches {
             netuid: u16,
             children: Vec<(u64, T::AccountId)>,
         ) -> DispatchResultWithPostInfo {
-            Self::do_set_children(origin, hotkey, netuid, children)?;
+            Self::do_schedule_children(origin, hotkey, netuid, children)?;
             Ok(().into())
         }
 

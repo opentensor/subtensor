@@ -7,8 +7,7 @@ use frame_system::{Config, RawOrigin};
 
 use super::mock::*;
 use crate::*;
-use sp_core::H256;
-use sp_core::U256;
+use sp_core::{Get, H256, U256};
 use sp_runtime::SaturatedConversion;
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_owner --exact --nocapture
@@ -1250,12 +1249,7 @@ fn test_swap_parent_hotkey_childkey_maps() {
         SubtensorModule::create_account_if_non_existent(&coldkey, &parent_old);
 
         // Set child and verify state maps
-        assert_ok!(SubtensorModule::do_set_children(
-            RuntimeOrigin::signed(coldkey),
-            parent_old,
-            netuid,
-            vec![(u64::MAX, child)]
-        ));
+        mock_set_children(&coldkey, &parent_old, netuid, &[(u64::MAX, child)]);
         assert_eq!(
             ParentKeys::<Test>::get(child, netuid),
             vec![(u64::MAX, parent_old)]
@@ -1299,12 +1293,8 @@ fn test_swap_child_hotkey_childkey_maps() {
         SubtensorModule::create_account_if_non_existent(&coldkey, &parent);
 
         // Set child and verify state maps
-        assert_ok!(SubtensorModule::do_set_children(
-            RuntimeOrigin::signed(coldkey),
-            parent,
-            netuid,
-            vec![(u64::MAX, child_old)]
-        ));
+        mock_set_children(&coldkey, &parent, netuid, &[(u64::MAX, child_old)]);
+
         assert_eq!(
             ParentKeys::<Test>::get(child_old, netuid),
             vec![(u64::MAX, parent)]
