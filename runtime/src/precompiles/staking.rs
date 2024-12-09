@@ -59,6 +59,9 @@ impl StakingPrecompile {
             id if id == get_method_id("removeStake(bytes32,uint256,uint16)") => {
                 Self::remove_stake(handle, &method_input)
             }
+            id if id == get_method_id("getStake(bytes32,bytes32)") => {
+                Self::get_stake(&method_input)
+            }
             _ => Err(PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
             }),
@@ -99,6 +102,37 @@ impl StakingPrecompile {
             amount_unstaked: amount_sub.unique_saturated_into(),
         });
         Self::dispatch(handle, call)
+    }
+
+    fn get_stake(data: &[u8]) -> PrecompileResult {
+        let (hotkey, coldkey) = Self::parse_hotkey_coldkey(data)?;
+
+        let stake = pallet_subtensor::Pallet::<Runtime>::get_stake_for_coldkey_and_hotkey(
+            &hotkey.into(),
+            &coldkey.into(),
+        );
+
+        let stake_u256 = U256::from(stake);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&stake_u256, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
+    }
+
+    fn parse_hotkey_coldkey(data: &[u8]) -> Result<([u8; 32], [u8; 32]), PrecompileFailure> {
+        if data.len() < 64 {
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+        let mut hotkey = [0u8; 32];
+        hotkey.copy_from_slice(get_slice(data, 0, 32)?);
+        let mut coldkey = [0u8; 32];
+        coldkey.copy_from_slice(get_slice(data, 32, 64)?);
+        Ok((hotkey, coldkey))
     }
 
     fn parse_hotkey(data: &[u8]) -> Result<[u8; 32], PrecompileFailure> {
