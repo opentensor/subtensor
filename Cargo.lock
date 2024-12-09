@@ -6023,6 +6023,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-consensus-aura",
+ "sp-consensus-grandpa",
  "sp-core",
  "sp-io",
  "sp-runtime",

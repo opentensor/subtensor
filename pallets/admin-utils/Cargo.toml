@@ -31,6 +31,7 @@ sp-weights = { workspace = true }
 substrate-fixed = { workspace = true }
 pallet-evm-chain-id = { workspace = true }
 pallet-drand = { workspace = true, default-features = false }
+sp-consensus-grandpa = { workspace = true }
 
 [dev-dependencies]
 sp-core = { workspace = true }
@@ -48,21 +49,22 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
-	"scale-info/std",
-	"pallet-subtensor/std",
-	"sp-consensus-aura/std",
+	"log/std",
 	"pallet-balances/std",
+	"pallet-drand/std",
 	"pallet-evm-chain-id/std",
 	"pallet-scheduler/std",
-	"sp-runtime/std",
-	"sp-tracing/std",
-	"sp-weights/std",
-	"log/std",
+	"pallet-subtensor/std",
+	"scale-info/std",
+	"sp-consensus-aura/std",
+	"sp-consensus-grandpa/std",
 	"sp-core/std",
 	"sp-io/std",
+	"sp-runtime/std",
 	"sp-std/std",
+	"sp-tracing/std",
+	"sp-weights/std",
 	"substrate-fixed/std",
-	"pallet-drand/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -72,7 +74,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"pallet-subtensor/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
-	"pallet-drand/runtime-benchmarks"
+	"pallet-drand/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -82,5 +84,5 @@ try-runtime = [
 	"pallet-scheduler/try-runtime",
 	"sp-runtime/try-runtime",
 	"pallet-subtensor/try-runtime",
-	"pallet-drand/try-runtime"
+	"pallet-drand/try-runtime",
 ]
