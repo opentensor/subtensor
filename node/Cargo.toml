@@ -23,7 +23,6 @@ name = "node-subtensor"
 async-trait = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 futures = { workspace = true, features = ["thread-pool"] }
-scale-codec = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 
 # Storage import
@@ -45,7 +44,6 @@ sp-consensus-aura = { workspace = true }
 sp-consensus = { workspace = true }
 sc-consensus = { workspace = true }
 sc-consensus-grandpa = { workspace = true }
-sc-consensus-grandpa-rpc = { workspace = true }
 sp-consensus-grandpa = { workspace = true }
 sc-chain-spec-derive = { workspace = true }
 sc-chain-spec = { workspace = true }
@@ -62,7 +60,7 @@ sp-session = { workspace = true }
 frame-metadata-hash-extension = { workspace = true }
 frame-system = { workspace = true }
 pallet-transaction-payment = { workspace = true }
-pallet-commitments = { path = "../pallets/commitments" }
+pallet-commitments = { workspace = true }
 pallet-drand = { workspace = true }
 sp-crypto-ec-utils = { workspace = true }
 sp-keystore = { workspace = true,  default-features = false }
@@ -104,12 +102,13 @@ fp-consensus = { workspace = true }
 thiserror = { workspace = true }
 
 # Local Dependencies
-node-subtensor-runtime = { path = "../runtime" }
-subtensor-custom-rpc = { path = "../pallets/subtensor/rpc" }
-subtensor-custom-rpc-runtime-api = { path = "../pallets/subtensor/runtime-api" }
+node-subtensor-runtime = { workspace = true }
+subtensor-custom-rpc = { workspace = true }
+subtensor-custom-rpc-runtime-api = { workspace = true }
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true }
+subtensor-linting = {workspace = true}
 
 [features]
 default = ["rocksdb", "sql", "txpool"]

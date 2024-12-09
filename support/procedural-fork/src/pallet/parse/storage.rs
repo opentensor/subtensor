@@ -1,3 +1,4 @@
+#![cfg(not(doc))]
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -718,11 +719,11 @@ fn process_generics(
         "CountedStorageNMap" => StorageKind::CountedNMap,
         found => {
             let msg = format!(
-                "Invalid pallet::storage, expected ident: `StorageValue` or \
+				"Invalid pallet::storage, expected ident: `StorageValue` or \
 				`StorageMap` or `CountedStorageMap` or `StorageDoubleMap` or `StorageNMap` or `CountedStorageNMap` \
 				in order to expand metadata, found `{}`.",
-                found,
-            );
+				found,
+			);
             return Err(syn::Error::new(segment.ident.span(), msg));
         }
     };

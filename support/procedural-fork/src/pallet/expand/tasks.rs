@@ -1,3 +1,4 @@
+#![cfg(not(doc))]
 //! Contains logic for expanding task-related items.
 
 // This file is part of Substrate.

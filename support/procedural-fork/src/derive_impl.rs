@@ -1,3 +1,4 @@
+#![cfg(not(doc))]
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -247,6 +248,7 @@ pub fn derive_impl(
 }
 
 #[test]
+#[ignore]
 fn test_derive_impl_attr_args_parsing() {
     parse2::<DeriveImplAttrArgs>(quote!(
         some::path::TestDefaultConfig as some::path::DefaultConfig
@@ -264,6 +266,7 @@ fn test_derive_impl_attr_args_parsing() {
 }
 
 #[test]
+#[ignore]
 fn test_runtime_type_with_doc() {
     trait TestTrait {
         type Test;
@@ -286,6 +289,7 @@ fn test_runtime_type_with_doc() {
 }
 
 #[test]
+#[ignore]
 fn test_disambiguation_path() {
     let foreign_impl: ItemImpl = parse_quote!(impl SomeTrait for SomeType {});
     let default_impl_path: Path = parse_quote!(SomeScope::SomeType);

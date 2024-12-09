@@ -1,0 +1,20 @@
+[package]
+name = "subtensor-code-coverage"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+build-print.workspace = true
+syn.workspace = true
+quote.workspace = true
+proc-macro2.workspace = true
+procedural-fork.workspace = true
+walkdir.workspace = true
+rayon.workspace = true
+
+[dev-dependencies]
+frame-system.workspace = true
+frame-support.workspace = true
+
+[lints]
+workspace = true

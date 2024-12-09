@@ -12,63 +12,50 @@
 #![recursion_limit = "512"]
 #![allow(warnings)]
 #![allow(clippy::all)]
+#![ignore] // ensure procedural-fork tests are not run
 
 extern crate proc_macro;
 
-#[cfg(not(test))]
 mod benchmark;
-#[cfg(not(test))]
 mod construct_runtime;
-#[cfg(not(test))]
 mod crate_version;
-#[cfg(not(test))]
 mod derive_impl;
-#[cfg(not(test))]
 mod dummy_part_checker;
-#[cfg(not(test))]
 mod dynamic_params;
-#[cfg(not(test))]
 mod key_prefix;
-#[cfg(not(test))]
 mod match_and_insert;
-#[cfg(not(test))]
 mod no_bound;
-#[cfg(not(test))]
 mod pallet;
-#[cfg(not(test))]
 mod pallet_error;
-#[cfg(not(test))]
 mod runtime;
-#[cfg(not(test))]
 mod storage_alias;
-#[cfg(not(test))]
 mod transactional;
-#[cfg(not(test))]
 mod tt_macro;
-#[cfg(not(test))]
-use std::{cell::RefCell, str::FromStr};
 
-#[cfg(not(test))]
+use std::{
+    cell::RefCell,
+    env::{set_var, var},
+    path::PathBuf,
+    str::FromStr,
+    sync::Mutex,
+};
+
 pub(crate) const INHERENT_INSTANCE_NAME: &str = "__InherentHiddenInstance";
 
 /// The number of module instances supported by the runtime, starting at index 1,
 /// and up to `NUMBER_OF_INSTANCE`.
-#[cfg(not(test))]
 pub(crate) const NUMBER_OF_INSTANCE: u8 = 16;
 
 thread_local! {
     /// A global counter, can be used to generate a relatively unique identifier.
-    #[cfg(not(test))]
     static COUNTER: RefCell<Counter> = const { RefCell::new(Counter(0)) };
 }
 
 /// Counter to generate a relatively unique identifier for macros. This is necessary because
 /// declarative macros gets hoisted to the crate root, which shares the namespace with other pallets
 /// containing the very same macros.
-#[cfg(not(test))]
 struct Counter(u64);
 
-#[cfg(not(test))]
 impl Counter {
     fn inc(&mut self) -> u64 {
         let ret = self.0;
@@ -80,7 +67,6 @@ impl Counter {
 /// Get the value from the given environment variable set by cargo.
 ///
 /// The value is parsed into the requested destination type.
-#[cfg(not(test))]
 fn get_cargo_env_var<T: FromStr>(version_env: &str) -> std::result::Result<T, ()> {
     let version = std::env::var(version_env)
         .unwrap_or_else(|_| panic!("`{}` is always set by cargo; qed", version_env));
@@ -90,13 +76,32 @@ fn get_cargo_env_var<T: FromStr>(version_env: &str) -> std::result::Result<T, ()
 
 /// Generate the counter_prefix related to the storage.
 /// counter_prefix is used by counted storage map.
-#[cfg(not(test))]
 fn counter_prefix(prefix: &str) -> String {
     format!("CounterFor{}", prefix)
 }
 
-#[cfg(not(test))]
+/// Improvement on [`exports::simulate_manifest_dir`] that allows for an arbitrary return type
+pub fn simulate_manifest_dir<P, F, R>(path: P, closure: F) -> R
+where
+    P: AsRef<std::path::Path>,
+    F: FnOnce() -> R + std::panic::UnwindSafe,
+{
+    static MANIFEST_DIR_LOCK: Mutex<()> = Mutex::new(());
+    let guard = MANIFEST_DIR_LOCK.lock().unwrap();
+    let orig = PathBuf::from(
+        var("CARGO_MANIFEST_DIR").expect("failed to read ENV var `CARGO_MANIFEST_DIR`"),
+    );
+    set_var("CARGO_MANIFEST_DIR", orig.join(path.as_ref()));
+    let result = std::panic::catch_unwind(closure);
+    set_var("CARGO_MANIFEST_DIR", &orig);
+    drop(guard);
+    result.unwrap()
+}
+
+#[cfg(not(doc))]
 pub mod exports {
+    pub use crate::pallet::parse::tests::simulate_manifest_dir;
+
     pub mod benchmark {
         pub use crate::benchmark::*;
     }

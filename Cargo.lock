@@ -979,6 +979,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "build-print"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a2128d00b7061b82b72844a351e80acd29e05afc60e9261e2ac90dca9ecc2ac"
+
+[[package]]
 name = "bumpalo"
 version = "3.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2962,7 +2968,7 @@ dependencies = [
  "derive-syn-parse",
  "docify",
  "expander",
- "frame-support-procedural-tools 13.0.0",
+ "frame-support-procedural-tools",
  "itertools 0.11.0",
  "macro_magic",
  "proc-macro-warning 1.0.2",
@@ -2974,35 +2980,11 @@ dependencies = [
 
 [[package]]
 name = "frame-support-procedural-tools"
-version = "10.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3363df38464c47a73eb521a4f648bfcc7537a82d70347ef8af3f73b6d019e910"
-dependencies = [
- "frame-support-procedural-tools-derive 11.0.0",
- "proc-macro-crate 3.2.0",
- "proc-macro2",
- "quote",
- "syn 2.0.87",
-]
-
-[[package]]
-name = "frame-support-procedural-tools"
 version = "13.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409#87971b3e92721bdf10bf40b410eaae779d494ca0"
 dependencies = [
- "frame-support-procedural-tools-derive 12.0.0",
+ "frame-support-procedural-tools-derive",
  "proc-macro-crate 3.2.0",
- "proc-macro2",
- "quote",
- "syn 2.0.87",
-]
-
-[[package]]
-name = "frame-support-procedural-tools-derive"
-version = "11.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68672b9ec6fe72d259d3879dc212c5e42e977588cdac830c76f54d9f492aeb58"
-dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.87",
@@ -5577,7 +5559,6 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
- "parity-scale-codec",
  "sc-basic-authorship",
  "sc-chain-spec",
  "sc-chain-spec-derive",
@@ -5586,7 +5567,6 @@ dependencies = [
  "sc-consensus",
  "sc-consensus-aura",
  "sc-consensus-grandpa",
- "sc-consensus-grandpa-rpc",
  "sc-consensus-manual-seal",
  "sc-consensus-slots",
  "sc-executor",
@@ -5624,6 +5604,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "subtensor-custom-rpc",
  "subtensor-custom-rpc-runtime-api",
+ "subtensor-linting",
  "thiserror",
 ]
 
@@ -5664,7 +5645,6 @@ dependencies = [
  "pallet-evm-precompile-sha3fips",
  "pallet-evm-precompile-simple",
  "pallet-grandpa",
- "pallet-hotfix-sufficients",
  "pallet-insecure-randomness-collective-flip",
  "pallet-membership",
  "pallet-multisig",
@@ -5702,6 +5682,7 @@ dependencies = [
  "sp-version",
  "substrate-wasm-builder",
  "subtensor-custom-rpc-runtime-api",
+ "subtensor-linting",
  "subtensor-macros",
  "tle",
  "w3f-bls",
@@ -6030,6 +6011,7 @@ dependencies = [
  "sp-tracing 17.0.1",
  "sp-weights",
  "substrate-fixed",
+ "subtensor-linting",
  "subtensor-macros",
 ]
 
@@ -6105,6 +6087,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409)",
+ "subtensor-linting",
  "subtensor-macros",
 ]
 
@@ -6123,6 +6106,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409)",
+ "subtensor-linting",
  "subtensor-macros",
 ]
 
@@ -6281,21 +6265,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-hotfix-sufficients"
-version = "1.0.0"
-source = "git+https://github.com/gztensor/frontier?rev=b8e3025#b8e3025aa30ea65144372bd68d26090c0f31bea2"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-evm",
- "parity-scale-codec",
- "scale-info",
- "sp-core",
- "sp-runtime",
-]
-
-[[package]]
 name = "pallet-insecure-randomness-collective-flip"
 version = "26.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409#87971b3e92721bdf10bf40b410eaae779d494ca0"
@@ -6383,6 +6352,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409)",
+ "subtensor-linting",
  "subtensor-macros",
 ]
 
@@ -6482,6 +6452,7 @@ dependencies = [
  "sp-tracing 17.0.1",
  "sp-version",
  "substrate-fixed",
+ "subtensor-linting",
  "subtensor-macros",
  "tle",
  "w3f-bls",
@@ -7196,7 +7167,7 @@ dependencies = [
  "cfg-expr",
  "derive-syn-parse",
  "expander",
- "frame-support-procedural-tools 10.0.0",
+ "frame-support-procedural-tools",
  "itertools 0.10.5",
  "macro_magic",
  "proc-macro-warning 1.0.2",
@@ -8367,26 +8338,6 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "substrate-prometheus-endpoint",
- "thiserror",
-]
-
-[[package]]
-name = "sc-consensus-grandpa-rpc"
-version = "0.30.0"
-source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409#87971b3e92721bdf10bf40b410eaae779d494ca0"
-dependencies = [
- "finality-grandpa",
- "futures",
- "jsonrpsee",
- "log",
- "parity-scale-codec",
- "sc-client-api",
- "sc-consensus-grandpa",
- "sc-rpc",
- "serde",
- "sp-blockchain",
- "sp-core",
- "sp-runtime",
  "thiserror",
 ]
 
@@ -10896,15 +10847,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "subtensor"
+name = "subtensor-code-coverage"
 version = "0.1.0"
 dependencies = [
- "node-subtensor",
- "node-subtensor-runtime",
+ "build-print",
+ "frame-support",
+ "frame-system",
  "proc-macro2",
+ "procedural-fork",
  "quote",
  "rayon",
- "subtensor-linting",
  "syn 2.0.87",
  "walkdir",
 ]
@@ -10938,10 +10890,13 @@ dependencies = [
 name = "subtensor-linting"
 version = "0.1.0"
 dependencies = [
+ "build-print",
  "proc-macro2",
  "procedural-fork",
  "quote",
+ "rayon",
  "syn 2.0.87",
+ "walkdir",
 ]
 
 [[package]]
