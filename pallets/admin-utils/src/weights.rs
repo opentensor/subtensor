@@ -63,6 +63,7 @@ pub trait WeightInfo {
 	fn sudo_set_commit_reveal_weights_interval() -> Weight;
 	fn sudo_set_commit_reveal_weights_enabled() -> Weight;
 	fn sudo_set_evm_chain_id() -> Weight;
+	fn schedule_grandpa_change(a: u32) -> Weight;
 }
 
 /// Weights for `pallet_admin_utils` using the Substrate node and recommended hardware.
@@ -435,6 +436,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn sudo_set_evm_chain_id() -> Weight {
 		Weight::from_parts(20_200_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+
+	fn schedule_grandpa_change(_a: u32) -> Weight {
+		// TODO should be replaced by benchmared weights
+		10_000.into()
 	}
 }
 
@@ -813,5 +819,9 @@ impl WeightInfo for () {
 	fn sudo_set_evm_chain_id() -> Weight {
 		Weight::from_parts(20_200_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn schedule_grandpa_change(_a: u32) -> Weight {
+		// TODO should be replaced by benchmared weights
+		10_000.into()
 	}
 }
