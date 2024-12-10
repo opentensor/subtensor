@@ -35,7 +35,9 @@ use sp_std::vec;
 
 use crate::{Runtime, RuntimeCall};
 pub const STAKING_PRECOMPILE_INDEX: u64 = 2049;
-
+// this is staking smart contract's(0x0000000000000000000000000000000000000801) sr25519 address
+pub const STAKING_CONTRACT_ADDRESS: &'static str =
+    "5CwnBK9Ack1mhznmCnwiibCNQc174pYQVktYW3ayRpLm4K2X";
 pub struct StakingPrecompile;
 
 impl StakingPrecompile {
@@ -72,7 +74,7 @@ impl StakingPrecompile {
             amount_staked: amount_sub.unique_saturated_into(),
         });
         // Dispatch the add_stake call
-        dispatch(handle, call)
+        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
     }
     fn remove_stake(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
         let hotkey = Self::parse_hotkey(data)?.into();
@@ -92,7 +94,7 @@ impl StakingPrecompile {
             hotkey,
             amount_unstaked: amount_sub.unique_saturated_into(),
         });
-        dispatch(handle, call)
+        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
     }
 
     fn parse_hotkey(data: &[u8]) -> Result<[u8; 32], PrecompileFailure> {

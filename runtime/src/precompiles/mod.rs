@@ -146,20 +146,22 @@ pub fn get_slice(data: &[u8], from: usize, to: usize) -> Result<&[u8], Precompil
     }
 }
 
+/// The function return the token to smart contract
 fn transfer_back_to_caller(
+    smart_contract_address: &str,
     account_id: &AccountId32,
     amount: U256,
 ) -> Result<(), PrecompileFailure> {
     // this is staking smart contract's(0x0000000000000000000000000000000000000801) sr25519 address
-    let smart_contract_account_id =
-        match AccountId32::from_ss58check("5CwnBK9Ack1mhznmCnwiibCNQc174pYQVktYW3ayRpLm4K2X") {
-            Ok(addr) => addr,
-            Err(_) => {
-                return Err(PrecompileFailure::Error {
-                    exit_status: ExitError::Other("Invalid SS58 address".into()),
-                });
-            }
-        };
+    let smart_contract_account_id = match AccountId32::from_ss58check(smart_contract_address) {
+        // match AccountId32::from_ss58check("5CwnBK9Ack1mhznmCnwiibCNQc174pYQVktYW3ayRpLm4K2X") {
+        Ok(addr) => addr,
+        Err(_) => {
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::Other("Invalid SS58 address".into()),
+            });
+        }
+    };
     let amount_sub =
         <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
             .ok_or(ExitError::OutOfFund)?;
@@ -188,7 +190,11 @@ fn transfer_back_to_caller(
     Ok(())
 }
 
-fn dispatch(handle: &mut impl PrecompileHandle, call: RuntimeCall) -> PrecompileResult {
+fn dispatch(
+    handle: &mut impl PrecompileHandle,
+    call: RuntimeCall,
+    smart_contract_address: &str,
+) -> PrecompileResult {
     let account_id =
         <HashedAddressMapping<BlakeTwo256> as AddressMapping<AccountId32>>::into_account_id(
             handle.context().caller,
@@ -199,7 +205,7 @@ fn dispatch(handle: &mut impl PrecompileHandle, call: RuntimeCall) -> Precompile
     let amount = handle.context().apparent_value;
 
     if !amount.is_zero() {
-        transfer_back_to_caller(&account_id, amount)?;
+        transfer_back_to_caller(smart_contract_address, &account_id, amount)?;
     }
 
     let result = call.dispatch(RawOrigin::Signed(account_id.clone()).into());
