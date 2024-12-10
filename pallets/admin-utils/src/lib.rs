@@ -1250,20 +1250,20 @@ pub mod pallet {
         }
 
         /// A public interface for `pallet_grandpa::Pallet::schedule_grandpa_change`.
-		///
-		/// Schedule a change in the authorities.
-		///
-		/// The change will be applied at the end of execution of the block `in_blocks` after the
-		/// current block. This value may be 0, in which case the change is applied at the end of
-		/// the current block.
-		///
-		/// If the `forced` parameter is defined, this indicates that the current set has been
-		/// synchronously determined to be offline and that after `in_blocks` the given change
-		/// should be applied. The given block number indicates the median last finalized block
-		/// number and it should be used as the canon block when starting the new grandpa voter.
-		///
-		/// No change should be signaled while any change is pending. Returns an error if a change
-		/// is already pending.
+        ///
+        /// Schedule a change in the authorities.
+        ///
+        /// The change will be applied at the end of execution of the block `in_blocks` after the
+        /// current block. This value may be 0, in which case the change is applied at the end of
+        /// the current block.
+        ///
+        /// If the `forced` parameter is defined, this indicates that the current set has been
+        /// synchronously determined to be offline and that after `in_blocks` the given change
+        /// should be applied. The given block number indicates the median last finalized block
+        /// number and it should be used as the canon block when starting the new grandpa voter.
+        ///
+        /// No change should be signaled while any change is pending. Returns an error if a change
+        /// is already pending.
         #[pallet::call_index(59)]
         #[pallet::weight(<T as Config>::WeightInfo::swap_authorities(next_authorities.len() as u32))]
         pub fn schedule_grandpa_change(
@@ -1293,8 +1293,6 @@ pub trait AuraInterface<AuthorityId, MaxAuthorities> {
 impl<A, M> AuraInterface<A, M> for () {
     fn change_authorities(_: BoundedVec<A, M>) {}
 }
-
-
 
 pub trait GrandpaInterface<Runtime>
 where

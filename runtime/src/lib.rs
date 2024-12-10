@@ -1137,7 +1137,7 @@ impl pallet_admin_utils::Config for Runtime {
     type AuthorityId = AuraId;
     type MaxAuthorities = ConstU32<32>;
     type Aura = AuraPalletIntrf;
-	type Grandpa = GrandpaInterfaceImpl;
+    type Grandpa = GrandpaInterfaceImpl;
     type Balance = Balance;
     type WeightInfo = pallet_admin_utils::weights::SubstrateWeight<Runtime>;
 }

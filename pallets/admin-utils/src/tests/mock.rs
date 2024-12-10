@@ -6,7 +6,7 @@ use frame_support::{
     weights,
 };
 use frame_system as system;
-use frame_system::{limits, pallet_prelude::BlockNumberFor, EnsureNever, EnsureRoot};
+use frame_system::{limits, EnsureNever, EnsureRoot};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityList as GrandpaAuthorityList;
 use sp_core::U256;
@@ -268,8 +268,8 @@ pub struct GrandpaInterfaceImpl;
 impl crate::GrandpaInterface<Test> for GrandpaInterfaceImpl {
     fn schedule_change(
         next_authorities: GrandpaAuthorityList,
-        in_blocks: BlockNumberFor<Test>,
-        forced: Option<BlockNumberFor<Test>>,
+        in_blocks: BlockNumber,
+        forced: Option<BlockNumber>,
     ) -> sp_runtime::DispatchResult {
         Grandpa::schedule_change(next_authorities, in_blocks, forced)
     }
