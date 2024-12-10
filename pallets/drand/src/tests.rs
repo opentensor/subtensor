@@ -24,7 +24,6 @@ use frame_support::{
     pallet_prelude::{InvalidTransaction, TransactionSource},
 };
 use frame_system::RawOrigin;
-use serde_json;
 use sp_runtime::{
     offchain::{
         testing::{PendingRequest, TestOffchainExt},
