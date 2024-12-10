@@ -1058,17 +1058,22 @@ fn test_register_network_rate_limit() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
 
+        // Set rate limit
+        let rate_limit = 1;
+        NetworkRateLimit::<Test>::put(rate_limit);
+
         // Give enough balance to register a network.
         let balance = SubtensorModule::get_network_lock_cost() + 10_000;
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, balance);
-
-        let rate_limit = 1;
-        NetworkRateLimit::<Test>::put(rate_limit);
 
         // Register network.
         assert_ok!(SubtensorModule::register_network(RuntimeOrigin::signed(
             coldkey
         )));
+
+        // Give more TA
+        let mut lock_cost = SubtensorModule::get_network_lock_cost();
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, lock_cost + 10_000);
 
         // Try to register another network.
         assert_err!(
@@ -1078,6 +1083,10 @@ fn test_register_network_rate_limit() {
 
         // Step the rate limit.
         step_rate_limit(&TransactionType::RegisterNetwork, 0);
+
+        // Give more TAO
+        lock_cost = SubtensorModule::get_network_lock_cost();
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, lock_cost + 10_000);
 
         // Register network again.
         assert_ok!(SubtensorModule::register_network(RuntimeOrigin::signed(
