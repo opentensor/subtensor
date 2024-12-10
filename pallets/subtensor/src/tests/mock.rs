@@ -709,7 +709,7 @@ pub fn mock_set_children(coldkey: &U256, parent: &U256, netuid: u16, child_vec: 
 #[allow(dead_code)]
 pub fn step_rate_limit(transaction_type: &TransactionType, netuid: u16) {
     // Check rate limit
-    let limit = SubtensorModule::get_rate_limit(transaction_type, netuid);
+    let limit = SubtensorModule::get_rate_limit_on_subnet(transaction_type, netuid);
 
     // Step that many blocks
     step_block(limit as u16);
