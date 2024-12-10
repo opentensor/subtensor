@@ -8,6 +8,7 @@ use frame_support::{
 use frame_system as system;
 use frame_system::{limits, pallet_prelude::BlockNumberFor, EnsureNever, EnsureRoot};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_consensus_grandpa::AuthorityList as GrandpaAuthorityList;
 use sp_core::U256;
 use sp_core::{ConstU64, H256};
 use sp_runtime::{
@@ -266,7 +267,7 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
 pub struct GrandpaInterfaceImpl;
 impl crate::GrandpaInterface<Test> for GrandpaInterfaceImpl {
     fn schedule_change(
-        next_authorities: Vec<(pallet_grandpa::AuthorityId, u64)>,
+        next_authorities: GrandpaAuthorityList,
         in_blocks: BlockNumberFor<Test>,
         forced: Option<BlockNumberFor<Test>>,
     ) -> sp_runtime::DispatchResult {

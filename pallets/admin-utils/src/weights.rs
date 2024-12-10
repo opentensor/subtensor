@@ -439,8 +439,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 
 	fn schedule_grandpa_change(_a: u32) -> Weight {
-		// TODO should be replaced by benchmared weights
-		10_000.into()
+		// TODO should be replaced by benchmarked weights
+		Weight::default()
 	}
 }
 
@@ -821,7 +821,7 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn schedule_grandpa_change(_a: u32) -> Weight {
-		// TODO should be replaced by benchmared weights
-		10_000.into()
+		// TODO should be replaced by benchmarked weights
+		Weight::default()
 	}
 }

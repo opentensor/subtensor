@@ -1,11 +1,17 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+// extern crate alloc;
+
 pub use pallet::*;
 pub mod weights;
 pub use weights::WeightInfo;
 
 use frame_system::pallet_prelude::BlockNumberFor;
-use sp_consensus_grandpa::AuthorityId as GrandpaId;
+// - we could replace it with Vec<(AuthorityId, u64)>, but we would need
+//   `sp_consensus_grandpa` for `AuthorityId` anyway
+// - we could use a type parameter for `AuthorityId`, but there is
+//   no sense for this as GRANDPA's `AuthorityId` is not a parameter -- it's always the same
+use sp_consensus_grandpa::AuthorityList;
 use sp_runtime::{traits::Member, DispatchResult, RuntimeAppPublic};
 
 mod benchmarking;
@@ -1263,7 +1269,7 @@ pub mod pallet {
         pub fn schedule_grandpa_change(
             origin: OriginFor<T>,
             // grandpa ID is always the same type, so we don't need to parametrize it via `Config`
-            next_authorities: Vec<(GrandpaId, u64)>,
+            next_authorities: AuthorityList,
             in_blocks: BlockNumberFor<T>,
             forced: Option<BlockNumberFor<T>>,
         ) -> DispatchResult {
@@ -1288,12 +1294,14 @@ impl<A, M> AuraInterface<A, M> for () {
     fn change_authorities(_: BoundedVec<A, M>) {}
 }
 
+
+
 pub trait GrandpaInterface<Runtime>
 where
     Runtime: frame_system::Config,
 {
     fn schedule_change(
-        next_authorities: Vec<(GrandpaId, u64)>,
+        next_authorities: AuthorityList,
         in_blocks: BlockNumberFor<Runtime>,
         forced: Option<BlockNumberFor<Runtime>>,
     ) -> DispatchResult;
@@ -1304,7 +1312,7 @@ where
     R: frame_system::Config,
 {
     fn schedule_change(
-        _next_authorities: Vec<(GrandpaId, u64)>,
+        _next_authorities: AuthorityList,
         _in_blocks: BlockNumberFor<R>,
         _forced: Option<BlockNumberFor<R>>,
     ) -> DispatchResult {
