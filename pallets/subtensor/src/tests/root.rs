@@ -2,8 +2,10 @@
 
 use super::mock::*;
 use crate::Error;
-use crate::{migrations, SubnetIdentity};
-use crate::{SubnetIdentities, SubnetIdentityOf};
+use crate::{
+    migrations, utils::rate_limiting::TransactionType, NetworkRateLimit, SubnetIdentities,
+    SubnetIdentity, SubnetIdentityOf,
+};
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use frame_system::{EventRecord, Phase};
@@ -1048,5 +1050,38 @@ fn test_user_add_network_with_identity_fields_ok() {
             stored_identity_2_after_removal.subnet_contact,
             subnet_contact_2
         );
+    });
+}
+
+#[test]
+fn test_register_network_rate_limit() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+
+        // Give enough balance to register a network.
+        let balance = SubtensorModule::get_network_lock_cost() + 10_000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, balance);
+
+        let rate_limit = 1;
+        NetworkRateLimit::<Test>::put(rate_limit);
+
+        // Register network.
+        assert_ok!(SubtensorModule::register_network(RuntimeOrigin::signed(
+            coldkey
+        )));
+
+        // Try to register another network.
+        assert_err!(
+            SubtensorModule::register_network(RuntimeOrigin::signed(coldkey)),
+            Error::<Test>::NetworkTxRateLimitExceeded
+        );
+
+        // Step the rate limit.
+        step_rate_limit(&TransactionType::RegisterNetwork, 0);
+
+        // Register network again.
+        assert_ok!(SubtensorModule::register_network(RuntimeOrigin::signed(
+            coldkey
+        )));
     });
 }
