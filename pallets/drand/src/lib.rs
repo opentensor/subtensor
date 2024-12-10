@@ -552,12 +552,7 @@ impl<T: Config> Pallet<T> {
 
             pending_requests = next_iteration_requests;
 
-            if still_pending {
-                sp_io::offchain::sleep_until(
-                    sp_io::offchain::timestamp()
-                        .add(sp_runtime::offchain::Duration::from_millis(10)),
-                );
-            } else {
+            if !still_pending {
                 break;
             }
         }
