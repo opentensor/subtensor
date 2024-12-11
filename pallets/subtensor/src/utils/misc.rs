@@ -452,9 +452,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::MaxAllowedUidsSet(netuid, max_allowed));
     }
 
-    pub fn get_kappa(netuid: u16) -> u16 {
-        Kappa::<T>::get(netuid)
-    }
     pub fn set_kappa(netuid: u16, kappa: u16) {
         Kappa::<T>::insert(netuid, kappa);
         Self::deposit_event(Event::KappaSet(netuid, kappa));
