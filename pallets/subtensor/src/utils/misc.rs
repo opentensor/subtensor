@@ -74,9 +74,6 @@ impl<T: Config> Pallet<T> {
     pub fn get_trust(netuid: u16) -> Vec<u16> {
         Trust::<T>::get(netuid)
     }
-    pub fn get_incentive(netuid: u16) -> Vec<u16> {
-        Incentive::<T>::get(netuid)
-    }
     pub fn get_last_update(netuid: u16) -> Vec<u64> {
         LastUpdate::<T>::get(netuid)
     }
