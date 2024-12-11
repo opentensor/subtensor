@@ -25,11 +25,13 @@ use crate::{Runtime, RuntimeCall};
 // Include custom precompiles
 mod balance_transfer;
 mod ed25519;
+mod metagraph;
 mod staking;
 mod subnet;
 
 use balance_transfer::*;
 use ed25519::*;
+use metagraph::*;
 use staking::*;
 use subnet::*;
 
@@ -64,6 +66,7 @@ where
             hash(BALANCE_TRANSFER_INDEX),
             hash(STAKING_PRECOMPILE_INDEX),
             hash(SUBNET_PRECOMPILE_INDEX),
+            hash(METAGRAPH_PRECOMPILE_INDEX),
         ]
     }
 }
@@ -89,6 +92,10 @@ where
             }
             a if a == hash(STAKING_PRECOMPILE_INDEX) => Some(StakingPrecompile::execute(handle)),
             a if a == hash(SUBNET_PRECOMPILE_INDEX) => Some(SubnetPrecompile::execute(handle)),
+            a if a == hash(METAGRAPH_PRECOMPILE_INDEX) => {
+                Some(MetagraphPrecompile::execute(handle))
+            }
+
             _ => None,
         }
     }

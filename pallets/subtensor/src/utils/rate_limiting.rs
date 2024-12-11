@@ -6,6 +6,7 @@ pub enum TransactionType {
     SetChildren,
     SetChildkeyTake,
     Unknown,
+    RegisterNetwork,
 }
 
 /// Implement conversion from TransactionType to u16
@@ -15,6 +16,7 @@ impl From<TransactionType> for u16 {
             TransactionType::SetChildren => 0,
             TransactionType::SetChildkeyTake => 1,
             TransactionType::Unknown => 2,
+            TransactionType::RegisterNetwork => 3,
         }
     }
 }
@@ -25,6 +27,7 @@ impl From<u16> for TransactionType {
         match value {
             0 => TransactionType::SetChildren,
             1 => TransactionType::SetChildkeyTake,
+            3 => TransactionType::RegisterNetwork,
             _ => TransactionType::Unknown,
         }
     }
@@ -34,12 +37,33 @@ impl<T: Config> Pallet<T> {
     // ==== Rate Limiting =====
     // ========================
     /// Get the rate limit for a specific transaction type
-    pub fn get_rate_limit(tx_type: &TransactionType, _netuid: u16) -> u64 {
+    pub fn get_rate_limit(tx_type: &TransactionType) -> u64 {
         match tx_type {
-            TransactionType::SetChildren => 7200, // Cannot set children twice within a day
+            TransactionType::SetChildren => 150, // 30 minutes
             TransactionType::SetChildkeyTake => TxChildkeyTakeRateLimit::<T>::get(),
             TransactionType::Unknown => 0, // Default to no limit for unknown types (no limit)
+            TransactionType::RegisterNetwork => NetworkRateLimit::<T>::get(),
         }
+    }
+
+    pub fn get_rate_limit_on_subnet(tx_type: &TransactionType, _netuid: u16) -> u64 {
+        #[allow(clippy::match_single_binding)]
+        match tx_type {
+            _ => Self::get_rate_limit(tx_type),
+        }
+    }
+
+    pub fn check_passes_rate_limit(limit: u64, block: u64, last_block: u64) -> bool {
+        // Allow the first transaction (when last_block is 0) or if the rate limit has passed
+        last_block == 0 || block.saturating_sub(last_block) >= limit
+    }
+
+    pub fn passes_rate_limit(tx_type: &TransactionType, key: &T::AccountId) -> bool {
+        let block: u64 = Self::get_current_block_as_u64();
+        let limit: u64 = Self::get_rate_limit(tx_type);
+        let last_block: u64 = Self::get_last_transaction_block(key, tx_type);
+
+        Self::check_passes_rate_limit(limit, block, last_block)
     }
 
     /// Check if a transaction should be rate limited on a specific subnet
@@ -49,32 +73,57 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
     ) -> bool {
         let block: u64 = Self::get_current_block_as_u64();
-        let limit: u64 = Self::get_rate_limit(tx_type, netuid);
-        let last_block: u64 = Self::get_last_transaction_block(hotkey, netuid, tx_type);
+        let limit: u64 = Self::get_rate_limit_on_subnet(tx_type, netuid);
+        let last_block: u64 = Self::get_last_transaction_block_on_subnet(hotkey, netuid, tx_type);
 
-        // Allow the first transaction (when last_block is 0) or if the rate limit has passed
-        last_block == 0 || block.saturating_sub(last_block) >= limit
+        Self::check_passes_rate_limit(limit, block, last_block)
+    }
+
+    /// Get the block number of the last transaction for a specific key, and transaction type
+    pub fn get_last_transaction_block(key: &T::AccountId, tx_type: &TransactionType) -> u64 {
+        match tx_type {
+            TransactionType::RegisterNetwork => Self::get_network_last_lock_block(),
+            _ => Self::get_last_transaction_block_on_subnet(key, 0, tx_type),
+        }
     }
 
     /// Get the block number of the last transaction for a specific hotkey, network, and transaction type
-    pub fn get_last_transaction_block(
+    pub fn get_last_transaction_block_on_subnet(
         hotkey: &T::AccountId,
         netuid: u16,
         tx_type: &TransactionType,
     ) -> u64 {
-        let tx_as_u16: u16 = (*tx_type).into();
-        TransactionKeyLastBlock::<T>::get((hotkey, netuid, tx_as_u16))
+        match tx_type {
+            TransactionType::RegisterNetwork => Self::get_network_last_lock_block(),
+            _ => {
+                let tx_as_u16: u16 = (*tx_type).into();
+                TransactionKeyLastBlock::<T>::get((hotkey, netuid, tx_as_u16))
+            }
+        }
+    }
+
+    /// Set the block number of the last transaction for a specific key, and transaction type
+    pub fn set_last_transaction_block(key: &T::AccountId, tx_type: &TransactionType, block: u64) {
+        match tx_type {
+            TransactionType::RegisterNetwork => Self::set_network_last_lock_block(block),
+            _ => Self::set_last_transaction_block_on_subnet(key, 0, tx_type, block),
+        }
     }
 
     /// Set the block number of the last transaction for a specific hotkey, network, and transaction type
-    pub fn set_last_transaction_block(
-        hotkey: &T::AccountId,
+    pub fn set_last_transaction_block_on_subnet(
+        key: &T::AccountId,
         netuid: u16,
         tx_type: &TransactionType,
         block: u64,
     ) {
-        let tx_as_u16: u16 = (*tx_type).into();
-        TransactionKeyLastBlock::<T>::insert((hotkey, netuid, tx_as_u16), block);
+        match tx_type {
+            TransactionType::RegisterNetwork => Self::set_network_last_lock_block(block),
+            _ => {
+                let tx_as_u16: u16 = (*tx_type).into();
+                TransactionKeyLastBlock::<T>::insert((key, netuid, tx_as_u16), block);
+            }
+        }
     }
 
     pub fn set_last_tx_block(key: &T::AccountId, block: u64) {
