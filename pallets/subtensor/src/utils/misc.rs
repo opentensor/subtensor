@@ -233,9 +233,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_registrations_this_block(netuid: u16) -> u16 {
         RegistrationsThisBlock::<T>::get(netuid)
     }
-    pub fn get_last_mechanism_step_block(netuid: u16) -> u64 {
-        LastMechansimStepBlock::<T>::get(netuid)
-    }
+
     pub fn get_registrations_this_interval(netuid: u16) -> u16 {
         RegistrationsThisInterval::<T>::get(netuid)
     }
