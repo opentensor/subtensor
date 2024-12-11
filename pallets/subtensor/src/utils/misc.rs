@@ -343,10 +343,6 @@ impl<T: Config> Pallet<T> {
     pub fn get_max_delegate_take() -> u16 {
         MaxDelegateTake::<T>::get()
     }
-    pub fn get_default_delegate_take() -> u16 {
-        // Default to maximum
-        MaxDelegateTake::<T>::get()
-    }
     pub fn get_tx_childkey_take_rate_limit() -> u64 {
         TxChildkeyTakeRateLimit::<T>::get()
     }
