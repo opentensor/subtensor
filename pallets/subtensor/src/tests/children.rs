@@ -850,7 +850,7 @@ fn test_childkey_take_functionality() {
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Test default and max childkey take
-        let default_take = SubtensorModule::get_default_childkey_take();
+        let default_take = MinChildkeyTake::<Test>::get();
         let min_take = SubtensorModule::get_min_childkey_take();
         log::info!("Default take: {}, Max take: {}", default_take, min_take);
 
