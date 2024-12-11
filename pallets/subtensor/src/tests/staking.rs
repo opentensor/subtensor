@@ -1691,7 +1691,7 @@ fn test_delegate_take_can_be_decreased() {
             SubtensorModule::get_min_delegate_take()
         ));
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(&hotkey0),
             SubtensorModule::get_min_delegate_take()
         );
 
@@ -1737,7 +1737,7 @@ fn test_can_set_min_take_ok() {
             SubtensorModule::get_min_delegate_take()
         ));
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(&hotkey0),
             SubtensorModule::get_min_delegate_take()
         );
     });
@@ -1766,7 +1766,7 @@ fn test_delegate_take_can_not_be_increased_with_decrease_take() {
             SubtensorModule::get_min_delegate_take()
         ));
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(&hotkey0),
             SubtensorModule::get_min_delegate_take()
         );
 
@@ -1780,7 +1780,7 @@ fn test_delegate_take_can_not_be_increased_with_decrease_take() {
             Err(Error::<Test>::DelegateTakeTooLow.into())
         );
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(&hotkey0),
             SubtensorModule::get_min_delegate_take()
         );
     });
@@ -1809,7 +1809,7 @@ fn test_delegate_take_can_be_increased() {
             SubtensorModule::get_min_delegate_take()
         ));
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(&hotkey0),
             SubtensorModule::get_min_delegate_take()
         );
 
@@ -1821,7 +1821,7 @@ fn test_delegate_take_can_be_increased() {
             hotkey0,
             u16::MAX / 8
         ));
-        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 8);
+        assert_eq!(Delegates::<Test>::get(&hotkey0), u16::MAX / 8);
     });
 }
 
@@ -1848,7 +1848,7 @@ fn test_delegate_take_can_not_be_decreased_with_increase_take() {
             SubtensorModule::get_min_delegate_take()
         ));
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(&hotkey0),
             SubtensorModule::get_min_delegate_take()
         );
 
@@ -1862,7 +1862,7 @@ fn test_delegate_take_can_not_be_decreased_with_increase_take() {
             Err(Error::<Test>::DelegateTakeTooLow.into())
         );
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(&hotkey0),
             SubtensorModule::get_min_delegate_take()
         );
     });
@@ -1891,7 +1891,7 @@ fn test_delegate_take_can_be_increased_to_limit() {
             SubtensorModule::get_min_delegate_take()
         ));
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(&hotkey0),
             SubtensorModule::get_min_delegate_take()
         );
 
@@ -1904,7 +1904,7 @@ fn test_delegate_take_can_be_increased_to_limit() {
             InitialDefaultDelegateTake::get()
         ));
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(&hotkey0),
             InitialDefaultDelegateTake::get()
         );
     });
@@ -1925,7 +1925,7 @@ fn test_delegate_take_can_not_be_set_beyond_limit() {
         let netuid = 1;
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
-        let before = SubtensorModule::get_hotkey_take(&hotkey0);
+        let before = Delegates::<Test>::get(&hotkey0);
 
         // Coldkey / hotkey 0 attempt to become delegates with take above maximum
         // (Disable this check if InitialDefaultDelegateTake is u16::MAX)
@@ -1939,7 +1939,7 @@ fn test_delegate_take_can_not_be_set_beyond_limit() {
                 Err(Error::<Test>::DelegateTakeTooHigh.into())
             );
         }
-        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), before);
+        assert_eq!(Delegates::<Test>::get(&hotkey0), before);
     });
 }
 
@@ -1966,7 +1966,7 @@ fn test_delegate_take_can_not_be_increased_beyond_limit() {
             SubtensorModule::get_min_delegate_take()
         ));
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(&hotkey0),
             SubtensorModule::get_min_delegate_take()
         );
 
@@ -1983,7 +1983,7 @@ fn test_delegate_take_can_not_be_increased_beyond_limit() {
             );
         }
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(&hotkey0),
             SubtensorModule::get_min_delegate_take()
         );
     });
@@ -2012,7 +2012,7 @@ fn test_rate_limits_enforced_on_increase_take() {
             SubtensorModule::get_min_delegate_take()
         ));
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(&hotkey0),
             SubtensorModule::get_min_delegate_take()
         );
 
@@ -2026,7 +2026,7 @@ fn test_rate_limits_enforced_on_increase_take() {
             Err(Error::<Test>::DelegateTxRateLimitExceeded.into())
         );
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(&hotkey0),
             SubtensorModule::get_min_delegate_take()
         );
 
@@ -2038,7 +2038,7 @@ fn test_rate_limits_enforced_on_increase_take() {
             hotkey0,
             u16::MAX / 8
         ));
-        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 8);
+        assert_eq!(Delegates::<Test>::get(&hotkey0), u16::MAX / 8);
     });
 }
 
