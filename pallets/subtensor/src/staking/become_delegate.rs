@@ -54,7 +54,7 @@ impl<T: Config> Pallet<T> {
         // --- 5. Ensure we don't exceed tx rate limit
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
-            !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
+            !Self::exceeds_tx_rate_limit(LastTxBlock::<T>::get(&coldkey), block),
             Error::<T>::DelegateTxRateLimitExceeded
         );
 
