@@ -210,10 +210,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `coldkey` - A reference to the AccountId of the coldkey involved in the staking.
     /// * `hotkey` - A reference to the AccountId of the hotkey associated with the coldkey.
-    fn empty_stake_on_coldkey_hotkey_account(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-    ) -> u64 {
+    fn empty_stake_on_coldkey_hotkey_account(coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
         let current_stake: u64 = Stake::<T>::get(hotkey, coldkey);
         TotalColdkeyStake::<T>::mutate(coldkey, |old| *old = old.saturating_sub(current_stake));
         TotalHotkeyStake::<T>::mutate(hotkey, |stake| *stake = stake.saturating_sub(current_stake));

@@ -1100,7 +1100,7 @@ fn test_coldkey_swap_total() {
             vec![hotkey1, hotkey2, hotkey3]
         );
         assert_eq!(
-            StakingHotkeys::<Test>::get(&coldkey),
+            StakingHotkeys::<Test>::get(coldkey),
             vec![hotkey1, hotkey2, hotkey3, delegate1, delegate2, delegate3]
         );
         assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey), 600);
@@ -1124,15 +1124,15 @@ fn test_coldkey_swap_total() {
             vec![delegate3]
         );
         assert_eq!(
-            StakingHotkeys::<Test>::get(&delegate1),
+            StakingHotkeys::<Test>::get(delegate1),
             vec![delegate1, hotkey1]
         );
         assert_eq!(
-            StakingHotkeys::<Test>::get(&delegate2),
+            StakingHotkeys::<Test>::get(delegate2),
             vec![delegate2, hotkey2]
         );
         assert_eq!(
-            StakingHotkeys::<Test>::get(&delegate3),
+            StakingHotkeys::<Test>::get(delegate3),
             vec![delegate3, hotkey3]
         );
 
@@ -1141,15 +1141,15 @@ fn test_coldkey_swap_total() {
         assert_eq!(SubtensorModule::get_owned_hotkeys(&nominator3), vec![]);
 
         assert_eq!(
-            StakingHotkeys::<Test>::get(&nominator1),
+            StakingHotkeys::<Test>::get(nominator1),
             vec![hotkey1, delegate1]
         );
         assert_eq!(
-            StakingHotkeys::<Test>::get(&nominator2),
+            StakingHotkeys::<Test>::get(nominator2),
             vec![hotkey2, delegate2]
         );
         assert_eq!(
-            StakingHotkeys::<Test>::get(&nominator3),
+            StakingHotkeys::<Test>::get(nominator3),
             vec![hotkey3, delegate3]
         );
 
@@ -1173,7 +1173,7 @@ fn test_coldkey_swap_total() {
             vec![hotkey1, hotkey2, hotkey3]
         );
         assert_eq!(
-            StakingHotkeys::<Test>::get(&new_coldkey),
+            StakingHotkeys::<Test>::get(new_coldkey),
             vec![hotkey1, hotkey2, hotkey3, delegate1, delegate2, delegate3]
         );
         assert_eq!(
@@ -1200,15 +1200,15 @@ fn test_coldkey_swap_total() {
             vec![delegate3]
         );
         assert_eq!(
-            StakingHotkeys::<Test>::get(&delegate1),
+            StakingHotkeys::<Test>::get(delegate1),
             vec![delegate1, hotkey1]
         );
         assert_eq!(
-            StakingHotkeys::<Test>::get(&delegate2),
+            StakingHotkeys::<Test>::get(delegate2),
             vec![delegate2, hotkey2]
         );
         assert_eq!(
-            StakingHotkeys::<Test>::get(&delegate3),
+            StakingHotkeys::<Test>::get(delegate3),
             vec![delegate3, hotkey3]
         );
 
@@ -1217,15 +1217,15 @@ fn test_coldkey_swap_total() {
         assert_eq!(SubtensorModule::get_owned_hotkeys(&nominator3), vec![]);
 
         assert_eq!(
-            StakingHotkeys::<Test>::get(&nominator1),
+            StakingHotkeys::<Test>::get(nominator1),
             vec![hotkey1, delegate1]
         );
         assert_eq!(
-            StakingHotkeys::<Test>::get(&nominator2),
+            StakingHotkeys::<Test>::get(nominator2),
             vec![hotkey2, delegate2]
         );
         assert_eq!(
-            StakingHotkeys::<Test>::get(&nominator3),
+            StakingHotkeys::<Test>::get(nominator3),
             vec![hotkey3, delegate3]
         );
     });

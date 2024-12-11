@@ -705,7 +705,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 4. Check to see if the number of uids is within the max allowed uids for this network.
         ensure!(
-			uids.len() <= SubnetworkN::<T>::get(netuid) as usize,
+            uids.len() <= SubnetworkN::<T>::get(netuid) as usize,
             Error::<T>::UidsLengthExceedUidsInSubNet
         );
 
