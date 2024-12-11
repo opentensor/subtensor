@@ -796,9 +796,6 @@ impl<T: Config> Pallet<T> {
             .collect()
     }
 
-    pub fn get_float_rho(netuid: u16) -> I32F32 {
-        I32F32::from_num(Self::get_rho(netuid))
-    }
     pub fn get_float_kappa(netuid: u16) -> I32F32 {
         I32F32::from_num(Self::get_kappa(netuid)).saturating_div(I32F32::from_num(u16::MAX))
     }
