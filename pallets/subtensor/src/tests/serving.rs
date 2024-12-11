@@ -88,7 +88,7 @@ fn test_serving_ok() {
             placeholder1,
             placeholder2
         ));
-        let neuron = Axons::<Test>::get(netuid, &hotkey_account_id).unwrap_or_default();
+        let neuron = Axons::<Test>::get(netuid, hotkey_account_id).unwrap_or_default();
         assert_eq!(neuron.ip, ip);
         assert_eq!(neuron.version, version);
         assert_eq!(neuron.port, port);
@@ -184,7 +184,7 @@ fn test_serving_set_metadata_update() {
             placeholder1,
             placeholder2
         ));
-        let neuron = Axons::<Test>::get(netuid, &hotkey_account_id).unwrap_or_default();
+        let neuron = Axons::<Test>::get(netuid, hotkey_account_id).unwrap_or_default();
         assert_eq!(neuron.ip, ip);
         assert_eq!(neuron.version, version);
         assert_eq!(neuron.port, port);
@@ -210,7 +210,7 @@ fn test_serving_set_metadata_update() {
             placeholder12,
             placeholder22
         ));
-        let neuron = Axons::<Test>::get(netuid, &hotkey_account_id).unwrap_or_default();
+        let neuron = Axons::<Test>::get(netuid, hotkey_account_id).unwrap_or_default();
         assert_eq!(neuron.ip, ip2);
         assert_eq!(neuron.version, version2);
         assert_eq!(neuron.port, port2);

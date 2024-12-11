@@ -56,7 +56,7 @@ impl<T: Config> Pallet<T> {
 
         // 8. Ensure the transaction rate limit is not exceeded
         ensure!(
-            !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
+            !Self::exceeds_tx_rate_limit(LastTxBlock::<T>::get(&coldkey), block),
             Error::<T>::HotKeySetTxRateLimitExceeded
         );
 

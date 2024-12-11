@@ -30,7 +30,7 @@ use substrate_fixed::{
 
 impl<T: Config> Pallet<T> {
     /// The root network is a special case and has a fixed UID of 0.
-	pub(crate) const ROOT_NETUID: u16 = 0;
+    pub(crate) const ROOT_NETUID: u16 = 0;
 
     /// Fetches the total count of subnets.
     ///
