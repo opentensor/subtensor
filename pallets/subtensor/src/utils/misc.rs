@@ -638,14 +638,6 @@ impl<T: Config> Pallet<T> {
         LiquidAlphaOn::<T>::get(netuid)
     }
 
-    /// Gets the current hotkey emission tempo.
-    ///
-    /// # Returns
-    /// * `u64` - The current emission tempo value.
-    pub fn get_hotkey_emission_tempo() -> u64 {
-        HotkeyEmissionTempo::<T>::get()
-    }
-
     /// Sets the hotkey emission tempo.
     ///
     /// # Arguments
