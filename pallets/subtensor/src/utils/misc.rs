@@ -4,7 +4,6 @@ use crate::{
     Error,
 };
 use sp_core::Get;
-use sp_core::U256;
 use sp_runtime::Saturating;
 use substrate_fixed::types::I32F32;
 
@@ -247,9 +246,6 @@ impl<T: Config> Pallet<T> {
     }
     pub fn get_blocks_since_last_step(netuid: u16) -> u64 {
         BlocksSinceLastStep::<T>::get(netuid)
-    }
-    pub fn get_difficulty(netuid: u16) -> U256 {
-        U256::from(Self::get_difficulty_as_u64(netuid))
     }
     pub fn get_registrations_this_block(netuid: u16) -> u16 {
         RegistrationsThisBlock::<T>::get(netuid)
@@ -548,9 +544,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::MaxBurnSet(netuid, max_burn));
     }
 
-    pub fn get_difficulty_as_u64(netuid: u16) -> u64 {
-        Difficulty::<T>::get(netuid)
-    }
     pub fn set_difficulty(netuid: u16, difficulty: u64) {
         Difficulty::<T>::insert(netuid, difficulty);
         Self::deposit_event(Event::DifficultySet(netuid, difficulty));

@@ -42,7 +42,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
 
                 // --- 4. Get the current counters for this network w.r.t burn and difficulty values.
                 let current_burn: u64 = Burn::<T>::get(netuid);
-                let current_difficulty: u64 = Self::get_difficulty_as_u64(netuid);
+                let current_difficulty: u64 = Difficulty::<T>::get(netuid);
                 let registrations_this_interval: u16 =
                     Self::get_registrations_this_interval(netuid);
                 let pow_registrations_this_interval: u16 =
