@@ -1281,7 +1281,7 @@ impl<T: Config> Pallet<T> {
         netuids.sort_by(|a, b| {
             use sp_std::cmp::Ordering;
 
-            match Self::get_emission_value(*b).cmp(&Self::get_emission_value(*a)) {
+            match EmissionValues::<T>::get(*b).cmp(&EmissionValues::<T>::get(*a)) {
                 Ordering::Equal => {
                     if Self::get_network_registered_block(*b)
                         < Self::get_network_registered_block(*a)

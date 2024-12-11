@@ -102,7 +102,7 @@ impl<T: Config> Pallet<T> {
         let blocks_since_last_step = BlocksSinceLastStep::<T>::get(netuid);
         let tempo = Self::get_tempo(netuid);
         let network_modality = <NetworkModality<T>>::get(netuid);
-        let emission_values = Self::get_emission_value(netuid);
+        let emission_values = EmissionValues::<T>::get(netuid);
         let burn: Compact<u64> = Burn::<T>::get(netuid).into();
         // DEPRECATED
         let network_connect: Vec<[u16; 2]> = Vec::<[u16; 2]>::new();
@@ -172,7 +172,7 @@ impl<T: Config> Pallet<T> {
         let blocks_since_last_step = BlocksSinceLastStep::<T>::get(netuid);
         let tempo = Self::get_tempo(netuid);
         let network_modality = <NetworkModality<T>>::get(netuid);
-        let emission_values = Self::get_emission_value(netuid);
+        let emission_values = EmissionValues::<T>::get(netuid);
         let burn: Compact<u64> = Burn::<T>::get(netuid).into();
         let identity: Option<SubnetIdentity> = SubnetIdentities::<T>::get(netuid);
 

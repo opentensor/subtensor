@@ -11,7 +11,8 @@ use sp_runtime::traits::{DispatchInfoOf, SignedExtension};
 
 use super::mock::*;
 use crate::{
-    Axons, Burn, Difficulty, Error, RAORecycledForRegistration, SubnetworkN, SubtensorSignedExtension,
+    Axons, Burn, EmissionValues, Difficulty, Error, RAORecycledForRegistration, SubnetworkN,
+	SubtensorSignedExtension,
 };
 
 /********************************************
@@ -1524,9 +1525,9 @@ fn test_full_pass_through() {
         assert_eq!(SubtensorModule::get_tempo(netuid2), tempo2);
 
         // Check their emission value.
-        assert_eq!(SubtensorModule::get_emission_value(netuid0), 0);
-        assert_eq!(SubtensorModule::get_emission_value(netuid1), 0);
-        assert_eq!(SubtensorModule::get_emission_value(netuid2), 0);
+        assert_eq!(EmissionValues::<Test>::get(netuid0), 0);
+        assert_eq!(EmissionValues::<Test>::get(netuid1), 0);
+        assert_eq!(EmissionValues::<Test>::get(netuid2), 0);
 
         // Set their max allowed uids.
         SubtensorModule::set_max_allowed_uids(netuid0, 2);
