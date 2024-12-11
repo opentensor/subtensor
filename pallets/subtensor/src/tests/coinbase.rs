@@ -5,7 +5,7 @@ use frame_support::assert_ok;
 use sp_core::U256;
 use substrate_fixed::types::I64F64;
 
-use crate::TargetStakesPerInterval;
+use crate::{HotkeyEmissionTempo, TargetStakesPerInterval};
 
 // Test the ability to hash all sorts of hotkeys.
 #[test]
@@ -145,7 +145,7 @@ fn test_coinbase_basic() {
 fn test_set_and_get_hotkey_emission_tempo() {
     new_test_ext(1).execute_with(|| {
         // Get the default hotkey emission tempo
-        let default_tempo = SubtensorModule::get_hotkey_emission_tempo();
+        let default_tempo = HotkeyEmissionTempo::<Test>::get();
         assert_eq!(default_tempo, 0); // default is 0 in mock.rs
 
         // Set a new hotkey emission tempo
@@ -153,7 +153,7 @@ fn test_set_and_get_hotkey_emission_tempo() {
         SubtensorModule::set_hotkey_emission_tempo(new_tempo);
 
         // Get the updated hotkey emission tempo
-        let updated_tempo = SubtensorModule::get_hotkey_emission_tempo();
+        let updated_tempo = HotkeyEmissionTempo::<Test>::get();
         assert_eq!(updated_tempo, new_tempo);
     });
 }

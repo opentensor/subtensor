@@ -183,7 +183,7 @@ impl<T: Config> Pallet<T> {
         // The hotkey takes a proportion of the emission, the remainder is drained through to the nominators.
         // We keep track of the last stake increase event for accounting purposes.
         // hotkeys --> nominators.
-        let emission_tempo: u64 = Self::get_hotkey_emission_tempo();
+        let emission_tempo: u64 = HotkeyEmissionTempo::<T>::get();
         for (hotkey, hotkey_emission) in PendingdHotkeyEmission::<T>::iter() {
             // Check for zeros.
             // remove zero values.
