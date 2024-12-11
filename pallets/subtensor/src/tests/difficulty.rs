@@ -3,7 +3,7 @@
 use sp_core::U256;
 
 use super::mock::*;
-use crate::{SubnetworkN, Difficulty, AdjustmentInterval};
+use crate::{AdjustmentInterval, Difficulty, LastAdjustmentBlock, SubnetworkN};
 
 #[test]
 fn test_registration_difficulty_adjustment() {
@@ -15,7 +15,7 @@ fn test_registration_difficulty_adjustment() {
         add_network(netuid, tempo, modality);
         SubtensorModule::set_min_difficulty(netuid, 10000);
         assert_eq!(Difficulty::<Test>::get(netuid), 10000); // Check initial difficulty.
-        assert_eq!(SubtensorModule::get_last_adjustment_block(netuid), 0); // Last adjustment block starts at 0.
+        assert_eq!(LastAdjustmentBlock::<Test>::get(netuid), 0); // Last adjustment block starts at 0.
         assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0); // No registrations this block.
         SubtensorModule::set_adjustment_alpha(netuid, 58000);
         SubtensorModule::set_target_registrations_per_interval(netuid, 2);
@@ -72,7 +72,7 @@ fn test_registration_difficulty_adjustment() {
         assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0); // Registrations have been erased.
 
         // TODO: are we OK with this change?
-        assert_eq!(SubtensorModule::get_last_adjustment_block(netuid), 2); // We just adjusted on the first block.
+        assert_eq!(LastAdjustmentBlock::<Test>::get(netuid), 2); // We just adjusted on the first block.
 
         assert_eq!(Difficulty::<Test>::get(netuid), 40000); // Difficulty is increased ( 20000 * ( 3 + 1 ) / ( 1 + 1 ) ) = 80_000
         assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 0); // Registrations this interval has been wiped.
@@ -109,7 +109,7 @@ fn test_registration_difficulty_adjustment() {
         step_block(1); // Step
 
         // TODO: are we OK with this change?
-        assert_eq!(SubtensorModule::get_last_adjustment_block(netuid), 2); // Still previous adjustment block.
+        assert_eq!(LastAdjustmentBlock::<Test>::get(netuid), 2); // Still previous adjustment block.
 
         assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0); // Registrations have been erased.
         assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 3); // Registrations this interval = 3
