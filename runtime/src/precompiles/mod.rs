@@ -53,7 +53,7 @@ where
     pub fn new() -> Self {
         Self(Default::default())
     }
-    pub fn used_addresses() -> [H160; 11] {
+    pub fn used_addresses() -> [H160; 12] {
         [
             hash(1),
             hash(2),
