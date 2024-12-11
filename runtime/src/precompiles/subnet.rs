@@ -8,8 +8,7 @@ pub const SUBNET_PRECOMPILE_INDEX: u64 = 2051;
 pub const MAX_PARAMETER_SIZE: usize = 3 * 1024;
 
 // this is staking smart contract's(0x0000000000000000000000000000000000000803) sr25519 address
-pub const STAKING_CONTRACT_ADDRESS: &'static str =
-    "5DPSUCb5mZFfizvBDSnRoAqmxV5Bmov2CS3xV773qU6VP1w2";
+pub const STAKING_CONTRACT_ADDRESS: &str = "5DPSUCb5mZFfizvBDSnRoAqmxV5Bmov2CS3xV773qU6VP1w2";
 
 pub struct SubnetPrecompile;
 
