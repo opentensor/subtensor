@@ -328,11 +328,6 @@ impl<T: Config> Pallet<T> {
         // Default to maximum
         MaxDelegateTake::<T>::get()
     }
-    // get_default_childkey_take
-    pub fn get_default_childkey_take() -> u16 {
-        // Default to maximum
-        MinChildkeyTake::<T>::get()
-    }
     pub fn get_tx_childkey_take_rate_limit() -> u64 {
         TxChildkeyTakeRateLimit::<T>::get()
     }
