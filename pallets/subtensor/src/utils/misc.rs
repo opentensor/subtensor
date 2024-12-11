@@ -229,12 +229,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_pending_emission(netuid: u16) -> u64 {
         PendingEmission::<T>::get(netuid)
     }
-    pub fn get_last_adjustment_block(netuid: u16) -> u64 {
-        LastAdjustmentBlock::<T>::get(netuid)
-    }
-    pub fn get_blocks_since_last_step(netuid: u16) -> u64 {
-        BlocksSinceLastStep::<T>::get(netuid)
-    }
+
     pub fn get_registrations_this_block(netuid: u16) -> u16 {
         RegistrationsThisBlock::<T>::get(netuid)
     }

@@ -25,7 +25,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         // --- 1. Iterate through each network.
         for (netuid, _) in <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter() {
             // --- 2. Pull counters for network difficulty.
-            let last_adjustment_block: u64 = Self::get_last_adjustment_block(netuid);
+            let last_adjustment_block: u64 = LastAdjustmentBlock::<T>::get(netuid);
             let adjustment_interval: u16 = AdjustmentInterval::<T>::get(netuid);
             let current_block: u64 = Self::get_current_block_as_u64();
             log::debug!("netuid: {:?} last_adjustment_block: {:?} adjustment_interval: {:?} current_block: {:?}",
