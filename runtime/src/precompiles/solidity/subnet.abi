@@ -1,32 +1,50 @@
 [
-    {
-        "inputs": [
-            {
-                "internalType": "bytes",
-                "name": "subnetName",
-                "type": "bytes"
-            },
-            {
-                "internalType": "bytes",
-                "name": "githubRepo",
-                "type": "bytes"
-            },
-            {
-                "internalType": "bytes",
-                "name": "subnetContact",
-                "type": "bytes"
-            }
-        ],
-        "name": "registerNetwork",
-        "outputs": [],
-        "stateMutability": "payable",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "registerNetwork",
-        "outputs": [],
-        "stateMutability": "payable",
-        "type": "function"
-    }
-]
+		{
+			"inputs": [
+				{
+					"internalType": "bytes",
+					"name": "subnetName",
+					"type": "bytes"
+				},
+				{
+					"internalType": "bytes",
+					"name": "githubRepo",
+					"type": "bytes"
+				},
+				{
+					"internalType": "bytes",
+					"name": "subnetContact",
+					"type": "bytes"
+				}
+			],
+			"name": "registerNetwork",
+			"outputs": [],
+			"stateMutability": "payable",
+			"type": "function"
+		},
+		{
+			"inputs": [],
+			"name": "registerNetwork",
+			"outputs": [],
+			"stateMutability": "payable",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "uint16",
+					"name": "neruid",
+					"type": "uint16"
+				},
+				{
+					"internalType": "uint64",
+					"name": "servingRateLimit",
+					"type": "uint64"
+				}
+			],
+			"name": "setServingRateLimit",
+			"outputs": [],
+			"stateMutability": "payable",
+			"type": "function"
+		}
+	]

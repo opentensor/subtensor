@@ -6,5 +6,7 @@ interface ISubnet {
   /// Registers a new network without specifying details.
   function registerNetwork() external payable;
   /// Registers a new network with specified subnet name, GitHub repository, and contact information.
-  function registerNetwork(bytes subnetName, bytes githubRepo, bytes subnetContact) external payable;
+  function registerNetwork(bytes memory subnetName, bytes memory githubRepo, bytes memory subnetContact) external payable;
+
+  function setServingRateLimit(uint16 neruid, uint64 servingRateLimit) external payable;
 }
