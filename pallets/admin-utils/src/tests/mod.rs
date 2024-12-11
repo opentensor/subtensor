@@ -7,8 +7,8 @@ use frame_support::{
 use frame_system::Config;
 use pallet_subtensor::{
     migrations, ActivityCutoff, AdjustmentAlpha, AdjustmentInterval, AlphaValues,
-    BondsMovingAverage, CommitRevealWeightsEnabled, Error as SubtensorError, Event,
-    MaxDelegateTake, RAORecycledForRegistration, Difficulty,
+    BondsMovingAverage, CommitRevealWeightsEnabled, Difficulty, Error as SubtensorError, Event,
+    ImmunityPeriod, MaxDelegateTake, RAORecycledForRegistration,
 };
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{ed25519, Pair, U256};
@@ -346,7 +346,7 @@ fn test_sudo_set_immunity_period() {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
-        let init_value: u16 = SubtensorModule::get_immunity_period(netuid);
+        let init_value: u16 = ImmunityPeriod::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_immunity_period(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -363,13 +363,13 @@ fn test_sudo_set_immunity_period() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_immunity_period(netuid), init_value);
+        assert_eq!(ImmunityPeriod::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_immunity_period(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_immunity_period(netuid), to_be_set);
+        assert_eq!(ImmunityPeriod::<Test>::get(netuid), to_be_set);
     });
 }
 
