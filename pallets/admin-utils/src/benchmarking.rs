@@ -5,8 +5,11 @@
 extern crate alloc;
 use alloc::vec::Vec;
 
+extern crate alloc;
+
 #[allow(unused)]
 use crate::Pallet as AdminUtils;
+use alloc::vec::Vec;
 use frame_benchmarking::v1::account;
 use frame_benchmarking::v2::*;
 use frame_support::BoundedVec;
