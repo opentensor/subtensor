@@ -454,7 +454,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
         pub fn become_delegate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-            Self::do_become_delegate(origin, hotkey, Self::get_default_delegate_take())
+            Self::do_become_delegate(origin, hotkey, MaxDelegateTake::<T>::get())
         }
 
         /// --- Allows delegates to decrease its take value.
