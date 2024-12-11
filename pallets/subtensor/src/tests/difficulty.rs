@@ -3,7 +3,7 @@
 use sp_core::U256;
 
 use super::mock::*;
-use crate::{SubnetworkN, AdjustmentInterval};
+use crate::{SubnetworkN, Difficulty, AdjustmentInterval};
 
 #[test]
 fn test_registration_difficulty_adjustment() {
@@ -14,7 +14,7 @@ fn test_registration_difficulty_adjustment() {
         let modality: u16 = 1;
         add_network(netuid, tempo, modality);
         SubtensorModule::set_min_difficulty(netuid, 10000);
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 10000); // Check initial difficulty.
+        assert_eq!(Difficulty::<Test>::get(netuid), 10000); // Check initial difficulty.
         assert_eq!(SubtensorModule::get_last_adjustment_block(netuid), 0); // Last adjustment block starts at 0.
         assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0); // No registrations this block.
         SubtensorModule::set_adjustment_alpha(netuid, 58000);
@@ -29,7 +29,7 @@ fn test_registration_difficulty_adjustment() {
         SubtensorModule::set_max_registrations_per_block(netuid, 3);
         SubtensorModule::set_max_allowed_uids(netuid, 3);
         SubtensorModule::set_network_registration_allowed(netuid, true);
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 20000); // Check set difficutly.
+        assert_eq!(Difficulty::<Test>::get(netuid), 20000); // Check set difficutly.
         assert_eq!(AdjustmentInterval::<Test>::get(netuid), 1); // Check set adjustment interval.
         assert_eq!(
             SubtensorModule::get_target_registrations_per_interval(netuid),
@@ -67,14 +67,14 @@ fn test_registration_difficulty_adjustment() {
         assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 3); // 3 Registrations this interval.
 
         // Fast forward 1 block.
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 20000); // Difficulty is unchanged.
+        assert_eq!(Difficulty::<Test>::get(netuid), 20000); // Difficulty is unchanged.
         step_block(1);
         assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0); // Registrations have been erased.
 
         // TODO: are we OK with this change?
         assert_eq!(SubtensorModule::get_last_adjustment_block(netuid), 2); // We just adjusted on the first block.
 
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 40000); // Difficulty is increased ( 20000 * ( 3 + 1 ) / ( 1 + 1 ) ) = 80_000
+        assert_eq!(Difficulty::<Test>::get(netuid), 40000); // Difficulty is increased ( 20000 * ( 3 + 1 ) / ( 1 + 1 ) ) = 80_000
         assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 0); // Registrations this interval has been wiped.
 
         // Lets change the adjustment interval
@@ -123,29 +123,29 @@ fn test_registration_difficulty_adjustment() {
         // We have 6 registrations this adjustment interval.
         step_block(1); // Step
         assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 6); // Registrations this interval = 6
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 40000); // Difficulty unchanged.
+        assert_eq!(Difficulty::<Test>::get(netuid), 40000); // Difficulty unchanged.
         step_block(1); // Step
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 60_000); // Difficulty changed ( 40000 ) * ( 6 + 3 / 3 + 3 ) = 40000 * 1.5 = 60_000
+        assert_eq!(Difficulty::<Test>::get(netuid), 60_000); // Difficulty changed ( 40000 ) * ( 6 + 3 / 3 + 3 ) = 40000 * 1.5 = 60_000
         assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 0); // Registrations this interval drops to 0.
 
         // Test min value.
         SubtensorModule::set_min_difficulty(netuid, 1);
         SubtensorModule::set_difficulty(netuid, 4);
         assert_eq!(SubtensorModule::get_min_difficulty(netuid), 1);
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 4);
+        assert_eq!(Difficulty::<Test>::get(netuid), 4);
         SubtensorModule::set_adjustment_interval(netuid, 1);
         step_block(1); // Step
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 2); // Difficulty dropped 4 * ( 0 + 1 ) / (1 + 1) = 1/2 = 2
+        assert_eq!(Difficulty::<Test>::get(netuid), 2); // Difficulty dropped 4 * ( 0 + 1 ) / (1 + 1) = 1/2 = 2
         step_block(1); // Step
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 1); // Difficulty dropped 2 * ( 0 + 1 ) / (1 + 1) = 1/2 = 1
+        assert_eq!(Difficulty::<Test>::get(netuid), 1); // Difficulty dropped 2 * ( 0 + 1 ) / (1 + 1) = 1/2 = 1
         step_block(1); // Step
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 1); // Difficulty dropped 2 * ( 0 + 1 ) / (1 + 1) = 1/2 = max(0.5, 1)
+        assert_eq!(Difficulty::<Test>::get(netuid), 1); // Difficulty dropped 2 * ( 0 + 1 ) / (1 + 1) = 1/2 = max(0.5, 1)
 
         // Test max value.
         SubtensorModule::set_max_difficulty(netuid, 10000);
         SubtensorModule::set_difficulty(netuid, 5000);
         assert_eq!(SubtensorModule::get_max_difficulty(netuid), 10000);
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 5000);
+        assert_eq!(Difficulty::<Test>::get(netuid), 5000);
         SubtensorModule::set_max_registrations_per_block(netuid, 4);
         register_ok_neuron(netuid, hotkey0 + 3, coldkey0 + 3, 294208420);
         register_ok_neuron(netuid, hotkey1 + 3, coldkey1 + 3, 824123920);
@@ -157,12 +157,12 @@ fn test_registration_difficulty_adjustment() {
             3
         );
         step_block(1); // Step
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 5833); // Difficulty increased 5000 * ( 4 + 3 ) / (3 + 3) = 1.16 * 5000 = 5833
+        assert_eq!(Difficulty::<Test>::get(netuid), 5833); // Difficulty increased 5000 * ( 4 + 3 ) / (3 + 3) = 1.16 * 5000 = 5833
 
         register_ok_neuron(netuid, hotkey0 + 4, coldkey0 + 4, 124208420);
         register_ok_neuron(netuid, hotkey1 + 4, coldkey1 + 4, 314123920);
         register_ok_neuron(netuid, hotkey2 + 4, coldkey2 + 4, 834123920);
         step_block(1); // Step
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 5833); // Difficulty unchanged
+        assert_eq!(Difficulty::<Test>::get(netuid), 5833); // Difficulty unchanged
     });
 }

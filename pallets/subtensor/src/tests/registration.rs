@@ -11,7 +11,7 @@ use sp_runtime::traits::{DispatchInfoOf, SignedExtension};
 
 use super::mock::*;
 use crate::{
-    Axons, Burn, Error, RAORecycledForRegistration, SubnetworkN, SubtensorSignedExtension,
+    Axons, Burn, Difficulty, Error, RAORecycledForRegistration, SubnetworkN, SubtensorSignedExtension,
 };
 
 /********************************************
@@ -49,9 +49,7 @@ fn test_registration_subscribe_ok_dispatch_info_ok() {
 
 #[test]
 fn test_registration_difficulty() {
-    new_test_ext(1).execute_with(|| {
-        assert_eq!(SubtensorModule::get_difficulty(1).as_u64(), 10000);
-    });
+    new_test_ext(1).execute_with(|| assert_eq!(Difficulty::<Test>::get(1), 10000));
 }
 
 #[test]
@@ -726,7 +724,7 @@ fn test_registration_too_many_registrations_per_block() {
             345923888,
             &U256::from(10),
         );
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 10000);
+        assert_eq!(Difficulty::<Test>::get(netuid), 10000);
 
         // Subscribe and check extrinsic output
         assert_ok!(SubtensorModule::register(
@@ -921,7 +919,7 @@ fn test_registration_too_many_registrations_per_interval() {
             153453,
             &U256::from(9),
         );
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 10000);
+        assert_eq!(Difficulty::<Test>::get(netuid), 10000);
 
         // Subscribe and check extrinsic output
         // Try 10 registrations, this is less than the max per block, but more than the max per interval
