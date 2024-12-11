@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    system::{ensure_root, ensure_signed_or_root, pallet_prelude::BlockNumberFor},
+    system::{ensure_signed_or_root, pallet_prelude::BlockNumberFor},
     Error,
 };
 use sp_core::Get;
@@ -77,9 +77,6 @@ impl<T: Config> Pallet<T> {
     }
     pub fn get_emission(netuid: u16) -> Vec<u64> {
         Emission::<T>::get(netuid)
-    }
-    pub fn get_consensus(netuid: u16) -> Vec<u16> {
-        Consensus::<T>::get(netuid)
     }
     pub fn get_incentive(netuid: u16) -> Vec<u16> {
         Incentive::<T>::get(netuid)
