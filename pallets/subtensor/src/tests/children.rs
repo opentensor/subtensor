@@ -937,7 +937,7 @@ fn test_childkey_take_rate_limiting() {
         // Helper function to log rate limit information
         let log_rate_limit_info = || {
             let current_block = SubtensorModule::get_current_block_as_u64();
-            let last_block = SubtensorModule::get_last_transaction_block(
+            let last_block = SubtensorModule::get_last_transaction_block_on_subnet(
                 &hotkey,
                 netuid,
                 &TransactionType::SetChildkeyTake,
@@ -947,7 +947,7 @@ fn test_childkey_take_rate_limiting() {
                 &hotkey,
                 netuid,
             );
-            let limit = SubtensorModule::get_rate_limit(&TransactionType::SetChildkeyTake, 0);
+            let limit = SubtensorModule::get_rate_limit_on_subnet(&TransactionType::SetChildkeyTake, netuid);
             log::info!(
                 "Rate limit info: current_block: {}, last_block: {}, limit: {}, passes: {}, diff: {}",
                 current_block,
@@ -3609,7 +3609,8 @@ fn test_set_children_rate_limit_fail_then_succeed() {
 
         // Try again after rate limit period has passed
         // Check rate limit
-        let limit = SubtensorModule::get_rate_limit(&TransactionType::SetChildren, netuid);
+        let limit =
+            SubtensorModule::get_rate_limit_on_subnet(&TransactionType::SetChildren, netuid);
 
         // Step that many blocks
         step_block(limit as u16);

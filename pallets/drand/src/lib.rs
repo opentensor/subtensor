@@ -37,7 +37,6 @@
 pub use pallet::*;
 
 extern crate alloc;
-use crate::alloc::string::ToString;
 
 use alloc::{format, string::String, vec, vec::Vec};
 use codec::Encode;
@@ -53,7 +52,6 @@ use scale_info::prelude::cmp;
 use sha2::{Digest, Sha256};
 use sp_core::blake2_256;
 use sp_runtime::{
-    offchain::{http, Duration},
     traits::{Hash, One},
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
     KeyTypeId, Saturating,
@@ -79,7 +77,14 @@ pub mod weights;
 pub use weights::*;
 
 /// the main drand api endpoint
-pub const API_ENDPOINT: &str = "https://drand.cloudflare.com";
+const ENDPOINTS: [&str; 5] = [
+    "https://api.drand.sh",
+    "https://api2.drand.sh",
+    "https://api3.drand.sh",
+    "https://drand.cloudflare.com",
+    "https://api.drand.secureweb3.com:6875",
+];
+
 /// the drand quicknet chain hash
 /// quicknet uses 'Tiny' BLS381, with small 48-byte sigs in G1 and 96-byte pubkeys in G2
 pub const QUICKNET_CHAIN_HASH: &str =
@@ -390,15 +395,8 @@ impl<T: Config> Pallet<T> {
         }
 
         let mut last_stored_round = LastStoredRound::<T>::get();
-        let latest_pulse_body = Self::fetch_drand_latest().map_err(|_| "Failed to query drand")?;
-        let latest_unbounded_pulse: DrandResponseBody = serde_json::from_str(&latest_pulse_body)
-            .map_err(|_| {
-                log::warn!(
-                    "Drand: Response that failed to deserialize: {}",
-                    latest_pulse_body
-                );
-                "Drand: Failed to serialize response body to pulse"
-            })?;
+        let latest_unbounded_pulse =
+            Self::fetch_drand_latest().map_err(|_| "Failed to query drand")?;
         let latest_pulse = latest_unbounded_pulse
             .try_into_pulse()
             .map_err(|_| "Drand: Received pulse contains invalid data")?;
@@ -420,17 +418,8 @@ impl<T: Config> Pallet<T> {
             for round in (last_stored_round.saturating_add(1))
                 ..=(last_stored_round.saturating_add(rounds_to_fetch))
             {
-                let pulse_body = Self::fetch_drand_by_round(round)
+                let unbounded_pulse = Self::fetch_drand_by_round(round)
                     .map_err(|_| "Drand: Failed to query drand for round")?;
-                let unbounded_pulse: DrandResponseBody = serde_json::from_str(&pulse_body)
-                    .map_err(|_| {
-                        log::warn!(
-                            "Drand: Response that failed to deserialize for round {}: {}",
-                            round,
-                            pulse_body
-                        );
-                        "Drand: Failed to serialize response body to pulse"
-                    })?;
                 let pulse = unbounded_pulse
                     .try_into_pulse()
                     .map_err(|_| "Drand: Received pulse contains invalid data")?;
@@ -470,42 +459,107 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Query the endpoint `{api}/{chainHash}/info` to receive information about the drand chain
-    /// Valid response bodies are deserialized into `BeaconInfoResponse`
-    fn fetch_drand_by_round(round: RoundNumber) -> Result<String, http::Error> {
-        let uri: &str = &format!("{}/{}/public/{}", API_ENDPOINT, CHAIN_HASH, round);
-        Self::fetch(uri)
-    }
-    fn fetch_drand_latest() -> Result<String, http::Error> {
-        let uri: &str = &format!("{}/{}/public/latest", API_ENDPOINT, CHAIN_HASH);
-        Self::fetch(uri)
+    fn fetch_drand_by_round(round: RoundNumber) -> Result<DrandResponseBody, &'static str> {
+        let relative_path = format!("/{}/public/{}", CHAIN_HASH, round);
+        Self::fetch_and_decode_from_any_endpoint(&relative_path)
     }
 
-    /// Fetch a remote URL and return the body of the response as a string.
-    fn fetch(uri: &str) -> Result<String, http::Error> {
-        let deadline =
-            sp_io::offchain::timestamp().add(Duration::from_millis(T::HttpFetchTimeout::get()));
-        let request = http::Request::get(uri);
-        let pending = request.deadline(deadline).send().map_err(|_| {
-            log::warn!("Drand: HTTP IO Error");
-            http::Error::IoError
-        })?;
-        let response = pending.try_wait(deadline).map_err(|_| {
-            log::warn!("Drand: HTTP Deadline Reached");
-            http::Error::DeadlineReached
-        })??;
+    fn fetch_drand_latest() -> Result<DrandResponseBody, &'static str> {
+        let relative_path = format!("/{}/public/latest", CHAIN_HASH);
+        Self::fetch_and_decode_from_any_endpoint(&relative_path)
+    }
 
-        if response.code != 200 {
-            log::warn!("Drand: Unexpected status code: {}", response.code);
-            return Err(http::Error::Unknown);
+    /// Try to fetch from multiple endpoints simultaneously and return the first successfully decoded JSON response.
+    fn fetch_and_decode_from_any_endpoint(
+        relative_path: &str,
+    ) -> Result<DrandResponseBody, &'static str> {
+        let uris: Vec<String> = ENDPOINTS
+            .iter()
+            .map(|e| format!("{}{}", e, relative_path))
+            .collect();
+        let deadline = sp_io::offchain::timestamp().add(
+            sp_runtime::offchain::Duration::from_millis(T::HttpFetchTimeout::get()),
+        );
+
+        let mut pending_requests: Vec<(String, sp_runtime::offchain::http::PendingRequest)> =
+            vec![];
+
+        // Try sending requests to all endpoints.
+        for uri in &uris {
+            let request = sp_runtime::offchain::http::Request::get(uri);
+            match request.deadline(deadline).send() {
+                Ok(pending_req) => {
+                    pending_requests.push((uri.clone(), pending_req));
+                }
+                Err(_) => {
+                    log::warn!("Drand: HTTP IO Error on endpoint {}", uri);
+                }
+            }
         }
-        let body = response.body().collect::<Vec<u8>>();
-        let body_str = alloc::str::from_utf8(&body).map_err(|_| {
-            log::warn!("Drand: No UTF8 body");
-            http::Error::Unknown
-        })?;
 
-        Ok(body_str.to_string())
+        if pending_requests.is_empty() {
+            log::warn!("Drand: No endpoints could be queried");
+            return Err("Drand: No endpoints could be queried");
+        }
+
+        loop {
+            let now = sp_io::offchain::timestamp();
+            if now > deadline {
+                // We've passed our deadline without getting a valid response.
+                log::warn!("Drand: HTTP Deadline Reached");
+                break;
+            }
+
+            let mut still_pending = false;
+            let mut next_iteration_requests = Vec::new();
+
+            for (uri, request) in pending_requests.drain(..) {
+                match request.try_wait(Some(deadline)) {
+                    Ok(Ok(response)) => {
+                        if response.code != 200 {
+                            log::warn!(
+                                "Drand: Unexpected status code: {} from {}",
+                                response.code,
+                                uri
+                            );
+                            continue;
+                        }
+
+                        let body = response.body().collect::<Vec<u8>>();
+                        match serde_json::from_slice::<DrandResponseBody>(&body) {
+                            Ok(decoded) => {
+                                return Ok(decoded);
+                            }
+                            Err(e) => {
+                                log::warn!(
+                                    "Drand: JSON decode error from {}: {}. Response body: {}",
+                                    uri,
+                                    e,
+                                    String::from_utf8_lossy(&body)
+                                );
+                            }
+                        }
+                    }
+                    Ok(Err(e)) => {
+                        log::warn!("Drand: HTTP error from {}: {:?}", uri, e);
+                    }
+                    Err(pending_req) => {
+                        still_pending = true;
+                        next_iteration_requests.push((uri, pending_req));
+                    }
+                }
+            }
+
+            pending_requests = next_iteration_requests;
+
+            if !still_pending {
+                break;
+            }
+        }
+
+        // If we reached here, no valid response was obtained from any endpoint.
+        log::warn!("Drand: No valid response from any endpoint");
+        Err("Drand: No valid response from any endpoint")
     }
 
     /// get the randomness at a specific block height
