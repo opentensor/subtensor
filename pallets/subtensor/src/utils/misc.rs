@@ -1,10 +1,9 @@
 use super::*;
 use crate::{
-    system::{ensure_root, ensure_signed_or_root, pallet_prelude::BlockNumberFor},
+    system::{ensure_signed_or_root, pallet_prelude::BlockNumberFor},
     Error,
 };
 use sp_core::Get;
-use sp_core::U256;
 use sp_runtime::Saturating;
 use substrate_fixed::types::I32F32;
 
@@ -75,21 +74,6 @@ impl<T: Config> Pallet<T> {
     pub fn get_trust(netuid: u16) -> Vec<u16> {
         Trust::<T>::get(netuid)
     }
-    pub fn get_active(netuid: u16) -> Vec<bool> {
-        Active::<T>::get(netuid)
-    }
-    pub fn get_emission(netuid: u16) -> Vec<u64> {
-        Emission::<T>::get(netuid)
-    }
-    pub fn get_consensus(netuid: u16) -> Vec<u16> {
-        Consensus::<T>::get(netuid)
-    }
-    pub fn get_incentive(netuid: u16) -> Vec<u16> {
-        Incentive::<T>::get(netuid)
-    }
-    pub fn get_dividends(netuid: u16) -> Vec<u16> {
-        Dividends::<T>::get(netuid)
-    }
     pub fn get_last_update(netuid: u16) -> Vec<u64> {
         LastUpdate::<T>::get(netuid)
     }
@@ -115,7 +99,7 @@ impl<T: Config> Pallet<T> {
         LastUpdate::<T>::insert(netuid, updated_last_update_vec);
     }
     pub fn set_active_for_uid(netuid: u16, uid: u16, active: bool) {
-        let mut updated_active_vec = Self::get_active(netuid);
+        let mut updated_active_vec = Active::<T>::get(netuid);
         let Some(updated_active) = updated_active_vec.get_mut(uid as usize) else {
             return;
         };
@@ -223,35 +207,19 @@ impl<T: Config> Pallet<T> {
     pub fn get_tempo(netuid: u16) -> u16 {
         Tempo::<T>::get(netuid)
     }
-    pub fn get_emission_value(netuid: u16) -> u64 {
-        EmissionValues::<T>::get(netuid)
-    }
     pub fn get_pending_emission(netuid: u16) -> u64 {
         PendingEmission::<T>::get(netuid)
     }
-    pub fn get_last_adjustment_block(netuid: u16) -> u64 {
-        LastAdjustmentBlock::<T>::get(netuid)
-    }
-    pub fn get_blocks_since_last_step(netuid: u16) -> u64 {
-        BlocksSinceLastStep::<T>::get(netuid)
-    }
-    pub fn get_difficulty(netuid: u16) -> U256 {
-        U256::from(Self::get_difficulty_as_u64(netuid))
-    }
+
     pub fn get_registrations_this_block(netuid: u16) -> u16 {
         RegistrationsThisBlock::<T>::get(netuid)
     }
-    pub fn get_last_mechanism_step_block(netuid: u16) -> u64 {
-        LastMechansimStepBlock::<T>::get(netuid)
-    }
+
     pub fn get_registrations_this_interval(netuid: u16) -> u16 {
         RegistrationsThisInterval::<T>::get(netuid)
     }
     pub fn get_pow_registrations_this_interval(netuid: u16) -> u16 {
         POWRegistrationsThisInterval::<T>::get(netuid)
-    }
-    pub fn get_burn_registrations_this_interval(netuid: u16) -> u16 {
-        BurnRegistrationsThisInterval::<T>::get(netuid)
     }
     pub fn get_neuron_block_at_registration(netuid: u16, neuron_uid: u16) -> u64 {
         BlockAtRegistration::<T>::get(netuid, neuron_uid)
@@ -333,15 +301,6 @@ impl<T: Config> Pallet<T> {
     pub fn get_max_delegate_take() -> u16 {
         MaxDelegateTake::<T>::get()
     }
-    pub fn get_default_delegate_take() -> u16 {
-        // Default to maximum
-        MaxDelegateTake::<T>::get()
-    }
-    // get_default_childkey_take
-    pub fn get_default_childkey_take() -> u16 {
-        // Default to maximum
-        MinChildkeyTake::<T>::get()
-    }
     pub fn get_tx_childkey_take_rate_limit() -> u64 {
         TxChildkeyTakeRateLimit::<T>::get()
     }
@@ -408,17 +367,11 @@ impl<T: Config> Pallet<T> {
         ));
     }
 
-    pub fn get_adjustment_interval(netuid: u16) -> u16 {
-        AdjustmentInterval::<T>::get(netuid)
-    }
     pub fn set_adjustment_interval(netuid: u16, adjustment_interval: u16) {
         AdjustmentInterval::<T>::insert(netuid, adjustment_interval);
         Self::deposit_event(Event::AdjustmentIntervalSet(netuid, adjustment_interval));
     }
 
-    pub fn get_adjustment_alpha(netuid: u16) -> u64 {
-        AdjustmentAlpha::<T>::get(netuid)
-    }
     pub fn set_adjustment_alpha(netuid: u16, adjustment_alpha: u64) {
         AdjustmentAlpha::<T>::insert(netuid, adjustment_alpha);
         Self::deposit_event(Event::AdjustmentAlphaSet(netuid, adjustment_alpha));
@@ -445,9 +398,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::MaxWeightLimitSet(netuid, max_weight_limit));
     }
 
-    pub fn get_immunity_period(netuid: u16) -> u16 {
-        ImmunityPeriod::<T>::get(netuid)
-    }
     pub fn set_immunity_period(netuid: u16, immunity_period: u16) {
         ImmunityPeriod::<T>::insert(netuid, immunity_period);
         Self::deposit_event(Event::ImmunityPeriodSet(netuid, immunity_period));
@@ -456,7 +406,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_neuron_is_immune(netuid: u16, uid: u16) -> bool {
         let registered_at = Self::get_neuron_block_at_registration(netuid, uid);
         let current_block = Self::get_current_block_as_u64();
-        let immunity_period = Self::get_immunity_period(netuid);
+        let immunity_period = ImmunityPeriod::<T>::get(netuid);
         current_block.saturating_sub(registered_at) < u64::from(immunity_period)
     }
 
@@ -476,15 +426,9 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::MaxAllowedUidsSet(netuid, max_allowed));
     }
 
-    pub fn get_kappa(netuid: u16) -> u16 {
-        Kappa::<T>::get(netuid)
-    }
     pub fn set_kappa(netuid: u16, kappa: u16) {
         Kappa::<T>::insert(netuid, kappa);
         Self::deposit_event(Event::KappaSet(netuid, kappa));
-    }
-    pub fn get_commit_reveal_weights_enabled(netuid: u16) -> bool {
-        CommitRevealWeightsEnabled::<T>::get(netuid)
     }
     pub fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
         CommitRevealWeightsEnabled::<T>::set(netuid, enabled);
@@ -497,9 +441,6 @@ impl<T: Config> Pallet<T> {
         Rho::<T>::insert(netuid, rho);
     }
 
-    pub fn get_activity_cutoff(netuid: u16) -> u16 {
-        ActivityCutoff::<T>::get(netuid)
-    }
     pub fn set_activity_cutoff(netuid: u16, activity_cutoff: u16) {
         ActivityCutoff::<T>::insert(netuid, activity_cutoff);
         Self::deposit_event(Event::ActivityCutoffSet(netuid, activity_cutoff));
@@ -559,9 +500,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::MaxBurnSet(netuid, max_burn));
     }
 
-    pub fn get_difficulty_as_u64(netuid: u16) -> u64 {
-        Difficulty::<T>::get(netuid)
-    }
     pub fn set_difficulty(netuid: u16, difficulty: u64) {
         Difficulty::<T>::insert(netuid, difficulty);
         Self::deposit_event(Event::DifficultySet(netuid, difficulty));
@@ -578,9 +516,6 @@ impl<T: Config> Pallet<T> {
         ));
     }
 
-    pub fn get_bonds_moving_average(netuid: u16) -> u64 {
-        BondsMovingAverage::<T>::get(netuid)
-    }
     pub fn set_bonds_moving_average(netuid: u16, bonds_moving_average: u64) {
         BondsMovingAverage::<T>::insert(netuid, bonds_moving_average);
         Self::deposit_event(Event::BondsMovingAverageSet(netuid, bonds_moving_average));
@@ -611,23 +546,18 @@ impl<T: Config> Pallet<T> {
     pub fn get_owned_hotkeys(coldkey: &T::AccountId) -> Vec<T::AccountId> {
         OwnedHotkeys::<T>::get(coldkey)
     }
-    pub fn get_all_staked_hotkeys(coldkey: &T::AccountId) -> Vec<T::AccountId> {
-        StakingHotkeys::<T>::get(coldkey)
-    }
 
     pub fn set_total_issuance(total_issuance: u64) {
         TotalIssuance::<T>::put(total_issuance);
     }
 
-    pub fn get_rao_recycled(netuid: u16) -> u64 {
-        RAORecycledForRegistration::<T>::get(netuid)
-    }
     pub fn set_rao_recycled(netuid: u16, rao_recycled: u64) {
         RAORecycledForRegistration::<T>::insert(netuid, rao_recycled);
         Self::deposit_event(Event::RAORecycledForRegistrationSet(netuid, rao_recycled));
     }
+
     pub fn increase_rao_recycled(netuid: u16, inc_rao_recycled: u64) {
-        let curr_rao_recycled = Self::get_rao_recycled(netuid);
+        let curr_rao_recycled = RAORecycledForRegistration::<T>::get(netuid);
         let rao_recycled = curr_rao_recycled.saturating_add(inc_rao_recycled);
         Self::set_rao_recycled(netuid, rao_recycled);
     }
@@ -638,17 +568,6 @@ impl<T: Config> Pallet<T> {
 
     pub fn is_senate_member(hotkey: &T::AccountId) -> bool {
         T::SenateMembers::is_member(hotkey)
-    }
-
-    pub fn do_set_senate_required_stake_perc(
-        origin: T::RuntimeOrigin,
-        required_percent: u64,
-    ) -> DispatchResult {
-        ensure_root(origin)?;
-
-        Self::set_senate_required_stake_perc(required_percent);
-        Self::deposit_event(Event::SenateRequiredStakePercentSet(required_percent));
-        Ok(())
     }
 
     pub fn is_subnet_owner(address: &T::AccountId) -> bool {
@@ -667,10 +586,6 @@ impl<T: Config> Pallet<T> {
         T::KeySwapCost::get()
     }
 
-    pub fn get_alpha_values(netuid: u16) -> (u16, u16) {
-        AlphaValues::<T>::get(netuid)
-    }
-
     pub fn get_alpha_values_32(netuid: u16) -> (I32F32, I32F32) {
         let (alpha_low, alpha_high): (u16, u16) = AlphaValues::<T>::get(netuid);
         let converted_low = I32F32::from_num(alpha_low).saturating_div(I32F32::from_num(u16::MAX));
@@ -686,14 +601,6 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_liquid_alpha_enabled(netuid: u16) -> bool {
         LiquidAlphaOn::<T>::get(netuid)
-    }
-
-    /// Gets the current hotkey emission tempo.
-    ///
-    /// # Returns
-    /// * `u64` - The current emission tempo value.
-    pub fn get_hotkey_emission_tempo() -> u64 {
-        HotkeyEmissionTempo::<T>::get()
     }
 
     /// Sets the hotkey emission tempo.

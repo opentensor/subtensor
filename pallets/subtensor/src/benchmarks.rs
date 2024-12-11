@@ -143,7 +143,7 @@ benchmarks! {
     Subtensor::<T>::set_target_stakes_per_interval(100);
 
     // Set our total stake to 1000 TAO
-    Subtensor::<T>::increase_total_stake(1_000_000_000_000);
+    TotalStake::<T>::put(Subtensor::<T>::get_total_stake().saturating_add(1_000_000_000_000));
 
     Subtensor::<T>::init_new_network(netuid, tempo);
     Subtensor::<T>::set_network_registration_allowed( netuid, true );
@@ -159,7 +159,7 @@ benchmarks! {
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), wallet_bal);
 
     assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
-    assert_ok!(Subtensor::<T>::do_become_delegate(RawOrigin::Signed(coldkey.clone()).into(), hotkey.clone(), Subtensor::<T>::get_default_delegate_take()));
+    assert_ok!(Subtensor::<T>::do_become_delegate(RawOrigin::Signed(coldkey.clone()).into(), hotkey.clone(), MaxDelegateTake::<T>::get()));
 
       // Stake 10% of our current total staked TAO
       let u64_staked_amt = 100_000_000_000;

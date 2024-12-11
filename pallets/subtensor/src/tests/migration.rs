@@ -207,7 +207,7 @@ fn test_total_issuance_global() {
             netuid,
             hotkey
         )); // Execute the burn operation, reducing the total issuance.
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1); // Ensure the subnetwork count increases to 1 after burning
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 1); // Ensure the subnetwork count increases to 1 after burning
         assert_eq!(
             SubtensorModule::get_total_issuance(),
             account_balance + lockcost - burn_cost

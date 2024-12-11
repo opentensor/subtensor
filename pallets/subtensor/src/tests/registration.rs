@@ -2,14 +2,18 @@
 
 use frame_support::traits::Currency;
 
-use super::mock::*;
-use crate::{AxonInfoOf, Error, SubtensorSignedExtension};
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
 use frame_support::sp_runtime::{transaction_validity::InvalidTransaction, DispatchError};
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
 use sp_runtime::traits::{DispatchInfoOf, SignedExtension};
+
+use super::mock::*;
+use crate::{
+    Axons, Burn, Difficulty, EmissionValues, Error, ImmunityPeriod, RAORecycledForRegistration,
+    SubnetworkN, SubtensorSignedExtension,
+};
 
 /********************************************
     subscribing::subscribe() tests
@@ -46,9 +50,7 @@ fn test_registration_subscribe_ok_dispatch_info_ok() {
 
 #[test]
 fn test_registration_difficulty() {
-    new_test_ext(1).execute_with(|| {
-        assert_eq!(SubtensorModule::get_difficulty(1).as_u64(), 10000);
-    });
+    new_test_ext(1).execute_with(|| assert_eq!(Difficulty::<Test>::get(1), 10000));
 }
 
 #[test]
@@ -128,7 +130,7 @@ fn test_registration_ok() {
         ));
 
         // Check if neuron has added to the specified network(netuid)
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 1);
 
         //check if hotkey is added to the Hotkeys
         assert_eq!(
@@ -436,7 +438,7 @@ fn test_burned_registration_ok() {
             10000 - burn_cost
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 1);
         //check if hotkey is added to the Hotkeys
         assert_eq!(
             SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
@@ -526,7 +528,7 @@ fn test_burn_adjustment() {
         step_block(1);
 
         // Check the adjusted burn.
-        assert_eq!(SubtensorModule::get_burn_as_u64(netuid), 1500);
+        assert_eq!(Burn::<Test>::get(netuid), 1500);
     });
 }
 
@@ -723,7 +725,7 @@ fn test_registration_too_many_registrations_per_block() {
             345923888,
             &U256::from(10),
         );
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 10000);
+        assert_eq!(Difficulty::<Test>::get(netuid), 10000);
 
         // Subscribe and check extrinsic output
         assert_ok!(SubtensorModule::register(
@@ -918,7 +920,7 @@ fn test_registration_too_many_registrations_per_interval() {
             153453,
             &U256::from(9),
         );
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 10000);
+        assert_eq!(Difficulty::<Test>::get(netuid), 10000);
 
         // Subscribe and check extrinsic output
         // Try 10 registrations, this is less than the max per block, but more than the max per interval
@@ -1220,7 +1222,7 @@ fn test_registration_get_uid_to_prune_all_in_immunity_period() {
         SubtensorModule::set_immunity_period(netuid, 2);
         assert_eq!(SubtensorModule::get_pruning_score_for_uid(netuid, 0), 100);
         assert_eq!(SubtensorModule::get_pruning_score_for_uid(netuid, 1), 110);
-        assert_eq!(SubtensorModule::get_immunity_period(netuid), 2);
+        assert_eq!(ImmunityPeriod::<Test>::get(netuid), 2);
         assert_eq!(SubtensorModule::get_current_block_as_u64(), 0);
         assert_eq!(
             SubtensorModule::get_neuron_block_at_registration(netuid, 0),
@@ -1244,7 +1246,7 @@ fn test_registration_get_uid_to_prune_none_in_immunity_period() {
         SubtensorModule::set_immunity_period(netuid, 2);
         assert_eq!(SubtensorModule::get_pruning_score_for_uid(netuid, 0), 100);
         assert_eq!(SubtensorModule::get_pruning_score_for_uid(netuid, 1), 110);
-        assert_eq!(SubtensorModule::get_immunity_period(netuid), 2);
+        assert_eq!(ImmunityPeriod::<Test>::get(netuid), 2);
         assert_eq!(SubtensorModule::get_current_block_as_u64(), 0);
         assert_eq!(
             SubtensorModule::get_neuron_block_at_registration(netuid, 0),
@@ -1361,7 +1363,7 @@ fn test_registration_get_neuron_metadata() {
         //
         //let neuron_id = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id);
         // let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey( netuid, &hotkey_account_id ).unwrap();
-        let neuron: AxonInfoOf = SubtensorModule::get_axon_info(netuid, &hotkey_account_id);
+        let neuron = Axons::<Test>::get(netuid, hotkey_account_id).unwrap_or_default();
         assert_eq!(neuron.ip, 0);
         assert_eq!(neuron.version, 0);
         assert_eq!(neuron.port, 0);
@@ -1398,10 +1400,10 @@ fn test_registration_add_network_size() {
         let coldkey_account_id = U256::from(667);
 
         add_network(netuid, 13, 0);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 0);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 0);
 
         add_network(netuid2, 13, 0);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid2), 0);
+        assert_eq!(SubnetworkN::<Test>::get(netuid2), 0);
 
         assert_ok!(SubtensorModule::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
@@ -1412,7 +1414,7 @@ fn test_registration_add_network_size() {
             hotkey_account_id,
             coldkey_account_id
         ));
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 1);
         assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 1);
 
         assert_ok!(SubtensorModule::register(
@@ -1433,7 +1435,7 @@ fn test_registration_add_network_size() {
             hotkey_account_id2,
             coldkey_account_id
         ));
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid2), 2);
+        assert_eq!(SubnetworkN::<Test>::get(netuid2), 2);
         assert_eq!(SubtensorModule::get_registrations_this_interval(netuid2), 2);
     });
 }
@@ -1452,24 +1454,24 @@ fn test_burn_registration_increase_recycled_rao() {
             Balances::deposit_creating(&coldkey_account_id, Balance::from(1_000_000_000_000_u64));
 
         add_network(netuid, 13, 0);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 0);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 0);
 
         add_network(netuid2, 13, 0);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid2), 0);
+        assert_eq!(SubnetworkN::<Test>::get(netuid2), 0);
 
         run_to_block(1);
 
-        let burn_amount = SubtensorModule::get_burn_as_u64(netuid);
+        let burn_amount = Burn::<Test>::get(netuid);
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid,
             hotkey_account_id
         ));
-        assert_eq!(SubtensorModule::get_rao_recycled(netuid), burn_amount);
+        assert_eq!(RAORecycledForRegistration::<Test>::get(netuid), burn_amount);
 
         run_to_block(2);
 
-        let burn_amount2 = SubtensorModule::get_burn_as_u64(netuid2);
+        let burn_amount2 = Burn::<Test>::get(netuid2);
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid2,
@@ -1480,9 +1482,12 @@ fn test_burn_registration_increase_recycled_rao() {
             netuid2,
             U256::from(2)
         ));
-        assert_eq!(SubtensorModule::get_rao_recycled(netuid2), burn_amount2 * 2);
+        assert_eq!(
+            RAORecycledForRegistration::<Test>::get(netuid2),
+            burn_amount2 * 2
+        );
         // Validate netuid is not affected.
-        assert_eq!(SubtensorModule::get_rao_recycled(netuid), burn_amount);
+        assert_eq!(RAORecycledForRegistration::<Test>::get(netuid), burn_amount);
     });
 }
 
@@ -1520,9 +1525,9 @@ fn test_full_pass_through() {
         assert_eq!(SubtensorModule::get_tempo(netuid2), tempo2);
 
         // Check their emission value.
-        assert_eq!(SubtensorModule::get_emission_value(netuid0), 0);
-        assert_eq!(SubtensorModule::get_emission_value(netuid1), 0);
-        assert_eq!(SubtensorModule::get_emission_value(netuid2), 0);
+        assert_eq!(EmissionValues::<Test>::get(netuid0), 0);
+        assert_eq!(EmissionValues::<Test>::get(netuid1), 0);
+        assert_eq!(EmissionValues::<Test>::get(netuid2), 0);
 
         // Set their max allowed uids.
         SubtensorModule::set_max_allowed_uids(netuid0, 2);
@@ -1543,9 +1548,9 @@ fn test_full_pass_through() {
         assert_eq!(SubtensorModule::get_max_registrations_per_block(netuid2), 3);
 
         // Check that no one has registered yet.
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid0), 0);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid1), 0);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid2), 0);
+        assert_eq!(SubnetworkN::<Test>::get(netuid0), 0);
+        assert_eq!(SubnetworkN::<Test>::get(netuid1), 0);
+        assert_eq!(SubnetworkN::<Test>::get(netuid2), 0);
 
         // Registered the keys to all networks.
         register_ok_neuron(netuid0, hotkey0, coldkey0, 39420842);
@@ -1601,9 +1606,9 @@ fn test_full_pass_through() {
         assert_eq!(SubtensorModule::get_registrations_this_interval(netuid2), 2);
 
         // Get the number of uids in each network.
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid0), 2);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid1), 2);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid2), 2);
+        assert_eq!(SubnetworkN::<Test>::get(netuid0), 2);
+        assert_eq!(SubnetworkN::<Test>::get(netuid1), 2);
+        assert_eq!(SubnetworkN::<Test>::get(netuid2), 2);
 
         // Check the uids exist.
         assert!(SubtensorModule::is_uid_exist_on_network(netuid0, 0));
@@ -1644,9 +1649,9 @@ fn test_full_pass_through() {
         );
 
         // Check for replacement.
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid0), 2);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid1), 2);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid2), 2);
+        assert_eq!(SubnetworkN::<Test>::get(netuid0), 2);
+        assert_eq!(SubnetworkN::<Test>::get(netuid1), 2);
+        assert_eq!(SubnetworkN::<Test>::get(netuid2), 2);
 
         // Register the 3rd hotkey.
         register_ok_neuron(netuid0, hotkey2, coldkey2, 59420842);
@@ -1654,9 +1659,9 @@ fn test_full_pass_through() {
         register_ok_neuron(netuid2, hotkey2, coldkey2, 451232207);
 
         // Check for replacement.
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid0), 2);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid1), 2);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid2), 2);
+        assert_eq!(SubnetworkN::<Test>::get(netuid0), 2);
+        assert_eq!(SubnetworkN::<Test>::get(netuid1), 2);
+        assert_eq!(SubnetworkN::<Test>::get(netuid2), 2);
 
         // Check uids.
         // n0 [ h0, h1 ]

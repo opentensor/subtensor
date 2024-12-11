@@ -112,7 +112,7 @@ fn test_dividends_with_run_to_block() {
         );
 
         // Check if all three neurons are registered
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 3);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 3);
 
         // Run a couple of blocks to check if emission works
         run_to_block(2);
@@ -904,7 +904,11 @@ fn test_remove_stake_from_hotkey_account() {
         );
 
         // Remove stake
-        SubtensorModule::decrease_stake_on_hotkey_account(&hotkey_id, amount);
+        SubtensorModule::decrease_stake_on_coldkey_hotkey_account(
+            &SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_id),
+            &hotkey_id,
+            amount,
+        );
 
         // The stake on the hotkey account should be 0
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
@@ -957,7 +961,12 @@ fn test_remove_stake_from_hotkey_account_registered_in_various_networks() {
         );
 
         // Remove stake
-        SubtensorModule::decrease_stake_on_hotkey_account(&hotkey_id, amount);
+        SubtensorModule::decrease_stake_on_coldkey_hotkey_account(
+            &SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_id),
+            &hotkey_id,
+            amount,
+        );
+
         //
         assert_eq!(
             SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
@@ -971,19 +980,6 @@ fn test_remove_stake_from_hotkey_account_registered_in_various_networks() {
 }
 
 // /************************************************************
-// 	staking::increase_total_stake() tests
-// ************************************************************/
-#[test]
-fn test_increase_total_stake_ok() {
-    new_test_ext(1).execute_with(|| {
-        let increment = 10000;
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
-        SubtensorModule::increase_total_stake(increment);
-        assert_eq!(SubtensorModule::get_total_stake(), increment);
-    });
-}
-
-// /************************************************************
 // 	staking::decrease_total_stake() tests
 // ************************************************************/
 #[test]
@@ -992,8 +988,10 @@ fn test_decrease_total_stake_ok() {
         let initial_total_stake = 10000;
         let decrement = 5000;
 
-        SubtensorModule::increase_total_stake(initial_total_stake);
-        SubtensorModule::decrease_total_stake(decrement);
+        TotalStake::<Test>::put(
+            SubtensorModule::get_total_stake().saturating_add(initial_total_stake),
+        );
+        TotalStake::<Test>::put(SubtensorModule::get_total_stake().saturating_sub(decrement));
 
         // The total stake remaining should be the difference between the initial stake and the decrement
         assert_eq!(
@@ -1700,7 +1698,7 @@ fn test_delegate_take_can_be_decreased() {
             SubtensorModule::get_min_delegate_take()
         ));
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(hotkey0),
             SubtensorModule::get_min_delegate_take()
         );
 
@@ -1746,7 +1744,7 @@ fn test_can_set_min_take_ok() {
             SubtensorModule::get_min_delegate_take()
         ));
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(hotkey0),
             SubtensorModule::get_min_delegate_take()
         );
     });
@@ -1775,7 +1773,7 @@ fn test_delegate_take_can_not_be_increased_with_decrease_take() {
             SubtensorModule::get_min_delegate_take()
         ));
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(hotkey0),
             SubtensorModule::get_min_delegate_take()
         );
 
@@ -1789,7 +1787,7 @@ fn test_delegate_take_can_not_be_increased_with_decrease_take() {
             Err(Error::<Test>::DelegateTakeTooLow.into())
         );
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(hotkey0),
             SubtensorModule::get_min_delegate_take()
         );
     });
@@ -1818,7 +1816,7 @@ fn test_delegate_take_can_be_increased() {
             SubtensorModule::get_min_delegate_take()
         ));
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(hotkey0),
             SubtensorModule::get_min_delegate_take()
         );
 
@@ -1830,7 +1828,7 @@ fn test_delegate_take_can_be_increased() {
             hotkey0,
             u16::MAX / 8
         ));
-        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 8);
+        assert_eq!(Delegates::<Test>::get(hotkey0), u16::MAX / 8);
     });
 }
 
@@ -1857,7 +1855,7 @@ fn test_delegate_take_can_not_be_decreased_with_increase_take() {
             SubtensorModule::get_min_delegate_take()
         ));
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(hotkey0),
             SubtensorModule::get_min_delegate_take()
         );
 
@@ -1871,7 +1869,7 @@ fn test_delegate_take_can_not_be_decreased_with_increase_take() {
             Err(Error::<Test>::DelegateTakeTooLow.into())
         );
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(hotkey0),
             SubtensorModule::get_min_delegate_take()
         );
     });
@@ -1900,7 +1898,7 @@ fn test_delegate_take_can_be_increased_to_limit() {
             SubtensorModule::get_min_delegate_take()
         ));
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(hotkey0),
             SubtensorModule::get_min_delegate_take()
         );
 
@@ -1913,7 +1911,7 @@ fn test_delegate_take_can_be_increased_to_limit() {
             InitialDefaultDelegateTake::get()
         ));
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(hotkey0),
             InitialDefaultDelegateTake::get()
         );
     });
@@ -1934,7 +1932,7 @@ fn test_delegate_take_can_not_be_set_beyond_limit() {
         let netuid = 1;
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
-        let before = SubtensorModule::get_hotkey_take(&hotkey0);
+        let before = Delegates::<Test>::get(hotkey0);
 
         // Coldkey / hotkey 0 attempt to become delegates with take above maximum
         // (Disable this check if InitialDefaultDelegateTake is u16::MAX)
@@ -1948,7 +1946,7 @@ fn test_delegate_take_can_not_be_set_beyond_limit() {
                 Err(Error::<Test>::DelegateTakeTooHigh.into())
             );
         }
-        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), before);
+        assert_eq!(Delegates::<Test>::get(hotkey0), before);
     });
 }
 
@@ -1975,7 +1973,7 @@ fn test_delegate_take_can_not_be_increased_beyond_limit() {
             SubtensorModule::get_min_delegate_take()
         ));
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(hotkey0),
             SubtensorModule::get_min_delegate_take()
         );
 
@@ -1992,7 +1990,7 @@ fn test_delegate_take_can_not_be_increased_beyond_limit() {
             );
         }
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(hotkey0),
             SubtensorModule::get_min_delegate_take()
         );
     });
@@ -2021,7 +2019,7 @@ fn test_rate_limits_enforced_on_increase_take() {
             SubtensorModule::get_min_delegate_take()
         ));
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(hotkey0),
             SubtensorModule::get_min_delegate_take()
         );
 
@@ -2035,7 +2033,7 @@ fn test_rate_limits_enforced_on_increase_take() {
             Err(Error::<Test>::DelegateTxRateLimitExceeded.into())
         );
         assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
+            Delegates::<Test>::get(hotkey0),
             SubtensorModule::get_min_delegate_take()
         );
 
@@ -2047,7 +2045,7 @@ fn test_rate_limits_enforced_on_increase_take() {
             hotkey0,
             u16::MAX / 8
         ));
-        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 8);
+        assert_eq!(Delegates::<Test>::get(hotkey0), u16::MAX / 8);
     });
 }
 

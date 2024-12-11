@@ -3,8 +3,11 @@
 #![allow(clippy::arithmetic_side_effects)]
 use super::*;
 
+extern crate alloc;
+
 #[allow(unused)]
 use crate::Pallet as AdminUtils;
+use alloc::vec::Vec;
 use frame_benchmarking::v1::account;
 use frame_benchmarking::v2::*;
 use frame_support::BoundedVec;

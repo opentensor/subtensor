@@ -268,7 +268,7 @@ impl MetagraphPrecompile {
             exit_status: ExitError::Other(sp_version::Cow::Borrowed(NO_HOTKEY)),
         })?;
 
-        let axon = pallet_subtensor::Pallet::<Runtime>::get_axon_info(netuid, &hotkey);
+        let axon = pallet_subtensor::Axons::<Runtime>::get(netuid, &hotkey).unwrap_or_default();
 
         let mut block_result = [0_u8; 32];
         U256::to_big_endian(&U256::from(axon.block), &mut block_result);
