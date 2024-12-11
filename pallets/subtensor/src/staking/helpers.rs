@@ -85,17 +85,6 @@ impl<T: Config> Pallet<T> {
         Owner::<T>::get(hotkey)
     }
 
-    /// Returns the hotkey take.
-    ///
-    /// # Arguments
-    /// * `hotkey` - The hotkey account ID.
-    ///
-    /// # Returns
-    /// The take value of the hotkey.
-    pub fn get_hotkey_take(hotkey: &T::AccountId) -> u16 {
-        Delegates::<T>::get(hotkey)
-    }
-
     /// Returns true if the hotkey account has been created.
     ///
     /// # Arguments
