@@ -91,7 +91,7 @@ impl<T: Config> Pallet<T> {
 
         let rho = Self::get_rho(netuid);
         let kappa = Self::get_kappa(netuid);
-        let difficulty: Compact<u64> = Self::get_difficulty_as_u64(netuid).into();
+        let difficulty: Compact<u64> = Difficulty::<T>::get(netuid).into();
         let immunity_period = Self::get_immunity_period(netuid);
         let max_allowed_validators = Self::get_max_allowed_validators(netuid);
         let min_allowed_weights = Self::get_min_allowed_weights(netuid);
@@ -161,7 +161,7 @@ impl<T: Config> Pallet<T> {
 
         let rho = Self::get_rho(netuid);
         let kappa = Self::get_kappa(netuid);
-        let difficulty: Compact<u64> = Self::get_difficulty_as_u64(netuid).into();
+        let difficulty: Compact<u64> = Difficulty::<T>::get(netuid).into();
         let immunity_period = Self::get_immunity_period(netuid);
         let max_allowed_validators = Self::get_max_allowed_validators(netuid);
         let min_allowed_weights = Self::get_min_allowed_weights(netuid);
@@ -251,7 +251,7 @@ impl<T: Config> Pallet<T> {
         let serving_rate_limit = Self::get_serving_rate_limit(netuid);
         let max_validators = Self::get_max_allowed_validators(netuid);
         let adjustment_alpha = AdjustmentAlpha::<T>::get(netuid);
-        let difficulty = Self::get_difficulty_as_u64(netuid);
+        let difficulty = Difficulty::<T>::get(netuid);
         let commit_reveal_periods = Self::get_reveal_period(netuid);
         let commit_reveal_weights_enabled = CommitRevealWeightsEnabled::<T>::get(netuid);
         let liquid_alpha_enabled = Self::get_liquid_alpha_enabled(netuid);

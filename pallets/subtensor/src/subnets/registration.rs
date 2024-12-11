@@ -282,7 +282,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 8. Ensure the supplied work passes the difficulty.
-        let difficulty: U256 = Self::get_difficulty(netuid);
+        let difficulty = Difficulty::<T>::get(netuid).into();
         let work_hash: H256 = Self::vec_to_hash(work.clone());
         ensure!(
             Self::hash_meets_difficulty(&work_hash, difficulty),
@@ -602,7 +602,7 @@ impl<T: Config> Pallet<T> {
         start_nonce: u64,
         hotkey: &T::AccountId,
     ) -> (u64, Vec<u8>) {
-        let difficulty: U256 = Self::get_difficulty(netuid);
+        let difficulty = Difficulty::<T>::get(netuid).into();
         let mut nonce: u64 = start_nonce;
         let mut work: H256 = Self::create_seal_hash(block_number, nonce, hotkey);
         while !Self::hash_meets_difficulty(&work, difficulty) {
