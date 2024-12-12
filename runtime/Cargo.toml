@@ -111,6 +111,16 @@ pallet-evm-precompile-simple = { workspace = true }
 pallet-hotfix-sufficients = { workspace = true }
 fp-account = { workspace = true }
 
+#drand
+pallet-drand = { workspace = true, default-features = false }
+getrandom = { workspace = true, default-features = false }
+tle = { workspace = true }
+hex = { workspace = true }
+rand_chacha = { workspace = true }
+w3f-bls = { workspace = true }
+sha2 = { workspace = true }
+ark-serialize = { workspace = true }
+
 [dev-dependencies]
 frame-metadata = { workspace = true }
 sp-io = { workspace = true }
@@ -192,6 +202,14 @@ std = [
 	"pallet-evm-precompile-simple/std",
 	"pallet-hotfix-sufficients/std",
 	"fp-account/std",
+	"pallet-drand/std",
+	"getrandom/std",
+	"tle/std",
+	"ark-serialize/std",
+	"hex/std",
+	"rand_chacha/std",
+	"sha2/std",
+	"w3f-bls/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -219,7 +237,8 @@ runtime-benchmarks = [
 	# EVM + Frontier
 	"pallet-ethereum/runtime-benchmarks",
 	"pallet-evm/runtime-benchmarks",
-    "pallet-hotfix-sufficients/runtime-benchmarks",
+	"pallet-hotfix-sufficients/runtime-benchmarks",
+	"pallet-drand/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
@@ -249,11 +268,12 @@ try-runtime = [
 	"pallet-registry/try-runtime",
 
 	# EVM + Frontier
-    "fp-self-contained/try-runtime",
+	"fp-self-contained/try-runtime",
 	"pallet-base-fee/try-runtime",
 	"pallet-dynamic-fee/try-runtime",
 	"pallet-ethereum/try-runtime",
 	"pallet-evm/try-runtime",
 	"pallet-evm-chain-id/try-runtime",
+	"pallet-drand/try-runtime"
 ]
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]

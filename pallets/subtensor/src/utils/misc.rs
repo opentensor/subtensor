@@ -144,9 +144,9 @@ impl<T: Config> Pallet<T> {
         *updated_validator_permit = validator_permit;
         ValidatorPermit::<T>::insert(netuid, updated_validator_permits);
     }
-    pub fn set_weights_min_stake(min_stake: u64) {
-        WeightsMinStake::<T>::put(min_stake);
-        Self::deposit_event(Event::WeightsMinStake(min_stake));
+    pub fn set_stake_threshold(min_stake: u64) {
+        StakeThreshold::<T>::put(min_stake);
+        Self::deposit_event(Event::StakeThresholdSet(min_stake));
     }
     pub fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
         TargetStakesPerInterval::<T>::set(target_stakes_per_interval);
@@ -213,8 +213,8 @@ impl<T: Config> Pallet<T> {
         let vec = ValidatorPermit::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(false)
     }
-    pub fn get_weights_min_stake() -> u64 {
-        WeightsMinStake::<T>::get()
+    pub fn get_stake_threshold() -> u64 {
+        StakeThreshold::<T>::get()
     }
 
     // ============================
@@ -424,9 +424,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::AdjustmentAlphaSet(netuid, adjustment_alpha));
     }
 
-    pub fn get_validator_prune_len(netuid: u16) -> u64 {
-        ValidatorPruneLen::<T>::get(netuid)
-    }
     pub fn set_validator_prune_len(netuid: u16, validator_prune_len: u64) {
         ValidatorPruneLen::<T>::insert(netuid, validator_prune_len);
         Self::deposit_event(Event::ValidatorPruneLenSet(netuid, validator_prune_len));

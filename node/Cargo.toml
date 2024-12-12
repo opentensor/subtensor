@@ -63,6 +63,10 @@ frame-metadata-hash-extension = { workspace = true }
 frame-system = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-commitments = { path = "../pallets/commitments" }
+pallet-drand = { workspace = true }
+sp-crypto-ec-utils = { workspace = true }
+sp-keystore = { workspace = true,  default-features = false }
+
 
 # These dependencies are used for the subtensor's RPCs
 jsonrpsee = { workspace = true, features = ["server"] }
@@ -96,6 +100,8 @@ fc-rpc = { workspace = true }
 fc-rpc-core = { workspace = true }
 fp-rpc = { workspace = true }
 fc-mapping-sync = { workspace = true }
+fp-consensus = { workspace = true }
+thiserror = { workspace = true }
 
 # Local Dependencies
 node-subtensor-runtime = { path = "../runtime" }
@@ -126,6 +132,7 @@ runtime-benchmarks = [
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"pallet-commitments/runtime-benchmarks",
+	"pallet-drand/runtime-benchmarks"
 ]
 pow-faucet = []
 
@@ -137,6 +144,7 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
 	"pallet-commitments/try-runtime",
+	"pallet-drand/try-runtime"
 ]
 
 metadata-hash = ["node-subtensor-runtime/metadata-hash"]
