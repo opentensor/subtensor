@@ -402,7 +402,7 @@
 				"type": "uint16"
 			}
 		],
-		"name": "setActivityCutoff",
+		"name": "getActivityCutoff",
 		"outputs": [
 			{
 				"internalType": "uint16",
@@ -498,7 +498,7 @@
 				"type": "uint16"
 			}
 		],
-		"name": "setCommitRevealWeightsInterval",
+		"name": "getCommitRevealWeightsInterval",
 		"outputs": [
 			{
 				"internalType": "uint64",
@@ -589,7 +589,7 @@
 				"type": "uint16"
 			}
 		],
-		"name": "setLiquidAlphaEnabled",
+		"name": "getLiquidAlphaEnabled",
 		"outputs": [
 			{
 				"internalType": "bool",
@@ -734,7 +734,7 @@
 				"type": "uint16"
 			}
 		],
-		"name": "setNetworkPowRegistrationAllowed",
+		"name": "getNetworkPowRegistrationAllowed",
 		"outputs": [
 			{
 				"internalType": "bool",

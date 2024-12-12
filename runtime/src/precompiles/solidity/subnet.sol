@@ -52,7 +52,7 @@ interface ISubnet {
 
   function setRho(uint16 netuid, uint16 rho) external payable;
 
-  function setActivityCutoff(uint16 netuid) external view returns (uint16);
+  function getActivityCutoff(uint16 netuid) external view returns (uint16);
 
   function setActivityCutoff(uint16 netuid, uint16 activityCutoff) external payable;
 
@@ -60,7 +60,7 @@ interface ISubnet {
 
   function setNetworkRegistrationAllowed(uint16 netuid, bool networkRegistrationAllowed) external payable;
 
-  function setNetworkPowRegistrationAllowed(uint16 netuid) external view returns (bool);
+  function getNetworkPowRegistrationAllowed(uint16 netuid) external view returns (bool);
 
   function setNetworkPowRegistrationAllowed(uint16 netuid, bool networkPowRegistrationAllowed) external payable;
 
@@ -84,7 +84,7 @@ interface ISubnet {
 
   function setCommitRevealWeightsEnabled(uint16 netuid, bool commitRevealWeightsEnabled) external payable;
 
-  function setLiquidAlphaEnabled(uint16 netuid) external view returns (bool);
+  function getLiquidAlphaEnabled(uint16 netuid) external view returns (bool);
 
   function setLiquidAlphaEnabled(uint16 netuid, bool liquidAlphaEnabled) external payable;
 
@@ -92,7 +92,7 @@ interface ISubnet {
 
   function setAlphaValues(uint16 netuid, uint16 alphaLow, uint16 alphaHigh) external payable;
 
-  function setCommitRevealWeightsInterval(uint16 netuid) external view returns (uint64);
+  function getCommitRevealWeightsInterval(uint16 netuid) external view returns (uint64);
 
   function setCommitRevealWeightsInterval(uint16 netuid, uint64 commitRevealWeightsInterval) external payable;
 }

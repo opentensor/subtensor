@@ -65,7 +65,7 @@ impl SubnetPrecompile {
                 Self::set_weights_version_key(handle, &method_input)
             }
 
-            id if id == get_method_id("getWeightsSetRateLimit(uint16,uint64)") => {
+            id if id == get_method_id("getWeightsSetRateLimit(uint16)") => {
                 Self::get_weights_set_rate_limit(&method_input)
             }
             id if id == get_method_id("setWeightsSetRateLimit(uint16,uint64)") => {
@@ -347,6 +347,7 @@ impl SubnetPrecompile {
         data: &[u8],
     ) -> PrecompileResult {
         let (netuid, weights_set_rate_limit) = Self::parse_netuid_u64_parameter(data)?;
+
         let call = RuntimeCall::AdminUtils(
             pallet_admin_utils::Call::<Runtime>::sudo_set_weights_set_rate_limit {
                 netuid,
