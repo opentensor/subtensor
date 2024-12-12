@@ -33,68 +33,152 @@ impl SubnetPrecompile {
             id if id == get_method_id("registerNetwork()") => {
                 Self::register_network(handle, &[0_u8; 0])
             }
+
+            id if id == get_method_id("getServingRateLimit(uint16)") => {
+                Self::get_serving_rate_limit(handle, &method_input)
+            }
             id if id == get_method_id("setServingRateLimit(uint16,uint64)") => {
                 Self::set_serving_rate_limit(handle, &method_input)
+            }
+
+            id if id == get_method_id("getMinDifficulty(uint16)") => {
+                Self::get_min_difficulty(handle, &method_input)
             }
             id if id == get_method_id("setMinDifficulty(uint16,uint64)") => {
                 Self::set_min_difficulty(handle, &method_input)
             }
+
+            id if id == get_method_id("getMaxDifficulty(uint16)") => {
+                Self::get_max_difficulty(handle, &method_input)
+            }
             id if id == get_method_id("setMaxDifficulty(uint16,uint64)") => {
                 Self::set_max_difficulty(handle, &method_input)
+            }
+
+            id if id == get_method_id("getWeightsVersionKey(uint16)") => {
+                Self::get_weights_version_key(handle, &method_input)
             }
             id if id == get_method_id("setWeightsVersionKey(uint16,uint64)") => {
                 Self::set_weights_version_key(handle, &method_input)
             }
+
+            id if id == get_method_id("getWeightsSetRateLimit(uint16,uint64)") => {
+                Self::get_weights_set_rate_limit(handle, &method_input)
+            }
             id if id == get_method_id("setWeightsSetRateLimit(uint16,uint64)") => {
                 Self::set_weights_set_rate_limit(handle, &method_input)
             }
-            id if id == get_method_id("setServingRateLimit(uint16,uint64)") => {
+
+            id if id == get_method_id("getAdjustmentAlpha(uint16)") => {
+                Self::get_adjustment_alpha(handle, &method_input)
+            }
+            id if id == get_method_id("setAdjustmentAlpha(uint16,uint64)") => {
                 Self::set_adjustment_alpha(handle, &method_input)
             }
-            id if id == get_method_id("setServingRateLimit(uint16,uint64)") => {
+
+            id if id == get_method_id("getMaxWeightLimit(uint16)") => {
+                Self::get_max_weight_limit(handle, &method_input)
+            }
+            id if id == get_method_id("setMaxWeightLimit(uint16,uint64)") => {
                 Self::set_max_weight_limit(handle, &method_input)
             }
-            id if id == get_method_id("setServingRateLimit(uint16,uint64)") => {
+
+            id if id == get_method_id("getImmunityPeriod(uint16)") => {
+                Self::get_immunity_period(handle, &method_input)
+            }
+            id if id == get_method_id("setImmunityPeriod(uint16,uint64)") => {
                 Self::set_immunity_period(handle, &method_input)
+            }
+
+            id if id == get_method_id("getMinAllowedWeights(uint16)") => {
+                Self::get_min_allowed_weights(handle, &method_input)
             }
             id if id == get_method_id("setMinAllowedWeights(uint16,uint16)") => {
                 Self::set_min_allowed_weights(handle, &method_input)
             }
+
+            id if id == get_method_id("getKappa(uint16)") => Self::get_kappa(handle, &method_input),
             id if id == get_method_id("setKappa(uint16,uint16)") => {
                 Self::set_kappa(handle, &method_input)
             }
+
+            id if id == get_method_id("getRho(uint16)") => Self::get_rho(handle, &method_input),
             id if id == get_method_id("setRho(uint16,uint16)") => {
                 Self::set_rho(handle, &method_input)
+            }
+
+            id if id == get_method_id("getActivityCutoff(uint16)") => {
+                Self::get_activity_cutoff(handle, &method_input)
             }
             id if id == get_method_id("setActivityCutoff(uint16,uint16)") => {
                 Self::set_activity_cutoff(handle, &method_input)
             }
-            id if id == get_method_id("set_NetworkRegistrationAllowed(uint16,bool)") => {
+
+            id if id == get_method_id("getNetworkRegistrationAllowed(uint16)") => {
+                Self::get_network_registration_allowed(handle, &method_input)
+            }
+            id if id == get_method_id("setNetworkRegistrationAllowed(uint16,bool)") => {
                 Self::set_network_registration_allowed(handle, &method_input)
+            }
+
+            id if id == get_method_id("getNetworkPowRegistrationAllowed(uint16)") => {
+                Self::get_network_pow_registration_allowed(handle, &method_input)
             }
             id if id == get_method_id("setNetworkPowRegistrationAllowed(uint16,bool)") => {
                 Self::set_network_pow_registration_allowed(handle, &method_input)
             }
+
+            id if id == get_method_id("getMinBurn(uint16)") => {
+                Self::get_min_burn(handle, &method_input)
+            }
             id if id == get_method_id("setMinBurn(uint16,uint64)") => {
                 Self::set_min_burn(handle, &method_input)
+            }
+
+            id if id == get_method_id("getMaxBurn(uint16)") => {
+                Self::get_max_burn(handle, &method_input)
             }
             id if id == get_method_id("setMaxBurn(uint16,uint64)") => {
                 Self::set_max_burn(handle, &method_input)
             }
+
+            id if id == get_method_id("getDifficulty(uint16)") => {
+                Self::get_difficulty(handle, &method_input)
+            }
             id if id == get_method_id("setDifficulty(uint16,uint64)") => {
                 Self::set_difficulty(handle, &method_input)
+            }
+
+            id if id == get_method_id("getBondsMovingAverage(uint16)") => {
+                Self::get_bonds_moving_average(handle, &method_input)
             }
             id if id == get_method_id("setBondsMovingAverage(uint16,uint64)") => {
                 Self::set_bonds_moving_average(handle, &method_input)
             }
+
+            id if id == get_method_id("getCommitRevealWeightsEnabled(uint16)") => {
+                Self::get_commit_reveal_weights_enabled(handle, &method_input)
+            }
             id if id == get_method_id("setCommitRevealWeightsEnabled(uint16,bool)") => {
                 Self::set_commit_reveal_weights_enabled(handle, &method_input)
+            }
+
+            id if id == get_method_id("getLiquidAlphaEnabled(uint16)") => {
+                Self::get_liquid_alpha_enabled(handle, &method_input)
             }
             id if id == get_method_id("setLiquidAlphaEnabled(uint16,bool)") => {
                 Self::set_liquid_alpha_enabled(handle, &method_input)
             }
+
+            id if id == get_method_id("getAlphaValues(uint16)") => {
+                Self::get_alpha_values(handle, &method_input)
+            }
             id if id == get_method_id("setAlphaValues(uint16,uint16,uint16)") => {
                 Self::set_alpha_values(handle, &method_input)
+            }
+
+            id if id == get_method_id("getCommitRevealWeightsInterval(uint16)") => {
+                Self::get_commit_reveal_weights_interval(handle, &method_input)
             }
             id if id == get_method_id("setCommitRevealWeightsInterval(uint16,uint64)") => {
                 Self::set_commit_reveal_weights_interval(handle, &method_input)
