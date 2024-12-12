@@ -1,6 +1,9 @@
 use crate::precompiles::{dispatch, get_method_id, get_slice};
 use crate::{Runtime, RuntimeCall};
-use pallet_evm::{ExitError, PrecompileFailure, PrecompileHandle, PrecompileResult};
+use pallet_evm::{
+    ExitError, ExitSucceed, PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult,
+};
+use sp_core::U256;
 use sp_std::vec;
 
 pub const SUBNET_PRECOMPILE_INDEX: u64 = 2051;
@@ -35,150 +38,146 @@ impl SubnetPrecompile {
             }
 
             id if id == get_method_id("getServingRateLimit(uint16)") => {
-                Self::get_serving_rate_limit(handle, &method_input)
+                Self::get_serving_rate_limit(&method_input)
             }
             id if id == get_method_id("setServingRateLimit(uint16,uint64)") => {
                 Self::set_serving_rate_limit(handle, &method_input)
             }
 
             id if id == get_method_id("getMinDifficulty(uint16)") => {
-                Self::get_min_difficulty(handle, &method_input)
+                Self::get_min_difficulty(&method_input)
             }
             id if id == get_method_id("setMinDifficulty(uint16,uint64)") => {
                 Self::set_min_difficulty(handle, &method_input)
             }
 
             id if id == get_method_id("getMaxDifficulty(uint16)") => {
-                Self::get_max_difficulty(handle, &method_input)
+                Self::get_max_difficulty(&method_input)
             }
             id if id == get_method_id("setMaxDifficulty(uint16,uint64)") => {
                 Self::set_max_difficulty(handle, &method_input)
             }
 
             id if id == get_method_id("getWeightsVersionKey(uint16)") => {
-                Self::get_weights_version_key(handle, &method_input)
+                Self::get_weights_version_key(&method_input)
             }
             id if id == get_method_id("setWeightsVersionKey(uint16,uint64)") => {
                 Self::set_weights_version_key(handle, &method_input)
             }
 
             id if id == get_method_id("getWeightsSetRateLimit(uint16,uint64)") => {
-                Self::get_weights_set_rate_limit(handle, &method_input)
+                Self::get_weights_set_rate_limit(&method_input)
             }
             id if id == get_method_id("setWeightsSetRateLimit(uint16,uint64)") => {
                 Self::set_weights_set_rate_limit(handle, &method_input)
             }
 
             id if id == get_method_id("getAdjustmentAlpha(uint16)") => {
-                Self::get_adjustment_alpha(handle, &method_input)
+                Self::get_adjustment_alpha(&method_input)
             }
             id if id == get_method_id("setAdjustmentAlpha(uint16,uint64)") => {
                 Self::set_adjustment_alpha(handle, &method_input)
             }
 
             id if id == get_method_id("getMaxWeightLimit(uint16)") => {
-                Self::get_max_weight_limit(handle, &method_input)
+                Self::get_max_weight_limit(&method_input)
             }
             id if id == get_method_id("setMaxWeightLimit(uint16,uint64)") => {
                 Self::set_max_weight_limit(handle, &method_input)
             }
 
             id if id == get_method_id("getImmunityPeriod(uint16)") => {
-                Self::get_immunity_period(handle, &method_input)
+                Self::get_immunity_period(&method_input)
             }
             id if id == get_method_id("setImmunityPeriod(uint16,uint64)") => {
                 Self::set_immunity_period(handle, &method_input)
             }
 
             id if id == get_method_id("getMinAllowedWeights(uint16)") => {
-                Self::get_min_allowed_weights(handle, &method_input)
+                Self::get_min_allowed_weights(&method_input)
             }
             id if id == get_method_id("setMinAllowedWeights(uint16,uint16)") => {
                 Self::set_min_allowed_weights(handle, &method_input)
             }
 
-            id if id == get_method_id("getKappa(uint16)") => Self::get_kappa(handle, &method_input),
+            id if id == get_method_id("getKappa(uint16)") => Self::get_kappa(&method_input),
             id if id == get_method_id("setKappa(uint16,uint16)") => {
                 Self::set_kappa(handle, &method_input)
             }
 
-            id if id == get_method_id("getRho(uint16)") => Self::get_rho(handle, &method_input),
+            id if id == get_method_id("getRho(uint16)") => Self::get_rho(&method_input),
             id if id == get_method_id("setRho(uint16,uint16)") => {
                 Self::set_rho(handle, &method_input)
             }
 
             id if id == get_method_id("getActivityCutoff(uint16)") => {
-                Self::get_activity_cutoff(handle, &method_input)
+                Self::get_activity_cutoff(&method_input)
             }
             id if id == get_method_id("setActivityCutoff(uint16,uint16)") => {
                 Self::set_activity_cutoff(handle, &method_input)
             }
 
             id if id == get_method_id("getNetworkRegistrationAllowed(uint16)") => {
-                Self::get_network_registration_allowed(handle, &method_input)
+                Self::get_network_registration_allowed(&method_input)
             }
             id if id == get_method_id("setNetworkRegistrationAllowed(uint16,bool)") => {
                 Self::set_network_registration_allowed(handle, &method_input)
             }
 
             id if id == get_method_id("getNetworkPowRegistrationAllowed(uint16)") => {
-                Self::get_network_pow_registration_allowed(handle, &method_input)
+                Self::get_network_pow_registration_allowed(&method_input)
             }
             id if id == get_method_id("setNetworkPowRegistrationAllowed(uint16,bool)") => {
                 Self::set_network_pow_registration_allowed(handle, &method_input)
             }
 
-            id if id == get_method_id("getMinBurn(uint16)") => {
-                Self::get_min_burn(handle, &method_input)
-            }
+            id if id == get_method_id("getMinBurn(uint16)") => Self::get_min_burn(&method_input),
             id if id == get_method_id("setMinBurn(uint16,uint64)") => {
                 Self::set_min_burn(handle, &method_input)
             }
 
-            id if id == get_method_id("getMaxBurn(uint16)") => {
-                Self::get_max_burn(handle, &method_input)
-            }
+            id if id == get_method_id("getMaxBurn(uint16)") => Self::get_max_burn(&method_input),
             id if id == get_method_id("setMaxBurn(uint16,uint64)") => {
                 Self::set_max_burn(handle, &method_input)
             }
 
             id if id == get_method_id("getDifficulty(uint16)") => {
-                Self::get_difficulty(handle, &method_input)
+                Self::get_difficulty(&method_input)
             }
             id if id == get_method_id("setDifficulty(uint16,uint64)") => {
                 Self::set_difficulty(handle, &method_input)
             }
 
             id if id == get_method_id("getBondsMovingAverage(uint16)") => {
-                Self::get_bonds_moving_average(handle, &method_input)
+                Self::get_bonds_moving_average(&method_input)
             }
             id if id == get_method_id("setBondsMovingAverage(uint16,uint64)") => {
                 Self::set_bonds_moving_average(handle, &method_input)
             }
 
             id if id == get_method_id("getCommitRevealWeightsEnabled(uint16)") => {
-                Self::get_commit_reveal_weights_enabled(handle, &method_input)
+                Self::get_commit_reveal_weights_enabled(&method_input)
             }
             id if id == get_method_id("setCommitRevealWeightsEnabled(uint16,bool)") => {
                 Self::set_commit_reveal_weights_enabled(handle, &method_input)
             }
 
             id if id == get_method_id("getLiquidAlphaEnabled(uint16)") => {
-                Self::get_liquid_alpha_enabled(handle, &method_input)
+                Self::get_liquid_alpha_enabled(&method_input)
             }
             id if id == get_method_id("setLiquidAlphaEnabled(uint16,bool)") => {
                 Self::set_liquid_alpha_enabled(handle, &method_input)
             }
 
             id if id == get_method_id("getAlphaValues(uint16)") => {
-                Self::get_alpha_values(handle, &method_input)
+                Self::get_alpha_values(&method_input)
             }
             id if id == get_method_id("setAlphaValues(uint16,uint16,uint16)") => {
                 Self::set_alpha_values(handle, &method_input)
             }
 
             id if id == get_method_id("getCommitRevealWeightsInterval(uint16)") => {
-                Self::get_commit_reveal_weights_interval(handle, &method_input)
+                Self::get_commit_reveal_weights_interval(&method_input)
             }
             id if id == get_method_id("setCommitRevealWeightsInterval(uint16,uint64)") => {
                 Self::set_commit_reveal_weights_interval(handle, &method_input)
@@ -217,6 +216,21 @@ impl SubnetPrecompile {
         dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
     }
 
+    fn get_serving_rate_limit(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+
+        let value = pallet_subtensor::ServingRateLimit::<Runtime>::get(netuid);
+
+        let value_u256 = U256::from(value);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&value_u256, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
+    }
+
     fn set_serving_rate_limit(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
         let (netuid, serving_rate_limit) = Self::parse_netuid_u64_parameter(data)?;
         let call = RuntimeCall::AdminUtils(
@@ -227,6 +241,21 @@ impl SubnetPrecompile {
         );
 
         dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+    }
+
+    fn get_min_difficulty(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+
+        let value = pallet_subtensor::MinDifficulty::<Runtime>::get(netuid);
+
+        let value_u256 = U256::from(value);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&value_u256, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
     }
 
     fn set_min_difficulty(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
@@ -241,6 +270,21 @@ impl SubnetPrecompile {
         dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
     }
 
+    fn get_max_difficulty(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+
+        let value = pallet_subtensor::MaxDifficulty::<Runtime>::get(netuid);
+
+        let value_u256 = U256::from(value);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&value_u256, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
+    }
+
     fn set_max_difficulty(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
         let (netuid, max_difficulty) = Self::parse_netuid_u64_parameter(data)?;
         let call = RuntimeCall::AdminUtils(
@@ -251,6 +295,21 @@ impl SubnetPrecompile {
         );
 
         dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+    }
+
+    fn get_weights_version_key(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+
+        let value = pallet_subtensor::WeightsVersionKey::<Runtime>::get(netuid);
+
+        let value_u256 = U256::from(value);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&value_u256, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
     }
 
     fn set_weights_version_key(
@@ -268,6 +327,21 @@ impl SubnetPrecompile {
         dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
     }
 
+    fn get_weights_set_rate_limit(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+
+        let value = pallet_subtensor::WeightsSetRateLimit::<Runtime>::get(netuid);
+
+        let value_u256 = U256::from(value);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&value_u256, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
+    }
+
     fn set_weights_set_rate_limit(
         handle: &mut impl PrecompileHandle,
         data: &[u8],
@@ -283,6 +357,21 @@ impl SubnetPrecompile {
         dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
     }
 
+    fn get_adjustment_alpha(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+
+        let value = pallet_subtensor::AdjustmentAlpha::<Runtime>::get(netuid);
+
+        let value_u256 = U256::from(value);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&value_u256, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
+    }
+
     fn set_adjustment_alpha(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
         let (netuid, adjustment_alpha) = Self::parse_netuid_u64_parameter(data)?;
         let call = RuntimeCall::AdminUtils(
@@ -293,6 +382,21 @@ impl SubnetPrecompile {
         );
 
         dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+    }
+
+    fn get_max_weight_limit(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+
+        let value = pallet_subtensor::MaxWeightsLimit::<Runtime>::get(netuid);
+
+        let value_u256 = U256::from(value);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&value_u256, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
     }
 
     fn set_max_weight_limit(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
@@ -307,6 +411,21 @@ impl SubnetPrecompile {
         dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
     }
 
+    fn get_immunity_period(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+
+        let value = pallet_subtensor::ImmunityPeriod::<Runtime>::get(netuid);
+
+        let value_u256 = U256::from(value);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&value_u256, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
+    }
+
     fn set_immunity_period(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
         let (netuid, immunity_period) = Self::parse_netuid_u16_parameter(data)?;
         let call = RuntimeCall::AdminUtils(
@@ -317,6 +436,21 @@ impl SubnetPrecompile {
         );
 
         dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+    }
+
+    fn get_min_allowed_weights(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+
+        let value = pallet_subtensor::MinAllowedWeights::<Runtime>::get(netuid);
+
+        let value_u256 = U256::from(value);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&value_u256, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
     }
 
     fn set_min_allowed_weights(
@@ -334,6 +468,21 @@ impl SubnetPrecompile {
         dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
     }
 
+    fn get_kappa(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+
+        let value = pallet_subtensor::Kappa::<Runtime>::get(netuid);
+
+        let value_u256 = U256::from(value);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&value_u256, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
+    }
+
     fn set_kappa(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
         let (netuid, kappa) = Self::parse_netuid_u16_parameter(data)?;
         let call = RuntimeCall::AdminUtils(pallet_admin_utils::Call::<Runtime>::sudo_set_kappa {
@@ -342,6 +491,21 @@ impl SubnetPrecompile {
         });
 
         dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+    }
+
+    fn get_rho(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+
+        let value = pallet_subtensor::Rho::<Runtime>::get(netuid);
+
+        let value_u256 = U256::from(value);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&value_u256, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
     }
 
     fn set_rho(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
@@ -354,6 +518,21 @@ impl SubnetPrecompile {
         dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
     }
 
+    fn get_activity_cutoff(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+
+        let value = pallet_subtensor::ActivityCutoff::<Runtime>::get(netuid);
+
+        let value_u256 = U256::from(value);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&value_u256, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
+    }
+
     fn set_activity_cutoff(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
         let (netuid, activity_cutoff) = Self::parse_netuid_u16_parameter(data)?;
         let call = RuntimeCall::AdminUtils(
@@ -364,6 +543,21 @@ impl SubnetPrecompile {
         );
 
         dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+    }
+
+    fn get_network_registration_allowed(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+
+        let value = pallet_subtensor::NetworkRegistrationAllowed::<Runtime>::get(netuid);
+
+        let value_u256 = if value { U256::from(1) } else { U256::from(0) };
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&value_u256, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
     }
 
     fn set_network_registration_allowed(
@@ -381,6 +575,21 @@ impl SubnetPrecompile {
         dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
     }
 
+    fn get_network_pow_registration_allowed(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+
+        let value = pallet_subtensor::NetworkPowRegistrationAllowed::<Runtime>::get(netuid);
+
+        let value_u256 = if value { U256::from(1) } else { U256::from(0) };
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&value_u256, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
+    }
+
     fn set_network_pow_registration_allowed(
         handle: &mut impl PrecompileHandle,
         data: &[u8],
@@ -396,6 +605,21 @@ impl SubnetPrecompile {
         dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
     }
 
+    fn get_min_burn(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+
+        let value = pallet_subtensor::MinBurn::<Runtime>::get(netuid);
+
+        let value_u256 = U256::from(value);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&value_u256, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
+    }
+
     fn set_min_burn(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
         let (netuid, min_burn) = Self::parse_netuid_u64_parameter(data)?;
         let call =
@@ -405,6 +629,21 @@ impl SubnetPrecompile {
             });
 
         dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+    }
+
+    fn get_max_burn(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+
+        let value = pallet_subtensor::MaxBurn::<Runtime>::get(netuid);
+
+        let value_u256 = U256::from(value);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&value_u256, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
     }
 
     fn set_max_burn(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
@@ -418,6 +657,21 @@ impl SubnetPrecompile {
         dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
     }
 
+    fn get_difficulty(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+
+        let value = pallet_subtensor::Difficulty::<Runtime>::get(netuid);
+
+        let value_u256 = U256::from(value);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&value_u256, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
+    }
+
     fn set_difficulty(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
         let (netuid, difficulty) = Self::parse_netuid_u64_parameter(data)?;
         let call =
@@ -427,6 +681,21 @@ impl SubnetPrecompile {
             });
 
         dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+    }
+
+    fn get_bonds_moving_average(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+
+        let value = pallet_subtensor::BondsMovingAverage::<Runtime>::get(netuid);
+
+        let value_u256 = U256::from(value);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&value_u256, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
     }
 
     fn set_bonds_moving_average(
@@ -444,6 +713,21 @@ impl SubnetPrecompile {
         dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
     }
 
+    fn get_commit_reveal_weights_enabled(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+
+        let value = pallet_subtensor::CommitRevealWeightsEnabled::<Runtime>::get(netuid);
+
+        let value_u256 = if value { U256::from(1) } else { U256::from(0) };
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&value_u256, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
+    }
+
     fn set_commit_reveal_weights_enabled(
         handle: &mut impl PrecompileHandle,
         data: &[u8],
@@ -459,6 +743,21 @@ impl SubnetPrecompile {
         dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
     }
 
+    fn get_liquid_alpha_enabled(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+
+        let value = pallet_subtensor::LiquidAlphaOn::<Runtime>::get(netuid);
+
+        let value_u256 = if value { U256::from(1) } else { U256::from(0) };
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&value_u256, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
+    }
+
     fn set_liquid_alpha_enabled(
         handle: &mut impl PrecompileHandle,
         data: &[u8],
@@ -471,6 +770,24 @@ impl SubnetPrecompile {
         dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
     }
 
+    fn get_alpha_values(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+
+        let (alpha_low, alpha_high) = pallet_subtensor::AlphaValues::<Runtime>::get(netuid);
+
+        let mut value_u256 = U256::from(alpha_low);
+        let mut result = [0_u8; 64];
+        U256::to_big_endian(&value_u256, &mut result[0..]);
+
+        value_u256 = U256::from(alpha_high);
+        U256::to_big_endian(&value_u256, &mut result[32..]);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
+    }
+
     fn set_alpha_values(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
         let (netuid, alpha_low, alpha_high) = Self::parse_netuid_u16_u16_parameter(data)?;
         let call =
@@ -481,6 +798,21 @@ impl SubnetPrecompile {
             });
 
         dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+    }
+
+    fn get_commit_reveal_weights_interval(data: &[u8]) -> PrecompileResult {
+        let netuid = Self::parse_netuid(data)?;
+
+        let value = pallet_subtensor::RevealPeriodEpochs::<Runtime>::get(netuid);
+
+        let value_u256 = U256::from(value);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&value_u256, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
     }
 
     fn set_commit_reveal_weights_interval(
@@ -559,6 +891,19 @@ impl SubnetPrecompile {
         )?);
 
         Ok((name_vec, repo_vec, contact_vec))
+    }
+
+    fn parse_netuid(data: &[u8]) -> Result<u16, PrecompileFailure> {
+        if data.len() < 32 {
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+        let mut netuid_vec = [0u8; 2];
+        netuid_vec.copy_from_slice(get_slice(data, 30, 32)?);
+        let netuid = u16::from_be_bytes(netuid_vec);
+
+        Ok(netuid)
     }
 
     fn parse_netuid_u64_parameter(data: &[u8]) -> Result<(u16, u64), PrecompileFailure> {
