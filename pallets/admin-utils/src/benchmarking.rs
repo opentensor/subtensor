@@ -1,7 +1,9 @@
 //! Benchmarking setup
 #![cfg(feature = "runtime-benchmarks")]
 #![allow(clippy::arithmetic_side_effects)]
-use super::*;
+
+extern crate alloc;
+use alloc::vec::Vec;
 
 #[allow(unused)]
 use crate::Pallet as AdminUtils;
@@ -9,6 +11,8 @@ use frame_benchmarking::v1::account;
 use frame_benchmarking::v2::*;
 use frame_support::BoundedVec;
 use frame_system::RawOrigin;
+
+use super::*;
 
 #[benchmarks]
 mod benchmarks {
