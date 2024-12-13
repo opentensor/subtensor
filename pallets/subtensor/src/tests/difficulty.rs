@@ -3,7 +3,9 @@
 use sp_core::U256;
 
 use super::mock::*;
-use crate::{AdjustmentInterval, Difficulty, LastAdjustmentBlock, MaxAllowedUids, SubnetworkN};
+use crate::{
+    AdjustmentInterval, Difficulty, LastAdjustmentBlock, MaxAllowedUids, MaxDifficulty, SubnetworkN,
+};
 
 #[test]
 fn test_registration_difficulty_adjustment() {
@@ -144,7 +146,7 @@ fn test_registration_difficulty_adjustment() {
         // Test max value.
         SubtensorModule::set_max_difficulty(netuid, 10000);
         SubtensorModule::set_difficulty(netuid, 5000);
-        assert_eq!(SubtensorModule::get_max_difficulty(netuid), 10000);
+        assert_eq!(MaxDifficulty::<Test>::get(netuid), 10000);
         assert_eq!(Difficulty::<Test>::get(netuid), 5000);
         SubtensorModule::set_max_registrations_per_block(netuid, 4);
         register_ok_neuron(netuid, hotkey0 + 3, coldkey0 + 3, 294208420);
