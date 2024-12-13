@@ -337,10 +337,6 @@ impl<T: Config> Pallet<T> {
         MinChildkeyTake::<T>::get()
     }
 
-    pub fn get_max_childkey_take() -> u16 {
-        MaxChildkeyTake::<T>::get()
-    }
-
     pub fn get_serving_rate_limit(netuid: u16) -> u64 {
         ServingRateLimit::<T>::get(netuid)
     }

@@ -294,7 +294,7 @@ impl<T: Config> Pallet<T> {
 
         // Ensure the take value is valid
         ensure!(
-            take <= Self::get_max_childkey_take(),
+            take <= MaxChildkeyTake::<T>::get(),
             Error::<T>::InvalidChildkeyTake
         );
 
