@@ -867,7 +867,7 @@ fn test_childkey_take_functionality() {
         );
 
         // Test setting childkey take
-        let new_take: u16 = SubtensorModule::get_max_childkey_take() / 2; // 50% of max_take
+        let new_take: u16 = MaxChildkeyTake::<Test>::get() / 2; // 50% of max_take
         assert_ok!(SubtensorModule::set_childkey_take(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -881,7 +881,7 @@ fn test_childkey_take_functionality() {
         assert_eq!(stored_take, new_take);
 
         // Test setting childkey take outside of allowed range
-        let invalid_take: u16 = SubtensorModule::get_max_childkey_take() + 1;
+        let invalid_take: u16 = MaxChildkeyTake::<Test>::get() + 1;
         assert_noop!(
             SubtensorModule::set_childkey_take(
                 RuntimeOrigin::signed(coldkey),
