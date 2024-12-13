@@ -233,8 +233,8 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                     .saturating_sub(alpha)
                     .saturating_mul(updated_burn),
             );
-        if next_value >= I110F18::from_num(Self::get_max_burn_as_u64(netuid)) {
-            Self::get_max_burn_as_u64(netuid)
+        if next_value >= I110F18::from_num(MaxBurn::<T>::get(netuid)) {
+            MaxBurn::<T>::get(netuid)
         } else if next_value <= I110F18::from_num(Self::get_min_burn_as_u64(netuid)) {
             return Self::get_min_burn_as_u64(netuid);
         } else {

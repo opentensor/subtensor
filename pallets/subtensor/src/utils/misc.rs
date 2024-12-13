@@ -506,9 +506,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::MinBurnSet(netuid, min_burn));
     }
 
-    pub fn get_max_burn_as_u64(netuid: u16) -> u64 {
-        MaxBurn::<T>::get(netuid)
-    }
     pub fn set_max_burn(netuid: u16, max_burn: u64) {
         MaxBurn::<T>::insert(netuid, max_burn);
         Self::deposit_event(Event::MaxBurnSet(netuid, max_burn));
