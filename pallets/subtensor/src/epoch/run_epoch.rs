@@ -107,7 +107,7 @@ impl<T: Config> Pallet<T> {
         log::trace!("activity_cutoff:\n{:?}\n", activity_cutoff);
 
         // Last update vector.
-        let last_update: Vec<u64> = Self::get_last_update(netuid);
+        let last_update: Vec<u64> = LastUpdate::<T>::get(netuid);
         log::trace!("Last update:\n{:?}\n", &last_update);
 
         // Inactive mask.
@@ -453,7 +453,7 @@ impl<T: Config> Pallet<T> {
         log::trace!("activity_cutoff: {:?}", activity_cutoff);
 
         // Last update vector.
-        let last_update: Vec<u64> = Self::get_last_update(netuid);
+        let last_update: Vec<u64> = LastUpdate::<T>::get(netuid);
         log::trace!("Last update: {:?}", &last_update);
 
         // Inactive mask.
