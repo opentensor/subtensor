@@ -74,17 +74,6 @@ impl<T: Config> Pallet<T> {
         SubnetworkN::<T>::get(Self::ROOT_NETUID)
     }
 
-    /// Fetches the max validators count of root network.
-    ///
-    /// This function retrieves the max validators count of root network.
-    ///
-    /// # Returns:
-    /// * 'u16': The max validators count of root network.
-    ///
-    pub fn get_max_root_validators() -> u16 {
-        MaxAllowedUids::<T>::get(Self::ROOT_NETUID)
-    }
-
     /// Returns the emission value for the given subnet.
     ///
     /// This function retrieves the emission value for the given subnet.
@@ -516,7 +505,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 8. Check if the root net is below its allowed size.
         // max allowed is senate size.
-        if current_num_root_validators < Self::get_max_root_validators() {
+        if current_num_root_validators < MaxAllowedUids::<T>::get(Self::ROOT_NETUID) {
             // --- 12.1.1 We can append to the subnetwork as it's not full.
             subnetwork_uid = current_num_root_validators;
 
