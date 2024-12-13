@@ -94,7 +94,7 @@ impl<T: Config> Pallet<T> {
         let difficulty: Compact<u64> = Difficulty::<T>::get(netuid).into();
         let immunity_period = ImmunityPeriod::<T>::get(netuid);
         let max_allowed_validators = MaxAllowedValidators::<T>::get(netuid);
-        let min_allowed_weights = Self::get_min_allowed_weights(netuid);
+        let min_allowed_weights = MinAllowedWeights::<T>::get(netuid);
         let max_weights_limit = MaxWeightsLimit::<T>::get(netuid);
         let scaling_law_power = Self::get_scaling_law_power(netuid);
         let subnetwork_n = SubnetworkN::<T>::get(netuid);
@@ -164,7 +164,7 @@ impl<T: Config> Pallet<T> {
         let difficulty: Compact<u64> = Difficulty::<T>::get(netuid).into();
         let immunity_period = ImmunityPeriod::<T>::get(netuid);
         let max_allowed_validators = MaxAllowedValidators::<T>::get(netuid);
-        let min_allowed_weights = Self::get_min_allowed_weights(netuid);
+        let min_allowed_weights = MinAllowedWeights::<T>::get(netuid);
         let max_weights_limit = MaxWeightsLimit::<T>::get(netuid);
         let scaling_law_power = Self::get_scaling_law_power(netuid);
         let subnetwork_n = SubnetworkN::<T>::get(netuid);
@@ -233,7 +233,7 @@ impl<T: Config> Pallet<T> {
         let rho = Self::get_rho(netuid);
         let kappa = Kappa::<T>::get(netuid);
         let immunity_period = ImmunityPeriod::<T>::get(netuid);
-        let min_allowed_weights = Self::get_min_allowed_weights(netuid);
+        let min_allowed_weights = MinAllowedWeights::<T>::get(netuid);
         let max_weights_limit = MaxWeightsLimit::<T>::get(netuid);
         let tempo = Self::get_tempo(netuid);
         let min_difficulty = Self::get_min_difficulty(netuid);

@@ -415,9 +415,6 @@ impl<T: Config> Pallet<T> {
         current_block.saturating_sub(registered_at) < u64::from(immunity_period)
     }
 
-    pub fn get_min_allowed_weights(netuid: u16) -> u16 {
-        MinAllowedWeights::<T>::get(netuid)
-    }
     pub fn set_min_allowed_weights(netuid: u16, min_allowed_weights: u16) {
         MinAllowedWeights::<T>::insert(netuid, min_allowed_weights);
         Self::deposit_event(Event::MinAllowedWeightSet(netuid, min_allowed_weights));
