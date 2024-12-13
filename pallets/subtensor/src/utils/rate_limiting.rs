@@ -133,9 +133,7 @@ impl<T: Config> Pallet<T> {
     pub fn set_last_tx_block_delegate_take(key: &T::AccountId, block: u64) {
         LastTxBlockDelegateTake::<T>::insert(key, block)
     }
-    pub fn get_last_tx_block_delegate_take(key: &T::AccountId) -> u64 {
-        LastTxBlockDelegateTake::<T>::get(key)
-    }
+
     pub fn exceeds_tx_rate_limit(prev_tx_block: u64, current_block: u64) -> bool {
         let rate_limit: u64 = Self::get_tx_rate_limit();
         if rate_limit == 0 || prev_tx_block == 0 {
