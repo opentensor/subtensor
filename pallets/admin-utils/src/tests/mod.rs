@@ -291,7 +291,7 @@ fn test_sudo_set_max_weight_limit() {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
-        let init_value: u16 = SubtensorModule::get_max_weight_limit(netuid);
+        let init_value: u16 = MaxWeightsLimit::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_max_weight_limit(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -308,13 +308,13 @@ fn test_sudo_set_max_weight_limit() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_max_weight_limit(netuid), init_value);
+        assert_eq!(MaxWeightsLimit::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_max_weight_limit(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_max_weight_limit(netuid), to_be_set);
+        assert_eq!(MaxWeightsLimit::<Test>::get(netuid), to_be_set);
     });
 }
 
