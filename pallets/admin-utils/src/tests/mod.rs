@@ -8,7 +8,8 @@ use frame_system::Config;
 use pallet_subtensor::{
     migrations, ActivityCutoff, AdjustmentAlpha, AdjustmentInterval, AlphaValues,
     BondsMovingAverage, CommitRevealWeightsEnabled, Difficulty, Error as SubtensorError, Event,
-    ImmunityPeriod, Kappa, LiquidAlphaOn, MaxDelegateTake, RAORecycledForRegistration,
+    ImmunityPeriod, Kappa, LiquidAlphaOn, MaxDelegateTake, NetworkLockReductionInterval,
+    RAORecycledForRegistration,
 };
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{ed25519, Pair, U256};
@@ -834,7 +835,7 @@ fn test_sudo_set_network_lock_reduction_interval() {
         let to_be_set: u64 = 7200;
         add_network(netuid, 10);
 
-        let init_value: u64 = SubtensorModule::get_lock_reduction_interval();
+        let init_value: u64 = NetworkLockReductionInterval::<Test>::get();
         assert_eq!(
             AdminUtils::sudo_set_lock_reduction_interval(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -842,12 +843,12 @@ fn test_sudo_set_network_lock_reduction_interval() {
             ),
             Err(DispatchError::BadOrigin)
         );
-        assert_eq!(SubtensorModule::get_lock_reduction_interval(), init_value);
+        assert_eq!(NetworkLockReductionInterval::<Test>::get(), init_value);
         assert_ok!(AdminUtils::sudo_set_lock_reduction_interval(
             <<Test as Config>::RuntimeOrigin>::root(),
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_lock_reduction_interval(), to_be_set);
+        assert_eq!(NetworkLockReductionInterval::<Test>::get(), to_be_set);
     });
 }
 
