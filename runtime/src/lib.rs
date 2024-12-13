@@ -1970,7 +1970,7 @@ impl_runtime_apis! {
         }
     }
 
-    #[api_version(2)]
+    /* #[api_version(2)]
     impl subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi<Block> for Runtime {
         fn get_delegates() -> Vec<DelegateInfo<AccountId32>> {
             SubtensorModule::get_delegates()
@@ -2028,7 +2028,7 @@ impl_runtime_apis! {
         fn get_stake_info_for_coldkeys( coldkey_accounts: Vec<AccountId32> ) -> Vec<(AccountId32, Vec<StakeInfo<AccountId32>>)> {
                SubtensorModule::get_stake_info_for_coldkeys( coldkey_accounts )
         }
-    }
+    }*/
 
     impl subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block> for Runtime {
         fn get_network_registration_cost() -> u64 {
@@ -2044,7 +2044,14 @@ impl_runtime_apis! {
         }
 
         fn get_delegate(delegate_account_vec: Vec<u8>) -> Vec<u8> {
-            let _result = SubtensorModule::get_delegate(delegate_account_vec);
+            if delegate_account_vec.len() != 32 {
+                return vec![] // Invalid hotkey
+            }
+            let Ok(hotkey) = AccountId32::decode(&mut delegate_account_vec.as_ref()) else {
+                return vec![]
+            };
+
+            let _result = SubtensorModule::get_delegate(hotkey);
             if _result.is_some() {
                 let result = _result.expect("Could not get DelegateInfo");
                 result.encode()
@@ -2054,7 +2061,14 @@ impl_runtime_apis! {
         }
 
         fn get_delegated(delegatee_account_vec: Vec<u8>) -> Vec<u8> {
-            let result = SubtensorModule::get_delegated(delegatee_account_vec);
+            if delegatee_account_vec.len() != 32 {
+                return vec![] // Invalid coldkey
+            }
+            let Ok(coldkey) = AccountId32::decode(&mut delegatee_account_vec.as_ref()) else {
+                return vec![]
+            };
+
+            let result = SubtensorModule::get_delegated(coldkey);
             result.encode()
         }
     }
@@ -2138,12 +2152,31 @@ impl_runtime_apis! {
     #[api_version(3)]
     impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {
         fn get_stake_info_for_coldkey( coldkey_account_vec: Vec<u8> ) -> Vec<u8> {
-            let result = SubtensorModule::get_stake_info_for_coldkey( coldkey_account_vec );
+            if coldkey_account_vec.len() != 32 {
+                return vec![] // Invalid coldkey
+            }
+            let Ok(coldkey) = AccountId32::decode(&mut coldkey_account_vec.as_ref()) else {
+                return vec![]
+            };
+
+
+            let result = SubtensorModule::get_stake_info_for_coldkey( coldkey );
             result.encode()
         }
 
         fn get_stake_info_for_coldkeys( coldkey_account_vecs: Vec<Vec<u8>> ) -> Vec<u8> {
-            let result = SubtensorModule::get_stake_info_for_coldkeys( coldkey_account_vecs );
+            let mut coldkeys: Vec<AccountId32> = Vec::new();
+            for coldkey_account_vec in coldkey_account_vecs {
+                if coldkey_account_vec.len() != 32 {
+                    continue; // Invalid coldkey
+                }
+                let Ok(coldkey) = AccountId32::decode(&mut coldkey_account_vec.as_ref()) else {
+                    continue;
+                };
+                coldkeys.push(coldkey);
+            }
+
+            let result = SubtensorModule::get_stake_info_for_coldkeys( coldkeys );
             result.encode()
         }
     }
