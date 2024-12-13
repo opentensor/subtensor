@@ -519,9 +519,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::DifficultySet(netuid, difficulty));
     }
 
-    pub fn get_max_allowed_validators(netuid: u16) -> u16 {
-        MaxAllowedValidators::<T>::get(netuid)
-    }
     pub fn set_max_allowed_validators(netuid: u16, max_allowed_validators: u16) {
         MaxAllowedValidators::<T>::insert(netuid, max_allowed_validators);
         Self::deposit_event(Event::MaxAllowedValidatorsSet(

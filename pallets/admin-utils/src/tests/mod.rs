@@ -650,7 +650,7 @@ fn test_sudo_set_max_allowed_validators() {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
-        let init_value: u16 = SubtensorModule::get_max_allowed_validators(netuid);
+        let init_value: u16 = MaxAllowedValidators::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_max_allowed_validators(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -667,19 +667,13 @@ fn test_sudo_set_max_allowed_validators() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(
-            SubtensorModule::get_max_allowed_validators(netuid),
-            init_value
-        );
+        assert_eq!(MaxAllowedValidators::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_max_allowed_validators(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(
-            SubtensorModule::get_max_allowed_validators(netuid),
-            to_be_set
-        );
+        assert_eq!(MaxAllowedValidators::<Test>::get(netuid), to_be_set);
     });
 }
 

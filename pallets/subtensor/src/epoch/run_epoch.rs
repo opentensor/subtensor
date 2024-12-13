@@ -167,7 +167,7 @@ impl<T: Config> Pallet<T> {
         let validator_forbids: Vec<bool> = validator_permits.iter().map(|&b| !b).collect();
 
         // Get max allowed validators.
-        let max_allowed_validators: u16 = Self::get_max_allowed_validators(netuid);
+        let max_allowed_validators: u16 = MaxAllowedValidators::<T>::get(netuid);
         log::trace!("max_allowed_validators: {:?}", max_allowed_validators);
 
         // Get new validator permits.
@@ -503,7 +503,7 @@ impl<T: Config> Pallet<T> {
         let validator_forbids: Vec<bool> = validator_permits.iter().map(|&b| !b).collect();
 
         // Get max allowed validators.
-        let max_allowed_validators: u16 = Self::get_max_allowed_validators(netuid);
+        let max_allowed_validators: u16 = MaxAllowedValidators::<T>::get(netuid);
         log::trace!("max_allowed_validators: {:?}", max_allowed_validators);
 
         // Get new validator permits.
