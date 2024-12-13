@@ -801,7 +801,7 @@ fn test_sudo_set_subnet_limit() {
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
 
-        let init_value: u16 = SubtensorModule::get_max_subnets();
+        let init_value: u16 = SubnetLimit::<Test>::get();
         assert_eq!(
             AdminUtils::sudo_set_subnet_limit(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -809,12 +809,12 @@ fn test_sudo_set_subnet_limit() {
             ),
             Err(DispatchError::BadOrigin)
         );
-        assert_eq!(SubtensorModule::get_max_subnets(), init_value);
+        assert_eq!(SubnetLimit::<Test>::get(), init_value);
         assert_ok!(AdminUtils::sudo_set_subnet_limit(
             <<Test as Config>::RuntimeOrigin>::root(),
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_max_subnets(), to_be_set);
+        assert_eq!(SubnetLimit::<Test>::get(), to_be_set);
     });
 }
 

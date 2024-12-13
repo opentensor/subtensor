@@ -43,17 +43,6 @@ impl<T: Config> Pallet<T> {
         TotalNetworks::<T>::get()
     }
 
-    /// Fetches the max number of subnet
-    ///
-    /// This function retrieves the max number of subnet.
-    ///
-    /// # Returns:
-    /// * 'u16': The max number of subnet
-    ///
-    pub fn get_max_subnets() -> u16 {
-        SubnetLimit::<T>::get()
-    }
-
     /// Sets the max number of subnet
     ///
     /// This function sets the max number of subnet.
@@ -916,9 +905,9 @@ impl<T: Config> Pallet<T> {
             log::debug!(
                 "subnet count: {:?}\nmax subnets: {:?}",
                 Self::get_num_subnets(),
-                Self::get_max_subnets()
+                SubnetLimit::<T>::get()
             );
-            if Self::get_num_subnets().saturating_sub(1) < Self::get_max_subnets() {
+            if Self::get_num_subnets().saturating_sub(1) < SubnetLimit::<T>::get() {
                 // We subtract one because we don't want root subnet to count towards total
                 let mut next_available_netuid = 0;
                 loop {
