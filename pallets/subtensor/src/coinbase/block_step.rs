@@ -199,8 +199,8 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                     .saturating_sub(alpha)
                     .saturating_mul(updated_difficulty),
             );
-        if next_value >= I110F18::from_num(Self::get_max_difficulty(netuid)) {
-            Self::get_max_difficulty(netuid)
+        if next_value >= I110F18::from_num(MaxDifficulty::<T>::get(netuid)) {
+            MaxDifficulty::<T>::get(netuid)
         } else if next_value <= I110F18::from_num(Self::get_min_difficulty(netuid)) {
             return Self::get_min_difficulty(netuid);
         } else {

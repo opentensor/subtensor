@@ -351,9 +351,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::MinDifficultySet(netuid, min_difficulty));
     }
 
-    pub fn get_max_difficulty(netuid: u16) -> u64 {
-        MaxDifficulty::<T>::get(netuid)
-    }
     pub fn set_max_difficulty(netuid: u16, max_difficulty: u64) {
         MaxDifficulty::<T>::insert(netuid, max_difficulty);
         Self::deposit_event(Event::MaxDifficultySet(netuid, max_difficulty));
