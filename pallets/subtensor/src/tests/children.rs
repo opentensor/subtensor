@@ -851,7 +851,7 @@ fn test_childkey_take_functionality() {
 
         // Test default and max childkey take
         let default_take = MinChildkeyTake::<Test>::get();
-        let min_take = SubtensorModule::get_min_childkey_take();
+        let min_take = MinChildkeyTake::<Test>::get();
         log::info!("Default take: {}, Max take: {}", default_take, min_take);
 
         // Check if default take and max take are the same

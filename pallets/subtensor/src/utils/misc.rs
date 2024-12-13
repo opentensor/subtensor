@@ -331,9 +331,6 @@ impl<T: Config> Pallet<T> {
         MaxChildkeyTake::<T>::put(take);
         Self::deposit_event(Event::MaxChildKeyTakeSet(take));
     }
-    pub fn get_min_childkey_take() -> u16 {
-        MinChildkeyTake::<T>::get()
-    }
 
     pub fn get_serving_rate_limit(netuid: u16) -> u64 {
         ServingRateLimit::<T>::get(netuid)
