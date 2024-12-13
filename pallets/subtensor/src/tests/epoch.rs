@@ -181,7 +181,7 @@ fn init_run_epochs(
     // === Issue validator permits
     SubtensorModule::set_max_allowed_validators(netuid, validators.len() as u16);
     assert_eq!(
-        SubtensorModule::get_max_allowed_validators(netuid),
+        MaxAllowedValidators::<Test>::get(netuid),
         validators.len() as u16
     );
     SubtensorModule::epoch(netuid, 1_000_000_000); // run first epoch to set allowed validators
@@ -995,7 +995,7 @@ fn test_bonds() {
 
 		// === Issue validator permits
 		SubtensorModule::set_max_allowed_validators(netuid, n);
-		assert_eq!( SubtensorModule::get_max_allowed_validators(netuid), n);
+		assert_eq!( MaxAllowedValidators::<Test>::get(netuid), n);
 		SubtensorModule::epoch( netuid, 1_000_000_000 ); // run first epoch to set allowed validators
         next_block(); // run to next block to ensure weights are set on nodes after their registration block
 
@@ -1554,7 +1554,7 @@ fn test_active_stake() {
 
         // === Issue validator permits
         SubtensorModule::set_max_allowed_validators(netuid, n);
-        assert_eq!(SubtensorModule::get_max_allowed_validators(netuid), n);
+        assert_eq!(MaxAllowedValidators::<Test>::get(netuid), n);
         SubtensorModule::epoch(netuid, 1_000_000_000); // run first epoch to set allowed validators
         next_block(); // run to next block to ensure weights are set on nodes after their registration block
 
@@ -1761,7 +1761,7 @@ fn test_outdated_weights() {
 
         // === Issue validator permits
         SubtensorModule::set_max_allowed_validators(netuid, n);
-        assert_eq!(SubtensorModule::get_max_allowed_validators(netuid), n);
+        assert_eq!(MaxAllowedValidators::<Test>::get(netuid), n);
         SubtensorModule::epoch(netuid, 1_000_000_000); // run first epoch to set allowed validators
         assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 4);
         block_number = next_block(); // run to next block to ensure weights are set on nodes after their registration block
@@ -2159,7 +2159,7 @@ fn test_validator_permits() {
                     // === Issue validator permits
                     SubtensorModule::set_max_allowed_validators(netuid, validators_n as u16);
                     assert_eq!(
-                        SubtensorModule::get_max_allowed_validators(netuid),
+                        MaxAllowedValidators::<Test>::get(netuid),
                         validators_n as u16
                     );
                     SubtensorModule::epoch(netuid, 1_000_000_000); // run first epoch to set allowed validators

@@ -93,7 +93,7 @@ impl<T: Config> Pallet<T> {
         let kappa = Kappa::<T>::get(netuid);
         let difficulty: Compact<u64> = Difficulty::<T>::get(netuid).into();
         let immunity_period = ImmunityPeriod::<T>::get(netuid);
-        let max_allowed_validators = Self::get_max_allowed_validators(netuid);
+        let max_allowed_validators = MaxAllowedValidators::<T>::get(netuid);
         let min_allowed_weights = Self::get_min_allowed_weights(netuid);
         let max_weights_limit = Self::get_max_weight_limit(netuid);
         let scaling_law_power = Self::get_scaling_law_power(netuid);
@@ -163,7 +163,7 @@ impl<T: Config> Pallet<T> {
         let kappa = Kappa::<T>::get(netuid);
         let difficulty: Compact<u64> = Difficulty::<T>::get(netuid).into();
         let immunity_period = ImmunityPeriod::<T>::get(netuid);
-        let max_allowed_validators = Self::get_max_allowed_validators(netuid);
+        let max_allowed_validators = MaxAllowedValidators::<T>::get(netuid);
         let min_allowed_weights = Self::get_min_allowed_weights(netuid);
         let max_weights_limit = Self::get_max_weight_limit(netuid);
         let scaling_law_power = Self::get_scaling_law_power(netuid);
@@ -249,7 +249,7 @@ impl<T: Config> Pallet<T> {
         let bonds_moving_avg = BondsMovingAverage::<T>::get(netuid);
         let max_regs_per_block = Self::get_max_registrations_per_block(netuid);
         let serving_rate_limit = Self::get_serving_rate_limit(netuid);
-        let max_validators = Self::get_max_allowed_validators(netuid);
+        let max_validators = MaxAllowedValidators::<T>::get(netuid);
         let adjustment_alpha = AdjustmentAlpha::<T>::get(netuid);
         let difficulty = Difficulty::<T>::get(netuid);
         let commit_reveal_periods = Self::get_reveal_period(netuid);
