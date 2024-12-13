@@ -11,8 +11,8 @@ use sp_runtime::traits::{DispatchInfoOf, SignedExtension};
 
 use super::mock::*;
 use crate::{
-    Axons, Burn, Difficulty, EmissionValues, Error, ImmunityPeriod, RAORecycledForRegistration,
-    SubnetworkN, SubtensorSignedExtension,
+    Axons, Burn, Difficulty, EmissionValues, Error, ImmunityPeriod, MaxAllowedUids,
+    RAORecycledForRegistration, SubnetworkN, SubtensorSignedExtension,
 };
 
 /********************************************
@@ -1535,9 +1535,9 @@ fn test_full_pass_through() {
         SubtensorModule::set_max_allowed_uids(netuid2, 2);
 
         // Check their max allowed.
-        assert_eq!(SubtensorModule::get_max_allowed_uids(netuid0), 2);
-        assert_eq!(SubtensorModule::get_max_allowed_uids(netuid0), 2);
-        assert_eq!(SubtensorModule::get_max_allowed_uids(netuid0), 2);
+        assert_eq!(MaxAllowedUids::<Test>::get(netuid0), 2);
+        assert_eq!(MaxAllowedUids::<Test>::get(netuid0), 2);
+        assert_eq!(MaxAllowedUids::<Test>::get(netuid0), 2);
 
         // Set the max registration per block.
         SubtensorModule::set_max_registrations_per_block(netuid0, 3);

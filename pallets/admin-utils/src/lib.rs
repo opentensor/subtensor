@@ -643,8 +643,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             ensure!(
-                max_allowed_validators
-                    <= pallet_subtensor::Pallet::<T>::get_max_allowed_uids(netuid),
+                max_allowed_validators <= pallet_subtensor::MaxAllowedUids::<T>::get(netuid),
                 Error::<T>::MaxValidatorsLargerThanMaxUIds
             );
 

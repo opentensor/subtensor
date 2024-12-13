@@ -98,7 +98,7 @@ impl<T: Config> Pallet<T> {
         let max_weights_limit = Self::get_max_weight_limit(netuid);
         let scaling_law_power = Self::get_scaling_law_power(netuid);
         let subnetwork_n = SubnetworkN::<T>::get(netuid);
-        let max_allowed_uids = Self::get_max_allowed_uids(netuid);
+        let max_allowed_uids = MaxAllowedUids::<T>::get(netuid);
         let blocks_since_last_step = BlocksSinceLastStep::<T>::get(netuid);
         let tempo = Self::get_tempo(netuid);
         let network_modality = <NetworkModality<T>>::get(netuid);
@@ -168,7 +168,7 @@ impl<T: Config> Pallet<T> {
         let max_weights_limit = Self::get_max_weight_limit(netuid);
         let scaling_law_power = Self::get_scaling_law_power(netuid);
         let subnetwork_n = SubnetworkN::<T>::get(netuid);
-        let max_allowed_uids = Self::get_max_allowed_uids(netuid);
+        let max_allowed_uids = MaxAllowedUids::<T>::get(netuid);
         let blocks_since_last_step = BlocksSinceLastStep::<T>::get(netuid);
         let tempo = Self::get_tempo(netuid);
         let network_modality = <NetworkModality<T>>::get(netuid);

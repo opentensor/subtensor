@@ -91,7 +91,7 @@ benchmarks! {
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
 
     Subtensor::<T>::set_network_registration_allowed( netuid, true);
-    assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
+    assert_eq!(MaxAllowedUids::<T>::get(netuid), 4096);
 
     let coldkey: T::AccountId = account("Test", 0, seed);
     let hotkey: T::AccountId = account("Alice", 0, seed);
@@ -119,7 +119,7 @@ benchmarks! {
     Subtensor::<T>::set_network_registration_allowed( netuid, true );
 
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
-    assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
+    assert_eq!(MaxAllowedUids::<T>::get(netuid), 4096);
 
     let coldkey: T::AccountId = account("Test", 0, seed);
     let hotkey: T::AccountId = account("Alice", 0, seed);
@@ -149,7 +149,7 @@ benchmarks! {
     Subtensor::<T>::set_network_registration_allowed( netuid, true );
 
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
-    assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
+    assert_eq!(MaxAllowedUids::<T>::get(netuid), 4096);
 
     let coldkey: T::AccountId = account("Test", 0, seed);
     let hotkey: T::AccountId = account("Alice", 0, seed);
@@ -187,7 +187,7 @@ benchmarks! {
 
     Subtensor::<T>::init_new_network(netuid, tempo);
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
-    assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
+    assert_eq!(MaxAllowedUids::<T>::get(netuid), 4096);
 
     Subtensor::<T>::set_burn(netuid, 1);
     let amount_to_be_staked = 1000000u32.into();
@@ -213,7 +213,7 @@ benchmarks! {
 
     Subtensor::<T>::init_new_network(netuid, tempo);
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
-    assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
+    assert_eq!(MaxAllowedUids::<T>::get(netuid), 4096);
 
     Subtensor::<T>::set_burn(netuid, 1);
     let amount_to_be_staked = 1000000u32.into();
@@ -236,7 +236,7 @@ benchmarks! {
 
     Subtensor::<T>::init_new_network(netuid, tempo);
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
-    assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
+    assert_eq!(MaxAllowedUids::<T>::get(netuid), 4096);
 
     let seed : u32 = 1;
     let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
@@ -277,7 +277,7 @@ benchmarks! {
     Subtensor::<T>::set_network_registration_allowed( netuid, true);
 
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
-    assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
+    assert_eq!(MaxAllowedUids::<T>::get(netuid), 4096);
 
     let coldkey: T::AccountId = account("Test", 0, seed);
     let hotkey: T::AccountId = account("Alice", 0, seed);
@@ -332,7 +332,7 @@ benchmarks! {
   //   assert_ok!(Subtensor::<T>::burned_register(RawOrigin::Signed(coldkey.clone()).into(), netuid, old_hotkey.clone()));
   //   assert_ok!(Subtensor::<T>::become_delegate(RawOrigin::Signed(coldkey.clone()).into(), old_hotkey.clone()));
 
-  //   let max_uids = Subtensor::<T>::get_max_allowed_uids(netuid) as u32;
+  //   let max_uids = MaxAllowedUids::<T>::get(netuid) as u32;
   //   for i in 0..max_uids - 1 {
   //       let coldkey: T::AccountId = account("Axon", 0, i);
   //       let hotkey: T::AccountId = account("Hotkey", 0, i);

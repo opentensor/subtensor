@@ -82,7 +82,7 @@ impl<T: Config> Pallet<T> {
     /// * 'u16': The max validators count of root network.
     ///
     pub fn get_max_root_validators() -> u16 {
-        Self::get_max_allowed_uids(Self::ROOT_NETUID)
+        MaxAllowedUids::<T>::get(Self::ROOT_NETUID)
     }
 
     /// Returns the emission value for the given subnet.
