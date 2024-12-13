@@ -520,9 +520,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::BondsMovingAverageSet(netuid, bonds_moving_average));
     }
 
-    pub fn get_max_registrations_per_block(netuid: u16) -> u16 {
-        MaxRegistrationsPerBlock::<T>::get(netuid)
-    }
     pub fn set_max_registrations_per_block(netuid: u16, max_registrations_per_block: u16) {
         MaxRegistrationsPerBlock::<T>::insert(netuid, max_registrations_per_block);
         Self::deposit_event(Event::MaxRegistrationsPerBlockSet(

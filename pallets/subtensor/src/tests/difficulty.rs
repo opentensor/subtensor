@@ -4,7 +4,8 @@ use sp_core::U256;
 
 use super::mock::*;
 use crate::{
-    AdjustmentInterval, Difficulty, LastAdjustmentBlock, MaxAllowedUids, MaxDifficulty, SubnetworkN,
+    AdjustmentInterval, Difficulty, LastAdjustmentBlock, MaxAllowedUids, MaxDifficulty,
+    MaxRegistrationsPerBlock, SubnetworkN,
 };
 
 #[test]
@@ -37,7 +38,7 @@ fn test_registration_difficulty_adjustment() {
             SubtensorModule::get_target_registrations_per_interval(netuid),
             1
         ); // Check set adjustment interval.
-        assert_eq!(SubtensorModule::get_max_registrations_per_block(netuid), 3); // Check set registrations per block.
+        assert_eq!(MaxRegistrationsPerBlock::<Test>::get(netuid), 3); // Check set registrations per block.
         assert_eq!(MaxAllowedUids::<Test>::get(netuid), 3); // Check set registrations per block.
         assert!(SubtensorModule::get_network_registration_allowed(netuid)); // Check set registration allowed
 
