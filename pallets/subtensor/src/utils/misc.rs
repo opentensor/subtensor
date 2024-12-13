@@ -74,9 +74,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_trust(netuid: u16) -> Vec<u16> {
         Trust::<T>::get(netuid)
     }
-    pub fn get_last_update(netuid: u16) -> Vec<u64> {
-        LastUpdate::<T>::get(netuid)
-    }
+
     pub fn get_pruning_score(netuid: u16) -> Vec<u16> {
         PruningScores::<T>::get(netuid)
     }
@@ -91,7 +89,7 @@ impl<T: Config> Pallet<T> {
     // ==== YumaConsensus UID params ====
     // ==================================
     pub fn set_last_update_for_uid(netuid: u16, uid: u16, last_update: u64) {
-        let mut updated_last_update_vec = Self::get_last_update(netuid);
+        let mut updated_last_update_vec = LastUpdate::<T>::get(netuid);
         let Some(updated_last_update) = updated_last_update_vec.get_mut(uid as usize) else {
             return;
         };
