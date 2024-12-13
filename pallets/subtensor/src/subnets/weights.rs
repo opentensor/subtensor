@@ -1004,7 +1004,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // If the max weight limit it u16 max, return true.
-        let max_weight_limit: u16 = Self::get_max_weight_limit(netuid);
+        let max_weight_limit: u16 = MaxWeightsLimit::<T>::get(netuid);
         if max_weight_limit == u16::MAX {
             return true;
         }
