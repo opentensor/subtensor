@@ -159,7 +159,6 @@ fn transfer_back_to_caller(
     account_id: &AccountId32,
     amount: U256,
 ) -> Result<(), PrecompileFailure> {
-    // this is staking smart contract's(0x0000000000000000000000000000000000000801) sr25519 address
     let smart_contract_account_id = match AccountId32::from_ss58check(smart_contract_address) {
         // match AccountId32::from_ss58check("5CwnBK9Ack1mhznmCnwiibCNQc174pYQVktYW3ayRpLm4K2X") {
         Ok(addr) => addr,
