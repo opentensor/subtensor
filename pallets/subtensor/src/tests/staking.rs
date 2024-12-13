@@ -1386,7 +1386,7 @@ fn test_clear_small_nominations() {
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(cold1),
             hot1,
-            SubtensorModule::get_min_delegate_take()
+            MinDelegateTake::<Test>::get()
         ));
         assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot1), cold1);
 
@@ -1395,7 +1395,7 @@ fn test_clear_small_nominations() {
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(cold2),
             hot2,
-            SubtensorModule::get_min_delegate_take()
+            MinDelegateTake::<Test>::get()
         ));
         assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot2), cold2);
 
@@ -1688,11 +1688,11 @@ fn test_delegate_take_can_be_decreased() {
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
-            SubtensorModule::get_min_delegate_take()
+            MinDelegateTake::<Test>::get()
         ));
         assert_eq!(
             Delegates::<Test>::get(hotkey0),
-            SubtensorModule::get_min_delegate_take()
+            MinDelegateTake::<Test>::get()
         );
 
         // Coldkey / hotkey 0 decreases take to 5%. This should fail as the minimum take is 9%
@@ -1734,11 +1734,11 @@ fn test_can_set_min_take_ok() {
         assert_ok!(SubtensorModule::do_decrease_take(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
-            SubtensorModule::get_min_delegate_take()
+            MinDelegateTake::<Test>::get()
         ));
         assert_eq!(
             Delegates::<Test>::get(hotkey0),
-            SubtensorModule::get_min_delegate_take()
+            MinDelegateTake::<Test>::get()
         );
     });
 }
@@ -1763,11 +1763,11 @@ fn test_delegate_take_can_not_be_increased_with_decrease_take() {
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
-            SubtensorModule::get_min_delegate_take()
+            MinDelegateTake::<Test>::get()
         ));
         assert_eq!(
             Delegates::<Test>::get(hotkey0),
-            SubtensorModule::get_min_delegate_take()
+            MinDelegateTake::<Test>::get()
         );
 
         // Coldkey / hotkey 0 tries to increase take to 12.5%
@@ -1781,7 +1781,7 @@ fn test_delegate_take_can_not_be_increased_with_decrease_take() {
         );
         assert_eq!(
             Delegates::<Test>::get(hotkey0),
-            SubtensorModule::get_min_delegate_take()
+            MinDelegateTake::<Test>::get()
         );
     });
 }
@@ -1806,11 +1806,11 @@ fn test_delegate_take_can_be_increased() {
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
-            SubtensorModule::get_min_delegate_take()
+            MinDelegateTake::<Test>::get()
         ));
         assert_eq!(
             Delegates::<Test>::get(hotkey0),
-            SubtensorModule::get_min_delegate_take()
+            MinDelegateTake::<Test>::get()
         );
 
         step_block(1 + InitialTxDelegateTakeRateLimit::get() as u16);
@@ -1845,11 +1845,11 @@ fn test_delegate_take_can_not_be_decreased_with_increase_take() {
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
-            SubtensorModule::get_min_delegate_take()
+            MinDelegateTake::<Test>::get()
         ));
         assert_eq!(
             Delegates::<Test>::get(hotkey0),
-            SubtensorModule::get_min_delegate_take()
+            MinDelegateTake::<Test>::get()
         );
 
         // Coldkey / hotkey 0 tries to decrease take to 5%
@@ -1863,7 +1863,7 @@ fn test_delegate_take_can_not_be_decreased_with_increase_take() {
         );
         assert_eq!(
             Delegates::<Test>::get(hotkey0),
-            SubtensorModule::get_min_delegate_take()
+            MinDelegateTake::<Test>::get()
         );
     });
 }
@@ -1888,11 +1888,11 @@ fn test_delegate_take_can_be_increased_to_limit() {
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
-            SubtensorModule::get_min_delegate_take()
+            MinDelegateTake::<Test>::get()
         ));
         assert_eq!(
             Delegates::<Test>::get(hotkey0),
-            SubtensorModule::get_min_delegate_take()
+            MinDelegateTake::<Test>::get()
         );
 
         step_block(1 + InitialTxDelegateTakeRateLimit::get() as u16);
@@ -1963,11 +1963,11 @@ fn test_delegate_take_can_not_be_increased_beyond_limit() {
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
-            SubtensorModule::get_min_delegate_take()
+            MinDelegateTake::<Test>::get()
         ));
         assert_eq!(
             Delegates::<Test>::get(hotkey0),
-            SubtensorModule::get_min_delegate_take()
+            MinDelegateTake::<Test>::get()
         );
 
         // Coldkey / hotkey 0 tries to increase take to InitialDefaultDelegateTake+1
@@ -1984,7 +1984,7 @@ fn test_delegate_take_can_not_be_increased_beyond_limit() {
         }
         assert_eq!(
             Delegates::<Test>::get(hotkey0),
-            SubtensorModule::get_min_delegate_take()
+            MinDelegateTake::<Test>::get()
         );
     });
 }
@@ -2009,11 +2009,11 @@ fn test_rate_limits_enforced_on_increase_take() {
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
-            SubtensorModule::get_min_delegate_take()
+            MinDelegateTake::<Test>::get()
         ));
         assert_eq!(
             Delegates::<Test>::get(hotkey0),
-            SubtensorModule::get_min_delegate_take()
+            MinDelegateTake::<Test>::get()
         );
 
         // Coldkey / hotkey 0 increases take to 12.5%
@@ -2027,7 +2027,7 @@ fn test_rate_limits_enforced_on_increase_take() {
         );
         assert_eq!(
             Delegates::<Test>::get(hotkey0),
-            SubtensorModule::get_min_delegate_take()
+            MinDelegateTake::<Test>::get()
         );
 
         step_block(1 + InitialTxDelegateTakeRateLimit::get() as u16);
