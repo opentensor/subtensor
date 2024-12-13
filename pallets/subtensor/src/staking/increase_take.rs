@@ -61,7 +61,7 @@ impl<T: Config> Pallet<T> {
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
             !Self::exceeds_tx_delegate_take_rate_limit(
-                Self::get_last_tx_block_delegate_take(&coldkey),
+                LastTxBlockDelegateTake::<T>::get(&coldkey),
                 block
             ),
             Error::<T>::DelegateTxRateLimitExceeded
