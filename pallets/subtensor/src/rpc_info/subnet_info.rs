@@ -254,7 +254,7 @@ impl<T: Config> Pallet<T> {
         let difficulty = Difficulty::<T>::get(netuid);
         let commit_reveal_periods = Self::get_reveal_period(netuid);
         let commit_reveal_weights_enabled = CommitRevealWeightsEnabled::<T>::get(netuid);
-        let liquid_alpha_enabled = Self::get_liquid_alpha_enabled(netuid);
+        let liquid_alpha_enabled = LiquidAlphaOn::<T>::get(netuid);
         let (alpha_low, alpha_high): (u16, u16) = AlphaValues::<T>::get(netuid);
 
         Some(SubnetHyperparams {

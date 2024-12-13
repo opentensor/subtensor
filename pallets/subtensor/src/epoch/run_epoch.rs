@@ -1275,7 +1275,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Ensure liquid alpha is enabled
         ensure!(
-            Self::get_liquid_alpha_enabled(netuid),
+            LiquidAlphaOn::<T>::get(netuid),
             Error::<T>::LiquidAlphaDisabled
         );
 

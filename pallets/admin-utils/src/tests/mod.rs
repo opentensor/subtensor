@@ -8,7 +8,7 @@ use frame_system::Config;
 use pallet_subtensor::{
     migrations, ActivityCutoff, AdjustmentAlpha, AdjustmentInterval, AlphaValues,
     BondsMovingAverage, CommitRevealWeightsEnabled, Difficulty, Error as SubtensorError, Event,
-    ImmunityPeriod, Kappa, MaxDelegateTake, RAORecycledForRegistration,
+    ImmunityPeriod, Kappa, LiquidAlphaOn, MaxDelegateTake, RAORecycledForRegistration,
 };
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{ed25519, Pair, U256};
@@ -1166,7 +1166,7 @@ fn test_sudo_set_liquid_alpha_enabled() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let enabled: bool = true;
-        assert_eq!(!enabled, SubtensorModule::get_liquid_alpha_enabled(netuid));
+        assert_eq!(!enabled, LiquidAlphaOn::<Test>::get(netuid));
 
         assert_ok!(AdminUtils::sudo_set_liquid_alpha_enabled(
             <<Test as Config>::RuntimeOrigin>::root(),
@@ -1174,7 +1174,7 @@ fn test_sudo_set_liquid_alpha_enabled() {
             enabled
         ));
 
-        assert_eq!(enabled, SubtensorModule::get_liquid_alpha_enabled(netuid));
+        assert_eq!(enabled, LiquidAlphaOn::<Test>::get(netuid));
     });
 }
 
