@@ -5,12 +5,8 @@ use frame_support::{
     traits::Hooks,
 };
 use frame_system::Config;
-use pallet_subtensor::{
-    migrations, ActivityCutoff, AdjustmentAlpha, AdjustmentInterval, AlphaValues,
-    BondsMovingAverage, CommitRevealWeightsEnabled, Difficulty, Error as SubtensorError, Event,
-    ImmunityPeriod, Kappa, LiquidAlphaOn, MaxDelegateTake, NetworkLockReductionInterval,
-    RAORecycledForRegistration,
-};
+use pallet_subtensor::Error as SubtensorError;
+use pallet_subtensor::*;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{ed25519, Pair, U256};
 
@@ -413,7 +409,7 @@ fn test_sudo_set_max_allowed_uids() {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
-        let init_value: u16 = SubtensorModule::get_max_allowed_uids(netuid);
+        let init_value: u16 = MaxAllowedUids::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_max_allowed_uids(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
@@ -430,13 +426,13 @@ fn test_sudo_set_max_allowed_uids() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), init_value);
+        assert_eq!(MaxAllowedUids::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_max_allowed_uids(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), to_be_set);
+        assert_eq!(MaxAllowedUids::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -446,7 +442,7 @@ fn test_sudo_set_and_decrease_max_allowed_uids() {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
-        let init_value: u16 = SubtensorModule::get_max_allowed_uids(netuid);
+        let init_value: u16 = MaxAllowedUids::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_max_allowed_uids(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
@@ -463,7 +459,7 @@ fn test_sudo_set_and_decrease_max_allowed_uids() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), init_value);
+        assert_eq!(MaxAllowedUids::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_max_allowed_uids(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,

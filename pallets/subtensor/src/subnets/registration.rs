@@ -120,11 +120,11 @@ impl<T: Config> Pallet<T> {
 
         // Possibly there is no neuron slots at all.
         ensure!(
-            Self::get_max_allowed_uids(netuid) != 0,
+            MaxAllowedUids::<T>::get(netuid) != 0,
             Error::<T>::NoNeuronIdAvailable
         );
 
-        if current_subnetwork_n < Self::get_max_allowed_uids(netuid) {
+        if current_subnetwork_n < MaxAllowedUids::<T>::get(netuid) {
             // --- 12.1.1 No replacement required, the uid appends the subnetwork.
             // We increment the subnetwork count here but not below.
             subnetwork_uid = current_subnetwork_n;
@@ -315,11 +315,11 @@ impl<T: Config> Pallet<T> {
 
         // Possibly there is no neuron slots at all.
         ensure!(
-            Self::get_max_allowed_uids(netuid) != 0,
+            MaxAllowedUids::<T>::get(netuid) != 0,
             Error::<T>::NoNeuronIdAvailable
         );
 
-        if current_subnetwork_n < Self::get_max_allowed_uids(netuid) {
+        if current_subnetwork_n < MaxAllowedUids::<T>::get(netuid) {
             // --- 11.1.1 No replacement required, the uid appends the subnetwork.
             // We increment the subnetwork count here but not below.
             subnetwork_uid = current_subnetwork_n;

@@ -3,7 +3,7 @@
 use sp_core::U256;
 
 use super::mock::*;
-use crate::{AdjustmentInterval, Difficulty, LastAdjustmentBlock, SubnetworkN};
+use crate::{AdjustmentInterval, Difficulty, LastAdjustmentBlock, MaxAllowedUids, SubnetworkN};
 
 #[test]
 fn test_registration_difficulty_adjustment() {
@@ -36,7 +36,7 @@ fn test_registration_difficulty_adjustment() {
             1
         ); // Check set adjustment interval.
         assert_eq!(SubtensorModule::get_max_registrations_per_block(netuid), 3); // Check set registrations per block.
-        assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), 3); // Check set registrations per block.
+        assert_eq!(MaxAllowedUids::<Test>::get(netuid), 3); // Check set registrations per block.
         assert!(SubtensorModule::get_network_registration_allowed(netuid)); // Check set registration allowed
 
         // Lets register 3 neurons...

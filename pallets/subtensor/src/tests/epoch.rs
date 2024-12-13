@@ -976,7 +976,7 @@ fn test_bonds() {
         let block_number = System::block_number();
 		add_network(netuid, tempo, 0);
 		SubtensorModule::set_max_allowed_uids( netuid, n );
-		assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
+		assert_eq!(MaxAllowedUids::<Test>::get(netuid), n);
 		SubtensorModule::set_max_registrations_per_block( netuid, n );
 		SubtensorModule::set_target_registrations_per_interval(netuid, n);
 		SubtensorModule::set_weights_set_rate_limit( netuid, 0 );
@@ -990,7 +990,7 @@ fn test_bonds() {
 			assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(U256::from(key)), netuid, block_number, nonce, work, U256::from(key), U256::from(key)));
 			SubtensorModule::increase_stake_on_coldkey_hotkey_account( &U256::from(key), &U256::from(key), stakes[key as usize] );
 		}
-		assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
+		assert_eq!(MaxAllowedUids::<Test>::get(netuid), n);
 		assert_eq!(SubnetworkN::<Test>::get(netuid), n);
 
 		// === Issue validator permits
@@ -1519,7 +1519,7 @@ fn test_active_stake() {
         let stake: u64 = 1;
         add_network(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
-        assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
+        assert_eq!(MaxAllowedUids::<Test>::get(netuid), n);
         SubtensorModule::set_max_registrations_per_block(netuid, n);
         SubtensorModule::set_target_registrations_per_interval(netuid, n);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
@@ -1549,7 +1549,7 @@ fn test_active_stake() {
                 stake,
             );
         }
-        assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
+        assert_eq!(MaxAllowedUids::<Test>::get(netuid), n);
         assert_eq!(SubnetworkN::<Test>::get(netuid), n);
 
         // === Issue validator permits
@@ -2119,10 +2119,7 @@ fn test_validator_permits() {
                     let block_number: u64 = 0;
                     add_network(netuid, tempo, 0);
                     SubtensorModule::set_max_allowed_uids(netuid, network_n as u16);
-                    assert_eq!(
-                        SubtensorModule::get_max_allowed_uids(netuid),
-                        network_n as u16
-                    );
+                    assert_eq!(MaxAllowedUids::<Test>::get(netuid), network_n as u16);
                     SubtensorModule::set_max_registrations_per_block(netuid, network_n as u16);
                     SubtensorModule::set_target_registrations_per_interval(
                         netuid,
