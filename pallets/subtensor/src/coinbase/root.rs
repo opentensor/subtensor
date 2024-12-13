@@ -1235,7 +1235,7 @@ impl<T: Config> Pallet<T> {
         let min_lock = Self::get_network_min_lock();
         let last_lock_block = Self::get_network_last_lock_block();
         let current_block = Self::get_current_block_as_u64();
-        let lock_reduction_interval = Self::get_lock_reduction_interval();
+        let lock_reduction_interval = NetworkLockReductionInterval::<T>::get();
         let mult = if last_lock_block == 0 { 1 } else { 2 };
 
         let mut lock_cost = last_lock.saturating_mul(mult).saturating_sub(
@@ -1335,8 +1335,5 @@ impl<T: Config> Pallet<T> {
     pub fn set_lock_reduction_interval(interval: u64) {
         NetworkLockReductionInterval::<T>::set(interval);
         Self::deposit_event(Event::NetworkLockCostReductionIntervalSet(interval));
-    }
-    pub fn get_lock_reduction_interval() -> u64 {
-        NetworkLockReductionInterval::<T>::get()
     }
 }
