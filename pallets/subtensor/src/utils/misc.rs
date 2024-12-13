@@ -616,10 +616,6 @@ impl<T: Config> Pallet<T> {
         LiquidAlphaOn::<T>::set(netuid, enabled);
     }
 
-    pub fn get_liquid_alpha_enabled(netuid: u16) -> bool {
-        LiquidAlphaOn::<T>::get(netuid)
-    }
-
     /// Sets the hotkey emission tempo.
     ///
     /// # Arguments
