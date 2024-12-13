@@ -8,7 +8,7 @@ use sp_core::{Get, H256, U256};
 use super::mock::*;
 use crate::{
     migrations, utils::rate_limiting::TransactionType, Error, NetworkRateLimit, SubnetIdentities,
-    SubnetIdentity, SubnetIdentityOf, SubnetworkN,
+    SubnetIdentity, SubnetIdentityOf, SubnetLimit, SubnetworkN,
 };
 
 #[allow(dead_code)]
@@ -226,7 +226,7 @@ fn test_root_set_weights() {
             ));
         }
 
-        log::info!("subnet limit: {:?}", SubtensorModule::get_max_subnets());
+        log::info!("subnet limit: {:?}", SubnetLimit::<Test>::get());
         log::info!(
             "current subnet count: {:?}",
             SubtensorModule::get_num_subnets()
@@ -369,7 +369,7 @@ fn test_root_set_weights_out_of_order_netuids() {
             ));
         }
 
-        log::info!("subnet limit: {:?}", SubtensorModule::get_max_subnets());
+        log::info!("subnet limit: {:?}", SubnetLimit::<Test>::get());
         log::info!(
             "current subnet count: {:?}",
             SubtensorModule::get_num_subnets()
@@ -735,7 +735,7 @@ fn test_weights_after_network_pruning() {
             "Root network weights before extra network registration: {:?}",
             SubtensorModule::get_root_weights()
         );
-        log::info!("Max subnets: {:?}", SubtensorModule::get_max_subnets());
+        log::info!("Max subnets: {:?}", SubnetLimit::<Test>::get());
         let i = (n as u16) + 1;
         // let _hot: U256 = U256::from(i);
         let cold: U256 = U256::from(i);
