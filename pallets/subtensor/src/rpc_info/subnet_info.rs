@@ -244,7 +244,7 @@ impl<T: Config> Pallet<T> {
         let activity_cutoff = ActivityCutoff::<T>::get(netuid);
         let registration_allowed = Self::get_network_registration_allowed(netuid);
         let target_regs_per_interval = Self::get_target_registrations_per_interval(netuid);
-        let min_burn = Self::get_min_burn_as_u64(netuid);
+        let min_burn = MinBurn::<T>::get(netuid);
         let max_burn = MaxBurn::<T>::get(netuid);
         let bonds_moving_avg = BondsMovingAverage::<T>::get(netuid);
         let max_regs_per_block = MaxRegistrationsPerBlock::<T>::get(netuid);
