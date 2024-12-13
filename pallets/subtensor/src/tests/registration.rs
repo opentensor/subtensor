@@ -12,7 +12,7 @@ use sp_runtime::traits::{DispatchInfoOf, SignedExtension};
 use super::mock::*;
 use crate::{
     Axons, Burn, Difficulty, EmissionValues, Error, ImmunityPeriod, MaxAllowedUids,
-    RAORecycledForRegistration, SubnetworkN, SubtensorSignedExtension,
+    MaxRegistrationsPerBlock, RAORecycledForRegistration, SubnetworkN, SubtensorSignedExtension,
 };
 
 /********************************************
@@ -656,7 +656,7 @@ fn test_registration_too_many_registrations_per_block() {
         add_network(netuid, tempo, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, 10);
         SubtensorModule::set_target_registrations_per_interval(netuid, 10);
-        assert_eq!(SubtensorModule::get_max_registrations_per_block(netuid), 10);
+        assert_eq!(MaxRegistrationsPerBlock::<Test>::get(netuid), 10);
 
         let block_number: u64 = 0;
         let (nonce0, work0): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
@@ -851,7 +851,7 @@ fn test_registration_too_many_registrations_per_interval() {
         let tempo: u16 = 13;
         add_network(netuid, tempo, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, 11);
-        assert_eq!(SubtensorModule::get_max_registrations_per_block(netuid), 11);
+        assert_eq!(MaxRegistrationsPerBlock::<Test>::get(netuid), 11);
         SubtensorModule::set_target_registrations_per_interval(netuid, 3);
         assert_eq!(
             SubtensorModule::get_target_registrations_per_interval(netuid),
@@ -1543,9 +1543,9 @@ fn test_full_pass_through() {
         SubtensorModule::set_max_registrations_per_block(netuid0, 3);
         SubtensorModule::set_max_registrations_per_block(netuid1, 3);
         SubtensorModule::set_max_registrations_per_block(netuid2, 3);
-        assert_eq!(SubtensorModule::get_max_registrations_per_block(netuid0), 3);
-        assert_eq!(SubtensorModule::get_max_registrations_per_block(netuid1), 3);
-        assert_eq!(SubtensorModule::get_max_registrations_per_block(netuid2), 3);
+        assert_eq!(MaxRegistrationsPerBlock::<Test>::get(netuid0), 3);
+        assert_eq!(MaxRegistrationsPerBlock::<Test>::get(netuid1), 3);
+        assert_eq!(MaxRegistrationsPerBlock::<Test>::get(netuid2), 3);
 
         // Check that no one has registered yet.
         assert_eq!(SubnetworkN::<Test>::get(netuid0), 0);
