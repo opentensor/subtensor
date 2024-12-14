@@ -2,6 +2,7 @@
 #![allow(clippy::unwrap_used)]
 
 use super::*;
+use hex::FromHex;
 
 pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
     let path: PathBuf = std::path::PathBuf::from("./snapshot.json");
@@ -187,16 +188,14 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
     // See <https://github.com/opentensor/subtensor/pull/1051>
     //
     // Need to do it in this hacky way because the ChainSpec builder doesn't support setting it
-    let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let blob_path =
-        std::path::Path::new(manifest_dir).join("src/chain_spec/code_substitute_2585476.txt");
-    let code_substitute_2585476 = std::fs::read_to_string(blob_path).unwrap();
-
+    let code_substitute_2585476_hex = include_bytes!("code_substitute_2585476.txt");
     let chain_spec_json = chain_spec.as_json(false).unwrap();
     let mut chain_spec_json = serde_json::from_str(&chain_spec_json).unwrap();
     sc_chain_spec::set_code_substitute_in_json_chain_spec(
         &mut chain_spec_json,
-        &hex::decode(code_substitute_2585476).unwrap(),
+        Vec::from_hex(code_substitute_2585476_hex)
+            .unwrap()
+            .as_slice(),
         2585476,
     );
     let chain_spec_bytes = chain_spec_json.to_string().into_bytes();
