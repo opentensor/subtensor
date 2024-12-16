@@ -1210,7 +1210,7 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn get_network_lock_cost() -> u64 {
         let last_lock = NetworkLastLockCost::<T>::get();
-        let min_lock = Self::get_network_min_lock();
+        let min_lock = NetworkMinLockCost::<T>::get();
         let last_lock_block = NetworkLastRegistered::<T>::get();
         let current_block = Self::get_current_block_as_u64();
         let lock_reduction_interval = NetworkLockReductionInterval::<T>::get();
@@ -1293,9 +1293,7 @@ impl<T: Config> Pallet<T> {
         NetworkMinLockCost::<T>::set(net_min_lock);
         Self::deposit_event(Event::NetworkMinLockCostSet(net_min_lock));
     }
-    pub fn get_network_min_lock() -> u64 {
-        NetworkMinLockCost::<T>::get()
-    }
+
     pub fn set_network_last_lock(net_last_lock: u64) {
         NetworkLastLockCost::<T>::set(net_last_lock);
     }
