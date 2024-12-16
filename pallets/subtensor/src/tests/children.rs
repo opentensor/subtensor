@@ -1424,7 +1424,7 @@ fn test_do_revoke_children_multiple_complex_scenario() {
 fn test_get_network_max_stake() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
-        let default_max_stake = SubtensorModule::get_network_max_stake(netuid);
+        let default_max_stake = NetworkMaxStake::<Test>::get(netuid);
 
         // Check that the default value is set correctly
         assert_eq!(default_max_stake, u64::MAX);
@@ -1434,10 +1434,7 @@ fn test_get_network_max_stake() {
         SubtensorModule::set_network_max_stake(netuid, new_max_stake);
 
         // Check that the new value is retrieved correctly
-        assert_eq!(
-            SubtensorModule::get_network_max_stake(netuid),
-            new_max_stake
-        );
+        assert_eq!(NetworkMaxStake::<Test>::get(netuid), new_max_stake);
     });
 }
 
@@ -1452,21 +1449,15 @@ fn test_get_network_max_stake() {
 fn test_set_network_max_stake() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
-        let initial_max_stake = SubtensorModule::get_network_max_stake(netuid);
+        let initial_max_stake = NetworkMaxStake::<Test>::get(netuid);
 
         // Set a new max stake value
         let new_max_stake: u64 = 500_000;
         SubtensorModule::set_network_max_stake(netuid, new_max_stake);
 
         // Check that the new value is set correctly
-        assert_eq!(
-            SubtensorModule::get_network_max_stake(netuid),
-            new_max_stake
-        );
-        assert_ne!(
-            SubtensorModule::get_network_max_stake(netuid),
-            initial_max_stake
-        );
+        assert_eq!(NetworkMaxStake::<Test>::get(netuid), new_max_stake);
+        assert_ne!(NetworkMaxStake::<Test>::get(netuid), initial_max_stake);
 
         // Check that the event is emitted
         System::assert_last_event(Event::NetworkMaxStakeSet(netuid, new_max_stake).into());
@@ -1492,11 +1483,11 @@ fn test_set_network_max_stake_multiple_networks() {
         SubtensorModule::set_network_max_stake(netuid2, max_stake2);
 
         // Check that the values are set correctly for each network
-        assert_eq!(SubtensorModule::get_network_max_stake(netuid1), max_stake1);
-        assert_eq!(SubtensorModule::get_network_max_stake(netuid2), max_stake2);
+        assert_eq!(NetworkMaxStake::<Test>::get(netuid1), max_stake1);
+        assert_eq!(NetworkMaxStake::<Test>::get(netuid2), max_stake2);
         assert_ne!(
-            SubtensorModule::get_network_max_stake(netuid1),
-            SubtensorModule::get_network_max_stake(netuid2)
+            NetworkMaxStake::<Test>::get(netuid1),
+            NetworkMaxStake::<Test>::get(netuid2)
         );
     });
 }
@@ -1522,14 +1513,8 @@ fn test_set_network_max_stake_update() {
         SubtensorModule::set_network_max_stake(netuid, updated_max_stake);
 
         // Check that the value is updated correctly
-        assert_eq!(
-            SubtensorModule::get_network_max_stake(netuid),
-            updated_max_stake
-        );
-        assert_ne!(
-            SubtensorModule::get_network_max_stake(netuid),
-            initial_max_stake
-        );
+        assert_eq!(NetworkMaxStake::<Test>::get(netuid), updated_max_stake);
+        assert_ne!(NetworkMaxStake::<Test>::get(netuid), initial_max_stake);
 
         // Check that the event is emitted for the update
         System::assert_last_event(Event::NetworkMaxStakeSet(netuid, updated_max_stake).into());
