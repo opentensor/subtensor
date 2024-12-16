@@ -13,10 +13,12 @@ use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripe
 // Include custom precompiles
 mod balance_transfer;
 mod ed25519;
+mod metagraph;
 mod staking;
 
 use balance_transfer::*;
 use ed25519::*;
+use metagraph::*;
 use staking::*;
 
 pub struct FrontierPrecompiles<R>(PhantomData<R>);
@@ -37,7 +39,7 @@ where
     pub fn new() -> Self {
         Self(Default::default())
     }
-    pub fn used_addresses() -> [H160; 10] {
+    pub fn used_addresses() -> [H160; 11] {
         [
             hash(1),
             hash(2),
@@ -49,6 +51,7 @@ where
             hash(EDVERIFY_PRECOMPILE_INDEX),
             hash(BALANCE_TRANSFER_INDEX),
             hash(STAKING_PRECOMPILE_INDEX),
+            hash(METAGRAPH_PRECOMPILE_INDEX),
         ]
     }
 }
@@ -73,6 +76,10 @@ where
                 Some(BalanceTransferPrecompile::execute(handle))
             }
             a if a == hash(STAKING_PRECOMPILE_INDEX) => Some(StakingPrecompile::execute(handle)),
+            a if a == hash(METAGRAPH_PRECOMPILE_INDEX) => {
+                Some(MetagraphPrecompile::execute(handle))
+            }
+
             _ => None,
         }
     }

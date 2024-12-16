@@ -3,7 +3,7 @@ use frame_support::{
     storage::IterableStorageDoubleMap,
     traits::{
         tokens::{
-            fungible::{Balanced as _, Inspect as _, Mutate as _},
+            fungible::{Balanced as _, Inspect as _},
             Fortitude, Precision, Preservation,
         },
         Imbalance,
@@ -339,13 +339,6 @@ impl<T: Config> Pallet<T> {
     ) {
         // infallible
         let _ = T::Currency::deposit(coldkey, amount, Precision::BestEffort);
-    }
-
-    pub fn set_balance_on_coldkey_account(
-        coldkey: &T::AccountId,
-        amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
-    ) {
-        T::Currency::set_balance(coldkey, amount);
     }
 
     pub fn can_remove_balance_from_coldkey_account(

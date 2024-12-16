@@ -41,9 +41,12 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
 
             processed_hotkeys.push((hotkey_account, (*amount, *uid)));
         }
+        processed_hotkeys.sort();
 
         processed_stakes.push((coldkey_account, processed_hotkeys));
     }
+
+    processed_stakes.sort();
 
     let mut balances_issuance: u64 = 0;
     let mut processed_balances: Vec<(sp_runtime::AccountId32, u64)> = Vec::new();
@@ -57,6 +60,8 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
             .checked_add(*amount)
             .ok_or("Balances issuance overflowed".to_string())?;
     }
+
+    processed_balances.sort();
 
     // Give front-ends necessary data to present to users
     let mut properties = sc_service::Properties::new();

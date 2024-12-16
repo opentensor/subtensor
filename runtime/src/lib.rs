@@ -38,6 +38,7 @@ use sp_core::{
     crypto::{ByteArray, KeyTypeId},
     OpaqueMetadata, H160, H256, U256,
 };
+use sp_runtime::generic::Era;
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     traits::{
@@ -86,6 +87,65 @@ use precompiles::FrontierPrecompiles;
 use fp_rpc::TransactionStatus;
 use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
 use pallet_evm::{Account as EVMAccount, BalanceConverter, FeeCalculator, Runner};
+
+// Drand
+impl pallet_drand::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = pallet_drand::weights::SubstrateWeight<Runtime>;
+    type AuthorityId = pallet_drand::crypto::TestAuthId;
+    type Verifier = pallet_drand::verifier::QuicknetVerifier;
+    type UnsignedPriority = ConstU64<{ 1 << 20 }>;
+    type HttpFetchTimeout = ConstU64<1_000>;
+}
+
+impl frame_system::offchain::SigningTypes for Runtime {
+    type Public = <Signature as Verify>::Signer;
+    type Signature = Signature;
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
+where
+    RuntimeCall: From<C>,
+{
+    type Extrinsic = UncheckedExtrinsic;
+    type OverarchingCall = RuntimeCall;
+}
+
+impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>> for Runtime {
+    fn create_transaction<S: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+        call: RuntimeCall,
+        public: <Signature as Verify>::Signer,
+        account: AccountId,
+        index: Index,
+    ) -> Option<(
+        RuntimeCall,
+        <UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
+    )> {
+        use sp_runtime::traits::StaticLookup;
+
+        let address = <Runtime as frame_system::Config>::Lookup::unlookup(account.clone());
+        let extra: SignedExtra = (
+            frame_system::CheckNonZeroSender::<Runtime>::new(),
+            frame_system::CheckSpecVersion::<Runtime>::new(),
+            frame_system::CheckTxVersion::<Runtime>::new(),
+            frame_system::CheckGenesis::<Runtime>::new(),
+            frame_system::CheckEra::<Runtime>::from(Era::Immortal),
+            check_nonce::CheckNonce::<Runtime>::from(index),
+            frame_system::CheckWeight::<Runtime>::new(),
+            pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
+            pallet_subtensor::SubtensorSignedExtension::<Runtime>::new(),
+            pallet_commitments::CommitmentsSignedExtension::<Runtime>::new(),
+            frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
+        );
+
+        let raw_payload = SignedPayload::new(call.clone(), extra.clone()).ok()?;
+        let signature = raw_payload.using_encoded(|payload| S::sign(payload, public))?;
+
+        let signature_payload = (address, signature, extra);
+
+        Some((call, signature_payload))
+    }
+}
 
 // Subtensor module
 pub use pallet_scheduler;
@@ -160,7 +220,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 212,
+    spec_version: 216,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1070,13 +1130,19 @@ impl pallet_admin_utils::Config for Runtime {
     type WeightInfo = pallet_admin_utils::weights::SubstrateWeight<Runtime>;
 }
 
-// Define the ChainId
-parameter_types! {
-    pub const SubtensorChainId: u64 = 0x03B1; // Unicode for lowercase alpha
-    // pub const SubtensorChainId: u64 = 0x03C4; // Unicode for lowercase tau
-}
-
+/// Define the ChainId
+/// EVM Chain ID will be set by sudo transaction for each chain
+///     Mainnet Finney: 0x03C4 - Unicode for lowercase tau
+///     TestNet Finney: 0x03B1 - Unicode for lowercase alpha
 impl pallet_evm_chain_id::Config for Runtime {}
+
+pub struct ConfigurableChainId;
+
+impl Get<u64> for ConfigurableChainId {
+    fn get() -> u64 {
+        pallet_evm_chain_id::ChainId::<Runtime>::get()
+    }
+}
 
 pub struct FindAuthorTruncated<F>(PhantomData<F>);
 impl<F: FindAuthor<u32>> FindAuthor<H160> for FindAuthorTruncated<F> {
@@ -1162,7 +1228,7 @@ impl pallet_evm::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type PrecompilesType = FrontierPrecompiles<Self>;
     type PrecompilesValue = PrecompilesValue;
-    type ChainId = SubtensorChainId;
+    type ChainId = ConfigurableChainId;
     type BlockGasLimit = BlockGasLimit;
     type Runner = pallet_evm::runner::stack::Runner<Self>;
     type OnChargeTransaction = ();
@@ -1330,6 +1396,8 @@ construct_runtime!(
         EVMChainId: pallet_evm_chain_id = 23,
         DynamicFee: pallet_dynamic_fee = 24,
         BaseFee: pallet_base_fee = 25,
+
+        Drand: pallet_drand = 26,
     }
 );
 
@@ -1398,6 +1466,7 @@ mod benches {
         [pallet_commitments, Commitments]
         [pallet_admin_utils, AdminUtils]
         [pallet_subtensor, SubtensorModule]
+        [pallet_drand, Drand]
     );
 }
 
@@ -1867,7 +1936,10 @@ impl_runtime_apis! {
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
 
+            #[allow(non_local_definitions)]
             impl frame_system_benchmarking::Config for Runtime {}
+
+            #[allow(non_local_definitions)]
             impl baseline::Config for Runtime {}
 
             use frame_support::traits::WhitelistedStorageKeys;
