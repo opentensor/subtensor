@@ -238,9 +238,6 @@ impl<T: Config> Pallet<T> {
     pub fn get_pow_registrations_this_interval(netuid: u16) -> u16 {
         POWRegistrationsThisInterval::<T>::get(netuid)
     }
-    pub fn get_neuron_block_at_registration(netuid: u16, neuron_uid: u16) -> u64 {
-        BlockAtRegistration::<T>::get(netuid, neuron_uid)
-    }
 
     // ========================
     // ===== Take checks ======
@@ -400,7 +397,7 @@ impl<T: Config> Pallet<T> {
     }
     /// Check if a neuron is in immunity based on the current block
     pub fn get_neuron_is_immune(netuid: u16, uid: u16) -> bool {
-        let registered_at = Self::get_neuron_block_at_registration(netuid, uid);
+        let registered_at = BlockAtRegistration::<T>::get(netuid, uid);
         let current_block = Self::get_current_block_as_u64();
         let immunity_period = ImmunityPeriod::<T>::get(netuid);
         current_block.saturating_sub(registered_at) < u64::from(immunity_period)
