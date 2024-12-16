@@ -5574,6 +5574,7 @@ dependencies = [
  "frame-system",
  "frame-system-rpc-runtime-api",
  "futures",
+ "hex",
  "jsonrpsee",
  "memmap2 0.9.5",
  "node-subtensor-runtime",
