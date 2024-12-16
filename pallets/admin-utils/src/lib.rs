@@ -916,7 +916,7 @@ pub mod pallet {
             min_stake: u64,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            let prev_min_stake = pallet_subtensor::Pallet::<T>::get_nominator_min_required_stake();
+            let prev_min_stake = pallet_subtensor::NominatorMinRequiredStake::<T>::get();
             log::trace!("Setting minimum stake to: {}", min_stake);
             pallet_subtensor::Pallet::<T>::set_nominator_min_required_stake(min_stake);
             if min_stake > prev_min_stake {

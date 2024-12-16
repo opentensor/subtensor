@@ -237,7 +237,7 @@ impl<T: Config> Pallet<T> {
         // Verify if the account is a nominator account by checking ownership of the hotkey by the coldkey.
         if !Self::coldkey_owns_hotkey(coldkey, hotkey) {
             // If the stake is below the minimum required, it's considered a small nomination and needs to be cleared.
-            if stake < Self::get_nominator_min_required_stake() {
+            if stake < NominatorMinRequiredStake::<T>::get() {
                 // Remove the stake from the nominator account. (this is a more forceful unstake operation which )
                 // Actually deletes the staking account.
                 let cleared_stake = Self::empty_stake_on_coldkey_hotkey_account(coldkey, hotkey);
