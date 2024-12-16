@@ -5,7 +5,7 @@ use frame_support::assert_ok;
 use sp_core::U256;
 use substrate_fixed::types::I64F64;
 
-use crate::{HotkeyEmissionTempo, TargetStakesPerInterval};
+use crate::{HotkeyEmissionTempo, PendingEmission, TargetStakesPerInterval};
 
 // Test the ability to hash all sorts of hotkeys.
 #[test]
@@ -74,7 +74,7 @@ fn test_coinbase_basic() {
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey), 1000);
 
         // Subnet has no pending emission.
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 0);
 
         // Step block
         next_block();
@@ -86,13 +86,13 @@ fn test_coinbase_basic() {
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey), 1000);
 
         // Subnet has no pending emission of 1 ( from coinbase )
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 1);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 1);
 
         // Step block releases
         next_block();
 
         // Subnet pending has been drained.
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 0);
 
         // Hotkey pending immediately drained.
         assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
@@ -110,7 +110,7 @@ fn test_coinbase_basic() {
         next_block();
 
         // Subnet pending increased by 1
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 1);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 1);
 
         // Hotkey pending not increased (still on subnet)
         assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
@@ -125,7 +125,7 @@ fn test_coinbase_basic() {
         next_block();
 
         // Subnet pending has been drained.
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 0);
 
         // Hotkey pending drained.
         assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
@@ -325,7 +325,7 @@ fn test_coinbase_nominator_drainage_overflow() {
             SubtensorModule::get_total_stake_for_hotkey(&hotkey),
             initial_stake * 2
         );
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 0);
 
         log::debug!("Emission set and initial states verified");
 
@@ -335,14 +335,14 @@ fn test_coinbase_nominator_drainage_overflow() {
 
         // 7. Simulate blocks and check emissions
         next_block();
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), to_emit);
+        assert_eq!(PendingEmission::<Test>::get(netuid), to_emit);
         log::debug!(
             "After first block, pending emission: {}",
-            SubtensorModule::get_pending_emission(netuid)
+            PendingEmission::<Test>::get(netuid)
         );
 
         next_block();
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 0);
         assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
         log::debug!("After second block, pending emission drained");
 
@@ -474,7 +474,7 @@ fn test_coinbase_nominator_drainage_no_deltas() {
         assert_eq!(SubtensorModule::get_subnet_emission_value(netuid), 10);
         assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey), 200);
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 0);
 
         log::debug!("Emission set and initial states verified");
 
@@ -484,14 +484,14 @@ fn test_coinbase_nominator_drainage_no_deltas() {
 
         // 7. Simulate blocks and check emissions
         next_block();
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 10);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 10);
         log::debug!(
             "After first block, pending emission: {}",
-            SubtensorModule::get_pending_emission(netuid)
+            PendingEmission::<Test>::get(netuid)
         );
 
         next_block();
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 0);
         assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
         log::debug!("After second block, pending emission drained");
 
@@ -624,7 +624,7 @@ fn test_coinbase_nominator_drainage_with_positive_delta() {
             SubtensorModule::get_total_stake_for_hotkey(&hotkey),
             200 + 123
         );
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 0);
 
         log::debug!("Emission set and initial states verified");
 
@@ -634,14 +634,14 @@ fn test_coinbase_nominator_drainage_with_positive_delta() {
 
         // 7. Simulate blocks and check emissions
         next_block();
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 10);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 10);
         log::debug!(
             "After first block, pending emission: {}",
-            SubtensorModule::get_pending_emission(netuid)
+            PendingEmission::<Test>::get(netuid)
         );
 
         next_block();
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 0);
         assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
         log::debug!("After second block, pending emission drained");
 
@@ -782,7 +782,7 @@ fn test_coinbase_nominator_drainage_with_negative_delta() {
             SubtensorModule::get_total_stake_for_hotkey(&hotkey),
             200 - 12
         );
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 0);
 
         log::debug!("Emission set and initial states verified");
 
@@ -792,14 +792,14 @@ fn test_coinbase_nominator_drainage_with_negative_delta() {
 
         // 7. Simulate blocks and check emissions
         next_block();
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 10);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 10);
         log::debug!(
             "After first block, pending emission: {}",
-            SubtensorModule::get_pending_emission(netuid)
+            PendingEmission::<Test>::get(netuid)
         );
 
         next_block();
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 0);
         assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
         log::debug!("After second block, pending emission drained");
 
@@ -945,7 +945,7 @@ fn test_coinbase_nominator_drainage_with_neutral_delta() {
         assert_eq!(SubtensorModule::get_subnet_emission_value(netuid), 10);
         assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey), 200);
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 0);
 
         log::debug!("Emission set and initial states verified");
 
@@ -955,14 +955,14 @@ fn test_coinbase_nominator_drainage_with_neutral_delta() {
 
         // 7. Simulate blocks and check emissions
         next_block();
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 10);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 10);
         log::debug!(
             "After first block, pending emission: {}",
-            SubtensorModule::get_pending_emission(netuid)
+            PendingEmission::<Test>::get(netuid)
         );
 
         next_block();
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 0);
         assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
         log::debug!("After second block, pending emission drained");
 
@@ -1127,7 +1127,7 @@ fn test_coinbase_nominator_drainage_with_net_positive_delta() {
             SubtensorModule::get_total_stake_for_hotkey(&hotkey),
             u64::try_from(200 + net_change).unwrap()
         );
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 0);
 
         log::debug!("Emission set and initial states verified");
 
@@ -1137,14 +1137,14 @@ fn test_coinbase_nominator_drainage_with_net_positive_delta() {
 
         // 7. Simulate blocks and check emissions
         next_block();
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 10);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 10);
         log::debug!(
             "After first block, pending emission: {}",
-            SubtensorModule::get_pending_emission(netuid)
+            PendingEmission::<Test>::get(netuid)
         );
 
         next_block();
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 0);
         assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
         log::debug!("After second block, pending emission drained");
 
@@ -1329,7 +1329,7 @@ fn test_coinbase_nominator_drainage_with_net_negative_delta() {
             SubtensorModule::get_total_stake_for_hotkey(&hotkey),
             u64::try_from(600 + net_change).unwrap()
         );
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 0);
 
         log::debug!("Emission set and initial states verified");
 
@@ -1339,14 +1339,14 @@ fn test_coinbase_nominator_drainage_with_net_negative_delta() {
 
         // 7. Simulate blocks and check emissions
         next_block();
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), to_emit);
+        assert_eq!(PendingEmission::<Test>::get(netuid), to_emit);
         log::debug!(
             "After first block, pending emission: {}",
-            SubtensorModule::get_pending_emission(netuid)
+            PendingEmission::<Test>::get(netuid)
         );
 
         next_block();
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 0);
         assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
         log::debug!("After second block, pending emission drained");
 
@@ -1478,7 +1478,7 @@ fn test_emission_with_registration_disabled_subnet() {
         assert_eq!(SubtensorModule::get_subnet_emission_value(netuid), 10);
 
         // Verify initial emission state is zero
-        assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+        assert_eq!(PendingEmission::<Test>::get(netuid), 0);
         assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
 
         // Advance chain by 100 blocks
