@@ -11,8 +11,9 @@ use sp_runtime::traits::{DispatchInfoOf, SignedExtension};
 
 use super::mock::*;
 use crate::{
-    Axons, Burn, Difficulty, EmissionValues, Error, ImmunityPeriod, MaxAllowedUids,
-    MaxRegistrationsPerBlock, RAORecycledForRegistration, SubnetworkN, SubtensorSignedExtension,
+    Axons, BlockAtRegistration, Burn, Difficulty, EmissionValues, Error, ImmunityPeriod,
+    MaxAllowedUids, MaxRegistrationsPerBlock, RAORecycledForRegistration, SubnetworkN,
+    SubtensorSignedExtension,
 };
 
 /********************************************
@@ -1224,10 +1225,7 @@ fn test_registration_get_uid_to_prune_all_in_immunity_period() {
         assert_eq!(SubtensorModule::get_pruning_score_for_uid(netuid, 1), 110);
         assert_eq!(ImmunityPeriod::<Test>::get(netuid), 2);
         assert_eq!(SubtensorModule::get_current_block_as_u64(), 0);
-        assert_eq!(
-            SubtensorModule::get_neuron_block_at_registration(netuid, 0),
-            0
-        );
+        assert_eq!(BlockAtRegistration::<Test>::get(netuid, 0), 0);
         assert_eq!(SubtensorModule::get_neuron_to_prune(0), 0);
     });
 }
@@ -1248,10 +1246,7 @@ fn test_registration_get_uid_to_prune_none_in_immunity_period() {
         assert_eq!(SubtensorModule::get_pruning_score_for_uid(netuid, 1), 110);
         assert_eq!(ImmunityPeriod::<Test>::get(netuid), 2);
         assert_eq!(SubtensorModule::get_current_block_as_u64(), 0);
-        assert_eq!(
-            SubtensorModule::get_neuron_block_at_registration(netuid, 0),
-            0
-        );
+        assert_eq!(BlockAtRegistration::<Test>::get(netuid, 0), 0);
         step_block(3);
         assert_eq!(SubtensorModule::get_current_block_as_u64(), 3);
         assert_eq!(SubtensorModule::get_neuron_to_prune(0), 0);

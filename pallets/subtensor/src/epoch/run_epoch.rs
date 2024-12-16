@@ -805,7 +805,7 @@ impl<T: Config> Pallet<T> {
         let block_at_registration: Vec<u64> = (0..n)
             .map(|neuron_uid| {
                 if Keys::<T>::contains_key(netuid, neuron_uid) {
-                    Self::get_neuron_block_at_registration(netuid, neuron_uid)
+                    BlockAtRegistration::<T>::get(netuid, neuron_uid)
                 } else {
                     0
                 }

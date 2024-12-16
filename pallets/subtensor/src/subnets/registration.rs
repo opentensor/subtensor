@@ -446,8 +446,7 @@ impl<T: Config> Pallet<T> {
 
         for neuron_uid in 0..neurons_n {
             let pruning_score: u16 = Self::get_pruning_score_for_uid(netuid, neuron_uid);
-            let block_at_registration: u64 =
-                Self::get_neuron_block_at_registration(netuid, neuron_uid);
+            let block_at_registration: u64 = BlockAtRegistration::<T>::get(netuid, neuron_uid);
             let is_immune = Self::get_neuron_is_immune(netuid, neuron_uid);
 
             if is_immune {
