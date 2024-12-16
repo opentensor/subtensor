@@ -236,23 +236,6 @@ impl<T: Config> Pallet<T> {
         );
     }
 
-    /* Retrieves the list of parents for a given child and network.
-    ///
-    /// # Arguments
-    /// * `child` - The child whose parents are to be retrieved.
-    /// * `netuid` - The network identifier.
-    ///
-    /// # Returns
-    /// * `Vec<(u64, T::AccountId)>` - A vector of tuples containing the proportion and parent account ID.
-    ///
-    /// # Example
-    /// ```
-    /// let parents = SubtensorModule::get_parents(&child, netuid);
-     */
-    pub fn get_parents(child: &T::AccountId, netuid: u16) -> Vec<(u64, T::AccountId)> {
-        ParentKeys::<T>::get(child, netuid)
-    }
-
     /// Sets the childkey take for a given hotkey.
     ///
     /// This function allows a coldkey to set the childkey take for a given hotkey.
