@@ -8,7 +8,7 @@ use sp_core::{Get, H256, U256};
 use super::mock::*;
 use crate::{
     migrations, utils::rate_limiting::TransactionType, Error, NetworkRateLimit, SubnetIdentities,
-    SubnetIdentity, SubnetIdentityOf, SubnetLimit, SubnetworkN,
+    SubnetIdentity, SubnetIdentityOf, SubnetLimit, SubnetworkN, TotalNetworks,
 };
 
 #[allow(dead_code)]
@@ -227,10 +227,7 @@ fn test_root_set_weights() {
         }
 
         log::info!("subnet limit: {:?}", SubnetLimit::<Test>::get());
-        log::info!(
-            "current subnet count: {:?}",
-            SubtensorModule::get_num_subnets()
-        );
+        log::info!("current subnet count: {:?}", TotalNetworks::<Test>::get());
 
         // Lets create n networks
         for netuid in 1..n {
@@ -370,10 +367,7 @@ fn test_root_set_weights_out_of_order_netuids() {
         }
 
         log::info!("subnet limit: {:?}", SubnetLimit::<Test>::get());
-        log::info!(
-            "current subnet count: {:?}",
-            SubtensorModule::get_num_subnets()
-        );
+        log::info!("current subnet count: {:?}", TotalNetworks::<Test>::get());
 
         // Lets create n networks
         for netuid in 1..n {

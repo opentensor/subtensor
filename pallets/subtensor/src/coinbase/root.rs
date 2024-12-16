@@ -32,17 +32,6 @@ impl<T: Config> Pallet<T> {
     /// The root network is a special case and has a fixed UID of 0.
     pub(crate) const ROOT_NETUID: u16 = 0;
 
-    /// Fetches the total count of subnets.
-    ///
-    /// This function retrieves the total number of subnets present on the chain.
-    ///
-    /// # Returns:
-    /// * 'u16': The total number of subnets.
-    ///
-    pub fn get_num_subnets() -> u16 {
-        TotalNetworks::<T>::get()
-    }
-
     /// Sets the max number of subnet
     ///
     /// This function sets the max number of subnet.
@@ -224,8 +213,8 @@ impl<T: Config> Pallet<T> {
         let n: usize = Self::get_num_root_validators() as usize;
 
         // --- 1 The number of subnets to validate.
-        log::debug!("subnet size before cast: {:?}", Self::get_num_subnets());
-        let k: usize = Self::get_num_subnets() as usize;
+        log::debug!("subnet size before cast: {:?}", TotalNetworks::<T>::get());
+        let k: usize = TotalNetworks::<T>::get() as usize;
         log::debug!("n: {:?} k: {:?}", n, k);
 
         // --- 2. Initialize a 2D vector with zeros to store the weights. The dimensions are determined
@@ -363,9 +352,9 @@ impl<T: Config> Pallet<T> {
         // --- 9. Calculates the trust of networks. Trust is a sum of all stake with weights > 0.
         // Trust will have shape k, a score for each subnet.
         log::debug!("Subnets:\n{:?}\n", Self::get_all_subnet_netuids());
-        log::debug!("N Subnets:\n{:?}\n", Self::get_num_subnets());
+        log::debug!("N Subnets:\n{:?}\n", TotalNetworks::<T>::get());
 
-        let total_networks = Self::get_num_subnets();
+        let total_networks = TotalNetworks::<T>::get();
         let mut trust = vec![I64F64::from_num(0); total_networks as usize];
         let mut total_stake: I64F64 = I64F64::from_num(0);
         for (weights, hotkey_stake) in weights.iter().zip(stake_i64) {
@@ -904,10 +893,10 @@ impl<T: Config> Pallet<T> {
         let netuid_to_register: u16 = {
             log::debug!(
                 "subnet count: {:?}\nmax subnets: {:?}",
-                Self::get_num_subnets(),
+                TotalNetworks::<T>::get(),
                 SubnetLimit::<T>::get()
             );
-            if Self::get_num_subnets().saturating_sub(1) < SubnetLimit::<T>::get() {
+            if TotalNetworks::<T>::get().saturating_sub(1) < SubnetLimit::<T>::get() {
                 // We subtract one because we don't want root subnet to count towards total
                 let mut next_available_netuid = 0;
                 loop {
