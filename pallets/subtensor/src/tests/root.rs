@@ -7,8 +7,8 @@ use sp_core::{Get, H256, U256};
 
 use super::mock::*;
 use crate::{
-    migrations, utils::rate_limiting::TransactionType, Error, NetworkRateLimit, SubnetIdentities,
-    SubnetIdentity, SubnetIdentityOf, SubnetLimit, SubnetworkN, TotalNetworks,
+    migrations, utils::rate_limiting::TransactionType, Error, NetworkRateLimit, PendingEmission,
+    SubnetIdentities, SubnetIdentity, SubnetIdentityOf, SubnetLimit, SubnetworkN, TotalNetworks,
 };
 
 #[allow(dead_code)]
@@ -307,24 +307,18 @@ fn test_root_set_weights() {
             log::debug!(
                 "check pending emission for netuid {} has pending {}",
                 netuid,
-                SubtensorModule::get_pending_emission(netuid as u16)
+                PendingEmission::<Test>::get(netuid as u16)
             );
-            assert_eq!(
-                SubtensorModule::get_pending_emission(netuid as u16),
-                199_999_998
-            );
+            assert_eq!(PendingEmission::<Test>::get(netuid as u16), 199_999_998);
         }
         step_block(1);
         for netuid in 1..n {
             log::debug!(
                 "check pending emission for netuid {} has pending {}",
                 netuid,
-                SubtensorModule::get_pending_emission(netuid as u16)
+                PendingEmission::<Test>::get(netuid as u16)
             );
-            assert_eq!(
-                SubtensorModule::get_pending_emission(netuid as u16),
-                299_999_997
-            );
+            assert_eq!(PendingEmission::<Test>::get(netuid as u16), 299_999_997);
         }
         let step = SubtensorModule::blocks_until_next_epoch(
             10,
@@ -332,7 +326,7 @@ fn test_root_set_weights() {
             SubtensorModule::get_current_block_as_u64(),
         );
         step_block(step as u16);
-        assert_eq!(SubtensorModule::get_pending_emission(10), 0);
+        assert_eq!(PendingEmission::<Test>::get(10), 0);
     });
 }
 
@@ -424,9 +418,9 @@ fn test_root_set_weights_out_of_order_netuids() {
             log::debug!(
                 "check pending emission for netuid {} has pending {}",
                 netuid,
-                SubtensorModule::get_pending_emission(*netuid)
+                PendingEmission::<Test>::get(*netuid)
             );
-            assert_eq!(SubtensorModule::get_pending_emission(*netuid), 199_999_998);
+            assert_eq!(PendingEmission::<Test>::get(*netuid), 199_999_998);
         }
         step_block(1);
         for netuid in subnets.iter() {
@@ -437,9 +431,9 @@ fn test_root_set_weights_out_of_order_netuids() {
             log::debug!(
                 "check pending emission for netuid {} has pending {}",
                 netuid,
-                SubtensorModule::get_pending_emission(*netuid)
+                PendingEmission::<Test>::get(*netuid)
             );
-            assert_eq!(SubtensorModule::get_pending_emission(*netuid), 299_999_997);
+            assert_eq!(PendingEmission::<Test>::get(*netuid), 299_999_997);
         }
         let step = SubtensorModule::blocks_until_next_epoch(
             9,
@@ -447,7 +441,7 @@ fn test_root_set_weights_out_of_order_netuids() {
             SubtensorModule::get_current_block_as_u64(),
         );
         step_block(step as u16);
-        assert_eq!(SubtensorModule::get_pending_emission(9), 0);
+        assert_eq!(PendingEmission::<Test>::get(9), 0);
     });
 }
 
@@ -611,12 +605,12 @@ fn test_network_pruning() {
         assert_eq!(SubtensorModule::get_subnet_emission_value(4), 50_857_187);
         assert_eq!(SubtensorModule::get_subnet_emission_value(5), 3_530_356);
         step_block(1);
-        assert_eq!(SubtensorModule::get_pending_emission(0), 0); // root network gets no pending emission.
-        assert_eq!(SubtensorModule::get_pending_emission(1), 249_435_914);
-        assert_eq!(SubtensorModule::get_pending_emission(2), 0); // This has been drained.
-        assert_eq!(SubtensorModule::get_pending_emission(3), 129_362_980);
-        assert_eq!(SubtensorModule::get_pending_emission(4), 0); // This network has been drained.
-        assert_eq!(SubtensorModule::get_pending_emission(5), 3_530_356);
+        assert_eq!(PendingEmission::<Test>::get(0), 0); // root network gets no pending emission.
+        assert_eq!(PendingEmission::<Test>::get(1), 249_435_914);
+        assert_eq!(PendingEmission::<Test>::get(2), 0); // This has been drained.
+        assert_eq!(PendingEmission::<Test>::get(3), 129_362_980);
+        assert_eq!(PendingEmission::<Test>::get(4), 0); // This network has been drained.
+        assert_eq!(PendingEmission::<Test>::get(5), 3_530_356);
         step_block(1);
     });
 }

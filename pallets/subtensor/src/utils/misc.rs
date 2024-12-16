@@ -224,9 +224,6 @@ impl<T: Config> Pallet<T> {
     pub fn get_tempo(netuid: u16) -> u16 {
         Tempo::<T>::get(netuid)
     }
-    pub fn get_pending_emission(netuid: u16) -> u64 {
-        PendingEmission::<T>::get(netuid)
-    }
 
     pub fn get_registrations_this_block(netuid: u16) -> u16 {
         RegistrationsThisBlock::<T>::get(netuid)
