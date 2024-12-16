@@ -590,19 +590,6 @@ impl<T: Config> Pallet<T> {
         PendingdHotkeyEmission::<T>::get(hotkey)
     }
 
-    /// Retrieves the maximum stake allowed for a given network.
-    ///
-    /// # Arguments
-    ///
-    /// * `netuid` - The unique identifier of the network.
-    ///
-    /// # Returns
-    ///
-    /// * `u64` - The maximum stake allowed for the specified network.
-    pub fn get_network_max_stake(netuid: u16) -> u64 {
-        NetworkMaxStake::<T>::get(netuid)
-    }
-
     /// Sets the maximum stake allowed for a given network.
     ///
     /// # Arguments

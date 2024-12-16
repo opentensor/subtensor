@@ -77,7 +77,7 @@ impl<T: Config> Pallet<T> {
             .saturating_add(stake_from_parents);
 
         // get the max stake for the network
-        let max_stake = Self::get_network_max_stake(netuid);
+        let max_stake = NetworkMaxStake::<T>::get(netuid);
 
         // Return the finalized stake value for the hotkey, but capped at the max stake.
         finalized_stake = finalized_stake.min(max_stake);
