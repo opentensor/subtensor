@@ -46,7 +46,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                 let registrations_this_interval: u16 =
                     Self::get_registrations_this_interval(netuid);
                 let pow_registrations_this_interval: u16 =
-                    Self::get_pow_registrations_this_interval(netuid);
+                    POWRegistrationsThisInterval::<T>::get(netuid);
                 let burn_registrations_this_interval: u16 =
                     BurnRegistrationsThisInterval::<T>::get(netuid);
                 let target_registrations_this_interval: u16 =

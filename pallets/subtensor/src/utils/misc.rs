@@ -232,9 +232,6 @@ impl<T: Config> Pallet<T> {
     pub fn get_registrations_this_interval(netuid: u16) -> u16 {
         RegistrationsThisInterval::<T>::get(netuid)
     }
-    pub fn get_pow_registrations_this_interval(netuid: u16) -> u16 {
-        POWRegistrationsThisInterval::<T>::get(netuid)
-    }
 
     // ========================
     // ===== Take checks ======
