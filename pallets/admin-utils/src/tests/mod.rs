@@ -880,7 +880,7 @@ mod sudo_set_nominator_min_required_stake {
     #[test]
     fn can_only_be_called_by_admin() {
         new_test_ext().execute_with(|| {
-            let to_be_set: u64 = SubtensorModule::get_nominator_min_required_stake() + 5_u64;
+            let to_be_set: u64 = NominatorMinRequiredStake::<Test>::get() + 5_u64;
             assert_eq!(
                 AdminUtils::sudo_set_nominator_min_required_stake(
                     <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
@@ -898,28 +898,25 @@ mod sudo_set_nominator_min_required_stake {
                 <<Test as Config>::RuntimeOrigin>::root(),
                 10u64
             ));
-            assert_eq!(SubtensorModule::get_nominator_min_required_stake(), 10u64);
+            assert_eq!(NominatorMinRequiredStake::<Test>::get(), 10u64);
 
             assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
                 <<Test as Config>::RuntimeOrigin>::root(),
                 5u64
             ));
-            assert_eq!(SubtensorModule::get_nominator_min_required_stake(), 5u64);
+            assert_eq!(NominatorMinRequiredStake::<Test>::get(), 5u64);
         });
     }
 
     #[test]
     fn sets_a_higher_value() {
         new_test_ext().execute_with(|| {
-            let to_be_set: u64 = SubtensorModule::get_nominator_min_required_stake() + 5_u64;
+            let to_be_set: u64 = NominatorMinRequiredStake::<Test>::get() + 5_u64;
             assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
                 <<Test as Config>::RuntimeOrigin>::root(),
                 to_be_set
             ));
-            assert_eq!(
-                SubtensorModule::get_nominator_min_required_stake(),
-                to_be_set
-            );
+            assert_eq!(NominatorMinRequiredStake::<Test>::get(), to_be_set);
         });
     }
 
