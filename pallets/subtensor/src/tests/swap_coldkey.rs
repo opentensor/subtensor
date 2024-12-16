@@ -685,10 +685,10 @@ fn test_swap_stake_for_coldkey() {
 
         // Verify ownership transfer
         assert_eq!(
-            SubtensorModule::get_owned_hotkeys(&new_coldkey),
+            OwnedHotkeys::<Test>::get(new_coldkey),
             vec![hotkey1, hotkey2]
         );
-        assert_eq!(SubtensorModule::get_owned_hotkeys(&old_coldkey), vec![]);
+        assert_eq!(OwnedHotkeys::<Test>::get(old_coldkey), vec![]);
 
         // Verify stake transfer
         assert_eq!(Stake::<Test>::get(hotkey2, new_coldkey), stake_amount2);
@@ -1096,7 +1096,7 @@ fn test_coldkey_swap_total() {
         ));
 
         assert_eq!(
-            SubtensorModule::get_owned_hotkeys(&coldkey),
+            OwnedHotkeys::<Test>::get(coldkey),
             vec![hotkey1, hotkey2, hotkey3]
         );
         assert_eq!(
@@ -1111,18 +1111,9 @@ fn test_coldkey_swap_total() {
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate2), 300);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate3), 300);
 
-        assert_eq!(
-            SubtensorModule::get_owned_hotkeys(&delegate1),
-            vec![delegate1]
-        );
-        assert_eq!(
-            SubtensorModule::get_owned_hotkeys(&delegate2),
-            vec![delegate2]
-        );
-        assert_eq!(
-            SubtensorModule::get_owned_hotkeys(&delegate3),
-            vec![delegate3]
-        );
+        assert_eq!(OwnedHotkeys::<Test>::get(delegate1), vec![delegate1]);
+        assert_eq!(OwnedHotkeys::<Test>::get(delegate2), vec![delegate2]);
+        assert_eq!(OwnedHotkeys::<Test>::get(delegate3), vec![delegate3]);
         assert_eq!(
             StakingHotkeys::<Test>::get(delegate1),
             vec![delegate1, hotkey1]
@@ -1136,9 +1127,9 @@ fn test_coldkey_swap_total() {
             vec![delegate3, hotkey3]
         );
 
-        assert_eq!(SubtensorModule::get_owned_hotkeys(&nominator1), vec![]);
-        assert_eq!(SubtensorModule::get_owned_hotkeys(&nominator2), vec![]);
-        assert_eq!(SubtensorModule::get_owned_hotkeys(&nominator3), vec![]);
+        assert_eq!(OwnedHotkeys::<Test>::get(nominator1), vec![]);
+        assert_eq!(OwnedHotkeys::<Test>::get(nominator2), vec![]);
+        assert_eq!(OwnedHotkeys::<Test>::get(nominator3), vec![]);
 
         assert_eq!(
             StakingHotkeys::<Test>::get(nominator1),
@@ -1169,7 +1160,7 @@ fn test_coldkey_swap_total() {
 
         // Check everything is swapped.
         assert_eq!(
-            SubtensorModule::get_owned_hotkeys(&new_coldkey),
+            OwnedHotkeys::<Test>::get(new_coldkey),
             vec![hotkey1, hotkey2, hotkey3]
         );
         assert_eq!(
@@ -1187,18 +1178,9 @@ fn test_coldkey_swap_total() {
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate2), 300);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate3), 300);
 
-        assert_eq!(
-            SubtensorModule::get_owned_hotkeys(&delegate1),
-            vec![delegate1]
-        );
-        assert_eq!(
-            SubtensorModule::get_owned_hotkeys(&delegate2),
-            vec![delegate2]
-        );
-        assert_eq!(
-            SubtensorModule::get_owned_hotkeys(&delegate3),
-            vec![delegate3]
-        );
+        assert_eq!(OwnedHotkeys::<Test>::get(delegate1), vec![delegate1]);
+        assert_eq!(OwnedHotkeys::<Test>::get(delegate2), vec![delegate2]);
+        assert_eq!(OwnedHotkeys::<Test>::get(delegate3), vec![delegate3]);
         assert_eq!(
             StakingHotkeys::<Test>::get(delegate1),
             vec![delegate1, hotkey1]
@@ -1212,9 +1194,9 @@ fn test_coldkey_swap_total() {
             vec![delegate3, hotkey3]
         );
 
-        assert_eq!(SubtensorModule::get_owned_hotkeys(&nominator1), vec![]);
-        assert_eq!(SubtensorModule::get_owned_hotkeys(&nominator2), vec![]);
-        assert_eq!(SubtensorModule::get_owned_hotkeys(&nominator3), vec![]);
+        assert_eq!(OwnedHotkeys::<Test>::get(nominator1), vec![]);
+        assert_eq!(OwnedHotkeys::<Test>::get(nominator2), vec![]);
+        assert_eq!(OwnedHotkeys::<Test>::get(nominator3), vec![]);
 
         assert_eq!(
             StakingHotkeys::<Test>::get(nominator1),
