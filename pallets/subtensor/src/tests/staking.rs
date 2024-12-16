@@ -898,7 +898,7 @@ fn test_remove_stake_from_hotkey_account() {
 
         // Remove stake
         SubtensorModule::decrease_stake_on_coldkey_hotkey_account(
-            &SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_id),
+            &Owner::<Test>::get(hotkey_id),
             &hotkey_id,
             amount,
         );
@@ -955,7 +955,7 @@ fn test_remove_stake_from_hotkey_account_registered_in_various_networks() {
 
         // Remove stake
         SubtensorModule::decrease_stake_on_coldkey_hotkey_account(
-            &SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_id),
+            &Owner::<Test>::get(hotkey_id),
             &hotkey_id,
             amount,
         );
@@ -1055,10 +1055,7 @@ fn test_hotkey_belongs_to_coldkey_ok() {
         let start_nonce: u64 = 0;
         add_network(netuid, tempo, 0);
         register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
-        assert_eq!(
-            SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_id),
-            coldkey_id
-        );
+        assert_eq!(Owner::<Test>::get(hotkey_id), coldkey_id);
     });
 }
 // /************************************************************
@@ -1388,7 +1385,7 @@ fn test_clear_small_nominations() {
             hot1,
             MinDelegateTake::<Test>::get()
         ));
-        assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot1), cold1);
+        assert_eq!(Owner::<Test>::get(hot1), cold1);
 
         // Register hot2.
         register_ok_neuron(netuid, hot2, cold2, 0);
@@ -1397,7 +1394,7 @@ fn test_clear_small_nominations() {
             hot2,
             MinDelegateTake::<Test>::get()
         ));
-        assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot2), cold2);
+        assert_eq!(Owner::<Test>::get(hot2), cold2);
 
         // Add stake cold1 --> hot1 (non delegation.)
         SubtensorModule::add_balance_to_coldkey_account(&cold1, 5);
