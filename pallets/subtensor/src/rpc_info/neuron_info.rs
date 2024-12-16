@@ -79,7 +79,7 @@ impl<T: Config> Pallet<T> {
 
         let axon_info = Axons::<T>::get(netuid, &hotkey).unwrap_or_default();
 
-        let prometheus_info = Self::get_prometheus_info(netuid, &hotkey);
+        let prometheus_info = Prometheus::<T>::get(netuid, &hotkey).unwrap_or_default();
 
         let coldkey = Owner::<T>::get(hotkey.clone()).clone();
 
@@ -162,7 +162,7 @@ impl<T: Config> Pallet<T> {
 
         let axon_info = Axons::<T>::get(netuid, &hotkey).unwrap_or_default();
 
-        let prometheus_info = Self::get_prometheus_info(netuid, &hotkey);
+        let prometheus_info = Prometheus::<T>::get(netuid, &hotkey).unwrap_or_default();
 
         let coldkey = Owner::<T>::get(&hotkey).clone();
 
