@@ -66,7 +66,7 @@ fn test_sudo_set_min_difficulty() {
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
-        let init_value: u64 = SubtensorModule::get_min_difficulty(netuid);
+        let init_value: u64 = MinDifficulty::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_min_difficulty(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -83,13 +83,13 @@ fn test_sudo_set_min_difficulty() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_min_difficulty(netuid), init_value);
+        assert_eq!(MinDifficulty::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_min_difficulty(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_min_difficulty(netuid), to_be_set);
+        assert_eq!(MinDifficulty::<Test>::get(netuid), to_be_set);
     });
 }
 

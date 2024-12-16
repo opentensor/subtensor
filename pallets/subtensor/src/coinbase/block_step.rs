@@ -201,8 +201,8 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
             );
         if next_value >= I110F18::from_num(MaxDifficulty::<T>::get(netuid)) {
             MaxDifficulty::<T>::get(netuid)
-        } else if next_value <= I110F18::from_num(Self::get_min_difficulty(netuid)) {
-            return Self::get_min_difficulty(netuid);
+        } else if next_value <= I110F18::from_num(MinDifficulty::<T>::get(netuid)) {
+            return MinDifficulty::<T>::get(netuid);
         } else {
             return next_value.to_num::<u64>();
         }

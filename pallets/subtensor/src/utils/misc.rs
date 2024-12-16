@@ -337,9 +337,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::ServingRateLimitSet(netuid, serving_rate_limit));
     }
 
-    pub fn get_min_difficulty(netuid: u16) -> u64 {
-        MinDifficulty::<T>::get(netuid)
-    }
     pub fn set_min_difficulty(netuid: u16, min_difficulty: u64) {
         MinDifficulty::<T>::insert(netuid, min_difficulty);
         Self::deposit_event(Event::MinDifficultySet(netuid, min_difficulty));
