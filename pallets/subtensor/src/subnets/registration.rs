@@ -244,7 +244,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Ensure the passed network allows registrations.
         ensure!(
-            Self::get_network_pow_registration_allowed(netuid),
+            NetworkPowRegistrationAllowed::<T>::get(netuid),
             Error::<T>::SubNetRegistrationDisabled
         );
 

@@ -445,9 +445,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::RegistrationAllowed(netuid, registration_allowed));
     }
 
-    pub fn get_network_pow_registration_allowed(netuid: u16) -> bool {
-        NetworkPowRegistrationAllowed::<T>::get(netuid)
-    }
     pub fn set_network_pow_registration_allowed(netuid: u16, registration_allowed: bool) {
         NetworkPowRegistrationAllowed::<T>::insert(netuid, registration_allowed);
         Self::deposit_event(Event::PowRegistrationAllowed(netuid, registration_allowed));
