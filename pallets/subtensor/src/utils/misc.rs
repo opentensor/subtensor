@@ -167,6 +167,7 @@ impl<T: Config> Pallet<T> {
         let (stakes_count, last_staked_at) =
             TotalHotkeyColdkeyStakesThisInterval::<T>::get(coldkey, hotkey);
 
+        // Reset staking counter if it's been stake_interval blocks since the first staking action of the series.
         if stakes_count == 0 || last_staked_at.saturating_add(stake_interval) <= current_block {
             TotalHotkeyColdkeyStakesThisInterval::<T>::insert(coldkey, hotkey, (1, current_block));
             return Ok(());
