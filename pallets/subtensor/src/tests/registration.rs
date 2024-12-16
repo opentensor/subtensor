@@ -12,7 +12,7 @@ use sp_runtime::traits::{DispatchInfoOf, SignedExtension};
 use super::mock::*;
 use crate::{
     Axons, BlockAtRegistration, Burn, Difficulty, EmissionValues, Error, ImmunityPeriod,
-    MaxAllowedUids, MaxRegistrationsPerBlock, RAORecycledForRegistration, SubnetworkN,
+    MaxAllowedUids, MaxRegistrationsPerBlock, Owner, RAORecycledForRegistration, SubnetworkN,
     SubtensorSignedExtension,
 };
 
@@ -134,10 +134,7 @@ fn test_registration_ok() {
         assert_eq!(SubnetworkN::<Test>::get(netuid), 1);
 
         //check if hotkey is added to the Hotkeys
-        assert_eq!(
-            SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
-            coldkey_account_id
-        );
+        assert_eq!(Owner::<Test>::get(hotkey_account_id), coldkey_account_id);
 
         // Check if the neuron has added to the Keys
         let neuron_uid =
@@ -441,10 +438,7 @@ fn test_burned_registration_ok() {
            // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubnetworkN::<Test>::get(netuid), 1);
         //check if hotkey is added to the Hotkeys
-        assert_eq!(
-            SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
-            coldkey_account_id
-        );
+        assert_eq!(Owner::<Test>::get(hotkey_account_id), coldkey_account_id);
         // Check if the neuron has added to the Keys
         let neuron_uid =
             SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).unwrap();
@@ -2005,11 +1999,11 @@ fn test_registration_disabled() {
 //             new_hotkey
 //         ));
 //         assert_ne!(
-//             SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
+//             Owner::<Test>::get(&hotkey_account_id),
 //             coldkey_account_id
 //         );
 //         assert_eq!(
-//             SubtensorModule::get_owning_coldkey_for_hotkey(&new_hotkey),
+//             Owner::<Test>::get(&new_hotkey),
 //             coldkey_account_id
 //         );
 //     });

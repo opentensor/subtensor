@@ -943,7 +943,7 @@ mod sudo_set_nominator_min_required_stake {
                 hot1,
                 u16::MAX / 10
             ));
-            assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot1), cold1);
+            assert_eq!(Owner::<Test>::get(hot1), cold1);
 
             // Register hot2.
             register_ok_neuron(netuid, hot2, cold2, 0);
@@ -952,7 +952,7 @@ mod sudo_set_nominator_min_required_stake {
                 hot2,
                 u16::MAX / 10
             ));
-            assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot2), cold2);
+            assert_eq!(Owner::<Test>::get(hot2), cold2);
 
             // Add stake cold1 --> hot1 (non delegation.)
             SubtensorModule::add_balance_to_coldkey_account(&cold1, 5);

@@ -74,17 +74,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Returns the coldkey owning this hotkey. This function should only be called for active accounts.
-    ///
-    /// # Arguments
-    /// * `hotkey` - The hotkey account ID.
-    ///
-    /// # Returns
-    /// The coldkey account ID that owns the hotkey.
-    pub fn get_owning_coldkey_for_hotkey(hotkey: &T::AccountId) -> T::AccountId {
-        Owner::<T>::get(hotkey)
-    }
-
     /// Returns true if the hotkey account has been created.
     ///
     /// # Arguments
@@ -131,11 +120,7 @@ impl<T: Config> Pallet<T> {
     /// * `hotkey` - The hotkey account ID.
     /// * `increment` - The amount to be incremented.
     pub fn increase_stake_on_hotkey_account(hotkey: &T::AccountId, increment: u64) {
-        Self::increase_stake_on_coldkey_hotkey_account(
-            &Self::get_owning_coldkey_for_hotkey(hotkey),
-            hotkey,
-            increment,
-        );
+        Self::increase_stake_on_coldkey_hotkey_account(&Owner::<T>::get(hotkey), hotkey, increment);
     }
 
     // Increases the stake on the cold - hot pairing by increment while also incrementing other counters.

@@ -709,7 +709,7 @@ impl<T: Config> Pallet<T> {
 
         // Check that the signer coldkey owns the hotkey
         ensure!(
-            Self::get_owning_coldkey_for_hotkey(&hotkey) == coldkey,
+            Owner::<T>::get(&hotkey) == coldkey,
             Error::<T>::NonAssociatedColdKey
         );
 

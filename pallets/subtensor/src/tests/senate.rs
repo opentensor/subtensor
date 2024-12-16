@@ -14,7 +14,7 @@ use sp_runtime::{
     BuildStorage,
 };
 
-use crate::{migrations, Error, SubnetworkN};
+use crate::{migrations, Error, Owner, SubnetworkN};
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
@@ -83,10 +83,7 @@ fn test_senate_join_works() {
            // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubnetworkN::<Test>::get(netuid), 1);
         // Check if hotkey is added to the Hotkeys
-        assert_eq!(
-            SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
-            coldkey_account_id
-        );
+        assert_eq!(Owner::<Test>::get(hotkey_account_id), coldkey_account_id);
 
         // Lets make this new key a delegate with a 10% take.
         assert_ok!(SubtensorModule::do_become_delegate(
@@ -152,10 +149,7 @@ fn test_senate_vote_works() {
            // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubnetworkN::<Test>::get(netuid), 1);
         // Check if hotkey is added to the Hotkeys
-        assert_eq!(
-            SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
-            coldkey_account_id
-        );
+        assert_eq!(Owner::<Test>::get(hotkey_account_id), coldkey_account_id);
 
         // Lets make this new key a delegate with a 10% take.
         assert_ok!(SubtensorModule::do_become_delegate(
@@ -260,10 +254,7 @@ fn test_senate_vote_not_member() {
            // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubnetworkN::<Test>::get(netuid), 1);
         // Check if hotkey is added to the Hotkeys
-        assert_eq!(
-            SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
-            coldkey_account_id
-        );
+        assert_eq!(Owner::<Test>::get(hotkey_account_id), coldkey_account_id);
 
         let proposal = make_proposal(42);
         let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
@@ -320,10 +311,7 @@ fn test_senate_leave_works() {
            // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubnetworkN::<Test>::get(netuid), 1);
         // Check if hotkey is added to the Hotkeys
-        assert_eq!(
-            SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
-            coldkey_account_id
-        );
+        assert_eq!(Owner::<Test>::get(hotkey_account_id), coldkey_account_id);
 
         // Lets make this new key a delegate with a 10% take.
         assert_ok!(SubtensorModule::do_become_delegate(
@@ -390,10 +378,7 @@ fn test_senate_leave_vote_removal() {
            // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubnetworkN::<Test>::get(netuid), 1);
         // Check if hotkey is added to the Hotkeys
-        assert_eq!(
-            SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
-            coldkey_account_id
-        );
+        assert_eq!(Owner::<Test>::get(hotkey_account_id), coldkey_account_id);
 
         // Lets make this new key a delegate with a 10% take.
         assert_ok!(SubtensorModule::do_become_delegate(
@@ -529,10 +514,7 @@ fn test_senate_not_leave_when_stake_removed() {
            // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubnetworkN::<Test>::get(netuid), 1);
         // Check if hotkey is added to the Hotkeys
-        assert_eq!(
-            SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
-            coldkey_account_id
-        );
+        assert_eq!(Owner::<Test>::get(hotkey_account_id), coldkey_account_id);
 
         // Lets make this new key a delegate with a 10% take.
         assert_ok!(SubtensorModule::do_become_delegate(
@@ -608,10 +590,7 @@ fn test_senate_join_current_delegate() {
            // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubnetworkN::<Test>::get(netuid), 1);
         // Check if hotkey is added to the Hotkeys
-        assert_eq!(
-            SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
-            coldkey_account_id
-        );
+        assert_eq!(Owner::<Test>::get(hotkey_account_id), coldkey_account_id);
 
         // Register in the root network
         assert_ok!(SubtensorModule::root_register(
@@ -697,10 +676,7 @@ fn test_adjust_senate_events() {
            // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubnetworkN::<Test>::get(netuid), 1);
         // Check if hotkey is added to the Hotkeys
-        assert_eq!(
-            SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
-            coldkey_account_id
-        );
+        assert_eq!(Owner::<Test>::get(hotkey_account_id), coldkey_account_id);
 
         // Should *NOT* be a member of the senate
         assert!(!Senate::is_member(&hotkey_account_id));
@@ -725,7 +701,7 @@ fn test_adjust_senate_events() {
             ));
             // Check if this hotkey is added to the Hotkeys
             assert_eq!(
-                SubtensorModule::get_owning_coldkey_for_hotkey(&new_hotkey_account_id),
+                Owner::<Test>::get(new_hotkey_account_id),
                 coldkey_account_id
             );
             // Add/delegate enough stake to join the senate
