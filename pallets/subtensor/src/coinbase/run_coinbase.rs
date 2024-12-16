@@ -372,7 +372,7 @@ impl<T: Config> Pallet<T> {
         if total_hotkey_stake != 0 {
             // --- 4. If the total stake is not zero, iterate over each parent to determine their contribution to the hotkey's stake,
             // and calculate their share of the emission accordingly.
-            for (proportion, parent) in Self::get_parents(hotkey, netuid) {
+            for (proportion, parent) in ParentKeys::<T>::get(hotkey, netuid) {
                 // --- 4.1 Retrieve the parent's stake. This is the raw stake value including nominators.
                 let parent_stake: u64 = Self::get_total_stake_for_hotkey(&parent);
 

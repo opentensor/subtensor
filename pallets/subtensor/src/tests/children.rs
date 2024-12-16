@@ -168,11 +168,11 @@ fn test_do_set_child_singular_old_children_cleanup() {
         mock_set_children(&coldkey, &hotkey, netuid, &[(proportion, new_child)]);
 
         // Verify old child is removed
-        let old_child_parents = SubtensorModule::get_parents(&old_child, netuid);
+        let old_child_parents = ParentKeys::<Test>::get(old_child, netuid);
         assert!(old_child_parents.is_empty());
 
         // Verify new child assignment
-        let new_child_parents = SubtensorModule::get_parents(&new_child, netuid);
+        let new_child_parents = ParentKeys::<Test>::get(new_child, netuid);
         assert_eq!(new_child_parents, vec![(proportion, hotkey)]);
     });
 }
@@ -205,7 +205,7 @@ fn test_do_set_child_singular_new_children_assignment() {
         assert_eq!(children, vec![(proportion, child)]);
 
         // Verify parent assignment
-        let parents = SubtensorModule::get_parents(&child, netuid);
+        let parents = ParentKeys::<Test>::get(child, netuid);
         assert_eq!(parents, vec![(proportion, hotkey)]);
     });
 }
@@ -285,10 +285,10 @@ fn test_do_set_child_singular_multiple_children() {
         assert_eq!(children, vec![(proportion2, child2)]);
 
         // Verify parent assignment for both children
-        let parents1 = SubtensorModule::get_parents(&child1, netuid);
+        let parents1 = ParentKeys::<Test>::get(child1, netuid);
         assert!(parents1.is_empty()); // Old child should be removed
 
-        let parents2 = SubtensorModule::get_parents(&child2, netuid);
+        let parents2 = ParentKeys::<Test>::get(child2, netuid);
         assert_eq!(parents2, vec![(proportion2, hotkey)]);
     });
 }
@@ -432,7 +432,7 @@ fn test_do_revoke_child_singular_success() {
         assert!(children.is_empty());
 
         // Verify parent removal
-        let parents = SubtensorModule::get_parents(&child, netuid);
+        let parents = ParentKeys::<Test>::get(child, netuid);
         assert!(parents.is_empty());
     });
 }
@@ -553,10 +553,10 @@ fn test_do_schedule_children_multiple_success() {
         assert_eq!(children, vec![(proportion1, child1), (proportion2, child2)]);
 
         // Verify parent assignment for both children
-        let parents1 = SubtensorModule::get_parents(&child1, netuid);
+        let parents1 = ParentKeys::<Test>::get(child1, netuid);
         assert_eq!(parents1, vec![(proportion1, hotkey)]);
 
-        let parents2 = SubtensorModule::get_parents(&child2, netuid);
+        let parents2 = ParentKeys::<Test>::get(child2, netuid);
         assert_eq!(parents2, vec![(proportion2, hotkey)]);
     });
 }
@@ -719,14 +719,14 @@ fn test_do_schedule_children_multiple_old_children_cleanup() {
         );
 
         // Verify old child is removed
-        let old_child_parents = SubtensorModule::get_parents(&old_child, netuid);
+        let old_child_parents = ParentKeys::<Test>::get(old_child, netuid);
         assert!(old_child_parents.is_empty());
 
         // Verify new children assignment
-        let new_child1_parents = SubtensorModule::get_parents(&new_child1, netuid);
+        let new_child1_parents = ParentKeys::<Test>::get(new_child1, netuid);
         assert_eq!(new_child1_parents, vec![(proportion, hotkey)]);
 
-        let new_child2_parents = SubtensorModule::get_parents(&new_child2, netuid);
+        let new_child2_parents = ParentKeys::<Test>::get(new_child2, netuid);
         assert_eq!(new_child2_parents, vec![(proportion, hotkey)]);
     });
 }
@@ -818,13 +818,13 @@ fn test_do_schedule_children_multiple_overwrite_existing() {
         );
 
         // Verify parent assignment for all children
-        let parents1 = SubtensorModule::get_parents(&child1, netuid);
+        let parents1 = ParentKeys::<Test>::get(child1, netuid);
         assert!(parents1.is_empty());
 
-        let parents2 = SubtensorModule::get_parents(&child2, netuid);
+        let parents2 = ParentKeys::<Test>::get(child2, netuid);
         assert_eq!(parents2, vec![(proportion * 2, hotkey)]);
 
-        let parents3 = SubtensorModule::get_parents(&child3, netuid);
+        let parents3 = ParentKeys::<Test>::get(child3, netuid);
         assert_eq!(parents3, vec![(proportion * 3, hotkey)]);
     });
 }
@@ -1152,10 +1152,10 @@ fn test_do_revoke_children_multiple_success() {
         assert!(children.is_empty());
 
         // Verify parent removal for both children
-        let parents1 = SubtensorModule::get_parents(&child1, netuid);
+        let parents1 = ParentKeys::<Test>::get(child1, netuid);
         assert!(parents1.is_empty());
 
-        let parents2 = SubtensorModule::get_parents(&child2, netuid);
+        let parents2 = ParentKeys::<Test>::get(child2, netuid);
         assert!(parents2.is_empty());
     });
 }
@@ -1268,11 +1268,11 @@ fn test_do_revoke_children_multiple_partial_revocation() {
         assert_eq!(children, vec![(proportion, child1), (proportion, child2)]);
 
         // Verify parents.
-        let parents1 = SubtensorModule::get_parents(&child3, netuid);
+        let parents1 = ParentKeys::<Test>::get(child3, netuid);
         assert!(parents1.is_empty());
-        let parents1 = SubtensorModule::get_parents(&child1, netuid);
+        let parents1 = ParentKeys::<Test>::get(child1, netuid);
         assert_eq!(parents1, vec![(proportion, hotkey)]);
-        let parents2 = SubtensorModule::get_parents(&child2, netuid);
+        let parents2 = ParentKeys::<Test>::get(child2, netuid);
         assert_eq!(parents2, vec![(proportion, hotkey)]);
     });
 }
@@ -1311,7 +1311,7 @@ fn test_do_revoke_children_multiple_non_existent_children() {
         assert!(children.is_empty());
 
         // Verify parent removal for the existing child
-        let parents1 = SubtensorModule::get_parents(&child1, netuid);
+        let parents1 = ParentKeys::<Test>::get(child1, netuid);
         assert!(parents1.is_empty());
     });
 }
@@ -1394,7 +1394,7 @@ fn test_do_revoke_children_multiple_complex_scenario() {
         assert_eq!(children, vec![(proportion1, child1), (proportion3, child3)]);
 
         // Verify parent removal for child2
-        let parents2 = SubtensorModule::get_parents(&child2, netuid);
+        let parents2 = ParentKeys::<Test>::get(child2, netuid);
         assert!(parents2.is_empty());
 
         step_rate_limit(&TransactionType::SetChildren, netuid);
@@ -1407,9 +1407,9 @@ fn test_do_revoke_children_multiple_complex_scenario() {
         assert!(children.is_empty());
 
         // Verify parent removal for all children
-        let parents1 = SubtensorModule::get_parents(&child1, netuid);
+        let parents1 = ParentKeys::<Test>::get(child1, netuid);
         assert!(parents1.is_empty());
-        let parents3 = SubtensorModule::get_parents(&child3, netuid);
+        let parents3 = ParentKeys::<Test>::get(child3, netuid);
         assert!(parents3.is_empty());
     });
 }
@@ -1657,7 +1657,7 @@ fn test_get_parents_chain() {
 
         // Test get_parents for each hotkey
         for i in 1..num_keys {
-            let parents = SubtensorModule::get_parents(&hotkeys[i], netuid);
+            let parents = ParentKeys::<Test>::get(hotkeys[i], netuid);
             log::info!(
                 "Testing get_parents for hotkey {}: {:?}",
                 hotkeys[i],
@@ -1678,7 +1678,7 @@ fn test_get_parents_chain() {
         }
 
         // Test get_parents for the root (should be empty)
-        let root_parents = SubtensorModule::get_parents(&hotkeys[0], netuid);
+        let root_parents = ParentKeys::<Test>::get(hotkeys[0], netuid);
         log::info!(
             "Testing get_parents for root hotkey {}: {:?}",
             hotkeys[0],
@@ -1714,7 +1714,7 @@ fn test_get_parents_chain() {
             proportion / 2
         );
 
-        let last_hotkey_parents = SubtensorModule::get_parents(&last_hotkey, netuid);
+        let last_hotkey_parents = ParentKeys::<Test>::get(last_hotkey, netuid);
         log::info!(
             "Testing get_parents for last hotkey {} with multiple parents: {:?}",
             last_hotkey,
@@ -2340,7 +2340,7 @@ fn test_dynamic_parent_child_relationships() {
         // child1: 1/4 of parent's stake
         // child2: 1/3 of parent's stake
 
-        let child1_parents: Vec<(u64, U256)> = SubtensorModule::get_parents(&child1, netuid);
+        let child1_parents: Vec<(u64, U256)> = ParentKeys::<Test>::get(child1, netuid);
         assert_eq!(
             child1_parents,
             vec![(u64::MAX / 4, parent)],
@@ -2349,7 +2349,7 @@ fn test_dynamic_parent_child_relationships() {
         // Child1-parent relationship:
         // parent: 1/4 of child1's stake
 
-        let child2_parents: Vec<(u64, U256)> = SubtensorModule::get_parents(&child2, netuid);
+        let child2_parents: Vec<(u64, U256)> = ParentKeys::<Test>::get(child2, netuid);
         assert_eq!(
             child2_parents,
             vec![(u64::MAX / 3, parent)],
@@ -2694,11 +2694,11 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
         );
         log::info!(
             "Child1's parents: {:?}",
-            SubtensorModule::get_parents(&child1, netuid)
+            ParentKeys::<Test>::get(child1, netuid)
         );
         log::info!(
             "Child2's parents: {:?}",
-            SubtensorModule::get_parents(&child2, netuid)
+            ParentKeys::<Test>::get(child2, netuid)
         );
 
         let parent_stake_1 = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
@@ -2726,7 +2726,7 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
         );
         log::info!(
             "Grandchild's parents: {:?}",
-            SubtensorModule::get_parents(&grandchild, netuid)
+            ParentKeys::<Test>::get(grandchild, netuid)
         );
 
         let parent_stake_2 = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
@@ -2765,11 +2765,11 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
         );
         log::info!(
             "Child1's parents: {:?}",
-            SubtensorModule::get_parents(&child1, netuid)
+            ParentKeys::<Test>::get(child1, netuid)
         );
         log::info!(
             "Child2's parents: {:?}",
-            SubtensorModule::get_parents(&child2, netuid)
+            ParentKeys::<Test>::get(child2, netuid)
         );
         log::info!(
             "Child1's children: {:?}",
@@ -2777,7 +2777,7 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
         );
         log::info!(
             "Grandchild's parents: {:?}",
-            SubtensorModule::get_parents(&grandchild, netuid)
+            ParentKeys::<Test>::get(grandchild, netuid)
         );
 
         // Check if the parent-child relationships are correct
@@ -2787,12 +2787,12 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
             "Parent should have both children"
         );
         assert_eq!(
-            SubtensorModule::get_parents(&child1, netuid),
+            ParentKeys::<Test>::get(child1, netuid),
             vec![(u64::MAX / 2, parent)],
             "Child1 should have parent as its parent"
         );
         assert_eq!(
-            SubtensorModule::get_parents(&child2, netuid),
+            ParentKeys::<Test>::get(child2, netuid),
             vec![(u64::MAX / 2, parent)],
             "Child2 should have parent as its parent"
         );
@@ -2802,7 +2802,7 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
             "Child1 should have grandchild as its child"
         );
         assert_eq!(
-            SubtensorModule::get_parents(&grandchild, netuid),
+            ParentKeys::<Test>::get(grandchild, netuid),
             vec![(u64::MAX, child1)],
             "Grandchild should have child1 as its parent"
         );
