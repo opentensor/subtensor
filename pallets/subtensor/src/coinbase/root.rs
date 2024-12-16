@@ -1246,7 +1246,7 @@ impl<T: Config> Pallet<T> {
         // Even if we don't have a root subnet, this still works
         for netuid in NetworksAdded::<T>::iter_keys_from(NetworksAdded::<T>::hashed_key_for(0)) {
             if current_block.saturating_sub(Self::get_network_registered_block(netuid))
-                < Self::get_network_immunity_period()
+                < NetworkImmunityPeriod::<T>::get()
             {
                 continue;
             }
@@ -1284,9 +1284,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_network_registered_block(netuid: u16) -> u64 {
         NetworkRegisteredAt::<T>::get(netuid)
     }
-    pub fn get_network_immunity_period() -> u64 {
-        NetworkImmunityPeriod::<T>::get()
-    }
+
     pub fn set_network_immunity_period(net_immunity_period: u64) {
         NetworkImmunityPeriod::<T>::set(net_immunity_period);
         Self::deposit_event(Event::NetworkImmunityPeriodSet(net_immunity_period));
