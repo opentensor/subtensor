@@ -5,7 +5,7 @@ use sp_core::U256;
 use super::mock::*;
 use crate::{
     AdjustmentInterval, Difficulty, LastAdjustmentBlock, MaxAllowedUids, MaxDifficulty,
-    MaxRegistrationsPerBlock, MinDifficulty, SubnetworkN,
+    MaxRegistrationsPerBlock, MinDifficulty, NetworkRegistrationAllowed, SubnetworkN,
 };
 
 #[test]
@@ -23,7 +23,7 @@ fn test_registration_difficulty_adjustment() {
         SubtensorModule::set_adjustment_alpha(netuid, 58000);
         SubtensorModule::set_target_registrations_per_interval(netuid, 2);
         SubtensorModule::set_adjustment_interval(netuid, 100);
-        assert!(SubtensorModule::get_network_registration_allowed(netuid)); // Default registration allowed.
+        assert!(NetworkRegistrationAllowed::<Test>::get(netuid)); // Default registration allowed.
 
         // Set values and check.
         SubtensorModule::set_difficulty(netuid, 20000);
@@ -40,7 +40,7 @@ fn test_registration_difficulty_adjustment() {
         ); // Check set adjustment interval.
         assert_eq!(MaxRegistrationsPerBlock::<Test>::get(netuid), 3); // Check set registrations per block.
         assert_eq!(MaxAllowedUids::<Test>::get(netuid), 3); // Check set registrations per block.
-        assert!(SubtensorModule::get_network_registration_allowed(netuid)); // Check set registration allowed
+        assert!(NetworkRegistrationAllowed::<Test>::get(netuid)); // Check set registration allowed
 
         // Lets register 3 neurons...
         let hotkey0 = U256::from(0);
