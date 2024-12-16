@@ -65,13 +65,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotEnoughStakeToWithdraw
         );
 
-        // Ensure we don't exceed stake rate limit
-        let unstakes_this_interval =
-            Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey);
-        ensure!(
-            unstakes_this_interval < Self::get_target_stakes_per_interval(),
-            Error::<T>::UnstakeRateLimitExceeded
-        );
+        Self::try_increase_staking_counter(&coldkey, &hotkey)?;
 
         // We remove the balance from the hotkey.
         Self::decrease_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_to_be_removed);
@@ -98,16 +92,10 @@ impl<T: Config> Pallet<T> {
         }
 
         // Set last block for rate limiting
-        let block: u64 = Self::get_current_block_as_u64();
+        let block = Self::get_current_block_as_u64();
         Self::set_last_tx_block(&coldkey, block);
 
         // Emit the unstaking event.
-        Self::set_stakes_this_interval_for_coldkey_hotkey(
-            &coldkey,
-            &hotkey,
-            unstakes_this_interval.saturating_add(1),
-            block,
-        );
         log::debug!(
             "StakeRemoved( hotkey:{:?}, stake_to_be_removed:{:?} )",
             hotkey,
