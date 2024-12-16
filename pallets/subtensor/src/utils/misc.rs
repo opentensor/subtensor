@@ -75,9 +75,6 @@ impl<T: Config> Pallet<T> {
         Trust::<T>::get(netuid)
     }
 
-    pub fn get_pruning_score(netuid: u16) -> Vec<u16> {
-        PruningScores::<T>::get(netuid)
-    }
     pub fn get_validator_trust(netuid: u16) -> Vec<u16> {
         ValidatorTrust::<T>::get(netuid)
     }

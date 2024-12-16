@@ -384,7 +384,7 @@ fn test_prometheus_serving_ok() {
             port,
             ip_type
         ));
-        let neuron = SubtensorModule::get_prometheus_info(netuid, &hotkey_account_id);
+        let neuron = Prometheus::<Test>::get(netuid, hotkey_account_id).unwrap_or_default();
         assert_eq!(neuron.ip, ip);
         assert_eq!(neuron.version, version);
         assert_eq!(neuron.port, port);
@@ -413,7 +413,7 @@ fn test_prometheus_serving_set_metadata_update() {
             port,
             ip_type
         ));
-        let neuron = SubtensorModule::get_prometheus_info(netuid, &hotkey_account_id);
+        let neuron = Prometheus::<Test>::get(netuid, hotkey_account_id).unwrap_or_default();
         assert_eq!(neuron.ip, ip);
         assert_eq!(neuron.version, version);
         assert_eq!(neuron.port, port);
@@ -430,7 +430,7 @@ fn test_prometheus_serving_set_metadata_update() {
             port2,
             ip_type2
         ));
-        let neuron = SubtensorModule::get_prometheus_info(netuid, &hotkey_account_id);
+        let neuron = Prometheus::<Test>::get(netuid, hotkey_account_id).unwrap_or_default();
         assert_eq!(neuron.ip, ip2);
         assert_eq!(neuron.version, version2);
         assert_eq!(neuron.port, port2);
