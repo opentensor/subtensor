@@ -436,10 +436,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::ActivityCutoffSet(netuid, activity_cutoff));
     }
 
-    // Registration Toggle utils
-    pub fn get_network_registration_allowed(netuid: u16) -> bool {
-        NetworkRegistrationAllowed::<T>::get(netuid)
-    }
     pub fn set_network_registration_allowed(netuid: u16, registration_allowed: bool) {
         NetworkRegistrationAllowed::<T>::insert(netuid, registration_allowed);
         Self::deposit_event(Event::RegistrationAllowed(netuid, registration_allowed));
