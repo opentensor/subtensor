@@ -565,10 +565,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::HotkeyEmissionTempoSet(emission_tempo));
     }
 
-    pub fn get_pending_hotkey_emission(hotkey: &T::AccountId) -> u64 {
-        PendingdHotkeyEmission::<T>::get(hotkey)
-    }
-
     /// Sets the maximum stake allowed for a given network.
     ///
     /// # Arguments
