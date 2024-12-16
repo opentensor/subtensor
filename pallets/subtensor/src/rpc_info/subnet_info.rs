@@ -236,7 +236,7 @@ impl<T: Config> Pallet<T> {
         let min_allowed_weights = MinAllowedWeights::<T>::get(netuid);
         let max_weights_limit = MaxWeightsLimit::<T>::get(netuid);
         let tempo = Self::get_tempo(netuid);
-        let min_difficulty = Self::get_min_difficulty(netuid);
+        let min_difficulty = MinDifficulty::<T>::get(netuid);
         let max_difficulty = MaxDifficulty::<T>::get(netuid);
         let weights_version = Self::get_weights_version_key(netuid);
         let weights_rate_limit = Self::get_weights_set_rate_limit(netuid);

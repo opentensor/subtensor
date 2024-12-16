@@ -5,7 +5,7 @@ use sp_core::U256;
 use super::mock::*;
 use crate::{
     AdjustmentInterval, Difficulty, LastAdjustmentBlock, MaxAllowedUids, MaxDifficulty,
-    MaxRegistrationsPerBlock, SubnetworkN,
+    MaxRegistrationsPerBlock, MinDifficulty, SubnetworkN,
 };
 
 #[test]
@@ -134,7 +134,7 @@ fn test_registration_difficulty_adjustment() {
         // Test min value.
         SubtensorModule::set_min_difficulty(netuid, 1);
         SubtensorModule::set_difficulty(netuid, 4);
-        assert_eq!(SubtensorModule::get_min_difficulty(netuid), 1);
+        assert_eq!(MinDifficulty::<Test>::get(netuid), 1);
         assert_eq!(Difficulty::<Test>::get(netuid), 4);
         SubtensorModule::set_adjustment_interval(netuid, 1);
         step_block(1); // Step
