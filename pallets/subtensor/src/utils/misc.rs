@@ -251,9 +251,7 @@ impl<T: Config> Pallet<T> {
     pub fn set_subnet_locked_balance(netuid: u16, amount: u64) {
         SubnetLocked::<T>::insert(netuid, amount);
     }
-    pub fn get_subnet_locked_balance(netuid: u16) -> u64 {
-        SubnetLocked::<T>::get(netuid)
-    }
+
     pub fn get_total_subnet_locked() -> u64 {
         let mut total_subnet_locked: u64 = 0;
         for (_, locked) in SubnetLocked::<T>::iter() {

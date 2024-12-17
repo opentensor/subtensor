@@ -1085,7 +1085,7 @@ impl<T: Config> Pallet<T> {
     pub fn remove_network(netuid: u16) {
         // --- 1. Return balance to subnet owner.
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
-        let reserved_amount: u64 = Self::get_subnet_locked_balance(netuid);
+        let reserved_amount: u64 = SubnetLocked::<T>::get(netuid);
 
         // --- 2. Remove network count.
         SubnetworkN::<T>::remove(netuid);
