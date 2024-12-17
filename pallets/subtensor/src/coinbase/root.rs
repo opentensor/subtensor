@@ -454,7 +454,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Ensure that the number of registrations in this block doesn't exceed the allowed limit.
         ensure!(
-            Self::get_registrations_this_block(root_netuid)
+            RegistrationsThisBlock::<T>::get(root_netuid)
                 < MaxRegistrationsPerBlock::<T>::get(root_netuid),
             Error::<T>::TooManyRegistrationsThisBlock
         );

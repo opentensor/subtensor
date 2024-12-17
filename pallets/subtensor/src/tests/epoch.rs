@@ -1730,7 +1730,7 @@ fn test_outdated_weights() {
         SubtensorModule::set_target_registrations_per_interval(netuid, n);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
         SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 0);
 
         // === Register [validator1, validator2, server1, server2]
         for key in 0..n as u64 {
@@ -1757,15 +1757,15 @@ fn test_outdated_weights() {
             );
         }
         assert_eq!(SubnetworkN::<Test>::get(netuid), n);
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 4);
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 4);
 
         // === Issue validator permits
         SubtensorModule::set_max_allowed_validators(netuid, n);
         assert_eq!(MaxAllowedValidators::<Test>::get(netuid), n);
         SubtensorModule::epoch(netuid, 1_000_000_000); // run first epoch to set allowed validators
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 4);
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 4);
         block_number = next_block(); // run to next block to ensure weights are set on nodes after their registration block
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 0);
 
         // === Set weights [val1->srv1: 2/3, val1->srv2: 1/3, val2->srv1: 2/3, val2->srv2: 1/3, srv1->srv1: 1, srv2->srv2: 1]
         for uid in 0..(n / 2) as u64 {
@@ -1829,7 +1829,7 @@ fn test_outdated_weights() {
         );
         assert_eq!(System::block_number(), block_number);
         assert_eq!(MaxRegistrationsPerBlock::<Test>::get(netuid), n);
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 0);
         assert_ok!(SubtensorModule::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(new_key)),
             netuid,
