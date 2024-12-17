@@ -96,7 +96,7 @@ impl<T: Config> Pallet<T> {
         let max_allowed_validators = MaxAllowedValidators::<T>::get(netuid);
         let min_allowed_weights = MinAllowedWeights::<T>::get(netuid);
         let max_weights_limit = MaxWeightsLimit::<T>::get(netuid);
-        let scaling_law_power = Self::get_scaling_law_power(netuid);
+        let scaling_law_power = ScalingLawPower::<T>::get(netuid);
         let subnetwork_n = SubnetworkN::<T>::get(netuid);
         let max_allowed_uids = MaxAllowedUids::<T>::get(netuid);
         let blocks_since_last_step = BlocksSinceLastStep::<T>::get(netuid);
@@ -166,7 +166,7 @@ impl<T: Config> Pallet<T> {
         let max_allowed_validators = MaxAllowedValidators::<T>::get(netuid);
         let min_allowed_weights = MinAllowedWeights::<T>::get(netuid);
         let max_weights_limit = MaxWeightsLimit::<T>::get(netuid);
-        let scaling_law_power = Self::get_scaling_law_power(netuid);
+        let scaling_law_power = ScalingLawPower::<T>::get(netuid);
         let subnetwork_n = SubnetworkN::<T>::get(netuid);
         let max_allowed_uids = MaxAllowedUids::<T>::get(netuid);
         let blocks_since_last_step = BlocksSinceLastStep::<T>::get(netuid);
