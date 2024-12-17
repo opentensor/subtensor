@@ -29,8 +29,8 @@ use sp_core::Encode;
 
 use super::mock::*;
 use crate::{
-    coinbase::run_coinbase::WeightsTlockPayload, CRV3WeightCommits, Error, Owner, SubnetworkN,
-    MAX_CRV3_COMMIT_SIZE_BYTES,
+    coinbase::run_coinbase::WeightsTlockPayload, CRV3WeightCommits, Error, Owner,
+    RevealPeriodEpochs, SubnetworkN, MAX_CRV3_COMMIT_SIZE_BYTES,
 };
 
 /***************************
@@ -3942,7 +3942,7 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
             Error::<Test>::NoWeightsCommitFound
         );
 
-        assert_eq!(SubtensorModule::get_reveal_period(netuid), 10);
+        assert_eq!(RevealPeriodEpochs::<Test>::get(netuid), 10);
         assert_eq!(SubtensorModule::get_tempo(netuid), 200);
     })
 }

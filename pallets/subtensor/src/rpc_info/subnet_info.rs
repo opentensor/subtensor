@@ -252,7 +252,7 @@ impl<T: Config> Pallet<T> {
         let max_validators = MaxAllowedValidators::<T>::get(netuid);
         let adjustment_alpha = AdjustmentAlpha::<T>::get(netuid);
         let difficulty = Difficulty::<T>::get(netuid);
-        let commit_reveal_periods = Self::get_reveal_period(netuid);
+        let commit_reveal_periods = RevealPeriodEpochs::<T>::get(netuid);
         let commit_reveal_weights_enabled = CommitRevealWeightsEnabled::<T>::get(netuid);
         let liquid_alpha_enabled = LiquidAlphaOn::<T>::get(netuid);
         let (alpha_low, alpha_high): (u16, u16) = AlphaValues::<T>::get(netuid);
