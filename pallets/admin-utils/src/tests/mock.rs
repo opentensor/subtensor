@@ -8,6 +8,7 @@ use frame_support::{
 use frame_system as system;
 use frame_system::{limits, EnsureNever, EnsureRoot};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_consensus_grandpa::AuthorityList as GrandpaAuthorityList;
 use sp_core::U256;
 use sp_core::{ConstU64, H256};
 use sp_runtime::{
@@ -29,7 +30,8 @@ frame_support::construct_runtime!(
         SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>, Error<T>} = 4,
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 5,
         Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 6,
-        EVMChainId: pallet_evm_chain_id = 7,
+        Grandpa: pallet_grandpa = 7,
+        EVMChainId: pallet_evm_chain_id = 8,
     }
 );
 
@@ -225,6 +227,19 @@ impl system::Config for Test {
     type Nonce = u64;
 }
 
+impl pallet_grandpa::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+
+    type KeyOwnerProof = sp_core::Void;
+
+    type WeightInfo = ();
+    type MaxAuthorities = ConstU32<32>;
+    type MaxSetIdSessionEntries = ConstU64<0>;
+    type MaxNominators = ConstU32<20>;
+
+    type EquivocationReportSystem = ();
+}
+
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
     type MaxLocks = ();
@@ -249,11 +264,23 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
     }
 }
 
+pub struct GrandpaInterfaceImpl;
+impl crate::GrandpaInterface<Test> for GrandpaInterfaceImpl {
+    fn schedule_change(
+        next_authorities: GrandpaAuthorityList,
+        in_blocks: BlockNumber,
+        forced: Option<BlockNumber>,
+    ) -> sp_runtime::DispatchResult {
+        Grandpa::schedule_change(next_authorities, in_blocks, forced)
+    }
+}
+
 impl crate::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type AuthorityId = AuraId;
     type MaxAuthorities = ConstU32<32>;
     type Aura = ();
+    type Grandpa = GrandpaInterfaceImpl;
     type Balance = Balance;
     type WeightInfo = ();
 }

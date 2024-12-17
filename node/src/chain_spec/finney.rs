@@ -2,6 +2,7 @@
 #![allow(clippy::unwrap_used)]
 
 use super::*;
+use hex::FromHex;
 
 pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
     let path: PathBuf = std::path::PathBuf::from("./snapshot.json");
@@ -69,7 +70,7 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
     properties.insert("tokenDecimals".into(), 9.into());
     properties.insert("ss58Format".into(), 42.into());
 
-    Ok(ChainSpec::builder(
+    let chain_spec = ChainSpec::builder(
         wasm_binary,
         Extensions {
             bad_blocks: Some(HashSet::new()),
@@ -181,7 +182,25 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
         balances_issuance,
     ))
     .with_properties(properties)
-    .build())
+    .build();
+
+    // Load and set the code substitute to avoid archive node sync panic
+    // See <https://github.com/opentensor/subtensor/pull/1051>
+    //
+    // Need to do it in this hacky way because the ChainSpec builder doesn't support setting it
+    let code_substitute_2585476_hex = include_bytes!("code_substitute_2585476.txt");
+    let chain_spec_json = chain_spec.as_json(false).unwrap();
+    let mut chain_spec_json = serde_json::from_str(&chain_spec_json).unwrap();
+    sc_chain_spec::set_code_substitute_in_json_chain_spec(
+        &mut chain_spec_json,
+        Vec::from_hex(code_substitute_2585476_hex)
+            .unwrap()
+            .as_slice(),
+        2585476,
+    );
+    let chain_spec_bytes = chain_spec_json.to_string().into_bytes();
+    let chain_spec = ChainSpec::from_json_bytes(chain_spec_bytes).unwrap();
+    Ok(chain_spec)
 }
 
 // Configure initial storage state for FRAME modules.
