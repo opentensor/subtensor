@@ -41,7 +41,7 @@ fn test_sudo_set_serving_rate_limit() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 3;
         let to_be_set: u64 = 10;
-        let init_value: u64 = SubtensorModule::get_serving_rate_limit(netuid);
+        let init_value: u64 = ServingRateLimit::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_serving_rate_limit(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -50,13 +50,13 @@ fn test_sudo_set_serving_rate_limit() {
             ),
             Err(DispatchError::BadOrigin)
         );
-        assert_eq!(SubtensorModule::get_serving_rate_limit(netuid), init_value);
+        assert_eq!(ServingRateLimit::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_serving_rate_limit(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_serving_rate_limit(netuid), to_be_set);
+        assert_eq!(ServingRateLimit::<Test>::get(netuid), to_be_set);
     });
 }
 

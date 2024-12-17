@@ -248,7 +248,7 @@ impl<T: Config> Pallet<T> {
         let max_burn = MaxBurn::<T>::get(netuid);
         let bonds_moving_avg = BondsMovingAverage::<T>::get(netuid);
         let max_regs_per_block = MaxRegistrationsPerBlock::<T>::get(netuid);
-        let serving_rate_limit = Self::get_serving_rate_limit(netuid);
+        let serving_rate_limit = ServingRateLimit::<T>::get(netuid);
         let max_validators = MaxAllowedValidators::<T>::get(netuid);
         let adjustment_alpha = AdjustmentAlpha::<T>::get(netuid);
         let difficulty = Difficulty::<T>::get(netuid);
