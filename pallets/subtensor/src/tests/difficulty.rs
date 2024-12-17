@@ -5,7 +5,8 @@ use sp_core::U256;
 use super::mock::*;
 use crate::{
     AdjustmentInterval, Difficulty, LastAdjustmentBlock, MaxAllowedUids, MaxDifficulty,
-    MaxRegistrationsPerBlock, MinDifficulty, NetworkRegistrationAllowed, SubnetworkN,
+    MaxRegistrationsPerBlock, MinDifficulty, NetworkRegistrationAllowed, RegistrationsThisBlock,
+    SubnetworkN,
 };
 
 #[test]
@@ -19,7 +20,7 @@ fn test_registration_difficulty_adjustment() {
         SubtensorModule::set_min_difficulty(netuid, 10000);
         assert_eq!(Difficulty::<Test>::get(netuid), 10000); // Check initial difficulty.
         assert_eq!(LastAdjustmentBlock::<Test>::get(netuid), 0); // Last adjustment block starts at 0.
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0); // No registrations this block.
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 0); // No registrations this block.
         SubtensorModule::set_adjustment_alpha(netuid, 58000);
         SubtensorModule::set_target_registrations_per_interval(netuid, 2);
         SubtensorModule::set_adjustment_interval(netuid, 100);
@@ -66,13 +67,13 @@ fn test_registration_difficulty_adjustment() {
         );
 
         assert_eq!(SubnetworkN::<Test>::get(netuid), 3); // All 3 are registered.
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 3); // 3 Registrations.
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 3); // 3 Registrations.
         assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 3); // 3 Registrations this interval.
 
         // Fast forward 1 block.
         assert_eq!(Difficulty::<Test>::get(netuid), 20000); // Difficulty is unchanged.
         step_block(1);
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0); // Registrations have been erased.
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 0); // Registrations have been erased.
 
         // TODO: are we OK with this change?
         assert_eq!(LastAdjustmentBlock::<Test>::get(netuid), 2); // We just adjusted on the first block.
@@ -106,7 +107,7 @@ fn test_registration_difficulty_adjustment() {
             SubtensorModule::get_hotkey_for_net_and_uid(netuid, 2).unwrap(),
             hotkey2 + 1
         ); // replace 2
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 3); // Registrations have been erased.
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 3); // Registrations have been erased.
         assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 3); // Registrations this interval = 3
 
         step_block(1); // Step
@@ -114,14 +115,14 @@ fn test_registration_difficulty_adjustment() {
         // TODO: are we OK with this change?
         assert_eq!(LastAdjustmentBlock::<Test>::get(netuid), 2); // Still previous adjustment block.
 
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0); // Registrations have been erased.
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 0); // Registrations have been erased.
         assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 3); // Registrations this interval = 3
 
         // Register 3 more.
         register_ok_neuron(netuid, hotkey0 + 2, coldkey0 + 2, 394208420);
         register_ok_neuron(netuid, hotkey1 + 2, coldkey1 + 2, 124123920);
         register_ok_neuron(netuid, hotkey2 + 2, coldkey2 + 2, 218131230);
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 3); // Registrations have been erased.
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 3); // Registrations have been erased.
 
         // We have 6 registrations this adjustment interval.
         step_block(1); // Step

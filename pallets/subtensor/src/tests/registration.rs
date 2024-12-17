@@ -12,8 +12,8 @@ use sp_runtime::traits::{DispatchInfoOf, SignedExtension};
 use super::mock::*;
 use crate::{
     Axons, BlockAtRegistration, Burn, Difficulty, EmissionValues, Error, ImmunityPeriod,
-    MaxAllowedUids, MaxRegistrationsPerBlock, Owner, RAORecycledForRegistration, SubnetworkN,
-    SubtensorSignedExtension,
+    MaxAllowedUids, MaxRegistrationsPerBlock, Owner, RAORecycledForRegistration,
+    RegistrationsThisBlock, SubnetworkN, SubtensorSignedExtension,
 };
 
 /********************************************
@@ -732,7 +732,7 @@ fn test_registration_too_many_registrations_per_block() {
             U256::from(0),
             U256::from(0)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 1);
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 1);
         assert_ok!(SubtensorModule::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
             netuid,
@@ -742,7 +742,7 @@ fn test_registration_too_many_registrations_per_block() {
             U256::from(1),
             U256::from(1)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 2);
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 2);
         assert_ok!(SubtensorModule::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(2)),
             netuid,
@@ -752,7 +752,7 @@ fn test_registration_too_many_registrations_per_block() {
             U256::from(2),
             U256::from(2)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 3);
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 3);
         assert_ok!(SubtensorModule::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(3)),
             netuid,
@@ -762,7 +762,7 @@ fn test_registration_too_many_registrations_per_block() {
             U256::from(3),
             U256::from(3)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 4);
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 4);
         assert_ok!(SubtensorModule::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(4)),
             netuid,
@@ -772,7 +772,7 @@ fn test_registration_too_many_registrations_per_block() {
             U256::from(4),
             U256::from(4)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 5);
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 5);
         assert_ok!(SubtensorModule::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(5)),
             netuid,
@@ -782,7 +782,7 @@ fn test_registration_too_many_registrations_per_block() {
             U256::from(5),
             U256::from(5)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 6);
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 6);
         assert_ok!(SubtensorModule::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(6)),
             netuid,
@@ -792,7 +792,7 @@ fn test_registration_too_many_registrations_per_block() {
             U256::from(6),
             U256::from(6)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 7);
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 7);
         assert_ok!(SubtensorModule::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(7)),
             netuid,
@@ -802,7 +802,7 @@ fn test_registration_too_many_registrations_per_block() {
             U256::from(7),
             U256::from(7)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 8);
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 8);
         assert_ok!(SubtensorModule::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(8)),
             netuid,
@@ -812,7 +812,7 @@ fn test_registration_too_many_registrations_per_block() {
             U256::from(8),
             U256::from(8)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 9);
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 9);
         assert_ok!(SubtensorModule::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(9)),
             netuid,
@@ -822,7 +822,7 @@ fn test_registration_too_many_registrations_per_block() {
             U256::from(9),
             U256::from(9)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 10);
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 10);
         let result = SubtensorModule::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(10)),
             netuid,
