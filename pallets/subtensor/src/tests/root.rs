@@ -7,8 +7,9 @@ use sp_core::{Get, H256, U256};
 
 use super::mock::*;
 use crate::{
-    migrations, utils::rate_limiting::TransactionType, Error, NetworkRateLimit, PendingEmission,
-    SubnetIdentities, SubnetIdentity, SubnetIdentityOf, SubnetLimit, SubnetworkN, TotalNetworks,
+    migrations, utils::rate_limiting::TransactionType, EmissionValues, Error, NetworkRateLimit,
+    PendingEmission, SubnetIdentities, SubnetIdentity, SubnetIdentityOf, SubnetLimit, SubnetworkN,
+    TotalNetworks,
 };
 
 #[allow(dead_code)]
@@ -296,10 +297,7 @@ fn test_root_set_weights() {
         // Check that the emission values have been set.
         for netuid in 1..n {
             log::debug!("check emission for netuid: {}", netuid);
-            assert_eq!(
-                SubtensorModule::get_subnet_emission_value(netuid as u16),
-                99_999_999
-            );
+            assert_eq!(EmissionValues::<Test>::get(netuid as u16), 99_999_999);
         }
         step_block(2);
         // Check that the pending emission values have been set.
@@ -403,10 +401,7 @@ fn test_root_set_weights_out_of_order_netuids() {
         // Check that the emission values have been set.
         for netuid in subnets.iter() {
             log::debug!("check emission for netuid: {}", netuid);
-            assert_eq!(
-                SubtensorModule::get_subnet_emission_value(*netuid),
-                99_999_999
-            );
+            assert_eq!(EmissionValues::<Test>::get(*netuid), 99_999_999);
         }
         step_block(2);
         // Check that the pending emission values have been set.
@@ -598,12 +593,12 @@ fn test_network_pruning() {
 
         step_block(1);
         assert_ok!(SubtensorModule::root_epoch(1_000_000_000));
-        assert_eq!(SubtensorModule::get_subnet_emission_value(0), 385_861_815);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(1), 249_435_914);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(2), 180_819_837);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(3), 129_362_980);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(4), 50_857_187);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(5), 3_530_356);
+        assert_eq!(EmissionValues::<Test>::get(0), 385_861_815);
+        assert_eq!(EmissionValues::<Test>::get(1), 249_435_914);
+        assert_eq!(EmissionValues::<Test>::get(2), 180_819_837);
+        assert_eq!(EmissionValues::<Test>::get(3), 129_362_980);
+        assert_eq!(EmissionValues::<Test>::get(4), 50_857_187);
+        assert_eq!(EmissionValues::<Test>::get(5), 3_530_356);
         step_block(1);
         assert_eq!(PendingEmission::<Test>::get(0), 0); // root network gets no pending emission.
         assert_eq!(PendingEmission::<Test>::get(1), 249_435_914);
