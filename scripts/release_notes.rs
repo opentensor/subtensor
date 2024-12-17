@@ -50,29 +50,19 @@ fn main() {
         .unwrap_or_else(|_| panic!("Invalid NETWORK value"));
     println!("Network: {:?}", network);
 
-    let all_tags = env::var("PREVIOUS_TAG")
-        .unwrap_or_else(|_| eval("git tag --sort=-creatordate", false).unwrap())
-        .split("\n")
-        .map(|s| s.trim().to_string())
-        .collect::<Vec<String>>();
-
-    let previous_tag = match network {
-        Network::Mainnet => all_tags
-            .iter()
-            .find(|tag| tag.starts_with("v") && !tag.ends_with("-pre-release"))
-            .expect("could not find a valid mainnet tag!"),
-        Network::Testnet => all_tags
-            .iter()
-            .find(|tag| tag.starts_with("v") && tag.ends_with("-pre-release"))
-            .expect("could not find a valid testnet tag!"),
-        Network::Devnet => &"devnet-ready".to_string(),
-    };
-    println!("Previous release tag: {}", previous_tag);
-
-    let branch = env::var("BRANCH").unwrap_or(
+    let previous_tag = env::var("PREVIOUS_TAG").unwrap_or_else(|_| {
         match network {
             Network::Mainnet => "origin/testnet",
             Network::Testnet => "origin/devnet",
+            Network::Devnet => "origin/devnet-ready",
+        }
+        .to_string()
+    });
+
+    let branch = env::var("BRANCH").unwrap_or(
+        match network {
+            Network::Mainnet => "origin/main",
+            Network::Testnet => "origin/testnet",
             Network::Devnet => "origin/devnet",
         }
         .to_string(),

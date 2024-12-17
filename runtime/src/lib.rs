@@ -220,7 +220,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 216,
+    spec_version: 217,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1121,11 +1121,23 @@ impl pallet_admin_utils::AuraInterface<AuraId, ConstU32<32>> for AuraPalletIntrf
     }
 }
 
+pub struct GrandpaInterfaceImpl;
+impl pallet_admin_utils::GrandpaInterface<Runtime> for GrandpaInterfaceImpl {
+    fn schedule_change(
+        next_authorities: Vec<(pallet_grandpa::AuthorityId, u64)>,
+        in_blocks: BlockNumber,
+        forced: Option<BlockNumber>,
+    ) -> sp_runtime::DispatchResult {
+        Grandpa::schedule_change(next_authorities, in_blocks, forced)
+    }
+}
+
 impl pallet_admin_utils::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type AuthorityId = AuraId;
     type MaxAuthorities = ConstU32<32>;
     type Aura = AuraPalletIntrf;
+    type Grandpa = GrandpaInterfaceImpl;
     type Balance = Balance;
     type WeightInfo = pallet_admin_utils::weights::SubstrateWeight<Runtime>;
 }
@@ -1823,6 +1835,7 @@ impl_runtime_apis! {
                 };
 
             let whitelist = pallet_evm::WhitelistedCreators::<Runtime>::get();
+            let whitelist_disabled = pallet_evm::DisableWhitelistCheck::<Runtime>::get();
             <Runtime as pallet_evm::Config>::Runner::create(
                 from,
                 data,
@@ -1833,6 +1846,7 @@ impl_runtime_apis! {
                 nonce,
                 access_list.unwrap_or_default(),
                 whitelist,
+                whitelist_disabled,
                 false,
                 true,
                 weight_limit,
