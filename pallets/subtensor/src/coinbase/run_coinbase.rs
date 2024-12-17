@@ -223,7 +223,7 @@ impl<T: Config> Pallet<T> {
 
         // Weights revealed must have been committed during epoch `cur_epoch - reveal_period`.
         let reveal_epoch =
-            cur_epoch.saturating_sub(Self::get_reveal_period(netuid).saturating_sub(1));
+            cur_epoch.saturating_sub(RevealPeriodEpochs::<T>::get(netuid).saturating_sub(1));
 
         // Clean expired commits
         for (epoch, _) in CRV3WeightCommits::<T>::iter_prefix(netuid) {

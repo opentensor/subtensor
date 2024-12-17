@@ -1408,7 +1408,7 @@ fn sudo_set_commit_reveal_weights_interval() {
         add_network(netuid, 10);
 
         let to_be_set = 55;
-        let init_value = SubtensorModule::get_reveal_period(netuid);
+        let init_value = RevealPeriodEpochs::<Test>::get(netuid);
 
         assert_ok!(AdminUtils::sudo_set_commit_reveal_weights_interval(
             <<Test as Config>::RuntimeOrigin>::root(),
@@ -1417,7 +1417,7 @@ fn sudo_set_commit_reveal_weights_interval() {
         ));
 
         assert!(init_value != to_be_set);
-        assert_eq!(SubtensorModule::get_reveal_period(netuid), to_be_set);
+        assert_eq!(RevealPeriodEpochs::<Test>::get(netuid), to_be_set);
     });
 }
 

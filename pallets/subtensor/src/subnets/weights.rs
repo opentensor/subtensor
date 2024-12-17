@@ -1031,7 +1031,7 @@ impl<T: Config> Pallet<T> {
         let current_block: u64 = Self::get_current_block_as_u64();
         let commit_epoch: u64 = Self::get_epoch_index(netuid, commit_block);
         let current_epoch: u64 = Self::get_epoch_index(netuid, current_block);
-        let reveal_period: u64 = Self::get_reveal_period(netuid);
+        let reveal_period: u64 = RevealPeriodEpochs::<T>::get(netuid);
 
         // Reveal is allowed only in the exact epoch `commit_epoch + reveal_period`
         current_epoch == commit_epoch.saturating_add(reveal_period)
@@ -1050,13 +1050,13 @@ impl<T: Config> Pallet<T> {
         let current_block: u64 = Self::get_current_block_as_u64();
         let current_epoch: u64 = Self::get_epoch_index(netuid, current_block);
         let commit_epoch: u64 = Self::get_epoch_index(netuid, commit_block);
-        let reveal_period: u64 = Self::get_reveal_period(netuid);
+        let reveal_period: u64 = RevealPeriodEpochs::<T>::get(netuid);
 
         current_epoch > commit_epoch.saturating_add(reveal_period)
     }
 
     pub fn get_reveal_blocks(netuid: u16, commit_block: u64) -> (u64, u64) {
-        let reveal_period: u64 = Self::get_reveal_period(netuid);
+        let reveal_period: u64 = RevealPeriodEpochs::<T>::get(netuid);
         let tempo: u64 = Self::get_tempo(netuid) as u64;
         let tempo_plus_one: u64 = tempo.saturating_add(1);
         let netuid_plus_one: u64 = (netuid as u64).saturating_add(1);
@@ -1074,8 +1074,5 @@ impl<T: Config> Pallet<T> {
 
     pub fn set_reveal_period(netuid: u16, reveal_period: u64) {
         RevealPeriodEpochs::<T>::insert(netuid, reveal_period);
-    }
-    pub fn get_reveal_period(netuid: u16) -> u64 {
-        RevealPeriodEpochs::<T>::get(netuid)
     }
 }
