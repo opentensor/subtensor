@@ -651,34 +651,19 @@ fn test_migrate_fix_pending_emissions() {
         assert_eq!(TotalStake::<Test>::get(), expected_total_issuance);
         // Check the total stake maps are updated following the migration (removal of old null_account stake entries)
         assert_eq!(TotalColdkeyStake::<Test>::get(null_account), 0);
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(null_account, datura_old_hk_account),
-            0
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
-                null_account,
-                taostats_old_hk_account
-            ),
-            0
-        );
+        assert_eq!(Stake::<Test>::get(datura_old_hk_account, null_account), 0);
+        assert_eq!(Stake::<Test>::get(taostats_old_hk_account, null_account), 0);
 
         // Check staking hotkeys is updated
         assert_eq!(StakingHotkeys::<Test>::get(null_account), vec![]);
 
         // Check the migration key has stake with both *old* hotkeys
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
-                migration_account,
-                datura_old_hk_account
-            ),
+            Stake::<Test>::get(datura_old_hk_account, migration_account),
             null_stake_datura
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
-                migration_account,
-                taostats_old_hk_account
-            ),
+            Stake::<Test>::get(taostats_old_hk_account, migration_account),
             null_stake_tao_stats
         );
         assert_eq!(

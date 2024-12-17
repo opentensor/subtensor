@@ -81,7 +81,7 @@ impl<T: Config> Pallet<T> {
         // If the stake is below the minimum, we clear the nomination from storage.
         // This only applies to nominator stakes.
         // If the coldkey does not own the hotkey, it's a nominator stake.
-        let new_stake = Self::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey);
+        let new_stake = Stake::<T>::get(&hotkey, &coldkey);
         Self::clear_small_nomination_if_required(&hotkey, &coldkey, new_stake);
 
         // Check if stake lowered below MinStake and remove Pending children if it did

@@ -1823,8 +1823,7 @@ fn test_childkey_single_parent_emission() {
         }
         step_block(7200 + 1);
         // Check emission distribution
-        let parent_stake: u64 =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_parent, &parent);
+        let parent_stake: u64 = Stake::<Test>::get(parent, coldkey_parent);
         let parent_stake_on_subnet: u64 =
             SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
 
@@ -1834,8 +1833,7 @@ fn test_childkey_single_parent_emission() {
             parent_stake_on_subnet
         );
 
-        let child_stake: u64 =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_child, &child);
+        let child_stake: u64 = Stake::<Test>::get(child, coldkey_child);
         let child_stake_on_subnet: u64 =
             SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid);
 
@@ -1845,10 +1843,7 @@ fn test_childkey_single_parent_emission() {
             child_stake_on_subnet
         );
 
-        let weight_setter_stake: u64 = SubtensorModule::get_stake_for_coldkey_and_hotkey(
-            &coldkey_weight_setter,
-            &weight_setter,
-        );
+        let weight_setter_stake: u64 = Stake::<Test>::get(weight_setter, coldkey_weight_setter);
         let weight_setter_stake_on_subnet: u64 =
             SubtensorModule::get_stake_for_hotkey_on_subnet(&weight_setter, netuid);
 
@@ -1969,7 +1964,7 @@ fn test_childkey_multiple_parents_emission() {
         ];
 
         for (coldkey, hotkey, name) in stakes.iter() {
-            let stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(coldkey, hotkey);
+            let stake = Stake::<Test>::get(hotkey, coldkey);
             let stake_on_subnet = SubtensorModule::get_stake_for_hotkey_on_subnet(hotkey, netuid);
             log::debug!(
                 "{} stake: {:?}, {} stake on subnet: {:?}",
@@ -1980,15 +1975,10 @@ fn test_childkey_multiple_parents_emission() {
             );
         }
 
-        let parent1_stake =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_parent1, &parent1);
-        let parent2_stake =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_parent2, &parent2);
-        let child_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_child, &child);
-        let weight_setter_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(
-            &coldkey_weight_setter,
-            &weight_setter,
-        );
+        let parent1_stake = Stake::<Test>::get(parent1, coldkey_parent1);
+        let parent2_stake = Stake::<Test>::get(parent2, coldkey_parent2);
+        let child_stake = Stake::<Test>::get(child, coldkey_child);
+        let weight_setter_stake = Stake::<Test>::get(weight_setter, coldkey_weight_setter);
 
         assert!(
             parent1_stake > 200_000,

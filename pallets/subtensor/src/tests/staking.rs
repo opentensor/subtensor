@@ -1107,10 +1107,7 @@ fn test_has_enough_stake_yes() {
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
             10000
         );
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_id, &hotkey_id),
-            10000
-        );
+        assert_eq!(Stake::<Test>::get(hotkey_id, coldkey_id), 10000);
         assert!(SubtensorModule::has_enough_stake(
             &coldkey_id,
             &hotkey_id,
@@ -1147,10 +1144,7 @@ fn test_non_existent_account() {
             &(U256::from(0)),
             10,
         );
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&U256::from(0), &U256::from(0)),
-            10
-        );
+        assert_eq!(Stake::<Test>::get(U256::from(0), U256::from(0)), 10);
         assert_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&(U256::from(0))),
             10
@@ -1245,22 +1239,10 @@ fn test_unstake_all_coldkeys_from_hotkey_account() {
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
 
         // Vefify stake for all coldkeys is 0
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0_id, &hotkey_id),
-            0
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1_id, &hotkey_id),
-            0
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2_id, &hotkey_id),
-            0
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey3_id, &hotkey_id),
-            0
-        );
+        assert_eq!(Stake::<Test>::get(hotkey_id, coldkey0_id), 0);
+        assert_eq!(Stake::<Test>::get(hotkey_id, coldkey1_id), 0);
+        assert_eq!(Stake::<Test>::get(hotkey_id, coldkey2_id), 0);
+        assert_eq!(Stake::<Test>::get(hotkey_id, coldkey3_id), 0);
 
         // Verify free balance is correct for all coldkeys
         assert_eq!(Balances::free_balance(coldkey0_id), amount);
@@ -1311,10 +1293,7 @@ fn test_unstake_all_coldkeys_from_hotkey_account_single_staker() {
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
 
         // Vefify stake for single coldkey is 0
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0_id, &hotkey_id),
-            0
-        );
+        assert_eq!(Stake::<Test>::get(hotkey_id, coldkey0_id), 0);
 
         // Verify free balance is correct for single coldkey
         assert_eq!(Balances::free_balance(coldkey0_id), amount);
@@ -1403,10 +1382,7 @@ fn test_clear_small_nominations() {
             hot1,
             1
         ));
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
-            1
-        );
+        assert_eq!(Stake::<Test>::get(hot1, cold1), 1);
         assert_eq!(Balances::free_balance(cold1), 4);
 
         // Add stake cold2 --> hot1 (is delegation.)
@@ -1416,10 +1392,7 @@ fn test_clear_small_nominations() {
             hot1,
             1
         ));
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
-            1
-        );
+        assert_eq!(Stake::<Test>::get(hot1, cold2), 1);
         assert_eq!(Balances::free_balance(cold2), 4);
 
         // Add stake cold1 --> hot2 (non delegation.)
@@ -1429,10 +1402,7 @@ fn test_clear_small_nominations() {
             hot2,
             1
         ));
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
-            1
-        );
+        assert_eq!(Stake::<Test>::get(hot2, cold1), 1);
         assert_eq!(Balances::free_balance(cold1), 8);
 
         // Add stake cold2 --> hot2 (is delegation.)
@@ -1442,31 +1412,16 @@ fn test_clear_small_nominations() {
             hot2,
             1
         ));
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
-            1
-        );
+        assert_eq!(Stake::<Test>::get(hot2, cold2), 1);
         assert_eq!(Balances::free_balance(cold2), 8);
 
         // Run clear all small nominations when min stake is zero (noop)
         SubtensorModule::set_nominator_min_required_stake(0);
         SubtensorModule::clear_small_nominations();
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
-            1
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
-            1
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
-            1
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
-            1
-        );
+        assert_eq!(Stake::<Test>::get(hot1, cold1), 1);
+        assert_eq!(Stake::<Test>::get(hot2, cold1), 1);
+        assert_eq!(Stake::<Test>::get(hot1, cold2), 1);
+        assert_eq!(Stake::<Test>::get(hot2, cold2), 1);
 
         // Set min nomination to 10
         let total_cold1_stake_before = TotalColdkeyStake::<Test>::get(cold1);
@@ -1480,22 +1435,10 @@ fn test_clear_small_nominations() {
 
         // Run clear all small nominations (removes delegations under 10)
         SubtensorModule::clear_small_nominations();
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
-            1
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
-            0
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
-            0
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
-            1
-        );
+        assert_eq!(Stake::<Test>::get(hot1, cold1), 1);
+        assert_eq!(Stake::<Test>::get(hot2, cold1), 0);
+        assert_eq!(Stake::<Test>::get(hot1, cold2), 0);
+        assert_eq!(Stake::<Test>::get(hot2, cold2), 1);
 
         // Balances have been added back into accounts.
         assert_eq!(Balances::free_balance(cold1), 9);
@@ -1621,7 +1564,7 @@ fn test_remove_stake_below_minimum_threshold() {
         // without unstaking all and removing the nomination.
         let total_hotkey_stake_before = SubtensorModule::get_total_stake_for_hotkey(&hotkey1);
         let bal_before = Balances::free_balance(coldkey2);
-        let staked_before = SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey1);
+        let staked_before = Stake::<Test>::get(hotkey1, coldkey2);
         let total_network_stake_before = SubtensorModule::get_total_stake();
         let total_issuance_before = SubtensorModule::get_total_issuance();
         // check the premise of the test is correct
@@ -1633,10 +1576,7 @@ fn test_remove_stake_below_minimum_threshold() {
         ));
 
         // Has no stake now
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey1),
-            0
-        );
+        assert_eq!(Stake::<Test>::get(hotkey1, coldkey2), 0);
         let stake_removed = staked_before; // All stake was removed
                                            // Has the full balance
         assert_eq!(Balances::free_balance(coldkey2), bal_before + stake_removed);

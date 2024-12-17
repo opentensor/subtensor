@@ -14,7 +14,7 @@ use sp_runtime::{
     BuildStorage,
 };
 
-use crate::{migrations, Error, Owner, SubnetworkN};
+use crate::{migrations, Error, Owner, Stake, SubnetworkN};
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
@@ -101,7 +101,7 @@ fn test_senate_join_works() {
             100_000
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
+            Stake::<Test>::get(hotkey_account_id, staker_coldkey),
             99_999
         );
         assert_eq!(
@@ -167,7 +167,7 @@ fn test_senate_vote_works() {
             100_000
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
+            Stake::<Test>::get(hotkey_account_id, staker_coldkey),
             99_999
         );
         assert_eq!(
@@ -329,7 +329,7 @@ fn test_senate_leave_works() {
             100_000
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
+            Stake::<Test>::get(hotkey_account_id, staker_coldkey),
             99_999
         );
         assert_eq!(
@@ -396,7 +396,7 @@ fn test_senate_leave_vote_removal() {
             100_000
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
+            Stake::<Test>::get(hotkey_account_id, staker_coldkey),
             99_999
         );
         assert_eq!(
@@ -533,7 +533,7 @@ fn test_senate_not_leave_when_stake_removed() {
             stake_amount
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
+            Stake::<Test>::get(hotkey_account_id, staker_coldkey),
             stake_amount - 1 // Need to account for ED
         );
         assert_eq!(
@@ -749,10 +749,7 @@ fn test_adjust_senate_events() {
             1 // Will be more than the last one in the senate by stake (has 0 stake)
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
-                &coldkey_account_id,
-                &replacement_hotkey_account_id
-            ),
+            Stake::<Test>::get(replacement_hotkey_account_id, coldkey_account_id),
             1
         );
         assert_eq!(
