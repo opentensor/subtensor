@@ -6,7 +6,7 @@ use super::mock::*;
 use crate::{
     AdjustmentInterval, Difficulty, LastAdjustmentBlock, MaxAllowedUids, MaxDifficulty,
     MaxRegistrationsPerBlock, MinDifficulty, NetworkRegistrationAllowed, RegistrationsThisBlock,
-    SubnetworkN,
+    RegistrationsThisInterval, SubnetworkN,
 };
 
 #[test]
@@ -68,7 +68,7 @@ fn test_registration_difficulty_adjustment() {
 
         assert_eq!(SubnetworkN::<Test>::get(netuid), 3); // All 3 are registered.
         assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 3); // 3 Registrations.
-        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 3); // 3 Registrations this interval.
+        assert_eq!(RegistrationsThisInterval::<Test>::get(netuid), 3); // 3 Registrations this interval.
 
         // Fast forward 1 block.
         assert_eq!(Difficulty::<Test>::get(netuid), 20000); // Difficulty is unchanged.
@@ -79,7 +79,7 @@ fn test_registration_difficulty_adjustment() {
         assert_eq!(LastAdjustmentBlock::<Test>::get(netuid), 2); // We just adjusted on the first block.
 
         assert_eq!(Difficulty::<Test>::get(netuid), 40000); // Difficulty is increased ( 20000 * ( 3 + 1 ) / ( 1 + 1 ) ) = 80_000
-        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 0); // Registrations this interval has been wiped.
+        assert_eq!(RegistrationsThisInterval::<Test>::get(netuid), 0); // Registrations this interval has been wiped.
 
         // Lets change the adjustment interval
         SubtensorModule::set_adjustment_interval(netuid, 3);
@@ -108,7 +108,7 @@ fn test_registration_difficulty_adjustment() {
             hotkey2 + 1
         ); // replace 2
         assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 3); // Registrations have been erased.
-        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 3); // Registrations this interval = 3
+        assert_eq!(RegistrationsThisInterval::<Test>::get(netuid), 3); // Registrations this interval = 3
 
         step_block(1); // Step
 
@@ -116,7 +116,7 @@ fn test_registration_difficulty_adjustment() {
         assert_eq!(LastAdjustmentBlock::<Test>::get(netuid), 2); // Still previous adjustment block.
 
         assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 0); // Registrations have been erased.
-        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 3); // Registrations this interval = 3
+        assert_eq!(RegistrationsThisInterval::<Test>::get(netuid), 3); // Registrations this interval = 3
 
         // Register 3 more.
         register_ok_neuron(netuid, hotkey0 + 2, coldkey0 + 2, 394208420);
@@ -126,11 +126,11 @@ fn test_registration_difficulty_adjustment() {
 
         // We have 6 registrations this adjustment interval.
         step_block(1); // Step
-        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 6); // Registrations this interval = 6
+        assert_eq!(RegistrationsThisInterval::<Test>::get(netuid), 6); // Registrations this interval = 6
         assert_eq!(Difficulty::<Test>::get(netuid), 40000); // Difficulty unchanged.
         step_block(1); // Step
         assert_eq!(Difficulty::<Test>::get(netuid), 60_000); // Difficulty changed ( 40000 ) * ( 6 + 3 / 3 + 3 ) = 40000 * 1.5 = 60_000
-        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 0); // Registrations this interval drops to 0.
+        assert_eq!(RegistrationsThisInterval::<Test>::get(netuid), 0); // Registrations this interval drops to 0.
 
         // Test min value.
         SubtensorModule::set_min_difficulty(netuid, 1);
@@ -155,7 +155,7 @@ fn test_registration_difficulty_adjustment() {
         register_ok_neuron(netuid, hotkey1 + 3, coldkey1 + 3, 824123920);
         register_ok_neuron(netuid, hotkey2 + 3, coldkey2 + 3, 324123920);
         register_ok_neuron(netuid, hotkey2 + 4, coldkey2 + 4, 524123920);
-        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 4);
+        assert_eq!(RegistrationsThisInterval::<Test>::get(netuid), 4);
         assert_eq!(
             SubtensorModule::get_target_registrations_per_interval(netuid),
             3

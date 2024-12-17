@@ -219,10 +219,6 @@ impl<T: Config> Pallet<T> {
         Tempo::<T>::get(netuid)
     }
 
-    pub fn get_registrations_this_interval(netuid: u16) -> u16 {
-        RegistrationsThisInterval::<T>::get(netuid)
-    }
-
     // ========================
     // ===== Take checks ======
     // ========================

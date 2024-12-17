@@ -1559,8 +1559,7 @@ where
                 ..Default::default()
             }),
             Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {
-                let registrations_this_interval =
-                    Pallet::<T>::get_registrations_this_interval(*netuid);
+                let registrations_this_interval = RegistrationsThisInterval::<T>::get(*netuid);
                 let max_registrations_per_interval =
                     Pallet::<T>::get_target_registrations_per_interval(*netuid);
                 if registrations_this_interval >= (max_registrations_per_interval.saturating_mul(3))

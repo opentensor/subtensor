@@ -72,7 +72,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 4. Ensure we are not exceeding the max allowed registrations per interval.
         ensure!(
-            Self::get_registrations_this_interval(netuid)
+            RegistrationsThisInterval::<T>::get(netuid)
                 < Self::get_target_registrations_per_interval(netuid).saturating_mul(3),
             Error::<T>::TooManyRegistrationsThisInterval
         );
@@ -256,7 +256,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 5. Ensure we are not exceeding the max allowed registrations per interval.
         ensure!(
-            Self::get_registrations_this_interval(netuid)
+            RegistrationsThisInterval::<T>::get(netuid)
                 < Self::get_target_registrations_per_interval(netuid).saturating_mul(3),
             Error::<T>::TooManyRegistrationsThisInterval
         );
