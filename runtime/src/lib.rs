@@ -34,6 +34,7 @@ use scale_info::TypeInfo;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_core::hexdisplay::AsBytesRef;
 use sp_core::{
     crypto::{ByteArray, KeyTypeId},
     OpaqueMetadata, H160, H256, U256,
@@ -2016,6 +2017,24 @@ impl_runtime_apis! {
     impl subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block> for Runtime {
         fn get_network_registration_cost() -> u64 {
             SubtensorModule::get_network_lock_cost()
+        }
+    }
+
+    impl subtensor_custom_rpc_runtime_api::RateLimitInfoRuntimeApi<Block> for Runtime {
+        fn get_rate_limits() -> Vec<u8> {
+            SubtensorModule::get_rate_limits().encode()
+        }
+
+        fn get_limited_tx_info_for_hotkey(hotkey: Vec<u8>, netuid: u16) -> Vec<u8> {
+            let hotkey = AccountId::decode(&mut hotkey.as_bytes_ref()).expect("Could not decode account ID");
+            SubtensorModule::get_limited_tx_info_for_hotkey(&hotkey, netuid).encode()
+        }
+
+        fn get_stakes_this_interval(coldkey: Vec<u8>, hotkey: Vec<u8>) -> u64 {
+            let coldkey = AccountId::decode(&mut coldkey.as_bytes_ref()).expect("Could not decode account ID");
+            let hotkey = AccountId::decode(&mut hotkey.as_bytes_ref()).expect("Could not decode account ID");
+
+            SubtensorModule::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey)
         }
     }
 }
