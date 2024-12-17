@@ -89,7 +89,7 @@ impl<T: Config> Pallet<T> {
             return None;
         }
 
-        let rho = Self::get_rho(netuid);
+        let rho = Rho::<T>::get(netuid);
         let kappa = Kappa::<T>::get(netuid);
         let difficulty: Compact<u64> = Difficulty::<T>::get(netuid).into();
         let immunity_period = ImmunityPeriod::<T>::get(netuid);
@@ -159,7 +159,7 @@ impl<T: Config> Pallet<T> {
             return None;
         }
 
-        let rho = Self::get_rho(netuid);
+        let rho = Rho::<T>::get(netuid);
         let kappa = Kappa::<T>::get(netuid);
         let difficulty: Compact<u64> = Difficulty::<T>::get(netuid).into();
         let immunity_period = ImmunityPeriod::<T>::get(netuid);
@@ -230,7 +230,7 @@ impl<T: Config> Pallet<T> {
             return None;
         }
 
-        let rho = Self::get_rho(netuid);
+        let rho = Rho::<T>::get(netuid);
         let kappa = Kappa::<T>::get(netuid);
         let immunity_period = ImmunityPeriod::<T>::get(netuid);
         let min_allowed_weights = MinAllowedWeights::<T>::get(netuid);

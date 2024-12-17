@@ -388,7 +388,7 @@ impl<T: Config> Pallet<T> {
             let shifted_trust =
                 trust_score.saturating_sub(I64F64::from_num(Self::get_float_kappa(0))); // Range( -kappa, 1 - kappa )
             let temperatured_trust =
-                shifted_trust.saturating_mul(I64F64::from_num(Self::get_rho(0))); // Range( -rho * kappa, rho ( 1 - kappa ) )
+                shifted_trust.saturating_mul(I64F64::from_num(Rho::<T>::get(0))); // Range( -rho * kappa, rho ( 1 - kappa ) )
             let exponentiated_trust: I64F64 =
                 substrate_fixed::transcendental::exp(temperatured_trust.saturating_neg())
                     .expect("temperatured_trust is on range( -rho * kappa, rho ( 1 - kappa ) )");
