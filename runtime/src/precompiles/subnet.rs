@@ -11,7 +11,7 @@ pub const SUBNET_PRECOMPILE_INDEX: u64 = 2051;
 pub const MAX_PARAMETER_SIZE: usize = 3 * 1024;
 
 // this is staking smart contract's(0x0000000000000000000000000000000000000803) sr25519 address
-pub const STAKING_CONTRACT_ADDRESS: &str = "5DPSUCb5mZFfizvBDSnRoAqmxV5Bmov2CS3xV773qU6VP1w2";
+pub const SUBNET_CONTRACT_ADDRESS: &str = "5DPSUCb5mZFfizvBDSnRoAqmxV5Bmov2CS3xV773qU6VP1w2";
 
 pub struct SubnetPrecompile;
 
@@ -213,7 +213,7 @@ impl SubnetPrecompile {
             )
         };
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        dispatch(handle, call, SUBNET_CONTRACT_ADDRESS)
     }
 
     fn get_serving_rate_limit(data: &[u8]) -> PrecompileResult {
@@ -240,7 +240,7 @@ impl SubnetPrecompile {
             },
         );
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        dispatch(handle, call, SUBNET_CONTRACT_ADDRESS)
     }
 
     fn get_min_difficulty(data: &[u8]) -> PrecompileResult {
@@ -267,7 +267,7 @@ impl SubnetPrecompile {
             },
         );
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        dispatch(handle, call, SUBNET_CONTRACT_ADDRESS)
     }
 
     fn get_max_difficulty(data: &[u8]) -> PrecompileResult {
@@ -294,7 +294,7 @@ impl SubnetPrecompile {
             },
         );
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        dispatch(handle, call, SUBNET_CONTRACT_ADDRESS)
     }
 
     fn get_weights_version_key(data: &[u8]) -> PrecompileResult {
@@ -324,7 +324,7 @@ impl SubnetPrecompile {
             },
         );
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        dispatch(handle, call, SUBNET_CONTRACT_ADDRESS)
     }
 
     fn get_weights_set_rate_limit(data: &[u8]) -> PrecompileResult {
@@ -355,7 +355,7 @@ impl SubnetPrecompile {
             },
         );
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        dispatch(handle, call, SUBNET_CONTRACT_ADDRESS)
     }
 
     fn get_adjustment_alpha(data: &[u8]) -> PrecompileResult {
@@ -382,7 +382,7 @@ impl SubnetPrecompile {
             },
         );
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        dispatch(handle, call, SUBNET_CONTRACT_ADDRESS)
     }
 
     fn get_max_weight_limit(data: &[u8]) -> PrecompileResult {
@@ -409,7 +409,7 @@ impl SubnetPrecompile {
             },
         );
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        dispatch(handle, call, SUBNET_CONTRACT_ADDRESS)
     }
 
     fn get_immunity_period(data: &[u8]) -> PrecompileResult {
@@ -436,7 +436,7 @@ impl SubnetPrecompile {
             },
         );
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        dispatch(handle, call, SUBNET_CONTRACT_ADDRESS)
     }
 
     fn get_min_allowed_weights(data: &[u8]) -> PrecompileResult {
@@ -466,7 +466,7 @@ impl SubnetPrecompile {
             },
         );
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        dispatch(handle, call, SUBNET_CONTRACT_ADDRESS)
     }
 
     fn get_kappa(data: &[u8]) -> PrecompileResult {
@@ -491,7 +491,7 @@ impl SubnetPrecompile {
             kappa,
         });
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        dispatch(handle, call, SUBNET_CONTRACT_ADDRESS)
     }
 
     fn get_rho(data: &[u8]) -> PrecompileResult {
@@ -516,7 +516,7 @@ impl SubnetPrecompile {
             rho,
         });
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        dispatch(handle, call, SUBNET_CONTRACT_ADDRESS)
     }
 
     fn get_activity_cutoff(data: &[u8]) -> PrecompileResult {
@@ -543,7 +543,7 @@ impl SubnetPrecompile {
             },
         );
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        dispatch(handle, call, SUBNET_CONTRACT_ADDRESS)
     }
 
     fn get_network_registration_allowed(data: &[u8]) -> PrecompileResult {
@@ -573,7 +573,7 @@ impl SubnetPrecompile {
             },
         );
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        dispatch(handle, call, SUBNET_CONTRACT_ADDRESS)
     }
 
     fn get_network_pow_registration_allowed(data: &[u8]) -> PrecompileResult {
@@ -603,7 +603,7 @@ impl SubnetPrecompile {
             },
         );
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        dispatch(handle, call, SUBNET_CONTRACT_ADDRESS)
     }
 
     fn get_min_burn(data: &[u8]) -> PrecompileResult {
@@ -629,7 +629,7 @@ impl SubnetPrecompile {
                 min_burn,
             });
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        dispatch(handle, call, SUBNET_CONTRACT_ADDRESS)
     }
 
     fn get_max_burn(data: &[u8]) -> PrecompileResult {
@@ -655,7 +655,7 @@ impl SubnetPrecompile {
                 max_burn,
             });
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        dispatch(handle, call, SUBNET_CONTRACT_ADDRESS)
     }
 
     fn get_difficulty(data: &[u8]) -> PrecompileResult {
@@ -681,7 +681,7 @@ impl SubnetPrecompile {
                 difficulty,
             });
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        dispatch(handle, call, SUBNET_CONTRACT_ADDRESS)
     }
 
     fn get_bonds_moving_average(data: &[u8]) -> PrecompileResult {
@@ -711,7 +711,7 @@ impl SubnetPrecompile {
             },
         );
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        dispatch(handle, call, SUBNET_CONTRACT_ADDRESS)
     }
 
     fn get_commit_reveal_weights_enabled(data: &[u8]) -> PrecompileResult {
@@ -741,7 +741,7 @@ impl SubnetPrecompile {
             },
         );
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        dispatch(handle, call, SUBNET_CONTRACT_ADDRESS)
     }
 
     fn get_liquid_alpha_enabled(data: &[u8]) -> PrecompileResult {
@@ -768,7 +768,7 @@ impl SubnetPrecompile {
             pallet_admin_utils::Call::<Runtime>::sudo_set_liquid_alpha_enabled { netuid, enabled },
         );
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        dispatch(handle, call, SUBNET_CONTRACT_ADDRESS)
     }
 
     fn get_alpha_values(data: &[u8]) -> PrecompileResult {
@@ -798,7 +798,7 @@ impl SubnetPrecompile {
                 alpha_high,
             });
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        dispatch(handle, call, SUBNET_CONTRACT_ADDRESS)
     }
 
     fn get_commit_reveal_weights_interval(data: &[u8]) -> PrecompileResult {
@@ -828,7 +828,7 @@ impl SubnetPrecompile {
             },
         );
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        dispatch(handle, call, SUBNET_CONTRACT_ADDRESS)
     }
 
     fn parse_register_network_parameters(
