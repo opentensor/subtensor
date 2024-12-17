@@ -306,9 +306,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::MaxChildKeyTakeSet(take));
     }
 
-    pub fn get_serving_rate_limit(netuid: u16) -> u64 {
-        ServingRateLimit::<T>::get(netuid)
-    }
     pub fn set_serving_rate_limit(netuid: u16, serving_rate_limit: u64) {
         ServingRateLimit::<T>::insert(netuid, serving_rate_limit);
         Self::deposit_event(Event::ServingRateLimitSet(netuid, serving_rate_limit));
