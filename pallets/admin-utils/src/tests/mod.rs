@@ -512,7 +512,7 @@ fn test_sudo_set_rho() {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
-        let init_value: u16 = SubtensorModule::get_rho(netuid);
+        let init_value: u16 = Rho::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_rho(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -529,13 +529,13 @@ fn test_sudo_set_rho() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_rho(netuid), init_value);
+        assert_eq!(Rho::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_rho(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_rho(netuid), to_be_set);
+        assert_eq!(Rho::<Test>::get(netuid), to_be_set);
     });
 }
 

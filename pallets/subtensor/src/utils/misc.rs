@@ -401,9 +401,6 @@ impl<T: Config> Pallet<T> {
         CommitRevealWeightsEnabled::<T>::set(netuid, enabled);
     }
 
-    pub fn get_rho(netuid: u16) -> u16 {
-        Rho::<T>::get(netuid)
-    }
     pub fn set_rho(netuid: u16, rho: u16) {
         Rho::<T>::insert(netuid, rho);
     }
