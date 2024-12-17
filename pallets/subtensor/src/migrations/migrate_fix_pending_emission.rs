@@ -204,10 +204,7 @@ impl<T: Config> Pallet<T> {
 
                 assert!(StakingHotkeys::<T>::get(migration_ck_acct).contains(taostats_old_hk_acct));
 
-                assert_eq!(
-                    Self::get_stake_for_coldkey_and_hotkey(null_account, taostats_old_hk_acct),
-                    0
-                );
+                assert_eq!(Stake::<T>::get(taostats_old_hk_acct, null_account), 0);
 
                 // Check the total hotkey stake is the same
                 assert_eq!(
@@ -217,7 +214,7 @@ impl<T: Config> Pallet<T> {
                 );
 
                 let new_null_stake_taostats =
-                    Self::get_stake_for_coldkey_and_hotkey(migration_ck_acct, taostats_old_hk_acct);
+                    Stake::<T>::get(taostats_old_hk_acct, migration_ck_acct);
 
                 assert_eq!(
                     new_null_stake_taostats,
@@ -257,10 +254,7 @@ impl<T: Config> Pallet<T> {
 
                 assert!(StakingHotkeys::<T>::get(migration_ck_acct).contains(datura_old_hk_acct));
 
-                assert_eq!(
-                    Self::get_stake_for_coldkey_and_hotkey(null_account, datura_old_hk_acct),
-                    0
-                );
+                assert_eq!(Stake::<T>::get(datura_old_hk_acct, null_account), 0);
 
                 // Check the total hotkey stake is the same
                 assert_eq!(
@@ -269,8 +263,7 @@ impl<T: Config> Pallet<T> {
                         .saturating_add(old.old_migration_stake_datura)
                 );
 
-                let new_null_stake_datura =
-                    Self::get_stake_for_coldkey_and_hotkey(migration_ck_acct, datura_old_hk_acct);
+                let new_null_stake_datura = Stake::<T>::get(datura_old_hk_acct, migration_ck_acct);
 
                 assert_eq!(
                     new_null_stake_datura,
@@ -353,14 +346,8 @@ pub mod migration {
                         .saturating_add(PendingdHotkeyEmission::<T>::get(taostats_new_hk_acct));
 
                 Ok::<(u64, u64), sp_runtime::TryRuntimeError>((
-                    crate::Pallet::<T>::get_stake_for_coldkey_and_hotkey(
-                        null_account,
-                        taostats_old_hk_acct,
-                    ),
-                    crate::Pallet::<T>::get_stake_for_coldkey_and_hotkey(
-                        migration_acct,
-                        taostats_old_hk_acct,
-                    ),
+                    Stake::<T>::get(taostats_old_hk_acct, null_account),
+                    Stake::<T>::get(taostats_old_hk_acct, migration_acct),
                 ))
             }
             _ => {
@@ -386,14 +373,8 @@ pub mod migration {
                     .saturating_add(PendingdHotkeyEmission::<T>::get(datura_new_hk_acct));
 
                 Ok::<(u64, u64), sp_runtime::TryRuntimeError>((
-                    crate::Pallet::<T>::get_stake_for_coldkey_and_hotkey(
-                        null_account,
-                        datura_old_hk_acct,
-                    ),
-                    crate::Pallet::<T>::get_stake_for_coldkey_and_hotkey(
-                        migration_acct,
-                        datura_old_hk_acct,
-                    ),
+                    Stake::<T>::get(datura_old_hk_acct, null_account),
+                    Stake::<T>::get(datura_old_hk_acct, migration_acct),
                 ))
             }
             _ => {

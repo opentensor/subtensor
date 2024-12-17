@@ -119,8 +119,7 @@ impl<T: Config> Pallet<T> {
 
         let mut delegates: Vec<(DelegateInfo<T>, Compact<u64>)> = Vec::new();
         for delegate in <Delegates<T> as IterableStorageMap<T::AccountId, u16>>::iter_keys() {
-            let staked_to_this_delegatee =
-                Self::get_stake_for_coldkey_and_hotkey(&delegatee.clone(), &delegate.clone());
+            let staked_to_this_delegatee = Stake::<T>::get(&delegate, &delegatee);
             if staked_to_this_delegatee == 0 {
                 continue; // No stake to this delegate
             }

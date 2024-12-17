@@ -961,10 +961,7 @@ mod sudo_set_nominator_min_required_stake {
                 hot1,
                 1
             ));
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
-                1
-            );
+            assert_eq!(Stake::<Test>::get(hot1, cold1), 1);
             assert_eq!(Balances::free_balance(cold1), 4);
 
             // Add stake cold2 --> hot1 (is delegation.)
@@ -974,10 +971,7 @@ mod sudo_set_nominator_min_required_stake {
                 hot1,
                 1
             ));
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
-                1
-            );
+            assert_eq!(Stake::<Test>::get(hot1, cold2), 1);
             assert_eq!(Balances::free_balance(cold2), 4);
 
             // Add stake cold1 --> hot2 (non delegation.)
@@ -987,10 +981,7 @@ mod sudo_set_nominator_min_required_stake {
                 hot2,
                 1
             ));
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
-                1
-            );
+            assert_eq!(Stake::<Test>::get(hot2, cold1), 1);
             assert_eq!(Balances::free_balance(cold1), 8);
 
             // Add stake cold2 --> hot2 (is delegation.)
@@ -1000,10 +991,7 @@ mod sudo_set_nominator_min_required_stake {
                 hot2,
                 1
             ));
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
-                1
-            );
+            assert_eq!(Stake::<Test>::get(hot2, cold2), 1);
             assert_eq!(Balances::free_balance(cold2), 8);
 
             // Set min stake to 0 (noop)
@@ -1011,44 +999,20 @@ mod sudo_set_nominator_min_required_stake {
                 <<Test as Config>::RuntimeOrigin>::root(),
                 0u64
             ));
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
-                1
-            );
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
-                1
-            );
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
-                1
-            );
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
-                1
-            );
+            assert_eq!(Stake::<Test>::get(hot1, cold1), 1);
+            assert_eq!(Stake::<Test>::get(hot2, cold1), 1);
+            assert_eq!(Stake::<Test>::get(hot1, cold2), 1);
+            assert_eq!(Stake::<Test>::get(hot2, cold2), 1);
 
             // Set min nomination to 10: should clear (cold2, hot1) and (cold1, hot2).
             assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
                 <<Test as Config>::RuntimeOrigin>::root(),
                 10u64
             ));
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
-                1
-            );
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
-                0
-            );
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
-                0
-            );
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
-                1
-            );
+            assert_eq!(Stake::<Test>::get(hot1, cold1), 1);
+            assert_eq!(Stake::<Test>::get(hot2, cold1), 0);
+            assert_eq!(Stake::<Test>::get(hot1, cold2), 0);
+            assert_eq!(Stake::<Test>::get(hot2, cold2), 1);
 
             // Balances have been added back into accounts.
             assert_eq!(Balances::free_balance(cold1), 9);

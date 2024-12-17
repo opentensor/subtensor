@@ -6,7 +6,7 @@ use sp_core::U256;
 use substrate_fixed::types::I64F64;
 
 use crate::{
-    HotkeyEmissionTempo, PendingEmission, PendingdHotkeyEmission, TargetStakesPerInterval,
+    HotkeyEmissionTempo, PendingEmission, PendingdHotkeyEmission, Stake, TargetStakesPerInterval,
 };
 
 // Test the ability to hash all sorts of hotkeys.
@@ -312,9 +312,9 @@ fn test_coinbase_nominator_drainage_overflow() {
         // Log the stakes for hotkey, nominator1, and nominator2
         log::debug!(
             "Initial stakes - Hotkey: {}, Nominator1: {}, Nominator2: {}",
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey),
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey),
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator2, &hotkey)
+            Stake::<Test>::get(hotkey, coldkey),
+            Stake::<Test>::get(hotkey, nominator1),
+            Stake::<Test>::get(hotkey, nominator2)
         );
         log::debug!("Stakes added for nominators");
 
@@ -349,11 +349,9 @@ fn test_coinbase_nominator_drainage_overflow() {
         log::debug!("After second block, pending emission drained");
 
         // 8. Check final stakes
-        let hotkey_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey);
-        let nominator1_stake =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey);
-        let nominator2_stake =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator2, &hotkey);
+        let hotkey_stake = Stake::<Test>::get(hotkey, coldkey);
+        let nominator1_stake = Stake::<Test>::get(hotkey, nominator1);
+        let nominator2_stake = Stake::<Test>::get(hotkey, nominator2);
 
         log::debug!(
             "Final stakes - Hotkey: {}, Nominator1: {}, Nominator2: {}",
@@ -465,9 +463,9 @@ fn test_coinbase_nominator_drainage_no_deltas() {
         // Log the stakes for hotkey, nominator1, and nominator2
         log::debug!(
             "Initial stakes - Hotkey: {}, Nominator1: {}, Nominator2: {}",
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey),
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey),
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator2, &hotkey)
+            Stake::<Test>::get(hotkey, coldkey),
+            Stake::<Test>::get(hotkey, nominator1),
+            Stake::<Test>::get(hotkey, nominator2)
         );
         log::debug!("Stakes added for nominators");
 
@@ -498,11 +496,9 @@ fn test_coinbase_nominator_drainage_no_deltas() {
         log::debug!("After second block, pending emission drained");
 
         // 8. Check final stakes
-        let hotkey_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey);
-        let nominator1_stake =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey);
-        let nominator2_stake =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator2, &hotkey);
+        let hotkey_stake = Stake::<Test>::get(hotkey, coldkey);
+        let nominator1_stake = Stake::<Test>::get(hotkey, nominator1);
+        let nominator2_stake = Stake::<Test>::get(hotkey, nominator2);
 
         log::debug!(
             "Final stakes - Hotkey: {}, Nominator1: {}, Nominator2: {}",
@@ -608,14 +604,13 @@ fn test_coinbase_nominator_drainage_with_positive_delta() {
         // Log the stakes for hotkey, nominator1, and nominator2
         log::debug!(
             "Initial stakes - Hotkey: {}, Nominator1: {}, Nominator2: {}",
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey),
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey),
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator2, &hotkey)
+            Stake::<Test>::get(hotkey, coldkey),
+            Stake::<Test>::get(hotkey, nominator1),
+            Stake::<Test>::get(hotkey, nominator2)
         );
         log::debug!("Stakes added for nominators");
 
-        let nominator1_stake_before =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey);
+        let nominator1_stake_before = Stake::<Test>::get(hotkey, nominator1);
         assert_eq!(nominator1_stake_before, 100 + 123); // The stake should include the added stake
 
         // 5. Set emission and verify initial states
@@ -648,11 +643,9 @@ fn test_coinbase_nominator_drainage_with_positive_delta() {
         log::debug!("After second block, pending emission drained");
 
         // 8. Check final stakes
-        let hotkey_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey);
-        let nominator1_stake =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey);
-        let nominator2_stake =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator2, &hotkey);
+        let hotkey_stake = Stake::<Test>::get(hotkey, coldkey);
+        let nominator1_stake = Stake::<Test>::get(hotkey, nominator1);
+        let nominator2_stake = Stake::<Test>::get(hotkey, nominator2);
 
         log::debug!(
             "Final stakes - Hotkey: {}, Nominator1: {}, Nominator2: {}",
@@ -765,14 +758,13 @@ fn test_coinbase_nominator_drainage_with_negative_delta() {
         // Log the stakes for hotkey, nominator1, and nominator2
         log::debug!(
             "Initial stakes - Hotkey: {}, Nominator1: {}, Nominator2: {}",
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey),
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey),
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator2, &hotkey)
+            Stake::<Test>::get(hotkey, coldkey),
+            Stake::<Test>::get(hotkey, nominator1),
+            Stake::<Test>::get(hotkey, nominator2)
         );
         log::debug!("Stakes added for nominators");
 
-        let nominator_1_stake_before =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey);
+        let nominator_1_stake_before = Stake::<Test>::get(hotkey, nominator1);
         // Notice that nominator1 stake is the new stake, including the removed stake
         assert_eq!(nominator_1_stake_before, 100 - 12);
 
@@ -806,12 +798,10 @@ fn test_coinbase_nominator_drainage_with_negative_delta() {
         log::debug!("After second block, pending emission drained");
 
         // 8. Check final stakes
-        let delegate_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey);
+        let delegate_stake = Stake::<Test>::get(hotkey, coldkey);
         let total_hotkey_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
-        let nominator1_stake =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey);
-        let nominator2_stake =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator2, &hotkey);
+        let nominator1_stake = Stake::<Test>::get(hotkey, nominator1);
+        let nominator2_stake = Stake::<Test>::get(hotkey, nominator2);
 
         log::debug!(
             "Final stakes - Hotkey: {}, Nominator1: {}, Nominator2: {}, Total Hotkey Stake: {}",
@@ -931,14 +921,13 @@ fn test_coinbase_nominator_drainage_with_neutral_delta() {
         // Log the stakes for hotkey, nominator1, and nominator2
         log::debug!(
             "Initial stakes - Hotkey: {}, Nominator1: {}, Nominator2: {}",
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey),
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey),
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator2, &hotkey)
+            Stake::<Test>::get(hotkey, coldkey),
+            Stake::<Test>::get(hotkey, nominator1),
+            Stake::<Test>::get(hotkey, nominator2)
         );
         log::debug!("Stakes added for nominators");
 
-        let nominator1_stake_before =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey);
+        let nominator1_stake_before = Stake::<Test>::get(hotkey, nominator1);
         // Notice that nominator1 stake is the unchanged from the initial stake
         assert_eq!(nominator1_stake_before, 100);
 
@@ -969,12 +958,10 @@ fn test_coinbase_nominator_drainage_with_neutral_delta() {
         log::debug!("After second block, pending emission drained");
 
         // 8. Check final stakes
-        let delegate_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey);
+        let delegate_stake = Stake::<Test>::get(hotkey, coldkey);
         let total_hotkey_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
-        let nominator1_stake =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey);
-        let nominator2_stake =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator2, &hotkey);
+        let nominator1_stake = Stake::<Test>::get(hotkey, nominator1);
+        let nominator2_stake = Stake::<Test>::get(hotkey, nominator2);
 
         log::debug!(
             "Final stakes - Hotkey: {}, Nominator1: {}, Nominator2: {}, Total Hotkey Stake: {}",
@@ -1075,11 +1062,9 @@ fn test_coinbase_nominator_drainage_with_net_positive_delta() {
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&nominator1, &hotkey, 100);
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&nominator2, &hotkey, 100);
 
-        let initial_nominator1_stake =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey);
+        let initial_nominator1_stake = Stake::<Test>::get(hotkey, nominator1);
         let intial_total_hotkey_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
-        let initial_nominator2_stake =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator2, &hotkey);
+        let initial_nominator2_stake = Stake::<Test>::get(hotkey, nominator2);
 
         assert_eq!(initial_nominator1_stake, initial_nominator2_stake); // Initial stakes should be equal
 
@@ -1107,14 +1092,13 @@ fn test_coinbase_nominator_drainage_with_net_positive_delta() {
         // Log the stakes for hotkey, nominator1, and nominator2
         log::debug!(
             "Initial stakes - Hotkey: {}, Nominator1: {}, Nominator2: {}",
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey),
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey),
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator2, &hotkey)
+            Stake::<Test>::get(hotkey, coldkey),
+            Stake::<Test>::get(hotkey, nominator1),
+            Stake::<Test>::get(hotkey, nominator2)
         );
         log::debug!("Stakes added for nominators");
 
-        let nominator_1_stake_before =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey);
+        let nominator_1_stake_before = Stake::<Test>::get(hotkey, nominator1);
         // Notice that nominator1 stake is the new stake, including the removed stake
         assert_eq!(
             nominator_1_stake_before,
@@ -1151,12 +1135,10 @@ fn test_coinbase_nominator_drainage_with_net_positive_delta() {
         log::debug!("After second block, pending emission drained");
 
         // 8. Check final stakes
-        let delegate_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey);
+        let delegate_stake = Stake::<Test>::get(hotkey, coldkey);
         let total_hotkey_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
-        let nominator1_stake =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey);
-        let nominator2_stake =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator2, &hotkey);
+        let nominator1_stake = Stake::<Test>::get(hotkey, nominator1);
+        let nominator2_stake = Stake::<Test>::get(hotkey, nominator2);
 
         log::debug!(
             "Final stakes - Hotkey: {}, Nominator1: {}, Nominator2: {}, Total Hotkey Stake: {}",
@@ -1274,11 +1256,9 @@ fn test_coinbase_nominator_drainage_with_net_negative_delta() {
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&nominator1, &hotkey, 300);
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&nominator2, &hotkey, 300);
 
-        let initial_nominator1_stake =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey);
+        let initial_nominator1_stake = Stake::<Test>::get(hotkey, nominator1);
         let intial_total_hotkey_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
-        let initial_nominator2_stake =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator2, &hotkey);
+        let initial_nominator2_stake = Stake::<Test>::get(hotkey, nominator2);
 
         assert_eq!(initial_nominator1_stake, initial_nominator2_stake); // Initial stakes should be equal
 
@@ -1307,15 +1287,14 @@ fn test_coinbase_nominator_drainage_with_net_negative_delta() {
         // Log the stakes for hotkey, nominator1, and nominator2
         log::debug!(
             "Initial stakes - Hotkey: {}, Nominator1: {}, Nominator2: {}",
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey),
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey),
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator2, &hotkey)
+            Stake::<Test>::get(hotkey, coldkey),
+            Stake::<Test>::get(hotkey, nominator1),
+            Stake::<Test>::get(hotkey, nominator2)
         );
         log::debug!("Stakes added for nominators");
 
         let total_stake_before = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
-        let nominator_1_stake_before =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey);
+        let nominator_1_stake_before = Stake::<Test>::get(hotkey, nominator1);
         // Notice that nominator1 stake is the new stake, including the removed stake
         assert_eq!(
             nominator_1_stake_before,
@@ -1353,12 +1332,10 @@ fn test_coinbase_nominator_drainage_with_net_negative_delta() {
         log::debug!("After second block, pending emission drained");
 
         // 8. Check final stakes
-        let delegate_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey);
+        let delegate_stake = Stake::<Test>::get(hotkey, coldkey);
         let total_hotkey_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
-        let nominator1_stake =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey);
-        let nominator2_stake =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator2, &hotkey);
+        let nominator1_stake = Stake::<Test>::get(hotkey, nominator1);
+        let nominator2_stake = Stake::<Test>::get(hotkey, nominator2);
 
         log::debug!(
             "Final stakes - Hotkey: {}, Nominator1: {}, Nominator2: {}, Total Hotkey Stake: {}",

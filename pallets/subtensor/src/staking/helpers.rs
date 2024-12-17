@@ -41,12 +41,6 @@ impl<T: Config> Pallet<T> {
         TotalColdkeyStake::<T>::get(coldkey)
     }
 
-    // Returns the stake under the cold - hot pairing in the staking table.
-    //
-    pub fn get_stake_for_coldkey_and_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
-        Stake::<T>::get(hotkey, coldkey)
-    }
-
     pub fn get_target_stakes_per_interval() -> u64 {
         TargetStakesPerInterval::<T>::get()
     }
@@ -111,7 +105,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// True if the account has enough balance, false otherwise.
     pub fn has_enough_stake(coldkey: &T::AccountId, hotkey: &T::AccountId, decrement: u64) -> bool {
-        Self::get_stake_for_coldkey_and_hotkey(coldkey, hotkey) >= decrement
+        Stake::<T>::get(hotkey, coldkey) >= decrement
     }
 
     /// Increases the stake on the hotkey account under its owning coldkey.
