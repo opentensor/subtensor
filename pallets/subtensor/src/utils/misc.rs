@@ -358,9 +358,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::ValidatorPruneLenSet(netuid, validator_prune_len));
     }
 
-    pub fn get_scaling_law_power(netuid: u16) -> u16 {
-        ScalingLawPower::<T>::get(netuid)
-    }
     pub fn set_scaling_law_power(netuid: u16, scaling_law_power: u16) {
         ScalingLawPower::<T>::insert(netuid, scaling_law_power);
         Self::deposit_event(Event::ScalingLawPowerSet(netuid, scaling_law_power));
