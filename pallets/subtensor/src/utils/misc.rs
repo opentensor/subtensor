@@ -68,9 +68,6 @@ impl<T: Config> Pallet<T> {
     // ==============================
     // ==== YumaConsensus params ====
     // ==============================
-    pub fn get_rank(netuid: u16) -> Vec<u16> {
-        Rank::<T>::get(netuid)
-    }
     pub fn get_trust(netuid: u16) -> Vec<u16> {
         Trust::<T>::get(netuid)
     }
