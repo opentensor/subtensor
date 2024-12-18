@@ -1,5 +1,5 @@
 #![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
-use crate::utils::rate_limiting::TransactionType;
+
 use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
 use frame_support::weights::constants::RocksDbWeight;
@@ -18,6 +18,8 @@ use sp_runtime::{
     BuildStorage,
 };
 use sp_std::cmp::Ordering;
+
+use crate::{utils::rate_limiting::TransactionType, Tempo};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -596,7 +598,7 @@ pub(crate) fn step_epochs(count: u16, netuid: u16) {
     for _ in 0..count {
         let blocks_to_next_epoch = SubtensorModule::blocks_until_next_epoch(
             netuid,
-            SubtensorModule::get_tempo(netuid),
+            Tempo::<Test>::get(netuid),
             SubtensorModule::get_current_block_as_u64(),
         );
         step_block(blocks_to_next_epoch as u16);

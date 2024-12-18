@@ -14,6 +14,7 @@ use crate::{
     Axons, BlockAtRegistration, Burn, Difficulty, EmissionValues, Error, ImmunityPeriod,
     MaxAllowedUids, MaxRegistrationsPerBlock, Owner, RAORecycledForRegistration,
     RegistrationsThisBlock, RegistrationsThisInterval, SubnetworkN, SubtensorSignedExtension,
+    Tempo,
 };
 
 /********************************************
@@ -1509,9 +1510,9 @@ fn test_full_pass_through() {
         add_network(netuid2, tempo2, 0);
 
         // Check their tempo.
-        assert_eq!(SubtensorModule::get_tempo(netuid0), tempo0);
-        assert_eq!(SubtensorModule::get_tempo(netuid1), tempo1);
-        assert_eq!(SubtensorModule::get_tempo(netuid2), tempo2);
+        assert_eq!(Tempo::<Test>::get(netuid0), tempo0);
+        assert_eq!(Tempo::<Test>::get(netuid1), tempo1);
+        assert_eq!(Tempo::<Test>::get(netuid2), tempo2);
 
         // Check their emission value.
         assert_eq!(EmissionValues::<Test>::get(netuid0), 0);

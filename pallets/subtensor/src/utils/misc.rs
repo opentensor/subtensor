@@ -212,13 +212,6 @@ impl<T: Config> Pallet<T> {
         StakeThreshold::<T>::get()
     }
 
-    // ============================
-    // ==== Subnetwork Getters ====
-    // ============================
-    pub fn get_tempo(netuid: u16) -> u16 {
-        Tempo::<T>::get(netuid)
-    }
-
     // ========================
     // ===== Take checks ======
     // ========================
