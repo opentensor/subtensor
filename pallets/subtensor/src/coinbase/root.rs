@@ -90,7 +90,7 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn get_block_emission() -> Result<u64, &'static str> {
         // Convert the total issuance to a fixed-point number for calculation.
-        Self::get_block_emission_for_issuance(Self::get_total_issuance())
+        Self::get_block_emission_for_issuance(TotalIssuance::<T>::get())
     }
 
     /// Returns the block emission for an issuance value.

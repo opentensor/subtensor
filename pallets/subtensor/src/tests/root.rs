@@ -9,7 +9,7 @@ use super::mock::*;
 use crate::{
     migrations, utils::rate_limiting::TransactionType, EmissionValues, Error, NetworkRateLimit,
     PendingEmission, SubnetIdentities, SubnetIdentity, SubnetIdentityOf, SubnetLimit, SubnetOwner,
-    SubnetworkN, TotalNetworks,
+    SubnetworkN, TotalIssuance, TotalNetworks,
 };
 
 #[allow(dead_code)]
@@ -526,7 +526,7 @@ fn test_network_pruning() {
         System::set_block_number(0);
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
-        assert_eq!(SubtensorModule::get_total_issuance(), 0);
+        assert_eq!(TotalIssuance::<Test>::get(), 0);
 
         let n: usize = 10;
         let root_netuid: u16 = 0;
@@ -656,7 +656,7 @@ fn test_weights_after_network_pruning() {
     new_test_ext(1).execute_with(|| {
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
-        assert_eq!(SubtensorModule::get_total_issuance(), 0);
+        assert_eq!(TotalIssuance::<Test>::get(), 0);
 
         // Set up N subnets, with max N + 1 allowed UIDs
         let n: usize = 2;

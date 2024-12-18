@@ -333,7 +333,7 @@ fn test_sudo_set_issuance() {
             <<Test as Config>::RuntimeOrigin>::root(),
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_total_issuance(), to_be_set);
+        assert_eq!(TotalIssuance::<Test>::get(), to_be_set);
     });
 }
 

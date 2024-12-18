@@ -294,7 +294,7 @@ impl<T: Config> Pallet<T> {
         // Check the total issuance is the SAME following migration (no TAO issued)
         let expected_total_issuance = old.total_issuance_before;
         let expected_total_stake = old.total_stake_before;
-        assert_eq!(Self::get_total_issuance(), expected_total_issuance);
+        assert_eq!(TotalIssuance::<T>::get(), expected_total_issuance);
 
         // Check total stake is the SAME following the migration (no new TAO staked)
         assert_eq!(TotalStake::<T>::get(), expected_total_stake);
@@ -331,7 +331,7 @@ pub mod migration {
         let taostats_old_hk_account = &get_account_id_from_ss58::<T>(taostats_old_hotkey);
         let taostats_new_hk_account = &get_account_id_from_ss58::<T>(taostats_new_hotkey);
 
-        let total_issuance_before = crate::Pallet::<T>::get_total_issuance();
+        let total_issuance_before = TotalIssuance::<T>::get();
         let mut expected_taostats_new_hk_pending_emission: u64 = 0;
         let mut expected_datura_new_hk_pending_emission: u64 = 0;
         let (old_null_stake_taostats, old_migration_stake_taostats) = match (

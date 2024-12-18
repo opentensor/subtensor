@@ -140,23 +140,23 @@ fn test_migrate_total_issuance() {
         // Run the migration to check total issuance.
         let test: bool = true;
 
-        assert_eq!(SubtensorModule::get_total_issuance(), 0);
+        assert_eq!(TotalIssuance::<Test>::get(), 0);
         crate::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(test);
-        assert_eq!(SubtensorModule::get_total_issuance(), 0);
+        assert_eq!(TotalIssuance::<Test>::get(), 0);
 
         SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 10000);
-        assert_eq!(SubtensorModule::get_total_issuance(), 0);
+        assert_eq!(TotalIssuance::<Test>::get(), 0);
         crate::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(test);
-        assert_eq!(SubtensorModule::get_total_issuance(), 10000);
+        assert_eq!(TotalIssuance::<Test>::get(), 10000);
 
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
             &U256::from(1),
             &U256::from(1),
             30000,
         );
-        assert_eq!(SubtensorModule::get_total_issuance(), 10000);
+        assert_eq!(TotalIssuance::<Test>::get(), 10000);
         crate::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(test);
-        assert_eq!(SubtensorModule::get_total_issuance(), 10000 + 30000);
+        assert_eq!(TotalIssuance::<Test>::get(), 10000 + 30000);
     })
 }
 
@@ -173,35 +173,29 @@ fn test_total_issuance_global() {
 
         let lockcost: u64 = SubtensorModule::get_network_lock_cost();
         SubtensorModule::add_balance_to_coldkey_account(&owner, lockcost); // Add a balance of 20000 to the coldkey account.
-        assert_eq!(SubtensorModule::get_total_issuance(), 0); // initial is zero.
+        assert_eq!(TotalIssuance::<Test>::get(), 0); // initial is zero.
         assert_ok!(SubtensorModule::register_network(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
         ));
         SubtensorModule::set_max_allowed_uids(netuid, 1); // Set the maximum allowed unique identifiers for the network to 1.
-        assert_eq!(SubtensorModule::get_total_issuance(), 0); // initial is zero.
+        assert_eq!(TotalIssuance::<Test>::get(), 0); // initial is zero.
         crate::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(true); // Pick up lock.
-        assert_eq!(SubtensorModule::get_total_issuance(), lockcost); // Verify the total issuance is updated to 20000 after migration.
+        assert_eq!(TotalIssuance::<Test>::get(), lockcost); // Verify the total issuance is updated to 20000 after migration.
         assert!(SubtensorModule::if_subnet_exist(netuid));
 
         // Test the migration's effect on total issuance after adding balance to a coldkey account.
         let account_balance: u64 = 20000;
         let _hotkey_account_id_1 = U256::from(1); // Define a hotkey account ID for further operations.
         let _coldkey_account_id_1 = U256::from(1); // Define a coldkey account ID for further operations.
-        assert_eq!(SubtensorModule::get_total_issuance(), lockcost); // Ensure the total issuance starts at 0 before the migration.
+        assert_eq!(TotalIssuance::<Test>::get(), lockcost); // Ensure the total issuance starts at 0 before the migration.
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, account_balance); // Add a balance of 20000 to the coldkey account.
         crate::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(true); // Execute the migration to update total issuance.
-        assert_eq!(
-            SubtensorModule::get_total_issuance(),
-            account_balance + lockcost
-        ); // Verify the total issuance is updated to 20000 after migration.
+        assert_eq!(TotalIssuance::<Test>::get(), account_balance + lockcost); // Verify the total issuance is updated to 20000 after migration.
 
         // Test the effect of burning on total issuance.
         let burn_cost: u64 = 10000;
         SubtensorModule::set_burn(netuid, burn_cost); // Set the burn amount to 10000 for the network.
-        assert_eq!(
-            SubtensorModule::get_total_issuance(),
-            account_balance + lockcost
-        ); // Confirm the total issuance remains 20000 before burning.
+        assert_eq!(TotalIssuance::<Test>::get(), account_balance + lockcost); // Confirm the total issuance remains 20000 before burning.
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey),
             netuid,
@@ -209,29 +203,29 @@ fn test_total_issuance_global() {
         )); // Execute the burn operation, reducing the total issuance.
         assert_eq!(SubnetworkN::<Test>::get(netuid), 1); // Ensure the subnetwork count increases to 1 after burning
         assert_eq!(
-            SubtensorModule::get_total_issuance(),
+            TotalIssuance::<Test>::get(),
             account_balance + lockcost - burn_cost
         ); // Verify the total issuance is reduced to 10000 after burning.
         crate::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(true); // Execute the migration to update total issuance.
         assert_eq!(
-            SubtensorModule::get_total_issuance(),
+            TotalIssuance::<Test>::get(),
             account_balance + lockcost - burn_cost
         ); // Verify the total issuance is updated to 10000 nothing changes
 
         // Test staking functionality and its effect on total issuance.
         let new_stake: u64 = 10000;
         assert_eq!(
-            SubtensorModule::get_total_issuance(),
+            TotalIssuance::<Test>::get(),
             account_balance + lockcost - burn_cost
         ); // Same
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, new_stake); // Stake an additional 10000 to the coldkey-hotkey account. This is i
         assert_eq!(
-            SubtensorModule::get_total_issuance(),
+            TotalIssuance::<Test>::get(),
             account_balance + lockcost - burn_cost
         ); // Same
         crate::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(true); // Fix issuance
         assert_eq!(
-            SubtensorModule::get_total_issuance(),
+            TotalIssuance::<Test>::get(),
             account_balance + lockcost - burn_cost + new_stake
         ); // New
 
@@ -241,17 +235,17 @@ fn test_total_issuance_global() {
         SubtensorModule::set_emission_values(&[netuid], vec![emission]).unwrap(); // Set the emission value for the network to 1_000_000_000.
         assert_eq!(EmissionValues::<Test>::get(netuid), emission); // Verify the emission value is set correctly for the network.
         assert_eq!(
-            SubtensorModule::get_total_issuance(),
+            TotalIssuance::<Test>::get(),
             account_balance + lockcost - burn_cost + new_stake
         );
         run_to_block(2); // Advance to block number 2 to trigger the emission through the subnet.
         assert_eq!(
-            SubtensorModule::get_total_issuance(),
+            TotalIssuance::<Test>::get(),
             account_balance + lockcost - burn_cost + new_stake + emission
         ); // Verify the total issuance reflects the staked amount and emission value that has been put through the epoch.
         crate::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(true); // Test migration does not change amount.
         assert_eq!(
-            SubtensorModule::get_total_issuance(),
+            TotalIssuance::<Test>::get(),
             account_balance + lockcost - burn_cost + new_stake + emission
         ); // Verify the total issuance reflects the staked amount and emission value that has been put through the epoch.
     })
@@ -607,7 +601,7 @@ fn test_migrate_fix_pending_emissions() {
         Stake::<Test>::insert(taostats_old_hk_account, null_account, null_stake_tao_stats);
         let expected_taostats_new_hk_pending_emission: u64 = 987_654 + 100_000;
 
-        let total_issuance_before = SubtensorModule::get_total_issuance();
+        let total_issuance_before = TotalIssuance::<Test>::get();
 
         // Run migration
         let first_weight = run_pending_emissions_migration_and_check(migration_name);
@@ -642,10 +636,7 @@ fn test_migrate_fix_pending_emissions() {
 
         // Check the total issuance is the SAME following migration (no TAO issued)
         let expected_total_issuance = total_issuance_before;
-        assert_eq!(
-            SubtensorModule::get_total_issuance(),
-            expected_total_issuance
-        );
+        assert_eq!(TotalIssuance::<Test>::get(), expected_total_issuance);
 
         // Check total stake is the SAME following the migration (no new TAO staked)
         assert_eq!(TotalStake::<Test>::get(), expected_total_issuance);
