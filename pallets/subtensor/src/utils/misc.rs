@@ -469,9 +469,6 @@ impl<T: Config> Pallet<T> {
         ));
     }
 
-    pub fn get_subnet_owner(netuid: u16) -> T::AccountId {
-        SubnetOwner::<T>::get(netuid)
-    }
     pub fn get_subnet_owner_cut() -> u16 {
         SubnetOwnerCut::<T>::get()
     }

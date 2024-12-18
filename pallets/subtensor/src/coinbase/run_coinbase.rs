@@ -138,7 +138,7 @@ impl<T: Config> Pallet<T> {
 
                     // --- 4.5.3 Add the cut to the balance of the owner
                     Self::add_balance_to_coldkey_account(
-                        &Self::get_subnet_owner(*netuid),
+                        &SubnetOwner::<T>::get(*netuid),
                         owner_cut.to_num::<u64>(),
                     );
 

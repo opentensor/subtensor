@@ -8,8 +8,8 @@ use sp_core::{Get, H256, U256};
 use super::mock::*;
 use crate::{
     migrations, utils::rate_limiting::TransactionType, EmissionValues, Error, NetworkRateLimit,
-    PendingEmission, SubnetIdentities, SubnetIdentity, SubnetIdentityOf, SubnetLimit, SubnetworkN,
-    TotalNetworks,
+    PendingEmission, SubnetIdentities, SubnetIdentity, SubnetIdentityOf, SubnetLimit, SubnetOwner,
+    SubnetworkN, TotalNetworks,
 };
 
 #[allow(dead_code)]
@@ -887,7 +887,7 @@ fn test_dissolve_network_ok() {
         let hotkey = U256::from(1);
 
         add_network(netuid, 0, 0);
-        let owner_coldkey = SubtensorModule::get_subnet_owner(netuid);
+        let owner_coldkey = SubnetOwner::<Test>::get(netuid);
         register_ok_neuron(netuid, hotkey, owner_coldkey, 3);
 
         assert!(SubtensorModule::if_subnet_exist(netuid));
@@ -908,7 +908,7 @@ fn test_dissolve_network_refund_coldkey_ok() {
         let subnet_locked_balance = 1000;
 
         add_network(netuid, 0, 0);
-        let owner_coldkey = SubtensorModule::get_subnet_owner(netuid);
+        let owner_coldkey = SubnetOwner::<Test>::get(netuid);
         register_ok_neuron(netuid, hotkey, owner_coldkey, 3);
 
         SubtensorModule::set_subnet_locked_balance(netuid, subnet_locked_balance);
