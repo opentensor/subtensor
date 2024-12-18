@@ -258,9 +258,6 @@ impl<T: Config> Pallet<T> {
         TxRateLimit::<T>::put(tx_rate_limit);
         Self::deposit_event(Event::TxRateLimitSet(tx_rate_limit));
     }
-    pub fn get_tx_delegate_take_rate_limit() -> u64 {
-        TxDelegateTakeRateLimit::<T>::get()
-    }
     pub fn set_tx_delegate_take_rate_limit(tx_rate_limit: u64) {
         TxDelegateTakeRateLimit::<T>::put(tx_rate_limit);
         Self::deposit_event(Event::TxDelegateTakeRateLimitSet(tx_rate_limit));

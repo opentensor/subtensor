@@ -143,7 +143,7 @@ impl<T: Config> Pallet<T> {
         current_block.saturating_sub(prev_tx_block) <= rate_limit
     }
     pub fn exceeds_tx_delegate_take_rate_limit(prev_tx_block: u64, current_block: u64) -> bool {
-        let rate_limit: u64 = Self::get_tx_delegate_take_rate_limit();
+        let rate_limit: u64 = TxDelegateTakeRateLimit::<T>::get();
         if rate_limit == 0 || prev_tx_block == 0 {
             return false;
         }

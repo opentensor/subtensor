@@ -1025,7 +1025,7 @@ mod sudo_set_nominator_min_required_stake {
 fn test_sudo_set_tx_delegate_take_rate_limit() {
     new_test_ext().execute_with(|| {
         let to_be_set: u64 = 10;
-        let init_value: u64 = SubtensorModule::get_tx_delegate_take_rate_limit();
+        let init_value: u64 = TxDelegateTakeRateLimit::<Test>::get();
         assert_eq!(
             AdminUtils::sudo_set_tx_delegate_take_rate_limit(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -1033,18 +1033,12 @@ fn test_sudo_set_tx_delegate_take_rate_limit() {
             ),
             Err(DispatchError::BadOrigin)
         );
-        assert_eq!(
-            SubtensorModule::get_tx_delegate_take_rate_limit(),
-            init_value
-        );
+        assert_eq!(TxDelegateTakeRateLimit::<Test>::get(), init_value);
         assert_ok!(AdminUtils::sudo_set_tx_delegate_take_rate_limit(
             <<Test as Config>::RuntimeOrigin>::root(),
             to_be_set
         ));
-        assert_eq!(
-            SubtensorModule::get_tx_delegate_take_rate_limit(),
-            to_be_set
-        );
+        assert_eq!(TxDelegateTakeRateLimit::<Test>::get(), to_be_set);
     });
 }
 
