@@ -110,7 +110,7 @@ fn distribute_nodes(
 fn uid_stats(netuid: u16, uid: u16) {
     log::info!(
         "stake: {:?}",
-        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid)))
+        TotalHotkeyStake::<Test>::get(U256::from(uid))
     );
     log::info!("rank: {:?}", SubtensorModule::get_rank_for_uid(netuid, uid));
     log::info!(
@@ -566,10 +566,7 @@ fn test_1_graph() {
         SubtensorModule::set_emission_values(&[netuid], vec![1_000_000_000]).unwrap();
         assert_eq!(EmissionValues::<Test>::get(netuid), 1_000_000_000);
         SubtensorModule::epoch(netuid, 1_000_000_000);
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            stake_amount
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey), stake_amount);
         assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
         assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 0);
         assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, uid), 0);
@@ -630,10 +627,7 @@ fn test_10_graph() {
         SubtensorModule::epoch(netuid, 1_000_000_000);
         // Check return values.
         for i in 0..n {
-            assert_eq!(
-                SubtensorModule::get_total_stake_for_hotkey(&(U256::from(i))),
-                1
-            );
+            assert_eq!(TotalHotkeyStake::<Test>::get(U256::from(i)), 1);
             assert_eq!(SubtensorModule::get_rank_for_uid(netuid, i as u16), 0);
             assert_eq!(SubtensorModule::get_trust_for_uid(netuid, i as u16), 0);
             assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, i as u16), 0);
@@ -686,7 +680,7 @@ fn test_512_graph() {
                 let bonds = SubtensorModule::get_bonds(netuid);
                 for uid in validators {
                     assert_eq!(
-                        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
+                        TotalHotkeyStake::<Test>::get(U256::from(uid)),
                         max_stake_per_validator
                     );
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
@@ -700,10 +694,7 @@ fn test_512_graph() {
                     // Note B_ij = floor(1 / 64 * 65_535) / 65_535 = 1023 / 65_535, then max-upscaled to 65_535
                 }
                 for uid in servers {
-                    assert_eq!(
-                        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
-                        0
-                    );
+                    assert_eq!(TotalHotkeyStake::<Test>::get(U256::from(uid)), 0);
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 146); // Note R = floor(1 / (512 - 64) * 65_535) = 146
                     assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 65535);
                     assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, uid), 146); // Note C = floor(1 / (512 - 64) * 65_535) = 146
@@ -862,7 +853,7 @@ fn test_4096_graph() {
                 let bonds = SubtensorModule::get_bonds(netuid);
                 for uid in &validators {
                     assert_eq!(
-                        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(*uid as u64))),
+                        TotalHotkeyStake::<Test>::get(U256::from(*uid as u64)),
                         max_stake_per_validator
                     );
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, *uid), 0);
@@ -878,10 +869,7 @@ fn test_4096_graph() {
                     ); // Note B_ij = floor(1 / 256 * 65_535) / 65_535
                 }
                 for uid in &servers {
-                    assert_eq!(
-                        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(*uid as u64))),
-                        0
-                    );
+                    assert_eq!(TotalHotkeyStake::<Test>::get(U256::from(*uid as u64)), 0);
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, *uid), 17); // Note R = floor(1 / (4096 - 256) * 65_535) = 17
                     assert_eq!(SubtensorModule::get_trust_for_uid(netuid, *uid), 65535);
                     assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, *uid), 17); // Note C = floor(1 / (4096 - 256) * 65_535) = 17
@@ -927,10 +915,7 @@ fn test_16384_graph_sparse() {
         );
         let bonds = SubtensorModule::get_bonds(netuid);
         for uid in validators {
-            assert_eq!(
-                SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
-                1
-            );
+            assert_eq!(TotalHotkeyStake::<Test>::get(U256::from(uid)), 1);
             assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
             assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 0);
             assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, uid), 438); // Note C = 0.0066928507 = (0.0066928507*65_535) = floor( 438.6159706245 )
@@ -944,10 +929,7 @@ fn test_16384_graph_sparse() {
             ); // Note B_ij = floor(1 / 512 * 65_535) / 65_535 = 127 / 65_535
         }
         for uid in servers {
-            assert_eq!(
-                SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
-                0
-            );
+            assert_eq!(TotalHotkeyStake::<Test>::get(U256::from(uid)), 0);
             assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 4); // Note R = floor(1 / (16384 - 512) * 65_535) = 4
             assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 65535);
             assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, uid), 4); // Note C = floor(1 / (16384 - 512) * 65_535) = 4

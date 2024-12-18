@@ -269,7 +269,7 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
 
         // Check total stake on neuron
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            TotalHotkeyStake::<Test>::get(hotkey_account_id),
             (stake_amount * 3) + (1 + 2)
         );
 
@@ -302,7 +302,7 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
 
         // Check total stake on neuron
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            TotalHotkeyStake::<Test>::get(hotkey_account_id),
             (stake_amount * 3) + (1 + 2)
         );
 
@@ -342,10 +342,7 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
         );
 
         // Check total stake on neuron
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            0
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey_account_id), 0);
     });
 }
 

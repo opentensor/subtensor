@@ -23,12 +23,6 @@ impl<T: Config> Pallet<T> {
         Delegates::<T>::insert(hotkey, take);
     }
 
-    // Returns the total amount of stake under a hotkey (delegative or otherwise)
-    //
-    pub fn get_total_stake_for_hotkey(hotkey: &T::AccountId) -> u64 {
-        TotalHotkeyStake::<T>::get(hotkey)
-    }
-
     // Creates a cold - hot pairing account if the hotkey is not already an active account.
     //
     pub fn create_account_if_non_existent(coldkey: &T::AccountId, hotkey: &T::AccountId) {

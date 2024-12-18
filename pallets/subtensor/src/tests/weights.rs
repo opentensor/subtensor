@@ -30,7 +30,7 @@ use sp_core::Encode;
 use super::mock::*;
 use crate::{
     coinbase::run_coinbase::WeightsTlockPayload, CRV3WeightCommits, Error, Owner,
-    RevealPeriodEpochs, SubnetworkN, Tempo, MAX_CRV3_COMMIT_SIZE_BYTES,
+    RevealPeriodEpochs, SubnetworkN, Tempo, TotalHotkeyStake, MAX_CRV3_COMMIT_SIZE_BYTES,
 };
 
 /***************************
@@ -114,7 +114,7 @@ fn test_set_rootweights_validate() {
         SubtensorModule::set_stake_threshold(min_stake);
 
         // Verify stake is less than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
+        assert!(TotalHotkeyStake::<Test>::get(hotkey) < min_stake);
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
@@ -132,10 +132,7 @@ fn test_set_rootweights_validate() {
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
 
         // Verify stake is equal to minimum
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            min_stake
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey), min_stake);
 
         // Submit to the signed extension validate function
         let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
@@ -146,7 +143,7 @@ fn test_set_rootweights_validate() {
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 1);
 
         // Verify stake is more than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
+        assert!(TotalHotkeyStake::<Test>::get(hotkey) > min_stake);
 
         let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
         // The call should still pass
@@ -214,7 +211,7 @@ fn test_commit_weights_validate() {
         SubtensorModule::set_stake_threshold(min_stake);
 
         // Verify stake is less than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
+        assert!(TotalHotkeyStake::<Test>::get(hotkey) < min_stake);
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
@@ -232,10 +229,7 @@ fn test_commit_weights_validate() {
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
 
         // Verify stake is equal to minimum
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            min_stake
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey), min_stake);
 
         // Submit to the signed extension validate function
         let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
@@ -246,7 +240,7 @@ fn test_commit_weights_validate() {
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 1);
 
         // Verify stake is more than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
+        assert!(TotalHotkeyStake::<Test>::get(hotkey) > min_stake);
 
         let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
         // The call should still pass
@@ -308,7 +302,7 @@ fn test_set_weights_validate() {
         SubtensorModule::set_stake_threshold(min_stake);
 
         // Verify stake is less than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
+        assert!(TotalHotkeyStake::<Test>::get(hotkey) < min_stake);
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
@@ -325,10 +319,7 @@ fn test_set_weights_validate() {
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
 
         // Verify stake is equal to minimum
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            min_stake
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey), min_stake);
 
         // Submit to the signed extension validate function
         let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
@@ -373,7 +364,7 @@ fn test_reveal_weights_validate() {
         SubtensorModule::set_stake_threshold(min_stake);
 
         // Verify stake is less than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
+        assert!(TotalHotkeyStake::<Test>::get(hotkey) < min_stake);
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
@@ -391,10 +382,7 @@ fn test_reveal_weights_validate() {
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
 
         // Verify stake is equal to minimum
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            min_stake
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey), min_stake);
 
         // Submit to the signed extension validate function
         let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
@@ -405,7 +393,7 @@ fn test_reveal_weights_validate() {
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 1);
 
         // Verify stake is more than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
+        assert!(TotalHotkeyStake::<Test>::get(hotkey) > min_stake);
 
         let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
         // The call should still pass
