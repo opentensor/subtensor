@@ -1566,7 +1566,7 @@ fn test_remove_stake_below_minimum_threshold() {
         let bal_before = Balances::free_balance(coldkey2);
         let staked_before = Stake::<Test>::get(hotkey1, coldkey2);
         let total_network_stake_before = SubtensorModule::get_total_stake();
-        let total_issuance_before = SubtensorModule::get_total_issuance();
+        let total_issuance_before = TotalIssuance::<Test>::get();
         // check the premise of the test is correct
         assert!(initial_stake - stake_amount_to_remove < minimum_threshold);
         assert_ok!(SubtensorModule::remove_stake(
@@ -1599,7 +1599,7 @@ fn test_remove_stake_below_minimum_threshold() {
 
         // Total issuance is the same
         assert_eq!(
-            SubtensorModule::get_total_issuance(),
+            TotalIssuance::<Test>::get(),
             total_issuance_before // Nothing was issued
         );
     });
