@@ -30,7 +30,8 @@ use sp_core::Encode;
 use super::mock::*;
 use crate::{
     coinbase::run_coinbase::WeightsTlockPayload, CRV3WeightCommits, Error, Owner,
-    RevealPeriodEpochs, SubnetworkN, Tempo, TotalHotkeyStake, MAX_CRV3_COMMIT_SIZE_BYTES,
+    RevealPeriodEpochs, SubnetworkN, Tempo, TotalHotkeyStake, WeightsSetRateLimit,
+    MAX_CRV3_COMMIT_SIZE_BYTES,
 };
 
 /***************************
@@ -612,7 +613,7 @@ fn test_weights_err_setting_weights_too_fast() {
                 .expect("Not registered.");
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
         SubtensorModule::set_weights_set_rate_limit(netuid, 10);
-        assert_eq!(SubtensorModule::get_weights_set_rate_limit(netuid), 10);
+        assert_eq!(WeightsSetRateLimit::<Test>::get(netuid), 10);
 
         let weights_keys: Vec<u16> = vec![1, 2];
         let weight_values: Vec<u16> = vec![1, 2];

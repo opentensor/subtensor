@@ -239,7 +239,7 @@ impl<T: Config> Pallet<T> {
         let min_difficulty = MinDifficulty::<T>::get(netuid);
         let max_difficulty = MaxDifficulty::<T>::get(netuid);
         let weights_version = Self::get_weights_version_key(netuid);
-        let weights_rate_limit = Self::get_weights_set_rate_limit(netuid);
+        let weights_rate_limit = WeightsSetRateLimit::<T>::get(netuid);
         let adjustment_interval = AdjustmentInterval::<T>::get(netuid);
         let activity_cutoff = ActivityCutoff::<T>::get(netuid);
         let registration_allowed = NetworkRegistrationAllowed::<T>::get(netuid);

@@ -918,7 +918,7 @@ impl<T: Config> Pallet<T> {
                 return true;
             } // (Storage default) Never set weights.
             return current_block.saturating_sub(last_set_weights)
-                >= Self::get_weights_set_rate_limit(netuid);
+                >= WeightsSetRateLimit::<T>::get(netuid);
         }
         // --- 3. Non registered peers cant pass.
         false
