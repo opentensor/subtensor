@@ -66,7 +66,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // 10. Get the cost for swapping the key
-        let swap_cost = Self::get_key_swap_cost();
+        let swap_cost = T::KeySwapCost::get();
         log::debug!("Swap cost: {:?}", swap_cost);
 
         // 11. Ensure the coldkey has enough balance to pay for the swap

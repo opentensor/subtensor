@@ -3,7 +3,6 @@ use crate::{
     system::{ensure_signed_or_root, pallet_prelude::BlockNumberFor},
     Error,
 };
-use sp_core::Get;
 use sp_runtime::Saturating;
 use substrate_fixed::types::I32F32;
 
@@ -457,10 +456,6 @@ impl<T: Config> Pallet<T> {
 
     pub fn set_nominator_min_required_stake(min_stake: u64) {
         NominatorMinRequiredStake::<T>::put(min_stake);
-    }
-
-    pub fn get_key_swap_cost() -> u64 {
-        T::KeySwapCost::get()
     }
 
     pub fn get_alpha_values_32(netuid: u16) -> (I32F32, I32F32) {

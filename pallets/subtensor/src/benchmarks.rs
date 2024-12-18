@@ -2,15 +2,15 @@
 #![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 #![cfg(feature = "runtime-benchmarks")]
 
-use crate::Pallet as Subtensor;
-use crate::*;
 use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-pub use pallet::*;
-use sp_core::H256;
+use sp_core::{Get, H256};
 use sp_runtime::traits::{BlakeTwo256, Hash};
 use sp_std::vec;
+
+use crate::Pallet as Subtensor;
+use crate::*;
 
 benchmarks! {
   // Add individual benchmarks here
@@ -471,7 +471,7 @@ reveal_weights {
     let netuid = 1u16;
     let stake_amount1 = 1000u64;
     let stake_amount2 = 2000u64;
-    let swap_cost = Subtensor::<T>::get_key_swap_cost();
+    let swap_cost = T::KeySwapCost::get();
     let free_balance_old = 12345u64 + swap_cost;
     let tempo: u16 = 1;
 
