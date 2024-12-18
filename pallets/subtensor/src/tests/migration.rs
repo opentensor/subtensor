@@ -73,12 +73,9 @@ fn test_migration_fix_total_stake_maps() {
         assert_eq!(TotalColdkeyStake::<Test>::get(ck3), 100_000_000);
 
         // Check that the total hotkey stake is correct
+        assert_eq!(TotalHotkeyStake::<Test>::get(hk1), 100 + 10_101);
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hk1),
-            100 + 10_101
-        );
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hk2),
+            TotalHotkeyStake::<Test>::get(hk2),
             100_000_000 + 1_123_000_000
         );
 
@@ -104,12 +101,9 @@ fn test_migration_fix_total_stake_maps() {
         assert_eq!(TotalColdkeyStake::<Test>::get(ck3), 100_000_000);
 
         // Verify that the total hotkey stake is STILL correct for each hotkey
+        assert_eq!(TotalHotkeyStake::<Test>::get(hk1), 100 + 10_101);
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hk1),
-            100 + 10_101
-        );
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hk2),
+            TotalHotkeyStake::<Test>::get(hk2),
             100_000_000 + 1_123_000_000
         );
 

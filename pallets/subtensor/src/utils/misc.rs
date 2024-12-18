@@ -65,10 +65,6 @@ impl<T: Config> Pallet<T> {
     // ==============================
     // ==== YumaConsensus params ====
     // ==============================
-    pub fn get_trust(netuid: u16) -> Vec<u16> {
-        Trust::<T>::get(netuid)
-    }
-
     pub fn get_validator_trust(netuid: u16) -> Vec<u16> {
         ValidatorTrust::<T>::get(netuid)
     }

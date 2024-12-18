@@ -374,7 +374,7 @@ impl<T: Config> Pallet<T> {
             // and calculate their share of the emission accordingly.
             for (proportion, parent) in ParentKeys::<T>::get(hotkey, netuid) {
                 // --- 4.1 Retrieve the parent's stake. This is the raw stake value including nominators.
-                let parent_stake: u64 = Self::get_total_stake_for_hotkey(&parent);
+                let parent_stake: u64 = TotalHotkeyStake::<T>::get(&parent);
 
                 // --- 4.2 Calculate the portion of the hotkey's total stake contributed by this parent.
                 // Then, determine the parent's share of the remaining emission.
@@ -456,7 +456,7 @@ impl<T: Config> Pallet<T> {
         LastHotkeyEmissionDrain::<T>::insert(hotkey, block_number);
 
         // --- 3 Retrieve the total stake for the hotkey from all nominations.
-        let total_hotkey_stake: u64 = Self::get_total_stake_for_hotkey(hotkey);
+        let total_hotkey_stake: u64 = TotalHotkeyStake::<T>::get(hotkey);
 
         // --- 4 Calculate the emission take for the hotkey.
         // This is only the hotkey take. Childkey take was already deducted from validator emissions in

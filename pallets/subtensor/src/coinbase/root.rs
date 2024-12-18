@@ -319,7 +319,7 @@ impl<T: Config> Pallet<T> {
         // Stakes are stored in a 64-bit fixed point representation for precise calculations.
         let mut stake_i64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
         for ((_, hotkey), stake) in hotkeys.iter().zip(&mut stake_i64) {
-            *stake = I64F64::from_num(Self::get_total_stake_for_hotkey(hotkey));
+            *stake = I64F64::from_num(TotalHotkeyStake::<T>::get(hotkey));
         }
         inplace_normalize_64(&mut stake_i64);
         log::debug!("S:\n{:?}\n", &stake_i64);
@@ -491,7 +491,7 @@ impl<T: Config> Pallet<T> {
                     root_netuid,
                 )
             {
-                let stake_i: u64 = Self::get_total_stake_for_hotkey(&hotkey_i);
+                let stake_i: u64 = TotalHotkeyStake::<T>::get(&hotkey_i);
                 if stake_i < lowest_stake {
                     lowest_stake = stake_i;
                     lowest_uid = uid_i;
@@ -503,7 +503,7 @@ impl<T: Config> Pallet<T> {
 
             // --- 13.1.2 The new account has a higher stake than the one being replaced.
             ensure!(
-                lowest_stake < Self::get_total_stake_for_hotkey(&hotkey),
+                lowest_stake < TotalHotkeyStake::<T>::get(&hotkey),
                 Error::<T>::StakeTooLowForRoot
             );
 
@@ -640,7 +640,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 3. Grab the hotkey's stake.
-        let current_stake = Self::get_total_stake_for_hotkey(hotkey);
+        let current_stake = TotalHotkeyStake::<T>::get(hotkey);
 
         // Add the hotkey to the Senate.
         // If we're full, we'll swap out the lowest stake member.
@@ -649,14 +649,14 @@ impl<T: Config> Pallet<T> {
         if (members.len() as u32) == T::SenateMembers::max_members() {
             let mut sorted_members = members.clone();
             sorted_members.sort_by(|a, b| {
-                let a_stake = Self::get_total_stake_for_hotkey(a);
-                let b_stake = Self::get_total_stake_for_hotkey(b);
+                let a_stake = TotalHotkeyStake::<T>::get(a);
+                let b_stake = TotalHotkeyStake::<T>::get(b);
 
                 b_stake.cmp(&a_stake)
             });
 
             if let Some(last) = sorted_members.last() {
-                let last_stake = Self::get_total_stake_for_hotkey(last);
+                let last_stake = TotalHotkeyStake::<T>::get(last);
 
                 if last_stake < current_stake {
                     // Swap the member with the lowest stake.
@@ -732,7 +732,7 @@ impl<T: Config> Pallet<T> {
 
         // Check to see if the hotkey has enough stake to set weights.
         ensure!(
-            Self::get_total_stake_for_hotkey(&hotkey) >= Self::get_stake_threshold(),
+            TotalHotkeyStake::<T>::get(&hotkey) >= Self::get_stake_threshold(),
             Error::<T>::NotEnoughStakeToSetWeights
         );
 

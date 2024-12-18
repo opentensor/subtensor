@@ -52,10 +52,7 @@ fn test_add_stake_ok_no_emission() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
 
         // Check we have zero staked before transfer
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            0
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey_account_id), 0);
 
         // Also total stake should be zero
         assert_eq!(TotalStake::<Test>::get(), 0);
@@ -68,10 +65,7 @@ fn test_add_stake_ok_no_emission() {
         ));
 
         // Check if stake has increased
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            9999
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey_account_id), 9999);
 
         // Check if balance has decreased
         assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 1);
@@ -107,7 +101,7 @@ fn test_dividends_with_run_to_block() {
 
         // Check if the initial stake has arrived
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&neuron_src_hotkey_id),
+            TotalHotkeyStake::<Test>::get(neuron_src_hotkey_id),
             initial_stake
         );
 
@@ -119,15 +113,12 @@ fn test_dividends_with_run_to_block() {
 
         // Check if the stake is equal to the inital stake + transfer
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&neuron_src_hotkey_id),
+            TotalHotkeyStake::<Test>::get(neuron_src_hotkey_id),
             initial_stake
         );
 
         // Check if the stake is equal to the inital stake + transfer
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&neuron_dest_hotkey_id),
-            0
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(neuron_dest_hotkey_id), 0);
     });
 }
 
@@ -243,7 +234,7 @@ fn test_add_stake_total_balance_no_change() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, initial_balance);
 
         // Check we have zero staked before transfer
-        let initial_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
+        let initial_stake = TotalHotkeyStake::<Test>::get(hotkey_account_id);
         assert_eq!(initial_stake, 0);
 
         // Check total balance is equal to initial balance
@@ -261,7 +252,7 @@ fn test_add_stake_total_balance_no_change() {
         ));
 
         // Check if stake has increased
-        let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
+        let new_stake = TotalHotkeyStake::<Test>::get(hotkey_account_id);
         assert_eq!(new_stake, 10000);
 
         // Check if free balance has decreased
@@ -300,7 +291,7 @@ fn test_add_stake_total_issuance_no_change() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, initial_balance);
 
         // Check we have zero staked before transfer
-        let initial_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
+        let initial_stake = TotalHotkeyStake::<Test>::get(hotkey_account_id);
         assert_eq!(initial_stake, 0);
 
         // Check total balance is equal to initial balance
@@ -322,7 +313,7 @@ fn test_add_stake_total_issuance_no_change() {
         ));
 
         // Check if stake has increased
-        let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
+        let new_stake = TotalHotkeyStake::<Test>::get(hotkey_account_id);
         assert_eq!(new_stake, 10000);
 
         // Check if free balance has decreased
@@ -551,10 +542,7 @@ fn test_remove_stake_ok_no_emission() {
 
         // Some basic assertions
         assert_eq!(TotalStake::<Test>::get(), 0);
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            0
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey_account_id), 0);
         assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
 
         // Give the neuron some stake to remove
@@ -571,10 +559,7 @@ fn test_remove_stake_ok_no_emission() {
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             amount
         );
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            0
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey_account_id), 0);
         assert_eq!(TotalStake::<Test>::get(), 0);
     });
 }
@@ -597,10 +582,7 @@ fn test_remove_stake_amount_zero() {
 
         // Some basic assertions
         assert_eq!(TotalStake::<Test>::get(), 0);
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            0
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey_account_id), 0);
         assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
 
         // Give the neuron some stake to remove
@@ -676,7 +658,7 @@ fn test_remove_stake_no_enough_stake() {
 
         register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
 
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey_id), 0);
 
         let result = SubtensorModule::remove_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_id),
@@ -708,10 +690,7 @@ fn test_remove_stake_total_balance_no_change() {
 
         // Some basic assertions
         assert_eq!(TotalStake::<Test>::get(), 0);
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            0
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey_account_id), 0);
         assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
         let initial_total_balance = Balances::total_balance(&coldkey_account_id);
         assert_eq!(initial_total_balance, 0);
@@ -730,10 +709,7 @@ fn test_remove_stake_total_balance_no_change() {
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             amount
         );
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            0
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey_account_id), 0);
         assert_eq!(TotalStake::<Test>::get(), 0);
 
         // Check total balance is equal to the added stake. Even after remove stake (no fee, includes reserved/locked balance)
@@ -764,10 +740,7 @@ fn test_remove_stake_total_issuance_no_change() {
 
         // Some basic assertions
         assert_eq!(TotalStake::<Test>::get(), 0);
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            0
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey_account_id), 0);
         assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
         let initial_total_balance = Balances::total_balance(&coldkey_account_id);
         assert_eq!(initial_total_balance, 0);
@@ -790,10 +763,7 @@ fn test_remove_stake_total_issuance_no_change() {
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             amount
         );
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            0
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey_account_id), 0);
         assert_eq!(TotalStake::<Test>::get(), 0);
 
         // Check if total issuance is equal to the added stake, even after remove stake (no fee, includes reserved/locked balance)
@@ -858,10 +828,7 @@ fn test_add_stake_to_hotkey_account_ok() {
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, amount);
 
         // The stake that is now in the account, should equal the amount
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
-            amount
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey_id), amount);
 
         // The total stake should have been increased by the amount -> 0 + amount = amount
         assert_eq!(TotalStake::<Test>::get(), amount);
@@ -891,10 +858,7 @@ fn test_remove_stake_from_hotkey_account() {
 
         // Prelimiary checks
         assert_eq!(TotalStake::<Test>::get(), amount);
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
-            amount
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey_id), amount);
 
         // Remove stake
         SubtensorModule::decrease_stake_on_coldkey_hotkey_account(
@@ -904,7 +868,7 @@ fn test_remove_stake_from_hotkey_account() {
         );
 
         // The stake on the hotkey account should be 0
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey_id), 0);
 
         // The total amount of stake should be 0
         assert_eq!(TotalStake::<Test>::get(), 0);
@@ -1098,10 +1062,7 @@ fn test_has_enough_stake_yes() {
         add_network(netuid, tempo, 0);
         register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, intial_amount);
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
-            10000
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey_id), 10000);
         assert_eq!(Stake::<Test>::get(hotkey_id, coldkey_id), 10000);
         assert!(SubtensorModule::has_enough_stake(
             &coldkey_id,
@@ -1140,7 +1101,7 @@ fn test_non_existent_account() {
             10,
         );
         assert_eq!(Stake::<Test>::get(U256::from(0), U256::from(0)), 10);
-        assert_eq!(TotalColdkeyStake::<Test>::get((U256::from(0))), 10);
+        assert_eq!(TotalColdkeyStake::<Test>::get(U256::from(0)), 10);
     });
 }
 
@@ -1220,7 +1181,7 @@ fn test_unstake_all_coldkeys_from_hotkey_account() {
 
         // Verify total stake is correct
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
+            TotalHotkeyStake::<Test>::get(hotkey_id),
             amount * 4 + (2 + 3 + 4)
         );
 
@@ -1228,7 +1189,7 @@ fn test_unstake_all_coldkeys_from_hotkey_account() {
         SubtensorModule::unstake_all_coldkeys_from_hotkey_account(&hotkey_id);
 
         // Verify total stake is 0
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey_id), 0);
 
         // Vefify stake for all coldkeys is 0
         assert_eq!(Stake::<Test>::get(hotkey_id, coldkey0_id), 0);
@@ -1273,16 +1234,13 @@ fn test_unstake_all_coldkeys_from_hotkey_account_single_staker() {
         assert_eq!(Balances::free_balance(coldkey0_id), 0);
 
         // Verify total stake is correct
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
-            amount
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey_id), amount);
 
         // Run unstake_all_coldkeys_from_hotkey_account
         SubtensorModule::unstake_all_coldkeys_from_hotkey_account(&hotkey_id);
 
         // Verify total stake is 0
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey_id), 0);
 
         // Vefify stake for single coldkey is 0
         assert_eq!(Stake::<Test>::get(hotkey_id, coldkey0_id), 0);
@@ -1554,7 +1512,7 @@ fn test_remove_stake_below_minimum_threshold() {
 
         // Nomination stake cannot unstake below min threshold,
         // without unstaking all and removing the nomination.
-        let total_hotkey_stake_before = SubtensorModule::get_total_stake_for_hotkey(&hotkey1);
+        let total_hotkey_stake_before = TotalHotkeyStake::<Test>::get(hotkey1);
         let bal_before = Balances::free_balance(coldkey2);
         let staked_before = Stake::<Test>::get(hotkey1, coldkey2);
         let total_network_stake_before = TotalStake::<Test>::get();
@@ -2091,7 +2049,7 @@ fn test_get_total_delegated_stake_single_delegator() {
         println!("Delegator: {:?}", delegator);
         println!("Stake amount: {}", stake_amount);
         println!("Existential deposit: {}", existential_deposit);
-        println!("Total stake for hotkey: {}", SubtensorModule::get_total_stake_for_hotkey(&delegate_hotkey));
+        println!("Total stake for hotkey: {}", TotalHotkeyStake::<Test>::get(delegate_hotkey));
         println!("Delegated stake for coldkey: {}", SubtensorModule::get_total_delegated_stake(&delegate_coldkey));
 
         // Calculate expected delegated stake
@@ -2149,7 +2107,7 @@ fn test_get_total_delegated_stake_multiple_delegators() {
         println!("Delegator1 stake: {}", stake1);
         println!("Delegator2 stake: {}", stake2);
         println!("Existential deposit: {}", existential_deposit);
-        println!("Total stake for hotkey: {}", SubtensorModule::get_total_stake_for_hotkey(&delegate_hotkey));
+        println!("Total stake for hotkey: {}", TotalHotkeyStake::<Test>::get(delegate_hotkey));
         println!("Delegated stake for coldkey: {}", SubtensorModule::get_total_delegated_stake(&delegate_coldkey));
 
         // Calculate expected total delegated stake
@@ -2208,7 +2166,7 @@ fn test_get_total_delegated_stake_exclude_owner_stake() {
         println!("Existential deposit: {}", existential_deposit);
         println!(
             "Total stake for hotkey: {}",
-            SubtensorModule::get_total_stake_for_hotkey(&delegate_hotkey)
+            TotalHotkeyStake::<Test>::get(delegate_hotkey)
         );
         println!(
             "Delegated stake for coldkey: {}",

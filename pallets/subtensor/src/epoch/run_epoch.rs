@@ -33,7 +33,7 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn get_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
         // Retrieve the initial total stake for the hotkey without any child/parent adjustments.
-        let initial_stake: u64 = Self::get_total_stake_for_hotkey(hotkey);
+        let initial_stake: u64 = TotalHotkeyStake::<T>::get(hotkey);
         log::debug!("Initial stake: {:?}", initial_stake);
         let mut stake_to_children: u64 = 0;
         let mut stake_from_parents: u64 = 0;
@@ -58,7 +58,7 @@ impl<T: Config> Pallet<T> {
         // Iterate over parents to calculate the total stake received from them.
         for (proportion, parent) in parents {
             // Retrieve the parent's total stake.
-            let parent_stake: u64 = Self::get_total_stake_for_hotkey(&parent);
+            let parent_stake: u64 = TotalHotkeyStake::<T>::get(&parent);
             // Calculate the stake proportion received from the parent.
             let normalized_proportion: I96F32 =
                 I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));

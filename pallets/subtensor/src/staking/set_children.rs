@@ -115,7 +115,7 @@ impl<T: Config> Pallet<T> {
         // grandparent stake in this case)
         ensure!(
             children.is_empty()
-                || Self::get_total_stake_for_hotkey(&hotkey) >= StakeThreshold::<T>::get(),
+                || TotalHotkeyStake::<T>::get(&hotkey) >= StakeThreshold::<T>::get(),
             Error::<T>::NotEnoughStakeToSetChildkeys
         );
 

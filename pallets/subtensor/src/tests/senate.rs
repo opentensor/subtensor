@@ -14,7 +14,7 @@ use sp_runtime::{
     BuildStorage,
 };
 
-use crate::{migrations, Error, Owner, Stake, SubnetworkN};
+use crate::{migrations, Error, Owner, Stake, SubnetworkN, TotalHotkeyStake};
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
@@ -104,10 +104,7 @@ fn test_senate_join_works() {
             Stake::<Test>::get(hotkey_account_id, staker_coldkey),
             99_999
         );
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            99_999
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey_account_id), 99_999);
 
         assert_ok!(SubtensorModule::root_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
@@ -170,10 +167,7 @@ fn test_senate_vote_works() {
             Stake::<Test>::get(hotkey_account_id, staker_coldkey),
             99_999
         );
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            99_999
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey_account_id), 99_999);
 
         assert_ok!(SubtensorModule::root_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
@@ -332,10 +326,7 @@ fn test_senate_leave_works() {
             Stake::<Test>::get(hotkey_account_id, staker_coldkey),
             99_999
         );
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            99_999
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey_account_id), 99_999);
 
         assert_ok!(SubtensorModule::root_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
@@ -399,10 +390,7 @@ fn test_senate_leave_vote_removal() {
             Stake::<Test>::get(hotkey_account_id, staker_coldkey),
             99_999
         );
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            99_999
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey_account_id), 99_999);
 
         assert_ok!(SubtensorModule::root_register(
             coldkey_origin.clone(),
@@ -537,7 +525,7 @@ fn test_senate_not_leave_when_stake_removed() {
             stake_amount - 1 // Need to account for ED
         );
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            TotalHotkeyStake::<Test>::get(hotkey_account_id),
             stake_amount - 1 // Need to account for ED
         );
 
@@ -753,7 +741,7 @@ fn test_adjust_senate_events() {
             1
         );
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&replacement_hotkey_account_id),
+            TotalHotkeyStake::<Test>::get(replacement_hotkey_account_id),
             1
         );
 
