@@ -1487,9 +1487,9 @@ mod dispatches {
 
         /// User register a new subnetwork
         #[pallet::call_index(81)]
-        #[pallet::weight((Weight::from_parts(157_000_000, 0)
-                .saturating_add(T::DbWeight::get().reads(16))
-                .saturating_add(T::DbWeight::get().writes(30)), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(100_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(2))
+        .saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::Yes))]
         pub fn set_childkey_whitelist(
             coldkey: OriginFor<T>,
             childkey: T::AccountId,
