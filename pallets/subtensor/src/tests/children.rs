@@ -1791,7 +1791,7 @@ fn test_childkey_single_parent_emission() {
         let origin = RuntimeOrigin::signed(weight_setter);
         let uids: Vec<u16> = vec![1]; // Only set weight for the child (UID 1)
         let values: Vec<u16> = vec![u16::MAX]; // Use maximum value for u16
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
         assert_ok!(SubtensorModule::set_weights(
             origin,
             netuid,
@@ -1922,7 +1922,7 @@ fn test_childkey_multiple_parents_emission() {
         // Set weights
         let uids: Vec<u16> = vec![0, 1, 2];
         let values: Vec<u16> = vec![0, 65354, 65354];
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
         assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(weight_setter),
             netuid,
@@ -2081,7 +2081,7 @@ fn test_parent_child_chain_emission() {
         let origin = RuntimeOrigin::signed(hotkey_a);
         let uids: Vec<u16> = vec![0, 1, 2]; // UIDs for hotkey_a, hotkey_b, hotkey_c
         let values: Vec<u16> = vec![65535, 65535, 65535]; // Set equal weights for all hotkeys
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
 
         // Ensure we can set weights without rate limiting
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
@@ -2220,7 +2220,7 @@ fn test_dynamic_parent_child_relationships() {
         let origin = RuntimeOrigin::signed(parent);
         let uids: Vec<u16> = vec![0, 1, 2]; // UIDs for parent, child1, child2
         let values: Vec<u16> = vec![65535, 65535, 65535]; // Set equal weights for all hotkeys
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
 
         // Ensure we can set weights without rate limiting
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
@@ -3134,7 +3134,7 @@ fn test_childkey_set_weights_single_parent() {
         let origin = RuntimeOrigin::signed(weight_setter);
         let uids: Vec<u16> = vec![1]; // Only set weight for the child (UID 1)
         let values: Vec<u16> = vec![u16::MAX]; // Use maximum value for u16
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
         assert_ok!(SubtensorModule::set_weights(
             origin,
             netuid,
@@ -3224,7 +3224,7 @@ fn test_set_weights_no_parent() {
 
         let uids: Vec<u16> = vec![1]; // Set weights on the other hotkey
         let values: Vec<u16> = vec![u16::MAX]; // Use maximum value for u16
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
 
         // Set the min stake very high
         SubtensorModule::set_stake_threshold(stake_to_give_child * 5);
