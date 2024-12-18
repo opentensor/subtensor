@@ -489,7 +489,7 @@ fn test_do_swap_coldkey_success() {
         let netuid = 1u16;
         let stake_amount1 = 1000u64;
         let stake_amount2 = 2000u64;
-        let swap_cost = SubtensorModule::get_key_swap_cost();
+        let swap_cost = <Test as crate::Config>::KeySwapCost::get();
         let free_balance_old = 12345u64 + swap_cost;
 
         // Setup initial state
@@ -888,7 +888,7 @@ fn test_do_swap_coldkey_with_subnet_ownership() {
         let hotkey = U256::from(3);
         let netuid = 1u16;
         let stake_amount: u64 = 1000u64;
-        let swap_cost = SubtensorModule::get_key_swap_cost();
+        let swap_cost = <Test as crate::Config>::KeySwapCost::get();
 
         // Setup initial state
         add_network(netuid, 13, 0);

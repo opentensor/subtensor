@@ -936,7 +936,7 @@ fn test_swap_hotkey_error_cases() {
         LastTxBlock::<Test>::insert(coldkey, 0);
 
         // Test not enough balance
-        let swap_cost = SubtensorModule::get_key_swap_cost();
+        let swap_cost = <Test as crate::Config>::KeySwapCost::get();
         assert_noop!(
             SubtensorModule::do_swap_hotkey(
                 RuntimeOrigin::signed(coldkey),
@@ -946,7 +946,7 @@ fn test_swap_hotkey_error_cases() {
             Error::<Test>::NotEnoughBalanceToPaySwapHotKey
         );
 
-        let initial_balance = SubtensorModule::get_key_swap_cost() + 1000;
+        let initial_balance = <Test as crate::Config>::KeySwapCost::get() + 1000;
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_balance);
 
         // Test new hotkey same as old
