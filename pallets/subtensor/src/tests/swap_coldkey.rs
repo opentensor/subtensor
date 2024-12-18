@@ -507,11 +507,11 @@ fn test_do_swap_coldkey_success() {
         log::info!("Initial total stake: {}", TotalStake::<Test>::get());
         log::info!(
             "Initial old coldkey stake: {}",
-            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey)
+            TotalColdkeyStake::<Test>::get(old_coldkey)
         );
         log::info!(
             "Initial new coldkey stake: {}",
-            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey)
+            TotalColdkeyStake::<Test>::get(new_coldkey)
         );
 
         // Add stake to the neurons
@@ -546,11 +546,11 @@ fn test_do_swap_coldkey_success() {
         log::info!("Total stake after adding: {}", TotalStake::<Test>::get());
         log::info!(
             "Old coldkey stake after adding: {}",
-            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey)
+            TotalColdkeyStake::<Test>::get(old_coldkey)
         );
         log::info!(
             "New coldkey stake after adding: {}",
-            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey)
+            TotalColdkeyStake::<Test>::get(new_coldkey)
         );
 
         // Record total stake before swap
@@ -567,11 +567,11 @@ fn test_do_swap_coldkey_success() {
         log::info!("Total stake after swap: {}", TotalStake::<Test>::get());
         log::info!(
             "Old coldkey stake after swap: {}",
-            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey)
+            TotalColdkeyStake::<Test>::get(old_coldkey)
         );
         log::info!(
             "New coldkey stake after swap: {}",
-            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey)
+            TotalColdkeyStake::<Test>::get(new_coldkey)
         );
 
         // Verify the swap
@@ -1094,7 +1094,7 @@ fn test_coldkey_swap_total() {
             StakingHotkeys::<Test>::get(coldkey),
             vec![hotkey1, hotkey2, hotkey3, delegate1, delegate2, delegate3]
         );
-        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey), 600);
+        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 600);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 300);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey2), 300);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey3), 300);
@@ -1137,17 +1137,14 @@ fn test_coldkey_swap_total() {
 
         // Perform the swap
         let new_coldkey = U256::from(1100);
-        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey), 600);
+        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 600);
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &coldkey,
             &new_coldkey,
             &mut weight
         ));
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
-            600
-        );
+        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), 600);
 
         // Check everything is swapped.
         assert_eq!(
@@ -1158,10 +1155,7 @@ fn test_coldkey_swap_total() {
             StakingHotkeys::<Test>::get(new_coldkey),
             vec![hotkey1, hotkey2, hotkey3, delegate1, delegate2, delegate3]
         );
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
-            600
-        );
+        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), 600);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 300);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey2), 300);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey3), 300);
@@ -1278,11 +1272,8 @@ fn test_coldkey_delegations() {
             &mut weight
         ));
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate), 100);
-        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey), 0);
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
-            100
-        );
+        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 0);
+        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), 100);
         assert_eq!(Stake::<Test>::get(delegate, new_coldkey), 100);
         assert_eq!(Stake::<Test>::get(delegate, coldkey), 0);
     });

@@ -29,12 +29,6 @@ impl<T: Config> Pallet<T> {
         TotalHotkeyStake::<T>::get(hotkey)
     }
 
-    // Returns the total amount of stake held by the coldkey (delegative or otherwise)
-    //
-    pub fn get_total_stake_for_coldkey(coldkey: &T::AccountId) -> u64 {
-        TotalColdkeyStake::<T>::get(coldkey)
-    }
-
     // Creates a cold - hot pairing account if the hotkey is not already an active account.
     //
     pub fn create_account_if_non_existent(coldkey: &T::AccountId, hotkey: &T::AccountId) {

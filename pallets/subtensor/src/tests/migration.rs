@@ -68,15 +68,9 @@ fn test_migration_fix_total_stake_maps() {
         assert_eq!(TotalStake::<Test>::get(), total_stake_amount);
 
         // Check that the total coldkey stake is correct
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&ck1),
-            100 + 1_123_000_000
-        );
-        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&ck2), 10_101);
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&ck3),
-            100_000_000
-        );
+        assert_eq!(TotalColdkeyStake::<Test>::get(ck1), 100 + 1_123_000_000);
+        assert_eq!(TotalColdkeyStake::<Test>::get(ck2), 10_101);
+        assert_eq!(TotalColdkeyStake::<Test>::get(ck3), 100_000_000);
 
         // Check that the total hotkey stake is correct
         assert_eq!(
@@ -91,7 +85,7 @@ fn test_migration_fix_total_stake_maps() {
         // Mess up the total coldkey stake
         crate::TotalColdkeyStake::<Test>::insert(ck1, 0);
         // Verify that the total coldkey stake is now 0 for ck1
-        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&ck1), 0);
+        assert_eq!(TotalColdkeyStake::<Test>::get(ck1), 0);
 
         // Mess up the total stake
         crate::TotalStake::<Test>::put(123_456_789);
@@ -105,15 +99,9 @@ fn test_migration_fix_total_stake_maps() {
         // Verify that the total stake is now correct
         assert_eq!(TotalStake::<Test>::get(), total_stake_amount);
         // Verify that the total coldkey stake is now correct for each coldkey
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&ck1),
-            100 + 1_123_000_000
-        );
-        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&ck2), 10_101);
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&ck3),
-            100_000_000
-        );
+        assert_eq!(TotalColdkeyStake::<Test>::get(ck1), 100 + 1_123_000_000);
+        assert_eq!(TotalColdkeyStake::<Test>::get(ck2), 10_101);
+        assert_eq!(TotalColdkeyStake::<Test>::get(ck3), 100_000_000);
 
         // Verify that the total hotkey stake is STILL correct for each hotkey
         assert_eq!(
