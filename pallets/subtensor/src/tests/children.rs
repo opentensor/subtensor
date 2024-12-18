@@ -3861,7 +3861,7 @@ fn test_childkey_take_same_coldkey() {
         step_block((hotkey_tempo * 2) as u16);
 
         // Verify how emission is split between keys
-        //   - Child stake is not increased
+        //   - Child stake is not increased (child & parent have same owner => no child-take)
         //   - Parent stake increased by 50% of total emission
         //   - Nominator stake increased by 50% of total emission
         let child_emission = crate::Stake::<Test>::get(child, coldkey);
