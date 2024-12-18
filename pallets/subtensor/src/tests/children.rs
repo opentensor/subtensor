@@ -162,7 +162,7 @@ fn test_do_set_child_singular_old_children_cleanup() {
         // Set old child
         mock_set_children(&coldkey, &hotkey, netuid, &[(proportion, old_child)]);
 
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         // Set new child
         mock_set_children(&coldkey, &hotkey, netuid, &[(proportion, new_child)]);
@@ -237,7 +237,7 @@ fn test_do_set_child_singular_proportion_edge_cases() {
         let children = ChildKeys::<Test>::get(hotkey, netuid);
         assert_eq!(children, vec![(min_proportion, child)]);
 
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         // Set child with maximum proportion
         let max_proportion: u64 = u64::MAX;
@@ -275,7 +275,7 @@ fn test_do_set_child_singular_multiple_children() {
         // Set first child
         mock_set_children(&coldkey, &hotkey, netuid, &[(proportion1, child1)]);
 
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         // Set second child
         mock_set_children(&coldkey, &hotkey, netuid, &[(proportion1, child2)]);
@@ -317,7 +317,7 @@ fn test_add_singular_child() {
             Err(Error::<Test>::SubNetworkDoesNotExist.into())
         );
         add_network(netuid, 0, 0);
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
         assert_eq!(
             SubtensorModule::do_schedule_children(
                 RuntimeOrigin::signed(coldkey),
@@ -328,7 +328,7 @@ fn test_add_singular_child() {
             Err(Error::<Test>::NonAssociatedColdKey.into())
         );
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
         assert_eq!(
             SubtensorModule::do_schedule_children(
                 RuntimeOrigin::signed(coldkey),
@@ -339,7 +339,7 @@ fn test_add_singular_child() {
             Err(Error::<Test>::InvalidChild.into())
         );
         let child = U256::from(3);
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         mock_set_children(&coldkey, &hotkey, netuid, &[(u64::MAX, child)]);
     })
@@ -422,7 +422,7 @@ fn test_do_revoke_child_singular_success() {
         let children = ChildKeys::<Test>::get(hotkey, netuid);
         assert_eq!(children, vec![(proportion, child)]);
 
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         // Revoke child
         mock_set_children(&coldkey, &hotkey, netuid, &[]);
@@ -708,7 +708,7 @@ fn test_do_schedule_children_multiple_old_children_cleanup() {
         // Set old child
         mock_set_children(&coldkey, &hotkey, netuid, &[(proportion, old_child)]);
 
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         // Set new children
         mock_set_children(
@@ -800,7 +800,7 @@ fn test_do_schedule_children_multiple_overwrite_existing() {
             &[(proportion, child1), (proportion, child2)],
         );
 
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         // Overwrite with new children
         mock_set_children(
@@ -947,7 +947,7 @@ fn test_childkey_take_rate_limiting() {
                 &hotkey,
                 netuid,
             );
-            let limit = SubtensorModule::get_rate_limit_on_subnet(&TransactionType::SetChildkeyTake, netuid);
+            let limit = SubtensorModule::get_rate_limit(&TransactionType::SetChildkeyTake);
             log::info!(
                 "Rate limit info: current_block: {}, last_block: {}, limit: {}, passes: {}, diff: {}",
                 current_block,
@@ -1142,7 +1142,7 @@ fn test_do_revoke_children_multiple_success() {
             &[(proportion1, child1), (proportion2, child2)],
         );
 
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         // Revoke multiple children
         mock_set_children(&coldkey, &hotkey, netuid, &[]);
@@ -1253,7 +1253,7 @@ fn test_do_revoke_children_multiple_partial_revocation() {
             ],
         );
 
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         // Revoke only child3
         mock_set_children(
@@ -1301,7 +1301,7 @@ fn test_do_revoke_children_multiple_non_existent_children() {
         // Set one child
         mock_set_children(&coldkey, &hotkey, netuid, &[(proportion, child1)]);
 
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         // Attempt to revoke existing and non-existent children
         mock_set_children(&coldkey, &hotkey, netuid, &[]);
@@ -1379,7 +1379,7 @@ fn test_do_revoke_children_multiple_complex_scenario() {
             ],
         );
 
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         // Revoke child2
         mock_set_children(
@@ -1397,7 +1397,7 @@ fn test_do_revoke_children_multiple_complex_scenario() {
         let parents2 = ParentKeys::<Test>::get(child2, netuid);
         assert!(parents2.is_empty());
 
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         // Revoke remaining children
         mock_set_children(&coldkey, &hotkey, netuid, &[]);
@@ -2247,7 +2247,7 @@ fn test_dynamic_parent_child_relationships() {
 
         // Step blocks to allow for emission distribution
         step_block(11);
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         // Change parent-child relationships
         mock_set_children(&coldkey_parent, &parent, netuid, &[(u64::MAX / 4, child1), (u64::MAX / 3, child2)]);
@@ -3584,8 +3584,7 @@ fn test_set_children_rate_limit_fail_then_succeed() {
 
         // Try again after rate limit period has passed
         // Check rate limit
-        let limit =
-            SubtensorModule::get_rate_limit_on_subnet(&TransactionType::SetChildren, netuid);
+        let limit = SubtensorModule::get_rate_limit(&TransactionType::SetChildren);
 
         // Step that many blocks
         step_block(limit as u16);

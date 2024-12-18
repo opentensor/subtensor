@@ -33,9 +33,6 @@ impl From<u16> for TransactionType {
     }
 }
 impl<T: Config> Pallet<T> {
-    // ========================
-    // ==== Rate Limiting =====
-    // ========================
     /// Get the rate limit for a specific transaction type
     pub fn get_rate_limit(tx_type: &TransactionType) -> u64 {
         match tx_type {
@@ -43,13 +40,6 @@ impl<T: Config> Pallet<T> {
             TransactionType::SetChildkeyTake => TxChildkeyTakeRateLimit::<T>::get(),
             TransactionType::Unknown => 0, // Default to no limit for unknown types (no limit)
             TransactionType::RegisterNetwork => NetworkRateLimit::<T>::get(),
-        }
-    }
-
-    pub fn get_rate_limit_on_subnet(tx_type: &TransactionType, _netuid: u16) -> u64 {
-        #[allow(clippy::match_single_binding)]
-        match tx_type {
-            _ => Self::get_rate_limit(tx_type),
         }
     }
 
@@ -73,7 +63,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
     ) -> bool {
         let block: u64 = Self::get_current_block_as_u64();
-        let limit: u64 = Self::get_rate_limit_on_subnet(tx_type, netuid);
+        let limit: u64 = Self::get_rate_limit(tx_type);
         let last_block: u64 = Self::get_last_transaction_block_on_subnet(hotkey, netuid, tx_type);
 
         Self::check_passes_rate_limit(limit, block, last_block)
