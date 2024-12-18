@@ -265,7 +265,7 @@ fn test_migration_transfer_nets_to_foundation() {
         // Create subnet 11
         add_network(11, 1, 0);
 
-        log::info!("{:?}", SubtensorModule::get_subnet_owner(1));
+        log::info!("{:?}", SubnetOwner::<Test>::get(1));
         //assert_eq!(SubtensorModule::<T>::get_subnet_owner(1), );
 
         // Run the migration to transfer ownership
@@ -273,7 +273,7 @@ fn test_migration_transfer_nets_to_foundation() {
             hex_literal::hex!["feabaafee293d3b76dae304e2f9d885f77d2b17adab9e17e921b321eccd61c77"];
         crate::migrations::migrate_transfer_ownership_to_foundation::migrate_transfer_ownership_to_foundation::<Test>(hex);
 
-        log::info!("new owner: {:?}", SubtensorModule::get_subnet_owner(1));
+        log::info!("new owner: {:?}", SubnetOwner::<Test>::get(1));
     })
 }
 

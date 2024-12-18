@@ -128,7 +128,7 @@ impl<T: Config> Pallet<T> {
             network_connect,
             emission_values: emission_values.into(),
             burn,
-            owner: Self::get_subnet_owner(netuid),
+            owner: SubnetOwner::<T>::get(netuid),
         })
     }
 
@@ -200,7 +200,7 @@ impl<T: Config> Pallet<T> {
             network_connect,
             emission_values: emission_values.into(),
             burn,
-            owner: Self::get_subnet_owner(netuid),
+            owner: SubnetOwner::<T>::get(netuid),
             identity,
         })
     }
