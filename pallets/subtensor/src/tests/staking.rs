@@ -1140,10 +1140,7 @@ fn test_non_existent_account() {
             10,
         );
         assert_eq!(Stake::<Test>::get(U256::from(0), U256::from(0)), 10);
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&(U256::from(0))),
-            10
-        );
+        assert_eq!(TotalColdkeyStake::<Test>::get((U256::from(0))), 10);
     });
 }
 
