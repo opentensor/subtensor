@@ -143,7 +143,7 @@ benchmarks! {
     Subtensor::<T>::set_target_stakes_per_interval(100);
 
     // Set our total stake to 1000 TAO
-    TotalStake::<T>::put(Subtensor::<T>::get_total_stake().saturating_add(1_000_000_000_000));
+    TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(1_000_000_000_000));
 
     Subtensor::<T>::init_new_network(netuid, tempo);
     Subtensor::<T>::set_network_registration_allowed( netuid, true );

@@ -58,7 +58,7 @@ fn test_add_stake_ok_no_emission() {
         );
 
         // Also total stake should be zero
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        assert_eq!(TotalStake::<Test>::get(), 0);
 
         // Transfer to hotkey account, and check if the result is ok
         assert_ok!(SubtensorModule::add_stake(
@@ -77,7 +77,7 @@ fn test_add_stake_ok_no_emission() {
         assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 1);
 
         // Check if total stake has increased accordingly.
-        assert_eq!(SubtensorModule::get_total_stake(), 9999);
+        assert_eq!(TotalStake::<Test>::get(), 9999);
     });
 }
 
@@ -251,7 +251,7 @@ fn test_add_stake_total_balance_no_change() {
         assert_eq!(initial_total_balance, initial_balance);
 
         // Also total stake should be zero
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        assert_eq!(TotalStake::<Test>::get(), 0);
 
         // Stake to hotkey account, and check if the result is ok
         assert_ok!(SubtensorModule::add_stake(
@@ -269,7 +269,7 @@ fn test_add_stake_total_balance_no_change() {
         assert_eq!(new_free_balance, 0);
 
         // Check if total stake has increased accordingly.
-        assert_eq!(SubtensorModule::get_total_stake(), 10000);
+        assert_eq!(TotalStake::<Test>::get(), 10000);
 
         // Check if total balance has remained the same. (no fee, includes reserved/locked balance)
         let total_balance = Balances::total_balance(&coldkey_account_id);
@@ -312,7 +312,7 @@ fn test_add_stake_total_issuance_no_change() {
         assert_eq!(initial_total_issuance, initial_balance);
 
         // Also total stake should be zero
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        assert_eq!(TotalStake::<Test>::get(), 0);
 
         // Stake to hotkey account, and check if the result is ok
         assert_ok!(SubtensorModule::add_stake(
@@ -330,7 +330,7 @@ fn test_add_stake_total_issuance_no_change() {
         assert_eq!(new_free_balance, 0);
 
         // Check if total stake has increased accordingly.
-        assert_eq!(SubtensorModule::get_total_stake(), 10000);
+        assert_eq!(TotalStake::<Test>::get(), 10000);
 
         // Check if total issuance has remained the same. (no fee, includes reserved/locked balance)
         let total_issuance = Balances::total_issuance();
@@ -550,7 +550,7 @@ fn test_remove_stake_ok_no_emission() {
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
 
         // Some basic assertions
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        assert_eq!(TotalStake::<Test>::get(), 0);
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
@@ -575,7 +575,7 @@ fn test_remove_stake_ok_no_emission() {
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
         );
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        assert_eq!(TotalStake::<Test>::get(), 0);
     });
 }
 
@@ -596,7 +596,7 @@ fn test_remove_stake_amount_zero() {
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
 
         // Some basic assertions
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        assert_eq!(TotalStake::<Test>::get(), 0);
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
@@ -707,7 +707,7 @@ fn test_remove_stake_total_balance_no_change() {
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
 
         // Some basic assertions
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        assert_eq!(TotalStake::<Test>::get(), 0);
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
@@ -734,7 +734,7 @@ fn test_remove_stake_total_balance_no_change() {
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
         );
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        assert_eq!(TotalStake::<Test>::get(), 0);
 
         // Check total balance is equal to the added stake. Even after remove stake (no fee, includes reserved/locked balance)
         let total_balance = Balances::total_balance(&coldkey_account_id);
@@ -763,7 +763,7 @@ fn test_remove_stake_total_issuance_no_change() {
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
 
         // Some basic assertions
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        assert_eq!(TotalStake::<Test>::get(), 0);
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
@@ -794,7 +794,7 @@ fn test_remove_stake_total_issuance_no_change() {
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
         );
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        assert_eq!(TotalStake::<Test>::get(), 0);
 
         // Check if total issuance is equal to the added stake, even after remove stake (no fee, includes reserved/locked balance)
         // Should also be equal to the total issuance after adding stake
@@ -853,7 +853,7 @@ fn test_add_stake_to_hotkey_account_ok() {
         register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
 
         // There is not stake in the system at first, so result should be 0;
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        assert_eq!(TotalStake::<Test>::get(), 0);
 
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, amount);
 
@@ -864,7 +864,7 @@ fn test_add_stake_to_hotkey_account_ok() {
         );
 
         // The total stake should have been increased by the amount -> 0 + amount = amount
-        assert_eq!(SubtensorModule::get_total_stake(), amount);
+        assert_eq!(TotalStake::<Test>::get(), amount);
     });
 }
 
@@ -890,7 +890,7 @@ fn test_remove_stake_from_hotkey_account() {
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, amount);
 
         // Prelimiary checks
-        assert_eq!(SubtensorModule::get_total_stake(), amount);
+        assert_eq!(TotalStake::<Test>::get(), amount);
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
             amount
@@ -907,7 +907,7 @@ fn test_remove_stake_from_hotkey_account() {
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
 
         // The total amount of stake should be 0
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        assert_eq!(TotalStake::<Test>::get(), 0);
     });
 }
 
@@ -981,16 +981,11 @@ fn test_decrease_total_stake_ok() {
         let initial_total_stake = 10000;
         let decrement = 5000;
 
-        TotalStake::<Test>::put(
-            SubtensorModule::get_total_stake().saturating_add(initial_total_stake),
-        );
-        TotalStake::<Test>::put(SubtensorModule::get_total_stake().saturating_sub(decrement));
+        TotalStake::<Test>::put(TotalStake::<Test>::get().saturating_add(initial_total_stake));
+        TotalStake::<Test>::put(TotalStake::<Test>::get().saturating_sub(decrement));
 
         // The total stake remaining should be the difference between the initial stake and the decrement
-        assert_eq!(
-            SubtensorModule::get_total_stake(),
-            initial_total_stake - decrement
-        );
+        assert_eq!(TotalStake::<Test>::get(), initial_total_stake - decrement);
     });
 }
 
@@ -1565,7 +1560,7 @@ fn test_remove_stake_below_minimum_threshold() {
         let total_hotkey_stake_before = SubtensorModule::get_total_stake_for_hotkey(&hotkey1);
         let bal_before = Balances::free_balance(coldkey2);
         let staked_before = Stake::<Test>::get(hotkey1, coldkey2);
-        let total_network_stake_before = SubtensorModule::get_total_stake();
+        let total_network_stake_before = TotalStake::<Test>::get();
         let total_issuance_before = TotalIssuance::<Test>::get();
         // check the premise of the test is correct
         assert!(initial_stake - stake_amount_to_remove < minimum_threshold);

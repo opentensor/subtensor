@@ -504,10 +504,7 @@ fn test_do_swap_coldkey_success() {
         );
 
         // Log initial state
-        log::info!(
-            "Initial total stake: {}",
-            SubtensorModule::get_total_stake()
-        );
+        log::info!("Initial total stake: {}", TotalStake::<Test>::get());
         log::info!(
             "Initial old coldkey stake: {}",
             SubtensorModule::get_total_stake_for_coldkey(&old_coldkey)
@@ -546,10 +543,7 @@ fn test_do_swap_coldkey_success() {
         assert!(Identities::<Test>::get(new_coldkey).is_none());
 
         // Log state after adding stake
-        log::info!(
-            "Total stake after adding: {}",
-            SubtensorModule::get_total_stake()
-        );
+        log::info!("Total stake after adding: {}", TotalStake::<Test>::get());
         log::info!(
             "Old coldkey stake after adding: {}",
             SubtensorModule::get_total_stake_for_coldkey(&old_coldkey)
@@ -560,7 +554,7 @@ fn test_do_swap_coldkey_success() {
         );
 
         // Record total stake before swap
-        let total_stake_before_swap = SubtensorModule::get_total_stake();
+        let total_stake_before_swap = TotalStake::<Test>::get();
 
         // Perform the swap
         assert_ok!(SubtensorModule::do_swap_coldkey(
@@ -570,10 +564,7 @@ fn test_do_swap_coldkey_success() {
         ));
 
         // Log state after swap
-        log::info!(
-            "Total stake after swap: {}",
-            SubtensorModule::get_total_stake()
-        );
+        log::info!("Total stake after swap: {}", TotalStake::<Test>::get());
         log::info!(
             "Old coldkey stake after swap: {}",
             SubtensorModule::get_total_stake_for_coldkey(&old_coldkey)
@@ -612,7 +603,7 @@ fn test_do_swap_coldkey_success() {
 
         // Verify total stake remains unchanged
         assert_eq!(
-            SubtensorModule::get_total_stake(),
+            TotalStake::<Test>::get(),
             total_stake_before_swap,
             "Total stake changed unexpectedly"
         );
@@ -672,7 +663,7 @@ fn test_swap_stake_for_coldkey() {
 
         // Record initial values
         let initial_total_issuance = TotalIssuance::<Test>::get();
-        let initial_total_stake = SubtensorModule::get_total_stake();
+        let initial_total_stake = TotalStake::<Test>::get();
 
         // Perform the swap
         SubtensorModule::perform_swap_coldkey(&old_coldkey, &new_coldkey, &mut weight);
@@ -705,7 +696,7 @@ fn test_swap_stake_for_coldkey() {
 
         // Verify total stake and issuance remain unchanged
         assert_eq!(
-            SubtensorModule::get_total_stake(),
+            TotalStake::<Test>::get(),
             initial_total_stake,
             "Total stake changed unexpectedly"
         );
@@ -785,7 +776,7 @@ fn test_swap_delegated_stake_for_coldkey() {
 
         // Record initial values
         let initial_total_issuance = TotalIssuance::<Test>::get();
-        let initial_total_stake = SubtensorModule::get_total_stake();
+        let initial_total_stake = TotalStake::<Test>::get();
 
         // Perform the swap
         SubtensorModule::perform_swap_coldkey(&old_coldkey, &new_coldkey, &mut weight);
@@ -806,7 +797,7 @@ fn test_swap_delegated_stake_for_coldkey() {
 
         // Verify total stake and issuance remain unchanged
         assert_eq!(
-            SubtensorModule::get_total_stake(),
+            TotalStake::<Test>::get(),
             initial_total_stake,
             "Total stake changed unexpectedly"
         );
