@@ -1059,7 +1059,7 @@ fn test_register_network_rate_limit() {
         );
 
         // Step the rate limit.
-        step_rate_limit(&TransactionType::RegisterNetwork, 0);
+        step_rate_limit(&TransactionType::RegisterNetwork);
 
         // Give more TAO
         lock_cost = SubtensorModule::get_network_lock_cost();
