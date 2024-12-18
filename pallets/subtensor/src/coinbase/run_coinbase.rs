@@ -357,6 +357,7 @@ impl<T: Config> Pallet<T> {
         mining_emission: u64,
     ) {
         // --- 1. First, calculate the hotkey's share of the emission.
+        let childkey_owner = Owner::<T>::get(hotkey);
         let childkey_take_proportion: I96F32 =
             I96F32::from_num(Self::get_childkey_take(hotkey, netuid))
                 .saturating_div(I96F32::from_num(u16::MAX));
@@ -387,9 +388,15 @@ impl<T: Config> Pallet<T> {
                     proportion_from_parent.saturating_mul(I96F32::from_num(validating_emission));
 
                 // --- 4.3 Childkey take as part of parent emission
-                let child_emission_take: u64 = childkey_take_proportion
-                    .saturating_mul(parent_emission)
-                    .to_num::<u64>();
+                // If parent and child coldkey is the same, do not apply childkey take
+                let parent_owner = Owner::<T>::get(&parent);
+                let child_emission_take: u64 = if parent_owner == childkey_owner {
+                    0
+                } else {
+                    childkey_take_proportion
+                        .saturating_mul(parent_emission)
+                        .to_num::<u64>()
+                };
                 total_childkey_take = total_childkey_take.saturating_add(child_emission_take);
                 // NOTE: Only the validation emission should be split amongst parents.
 
