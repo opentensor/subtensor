@@ -41,10 +41,6 @@ impl<T: Config> Pallet<T> {
         TotalColdkeyStake::<T>::get(coldkey)
     }
 
-    pub fn get_target_stakes_per_interval() -> u64 {
-        TargetStakesPerInterval::<T>::get()
-    }
-
     // Creates a cold - hot pairing account if the hotkey is not already an active account.
     //
     pub fn create_account_if_non_existent(coldkey: &T::AccountId, hotkey: &T::AccountId) {
