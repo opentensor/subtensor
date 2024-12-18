@@ -68,9 +68,6 @@ impl<T: Config> Pallet<T> {
     pub fn get_validator_trust(netuid: u16) -> Vec<u16> {
         ValidatorTrust::<T>::get(netuid)
     }
-    pub fn get_validator_permit(netuid: u16) -> Vec<bool> {
-        ValidatorPermit::<T>::get(netuid)
-    }
 
     // ==================================
     // ==== YumaConsensus UID params ====
@@ -106,7 +103,7 @@ impl<T: Config> Pallet<T> {
         });
     }
     pub fn set_validator_permit_for_uid(netuid: u16, uid: u16, validator_permit: bool) {
-        let mut updated_validator_permits = Self::get_validator_permit(netuid);
+        let mut updated_validator_permits = ValidatorPermit::<T>::get(netuid);
         let Some(updated_validator_permit) = updated_validator_permits.get_mut(uid as usize) else {
             return;
         };
