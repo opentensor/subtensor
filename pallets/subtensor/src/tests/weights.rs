@@ -31,7 +31,7 @@ use super::mock::*;
 use crate::{
     coinbase::run_coinbase::WeightsTlockPayload, CRV3WeightCommits, Error, Owner,
     RevealPeriodEpochs, SubnetworkN, Tempo, TotalHotkeyStake, WeightsSetRateLimit,
-    MAX_CRV3_COMMIT_SIZE_BYTES,
+    WeightsVersionKey, MAX_CRV3_COMMIT_SIZE_BYTES,
 };
 
 /***************************
@@ -4262,7 +4262,7 @@ fn test_reveal_crv3_commits_success() {
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid1, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid2, true);
 
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
 
         let payload = WeightsTlockPayload {
             values: vec![10, 20],
@@ -4402,7 +4402,7 @@ fn test_reveal_crv3_commits_cannot_reveal_after_reveal_epoch() {
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid1, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid2, true);
 
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
 
         let payload = WeightsTlockPayload {
             values: vec![10, 20],
@@ -4833,7 +4833,7 @@ fn test_reveal_crv3_commits_multiple_commits_some_fail_some_succeed() {
         // Prepare a valid payload for hotkey1
         let neuron_uid1 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey1)
             .expect("Failed to get neuron UID for hotkey1");
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
         let valid_payload = WeightsTlockPayload {
             values: vec![10],
             uids: vec![neuron_uid1],
@@ -4952,7 +4952,7 @@ fn test_reveal_crv3_commits_do_set_weights_failure() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         // Prepare payload with mismatched uids and values lengths
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
         let payload = WeightsTlockPayload {
             values: vec![10, 20], // Length 2
             uids: vec![0],        // Length 1
@@ -5114,7 +5114,7 @@ fn test_reveal_crv3_commits_signature_deserialization_failure() {
         SubtensorModule::set_reveal_period(netuid, 3);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
         let payload = WeightsTlockPayload {
             values: vec![10, 20],
             uids: vec![0, 1],
@@ -5259,7 +5259,7 @@ fn test_reveal_crv3_commits_with_incorrect_identity_message() {
         // Prepare a valid payload but use incorrect identity message during encryption
         let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey)
             .expect("Failed to get neuron UID for hotkey");
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
         let payload = WeightsTlockPayload {
             values: vec![10],
             uids: vec![neuron_uid],
@@ -5459,7 +5459,7 @@ fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
             );
         }
 
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
 
         // Prepare payloads and commits for each hotkey
         let esk = [2; 32];
@@ -5646,7 +5646,7 @@ fn test_reveal_crv3_commits_max_neurons() {
             );
         }
 
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
 
         // Prepare payloads and commits for 3 hotkeys
         let esk = [2; 32];

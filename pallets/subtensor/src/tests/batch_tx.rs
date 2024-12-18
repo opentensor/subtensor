@@ -7,7 +7,7 @@ use sp_runtime::{
     DispatchError,
 };
 
-use crate::{Error, Event};
+use crate::{Error, Event, WeightsVersionKey};
 
 use super::mock::*;
 
@@ -92,9 +92,9 @@ fn test_batch_set_weights() {
 
         // Set weights on the other hotkey and Use maximum value for u16
         let weights: Vec<(Compact<u16>, Compact<u16>)> = vec![(Compact(1), Compact(u16::MAX))];
-        let version_key_0: Compact<u64> = SubtensorModule::get_weights_version_key(netuid_0).into();
-        let version_key_1: Compact<u64> = SubtensorModule::get_weights_version_key(netuid_1).into();
-        let version_key_2: Compact<u64> = SubtensorModule::get_weights_version_key(netuid_2).into();
+        let version_key_0: Compact<u64> = WeightsVersionKey::<Test>::get(netuid_0).into();
+        let version_key_1: Compact<u64> = WeightsVersionKey::<Test>::get(netuid_1).into();
+        let version_key_2: Compact<u64> = WeightsVersionKey::<Test>::get(netuid_2).into();
 
         // Set the min stake very high
         SubtensorModule::set_stake_threshold(stake_to_give_child * 5);
