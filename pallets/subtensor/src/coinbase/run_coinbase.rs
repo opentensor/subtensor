@@ -132,7 +132,7 @@ impl<T: Config> Pallet<T> {
 
                     // --- 4.6.1 Compute the subnet owner cut.
                     let owner_cut: I96F32 = I96F32::from_num(subnet_emission).saturating_mul(
-                        I96F32::from_num(Self::get_subnet_owner_cut())
+                        I96F32::from_num(SubnetOwnerCut::<T>::get())
                             .saturating_div(I96F32::from_num(u16::MAX)),
                     );
 

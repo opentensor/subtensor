@@ -469,9 +469,6 @@ impl<T: Config> Pallet<T> {
         ));
     }
 
-    pub fn get_subnet_owner_cut() -> u16 {
-        SubnetOwnerCut::<T>::get()
-    }
     pub fn set_subnet_owner_cut(subnet_owner_cut: u16) {
         SubnetOwnerCut::<T>::set(subnet_owner_cut);
         Self::deposit_event(Event::SubnetOwnerCutSet(subnet_owner_cut));

@@ -268,7 +268,7 @@ fn test_sudo_set_adjustment_alpha() {
 fn test_sudo_subnet_owner_cut() {
     new_test_ext().execute_with(|| {
         let to_be_set: u16 = 10;
-        let init_value: u16 = SubtensorModule::get_subnet_owner_cut();
+        let init_value: u16 = SubnetOwnerCut::<Test>::get();
         assert_eq!(
             AdminUtils::sudo_set_subnet_owner_cut(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
@@ -276,12 +276,12 @@ fn test_sudo_subnet_owner_cut() {
             ),
             Err(DispatchError::BadOrigin)
         );
-        assert_eq!(SubtensorModule::get_subnet_owner_cut(), init_value);
+        assert_eq!(SubnetOwnerCut::<Test>::get(), init_value);
         assert_ok!(AdminUtils::sudo_set_subnet_owner_cut(
             <<Test as Config>::RuntimeOrigin>::root(),
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_subnet_owner_cut(), to_be_set);
+        assert_eq!(SubnetOwnerCut::<Test>::get(), to_be_set);
     });
 }
 
