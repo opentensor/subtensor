@@ -53,20 +53,10 @@ impl<T: Config> Pallet<T> {
         BurnRegistrationsThisInterval::<T>::insert(netuid, burn_registrations_this_interval);
     }
 
-    // ========================
-    // ==== Global Getters ====
-    // ========================
     pub fn get_current_block_as_u64() -> u64 {
         TryInto::try_into(<frame_system::Pallet<T>>::block_number())
             .ok()
             .expect("blockchain will not exceed 2^64 blocks; QED.")
-    }
-
-    // ==============================
-    // ==== YumaConsensus params ====
-    // ==============================
-    pub fn get_validator_trust(netuid: u16) -> Vec<u16> {
-        ValidatorTrust::<T>::get(netuid)
     }
 
     // ==================================
