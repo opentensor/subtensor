@@ -160,7 +160,7 @@ impl<T: Config> Pallet<T> {
         // =======================
 
         // Get validator permits.
-        let validator_permits: Vec<bool> = Self::get_validator_permit(netuid);
+        let validator_permits: Vec<bool> = ValidatorPermit::<T>::get(netuid);
         log::trace!("validator_permits: {:?}", validator_permits);
 
         // Logical negation of validator_permits.
@@ -496,7 +496,7 @@ impl<T: Config> Pallet<T> {
         // =======================
 
         // Get current validator permits.
-        let validator_permits: Vec<bool> = Self::get_validator_permit(netuid);
+        let validator_permits: Vec<bool> = ValidatorPermit::<T>::get(netuid);
         log::trace!("validator_permits: {:?}", validator_permits);
 
         // Logical negation of validator_permits.
