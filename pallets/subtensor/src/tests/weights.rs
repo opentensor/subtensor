@@ -1,10 +1,5 @@
 #![allow(clippy::indexing_slicing)]
 
-use super::mock::*;
-use crate::{
-    coinbase::run_coinbase::WeightsTlockPayload, CRV3WeightCommits, Error, Owner,
-    MAX_CRV3_COMMIT_SIZE_BYTES,
-};
 use ark_serialize::CanonicalDeserialize;
 use frame_support::{
     assert_err, assert_ok,
@@ -31,6 +26,13 @@ use w3f_bls::EngineBLS;
 
 use pallet_drand::types::Pulse;
 use sp_core::Encode;
+
+use super::mock::*;
+use crate::{
+    coinbase::run_coinbase::WeightsTlockPayload, CRV3WeightCommits, Error, Owner,
+    RevealPeriodEpochs, SubnetworkN, Tempo, TotalHotkeyStake, WeightsSetRateLimit,
+    WeightsVersionKey, MAX_CRV3_COMMIT_SIZE_BYTES,
+};
 
 /***************************
   pub fn set_weights() tests
@@ -113,7 +115,7 @@ fn test_set_rootweights_validate() {
         SubtensorModule::set_stake_threshold(min_stake);
 
         // Verify stake is less than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
+        assert!(TotalHotkeyStake::<Test>::get(hotkey) < min_stake);
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
@@ -131,10 +133,7 @@ fn test_set_rootweights_validate() {
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
 
         // Verify stake is equal to minimum
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            min_stake
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey), min_stake);
 
         // Submit to the signed extension validate function
         let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
@@ -145,7 +144,7 @@ fn test_set_rootweights_validate() {
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 1);
 
         // Verify stake is more than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
+        assert!(TotalHotkeyStake::<Test>::get(hotkey) > min_stake);
 
         let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
         // The call should still pass
@@ -213,7 +212,7 @@ fn test_commit_weights_validate() {
         SubtensorModule::set_stake_threshold(min_stake);
 
         // Verify stake is less than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
+        assert!(TotalHotkeyStake::<Test>::get(hotkey) < min_stake);
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
@@ -231,10 +230,7 @@ fn test_commit_weights_validate() {
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
 
         // Verify stake is equal to minimum
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            min_stake
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey), min_stake);
 
         // Submit to the signed extension validate function
         let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
@@ -245,7 +241,7 @@ fn test_commit_weights_validate() {
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 1);
 
         // Verify stake is more than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
+        assert!(TotalHotkeyStake::<Test>::get(hotkey) > min_stake);
 
         let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
         // The call should still pass
@@ -307,7 +303,7 @@ fn test_set_weights_validate() {
         SubtensorModule::set_stake_threshold(min_stake);
 
         // Verify stake is less than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
+        assert!(TotalHotkeyStake::<Test>::get(hotkey) < min_stake);
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
@@ -324,10 +320,7 @@ fn test_set_weights_validate() {
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
 
         // Verify stake is equal to minimum
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            min_stake
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey), min_stake);
 
         // Submit to the signed extension validate function
         let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
@@ -372,7 +365,7 @@ fn test_reveal_weights_validate() {
         SubtensorModule::set_stake_threshold(min_stake);
 
         // Verify stake is less than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
+        assert!(TotalHotkeyStake::<Test>::get(hotkey) < min_stake);
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
@@ -390,10 +383,7 @@ fn test_reveal_weights_validate() {
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
 
         // Verify stake is equal to minimum
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            min_stake
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey), min_stake);
 
         // Submit to the signed extension validate function
         let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
@@ -404,7 +394,7 @@ fn test_reveal_weights_validate() {
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 1);
 
         // Verify stake is more than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
+        assert!(TotalHotkeyStake::<Test>::get(hotkey) > min_stake);
 
         let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
         // The call should still pass
@@ -623,7 +613,7 @@ fn test_weights_err_setting_weights_too_fast() {
                 .expect("Not registered.");
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
         SubtensorModule::set_weights_set_rate_limit(netuid, 10);
-        assert_eq!(SubtensorModule::get_weights_set_rate_limit(netuid), 10);
+        assert_eq!(WeightsSetRateLimit::<Test>::get(netuid), 10);
 
         let weights_keys: Vec<u16> = vec![1, 2];
         let weight_values: Vec<u16> = vec![1, 2];
@@ -721,7 +711,7 @@ fn test_weights_err_has_duplicate_ids() {
         SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(3))
             .expect("Not registered.");
 
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 4);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 4);
 
         let weights_keys: Vec<u16> = vec![1, 1, 1]; // Contains duplicates
         let weight_values: Vec<u16> = vec![1, 2, 3];
@@ -759,7 +749,7 @@ fn test_weights_err_max_weight_limit() {
         let neuron_uid: u16 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(0))
             .expect("Not registered.");
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 1);
         assert!(SubtensorModule::is_hotkey_registered_on_network(
             netuid,
             &U256::from(0)
@@ -772,7 +762,7 @@ fn test_weights_err_max_weight_limit() {
             netuid,
             &U256::from(1)
         ));
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 2);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 2);
         step_block(1);
 
         println!("+Registering: net:{:?}, cold:{:?}, hot:{:?}", netuid, 2, 2);
@@ -781,7 +771,7 @@ fn test_weights_err_max_weight_limit() {
             netuid,
             &U256::from(2)
         ));
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 3);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 3);
         step_block(1);
 
         println!("+Registering: net:{:?}, cold:{:?}, hot:{:?}", netuid, 3, 3);
@@ -790,7 +780,7 @@ fn test_weights_err_max_weight_limit() {
             netuid,
             &U256::from(3)
         ));
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 4);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 4);
         step_block(1);
 
         println!("+Registering: net:{:?}, cold:{:?}, hot:{:?}", netuid, 4, 4);
@@ -799,7 +789,7 @@ fn test_weights_err_max_weight_limit() {
             netuid,
             &U256::from(4)
         ));
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 5);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 5);
         step_block(1);
 
         // Non self-weight fails.
@@ -1296,17 +1286,15 @@ fn test_check_len_uids_within_allowed_within_network_pool() {
         register_ok_neuron(netuid, U256::from(1), U256::from(1), 0);
         register_ok_neuron(netuid, U256::from(3), U256::from(3), 65555);
         register_ok_neuron(netuid, U256::from(5), U256::from(5), 75555);
-        let max_allowed: u16 = SubtensorModule::get_subnetwork_n(netuid);
+        let max_allowed: u16 = SubnetworkN::<Test>::get(netuid);
 
         SubtensorModule::set_max_allowed_uids(netuid, max_allowed);
         SubtensorModule::set_max_registrations_per_block(netuid, max_registrations_per_block);
 
         let uids: Vec<u16> = Vec::from_iter(0..max_allowed);
 
-        let expected = true;
-        let result = SubtensorModule::check_len_uids_within_allowed(netuid, &uids);
-        assert_eq!(
-            expected, result,
+        assert!(
+            uids.len() <= SubnetworkN::<Test>::get(netuid) as usize,
             "netuid network length and uids length incompatible"
         );
     });
@@ -1329,17 +1317,15 @@ fn test_check_len_uids_within_allowed_not_within_network_pool() {
         register_ok_neuron(netuid, U256::from(1), U256::from(1), 0);
         register_ok_neuron(netuid, U256::from(3), U256::from(3), 65555);
         register_ok_neuron(netuid, U256::from(5), U256::from(5), 75555);
-        let max_allowed: u16 = SubtensorModule::get_subnetwork_n(netuid);
+        let max_allowed: u16 = SubnetworkN::<Test>::get(netuid);
 
         SubtensorModule::set_max_allowed_uids(netuid, max_allowed);
         SubtensorModule::set_max_registrations_per_block(netuid, max_registrations_per_block);
 
         let uids: Vec<u16> = Vec::from_iter(0..(max_allowed + 1));
 
-        let expected = false;
-        let result = SubtensorModule::check_len_uids_within_allowed(netuid, &uids);
-        assert_eq!(
-            expected, result,
+        assert!(
+            uids.len() > SubnetworkN::<Test>::get(netuid) as usize,
             "Failed to detect incompatible uids for network"
         );
     });
@@ -3945,8 +3931,8 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
             Error::<Test>::NoWeightsCommitFound
         );
 
-        assert_eq!(SubtensorModule::get_reveal_period(netuid), 10);
-        assert_eq!(SubtensorModule::get_tempo(netuid), 200);
+        assert_eq!(RevealPeriodEpochs::<Test>::get(netuid), 10);
+        assert_eq!(Tempo::<Test>::get(netuid), 200);
     })
 }
 
@@ -4276,7 +4262,7 @@ fn test_reveal_crv3_commits_success() {
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid1, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid2, true);
 
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
 
         let payload = WeightsTlockPayload {
             values: vec![10, 20],
@@ -4416,7 +4402,7 @@ fn test_reveal_crv3_commits_cannot_reveal_after_reveal_epoch() {
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid1, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid2, true);
 
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
 
         let payload = WeightsTlockPayload {
             values: vec![10, 20],
@@ -4847,7 +4833,7 @@ fn test_reveal_crv3_commits_multiple_commits_some_fail_some_succeed() {
         // Prepare a valid payload for hotkey1
         let neuron_uid1 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey1)
             .expect("Failed to get neuron UID for hotkey1");
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
         let valid_payload = WeightsTlockPayload {
             values: vec![10],
             uids: vec![neuron_uid1],
@@ -4966,7 +4952,7 @@ fn test_reveal_crv3_commits_do_set_weights_failure() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         // Prepare payload with mismatched uids and values lengths
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
         let payload = WeightsTlockPayload {
             values: vec![10, 20], // Length 2
             uids: vec![0],        // Length 1
@@ -5128,7 +5114,7 @@ fn test_reveal_crv3_commits_signature_deserialization_failure() {
         SubtensorModule::set_reveal_period(netuid, 3);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
         let payload = WeightsTlockPayload {
             values: vec![10, 20],
             uids: vec![0, 1],
@@ -5273,7 +5259,7 @@ fn test_reveal_crv3_commits_with_incorrect_identity_message() {
         // Prepare a valid payload but use incorrect identity message during encryption
         let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey)
             .expect("Failed to get neuron UID for hotkey");
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
         let payload = WeightsTlockPayload {
             values: vec![10],
             uids: vec![neuron_uid],
@@ -5473,7 +5459,7 @@ fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
             );
         }
 
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
 
         // Prepare payloads and commits for each hotkey
         let esk = [2; 32];
@@ -5660,7 +5646,7 @@ fn test_reveal_crv3_commits_max_neurons() {
             );
         }
 
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
 
         // Prepare payloads and commits for 3 hotkeys
         let esk = [2; 32];

@@ -55,7 +55,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // 6. Calculate the swap cost and ensure sufficient balance
-        let swap_cost = Self::get_key_swap_cost();
+        let swap_cost = T::KeySwapCost::get();
         ensure!(
             Self::can_remove_balance_from_coldkey_account(old_coldkey, swap_cost),
             Error::<T>::NotEnoughBalanceToPaySwapColdKey

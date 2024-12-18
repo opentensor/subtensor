@@ -397,7 +397,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             ensure!(
-                pallet_subtensor::Pallet::<T>::get_subnetwork_n(netuid) < max_allowed_uids,
+                pallet_subtensor::SubnetworkN::<T>::get(netuid) < max_allowed_uids,
                 Error::<T>::MaxAllowedUIdsLessThanCurrentUIds
             );
             pallet_subtensor::Pallet::<T>::set_max_allowed_uids(netuid, max_allowed_uids);
@@ -643,8 +643,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             ensure!(
-                max_allowed_validators
-                    <= pallet_subtensor::Pallet::<T>::get_max_allowed_uids(netuid),
+                max_allowed_validators <= pallet_subtensor::MaxAllowedUids::<T>::get(netuid),
                 Error::<T>::MaxValidatorsLargerThanMaxUIds
             );
 
@@ -917,7 +916,7 @@ pub mod pallet {
             min_stake: u64,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            let prev_min_stake = pallet_subtensor::Pallet::<T>::get_nominator_min_required_stake();
+            let prev_min_stake = pallet_subtensor::NominatorMinRequiredStake::<T>::get();
             log::trace!("Setting minimum stake to: {}", min_stake);
             pallet_subtensor::Pallet::<T>::set_nominator_min_required_stake(min_stake);
             if min_stake > prev_min_stake {

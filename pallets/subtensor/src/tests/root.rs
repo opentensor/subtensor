@@ -1,15 +1,16 @@
 #![allow(clippy::indexing_slicing, clippy::unwrap_used)]
 
-use super::mock::*;
-use crate::Error;
-use crate::{
-    migrations, utils::rate_limiting::TransactionType, NetworkRateLimit, SubnetIdentities,
-    SubnetIdentity, SubnetIdentityOf,
-};
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use frame_system::{EventRecord, Phase};
 use sp_core::{Get, H256, U256};
+
+use super::mock::*;
+use crate::{
+    migrations, utils::rate_limiting::TransactionType, EmissionValues, Error, NetworkRateLimit,
+    PendingEmission, SubnetIdentities, SubnetIdentity, SubnetIdentityOf, SubnetLimit, SubnetOwner,
+    SubnetworkN, TotalIssuance, TotalNetworks,
+};
 
 #[allow(dead_code)]
 fn record(event: RuntimeEvent) -> EventRecord<RuntimeEvent, H256> {
@@ -226,11 +227,8 @@ fn test_root_set_weights() {
             ));
         }
 
-        log::info!("subnet limit: {:?}", SubtensorModule::get_max_subnets());
-        log::info!(
-            "current subnet count: {:?}",
-            SubtensorModule::get_num_subnets()
-        );
+        log::info!("subnet limit: {:?}", SubnetLimit::<Test>::get());
+        log::info!("current subnet count: {:?}", TotalNetworks::<Test>::get());
 
         // Lets create n networks
         for netuid in 1..n {
@@ -299,10 +297,7 @@ fn test_root_set_weights() {
         // Check that the emission values have been set.
         for netuid in 1..n {
             log::debug!("check emission for netuid: {}", netuid);
-            assert_eq!(
-                SubtensorModule::get_subnet_emission_value(netuid as u16),
-                99_999_999
-            );
+            assert_eq!(EmissionValues::<Test>::get(netuid as u16), 99_999_999);
         }
         step_block(2);
         // Check that the pending emission values have been set.
@@ -310,24 +305,18 @@ fn test_root_set_weights() {
             log::debug!(
                 "check pending emission for netuid {} has pending {}",
                 netuid,
-                SubtensorModule::get_pending_emission(netuid as u16)
+                PendingEmission::<Test>::get(netuid as u16)
             );
-            assert_eq!(
-                SubtensorModule::get_pending_emission(netuid as u16),
-                199_999_998
-            );
+            assert_eq!(PendingEmission::<Test>::get(netuid as u16), 199_999_998);
         }
         step_block(1);
         for netuid in 1..n {
             log::debug!(
                 "check pending emission for netuid {} has pending {}",
                 netuid,
-                SubtensorModule::get_pending_emission(netuid as u16)
+                PendingEmission::<Test>::get(netuid as u16)
             );
-            assert_eq!(
-                SubtensorModule::get_pending_emission(netuid as u16),
-                299_999_997
-            );
+            assert_eq!(PendingEmission::<Test>::get(netuid as u16), 299_999_997);
         }
         let step = SubtensorModule::blocks_until_next_epoch(
             10,
@@ -335,7 +324,7 @@ fn test_root_set_weights() {
             SubtensorModule::get_current_block_as_u64(),
         );
         step_block(step as u16);
-        assert_eq!(SubtensorModule::get_pending_emission(10), 0);
+        assert_eq!(PendingEmission::<Test>::get(10), 0);
     });
 }
 
@@ -369,11 +358,8 @@ fn test_root_set_weights_out_of_order_netuids() {
             ));
         }
 
-        log::info!("subnet limit: {:?}", SubtensorModule::get_max_subnets());
-        log::info!(
-            "current subnet count: {:?}",
-            SubtensorModule::get_num_subnets()
-        );
+        log::info!("subnet limit: {:?}", SubnetLimit::<Test>::get());
+        log::info!("current subnet count: {:?}", TotalNetworks::<Test>::get());
 
         // Lets create n networks
         for netuid in 1..n {
@@ -389,10 +375,7 @@ fn test_root_set_weights_out_of_order_netuids() {
         }
 
         log::info!("netuids: {:?}", SubtensorModule::get_all_subnet_netuids());
-        log::info!(
-            "root network count: {:?}",
-            SubtensorModule::get_subnetwork_n(0)
-        );
+        log::info!("root network count: {:?}", SubnetworkN::<Test>::get(0));
 
         let subnets = SubtensorModule::get_all_subnet_netuids();
         // Set weights into diagonal matrix.
@@ -418,10 +401,7 @@ fn test_root_set_weights_out_of_order_netuids() {
         // Check that the emission values have been set.
         for netuid in subnets.iter() {
             log::debug!("check emission for netuid: {}", netuid);
-            assert_eq!(
-                SubtensorModule::get_subnet_emission_value(*netuid),
-                99_999_999
-            );
+            assert_eq!(EmissionValues::<Test>::get(*netuid), 99_999_999);
         }
         step_block(2);
         // Check that the pending emission values have been set.
@@ -433,9 +413,9 @@ fn test_root_set_weights_out_of_order_netuids() {
             log::debug!(
                 "check pending emission for netuid {} has pending {}",
                 netuid,
-                SubtensorModule::get_pending_emission(*netuid)
+                PendingEmission::<Test>::get(*netuid)
             );
-            assert_eq!(SubtensorModule::get_pending_emission(*netuid), 199_999_998);
+            assert_eq!(PendingEmission::<Test>::get(*netuid), 199_999_998);
         }
         step_block(1);
         for netuid in subnets.iter() {
@@ -446,9 +426,9 @@ fn test_root_set_weights_out_of_order_netuids() {
             log::debug!(
                 "check pending emission for netuid {} has pending {}",
                 netuid,
-                SubtensorModule::get_pending_emission(*netuid)
+                PendingEmission::<Test>::get(*netuid)
             );
-            assert_eq!(SubtensorModule::get_pending_emission(*netuid), 299_999_997);
+            assert_eq!(PendingEmission::<Test>::get(*netuid), 299_999_997);
         }
         let step = SubtensorModule::blocks_until_next_epoch(
             9,
@@ -456,7 +436,7 @@ fn test_root_set_weights_out_of_order_netuids() {
             SubtensorModule::get_current_block_as_u64(),
         );
         step_block(step as u16);
-        assert_eq!(SubtensorModule::get_pending_emission(9), 0);
+        assert_eq!(PendingEmission::<Test>::get(9), 0);
     });
 }
 
@@ -546,7 +526,7 @@ fn test_network_pruning() {
         System::set_block_number(0);
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
-        assert_eq!(SubtensorModule::get_total_issuance(), 0);
+        assert_eq!(TotalIssuance::<Test>::get(), 0);
 
         let n: usize = 10;
         let root_netuid: u16 = 0;
@@ -555,7 +535,7 @@ fn test_network_pruning() {
         SubtensorModule::set_max_allowed_uids(root_netuid, n as u16 + 1);
         SubtensorModule::set_tempo(root_netuid, 1);
         // No validators yet.
-        assert_eq!(SubtensorModule::get_subnetwork_n(root_netuid), 0);
+        assert_eq!(SubnetworkN::<Test>::get(root_netuid), 0);
 
         for i in 0..n {
             let hot: U256 = U256::from(i);
@@ -597,10 +577,7 @@ fn test_network_pruning() {
                 (i as u16) + 1,
                 hot
             ));
-            assert_eq!(
-                SubtensorModule::get_subnetwork_n(root_netuid),
-                (i as u16) + 1
-            );
+            assert_eq!(SubnetworkN::<Test>::get(root_netuid), (i as u16) + 1);
         }
         // Stakes
         // 0 : 10_000
@@ -616,19 +593,19 @@ fn test_network_pruning() {
 
         step_block(1);
         assert_ok!(SubtensorModule::root_epoch(1_000_000_000));
-        assert_eq!(SubtensorModule::get_subnet_emission_value(0), 385_861_815);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(1), 249_435_914);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(2), 180_819_837);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(3), 129_362_980);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(4), 50_857_187);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(5), 3_530_356);
+        assert_eq!(EmissionValues::<Test>::get(0), 385_861_815);
+        assert_eq!(EmissionValues::<Test>::get(1), 249_435_914);
+        assert_eq!(EmissionValues::<Test>::get(2), 180_819_837);
+        assert_eq!(EmissionValues::<Test>::get(3), 129_362_980);
+        assert_eq!(EmissionValues::<Test>::get(4), 50_857_187);
+        assert_eq!(EmissionValues::<Test>::get(5), 3_530_356);
         step_block(1);
-        assert_eq!(SubtensorModule::get_pending_emission(0), 0); // root network gets no pending emission.
-        assert_eq!(SubtensorModule::get_pending_emission(1), 249_435_914);
-        assert_eq!(SubtensorModule::get_pending_emission(2), 0); // This has been drained.
-        assert_eq!(SubtensorModule::get_pending_emission(3), 129_362_980);
-        assert_eq!(SubtensorModule::get_pending_emission(4), 0); // This network has been drained.
-        assert_eq!(SubtensorModule::get_pending_emission(5), 3_530_356);
+        assert_eq!(PendingEmission::<Test>::get(0), 0); // root network gets no pending emission.
+        assert_eq!(PendingEmission::<Test>::get(1), 249_435_914);
+        assert_eq!(PendingEmission::<Test>::get(2), 0); // This has been drained.
+        assert_eq!(PendingEmission::<Test>::get(3), 129_362_980);
+        assert_eq!(PendingEmission::<Test>::get(4), 0); // This network has been drained.
+        assert_eq!(PendingEmission::<Test>::get(5), 3_530_356);
         step_block(1);
     });
 }
@@ -679,7 +656,7 @@ fn test_weights_after_network_pruning() {
     new_test_ext(1).execute_with(|| {
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
-        assert_eq!(SubtensorModule::get_total_issuance(), 0);
+        assert_eq!(TotalIssuance::<Test>::get(), 0);
 
         // Set up N subnets, with max N + 1 allowed UIDs
         let n: usize = 2;
@@ -690,7 +667,7 @@ fn test_weights_after_network_pruning() {
         SubtensorModule::set_weights_set_rate_limit(root_netuid, 0_u64);
 
         // No validators yet.
-        assert_eq!(SubtensorModule::get_subnetwork_n(root_netuid), 0);
+        assert_eq!(SubnetworkN::<Test>::get(root_netuid), 0);
 
         for i in 0..n {
             // Register a validator
@@ -741,7 +718,7 @@ fn test_weights_after_network_pruning() {
             "Root network weights before extra network registration: {:?}",
             SubtensorModule::get_root_weights()
         );
-        log::info!("Max subnets: {:?}", SubtensorModule::get_max_subnets());
+        log::info!("Max subnets: {:?}", SubnetLimit::<Test>::get());
         let i = (n as u16) + 1;
         // let _hot: U256 = U256::from(i);
         let cold: U256 = U256::from(i);
@@ -910,7 +887,7 @@ fn test_dissolve_network_ok() {
         let hotkey = U256::from(1);
 
         add_network(netuid, 0, 0);
-        let owner_coldkey = SubtensorModule::get_subnet_owner(netuid);
+        let owner_coldkey = SubnetOwner::<Test>::get(netuid);
         register_ok_neuron(netuid, hotkey, owner_coldkey, 3);
 
         assert!(SubtensorModule::if_subnet_exist(netuid));
@@ -931,7 +908,7 @@ fn test_dissolve_network_refund_coldkey_ok() {
         let subnet_locked_balance = 1000;
 
         add_network(netuid, 0, 0);
-        let owner_coldkey = SubtensorModule::get_subnet_owner(netuid);
+        let owner_coldkey = SubnetOwner::<Test>::get(netuid);
         register_ok_neuron(netuid, hotkey, owner_coldkey, 3);
 
         SubtensorModule::set_subnet_locked_balance(netuid, subnet_locked_balance);
@@ -1082,7 +1059,7 @@ fn test_register_network_rate_limit() {
         );
 
         // Step the rate limit.
-        step_rate_limit(&TransactionType::RegisterNetwork, 0);
+        step_rate_limit(&TransactionType::RegisterNetwork);
 
         // Give more TAO
         lock_cost = SubtensorModule::get_network_lock_cost();
