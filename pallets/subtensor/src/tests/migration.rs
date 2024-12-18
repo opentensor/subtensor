@@ -65,7 +65,7 @@ fn test_migration_fix_total_stake_maps() {
         total_stake_amount += 1_123_000_000;
 
         // Check that the total stake is correct
-        assert_eq!(SubtensorModule::get_total_stake(), total_stake_amount);
+        assert_eq!(TotalStake::<Test>::get(), total_stake_amount);
 
         // Check that the total coldkey stake is correct
         assert_eq!(
@@ -96,14 +96,14 @@ fn test_migration_fix_total_stake_maps() {
         // Mess up the total stake
         crate::TotalStake::<Test>::put(123_456_789);
         // Verify that the total stake is now wrong
-        assert_ne!(SubtensorModule::get_total_stake(), total_stake_amount);
+        assert_ne!(TotalStake::<Test>::get(), total_stake_amount);
 
         // Run the migration to fix the total stake maps
         crate::migrations::migrate_to_v2_fixed_total_stake::migrate_to_v2_fixed_total_stake::<Test>(
         );
 
         // Verify that the total stake is now correct
-        assert_eq!(SubtensorModule::get_total_stake(), total_stake_amount);
+        assert_eq!(TotalStake::<Test>::get(), total_stake_amount);
         // Verify that the total coldkey stake is now correct for each coldkey
         assert_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&ck1),

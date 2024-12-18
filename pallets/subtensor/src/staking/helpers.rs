@@ -23,12 +23,6 @@ impl<T: Config> Pallet<T> {
         Delegates::<T>::insert(hotkey, take);
     }
 
-    // Returns the total amount of stake in the staking table.
-    //
-    pub fn get_total_stake() -> u64 {
-        TotalStake::<T>::get()
-    }
-
     // Returns the total amount of stake under a hotkey (delegative or otherwise)
     //
     pub fn get_total_stake_for_hotkey(hotkey: &T::AccountId) -> u64 {

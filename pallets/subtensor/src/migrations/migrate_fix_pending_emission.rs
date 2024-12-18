@@ -383,7 +383,7 @@ pub mod migration {
             }
         }?;
 
-        let total_stake_before: u64 = crate::Pallet::<T>::get_total_stake();
+        let total_stake_before = TotalStake::<T>::get();
 
         let result = v0::OldStorage {
             total_issuance_before,
