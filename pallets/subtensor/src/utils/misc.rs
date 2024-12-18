@@ -274,9 +274,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::MaxDelegateTakeSet(take));
     }
 
-    pub fn get_tx_childkey_take_rate_limit() -> u64 {
-        TxChildkeyTakeRateLimit::<T>::get()
-    }
     pub fn set_tx_childkey_take_rate_limit(tx_rate_limit: u64) {
         TxChildkeyTakeRateLimit::<T>::put(tx_rate_limit);
         Self::deposit_event(Event::TxChildKeyTakeRateLimitSet(tx_rate_limit));

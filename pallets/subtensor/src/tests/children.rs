@@ -1069,7 +1069,7 @@ fn test_multiple_networks_childkey_take() {
         assert_noop!(result, Error::<Test>::TxChildkeyTakeRateLimitExceeded);
 
         // Advance blocks to bypass rate limit
-        run_to_block(SubtensorModule::get_tx_childkey_take_rate_limit() + 1);
+        run_to_block(TxChildkeyTakeRateLimit::<Test>::get() + 1);
 
         // Now setting childkey take should succeed
         assert_ok!(SubtensorModule::set_childkey_take(
