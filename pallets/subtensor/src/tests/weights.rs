@@ -30,7 +30,7 @@ use sp_core::Encode;
 use super::mock::*;
 use crate::{
     coinbase::run_coinbase::WeightsTlockPayload, CRV3WeightCommits, Error, Owner,
-    RevealPeriodEpochs, SubnetworkN, MAX_CRV3_COMMIT_SIZE_BYTES,
+    RevealPeriodEpochs, SubnetworkN, Tempo, MAX_CRV3_COMMIT_SIZE_BYTES,
 };
 
 /***************************
@@ -3943,7 +3943,7 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
         );
 
         assert_eq!(RevealPeriodEpochs::<Test>::get(netuid), 10);
-        assert_eq!(SubtensorModule::get_tempo(netuid), 200);
+        assert_eq!(Tempo::<Test>::get(netuid), 200);
     })
 }
 

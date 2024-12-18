@@ -1038,7 +1038,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_epoch_index(netuid: u16, block_number: u64) -> u64 {
-        let tempo: u64 = Self::get_tempo(netuid) as u64;
+        let tempo: u64 = Tempo::<T>::get(netuid) as u64;
         let tempo_plus_one: u64 = tempo.saturating_add(1);
         let netuid_plus_one: u64 = (netuid as u64).saturating_add(1);
         let block_with_offset: u64 = block_number.saturating_add(netuid_plus_one);
@@ -1057,7 +1057,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_reveal_blocks(netuid: u16, commit_block: u64) -> (u64, u64) {
         let reveal_period: u64 = RevealPeriodEpochs::<T>::get(netuid);
-        let tempo: u64 = Self::get_tempo(netuid) as u64;
+        let tempo: u64 = Tempo::<T>::get(netuid) as u64;
         let tempo_plus_one: u64 = tempo.saturating_add(1);
         let netuid_plus_one: u64 = (netuid as u64).saturating_add(1);
 

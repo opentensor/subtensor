@@ -48,7 +48,7 @@ impl<T: Config> Pallet<T> {
                 }
 
                 let emission: U64F64 = Self::get_emission_for_uid(*netuid, uid).into();
-                let tempo: U64F64 = Self::get_tempo(*netuid).into();
+                let tempo: U64F64 = Tempo::<T>::get(*netuid).into();
                 if tempo > U64F64::from_num(0) {
                     let epochs_per_day: U64F64 = U64F64::from_num(7200).saturating_div(tempo);
                     emissions_per_day =

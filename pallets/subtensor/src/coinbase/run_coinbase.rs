@@ -550,7 +550,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `bool` - True if the epoch should run, false otherwise.
     pub fn should_run_epoch(netuid: u16, current_block: u64) -> bool {
-        Self::blocks_until_next_epoch(netuid, Self::get_tempo(netuid), current_block) == 0
+        Self::blocks_until_next_epoch(netuid, Tempo::<T>::get(netuid), current_block) == 0
     }
 
     /// Helper function which returns the number of blocks remaining before we will run the epoch on this

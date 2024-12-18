@@ -277,7 +277,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 1. Check if we should update the emission values based on blocks since emission was last set.
         let blocks_until_next_epoch: u64 =
-            Self::blocks_until_next_epoch(root_netuid, Self::get_tempo(root_netuid), block_number);
+            Self::blocks_until_next_epoch(root_netuid, Tempo::<T>::get(root_netuid), block_number);
         if blocks_until_next_epoch != 0 {
             // Not the block to update emission values.
             log::debug!("blocks_until_next_epoch: {:?}", blocks_until_next_epoch);

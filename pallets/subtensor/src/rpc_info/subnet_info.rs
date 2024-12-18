@@ -100,7 +100,7 @@ impl<T: Config> Pallet<T> {
         let subnetwork_n = SubnetworkN::<T>::get(netuid);
         let max_allowed_uids = MaxAllowedUids::<T>::get(netuid);
         let blocks_since_last_step = BlocksSinceLastStep::<T>::get(netuid);
-        let tempo = Self::get_tempo(netuid);
+        let tempo = Tempo::<T>::get(netuid);
         let network_modality = <NetworkModality<T>>::get(netuid);
         let emission_values = EmissionValues::<T>::get(netuid);
         let burn: Compact<u64> = Burn::<T>::get(netuid).into();
@@ -170,7 +170,7 @@ impl<T: Config> Pallet<T> {
         let subnetwork_n = SubnetworkN::<T>::get(netuid);
         let max_allowed_uids = MaxAllowedUids::<T>::get(netuid);
         let blocks_since_last_step = BlocksSinceLastStep::<T>::get(netuid);
-        let tempo = Self::get_tempo(netuid);
+        let tempo = Tempo::<T>::get(netuid);
         let network_modality = <NetworkModality<T>>::get(netuid);
         let emission_values = EmissionValues::<T>::get(netuid);
         let burn: Compact<u64> = Burn::<T>::get(netuid).into();
@@ -235,7 +235,7 @@ impl<T: Config> Pallet<T> {
         let immunity_period = ImmunityPeriod::<T>::get(netuid);
         let min_allowed_weights = MinAllowedWeights::<T>::get(netuid);
         let max_weights_limit = MaxWeightsLimit::<T>::get(netuid);
-        let tempo = Self::get_tempo(netuid);
+        let tempo = Tempo::<T>::get(netuid);
         let min_difficulty = MinDifficulty::<T>::get(netuid);
         let max_difficulty = MaxDifficulty::<T>::get(netuid);
         let weights_version = Self::get_weights_version_key(netuid);
