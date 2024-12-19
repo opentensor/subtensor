@@ -65,7 +65,7 @@ impl<T: Config> Pallet<T> {
         ensure!(take <= max_take, Error::<T>::DelegateTakeTooHigh);
 
         // --- 6. Delegate the key.
-        Self::delegate_hotkey(&hotkey, take);
+        Delegates::<T>::insert(&hotkey, take);
 
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
