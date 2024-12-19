@@ -35,9 +35,6 @@ impl<T: Config> Pallet<T> {
     pub fn set_registrations_this_interval(netuid: u16, registrations_this_interval: u16) {
         RegistrationsThisInterval::<T>::insert(netuid, registrations_this_interval);
     }
-    pub fn set_pow_registrations_this_interval(netuid: u16, pow_registrations_this_interval: u16) {
-        POWRegistrationsThisInterval::<T>::insert(netuid, pow_registrations_this_interval);
-    }
 
     pub fn get_current_block_as_u64() -> u64 {
         TryInto::try_into(<frame_system::Pallet<T>>::block_number())
