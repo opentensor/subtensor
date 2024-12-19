@@ -30,8 +30,8 @@ use sp_core::Encode;
 use super::mock::*;
 use crate::{
     coinbase::run_coinbase::WeightsTlockPayload, CRV3WeightCommits, CommitRevealWeightsEnabled,
-    Error, Owner, RevealPeriodEpochs, SubnetworkN, Tempo, TotalHotkeyStake, WeightsSetRateLimit,
-    WeightsVersionKey, MAX_CRV3_COMMIT_SIZE_BYTES,
+    Error, Owner, RevealPeriodEpochs, StakeThreshold, SubnetworkN, Tempo, TotalHotkeyStake,
+    WeightsSetRateLimit, WeightsVersionKey, MAX_CRV3_COMMIT_SIZE_BYTES,
 };
 
 /***************************
@@ -485,7 +485,7 @@ fn test_set_stake_threshold_failed() {
         SubtensorModule::set_stake_threshold(20_000_000_000_000);
 
         // Check the signed extension function.
-        assert_eq!(SubtensorModule::get_stake_threshold(), 20_000_000_000_000);
+        assert_eq!(StakeThreshold::<Test>::get(), 20_000_000_000_000);
         assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 19_000_000_000_000);
         assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
