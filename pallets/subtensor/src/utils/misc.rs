@@ -43,12 +43,6 @@ impl<T: Config> Pallet<T> {
     pub fn set_pow_registrations_this_interval(netuid: u16, pow_registrations_this_interval: u16) {
         POWRegistrationsThisInterval::<T>::insert(netuid, pow_registrations_this_interval);
     }
-    pub fn set_burn_registrations_this_interval(
-        netuid: u16,
-        burn_registrations_this_interval: u16,
-    ) {
-        BurnRegistrationsThisInterval::<T>::insert(netuid, burn_registrations_this_interval);
-    }
 
     pub fn get_current_block_as_u64() -> u64 {
         TryInto::try_into(<frame_system::Pallet<T>>::block_number())
@@ -375,10 +369,6 @@ impl<T: Config> Pallet<T> {
             netuid,
             target_registrations_per_interval,
         ));
-    }
-
-    pub fn get_burn_as_u64(netuid: u16) -> u64 {
-        Burn::<T>::get(netuid)
     }
 
     pub fn set_min_burn(netuid: u16, min_burn: u64) {
