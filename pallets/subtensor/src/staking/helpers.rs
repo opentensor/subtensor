@@ -26,7 +26,7 @@ impl<T: Config> Pallet<T> {
     // Creates a cold - hot pairing account if the hotkey is not already an active account.
     //
     pub fn create_account_if_non_existent(coldkey: &T::AccountId, hotkey: &T::AccountId) {
-        if !Self::hotkey_account_exists(hotkey) {
+        if !Owner::<T>::contains_key(hotkey) {
             Stake::<T>::insert(hotkey, coldkey, 0);
             Owner::<T>::insert(hotkey, coldkey);
 
@@ -46,17 +46,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Returns true if the hotkey account has been created.
-    ///
-    /// # Arguments
-    /// * `hotkey` - The hotkey account ID.
-    ///
-    /// # Returns
-    /// True if the hotkey account exists, false otherwise.
-    pub fn hotkey_account_exists(hotkey: &T::AccountId) -> bool {
-        Owner::<T>::contains_key(hotkey)
-    }
-
     /// Returns true if the passed coldkey owns the hotkey.
     ///
     /// # Arguments
@@ -66,7 +55,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// True if the coldkey owns the hotkey, false otherwise.
     pub fn coldkey_owns_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId) -> bool {
-        if Self::hotkey_account_exists(hotkey) {
+        if Owner::<T>::contains_key(hotkey) {
             Owner::<T>::get(hotkey) == *coldkey
         } else {
             false

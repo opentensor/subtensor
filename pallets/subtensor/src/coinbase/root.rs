@@ -692,7 +692,7 @@ impl<T: Config> Pallet<T> {
 
         // Check the hotkey account exists.
         ensure!(
-            Self::hotkey_account_exists(&hotkey),
+            Owner::<T>::contains_key(&hotkey),
             Error::<T>::HotKeyAccountNotExists
         );
 

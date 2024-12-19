@@ -46,7 +46,7 @@ impl<T: Config> Pallet<T> {
 
         // Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
-            Self::hotkey_account_exists(&hotkey),
+            Owner::<T>::contains_key(&hotkey),
             Error::<T>::HotKeyAccountNotExists
         );
 
