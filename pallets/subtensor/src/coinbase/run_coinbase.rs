@@ -119,7 +119,7 @@ impl<T: Config> Pallet<T> {
 
                 // --- 4.4 Set last step counter.
                 BlocksSinceLastStep::<T>::insert(*netuid, 0);
-                Self::set_last_mechanism_step_block(*netuid, current_block);
+                LastMechansimStepBlock::<T>::insert(*netuid, current_block);
 
                 if *netuid == 0 || !Self::get_network_registration_allowed(*netuid) {
                     // Skip netuid 0 payouts
