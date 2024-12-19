@@ -2,24 +2,15 @@
 
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
-use frame_system::{EventRecord, Phase};
-use sp_core::{Get, H256, U256};
+use sp_core::{Get, U256};
 
 use super::mock::*;
 use crate::{
     migrations, utils::rate_limiting::TransactionType, Burn, Delegates, EmissionValues, Error,
-    NetworkRateLimit, NetworksAdded, PendingEmission, SubnetIdentities, SubnetIdentity,
-    SubnetIdentityOf, SubnetLimit, SubnetOwner, SubnetworkN, TotalIssuance, TotalNetworks,
+    MemberManagement, NetworkRateLimit, NetworksAdded, PendingEmission, SubnetIdentities,
+    SubnetIdentity, SubnetIdentityOf, SubnetLimit, SubnetOwner, SubnetworkN, TotalIssuance,
+    TotalNetworks,
 };
-
-#[allow(dead_code)]
-fn record(event: RuntimeEvent) -> EventRecord<RuntimeEvent, H256> {
-    EventRecord {
-        phase: Phase::Initialization,
-        event,
-        topics: vec![],
-    }
-}
 
 #[test]
 fn test_root_register_network_exist() {
@@ -192,7 +183,7 @@ fn test_root_register_stake_based_pruning_works() {
             // Check for unsuccessful registration.
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_err());
             // Check that they are NOT senate members
-            assert!(!SubtensorModule::is_senate_member(&hot));
+            assert!(!<Test as crate::Config>::SenateMembers::is_member(&hot));
         }
     });
 }
