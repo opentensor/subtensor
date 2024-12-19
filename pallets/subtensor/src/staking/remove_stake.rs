@@ -52,7 +52,7 @@ impl<T: Config> Pallet<T> {
 
         // Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
         ensure!(
-            Self::hotkey_is_delegate(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+            Delegates::<T>::contains_key(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
             Error::<T>::HotKeyNotDelegateAndSignerNotOwnHotKey
         );
 

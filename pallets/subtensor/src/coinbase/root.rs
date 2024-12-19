@@ -524,7 +524,7 @@ impl<T: Config> Pallet<T> {
         let _ = Self::join_senate_if_eligible(&hotkey)?;
 
         // --- 14. Force all members on root to become a delegate.
-        if !Self::hotkey_is_delegate(&hotkey) {
+        if !Delegates::<T>::contains_key(&hotkey) {
             Self::delegate_hotkey(&hotkey, 11_796); // 18% cut defaulted.
         }
 
