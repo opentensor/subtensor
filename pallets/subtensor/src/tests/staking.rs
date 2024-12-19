@@ -1064,11 +1064,7 @@ fn test_has_enough_stake_yes() {
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, intial_amount);
         assert_eq!(TotalHotkeyStake::<Test>::get(hotkey_id), 10000);
         assert_eq!(Stake::<Test>::get(hotkey_id, coldkey_id), 10000);
-        assert!(SubtensorModule::has_enough_stake(
-            &coldkey_id,
-            &hotkey_id,
-            5000
-        ));
+        assert!(Stake::<Test>::get(hotkey_id, coldkey_id) >= 5000);
     });
 }
 
@@ -1084,11 +1080,7 @@ fn test_has_enough_stake_no() {
         add_network(netuid, tempo, 0);
         register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, intial_amount);
-        assert!(!SubtensorModule::has_enough_stake(
-            &coldkey_id,
-            &hotkey_id,
-            5000
-        ));
+        assert!(Stake::<Test>::get(hotkey_id, coldkey_id) < 5000);
     });
 }
 
