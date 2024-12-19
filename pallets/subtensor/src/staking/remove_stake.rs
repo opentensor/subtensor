@@ -70,13 +70,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotEnoughStakeToWithdraw
         );
 
-        // Ensure we don't exceed stake rate limit
-        let unstakes_this_interval =
-            Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey);
-        ensure!(
-            unstakes_this_interval < Self::get_target_stakes_per_interval(),
-            Error::<T>::UnstakeRateLimitExceeded
-        );
+        Self::try_increase_staking_counter(&coldkey, &hotkey)?;
 
         // Convert and unstake from the subnet.
         let tao_unstaked: u64 =
@@ -91,17 +85,18 @@ impl<T: Config> Pallet<T> {
         let new_stake = Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
         Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid, new_stake);
 
+        // Check if stake lowered below MinStake and remove Pending children if it did
+        if new_stake < StakeThreshold::<T>::get() {
+            Self::get_all_subnet_netuids().iter().for_each(|netuid| {
+                PendingChildKeys::<T>::remove(netuid, &hotkey);
+            })
+        }
+
         // Set last block for rate limiting
-        let block: u64 = Self::get_current_block_as_u64();
+        let block = Self::get_current_block_as_u64();
         Self::set_last_tx_block(&coldkey, block);
 
         // Emit the unstaking event.
-        Self::set_stakes_this_interval_for_coldkey_hotkey(
-            &coldkey,
-            &hotkey,
-            unstakes_this_interval.saturating_add(1),
-            block,
-        );
         log::debug!(
             "StakeRemoved( hotkey:{:?}, tao_unstaked:{:?} )",
             hotkey.clone(),

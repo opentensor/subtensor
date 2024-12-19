@@ -4,10 +4,49 @@ use alloc::collections::{BTreeMap, BinaryHeap};
 
 use subnets::Mechanism;
 use substrate_fixed::types::I96F32;
+use tle::stream_ciphers::AESGCMStreamCipherProvider;
+use tle::tlock::tld;
+
+/// Contains all necesarry information to set weights.
+///
+/// In the context of commit-reveal v3, this is the payload which should be
+/// encrypted, compressed, serialized, and submitted to the `commit_crv3_weights`
+/// extrinsic.
+#[derive(Encode, Decode)]
+#[freeze_struct("46e75a8326ba3665")]
+pub struct WeightsTlockPayload {
+    pub uids: Vec<u16>,
+    pub values: Vec<u16>,
+    pub version_key: u64,
+}
 
 impl<T: Config> Pallet<T> {
-    /// The `coinbase` function performs emission distribution process
+    /// The `coinbase` function performs a four-part emission distribution process involving
+    /// subnets, epochs, hotkeys, and nominators.
     ///
+    /// It is divided into several steps, each handling a specific part of the distribution:
+    ///
+    /// Step 1: Compute the block-wise emission for each subnet.
+    /// This involves calculating how much (TAO) should be emitted into each subnet using the root
+    /// epoch function.
+    ///
+    /// Step 2: Accumulate the subnet block emission.
+    /// After calculating the block-wise emission, these values are accumulated to keep track of how
+    /// much each subnet should emit before the next distribution phase. This accumulation is a
+    /// running total that gets updated each block.
+    ///
+    /// Step 3: Distribute the accumulated emissions through epochs.
+    /// Subnets periodically distribute their accumulated emissions to hotkeys (active
+    /// validators/miners) in the network on a `tempo` --- the time between epochs. This step runs
+    /// Yuma consensus to determine how emissions are split among hotkeys based on their
+    /// contributions and roles. The accumulation of hotkey emissions is done through the
+    /// `accumulate_hotkey_emission` function. The function splits the rewards for a hotkey amongst
+    /// itself and its `parents`. The parents are the hotkeys that are delegating their stake to the
+    /// hotkey.
+    ///
+    /// Step 4: Further distribute emissions from hotkeys to nominators.
+    /// Finally, the emissions received by hotkeys are further distributed to their nominators, who
+    /// are stakeholders that support the hotkeys.
     pub fn run_coinbase() {
         // --- 0. Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
@@ -61,7 +100,7 @@ impl<T: Config> Pallet<T> {
         // A_s be subnet alpha, and P_e be pending emission.
         for netuid in subnets.iter() {
             // Do not emit into root network.
-            if *netuid == 0 {
+            if *netuid == 0 || !Self::is_registration_allowed(*netuid) {
                 continue;
             }
             // 1. Get subnet mechanism ID
@@ -128,36 +167,67 @@ impl<T: Config> Pallet<T> {
         for &netuid in subnets.iter() {
             // --- 6.1 Check to see if the subnet should run its epoch.
             if Self::should_run_epoch(netuid, current_block) {
-                // --- 6.2 Drain the subnet emission.
+                // --- 6.2 Reveal weights from the n-2nd epoch.
+                if Self::get_commit_reveal_weights_enabled(netuid) {
+                    if let Err(e) = Self::reveal_crv3_commits(netuid) {
+                        log::warn!(
+                            "Failed to reveal commits for subnet {} due to error: {:?}",
+                            netuid,
+                            e
+                        );
+                    };
+                }
+
+                // --- 6.3 Drain the subnet emission.
                 let subnet_emission: u64 = PendingEmission::<T>::get(netuid);
                 PendingEmission::<T>::insert(netuid, 0);
+                log::debug!(
+                    "Drained subnet emission for netuid {:?}: {:?}",
+                    netuid,
+                    subnet_emission
+                );
 
-                // --- 6.3 Set last step counter.
+                // --- 6.4 Set last step counter.
                 Self::set_blocks_since_last_step(netuid, 0);
                 Self::set_last_mechanism_step_block(netuid, current_block);
 
-                // --- 6.4 Distribute the owner cut.
+                if netuid == 0 || !Self::is_registration_allowed(netuid) {
+                    // Skip netuid 0 payouts
+                    continue;
+                }
+
+                // --- 6.5 Distribute the owner cut.
                 let owner_cut: u64 = I96F32::from_num(subnet_emission)
                     .saturating_mul(Self::get_float_subnet_owner_cut())
                     .to_num::<u64>();
                 Self::distribute_owner_cut(netuid, owner_cut);
                 let remaining_emission: u64 = subnet_emission.saturating_sub(owner_cut);
 
-                // --- 6.5 Pass emission through epoch() --> hotkey emission.
+                // --- 6.6 Pass emission through epoch() --> hotkey emission.
                 let hotkey_emission: Vec<(T::AccountId, u64, u64)> =
                     Self::epoch(netuid, remaining_emission);
 
                 // --- 6.6 Accumulate the tuples on hotkeys:
                 for (hotkey, mining_emission, validator_emission) in hotkey_emission {
-                    // Accumulate the emission on the hotkey and parent hotkeys.
+                    // 6.7 Accumulate the emission on the hotkey and parent hotkeys.
                     Self::accumulate_hotkey_emission(
                         &hotkey,
                         netuid,
                         validator_emission, // Amount received from validating
-                        mining_emission,    // Amount recieved from mining.
+                        mining_emission,    // Amount received from mining.
                     );
                     log::debug!("Accumulated emissions on hotkey {:?} for netuid {:?}: mining {:?}, validator {:?}", hotkey, netuid, mining_emission, validator_emission);
+
+                    // --- 6.8 Reset the stake delta for the hotkey.
+                    let _ = StakeDeltaSinceLastEmissionDrain::<T>::clear_prefix(
+                        (hotkey,),
+                        u32::MAX,
+                        None,
+                    );
                 }
+
+                // --- 6.9 Apply pending childkeys of this subnet for the next epoch
+                Self::do_set_pending_children(netuid);
             } else {
                 // No epoch, increase blocks since last step and continue
                 Self::set_blocks_since_last_step(
@@ -260,9 +330,10 @@ impl<T: Config> Pallet<T> {
 
         // Calculate total global and alpha (subnet-specific) stakes from all parents
         for (proportion, parent) in Self::get_parents(hotkey, netuid) {
+            // TODO: deal with parent that staked recently.
             // Get the last block this parent added some stake
-            let stake_add_block =
-                LastAddStakeIncrease::<T>::get(&hotkey, Self::get_coldkey_for_hotkey(&parent));
+            let stake_add_block = Self::get_last_stake_increase_block(hotkey, &parent);
+
             let stake_added_block_diff = current_block.saturating_sub(stake_add_block);
 
             // If the last block this parent added any stake is old enough (older than two subnet tempos),
@@ -379,6 +450,7 @@ impl<T: Config> Pallet<T> {
     /// - Constructs MaxHeap at the same time as the above. ~O(1)
     /// - Gets the top k weights and their weight sum. O(k log n)
     /// - Calculates the normalized weights for only the top k nominators. O(n)
+    ///
     /// Total: O(3n + k log n)
     pub fn source_nominator_emission(
         hotkey: &T::AccountId,
@@ -406,20 +478,19 @@ impl<T: Config> Pallet<T> {
 
         // Calculate total global and alpha scores for all nominators
         for (nominator, nominator_alpha) in Alpha::<T>::iter_prefix((hotkey, netuid)) {
-            // Get the last block this nominator added some stake to this hotkey
-            let stake_add_block = LastAddStakeIncrease::<T>::get(&hotkey, &nominator);
-            let stake_added_block_diff: u64 = current_block.saturating_sub(stake_add_block);
+            let nonviable_nominator_stake: (u64, u64) =
+                Self::get_nonviable_stake(hotkey, &nominator, netuid);
+            let (nonviable_global, nonviable_alpha) = nonviable_nominator_stake;
 
-            // If the last block this nominator added any stake is old enough (older than one hotkey tempo),
-            // consider this nominator's contribution
-            if stake_added_block_diff >= hotkey_tempo {
-                let alpha_contribution: I96F32 = I96F32::from_num(nominator_alpha);
-                let global_contribution: I96F32 =
-                    I96F32::from_num(Self::get_global_for_hotkey_and_coldkey(hotkey, &nominator));
-                total_global = total_global.saturating_add(global_contribution);
-                total_alpha = total_alpha.saturating_add(alpha_contribution);
-                contributions.push((nominator.clone(), alpha_contribution, global_contribution));
-            }
+            let alpha_contribution: I96F32 =
+                I96F32::from_num(nominator_alpha.saturating_sub(nonviable_alpha));
+            let global_contribution: I96F32 = I96F32::from_num(
+                Self::get_global_for_hotkey_and_coldkey(hotkey, &nominator)
+                    .saturating_sub(nonviable_global),
+            );
+            total_global = total_global.saturating_add(global_contribution);
+            total_alpha = total_alpha.saturating_add(alpha_contribution);
+            contributions.push((nominator.clone(), alpha_contribution, global_contribution));
         }
 
         // Get the weights for global and alpha scores
@@ -453,10 +524,14 @@ impl<T: Config> Pallet<T> {
 
             let mut popped: u16 = 0;
             let mut top_k_sum: I96F32 = I96F32::from_num(0);
-            while popped < max_nominators.saturating_sub(1) && !top_k_heap.is_empty() {
+            while let Some(top_k_max) = top_k_heap.pop() {
                 // Pop the largest weights first
-                top_k_sum = top_k_sum.saturating_add(top_k_heap.pop().unwrap()); // Sum the top k weights
-                popped += 1;
+                top_k_sum = top_k_sum.saturating_add(top_k_max); // Sum the top k weights
+                popped = popped.saturating_add(1);
+
+                if popped >= max_nominators.saturating_sub(1) {
+                    break;
+                }
             }
             let top_k_min = top_k_heap.pop().unwrap_or(I96F32::from_num(0)); // This is the smallest weight in the top k
             top_k_sum = top_k_sum.saturating_add(top_k_min); // Also add the smallest weight
@@ -484,26 +559,144 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // Get the last block the neuron owner added some stake to this hotkey
-        let stake_add_block =
-            LastAddStakeIncrease::<T>::get(&hotkey, Self::get_coldkey_for_hotkey(hotkey));
-        let stake_added_block_diff: u64 = current_block.saturating_sub(stake_add_block);
+        // Calculate and distribute the remaining emission to the hotkey
+        let hotkey_owner: T::AccountId = Owner::<T>::get(hotkey);
+        let remainder: u64 = emission
+            .to_num::<u64>()
+            .saturating_sub(hotkey_take.to_num::<u64>())
+            .saturating_sub(to_nominators);
+        let final_hotkey_emission: u64 = hotkey_take.to_num::<u64>().saturating_add(remainder);
+        emission_tuples
+            .entry((hotkey.clone(), hotkey_owner.clone()))
+            .or_default()
+            .push((netuid, final_hotkey_emission));
+    }
 
-        // If the last block this nominator added any stake is old enough (older than one hotkey tempo),
-        // consider this nominator's contribution
-        if stake_added_block_diff >= hotkey_tempo {
-            // Calculate and distribute the remaining emission to the hotkey
-            let hotkey_owner: T::AccountId = Owner::<T>::get(hotkey);
-            let remainder: u64 = emission
-                .to_num::<u64>()
-                .saturating_sub(hotkey_take.to_num::<u64>())
-                .saturating_sub(to_nominators);
-            let final_hotkey_emission: u64 = hotkey_take.to_num::<u64>().saturating_add(remainder);
-            emission_tuples
-                .entry((hotkey.clone(), hotkey_owner.clone()))
-                .or_default()
-                .push((netuid, final_hotkey_emission));
+    /// The `reveal_crv3_commits` function is run at the very beginning of epoch `n`,
+    pub fn reveal_crv3_commits(netuid: u16) -> dispatch::DispatchResult {
+        use ark_serialize::CanonicalDeserialize;
+        use frame_support::traits::OriginTrait;
+        use tle::curves::drand::TinyBLS381;
+        use tle::tlock::TLECiphertext;
+        use w3f_bls::EngineBLS;
+
+        let cur_block = Self::get_current_block_as_u64();
+        let cur_epoch = Self::get_epoch_index(netuid, cur_block);
+
+        // Weights revealed must have been committed during epoch `cur_epoch - reveal_period`.
+        let reveal_epoch =
+            cur_epoch.saturating_sub(Self::get_reveal_period(netuid).saturating_sub(1));
+
+        // Clean expired commits
+        for (epoch, _) in CRV3WeightCommits::<T>::iter_prefix(netuid) {
+            if epoch < reveal_epoch {
+                CRV3WeightCommits::<T>::remove(netuid, epoch);
+            }
         }
+
+        // No commits to reveal until at least epoch 2.
+        if cur_epoch < 2 {
+            log::warn!("Failed to reveal commit for subnet {} Too early", netuid);
+            return Ok(());
+        }
+
+        let mut entries = CRV3WeightCommits::<T>::take(netuid, reveal_epoch);
+
+        // Keep popping item off the end of the queue until we sucessfully reveal a commit.
+        while let Some((who, serialized_compresssed_commit, round_number)) = entries.pop_front() {
+            let reader = &mut &serialized_compresssed_commit[..];
+            let commit = match TLECiphertext::<TinyBLS381>::deserialize_compressed(reader) {
+                Ok(c) => c,
+                Err(e) => {
+                    log::warn!(
+						"Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing the commit: {:?}",
+						netuid,
+						who,
+						e
+					);
+                    continue;
+                }
+            };
+
+            // Try to get the round number from pallet_drand.
+            let pulse = match pallet_drand::Pulses::<T>::get(round_number) {
+                Some(p) => p,
+                None => {
+                    // Round number used was not found on the chain. Skip this commit.
+                    log::warn!(
+                        "Failed to reveal commit for subnet {} submitted by {:?} due to missing round number {} at time of reveal.",
+						netuid,
+						who,
+                        round_number
+                    );
+                    continue;
+                }
+            };
+
+            let signature_bytes = pulse
+                .signature
+                .strip_prefix(b"0x")
+                .unwrap_or(&pulse.signature);
+
+            let sig_reader = &mut &signature_bytes[..];
+            let sig = match <TinyBLS381 as EngineBLS>::SignatureGroup::deserialize_compressed(
+                sig_reader,
+            ) {
+                Ok(s) => s,
+                Err(e) => {
+                    log::error!(
+						"Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing signature from drand pallet: {:?}",
+						netuid,
+						who,
+						e
+					);
+                    continue;
+                }
+            };
+
+            let decrypted_bytes: Vec<u8> = match tld::<TinyBLS381, AESGCMStreamCipherProvider>(
+                commit, sig,
+            ) {
+                Ok(d) => d,
+                Err(e) => {
+                    log::warn!(
+							"Failed to reveal commit for subnet {} submitted by {:?} due to error decrypting the commit: {:?}",
+							netuid,
+							who,
+							e
+												);
+                    continue;
+                }
+            };
+
+            // Decrypt the bytes into WeightsPayload
+            let mut reader = &decrypted_bytes[..];
+            let payload: WeightsTlockPayload = match Decode::decode(&mut reader) {
+                Ok(w) => w,
+                Err(e) => {
+                    log::warn!("Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing WeightsPayload: {:?}", netuid, who, e);
+                    continue;
+                }
+            };
+
+            if let Err(e) = Self::do_set_weights(
+                T::RuntimeOrigin::signed(who.clone()),
+                netuid,
+                payload.uids,
+                payload.values,
+                payload.version_key,
+            ) {
+                log::warn!(
+                    "Failed to `do_set_weights` for subnet {} submitted by {:?}: {:?}",
+                    netuid,
+                    who,
+                    e
+                );
+                continue;
+            };
+        }
+
+        Ok(())
     }
 
     /// Accumulates the mining and validator emissions on a hotkey and distributes the validator emission among its parents.

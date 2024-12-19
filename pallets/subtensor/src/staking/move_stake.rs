@@ -60,21 +60,8 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotEnoughStakeToWithdraw
         );
 
-        // Ensure we don't exceed stake rate limit for destination key
-        let stakes_this_interval =
-            Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &destination_hotkey);
-        ensure!(
-            stakes_this_interval < Self::get_target_stakes_per_interval(),
-            Error::<T>::StakeRateLimitExceeded
-        );
-
-        // Ensure we don't exceed stake rate limit for origin key
-        let unstakes_this_interval =
-            Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &origin_hotkey);
-        ensure!(
-            unstakes_this_interval < Self::get_target_stakes_per_interval(),
-            Error::<T>::UnstakeRateLimitExceeded
-        );
+        Self::try_increase_staking_counter(&coldkey, &destination_hotkey)?;
+        Self::try_increase_staking_counter(&coldkey, &origin_hotkey)?;
 
         // --- 5. Unstake the amount of alpha from the origin subnet, converting it to TAO
         let origin_tao = Self::unstake_from_subnet(
@@ -95,22 +82,21 @@ impl<T: Config> Pallet<T> {
         // Set last block for rate limiting
         let current_block = Self::get_current_block_as_u64();
         Self::set_last_tx_block(&coldkey, current_block);
-        Self::set_stakes_this_interval_for_coldkey_hotkey(
-            &coldkey,
-            &destination_hotkey,
-            stakes_this_interval.saturating_add(1),
-            current_block,
-        );
-        Self::set_stakes_this_interval_for_coldkey_hotkey(
-            &coldkey,
-            &origin_hotkey,
-            unstakes_this_interval.saturating_add(1),
-            current_block,
-        );
 
-        // Set the last time the stake increased for nominator drain protection.
+        // Adjust the stake deltas
         if alpha_amount > 0 {
-            LastAddStakeIncrease::<T>::insert(&destination_hotkey, &coldkey, current_block);
+            StakeDeltaSinceLastEmissionDrain::<T>::mutate(
+                (origin_hotkey.clone(), origin_netuid, coldkey.clone()),
+                |alpha| alpha.saturating_sub_unsigned(alpha_amount as u128),
+            );
+            StakeDeltaSinceLastEmissionDrain::<T>::mutate(
+                (
+                    destination_hotkey.clone(),
+                    destination_netuid,
+                    coldkey.clone(),
+                ),
+                |alpha| alpha.saturating_add_unsigned(alpha_amount as u128),
+            );
         }
 
         // --- 7. Log the event.

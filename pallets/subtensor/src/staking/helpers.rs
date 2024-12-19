@@ -38,40 +38,16 @@ impl<T: Config> Pallet<T> {
         TotalStake::<T>::put(Self::get_total_stake().saturating_sub(decrement));
     }
 
-    // Retrieves the total stakes for a given hotkey (account ID) for the current staking interval.
-    pub fn get_stakes_this_interval_for_coldkey_hotkey(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-    ) -> u64 {
-        // Retrieve the configured stake interval duration from storage.
-        let stake_interval = StakeInterval::<T>::get();
+    // Returns the total amount of stake under a hotkey (delegative or otherwise)
+    //
+    pub fn get_total_stake_for_hotkey(hotkey: &T::AccountId) -> u64 {
+        Self::get_global_for_hotkey(hotkey)
+    }
 
-        // Obtain the current block number as an unsigned 64-bit integer.
-        let current_block = Self::get_current_block_as_u64();
-
-        // Fetch the total stakes and the last block number when stakes were made for the hotkey.
-        let (stakes, block_last_staked_at) =
-            TotalHotkeyColdkeyStakesThisInterval::<T>::get(coldkey, hotkey);
-
-        // Calculate the block number after which the stakes for the hotkey should be reset.
-        let block_to_reset_after = block_last_staked_at.saturating_add(stake_interval);
-
-        // If the current block number is beyond the reset point,
-        // it indicates the end of the staking interval for the hotkey.
-        if block_to_reset_after <= current_block {
-            // Reset the stakes for this hotkey for the current interval.
-            Self::set_stakes_this_interval_for_coldkey_hotkey(
-                coldkey,
-                hotkey,
-                0,
-                block_last_staked_at,
-            );
-            // Return 0 as the stake amount since we've just reset the stakes.
-            return 0;
-        }
-
-        // If the staking interval has not yet ended, return the current stake amount.
-        stakes
+    // Returns the stake under the cold - hot pairing in the staking table.
+    //
+    pub fn get_stake_for_coldkey_and_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
+        Stake::<T>::get(hotkey, coldkey)
     }
 
     pub fn get_target_stakes_per_interval() -> u64 {

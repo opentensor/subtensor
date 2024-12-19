@@ -34,6 +34,7 @@ members = [
     "support/macros",
     "support/linting",
     "support/procedural-fork",
+    "pallets/drand",
 ]
 exclude = ["support/procedural-fork"]
 resolver = "2"
@@ -49,7 +50,7 @@ manual_inspect = "allow"
 async-trait = "0.1"
 cargo-husky = { version = "1", default-features = false }
 clap = "4.5.4"
-codec = { version = "3.2.2", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 ed25519-dalek = { version = "2.1.0", default-features = false, features = ["alloc"] }
 enumflags2 = "0.7.9"
 futures = "0.3.30"
@@ -63,14 +64,14 @@ parity-util-mem = "0.12.0"
 rand = "0.8.5"
 scale-codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = ["derive"] }
 scale-info = { version = "2.11.2", default-features = false }
-serde = { version = "1.0.199", default-features = false }
+serde = { version = "1.0.214", default-features = false }
 serde-tuple-vec-map = { version = "1.0.1", default-features = false }
 serde_bytes = { version = "0.11.14", default-features = false }
 serde_json = { version = "1.0.121", default-features = false }
 serde_with = { version = "=2.0.0", default-features = false }
 smallvec = "1.13.2"
 litep2p = { git = "https://github.com/paritytech/litep2p", tag = "v0.7.0" }
-syn = { version = "2", features = [
+syn = { version = "2.0.87", features = [
     "full",
     "visit-mut",
     "visit",
@@ -79,6 +80,7 @@ syn = { version = "2", features = [
 ] }
 quote = "1"
 proc-macro2 = { version = "1", features = ["span-locations"] }
+thiserror = "1.0"
 walkdir = "2"
 
 subtensor-macros = { path = "support/macros" }
@@ -136,12 +138,12 @@ sp-block-builder = { git = "https://github.com/paritytech/polkadot-sdk.git", tag
 sp-blockchain = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
 sp-consensus = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409" }
 sp-consensus-aura = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
-sp-consensus-grandpa = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409" }
+sp-consensus-grandpa = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
 sp-genesis-builder = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
 sp-core = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
 sp-inherents = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
 sp-io = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
-sp-keyring = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409" }
+sp-keyring = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
 sp-offchain = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
 sp-rpc = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
 sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
@@ -164,31 +166,51 @@ sc-network-sync = { git = "https://github.com/paritytech/polkadot-sdk.git", tag 
 substrate-prometheus-endpoint = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
 
 # Frontier
-fp-evm = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
-fp-rpc = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
-fp-self-contained = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false, features = [
+fp-evm = { git = "https://github.com/gztensor/frontier", rev = "b9c606f9", default-features = false }
+fp-rpc = { git = "https://github.com/gztensor/frontier", rev = "b9c606f9", default-features = false }
+fp-self-contained = { git = "https://github.com/gztensor/frontier", rev = "b9c606f9", default-features = false, features = [
 	"serde",
 ] }
-fp-account = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
-fc-storage = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
-fc-db = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
-fc-consensus = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
-fp-dynamic-fee = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
-fc-api = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
-fc-rpc = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
-fc-rpc-core = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
-fc-mapping-sync = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
+fp-account = { git = "https://github.com/gztensor/frontier", rev = "b9c606f9", default-features = false }
+fc-storage = { git = "https://github.com/gztensor/frontier", rev = "b9c606f9", default-features = false }
+fc-db = { git = "https://github.com/gztensor/frontier", rev = "b9c606f9", default-features = false }
+fc-consensus = { git = "https://github.com/gztensor/frontier", rev = "b9c606f9", default-features = false }
+fp-consensus = { git = "https://github.com/gztensor/frontier", rev = "b9c606f9", default-features = false }
+fp-dynamic-fee = { git = "https://github.com/gztensor/frontier", rev = "b9c606f9", default-features = false }
+fc-api = { git = "https://github.com/gztensor/frontier", rev = "b9c606f9", default-features = false }
+fc-rpc = { git = "https://github.com/gztensor/frontier", rev = "b9c606f9", default-features = false }
+fc-rpc-core = { git = "https://github.com/gztensor/frontier", rev = "b9c606f9", default-features = false }
+fc-mapping-sync = { git = "https://github.com/gztensor/frontier", rev = "b9c606f9", default-features = false }
 
 # Frontier FRAME
-pallet-base-fee = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
-pallet-dynamic-fee = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
-pallet-ethereum = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
-pallet-evm = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
-pallet-evm-chain-id = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
-pallet-evm-precompile-modexp = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
-pallet-evm-precompile-sha3fips = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
-pallet-evm-precompile-simple = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
-pallet-hotfix-sufficients = { git = "https://github.com/gztensor/frontier", rev = "b8e3025", default-features = false }
+pallet-base-fee = { git = "https://github.com/gztensor/frontier", rev = "b9c606f9", default-features = false }
+pallet-dynamic-fee = { git = "https://github.com/gztensor/frontier", rev = "b9c606f9", default-features = false }
+pallet-ethereum = { git = "https://github.com/gztensor/frontier", rev = "b9c606f9", default-features = false }
+pallet-evm = { git = "https://github.com/gztensor/frontier", rev = "b9c606f9", default-features = false }
+pallet-evm-chain-id = { git = "https://github.com/gztensor/frontier", rev = "b9c606f9", default-features = false }
+pallet-evm-precompile-modexp = { git = "https://github.com/gztensor/frontier", rev = "b9c606f9", default-features = false }
+pallet-evm-precompile-sha3fips = { git = "https://github.com/gztensor/frontier", rev = "b9c606f9", default-features = false }
+pallet-evm-precompile-simple = { git = "https://github.com/gztensor/frontier", rev = "b9c606f9", default-features = false }
+pallet-hotfix-sufficients = { git = "https://github.com/gztensor/frontier", rev = "b9c606f9", default-features = false }
+
+#DRAND
+pallet-drand = { path = "pallets/drand", default-features = false }
+sp-crypto-ec-utils = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", features = ["bls12-381"] }
+getrandom = { version = "0.2.15", features = ["custom"], default-features = false }
+sp-keystore = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409",  default-features = false }
+w3f-bls = { version = "=0.1.3", default-features = false }
+ark-crypto-primitives = { version = "0.4.0", default-features = false, features = [ "r1cs", "snark" ] }
+ark-scale = { version = "0.0.11", default-features = false, features = ["hazmat"] }
+sp-ark-bls12-381 = { git = "https://github.com/paritytech/substrate-curves", default-features = false }
+ark-bls12-381 = { version = "0.4.0", features = ["curve"], default-features = false }
+ark-serialize = { version = "0.4.0", features = [ "derive" ], default-features = false }
+ark-ff = { version = "0.4.0", default-features = false }
+ark-ec = { version = "0.4.0", default-features = false }
+ark-std = { version = "0.4.0", default-features = false }
+anyhow = "1.0.81"
+sha2 = { version = "0.10.8", default-features = false }
+rand_chacha = { version = "0.3.1", default-features = false  }
+tle = { git = "https://github.com/ideal-lab5/timelock", rev = "5416406cfd32799e31e1795393d4916894de4468", default-features = false }
 
 frame-metadata = "16"
 

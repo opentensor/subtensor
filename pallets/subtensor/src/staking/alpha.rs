@@ -353,6 +353,45 @@ impl<T: Config> Pallet<T> {
         total_tao_equivalent.to_num::<u64>()
     }
 
+    /// Gets the amount of alpha and global that was added to the hotkey by the nominator since the last emission drain.
+    /// This is used to determine the amount of alpha and global that is not viable for the nominator.
+    ///     
+    /// Returns only positive deltas. Will return 0 if the nominator removed stake.
+    /// Returns: (global, alpha)
+    pub fn get_nonviable_stake(
+        hotkey: &T::AccountId,
+        nominator: &T::AccountId,
+        target_netuid: u16,
+    ) -> (u64, u64) {
+        // Initialize the total TAO equivalent to zero using fixed-point arithmetic for precision
+        let mut total_tao_equivalent: I96F32 = I96F32::from_num(0);
+
+        // Iterate over all subnet network IDs (netuids)
+        for netuid in Self::get_all_subnet_netuids() {
+            let alpha: i128 =
+                StakeDeltaSinceLastEmissionDrain::<T>::get((hotkey, netuid, nominator));
+            // Calculate the global value for the hotkey and coldkey pair on this subnet
+            let subnet_global = Self::alpha_to_global(alpha.unsigned_abs() as u64, netuid);
+
+            // Add the subnet's global value to the total, using saturating addition to prevent overflow
+            total_tao_equivalent =
+                total_tao_equivalent.saturating_add(I96F32::from_num(subnet_global));
+        }
+
+        let mut target_alpha: i128 =
+            StakeDeltaSinceLastEmissionDrain::<T>::get((hotkey, target_netuid, nominator));
+
+        if total_tao_equivalent < 0 {
+            total_tao_equivalent = I96F32::from_num(0);
+        }
+
+        if target_alpha < 0 {
+            target_alpha = 0;
+        }
+
+        (total_tao_equivalent.to_num::<u64>(), target_alpha as u64)
+    }
+
     /// Retrieves the global value (TAO equivalent) for a given hotkey across all subnets.
     ///
     /// This function performs the following steps:

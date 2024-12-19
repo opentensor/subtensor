@@ -70,6 +70,9 @@ impl<T: Config> Pallet<T> {
     pub fn get_network_last_lock_block() -> u64 {
         NetworkLastRegistered::<T>::get()
     }
+    pub fn set_network_last_lock_block(block: u64) {
+        NetworkLastRegistered::<T>::set(block);
+    }
     pub fn set_lock_reduction_interval(interval: u64) {
         NetworkLockReductionInterval::<T>::set(interval);
         Self::deposit_event(Event::NetworkLockCostReductionIntervalSet(interval));

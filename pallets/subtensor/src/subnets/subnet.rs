@@ -139,10 +139,8 @@ impl<T: Config> Pallet<T> {
         ensure!(mechid.is_dynamic(), Error::<T>::MechanismDoesNotExist);
 
         // --- 4. Rate limit for network registrations.
-        let current_block = Self::get_current_block_as_u64();
-        let last_lock_block = Self::get_network_last_lock_block();
         ensure!(
-            current_block.saturating_sub(last_lock_block) >= NetworkRateLimit::<T>::get(),
+            Self::passes_rate_limit(&TransactionType::RegisterNetwork, &coldkey),
             Error::<T>::NetworkTxRateLimitExceeded
         );
 
@@ -171,6 +169,7 @@ impl<T: Config> Pallet<T> {
         log::debug!("init_new_network: {:?}", netuid_to_register);
 
         // --- 9 . Add the caller to the neuron set.
+        let current_block = Self::get_current_block_as_u64();
         Self::create_account_if_non_existent(&coldkey, hotkey);
         Self::append_neuron(netuid_to_register, hotkey, current_block);
         log::debug!(
@@ -188,7 +187,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 11. Set the creation terms.
-        NetworkLastRegistered::<T>::set(current_block);
+        Self::set_network_last_lock_block(current_block);
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
 
         // --- 14. Init the pool by putting the lock as the initial alpha.

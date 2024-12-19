@@ -48,8 +48,13 @@ pub mod utils;
 use crate::utils::rate_limiting::TransactionType;
 use macros::{config, dispatches, errors, events, genesis, hooks};
 
+#[cfg(test)]
+mod tests;
+
 // apparently this is stabilized since rust 1.36
 extern crate alloc;
+
+pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 
 #[deny(missing_docs)]
 #[import_section(errors::errors)]
@@ -71,7 +76,8 @@ pub mod pallet {
         BoundedVec,
     };
     use frame_system::pallet_prelude::*;
-    use sp_core::H256;
+    use pallet_drand::types::RoundNumber;
+    use sp_core::{ConstU32, H256};
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::collections::vec_deque::VecDeque;
     use sp_std::vec;
@@ -226,6 +232,11 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
+    /// Default value for zero.
+    pub fn DefaultZeroI128<T: Config>() -> i128 {
+        0
+    }
+    #[pallet::type_value]
     /// Default value for false.
     pub fn DefaultFalse<T: Config>() -> bool {
         false
@@ -314,6 +325,11 @@ pub mod pallet {
     /// Default account linkage
     pub fn DefaultAccountLinkage<T: Config>() -> Vec<(u64, T::AccountId)> {
         vec![]
+    }
+    #[pallet::type_value]
+    /// Default pending childkeys
+    pub fn DefaultPendingChildkeys<T: Config>() -> (Vec<(u64, T::AccountId)>, u64) {
+        (vec![], 0)
     }
     #[pallet::type_value]
     /// Default account linkage
@@ -581,7 +597,7 @@ pub mod pallet {
     }
     #[pallet::type_value]
     /// Default minimum stake for weights.
-    pub fn DefaultWeightsMinStake<T: Config>() -> u64 {
+    pub fn DefaultStakeThreshold<T: Config>() -> u64 {
         0
     }
     #[pallet::type_value]
@@ -680,6 +696,18 @@ pub mod pallet {
     /// Default value for coldkey swap schedule duration
     pub fn DefaultColdkeySwapScheduleDuration<T: Config>() -> BlockNumberFor<T> {
         T::InitialColdkeySwapScheduleDuration::get()
+    }
+
+    #[pallet::type_value]
+    /// Default value for applying pending items (e.g. childkeys).
+    pub fn DefaultPendingCooldown<T: Config>() -> u64 {
+        7200
+    }
+
+    #[pallet::type_value]
+    /// Default minimum stake for setting childkeys.
+    pub fn DefaultChildkeysMinStake<T: Config>() -> u64 {
+        1_000_000_000_000
     }
 
     #[pallet::type_value]
@@ -921,16 +949,49 @@ pub mod pallet {
     pub type HotkeyEmissionTempo<T> =
         StorageValue<_, u64, ValueQuery, DefaultHotkeyEmissionTempo<T>>;
     #[pallet::storage]
-    /// Map ( hot, cold ) --> block_number | Last add stake increase.
-    pub type LastAddStakeIncrease<T: Config> = StorageDoubleMap<
+    /// Map ( hot ) --> emission | Accumulated hotkey emission.
+    pub type PendingdHotkeyEmission<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
         T::AccountId,
-        Identity,
+        u64,
+        ValueQuery,
+        DefaultAccumulatedEmission<T>,
+    >;
+    #[pallet::storage]
+    /// Map ( hot ) --> emission | Part of accumulated hotkey emission that will not be distributed to nominators.
+    pub type PendingdHotkeyEmissionUntouchable<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
         T::AccountId,
         u64,
         ValueQuery,
-        DefaultZeroU64<T>,
+        DefaultAccumulatedEmission<T>,
+    >;
+    #[pallet::storage]
+    /// Map ( hot, netuid, cold ) --> stake: i128 | Stake added/removed since last emission drain.
+    pub type StakeDeltaSinceLastEmissionDrain<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Identity, u16>,                  // netuid
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+        ),
+        i128,
+        ValueQuery,
+        DefaultZeroI128<T>,
+    >;
+    #[pallet::storage]
+    /// DMAP ( netuid, parent ) --> (Vec<(proportion,child)>, cool_down_block)
+    pub type PendingChildKeys<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        u16,
+        Blake2_128Concat,
+        T::AccountId,
+        (Vec<(u64, T::AccountId)>, u64),
+        ValueQuery,
+        DefaultPendingChildkeys<T>,
     >;
     #[pallet::storage]
     /// DMAP ( parent, netuid ) --> Vec<(proportion,child)>
@@ -1152,8 +1213,8 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> bonds_moving_average
     pub type BondsMovingAverage<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBondsMovingAverage<T>>;
-    #[pallet::storage]
     /// --- MAP ( netuid ) --> weights_set_rate_limit
+    #[pallet::storage]
     pub type WeightsSetRateLimit<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultWeightsSetRateLimit<T>>;
     #[pallet::storage]
@@ -1173,7 +1234,7 @@ pub mod pallet {
     pub type AdjustmentAlpha<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultAdjustmentAlpha<T>>;
     #[pallet::storage]
-    /// --- MAP ( netuid ) --> interval
+    /// --- MAP ( netuid ) --> commit reveal v2 weights are enabled
     pub type CommitRevealWeightsEnabled<T> =
         StorageMap<_, Identity, u16, bool, ValueQuery, DefaultCommitRevealWeightsEnabled<T>>;
     #[pallet::storage]
@@ -1409,7 +1470,7 @@ pub mod pallet {
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
     #[pallet::storage]
     /// ITEM( weights_min_stake )
-    pub type WeightsMinStake<T> = StorageValue<_, u64, ValueQuery, DefaultWeightsMinStake<T>>;
+    pub type StakeThreshold<T> = StorageValue<_, u64, ValueQuery, DefaultStakeThreshold<T>>;
     #[pallet::storage]
     /// --- MAP (netuid, who) --> VecDeque<(hash, commit_block, first_reveal_block, last_reveal_block)> | Stores a queue of commits for an account on a given netuid.
     pub type WeightCommits<T: Config> = StorageDoubleMap<
@@ -1420,6 +1481,21 @@ pub mod pallet {
         T::AccountId,
         VecDeque<(H256, u64, u64, u64)>,
         OptionQuery,
+    >;
+    #[pallet::storage]
+    /// --- MAP (netuid, commit_epoch) --> VecDeque<(who, serialized_compressed_commit, reveal_round)> | Stores a queue of v3 commits for an account on a given netuid.
+    pub type CRV3WeightCommits<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        u16,
+        Twox64Concat,
+        u64,
+        VecDeque<(
+            T::AccountId,
+            BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
+            RoundNumber,
+        )>,
+        ValueQuery,
     >;
     #[pallet::storage]
     /// --- Map (netuid) --> Number of epochs allowed for commit reveal periods
@@ -1466,7 +1542,7 @@ pub mod pallet {
         /// Is the caller allowed to set weights
         pub fn check_weights_min_stake(hotkey: &T::AccountId, netuid: u16) -> bool {
             // Blacklist weights transactions for low stake peers.
-            Self::get_stake_for_hotkey_on_subnet(hotkey, netuid) >= Self::get_weights_min_stake()
+            Self::get_stake_for_hotkey_on_subnet(hotkey, netuid) >= Self::get_stake_threshold()
         }
 
         /// Helper function to check if register is allowed
@@ -1655,6 +1731,18 @@ where
                     })
                 } else {
                     Err(InvalidTransaction::Custom(4).into())
+                }
+            }
+            Some(Call::commit_crv3_weights { netuid, .. }) => {
+                if Self::check_weights_min_stake(who, *netuid) {
+                    let priority: u64 = Self::get_priority_set_weights(who, *netuid);
+                    Ok(ValidTransaction {
+                        priority,
+                        longevity: 1,
+                        ..Default::default()
+                    })
+                } else {
+                    Err(InvalidTransaction::Custom(7).into())
                 }
             }
             Some(Call::add_stake { .. }) => Ok(ValidTransaction {

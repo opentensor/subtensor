@@ -10,6 +10,7 @@ pub mod migrate_init_total_issuance;
 pub mod migrate_populate_owned_hotkeys;
 pub mod migrate_populate_staking_hotkeys;
 pub mod migrate_rao;
+pub mod migrate_stake_threshold;
 pub mod migrate_to_v1_separate_emission;
 pub mod migrate_to_v2_fixed_total_stake;
 pub mod migrate_total_issuance;

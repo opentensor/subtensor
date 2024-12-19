@@ -48,10 +48,6 @@ pub fn devnet_config() -> Result<ChainSpec, String> {
                 "5GgdEQyS5DZzUwKuyucEPEZLxFKGmasUFm1mqM3sx1MRC5RV",
                 "5EibpMomXmgekxcfs25SzFBpGWUsG9Lc8ALNjXN3TYH5Tube",
             ),
-            authority_keys_from_ss58(
-                "5Ek5JLCGk2PuoT1fS23GXiWYUT98HVUBERFQBu5g57sNf44x",
-                "5Gyrc6b2mx1Af6zWJYHdx3gwgtXgZvD9YkcG9uTUPYry4V2a",
-            ),
         ],
         // Sudo account
         Ss58Codec::from_ss58check("5GpzQgpiAKHMWNSH3RN4GLf96GVTDct9QxYEFAY7LWcVzTbx").unwrap(),

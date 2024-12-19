@@ -405,16 +405,18 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // 14. Swap LastAddStakeIncrease
-        for (coldkey, old_stake_block) in LastAddStakeIncrease::<T>::iter_prefix(old_hotkey) {
-            let new_stake_block = LastAddStakeIncrease::<T>::get(new_hotkey, &coldkey);
-            LastAddStakeIncrease::<T>::insert(
-                new_hotkey,
-                &coldkey,
-                new_stake_block.max(old_stake_block),
+        // 14. Swap Stake Delta for all netuids and coldkeys.
+        for ((netuid, coldkey), stake_delta) in
+            StakeDeltaSinceLastEmissionDrain::<T>::iter_prefix((old_hotkey.clone(),))
+        {
+            let new_stake_delta =
+                StakeDeltaSinceLastEmissionDrain::<T>::get((new_hotkey, netuid, coldkey.clone()));
+            StakeDeltaSinceLastEmissionDrain::<T>::insert(
+                (new_hotkey, netuid, coldkey.clone()),
+                new_stake_delta.saturating_add(stake_delta),
             );
-            LastAddStakeIncrease::<T>::remove(old_hotkey, &coldkey);
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 2));
+            StakeDeltaSinceLastEmissionDrain::<T>::remove((old_hotkey, netuid, coldkey.clone()));
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
         }
 
         // Return successful after swapping all the relevant terms.

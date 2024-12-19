@@ -196,17 +196,27 @@ impl<T: Config> Pallet<T> {
         }
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
 
-        // 5. Swap LastAddStakeIncrease
+        // 5. Swap Stake Delta
         for hotkey in StakingHotkeys::<T>::get(old_coldkey) {
-            let old_stake_block = LastAddStakeIncrease::<T>::get(&hotkey, old_coldkey);
-            let new_stake_block = LastAddStakeIncrease::<T>::get(&hotkey, new_coldkey);
-            LastAddStakeIncrease::<T>::insert(
-                &hotkey,
-                new_coldkey,
-                new_stake_block.max(old_stake_block),
-            );
-            LastAddStakeIncrease::<T>::remove(&hotkey, old_coldkey);
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+            for netuid in Self::get_all_subnet_netuids() {
+                // Swap Stake Delta
+                let old_stake_delta =
+                    StakeDeltaSinceLastEmissionDrain::<T>::get((&hotkey, netuid, old_coldkey));
+                let new_stake_delta =
+                    StakeDeltaSinceLastEmissionDrain::<T>::get((&hotkey, netuid, new_coldkey));
+
+                let net_stake_delta = new_stake_delta.saturating_add(old_stake_delta);
+                if net_stake_delta != new_stake_delta {
+                    // Only update if the new stake delta is not the same.
+                    StakeDeltaSinceLastEmissionDrain::<T>::insert(
+                        (&hotkey, netuid, new_coldkey),
+                        net_stake_delta,
+                    );
+                    weight.saturating_accrue(T::DbWeight::get().writes(1));
+                }
+                StakeDeltaSinceLastEmissionDrain::<T>::remove((&hotkey, netuid, old_coldkey));
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 1));
+            }
         }
 
         // 6. Swap StakingHotkeys.

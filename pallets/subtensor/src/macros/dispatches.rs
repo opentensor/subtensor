@@ -1,3 +1,5 @@
+#![allow(clippy::crate_in_macro_def)]
+
 use frame_support::pallet_macros::pallet_section;
 
 /// A [`pallet_section`] that defines the errors for a pallet.
@@ -8,6 +10,8 @@ mod dispatches {
     use frame_support::traits::schedule::DispatchTime;
     use frame_system::pallet_prelude::BlockNumberFor;
     use sp_runtime::traits::Saturating;
+
+    use crate::MAX_CRV3_COMMIT_SIZE_BYTES;
     /// Dispatchable functions allow users to interact with the pallet and invoke state changes.
     /// These functions materialize as "extrinsics", which are often compared to transactions.
     /// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
@@ -82,11 +86,49 @@ mod dispatches {
             weights: Vec<u16>,
             version_key: u64,
         ) -> DispatchResult {
-            if !Self::get_commit_reveal_weights_enabled(netuid) {
-                return Self::do_set_weights(origin, netuid, dests, weights, version_key);
+            if Self::get_commit_reveal_weights_enabled(netuid) {
+                Err(Error::<T>::CommitRevealEnabled.into())
+            } else {
+                Self::do_set_weights(origin, netuid, dests, weights, version_key)
             }
+        }
 
-            Err(Error::<T>::CommitRevealEnabled.into())
+        /// --- Allows a hotkey to set weights for multiple netuids as a batch.
+        ///
+        /// # Args:
+        /// * `origin`: (<T as frame_system::Config>Origin):
+        ///     - The caller, a hotkey who wishes to set their weights.
+        ///
+        /// * `netuids` (Vec<Compact<u16>>):
+        /// 	- The network uids we are setting these weights on.
+        ///
+        /// * `weights` (Vec<Vec<(Compact<u16>, Compact<u16>)>):
+        /// 	- The weights to set for each network. [(uid, weight), ...]
+        ///
+        /// * `version_keys` (Vec<Compact<u64>>):
+        /// 	- The network version keys to check if the validator is up to date.
+        ///
+        /// # Event:
+        /// * WeightsSet;
+        /// 	- On successfully setting the weights on chain.
+        /// * BatchWeightsCompleted;
+        /// 	- On success of the batch.
+        /// * BatchCompletedWithErrors;
+        /// 	- On failure of any of the weights in the batch.
+        /// * BatchWeightItemFailed;
+        /// 	- On failure for each failed item in the batch.
+        ///
+        #[pallet::call_index(80)]
+        #[pallet::weight((Weight::from_parts(22_060_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(4106))
+        .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        pub fn batch_set_weights(
+            origin: OriginFor<T>,
+            netuids: Vec<Compact<u16>>,
+            weights: Vec<Vec<(Compact<u16>, Compact<u16>)>>,
+            version_keys: Vec<Compact<u64>>,
+        ) -> DispatchResult {
+            Self::do_batch_set_weights(origin, netuids, weights, version_keys)
         }
 
         /// ---- Used to commit a hash of your weight values to later be revealed.
@@ -118,6 +160,40 @@ mod dispatches {
             commit_hash: H256,
         ) -> DispatchResult {
             Self::do_commit_weights(origin, netuid, commit_hash)
+        }
+
+        /// --- Allows a hotkey to commit weight hashes for multiple netuids as a batch.
+        ///
+        /// # Args:
+        /// * `origin`: (<T as frame_system::Config>Origin):
+        ///     - The caller, a hotkey who wishes to set their weights.
+        ///
+        /// * `netuids` (Vec<Compact<u16>>):
+        /// 	- The network uids we are setting these weights on.
+        ///
+        /// * `commit_hashes` (Vec<H256>):
+        /// 	- The commit hashes to commit.
+        ///
+        /// # Event:
+        /// * WeightsSet;
+        /// 	- On successfully setting the weights on chain.
+        /// * BatchWeightsCompleted;
+        /// 	- On success of the batch.
+        /// * BatchCompletedWithErrors;
+        /// 	- On failure of any of the weights in the batch.
+        /// * BatchWeightItemFailed;
+        /// 	- On failure for each failed item in the batch.
+        ///
+        #[pallet::call_index(100)]
+        #[pallet::weight((Weight::from_parts(46_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(1))
+        .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        pub fn batch_commit_weights(
+            origin: OriginFor<T>,
+            netuids: Vec<Compact<u16>>,
+            commit_hashes: Vec<H256>,
+        ) -> DispatchResult {
+            Self::do_batch_commit_weights(origin, netuids, commit_hashes)
         }
 
         /// ---- Used to reveal the weights for a previously committed hash.
@@ -170,6 +246,48 @@ mod dispatches {
             version_key: u64,
         ) -> DispatchResult {
             Self::do_reveal_weights(origin, netuid, uids, values, salt, version_key)
+        }
+
+        /// ---- Used to commit encrypted commit-reveal v3 weight values to later be revealed.
+        ///
+        /// # Args:
+        /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
+        ///   - The committing hotkey.
+        ///
+        /// * `netuid` (`u16`):
+        ///   - The u16 network identifier.
+        ///
+        /// * `commit` (`Vec<u8>`):
+        ///   - The encrypted compressed commit.
+        ///     The steps for this are:
+        ///     1. Instantiate [`WeightsTlockPayload`]
+        ///     2. Serialize it using the `parity_scale_codec::Encode` trait
+        ///     3. Encrypt it following the steps (here)[https://github.com/ideal-lab5/tle/blob/f8e6019f0fb02c380ebfa6b30efb61786dede07b/timelock/src/tlock.rs#L283-L336]
+        ///        to produce a [`TLECiphertext<TinyBLS381>`] type.
+        ///     4. Serialize and compress using the `ark-serialize` `CanonicalSerialize` trait.
+        ///
+        /// * reveal_round (`u64`):
+        ///    - The drand reveal round which will be avaliable during epoch `n+1` from the current
+        ///      epoch.
+        ///
+        /// # Raises:
+        /// * `CommitRevealV3Disabled`:
+        ///   - Attempting to commit when the commit-reveal mechanism is disabled.
+        ///
+        /// * `TooManyUnrevealedCommits`:
+        ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
+        ///
+        #[pallet::call_index(99)]
+        #[pallet::weight((Weight::from_parts(46_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
+        pub fn commit_crv3_weights(
+            origin: T::RuntimeOrigin,
+            netuid: u16,
+            commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
+            reveal_round: u64,
+        ) -> DispatchResult {
+            Self::do_commit_crv3_weights(origin, netuid, commit, reveal_round)
         }
 
         /// ---- The implementation for batch revealing committed weights.
@@ -910,7 +1028,7 @@ mod dispatches {
         /// # Errors:
         /// * `BadOrigin` - If the origin is not root.
         ///
-        #[pallet::call_index(80)]
+        #[pallet::call_index(69)]
         #[pallet::weight((
             Weight::from_parts(6_000, 0)
                 .saturating_add(T::DbWeight::get().writes(1)),
@@ -1162,7 +1280,7 @@ mod dispatches {
             netuid: u16,
             children: Vec<(u64, T::AccountId)>,
         ) -> DispatchResultWithPostInfo {
-            Self::do_set_children(origin, hotkey, netuid, children)?;
+            Self::do_schedule_children(origin, hotkey, netuid, children)?;
             Ok(().into())
         }
 

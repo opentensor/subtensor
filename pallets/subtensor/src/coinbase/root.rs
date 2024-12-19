@@ -139,8 +139,9 @@ impl<T: Config> Pallet<T> {
 
     /// Checks if registrations are allowed for a given subnet.
     ///
-    /// This function retrieves the subnet hyperparameters for the specified subnet and checks the `registration_allowed` flag.
-    /// If the subnet doesn't exist or doesn't have hyperparameters defined, it returns `false`.
+    /// This function retrieves the subnet hyperparameters for the specified subnet and checks the
+    /// `registration_allowed` flag. If the subnet doesn't exist or doesn't have hyperparameters
+    /// defined, it returns `false`.
     ///
     /// # Arguments
     ///
