@@ -65,7 +65,7 @@ impl<T: Config> Pallet<T> {
         // --- 3. Drain the subnet block emission and accumulate it as subnet emission, which increases until the tempo is reached in #4.
         // subnet_blockwise_emission -> subnet_pending_emission
         for netuid in subnets.clone().iter() {
-            if *netuid == 0 || !Self::is_registration_allowed(*netuid) {
+            if *netuid == 0 || !Self::get_network_registration_allowed(*netuid) {
                 continue;
             }
             // --- 3.1 Get the network's block-wise emission amount.
@@ -121,7 +121,7 @@ impl<T: Config> Pallet<T> {
                 Self::set_blocks_since_last_step(*netuid, 0);
                 Self::set_last_mechanism_step_block(*netuid, current_block);
 
-                if *netuid == 0 || !Self::is_registration_allowed(*netuid) {
+                if *netuid == 0 || !Self::get_network_registration_allowed(*netuid) {
                     // Skip netuid 0 payouts
                     continue;
                 }
