@@ -217,7 +217,10 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
     }
 }
 
-use crate::{CollectiveInterface, MemberManagement, StakeThreshold, TotalHotkeyStake};
+use crate::{
+    CollectiveInterface, MemberManagement, StakeThreshold, TotalHotkeyAlpha,
+    TotalHotkeyColdkeyStakesThisInterval,
+};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
@@ -806,8 +809,8 @@ pub fn wait_and_set_pending_children(netuid: u16) {
 #[allow(dead_code)]
 pub fn mock_set_children(coldkey: &U256, parent: &U256, netuid: u16, child_vec: &[(u64, U256)]) {
     // Set minimum stake for setting children
-    let parent_total_stake_original = TotalHotkeyStake::<Test>::get(parent);
-    TotalHotkeyStake::<Test>::insert(parent, StakeThreshold::<Test>::get());
+    let parent_total_stake_original = TotalHotkeyAlpha::<Test>::get(parent, netuid);
+    TotalHotkeyAlpha::<Test>::insert(parent, netuid, StakeThreshold::<Test>::get());
 
     // Set initial parent-child relationship
     assert_ok!(SubtensorModule::do_schedule_children(
@@ -817,7 +820,7 @@ pub fn mock_set_children(coldkey: &U256, parent: &U256, netuid: u16, child_vec: 
         child_vec.to_vec()
     ));
     wait_and_set_pending_children(netuid);
-    TotalHotkeyStake::<Test>::insert(parent, parent_total_stake_original);
+    TotalHotkeyAlpha::<Test>::insert(parent, netuid, parent_total_stake_original);
 }
 
 // Helper function to wait for the rate limit
@@ -828,4 +831,10 @@ pub fn step_rate_limit(transaction_type: &TransactionType, netuid: u16) {
 
     // Step that many blocks
     step_block(limit as u16);
+}
+
+#[allow(dead_code)]
+pub fn get_total_stakes_this_interval_for_coldkey_hotkey(coldkey: &U256, hotkey: &U256) -> u64 {
+    let (stakes_count, _) = TotalHotkeyColdkeyStakesThisInterval::<Test>::get(coldkey, hotkey);
+    stakes_count
 }

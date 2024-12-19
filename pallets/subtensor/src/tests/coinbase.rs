@@ -1,11 +1,10 @@
-#![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
+#![allow(clippy::unwrap_used)]
+
 use super::mock::*;
+use crate::subnets::Mechanism;
+use crate::*;
 
-use frame_support::assert_ok;
-use sp_core::U256;
-use substrate_fixed::types::I64F64;
-
-use crate::TargetStakesPerInterval;
+use sp_core::{Get, U256};
 
 // Test the ability to hash all sorts of hotkeys.
 #[test]
@@ -321,7 +320,7 @@ fn test_run_coinbase_different_mechanisms() {
 
         // Check subnet-specific behavior
         let emission1 = EmissionValues::<Test>::get(netuid1);
-        let emission2 = EmissionValues::<Test>::get(netuid2);
+        //let emission2 = EmissionValues::<Test>::get(netuid2);
 
         // For stable mechanism (netuid1)
         assert_eq!(
@@ -1639,7 +1638,7 @@ fn test_emission_with_registration_disabled_subnet() {
         increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, 1000, netuid);
 
         // Configure emission rate for the subnet
-        // TODO (CAM)
+        EmissionValues::<Test>::insert(netuid, 10);
         assert_eq!(SubtensorModule::get_subnet_emission_value(netuid), 10);
 
         // Verify initial emission state is zero

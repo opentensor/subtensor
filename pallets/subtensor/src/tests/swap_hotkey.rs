@@ -1118,7 +1118,7 @@ fn test_hotkey_swap_stake_delta() {
         for &coldkey in coldkeys.iter() {
             Stake::<Test>::insert(old_hotkey, coldkey, 123 + coldkey.saturated_into::<u64>());
             Alpha::<Test>::insert(
-                (old_hotkey, coldkey, netuid),
+                (old_hotkey, netuid, coldkey),
                 1234 + coldkey.saturated_into::<u64>(),
             );
 

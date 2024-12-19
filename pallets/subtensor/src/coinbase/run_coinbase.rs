@@ -456,7 +456,7 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         netuid: u16,
         emission: u64,
-        current_block: u64,
+        _current_block: u64,
         emission_tuples: &mut BTreeMap<(T::AccountId, T::AccountId), Vec<(u16, u64)>>,
     ) {
         // Calculate the hotkey's share of the emission based on its delegation status
@@ -474,7 +474,7 @@ impl<T: Config> Pallet<T> {
         let mut total_alpha: I96F32 = I96F32::from_num(0);
         let mut contributions: Vec<(T::AccountId, I96F32, I96F32)> = Vec::new();
 
-        let hotkey_tempo = HotkeyEmissionTempo::<T>::get();
+        let _hotkey_tempo = HotkeyEmissionTempo::<T>::get();
 
         // Calculate total global and alpha scores for all nominators
         for (nominator, nominator_alpha) in Alpha::<T>::iter_prefix((hotkey, netuid)) {

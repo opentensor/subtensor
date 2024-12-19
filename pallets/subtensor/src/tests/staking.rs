@@ -555,17 +555,14 @@ fn test_add_stake_rate_limit_exceeded() {
         let hotkey_account_id = U256::from(561337);
         let coldkey_account_id = U256::from(61337);
         let netuid: u16 = 1;
-        let start_nonce: u64 = 0;
-        let tempo: u16 = 13;
         let max_stakes = 2;
         let block_number = 1;
 
         SubtensorModule::set_target_stakes_per_interval(max_stakes);
-        SubtensorModule::set_stakes_this_interval_for_coldkey_hotkey(
-            &coldkey_account_id,
-            &hotkey_account_id,
-            max_stakes,
-            block_number,
+        TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(
+            hotkey_account_id,
+            coldkey_account_id,
+            (max_stakes, block_number),
         );
 
         // block 2
@@ -573,20 +570,25 @@ fn test_add_stake_rate_limit_exceeded() {
 
         // stake 2 and 3
         assert_ok!(SubtensorModule::add_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            hotkey,
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
             1,
         ));
         // remove should increase the counter
         assert_ok!(SubtensorModule::remove_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            hotkey,
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
             1,
         ));
 
         // counter should be increased, while the block should not be changed
         assert_eq!(
-            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(coldkey, hotkey),
+            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(
+                hotkey_account_id,
+                coldkey_account_id
+            ),
             (3, 1)
         );
 
@@ -604,7 +606,7 @@ fn test_add_stake_rate_limit_exceeded() {
             Error::<Test>::StakingRateLimitExceeded
         );
 
-        let current_stakes = SubtensorModule::get_stakes_this_interval_for_coldkey_hotkey(
+        let current_stakes = get_total_stakes_this_interval_for_coldkey_hotkey(
             &coldkey_account_id,
             &hotkey_account_id,
         );
@@ -645,7 +647,7 @@ fn test_remove_stake_under_limit() {
             1,
         ));
 
-        let current_unstakes = SubtensorModule::get_stakes_this_interval_for_coldkey_hotkey(
+        let current_unstakes = get_total_stakes_this_interval_for_coldkey_hotkey(
             &coldkey_account_id,
             &hotkey_account_id,
         );
@@ -667,8 +669,8 @@ fn test_remove_stake_rate_limit_exceeded() {
 
         SubtensorModule::set_target_stakes_per_interval(max_unstakes);
         TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(
-            &coldkey_account_id,
-            &hotkey_account_id,
+            hotkey_account_id,
+            coldkey_account_id,
             (max_unstakes, block_number),
         );
 
@@ -2843,8 +2845,8 @@ fn test_mining_emission_drain() {
         let root_tempo = 9; // neet root epoch to happen before subnet tempo
         let subnet_tempo = 10;
         let hotkey_tempo = 20;
-        let stake = 100_000_000_000;
-        let miner_stake = 1_000_000_000;
+        let stake: u64 = 100_000_000_000;
+        let miner_stake: u64 = 1_000_000_000;
 
         // Add network, register hotkeys, and setup network parameters
         add_network(root_id, root_tempo, 0);
@@ -2892,16 +2894,19 @@ fn test_mining_emission_drain() {
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey),
             validator,
+            netuid,
             stake
         ));
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey),
             miner,
+            netuid,
             miner_stake
         ));
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(nominator),
             miner,
+            netuid,
             stake
         ));
         // Make all stakes viable
@@ -2971,8 +2976,8 @@ fn test_mining_emission_drain_with_validation() {
         let root_tempo = 9; // neet root epoch to happen before subnet tempo
         let subnet_tempo = 10;
         let hotkey_tempo = 20;
-        let stake = 100_000_000_000;
-        let half_stake = 50_000_000_000;
+        let stake = 100_000_000_000_u64;
+        let half_stake = 50_000_000_000_u64;
 
         // Add network, register hotkeys, and setup network parameters
         add_network(root_id, root_tempo, 0);
@@ -3019,16 +3024,19 @@ fn test_mining_emission_drain_with_validation() {
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey),
             validator_miner1,
+            netuid,
             stake
         ));
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey),
             validator_miner2,
+            netuid,
             half_stake
         ));
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(nominator),
             validator_miner2,
+            netuid,
             half_stake
         ));
         // Make all stakes viable
@@ -3144,11 +3152,13 @@ fn test_mining_emission_drain_validator_valiminer_miner() {
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey),
             validator,
+            netuid,
             stake
         ));
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey),
             validator_miner,
+            netuid,
             stake
         ));
         // Make all stakes viable
