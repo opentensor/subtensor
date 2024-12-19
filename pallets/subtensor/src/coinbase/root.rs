@@ -903,7 +903,7 @@ impl<T: Config> Pallet<T> {
         // --- 5. Perform the lock operation.
         let actual_lock_amount = Self::remove_balance_from_coldkey_account(&coldkey, lock_amount)?;
         Self::set_subnet_locked_balance(netuid_to_register, actual_lock_amount);
-        Self::set_network_last_lock(actual_lock_amount);
+        NetworkLastLockCost::<T>::set(actual_lock_amount);
 
         // --- 6. Set initial and custom parameters for the network.
         Self::init_new_network(netuid_to_register, 360);
@@ -1253,10 +1253,6 @@ impl<T: Config> Pallet<T> {
     pub fn set_network_min_lock(net_min_lock: u64) {
         NetworkMinLockCost::<T>::set(net_min_lock);
         Self::deposit_event(Event::NetworkMinLockCostSet(net_min_lock));
-    }
-
-    pub fn set_network_last_lock(net_last_lock: u64) {
-        NetworkLastLockCost::<T>::set(net_last_lock);
     }
 
     pub fn set_network_last_lock_block(block: u64) {
