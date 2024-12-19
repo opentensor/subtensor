@@ -7,7 +7,7 @@ use sp_runtime::{
     DispatchError,
 };
 
-use crate::{Error, Event, WeightsVersionKey};
+use crate::{CommitRevealWeightsEnabled, Error, Event, WeightsVersionKey};
 
 use super::mock::*;
 
@@ -274,9 +274,9 @@ fn test_batch_commit_weights() {
         SubtensorModule::set_weights_set_rate_limit(netuid_2, 0);
 
         // Disable commit reveal for all networks (pre-emptively)
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid_0, false);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid_1, false);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid_2, false);
+        CommitRevealWeightsEnabled::<Test>::set(netuid_0, false);
+        CommitRevealWeightsEnabled::<Test>::set(netuid_1, false);
+        CommitRevealWeightsEnabled::<Test>::set(netuid_2, false);
 
         // Has stake and no parent
         step_block(7200 + 1);
@@ -323,9 +323,9 @@ fn test_batch_commit_weights() {
         System::reset_events();
 
         // Enable commit reveal for all networks
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid_0, true);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid_1, true);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid_2, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid_0, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid_1, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid_2, true);
 
         // Set a minimum stake to set weights
         SubtensorModule::set_stake_threshold(stake_to_give_child - 5);
@@ -366,7 +366,7 @@ fn test_batch_commit_weights() {
 
         // Test again, but with only one failure, different reason
         // Disable commit reveal for one network
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid_2, false);
+        CommitRevealWeightsEnabled::<Test>::set(netuid_2, false);
         assert_ok!(SubtensorModule::batch_commit_weights(
             RuntimeOrigin::signed(hotkey),
             netuids_vec.clone(),

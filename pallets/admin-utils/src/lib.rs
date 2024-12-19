@@ -994,7 +994,7 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
 
-            pallet_subtensor::Pallet::<T>::set_commit_reveal_weights_enabled(netuid, enabled);
+            pallet_subtensor::CommitRevealWeightsEnabled::<T>::set(netuid, enabled);
             log::debug!("ToggleSetWeightsCommitReveal( netuid: {:?} ) ", netuid);
             Ok(())
         }
