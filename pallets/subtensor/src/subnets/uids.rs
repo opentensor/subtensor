@@ -79,12 +79,6 @@ impl<T: Config> Pallet<T> {
         IsNetworkMember::<T>::insert(new_hotkey.clone(), netuid, true); // Fill network is member.
     }
 
-    /// Returns true if the uid is set on the network.
-    ///
-    pub fn is_uid_exist_on_network(netuid: u16, uid: u16) -> bool {
-        Keys::<T>::contains_key(netuid, uid)
-    }
-
     /// Returns true if the hotkey holds a slot on the network.
     ///
     pub fn is_hotkey_registered_on_network(netuid: u16, hotkey: &T::AccountId) -> bool {

@@ -911,7 +911,7 @@ impl<T: Config> Pallet<T> {
     /// Checks if the neuron has set weights within the weights_set_rate_limit.
     ///
     pub fn check_rate_limit(netuid: u16, neuron_uid: u16, current_block: u64) -> bool {
-        if Self::is_uid_exist_on_network(netuid, neuron_uid) {
+        if Keys::<T>::contains_key(netuid, neuron_uid) {
             // --- 1. Ensure that the diff between current and last_set weights is greater than limit.
             let last_set_weights: u64 = Self::get_last_update_for_uid(netuid, neuron_uid);
             if last_set_weights == 0 {
@@ -927,7 +927,7 @@ impl<T: Config> Pallet<T> {
     /// Checks for any invalid uids on this network.
     pub fn contains_invalid_uids(netuid: u16, uids: &[u16]) -> bool {
         for uid in uids {
-            if !Self::is_uid_exist_on_network(netuid, *uid) {
+            if !Keys::<T>::contains_key(netuid, *uid) {
                 log::debug!(
                     "contains_invalid_uids( netuid:{:?}, uid:{:?} does not exist on network. )",
                     netuid,

@@ -11,7 +11,7 @@ use sp_runtime::traits::{DispatchInfoOf, SignedExtension};
 
 use super::mock::*;
 use crate::{
-    Axons, BlockAtRegistration, Burn, Difficulty, EmissionValues, Error, ImmunityPeriod,
+    Axons, BlockAtRegistration, Burn, Difficulty, EmissionValues, Error, ImmunityPeriod, Keys,
     MaxAllowedUids, MaxRegistrationsPerBlock, Owner, RAORecycledForRegistration,
     RegistrationsThisBlock, RegistrationsThisInterval, SubnetworkN, SubtensorSignedExtension,
     Tempo,
@@ -1601,14 +1601,14 @@ fn test_full_pass_through() {
         assert_eq!(SubnetworkN::<Test>::get(netuid2), 2);
 
         // Check the uids exist.
-        assert!(SubtensorModule::is_uid_exist_on_network(netuid0, 0));
-        assert!(SubtensorModule::is_uid_exist_on_network(netuid1, 0));
-        assert!(SubtensorModule::is_uid_exist_on_network(netuid2, 0));
+        assert!(Keys::<Test>::contains_key(netuid0, 0));
+        assert!(Keys::<Test>::contains_key(netuid1, 0));
+        assert!(Keys::<Test>::contains_key(netuid2, 0));
 
         // Check the other exists.
-        assert!(SubtensorModule::is_uid_exist_on_network(netuid0, 1));
-        assert!(SubtensorModule::is_uid_exist_on_network(netuid1, 1));
-        assert!(SubtensorModule::is_uid_exist_on_network(netuid2, 1));
+        assert!(Keys::<Test>::contains_key(netuid0, 1));
+        assert!(Keys::<Test>::contains_key(netuid1, 1));
+        assert!(Keys::<Test>::contains_key(netuid2, 1));
 
         // Get the hotkey under each uid.
         assert_eq!(
