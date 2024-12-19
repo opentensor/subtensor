@@ -20,16 +20,9 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // ========================
-    // ==== Global Setters ====
-    // ========================
     pub fn set_tempo(netuid: u16, tempo: u16) {
         Tempo::<T>::insert(netuid, tempo);
         Self::deposit_event(Event::TempoSet(netuid, tempo));
-    }
-
-    pub fn set_registrations_this_interval(netuid: u16, registrations_this_interval: u16) {
-        RegistrationsThisInterval::<T>::insert(netuid, registrations_this_interval);
     }
 
     pub fn get_current_block_as_u64() -> u64 {
@@ -49,6 +42,7 @@ impl<T: Config> Pallet<T> {
         *updated_last_update = last_update;
         LastUpdate::<T>::insert(netuid, updated_last_update_vec);
     }
+
     pub fn set_active_for_uid(netuid: u16, uid: u16, active: bool) {
         let mut updated_active_vec = Active::<T>::get(netuid);
         let Some(updated_active) = updated_active_vec.get_mut(uid as usize) else {
@@ -57,6 +51,7 @@ impl<T: Config> Pallet<T> {
         *updated_active = active;
         Active::<T>::insert(netuid, updated_active_vec);
     }
+
     pub fn set_pruning_score_for_uid(netuid: u16, uid: u16, pruning_score: u16) {
         log::debug!("netuid = {:?}", netuid);
         log::debug!(
@@ -71,6 +66,7 @@ impl<T: Config> Pallet<T> {
             }
         });
     }
+
     pub fn set_validator_permit_for_uid(netuid: u16, uid: u16, validator_permit: bool) {
         let mut updated_validator_permits = ValidatorPermit::<T>::get(netuid);
         let Some(updated_validator_permit) = updated_validator_permits.get_mut(uid as usize) else {
@@ -79,10 +75,12 @@ impl<T: Config> Pallet<T> {
         *updated_validator_permit = validator_permit;
         ValidatorPermit::<T>::insert(netuid, updated_validator_permits);
     }
+
     pub fn set_stake_threshold(min_stake: u64) {
         StakeThreshold::<T>::put(min_stake);
         Self::deposit_event(Event::StakeThresholdSet(min_stake));
     }
+
     pub fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
         TargetStakesPerInterval::<T>::set(target_stakes_per_interval);
         Self::deposit_event(Event::TargetStakesPerIntervalSet(
@@ -123,46 +121,57 @@ impl<T: Config> Pallet<T> {
     pub fn set_stake_interval(block: u64) {
         StakeInterval::<T>::set(block);
     }
+
     pub fn get_rank_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Rank::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
     }
+
     pub fn get_trust_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Trust::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
     }
+
     pub fn get_emission_for_uid(netuid: u16, uid: u16) -> u64 {
         let vec = Emission::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
     }
+
     pub fn get_active_for_uid(netuid: u16, uid: u16) -> bool {
         let vec = Active::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(false)
     }
+
     pub fn get_consensus_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Consensus::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
     }
+
     pub fn get_incentive_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Incentive::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
     }
+
     pub fn get_dividends_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Dividends::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
     }
+
     pub fn get_last_update_for_uid(netuid: u16, uid: u16) -> u64 {
         let vec = LastUpdate::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
     }
+
     pub fn get_pruning_score_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = PruningScores::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(u16::MAX)
     }
+
     pub fn get_validator_trust_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = ValidatorTrust::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
     }
+
     pub fn get_validator_permit_for_uid(netuid: u16, uid: u16) -> bool {
         let vec = ValidatorPermit::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(false)

@@ -161,7 +161,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
 
                 // --- 6. Drain all counters for this network for this interval.
                 LastAdjustmentBlock::<T>::insert(netuid, current_block);
-                Self::set_registrations_this_interval(netuid, 0);
+                RegistrationsThisInterval::<T>::insert(netuid, 0);
                 POWRegistrationsThisInterval::<T>::insert(netuid, 0);
                 BurnRegistrationsThisInterval::<T>::insert(netuid, 0);
             } else {

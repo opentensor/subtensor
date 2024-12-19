@@ -253,7 +253,7 @@ fn test_registration_rate_limit_exceeded() {
         let target_registrants = 1;
         let max_registrants = target_registrants * 3;
         SubtensorModule::set_target_registrations_per_interval(netuid, target_registrants);
-        SubtensorModule::set_registrations_this_interval(netuid, max_registrants);
+        RegistrationsThisInterval::<Test>::insert(netuid, max_registrants);
 
         let (nonce, work) = SubtensorModule::create_work_for_block_number(
             netuid,
@@ -343,7 +343,7 @@ fn test_burned_registration_rate_limit_exceeded() {
 
         SubtensorModule::set_target_registrations_per_interval(netuid, target_registrants);
         // Set the current registrations to the maximum; should not be able to register more
-        SubtensorModule::set_registrations_this_interval(netuid, max_registrants);
+        RegistrationsThisInterval::<Test>::insert(netuid, max_registrants);
 
         let call_burned_register: crate::Call<Test> = crate::Call::burned_register {
             netuid,
@@ -384,7 +384,7 @@ fn test_burned_registration_rate_allows_burn_adjustment() {
         let target_registrants = 1; // Target is 1, but we can register more than that, up to some maximum.
         SubtensorModule::set_target_registrations_per_interval(netuid, target_registrants);
         // Set the current registrations to above the target; we should be able to register at least 1 more
-        SubtensorModule::set_registrations_this_interval(netuid, target_registrants);
+        RegistrationsThisInterval::<Test>::insert(netuid, target_registrants);
 
         // Register one more, so the current registrations are above the target
         let call_burned_register: crate::Call<Test> = crate::Call::burned_register {
