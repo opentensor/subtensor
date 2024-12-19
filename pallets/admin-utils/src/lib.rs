@@ -1016,7 +1016,7 @@ pub mod pallet {
             enabled: bool,
         ) -> DispatchResult {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
-            pallet_subtensor::Pallet::<T>::set_liquid_alpha_enabled(netuid, enabled);
+            pallet_subtensor::LiquidAlphaOn::<T>::set(netuid, enabled);
             log::debug!(
                 "LiquidAlphaEnableToggled( netuid: {:?}, Enabled: {:?} ) ",
                 netuid,
