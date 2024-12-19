@@ -264,7 +264,7 @@ impl<T: Config> Pallet<T> {
         let cur_block = Self::get_current_block_as_u64();
         let cur_epoch = match Self::should_run_epoch(netuid, commit_block) {
             true => Self::get_epoch_index(netuid, cur_block).saturating_add(1),
-            false => Self::get_epoch_index(netuid, cur_block)
+            false => Self::get_epoch_index(netuid, cur_block),
         };
 
         CRV3WeightCommits::<T>::try_mutate(netuid, cur_epoch, |commits| -> DispatchResult {
