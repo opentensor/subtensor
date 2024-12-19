@@ -47,7 +47,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 4. Ensure we are not already a delegate (dont allow changing delegate take.)
         ensure!(
-            !Self::hotkey_is_delegate(&hotkey),
+            !Delegates::<T>::contains_key(&hotkey),
             Error::<T>::HotKeyAlreadyDelegate
         );
 

@@ -14,7 +14,7 @@ use sp_runtime::{
     BuildStorage,
 };
 
-use crate::{migrations, Error, Owner, Stake, SubnetworkN, TotalHotkeyStake};
+use crate::{migrations, Delegates, Error, Owner, Stake, SubnetworkN, TotalHotkeyStake};
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
@@ -453,7 +453,7 @@ fn test_senate_leave_vote_removal() {
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(other_netuid, &hot).is_ok());
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
             // Check that they are all delegates
-            assert!(SubtensorModule::hotkey_is_delegate(&hot));
+            assert!(Delegates::<Test>::contains_key(hot));
         }
         // No longer a root member
         assert!(

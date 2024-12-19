@@ -11,12 +11,6 @@ use frame_support::{
 };
 
 impl<T: Config> Pallet<T> {
-    // Returns true if the passed hotkey allow delegative staking.
-    //
-    pub fn hotkey_is_delegate(hotkey: &T::AccountId) -> bool {
-        Delegates::<T>::contains_key(hotkey)
-    }
-
     // Sets the hotkey as a delegate with take.
     //
     pub fn delegate_hotkey(hotkey: &T::AccountId, take: u16) {

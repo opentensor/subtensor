@@ -7,9 +7,9 @@ use sp_core::{Get, H256, U256};
 
 use super::mock::*;
 use crate::{
-    migrations, utils::rate_limiting::TransactionType, EmissionValues, Error, NetworkRateLimit,
-    PendingEmission, SubnetIdentities, SubnetIdentity, SubnetIdentityOf, SubnetLimit, SubnetOwner,
-    SubnetworkN, TotalIssuance, TotalNetworks,
+    migrations, utils::rate_limiting::TransactionType, Delegates, EmissionValues, Error,
+    NetworkRateLimit, PendingEmission, SubnetIdentities, SubnetIdentity, SubnetIdentityOf,
+    SubnetLimit, SubnetOwner, SubnetworkN, TotalIssuance, TotalNetworks,
 };
 
 #[allow(dead_code)]
@@ -147,7 +147,7 @@ fn test_root_register_stake_based_pruning_works() {
             // Check successful registration.
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(other_netuid, &hot).is_ok());
             // Check that they are NOT all delegates
-            assert!(!SubtensorModule::hotkey_is_delegate(&hot));
+            assert!(!Delegates::<Test>::contains_key(hot));
         }
 
         // Register the first 64 accounts with stake to the root network.
@@ -161,7 +161,7 @@ fn test_root_register_stake_based_pruning_works() {
             // Check successful registration.
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
             // Check that they are all delegates
-            assert!(SubtensorModule::hotkey_is_delegate(&hot));
+            assert!(Delegates::<Test>::contains_key(hot));
         }
 
         // Register the second 64 accounts with stake to the root network.
