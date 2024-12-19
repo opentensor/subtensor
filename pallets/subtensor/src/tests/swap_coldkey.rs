@@ -1,19 +1,18 @@
 #![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
 use codec::Encode;
-use frame_support::weights::Weight;
-use frame_support::{assert_err, assert_noop, assert_ok};
-use frame_system::{Config, RawOrigin};
-
-use super::mock::*;
-use crate::*;
-// use crate::{Call, ColdkeySwapScheduleDuration, Error};
 use frame_support::error::BadOrigin;
 use frame_support::traits::schedule::v3::Named as ScheduleNamed;
 use frame_support::traits::schedule::DispatchTime;
 use frame_support::traits::OnInitialize;
+use frame_support::weights::Weight;
+use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_system::{Config, RawOrigin};
 use sp_core::H256;
 use sp_core::U256;
 use sp_runtime::DispatchError;
+
+use super::mock::*;
+use crate::*;
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_total_hotkey_coldkey_stakes_this_interval --exact --nocapture
 #[test]
