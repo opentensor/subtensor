@@ -44,7 +44,7 @@ impl<T: Config> Pallet<T> {
 
         // 4. Ensure the new coldkey is not a hotkey
         ensure!(
-            !Self::hotkey_account_exists(new_coldkey),
+            !Owner::<T>::contains_key(new_coldkey),
             Error::<T>::NewColdKeyIsHotkey
         );
         weight = weight.saturating_add(T::DbWeight::get().reads(1));
