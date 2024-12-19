@@ -68,7 +68,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Set last block for rate limiting
-        Self::set_last_tx_block_delegate_take(&coldkey, block);
+        LastTxBlockDelegateTake::<T>::insert(&coldkey, block);
 
         // --- 6. Set the new take value.
         Delegates::<T>::insert(hotkey.clone(), take);
