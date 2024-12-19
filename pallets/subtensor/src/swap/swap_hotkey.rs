@@ -85,7 +85,7 @@ impl<T: Config> Pallet<T> {
         let _ = Self::perform_hotkey_swap(old_hotkey, new_hotkey, &coldkey, &mut weight);
 
         // 15. Update the last transaction block for the coldkey
-        Self::set_last_tx_block(&coldkey, block);
+        LastTxBlock::<T>::insert(&coldkey, block);
         weight.saturating_accrue(T::DbWeight::get().writes(1));
 
         // 16. Emit an event for the hotkey swap

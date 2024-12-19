@@ -89,7 +89,7 @@ impl<T: Config> Pallet<T> {
 
         // Set last block for rate limiting
         let block = Self::get_current_block_as_u64();
-        Self::set_last_tx_block(&coldkey, block);
+        LastTxBlock::<T>::insert(&coldkey, block);
 
         log::debug!(
             "StakeAdded( hotkey:{:?}, stake_to_be_added:{:?} )",
