@@ -115,7 +115,7 @@ impl<T: Config> Pallet<T> {
                 );
 
                 // --- 4.4 Set last step counter.
-                Self::set_blocks_since_last_step(*netuid, 0);
+                BlocksSinceLastStep::<T>::insert(*netuid, 0);
                 Self::set_last_mechanism_step_block(*netuid, current_block);
 
                 if *netuid == 0 || !Self::is_registration_allowed(*netuid) {
@@ -171,7 +171,7 @@ impl<T: Config> Pallet<T> {
                 Self::do_set_pending_children(*netuid);
             } else {
                 // No epoch, increase blocks since last step and continue
-                Self::set_blocks_since_last_step(
+                BlocksSinceLastStep::<T>::insert(
                     *netuid,
                     BlocksSinceLastStep::<T>::get(*netuid).saturating_add(1),
                 );
