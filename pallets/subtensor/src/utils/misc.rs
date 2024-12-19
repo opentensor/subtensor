@@ -202,6 +202,7 @@ impl<T: Config> Pallet<T> {
     pub fn burn_tokens(amount: u64) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(amount));
     }
+
     pub fn coinbase(amount: u64) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(amount));
     }
@@ -223,14 +224,17 @@ impl<T: Config> Pallet<T> {
         TxRateLimit::<T>::put(tx_rate_limit);
         Self::deposit_event(Event::TxRateLimitSet(tx_rate_limit));
     }
+
     pub fn set_tx_delegate_take_rate_limit(tx_rate_limit: u64) {
         TxDelegateTakeRateLimit::<T>::put(tx_rate_limit);
         Self::deposit_event(Event::TxDelegateTakeRateLimitSet(tx_rate_limit));
     }
+
     pub fn set_min_delegate_take(take: u16) {
         MinDelegateTake::<T>::put(take);
         Self::deposit_event(Event::MinDelegateTakeSet(take));
     }
+
     pub fn set_max_delegate_take(take: u16) {
         MaxDelegateTake::<T>::put(take);
         Self::deposit_event(Event::MaxDelegateTakeSet(take));
@@ -240,10 +244,12 @@ impl<T: Config> Pallet<T> {
         TxChildkeyTakeRateLimit::<T>::put(tx_rate_limit);
         Self::deposit_event(Event::TxChildKeyTakeRateLimitSet(tx_rate_limit));
     }
+
     pub fn set_min_childkey_take(take: u16) {
         MinChildkeyTake::<T>::put(take);
         Self::deposit_event(Event::MinChildKeyTakeSet(take));
     }
+
     pub fn set_max_childkey_take(take: u16) {
         MaxChildkeyTake::<T>::put(take);
         Self::deposit_event(Event::MaxChildKeyTakeSet(take));
@@ -306,6 +312,7 @@ impl<T: Config> Pallet<T> {
         ImmunityPeriod::<T>::insert(netuid, immunity_period);
         Self::deposit_event(Event::ImmunityPeriodSet(netuid, immunity_period));
     }
+
     /// Check if a neuron is in immunity based on the current block
     pub fn get_neuron_is_immune(netuid: u16, uid: u16) -> bool {
         let registered_at = BlockAtRegistration::<T>::get(netuid, uid);
@@ -351,6 +358,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_target_registrations_per_interval(netuid: u16) -> u16 {
         TargetRegistrationsPerInterval::<T>::get(netuid)
     }
+
     pub fn set_target_registrations_per_interval(
         netuid: u16,
         target_registrations_per_interval: u16,
@@ -416,10 +424,6 @@ impl<T: Config> Pallet<T> {
         let curr_rao_recycled = RAORecycledForRegistration::<T>::get(netuid);
         let rao_recycled = curr_rao_recycled.saturating_add(inc_rao_recycled);
         Self::set_rao_recycled(netuid, rao_recycled);
-    }
-
-    pub fn is_senate_member(hotkey: &T::AccountId) -> bool {
-        T::SenateMembers::is_member(hotkey)
     }
 
     pub fn is_subnet_owner(address: &T::AccountId) -> bool {
