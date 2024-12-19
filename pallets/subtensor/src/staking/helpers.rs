@@ -11,12 +11,6 @@ use frame_support::{
 };
 
 impl<T: Config> Pallet<T> {
-    // Sets the hotkey as a delegate with take.
-    //
-    pub fn delegate_hotkey(hotkey: &T::AccountId, take: u16) {
-        Delegates::<T>::insert(hotkey, take);
-    }
-
     // Creates a cold - hot pairing account if the hotkey is not already an active account.
     //
     pub fn create_account_if_non_existent(coldkey: &T::AccountId, hotkey: &T::AccountId) {
