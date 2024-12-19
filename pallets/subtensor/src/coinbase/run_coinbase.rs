@@ -117,8 +117,8 @@ impl<T: Config> Pallet<T> {
                     subnet_emission
                 );
 
-                // --- 4.5 Set last step counter.
-                Self::set_blocks_since_last_step(*netuid, 0);
+                // --- 4.4 Set last step counter.
+                BlocksSinceLastStep::<T>::insert(*netuid, 0);
                 Self::set_last_mechanism_step_block(*netuid, current_block);
 
                 if *netuid == 0 || !Self::get_network_registration_allowed(*netuid) {
@@ -171,7 +171,7 @@ impl<T: Config> Pallet<T> {
                 }
             } else {
                 // No epoch, increase blocks since last step and continue
-                Self::set_blocks_since_last_step(
+                BlocksSinceLastStep::<T>::insert(
                     *netuid,
                     BlocksSinceLastStep::<T>::get(*netuid).saturating_add(1),
                 );

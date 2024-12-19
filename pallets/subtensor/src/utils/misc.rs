@@ -30,9 +30,7 @@ impl<T: Config> Pallet<T> {
     pub fn set_last_adjustment_block(netuid: u16, last_adjustment_block: u64) {
         LastAdjustmentBlock::<T>::insert(netuid, last_adjustment_block);
     }
-    pub fn set_blocks_since_last_step(netuid: u16, blocks_since_last_step: u64) {
-        BlocksSinceLastStep::<T>::insert(netuid, blocks_since_last_step);
-    }
+
     pub fn set_registrations_this_block(netuid: u16, registrations_this_block: u16) {
         RegistrationsThisBlock::<T>::insert(netuid, registrations_this_block);
     }
