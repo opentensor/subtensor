@@ -675,7 +675,7 @@ fn test_sudo_set_max_allowed_validators() {
 fn test_sudo_set_stake_threshold() {
     new_test_ext().execute_with(|| {
         let to_be_set: u64 = 10;
-        let init_value: u64 = SubtensorModule::get_stake_threshold();
+        let init_value: u64 = StakeThreshold::<Test>::get();
         assert_eq!(
             AdminUtils::sudo_set_stake_threshold(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -683,12 +683,12 @@ fn test_sudo_set_stake_threshold() {
             ),
             Err(DispatchError::BadOrigin)
         );
-        assert_eq!(SubtensorModule::get_stake_threshold(), init_value);
+        assert_eq!(StakeThreshold::<Test>::get(), init_value);
         assert_ok!(AdminUtils::sudo_set_stake_threshold(
             <<Test as Config>::RuntimeOrigin>::root(),
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_stake_threshold(), to_be_set);
+        assert_eq!(StakeThreshold::<Test>::get(), to_be_set);
     });
 }
 

@@ -3149,7 +3149,7 @@ fn test_childkey_set_weights_single_parent() {
         // Check the child has less stake than required
         assert!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid)
-                < SubtensorModule::get_stake_threshold()
+                < StakeThreshold::<Test>::get()
         );
 
         // Check the child cannot set weights
@@ -3172,7 +3172,7 @@ fn test_childkey_set_weights_single_parent() {
         // Check if the stake for the child is above
         assert!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid)
-                >= SubtensorModule::get_stake_threshold()
+                >= StakeThreshold::<Test>::get()
         );
 
         // Check the child can set weights
@@ -3232,7 +3232,7 @@ fn test_set_weights_no_parent() {
         // Check the key has less stake than required
         assert!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid)
-                < SubtensorModule::get_stake_threshold()
+                < StakeThreshold::<Test>::get()
         );
 
         // Check the hotkey cannot set weights
@@ -3255,7 +3255,7 @@ fn test_set_weights_no_parent() {
         // Check if the stake for the hotkey is above
         assert!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid)
-                >= SubtensorModule::get_stake_threshold()
+                >= StakeThreshold::<Test>::get()
         );
 
         // Check the hotkey can set weights

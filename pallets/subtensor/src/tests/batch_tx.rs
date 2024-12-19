@@ -7,7 +7,7 @@ use sp_runtime::{
     DispatchError,
 };
 
-use crate::{CommitRevealWeightsEnabled, Error, Event, WeightsVersionKey};
+use crate::{CommitRevealWeightsEnabled, Error, Event, StakeThreshold, WeightsVersionKey};
 
 use super::mock::*;
 
@@ -102,7 +102,7 @@ fn test_batch_set_weights() {
         // Check the key has less stake than required
         assert!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid_0)
-                < SubtensorModule::get_stake_threshold()
+                < StakeThreshold::<Test>::get()
         );
 
         let netuids_vec: Vec<Compact<u16>> =
@@ -155,7 +155,7 @@ fn test_batch_set_weights() {
         // Check if the stake for the hotkey is above
         assert!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid_0)
-                >= SubtensorModule::get_stake_threshold()
+                >= StakeThreshold::<Test>::get()
         );
 
         // Try with enough stake
@@ -333,7 +333,7 @@ fn test_batch_commit_weights() {
         // Check if the stake for the hotkey is above
         assert!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid_0)
-                >= SubtensorModule::get_stake_threshold()
+                >= StakeThreshold::<Test>::get()
         );
 
         // Try with commit reveal enabled

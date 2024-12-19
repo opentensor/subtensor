@@ -1371,7 +1371,7 @@ pub mod pallet {
         /// Is the caller allowed to set weights
         pub fn check_weights_min_stake(hotkey: &T::AccountId, netuid: u16) -> bool {
             // Blacklist weights transactions for low stake peers.
-            Self::get_stake_for_hotkey_on_subnet(hotkey, netuid) >= Self::get_stake_threshold()
+            Self::get_stake_for_hotkey_on_subnet(hotkey, netuid) >= StakeThreshold::<T>::get()
         }
     }
 }

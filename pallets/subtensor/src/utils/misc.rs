@@ -167,9 +167,6 @@ impl<T: Config> Pallet<T> {
         let vec = ValidatorPermit::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(false)
     }
-    pub fn get_stake_threshold() -> u64 {
-        StakeThreshold::<T>::get()
-    }
 
     // ========================
     // ===== Take checks ======
