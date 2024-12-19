@@ -71,7 +71,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                         // B. There are too many registrations this interval and most of them are burn registrations
                         // this triggers an increase in the burn cost.
                         // burn_cost ++
-                        Self::set_burn(
+                        Burn::<T>::insert(
                             netuid,
                             Self::upgraded_burn(
                                 netuid,
@@ -84,7 +84,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                         // F. There are too many registrations this interval and the pow and burn registrations are equal
                         // this triggers an increase in the burn cost and pow difficulty
                         // burn_cost ++
-                        Self::set_burn(
+                        Burn::<T>::insert(
                             netuid,
                             Self::upgraded_burn(
                                 netuid,
@@ -111,7 +111,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                         // C. There are not enough registrations this interval and most of them are pow registrations
                         // this triggers a decrease in the burn cost
                         // burn_cost --
-                        Self::set_burn(
+                        Burn::<T>::insert(
                             netuid,
                             Self::upgraded_burn(
                                 netuid,
@@ -137,7 +137,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                         // E. There are not enough registrations this interval and the pow and burn registrations are equal
                         // this triggers a decrease in the burn cost and pow difficulty
                         // burn_cost --
-                        Self::set_burn(
+                        Burn::<T>::insert(
                             netuid,
                             Self::upgraded_burn(
                                 netuid,

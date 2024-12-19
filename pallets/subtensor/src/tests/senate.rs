@@ -14,7 +14,7 @@ use sp_runtime::{
     BuildStorage,
 };
 
-use crate::{migrations, Delegates, Error, Owner, Stake, SubnetworkN, TotalHotkeyStake};
+use crate::{migrations, Burn, Delegates, Error, Owner, Stake, SubnetworkN, TotalHotkeyStake};
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
@@ -64,7 +64,7 @@ fn test_senate_join_works() {
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
 
         //add network
-        SubtensorModule::set_burn(netuid, burn_cost);
+        Burn::<Test>::insert(netuid, burn_cost);
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -127,7 +127,7 @@ fn test_senate_vote_works() {
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
 
         //add network
-        SubtensorModule::set_burn(netuid, burn_cost);
+        Burn::<Test>::insert(netuid, burn_cost);
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -229,7 +229,7 @@ fn test_senate_vote_not_member() {
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
 
         //add network
-        SubtensorModule::set_burn(netuid, burn_cost);
+        Burn::<Test>::insert(netuid, burn_cost);
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -286,7 +286,7 @@ fn test_senate_leave_works() {
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
 
         //add network
-        SubtensorModule::set_burn(netuid, burn_cost);
+        Burn::<Test>::insert(netuid, burn_cost);
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -350,7 +350,7 @@ fn test_senate_leave_vote_removal() {
         let coldkey_origin = <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id);
 
         //add network
-        SubtensorModule::set_burn(netuid, burn_cost);
+        Burn::<Test>::insert(netuid, burn_cost);
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -422,7 +422,7 @@ fn test_senate_leave_vote_removal() {
         let root_netuid: u16 = 0;
         let other_netuid: u16 = 5;
         add_network(other_netuid, 0, 0);
-        SubtensorModule::set_burn(other_netuid, 0);
+        Burn::<Test>::insert(other_netuid, 0);
         SubtensorModule::set_max_registrations_per_block(other_netuid, 1000);
         SubtensorModule::set_target_registrations_per_interval(other_netuid, 1000);
         SubtensorModule::set_max_registrations_per_block(root_netuid, 1000);
@@ -483,7 +483,7 @@ fn test_senate_not_leave_when_stake_removed() {
         SubtensorModule::set_target_stakes_per_interval(2);
 
         //add network
-        SubtensorModule::set_burn(netuid, burn_cost);
+        Burn::<Test>::insert(netuid, burn_cost);
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -559,7 +559,7 @@ fn test_senate_join_current_delegate() {
         let coldkey_account_id = U256::from(667);
 
         //add network
-        SubtensorModule::set_burn(netuid, burn_cost);
+        Burn::<Test>::insert(netuid, burn_cost);
         add_network(netuid, tempo, 0);
         // Give some coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -639,7 +639,7 @@ fn test_adjust_senate_events() {
         let replacement_hotkey_account_id = U256::from(7); // Will be added to the senate to replace hotkey_account_id
 
         //add network
-        SubtensorModule::set_burn(netuid, burn_cost);
+        Burn::<Test>::insert(netuid, burn_cost);
         add_network(netuid, tempo, 0);
         // Give some coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, balance_to_add);
