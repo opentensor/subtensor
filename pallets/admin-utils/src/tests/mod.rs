@@ -1146,7 +1146,7 @@ fn test_sudo_get_set_alpha() {
         let signer = <<Test as Config>::RuntimeOrigin>::signed(coldkey);
 
         // Enable Liquid Alpha and setup
-        SubtensorModule::set_liquid_alpha_enabled(netuid, true);
+        LiquidAlphaOn::<Test>::set(netuid, true);
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
@@ -1204,13 +1204,13 @@ fn test_sudo_get_set_alpha() {
         );
 
         // 1. Liquid alpha disabled
-        SubtensorModule::set_liquid_alpha_enabled(netuid, false);
+        LiquidAlphaOn::<Test>::set(netuid, false);
         assert_err!(
             AdminUtils::sudo_set_alpha_values(signer.clone(), netuid, alpha_low, alpha_high),
             SubtensorError::<Test>::LiquidAlphaDisabled
         );
         // Correct scenario after error
-        SubtensorModule::set_liquid_alpha_enabled(netuid, true); // Re-enable for further tests
+        LiquidAlphaOn::<Test>::set(netuid, true); // Re-enable for further tests
         assert_ok!(AdminUtils::sudo_set_alpha_values(
             signer.clone(),
             netuid,
