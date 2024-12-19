@@ -418,10 +418,6 @@ impl<T: Config> Pallet<T> {
         Self::set_rao_recycled(netuid, rao_recycled);
     }
 
-    pub fn set_senate_required_stake_perc(required_percent: u64) {
-        SenateRequiredStakePercentage::<T>::put(required_percent);
-    }
-
     pub fn is_senate_member(hotkey: &T::AccountId) -> bool {
         T::SenateMembers::is_member(hotkey)
     }
