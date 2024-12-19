@@ -1358,7 +1358,7 @@ fn test_clear_small_nominations() {
         assert_eq!(Balances::free_balance(cold2), 8);
 
         // Run clear all small nominations when min stake is zero (noop)
-        SubtensorModule::set_nominator_min_required_stake(0);
+        NominatorMinRequiredStake::<Test>::put(0);
         SubtensorModule::clear_small_nominations();
         assert_eq!(Stake::<Test>::get(hot1, cold1), 1);
         assert_eq!(Stake::<Test>::get(hot2, cold1), 1);
@@ -1373,7 +1373,7 @@ fn test_clear_small_nominations() {
         let _ = Stake::<Test>::try_get(hot2, cold1).unwrap(); // ensure exists before
         let _ = Stake::<Test>::try_get(hot1, cold2).unwrap(); // ensure exists before
         let total_stake_before = TotalStake::<Test>::get();
-        SubtensorModule::set_nominator_min_required_stake(10);
+        NominatorMinRequiredStake::<Test>::put(10);
 
         // Run clear all small nominations (removes delegations under 10)
         SubtensorModule::clear_small_nominations();
@@ -1424,7 +1424,7 @@ fn test_add_stake_below_minimum_threshold() {
         // Add balances.
         SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 100_000);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey2, 100_000);
-        SubtensorModule::set_nominator_min_required_stake(minimum_threshold);
+        NominatorMinRequiredStake::<Test>::put(minimum_threshold);
         SubtensorModule::set_target_stakes_per_interval(10);
 
         // Create network
@@ -1472,7 +1472,7 @@ fn test_remove_stake_below_minimum_threshold() {
         // Add balances.
         SubtensorModule::add_balance_to_coldkey_account(&coldkey1, initial_balance);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey2, initial_balance);
-        SubtensorModule::set_nominator_min_required_stake(minimum_threshold);
+        NominatorMinRequiredStake::<Test>::put(minimum_threshold);
         SubtensorModule::set_target_stakes_per_interval(10);
 
         // Create network
