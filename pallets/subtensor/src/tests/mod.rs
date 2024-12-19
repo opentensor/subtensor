@@ -1,12 +1,15 @@
 mod mock;
 
+mod alpha;
 mod batch_tx;
+mod block_emission;
 mod children;
 mod coinbase;
 mod difficulty;
 mod epoch;
 mod math;
 mod migration;
+mod r#move;
 mod neuron_info;
 mod registration;
 mod senate;

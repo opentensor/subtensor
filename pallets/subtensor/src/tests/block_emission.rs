@@ -1,7 +1,5 @@
-mod mock;
-
-use crate::mock::*;
-use pallet_subtensor::*;
+use super::mock::*;
+use crate::*;
 use sp_core::Get;
 
 // 1. Test Zero Issuance
@@ -584,11 +582,7 @@ fn test_floating_point_precision_impact() {
         for i in 1..=10 {
             let issuance = base_issuance + i;
             let emission = SubtensorModule::get_block_emission_for_issuance(issuance).unwrap();
-            let diff = if base_emission > emission {
-                base_emission - emission
-            } else {
-                0
-            };
+            let diff = base_emission.saturating_sub(emission);
             println!(
                 "Issuance: {}, Emission: {}, Diff from base: {}",
                 issuance, emission, diff

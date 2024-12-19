@@ -1,8 +1,7 @@
-mod mock;
+use super::mock::*;
+use crate::*;
 use frame_support::assert_noop;
 use frame_support::{assert_err, assert_ok};
-use mock::*;
-use pallet_subtensor::*;
 use sp_core::U256;
 
 // 1. test_do_move_success
@@ -715,7 +714,7 @@ fn test_do_move_rate_limit_enforced() {
         ));
         assert_err!(
             SubtensorModule::do_move_stake(coldkey, hotkey2, hotkey1, netuid, netuid, alpha,),
-            Error::<Test>::StakeRateLimitExceeded,
+            Error::<Test>::StakingRateLimitExceeded
         );
 
         // Check final stake distribution
