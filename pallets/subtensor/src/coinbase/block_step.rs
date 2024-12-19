@@ -169,7 +169,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
             }
 
             // --- 7. Drain block registrations for each network. Needed for registration rate limits.
-            Self::set_registrations_this_block(netuid, 0);
+            RegistrationsThisBlock::<T>::insert(netuid, 0);
         }
     }
 

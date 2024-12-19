@@ -28,10 +28,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::TempoSet(netuid, tempo));
     }
 
-    pub fn set_registrations_this_block(netuid: u16, registrations_this_block: u16) {
-        RegistrationsThisBlock::<T>::insert(netuid, registrations_this_block);
-    }
-
     pub fn set_registrations_this_interval(netuid: u16, registrations_this_interval: u16) {
         RegistrationsThisInterval::<T>::insert(netuid, registrations_this_interval);
     }
