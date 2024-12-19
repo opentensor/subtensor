@@ -161,7 +161,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
 
             ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                pallet_subtensor::NetworksAdded::<T>::get(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_min_difficulty(netuid, min_difficulty);
@@ -186,7 +186,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
 
             ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                pallet_subtensor::NetworksAdded::<T>::get(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_max_difficulty(netuid, max_difficulty);
@@ -211,7 +211,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
 
             ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                pallet_subtensor::NetworksAdded::<T>::get(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_weights_version_key(netuid, weights_version_key);
@@ -236,7 +236,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
 
             ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                pallet_subtensor::NetworksAdded::<T>::get(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_weights_set_rate_limit(
@@ -264,7 +264,7 @@ pub mod pallet {
             ensure_root(origin)?;
 
             ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                pallet_subtensor::NetworksAdded::<T>::get(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_adjustment_interval(netuid, adjustment_interval);
@@ -295,7 +295,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
 
             ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                pallet_subtensor::NetworksAdded::<T>::get(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_adjustment_alpha(netuid, adjustment_alpha);
@@ -319,7 +319,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
 
             ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                pallet_subtensor::NetworksAdded::<T>::get(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_max_weight_limit(netuid, max_weight_limit);
@@ -343,7 +343,7 @@ pub mod pallet {
         ) -> DispatchResult {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
             ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                pallet_subtensor::NetworksAdded::<T>::get(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
 
@@ -369,7 +369,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
 
             ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                pallet_subtensor::NetworksAdded::<T>::get(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_min_allowed_weights(netuid, min_allowed_weights);
@@ -393,11 +393,11 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                pallet_subtensor::NetworksAdded::<T>::get(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             ensure!(
-                pallet_subtensor::Pallet::<T>::get_subnetwork_n(netuid) < max_allowed_uids,
+                pallet_subtensor::SubnetworkN::<T>::get(netuid) < max_allowed_uids,
                 Error::<T>::MaxAllowedUIdsLessThanCurrentUIds
             );
             pallet_subtensor::Pallet::<T>::set_max_allowed_uids(netuid, max_allowed_uids);
@@ -418,7 +418,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
 
             ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                pallet_subtensor::NetworksAdded::<T>::get(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_kappa(netuid, kappa);
@@ -435,7 +435,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
 
             ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                pallet_subtensor::NetworksAdded::<T>::get(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_rho(netuid, rho);
@@ -456,7 +456,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
 
             ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                pallet_subtensor::NetworksAdded::<T>::get(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_activity_cutoff(netuid, activity_cutoff);
@@ -538,7 +538,7 @@ pub mod pallet {
             ensure_root(origin)?;
 
             ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                pallet_subtensor::NetworksAdded::<T>::get(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_target_registrations_per_interval(
@@ -566,7 +566,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
 
             ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                pallet_subtensor::NetworksAdded::<T>::get(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_min_burn(netuid, min_burn);
@@ -591,7 +591,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
 
             ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                pallet_subtensor::NetworksAdded::<T>::get(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_max_burn(netuid, max_burn);
@@ -615,7 +615,7 @@ pub mod pallet {
         ) -> DispatchResult {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
             ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                pallet_subtensor::NetworksAdded::<T>::get(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_difficulty(netuid, difficulty);
@@ -639,12 +639,11 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                pallet_subtensor::NetworksAdded::<T>::get(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             ensure!(
-                max_allowed_validators
-                    <= pallet_subtensor::Pallet::<T>::get_max_allowed_uids(netuid),
+                max_allowed_validators <= pallet_subtensor::MaxAllowedUids::<T>::get(netuid),
                 Error::<T>::MaxValidatorsLargerThanMaxUIds
             );
 
@@ -673,7 +672,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
 
             ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                pallet_subtensor::NetworksAdded::<T>::get(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_bonds_moving_average(netuid, bonds_moving_average);
@@ -698,7 +697,7 @@ pub mod pallet {
             ensure_root(origin)?;
 
             ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                pallet_subtensor::NetworksAdded::<T>::get(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_max_registrations_per_block(
@@ -764,7 +763,7 @@ pub mod pallet {
         pub fn sudo_set_tempo(origin: OriginFor<T>, netuid: u16, tempo: u16) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                pallet_subtensor::NetworksAdded::<T>::get(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_tempo(netuid, tempo);
@@ -888,7 +887,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                pallet_subtensor::NetworksAdded::<T>::get(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
             pallet_subtensor::Pallet::<T>::set_rao_recycled(netuid, rao_recycled);
@@ -917,9 +916,9 @@ pub mod pallet {
             min_stake: u64,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            let prev_min_stake = pallet_subtensor::Pallet::<T>::get_nominator_min_required_stake();
+            let prev_min_stake = pallet_subtensor::NominatorMinRequiredStake::<T>::get();
             log::trace!("Setting minimum stake to: {}", min_stake);
-            pallet_subtensor::Pallet::<T>::set_nominator_min_required_stake(min_stake);
+            pallet_subtensor::NominatorMinRequiredStake::<T>::put(min_stake);
             if min_stake > prev_min_stake {
                 log::trace!("Clearing small nominations");
                 pallet_subtensor::Pallet::<T>::clear_small_nominations();
@@ -991,11 +990,11 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
 
             ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                pallet_subtensor::NetworksAdded::<T>::get(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
 
-            pallet_subtensor::Pallet::<T>::set_commit_reveal_weights_enabled(netuid, enabled);
+            pallet_subtensor::CommitRevealWeightsEnabled::<T>::set(netuid, enabled);
             log::debug!("ToggleSetWeightsCommitReveal( netuid: {:?} ) ", netuid);
             Ok(())
         }
@@ -1017,7 +1016,7 @@ pub mod pallet {
             enabled: bool,
         ) -> DispatchResult {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
-            pallet_subtensor::Pallet::<T>::set_liquid_alpha_enabled(netuid, enabled);
+            pallet_subtensor::LiquidAlphaOn::<T>::set(netuid, enabled);
             log::debug!(
                 "LiquidAlphaEnableToggled( netuid: {:?}, Enabled: {:?} ) ",
                 netuid,
@@ -1215,7 +1214,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
 
             ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                pallet_subtensor::NetworksAdded::<T>::get(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
 

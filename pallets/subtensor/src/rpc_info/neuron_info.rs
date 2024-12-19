@@ -54,12 +54,12 @@ pub struct NeuronInfoLite<T: Config> {
 
 impl<T: Config> Pallet<T> {
     pub fn get_neurons(netuid: u16) -> Vec<NeuronInfo<T>> {
-        if !Self::if_subnet_exist(netuid) {
+        if !NetworksAdded::<T>::get(netuid) {
             return Vec::new();
         }
 
         let mut neurons = Vec::new();
-        let n = Self::get_subnetwork_n(netuid);
+        let n = SubnetworkN::<T>::get(netuid);
         for uid in 0..n {
             let neuron = match Self::get_neuron_subnet_exists(netuid, uid) {
                 Some(n) => n,
@@ -77,9 +77,9 @@ impl<T: Config> Pallet<T> {
             Err(_) => return None,
         };
 
-        let axon_info = Self::get_axon_info(netuid, &hotkey.clone());
+        let axon_info = Axons::<T>::get(netuid, &hotkey).unwrap_or_default();
 
-        let prometheus_info = Self::get_prometheus_info(netuid, &hotkey.clone());
+        let prometheus_info = Prometheus::<T>::get(netuid, &hotkey).unwrap_or_default();
 
         let coldkey = Owner::<T>::get(hotkey.clone()).clone();
 
@@ -147,7 +147,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_neuron(netuid: u16, uid: u16) -> Option<NeuronInfo<T>> {
-        if !Self::if_subnet_exist(netuid) {
+        if !NetworksAdded::<T>::get(netuid) {
             return None;
         }
 
@@ -160,11 +160,11 @@ impl<T: Config> Pallet<T> {
             Err(_) => return None,
         };
 
-        let axon_info = Self::get_axon_info(netuid, &hotkey.clone());
+        let axon_info = Axons::<T>::get(netuid, &hotkey).unwrap_or_default();
 
-        let prometheus_info = Self::get_prometheus_info(netuid, &hotkey.clone());
+        let prometheus_info = Prometheus::<T>::get(netuid, &hotkey).unwrap_or_default();
 
-        let coldkey = Owner::<T>::get(hotkey.clone()).clone();
+        let coldkey = Owner::<T>::get(&hotkey).clone();
 
         let active = Self::get_active_for_uid(netuid, uid);
         let rank = Self::get_rank_for_uid(netuid, uid);
@@ -184,8 +184,8 @@ impl<T: Config> Pallet<T> {
         )];
 
         let neuron = NeuronInfoLite {
-            hotkey: hotkey.clone(),
-            coldkey: coldkey.clone(),
+            hotkey,
+            coldkey,
             uid: uid.into(),
             netuid: netuid.into(),
             active,
@@ -208,12 +208,12 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_neurons_lite(netuid: u16) -> Vec<NeuronInfoLite<T>> {
-        if !Self::if_subnet_exist(netuid) {
+        if !NetworksAdded::<T>::get(netuid) {
             return Vec::new();
         }
 
         let mut neurons: Vec<NeuronInfoLite<T>> = Vec::new();
-        let n = Self::get_subnetwork_n(netuid);
+        let n = SubnetworkN::<T>::get(netuid);
         for uid in 0..n {
             let neuron = match Self::get_neuron_lite_subnet_exists(netuid, uid) {
                 Some(n) => n,
@@ -226,7 +226,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_neuron_lite(netuid: u16, uid: u16) -> Option<NeuronInfoLite<T>> {
-        if !Self::if_subnet_exist(netuid) {
+        if !NetworksAdded::<T>::get(netuid) {
             return None;
         }
 

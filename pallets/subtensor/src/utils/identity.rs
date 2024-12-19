@@ -104,7 +104,7 @@ impl<T: Config> Pallet<T> {
 
         // Ensure that the coldkey owns the subnet
         ensure!(
-            Self::get_subnet_owner(netuid) == coldkey,
+            SubnetOwner::<T>::get(netuid) == coldkey,
             Error::<T>::NotSubnetOwner
         );
 

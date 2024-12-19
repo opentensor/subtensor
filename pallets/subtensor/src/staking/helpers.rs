@@ -11,62 +11,10 @@ use frame_support::{
 };
 
 impl<T: Config> Pallet<T> {
-    // Returns true if the passed hotkey allow delegative staking.
-    //
-    pub fn hotkey_is_delegate(hotkey: &T::AccountId) -> bool {
-        Delegates::<T>::contains_key(hotkey)
-    }
-
-    // Sets the hotkey as a delegate with take.
-    //
-    pub fn delegate_hotkey(hotkey: &T::AccountId, take: u16) {
-        Delegates::<T>::insert(hotkey, take);
-    }
-
-    // Returns the total amount of stake in the staking table.
-    //
-    pub fn get_total_stake() -> u64 {
-        TotalStake::<T>::get()
-    }
-
-    // Increases the total amount of stake by the passed amount.
-    //
-    pub fn increase_total_stake(increment: u64) {
-        TotalStake::<T>::put(Self::get_total_stake().saturating_add(increment));
-    }
-
-    // Decreases the total amount of stake by the passed amount.
-    //
-    pub fn decrease_total_stake(decrement: u64) {
-        TotalStake::<T>::put(Self::get_total_stake().saturating_sub(decrement));
-    }
-
-    // Returns the total amount of stake under a hotkey (delegative or otherwise)
-    //
-    pub fn get_total_stake_for_hotkey(hotkey: &T::AccountId) -> u64 {
-        TotalHotkeyStake::<T>::get(hotkey)
-    }
-
-    // Returns the total amount of stake held by the coldkey (delegative or otherwise)
-    //
-    pub fn get_total_stake_for_coldkey(coldkey: &T::AccountId) -> u64 {
-        TotalColdkeyStake::<T>::get(coldkey)
-    }
-
-    // Returns the stake under the cold - hot pairing in the staking table.
-    //
-    pub fn get_stake_for_coldkey_and_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
-        Stake::<T>::get(hotkey, coldkey)
-    }
-
-    pub fn get_target_stakes_per_interval() -> u64 {
-        TargetStakesPerInterval::<T>::get()
-    }
-
     // Creates a cold - hot pairing account if the hotkey is not already an active account.
     //
     pub fn create_account_if_non_existent(coldkey: &T::AccountId, hotkey: &T::AccountId) {
-        if !Self::hotkey_account_exists(hotkey) {
+        if !Owner::<T>::contains_key(hotkey) {
             Stake::<T>::insert(hotkey, coldkey, 0);
             Owner::<T>::insert(hotkey, coldkey);
 
@@ -86,39 +34,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Returns the coldkey owning this hotkey. This function should only be called for active accounts.
-    ///
-    /// # Arguments
-    /// * `hotkey` - The hotkey account ID.
-    ///
-    /// # Returns
-    /// The coldkey account ID that owns the hotkey.
-    pub fn get_owning_coldkey_for_hotkey(hotkey: &T::AccountId) -> T::AccountId {
-        Owner::<T>::get(hotkey)
-    }
-
-    /// Returns the hotkey take.
-    ///
-    /// # Arguments
-    /// * `hotkey` - The hotkey account ID.
-    ///
-    /// # Returns
-    /// The take value of the hotkey.
-    pub fn get_hotkey_take(hotkey: &T::AccountId) -> u16 {
-        Delegates::<T>::get(hotkey)
-    }
-
-    /// Returns true if the hotkey account has been created.
-    ///
-    /// # Arguments
-    /// * `hotkey` - The hotkey account ID.
-    ///
-    /// # Returns
-    /// True if the hotkey account exists, false otherwise.
-    pub fn hotkey_account_exists(hotkey: &T::AccountId) -> bool {
-        Owner::<T>::contains_key(hotkey)
-    }
-
     /// Returns true if the passed coldkey owns the hotkey.
     ///
     /// # Arguments
@@ -128,7 +43,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// True if the coldkey owns the hotkey, false otherwise.
     pub fn coldkey_owns_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId) -> bool {
-        if Self::hotkey_account_exists(hotkey) {
+        if Owner::<T>::contains_key(hotkey) {
             Owner::<T>::get(hotkey) == *coldkey
         } else {
             false
@@ -145,7 +60,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// True if the account has enough balance, false otherwise.
     pub fn has_enough_stake(coldkey: &T::AccountId, hotkey: &T::AccountId, decrement: u64) -> bool {
-        Self::get_stake_for_coldkey_and_hotkey(coldkey, hotkey) >= decrement
+        Stake::<T>::get(hotkey, coldkey) >= decrement
     }
 
     /// Increases the stake on the hotkey account under its owning coldkey.
@@ -154,24 +69,7 @@ impl<T: Config> Pallet<T> {
     /// * `hotkey` - The hotkey account ID.
     /// * `increment` - The amount to be incremented.
     pub fn increase_stake_on_hotkey_account(hotkey: &T::AccountId, increment: u64) {
-        Self::increase_stake_on_coldkey_hotkey_account(
-            &Self::get_owning_coldkey_for_hotkey(hotkey),
-            hotkey,
-            increment,
-        );
-    }
-
-    /// Decreases the stake on the hotkey account under its owning coldkey.
-    ///
-    /// # Arguments
-    /// * `hotkey` - The hotkey account ID.
-    /// * `decrement` - The amount to be decremented.
-    pub fn decrease_stake_on_hotkey_account(hotkey: &T::AccountId, decrement: u64) {
-        Self::decrease_stake_on_coldkey_hotkey_account(
-            &Self::get_owning_coldkey_for_hotkey(hotkey),
-            hotkey,
-            decrement,
-        );
+        Self::increase_stake_on_coldkey_hotkey_account(&Owner::<T>::get(hotkey), hotkey, increment);
     }
 
     // Increases the stake on the cold - hot pairing by increment while also incrementing other counters.
@@ -246,10 +144,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `coldkey` - A reference to the AccountId of the coldkey involved in the staking.
     /// * `hotkey` - A reference to the AccountId of the hotkey associated with the coldkey.
-    pub fn empty_stake_on_coldkey_hotkey_account(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-    ) -> u64 {
+    fn empty_stake_on_coldkey_hotkey_account(coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
         let current_stake: u64 = Stake::<T>::get(hotkey, coldkey);
         TotalColdkeyStake::<T>::mutate(coldkey, |old| *old = old.saturating_sub(current_stake));
         TotalHotkeyStake::<T>::mutate(hotkey, |stake| *stake = stake.saturating_sub(current_stake));
@@ -276,7 +171,7 @@ impl<T: Config> Pallet<T> {
         // Verify if the account is a nominator account by checking ownership of the hotkey by the coldkey.
         if !Self::coldkey_owns_hotkey(coldkey, hotkey) {
             // If the stake is below the minimum required, it's considered a small nomination and needs to be cleared.
-            if stake < Self::get_nominator_min_required_stake() {
+            if stake < NominatorMinRequiredStake::<T>::get() {
                 // Remove the stake from the nominator account. (this is a more forceful unstake operation which )
                 // Actually deletes the staking account.
                 let cleared_stake = Self::empty_stake_on_coldkey_hotkey_account(coldkey, hotkey);
