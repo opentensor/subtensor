@@ -69,7 +69,7 @@ impl<T: Config> Pallet<T> {
 
         // Set last block for rate limiting
         LastTxBlock::<T>::insert(&coldkey, block);
-        Self::set_last_tx_block_delegate_take(&coldkey, block);
+        LastTxBlockDelegateTake::<T>::insert(&coldkey, block);
 
         // --- 7. Emit the staking event.
         log::debug!(
