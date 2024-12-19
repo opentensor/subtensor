@@ -1,8 +1,9 @@
 use super::mock::*;
-use crate::{ColdkeySwapScheduleDuration, DissolveNetworkScheduleDuration, Event};
 use frame_support::assert_ok;
 use frame_system::Config;
 use sp_core::U256;
+
+use crate::{ColdkeySwapScheduleDuration, DissolveNetworkScheduleDuration, Event, NetworksAdded};
 
 #[test]
 fn test_registration_ok() {
@@ -37,7 +38,7 @@ fn test_registration_ok() {
             netuid
         ));
 
-        assert!(!SubtensorModule::if_subnet_exist(netuid))
+        assert!(!NetworksAdded::<Test>::get(netuid))
     })
 }
 
@@ -69,7 +70,7 @@ fn test_schedule_dissolve_network_execution() {
             coldkey_account_id
         ));
 
-        assert!(SubtensorModule::if_subnet_exist(netuid));
+        assert!(NetworksAdded::<Test>::get(netuid));
 
         assert_ok!(SubtensorModule::schedule_dissolve_network(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
@@ -89,7 +90,7 @@ fn test_schedule_dissolve_network_execution() {
         );
 
         run_to_block(execution_block);
-        assert!(!SubtensorModule::if_subnet_exist(netuid));
+        assert!(!NetworksAdded::<Test>::get(netuid));
     })
 }
 
@@ -122,7 +123,7 @@ fn test_non_owner_schedule_dissolve_network_execution() {
             coldkey_account_id
         ));
 
-        assert!(SubtensorModule::if_subnet_exist(netuid));
+        assert!(NetworksAdded::<Test>::get(netuid));
 
         assert_ok!(SubtensorModule::schedule_dissolve_network(
             <<Test as Config>::RuntimeOrigin>::signed(non_network_owner_account_id),
@@ -143,7 +144,7 @@ fn test_non_owner_schedule_dissolve_network_execution() {
 
         run_to_block(execution_block);
         // network exists since the caller is no the network owner
-        assert!(SubtensorModule::if_subnet_exist(netuid));
+        assert!(NetworksAdded::<Test>::get(netuid));
     })
 }
 
@@ -176,7 +177,7 @@ fn test_new_owner_schedule_dissolve_network_execution() {
             coldkey_account_id
         ));
 
-        assert!(SubtensorModule::if_subnet_exist(netuid));
+        assert!(NetworksAdded::<Test>::get(netuid));
 
         // the account is not network owner when schedule the call
         assert_ok!(SubtensorModule::schedule_dissolve_network(
@@ -201,7 +202,7 @@ fn test_new_owner_schedule_dissolve_network_execution() {
 
         run_to_block(execution_block);
         // network exists since the caller is no the network owner
-        assert!(!SubtensorModule::if_subnet_exist(netuid));
+        assert!(!NetworksAdded::<Test>::get(netuid));
     })
 }
 
@@ -237,7 +238,7 @@ fn test_schedule_dissolve_network_execution_with_coldkey_swap() {
             coldkey_account_id
         ));
 
-        assert!(SubtensorModule::if_subnet_exist(netuid));
+        assert!(NetworksAdded::<Test>::get(netuid));
 
         // the account is not network owner when schedule the call
         assert_ok!(SubtensorModule::schedule_swap_coldkey(
@@ -277,6 +278,6 @@ fn test_schedule_dissolve_network_execution_with_coldkey_swap() {
 
         run_to_block(execution_block);
         // network exists since the caller is no the network owner
-        assert!(!SubtensorModule::if_subnet_exist(netuid));
+        assert!(!NetworksAdded::<Test>::get(netuid));
     })
 }

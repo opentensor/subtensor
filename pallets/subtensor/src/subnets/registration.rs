@@ -54,7 +54,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::RegistrationNotPermittedOnRootSubnet
         );
         ensure!(
-            Self::if_subnet_exist(netuid),
+            NetworksAdded::<T>::get(netuid),
             Error::<T>::SubNetworkDoesNotExist
         );
 
@@ -238,7 +238,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::RegistrationNotPermittedOnRootSubnet
         );
         ensure!(
-            Self::if_subnet_exist(netuid),
+            NetworksAdded::<T>::get(netuid),
             Error::<T>::SubNetworkDoesNotExist
         );
 

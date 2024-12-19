@@ -8,8 +8,8 @@ use sp_core::{Get, H256, U256};
 use super::mock::*;
 use crate::{
     migrations, utils::rate_limiting::TransactionType, Delegates, EmissionValues, Error,
-    NetworkRateLimit, PendingEmission, SubnetIdentities, SubnetIdentity, SubnetIdentityOf,
-    SubnetLimit, SubnetOwner, SubnetworkN, TotalIssuance, TotalNetworks,
+    NetworkRateLimit, NetworksAdded, PendingEmission, SubnetIdentities, SubnetIdentity,
+    SubnetIdentityOf, SubnetLimit, SubnetOwner, SubnetworkN, TotalIssuance, TotalNetworks,
 };
 
 #[allow(dead_code)]
@@ -556,7 +556,7 @@ fn test_network_pruning() {
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
             ));
             log::debug!("Adding network with netuid: {}", (i as u16) + 1);
-            assert!(SubtensorModule::if_subnet_exist((i as u16) + 1));
+            assert!(NetworksAdded::<Test>::get((i as u16) + 1));
             assert!(SubtensorModule::is_hotkey_registered_on_network(
                 root_netuid,
                 &hot
@@ -681,7 +681,7 @@ fn test_weights_after_network_pruning() {
             ));
 
             log::debug!("Adding network with netuid: {}", (i as u16) + 1);
-            assert!(SubtensorModule::if_subnet_exist((i as u16) + 1));
+            assert!(NetworksAdded::<Test>::get((i as u16) + 1));
             step_block(3);
         }
 
@@ -741,7 +741,7 @@ fn test_weights_after_network_pruning() {
         ));
 
         // Subnet should not exist, as it would replace a previous subnet.
-        assert!(!SubtensorModule::if_subnet_exist(i + 1));
+        assert!(!NetworksAdded::<Test>::get(i + 1));
 
         log::info!(
             "Root network weights: {:?}",
@@ -890,13 +890,13 @@ fn test_dissolve_network_ok() {
         let owner_coldkey = SubnetOwner::<Test>::get(netuid);
         register_ok_neuron(netuid, hotkey, owner_coldkey, 3);
 
-        assert!(SubtensorModule::if_subnet_exist(netuid));
+        assert!(NetworksAdded::<Test>::get(netuid));
         assert_ok!(SubtensorModule::dissolve_network(
             RuntimeOrigin::root(),
             owner_coldkey,
             netuid
         ));
-        assert!(!SubtensorModule::if_subnet_exist(netuid))
+        assert!(!NetworksAdded::<Test>::get(netuid))
     });
 }
 
@@ -914,13 +914,13 @@ fn test_dissolve_network_refund_coldkey_ok() {
         SubtensorModule::set_subnet_locked_balance(netuid, subnet_locked_balance);
         let coldkey_balance = SubtensorModule::get_coldkey_balance(&owner_coldkey);
 
-        assert!(SubtensorModule::if_subnet_exist(netuid));
+        assert!(NetworksAdded::<Test>::get(netuid));
         assert_ok!(SubtensorModule::dissolve_network(
             RuntimeOrigin::root(),
             owner_coldkey,
             netuid
         ));
-        assert!(!SubtensorModule::if_subnet_exist(netuid));
+        assert!(!NetworksAdded::<Test>::get(netuid));
 
         let coldkey_new_balance = SubtensorModule::get_coldkey_balance(&owner_coldkey);
 

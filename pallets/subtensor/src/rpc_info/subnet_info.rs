@@ -85,7 +85,7 @@ pub struct SubnetHyperparams {
 
 impl<T: Config> Pallet<T> {
     pub fn get_subnet_info(netuid: u16) -> Option<SubnetInfo<T>> {
-        if !Self::if_subnet_exist(netuid) {
+        if !NetworksAdded::<T>::get(netuid) {
             return None;
         }
 
@@ -155,7 +155,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_subnet_info_v2(netuid: u16) -> Option<SubnetInfov2<T>> {
-        if !Self::if_subnet_exist(netuid) {
+        if !NetworksAdded::<T>::get(netuid) {
             return None;
         }
 
@@ -226,7 +226,7 @@ impl<T: Config> Pallet<T> {
         subnets_info
     }
     pub fn get_subnet_hyperparams(netuid: u16) -> Option<SubnetHyperparams> {
-        if !Self::if_subnet_exist(netuid) {
+        if !NetworksAdded::<T>::get(netuid) {
             return None;
         }
 
