@@ -52,17 +52,6 @@ impl<T: Config> Pallet<T> {
         SubnetworkN::<T>::get(Self::ROOT_NETUID)
     }
 
-    /// Returns true if the subnetwork exists.
-    ///
-    /// This function checks if a subnetwork with the given UID exists.
-    ///
-    /// # Returns:
-    /// * 'bool': Whether the subnet exists.
-    ///
-    pub fn if_subnet_exist(netuid: u16) -> bool {
-        NetworksAdded::<T>::get(netuid)
-    }
-
     /// Returns a list of subnet netuid equal to total networks.
     ///
     ///
@@ -154,7 +143,7 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn contains_invalid_root_uids(netuids: &[u16]) -> bool {
         for netuid in netuids {
-            if !Self::if_subnet_exist(*netuid) {
+            if !NetworksAdded::<T>::get(*netuid) {
                 log::debug!(
                     "contains_invalid_root_uids: netuid {:?} does not exist",
                     netuid
@@ -429,7 +418,7 @@ impl<T: Config> Pallet<T> {
         let root_netuid: u16 = Self::ROOT_NETUID;
         let current_block_number: u64 = Self::get_current_block_as_u64();
         ensure!(
-            Self::if_subnet_exist(root_netuid),
+            NetworksAdded::<T>::get(root_netuid),
             Error::<T>::RootNetworkDoesNotExist
         );
 
@@ -565,7 +554,7 @@ impl<T: Config> Pallet<T> {
         // --- 0. Get the unique identifier (UID) for the root network.
         let root_netuid: u16 = Self::ROOT_NETUID;
         ensure!(
-            Self::if_subnet_exist(root_netuid),
+            NetworksAdded::<T>::get(root_netuid),
             Error::<T>::RootNetworkDoesNotExist
         );
 
@@ -704,7 +693,7 @@ impl<T: Config> Pallet<T> {
 
         // Check to see if this is a valid network.
         ensure!(
-            Self::if_subnet_exist(netuid),
+            NetworksAdded::<T>::get(netuid),
             Error::<T>::SubNetworkDoesNotExist
         );
 
@@ -890,7 +879,7 @@ impl<T: Config> Pallet<T> {
                 let mut next_available_netuid = 0;
                 loop {
                     next_available_netuid.saturating_inc();
-                    if !Self::if_subnet_exist(next_available_netuid) {
+                    if !NetworksAdded::<T>::get(next_available_netuid) {
                         log::debug!("got subnet id: {:?}", next_available_netuid);
                         break next_available_netuid;
                     }
@@ -965,7 +954,7 @@ impl<T: Config> Pallet<T> {
     pub fn user_remove_network(coldkey: T::AccountId, netuid: u16) -> dispatch::DispatchResult {
         // --- 1. Ensure this subnet exists.
         ensure!(
-            Self::if_subnet_exist(netuid),
+            NetworksAdded::<T>::get(netuid),
             Error::<T>::SubNetworkDoesNotExist
         );
 

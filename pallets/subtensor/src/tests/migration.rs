@@ -163,7 +163,7 @@ fn test_total_issuance_global() {
         assert_eq!(TotalIssuance::<Test>::get(), 0); // initial is zero.
         crate::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(true); // Pick up lock.
         assert_eq!(TotalIssuance::<Test>::get(), lockcost); // Verify the total issuance is updated to 20000 after migration.
-        assert!(SubtensorModule::if_subnet_exist(netuid));
+        assert!(NetworksAdded::<Test>::get(netuid));
 
         // Test the migration's effect on total issuance after adding balance to a coldkey account.
         let account_balance: u64 = 20000;
@@ -258,12 +258,12 @@ fn test_migration_delete_subnet_3() {
     new_test_ext(1).execute_with(|| {
         // Create subnet 3
         add_network(3, 1, 0);
-        assert!(SubtensorModule::if_subnet_exist(3));
+        assert!(NetworksAdded::<Test>::get(3));
 
         // Run the migration to transfer ownership
         crate::migrations::migrate_delete_subnet_3::migrate_delete_subnet_3::<Test>();
 
-        assert!(!SubtensorModule::if_subnet_exist(3));
+        assert!(!NetworksAdded::<Test>::get(3));
     })
 }
 
@@ -272,12 +272,12 @@ fn test_migration_delete_subnet_21() {
     new_test_ext(1).execute_with(|| {
         // Create subnet 21
         add_network(21, 1, 0);
-        assert!(SubtensorModule::if_subnet_exist(21));
+        assert!(NetworksAdded::<Test>::get(21));
 
         // Run the migration to transfer ownership
         crate::migrations::migrate_delete_subnet_21::migrate_delete_subnet_21::<Test>();
 
-        assert!(!SubtensorModule::if_subnet_exist(21));
+        assert!(!NetworksAdded::<Test>::get(21));
     })
 }
 

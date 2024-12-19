@@ -76,7 +76,7 @@ impl<T: Config> Pallet<T> {
 
         // Check that the network we are trying to create the child on exists.
         ensure!(
-            Self::if_subnet_exist(netuid),
+            NetworksAdded::<T>::get(netuid),
             Error::<T>::SubNetworkDoesNotExist
         );
 

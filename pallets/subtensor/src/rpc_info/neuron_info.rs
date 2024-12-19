@@ -54,7 +54,7 @@ pub struct NeuronInfoLite<T: Config> {
 
 impl<T: Config> Pallet<T> {
     pub fn get_neurons(netuid: u16) -> Vec<NeuronInfo<T>> {
-        if !Self::if_subnet_exist(netuid) {
+        if !NetworksAdded::<T>::get(netuid) {
             return Vec::new();
         }
 
@@ -147,7 +147,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_neuron(netuid: u16, uid: u16) -> Option<NeuronInfo<T>> {
-        if !Self::if_subnet_exist(netuid) {
+        if !NetworksAdded::<T>::get(netuid) {
             return None;
         }
 
@@ -208,7 +208,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_neurons_lite(netuid: u16) -> Vec<NeuronInfoLite<T>> {
-        if !Self::if_subnet_exist(netuid) {
+        if !NetworksAdded::<T>::get(netuid) {
             return Vec::new();
         }
 
@@ -226,7 +226,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_neuron_lite(netuid: u16, uid: u16) -> Option<NeuronInfoLite<T>> {
-        if !Self::if_subnet_exist(netuid) {
+        if !NetworksAdded::<T>::get(netuid) {
             return None;
         }
 

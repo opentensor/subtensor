@@ -699,7 +699,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Check to see if this is a valid network.
         ensure!(
-            Self::if_subnet_exist(netuid),
+            NetworksAdded::<T>::get(netuid),
             Error::<T>::SubNetworkDoesNotExist
         );
 
