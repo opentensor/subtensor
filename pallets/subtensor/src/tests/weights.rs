@@ -29,8 +29,8 @@ use sp_core::Encode;
 
 use super::mock::*;
 use crate::{
-    coinbase::run_coinbase::WeightsTlockPayload, CRV3WeightCommits, Error, Owner,
-    RevealPeriodEpochs, SubnetworkN, Tempo, TotalHotkeyStake, WeightsSetRateLimit,
+    coinbase::run_coinbase::WeightsTlockPayload, CRV3WeightCommits, CommitRevealWeightsEnabled,
+    Error, Owner, RevealPeriodEpochs, SubnetworkN, Tempo, TotalHotkeyStake, WeightsSetRateLimit,
     WeightsVersionKey, MAX_CRV3_COMMIT_SIZE_BYTES,
 };
 
@@ -1343,7 +1343,7 @@ fn test_set_weights_commit_reveal_enabled_error() {
         let version_key: u64 = 0;
         let hotkey = U256::from(1);
 
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
 
         assert_err!(
             SubtensorModule::set_weights(
@@ -1356,7 +1356,7 @@ fn test_set_weights_commit_reveal_enabled_error() {
             Error::<Test>::CommitRevealEnabled
         );
 
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, false);
 
         assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(hotkey),
@@ -1400,7 +1400,7 @@ fn test_reveal_weights_when_commit_reveal_disabled() {
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
 
         // Enable commit-reveal and commit
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
         assert_ok!(SubtensorModule::commit_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
@@ -1410,7 +1410,7 @@ fn test_reveal_weights_when_commit_reveal_disabled() {
         step_epochs(1, netuid);
 
         // Disable commit-reveal before reveal
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, false);
 
         // Attempt to reveal, should fail with CommitRevealDisabled
         assert_err!(
@@ -1457,7 +1457,7 @@ fn test_commit_reveal_weights_ok() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 5);
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
 
         // Commit at block 0
         assert_ok!(SubtensorModule::commit_weights(
@@ -1509,7 +1509,7 @@ fn test_commit_reveal_tempo_interval() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 5);
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
 
         // Commit at block 0
         assert_ok!(SubtensorModule::commit_weights(
@@ -1630,7 +1630,7 @@ fn test_commit_reveal_hash() {
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
 
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
 
         let commit_hash: H256 = BlakeTwo256::hash_of(&(
             hotkey,
@@ -1715,7 +1715,7 @@ fn test_commit_reveal_disabled_or_enabled() {
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
 
         // Disable commit/reveal
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, false);
 
         // Attempt to commit, should fail
         assert_err!(
@@ -1724,7 +1724,7 @@ fn test_commit_reveal_disabled_or_enabled() {
         );
 
         // Enable commit/reveal
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
 
         // Commit should now succeed
         assert_ok!(SubtensorModule::commit_weights(
@@ -1776,7 +1776,7 @@ fn test_toggle_commit_reveal_weights_and_set_weights() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 5);
 
         // Enable commit/reveal
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
 
         // Commit at block 0
         assert_ok!(SubtensorModule::commit_weights(
@@ -1798,7 +1798,7 @@ fn test_toggle_commit_reveal_weights_and_set_weights() {
         ));
 
         // Disable commit/reveal
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, false);
 
         // Advance to allow setting weights (due to rate limit)
         step_block(5);
@@ -1843,7 +1843,7 @@ fn test_tempo_change_during_commit_reveal_process() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 5);
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
 
         assert_ok!(SubtensorModule::commit_weights(
             RuntimeOrigin::signed(hotkey),
@@ -1976,7 +1976,7 @@ fn test_commit_reveal_multiple_commits() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
 
         // 1. Commit 10 times successfully
         let mut commit_info = Vec::new();
@@ -2316,7 +2316,7 @@ fn commit_reveal_set_weights(
     salt: Vec<u16>,
     version_key: u64,
 ) -> DispatchResult {
-    SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+    CommitRevealWeightsEnabled::<Test>::set(netuid, true);
 
     let commit_hash: H256 = BlakeTwo256::hash_of(&(
         hotkey,
@@ -2356,7 +2356,7 @@ fn test_expired_commits_handling_in_commit_and_reveal() {
         System::set_block_number(0);
         add_network(netuid, tempo, 0);
 
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         // Register neurons
@@ -2539,7 +2539,7 @@ fn test_reveal_at_exact_epoch() {
         System::set_block_number(0);
         add_network(netuid, tempo, 0);
 
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         register_ok_neuron(netuid, U256::from(3), U256::from(4), 300_000);
@@ -2686,7 +2686,7 @@ fn test_tempo_and_reveal_period_change_during_commit_reveal_process() {
         let initial_reveal_period: u64 = 1;
         add_network(netuid, initial_tempo, 0);
         SubtensorModule::set_reveal_period(netuid, initial_reveal_period);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
 
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
@@ -2861,7 +2861,7 @@ fn test_commit_reveal_order_enforcement() {
         System::set_block_number(0);
         add_network(netuid, tempo, 0);
 
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         register_ok_neuron(netuid, U256::from(3), U256::from(4), 300_000);
@@ -2947,7 +2947,7 @@ fn test_reveal_at_exact_block() {
         System::set_block_number(0);
         add_network(netuid, tempo, 0);
 
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         register_ok_neuron(netuid, U256::from(3), U256::from(4), 300_000);
@@ -3118,7 +3118,7 @@ fn test_successful_batch_reveal() {
         System::set_block_number(0);
         add_network(netuid, tempo, 0);
 
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         register_ok_neuron(netuid, U256::from(3), U256::from(4), 300_000);
@@ -3180,7 +3180,7 @@ fn test_batch_reveal_with_expired_commits() {
         System::set_block_number(0);
         add_network(netuid, tempo, 0);
 
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         register_ok_neuron(netuid, U256::from(3), U256::from(4), 300_000);
@@ -3282,7 +3282,7 @@ fn test_batch_reveal_with_invalid_input_lengths() {
         System::set_block_number(0);
         add_network(netuid, tempo, 0);
 
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
 
         // Base data for valid inputs
         let uids_list: Vec<Vec<u16>> = vec![vec![0, 1], vec![1, 0]];
@@ -3383,7 +3383,7 @@ fn test_batch_reveal_with_no_commits() {
         System::set_block_number(0);
         add_network(netuid, tempo, 0);
 
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
 
         // 1. Attempt to perform batch reveal without any commits
         let result = SubtensorModule::do_batch_reveal_weights(
@@ -3411,7 +3411,7 @@ fn test_batch_reveal_before_reveal_period() {
         System::set_block_number(0);
         add_network(netuid, tempo, 0);
 
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
 
         register_ok_neuron(netuid, U256::from(3), U256::from(4), 300_000);
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
@@ -3468,7 +3468,7 @@ fn test_batch_reveal_after_commits_expired() {
         System::set_block_number(0);
         add_network(netuid, tempo, 0);
 
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
 
         register_ok_neuron(netuid, U256::from(3), U256::from(4), 300_000);
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
@@ -3548,7 +3548,7 @@ fn test_batch_reveal_when_commit_reveal_disabled() {
         System::set_block_number(0);
         add_network(netuid, tempo, 0);
 
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, false);
 
         // 1. Attempt to perform batch reveal when commit-reveal is disabled
         let result = SubtensorModule::do_batch_reveal_weights(
@@ -3576,7 +3576,7 @@ fn test_batch_reveal_with_out_of_order_commits() {
         System::set_block_number(0);
         add_network(netuid, tempo, 0);
 
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         register_ok_neuron(netuid, U256::from(3), U256::from(4), 300_000);
@@ -3671,7 +3671,7 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
 
         // ==== Setup Network ====
         add_network(netuid, initial_tempo, 0);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_reveal_period(netuid, initial_reveal_period);
         SubtensorModule::set_max_registrations_per_block(netuid, u16::MAX);
@@ -3970,7 +3970,7 @@ fn test_get_reveal_blocks() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 5);
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
 
         // **6. Commit Weights at Block 0**
         assert_ok!(SubtensorModule::commit_weights(
@@ -4088,7 +4088,7 @@ fn test_commit_weights_rate_limit() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 10); // Rate limit is 10 blocks
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
 
         let neuron_uid =
             SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey).expect("expected uid");
@@ -4128,7 +4128,7 @@ fn test_commit_weights_rate_limit() {
             new_commit_hash
         ));
 
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, false);
         let weights_keys: Vec<u16> = vec![0];
         let weight_values: Vec<u16> = vec![1];
 
@@ -4251,7 +4251,7 @@ fn test_reveal_crv3_commits_success() {
         register_ok_neuron(netuid, hotkey1, U256::from(3), 100_000);
         register_ok_neuron(netuid, hotkey2, U256::from(4), 100_000);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
         SubtensorModule::set_reveal_period(netuid, 3);
 
         let neuron_uid1 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey1)
@@ -4391,7 +4391,7 @@ fn test_reveal_crv3_commits_cannot_reveal_after_reveal_epoch() {
         register_ok_neuron(netuid, hotkey1, U256::from(3), 100_000);
         register_ok_neuron(netuid, hotkey2, U256::from(4), 100_000);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
         SubtensorModule::set_reveal_period(netuid, 3);
 
         let neuron_uid1 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey1)
@@ -4514,7 +4514,7 @@ fn test_do_commit_crv3_weights_success() {
         add_network(netuid, 5, 0);
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
 
         assert_ok!(SubtensorModule::do_commit_crv3_weights(
             RuntimeOrigin::signed(hotkey),
@@ -4548,7 +4548,7 @@ fn test_do_commit_crv3_weights_disabled() {
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
         SubtensorModule::set_weights_set_rate_limit(netuid, 5);
 
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, false);
         assert_err!(
             SubtensorModule::do_commit_crv3_weights(
                 RuntimeOrigin::signed(hotkey),
@@ -4575,7 +4575,7 @@ fn test_do_commit_crv3_weights_hotkey_not_registered() {
         add_network(netuid, 5, 0);
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
         SubtensorModule::set_weights_set_rate_limit(netuid, 5);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
 
         assert_err!(
             SubtensorModule::do_commit_crv3_weights(
@@ -4603,7 +4603,7 @@ fn test_do_commit_crv3_weights_committing_too_fast() {
         add_network(netuid, 5, 0);
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
         SubtensorModule::set_weights_set_rate_limit(netuid, 5);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
         let neuron_uid =
             SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey).expect("Expected uid");
         SubtensorModule::set_last_update_for_uid(netuid, neuron_uid, 0);
@@ -4670,7 +4670,7 @@ fn test_do_commit_crv3_weights_too_many_unrevealed_commits() {
         add_network(netuid, 5, 0);
         register_ok_neuron(netuid, hotkey1, U256::from(2), 100_000);
         register_ok_neuron(netuid, hotkey2, U256::from(3), 100_000);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         // Hotkey1 submits 10 commits successfully
@@ -4773,7 +4773,7 @@ fn test_reveal_crv3_commits_decryption_failure() {
         add_network(netuid, 5, 0);
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
 
         let commit_bytes: Vec<u8> = vec![0xff; 100];
         let bounded_commit_bytes = commit_bytes
@@ -4826,7 +4826,7 @@ fn test_reveal_crv3_commits_multiple_commits_some_fail_some_succeed() {
         add_network(netuid, 5, 0);
         register_ok_neuron(netuid, hotkey1, U256::from(3), 100_000);
         register_ok_neuron(netuid, hotkey2, U256::from(4), 100_000);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
         SubtensorModule::set_reveal_period(netuid, 1);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
@@ -4947,7 +4947,7 @@ fn test_reveal_crv3_commits_do_set_weights_failure() {
 
         add_network(netuid, 5, 0);
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
         SubtensorModule::set_reveal_period(netuid, 3);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
@@ -5032,7 +5032,7 @@ fn test_reveal_crv3_commits_payload_decoding_failure() {
 
         add_network(netuid, 5, 0);
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
         SubtensorModule::set_reveal_period(netuid, 3);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
@@ -5110,7 +5110,7 @@ fn test_reveal_crv3_commits_signature_deserialization_failure() {
 
         add_network(netuid, 5, 0);
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
         SubtensorModule::set_reveal_period(netuid, 3);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
@@ -5189,7 +5189,7 @@ fn test_do_commit_crv3_weights_commit_size_exceeds_limit() {
 
         add_network(netuid, 5, 0);
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         let max_commit_size = MAX_CRV3_COMMIT_SIZE_BYTES as usize;
@@ -5228,7 +5228,7 @@ fn test_reveal_crv3_commits_with_empty_commit_queue() {
         let netuid: u16 = 1;
 
         add_network(netuid, 5, 0);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         step_epochs(2, netuid);
@@ -5252,7 +5252,7 @@ fn test_reveal_crv3_commits_with_incorrect_identity_message() {
 
         add_network(netuid, 5, 0);
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
         SubtensorModule::set_reveal_period(netuid, 1);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
@@ -5337,7 +5337,7 @@ fn test_multiple_commits_by_same_hotkey_within_limit() {
 
         add_network(netuid, 5, 0);
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
         SubtensorModule::set_reveal_period(netuid, 1);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
@@ -5374,7 +5374,7 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
         // Initialize network and neuron
         add_network(netuid, 5, 0);
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
         SubtensorModule::set_reveal_period(netuid, 1);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
@@ -5438,7 +5438,7 @@ fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
 
         // Initialize the network
         add_network(netuid, 5, 0);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
         SubtensorModule::set_reveal_period(netuid, 1);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, 100);
@@ -5625,7 +5625,7 @@ fn test_reveal_crv3_commits_max_neurons() {
         let reveal_round: u64 = 1000;
 
         add_network(netuid, 5, 0);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid, true);
         SubtensorModule::set_reveal_period(netuid, 1);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, 10000);

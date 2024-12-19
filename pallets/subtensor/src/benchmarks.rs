@@ -531,7 +531,7 @@ batch_reveal_weights {
   Subtensor::<T>::init_new_network(netuid, tempo);
   Subtensor::<T>::set_network_registration_allowed(netuid, true);
   Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
-  Subtensor::<T>::set_commit_reveal_weights_enabled(netuid, true);
+  CommitRevealWeightsEnabled::<T>::set(netuid, true);
   Subtensor::<T>::set_weights_set_rate_limit(netuid, 0); // Disable rate limiting for benchmarking
 
   let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
