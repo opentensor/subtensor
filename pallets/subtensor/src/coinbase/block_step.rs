@@ -163,7 +163,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                 Self::set_last_adjustment_block(netuid, current_block);
                 Self::set_registrations_this_interval(netuid, 0);
                 Self::set_pow_registrations_this_interval(netuid, 0);
-                Self::set_burn_registrations_this_interval(netuid, 0);
+                BurnRegistrationsThisInterval::<T>::insert(netuid, 0);
             } else {
                 log::debug!("interval not reached.");
             }
