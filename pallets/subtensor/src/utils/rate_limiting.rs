@@ -116,10 +116,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn set_last_tx_block(key: &T::AccountId, block: u64) {
-        LastTxBlock::<T>::insert(key, block)
-    }
-
     pub fn set_last_tx_block_delegate_take(key: &T::AccountId, block: u64) {
         LastTxBlockDelegateTake::<T>::insert(key, block)
     }
