@@ -176,7 +176,7 @@ fn test_total_issuance_global() {
 
         // Test the effect of burning on total issuance.
         let burn_cost: u64 = 10000;
-        SubtensorModule::set_burn(netuid, burn_cost); // Set the burn amount to 10000 for the network.
+        Burn::<Test>::insert(netuid, burn_cost); // Set the burn amount to 10000 for the network.
         assert_eq!(TotalIssuance::<Test>::get(), account_balance + lockcost); // Confirm the total issuance remains 20000 before burning.
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey),

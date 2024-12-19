@@ -7,7 +7,7 @@ use sp_core::{Get, H256, U256};
 
 use super::mock::*;
 use crate::{
-    migrations, utils::rate_limiting::TransactionType, Delegates, EmissionValues, Error,
+    migrations, utils::rate_limiting::TransactionType, Burn, Delegates, EmissionValues, Error,
     NetworkRateLimit, NetworksAdded, PendingEmission, SubnetIdentities, SubnetIdentity,
     SubnetIdentityOf, SubnetLimit, SubnetOwner, SubnetworkN, TotalIssuance, TotalNetworks,
 };
@@ -75,7 +75,7 @@ fn test_root_register_normal_on_root_fails() {
         let coldkey_account_id = U256::from(667);
 
         // Burn registration fails.
-        SubtensorModule::set_burn(root_netuid, 0);
+        Burn::<Test>::insert(root_netuid, 0);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1);
         assert_eq!(
             SubtensorModule::burned_register(
@@ -119,7 +119,7 @@ fn test_root_register_stake_based_pruning_works() {
         add_network(other_netuid, 0, 0);
 
         // Set params to allow all registrations to subnet.
-        SubtensorModule::set_burn(other_netuid, 0);
+        Burn::<Test>::insert(other_netuid, 0);
         SubtensorModule::set_max_registrations_per_block(other_netuid, 256);
         SubtensorModule::set_target_registrations_per_interval(other_netuid, 256);
 
@@ -571,7 +571,7 @@ fn test_network_pruning() {
                 0
             ));
             SubtensorModule::set_tempo((i as u16) + 1, 1);
-            SubtensorModule::set_burn((i as u16) + 1, 0);
+            Burn::<Test>::insert((i as u16) + 1, 0);
             assert_ok!(SubtensorModule::burned_register(
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 (i as u16) + 1,

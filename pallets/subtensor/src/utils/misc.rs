@@ -380,9 +380,6 @@ impl<T: Config> Pallet<T> {
     pub fn get_burn_as_u64(netuid: u16) -> u64 {
         Burn::<T>::get(netuid)
     }
-    pub fn set_burn(netuid: u16, burn: u64) {
-        Burn::<T>::insert(netuid, burn);
-    }
 
     pub fn set_min_burn(netuid: u16, min_burn: u64) {
         MinBurn::<T>::insert(netuid, min_burn);

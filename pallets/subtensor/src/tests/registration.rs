@@ -295,7 +295,7 @@ fn test_burned_registration_under_limit() {
         let who: <Test as frame_system::Config>::AccountId = coldkey_account_id;
         let burn_cost = 1000;
         // Set the burn cost
-        SubtensorModule::set_burn(netuid, burn_cost);
+        Burn::<Test>::insert(netuid, burn_cost);
 
         add_network(netuid, 13, 0); // Add the network
                                     // Give it some TAO to the coldkey balance; more than the burn cost
@@ -375,7 +375,7 @@ fn test_burned_registration_rate_allows_burn_adjustment() {
 
         let burn_cost = 1000;
         // Set the burn cost
-        SubtensorModule::set_burn(netuid, burn_cost);
+        Burn::<Test>::insert(netuid, burn_cost);
 
         add_network(netuid, 13, 0); // Add the network
                                     // Give it some TAO to the coldkey balance; more than the burn cost
@@ -421,7 +421,7 @@ fn test_burned_registration_ok() {
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
                                                   //add network
-        SubtensorModule::set_burn(netuid, burn_cost);
+        Burn::<Test>::insert(netuid, burn_cost);
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -465,7 +465,7 @@ fn test_burn_registration_without_neuron_slot() {
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
                                                   //add network
-        SubtensorModule::set_burn(netuid, burn_cost);
+        Burn::<Test>::insert(netuid, burn_cost);
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
@@ -491,7 +491,7 @@ fn test_burn_adjustment() {
         let adjustment_interval = 1;
         let target_registrations_per_interval = 1;
         add_network(netuid, tempo, 0);
-        SubtensorModule::set_burn(netuid, burn_cost);
+        Burn::<Test>::insert(netuid, burn_cost);
         SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
         SubtensorModule::set_adjustment_alpha(netuid, 58000); // Set to old value.
         SubtensorModule::set_target_registrations_per_interval(
@@ -542,7 +542,7 @@ fn test_burn_registration_pruning_scenarios() {
         const NOT_IMMUNE: bool = false;
 
         // Initial setup
-        SubtensorModule::set_burn(netuid, burn_cost);
+        Burn::<Test>::insert(netuid, burn_cost);
         SubtensorModule::set_max_allowed_uids(netuid, max_allowed_uids);
         SubtensorModule::set_target_registrations_per_interval(netuid, max_allowed_uids);
         SubtensorModule::set_immunity_period(netuid, immunity_period);
@@ -1980,7 +1980,7 @@ fn test_registration_disabled() {
 //         let burn_cost = 1000;
 //         let coldkey_account_id = U256::from(667);
 
-//         SubtensorModule::set_burn(netuid, burn_cost);
+//         Burn::<Test>::insert(netuid, burn_cost);
 //         add_network(netuid, tempo, 0);
 
 //         // Give it some $$$ in his coldkey balance
@@ -2021,7 +2021,7 @@ fn test_registration_disabled() {
 //         let coldkey_account_id = U256::from(2);
 //         let not_owner_coldkey = U256::from(3);
 
-//         SubtensorModule::set_burn(netuid, burn_cost);
+//         Burn::<Test>::insert(netuid, burn_cost);
 //         add_network(netuid, tempo, 0);
 
 //         // Give it some $$$ in his coldkey balance
@@ -2056,7 +2056,7 @@ fn test_registration_disabled() {
 //         let burn_cost = 1000;
 //         let coldkey_account_id = U256::from(2);
 
-//         SubtensorModule::set_burn(netuid, burn_cost);
+//         Burn::<Test>::insert(netuid, burn_cost);
 //         add_network(netuid, tempo, 0);
 
 //         // Give it some $$$ in his coldkey balance
@@ -2090,7 +2090,7 @@ fn test_registration_disabled() {
 //         let burn_cost = 1000;
 //         let coldkey_account_id = U256::from(2);
 
-//         SubtensorModule::set_burn(netuid, burn_cost);
+//         Burn::<Test>::insert(netuid, burn_cost);
 //         add_network(netuid, tempo, 0);
 
 //         // Give it some $$$ in his coldkey balance

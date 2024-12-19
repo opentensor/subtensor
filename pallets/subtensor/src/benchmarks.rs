@@ -61,7 +61,7 @@ benchmarks! {
       let coldkey: T::AccountId = account("Test", 0, seed);
       seed += 1;
 
-        Subtensor::<T>::set_burn(netuid, 1);
+        Burn::<T>::insert(netuid, 1);
         let amount_to_be_staked = 1000000u32.into();
       Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
 
@@ -87,7 +87,7 @@ benchmarks! {
     let seed : u32 = 1;
 
     Subtensor::<T>::init_new_network(netuid, tempo);
-      Subtensor::<T>::set_burn(netuid, 1);
+      Burn::<T>::insert(netuid, 1);
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
 
     Subtensor::<T>::set_network_registration_allowed( netuid, true);
@@ -115,7 +115,7 @@ benchmarks! {
 
     Subtensor::<T>::init_new_network(netuid, tempo);
 
-    Subtensor::<T>::set_burn(netuid, 1);
+    Burn::<T>::insert(netuid, 1);
     Subtensor::<T>::set_network_registration_allowed( netuid, true );
 
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
@@ -153,7 +153,7 @@ benchmarks! {
 
     let coldkey: T::AccountId = account("Test", 0, seed);
     let hotkey: T::AccountId = account("Alice", 0, seed);
-      Subtensor::<T>::set_burn(netuid, 1);
+      Burn::<T>::insert(netuid, 1);
 
     let wallet_bal = 1000000u32.into();
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), wallet_bal);
@@ -189,7 +189,7 @@ benchmarks! {
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
     assert_eq!(MaxAllowedUids::<T>::get(netuid), 4096);
 
-    Subtensor::<T>::set_burn(netuid, 1);
+    Burn::<T>::insert(netuid, 1);
     let amount_to_be_staked = 1000000u32.into();
     Subtensor::<T>::add_balance_to_coldkey_account(&caller.clone(), amount_to_be_staked);
 
@@ -215,7 +215,7 @@ benchmarks! {
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
     assert_eq!(MaxAllowedUids::<T>::get(netuid), 4096);
 
-    Subtensor::<T>::set_burn(netuid, 1);
+    Burn::<T>::insert(netuid, 1);
     let amount_to_be_staked = 1000000u32.into();
     Subtensor::<T>::add_balance_to_coldkey_account(&caller.clone(), amount_to_be_staked);
 
@@ -257,7 +257,7 @@ benchmarks! {
     let tempo: u16 = 1;
 
     Subtensor::<T>::init_new_network(netuid, tempo);
-    Subtensor::<T>::set_burn(netuid, 1);
+    Burn::<T>::insert(netuid, 1);
 
     let amount_to_be_staked =  1000000u32.into();
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
@@ -273,7 +273,7 @@ benchmarks! {
 
     Subtensor::<T>::init_new_network(netuid, tempo);
 
-    Subtensor::<T>::set_burn(netuid, 1);
+    Burn::<T>::insert(netuid, 1);
     Subtensor::<T>::set_network_registration_allowed( netuid, true);
 
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
@@ -457,7 +457,7 @@ reveal_weights {
   Subtensor::<T>::init_new_network(netuid, tempo);
 
   // Register the hotkey
-  Subtensor::<T>::set_burn(netuid, 1);
+  Burn::<T>::insert(netuid, 1);
   let amount_to_be_staked = 1_000_000u32.into();
   Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, amount_to_be_staked);
   assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
