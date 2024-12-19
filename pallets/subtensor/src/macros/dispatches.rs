@@ -1558,5 +1558,33 @@ mod dispatches {
                 alpha_amount,
             )
         }
+
+        /// Removes all stake from the listed netuids.
+        /// Removes from all netuids if none are specified.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the transaction, which must be signed by the `origin_hotkey`.
+        /// * `hotkey` - The account ID of the hotkey from which the stake is being removed.
+        /// * `netuids` - The network IDs to remove stake from.
+        ///
+        /// # Returns
+        /// * `DispatchResult` - Indicates the success or failure of the operation.
+        ///
+        /// # Errors
+        /// This function will return an error if:
+        /// * The `hotkey` does not exist.
+        ///
+        /// # Events
+        /// Emits a `StakeRemoved` event for each netuid removed.
+        #[pallet::call_index(84)]
+        #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn remove_all_stake(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuids: Vec<u16>,
+        ) -> DispatchResult {
+            let coldkey = ensure_signed(origin.clone())?;
+            Self::do_remove_all_stake(coldkey, hotkey, netuids)
+        }
     }
 }

@@ -119,4 +119,45 @@ impl<T: Config> Pallet<T> {
         // -- 8. Ok and return.
         Ok(())
     }
+
+    pub fn do_remove_all_stake(
+        coldkey: T::AccountId,
+        hotkey: T::AccountId,
+        netuids: Vec<u16>,
+    ) -> dispatch::DispatchResult {
+        ensure!(
+            Self::hotkey_account_exists(&hotkey),
+            Error::<T>::HotKeyAccountNotExists
+        );
+
+        // Check that all subnets exist
+        ensure!(
+            netuids.iter().all(|netuid| Self::if_subnet_exist(*netuid)),
+            Error::<T>::SubnetNotExists
+        );
+
+        // If no subnets are specified, remove all stake from all subnets
+        let netuids = if netuids.is_empty() {
+            Self::get_all_subnet_netuids()
+        } else {
+            netuids
+        };
+
+        Self::try_increase_staking_counter(&coldkey, &hotkey)?;
+
+        // Set last block for rate limiting
+        let current_block = Self::get_current_block_as_u64();
+        Self::set_last_tx_block(&coldkey, current_block);
+
+        for netuid in netuids {
+            // Check alpha on each netuid
+            let alpha = Alpha::<T>::get((hotkey.clone(), netuid, coldkey.clone()));
+            if alpha > 0 {
+                // Unstake the alpha
+                Self::unstake_from_subnet(&hotkey.clone(), &coldkey.clone(), netuid, alpha);
+            }
+        }
+
+        Ok(())
+    }
 }
