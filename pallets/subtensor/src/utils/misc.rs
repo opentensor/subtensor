@@ -27,9 +27,6 @@ impl<T: Config> Pallet<T> {
         Tempo::<T>::insert(netuid, tempo);
         Self::deposit_event(Event::TempoSet(netuid, tempo));
     }
-    pub fn set_last_adjustment_block(netuid: u16, last_adjustment_block: u64) {
-        LastAdjustmentBlock::<T>::insert(netuid, last_adjustment_block);
-    }
 
     pub fn set_registrations_this_block(netuid: u16, registrations_this_block: u16) {
         RegistrationsThisBlock::<T>::insert(netuid, registrations_this_block);
