@@ -110,10 +110,12 @@ impl<T: Config> Pallet<T> {
         }
 
         // Check that the parent key has at least the minimum own stake
+        // if children vector is not empty
         // (checking with check_weights_min_stake wouldn't work because it considers
         // grandparent stake in this case)
         ensure!(
-            Self::get_total_stake_for_hotkey(&hotkey) >= StakeThreshold::<T>::get(),
+            children.is_empty()
+                || Self::get_total_stake_for_hotkey(&hotkey) >= StakeThreshold::<T>::get(),
             Error::<T>::NotEnoughStakeToSetChildkeys
         );
 
