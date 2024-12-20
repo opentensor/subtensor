@@ -132,13 +132,17 @@ impl<T: Config> Pallet<T> {
 
         // Check that all subnets exist
         ensure!(
-            netuids.iter().all(|netuid| Self::if_subnet_exist(*netuid)),
+            netuids
+                .iter()
+                .all(|netuid| Self::if_subnet_exist(*netuid) || *netuid == 0),
             Error::<T>::SubnetNotExists
         );
 
         // If no subnets are specified, remove all stake from all subnets
         let netuids = if netuids.is_empty() {
-            Self::get_all_subnet_netuids()
+            let mut netuids = Self::get_all_subnet_netuids();
+            netuids.push(0);
+            netuids
         } else {
             netuids
         };
