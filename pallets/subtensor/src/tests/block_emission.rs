@@ -595,6 +595,7 @@ fn test_floating_point_precision_impact() {
     });
 }
 
+#[allow(clippy::unwrap_used)]
 #[test]
 fn test_block_emission_step_updates_halving_block_storage() {
     new_test_ext(1).execute_with(|| {
