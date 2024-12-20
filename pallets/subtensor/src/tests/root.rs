@@ -8,8 +8,8 @@ use super::mock::*;
 use crate::{
     migrations, utils::rate_limiting::TransactionType, Burn, Delegates, EmissionValues, Error,
     MemberManagement, NetworkRateLimit, NetworksAdded, PendingEmission, SubnetIdentities,
-    SubnetIdentity, SubnetIdentityOf, SubnetLimit, SubnetOwner, SubnetworkN, TotalIssuance,
-    TotalNetworks,
+    SubnetIdentity, SubnetIdentityOf, SubnetLimit, SubnetLocked, SubnetOwner, SubnetworkN,
+    TotalIssuance, TotalNetworks,
 };
 
 #[test]
@@ -902,7 +902,7 @@ fn test_dissolve_network_refund_coldkey_ok() {
         let owner_coldkey = SubnetOwner::<Test>::get(netuid);
         register_ok_neuron(netuid, hotkey, owner_coldkey, 3);
 
-        SubtensorModule::set_subnet_locked_balance(netuid, subnet_locked_balance);
+        SubnetLocked::<Test>::insert(netuid, subnet_locked_balance);
         let coldkey_balance = SubtensorModule::get_coldkey_balance(&owner_coldkey);
 
         assert!(NetworksAdded::<Test>::get(netuid));

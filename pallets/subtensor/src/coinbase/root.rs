@@ -902,7 +902,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 5. Perform the lock operation.
         let actual_lock_amount = Self::remove_balance_from_coldkey_account(&coldkey, lock_amount)?;
-        Self::set_subnet_locked_balance(netuid_to_register, actual_lock_amount);
+        SubnetLocked::<T>::insert(netuid_to_register, actual_lock_amount);
         NetworkLastLockCost::<T>::set(actual_lock_amount);
 
         // --- 6. Set initial and custom parameters for the network.
@@ -1146,7 +1146,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 12. Add the balance back to the owner.
         Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount);
-        Self::set_subnet_locked_balance(netuid, 0);
+        SubnetLocked::<T>::insert(netuid, 0);
         SubnetOwner::<T>::remove(netuid);
 
         // --- 13. Remove subnet identity if it exists.
