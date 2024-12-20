@@ -64,7 +64,7 @@ fn test_minimum_non_zero_issuance() {
 #[allow(clippy::unwrap_used)]
 fn test_default_block_emission() {
     new_test_ext(1).execute_with(|| {
-        let result = SubtensorModule::get_block_emission();
+        let result = SubtensorModule::block_emission_step();
         assert!(result.is_ok());
         let emission = result.unwrap();
         assert!(emission > 0);
@@ -221,8 +221,8 @@ fn test_block_emission_storage_update() {
         let initial_emission = BlockEmission::<Test>::get();
         let new_issuance = TotalSupply::<Test>::get() / 2;
 
-        // Call get_block_emission_for_issuance to trigger an update
-        let _ = SubtensorModule::get_block_emission_for_issuance(new_issuance).unwrap();
+        // Call the block_emission_step_with_issuance to trigger an update
+        let _ = SubtensorModule::block_emission_step_with_issuance(new_issuance).unwrap();
 
         let updated_emission = BlockEmission::<Test>::get();
         assert_ne!(
@@ -231,7 +231,7 @@ fn test_block_emission_storage_update() {
         );
 
         // Call again with the same issuance to ensure no unnecessary updates
-        let _ = SubtensorModule::get_block_emission_for_issuance(new_issuance).unwrap();
+        let _ = SubtensorModule::block_emission_step_with_issuance(new_issuance).unwrap();
         assert_eq!(
             updated_emission,
             BlockEmission::<Test>::get(),
@@ -240,19 +240,19 @@ fn test_block_emission_storage_update() {
     });
 }
 
-// 15. Test Consistency Between get_block_emission() and get_block_emission_for_issuance()
+// 15. Test Consistency Between block_emission_step() and block_emission_step_with_issuance()
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test block_emission test_emission_consistency -- --exact --nocapture
 #[test]
 #[allow(clippy::unwrap_used)]
 fn test_emission_consistency() {
     new_test_ext(1).execute_with(|| {
-        let emission_from_get = SubtensorModule::get_block_emission().unwrap();
+        let emission_no_params = SubtensorModule::block_emission_step().unwrap();
         let total_issuance = SubtensorModule::get_total_issuance();
         let emission_for_issuance =
-            SubtensorModule::get_block_emission_for_issuance(total_issuance).unwrap();
+            SubtensorModule::block_emission_step_with_issuance(total_issuance).unwrap();
 
         assert_eq!(
-            emission_from_get, emission_for_issuance,
+            emission_no_params, emission_for_issuance,
             "Emissions should be consistent between methods"
         );
     });
@@ -592,5 +592,17 @@ fn test_floating_point_precision_impact() {
                 "Emission should not change by more than 1 for small issuance changes"
             );
         }
+    });
+}
+
+#[test]
+fn test_block_emission_step_updates_halving_block_storage() {
+    new_test_ext(1).execute_with(|| {
+        let total_supply = TotalSupply::<Test>::get();
+        let issuance = total_supply / 2;
+        let emission = SubtensorModule::block_emission_step_with_issuance(issuance).unwrap();
+        assert!(emission > 0, "Emission should be positive");
+        let curr_block = SubtensorModule::get_current_block_as_u64();
+        assert_eq!(HalvingBlock::<Test>::get(curr_block), emission, "Halving block should be updated");
     });
 }

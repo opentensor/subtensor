@@ -251,6 +251,9 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
 
     /// Called when the network emission is halved.
     pub fn on_halving(new_emission: u64) {
+        log::debug!("Updating BlockEmission storage");
+        BlockEmission::<T>::put(new_emission);
+
         let current_block: u64 = Self::get_current_block_as_u64();
         HalvingBlock::<T>::insert(current_block, new_emission);
 

@@ -4,7 +4,7 @@ use substrate_fixed::transcendental::log2;
 use substrate_fixed::types::I96F32;
 
 impl<T: Config> Pallet<T> {
-    /// Calculates the block emission based on the total issuance.
+    /// Calculates the block emission based on the total issuance and updates the chain if applicable.
     ///
     /// This function computes the block emission by applying a logarithmic function
     /// to the total issuance of the network. The formula used takes into account
@@ -15,9 +15,21 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * 'Result<u64, &'static str>': The calculated block emission rate or error.
     ///
-    pub fn get_block_emission() -> Result<u64, &'static str> {
-        // Convert the total issuance to a fixed-point number for calculation.
-        Self::get_block_emission_for_issuance(Self::get_total_issuance())
+    pub fn block_emission_step() -> Result<u64, &'static str> {
+        let issuance = Self::get_total_issuance();
+        Self::block_emission_step_with_issuance(issuance)
+    }
+
+    pub fn block_emission_step_with_issuance(issuance: u64) -> Result<u64, &'static str> {
+        let block_emission: u64 = Self::get_block_emission_for_issuance(issuance)?;
+
+        // Update the BlockEmission storage if the calculated emission is different from the current value
+        if BlockEmission::<T>::get() != block_emission {
+            // Call the on_halving hook.
+            Self::on_halving(block_emission);
+        }
+
+        Ok(block_emission)
     }
 
     /// Returns the block emission for an issuance value.
@@ -75,13 +87,6 @@ impl<T: Config> Pallet<T> {
 
         // Convert the calculated emission to u64
         let block_emission_u64: u64 = block_emission.to_num::<u64>();
-
-        // Update the BlockEmission storage if the calculated emission is different from the current value
-        if BlockEmission::<T>::get() != block_emission_u64 {
-            log::debug!("Updating BlockEmission storage");
-            BlockEmission::<T>::put(block_emission_u64);
-            Self::on_halving(block_emission_u64);
-        }
 
         // Return the calculated block emission
         Ok(block_emission_u64)

@@ -60,7 +60,7 @@ impl<T: Config> Pallet<T> {
         // replaces root epoch and uses a different algorithm to calculate EmissionValues and
         // PendingEmission for each subnet.
         // --- 2. Get the current coinbase emission.
-        let block_emission: I96F32 = I96F32::from_num(Self::get_block_emission().unwrap_or(0));
+        let block_emission: I96F32 = I96F32::from_num(Self::block_emission_step().unwrap_or(0));
         log::debug!("Block emission: {:?}", block_emission);
 
         // --- 3. Total subnet TAO.

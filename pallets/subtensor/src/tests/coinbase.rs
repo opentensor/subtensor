@@ -84,7 +84,7 @@ fn test_coinbase_basic() {
         assert_eq!(get_total_stake_for_hotkey(hotkey), stake);
 
         // Ensure that subnet PendingEmission accumulates
-        let block_emission = SubtensorModule::get_block_emission();
+        let block_emission = SubtensorModule::block_emission_step();
         let subnet_emission_before = SubtensorModule::get_pending_emission(netuid);
         step_block(1);
         assert_eq!(
@@ -191,7 +191,7 @@ fn test_run_coinbase_single_subnet() {
         // Set initial values
         let initial_issuance = 1_000_000;
         TotalIssuance::<Test>::put(initial_issuance);
-        let block_emission = SubtensorModule::get_block_emission().unwrap();
+        let block_emission = SubtensorModule::block_emission_step().unwrap();
         SubnetTAO::<Test>::insert(netuid, initial_issuance);
 
         // Run coinbase
@@ -225,7 +225,7 @@ fn test_run_coinbase_multiple_subnets() {
         // Set initial values
         let initial_issuance = 1_000_000;
         TotalIssuance::<Test>::put(initial_issuance);
-        let block_emission = SubtensorModule::get_block_emission().unwrap();
+        let block_emission = SubtensorModule::block_emission_step().unwrap();
         let subnet_emission = block_emission / netuids.len() as u64;
 
         for netuid in &netuids {
@@ -303,7 +303,7 @@ fn test_run_coinbase_different_mechanisms() {
 
         // Set initial values
         let initial_issuance = 1_000_000;
-        let block_emission = SubtensorModule::get_block_emission().unwrap();
+        let block_emission = SubtensorModule::block_emission_step().unwrap();
         TotalIssuance::<Test>::put(initial_issuance);
         SubnetTAO::<Test>::insert(netuid1, initial_issuance / 2);
         SubnetTAO::<Test>::insert(netuid2, initial_issuance / 2);
