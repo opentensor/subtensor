@@ -80,6 +80,7 @@ impl<T: Config> Pallet<T> {
         if BlockEmission::<T>::get() != block_emission_u64 {
             log::debug!("Updating BlockEmission storage");
             BlockEmission::<T>::put(block_emission_u64);
+            Self::on_halving(block_emission_u64);
         }
 
         // Return the calculated block emission

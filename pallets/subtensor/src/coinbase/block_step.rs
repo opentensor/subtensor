@@ -248,4 +248,18 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
             return next_value.to_num::<u64>();
         }
     }
+
+    /// Called when the network emission is halved.
+    pub fn on_halving(new_emission: u64) {
+        let current_block: u64 = Self::get_current_block_as_u64();
+        HalvingBlock::<T>::insert(current_block, new_emission);
+
+        // Check if this is the first time we are at this emission.
+        let first_time: bool =
+            !HalvingBlock::<T>::iter().any(|(_, emission)| emission == new_emission);
+        if first_time {
+        }
+    }
+        }
+    }
 }
