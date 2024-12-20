@@ -728,3 +728,188 @@ fn test_do_move_rate_limit_enforced() {
         );
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test alpha -- test_unstake_all_from_subnet_all_netuids --exact --nocapture
+#[test]
+fn test_unstake_all_from_subnet_all_netuids() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+
+        let base_stake: u64 = 100_000_000_000;
+
+        // Give some TAO to the coldkey
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, ExistentialDeposit::get());
+
+        // Create 10 subnets
+        for netuid in 0..10 {
+            if netuid != 0 {
+                // Add network
+                add_network(netuid, 1, 0);
+                register_ok_neuron(netuid, hotkey, coldkey, 0);
+            }
+
+            SubtensorModule::add_balance_to_coldkey_account(
+                &coldkey,
+                base_stake + ExistentialDeposit::get() + (netuid as u64 * 10),
+            );
+
+            // Add stake
+            SubtensorModule::stake_into_subnet(
+                &hotkey,
+                &coldkey,
+                netuid,
+                base_stake + (netuid as u64 * 10),
+            );
+        }
+
+        // Assert the hotkey has stake on all subnets
+        let all_netuids: Vec<u16> = SubtensorModule::get_all_subnet_netuids()
+            .iter()
+            .chain(std::iter::once(&0))
+            .copied()
+            .collect();
+        for netuid in all_netuids.iter() {
+            assert!(Alpha::<Test>::get((hotkey, *netuid, coldkey)) >= base_stake);
+        }
+
+        // Unstake from all subnets
+        assert_ok!(SubtensorModule::remove_all_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            all_netuids.clone()
+        ));
+
+        // Assert the hotkey has no stake on any subnet
+        for netuid in all_netuids.iter() {
+            assert_eq!(Alpha::<Test>::get((hotkey, *netuid, coldkey)), 0);
+        }
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test alpha -- test_unstake_all_from_subnet_all_netuids_empty_vec --exact --nocapture
+#[test]
+fn test_unstake_all_from_subnet_all_netuids_empty_vec() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+
+        let base_stake: u64 = 100_000_000_000;
+
+        // Give some TAO to the coldkey
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, ExistentialDeposit::get());
+
+        // Create 9 subnets, stake to all including root
+        for netuid in 0..10 {
+            // If netuid is 0, don't add network
+            if netuid != 0 {
+                // Add network
+                add_network(netuid, 1, 0);
+                register_ok_neuron(netuid, hotkey, coldkey, 0);
+            }
+
+            SubtensorModule::add_balance_to_coldkey_account(
+                &coldkey,
+                base_stake + ExistentialDeposit::get() + (netuid as u64 * 10),
+            );
+
+            // Add stake
+            SubtensorModule::stake_into_subnet(
+                &hotkey,
+                &coldkey,
+                netuid,
+                base_stake + (netuid as u64 * 10),
+            );
+        }
+
+        // Assert the hotkey has stake on all subnets
+        let all_netuids: Vec<u16> = SubtensorModule::get_all_subnet_netuids()
+            .iter()
+            .chain(std::iter::once(&0))
+            .copied()
+            .collect();
+        for netuid in all_netuids.iter() {
+            assert!(Alpha::<Test>::get((hotkey, *netuid, coldkey)) >= base_stake);
+        }
+
+        // Unstake from all subnets
+        assert_ok!(SubtensorModule::remove_all_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            vec![] // Should still unstake from all subnets
+        ));
+
+        // Assert the hotkey has no stake on any subnet
+        for netuid in all_netuids.iter() {
+            assert_eq!(Alpha::<Test>::get((hotkey, *netuid, coldkey)), 0);
+        }
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test -p pallet-subtensor --test move -- test_unstake_all_from_some_subnets --exact --nocapture
+#[test]
+fn test_unstake_all_from_some_subnets() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+
+        let base_stake: u64 = 100_000_000_000;
+
+        // Give some TAO to the coldkey
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, ExistentialDeposit::get());
+
+        // Create 10 subnets
+        for netuid in 0..10 {
+            // If netuid is 0, don't add network
+            if netuid != 0 {
+                // Add network
+                add_network(netuid, 1, 0);
+                register_ok_neuron(netuid, hotkey, coldkey, 0);
+            }
+
+            SubtensorModule::add_balance_to_coldkey_account(
+                &coldkey,
+                base_stake + ExistentialDeposit::get() + (netuid as u64 * 10),
+            );
+
+            // Add stake
+            SubtensorModule::stake_into_subnet(
+                &hotkey,
+                &coldkey,
+                netuid,
+                base_stake + (netuid as u64 * 10),
+            );
+        }
+
+        // Assert the hotkey has stake on all subnets
+        let all_netuids: Vec<u16> = SubtensorModule::get_all_subnet_netuids()
+            .iter()
+            .chain(std::iter::once(&0))
+            .copied()
+            .collect();
+        for netuid in all_netuids.iter() {
+            assert!(Alpha::<Test>::get((hotkey, *netuid, coldkey)) >= base_stake);
+        }
+
+        // Unstake only from 0..4
+        let netuids_to_unstake = vec![0, 1, 2, 3, 4];
+        assert_ok!(SubtensorModule::remove_all_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuids_to_unstake.clone()
+        ));
+
+        // Assert the hotkey has no stake on subnets 0..4
+        for netuid in netuids_to_unstake.clone().iter() {
+            assert_eq!(Alpha::<Test>::get((hotkey, *netuid, coldkey)), 0);
+        }
+
+        // Assert the hotkey has stake on subnets 5..9
+        for netuid in all_netuids
+            .iter()
+            .filter(|x| !netuids_to_unstake.contains(x))
+        {
+            assert!(Alpha::<Test>::get((hotkey, *netuid, coldkey)) >= base_stake);
+        }
+    });
+}

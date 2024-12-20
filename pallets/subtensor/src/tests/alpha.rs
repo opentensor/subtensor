@@ -1,6 +1,5 @@
 use super::mock::*;
 use crate::*;
-use frame_support::assert_ok;
 use sp_core::U256;
 use subnets::Mechanism;
 use substrate_fixed::types::I96F32;
