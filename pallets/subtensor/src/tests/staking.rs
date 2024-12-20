@@ -335,7 +335,7 @@ fn test_reset_stakes_per_interval() {
         let coldkey = U256::from(561330);
         let hotkey = U256::from(561337);
 
-        SubtensorModule::set_stake_interval(3);
+        StakeInterval::<Test>::set(3);
         SubtensorModule::set_target_stakes_per_interval(3);
 
         assert_ok!(SubtensorModule::try_increase_staking_counter(
@@ -399,7 +399,7 @@ fn test_staking_rate_limit() {
         let netuid = 1;
         let max_stakes = 3;
 
-        SubtensorModule::set_stake_interval(3);
+        StakeInterval::<Test>::set(3);
         SubtensorModule::set_target_stakes_per_interval(max_stakes);
 
         add_network(netuid, 13, 0);

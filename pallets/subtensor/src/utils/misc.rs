@@ -118,10 +118,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn set_stake_interval(block: u64) {
-        StakeInterval::<T>::set(block);
-    }
-
     pub fn get_rank_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Rank::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
