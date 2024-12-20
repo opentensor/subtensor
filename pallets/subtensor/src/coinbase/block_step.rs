@@ -258,8 +258,18 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         let first_time: bool =
             !HalvingBlock::<T>::iter().any(|(_, emission)| emission == new_emission);
         if first_time {
+            Self::halve_gamma();
         }
     }
+
+    pub fn halve_gamma() {
+        for netuid in Self::get_all_subnet_netuids() {
+            if netuid == Self::get_root_netuid() {
+                continue; // Skip root netuid.
+            }
+            let gamma: u64 = Self::get_raw_global_weight(netuid);
+            let halved_gamma: u64 = gamma.saturating_div(2);
+            Self::set_global_weight(halved_gamma, netuid);
         }
     }
 }

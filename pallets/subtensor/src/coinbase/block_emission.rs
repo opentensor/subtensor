@@ -31,7 +31,7 @@ impl<T: Config> Pallet<T> {
             return Ok(0);
         }
 
-        // Calculate half of the total supply (10.5 billion * 10^6)
+        // Calculate half of the total supply (10.5 million * 10^9 RAO) == 1/2 * 21 million TAO
         let half_total_supply =
             I96F32::from_num(2.0).saturating_mul(I96F32::from_num(10_500_000_000_000_000.0));
 
