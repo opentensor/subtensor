@@ -693,7 +693,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Check that the length of uid list and value list are equal for this network.
         ensure!(
-            Self::uids_match_values(&uids, &values),
+            uids.len() == values.len(),
             Error::<T>::WeightVecNotEqualSize
         );
 
@@ -937,11 +937,6 @@ impl<T: Config> Pallet<T> {
             }
         }
         false
-    }
-
-    /// Returns true if the passed uids have the same length of the passed values.
-    pub fn uids_match_values(uids: &[u16], values: &[u16]) -> bool {
-        uids.len() == values.len()
     }
 
     /// Returns true if the items contain duplicates.

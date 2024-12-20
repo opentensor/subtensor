@@ -702,7 +702,7 @@ impl<T: Config> Pallet<T> {
 
         // Check that the length of uid list and value list are equal for this network.
         ensure!(
-            Self::uids_match_values(&uids, &values),
+            uids.len() == values.len(),
             Error::<T>::WeightVecNotEqualSize
         );
 
