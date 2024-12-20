@@ -243,7 +243,7 @@ impl<T: Config> Pallet<T> {
         let adjustment_interval = AdjustmentInterval::<T>::get(netuid);
         let activity_cutoff = ActivityCutoff::<T>::get(netuid);
         let registration_allowed = NetworkRegistrationAllowed::<T>::get(netuid);
-        let target_regs_per_interval = Self::get_target_registrations_per_interval(netuid);
+        let target_regs_per_interval = TargetRegistrationsPerInterval::<T>::get(netuid);
         let min_burn = MinBurn::<T>::get(netuid);
         let max_burn = MaxBurn::<T>::get(netuid);
         let bonds_moving_avg = BondsMovingAverage::<T>::get(netuid);

@@ -6,7 +6,7 @@ use super::mock::*;
 use crate::{
     AdjustmentInterval, Difficulty, LastAdjustmentBlock, MaxAllowedUids, MaxDifficulty,
     MaxRegistrationsPerBlock, MinDifficulty, NetworkRegistrationAllowed, RegistrationsThisBlock,
-    RegistrationsThisInterval, SubnetworkN,
+    RegistrationsThisInterval, SubnetworkN, TargetRegistrationsPerInterval,
 };
 
 #[test]
@@ -35,10 +35,7 @@ fn test_registration_difficulty_adjustment() {
         SubtensorModule::set_network_registration_allowed(netuid, true);
         assert_eq!(Difficulty::<Test>::get(netuid), 20000); // Check set difficutly.
         assert_eq!(AdjustmentInterval::<Test>::get(netuid), 1); // Check set adjustment interval.
-        assert_eq!(
-            SubtensorModule::get_target_registrations_per_interval(netuid),
-            1
-        ); // Check set adjustment interval.
+        assert_eq!(TargetRegistrationsPerInterval::<Test>::get(netuid), 1); // Check set adjustment interval.
         assert_eq!(MaxRegistrationsPerBlock::<Test>::get(netuid), 3); // Check set registrations per block.
         assert_eq!(MaxAllowedUids::<Test>::get(netuid), 3); // Check set registrations per block.
         assert!(NetworkRegistrationAllowed::<Test>::get(netuid)); // Check set registration allowed
@@ -86,10 +83,7 @@ fn test_registration_difficulty_adjustment() {
         assert_eq!(AdjustmentInterval::<Test>::get(netuid), 3); // Check set adjustment interval.
 
         SubtensorModule::set_target_registrations_per_interval(netuid, 3);
-        assert_eq!(
-            SubtensorModule::get_target_registrations_per_interval(netuid),
-            3
-        ); // Target is default.
+        assert_eq!(TargetRegistrationsPerInterval::<Test>::get(netuid), 3); // Target is default.
 
         // Register 3 more
         register_ok_neuron(netuid, hotkey0 + 1, coldkey0 + 1, 3942084);
@@ -156,10 +150,7 @@ fn test_registration_difficulty_adjustment() {
         register_ok_neuron(netuid, hotkey2 + 3, coldkey2 + 3, 324123920);
         register_ok_neuron(netuid, hotkey2 + 4, coldkey2 + 4, 524123920);
         assert_eq!(RegistrationsThisInterval::<Test>::get(netuid), 4);
-        assert_eq!(
-            SubtensorModule::get_target_registrations_per_interval(netuid),
-            3
-        );
+        assert_eq!(TargetRegistrationsPerInterval::<Test>::get(netuid), 3);
         step_block(1); // Step
         assert_eq!(Difficulty::<Test>::get(netuid), 5833); // Difficulty increased 5000 * ( 4 + 3 ) / (3 + 3) = 1.16 * 5000 = 5833
 

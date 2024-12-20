@@ -440,7 +440,7 @@ impl<T: Config> Pallet<T> {
         // --- 3. Ensure that the number of registrations in this interval doesn't exceed thrice the target limit.
         ensure!(
             RegistrationsThisInterval::<T>::get(root_netuid)
-                < Self::get_target_registrations_per_interval(root_netuid).saturating_mul(3),
+                < TargetRegistrationsPerInterval::<T>::get(root_netuid).saturating_mul(3),
             Error::<T>::TooManyRegistrationsThisInterval
         );
 

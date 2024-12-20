@@ -49,7 +49,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                 let burn_registrations_this_interval: u16 =
                     BurnRegistrationsThisInterval::<T>::get(netuid);
                 let target_registrations_this_interval: u16 =
-                    Self::get_target_registrations_per_interval(netuid);
+                    TargetRegistrationsPerInterval::<T>::get(netuid);
                 // --- 5. Adjust burn + pow
                 // There are six cases to consider. A, B, C, D, E, F
                 if registrations_this_interval > target_registrations_this_interval {

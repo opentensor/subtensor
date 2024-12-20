@@ -14,7 +14,7 @@ use crate::{
     Axons, BlockAtRegistration, Burn, Difficulty, EmissionValues, Error, ImmunityPeriod, Keys,
     MaxAllowedUids, MaxRegistrationsPerBlock, Owner, RAORecycledForRegistration,
     RegistrationsThisBlock, RegistrationsThisInterval, SubnetworkN, SubtensorSignedExtension,
-    Tempo,
+    TargetRegistrationsPerInterval, Tempo,
 };
 
 /********************************************
@@ -236,7 +236,7 @@ fn test_registration_under_limit() {
         ));
 
         let current_registrants = RegistrationsThisInterval::<Test>::get(netuid);
-        let target_registrants = SubtensorModule::get_target_registrations_per_interval(netuid);
+        let target_registrants = TargetRegistrationsPerInterval::<Test>::get(netuid);
         assert!(current_registrants <= target_registrants);
     });
 }
@@ -849,10 +849,7 @@ fn test_registration_too_many_registrations_per_interval() {
         SubtensorModule::set_max_registrations_per_block(netuid, 11);
         assert_eq!(MaxRegistrationsPerBlock::<Test>::get(netuid), 11);
         SubtensorModule::set_target_registrations_per_interval(netuid, 3);
-        assert_eq!(
-            SubtensorModule::get_target_registrations_per_interval(netuid),
-            3
-        );
+        assert_eq!(TargetRegistrationsPerInterval::<Test>::get(netuid), 3);
         // Then the max is 3 * 3 = 9
 
         let block_number: u64 = 0;

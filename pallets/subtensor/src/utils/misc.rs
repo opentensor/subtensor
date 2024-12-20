@@ -347,10 +347,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::PowRegistrationAllowed(netuid, registration_allowed));
     }
 
-    pub fn get_target_registrations_per_interval(netuid: u16) -> u16 {
-        TargetRegistrationsPerInterval::<T>::get(netuid)
-    }
-
     pub fn set_target_registrations_per_interval(
         netuid: u16,
         target_registrations_per_interval: u16,
