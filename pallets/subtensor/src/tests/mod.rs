@@ -6,6 +6,7 @@ mod block_emission;
 mod children;
 mod coinbase;
 mod difficulty;
+mod emission;
 mod epoch;
 mod math;
 mod migration;
