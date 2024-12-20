@@ -1,13 +1,10 @@
 use super::*;
-use frame_support::{
-    storage::IterableStorageDoubleMap,
-    traits::{
-        tokens::{
-            fungible::{Balanced as _, Inspect as _},
-            Fortitude, Precision, Preservation,
-        },
-        Imbalance,
+use frame_support::traits::{
+    tokens::{
+        fungible::{Balanced as _, Inspect as _},
+        Fortitude, Precision, Preservation,
     },
+    Imbalance,
 };
 
 impl<T: Config> Pallet<T> {
@@ -44,13 +41,7 @@ impl<T: Config> Pallet<T> {
     // Returns the total amount of stake under a hotkey (delegative or otherwise)
     //
     pub fn get_total_stake_for_hotkey(hotkey: &T::AccountId) -> u64 {
-        TotalHotkeyStake::<T>::get(hotkey)
-    }
-
-    // Returns the total amount of stake held by the coldkey (delegative or otherwise)
-    //
-    pub fn get_total_stake_for_coldkey(coldkey: &T::AccountId) -> u64 {
-        TotalColdkeyStake::<T>::get(coldkey)
+        Self::get_global_for_hotkey(hotkey)
     }
 
     // Returns the stake under the cold - hot pairing in the staking table.
@@ -145,141 +136,25 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// True if the account has enough balance, false otherwise.
     pub fn has_enough_stake(coldkey: &T::AccountId, hotkey: &T::AccountId, decrement: u64) -> bool {
-        Self::get_stake_for_coldkey_and_hotkey(coldkey, hotkey) >= decrement
-    }
-
-    /// Increases the stake on the hotkey account under its owning coldkey.
-    ///
-    /// # Arguments
-    /// * `hotkey` - The hotkey account ID.
-    /// * `increment` - The amount to be incremented.
-    pub fn increase_stake_on_hotkey_account(hotkey: &T::AccountId, increment: u64) {
-        Self::increase_stake_on_coldkey_hotkey_account(
-            &Self::get_owning_coldkey_for_hotkey(hotkey),
-            hotkey,
-            increment,
-        );
-    }
-
-    /// Decreases the stake on the hotkey account under its owning coldkey.
-    ///
-    /// # Arguments
-    /// * `hotkey` - The hotkey account ID.
-    /// * `decrement` - The amount to be decremented.
-    pub fn decrease_stake_on_hotkey_account(hotkey: &T::AccountId, decrement: u64) {
-        Self::decrease_stake_on_coldkey_hotkey_account(
-            &Self::get_owning_coldkey_for_hotkey(hotkey),
-            hotkey,
-            decrement,
-        );
-    }
-
-    // Increases the stake on the cold - hot pairing by increment while also incrementing other counters.
-    // This function should be called rather than set_stake under account.
-    //
-    pub fn increase_stake_on_coldkey_hotkey_account(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-        increment: u64,
-    ) {
-        log::debug!(
-            "Increasing stake: coldkey: {:?}, hotkey: {:?}, amount: {}",
-            coldkey,
-            hotkey,
-            increment
-        );
-
-        TotalColdkeyStake::<T>::insert(
-            coldkey,
-            TotalColdkeyStake::<T>::get(coldkey).saturating_add(increment),
-        );
-        TotalHotkeyStake::<T>::insert(
-            hotkey,
-            TotalHotkeyStake::<T>::get(hotkey).saturating_add(increment),
-        );
-        Stake::<T>::insert(
-            hotkey,
-            coldkey,
-            Stake::<T>::get(hotkey, coldkey).saturating_add(increment),
-        );
-        TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(increment));
-
-        // Update StakingHotkeys map
-        let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
-        if !staking_hotkeys.contains(hotkey) {
-            staking_hotkeys.push(hotkey.clone());
-            StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
-        }
-    }
-
-    // Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
-    //
-    pub fn decrease_stake_on_coldkey_hotkey_account(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-        decrement: u64,
-    ) {
-        TotalColdkeyStake::<T>::mutate(coldkey, |old| *old = old.saturating_sub(decrement));
-        TotalHotkeyStake::<T>::insert(
-            hotkey,
-            TotalHotkeyStake::<T>::get(hotkey).saturating_sub(decrement),
-        );
-        Stake::<T>::insert(
-            hotkey,
-            coldkey,
-            Stake::<T>::get(hotkey, coldkey).saturating_sub(decrement),
-        );
-        TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(decrement));
-
-        // TODO: Tech debt: Remove StakingHotkeys entry if stake goes to 0
-    }
-
-    /// Empties the stake associated with a given coldkey-hotkey account pairing.
-    /// This function retrieves the current stake for the specified coldkey-hotkey pairing,
-    /// then subtracts this stake amount from both the TotalColdkeyStake and TotalHotkeyStake.
-    /// It also removes the stake entry for the hotkey-coldkey pairing and adjusts the TotalStake
-    /// and TotalIssuance by subtracting the removed stake amount.
-    ///
-    /// Returns the amount of stake that was removed.
-    ///
-    /// # Arguments
-    ///
-    /// * `coldkey` - A reference to the AccountId of the coldkey involved in the staking.
-    /// * `hotkey` - A reference to the AccountId of the hotkey associated with the coldkey.
-    pub fn empty_stake_on_coldkey_hotkey_account(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-    ) -> u64 {
-        let current_stake: u64 = Stake::<T>::get(hotkey, coldkey);
-        TotalColdkeyStake::<T>::mutate(coldkey, |old| *old = old.saturating_sub(current_stake));
-        TotalHotkeyStake::<T>::mutate(hotkey, |stake| *stake = stake.saturating_sub(current_stake));
-        Stake::<T>::remove(hotkey, coldkey);
-        TotalStake::<T>::mutate(|stake| *stake = stake.saturating_sub(current_stake));
-
-        // Update StakingHotkeys map
-        let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
-        staking_hotkeys.retain(|h| h != hotkey);
-        StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
-
-        // Update stake delta
-        StakeDeltaSinceLastEmissionDrain::<T>::remove(hotkey, coldkey);
-
-        current_stake
+        Self::get_global_for_hotkey_and_coldkey(hotkey, coldkey) >= decrement
     }
 
     /// Clears the nomination for an account, if it is a nominator account and the stake is below the minimum required threshold.
     pub fn clear_small_nomination_if_required(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
+        netuid: u16,
         stake: u64,
     ) {
         // Verify if the account is a nominator account by checking ownership of the hotkey by the coldkey.
         if !Self::coldkey_owns_hotkey(coldkey, hotkey) {
             // If the stake is below the minimum required, it's considered a small nomination and needs to be cleared.
+            // Log if the stake is below the minimum required
             if stake < Self::get_nominator_min_required_stake() {
+                // Log the clearing of a small nomination
                 // Remove the stake from the nominator account. (this is a more forceful unstake operation which )
                 // Actually deletes the staking account.
-                let cleared_stake = Self::empty_stake_on_coldkey_hotkey_account(coldkey, hotkey);
+                let cleared_stake = Self::unstake_from_subnet(hotkey, coldkey, netuid, stake);
                 // Add the stake to the coldkey account.
                 Self::add_balance_to_coldkey_account(coldkey, cleared_stake);
             }
@@ -292,8 +167,8 @@ impl<T: Config> Pallet<T> {
     /// used with caution.
     pub fn clear_small_nominations() {
         // Loop through all staking accounts to identify and clear nominations below the minimum stake.
-        for (hotkey, coldkey, stake) in Stake::<T>::iter() {
-            Self::clear_small_nomination_if_required(&hotkey, &coldkey, stake);
+        for ((hotkey, netuid, coldkey), stake) in Alpha::<T>::iter() {
+            Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid, stake);
         }
     }
 
@@ -379,21 +254,11 @@ impl<T: Config> Pallet<T> {
         Ok(credit)
     }
 
-    pub fn unstake_all_coldkeys_from_hotkey_account(hotkey: &T::AccountId) {
-        // Iterate through all coldkeys that have a stake on this hotkey account.
-        for (delegate_coldkey_i, stake_i) in
-            <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(
-                hotkey,
-            )
-        {
-            // Remove the stake from the coldkey - hotkey pairing.
-            Self::decrease_stake_on_coldkey_hotkey_account(&delegate_coldkey_i, hotkey, stake_i);
+    pub fn get_min_nominator(netuid: u16) -> (u64, T::AccountId) {
+        MinNominator::<T>::get(netuid)
+    }
 
-            // Add the balance to the coldkey account.
-            Self::add_balance_to_coldkey_account(&delegate_coldkey_i, stake_i);
-
-            // Remove stake delta
-            StakeDeltaSinceLastEmissionDrain::<T>::remove(hotkey, &delegate_coldkey_i);
-        }
+    pub fn get_max_nominators_per_subnet(netuid: u16) -> u16 {
+        MaxNominatorsPerSubnet::<T>::get(netuid)
     }
 }

@@ -1327,3 +1327,12 @@ pub fn safe_ln(value: I32F32) -> I32F32 {
 pub fn safe_exp(value: I32F32) -> I32F32 {
     exp(value).unwrap_or(I32F32::from_num(0.0))
 }
+
+#[allow(dead_code)]
+pub fn safe_modulo(a: u64, b: u64) -> u64 {
+    if b > 0 {
+        a.saturating_sub(a.checked_div(b).unwrap_or_default().saturating_mul(b))
+    } else {
+        0
+    }
+}

@@ -1,4 +1,5 @@
 use super::*;
+use crate::epoch::math::safe_modulo;
 use frame_support::storage::IterableStorageMap;
 use substrate_fixed::types::I110F18;
 
@@ -11,6 +12,14 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         Self::adjust_registration_terms_for_networks();
         // --- 2. Run emission through network.
         Self::run_coinbase();
+        // --- 3. Adjust tempos every day.
+        // TODO(const) make this better.
+        // Per const: remove dynamic tempos for now, just make the min and the max value always
+        // 300 blocks. (not 360)
+        if safe_modulo(block_number.saturating_add(1), 300) == 0 {
+            // adjust every hour.
+            Self::adjust_tempos();
+        }
         // Return ok.
         Ok(())
     }
@@ -237,6 +246,33 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
             return Self::get_min_burn_as_u64(netuid);
         } else {
             return next_value.to_num::<u64>();
+        }
+    }
+
+    /// Called when the network emission is halved.
+    pub fn on_halving(new_emission: u64) {
+        log::debug!("Updating BlockEmission storage");
+        BlockEmission::<T>::put(new_emission);
+
+        let current_block: u64 = Self::get_current_block_as_u64();
+        HalvingBlock::<T>::insert(current_block, new_emission);
+
+        // Check if this is the first time we are at this emission.
+        let first_time: bool =
+            !HalvingBlock::<T>::iter().any(|(_, emission)| emission == new_emission);
+        if first_time {
+            Self::halve_gamma();
+        }
+    }
+
+    pub fn halve_gamma() {
+        for netuid in Self::get_all_subnet_netuids() {
+            if netuid == Self::get_root_netuid() {
+                continue; // Skip root netuid.
+            }
+            let gamma: u64 = Self::get_raw_global_weight(netuid);
+            let halved_gamma: u64 = gamma.saturating_div(2);
+            Self::set_global_weight(halved_gamma, netuid);
         }
     }
 }

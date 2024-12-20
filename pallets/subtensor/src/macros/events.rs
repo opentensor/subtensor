@@ -14,9 +14,9 @@ mod events {
         /// a network is removed.
         NetworkRemoved(u16),
         /// stake has been transferred from the a coldkey account onto the hotkey staking account.
-        StakeAdded(T::AccountId, u64),
+        StakeAdded(T::AccountId, T::AccountId, u64, u64, u16),
         /// stake has been removed from the hotkey staking account onto the coldkey account.
-        StakeRemoved(T::AccountId, u64),
+        StakeRemoved(T::AccountId, T::AccountId, u64, u64, u16),
         /// a caller successfully sets their weights on a subnetwork.
         WeightsSet(u16, u16),
         /// a new neuron account has been registered to the chain.
@@ -191,21 +191,22 @@ mod events {
         NetworkMaxStakeSet(u16, u64),
         /// The identity of a coldkey has been set
         ChainIdentitySet(T::AccountId),
+        /// Mechanism added
+        MechanismAdded(u16),
+        /// Network activated
+        NetworkActivated(u16),
+        /// StakeMoved
+        StakeMoved(T::AccountId, T::AccountId, u16, T::AccountId, u16),
+        /// SubnetConverted meaning the owner has converted their lock and now the owner position is open.
+        SubnetConverted(u16),
         /// The identity of a subnet has been set
         SubnetIdentitySet(u16),
         /// The identity of a subnet has been removed
         SubnetIdentityRemoved(u16),
-        /// A dissolve network extrinsic scheduled.
-        DissolveNetworkScheduled {
-            /// The account ID schedule the dissolve network extrisnic
-            account: T::AccountId,
-            /// network ID will be dissolved
-            netuid: u16,
-            /// extrinsic execution block number
-            execution_block: BlockNumberFor<T>,
-        },
         /// The duration of schedule coldkey swap has been set
         ColdkeySwapScheduleDurationSet(BlockNumberFor<T>),
+        /// Subnet owner cut distributed
+        OwnerPaymentDistributed(u16, T::AccountId, u64),
         /// The duration of dissolve network has been set
         DissolveNetworkScheduleDurationSet(BlockNumberFor<T>),
         /// Commit-reveal v3 weights have been successfully committed.

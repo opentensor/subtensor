@@ -715,7 +715,8 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyNotRegisteredInSubNet
         );
 
-        // --- 6. Check to see if the hotkey has enough stake to set weights.
+        // --- 6. Check to see if the hotkey has enought stake to set weights.
+        // TODO rethink this to use validator permit.
         ensure!(
             Self::check_weights_min_stake(&hotkey, netuid),
             Error::<T>::NotEnoughStakeToSetWeights

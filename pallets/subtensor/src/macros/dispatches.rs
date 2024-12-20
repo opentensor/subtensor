@@ -416,14 +416,16 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(4104))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn set_root_weights(
-            origin: OriginFor<T>,
-            netuid: u16,
-            hotkey: T::AccountId,
-            dests: Vec<u16>,
-            weights: Vec<u16>,
-            version_key: u64,
+            _origin: OriginFor<T>,
+            _netuid: u16,
+            _hotkey: T::AccountId,
+            _dests: Vec<u16>,
+            _weights: Vec<u16>,
+            _version_key: u64,
         ) -> DispatchResult {
-            Self::do_set_root_weights(origin, netuid, hotkey, dests, weights, version_key)
+            // DEPRECATED
+            // Self::do_set_root_weights(origin, netuid, hotkey, dests, weights, version_key)
+            Ok(())
         }
 
         /// --- Sets the key as a delegate.
@@ -577,9 +579,10 @@ mod dispatches {
         pub fn add_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
+            netuid: u16,
             amount_staked: u64,
         ) -> DispatchResult {
-            Self::do_add_stake(origin, hotkey, amount_staked)
+            Self::do_add_stake(origin, hotkey, netuid, amount_staked)
         }
 
         /// Remove stake from the staking account. The call must be made
@@ -618,9 +621,10 @@ mod dispatches {
         pub fn remove_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
+            netuid: u16,
             amount_unstaked: u64,
         ) -> DispatchResult {
-            Self::do_remove_stake(origin, hotkey, amount_unstaked)
+            Self::do_remove_stake(origin, hotkey, netuid, amount_unstaked)
         }
 
         /// Serves or updates axon /prometheus information for the neuron associated with the caller. If the caller is
@@ -1027,10 +1031,10 @@ mod dispatches {
         #[pallet::call_index(69)]
         #[pallet::weight((
             Weight::from_parts(6_000, 0)
-        .saturating_add(T::DbWeight::get().writes(1)),
-    DispatchClass::Operational,
-    Pays::No
-))]
+                .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
         pub fn sudo_set_tx_childkey_take_rate_limit(
             origin: OriginFor<T>,
             tx_rate_limit: u64,
@@ -1171,12 +1175,17 @@ mod dispatches {
         }
 
         /// User register a new subnetwork
+        /// DEPRECATED
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(157_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))
 		.saturating_add(T::DbWeight::get().writes(30)), DispatchClass::Operational, Pays::No))]
-        pub fn register_network(origin: OriginFor<T>) -> DispatchResult {
-            Self::user_add_network(origin, None)
+        pub fn register_network(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            mechid: Mechanism,
+        ) -> DispatchResult {
+            Self::do_register_network(origin, &hotkey, mechid, None)
         }
 
         /// Facility extrinsic for user to get taken from faucet
@@ -1199,6 +1208,7 @@ mod dispatches {
             Err(Error::<T>::FaucetDisabled.into())
         }
 
+        /// DEPRECATED
         /// Remove a user's subnetwork
         /// The caller must be the owner of the network
         #[pallet::call_index(61)]
@@ -1206,12 +1216,13 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
         pub fn dissolve_network(
-            origin: OriginFor<T>,
-            coldkey: T::AccountId,
-            netuid: u16,
+            _origin: OriginFor<T>,
+            _coldkey: T::AccountId,
+            _netuid: u16,
         ) -> DispatchResult {
-            ensure_root(origin)?;
-            Self::user_remove_network(coldkey, netuid)
+            // ensure_root(origin)?;
+            // Self::user_remove_network(coldkey, netuid)
+            Ok(())
         }
 
         /// Set a single child for a given hotkey on a specified network.
@@ -1351,6 +1362,7 @@ mod dispatches {
             Ok(().into())
         }
 
+        /// DEPRECATED
         /// Schedule the dissolution of a network at a specified block number.
         ///
         /// # Arguments
@@ -1365,46 +1377,10 @@ mod dispatches {
         /// # Weight
         ///
         /// Weight is calculated based on the number of database reads and writes.
-
-        #[pallet::call_index(74)]
-        #[pallet::weight((Weight::from_parts(119_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(6))
-		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
-        pub fn schedule_dissolve_network(
-            origin: OriginFor<T>,
-            netuid: u16,
-        ) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
-
-            let current_block: BlockNumberFor<T> = <frame_system::Pallet<T>>::block_number();
-            let duration: BlockNumberFor<T> = DissolveNetworkScheduleDuration::<T>::get();
-            let when: BlockNumberFor<T> = current_block.saturating_add(duration);
-
-            let call = Call::<T>::dissolve_network {
-                coldkey: who.clone(),
-                netuid,
-            };
-
-            let bound_call = T::Preimages::bound(LocalCallOf::<T>::from(call.clone()))
-                .map_err(|_| Error::<T>::FailedToSchedule)?;
-
-            T::Scheduler::schedule(
-                DispatchTime::At(when),
-                None,
-                63,
-                frame_system::RawOrigin::Root.into(),
-                bound_call,
-            )
-            .map_err(|_| Error::<T>::FailedToSchedule)?;
-
-            // Emit the SwapScheduled event
-            Self::deposit_event(Event::DissolveNetworkScheduled {
-                account: who.clone(),
-                netuid,
-                execution_block: when,
-            });
-
-            Ok(().into())
+        #[pallet::call_index(81)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)))]
+        pub fn schedule_dissolve_network(_origin: OriginFor<T>, _netuid: u16) -> DispatchResult {
+            Ok(())
         }
 
         /// ---- Set prometheus information for the neuron.
@@ -1480,9 +1456,135 @@ mod dispatches {
                 .saturating_add(T::DbWeight::get().writes(30)), DispatchClass::Operational, Pays::No))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            mechid: Mechanism,
             identity: Option<SubnetIdentityOf>,
         ) -> DispatchResult {
-            Self::user_add_network(origin, identity)
+            Self::do_register_network(origin, &hotkey, mechid, identity)
+        }
+
+        /// sudo_hotfix_swap_coldkey_delegates
+        #[pallet::call_index(64)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_hotfix_swap_coldkey_delegates(
+            _origin: OriginFor<T>,
+            _old_coldkey: T::AccountId,
+            _new_coldkey: T::AccountId,
+        ) -> DispatchResult {
+            Ok(())
+        }
+
+        /// Moves stake from one hotkey to another across subnets.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the transaction, which must be signed by the `origin_hotkey`.
+        /// * `origin_hotkey` - The account ID of the hotkey from which the stake is being moved.
+        /// * `destination_hotkey` - The account ID of the hotkey to which the stake is being moved.
+        /// * `origin_netuid` - The network ID of the origin subnet.
+        /// * `destination_netuid` - The network ID of the destination subnet.
+        ///
+        /// # Returns
+        /// * `DispatchResult` - Indicates the success or failure of the operation.
+        ///
+        /// # Errors
+        /// This function will return an error if:
+        /// * The origin is not signed by the `origin_hotkey`.
+        /// * Either the origin or destination subnet does not exist.
+        /// * The `origin_hotkey` or `destination_hotkey` does not exist.
+        /// * There are locked funds that cannot be moved across subnets.
+        ///
+        /// # Events
+        /// Emits a `StakeMoved` event upon successful completion of the stake movement.
+        #[pallet::call_index(82)]
+        #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn move_stake(
+            origin: OriginFor<T>,
+            origin_hotkey: T::AccountId,
+            destination_hotkey: T::AccountId,
+            origin_netuid: u16,
+            destination_netuid: u16,
+            alpha_amount: u64,
+        ) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+            Self::do_move_stake(
+                coldkey,
+                origin_hotkey,
+                destination_hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            )
+        }
+
+        /// Moves all stake from one hotkey to another across subnets.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the transaction, which must be signed by the `origin_hotkey`.
+        /// * `origin_hotkey` - The account ID of the hotkey from which the stake is being moved.
+        /// * `destination_hotkey` - The account ID of the hotkey to which the stake is being moved.
+        /// * `origin_netuid` - The network ID of the origin subnet.
+        /// * `destination_netuid` - The network ID of the destination subnet.
+        ///
+        /// # Returns
+        /// * `DispatchResult` - Indicates the success or failure of the operation.
+        ///
+        /// # Errors
+        /// This function will return an error if:
+        /// * The origin is not signed by the `origin_hotkey`.
+        /// * Either the origin or destination subnet does not exist.
+        /// * The `origin_hotkey` or `destination_hotkey` does not exist.
+        /// * There are locked funds that cannot be moved across subnets.
+        ///
+        /// # Events
+        /// Emits a `StakeMoved` event upon successful completion of the stake movement.
+        #[pallet::call_index(83)]
+        #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn move_all_stake(
+            origin: OriginFor<T>,
+            origin_hotkey: T::AccountId,
+            destination_hotkey: T::AccountId,
+            origin_netuid: u16,
+            destination_netuid: u16,
+        ) -> DispatchResult {
+            let coldkey = ensure_signed(origin.clone())?;
+            let alpha_amount =
+                Alpha::<T>::get((origin_hotkey.clone(), origin_netuid, coldkey.clone()));
+            Self::do_move_stake(
+                coldkey,
+                origin_hotkey,
+                destination_hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            )
+        }
+
+        /// Removes all stake from the listed netuids.
+        /// Removes from all netuids if none are specified.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the transaction, which must be signed by the `origin_hotkey`.
+        /// * `hotkey` - The account ID of the hotkey from which the stake is being removed.
+        /// * `netuids` - The network IDs to remove stake from.
+        ///
+        /// # Returns
+        /// * `DispatchResult` - Indicates the success or failure of the operation.
+        ///
+        /// # Errors
+        /// This function will return an error if:
+        /// * The `hotkey` does not exist.
+        ///
+        /// # Events
+        /// Emits a `StakeRemoved` event for each netuid removed.
+        #[pallet::call_index(84)]
+        #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn remove_all_stake(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuids: Vec<u16>,
+        ) -> DispatchResult {
+            let coldkey = ensure_signed(origin.clone())?;
+            Self::do_remove_all_stake(coldkey, hotkey, netuids)
         }
     }
 }

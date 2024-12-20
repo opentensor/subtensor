@@ -84,7 +84,7 @@ impl MetagraphPrecompile {
             exit_status: ExitError::InvalidRange,
         })?;
 
-        let stake = pallet_subtensor::TotalHotkeyStake::<Runtime>::get(&hotkey);
+        let stake = pallet_subtensor::TotalHotkeyAlpha::<Runtime>::get(&hotkey, netuid);
         let result_u256 = U256::from(stake);
         let mut result = [0_u8; 32];
         U256::to_big_endian(&result_u256, &mut result);

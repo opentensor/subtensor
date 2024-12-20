@@ -76,11 +76,9 @@ fn test_batch_set_weights() {
         register_ok_neuron(netuid_2, spare_hk, spare_ck, 1);
 
         // Increase stake on hotkey setting the weights
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-            &coldkey,
-            &hotkey,
-            stake_to_give_child,
-        );
+        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_to_give_child, netuid_0);
+        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_to_give_child, netuid_1);
+        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_to_give_child, netuid_2);
 
         // Set the rate limit to 0 for all networks
         SubtensorModule::set_weights_set_rate_limit(netuid_0, 0);
@@ -262,11 +260,9 @@ fn test_batch_commit_weights() {
         register_ok_neuron(netuid_2, spare_hk, spare_ck, 1);
 
         // Increase stake on hotkey setting the weights
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-            &coldkey,
-            &hotkey,
-            stake_to_give_child,
-        );
+        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_to_give_child, netuid_0);
+        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_to_give_child, netuid_1);
+        increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_to_give_child, netuid_2);
 
         // Set the rate limit to 0 for all networks
         SubtensorModule::set_weights_set_rate_limit(netuid_0, 0);

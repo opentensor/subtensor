@@ -749,8 +749,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
             ProxyType::Owner => matches!(c, RuntimeCall::AdminUtils(..)),
             ProxyType::NonCritical => !matches!(
                 c,
-                RuntimeCall::SubtensorModule(pallet_subtensor::Call::dissolve_network { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::Triumvirate(..)
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_root_weights { .. })
@@ -978,7 +977,7 @@ impl pallet_commitments::Config for Runtime {
 }
 
 #[cfg(not(feature = "fast-blocks"))]
-pub const INITIAL_SUBNET_TEMPO: u16 = 99;
+pub const INITIAL_SUBNET_TEMPO: u16 = 300;
 
 #[cfg(feature = "fast-blocks")]
 pub const INITIAL_SUBNET_TEMPO: u16 = 10;
@@ -1042,9 +1041,10 @@ parameter_types! {
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const SubtensorInitialHotkeyEmissionTempo: u64 = 7200; // Drain every day.
     pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64, this make the make stake infinity
-    pub const  InitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
-    pub const  InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
-
+    pub const SubtensorInitialGlobalWeight: u64 = u64::MAX; // 100% global weight.
+    pub const SubtensorInitialRootWeight: u64 = 3_320_413_900_000_000_000; // 18% root weight
+    pub const SubtensorInitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
+    pub const SubtensorInitialMaxNominators: u16 = 100; // Per-subnet maximum amount of nominators. TODO (cam): pick decent value
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1108,8 +1108,10 @@ impl pallet_subtensor::Config for Runtime {
     type InitialHotkeyEmissionTempo = SubtensorInitialHotkeyEmissionTempo;
     type InitialNetworkMaxStake = SubtensorInitialNetworkMaxStake;
     type Preimages = Preimage;
-    type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
-    type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
+    type InitialColdkeySwapScheduleDuration = SubtensorInitialColdkeySwapScheduleDuration;
+    type InitialGlobalWeight = SubtensorInitialGlobalWeight;
+    type InitialRootWeight = SubtensorInitialRootWeight;
+    type InitialMaxNominators = SubtensorInitialMaxNominators;
 }
 
 use sp_runtime::BoundedVec;
@@ -2055,8 +2057,23 @@ impl_runtime_apis! {
             }
         }
 
+        fn get_subnet_state(netuid: u16) -> Vec<u8> {
+            let result = SubtensorModule::get_subnet_state( netuid );
+            result.encode()
+        }
+
         fn get_subnets_info() -> Vec<u8> {
             let result = SubtensorModule::get_subnets_info();
+            result.encode()
+        }
+
+        fn get_all_dynamic_info() -> Vec<u8> {
+            let result = SubtensorModule::get_all_dynamic_info();
+            result.encode()
+        }
+
+        fn get_dynamic_info(netuid: u16) -> Vec<u8> {
+            let result = SubtensorModule::get_dynamic_info(netuid);
             result.encode()
         }
 

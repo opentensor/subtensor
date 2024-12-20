@@ -45,6 +45,7 @@ impl SubstrateCli for Cli {
             "local" => Box::new(chain_spec::localnet::localnet_config(false)?),
             "finney" => Box::new(chain_spec::finney::finney_mainnet_config()?),
             "devnet" => Box::new(chain_spec::devnet::devnet_config()?),
+            "raonet" => Box::new(chain_spec::raonet::raonet_config()?),
             "" | "test_finney" => Box::new(chain_spec::testnet::finney_testnet_config()?),
             path => Box::new(chain_spec::ChainSpec::from_json_file(
                 std::path::PathBuf::from(path),

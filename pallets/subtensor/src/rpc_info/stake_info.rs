@@ -3,13 +3,19 @@ use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
 use codec::Compact;
 use sp_core::hexdisplay::AsBytesRef;
+use subtensor_macros::freeze_struct;
 
-#[freeze_struct("86d64c14d71d44b9")]
+#[freeze_struct("c5e3871b39062f8e")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct StakeInfo<T: Config> {
     hotkey: T::AccountId,
     coldkey: T::AccountId,
+    netuid: Compact<u16>,
     stake: Compact<u64>,
+    locked: Compact<u64>,
+    emission: Compact<u64>,
+    drain: Compact<u64>,
+    is_registered: bool,
 }
 
 impl<T: Config> Pallet<T> {
@@ -19,24 +25,38 @@ impl<T: Config> Pallet<T> {
         if coldkeys.is_empty() {
             return Vec::new(); // No coldkeys to check
         }
-
+        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
         let mut stake_info: Vec<(T::AccountId, Vec<StakeInfo<T>>)> = Vec::new();
-        for coldkey_ in coldkeys {
+        for coldkey_i in coldkeys.clone().iter() {
+            // Get all hotkeys associated with this coldkey.
+            let staking_hotkeys = StakingHotkeys::<T>::get(coldkey_i.clone());
             let mut stake_info_for_coldkey: Vec<StakeInfo<T>> = Vec::new();
-
-            for (hotkey, coldkey, stake) in <Stake<T>>::iter() {
-                if coldkey == coldkey_ {
+            for netuid_i in netuids.clone().iter() {
+                for hotkey_i in staking_hotkeys.clone().iter() {
+                    let alpha: u64 =
+                        Alpha::<T>::get((hotkey_i.clone(), netuid_i, coldkey_i.clone()));
+                    let emission: u64 = LastHotkeyColdkeyEmissionOnNetuid::<T>::get((
+                        hotkey_i.clone(),
+                        coldkey_i.clone(),
+                        *netuid_i,
+                    ));
+                    let drain: u64 = LastHotkeyEmissionDrain::<T>::get(hotkey_i.clone());
+                    let is_registered: bool =
+                        Self::is_hotkey_registered_on_network(*netuid_i, hotkey_i);
                     stake_info_for_coldkey.push(StakeInfo {
-                        hotkey,
-                        coldkey,
-                        stake: stake.into(),
+                        hotkey: hotkey_i.clone(),
+                        coldkey: coldkey_i.clone(),
+                        netuid: (*netuid_i).into(),
+                        stake: alpha.into(),
+                        locked: 0.into(),
+                        emission: emission.into(),
+                        drain: drain.into(),
+                        is_registered,
                     });
                 }
             }
-
-            stake_info.push((coldkey_, stake_info_for_coldkey));
+            stake_info.push((coldkey_i.clone(), stake_info_for_coldkey));
         }
-
         stake_info
     }
 

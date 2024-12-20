@@ -165,36 +165,59 @@ impl<T: Config> Pallet<T> {
             Stake::<T>::insert(&hotkey, new_coldkey, new_stake.saturating_add(old_stake));
             // Remove the value from the old account.
             Stake::<T>::remove(&hotkey, old_coldkey);
+            // 3.1 Swap Alpha
+            for netuid in Self::get_all_subnet_netuids() {
+                // Get the stake on the old (hot,coldkey) account.
+                let old_alpha: u64 = Alpha::<T>::get((&hotkey, netuid, old_coldkey));
+                // Get the stake on the new (hot,coldkey) account.
+                let new_alpha: u64 = Alpha::<T>::get((&hotkey, netuid, new_coldkey));
+                // Add the stake to new account.
+                Alpha::<T>::insert(
+                    (&hotkey, netuid, new_coldkey),
+                    new_alpha.saturating_add(old_alpha),
+                );
+                // Remove the value from the old account.
+                Alpha::<T>::remove((&hotkey, netuid, old_coldkey));
+            }
             // Add the weight for the read and write.
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
         }
 
-        // 4. Swap StakeDeltaSinceLastEmissionDrain
-        for hotkey in StakingHotkeys::<T>::get(old_coldkey) {
-            let old_stake_delta = StakeDeltaSinceLastEmissionDrain::<T>::get(&hotkey, old_coldkey);
-            let new_stake_delta = StakeDeltaSinceLastEmissionDrain::<T>::get(&hotkey, new_coldkey);
-            StakeDeltaSinceLastEmissionDrain::<T>::insert(
-                &hotkey,
+        // 4. Swap TotalColdkeyAlpha
+        for netuid in Self::get_all_subnet_netuids() {
+            let old_alpha_stake: u64 = TotalColdkeyAlpha::<T>::get(old_coldkey, netuid);
+            let new_alpha_stake: u64 = TotalColdkeyAlpha::<T>::get(new_coldkey, netuid);
+            TotalColdkeyAlpha::<T>::insert(
                 new_coldkey,
-                new_stake_delta.saturating_add(old_stake_delta),
+                netuid,
+                new_alpha_stake.saturating_add(old_alpha_stake),
             );
-            StakeDeltaSinceLastEmissionDrain::<T>::remove(&hotkey, old_coldkey);
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+            TotalColdkeyAlpha::<T>::remove(old_coldkey, netuid);
         }
-
-        // 5. Swap total coldkey stake.
-        // TotalColdkeyStake: MAP ( coldkey ) --> u64 | Total stake of the coldkey.
-        let old_coldkey_stake: u64 = TotalColdkeyStake::<T>::get(old_coldkey);
-        // Get the stake of the new coldkey.
-        let new_coldkey_stake: u64 = TotalColdkeyStake::<T>::get(new_coldkey);
-        // Remove the value from the old account.
-        TotalColdkeyStake::<T>::insert(old_coldkey, 0);
-        // Add the stake to new account.
-        TotalColdkeyStake::<T>::insert(
-            new_coldkey,
-            new_coldkey_stake.saturating_add(old_coldkey_stake),
-        );
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+
+        // 5. Swap Stake Delta
+        for hotkey in StakingHotkeys::<T>::get(old_coldkey) {
+            for netuid in Self::get_all_subnet_netuids() {
+                // Swap Stake Delta
+                let old_stake_delta =
+                    StakeDeltaSinceLastEmissionDrain::<T>::get((&hotkey, netuid, old_coldkey));
+                let new_stake_delta =
+                    StakeDeltaSinceLastEmissionDrain::<T>::get((&hotkey, netuid, new_coldkey));
+
+                let net_stake_delta = new_stake_delta.saturating_add(old_stake_delta);
+                if net_stake_delta != new_stake_delta {
+                    // Only update if the new stake delta is not the same.
+                    StakeDeltaSinceLastEmissionDrain::<T>::insert(
+                        (&hotkey, netuid, new_coldkey),
+                        net_stake_delta,
+                    );
+                    weight.saturating_accrue(T::DbWeight::get().writes(1));
+                }
+                StakeDeltaSinceLastEmissionDrain::<T>::remove((&hotkey, netuid, old_coldkey));
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 1));
+            }
+        }
 
         // 6. Swap StakingHotkeys.
         // StakingHotkeys: MAP ( coldkey ) --> Vec<hotkeys> | Hotkeys staking for the coldkey.

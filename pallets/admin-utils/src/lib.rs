@@ -1154,41 +1154,6 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Sets the duration of the dissolve network schedule.
-        ///
-        /// This extrinsic allows the root account to set the duration for the dissolve network schedule.
-        /// The dissolve network schedule determines how long it takes for a network dissolution operation to complete.
-        ///
-        /// # Arguments
-        /// * `origin` - The origin of the call, which must be the root account.
-        /// * `duration` - The new duration for the dissolve network schedule, in number of blocks.
-        ///
-        /// # Errors
-        /// * `BadOrigin` - If the caller is not the root account.
-        ///
-        /// # Weight
-        /// Weight is handled by the `#[pallet::weight]` attribute.
-        #[pallet::call_index(55)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_dissolve_network_schedule_duration(
-            origin: OriginFor<T>,
-            duration: BlockNumberFor<T>,
-        ) -> DispatchResult {
-            // Ensure the call is made by the root account
-            ensure_root(origin)?;
-
-            // Set the duration of schedule dissolve network
-            pallet_subtensor::Pallet::<T>::set_dissolve_network_schedule_duration(duration);
-
-            // Log the change
-            log::trace!(
-                "DissolveNetworkScheduleDurationSet( duration: {:?} )",
-                duration
-            );
-
-            Ok(())
-        }
-
         /// Sets the commit-reveal weights periods for a specific subnet.
         ///
         /// This extrinsic allows the subnet owner or root account to set the duration (in epochs) during which committed weights must be revealed.
@@ -1275,6 +1240,85 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
             T::Grandpa::schedule_change(next_authorities, in_blocks, forced)
+        }
+
+        /// Sets the global weight for a subnet.
+        ///
+        /// This extrinsic allows the root account to set the global weight for a subnet. This is the weight that global TAO has in a subnet mechanism.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the root account.
+        /// * `netuid` - The unique identifier of the subnet for which the global weight is being set.
+        /// * `global_weight` - The global weight to set for this subnet.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the caller is not the root account.
+        /// * `SubnetDoesNotExist` - If the specified subnet does not exist.
+        ///
+        /// # Weight
+        /// Weight is handled by the `#[pallet::weight]` attribute.
+        #[pallet::call_index(60)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_global_weight(
+            origin: OriginFor<T>,
+            netuid: u16,
+            global_weight: u64,
+        ) -> DispatchResult {
+            // Only root can set the global weight.
+            ensure_root(origin)?;
+
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+
+            pallet_subtensor::Pallet::<T>::set_global_weight(global_weight, netuid);
+            log::debug!(
+                "SetGlobalWeight( netuid: {:?}, global_weight: {:?} ) ",
+                netuid,
+                global_weight
+            );
+            Ok(())
+        }
+
+        /// Sets the root weight for a subnet.
+        ///
+        /// This extrinsic allows the root account to set the root weight for a subnet.
+        /// 	This is the weight that TAO from the root subnet has in the subnet mechanism.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the root account.
+        /// * `netuid` - The unique identifier of the subnet for which the global weight is being set.
+        /// * `root_weight` - The root weight to set for this subnet.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the caller is not the root account.
+        /// * `SubnetDoesNotExist` - If the specified subnet does not exist.
+        ///
+        /// # Weight
+        /// Weight is handled by the `#[pallet::weight]` attribute.
+        #[pallet::call_index(61)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_root_weight(
+            origin: OriginFor<T>,
+            netuid: u16,
+            root_weight: u64,
+        ) -> DispatchResult {
+            // Only root can set the root weight.
+            ensure_root(origin)?;
+
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+
+            pallet_subtensor::Pallet::<T>::set_root_weight(netuid, root_weight);
+            log::debug!(
+                "SetRootWeight( netuid: {:?}, root_weight: {:?} ) ",
+                netuid,
+                root_weight
+            );
+            Ok(())
         }
     }
 }

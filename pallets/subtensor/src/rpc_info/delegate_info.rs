@@ -21,7 +21,7 @@ pub struct DelegateInfo<T: Config> {
 }
 
 impl<T: Config> Pallet<T> {
-    fn get_delegate_by_existing_account(delegate: AccountIdOf<T>) -> DelegateInfo<T> {
+    fn get_delegate_by_existing_account(delegate: &AccountIdOf<T>) -> DelegateInfo<T> {
         let mut nominators = Vec::<(T::AccountId, Compact<u64>)>::new();
 
         for (nominator, stake) in
@@ -60,7 +60,7 @@ impl<T: Config> Pallet<T> {
         let owner = Self::get_owning_coldkey_for_hotkey(&delegate.clone());
         let take: Compact<u16> = <Delegates<T>>::get(delegate.clone()).into();
 
-        let total_stake: U64F64 = Self::get_total_stake_for_hotkey(&delegate.clone()).into();
+        let total_stake: U64F64 = Self::get_global_for_hotkey(&delegate.clone()).into();
 
         let return_per_1000: U64F64 = if total_stake > U64F64::from_num(0) {
             emissions_per_day
@@ -94,7 +94,7 @@ impl<T: Config> Pallet<T> {
             return None;
         }
 
-        let delegate_info = Self::get_delegate_by_existing_account(delegate.clone());
+        let delegate_info = Self::get_delegate_by_existing_account(&delegate);
         Some(delegate_info)
     }
 
@@ -103,7 +103,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_delegates() -> Vec<DelegateInfo<T>> {
         let mut delegates = Vec::<DelegateInfo<T>>::new();
         for delegate in <Delegates<T> as IterableStorageMap<T::AccountId, u16>>::iter_keys() {
-            let delegate_info = Self::get_delegate_by_existing_account(delegate.clone());
+            let delegate_info = Self::get_delegate_by_existing_account(&delegate);
             delegates.push(delegate_info);
         }
 
@@ -120,18 +120,19 @@ impl<T: Config> Pallet<T> {
         let mut delegates: Vec<(DelegateInfo<T>, Compact<u64>)> = Vec::new();
         for delegate in <Delegates<T> as IterableStorageMap<T::AccountId, u16>>::iter_keys() {
             let staked_to_this_delegatee =
-                Self::get_stake_for_coldkey_and_hotkey(&delegatee.clone(), &delegate.clone());
+                Self::get_global_for_hotkey_and_coldkey(&delegatee, &delegate);
             if staked_to_this_delegatee == 0 {
                 continue; // No stake to this delegate
             }
             // Staked to this delegate, so add to list
-            let delegate_info = Self::get_delegate_by_existing_account(delegate.clone());
+            let delegate_info = Self::get_delegate_by_existing_account(&delegate);
             delegates.push((delegate_info, staked_to_this_delegatee.into()));
         }
 
         delegates
     }
 
+    /// NEVER CALL THIS CODE IN PRODUCTION, THIS IS SIMPLY A TEST HELPER.
     pub fn get_total_delegated_stake(coldkey: &T::AccountId) -> u64 {
         let mut total_delegated = 0u64;
 

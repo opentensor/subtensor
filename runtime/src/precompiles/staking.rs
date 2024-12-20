@@ -75,6 +75,8 @@ impl StakingPrecompile {
         // Create the add_stake call
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::<Runtime>::add_stake {
             hotkey,
+            // TODO update contract to add netuid
+            netuid: 1,
             amount_staked: amount_sub.unique_saturated_into(),
         });
         // Dispatch the add_stake call
@@ -96,6 +98,8 @@ impl StakingPrecompile {
 
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::<Runtime>::remove_stake {
             hotkey,
+            // TODO update contract to add netuid
+            netuid: 1,
             amount_unstaked: amount_sub.unique_saturated_into(),
         });
         Self::dispatch(handle, call)

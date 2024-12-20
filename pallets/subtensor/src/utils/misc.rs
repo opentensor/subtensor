@@ -6,7 +6,7 @@ use crate::{
 use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::Saturating;
-use substrate_fixed::types::I32F32;
+use substrate_fixed::types::{I32F32, I96F32};
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
@@ -185,8 +185,20 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    pub(crate) fn get_last_stake_increase_block(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+    ) -> u64 {
+        let (_, last_staked_at) = TotalHotkeyColdkeyStakesThisInterval::<T>::get(coldkey, hotkey);
+        last_staked_at // Technically wrong, but has last interval start.
+    }
+
     pub fn set_stake_interval(block: u64) {
         StakeInterval::<T>::set(block);
+    }
+    pub fn get_stake_weight(netuid: u16, uid: u16) -> u16 {
+        let vec = StakeWeight::<T>::get(netuid);
+        vec.get(uid as usize).copied().unwrap_or(0)
     }
     pub fn get_rank_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Rank::<T>::get(netuid);
@@ -247,6 +259,9 @@ impl<T: Config> Pallet<T> {
     }
     pub fn get_pending_emission(netuid: u16) -> u64 {
         PendingEmission::<T>::get(netuid)
+    }
+    pub fn get_pending_hotkey_emission_on_netuid(hotkey: &T::AccountId, netuid: u16) -> u64 {
+        PendingHotkeyEmissionOnNetuid::<T>::get(hotkey, netuid)
     }
     pub fn get_last_adjustment_block(netuid: u16) -> u64 {
         LastAdjustmentBlock::<T>::get(netuid)
@@ -622,6 +637,9 @@ impl<T: Config> Pallet<T> {
     pub fn get_subnet_owner_cut() -> u16 {
         SubnetOwnerCut::<T>::get()
     }
+    pub fn get_float_subnet_owner_cut() -> I96F32 {
+        I96F32::from_num(SubnetOwnerCut::<T>::get()).saturating_div(I96F32::from_num(u16::MAX))
+    }
     pub fn set_subnet_owner_cut(subnet_owner_cut: u16) {
         SubnetOwnerCut::<T>::set(subnet_owner_cut);
         Self::deposit_event(Event::SubnetOwnerCutSet(subnet_owner_cut));
@@ -724,10 +742,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::HotkeyEmissionTempoSet(emission_tempo));
     }
 
-    pub fn get_pending_hotkey_emission(hotkey: &T::AccountId) -> u64 {
-        PendingdHotkeyEmission::<T>::get(hotkey)
-    }
-
     /// Retrieves the maximum stake allowed for a given network.
     ///
     /// # Arguments
@@ -773,20 +787,5 @@ impl<T: Config> Pallet<T> {
     pub fn set_coldkey_swap_schedule_duration(duration: BlockNumberFor<T>) {
         ColdkeySwapScheduleDuration::<T>::set(duration);
         Self::deposit_event(Event::ColdkeySwapScheduleDurationSet(duration));
-    }
-
-    /// Set the duration for dissolve network
-    ///
-    /// # Arguments
-    ///
-    /// * `duration` - The blocks for dissolve network execution.
-    ///
-    /// # Effects
-    ///
-    /// * Update the DissolveNetworkScheduleDuration storage.
-    /// * Emits a DissolveNetworkScheduleDurationSet evnet.
-    pub fn set_dissolve_network_schedule_duration(duration: BlockNumberFor<T>) {
-        DissolveNetworkScheduleDuration::<T>::set(duration);
-        Self::deposit_event(Event::DissolveNetworkScheduleDurationSet(duration));
     }
 }

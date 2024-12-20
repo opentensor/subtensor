@@ -17,10 +17,12 @@ use sp_core::{H256, U256};
 #[test]
 fn test_add_stake_dispatch_info_ok() {
     new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
         let hotkey = U256::from(0);
         let amount_staked = 5000;
         let call = RuntimeCall::SubtensorModule(SubtensorCall::add_stake {
             hotkey,
+            netuid,
             amount_staked,
         });
         assert_eq!(
@@ -33,6 +35,7 @@ fn test_add_stake_dispatch_info_ok() {
         );
     });
 }
+
 #[test]
 fn test_add_stake_ok_no_emission() {
     new_test_ext(1).execute_with(|| {
@@ -53,7 +56,7 @@ fn test_add_stake_ok_no_emission() {
 
         // Check we have zero staked before transfer
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
             0
         );
 
@@ -64,12 +67,13 @@ fn test_add_stake_ok_no_emission() {
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id,
+            netuid,
             10000
         ));
 
         // Check if stake has increased
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
             9999
         );
 
@@ -81,6 +85,7 @@ fn test_add_stake_ok_no_emission() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_dividends_with_run_to_block --exact --nocapture
 #[test]
 fn test_dividends_with_run_to_block() {
     new_test_ext(1).execute_with(|| {
@@ -103,11 +108,16 @@ fn test_dividends_with_run_to_block() {
         register_ok_neuron(netuid, neuron_dest_hotkey_id, coldkey_account_id, 12323);
 
         // Add some stake to the hotkey account, so we can test for emission before the transfer takes place
-        SubtensorModule::increase_stake_on_hotkey_account(&neuron_src_hotkey_id, initial_stake);
+        SubtensorModule::stake_into_subnet(
+            &neuron_src_hotkey_id,
+            &coldkey_account_id,
+            netuid,
+            initial_stake,
+        );
 
         // Check if the initial stake has arrived
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&neuron_src_hotkey_id),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&neuron_src_hotkey_id, netuid),
             initial_stake
         );
 
@@ -119,81 +129,85 @@ fn test_dividends_with_run_to_block() {
 
         // Check if the stake is equal to the inital stake + transfer
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&neuron_src_hotkey_id),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&neuron_src_hotkey_id, netuid),
             initial_stake
         );
 
         // Check if the stake is equal to the inital stake + transfer
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&neuron_dest_hotkey_id),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&neuron_dest_hotkey_id, netuid),
             0
         );
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_add_stake_err_signature --exact --nocapture
 #[test]
 fn test_add_stake_err_signature() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(654); // bogus
         let amount = 20000; // Not used
+        let netuid: u16 = 1;
 
         let result = SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::none(),
             hotkey_account_id,
+            netuid,
             amount,
         );
         assert_eq!(result, DispatchError::BadOrigin.into());
     });
 }
 
-#[test]
-fn test_add_stake_not_registered_key_pair() {
-    new_test_ext(1).execute_with(|| {
-        let coldkey_account_id = U256::from(435445);
-        let hotkey_account_id = U256::from(54544);
-        let amount = 1337;
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1800);
-        assert_eq!(
-            SubtensorModule::add_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-                hotkey_account_id,
-                amount
-            ),
-            Err(Error::<Test>::HotKeyAccountNotExists.into())
-        );
-    });
-}
+// #[test]
+// fn test_add_stake_not_registered_key_pair() {
+//     new_test_ext(1).execute_with(|| {
+//         let coldkey_account_id = U256::from(435445);
+//         let hotkey_account_id = U256::from(54544);
+//         let amount = 1337;
+//         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1800);
+//         assert_eq!(
+//             SubtensorModule::add_stake(
+//                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+//                 hotkey_account_id,
+//                 amount
+//             ),
+//             Err(Error::<Test>::HotKeyAccountNotExists.into())
+//         );
+//     });
+// }
 
-#[test]
-fn test_add_stake_err_neuron_does_not_belong_to_coldkey() {
-    new_test_ext(1).execute_with(|| {
-        let coldkey_id = U256::from(544);
-        let hotkey_id = U256::from(54544);
-        let other_cold_key = U256::from(99498);
-        let netuid: u16 = 1;
-        let tempo: u16 = 13;
-        let start_nonce: u64 = 0;
+// #[test]
+// fn test_add_stake_err_neuron_does_not_belong_to_coldkey() {
+//     new_test_ext(1).execute_with(|| {
+//         let coldkey_id = U256::from(544);
+//         let hotkey_id = U256::from(54544);
+//         let other_cold_key = U256::from(99498);
+//         let netuid: u16 = 1;
+//         let tempo: u16 = 13;
+//         let start_nonce: u64 = 0;
 
-        //add network
-        add_network(netuid, tempo, 0);
+//         //add network
+//         add_network(netuid, tempo, 0);
 
-        register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
-        // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&other_cold_key, 100000);
+//         register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
+//         // Give it some $$$ in his coldkey balance
+//         SubtensorModule::add_balance_to_coldkey_account(&other_cold_key, 100000);
 
-        // Perform the request which is signed by a different cold key
-        let result = SubtensorModule::add_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(other_cold_key),
-            hotkey_id,
-            1000,
-        );
-        assert_eq!(
-            result,
-            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
-        );
-    });
-}
+//         // Perform the request which is signed by a different cold key
+//         let result = SubtensorModule::add_stake(
+//             <<Test as Config>::RuntimeOrigin>::signed(other_cold_key),
+//             hotkey_id,
+//             1000,
+//         );
+//         assert_eq!(
+//             result,
+//             Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
+//         );
+//     });
+// }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_add_stake_err_not_enough_belance --exact --nocapture
 #[test]
 fn test_add_stake_err_not_enough_belance() {
     new_test_ext(1).execute_with(|| {
@@ -213,6 +227,7 @@ fn test_add_stake_err_not_enough_belance() {
         let result = SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_id),
             hotkey_id,
+            netuid,
             60000,
         );
 
@@ -220,6 +235,7 @@ fn test_add_stake_err_not_enough_belance() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_add_stake_total_balance_no_change --exact --nocapture
 #[test]
 #[ignore]
 fn test_add_stake_total_balance_no_change() {
@@ -243,7 +259,8 @@ fn test_add_stake_total_balance_no_change() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, initial_balance);
 
         // Check we have zero staked before transfer
-        let initial_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
+        let initial_stake =
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid);
         assert_eq!(initial_stake, 0);
 
         // Check total balance is equal to initial balance
@@ -257,11 +274,12 @@ fn test_add_stake_total_balance_no_change() {
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id,
+            netuid,
             10000
         ));
 
         // Check if stake has increased
-        let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
+        let new_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid);
         assert_eq!(new_stake, 10000);
 
         // Check if free balance has decreased
@@ -277,6 +295,7 @@ fn test_add_stake_total_balance_no_change() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_add_stake_total_issuance_no_change --exact --nocapture
 #[test]
 #[ignore]
 fn test_add_stake_total_issuance_no_change() {
@@ -300,7 +319,8 @@ fn test_add_stake_total_issuance_no_change() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, initial_balance);
 
         // Check we have zero staked before transfer
-        let initial_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
+        let initial_stake =
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid);
         assert_eq!(initial_stake, 0);
 
         // Check total balance is equal to initial balance
@@ -318,11 +338,12 @@ fn test_add_stake_total_issuance_no_change() {
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id,
+            netuid,
             10000
         ));
 
         // Check if stake has increased
-        let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
+        let new_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid);
         assert_eq!(new_stake, 10000);
 
         // Check if free balance has decreased
@@ -338,6 +359,7 @@ fn test_add_stake_total_issuance_no_change() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_reset_stakes_per_interval --exact --nocapture
 #[test]
 fn test_reset_stakes_per_interval() {
     new_test_ext(1).execute_with(|| {
@@ -400,6 +422,7 @@ fn test_reset_stakes_per_interval() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_reset_stakes_per_interval --exact --nocapture
 #[test]
 fn test_staking_rate_limit() {
     new_test_ext(1).execute_with(|| {
@@ -424,6 +447,13 @@ fn test_staking_rate_limit() {
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             hotkey,
+            netuid,
+            1,
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey,
+            netuid,
             1,
         ));
 
@@ -439,12 +469,14 @@ fn test_staking_rate_limit() {
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             hotkey,
+            netuid,
             1,
         ));
         // remove should increase the counter
         assert_ok!(SubtensorModule::remove_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             hotkey,
+            netuid,
             1,
         ));
 
@@ -462,6 +494,7 @@ fn test_staking_rate_limit() {
             SubtensorModule::add_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey),
                 hotkey,
+                netuid,
                 1,
             ),
             Error::<Test>::StakingRateLimitExceeded
@@ -470,6 +503,7 @@ fn test_staking_rate_limit() {
             SubtensorModule::remove_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey),
                 hotkey,
+                netuid,
                 1,
             ),
             Error::<Test>::StakingRateLimitExceeded
@@ -488,6 +522,7 @@ fn test_staking_rate_limit() {
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             hotkey,
+            netuid,
             1,
         ));
 
@@ -502,6 +537,7 @@ fn test_staking_rate_limit() {
         assert_ok!(SubtensorModule::remove_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             hotkey,
+            netuid,
             1,
         ));
 
@@ -512,13 +548,204 @@ fn test_staking_rate_limit() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_add_stake_rate_limit_exceeded --exact --nocapture
+#[test]
+fn test_add_stake_rate_limit_exceeded() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(561337);
+        let coldkey_account_id = U256::from(61337);
+        let netuid: u16 = 1;
+        let max_stakes = 2;
+        let block_number = 1;
+
+        SubtensorModule::set_target_stakes_per_interval(max_stakes);
+        TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(
+            hotkey_account_id,
+            coldkey_account_id,
+            (max_stakes, block_number),
+        );
+
+        // block 2
+        step_block(1);
+
+        // stake 2 and 3
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            1,
+        ));
+        // remove should increase the counter
+        assert_ok!(SubtensorModule::remove_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            1,
+        ));
+
+        // counter should be increased, while the block should not be changed
+        assert_eq!(
+            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(
+                hotkey_account_id,
+                coldkey_account_id
+            ),
+            (3, 1)
+        );
+
+        // block 3
+        step_block(1);
+
+        // stake 4
+        assert_noop!(
+            SubtensorModule::add_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                hotkey_account_id,
+                netuid,
+                1,
+            ),
+            Error::<Test>::StakingRateLimitExceeded
+        );
+
+        let current_stakes = get_total_stakes_this_interval_for_coldkey_hotkey(
+            &coldkey_account_id,
+            &hotkey_account_id,
+        );
+        assert_eq!(current_stakes, max_stakes);
+    });
+}
+
+// /***********************************************************
+// 	staking::remove_stake() tests
+// ************************************************************/
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_remove_stake_under_limit --exact --nocapture
+#[test]
+fn test_remove_stake_under_limit() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(561337);
+        let coldkey_account_id = U256::from(61337);
+        let netuid: u16 = 1;
+        let start_nonce: u64 = 0;
+        let tempo: u16 = 13;
+        let max_unstakes = 2;
+
+        SubtensorModule::set_target_stakes_per_interval(max_unstakes);
+        add_network(netuid, tempo, 0);
+        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 60000);
+        SubtensorModule::stake_into_subnet(&hotkey_account_id, &coldkey_account_id, netuid, 2);
+
+        assert_ok!(SubtensorModule::remove_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            1,
+        ));
+        assert_ok!(SubtensorModule::remove_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            1,
+        ));
+
+        let current_unstakes = get_total_stakes_this_interval_for_coldkey_hotkey(
+            &coldkey_account_id,
+            &hotkey_account_id,
+        );
+        assert!(current_unstakes <= max_unstakes);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_remove_stake_under_limit --exact --nocapture
+#[test]
+fn test_remove_stake_rate_limit_exceeded() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(561337);
+        let coldkey_account_id = U256::from(61337);
+        let netuid: u16 = 1;
+        let start_nonce: u64 = 0;
+        let tempo: u16 = 13;
+        let max_unstakes = 1;
+        let block_number = 1;
+
+        SubtensorModule::set_target_stakes_per_interval(max_unstakes);
+        TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(
+            hotkey_account_id,
+            coldkey_account_id,
+            (max_unstakes, block_number),
+        );
+
+        add_network(netuid, tempo, 0);
+        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 60000);
+        SubtensorModule::stake_into_subnet(&hotkey_account_id, &coldkey_account_id, netuid, 2);
+        assert_err!(
+            SubtensorModule::remove_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                hotkey_account_id,
+                netuid,
+                2,
+            ),
+            Error::<Test>::StakingRateLimitExceeded
+        );
+
+        // should not be changed
+        assert_eq!(
+            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(
+                coldkey_account_id,
+                hotkey_account_id
+            ),
+            (3, 1)
+        );
+
+        // block 4
+        step_block(1);
+
+        // should pass now, because of the interval end
+        assert_ok!(SubtensorModule::remove_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            1,
+        ));
+
+        assert_eq!(
+            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(
+                coldkey_account_id,
+                hotkey_account_id
+            ),
+            (1, 4)
+        );
+
+        // block 5
+        step_block(1);
+
+        assert_ok!(SubtensorModule::remove_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            1,
+        ));
+
+        assert_eq!(
+            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(
+                coldkey_account_id,
+                hotkey_account_id
+            ),
+            (2, 4)
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_remove_stake_dispatch_info_ok --exact --nocapture
 #[test]
 fn test_remove_stake_dispatch_info_ok() {
     new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
         let hotkey = U256::from(0);
         let amount_unstaked = 5000;
         let call = RuntimeCall::SubtensorModule(SubtensorCall::remove_stake {
             hotkey,
+            netuid,
             amount_unstaked,
         });
         assert_eq!(
@@ -533,6 +760,7 @@ fn test_remove_stake_dispatch_info_ok() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_remove_stake_ok_no_emission --exact --nocapture
 #[test]
 fn test_remove_stake_ok_no_emission() {
     new_test_ext(1).execute_with(|| {
@@ -552,18 +780,19 @@ fn test_remove_stake_ok_no_emission() {
         // Some basic assertions
         assert_eq!(SubtensorModule::get_total_stake(), 0);
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
             0
         );
         assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
 
         // Give the neuron some stake to remove
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, amount);
+        SubtensorModule::stake_into_subnet(&hotkey_account_id, &coldkey_account_id, netuid, amount);
 
         // Do the magic
         assert_ok!(SubtensorModule::remove_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id,
+            netuid,
             amount
         ));
 
@@ -572,13 +801,14 @@ fn test_remove_stake_ok_no_emission() {
             amount
         );
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
             0
         );
         assert_eq!(SubtensorModule::get_total_stake(), 0);
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_remove_stake_amount_zero --exact --nocapture
 #[test]
 fn test_remove_stake_amount_zero() {
     new_test_ext(1).execute_with(|| {
@@ -598,19 +828,20 @@ fn test_remove_stake_amount_zero() {
         // Some basic assertions
         assert_eq!(SubtensorModule::get_total_stake(), 0);
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
             0
         );
         assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
 
         // Give the neuron some stake to remove
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, amount);
+        SubtensorModule::stake_into_subnet(&hotkey_account_id, &coldkey_account_id, netuid, amount);
 
         // Do the magic
         assert_noop!(
             SubtensorModule::remove_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 hotkey_account_id,
+                netuid,
                 0
             ),
             Error::<Test>::StakeToWithdrawIsZero
@@ -618,49 +849,56 @@ fn test_remove_stake_amount_zero() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_remove_stake_err_signature --exact --nocapture
 #[test]
 fn test_remove_stake_err_signature() {
     new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
         let hotkey_account_id = U256::from(4968585);
         let amount = 10000; // Amount to be removed
 
         let result = SubtensorModule::remove_stake(
             <<Test as Config>::RuntimeOrigin>::none(),
             hotkey_account_id,
+            netuid,
             amount,
         );
         assert_eq!(result, DispatchError::BadOrigin.into());
     });
 }
 
-#[test]
-fn test_remove_stake_err_hotkey_does_not_belong_to_coldkey() {
-    new_test_ext(1).execute_with(|| {
-        let coldkey_id = U256::from(544);
-        let hotkey_id = U256::from(54544);
-        let other_cold_key = U256::from(99498);
-        let netuid: u16 = 1;
-        let tempo: u16 = 13;
-        let start_nonce: u64 = 0;
+//  Deprecated
+// // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_remove_stake_err_hotkey_does_not_belong_to_coldkey --exact --nocapture
+// #[test]
+// fn test_remove_stake_err_hotkey_does_not_belong_to_coldkey() {
+//     new_test_ext(1).execute_with(|| {
+//         let coldkey_id = U256::from(544);
+//         let hotkey_id = U256::from(54544);
+//         let other_cold_key = U256::from(99498);
+//         let netuid: u16 = 1;
+//         let tempo: u16 = 13;
+//         let start_nonce: u64 = 0;
 
-        //add network
-        add_network(netuid, tempo, 0);
+//         //add network
+//         add_network(netuid, tempo, 0);
 
-        register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
+//         register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
 
-        // Perform the request which is signed by a different cold key
-        let result = SubtensorModule::remove_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(other_cold_key),
-            hotkey_id,
-            1000,
-        );
-        assert_eq!(
-            result,
-            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
-        );
-    });
-}
+//         // Perform the request which is signed by a different cold key
+//         let result = SubtensorModule::remove_stake(
+//             <<Test as Config>::RuntimeOrigin>::signed(other_cold_key),
+//             hotkey_id,
+//             netuid,
+//             1000,
+//         );
+//         assert_eq!(
+//             result,
+//             Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
+//         );
+//     });
+// }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_remove_stake_no_enough_stake --exact --nocapture
 #[test]
 fn test_remove_stake_no_enough_stake() {
     new_test_ext(1).execute_with(|| {
@@ -676,17 +914,22 @@ fn test_remove_stake_no_enough_stake() {
 
         register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
 
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_id, netuid),
+            0
+        );
 
         let result = SubtensorModule::remove_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_id),
             hotkey_id,
+            netuid,
             amount,
         );
         assert_eq!(result, Err(Error::<Test>::NotEnoughStakeToWithdraw.into()));
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_remove_stake_total_balance_no_change --exact --nocapture
 #[test]
 fn test_remove_stake_total_balance_no_change() {
     // When we remove stake, the total balance of the coldkey account should not change
@@ -709,7 +952,7 @@ fn test_remove_stake_total_balance_no_change() {
         // Some basic assertions
         assert_eq!(SubtensorModule::get_total_stake(), 0);
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
             0
         );
         assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
@@ -717,12 +960,13 @@ fn test_remove_stake_total_balance_no_change() {
         assert_eq!(initial_total_balance, 0);
 
         // Give the neuron some stake to remove
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, amount);
+        SubtensorModule::stake_into_subnet(&hotkey_account_id, &coldkey_account_id, netuid, amount);
 
         // Do the magic
         assert_ok!(SubtensorModule::remove_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id,
+            netuid,
             amount
         ));
 
@@ -731,7 +975,7 @@ fn test_remove_stake_total_balance_no_change() {
             amount
         );
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
             0
         );
         assert_eq!(SubtensorModule::get_total_stake(), 0);
@@ -742,6 +986,7 @@ fn test_remove_stake_total_balance_no_change() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_remove_stake_total_issuance_no_change --exact --nocapture
 #[test]
 #[ignore]
 fn test_remove_stake_total_issuance_no_change() {
@@ -765,7 +1010,7 @@ fn test_remove_stake_total_issuance_no_change() {
         // Some basic assertions
         assert_eq!(SubtensorModule::get_total_stake(), 0);
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
             0
         );
         assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
@@ -775,7 +1020,7 @@ fn test_remove_stake_total_issuance_no_change() {
         assert_eq!(inital_total_issuance, 0);
 
         // Give the neuron some stake to remove
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, amount);
+        SubtensorModule::stake_into_subnet(&hotkey_account_id, &coldkey_account_id, netuid, amount);
 
         let total_issuance_after_stake = Balances::total_issuance();
 
@@ -783,6 +1028,7 @@ fn test_remove_stake_total_issuance_no_change() {
         assert_ok!(SubtensorModule::remove_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id,
+            netuid,
             amount
         ));
 
@@ -791,7 +1037,7 @@ fn test_remove_stake_total_issuance_no_change() {
             amount
         );
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
             0
         );
         assert_eq!(SubtensorModule::get_total_stake(), 0);
@@ -807,6 +1053,7 @@ fn test_remove_stake_total_issuance_no_change() {
 /***********************************************************
     staking::get_coldkey_balance() tests
 ************************************************************/
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_get_coldkey_balance_no_balance --exact --nocapture
 #[test]
 fn test_get_coldkey_balance_no_balance() {
     new_test_ext(1).execute_with(|| {
@@ -818,6 +1065,7 @@ fn test_get_coldkey_balance_no_balance() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_get_coldkey_balance_with_balance --exact --nocapture
 #[test]
 fn test_get_coldkey_balance_with_balance() {
     new_test_ext(1).execute_with(|| {
@@ -837,6 +1085,7 @@ fn test_get_coldkey_balance_with_balance() {
 // /***********************************************************
 // 	staking::add_stake_to_hotkey_account() tests
 // ************************************************************/
+//  SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_add_stake_to_hotkey_account_ok --exact --nocapture
 #[test]
 fn test_add_stake_to_hotkey_account_ok() {
     new_test_ext(1).execute_with(|| {
@@ -855,11 +1104,11 @@ fn test_add_stake_to_hotkey_account_ok() {
         // There is not stake in the system at first, so result should be 0;
         assert_eq!(SubtensorModule::get_total_stake(), 0);
 
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, amount);
+        SubtensorModule::stake_into_subnet(&hotkey_id, &coldkey_id, netuid, amount);
 
         // The stake that is now in the account, should equal the amount
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_id, netuid),
             amount
         );
 
@@ -871,6 +1120,7 @@ fn test_add_stake_to_hotkey_account_ok() {
 /************************************************************
     staking::remove_stake_from_hotkey_account() tests
 ************************************************************/
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_remove_stake_from_hotkey_account --exact --nocapture
 #[test]
 fn test_remove_stake_from_hotkey_account() {
     new_test_ext(1).execute_with(|| {
@@ -887,26 +1137,30 @@ fn test_remove_stake_from_hotkey_account() {
         register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
 
         // Add some stake that can be removed
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, amount);
+        SubtensorModule::stake_into_subnet(&hotkey_id, &coldkey_id, netuid, amount);
 
         // Prelimiary checks
         assert_eq!(SubtensorModule::get_total_stake(), amount);
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_id, netuid),
             amount
         );
 
         // Remove stake
-        SubtensorModule::decrease_stake_on_hotkey_account(&hotkey_id, amount);
+        SubtensorModule::unstake_from_subnet(&hotkey_id, &coldkey_id, netuid, amount);
 
         // The stake on the hotkey account should be 0
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_id, netuid),
+            0
+        );
 
         // The total amount of stake should be 0
         assert_eq!(SubtensorModule::get_total_stake(), 0);
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_remove_stake_from_hotkey_account_registered_in_various_networks --exact --nocapture
 #[test]
 fn test_remove_stake_from_hotkey_account_registered_in_various_networks() {
     new_test_ext(1).execute_with(|| {
@@ -924,40 +1178,29 @@ fn test_remove_stake_from_hotkey_account_registered_in_various_networks() {
         register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
         register_ok_neuron(netuid_ex, hotkey_id, coldkey_id, 48141209);
 
-        //let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_id);
-
-        let neuron_uid = match SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_id) {
-            Ok(k) => k,
-            Err(e) => panic!("Error: {:?}", e),
-        };
-        //let neuron_uid_ex = SubtensorModule::get_uid_for_net_and_hotkey(netuid_ex, &hotkey_id);
-
-        let neuron_uid_ex = match SubtensorModule::get_uid_for_net_and_hotkey(netuid_ex, &hotkey_id)
-        {
-            Ok(k) => k,
-            Err(e) => panic!("Error: {:?}", e),
-        };
         //Add some stake that can be removed
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, amount);
+        SubtensorModule::stake_into_subnet(&hotkey_id, &coldkey_id, netuid, amount);
 
         assert_eq!(
-            SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_id, netuid),
             amount
         );
+        // None on the other network.
         assert_eq!(
-            SubtensorModule::get_stake_for_uid_and_subnetwork(netuid_ex, neuron_uid_ex),
-            amount
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_id, netuid_ex),
+            0
         );
 
         // Remove stake
-        SubtensorModule::decrease_stake_on_hotkey_account(&hotkey_id, amount);
+        SubtensorModule::unstake_from_subnet(&hotkey_id, &coldkey_id, netuid, amount);
         //
         assert_eq!(
-            SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_id, netuid),
             0
         );
+        // None on the other network.
         assert_eq!(
-            SubtensorModule::get_stake_for_uid_and_subnetwork(netuid_ex, neuron_uid_ex),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_id, netuid_ex),
             0
         );
     });
@@ -966,39 +1209,40 @@ fn test_remove_stake_from_hotkey_account_registered_in_various_networks() {
 // /************************************************************
 // 	staking::increase_total_stake() tests
 // ************************************************************/
-#[test]
-fn test_increase_total_stake_ok() {
-    new_test_ext(1).execute_with(|| {
-        let increment = 10000;
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
-        SubtensorModule::increase_total_stake(increment);
-        assert_eq!(SubtensorModule::get_total_stake(), increment);
-    });
-}
+// #[test]
+// fn test_increase_total_stake_ok() {
+//     new_test_ext(1).execute_with(|| {
+//         let increment = 10000;
+//         assert_eq!(SubtensorModule::get_total_stake(), 0);
+//         SubtensorModule::increase_total_stake(increment);
+//         assert_eq!(SubtensorModule::get_total_stake(), increment);
+//     });
+// }
 
 // /************************************************************
 // 	staking::decrease_total_stake() tests
 // ************************************************************/
-#[test]
-fn test_decrease_total_stake_ok() {
-    new_test_ext(1).execute_with(|| {
-        let initial_total_stake = 10000;
-        let decrement = 5000;
+// #[test]
+// fn test_decrease_total_stake_ok() {
+//     new_test_ext(1).execute_with(|| {
+//         let initial_total_stake = 10000;
+//         let decrement = 5000;
 
-        SubtensorModule::increase_total_stake(initial_total_stake);
-        SubtensorModule::decrease_total_stake(decrement);
+//         SubtensorModule::increase_total_stake(initial_total_stake);
+//         SubtensorModule::decrease_total_stake(decrement);
 
-        // The total stake remaining should be the difference between the initial stake and the decrement
-        assert_eq!(
-            SubtensorModule::get_total_stake(),
-            initial_total_stake - decrement
-        );
-    });
-}
+//         // The total stake remaining should be the difference between the initial stake and the decrement
+//         assert_eq!(
+//             SubtensorModule::get_total_stake(),
+//             initial_total_stake - decrement
+//         );
+//     });
+// }
 
 // /************************************************************
 // 	staking::add_balance_to_coldkey_account() tests
 // ************************************************************/
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_add_balance_to_coldkey_account_ok --exact --nocapture
 #[test]
 fn test_add_balance_to_coldkey_account_ok() {
     new_test_ext(1).execute_with(|| {
@@ -1012,6 +1256,7 @@ fn test_add_balance_to_coldkey_account_ok() {
 // /***********************************************************
 // 	staking::remove_balance_from_coldkey_account() tests
 // ************************************************************/
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_remove_balance_from_coldkey_account_ok --exact --nocapture
 #[test]
 fn test_remove_balance_from_coldkey_account_ok() {
     new_test_ext(1).execute_with(|| {
@@ -1030,6 +1275,7 @@ fn test_remove_balance_from_coldkey_account_ok() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_remove_balance_from_coldkey_account_failed --exact --nocapture
 #[test]
 fn test_remove_balance_from_coldkey_account_failed() {
     new_test_ext(1).execute_with(|| {
@@ -1047,6 +1293,7 @@ fn test_remove_balance_from_coldkey_account_failed() {
 //************************************************************
 // 	staking::hotkey_belongs_to_coldkey() tests
 // ************************************************************/
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_hotkey_belongs_to_coldkey_ok --exact --nocapture
 #[test]
 fn test_hotkey_belongs_to_coldkey_ok() {
     new_test_ext(1).execute_with(|| {
@@ -1066,6 +1313,7 @@ fn test_hotkey_belongs_to_coldkey_ok() {
 // /************************************************************
 // 	staking::can_remove_balance_from_coldkey_account() tests
 // ************************************************************/
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_can_remove_balane_from_coldkey_account_ok --exact --nocapture
 #[test]
 fn test_can_remove_balane_from_coldkey_account_ok() {
     new_test_ext(1).execute_with(|| {
@@ -1080,6 +1328,7 @@ fn test_can_remove_balane_from_coldkey_account_ok() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_can_remove_balance_from_coldkey_account_err_insufficient_balance --exact --nocapture
 #[test]
 fn test_can_remove_balance_from_coldkey_account_err_insufficient_balance() {
     new_test_ext(1).execute_with(|| {
@@ -1094,8 +1343,9 @@ fn test_can_remove_balance_from_coldkey_account_err_insufficient_balance() {
     });
 }
 /************************************************************
-    staking::has_enough_stake() tests
+    staking::has_enough_stake_on_subnet() tests
 ************************************************************/
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_has_enough_stake_yes --exact --nocapture
 #[test]
 fn test_has_enough_stake_yes() {
     new_test_ext(1).execute_with(|| {
@@ -1107,23 +1357,29 @@ fn test_has_enough_stake_yes() {
         let start_nonce: u64 = 0;
         add_network(netuid, tempo, 0);
         register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, intial_amount);
+        SubtensorModule::stake_into_subnet(&hotkey_id, &coldkey_id, netuid, intial_amount);
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_id, netuid),
             10000
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_id, &hotkey_id),
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey_id,
+                &coldkey_id,
+                netuid
+            ),
             10000
         );
-        assert!(SubtensorModule::has_enough_stake(
-            &coldkey_id,
+        assert!(SubtensorModule::has_enough_stake_on_subnet(
             &hotkey_id,
+            &coldkey_id,
+            netuid,
             5000
         ));
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_has_enough_stake_no --exact --nocapture
 #[test]
 fn test_has_enough_stake_no() {
     new_test_ext(1).execute_with(|| {
@@ -1135,29 +1391,31 @@ fn test_has_enough_stake_no() {
         let start_nonce: u64 = 0;
         add_network(netuid, tempo, 0);
         register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, intial_amount);
-        assert!(!SubtensorModule::has_enough_stake(
+        SubtensorModule::stake_into_subnet(&hotkey_id, &coldkey_id, netuid, intial_amount);
+        assert!(!SubtensorModule::has_enough_stake_on_subnet(
             &coldkey_id,
             &hotkey_id,
+            netuid,
             5000
         ));
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_non_existent_account --exact --nocapture
 #[test]
 fn test_non_existent_account() {
     new_test_ext(1).execute_with(|| {
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-            &U256::from(0),
-            &(U256::from(0)),
-            10,
-        );
+        SubtensorModule::stake_into_subnet(&U256::from(0), &U256::from(0), 1, 10);
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&U256::from(0), &U256::from(0)),
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &U256::from(0),
+                &U256::from(0),
+                1
+            ),
             10
         );
         assert_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&(U256::from(0))),
+            SubtensorModule::get_stake_for_coldkey_on_subnet(&(U256::from(0)), 1),
             10
         );
     });
@@ -1167,6 +1425,7 @@ fn test_non_existent_account() {
     staking::delegating
 ************************************************************/
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_non_existent_account --exact --nocapture
 #[test]
 fn test_delegate_stake_division_by_zero_check() {
     new_test_ext(1).execute_with(|| {
@@ -1187,145 +1446,146 @@ fn test_delegate_stake_division_by_zero_check() {
     staking::unstake_all_coldkeys_from_hotkey_account() tests
 ************************************************************/
 
-#[test]
-fn test_unstake_all_coldkeys_from_hotkey_account() {
-    new_test_ext(1).execute_with(|| {
-        let hotkey_id = U256::from(123570);
-        let coldkey0_id = U256::from(123560);
+// #[test]
+// fn test_unstake_all_coldkeys_from_hotkey_account() {
+//     new_test_ext(1).execute_with(|| {
+//         let hotkey_id = U256::from(123570);
+//         let coldkey0_id = U256::from(123560);
 
-        let coldkey1_id = U256::from(123561);
-        let coldkey2_id = U256::from(123562);
-        let coldkey3_id = U256::from(123563);
+//         let coldkey1_id = U256::from(123561);
+//         let coldkey2_id = U256::from(123562);
+//         let coldkey3_id = U256::from(123563);
 
-        let amount: u64 = 10000;
+//         let amount: u64 = 10000;
 
-        let netuid: u16 = 1;
-        let tempo: u16 = 13;
-        let start_nonce: u64 = 0;
+//         let netuid: u16 = 1;
+//         let tempo: u16 = 13;
+//         let start_nonce: u64 = 0;
 
-        // Make subnet
-        add_network(netuid, tempo, 0);
-        // Register delegate
-        register_ok_neuron(netuid, hotkey_id, coldkey0_id, start_nonce);
+//         // Make subnet
+//         add_network(netuid, tempo, 0);
+//         // Register delegate
+//         register_ok_neuron(netuid, hotkey_id, coldkey0_id, start_nonce);
 
-        match SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_id) {
-            Ok(_k) => (),
-            Err(e) => panic!("Error: {:?}", e),
-        }
+//         match SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_id) {
+//             Ok(_k) => (),
+//             Err(e) => panic!("Error: {:?}", e),
+//         }
 
-        //Add some stake that can be removed
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey0_id, &hotkey_id, amount);
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-            &coldkey1_id,
-            &hotkey_id,
-            amount + 2,
-        );
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-            &coldkey2_id,
-            &hotkey_id,
-            amount + 3,
-        );
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-            &coldkey3_id,
-            &hotkey_id,
-            amount + 4,
-        );
+//         //Add some stake that can be removed
+//         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey0_id, &hotkey_id, amount);
+//         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+//             &coldkey1_id,
+//             &hotkey_id,
+//             amount + 2,
+//         );
+//         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+//             &coldkey2_id,
+//             &hotkey_id,
+//             amount + 3,
+//         );
+//         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+//             &coldkey3_id,
+//             &hotkey_id,
+//             amount + 4,
+//         );
 
-        // Verify free balance is 0 for all coldkeys
-        assert_eq!(Balances::free_balance(coldkey0_id), 0);
-        assert_eq!(Balances::free_balance(coldkey1_id), 0);
-        assert_eq!(Balances::free_balance(coldkey2_id), 0);
-        assert_eq!(Balances::free_balance(coldkey3_id), 0);
+//         // Verify free balance is 0 for all coldkeys
+//         assert_eq!(Balances::free_balance(coldkey0_id), 0);
+//         assert_eq!(Balances::free_balance(coldkey1_id), 0);
+//         assert_eq!(Balances::free_balance(coldkey2_id), 0);
+//         assert_eq!(Balances::free_balance(coldkey3_id), 0);
 
-        // Verify total stake is correct
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
-            amount * 4 + (2 + 3 + 4)
-        );
+//         // Verify total stake is correct
+//         assert_eq!(
+//             SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
+//             amount * 4 + (2 + 3 + 4)
+//         );
 
-        // Run unstake_all_coldkeys_from_hotkey_account
-        SubtensorModule::unstake_all_coldkeys_from_hotkey_account(&hotkey_id);
+//         // Run unstake_all_coldkeys_from_hotkey_account
+//         SubtensorModule::unstake_all_coldkeys_from_hotkey_account(&hotkey_id);
 
-        // Verify total stake is 0
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
+//         // Verify total stake is 0
+//         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
 
-        // Vefify stake for all coldkeys is 0
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0_id, &hotkey_id),
-            0
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1_id, &hotkey_id),
-            0
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2_id, &hotkey_id),
-            0
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey3_id, &hotkey_id),
-            0
-        );
+//         // Vefify stake for all coldkeys is 0
+//         assert_eq!(
+//             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0_id, &hotkey_id),
+//             0
+//         );
+//         assert_eq!(
+//             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1_id, &hotkey_id),
+//             0
+//         );
+//         assert_eq!(
+//             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2_id, &hotkey_id),
+//             0
+//         );
+//         assert_eq!(
+//             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey3_id, &hotkey_id),
+//             0
+//         );
 
-        // Verify free balance is correct for all coldkeys
-        assert_eq!(Balances::free_balance(coldkey0_id), amount);
-        assert_eq!(Balances::free_balance(coldkey1_id), amount + 2);
-        assert_eq!(Balances::free_balance(coldkey2_id), amount + 3);
-        assert_eq!(Balances::free_balance(coldkey3_id), amount + 4);
-    });
-}
+//         // Verify free balance is correct for all coldkeys
+//         assert_eq!(Balances::free_balance(coldkey0_id), amount);
+//         assert_eq!(Balances::free_balance(coldkey1_id), amount + 2);
+//         assert_eq!(Balances::free_balance(coldkey2_id), amount + 3);
+//         assert_eq!(Balances::free_balance(coldkey3_id), amount + 4);
+//     });
+// }
 
-#[test]
-fn test_unstake_all_coldkeys_from_hotkey_account_single_staker() {
-    new_test_ext(1).execute_with(|| {
-        let hotkey_id = U256::from(123570);
-        let coldkey0_id = U256::from(123560);
+// #[test]
+// fn test_unstake_all_coldkeys_from_hotkey_account_single_staker() {
+//     new_test_ext(1).execute_with(|| {
+//         let hotkey_id = U256::from(123570);
+//         let coldkey0_id = U256::from(123560);
 
-        let amount: u64 = 891011;
+//         let amount: u64 = 891011;
 
-        let netuid: u16 = 1;
-        let tempo: u16 = 13;
-        let start_nonce: u64 = 0;
+//         let netuid: u16 = 1;
+//         let tempo: u16 = 13;
+//         let start_nonce: u64 = 0;
 
-        // Make subnet
-        add_network(netuid, tempo, 0);
-        // Register delegate
-        register_ok_neuron(netuid, hotkey_id, coldkey0_id, start_nonce);
+//         // Make subnet
+//         add_network(netuid, tempo, 0);
+//         // Register delegate
+//         register_ok_neuron(netuid, hotkey_id, coldkey0_id, start_nonce);
 
-        match SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_id) {
-            Ok(_) => (),
-            Err(e) => panic!("Error: {:?}", e),
-        }
+//         match SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_id) {
+//             Ok(_) => (),
+//             Err(e) => panic!("Error: {:?}", e),
+//         }
 
-        //Add some stake that can be removed
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey0_id, &hotkey_id, amount);
+//         //Add some stake that can be removed
+//         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey0_id, &hotkey_id, amount);
 
-        // Verify free balance is 0 for coldkey
-        assert_eq!(Balances::free_balance(coldkey0_id), 0);
+//         // Verify free balance is 0 for coldkey
+//         assert_eq!(Balances::free_balance(coldkey0_id), 0);
 
-        // Verify total stake is correct
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
-            amount
-        );
+//         // Verify total stake is correct
+//         assert_eq!(
+//             SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
+//             amount
+//         );
 
-        // Run unstake_all_coldkeys_from_hotkey_account
-        SubtensorModule::unstake_all_coldkeys_from_hotkey_account(&hotkey_id);
+//         // Run unstake_all_coldkeys_from_hotkey_account
+//         SubtensorModule::unstake_all_coldkeys_from_hotkey_account(&hotkey_id);
 
-        // Verify total stake is 0
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
+//         // Verify total stake is 0
+//         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
 
-        // Vefify stake for single coldkey is 0
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0_id, &hotkey_id),
-            0
-        );
+//         // Vefify stake for single coldkey is 0
+//         assert_eq!(
+//             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0_id, &hotkey_id),
+//             0
+//         );
 
-        // Verify free balance is correct for single coldkey
-        assert_eq!(Balances::free_balance(coldkey0_id), amount);
-    });
-}
+//         // Verify free balance is correct for single coldkey
+//         assert_eq!(Balances::free_balance(coldkey0_id), amount);
+//     });
+// }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_faucet_ok --exact --nocapture
 #[test]
 fn test_faucet_ok() {
     new_test_ext(1).execute_with(|| {
@@ -1367,6 +1627,7 @@ fn test_faucet_ok() {
 /// It creates a network with two hotkeys and two coldkeys, and then registers a nominator account for each hotkey.
 /// When we call set_nominator_min_required_stake, it should clear all small nominations that are below the minimum required stake.
 /// Run this test using: cargo test --package pallet-subtensor --test staking test_clear_small_nominations
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_clear_small_nominations --exact --nocapture
 #[test]
 fn test_clear_small_nominations() {
     new_test_ext(0).execute_with(|| {
@@ -1406,10 +1667,11 @@ fn test_clear_small_nominations() {
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(cold1),
             hot1,
+            netuid,
             1
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold1, netuid),
             1
         );
         assert_eq!(Balances::free_balance(cold1), 4);
@@ -1419,10 +1681,11 @@ fn test_clear_small_nominations() {
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(cold2),
             hot1,
+            netuid,
             1
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold2, netuid),
             1
         );
         assert_eq!(Balances::free_balance(cold2), 4);
@@ -1432,10 +1695,11 @@ fn test_clear_small_nominations() {
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(cold1),
             hot2,
+            netuid,
             1
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold1, netuid),
             1
         );
         assert_eq!(Balances::free_balance(cold1), 8);
@@ -1445,60 +1709,60 @@ fn test_clear_small_nominations() {
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(cold2),
             hot2,
+            netuid,
             1
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold2, netuid),
             1
         );
         assert_eq!(Balances::free_balance(cold2), 8);
 
         // Run clear all small nominations when min stake is zero (noop)
         SubtensorModule::set_nominator_min_required_stake(0);
+        assert_eq!(SubtensorModule::get_nominator_min_required_stake(), 0);
         SubtensorModule::clear_small_nominations();
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold1, netuid),
             1
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold1, netuid),
             1
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold2, netuid),
             1
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold2, netuid),
             1
         );
 
         // Set min nomination to 10
-        let total_cold1_stake_before = TotalColdkeyStake::<Test>::get(cold1);
-        let total_cold2_stake_before = TotalColdkeyStake::<Test>::get(cold2);
-        let total_hot1_stake_before = TotalHotkeyStake::<Test>::get(hot1);
-        let total_hot2_stake_before = TotalHotkeyStake::<Test>::get(hot2);
-        let _ = Stake::<Test>::try_get(hot2, cold1).unwrap(); // ensure exists before
-        let _ = Stake::<Test>::try_get(hot1, cold2).unwrap(); // ensure exists before
+        let total_cold1_stake_before = TotalColdkeyAlpha::<Test>::get(cold1, netuid);
+        let total_cold2_stake_before = TotalColdkeyAlpha::<Test>::get(cold2, netuid);
+        let total_hot1_stake_before = TotalHotkeyAlpha::<Test>::get(hot1, netuid);
+        let total_hot2_stake_before = TotalHotkeyAlpha::<Test>::get(hot2, netuid);
         let total_stake_before = TotalStake::<Test>::get();
         SubtensorModule::set_nominator_min_required_stake(10);
 
         // Run clear all small nominations (removes delegations under 10)
         SubtensorModule::clear_small_nominations();
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold1, netuid),
             1
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold1, netuid),
             0
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold2, netuid),
             0
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold2, netuid),
             1
         );
 
@@ -1508,28 +1772,26 @@ fn test_clear_small_nominations() {
 
         // Internal storage is updated
         assert_eq!(
-            TotalColdkeyStake::<Test>::get(cold2),
+            TotalColdkeyAlpha::<Test>::get(cold2, netuid),
             total_cold2_stake_before - 1
         );
         assert_eq!(
-            TotalHotkeyStake::<Test>::get(hot2),
+            TotalHotkeyAlpha::<Test>::get(hot2, netuid),
             total_hot2_stake_before - 1
         );
-        Stake::<Test>::try_get(hot2, cold1).unwrap_err();
-        Stake::<Test>::try_get(hot1, cold2).unwrap_err();
         assert_eq!(
-            TotalColdkeyStake::<Test>::get(cold1),
+            TotalColdkeyAlpha::<Test>::get(cold1, netuid),
             total_cold1_stake_before - 1
         );
         assert_eq!(
-            TotalHotkeyStake::<Test>::get(hot1),
+            TotalHotkeyAlpha::<Test>::get(hot1, netuid),
             total_hot1_stake_before - 1
         );
-        Stake::<Test>::try_get(hot2, cold1).unwrap_err();
         assert_eq!(TotalStake::<Test>::get(), total_stake_before - 2);
     });
 }
 
+//SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_add_stake_below_minimum_threshold --exact --nocapture
 /// Test that the nominator minimum staking threshold is enforced when stake is added.
 #[test]
 fn test_add_stake_below_minimum_threshold() {
@@ -1561,6 +1823,7 @@ fn test_add_stake_below_minimum_threshold() {
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
             hotkey1,
+            netuid,
             amount_below
         ));
 
@@ -1569,6 +1832,7 @@ fn test_add_stake_below_minimum_threshold() {
             SubtensorModule::add_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
                 hotkey1,
+                netuid,
                 amount_below
             ),
             crate::Error::<Test>::NomStakeBelowMinimumThreshold
@@ -1576,6 +1840,7 @@ fn test_add_stake_below_minimum_threshold() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_remove_stake_below_minimum_threshold --exact --nocapture
 /// Test that the nominator minimum staking threshold is enforced when stake is removed.
 #[test]
 fn test_remove_stake_below_minimum_threshold() {
@@ -1587,7 +1852,6 @@ fn test_remove_stake_below_minimum_threshold() {
         let initial_balance = 200_000_000;
         let initial_stake = 100_000;
         let minimum_threshold = 50_000;
-        let stake_amount_to_remove = 51_000;
 
         // Add balances.
         SubtensorModule::add_balance_to_coldkey_account(&coldkey1, initial_balance);
@@ -1604,42 +1868,104 @@ fn test_remove_stake_below_minimum_threshold() {
             <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
             hotkey1
         ));
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1, &coldkey2, netuid
+            ),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1, &coldkey1, netuid
+            ),
+            0
+        );
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
             hotkey1,
+            netuid,
             initial_stake
         ));
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1, &coldkey2, netuid
+            ),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1, &coldkey1, netuid
+            ),
+            initial_stake
+        );
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
             hotkey1,
+            netuid,
             initial_stake
         ));
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1, &coldkey2, netuid
+            ),
+            initial_stake
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1, &coldkey1, netuid
+            ),
+            initial_stake
+        );
 
         // Coldkey staking on its own hotkey can unstake below min threshold.
+        let stake_amount_to_remove = 51_000;
         assert_ok!(SubtensorModule::remove_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
             hotkey1,
+            netuid,
             stake_amount_to_remove
         ));
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1, &coldkey2, netuid
+            ),
+            initial_stake
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1, &coldkey1, netuid
+            ),
+            initial_stake - stake_amount_to_remove
+        );
 
         // Nomination stake cannot unstake below min threshold,
         // without unstaking all and removing the nomination.
-        let total_hotkey_stake_before = SubtensorModule::get_total_stake_for_hotkey(&hotkey1);
+        let total_hotkey_stake_before =
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey1, netuid);
         let bal_before = Balances::free_balance(coldkey2);
-        let staked_before = SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey1);
+        let staked_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1, &coldkey2, netuid,
+        );
         let total_network_stake_before = SubtensorModule::get_total_stake();
         let total_issuance_before = SubtensorModule::get_total_issuance();
         // check the premise of the test is correct
         assert!(initial_stake - stake_amount_to_remove < minimum_threshold);
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1, &coldkey2, netuid
+            ),
+            initial_stake
+        );
         assert_ok!(SubtensorModule::remove_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
             hotkey1,
+            netuid,
             stake_amount_to_remove
         ));
-
-        // Has no stake now
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey1),
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1, &coldkey2, netuid
+            ),
             0
         );
         let stake_removed = staked_before; // All stake was removed
@@ -1647,14 +1973,11 @@ fn test_remove_stake_below_minimum_threshold() {
         assert_eq!(Balances::free_balance(coldkey2), bal_before + stake_removed);
 
         // Stake map entry is removed
-        assert!(Stake::<Test>::try_get(hotkey1, coldkey2).is_err(),);
+        assert!(Alpha::<Test>::try_get((hotkey1, netuid, coldkey2)).is_err(),);
         // Stake tracking is updated
+        assert!(TotalColdkeyAlpha::<Test>::try_get(coldkey2, netuid).is_err());
         assert_eq!(
-            TotalColdkeyStake::<Test>::try_get(coldkey2).unwrap(),
-            0 // Did not have any stake before; Entry is NOT removed
-        );
-        assert_eq!(
-            TotalHotkeyStake::<Test>::try_get(hotkey1).unwrap(),
+            TotalHotkeyAlpha::<Test>::try_get(hotkey1, netuid).unwrap(),
             total_hotkey_stake_before - stake_removed // Stake was removed from hotkey1 tracker
         );
         assert_eq!(
@@ -1670,6 +1993,7 @@ fn test_remove_stake_below_minimum_threshold() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_delegate_take_can_be_decreased --exact --nocapture
 // Verify delegate take can be decreased
 #[test]
 fn test_delegate_take_can_be_decreased() {
@@ -1709,6 +2033,7 @@ fn test_delegate_take_can_be_decreased() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_can_set_min_take_ok --exact --nocapture
 // Verify delegate take can be decreased
 #[test]
 fn test_can_set_min_take_ok() {
@@ -1745,6 +2070,7 @@ fn test_can_set_min_take_ok() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_delegate_take_can_not_be_increased_with_decrease_take --exact --nocapture
 // Verify delegate take can not be increased with do_decrease_take
 #[test]
 fn test_delegate_take_can_not_be_increased_with_decrease_take() {
@@ -1788,6 +2114,7 @@ fn test_delegate_take_can_not_be_increased_with_decrease_take() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_delegate_take_can_be_increased --exact --nocapture
 // Verify delegate take can be increased
 #[test]
 fn test_delegate_take_can_be_increased() {
@@ -1827,6 +2154,7 @@ fn test_delegate_take_can_be_increased() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_delegate_take_can_not_be_decreased_with_increase_take --exact --nocapture
 // Verify delegate take can not be decreased with increase_take
 #[test]
 fn test_delegate_take_can_not_be_decreased_with_increase_take() {
@@ -1870,6 +2198,7 @@ fn test_delegate_take_can_not_be_decreased_with_increase_take() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_delegate_take_can_be_increased_to_limit --exact --nocapture
 // Verify delegate take can be increased up to InitialDefaultDelegateTake (18%)
 #[test]
 fn test_delegate_take_can_be_increased_to_limit() {
@@ -1912,6 +2241,7 @@ fn test_delegate_take_can_be_increased_to_limit() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_delegate_take_can_not_be_set_beyond_limit --exact --nocapture
 // Verify delegate take can not be set above InitialDefaultDelegateTake
 #[test]
 fn test_delegate_take_can_not_be_set_beyond_limit() {
@@ -1945,6 +2275,7 @@ fn test_delegate_take_can_not_be_set_beyond_limit() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_delegate_take_can_not_be_increased_beyond_limit --exact --nocapture
 // Verify delegate take can not be increased above InitialDefaultDelegateTake (18%)
 #[test]
 fn test_delegate_take_can_not_be_increased_beyond_limit() {
@@ -1991,6 +2322,7 @@ fn test_delegate_take_can_not_be_increased_beyond_limit() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_rate_limits_enforced_on_increase_take --exact --nocapture
 // Test rate-limiting on increase_take
 #[test]
 fn test_rate_limits_enforced_on_increase_take() {
@@ -2044,6 +2376,7 @@ fn test_rate_limits_enforced_on_increase_take() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_get_total_delegated_stake_after_unstaking --exact --nocapture
 #[test]
 fn test_get_total_delegated_stake_after_unstaking() {
     new_test_ext(1).execute_with(|| {
@@ -2071,6 +2404,7 @@ fn test_get_total_delegated_stake_after_unstaking() {
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(delegator),
             delegate_hotkey,
+            netuid,
             initial_stake
         ));
 
@@ -2085,6 +2419,7 @@ fn test_get_total_delegated_stake_after_unstaking() {
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(delegator),
             delegate_hotkey,
+            netuid,
             unstake_amount
         ));
 
@@ -2110,6 +2445,7 @@ fn test_get_total_delegated_stake_after_unstaking() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_get_total_delegated_stake_no_delegations --exact --nocapture
 #[test]
 fn test_get_total_delegated_stake_no_delegations() {
     new_test_ext(1).execute_with(|| {
@@ -2131,6 +2467,7 @@ fn test_get_total_delegated_stake_no_delegations() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_get_total_delegated_stake_single_delegator --exact --nocapture
 #[test]
 fn test_get_total_delegated_stake_single_delegator() {
     new_test_ext(1).execute_with(|| {
@@ -2155,6 +2492,7 @@ fn test_get_total_delegated_stake_single_delegator() {
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(delegator),
             delegate_hotkey,
+            netuid,
             stake_amount
         ));
 
@@ -2164,7 +2502,7 @@ fn test_get_total_delegated_stake_single_delegator() {
         println!("Delegator: {:?}", delegator);
         println!("Stake amount: {}", stake_amount);
         println!("Existential deposit: {}", existential_deposit);
-        println!("Total stake for hotkey: {}", SubtensorModule::get_total_stake_for_hotkey(&delegate_hotkey));
+        println!("Total stake for hotkey: {}", SubtensorModule::get_stake_for_hotkey_on_subnet(&delegate_hotkey, netuid));
         println!("Delegated stake for coldkey: {}", SubtensorModule::get_total_delegated_stake(&delegate_coldkey));
 
         // Calculate expected delegated stake
@@ -2181,6 +2519,7 @@ fn test_get_total_delegated_stake_single_delegator() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_get_total_delegated_stake_multiple_delegators --exact --nocapture
 #[test]
 fn test_get_total_delegated_stake_multiple_delegators() {
     new_test_ext(1).execute_with(|| {
@@ -2207,6 +2546,7 @@ fn test_get_total_delegated_stake_multiple_delegators() {
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(delegator1),
             delegate_hotkey,
+            netuid,
             stake1
         ));
 
@@ -2215,6 +2555,7 @@ fn test_get_total_delegated_stake_multiple_delegators() {
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(delegator2),
             delegate_hotkey,
+            netuid,
             stake2
         ));
 
@@ -2222,7 +2563,7 @@ fn test_get_total_delegated_stake_multiple_delegators() {
         println!("Delegator1 stake: {}", stake1);
         println!("Delegator2 stake: {}", stake2);
         println!("Existential deposit: {}", existential_deposit);
-        println!("Total stake for hotkey: {}", SubtensorModule::get_total_stake_for_hotkey(&delegate_hotkey));
+        println!("Total stake for hotkey: {}", SubtensorModule::get_stake_for_hotkey_on_subnet(&delegate_hotkey, netuid));
         println!("Delegated stake for coldkey: {}", SubtensorModule::get_total_delegated_stake(&delegate_coldkey));
 
         // Calculate expected total delegated stake
@@ -2239,6 +2580,7 @@ fn test_get_total_delegated_stake_multiple_delegators() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_get_total_delegated_stake_exclude_owner_stake --exact --nocapture
 #[test]
 fn test_get_total_delegated_stake_exclude_owner_stake() {
     new_test_ext(1).execute_with(|| {
@@ -2264,6 +2606,7 @@ fn test_get_total_delegated_stake_exclude_owner_stake() {
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(delegate_coldkey),
             delegate_hotkey,
+            netuid,
             owner_stake
         ));
 
@@ -2272,6 +2615,7 @@ fn test_get_total_delegated_stake_exclude_owner_stake() {
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(delegator),
             delegate_hotkey,
+            netuid,
             delegator_stake
         ));
 
@@ -2281,7 +2625,7 @@ fn test_get_total_delegated_stake_exclude_owner_stake() {
         println!("Existential deposit: {}", existential_deposit);
         println!(
             "Total stake for hotkey: {}",
-            SubtensorModule::get_total_stake_for_hotkey(&delegate_hotkey)
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&delegate_hotkey, netuid)
         );
         println!(
             "Delegated stake for coldkey: {}",
@@ -2300,106 +2644,190 @@ fn test_get_total_delegated_stake_exclude_owner_stake() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test staking -- test_stake_delta_tracks_adds_and_removes --exact --nocapture
+// https://github.com/opentensor/subtensor/issues/925
+// cargo test -p pallet-subtensor --test staking -- test_stake_weight_should_not_be_affected_by_zero_stakes --exact --nocapture
 #[test]
-fn test_stake_delta_tracks_adds_and_removes() {
+#[allow(clippy::indexing_slicing)]
+fn test_stake_weight_should_not_be_affected_by_zero_stakes() {
     new_test_ext(1).execute_with(|| {
-        let netuid = 1u16;
-        let delegate_coldkey = U256::from(1);
-        let delegate_hotkey = U256::from(2);
-        let delegator = U256::from(3);
+        let registrar = AccountId::from(42); // SN Owner
+        let netuid: u16 = 1;
+        Balances::force_set_balance(RuntimeOrigin::root(), registrar, 10_000_000_000_000).unwrap();
 
-        let owner_stake = 1000;
-        let owner_added_stake = 123;
-        let owner_removed_stake = 456;
-        // Add more than removed to test that the delta is updated correctly
-        let owner_adds_more_stake = owner_removed_stake + 1;
+        // Add root network
+        add_network(0, 0, 0);
 
-        let delegator_added_stake = 999;
+        // our test subnet with id 1
+        SubtensorModule::register_network_with_identity(
+            RuntimeOrigin::signed(registrar),
+            registrar,
+            subnets::Mechanism::Dynamic,
+            None,
+        )
+        .unwrap();
 
-        // Set stake rate limit very high
-        TargetStakesPerInterval::<Test>::put(1e9 as u64);
+        let neuron_1 = AccountId::from(123);
+        SubtensorModule::add_balance_to_coldkey_account(&neuron_1, 10_000_000_000_000);
 
-        add_network(netuid, 0, 0);
-        register_ok_neuron(netuid, delegate_hotkey, delegate_coldkey, 0);
-        // Give extra stake to the owner
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-            &delegate_coldkey,
-            &delegate_hotkey,
-            owner_stake,
+        SubtensorModule::burned_register(RuntimeOrigin::signed(neuron_1), netuid, neuron_1)
+            .unwrap();
+        SubtensorModule::add_stake(
+            RuntimeOrigin::signed(neuron_1),
+            neuron_1,
+            netuid,
+            50_000_000,
+        )
+        .unwrap();
+
+        let stake_weights_1 = SubtensorModule::get_stake_weights_for_network(netuid);
+
+        // Check neuron 1's alpha
+        assert!(
+            stake_weights_1.0[1] > 0,
+            "The neuron 1 should get at least some stake"
         );
 
-        // Register as a delegate
-        assert_ok!(SubtensorModule::become_delegate(
-            RuntimeOrigin::signed(delegate_coldkey),
-            delegate_hotkey
-        ));
+        let neuron_2 = AccountId::from(321);
+        SubtensorModule::add_balance_to_coldkey_account(&neuron_2, 10_000_000_000_000);
 
-        // Verify that the stake delta is empty
-        assert_eq!(
-            StakeDeltaSinceLastEmissionDrain::<Test>::get(delegate_hotkey, delegate_coldkey),
-            0
+        SubtensorModule::burned_register(RuntimeOrigin::signed(neuron_2), netuid, neuron_2)
+            .unwrap();
+        SubtensorModule::add_stake(
+            RuntimeOrigin::signed(neuron_2),
+            neuron_2,
+            netuid,
+            50_000_000,
+        )
+        .unwrap();
+
+        let stake_weights_2 = SubtensorModule::get_stake_weights_for_network(netuid);
+
+        // Check neuron 2's alpha
+        assert!(
+            stake_weights_2.0[2] > 0,
+            "The neuron 2 should get at least some stake"
+        );
+    });
+}
+
+// cargo test -p pallet-subtensor --test staking -- test_stake_weight_no_subnet_stake --exact --nocapture
+#[test]
+#[allow(clippy::indexing_slicing)]
+fn test_stake_weight_no_subnet_stake() {
+    new_test_ext(1).execute_with(|| {
+        let registrar = AccountId::from(42); // SN Owner
+        let netuid: u16 = 1;
+        Balances::force_set_balance(RuntimeOrigin::root(), registrar, 10_000_000_000_000).unwrap();
+
+        // Add root network
+        add_network(0, 0, 0);
+
+        // our test subnet with id 1
+        SubtensorModule::register_network_with_identity(
+            RuntimeOrigin::signed(registrar),
+            registrar,
+            subnets::Mechanism::Dynamic,
+            None,
+        )
+        .unwrap();
+
+        let neuron_1 = AccountId::from(123);
+        SubtensorModule::add_balance_to_coldkey_account(&neuron_1, 10_000_000_000_000);
+
+        SubtensorModule::burned_register(RuntimeOrigin::signed(neuron_1), netuid, neuron_1)
+            .unwrap();
+
+        let stake_weights_1 = SubtensorModule::get_stake_weights_for_network(netuid);
+
+        // Check neuron 1's alpha
+        assert!(
+            stake_weights_1.0[1] == 0,
+            "The neuron 1's stake should be 0"
         );
 
-        // Give the coldkey some balance; extra just in case
-        SubtensorModule::add_balance_to_coldkey_account(
-            &delegate_coldkey,
-            owner_added_stake + owner_adds_more_stake,
+        let neuron_2 = AccountId::from(321);
+        SubtensorModule::add_balance_to_coldkey_account(&neuron_2, 10_000_000_000_000);
+
+        SubtensorModule::burned_register(RuntimeOrigin::signed(neuron_2), netuid, neuron_2)
+            .unwrap();
+
+        let stake_weights_2 = SubtensorModule::get_stake_weights_for_network(netuid);
+
+        // Check neuron 2's alpha
+        assert!(
+            stake_weights_2.0[2] == 0,
+            "The neuron 2's stake should be 0"
+        );
+    });
+}
+
+// cargo test -p pallet-subtensor --test staking -- test_stake_weight_from_root_impacted_by_root_weight --exact --nocapture
+#[test]
+#[allow(clippy::indexing_slicing)]
+fn test_stake_weight_from_root_impacted_by_root_weight() {
+    new_test_ext(1).execute_with(|| {
+        let registrar = AccountId::from(42); // SN Owner
+        let netuid: u16 = 1;
+        Balances::force_set_balance(RuntimeOrigin::root(), registrar, 10_000_000_000_000).unwrap();
+
+        // Add root network
+        add_network(0, 0, 0);
+
+        // our test subnet with id 1
+        SubtensorModule::register_network_with_identity(
+            RuntimeOrigin::signed(registrar),
+            registrar,
+            subnets::Mechanism::Dynamic,
+            None,
+        )
+        .unwrap();
+
+        let neuron_1 = AccountId::from(123);
+        let neuron_2 = AccountId::from(321);
+        SubtensorModule::add_balance_to_coldkey_account(&neuron_1, 10_000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&neuron_2, 10_000_000_000_000);
+
+        SubtensorModule::burned_register(RuntimeOrigin::signed(neuron_1), netuid, neuron_1)
+            .unwrap();
+
+        SubtensorModule::burned_register(RuntimeOrigin::signed(neuron_2), netuid, neuron_2)
+            .unwrap();
+
+        SubtensorModule::add_stake(
+            RuntimeOrigin::signed(neuron_1),
+            neuron_1,
+            netuid,
+            50_000_000,
+        )
+        .unwrap();
+
+        let stake_weights_1 = SubtensorModule::get_stake_weights_for_network(netuid);
+
+        // Check neuron 1's alpha
+        assert!(
+            stake_weights_1.0[1] > 0,
+            "The neuron 1 should get at least some stake"
         );
 
-        // Add some stake
-        assert_ok!(SubtensorModule::add_stake(
-            RuntimeOrigin::signed(delegate_coldkey),
-            delegate_hotkey,
-            owner_added_stake
-        ));
+        // Get the TAO value of the stake
+        let neuron_1_gtao = SubtensorModule::get_global_for_hotkey_on_subnet(&neuron_1, netuid);
 
-        // Verify that the stake delta is correct
-        assert_eq!(
-            StakeDeltaSinceLastEmissionDrain::<Test>::get(delegate_hotkey, delegate_coldkey),
-            i128::from(owner_added_stake)
-        );
+        // Give neuron 2 some stake on root
+        SubtensorModule::add_stake(
+            RuntimeOrigin::signed(neuron_2),
+            neuron_2,
+            0,
+            neuron_1_gtao + 1_000, // Give neuron 2 a slightly higher direct-global TAO value
+        ) // This will be worth less due to the weight of the root stake
+        .unwrap();
 
-        // Add some stake from a delegator
-        SubtensorModule::add_balance_to_coldkey_account(&delegator, delegator_added_stake);
-        assert_ok!(SubtensorModule::add_stake(
-            RuntimeOrigin::signed(delegator),
-            delegate_hotkey,
-            delegator_added_stake
-        ));
+        let stake_weights_2 = SubtensorModule::get_stake_weights_for_network(netuid);
 
-        // Verify that the stake delta is unchanged for the owner
-        assert_eq!(
-            StakeDeltaSinceLastEmissionDrain::<Test>::get(delegate_hotkey, delegate_coldkey),
-            i128::from(owner_added_stake)
-        );
-
-        // Remove some stake
-        assert_ok!(SubtensorModule::remove_stake(
-            RuntimeOrigin::signed(delegate_coldkey),
-            delegate_hotkey,
-            owner_removed_stake
-        ));
-
-        // Verify that the stake delta is correct
-        assert_eq!(
-            StakeDeltaSinceLastEmissionDrain::<Test>::get(delegate_hotkey, delegate_coldkey),
-            i128::from(owner_added_stake).saturating_sub_unsigned(owner_removed_stake.into())
-        );
-
-        // Add more stake than was removed
-        assert_ok!(SubtensorModule::add_stake(
-            RuntimeOrigin::signed(delegate_coldkey),
-            delegate_hotkey,
-            owner_adds_more_stake
-        ));
-
-        // Verify that the stake delta is correct
-        assert_eq!(
-            StakeDeltaSinceLastEmissionDrain::<Test>::get(delegate_hotkey, delegate_coldkey),
-            i128::from(owner_added_stake)
-                .saturating_add_unsigned((owner_adds_more_stake - owner_removed_stake).into())
-        );
+        // Make sure neuron 2's stake is less than neuron 1's stake
+        assert!(
+            stake_weights_2.0[2] < stake_weights_1.0[1],
+            "The neuron 2's stake should be less than neuron 1's stake"
+        ); // Even though they have similar value in TAO, the root stake is weighted lower.
     });
 }
 
@@ -2417,8 +2845,8 @@ fn test_mining_emission_drain() {
         let root_tempo = 9; // neet root epoch to happen before subnet tempo
         let subnet_tempo = 10;
         let hotkey_tempo = 20;
-        let stake = 100_000_000_000;
-        let miner_stake = 1_000_000_000;
+        let stake: u64 = 100_000_000_000;
+        let miner_stake: u64 = 1_000_000_000;
 
         // Add network, register hotkeys, and setup network parameters
         add_network(root_id, root_tempo, 0);
@@ -2466,21 +2894,24 @@ fn test_mining_emission_drain() {
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey),
             validator,
+            netuid,
             stake
         ));
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey),
             miner,
+            netuid,
             miner_stake
         ));
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(nominator),
             miner,
+            netuid,
             stake
         ));
         // Make all stakes viable
-        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(validator, coldkey, -1);
-        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(miner, nominator, -1);
+        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set((validator, netuid, coldkey), -1);
+        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set((miner, netuid, nominator), -1);
 
         // Setup YUMA so that it creates emissions:
         //   Validator sets weight for miner
@@ -2545,8 +2976,8 @@ fn test_mining_emission_drain_with_validation() {
         let root_tempo = 9; // neet root epoch to happen before subnet tempo
         let subnet_tempo = 10;
         let hotkey_tempo = 20;
-        let stake = 100_000_000_000;
-        let half_stake = 50_000_000_000;
+        let stake = 100_000_000_000_u64;
+        let half_stake = 50_000_000_000_u64;
 
         // Add network, register hotkeys, and setup network parameters
         add_network(root_id, root_tempo, 0);
@@ -2593,22 +3024,34 @@ fn test_mining_emission_drain_with_validation() {
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey),
             validator_miner1,
+            netuid,
             stake
         ));
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey),
             validator_miner2,
+            netuid,
             half_stake
         ));
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(nominator),
             validator_miner2,
+            netuid,
             half_stake
         ));
         // Make all stakes viable
-        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(validator_miner1, coldkey, -1);
-        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(validator_miner2, coldkey, -1);
-        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(validator_miner2, nominator, -1);
+        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(
+            (validator_miner1, netuid, coldkey),
+            -1,
+        );
+        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(
+            (validator_miner2, netuid, coldkey),
+            -1,
+        );
+        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(
+            (validator_miner2, netuid, nominator),
+            -1,
+        );
 
         // Setup YUMA so that it creates emissions:
         //   Validators set weights for each other
@@ -2709,16 +3152,21 @@ fn test_mining_emission_drain_validator_valiminer_miner() {
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey),
             validator,
+            netuid,
             stake
         ));
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey),
             validator_miner,
+            netuid,
             stake
         ));
         // Make all stakes viable
-        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(validator, coldkey, -1);
-        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(validator_miner, coldkey, -1);
+        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set((validator, netuid, coldkey), -1);
+        crate::StakeDeltaSinceLastEmissionDrain::<Test>::set(
+            (validator_miner, netuid, coldkey),
+            -1,
+        );
 
         // Setup YUMA so that it creates emissions:
         //   Validator 1 sets weight for valiminer       |- to achieve equal incentive for both miners
