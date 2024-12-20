@@ -15,11 +15,13 @@ mod balance_transfer;
 mod ed25519;
 mod metagraph;
 mod staking;
+mod subnets;
 
 use balance_transfer::*;
 use ed25519::*;
 use metagraph::*;
 use staking::*;
+use subnets::*;
 
 pub struct FrontierPrecompiles<R>(PhantomData<R>);
 
@@ -39,7 +41,7 @@ where
     pub fn new() -> Self {
         Self(Default::default())
     }
-    pub fn used_addresses() -> [H160; 11] {
+    pub fn used_addresses() -> [H160; 12] {
         [
             hash(1),
             hash(2),
@@ -52,6 +54,7 @@ where
             hash(BALANCE_TRANSFER_INDEX),
             hash(STAKING_PRECOMPILE_INDEX),
             hash(METAGRAPH_PRECOMPILE_INDEX),
+            hash(SUBNETS_PRECOMPILE_INDEX),
         ]
     }
 }
@@ -79,6 +82,7 @@ where
             a if a == hash(METAGRAPH_PRECOMPILE_INDEX) => {
                 Some(MetagraphPrecompile::execute(handle))
             }
+            a if a == hash(SUBNETS_PRECOMPILE_INDEX) => Some(SubnetsPrecompile::execute(handle)),
 
             _ => None,
         }
