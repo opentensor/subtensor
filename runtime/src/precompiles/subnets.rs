@@ -1,8 +1,6 @@
-use pallet_evm::{
-    ExitError, ExitSucceed, PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult,
-};
+use pallet_evm::{ExitError, PrecompileFailure, PrecompileHandle, PrecompileResult};
 
-use crate::precompiles::{get_method_id, get_slice};
+use crate::precompiles::{dispatch, get_method_id, get_slice};
 use sp_std::vec;
 
 use crate::{Runtime, RuntimeCall};
@@ -39,7 +37,7 @@ impl SubnetsPrecompile {
                 netuid,
                 hotkey: hotkey.into(),
             });
-        Self::dispatch(handle, call)
+        dispatch(handle, call, SUBNETS_CONTRACT_ADDRESS)
     }
 
     fn parse_netuid_hotkey_parameter(data: &[u8]) -> Result<(u16, [u8; 32]), PrecompileFailure> {
@@ -56,13 +54,5 @@ impl SubnetsPrecompile {
         parameter.copy_from_slice(get_slice(data, 32, 64)?);
 
         Ok((netuid, parameter))
-    }
-
-    // will remove it after merge with other PR
-    fn dispatch(_handle: &mut impl PrecompileHandle, _call: RuntimeCall) -> PrecompileResult {
-        Ok(PrecompileOutput {
-            exit_status: ExitSucceed::Returned,
-            output: vec![],
-        })
     }
 }
