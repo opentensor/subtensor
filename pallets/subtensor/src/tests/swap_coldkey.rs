@@ -1,19 +1,18 @@
 #![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
 use codec::Encode;
-use frame_support::weights::Weight;
-use frame_support::{assert_err, assert_noop, assert_ok};
-use frame_system::{Config, RawOrigin};
-
-use super::mock::*;
-use crate::*;
-use crate::{Call, ColdkeySwapScheduleDuration, Error};
 use frame_support::error::BadOrigin;
 use frame_support::traits::schedule::v3::Named as ScheduleNamed;
 use frame_support::traits::schedule::DispatchTime;
 use frame_support::traits::OnInitialize;
+use frame_support::weights::Weight;
+use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_system::{Config, RawOrigin};
 use sp_core::H256;
 use sp_core::U256;
 use sp_runtime::DispatchError;
+
+use super::mock::*;
+use crate::*;
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_total_hotkey_coldkey_stakes_this_interval --exact --nocapture
 #[test]
@@ -489,7 +488,7 @@ fn test_do_swap_coldkey_success() {
         let netuid = 1u16;
         let stake_amount1 = 1000u64;
         let stake_amount2 = 2000u64;
-        let swap_cost = SubtensorModule::get_key_swap_cost();
+        let swap_cost = <Test as crate::Config>::KeySwapCost::get();
         let free_balance_old = 12345u64 + swap_cost;
 
         // Setup initial state
@@ -504,17 +503,14 @@ fn test_do_swap_coldkey_success() {
         );
 
         // Log initial state
-        log::info!(
-            "Initial total stake: {}",
-            SubtensorModule::get_total_stake()
-        );
+        log::info!("Initial total stake: {}", TotalStake::<Test>::get());
         log::info!(
             "Initial old coldkey stake: {}",
-            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey)
+            TotalColdkeyStake::<Test>::get(old_coldkey)
         );
         log::info!(
             "Initial new coldkey stake: {}",
-            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey)
+            TotalColdkeyStake::<Test>::get(new_coldkey)
         );
 
         // Add stake to the neurons
@@ -546,21 +542,18 @@ fn test_do_swap_coldkey_success() {
         assert!(Identities::<Test>::get(new_coldkey).is_none());
 
         // Log state after adding stake
-        log::info!(
-            "Total stake after adding: {}",
-            SubtensorModule::get_total_stake()
-        );
+        log::info!("Total stake after adding: {}", TotalStake::<Test>::get());
         log::info!(
             "Old coldkey stake after adding: {}",
-            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey)
+            TotalColdkeyStake::<Test>::get(old_coldkey)
         );
         log::info!(
             "New coldkey stake after adding: {}",
-            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey)
+            TotalColdkeyStake::<Test>::get(new_coldkey)
         );
 
         // Record total stake before swap
-        let total_stake_before_swap = SubtensorModule::get_total_stake();
+        let total_stake_before_swap = TotalStake::<Test>::get();
 
         // Perform the swap
         assert_ok!(SubtensorModule::do_swap_coldkey(
@@ -570,17 +563,14 @@ fn test_do_swap_coldkey_success() {
         ));
 
         // Log state after swap
-        log::info!(
-            "Total stake after swap: {}",
-            SubtensorModule::get_total_stake()
-        );
+        log::info!("Total stake after swap: {}", TotalStake::<Test>::get());
         log::info!(
             "Old coldkey stake after swap: {}",
-            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey)
+            TotalColdkeyStake::<Test>::get(old_coldkey)
         );
         log::info!(
             "New coldkey stake after swap: {}",
-            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey)
+            TotalColdkeyStake::<Test>::get(new_coldkey)
         );
 
         // Verify the swap
@@ -612,7 +602,7 @@ fn test_do_swap_coldkey_success() {
 
         // Verify total stake remains unchanged
         assert_eq!(
-            SubtensorModule::get_total_stake(),
+            TotalStake::<Test>::get(),
             total_stake_before_swap,
             "Total stake changed unexpectedly"
         );
@@ -671,8 +661,8 @@ fn test_swap_stake_for_coldkey() {
         TotalStake::<Test>::put(total_stake);
 
         // Record initial values
-        let initial_total_issuance = SubtensorModule::get_total_issuance();
-        let initial_total_stake = SubtensorModule::get_total_stake();
+        let initial_total_issuance = TotalIssuance::<Test>::get();
+        let initial_total_stake = TotalStake::<Test>::get();
 
         // Perform the swap
         SubtensorModule::perform_swap_coldkey(&old_coldkey, &new_coldkey, &mut weight);
@@ -685,10 +675,10 @@ fn test_swap_stake_for_coldkey() {
 
         // Verify ownership transfer
         assert_eq!(
-            SubtensorModule::get_owned_hotkeys(&new_coldkey),
+            OwnedHotkeys::<Test>::get(new_coldkey),
             vec![hotkey1, hotkey2]
         );
-        assert_eq!(SubtensorModule::get_owned_hotkeys(&old_coldkey), vec![]);
+        assert_eq!(OwnedHotkeys::<Test>::get(old_coldkey), vec![]);
 
         // Verify stake transfer
         assert_eq!(Stake::<Test>::get(hotkey2, new_coldkey), stake_amount2);
@@ -705,12 +695,12 @@ fn test_swap_stake_for_coldkey() {
 
         // Verify total stake and issuance remain unchanged
         assert_eq!(
-            SubtensorModule::get_total_stake(),
+            TotalStake::<Test>::get(),
             initial_total_stake,
             "Total stake changed unexpectedly"
         );
         assert_eq!(
-            SubtensorModule::get_total_issuance(),
+            TotalIssuance::<Test>::get(),
             initial_total_issuance,
             "Total issuance changed unexpectedly"
         );
@@ -784,8 +774,8 @@ fn test_swap_delegated_stake_for_coldkey() {
         TotalStake::<Test>::put(total_stake);
 
         // Record initial values
-        let initial_total_issuance = SubtensorModule::get_total_issuance();
-        let initial_total_stake = SubtensorModule::get_total_stake();
+        let initial_total_issuance = TotalIssuance::<Test>::get();
+        let initial_total_stake = TotalStake::<Test>::get();
 
         // Perform the swap
         SubtensorModule::perform_swap_coldkey(&old_coldkey, &new_coldkey, &mut weight);
@@ -806,12 +796,12 @@ fn test_swap_delegated_stake_for_coldkey() {
 
         // Verify total stake and issuance remain unchanged
         assert_eq!(
-            SubtensorModule::get_total_stake(),
+            TotalStake::<Test>::get(),
             initial_total_stake,
             "Total stake changed unexpectedly"
         );
         assert_eq!(
-            SubtensorModule::get_total_issuance(),
+            TotalIssuance::<Test>::get(),
             initial_total_issuance,
             "Total issuance changed unexpectedly"
         );
@@ -897,7 +887,7 @@ fn test_do_swap_coldkey_with_subnet_ownership() {
         let hotkey = U256::from(3);
         let netuid = 1u16;
         let stake_amount: u64 = 1000u64;
-        let swap_cost = SubtensorModule::get_key_swap_cost();
+        let swap_cost = <Test as crate::Config>::KeySwapCost::get();
 
         // Setup initial state
         add_network(netuid, 13, 0);
@@ -1096,136 +1086,112 @@ fn test_coldkey_swap_total() {
         ));
 
         assert_eq!(
-            SubtensorModule::get_owned_hotkeys(&coldkey),
+            OwnedHotkeys::<Test>::get(coldkey),
             vec![hotkey1, hotkey2, hotkey3]
         );
         assert_eq!(
-            SubtensorModule::get_all_staked_hotkeys(&coldkey),
+            StakingHotkeys::<Test>::get(coldkey),
             vec![hotkey1, hotkey2, hotkey3, delegate1, delegate2, delegate3]
         );
-        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey), 600);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 300);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey2), 300);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey3), 300);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate1), 300);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate2), 300);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate3), 300);
+        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 600);
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey1), 300);
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey2), 300);
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey3), 300);
+        assert_eq!(TotalHotkeyStake::<Test>::get(delegate1), 300);
+        assert_eq!(TotalHotkeyStake::<Test>::get(delegate2), 300);
+        assert_eq!(TotalHotkeyStake::<Test>::get(delegate3), 300);
 
+        assert_eq!(OwnedHotkeys::<Test>::get(delegate1), vec![delegate1]);
+        assert_eq!(OwnedHotkeys::<Test>::get(delegate2), vec![delegate2]);
+        assert_eq!(OwnedHotkeys::<Test>::get(delegate3), vec![delegate3]);
         assert_eq!(
-            SubtensorModule::get_owned_hotkeys(&delegate1),
-            vec![delegate1]
-        );
-        assert_eq!(
-            SubtensorModule::get_owned_hotkeys(&delegate2),
-            vec![delegate2]
-        );
-        assert_eq!(
-            SubtensorModule::get_owned_hotkeys(&delegate3),
-            vec![delegate3]
-        );
-        assert_eq!(
-            SubtensorModule::get_all_staked_hotkeys(&delegate1),
+            StakingHotkeys::<Test>::get(delegate1),
             vec![delegate1, hotkey1]
         );
         assert_eq!(
-            SubtensorModule::get_all_staked_hotkeys(&delegate2),
+            StakingHotkeys::<Test>::get(delegate2),
             vec![delegate2, hotkey2]
         );
         assert_eq!(
-            SubtensorModule::get_all_staked_hotkeys(&delegate3),
+            StakingHotkeys::<Test>::get(delegate3),
             vec![delegate3, hotkey3]
         );
 
-        assert_eq!(SubtensorModule::get_owned_hotkeys(&nominator1), vec![]);
-        assert_eq!(SubtensorModule::get_owned_hotkeys(&nominator2), vec![]);
-        assert_eq!(SubtensorModule::get_owned_hotkeys(&nominator3), vec![]);
+        assert_eq!(OwnedHotkeys::<Test>::get(nominator1), vec![]);
+        assert_eq!(OwnedHotkeys::<Test>::get(nominator2), vec![]);
+        assert_eq!(OwnedHotkeys::<Test>::get(nominator3), vec![]);
 
         assert_eq!(
-            SubtensorModule::get_all_staked_hotkeys(&nominator1),
+            StakingHotkeys::<Test>::get(nominator1),
             vec![hotkey1, delegate1]
         );
         assert_eq!(
-            SubtensorModule::get_all_staked_hotkeys(&nominator2),
+            StakingHotkeys::<Test>::get(nominator2),
             vec![hotkey2, delegate2]
         );
         assert_eq!(
-            SubtensorModule::get_all_staked_hotkeys(&nominator3),
+            StakingHotkeys::<Test>::get(nominator3),
             vec![hotkey3, delegate3]
         );
 
         // Perform the swap
         let new_coldkey = U256::from(1100);
-        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey), 600);
+        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 600);
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &coldkey,
             &new_coldkey,
             &mut weight
         ));
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
-            600
-        );
+        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), 600);
 
         // Check everything is swapped.
         assert_eq!(
-            SubtensorModule::get_owned_hotkeys(&new_coldkey),
+            OwnedHotkeys::<Test>::get(new_coldkey),
             vec![hotkey1, hotkey2, hotkey3]
         );
         assert_eq!(
-            SubtensorModule::get_all_staked_hotkeys(&new_coldkey),
+            StakingHotkeys::<Test>::get(new_coldkey),
             vec![hotkey1, hotkey2, hotkey3, delegate1, delegate2, delegate3]
         );
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
-            600
-        );
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 300);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey2), 300);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey3), 300);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate1), 300);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate2), 300);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate3), 300);
+        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), 600);
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey1), 300);
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey2), 300);
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey3), 300);
+        assert_eq!(TotalHotkeyStake::<Test>::get(delegate1), 300);
+        assert_eq!(TotalHotkeyStake::<Test>::get(delegate2), 300);
+        assert_eq!(TotalHotkeyStake::<Test>::get(delegate3), 300);
 
+        assert_eq!(OwnedHotkeys::<Test>::get(delegate1), vec![delegate1]);
+        assert_eq!(OwnedHotkeys::<Test>::get(delegate2), vec![delegate2]);
+        assert_eq!(OwnedHotkeys::<Test>::get(delegate3), vec![delegate3]);
         assert_eq!(
-            SubtensorModule::get_owned_hotkeys(&delegate1),
-            vec![delegate1]
-        );
-        assert_eq!(
-            SubtensorModule::get_owned_hotkeys(&delegate2),
-            vec![delegate2]
-        );
-        assert_eq!(
-            SubtensorModule::get_owned_hotkeys(&delegate3),
-            vec![delegate3]
-        );
-        assert_eq!(
-            SubtensorModule::get_all_staked_hotkeys(&delegate1),
+            StakingHotkeys::<Test>::get(delegate1),
             vec![delegate1, hotkey1]
         );
         assert_eq!(
-            SubtensorModule::get_all_staked_hotkeys(&delegate2),
+            StakingHotkeys::<Test>::get(delegate2),
             vec![delegate2, hotkey2]
         );
         assert_eq!(
-            SubtensorModule::get_all_staked_hotkeys(&delegate3),
+            StakingHotkeys::<Test>::get(delegate3),
             vec![delegate3, hotkey3]
         );
 
-        assert_eq!(SubtensorModule::get_owned_hotkeys(&nominator1), vec![]);
-        assert_eq!(SubtensorModule::get_owned_hotkeys(&nominator2), vec![]);
-        assert_eq!(SubtensorModule::get_owned_hotkeys(&nominator3), vec![]);
+        assert_eq!(OwnedHotkeys::<Test>::get(nominator1), vec![]);
+        assert_eq!(OwnedHotkeys::<Test>::get(nominator2), vec![]);
+        assert_eq!(OwnedHotkeys::<Test>::get(nominator3), vec![]);
 
         assert_eq!(
-            SubtensorModule::get_all_staked_hotkeys(&nominator1),
+            StakingHotkeys::<Test>::get(nominator1),
             vec![hotkey1, delegate1]
         );
         assert_eq!(
-            SubtensorModule::get_all_staked_hotkeys(&nominator2),
+            StakingHotkeys::<Test>::get(nominator2),
             vec![hotkey2, delegate2]
         );
         assert_eq!(
-            SubtensorModule::get_all_staked_hotkeys(&nominator3),
+            StakingHotkeys::<Test>::get(nominator3),
             vec![hotkey3, delegate3]
         );
     });
@@ -1304,12 +1270,9 @@ fn test_coldkey_delegations() {
             &new_coldkey,
             &mut weight
         ));
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate), 100);
-        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey), 0);
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
-            100
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(delegate), 100);
+        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 0);
+        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), 100);
         assert_eq!(Stake::<Test>::get(delegate, new_coldkey), 100);
         assert_eq!(Stake::<Test>::get(delegate, coldkey), 0);
     });
@@ -1515,7 +1478,7 @@ fn test_coldkey_swap_delegate_identity_updated() {
         let burn_cost = 10;
         let tempo = 1;
 
-        SubtensorModule::set_burn(netuid, burn_cost);
+        Burn::<Test>::insert(netuid, burn_cost);
         add_network(netuid, tempo, 0);
 
         SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 100_000_000_000);
@@ -1562,7 +1525,7 @@ fn test_coldkey_swap_no_identity_no_changes() {
         let burn_cost = 10;
         let tempo = 1;
 
-        SubtensorModule::set_burn(netuid, burn_cost);
+        Burn::<Test>::insert(netuid, burn_cost);
         add_network(netuid, tempo, 0);
 
         SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 100_000_000_000);
@@ -1595,7 +1558,7 @@ fn test_coldkey_swap_no_identity_no_changes_newcoldkey_exists() {
         let burn_cost = 10;
         let tempo = 1;
 
-        SubtensorModule::set_burn(netuid, burn_cost);
+        Burn::<Test>::insert(netuid, burn_cost);
         add_network(netuid, tempo, 0);
         SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 100_000_000_000);
 

@@ -6,7 +6,7 @@ use frame_support::{
 };
 use frame_system::Config;
 use pallet_subtensor::Error as SubtensorError;
-use pallet_subtensor::{migrations, Event};
+use pallet_subtensor::*;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{ed25519, Pair, U256};
 
@@ -19,7 +19,7 @@ mod mock;
 fn test_sudo_set_default_take() {
     new_test_ext().execute_with(|| {
         let to_be_set: u16 = 10;
-        let init_value: u16 = SubtensorModule::get_default_delegate_take();
+        let init_value: u16 = MaxDelegateTake::<Test>::get();
         assert_eq!(
             AdminUtils::sudo_set_default_take(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
@@ -27,12 +27,12 @@ fn test_sudo_set_default_take() {
             ),
             Err(DispatchError::BadOrigin)
         );
-        assert_eq!(SubtensorModule::get_default_delegate_take(), init_value);
+        assert_eq!(MaxDelegateTake::<Test>::get(), init_value);
         assert_ok!(AdminUtils::sudo_set_default_take(
             <<Test as Config>::RuntimeOrigin>::root(),
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_default_delegate_take(), to_be_set);
+        assert_eq!(MaxDelegateTake::<Test>::get(), to_be_set);
     });
 }
 
@@ -41,7 +41,7 @@ fn test_sudo_set_serving_rate_limit() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 3;
         let to_be_set: u64 = 10;
-        let init_value: u64 = SubtensorModule::get_serving_rate_limit(netuid);
+        let init_value: u64 = ServingRateLimit::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_serving_rate_limit(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -50,13 +50,13 @@ fn test_sudo_set_serving_rate_limit() {
             ),
             Err(DispatchError::BadOrigin)
         );
-        assert_eq!(SubtensorModule::get_serving_rate_limit(netuid), init_value);
+        assert_eq!(ServingRateLimit::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_serving_rate_limit(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_serving_rate_limit(netuid), to_be_set);
+        assert_eq!(ServingRateLimit::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -66,7 +66,7 @@ fn test_sudo_set_min_difficulty() {
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
-        let init_value: u64 = SubtensorModule::get_min_difficulty(netuid);
+        let init_value: u64 = MinDifficulty::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_min_difficulty(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -83,13 +83,13 @@ fn test_sudo_set_min_difficulty() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_min_difficulty(netuid), init_value);
+        assert_eq!(MinDifficulty::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_min_difficulty(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_min_difficulty(netuid), to_be_set);
+        assert_eq!(MinDifficulty::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -99,7 +99,7 @@ fn test_sudo_set_max_difficulty() {
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
-        let init_value: u64 = SubtensorModule::get_max_difficulty(netuid);
+        let init_value: u64 = MaxDifficulty::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_max_difficulty(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -116,13 +116,13 @@ fn test_sudo_set_max_difficulty() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_max_difficulty(netuid), init_value);
+        assert_eq!(MaxDifficulty::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_max_difficulty(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_max_difficulty(netuid), to_be_set);
+        assert_eq!(MaxDifficulty::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -132,7 +132,7 @@ fn test_sudo_set_weights_version_key() {
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
-        let init_value: u64 = SubtensorModule::get_weights_version_key(netuid);
+        let init_value: u64 = WeightsVersionKey::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_weights_version_key(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -149,13 +149,13 @@ fn test_sudo_set_weights_version_key() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_weights_version_key(netuid), init_value);
+        assert_eq!(WeightsVersionKey::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_weights_version_key(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_weights_version_key(netuid), to_be_set);
+        assert_eq!(WeightsVersionKey::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -165,7 +165,7 @@ fn test_sudo_set_weights_set_rate_limit() {
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
-        let init_value: u64 = SubtensorModule::get_weights_set_rate_limit(netuid);
+        let init_value: u64 = WeightsSetRateLimit::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_weights_set_rate_limit(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -182,19 +182,13 @@ fn test_sudo_set_weights_set_rate_limit() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(
-            SubtensorModule::get_weights_set_rate_limit(netuid),
-            init_value
-        );
+        assert_eq!(WeightsSetRateLimit::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_weights_set_rate_limit(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(
-            SubtensorModule::get_weights_set_rate_limit(netuid),
-            to_be_set
-        );
+        assert_eq!(WeightsSetRateLimit::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -204,7 +198,7 @@ fn test_sudo_set_adjustment_interval() {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
-        let init_value: u16 = SubtensorModule::get_adjustment_interval(netuid);
+        let init_value: u16 = AdjustmentInterval::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_adjustment_interval(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -221,13 +215,13 @@ fn test_sudo_set_adjustment_interval() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_adjustment_interval(netuid), init_value);
+        assert_eq!(AdjustmentInterval::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_adjustment_interval(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_adjustment_interval(netuid), to_be_set);
+        assert_eq!(AdjustmentInterval::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -237,7 +231,7 @@ fn test_sudo_set_adjustment_alpha() {
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
-        let init_value: u64 = SubtensorModule::get_adjustment_alpha(netuid);
+        let init_value: u64 = AdjustmentAlpha::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_adjustment_alpha(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -254,13 +248,13 @@ fn test_sudo_set_adjustment_alpha() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_adjustment_alpha(netuid), init_value);
+        assert_eq!(AdjustmentAlpha::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_adjustment_alpha(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_adjustment_alpha(netuid), to_be_set);
+        assert_eq!(AdjustmentAlpha::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -268,7 +262,7 @@ fn test_sudo_set_adjustment_alpha() {
 fn test_sudo_subnet_owner_cut() {
     new_test_ext().execute_with(|| {
         let to_be_set: u16 = 10;
-        let init_value: u16 = SubtensorModule::get_subnet_owner_cut();
+        let init_value: u16 = SubnetOwnerCut::<Test>::get();
         assert_eq!(
             AdminUtils::sudo_set_subnet_owner_cut(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
@@ -276,12 +270,12 @@ fn test_sudo_subnet_owner_cut() {
             ),
             Err(DispatchError::BadOrigin)
         );
-        assert_eq!(SubtensorModule::get_subnet_owner_cut(), init_value);
+        assert_eq!(SubnetOwnerCut::<Test>::get(), init_value);
         assert_ok!(AdminUtils::sudo_set_subnet_owner_cut(
             <<Test as Config>::RuntimeOrigin>::root(),
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_subnet_owner_cut(), to_be_set);
+        assert_eq!(SubnetOwnerCut::<Test>::get(), to_be_set);
     });
 }
 
@@ -291,7 +285,7 @@ fn test_sudo_set_max_weight_limit() {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
-        let init_value: u16 = SubtensorModule::get_max_weight_limit(netuid);
+        let init_value: u16 = MaxWeightsLimit::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_max_weight_limit(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -308,13 +302,13 @@ fn test_sudo_set_max_weight_limit() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_max_weight_limit(netuid), init_value);
+        assert_eq!(MaxWeightsLimit::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_max_weight_limit(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_max_weight_limit(netuid), to_be_set);
+        assert_eq!(MaxWeightsLimit::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -333,7 +327,7 @@ fn test_sudo_set_issuance() {
             <<Test as Config>::RuntimeOrigin>::root(),
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_total_issuance(), to_be_set);
+        assert_eq!(TotalIssuance::<Test>::get(), to_be_set);
     });
 }
 
@@ -343,7 +337,7 @@ fn test_sudo_set_immunity_period() {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
-        let init_value: u16 = SubtensorModule::get_immunity_period(netuid);
+        let init_value: u16 = ImmunityPeriod::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_immunity_period(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -360,13 +354,13 @@ fn test_sudo_set_immunity_period() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_immunity_period(netuid), init_value);
+        assert_eq!(ImmunityPeriod::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_immunity_period(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_immunity_period(netuid), to_be_set);
+        assert_eq!(ImmunityPeriod::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -376,7 +370,7 @@ fn test_sudo_set_min_allowed_weights() {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
-        let init_value: u16 = SubtensorModule::get_min_allowed_weights(netuid);
+        let init_value: u16 = MinAllowedWeights::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_min_allowed_weights(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -393,13 +387,13 @@ fn test_sudo_set_min_allowed_weights() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_min_allowed_weights(netuid), init_value);
+        assert_eq!(MinAllowedWeights::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_min_allowed_weights(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_min_allowed_weights(netuid), to_be_set);
+        assert_eq!(MinAllowedWeights::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -409,7 +403,7 @@ fn test_sudo_set_max_allowed_uids() {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
-        let init_value: u16 = SubtensorModule::get_max_allowed_uids(netuid);
+        let init_value: u16 = MaxAllowedUids::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_max_allowed_uids(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
@@ -426,13 +420,13 @@ fn test_sudo_set_max_allowed_uids() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), init_value);
+        assert_eq!(MaxAllowedUids::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_max_allowed_uids(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), to_be_set);
+        assert_eq!(MaxAllowedUids::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -442,7 +436,7 @@ fn test_sudo_set_and_decrease_max_allowed_uids() {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
-        let init_value: u16 = SubtensorModule::get_max_allowed_uids(netuid);
+        let init_value: u16 = MaxAllowedUids::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_max_allowed_uids(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
@@ -459,7 +453,7 @@ fn test_sudo_set_and_decrease_max_allowed_uids() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), init_value);
+        assert_eq!(MaxAllowedUids::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_max_allowed_uids(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
@@ -479,7 +473,7 @@ fn test_sudo_set_kappa() {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
-        let init_value: u16 = SubtensorModule::get_kappa(netuid);
+        let init_value: u16 = Kappa::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_kappa(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -496,13 +490,13 @@ fn test_sudo_set_kappa() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_kappa(netuid), init_value);
+        assert_eq!(Kappa::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_kappa(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_kappa(netuid), to_be_set);
+        assert_eq!(Kappa::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -512,7 +506,7 @@ fn test_sudo_set_rho() {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
-        let init_value: u16 = SubtensorModule::get_rho(netuid);
+        let init_value: u16 = Rho::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_rho(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -529,13 +523,13 @@ fn test_sudo_set_rho() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_rho(netuid), init_value);
+        assert_eq!(Rho::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_rho(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_rho(netuid), to_be_set);
+        assert_eq!(Rho::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -545,7 +539,7 @@ fn test_sudo_set_activity_cutoff() {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
-        let init_value: u16 = SubtensorModule::get_activity_cutoff(netuid);
+        let init_value: u16 = ActivityCutoff::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_activity_cutoff(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -562,13 +556,13 @@ fn test_sudo_set_activity_cutoff() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_activity_cutoff(netuid), init_value);
+        assert_eq!(ActivityCutoff::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_activity_cutoff(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_activity_cutoff(netuid), to_be_set);
+        assert_eq!(ActivityCutoff::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -578,7 +572,7 @@ fn test_sudo_set_target_registrations_per_interval() {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
-        let init_value: u16 = SubtensorModule::get_target_registrations_per_interval(netuid);
+        let init_value: u16 = TargetRegistrationsPerInterval::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_target_registrations_per_interval(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -596,7 +590,7 @@ fn test_sudo_set_target_registrations_per_interval() {
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
         assert_eq!(
-            SubtensorModule::get_target_registrations_per_interval(netuid),
+            TargetRegistrationsPerInterval::<Test>::get(netuid),
             init_value
         );
         assert_ok!(AdminUtils::sudo_set_target_registrations_per_interval(
@@ -605,7 +599,7 @@ fn test_sudo_set_target_registrations_per_interval() {
             to_be_set
         ));
         assert_eq!(
-            SubtensorModule::get_target_registrations_per_interval(netuid),
+            TargetRegistrationsPerInterval::<Test>::get(netuid),
             to_be_set
         );
     });
@@ -617,7 +611,7 @@ fn test_sudo_set_difficulty() {
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
-        let init_value: u64 = SubtensorModule::get_difficulty_as_u64(netuid);
+        let init_value: u64 = Difficulty::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_difficulty(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -634,13 +628,13 @@ fn test_sudo_set_difficulty() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), init_value);
+        assert_eq!(Difficulty::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_difficulty(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), to_be_set);
+        assert_eq!(Difficulty::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -650,7 +644,7 @@ fn test_sudo_set_max_allowed_validators() {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
-        let init_value: u16 = SubtensorModule::get_max_allowed_validators(netuid);
+        let init_value: u16 = MaxAllowedValidators::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_max_allowed_validators(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -667,19 +661,13 @@ fn test_sudo_set_max_allowed_validators() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(
-            SubtensorModule::get_max_allowed_validators(netuid),
-            init_value
-        );
+        assert_eq!(MaxAllowedValidators::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_max_allowed_validators(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(
-            SubtensorModule::get_max_allowed_validators(netuid),
-            to_be_set
-        );
+        assert_eq!(MaxAllowedValidators::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -687,7 +675,7 @@ fn test_sudo_set_max_allowed_validators() {
 fn test_sudo_set_stake_threshold() {
     new_test_ext().execute_with(|| {
         let to_be_set: u64 = 10;
-        let init_value: u64 = SubtensorModule::get_stake_threshold();
+        let init_value: u64 = StakeThreshold::<Test>::get();
         assert_eq!(
             AdminUtils::sudo_set_stake_threshold(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -695,12 +683,12 @@ fn test_sudo_set_stake_threshold() {
             ),
             Err(DispatchError::BadOrigin)
         );
-        assert_eq!(SubtensorModule::get_stake_threshold(), init_value);
+        assert_eq!(StakeThreshold::<Test>::get(), init_value);
         assert_ok!(AdminUtils::sudo_set_stake_threshold(
             <<Test as Config>::RuntimeOrigin>::root(),
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_stake_threshold(), to_be_set);
+        assert_eq!(StakeThreshold::<Test>::get(), to_be_set);
     });
 }
 
@@ -710,7 +698,7 @@ fn test_sudo_set_bonds_moving_average() {
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
-        let init_value: u64 = SubtensorModule::get_bonds_moving_average(netuid);
+        let init_value = BondsMovingAverage::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_bonds_moving_average(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -727,16 +715,13 @@ fn test_sudo_set_bonds_moving_average() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(
-            SubtensorModule::get_bonds_moving_average(netuid),
-            init_value
-        );
+        assert_eq!(BondsMovingAverage::<Test>::get(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_bonds_moving_average(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_bonds_moving_average(netuid), to_be_set);
+        assert_eq!(BondsMovingAverage::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -746,7 +731,7 @@ fn test_sudo_set_rao_recycled() {
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         add_network(netuid, 10);
-        let init_value: u64 = SubtensorModule::get_rao_recycled(netuid);
+        let init_value: u64 = RAORecycledForRegistration::<Test>::get(netuid);
 
         // Need to run from genesis block
         run_to_block(1);
@@ -767,7 +752,8 @@ fn test_sudo_set_rao_recycled() {
             ),
             Err(Error::<Test>::SubnetDoesNotExist.into())
         );
-        assert_eq!(SubtensorModule::get_rao_recycled(netuid), init_value);
+
+        assert_eq!(RAORecycledForRegistration::<Test>::get(netuid), init_value);
 
         // Verify no events emitted matching the expected event
         assert_eq!(
@@ -786,7 +772,7 @@ fn test_sudo_set_rao_recycled() {
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_rao_recycled(netuid), to_be_set);
+        assert_eq!(RAORecycledForRegistration::<Test>::get(netuid), to_be_set);
 
         // Verify event emitted with correct values
         assert_eq!(
@@ -809,7 +795,7 @@ fn test_sudo_set_subnet_limit() {
         let to_be_set: u16 = 10;
         add_network(netuid, 10);
 
-        let init_value: u16 = SubtensorModule::get_max_subnets();
+        let init_value: u16 = SubnetLimit::<Test>::get();
         assert_eq!(
             AdminUtils::sudo_set_subnet_limit(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -817,12 +803,12 @@ fn test_sudo_set_subnet_limit() {
             ),
             Err(DispatchError::BadOrigin)
         );
-        assert_eq!(SubtensorModule::get_max_subnets(), init_value);
+        assert_eq!(SubnetLimit::<Test>::get(), init_value);
         assert_ok!(AdminUtils::sudo_set_subnet_limit(
             <<Test as Config>::RuntimeOrigin>::root(),
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_max_subnets(), to_be_set);
+        assert_eq!(SubnetLimit::<Test>::get(), to_be_set);
     });
 }
 
@@ -833,7 +819,7 @@ fn test_sudo_set_network_lock_reduction_interval() {
         let to_be_set: u64 = 7200;
         add_network(netuid, 10);
 
-        let init_value: u64 = SubtensorModule::get_lock_reduction_interval();
+        let init_value: u64 = NetworkLockReductionInterval::<Test>::get();
         assert_eq!(
             AdminUtils::sudo_set_lock_reduction_interval(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -841,12 +827,12 @@ fn test_sudo_set_network_lock_reduction_interval() {
             ),
             Err(DispatchError::BadOrigin)
         );
-        assert_eq!(SubtensorModule::get_lock_reduction_interval(), init_value);
+        assert_eq!(NetworkLockReductionInterval::<Test>::get(), init_value);
         assert_ok!(AdminUtils::sudo_set_lock_reduction_interval(
             <<Test as Config>::RuntimeOrigin>::root(),
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_lock_reduction_interval(), to_be_set);
+        assert_eq!(NetworkLockReductionInterval::<Test>::get(), to_be_set);
     });
 }
 
@@ -857,7 +843,7 @@ fn test_sudo_set_network_pow_registration_allowed() {
         let to_be_set: bool = true;
         add_network(netuid, 10);
 
-        let init_value: bool = SubtensorModule::get_network_pow_registration_allowed(netuid);
+        let init_value: bool = NetworkPowRegistrationAllowed::<Test>::get(netuid);
         assert_eq!(
             AdminUtils::sudo_set_network_pow_registration_allowed(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -867,7 +853,7 @@ fn test_sudo_set_network_pow_registration_allowed() {
             Err(DispatchError::BadOrigin)
         );
         assert_eq!(
-            SubtensorModule::get_network_pow_registration_allowed(netuid),
+            NetworkPowRegistrationAllowed::<Test>::get(netuid),
             init_value
         );
         assert_ok!(AdminUtils::sudo_set_network_pow_registration_allowed(
@@ -876,7 +862,7 @@ fn test_sudo_set_network_pow_registration_allowed() {
             to_be_set
         ));
         assert_eq!(
-            SubtensorModule::get_network_pow_registration_allowed(netuid),
+            NetworkPowRegistrationAllowed::<Test>::get(netuid),
             to_be_set
         );
     });
@@ -888,7 +874,7 @@ mod sudo_set_nominator_min_required_stake {
     #[test]
     fn can_only_be_called_by_admin() {
         new_test_ext().execute_with(|| {
-            let to_be_set: u64 = SubtensorModule::get_nominator_min_required_stake() + 5_u64;
+            let to_be_set: u64 = NominatorMinRequiredStake::<Test>::get() + 5_u64;
             assert_eq!(
                 AdminUtils::sudo_set_nominator_min_required_stake(
                     <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
@@ -906,28 +892,25 @@ mod sudo_set_nominator_min_required_stake {
                 <<Test as Config>::RuntimeOrigin>::root(),
                 10u64
             ));
-            assert_eq!(SubtensorModule::get_nominator_min_required_stake(), 10u64);
+            assert_eq!(NominatorMinRequiredStake::<Test>::get(), 10u64);
 
             assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
                 <<Test as Config>::RuntimeOrigin>::root(),
                 5u64
             ));
-            assert_eq!(SubtensorModule::get_nominator_min_required_stake(), 5u64);
+            assert_eq!(NominatorMinRequiredStake::<Test>::get(), 5u64);
         });
     }
 
     #[test]
     fn sets_a_higher_value() {
         new_test_ext().execute_with(|| {
-            let to_be_set: u64 = SubtensorModule::get_nominator_min_required_stake() + 5_u64;
+            let to_be_set: u64 = NominatorMinRequiredStake::<Test>::get() + 5_u64;
             assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
                 <<Test as Config>::RuntimeOrigin>::root(),
                 to_be_set
             ));
-            assert_eq!(
-                SubtensorModule::get_nominator_min_required_stake(),
-                to_be_set
-            );
+            assert_eq!(NominatorMinRequiredStake::<Test>::get(), to_be_set);
         });
     }
 
@@ -954,7 +937,7 @@ mod sudo_set_nominator_min_required_stake {
                 hot1,
                 u16::MAX / 10
             ));
-            assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot1), cold1);
+            assert_eq!(Owner::<Test>::get(hot1), cold1);
 
             // Register hot2.
             register_ok_neuron(netuid, hot2, cold2, 0);
@@ -963,7 +946,7 @@ mod sudo_set_nominator_min_required_stake {
                 hot2,
                 u16::MAX / 10
             ));
-            assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot2), cold2);
+            assert_eq!(Owner::<Test>::get(hot2), cold2);
 
             // Add stake cold1 --> hot1 (non delegation.)
             SubtensorModule::add_balance_to_coldkey_account(&cold1, 5);
@@ -972,10 +955,7 @@ mod sudo_set_nominator_min_required_stake {
                 hot1,
                 1
             ));
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
-                1
-            );
+            assert_eq!(Stake::<Test>::get(hot1, cold1), 1);
             assert_eq!(Balances::free_balance(cold1), 4);
 
             // Add stake cold2 --> hot1 (is delegation.)
@@ -985,10 +965,7 @@ mod sudo_set_nominator_min_required_stake {
                 hot1,
                 1
             ));
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
-                1
-            );
+            assert_eq!(Stake::<Test>::get(hot1, cold2), 1);
             assert_eq!(Balances::free_balance(cold2), 4);
 
             // Add stake cold1 --> hot2 (non delegation.)
@@ -998,10 +975,7 @@ mod sudo_set_nominator_min_required_stake {
                 hot2,
                 1
             ));
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
-                1
-            );
+            assert_eq!(Stake::<Test>::get(hot2, cold1), 1);
             assert_eq!(Balances::free_balance(cold1), 8);
 
             // Add stake cold2 --> hot2 (is delegation.)
@@ -1011,10 +985,7 @@ mod sudo_set_nominator_min_required_stake {
                 hot2,
                 1
             ));
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
-                1
-            );
+            assert_eq!(Stake::<Test>::get(hot2, cold2), 1);
             assert_eq!(Balances::free_balance(cold2), 8);
 
             // Set min stake to 0 (noop)
@@ -1022,44 +993,20 @@ mod sudo_set_nominator_min_required_stake {
                 <<Test as Config>::RuntimeOrigin>::root(),
                 0u64
             ));
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
-                1
-            );
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
-                1
-            );
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
-                1
-            );
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
-                1
-            );
+            assert_eq!(Stake::<Test>::get(hot1, cold1), 1);
+            assert_eq!(Stake::<Test>::get(hot2, cold1), 1);
+            assert_eq!(Stake::<Test>::get(hot1, cold2), 1);
+            assert_eq!(Stake::<Test>::get(hot2, cold2), 1);
 
             // Set min nomination to 10: should clear (cold2, hot1) and (cold1, hot2).
             assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
                 <<Test as Config>::RuntimeOrigin>::root(),
                 10u64
             ));
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
-                1
-            );
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
-                0
-            );
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
-                0
-            );
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
-                1
-            );
+            assert_eq!(Stake::<Test>::get(hot1, cold1), 1);
+            assert_eq!(Stake::<Test>::get(hot2, cold1), 0);
+            assert_eq!(Stake::<Test>::get(hot1, cold2), 0);
+            assert_eq!(Stake::<Test>::get(hot2, cold2), 1);
 
             // Balances have been added back into accounts.
             assert_eq!(Balances::free_balance(cold1), 9);
@@ -1072,7 +1019,7 @@ mod sudo_set_nominator_min_required_stake {
 fn test_sudo_set_tx_delegate_take_rate_limit() {
     new_test_ext().execute_with(|| {
         let to_be_set: u64 = 10;
-        let init_value: u64 = SubtensorModule::get_tx_delegate_take_rate_limit();
+        let init_value: u64 = TxDelegateTakeRateLimit::<Test>::get();
         assert_eq!(
             AdminUtils::sudo_set_tx_delegate_take_rate_limit(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -1080,18 +1027,12 @@ fn test_sudo_set_tx_delegate_take_rate_limit() {
             ),
             Err(DispatchError::BadOrigin)
         );
-        assert_eq!(
-            SubtensorModule::get_tx_delegate_take_rate_limit(),
-            init_value
-        );
+        assert_eq!(TxDelegateTakeRateLimit::<Test>::get(), init_value);
         assert_ok!(AdminUtils::sudo_set_tx_delegate_take_rate_limit(
             <<Test as Config>::RuntimeOrigin>::root(),
             to_be_set
         ));
-        assert_eq!(
-            SubtensorModule::get_tx_delegate_take_rate_limit(),
-            to_be_set
-        );
+        assert_eq!(TxDelegateTakeRateLimit::<Test>::get(), to_be_set);
     });
 }
 
@@ -1099,7 +1040,7 @@ fn test_sudo_set_tx_delegate_take_rate_limit() {
 fn test_sudo_set_min_delegate_take() {
     new_test_ext().execute_with(|| {
         let to_be_set = u16::MAX / 100;
-        let init_value = SubtensorModule::get_min_delegate_take();
+        let init_value = MinDelegateTake::<Test>::get();
         assert_eq!(
             AdminUtils::sudo_set_min_delegate_take(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -1107,12 +1048,12 @@ fn test_sudo_set_min_delegate_take() {
             ),
             Err(DispatchError::BadOrigin)
         );
-        assert_eq!(SubtensorModule::get_min_delegate_take(), init_value);
+        assert_eq!(MinDelegateTake::<Test>::get(), init_value);
         assert_ok!(AdminUtils::sudo_set_min_delegate_take(
             <<Test as Config>::RuntimeOrigin>::root(),
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_min_delegate_take(), to_be_set);
+        assert_eq!(MinDelegateTake::<Test>::get(), to_be_set);
     });
 }
 
@@ -1123,7 +1064,7 @@ fn test_sudo_set_commit_reveal_weights_enabled() {
         add_network(netuid, 10);
 
         let to_be_set: bool = true;
-        let init_value: bool = SubtensorModule::get_commit_reveal_weights_enabled(netuid);
+        let init_value: bool = CommitRevealWeightsEnabled::<Test>::get(netuid);
 
         assert_ok!(AdminUtils::sudo_set_commit_reveal_weights_enabled(
             <<Test as Config>::RuntimeOrigin>::root(),
@@ -1132,10 +1073,7 @@ fn test_sudo_set_commit_reveal_weights_enabled() {
         ));
 
         assert!(init_value != to_be_set);
-        assert_eq!(
-            SubtensorModule::get_commit_reveal_weights_enabled(netuid),
-            to_be_set
-        );
+        assert_eq!(CommitRevealWeightsEnabled::<Test>::get(netuid), to_be_set);
     });
 }
 
@@ -1143,7 +1081,7 @@ fn test_sudo_set_commit_reveal_weights_enabled() {
 fn test_sudo_set_target_stakes_per_interval() {
     new_test_ext().execute_with(|| {
         let to_be_set = 100;
-        let init_value = SubtensorModule::get_target_stakes_per_interval();
+        let init_value = TargetStakesPerInterval::<Test>::get();
         assert_eq!(
             AdminUtils::sudo_set_target_stakes_per_interval(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -1151,15 +1089,12 @@ fn test_sudo_set_target_stakes_per_interval() {
             ),
             Err(DispatchError::BadOrigin)
         );
-        assert_eq!(
-            SubtensorModule::get_target_stakes_per_interval(),
-            init_value
-        );
+        assert_eq!(TargetStakesPerInterval::<Test>::get(), init_value);
         assert_ok!(AdminUtils::sudo_set_target_stakes_per_interval(
             <<Test as Config>::RuntimeOrigin>::root(),
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_target_stakes_per_interval(), to_be_set);
+        assert_eq!(TargetStakesPerInterval::<Test>::get(), to_be_set);
     });
 }
 
@@ -1168,7 +1103,7 @@ fn test_sudo_set_liquid_alpha_enabled() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let enabled: bool = true;
-        assert_eq!(!enabled, SubtensorModule::get_liquid_alpha_enabled(netuid));
+        assert_eq!(!enabled, LiquidAlphaOn::<Test>::get(netuid));
 
         assert_ok!(AdminUtils::sudo_set_liquid_alpha_enabled(
             <<Test as Config>::RuntimeOrigin>::root(),
@@ -1176,7 +1111,7 @@ fn test_sudo_set_liquid_alpha_enabled() {
             enabled
         ));
 
-        assert_eq!(enabled, SubtensorModule::get_liquid_alpha_enabled(netuid));
+        assert_eq!(enabled, LiquidAlphaOn::<Test>::get(netuid));
     });
 }
 
@@ -1211,7 +1146,7 @@ fn test_sudo_get_set_alpha() {
         let signer = <<Test as Config>::RuntimeOrigin>::signed(coldkey);
 
         // Enable Liquid Alpha and setup
-        SubtensorModule::set_liquid_alpha_enabled(netuid, true);
+        LiquidAlphaOn::<Test>::set(netuid, true);
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
@@ -1231,8 +1166,7 @@ fn test_sudo_get_set_alpha() {
             alpha_low,
             alpha_high
         ));
-        let (grabbed_alpha_low, grabbed_alpha_high): (u16, u16) =
-            SubtensorModule::get_alpha_values(netuid);
+        let (grabbed_alpha_low, grabbed_alpha_high): (u16, u16) = AlphaValues::<Test>::get(netuid);
 
         log::info!(
             "alpha_low: {:?} alpha_high: {:?}",
@@ -1270,13 +1204,13 @@ fn test_sudo_get_set_alpha() {
         );
 
         // 1. Liquid alpha disabled
-        SubtensorModule::set_liquid_alpha_enabled(netuid, false);
+        LiquidAlphaOn::<Test>::set(netuid, false);
         assert_err!(
             AdminUtils::sudo_set_alpha_values(signer.clone(), netuid, alpha_low, alpha_high),
             SubtensorError::<Test>::LiquidAlphaDisabled
         );
         // Correct scenario after error
-        SubtensorModule::set_liquid_alpha_enabled(netuid, true); // Re-enable for further tests
+        LiquidAlphaOn::<Test>::set(netuid, true); // Re-enable for further tests
         assert_ok!(AdminUtils::sudo_set_alpha_values(
             signer.clone(),
             netuid,
@@ -1423,7 +1357,7 @@ fn sudo_set_commit_reveal_weights_interval() {
         add_network(netuid, 10);
 
         let to_be_set = 55;
-        let init_value = SubtensorModule::get_reveal_period(netuid);
+        let init_value = RevealPeriodEpochs::<Test>::get(netuid);
 
         assert_ok!(AdminUtils::sudo_set_commit_reveal_weights_interval(
             <<Test as Config>::RuntimeOrigin>::root(),
@@ -1432,7 +1366,7 @@ fn sudo_set_commit_reveal_weights_interval() {
         ));
 
         assert!(init_value != to_be_set);
-        assert_eq!(SubtensorModule::get_reveal_period(netuid), to_be_set);
+        assert_eq!(RevealPeriodEpochs::<Test>::get(netuid), to_be_set);
     });
 }
 

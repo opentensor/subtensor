@@ -65,7 +65,7 @@ impl<T: Config> Pallet<T> {
         // --- 3. Drain the subnet block emission and accumulate it as subnet emission, which increases until the tempo is reached in #4.
         // subnet_blockwise_emission -> subnet_pending_emission
         for netuid in subnets.clone().iter() {
-            if *netuid == 0 || !Self::get_network_registration_allowed(*netuid) {
+            if *netuid == 0 || !NetworkRegistrationAllowed::<T>::get(*netuid) {
                 continue;
             }
             // --- 3.1 Get the network's block-wise emission amount.
@@ -95,7 +95,7 @@ impl<T: Config> Pallet<T> {
             // --- 4.1 Check to see if the subnet should run its epoch.
             if Self::should_run_epoch(*netuid, current_block) {
                 // --- 4.2 Reveal weights from the n-2nd epoch.
-                if Self::get_commit_reveal_weights_enabled(*netuid) {
+                if CommitRevealWeightsEnabled::<T>::get(*netuid) {
                     if let Err(e) = Self::reveal_crv3_commits(*netuid) {
                         log::warn!(
                             "Failed to reveal commits for subnet {} due to error: {:?}",
@@ -117,11 +117,11 @@ impl<T: Config> Pallet<T> {
                     subnet_emission
                 );
 
-                // --- 4.5 Set last step counter.
-                Self::set_blocks_since_last_step(*netuid, 0);
-                Self::set_last_mechanism_step_block(*netuid, current_block);
+                // --- 4.4 Set last step counter.
+                BlocksSinceLastStep::<T>::insert(*netuid, 0);
+                LastMechansimStepBlock::<T>::insert(*netuid, current_block);
 
-                if *netuid == 0 || !Self::get_network_registration_allowed(*netuid) {
+                if *netuid == 0 || !NetworkRegistrationAllowed::<T>::get(*netuid) {
                     // Skip netuid 0 payouts
                     continue;
                 }
@@ -132,7 +132,7 @@ impl<T: Config> Pallet<T> {
 
                     // --- 4.6.1 Compute the subnet owner cut.
                     let owner_cut: I96F32 = I96F32::from_num(subnet_emission).saturating_mul(
-                        I96F32::from_num(Self::get_subnet_owner_cut())
+                        I96F32::from_num(SubnetOwnerCut::<T>::get())
                             .saturating_div(I96F32::from_num(u16::MAX)),
                     );
 
@@ -141,7 +141,7 @@ impl<T: Config> Pallet<T> {
 
                     // --- 4.6.3 Add the cut to the balance of the owner
                     Self::add_balance_to_coldkey_account(
-                        &Self::get_subnet_owner(*netuid),
+                        &SubnetOwner::<T>::get(*netuid),
                         owner_cut.to_num::<u64>(),
                     );
 
@@ -171,9 +171,9 @@ impl<T: Config> Pallet<T> {
                 }
             } else {
                 // No epoch, increase blocks since last step and continue
-                Self::set_blocks_since_last_step(
+                BlocksSinceLastStep::<T>::insert(
                     *netuid,
-                    Self::get_blocks_since_last_step(*netuid).saturating_add(1),
+                    BlocksSinceLastStep::<T>::get(*netuid).saturating_add(1),
                 );
                 log::debug!("Tempo not reached for subnet: {:?}", *netuid);
             }
@@ -183,7 +183,7 @@ impl<T: Config> Pallet<T> {
         // The hotkey takes a proportion of the emission, the remainder is drained through to the nominators.
         // We keep track of the last stake increase event for accounting purposes.
         // hotkeys --> nominators.
-        let emission_tempo: u64 = Self::get_hotkey_emission_tempo();
+        let emission_tempo: u64 = HotkeyEmissionTempo::<T>::get();
         for (hotkey, hotkey_emission) in PendingdHotkeyEmission::<T>::iter() {
             // Check for zeros.
             // remove zero values.
@@ -223,7 +223,7 @@ impl<T: Config> Pallet<T> {
 
         // Weights revealed must have been committed during epoch `cur_epoch - reveal_period`.
         let reveal_epoch =
-            cur_epoch.saturating_sub(Self::get_reveal_period(netuid).saturating_sub(1));
+            cur_epoch.saturating_sub(RevealPeriodEpochs::<T>::get(netuid).saturating_sub(1));
 
         // Clean expired commits
         for (epoch, _) in CRV3WeightCommits::<T>::iter_prefix(netuid) {
@@ -358,7 +358,7 @@ impl<T: Config> Pallet<T> {
     ) {
         // --- 1. First, calculate the hotkey's share of the emission.
         let childkey_take_proportion: I96F32 =
-            I96F32::from_num(Self::get_childkey_take(hotkey, netuid))
+            I96F32::from_num(ChildkeyTake::<T>::get(hotkey, netuid))
                 .saturating_div(I96F32::from_num(u16::MAX));
         let mut total_childkey_take: u64 = 0;
 
@@ -372,9 +372,9 @@ impl<T: Config> Pallet<T> {
         if total_hotkey_stake != 0 {
             // --- 4. If the total stake is not zero, iterate over each parent to determine their contribution to the hotkey's stake,
             // and calculate their share of the emission accordingly.
-            for (proportion, parent) in Self::get_parents(hotkey, netuid) {
+            for (proportion, parent) in ParentKeys::<T>::get(hotkey, netuid) {
                 // --- 4.1 Retrieve the parent's stake. This is the raw stake value including nominators.
-                let parent_stake: u64 = Self::get_total_stake_for_hotkey(&parent);
+                let parent_stake: u64 = TotalHotkeyStake::<T>::get(&parent);
 
                 // --- 4.2 Calculate the portion of the hotkey's total stake contributed by this parent.
                 // Then, determine the parent's share of the remaining emission.
@@ -456,7 +456,7 @@ impl<T: Config> Pallet<T> {
         LastHotkeyEmissionDrain::<T>::insert(hotkey, block_number);
 
         // --- 3 Retrieve the total stake for the hotkey from all nominations.
-        let total_hotkey_stake: u64 = Self::get_total_stake_for_hotkey(hotkey);
+        let total_hotkey_stake: u64 = TotalHotkeyStake::<T>::get(hotkey);
 
         // --- 4 Calculate the emission take for the hotkey.
         // This is only the hotkey take. Childkey take was already deducted from validator emissions in
@@ -550,7 +550,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `bool` - True if the epoch should run, false otherwise.
     pub fn should_run_epoch(netuid: u16, current_block: u64) -> bool {
-        Self::blocks_until_next_epoch(netuid, Self::get_tempo(netuid), current_block) == 0
+        Self::blocks_until_next_epoch(netuid, Tempo::<T>::get(netuid), current_block) == 0
     }
 
     /// Helper function which returns the number of blocks remaining before we will run the epoch on this

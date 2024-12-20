@@ -1,6 +1,8 @@
-use super::*;
 use frame_support::storage::IterableStorageMap;
 use substrate_fixed::types::I110F18;
+
+use super::*;
+use crate::AdjustmentAlpha;
 
 impl<T: Config + pallet_drand::Config> Pallet<T> {
     /// Executes the necessary operations for each block.
@@ -23,8 +25,8 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         // --- 1. Iterate through each network.
         for (netuid, _) in <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter() {
             // --- 2. Pull counters for network difficulty.
-            let last_adjustment_block: u64 = Self::get_last_adjustment_block(netuid);
-            let adjustment_interval: u16 = Self::get_adjustment_interval(netuid);
+            let last_adjustment_block: u64 = LastAdjustmentBlock::<T>::get(netuid);
+            let adjustment_interval: u16 = AdjustmentInterval::<T>::get(netuid);
             let current_block: u64 = Self::get_current_block_as_u64();
             log::debug!("netuid: {:?} last_adjustment_block: {:?} adjustment_interval: {:?} current_block: {:?}",
                 netuid,
@@ -39,16 +41,15 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                 log::debug!("interval reached.");
 
                 // --- 4. Get the current counters for this network w.r.t burn and difficulty values.
-                let current_burn: u64 = Self::get_burn_as_u64(netuid);
-                let current_difficulty: u64 = Self::get_difficulty_as_u64(netuid);
-                let registrations_this_interval: u16 =
-                    Self::get_registrations_this_interval(netuid);
+                let current_burn: u64 = Burn::<T>::get(netuid);
+                let current_difficulty: u64 = Difficulty::<T>::get(netuid);
+                let registrations_this_interval: u16 = RegistrationsThisInterval::<T>::get(netuid);
                 let pow_registrations_this_interval: u16 =
-                    Self::get_pow_registrations_this_interval(netuid);
+                    POWRegistrationsThisInterval::<T>::get(netuid);
                 let burn_registrations_this_interval: u16 =
-                    Self::get_burn_registrations_this_interval(netuid);
+                    BurnRegistrationsThisInterval::<T>::get(netuid);
                 let target_registrations_this_interval: u16 =
-                    Self::get_target_registrations_per_interval(netuid);
+                    TargetRegistrationsPerInterval::<T>::get(netuid);
                 // --- 5. Adjust burn + pow
                 // There are six cases to consider. A, B, C, D, E, F
                 if registrations_this_interval > target_registrations_this_interval {
@@ -70,7 +71,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                         // B. There are too many registrations this interval and most of them are burn registrations
                         // this triggers an increase in the burn cost.
                         // burn_cost ++
-                        Self::set_burn(
+                        Burn::<T>::insert(
                             netuid,
                             Self::upgraded_burn(
                                 netuid,
@@ -83,7 +84,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                         // F. There are too many registrations this interval and the pow and burn registrations are equal
                         // this triggers an increase in the burn cost and pow difficulty
                         // burn_cost ++
-                        Self::set_burn(
+                        Burn::<T>::insert(
                             netuid,
                             Self::upgraded_burn(
                                 netuid,
@@ -110,7 +111,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                         // C. There are not enough registrations this interval and most of them are pow registrations
                         // this triggers a decrease in the burn cost
                         // burn_cost --
-                        Self::set_burn(
+                        Burn::<T>::insert(
                             netuid,
                             Self::upgraded_burn(
                                 netuid,
@@ -136,7 +137,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                         // E. There are not enough registrations this interval and the pow and burn registrations are equal
                         // this triggers a decrease in the burn cost and pow difficulty
                         // burn_cost --
-                        Self::set_burn(
+                        Burn::<T>::insert(
                             netuid,
                             Self::upgraded_burn(
                                 netuid,
@@ -159,16 +160,16 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                 }
 
                 // --- 6. Drain all counters for this network for this interval.
-                Self::set_last_adjustment_block(netuid, current_block);
-                Self::set_registrations_this_interval(netuid, 0);
-                Self::set_pow_registrations_this_interval(netuid, 0);
-                Self::set_burn_registrations_this_interval(netuid, 0);
+                LastAdjustmentBlock::<T>::insert(netuid, current_block);
+                RegistrationsThisInterval::<T>::insert(netuid, 0);
+                POWRegistrationsThisInterval::<T>::insert(netuid, 0);
+                BurnRegistrationsThisInterval::<T>::insert(netuid, 0);
             } else {
                 log::debug!("interval not reached.");
             }
 
             // --- 7. Drain block registrations for each network. Needed for registration rate limits.
-            Self::set_registrations_this_block(netuid, 0);
+            RegistrationsThisBlock::<T>::insert(netuid, 0);
         }
     }
 
@@ -188,7 +189,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
             .saturating_div(I110F18::from_num(
                 target_registrations_per_interval.saturating_add(target_registrations_per_interval),
             ));
-        let alpha: I110F18 = I110F18::from_num(Self::get_adjustment_alpha(netuid))
+        let alpha: I110F18 = I110F18::from_num(AdjustmentAlpha::<T>::get(netuid))
             .saturating_div(I110F18::from_num(u64::MAX));
         let next_value: I110F18 = alpha
             .saturating_mul(I110F18::from_num(current_difficulty))
@@ -197,10 +198,10 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                     .saturating_sub(alpha)
                     .saturating_mul(updated_difficulty),
             );
-        if next_value >= I110F18::from_num(Self::get_max_difficulty(netuid)) {
-            Self::get_max_difficulty(netuid)
-        } else if next_value <= I110F18::from_num(Self::get_min_difficulty(netuid)) {
-            return Self::get_min_difficulty(netuid);
+        if next_value >= I110F18::from_num(MaxDifficulty::<T>::get(netuid)) {
+            MaxDifficulty::<T>::get(netuid)
+        } else if next_value <= I110F18::from_num(MinDifficulty::<T>::get(netuid)) {
+            return MinDifficulty::<T>::get(netuid);
         } else {
             return next_value.to_num::<u64>();
         }
@@ -222,7 +223,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
             .saturating_div(I110F18::from_num(
                 target_registrations_per_interval.saturating_add(target_registrations_per_interval),
             ));
-        let alpha: I110F18 = I110F18::from_num(Self::get_adjustment_alpha(netuid))
+        let alpha: I110F18 = I110F18::from_num(AdjustmentAlpha::<T>::get(netuid))
             .saturating_div(I110F18::from_num(u64::MAX));
         let next_value: I110F18 = alpha
             .saturating_mul(I110F18::from_num(current_burn))
@@ -231,10 +232,10 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                     .saturating_sub(alpha)
                     .saturating_mul(updated_burn),
             );
-        if next_value >= I110F18::from_num(Self::get_max_burn_as_u64(netuid)) {
-            Self::get_max_burn_as_u64(netuid)
-        } else if next_value <= I110F18::from_num(Self::get_min_burn_as_u64(netuid)) {
-            return Self::get_min_burn_as_u64(netuid);
+        if next_value >= I110F18::from_num(MaxBurn::<T>::get(netuid)) {
+            MaxBurn::<T>::get(netuid)
+        } else if next_value <= I110F18::from_num(MinBurn::<T>::get(netuid)) {
+            return MinBurn::<T>::get(netuid);
         } else {
             return next_value.to_num::<u64>();
         }

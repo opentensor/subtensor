@@ -50,7 +50,7 @@ pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
     let onchain_version = Pallet::<T>::on_chain_storage_version();
 
     // Only proceed if current version is less than the new version and subnet 3 exists
-    if onchain_version < new_storage_version && Pallet::<T>::if_subnet_exist(3) {
+    if onchain_version < new_storage_version && NetworksAdded::<T>::get(3) {
         info!(
             target: LOG_TARGET,
             "Removing subnet 3. Current version: {:?}",

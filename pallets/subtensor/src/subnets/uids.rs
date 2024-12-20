@@ -3,11 +3,6 @@ use frame_support::storage::IterableStorageDoubleMap;
 use sp_std::vec;
 
 impl<T: Config> Pallet<T> {
-    /// Returns the number of filled slots on a network.
-    pub fn get_subnetwork_n(netuid: u16) -> u16 {
-        SubnetworkN::<T>::get(netuid)
-    }
-
     /// Replace the neuron under this uid.
     pub fn replace_neuron(
         netuid: u16,
@@ -53,7 +48,7 @@ impl<T: Config> Pallet<T> {
     /// Appends the uid to the network.
     pub fn append_neuron(netuid: u16, new_hotkey: &T::AccountId, block_number: u64) {
         // 1. Get the next uid. This is always equal to subnetwork_n.
-        let next_uid: u16 = Self::get_subnetwork_n(netuid);
+        let next_uid = SubnetworkN::<T>::get(netuid);
         log::debug!(
             "append_neuron( netuid: {:?} | next_uid: {:?} | new_hotkey: {:?} ) ",
             netuid,
@@ -82,12 +77,6 @@ impl<T: Config> Pallet<T> {
         Uids::<T>::insert(netuid, new_hotkey.clone(), next_uid); // Make uid - hotkey association.
         BlockAtRegistration::<T>::insert(netuid, next_uid, block_number); // Fill block at registration.
         IsNetworkMember::<T>::insert(new_hotkey.clone(), netuid, true); // Fill network is member.
-    }
-
-    /// Returns true if the uid is set on the network.
-    ///
-    pub fn is_uid_exist_on_network(netuid: u16, uid: u16) -> bool {
-        Keys::<T>::contains_key(netuid, uid)
     }
 
     /// Returns true if the hotkey holds a slot on the network.

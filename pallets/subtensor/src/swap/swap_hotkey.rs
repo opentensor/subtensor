@@ -56,7 +56,7 @@ impl<T: Config> Pallet<T> {
 
         // 8. Ensure the transaction rate limit is not exceeded
         ensure!(
-            !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
+            !Self::exceeds_tx_rate_limit(LastTxBlock::<T>::get(&coldkey), block),
             Error::<T>::HotKeySetTxRateLimitExceeded
         );
 
@@ -66,7 +66,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // 10. Get the cost for swapping the key
-        let swap_cost = Self::get_key_swap_cost();
+        let swap_cost = T::KeySwapCost::get();
         log::debug!("Swap cost: {:?}", swap_cost);
 
         // 11. Ensure the coldkey has enough balance to pay for the swap
@@ -85,7 +85,7 @@ impl<T: Config> Pallet<T> {
         let _ = Self::perform_hotkey_swap(old_hotkey, new_hotkey, &coldkey, &mut weight);
 
         // 15. Update the last transaction block for the coldkey
-        Self::set_last_tx_block(&coldkey, block);
+        LastTxBlock::<T>::insert(&coldkey, block);
         weight.saturating_accrue(T::DbWeight::get().writes(1));
 
         // 16. Emit an event for the hotkey swap

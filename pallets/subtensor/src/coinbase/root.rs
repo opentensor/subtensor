@@ -29,38 +29,8 @@ use substrate_fixed::{
 };
 
 impl<T: Config> Pallet<T> {
-    /// Retrieves the unique identifier (UID) for the root network.
-    ///
     /// The root network is a special case and has a fixed UID of 0.
-    ///
-    /// # Returns:
-    /// * 'u16': The UID for the root network.
-    ///
-    pub fn get_root_netuid() -> u16 {
-        0
-    }
-
-    /// Fetches the total count of subnets.
-    ///
-    /// This function retrieves the total number of subnets present on the chain.
-    ///
-    /// # Returns:
-    /// * 'u16': The total number of subnets.
-    ///
-    pub fn get_num_subnets() -> u16 {
-        TotalNetworks::<T>::get()
-    }
-
-    /// Fetches the max number of subnet
-    ///
-    /// This function retrieves the max number of subnet.
-    ///
-    /// # Returns:
-    /// * 'u16': The max number of subnet
-    ///
-    pub fn get_max_subnets() -> u16 {
-        SubnetLimit::<T>::get()
-    }
+    pub(crate) const ROOT_NETUID: u16 = 0;
 
     /// Sets the max number of subnet
     ///
@@ -79,40 +49,7 @@ impl<T: Config> Pallet<T> {
     /// * 'u16': The total number of root network validators
     ///
     pub fn get_num_root_validators() -> u16 {
-        Self::get_subnetwork_n(Self::get_root_netuid())
-    }
-
-    /// Fetches the max validators count of root network.
-    ///
-    /// This function retrieves the max validators count of root network.
-    ///
-    /// # Returns:
-    /// * 'u16': The max validators count of root network.
-    ///
-    pub fn get_max_root_validators() -> u16 {
-        Self::get_max_allowed_uids(Self::get_root_netuid())
-    }
-
-    /// Returns the emission value for the given subnet.
-    ///
-    /// This function retrieves the emission value for the given subnet.
-    ///
-    /// # Returns:
-    /// * 'u64': The emission value for the given subnet.
-    ///
-    pub fn get_subnet_emission_value(netuid: u16) -> u64 {
-        EmissionValues::<T>::get(netuid)
-    }
-
-    /// Returns true if the subnetwork exists.
-    ///
-    /// This function checks if a subnetwork with the given UID exists.
-    ///
-    /// # Returns:
-    /// * 'bool': Whether the subnet exists.
-    ///
-    pub fn if_subnet_exist(netuid: u16) -> bool {
-        NetworksAdded::<T>::get(netuid)
+        SubnetworkN::<T>::get(Self::ROOT_NETUID)
     }
 
     /// Returns a list of subnet netuid equal to total networks.
@@ -142,7 +79,7 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn get_block_emission() -> Result<u64, &'static str> {
         // Convert the total issuance to a fixed-point number for calculation.
-        Self::get_block_emission_for_issuance(Self::get_total_issuance())
+        Self::get_block_emission_for_issuance(TotalIssuance::<T>::get())
     }
 
     /// Returns the block emission for an issuance value.
@@ -206,7 +143,7 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn contains_invalid_root_uids(netuids: &[u16]) -> bool {
         for netuid in netuids {
-            if !Self::if_subnet_exist(*netuid) {
+            if !NetworksAdded::<T>::get(*netuid) {
                 log::debug!(
                     "contains_invalid_root_uids: netuid {:?} does not exist",
                     netuid
@@ -254,8 +191,8 @@ impl<T: Config> Pallet<T> {
         let n: usize = Self::get_num_root_validators() as usize;
 
         // --- 1 The number of subnets to validate.
-        log::debug!("subnet size before cast: {:?}", Self::get_num_subnets());
-        let k: usize = Self::get_num_subnets() as usize;
+        log::debug!("subnet size before cast: {:?}", TotalNetworks::<T>::get());
+        let k: usize = TotalNetworks::<T>::get() as usize;
         log::debug!("n: {:?} k: {:?}", n, k);
 
         // --- 2. Initialize a 2D vector with zeros to store the weights. The dimensions are determined
@@ -268,7 +205,7 @@ impl<T: Config> Pallet<T> {
         // --- 3. Iterate over stored weights and fill the matrix.
         for (uid_i, weights_i) in
             <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(
-                Self::get_root_netuid(),
+                Self::ROOT_NETUID,
             )
         {
             // --- 4. Iterate over each weight entry in `weights_i` to update the corresponding value in the
@@ -325,11 +262,11 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn root_epoch(block_number: u64) -> Result<(), &'static str> {
         // --- 0. The unique ID associated with the root network.
-        let root_netuid: u16 = Self::get_root_netuid();
+        let root_netuid: u16 = Self::ROOT_NETUID;
 
         // --- 1. Check if we should update the emission values based on blocks since emission was last set.
         let blocks_until_next_epoch: u64 =
-            Self::blocks_until_next_epoch(root_netuid, Self::get_tempo(root_netuid), block_number);
+            Self::blocks_until_next_epoch(root_netuid, Tempo::<T>::get(root_netuid), block_number);
         if blocks_until_next_epoch != 0 {
             // Not the block to update emission values.
             log::debug!("blocks_until_next_epoch: {:?}", blocks_until_next_epoch);
@@ -371,7 +308,7 @@ impl<T: Config> Pallet<T> {
         // Stakes are stored in a 64-bit fixed point representation for precise calculations.
         let mut stake_i64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
         for ((_, hotkey), stake) in hotkeys.iter().zip(&mut stake_i64) {
-            *stake = I64F64::from_num(Self::get_total_stake_for_hotkey(hotkey));
+            *stake = I64F64::from_num(TotalHotkeyStake::<T>::get(hotkey));
         }
         inplace_normalize_64(&mut stake_i64);
         log::debug!("S:\n{:?}\n", &stake_i64);
@@ -393,9 +330,9 @@ impl<T: Config> Pallet<T> {
         // --- 9. Calculates the trust of networks. Trust is a sum of all stake with weights > 0.
         // Trust will have shape k, a score for each subnet.
         log::debug!("Subnets:\n{:?}\n", Self::get_all_subnet_netuids());
-        log::debug!("N Subnets:\n{:?}\n", Self::get_num_subnets());
+        log::debug!("N Subnets:\n{:?}\n", TotalNetworks::<T>::get());
 
-        let total_networks = Self::get_num_subnets();
+        let total_networks = TotalNetworks::<T>::get();
         let mut trust = vec![I64F64::from_num(0); total_networks as usize];
         let mut total_stake: I64F64 = I64F64::from_num(0);
         for (weights, hotkey_stake) in weights.iter().zip(stake_i64) {
@@ -429,7 +366,7 @@ impl<T: Config> Pallet<T> {
             let shifted_trust =
                 trust_score.saturating_sub(I64F64::from_num(Self::get_float_kappa(0))); // Range( -kappa, 1 - kappa )
             let temperatured_trust =
-                shifted_trust.saturating_mul(I64F64::from_num(Self::get_rho(0))); // Range( -rho * kappa, rho ( 1 - kappa ) )
+                shifted_trust.saturating_mul(I64F64::from_num(Rho::<T>::get(0))); // Range( -rho * kappa, rho ( 1 - kappa ) )
             let exponentiated_trust: I64F64 =
                 substrate_fixed::transcendental::exp(temperatured_trust.saturating_neg())
                     .expect("temperatured_trust is on range( -rho * kappa, rho ( 1 - kappa ) )");
@@ -478,10 +415,10 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn do_root_register(origin: T::RuntimeOrigin, hotkey: T::AccountId) -> DispatchResult {
         // --- 0. Get the unique identifier (UID) for the root network.
-        let root_netuid: u16 = Self::get_root_netuid();
+        let root_netuid: u16 = Self::ROOT_NETUID;
         let current_block_number: u64 = Self::get_current_block_as_u64();
         ensure!(
-            Self::if_subnet_exist(root_netuid),
+            NetworksAdded::<T>::get(root_netuid),
             Error::<T>::RootNetworkDoesNotExist
         );
 
@@ -495,15 +432,15 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Ensure that the number of registrations in this block doesn't exceed the allowed limit.
         ensure!(
-            Self::get_registrations_this_block(root_netuid)
-                < Self::get_max_registrations_per_block(root_netuid),
+            RegistrationsThisBlock::<T>::get(root_netuid)
+                < MaxRegistrationsPerBlock::<T>::get(root_netuid),
             Error::<T>::TooManyRegistrationsThisBlock
         );
 
         // --- 3. Ensure that the number of registrations in this interval doesn't exceed thrice the target limit.
         ensure!(
-            Self::get_registrations_this_interval(root_netuid)
-                < Self::get_target_registrations_per_interval(root_netuid).saturating_mul(3),
+            RegistrationsThisInterval::<T>::get(root_netuid)
+                < TargetRegistrationsPerInterval::<T>::get(root_netuid).saturating_mul(3),
             Error::<T>::TooManyRegistrationsThisInterval
         );
 
@@ -524,7 +461,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 8. Check if the root net is below its allowed size.
         // max allowed is senate size.
-        if current_num_root_validators < Self::get_max_root_validators() {
+        if current_num_root_validators < MaxAllowedUids::<T>::get(Self::ROOT_NETUID) {
             // --- 12.1.1 We can append to the subnetwork as it's not full.
             subnetwork_uid = current_num_root_validators;
 
@@ -543,7 +480,7 @@ impl<T: Config> Pallet<T> {
                     root_netuid,
                 )
             {
-                let stake_i: u64 = Self::get_total_stake_for_hotkey(&hotkey_i);
+                let stake_i: u64 = TotalHotkeyStake::<T>::get(&hotkey_i);
                 if stake_i < lowest_stake {
                     lowest_stake = stake_i;
                     lowest_uid = uid_i;
@@ -555,7 +492,7 @@ impl<T: Config> Pallet<T> {
 
             // --- 13.1.2 The new account has a higher stake than the one being replaced.
             ensure!(
-                lowest_stake < Self::get_total_stake_for_hotkey(&hotkey),
+                lowest_stake < TotalHotkeyStake::<T>::get(&hotkey),
                 Error::<T>::StakeTooLowForRoot
             );
 
@@ -576,8 +513,8 @@ impl<T: Config> Pallet<T> {
         let _ = Self::join_senate_if_eligible(&hotkey)?;
 
         // --- 14. Force all members on root to become a delegate.
-        if !Self::hotkey_is_delegate(&hotkey) {
-            Self::delegate_hotkey(&hotkey, 11_796); // 18% cut defaulted.
+        if !Delegates::<T>::contains_key(&hotkey) {
+            Delegates::<T>::insert(&hotkey, 11_796); // 18% cut defaulted.
         }
 
         // --- 15. Update the registration counters for both the block and interval.
@@ -615,9 +552,9 @@ impl<T: Config> Pallet<T> {
     //
     pub fn do_adjust_senate(origin: T::RuntimeOrigin, hotkey: T::AccountId) -> DispatchResult {
         // --- 0. Get the unique identifier (UID) for the root network.
-        let root_netuid: u16 = Self::get_root_netuid();
+        let root_netuid: u16 = Self::ROOT_NETUID;
         ensure!(
-            Self::if_subnet_exist(root_netuid),
+            NetworksAdded::<T>::get(root_netuid),
             Error::<T>::RootNetworkDoesNotExist
         );
 
@@ -677,7 +614,7 @@ impl<T: Config> Pallet<T> {
     //
     fn join_senate_if_eligible(hotkey: &T::AccountId) -> Result<Option<&T::AccountId>, Error<T>> {
         // Get the root network UID.
-        let root_netuid: u16 = Self::get_root_netuid();
+        let root_netuid: u16 = Self::ROOT_NETUID;
 
         // --- 1. Check the hotkey is registered in the root network.
         ensure!(
@@ -692,7 +629,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 3. Grab the hotkey's stake.
-        let current_stake = Self::get_total_stake_for_hotkey(hotkey);
+        let current_stake = TotalHotkeyStake::<T>::get(hotkey);
 
         // Add the hotkey to the Senate.
         // If we're full, we'll swap out the lowest stake member.
@@ -701,14 +638,14 @@ impl<T: Config> Pallet<T> {
         if (members.len() as u32) == T::SenateMembers::max_members() {
             let mut sorted_members = members.clone();
             sorted_members.sort_by(|a, b| {
-                let a_stake = Self::get_total_stake_for_hotkey(a);
-                let b_stake = Self::get_total_stake_for_hotkey(b);
+                let a_stake = TotalHotkeyStake::<T>::get(a);
+                let b_stake = TotalHotkeyStake::<T>::get(b);
 
                 b_stake.cmp(&a_stake)
             });
 
             if let Some(last) = sorted_members.last() {
-                let last_stake = Self::get_total_stake_for_hotkey(last);
+                let last_stake = TotalHotkeyStake::<T>::get(last);
 
                 if last_stake < current_stake {
                     // Swap the member with the lowest stake.
@@ -744,28 +681,28 @@ impl<T: Config> Pallet<T> {
 
         // Check the hotkey account exists.
         ensure!(
-            Self::hotkey_account_exists(&hotkey),
+            Owner::<T>::contains_key(&hotkey),
             Error::<T>::HotKeyAccountNotExists
         );
 
         // Check that the signer coldkey owns the hotkey
         ensure!(
-            Self::get_owning_coldkey_for_hotkey(&hotkey) == coldkey,
+            Owner::<T>::get(&hotkey) == coldkey,
             Error::<T>::NonAssociatedColdKey
         );
 
         // Check to see if this is a valid network.
         ensure!(
-            Self::if_subnet_exist(netuid),
+            NetworksAdded::<T>::get(netuid),
             Error::<T>::SubNetworkDoesNotExist
         );
 
         // Check that this is the root network.
-        ensure!(netuid == Self::get_root_netuid(), Error::<T>::NotRootSubnet);
+        ensure!(netuid == Self::ROOT_NETUID, Error::<T>::NotRootSubnet);
 
         // Check that the length of uid list and value list are equal for this network.
         ensure!(
-            Self::uids_match_values(&uids, &values),
+            uids.len() == values.len(),
             Error::<T>::WeightVecNotEqualSize
         );
 
@@ -784,7 +721,7 @@ impl<T: Config> Pallet<T> {
 
         // Check to see if the hotkey has enough stake to set weights.
         ensure!(
-            Self::get_total_stake_for_hotkey(&hotkey) >= Self::get_stake_threshold(),
+            TotalHotkeyStake::<T>::get(&hotkey) >= StakeThreshold::<T>::get(),
             Error::<T>::NotEnoughStakeToSetWeights
         );
 
@@ -934,15 +871,15 @@ impl<T: Config> Pallet<T> {
         let netuid_to_register: u16 = {
             log::debug!(
                 "subnet count: {:?}\nmax subnets: {:?}",
-                Self::get_num_subnets(),
-                Self::get_max_subnets()
+                TotalNetworks::<T>::get(),
+                SubnetLimit::<T>::get()
             );
-            if Self::get_num_subnets().saturating_sub(1) < Self::get_max_subnets() {
+            if TotalNetworks::<T>::get().saturating_sub(1) < SubnetLimit::<T>::get() {
                 // We subtract one because we don't want root subnet to count towards total
                 let mut next_available_netuid = 0;
                 loop {
                     next_available_netuid.saturating_inc();
-                    if !Self::if_subnet_exist(next_available_netuid) {
+                    if !NetworksAdded::<T>::get(next_available_netuid) {
                         log::debug!("got subnet id: {:?}", next_available_netuid);
                         break next_available_netuid;
                     }
@@ -965,8 +902,8 @@ impl<T: Config> Pallet<T> {
 
         // --- 5. Perform the lock operation.
         let actual_lock_amount = Self::remove_balance_from_coldkey_account(&coldkey, lock_amount)?;
-        Self::set_subnet_locked_balance(netuid_to_register, actual_lock_amount);
-        Self::set_network_last_lock(actual_lock_amount);
+        SubnetLocked::<T>::insert(netuid_to_register, actual_lock_amount);
+        NetworkLastLockCost::<T>::set(actual_lock_amount);
 
         // --- 6. Set initial and custom parameters for the network.
         Self::init_new_network(netuid_to_register, 360);
@@ -1017,7 +954,7 @@ impl<T: Config> Pallet<T> {
     pub fn user_remove_network(coldkey: T::AccountId, netuid: u16) -> dispatch::DispatchResult {
         // --- 1. Ensure this subnet exists.
         ensure!(
-            Self::if_subnet_exist(netuid),
+            NetworksAdded::<T>::get(netuid),
             Error::<T>::SubNetworkDoesNotExist
         );
 
@@ -1137,7 +1074,7 @@ impl<T: Config> Pallet<T> {
     pub fn remove_network(netuid: u16) {
         // --- 1. Return balance to subnet owner.
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
-        let reserved_amount: u64 = Self::get_subnet_locked_balance(netuid);
+        let reserved_amount: u64 = SubnetLocked::<T>::get(netuid);
 
         // --- 2. Remove network count.
         SubnetworkN::<T>::remove(netuid);
@@ -1165,7 +1102,7 @@ impl<T: Config> Pallet<T> {
         // --- 9. Iterate over stored weights and fill the matrix.
         for (uid_i, weights_i) in
             <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(
-                Self::get_root_netuid(),
+                Self::ROOT_NETUID,
             )
         {
             // Create a new vector to hold modified weights.
@@ -1177,7 +1114,7 @@ impl<T: Config> Pallet<T> {
                     *weight = 0; // Set weight to 0 for the matching subnet_id.
                 }
             }
-            Weights::<T>::insert(Self::get_root_netuid(), uid_i, modified_weights);
+            Weights::<T>::insert(Self::ROOT_NETUID, uid_i, modified_weights);
         }
 
         // --- 10. Remove various network-related parameters.
@@ -1209,7 +1146,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 12. Add the balance back to the owner.
         Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount);
-        Self::set_subnet_locked_balance(netuid, 0);
+        SubnetLocked::<T>::insert(netuid, 0);
         SubnetOwner::<T>::remove(netuid);
 
         // --- 13. Remove subnet identity if it exists.
@@ -1239,11 +1176,11 @@ impl<T: Config> Pallet<T> {
     ///     - The lock cost for the network.
     ///
     pub fn get_network_lock_cost() -> u64 {
-        let last_lock = Self::get_network_last_lock();
-        let min_lock = Self::get_network_min_lock();
-        let last_lock_block = Self::get_network_last_lock_block();
+        let last_lock = NetworkLastLockCost::<T>::get();
+        let min_lock = NetworkMinLockCost::<T>::get();
+        let last_lock_block = NetworkLastRegistered::<T>::get();
         let current_block = Self::get_current_block_as_u64();
-        let lock_reduction_interval = Self::get_lock_reduction_interval();
+        let lock_reduction_interval = NetworkLockReductionInterval::<T>::get();
         let mult = if last_lock_block == 0 { 1 } else { 2 };
 
         let mut lock_cost = last_lock.saturating_mul(mult).saturating_sub(
@@ -1275,8 +1212,8 @@ impl<T: Config> Pallet<T> {
 
         // Even if we don't have a root subnet, this still works
         for netuid in NetworksAdded::<T>::iter_keys_from(NetworksAdded::<T>::hashed_key_for(0)) {
-            if current_block.saturating_sub(Self::get_network_registered_block(netuid))
-                < Self::get_network_immunity_period()
+            if current_block.saturating_sub(NetworkRegisteredAt::<T>::get(netuid))
+                < NetworkImmunityPeriod::<T>::get()
             {
                 continue;
             }
@@ -1289,11 +1226,9 @@ impl<T: Config> Pallet<T> {
         netuids.sort_by(|a, b| {
             use sp_std::cmp::Ordering;
 
-            match Self::get_emission_value(*b).cmp(&Self::get_emission_value(*a)) {
+            match EmissionValues::<T>::get(*b).cmp(&EmissionValues::<T>::get(*a)) {
                 Ordering::Equal => {
-                    if Self::get_network_registered_block(*b)
-                        < Self::get_network_registered_block(*a)
-                    {
+                    if NetworkRegisteredAt::<T>::get(*b) < NetworkRegisteredAt::<T>::get(*a) {
                         Ordering::Less
                     } else {
                         Ordering::Equal
@@ -1311,12 +1246,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn get_network_registered_block(netuid: u16) -> u64 {
-        NetworkRegisteredAt::<T>::get(netuid)
-    }
-    pub fn get_network_immunity_period() -> u64 {
-        NetworkImmunityPeriod::<T>::get()
-    }
     pub fn set_network_immunity_period(net_immunity_period: u64) {
         NetworkImmunityPeriod::<T>::set(net_immunity_period);
         Self::deposit_event(Event::NetworkImmunityPeriodSet(net_immunity_period));
@@ -1325,26 +1254,12 @@ impl<T: Config> Pallet<T> {
         NetworkMinLockCost::<T>::set(net_min_lock);
         Self::deposit_event(Event::NetworkMinLockCostSet(net_min_lock));
     }
-    pub fn get_network_min_lock() -> u64 {
-        NetworkMinLockCost::<T>::get()
-    }
-    pub fn set_network_last_lock(net_last_lock: u64) {
-        NetworkLastLockCost::<T>::set(net_last_lock);
-    }
-    pub fn get_network_last_lock() -> u64 {
-        NetworkLastLockCost::<T>::get()
-    }
-    pub fn get_network_last_lock_block() -> u64 {
-        NetworkLastRegistered::<T>::get()
-    }
+
     pub fn set_network_last_lock_block(block: u64) {
         NetworkLastRegistered::<T>::set(block);
     }
     pub fn set_lock_reduction_interval(interval: u64) {
         NetworkLockReductionInterval::<T>::set(interval);
         Self::deposit_event(Event::NetworkLockCostReductionIntervalSet(interval));
-    }
-    pub fn get_lock_reduction_interval() -> u64 {
-        NetworkLockReductionInterval::<T>::get()
     }
 }

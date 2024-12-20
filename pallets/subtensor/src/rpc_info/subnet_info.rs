@@ -85,25 +85,25 @@ pub struct SubnetHyperparams {
 
 impl<T: Config> Pallet<T> {
     pub fn get_subnet_info(netuid: u16) -> Option<SubnetInfo<T>> {
-        if !Self::if_subnet_exist(netuid) {
+        if !NetworksAdded::<T>::get(netuid) {
             return None;
         }
 
-        let rho = Self::get_rho(netuid);
-        let kappa = Self::get_kappa(netuid);
-        let difficulty: Compact<u64> = Self::get_difficulty_as_u64(netuid).into();
-        let immunity_period = Self::get_immunity_period(netuid);
-        let max_allowed_validators = Self::get_max_allowed_validators(netuid);
-        let min_allowed_weights = Self::get_min_allowed_weights(netuid);
-        let max_weights_limit = Self::get_max_weight_limit(netuid);
-        let scaling_law_power = Self::get_scaling_law_power(netuid);
-        let subnetwork_n = Self::get_subnetwork_n(netuid);
-        let max_allowed_uids = Self::get_max_allowed_uids(netuid);
-        let blocks_since_last_step = Self::get_blocks_since_last_step(netuid);
-        let tempo = Self::get_tempo(netuid);
+        let rho = Rho::<T>::get(netuid);
+        let kappa = Kappa::<T>::get(netuid);
+        let difficulty: Compact<u64> = Difficulty::<T>::get(netuid).into();
+        let immunity_period = ImmunityPeriod::<T>::get(netuid);
+        let max_allowed_validators = MaxAllowedValidators::<T>::get(netuid);
+        let min_allowed_weights = MinAllowedWeights::<T>::get(netuid);
+        let max_weights_limit = MaxWeightsLimit::<T>::get(netuid);
+        let scaling_law_power = ScalingLawPower::<T>::get(netuid);
+        let subnetwork_n = SubnetworkN::<T>::get(netuid);
+        let max_allowed_uids = MaxAllowedUids::<T>::get(netuid);
+        let blocks_since_last_step = BlocksSinceLastStep::<T>::get(netuid);
+        let tempo = Tempo::<T>::get(netuid);
         let network_modality = <NetworkModality<T>>::get(netuid);
-        let emission_values = Self::get_emission_value(netuid);
-        let burn: Compact<u64> = Self::get_burn_as_u64(netuid).into();
+        let emission_values = EmissionValues::<T>::get(netuid);
+        let burn: Compact<u64> = Burn::<T>::get(netuid).into();
         // DEPRECATED
         let network_connect: Vec<[u16; 2]> = Vec::<[u16; 2]>::new();
         // DEPRECATED for ( _netuid_, con_req) in < NetworkConnect<T> as IterableStorageDoubleMap<u16, u16, u16> >::iter_prefix(netuid) {
@@ -128,7 +128,7 @@ impl<T: Config> Pallet<T> {
             network_connect,
             emission_values: emission_values.into(),
             burn,
-            owner: Self::get_subnet_owner(netuid),
+            owner: SubnetOwner::<T>::get(netuid),
         })
     }
 
@@ -155,25 +155,25 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_subnet_info_v2(netuid: u16) -> Option<SubnetInfov2<T>> {
-        if !Self::if_subnet_exist(netuid) {
+        if !NetworksAdded::<T>::get(netuid) {
             return None;
         }
 
-        let rho = Self::get_rho(netuid);
-        let kappa = Self::get_kappa(netuid);
-        let difficulty: Compact<u64> = Self::get_difficulty_as_u64(netuid).into();
-        let immunity_period = Self::get_immunity_period(netuid);
-        let max_allowed_validators = Self::get_max_allowed_validators(netuid);
-        let min_allowed_weights = Self::get_min_allowed_weights(netuid);
-        let max_weights_limit = Self::get_max_weight_limit(netuid);
-        let scaling_law_power = Self::get_scaling_law_power(netuid);
-        let subnetwork_n = Self::get_subnetwork_n(netuid);
-        let max_allowed_uids = Self::get_max_allowed_uids(netuid);
-        let blocks_since_last_step = Self::get_blocks_since_last_step(netuid);
-        let tempo = Self::get_tempo(netuid);
+        let rho = Rho::<T>::get(netuid);
+        let kappa = Kappa::<T>::get(netuid);
+        let difficulty: Compact<u64> = Difficulty::<T>::get(netuid).into();
+        let immunity_period = ImmunityPeriod::<T>::get(netuid);
+        let max_allowed_validators = MaxAllowedValidators::<T>::get(netuid);
+        let min_allowed_weights = MinAllowedWeights::<T>::get(netuid);
+        let max_weights_limit = MaxWeightsLimit::<T>::get(netuid);
+        let scaling_law_power = ScalingLawPower::<T>::get(netuid);
+        let subnetwork_n = SubnetworkN::<T>::get(netuid);
+        let max_allowed_uids = MaxAllowedUids::<T>::get(netuid);
+        let blocks_since_last_step = BlocksSinceLastStep::<T>::get(netuid);
+        let tempo = Tempo::<T>::get(netuid);
         let network_modality = <NetworkModality<T>>::get(netuid);
-        let emission_values = Self::get_emission_value(netuid);
-        let burn: Compact<u64> = Self::get_burn_as_u64(netuid).into();
+        let emission_values = EmissionValues::<T>::get(netuid);
+        let burn: Compact<u64> = Burn::<T>::get(netuid).into();
         let identity: Option<SubnetIdentity> = SubnetIdentities::<T>::get(netuid);
 
         // DEPRECATED
@@ -200,7 +200,7 @@ impl<T: Config> Pallet<T> {
             network_connect,
             emission_values: emission_values.into(),
             burn,
-            owner: Self::get_subnet_owner(netuid),
+            owner: SubnetOwner::<T>::get(netuid),
             identity,
         })
     }
@@ -226,36 +226,36 @@ impl<T: Config> Pallet<T> {
         subnets_info
     }
     pub fn get_subnet_hyperparams(netuid: u16) -> Option<SubnetHyperparams> {
-        if !Self::if_subnet_exist(netuid) {
+        if !NetworksAdded::<T>::get(netuid) {
             return None;
         }
 
-        let rho = Self::get_rho(netuid);
-        let kappa = Self::get_kappa(netuid);
-        let immunity_period = Self::get_immunity_period(netuid);
-        let min_allowed_weights = Self::get_min_allowed_weights(netuid);
-        let max_weights_limit = Self::get_max_weight_limit(netuid);
-        let tempo = Self::get_tempo(netuid);
-        let min_difficulty = Self::get_min_difficulty(netuid);
-        let max_difficulty = Self::get_max_difficulty(netuid);
-        let weights_version = Self::get_weights_version_key(netuid);
-        let weights_rate_limit = Self::get_weights_set_rate_limit(netuid);
-        let adjustment_interval = Self::get_adjustment_interval(netuid);
-        let activity_cutoff = Self::get_activity_cutoff(netuid);
-        let registration_allowed = Self::get_network_registration_allowed(netuid);
-        let target_regs_per_interval = Self::get_target_registrations_per_interval(netuid);
-        let min_burn = Self::get_min_burn_as_u64(netuid);
-        let max_burn = Self::get_max_burn_as_u64(netuid);
-        let bonds_moving_avg = Self::get_bonds_moving_average(netuid);
-        let max_regs_per_block = Self::get_max_registrations_per_block(netuid);
-        let serving_rate_limit = Self::get_serving_rate_limit(netuid);
-        let max_validators = Self::get_max_allowed_validators(netuid);
-        let adjustment_alpha = Self::get_adjustment_alpha(netuid);
-        let difficulty = Self::get_difficulty_as_u64(netuid);
-        let commit_reveal_periods = Self::get_reveal_period(netuid);
-        let commit_reveal_weights_enabled = Self::get_commit_reveal_weights_enabled(netuid);
-        let liquid_alpha_enabled = Self::get_liquid_alpha_enabled(netuid);
-        let (alpha_low, alpha_high): (u16, u16) = Self::get_alpha_values(netuid);
+        let rho = Rho::<T>::get(netuid);
+        let kappa = Kappa::<T>::get(netuid);
+        let immunity_period = ImmunityPeriod::<T>::get(netuid);
+        let min_allowed_weights = MinAllowedWeights::<T>::get(netuid);
+        let max_weights_limit = MaxWeightsLimit::<T>::get(netuid);
+        let tempo = Tempo::<T>::get(netuid);
+        let min_difficulty = MinDifficulty::<T>::get(netuid);
+        let max_difficulty = MaxDifficulty::<T>::get(netuid);
+        let weights_version = WeightsVersionKey::<T>::get(netuid);
+        let weights_rate_limit = WeightsSetRateLimit::<T>::get(netuid);
+        let adjustment_interval = AdjustmentInterval::<T>::get(netuid);
+        let activity_cutoff = ActivityCutoff::<T>::get(netuid);
+        let registration_allowed = NetworkRegistrationAllowed::<T>::get(netuid);
+        let target_regs_per_interval = TargetRegistrationsPerInterval::<T>::get(netuid);
+        let min_burn = MinBurn::<T>::get(netuid);
+        let max_burn = MaxBurn::<T>::get(netuid);
+        let bonds_moving_avg = BondsMovingAverage::<T>::get(netuid);
+        let max_regs_per_block = MaxRegistrationsPerBlock::<T>::get(netuid);
+        let serving_rate_limit = ServingRateLimit::<T>::get(netuid);
+        let max_validators = MaxAllowedValidators::<T>::get(netuid);
+        let adjustment_alpha = AdjustmentAlpha::<T>::get(netuid);
+        let difficulty = Difficulty::<T>::get(netuid);
+        let commit_reveal_periods = RevealPeriodEpochs::<T>::get(netuid);
+        let commit_reveal_weights_enabled = CommitRevealWeightsEnabled::<T>::get(netuid);
+        let liquid_alpha_enabled = LiquidAlphaOn::<T>::get(netuid);
+        let (alpha_low, alpha_high): (u16, u16) = AlphaValues::<T>::get(netuid);
 
         Some(SubnetHyperparams {
             rho: rho.into(),

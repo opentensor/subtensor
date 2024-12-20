@@ -50,31 +50,30 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Ensure the passed network is valid.
         ensure!(
-            netuid != Self::get_root_netuid(),
+            netuid != Self::ROOT_NETUID,
             Error::<T>::RegistrationNotPermittedOnRootSubnet
         );
         ensure!(
-            Self::if_subnet_exist(netuid),
+            NetworksAdded::<T>::get(netuid),
             Error::<T>::SubNetworkDoesNotExist
         );
 
         // --- 3. Ensure the passed network allows registrations.
         ensure!(
-            Self::get_network_registration_allowed(netuid),
+            NetworkRegistrationAllowed::<T>::get(netuid),
             Error::<T>::SubNetRegistrationDisabled
         );
 
         // --- 4. Ensure we are not exceeding the max allowed registrations per block.
         ensure!(
-            Self::get_registrations_this_block(netuid)
-                < Self::get_max_registrations_per_block(netuid),
+            RegistrationsThisBlock::<T>::get(netuid) < MaxRegistrationsPerBlock::<T>::get(netuid),
             Error::<T>::TooManyRegistrationsThisBlock
         );
 
         // --- 4. Ensure we are not exceeding the max allowed registrations per interval.
         ensure!(
-            Self::get_registrations_this_interval(netuid)
-                < Self::get_target_registrations_per_interval(netuid).saturating_mul(3),
+            RegistrationsThisInterval::<T>::get(netuid)
+                < TargetRegistrationsPerInterval::<T>::get(netuid).saturating_mul(3),
             Error::<T>::TooManyRegistrationsThisInterval
         );
 
@@ -92,7 +91,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 7. Ensure the callers coldkey has enough stake to perform the transaction.
         let current_block_number: u64 = Self::get_current_block_as_u64();
-        let registration_cost = Self::get_burn_as_u64(netuid);
+        let registration_cost = Burn::<T>::get(netuid);
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, registration_cost),
             Error::<T>::NotEnoughBalanceToStake
@@ -116,15 +115,15 @@ impl<T: Config> Pallet<T> {
 
         // --- 11. Append neuron or prune it.
         let subnetwork_uid: u16;
-        let current_subnetwork_n: u16 = Self::get_subnetwork_n(netuid);
+        let current_subnetwork_n: u16 = SubnetworkN::<T>::get(netuid);
 
         // Possibly there is no neuron slots at all.
         ensure!(
-            Self::get_max_allowed_uids(netuid) != 0,
+            MaxAllowedUids::<T>::get(netuid) != 0,
             Error::<T>::NoNeuronIdAvailable
         );
 
-        if current_subnetwork_n < Self::get_max_allowed_uids(netuid) {
+        if current_subnetwork_n < MaxAllowedUids::<T>::get(netuid) {
             // --- 12.1.1 No replacement required, the uid appends the subnetwork.
             // We increment the subnetwork count here but not below.
             subnetwork_uid = current_subnetwork_n;
@@ -146,7 +145,7 @@ impl<T: Config> Pallet<T> {
         BurnRegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
         RegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
         RegistrationsThisBlock::<T>::mutate(netuid, |val| val.saturating_inc());
-        Self::increase_rao_recycled(netuid, Self::get_burn_as_u64(netuid));
+        Self::increase_rao_recycled(netuid, Burn::<T>::get(netuid));
 
         // --- 15. Deposit successful event.
         log::debug!(
@@ -235,31 +234,30 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Ensure the passed network is valid.
         ensure!(
-            netuid != Self::get_root_netuid(),
+            netuid != Self::ROOT_NETUID,
             Error::<T>::RegistrationNotPermittedOnRootSubnet
         );
         ensure!(
-            Self::if_subnet_exist(netuid),
+            NetworksAdded::<T>::get(netuid),
             Error::<T>::SubNetworkDoesNotExist
         );
 
         // --- 3. Ensure the passed network allows registrations.
         ensure!(
-            Self::get_network_pow_registration_allowed(netuid),
+            NetworkPowRegistrationAllowed::<T>::get(netuid),
             Error::<T>::SubNetRegistrationDisabled
         );
 
         // --- 4. Ensure we are not exceeding the max allowed registrations per block.
         ensure!(
-            Self::get_registrations_this_block(netuid)
-                < Self::get_max_registrations_per_block(netuid),
+            RegistrationsThisBlock::<T>::get(netuid) < MaxRegistrationsPerBlock::<T>::get(netuid),
             Error::<T>::TooManyRegistrationsThisBlock
         );
 
         // --- 5. Ensure we are not exceeding the max allowed registrations per interval.
         ensure!(
-            Self::get_registrations_this_interval(netuid)
-                < Self::get_target_registrations_per_interval(netuid).saturating_mul(3),
+            RegistrationsThisInterval::<T>::get(netuid)
+                < TargetRegistrationsPerInterval::<T>::get(netuid).saturating_mul(3),
             Error::<T>::TooManyRegistrationsThisInterval
         );
 
@@ -282,7 +280,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 8. Ensure the supplied work passes the difficulty.
-        let difficulty: U256 = Self::get_difficulty(netuid);
+        let difficulty = Difficulty::<T>::get(netuid).into();
         let work_hash: H256 = Self::vec_to_hash(work.clone());
         ensure!(
             Self::hash_meets_difficulty(&work_hash, difficulty),
@@ -311,15 +309,15 @@ impl<T: Config> Pallet<T> {
 
         // --- 11. Append neuron or prune it.
         let subnetwork_uid: u16;
-        let current_subnetwork_n: u16 = Self::get_subnetwork_n(netuid);
+        let current_subnetwork_n: u16 = SubnetworkN::<T>::get(netuid);
 
         // Possibly there is no neuron slots at all.
         ensure!(
-            Self::get_max_allowed_uids(netuid) != 0,
+            MaxAllowedUids::<T>::get(netuid) != 0,
             Error::<T>::NoNeuronIdAvailable
         );
 
-        if current_subnetwork_n < Self::get_max_allowed_uids(netuid) {
+        if current_subnetwork_n < MaxAllowedUids::<T>::get(netuid) {
             // --- 11.1.1 No replacement required, the uid appends the subnetwork.
             // We increment the subnetwork count here but not below.
             subnetwork_uid = current_subnetwork_n;
@@ -441,15 +439,14 @@ impl<T: Config> Pallet<T> {
         // This may be unlikely in practice.
         let mut found_non_immune = false;
 
-        let neurons_n = Self::get_subnetwork_n(netuid);
+        let neurons_n = SubnetworkN::<T>::get(netuid);
         if neurons_n == 0 {
             return 0; // If there are no neurons in this network.
         }
 
         for neuron_uid in 0..neurons_n {
             let pruning_score: u16 = Self::get_pruning_score_for_uid(netuid, neuron_uid);
-            let block_at_registration: u64 =
-                Self::get_neuron_block_at_registration(netuid, neuron_uid);
+            let block_at_registration: u64 = BlockAtRegistration::<T>::get(netuid, neuron_uid);
             let is_immune = Self::get_neuron_is_immune(netuid, neuron_uid);
 
             if is_immune {
@@ -602,7 +599,7 @@ impl<T: Config> Pallet<T> {
         start_nonce: u64,
         hotkey: &T::AccountId,
     ) -> (u64, Vec<u8>) {
-        let difficulty: U256 = Self::get_difficulty(netuid);
+        let difficulty = Difficulty::<T>::get(netuid).into();
         let mut nonce: u64 = start_nonce;
         let mut work: H256 = Self::create_seal_hash(block_number, nonce, hotkey);
         while !Self::hash_meets_difficulty(&work, difficulty) {

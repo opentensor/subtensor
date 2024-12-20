@@ -46,13 +46,13 @@ impl<T: Config> Pallet<T> {
 
         // Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
-            Self::hotkey_account_exists(&hotkey),
+            Owner::<T>::contains_key(&hotkey),
             Error::<T>::HotKeyAccountNotExists
         );
 
         // Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
         ensure!(
-            Self::hotkey_is_delegate(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+            Delegates::<T>::contains_key(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
             Error::<T>::HotKeyNotDelegateAndSignerNotOwnHotKey
         );
 
@@ -61,7 +61,7 @@ impl<T: Config> Pallet<T> {
 
         // Ensure that the hotkey has enough stake to withdraw.
         ensure!(
-            Self::has_enough_stake(&coldkey, &hotkey, stake_to_be_removed),
+            Stake::<T>::get(&hotkey, &coldkey) >= stake_to_be_removed,
             Error::<T>::NotEnoughStakeToWithdraw
         );
 
@@ -81,11 +81,11 @@ impl<T: Config> Pallet<T> {
         // If the stake is below the minimum, we clear the nomination from storage.
         // This only applies to nominator stakes.
         // If the coldkey does not own the hotkey, it's a nominator stake.
-        let new_stake = Self::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey);
+        let new_stake = Stake::<T>::get(&hotkey, &coldkey);
         Self::clear_small_nomination_if_required(&hotkey, &coldkey, new_stake);
 
         // Check if stake lowered below MinStake and remove Pending children if it did
-        if Self::get_total_stake_for_hotkey(&hotkey) < StakeThreshold::<T>::get() {
+        if TotalHotkeyStake::<T>::get(&hotkey) < StakeThreshold::<T>::get() {
             Self::get_all_subnet_netuids().iter().for_each(|netuid| {
                 PendingChildKeys::<T>::remove(netuid, &hotkey);
             })
@@ -93,7 +93,7 @@ impl<T: Config> Pallet<T> {
 
         // Set last block for rate limiting
         let block = Self::get_current_block_as_u64();
-        Self::set_last_tx_block(&coldkey, block);
+        LastTxBlock::<T>::insert(&coldkey, block);
 
         // Emit the unstaking event.
         log::debug!(

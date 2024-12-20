@@ -24,7 +24,7 @@ fn test_do_set_child_singular_success() {
         mock_set_children(&coldkey, &hotkey, netuid, &[(proportion, child)]);
 
         // Verify child assignment
-        let children = SubtensorModule::get_children(&hotkey, netuid);
+        let children = ChildKeys::<Test>::get(hotkey, netuid);
         assert_eq!(children, vec![(proportion, child)]);
     });
 }
@@ -118,7 +118,7 @@ fn test_do_set_child_singular_root_network() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = SubtensorModule::get_root_netuid(); // Root network
+        let netuid: u16 = SubtensorModule::ROOT_NETUID; // Root network
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -162,17 +162,17 @@ fn test_do_set_child_singular_old_children_cleanup() {
         // Set old child
         mock_set_children(&coldkey, &hotkey, netuid, &[(proportion, old_child)]);
 
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         // Set new child
         mock_set_children(&coldkey, &hotkey, netuid, &[(proportion, new_child)]);
 
         // Verify old child is removed
-        let old_child_parents = SubtensorModule::get_parents(&old_child, netuid);
+        let old_child_parents = ParentKeys::<Test>::get(old_child, netuid);
         assert!(old_child_parents.is_empty());
 
         // Verify new child assignment
-        let new_child_parents = SubtensorModule::get_parents(&new_child, netuid);
+        let new_child_parents = ParentKeys::<Test>::get(new_child, netuid);
         assert_eq!(new_child_parents, vec![(proportion, hotkey)]);
     });
 }
@@ -201,11 +201,11 @@ fn test_do_set_child_singular_new_children_assignment() {
         mock_set_children(&coldkey, &hotkey, netuid, &[(proportion, child)]);
 
         // Verify child assignment
-        let children = SubtensorModule::get_children(&hotkey, netuid);
+        let children = ChildKeys::<Test>::get(hotkey, netuid);
         assert_eq!(children, vec![(proportion, child)]);
 
         // Verify parent assignment
-        let parents = SubtensorModule::get_parents(&child, netuid);
+        let parents = ParentKeys::<Test>::get(child, netuid);
         assert_eq!(parents, vec![(proportion, hotkey)]);
     });
 }
@@ -234,17 +234,17 @@ fn test_do_set_child_singular_proportion_edge_cases() {
         mock_set_children(&coldkey, &hotkey, netuid, &[(min_proportion, child)]);
 
         // Verify child assignment with minimum proportion
-        let children = SubtensorModule::get_children(&hotkey, netuid);
+        let children = ChildKeys::<Test>::get(hotkey, netuid);
         assert_eq!(children, vec![(min_proportion, child)]);
 
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         // Set child with maximum proportion
         let max_proportion: u64 = u64::MAX;
         mock_set_children(&coldkey, &hotkey, netuid, &[(max_proportion, child)]);
 
         // Verify child assignment with maximum proportion
-        let children = SubtensorModule::get_children(&hotkey, netuid);
+        let children = ChildKeys::<Test>::get(hotkey, netuid);
         assert_eq!(children, vec![(max_proportion, child)]);
     });
 }
@@ -275,20 +275,20 @@ fn test_do_set_child_singular_multiple_children() {
         // Set first child
         mock_set_children(&coldkey, &hotkey, netuid, &[(proportion1, child1)]);
 
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         // Set second child
         mock_set_children(&coldkey, &hotkey, netuid, &[(proportion1, child2)]);
 
         // Verify children assignment
-        let children = SubtensorModule::get_children(&hotkey, netuid);
+        let children = ChildKeys::<Test>::get(hotkey, netuid);
         assert_eq!(children, vec![(proportion2, child2)]);
 
         // Verify parent assignment for both children
-        let parents1 = SubtensorModule::get_parents(&child1, netuid);
+        let parents1 = ParentKeys::<Test>::get(child1, netuid);
         assert!(parents1.is_empty()); // Old child should be removed
 
-        let parents2 = SubtensorModule::get_parents(&child2, netuid);
+        let parents2 = ParentKeys::<Test>::get(child2, netuid);
         assert_eq!(parents2, vec![(proportion2, hotkey)]);
     });
 }
@@ -317,7 +317,7 @@ fn test_add_singular_child() {
             Err(Error::<Test>::SubNetworkDoesNotExist.into())
         );
         add_network(netuid, 0, 0);
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
         assert_eq!(
             SubtensorModule::do_schedule_children(
                 RuntimeOrigin::signed(coldkey),
@@ -328,7 +328,7 @@ fn test_add_singular_child() {
             Err(Error::<Test>::NonAssociatedColdKey.into())
         );
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
         assert_eq!(
             SubtensorModule::do_schedule_children(
                 RuntimeOrigin::signed(coldkey),
@@ -339,7 +339,7 @@ fn test_add_singular_child() {
             Err(Error::<Test>::InvalidChild.into())
         );
         let child = U256::from(3);
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         mock_set_children(&coldkey, &hotkey, netuid, &[(u64::MAX, child)]);
     })
@@ -419,20 +419,20 @@ fn test_do_revoke_child_singular_success() {
         mock_set_children(&coldkey, &hotkey, netuid, &[(proportion, child)]);
 
         // Verify child assignment
-        let children = SubtensorModule::get_children(&hotkey, netuid);
+        let children = ChildKeys::<Test>::get(hotkey, netuid);
         assert_eq!(children, vec![(proportion, child)]);
 
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         // Revoke child
         mock_set_children(&coldkey, &hotkey, netuid, &[]);
 
         // Verify child removal
-        let children = SubtensorModule::get_children(&hotkey, netuid);
+        let children = ChildKeys::<Test>::get(hotkey, netuid);
         assert!(children.is_empty());
 
         // Verify parent removal
-        let parents = SubtensorModule::get_parents(&child, netuid);
+        let parents = ParentKeys::<Test>::get(child, netuid);
         assert!(parents.is_empty());
     });
 }
@@ -549,14 +549,14 @@ fn test_do_schedule_children_multiple_success() {
         );
 
         // Verify children assignment
-        let children = SubtensorModule::get_children(&hotkey, netuid);
+        let children = ChildKeys::<Test>::get(hotkey, netuid);
         assert_eq!(children, vec![(proportion1, child1), (proportion2, child2)]);
 
         // Verify parent assignment for both children
-        let parents1 = SubtensorModule::get_parents(&child1, netuid);
+        let parents1 = ParentKeys::<Test>::get(child1, netuid);
         assert_eq!(parents1, vec![(proportion1, hotkey)]);
 
-        let parents2 = SubtensorModule::get_parents(&child2, netuid);
+        let parents2 = ParentKeys::<Test>::get(child2, netuid);
         assert_eq!(parents2, vec![(proportion2, hotkey)]);
     });
 }
@@ -663,7 +663,7 @@ fn test_do_schedule_children_multiple_root_network() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let netuid: u16 = SubtensorModule::get_root_netuid(); // Root network
+        let netuid: u16 = SubtensorModule::ROOT_NETUID; // Root network
         let proportion: u64 = 1000;
 
         // Add network and register hotkey
@@ -708,7 +708,7 @@ fn test_do_schedule_children_multiple_old_children_cleanup() {
         // Set old child
         mock_set_children(&coldkey, &hotkey, netuid, &[(proportion, old_child)]);
 
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         // Set new children
         mock_set_children(
@@ -719,14 +719,14 @@ fn test_do_schedule_children_multiple_old_children_cleanup() {
         );
 
         // Verify old child is removed
-        let old_child_parents = SubtensorModule::get_parents(&old_child, netuid);
+        let old_child_parents = ParentKeys::<Test>::get(old_child, netuid);
         assert!(old_child_parents.is_empty());
 
         // Verify new children assignment
-        let new_child1_parents = SubtensorModule::get_parents(&new_child1, netuid);
+        let new_child1_parents = ParentKeys::<Test>::get(new_child1, netuid);
         assert_eq!(new_child1_parents, vec![(proportion, hotkey)]);
 
-        let new_child2_parents = SubtensorModule::get_parents(&new_child2, netuid);
+        let new_child2_parents = ParentKeys::<Test>::get(new_child2, netuid);
         assert_eq!(new_child2_parents, vec![(proportion, hotkey)]);
     });
 }
@@ -761,7 +761,7 @@ fn test_do_schedule_children_multiple_proportion_edge_cases() {
         );
 
         // Verify children assignment
-        let children = SubtensorModule::get_children(&hotkey, netuid);
+        let children = ChildKeys::<Test>::get(hotkey, netuid);
         assert_eq!(
             children,
             vec![(min_proportion, child1), (max_proportion, child2)]
@@ -800,7 +800,7 @@ fn test_do_schedule_children_multiple_overwrite_existing() {
             &[(proportion, child1), (proportion, child2)],
         );
 
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         // Overwrite with new children
         mock_set_children(
@@ -811,20 +811,20 @@ fn test_do_schedule_children_multiple_overwrite_existing() {
         );
 
         // Verify final children assignment
-        let children = SubtensorModule::get_children(&hotkey, netuid);
+        let children = ChildKeys::<Test>::get(hotkey, netuid);
         assert_eq!(
             children,
             vec![(proportion * 2, child2), (proportion * 3, child3)]
         );
 
         // Verify parent assignment for all children
-        let parents1 = SubtensorModule::get_parents(&child1, netuid);
+        let parents1 = ParentKeys::<Test>::get(child1, netuid);
         assert!(parents1.is_empty());
 
-        let parents2 = SubtensorModule::get_parents(&child2, netuid);
+        let parents2 = ParentKeys::<Test>::get(child2, netuid);
         assert_eq!(parents2, vec![(proportion * 2, hotkey)]);
 
-        let parents3 = SubtensorModule::get_parents(&child3, netuid);
+        let parents3 = ParentKeys::<Test>::get(child3, netuid);
         assert_eq!(parents3, vec![(proportion * 3, hotkey)]);
     });
 }
@@ -850,8 +850,8 @@ fn test_childkey_take_functionality() {
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Test default and max childkey take
-        let default_take = SubtensorModule::get_default_childkey_take();
-        let min_take = SubtensorModule::get_min_childkey_take();
+        let default_take = MinChildkeyTake::<Test>::get();
+        let min_take = MinChildkeyTake::<Test>::get();
         log::info!("Default take: {}, Max take: {}", default_take, min_take);
 
         // Check if default take and max take are the same
@@ -867,7 +867,7 @@ fn test_childkey_take_functionality() {
         );
 
         // Test setting childkey take
-        let new_take: u16 = SubtensorModule::get_max_childkey_take() / 2; // 50% of max_take
+        let new_take: u16 = MaxChildkeyTake::<Test>::get() / 2; // 50% of max_take
         assert_ok!(SubtensorModule::set_childkey_take(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -876,12 +876,12 @@ fn test_childkey_take_functionality() {
         ));
 
         // Verify childkey take was set correctly
-        let stored_take = SubtensorModule::get_childkey_take(&hotkey, netuid);
+        let stored_take = ChildkeyTake::<Test>::get(hotkey, netuid);
         log::info!("Stored take: {}", stored_take);
         assert_eq!(stored_take, new_take);
 
         // Test setting childkey take outside of allowed range
-        let invalid_take: u16 = SubtensorModule::get_max_childkey_take() + 1;
+        let invalid_take: u16 = MaxChildkeyTake::<Test>::get() + 1;
         assert_noop!(
             SubtensorModule::set_childkey_take(
                 RuntimeOrigin::signed(coldkey),
@@ -947,7 +947,7 @@ fn test_childkey_take_rate_limiting() {
                 &hotkey,
                 netuid,
             );
-            let limit = SubtensorModule::get_rate_limit_on_subnet(&TransactionType::SetChildkeyTake, netuid);
+            let limit = SubtensorModule::get_rate_limit(&TransactionType::SetChildkeyTake);
             log::info!(
                 "Rate limit info: current_block: {}, last_block: {}, limit: {}, passes: {}, diff: {}",
                 current_block,
@@ -1001,7 +1001,7 @@ fn test_childkey_take_rate_limiting() {
         log_rate_limit_info();
 
         // Verify the final take was set
-        let stored_take = SubtensorModule::get_childkey_take(&hotkey, netuid);
+        let stored_take = ChildkeyTake::<Test>::get(hotkey, netuid);
         assert_eq!(stored_take, 700);
     });
 }
@@ -1039,7 +1039,7 @@ fn test_multiple_networks_childkey_take() {
             ));
 
             // Verify the childkey take was set correctly
-            let stored_take = SubtensorModule::get_childkey_take(&hotkey, netuid);
+            let stored_take = ChildkeyTake::<Test>::get(hotkey, netuid);
             assert_eq!(
                 stored_take, take_value,
                 "Childkey take not set correctly for network {}",
@@ -1053,8 +1053,8 @@ fn test_multiple_networks_childkey_take() {
         // Verify all networks have different childkey take values
         for i in 1..NUM_NETWORKS {
             for j in (i + 1)..NUM_NETWORKS {
-                let take_i = SubtensorModule::get_childkey_take(&hotkey, i);
-                let take_j = SubtensorModule::get_childkey_take(&hotkey, j);
+                let take_i = ChildkeyTake::<Test>::get(hotkey, i);
+                let take_j = ChildkeyTake::<Test>::get(hotkey, j);
                 assert_ne!(
                     take_i, take_j,
                     "Childkey take values should be different for networks {} and {}",
@@ -1069,7 +1069,7 @@ fn test_multiple_networks_childkey_take() {
         assert_noop!(result, Error::<Test>::TxChildkeyTakeRateLimitExceeded);
 
         // Advance blocks to bypass rate limit
-        run_to_block(SubtensorModule::get_tx_childkey_take_rate_limit() + 1);
+        run_to_block(TxChildkeyTakeRateLimit::<Test>::get() + 1);
 
         // Now setting childkey take should succeed
         assert_ok!(SubtensorModule::set_childkey_take(
@@ -1080,7 +1080,7 @@ fn test_multiple_networks_childkey_take() {
         ));
 
         // Verify the new take value
-        let new_take = SubtensorModule::get_childkey_take(&hotkey, 1);
+        let new_take = ChildkeyTake::<Test>::get(hotkey, 1);
         assert_eq!(new_take, 1100, "Childkey take not updated after rate limit");
     });
 }
@@ -1106,7 +1106,7 @@ fn test_do_schedule_children_multiple_empty_list() {
         mock_set_children(&coldkey, &hotkey, netuid, &[]);
 
         // Verify children assignment is empty
-        let children = SubtensorModule::get_children(&hotkey, netuid);
+        let children = ChildKeys::<Test>::get(hotkey, netuid);
         assert!(children.is_empty());
     });
 }
@@ -1142,20 +1142,20 @@ fn test_do_revoke_children_multiple_success() {
             &[(proportion1, child1), (proportion2, child2)],
         );
 
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         // Revoke multiple children
         mock_set_children(&coldkey, &hotkey, netuid, &[]);
 
         // Verify children removal
-        let children = SubtensorModule::get_children(&hotkey, netuid);
+        let children = ChildKeys::<Test>::get(hotkey, netuid);
         assert!(children.is_empty());
 
         // Verify parent removal for both children
-        let parents1 = SubtensorModule::get_parents(&child1, netuid);
+        let parents1 = ParentKeys::<Test>::get(child1, netuid);
         assert!(parents1.is_empty());
 
-        let parents2 = SubtensorModule::get_parents(&child2, netuid);
+        let parents2 = ParentKeys::<Test>::get(child2, netuid);
         assert!(parents2.is_empty());
     });
 }
@@ -1253,7 +1253,7 @@ fn test_do_revoke_children_multiple_partial_revocation() {
             ],
         );
 
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         // Revoke only child3
         mock_set_children(
@@ -1264,15 +1264,15 @@ fn test_do_revoke_children_multiple_partial_revocation() {
         );
 
         // Verify children removal
-        let children = SubtensorModule::get_children(&hotkey, netuid);
+        let children = ChildKeys::<Test>::get(hotkey, netuid);
         assert_eq!(children, vec![(proportion, child1), (proportion, child2)]);
 
         // Verify parents.
-        let parents1 = SubtensorModule::get_parents(&child3, netuid);
+        let parents1 = ParentKeys::<Test>::get(child3, netuid);
         assert!(parents1.is_empty());
-        let parents1 = SubtensorModule::get_parents(&child1, netuid);
+        let parents1 = ParentKeys::<Test>::get(child1, netuid);
         assert_eq!(parents1, vec![(proportion, hotkey)]);
-        let parents2 = SubtensorModule::get_parents(&child2, netuid);
+        let parents2 = ParentKeys::<Test>::get(child2, netuid);
         assert_eq!(parents2, vec![(proportion, hotkey)]);
     });
 }
@@ -1301,17 +1301,17 @@ fn test_do_revoke_children_multiple_non_existent_children() {
         // Set one child
         mock_set_children(&coldkey, &hotkey, netuid, &[(proportion, child1)]);
 
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         // Attempt to revoke existing and non-existent children
         mock_set_children(&coldkey, &hotkey, netuid, &[]);
 
         // Verify all children are removed
-        let children = SubtensorModule::get_children(&hotkey, netuid);
+        let children = ChildKeys::<Test>::get(hotkey, netuid);
         assert!(children.is_empty());
 
         // Verify parent removal for the existing child
-        let parents1 = SubtensorModule::get_parents(&child1, netuid);
+        let parents1 = ParentKeys::<Test>::get(child1, netuid);
         assert!(parents1.is_empty());
     });
 }
@@ -1337,7 +1337,7 @@ fn test_do_revoke_children_multiple_empty_list() {
         mock_set_children(&coldkey, &hotkey, netuid, &[]);
 
         // Verify no changes in children
-        let children = SubtensorModule::get_children(&hotkey, netuid);
+        let children = ChildKeys::<Test>::get(hotkey, netuid);
         assert!(children.is_empty());
     });
 }
@@ -1379,7 +1379,7 @@ fn test_do_revoke_children_multiple_complex_scenario() {
             ],
         );
 
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         // Revoke child2
         mock_set_children(
@@ -1390,26 +1390,26 @@ fn test_do_revoke_children_multiple_complex_scenario() {
         );
 
         // Verify remaining children
-        let children = SubtensorModule::get_children(&hotkey, netuid);
+        let children = ChildKeys::<Test>::get(hotkey, netuid);
         assert_eq!(children, vec![(proportion1, child1), (proportion3, child3)]);
 
         // Verify parent removal for child2
-        let parents2 = SubtensorModule::get_parents(&child2, netuid);
+        let parents2 = ParentKeys::<Test>::get(child2, netuid);
         assert!(parents2.is_empty());
 
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         // Revoke remaining children
         mock_set_children(&coldkey, &hotkey, netuid, &[]);
 
         // Verify all children are removed
-        let children = SubtensorModule::get_children(&hotkey, netuid);
+        let children = ChildKeys::<Test>::get(hotkey, netuid);
         assert!(children.is_empty());
 
         // Verify parent removal for all children
-        let parents1 = SubtensorModule::get_parents(&child1, netuid);
+        let parents1 = ParentKeys::<Test>::get(child1, netuid);
         assert!(parents1.is_empty());
-        let parents3 = SubtensorModule::get_parents(&child3, netuid);
+        let parents3 = ParentKeys::<Test>::get(child3, netuid);
         assert!(parents3.is_empty());
     });
 }
@@ -1424,7 +1424,7 @@ fn test_do_revoke_children_multiple_complex_scenario() {
 fn test_get_network_max_stake() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
-        let default_max_stake = SubtensorModule::get_network_max_stake(netuid);
+        let default_max_stake = NetworkMaxStake::<Test>::get(netuid);
 
         // Check that the default value is set correctly
         assert_eq!(default_max_stake, u64::MAX);
@@ -1434,10 +1434,7 @@ fn test_get_network_max_stake() {
         SubtensorModule::set_network_max_stake(netuid, new_max_stake);
 
         // Check that the new value is retrieved correctly
-        assert_eq!(
-            SubtensorModule::get_network_max_stake(netuid),
-            new_max_stake
-        );
+        assert_eq!(NetworkMaxStake::<Test>::get(netuid), new_max_stake);
     });
 }
 
@@ -1452,21 +1449,15 @@ fn test_get_network_max_stake() {
 fn test_set_network_max_stake() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
-        let initial_max_stake = SubtensorModule::get_network_max_stake(netuid);
+        let initial_max_stake = NetworkMaxStake::<Test>::get(netuid);
 
         // Set a new max stake value
         let new_max_stake: u64 = 500_000;
         SubtensorModule::set_network_max_stake(netuid, new_max_stake);
 
         // Check that the new value is set correctly
-        assert_eq!(
-            SubtensorModule::get_network_max_stake(netuid),
-            new_max_stake
-        );
-        assert_ne!(
-            SubtensorModule::get_network_max_stake(netuid),
-            initial_max_stake
-        );
+        assert_eq!(NetworkMaxStake::<Test>::get(netuid), new_max_stake);
+        assert_ne!(NetworkMaxStake::<Test>::get(netuid), initial_max_stake);
 
         // Check that the event is emitted
         System::assert_last_event(Event::NetworkMaxStakeSet(netuid, new_max_stake).into());
@@ -1492,11 +1483,11 @@ fn test_set_network_max_stake_multiple_networks() {
         SubtensorModule::set_network_max_stake(netuid2, max_stake2);
 
         // Check that the values are set correctly for each network
-        assert_eq!(SubtensorModule::get_network_max_stake(netuid1), max_stake1);
-        assert_eq!(SubtensorModule::get_network_max_stake(netuid2), max_stake2);
+        assert_eq!(NetworkMaxStake::<Test>::get(netuid1), max_stake1);
+        assert_eq!(NetworkMaxStake::<Test>::get(netuid2), max_stake2);
         assert_ne!(
-            SubtensorModule::get_network_max_stake(netuid1),
-            SubtensorModule::get_network_max_stake(netuid2)
+            NetworkMaxStake::<Test>::get(netuid1),
+            NetworkMaxStake::<Test>::get(netuid2)
         );
     });
 }
@@ -1522,14 +1513,8 @@ fn test_set_network_max_stake_update() {
         SubtensorModule::set_network_max_stake(netuid, updated_max_stake);
 
         // Check that the value is updated correctly
-        assert_eq!(
-            SubtensorModule::get_network_max_stake(netuid),
-            updated_max_stake
-        );
-        assert_ne!(
-            SubtensorModule::get_network_max_stake(netuid),
-            initial_max_stake
-        );
+        assert_eq!(NetworkMaxStake::<Test>::get(netuid), updated_max_stake);
+        assert_ne!(NetworkMaxStake::<Test>::get(netuid), initial_max_stake);
 
         // Check that the event is emitted for the update
         System::assert_last_event(Event::NetworkMaxStakeSet(netuid, updated_max_stake).into());
@@ -1672,7 +1657,7 @@ fn test_get_parents_chain() {
 
         // Test get_parents for each hotkey
         for i in 1..num_keys {
-            let parents = SubtensorModule::get_parents(&hotkeys[i], netuid);
+            let parents = ParentKeys::<Test>::get(hotkeys[i], netuid);
             log::info!(
                 "Testing get_parents for hotkey {}: {:?}",
                 hotkeys[i],
@@ -1693,7 +1678,7 @@ fn test_get_parents_chain() {
         }
 
         // Test get_parents for the root (should be empty)
-        let root_parents = SubtensorModule::get_parents(&hotkeys[0], netuid);
+        let root_parents = ParentKeys::<Test>::get(hotkeys[0], netuid);
         log::info!(
             "Testing get_parents for root hotkey {}: {:?}",
             hotkeys[0],
@@ -1729,7 +1714,7 @@ fn test_get_parents_chain() {
             proportion / 2
         );
 
-        let last_hotkey_parents = SubtensorModule::get_parents(&last_hotkey, netuid);
+        let last_hotkey_parents = ParentKeys::<Test>::get(last_hotkey, netuid);
         log::info!(
             "Testing get_parents for last hotkey {} with multiple parents: {:?}",
             last_hotkey,
@@ -1806,7 +1791,7 @@ fn test_childkey_single_parent_emission() {
         let origin = RuntimeOrigin::signed(weight_setter);
         let uids: Vec<u16> = vec![1]; // Only set weight for the child (UID 1)
         let values: Vec<u16> = vec![u16::MAX]; // Use maximum value for u16
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
         assert_ok!(SubtensorModule::set_weights(
             origin,
             netuid,
@@ -1838,8 +1823,7 @@ fn test_childkey_single_parent_emission() {
         }
         step_block(7200 + 1);
         // Check emission distribution
-        let parent_stake: u64 =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_parent, &parent);
+        let parent_stake: u64 = Stake::<Test>::get(parent, coldkey_parent);
         let parent_stake_on_subnet: u64 =
             SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
 
@@ -1849,8 +1833,7 @@ fn test_childkey_single_parent_emission() {
             parent_stake_on_subnet
         );
 
-        let child_stake: u64 =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_child, &child);
+        let child_stake: u64 = Stake::<Test>::get(child, coldkey_child);
         let child_stake_on_subnet: u64 =
             SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid);
 
@@ -1860,10 +1843,7 @@ fn test_childkey_single_parent_emission() {
             child_stake_on_subnet
         );
 
-        let weight_setter_stake: u64 = SubtensorModule::get_stake_for_coldkey_and_hotkey(
-            &coldkey_weight_setter,
-            &weight_setter,
-        );
+        let weight_setter_stake: u64 = Stake::<Test>::get(weight_setter, coldkey_weight_setter);
         let weight_setter_stake_on_subnet: u64 =
             SubtensorModule::get_stake_for_hotkey_on_subnet(&weight_setter, netuid);
 
@@ -1942,7 +1922,7 @@ fn test_childkey_multiple_parents_emission() {
         // Set weights
         let uids: Vec<u16> = vec![0, 1, 2];
         let values: Vec<u16> = vec![0, 65354, 65354];
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
         assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(weight_setter),
             netuid,
@@ -1984,7 +1964,7 @@ fn test_childkey_multiple_parents_emission() {
         ];
 
         for (coldkey, hotkey, name) in stakes.iter() {
-            let stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(coldkey, hotkey);
+            let stake = Stake::<Test>::get(hotkey, coldkey);
             let stake_on_subnet = SubtensorModule::get_stake_for_hotkey_on_subnet(hotkey, netuid);
             log::debug!(
                 "{} stake: {:?}, {} stake on subnet: {:?}",
@@ -1995,15 +1975,10 @@ fn test_childkey_multiple_parents_emission() {
             );
         }
 
-        let parent1_stake =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_parent1, &parent1);
-        let parent2_stake =
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_parent2, &parent2);
-        let child_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_child, &child);
-        let weight_setter_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(
-            &coldkey_weight_setter,
-            &weight_setter,
-        );
+        let parent1_stake = Stake::<Test>::get(parent1, coldkey_parent1);
+        let parent2_stake = Stake::<Test>::get(parent2, coldkey_parent2);
+        let child_stake = Stake::<Test>::get(child, coldkey_child);
+        let weight_setter_stake = Stake::<Test>::get(weight_setter, coldkey_weight_setter);
 
         assert!(
             parent1_stake > 200_000,
@@ -2106,7 +2081,7 @@ fn test_parent_child_chain_emission() {
         let origin = RuntimeOrigin::signed(hotkey_a);
         let uids: Vec<u16> = vec![0, 1, 2]; // UIDs for hotkey_a, hotkey_b, hotkey_c
         let values: Vec<u16> = vec![65535, 65535, 65535]; // Set equal weights for all hotkeys
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
 
         // Ensure we can set weights without rate limiting
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
@@ -2135,9 +2110,9 @@ fn test_parent_child_chain_emission() {
         }
 
         // Log PendingEmission Tuple for a, b, c
-        let pending_emission_a = SubtensorModule::get_pending_hotkey_emission(&hotkey_a);
-        let pending_emission_b = SubtensorModule::get_pending_hotkey_emission(&hotkey_b);
-        let pending_emission_c = SubtensorModule::get_pending_hotkey_emission(&hotkey_c);
+        let pending_emission_a = PendingdHotkeyEmission::<Test>::get(hotkey_a);
+        let pending_emission_b = PendingdHotkeyEmission::<Test>::get(hotkey_b);
+        let pending_emission_c = PendingdHotkeyEmission::<Test>::get(hotkey_c);
 
         log::info!("Pending Emission for A: {:?}", pending_emission_a);
         log::info!("Pending Emission for B: {:?}", pending_emission_b);
@@ -2245,7 +2220,7 @@ fn test_dynamic_parent_child_relationships() {
         let origin = RuntimeOrigin::signed(parent);
         let uids: Vec<u16> = vec![0, 1, 2]; // UIDs for parent, child1, child2
         let values: Vec<u16> = vec![65535, 65535, 65535]; // Set equal weights for all hotkeys
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
 
         // Ensure we can set weights without rate limiting
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
@@ -2272,7 +2247,7 @@ fn test_dynamic_parent_child_relationships() {
 
         // Step blocks to allow for emission distribution
         step_block(11);
-        step_rate_limit(&TransactionType::SetChildren, netuid);
+        step_rate_limit(&TransactionType::SetChildren);
 
         // Change parent-child relationships
         mock_set_children(&coldkey_parent, &parent, netuid, &[(u64::MAX / 4, child1), (u64::MAX / 3, child2)]);
@@ -2345,7 +2320,7 @@ fn test_dynamic_parent_child_relationships() {
         // Expected total stake: 580,000 + 2,000,000 = 2,580,000
 
         // Additional checks for parent-child relationships
-        let parent_children: Vec<(u64, U256)> = SubtensorModule::get_children(&parent, netuid);
+        let parent_children: Vec<(u64, U256)> = ChildKeys::<Test>::get(parent, netuid);
         assert_eq!(
             parent_children,
             vec![(u64::MAX / 4, child1), (u64::MAX / 3, child2)],
@@ -2355,7 +2330,7 @@ fn test_dynamic_parent_child_relationships() {
         // child1: 1/4 of parent's stake
         // child2: 1/3 of parent's stake
 
-        let child1_parents: Vec<(u64, U256)> = SubtensorModule::get_parents(&child1, netuid);
+        let child1_parents: Vec<(u64, U256)> = ParentKeys::<Test>::get(child1, netuid);
         assert_eq!(
             child1_parents,
             vec![(u64::MAX / 4, parent)],
@@ -2364,7 +2339,7 @@ fn test_dynamic_parent_child_relationships() {
         // Child1-parent relationship:
         // parent: 1/4 of child1's stake
 
-        let child2_parents: Vec<(u64, U256)> = SubtensorModule::get_parents(&child2, netuid);
+        let child2_parents: Vec<(u64, U256)> = ParentKeys::<Test>::get(child2, netuid);
         assert_eq!(
             child2_parents,
             vec![(u64::MAX / 3, parent)],
@@ -2705,15 +2680,15 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
         log::info!("After setting parent's children:");
         log::info!(
             "Parent's children: {:?}",
-            SubtensorModule::get_children(&parent, netuid)
+            ChildKeys::<Test>::get(parent, netuid)
         );
         log::info!(
             "Child1's parents: {:?}",
-            SubtensorModule::get_parents(&child1, netuid)
+            ParentKeys::<Test>::get(child1, netuid)
         );
         log::info!(
             "Child2's parents: {:?}",
-            SubtensorModule::get_parents(&child2, netuid)
+            ParentKeys::<Test>::get(child2, netuid)
         );
 
         let parent_stake_1 = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
@@ -2737,11 +2712,11 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
         log::info!("After setting child1's children:");
         log::info!(
             "Child1's children: {:?}",
-            SubtensorModule::get_children(&child1, netuid)
+            ChildKeys::<Test>::get(child1, netuid)
         );
         log::info!(
             "Grandchild's parents: {:?}",
-            SubtensorModule::get_parents(&grandchild, netuid)
+            ParentKeys::<Test>::get(grandchild, netuid)
         );
 
         let parent_stake_2 = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
@@ -2776,48 +2751,48 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
         log::info!("Final parent-child relationships:");
         log::info!(
             "Parent's children: {:?}",
-            SubtensorModule::get_children(&parent, netuid)
+            ChildKeys::<Test>::get(parent, netuid)
         );
         log::info!(
             "Child1's parents: {:?}",
-            SubtensorModule::get_parents(&child1, netuid)
+            ParentKeys::<Test>::get(child1, netuid)
         );
         log::info!(
             "Child2's parents: {:?}",
-            SubtensorModule::get_parents(&child2, netuid)
+            ParentKeys::<Test>::get(child2, netuid)
         );
         log::info!(
             "Child1's children: {:?}",
-            SubtensorModule::get_children(&child1, netuid)
+            ChildKeys::<Test>::get(child1, netuid)
         );
         log::info!(
             "Grandchild's parents: {:?}",
-            SubtensorModule::get_parents(&grandchild, netuid)
+            ParentKeys::<Test>::get(grandchild, netuid)
         );
 
         // Check if the parent-child relationships are correct
         assert_eq!(
-            SubtensorModule::get_children(&parent, netuid),
+            ChildKeys::<Test>::get(parent, netuid),
             vec![(u64::MAX / 2, child1), (u64::MAX / 2, child2)],
             "Parent should have both children"
         );
         assert_eq!(
-            SubtensorModule::get_parents(&child1, netuid),
+            ParentKeys::<Test>::get(child1, netuid),
             vec![(u64::MAX / 2, parent)],
             "Child1 should have parent as its parent"
         );
         assert_eq!(
-            SubtensorModule::get_parents(&child2, netuid),
+            ParentKeys::<Test>::get(child2, netuid),
             vec![(u64::MAX / 2, parent)],
             "Child2 should have parent as its parent"
         );
         assert_eq!(
-            SubtensorModule::get_children(&child1, netuid),
+            ChildKeys::<Test>::get(child1, netuid),
             vec![(u64::MAX, grandchild)],
             "Child1 should have grandchild as its child"
         );
         assert_eq!(
-            SubtensorModule::get_parents(&grandchild, netuid),
+            ParentKeys::<Test>::get(grandchild, netuid),
             vec![(u64::MAX, child1)],
             "Grandchild should have child1 as its parent"
         );
@@ -3159,7 +3134,7 @@ fn test_childkey_set_weights_single_parent() {
         let origin = RuntimeOrigin::signed(weight_setter);
         let uids: Vec<u16> = vec![1]; // Only set weight for the child (UID 1)
         let values: Vec<u16> = vec![u16::MAX]; // Use maximum value for u16
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
         assert_ok!(SubtensorModule::set_weights(
             origin,
             netuid,
@@ -3174,7 +3149,7 @@ fn test_childkey_set_weights_single_parent() {
         // Check the child has less stake than required
         assert!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid)
-                < SubtensorModule::get_stake_threshold()
+                < StakeThreshold::<Test>::get()
         );
 
         // Check the child cannot set weights
@@ -3197,7 +3172,7 @@ fn test_childkey_set_weights_single_parent() {
         // Check if the stake for the child is above
         assert!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid)
-                >= SubtensorModule::get_stake_threshold()
+                >= StakeThreshold::<Test>::get()
         );
 
         // Check the child can set weights
@@ -3249,7 +3224,7 @@ fn test_set_weights_no_parent() {
 
         let uids: Vec<u16> = vec![1]; // Set weights on the other hotkey
         let values: Vec<u16> = vec![u16::MAX]; // Use maximum value for u16
-        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let version_key = WeightsVersionKey::<Test>::get(netuid);
 
         // Set the min stake very high
         SubtensorModule::set_stake_threshold(stake_to_give_child * 5);
@@ -3257,7 +3232,7 @@ fn test_set_weights_no_parent() {
         // Check the key has less stake than required
         assert!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid)
-                < SubtensorModule::get_stake_threshold()
+                < StakeThreshold::<Test>::get()
         );
 
         // Check the hotkey cannot set weights
@@ -3280,7 +3255,7 @@ fn test_set_weights_no_parent() {
         // Check if the stake for the hotkey is above
         assert!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid)
-                >= SubtensorModule::get_stake_threshold()
+                >= StakeThreshold::<Test>::get()
         );
 
         // Check the hotkey can set weights
@@ -3604,13 +3579,12 @@ fn test_set_children_rate_limit_fail_then_succeed() {
         );
 
         // Verify first children assignment remains
-        let children = SubtensorModule::get_children(&hotkey, netuid);
+        let children = ChildKeys::<Test>::get(hotkey, netuid);
         assert_eq!(children, vec![(100, child)]);
 
         // Try again after rate limit period has passed
         // Check rate limit
-        let limit =
-            SubtensorModule::get_rate_limit_on_subnet(&TransactionType::SetChildren, netuid);
+        let limit = SubtensorModule::get_rate_limit(&TransactionType::SetChildren);
 
         // Step that many blocks
         step_block(limit as u16);
@@ -3626,7 +3600,7 @@ fn test_set_children_rate_limit_fail_then_succeed() {
         mock_set_children(&coldkey, &hotkey, netuid, &[(100, child2)]);
 
         // Verify children assignment has changed
-        let children = SubtensorModule::get_children(&hotkey, netuid);
+        let children = ChildKeys::<Test>::get(hotkey, netuid);
         assert_eq!(children, vec![(100, child2)]);
     });
 }
@@ -3736,14 +3710,14 @@ fn test_do_set_child_cooldown_period() {
         ));
 
         // Ensure the childkeys are not yet applied
-        let children_before = SubtensorModule::get_children(&parent, netuid);
+        let children_before = ChildKeys::<Test>::get(parent, netuid);
         assert_eq!(children_before, vec![]);
 
         wait_and_set_pending_children(netuid);
         TotalHotkeyStake::<Test>::insert(parent, parent_total_stake_original);
 
         // Verify child assignment
-        let children_after = SubtensorModule::get_children(&parent, netuid);
+        let children_after = ChildKeys::<Test>::get(parent, netuid);
         assert_eq!(children_after, vec![(proportion, child)]);
     });
 }
@@ -3776,14 +3750,14 @@ fn test_revoke_child_no_min_stake_check() {
         ));
 
         // Ensure the childkeys are not yet applied
-        let children_before = SubtensorModule::get_children(&parent, netuid);
+        let children_before = ChildKeys::<Test>::get(parent, netuid);
         assert_eq!(children_before, vec![]);
 
         wait_and_set_pending_children(netuid);
         TotalHotkeyStake::<Test>::insert(parent, parent_total_stake_original);
 
         // Ensure the childkeys are applied
-        let children_after = SubtensorModule::get_children(&parent, netuid);
+        let children_after = ChildKeys::<Test>::get(parent, netuid);
         assert_eq!(children_after, vec![(proportion, child)]);
 
         // Reduce the stake below required threshold
@@ -3809,7 +3783,7 @@ fn test_revoke_child_no_min_stake_check() {
         TotalHotkeyStake::<Test>::insert(parent, parent_total_stake_original);
 
         // Ensure the childkeys are revoked
-        let children_after = SubtensorModule::get_children(&parent, netuid);
+        let children_after = ChildKeys::<Test>::get(parent, netuid);
         assert_eq!(children_after, vec![]);
     });
 }
@@ -3848,7 +3822,7 @@ fn test_do_set_child_registration_disabled() {
         TotalHotkeyStake::<Test>::insert(parent, parent_total_stake_original);
 
         // Ensure the childkeys are applied
-        let children_after = SubtensorModule::get_children(&parent, netuid);
+        let children_after = ChildKeys::<Test>::get(parent, netuid);
         assert_eq!(children_after, vec![(proportion, child)]);
     });
 }

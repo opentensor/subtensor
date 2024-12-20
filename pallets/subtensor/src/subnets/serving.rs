@@ -83,7 +83,8 @@ impl<T: Config> Pallet<T> {
         );
 
         // Get the previous axon information.
-        let mut prev_axon = Self::get_axon_info(netuid, &hotkey_id);
+        let mut prev_axon = Axons::<T>::get(netuid, &hotkey_id).unwrap_or_default();
+
         let current_block: u64 = Self::get_current_block_as_u64();
         ensure!(
             Self::axon_passes_rate_limit(netuid, &prev_axon, current_block),
@@ -190,7 +191,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // We get the previous axon info assoicated with this ( netuid, uid )
-        let mut prev_prometheus = Self::get_prometheus_info(netuid, &hotkey_id);
+        let mut prev_prometheus = Prometheus::<T>::get(netuid, &hotkey_id).unwrap_or_default();
         let current_block: u64 = Self::get_current_block_as_u64();
         ensure!(
             Self::prometheus_passes_rate_limit(netuid, &prev_prometheus, current_block),
@@ -231,7 +232,7 @@ impl<T: Config> Pallet<T> {
         prev_axon_info: &AxonInfoOf,
         current_block: u64,
     ) -> bool {
-        let rate_limit: u64 = Self::get_serving_rate_limit(netuid);
+        let rate_limit: u64 = ServingRateLimit::<T>::get(netuid);
         let last_serve = prev_axon_info.block;
         rate_limit == 0 || last_serve == 0 || current_block.saturating_sub(last_serve) >= rate_limit
     }
@@ -241,40 +242,9 @@ impl<T: Config> Pallet<T> {
         prev_prometheus_info: &PrometheusInfoOf,
         current_block: u64,
     ) -> bool {
-        let rate_limit: u64 = Self::get_serving_rate_limit(netuid);
+        let rate_limit: u64 = ServingRateLimit::<T>::get(netuid);
         let last_serve = prev_prometheus_info.block;
         rate_limit == 0 || last_serve == 0 || current_block.saturating_sub(last_serve) >= rate_limit
-    }
-
-    pub fn get_axon_info(netuid: u16, hotkey: &T::AccountId) -> AxonInfoOf {
-        if let Some(axons) = Axons::<T>::get(netuid, hotkey) {
-            axons
-        } else {
-            AxonInfo {
-                block: 0,
-                version: 0,
-                ip: 0,
-                port: 0,
-                ip_type: 0,
-                protocol: 0,
-                placeholder1: 0,
-                placeholder2: 0,
-            }
-        }
-    }
-
-    pub fn get_prometheus_info(netuid: u16, hotkey: &T::AccountId) -> PrometheusInfoOf {
-        if let Some(prometheus) = Prometheus::<T>::get(netuid, hotkey) {
-            prometheus
-        } else {
-            PrometheusInfo {
-                block: 0,
-                version: 0,
-                ip: 0,
-                port: 0,
-                ip_type: 0,
-            }
-        }
     }
 
     pub fn is_valid_ip_type(ip_type: u8) -> bool {
