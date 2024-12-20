@@ -5,7 +5,7 @@ use frame_support::{traits::Get, weights::Weight};
 use log;
 use subnets::Mechanism;
 
-pub fn migrate_rao<T: Config>() -> Weight {
+pub fn migrate_rao<T: Config>() -> Weight { // TODO (cam): verify rao migration
     let migration_name = b"migrate_rao".to_vec();
 
     // Initialize the weight with one read operation.
