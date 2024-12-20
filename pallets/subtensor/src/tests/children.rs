@@ -3750,14 +3750,14 @@ fn test_revoke_child_no_min_stake_check() {
         ));
 
         // Ensure the childkeys are not yet applied
-        let children_before = SubtensorModule::get_children(&parent, netuid);
+        let children_before = ChildKeys::<Test>::get(parent, netuid);
         assert_eq!(children_before, vec![]);
 
         wait_and_set_pending_children(netuid);
         TotalHotkeyStake::<Test>::insert(parent, parent_total_stake_original);
 
         // Ensure the childkeys are applied
-        let children_after = SubtensorModule::get_children(&parent, netuid);
+        let children_after = ChildKeys::<Test>::get(parent, netuid);
         assert_eq!(children_after, vec![(proportion, child)]);
 
         // Reduce the stake below required threshold
@@ -3783,7 +3783,7 @@ fn test_revoke_child_no_min_stake_check() {
         TotalHotkeyStake::<Test>::insert(parent, parent_total_stake_original);
 
         // Ensure the childkeys are revoked
-        let children_after = SubtensorModule::get_children(&parent, netuid);
+        let children_after = ChildKeys::<Test>::get(parent, netuid);
         assert_eq!(children_after, vec![]);
     });
 }
@@ -3822,7 +3822,7 @@ fn test_do_set_child_registration_disabled() {
         TotalHotkeyStake::<Test>::insert(parent, parent_total_stake_original);
 
         // Ensure the childkeys are applied
-        let children_after = SubtensorModule::get_children(&parent, netuid);
+        let children_after = ChildKeys::<Test>::get(parent, netuid);
         assert_eq!(children_after, vec![(proportion, child)]);
     });
 }
