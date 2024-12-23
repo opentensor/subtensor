@@ -116,57 +116,71 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn do_unstake_all(
         origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
     ) -> dispatch::DispatchResult {
         let coldkey = ensure_signed(origin)?;
-        log::info!(
-            "do_unstake_all( origin:{:?} hotkey:{:?} )",
-            coldkey,
-            hotkey,
-        );
 
-        // Ensure we don't exceed stake rate limit (once for all subnets)
-        let unstakes_this_interval =
-            Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey);
+        // Get all hotkeys this coldkey stakes to
+        let staking_hotkeys = StakingHotkeys::<T>::get(&coldkey);
+
+        // Check/update rate limits
+        let mut rate_limited = false;
+        staking_hotkeys.iter().for_each(|hotkey| {
+            // Ensure we don't exceed stake rate limit (once for all subnets)
+            let unstakes_this_interval =
+                Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey);
+            rate_limited |= unstakes_this_interval < Self::get_target_stakes_per_interval();
+
+            // Set last block for rate limiting
+            let block: u64 = Self::get_current_block_as_u64();
+            Self::set_last_tx_block(&coldkey, block);
+            Self::set_stakes_this_interval_for_coldkey_hotkey(
+                &coldkey,
+                &hotkey,
+                unstakes_this_interval.saturating_add(1),
+                block,
+            );
+    
+        });
+
         ensure!(
-            unstakes_this_interval < Self::get_target_stakes_per_interval(),
+            !rate_limited,
             Error::<T>::UnstakeRateLimitExceeded
         );
-        // Set last block for rate limiting
-        let block: u64 = Self::get_current_block_as_u64();
-        Self::set_last_tx_block(&coldkey, block);
-        Self::set_stakes_this_interval_for_coldkey_hotkey(
-            &coldkey,
-            &hotkey,
-            unstakes_this_interval.saturating_add(1),
-            block,
-        );
 
-        // Iterate over all netuids and unstake
-        let subnets: Vec<u16> = Self::get_all_subnet_netuids();
-        subnets.iter().for_each(|&netuid| {
-            // Get hotkey's stake in this netuid
-            let current_stake =
-                Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        // Unstake
+        staking_hotkeys.iter().for_each(|hotkey| {
+            log::info!(
+                "do_unstake_all( origin:{:?} hotkey:{:?} )",
+                coldkey,
+                hotkey,
+            );
+        
+            // Iterate over all netuids and unstake
+            let subnets: Vec<u16> = Self::get_all_subnet_netuids();
+            subnets.iter().for_each(|&netuid| {
+                // Get hotkey's stake in this netuid
+                let current_stake =
+                    Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
 
-            if current_stake > 0 {
-                // Convert and unstake from the subnet.
-                let tao_unstaked: u64 =
-                    Self::unstake_from_subnet(&hotkey, &coldkey, netuid, current_stake);
+                if current_stake > 0 {
+                    // Convert and unstake from the subnet.
+                    let tao_unstaked: u64 =
+                        Self::unstake_from_subnet(&hotkey, &coldkey, netuid, current_stake);
 
-                // We add the balance to the coldkey.  If the above fails we will not credit this coldkey.
-                Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
+                    // We add the balance to the coldkey.  If the above fails we will not credit this coldkey.
+                    Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 
-                // The stake is below the minimum, we clear the nomination from storage.
-                Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid, 0_u64);
+                    // The stake is below the minimum, we clear the nomination from storage.
+                    Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid, 0_u64);
 
-                log::info!(
-                    "StakeRemoved( hotkey:{:?}, netuid: {:?}, tao_unstaked:{:?} )",
-                    hotkey.clone(),
-                    netuid,
-                    tao_unstaked
-                );
-            }
+                    log::info!(
+                        "StakeRemoved( hotkey:{:?}, netuid: {:?}, tao_unstaked:{:?} )",
+                        hotkey.clone(),
+                        netuid,
+                        tao_unstaked
+                    );
+                }
+            });
         });
 
         // Done and ok.

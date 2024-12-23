@@ -1401,9 +1401,8 @@ mod dispatches {
             .saturating_add(T::DbWeight::get().writes(14)), DispatchClass::Normal, Pays::No))]
         pub fn unstake_all(
             origin: OriginFor<T>,
-            hotkey: T::AccountId,
         ) -> DispatchResult {
-            Self::do_unstake_all(origin, hotkey)
+            Self::do_unstake_all(origin)
         }
     
     }
