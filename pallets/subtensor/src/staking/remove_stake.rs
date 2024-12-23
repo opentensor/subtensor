@@ -128,7 +128,7 @@ impl<T: Config> Pallet<T> {
             // Ensure we don't exceed stake rate limit (once for all subnets)
             let unstakes_this_interval =
                 Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey);
-            rate_limited |= unstakes_this_interval < Self::get_target_stakes_per_interval();
+            rate_limited |= unstakes_this_interval > Self::get_target_stakes_per_interval();
 
             // Set last block for rate limiting
             let block: u64 = Self::get_current_block_as_u64();
