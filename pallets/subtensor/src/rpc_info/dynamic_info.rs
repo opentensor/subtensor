@@ -27,7 +27,7 @@ impl<T: Config> Pallet<T> {
         }
         let last_step: u64 = LastMechansimStepBlock::<T>::get(netuid);
         let current_block: u64 = Pallet::<T>::get_current_block_as_u64();
-        let blocks_since_last_step: u64 = current_block - last_step;
+        let blocks_since_last_step: u64 = current_block.saturating_sub(last_step);
         Some(DynamicInfo {
             owner: SubnetOwner::<T>::get(netuid).into(),
             netuid: netuid.into(),
