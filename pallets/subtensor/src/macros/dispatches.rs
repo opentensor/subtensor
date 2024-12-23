@@ -1392,5 +1392,19 @@ mod dispatches {
         ) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, mechid, identity)
         }
+
+        /// Unstake all
+        #[pallet::call_index(83)]
+        #[pallet::weight((Weight::from_parts(111_000_000, 0)
+            .saturating_add(Weight::from_parts(0, 43991))
+            .saturating_add(T::DbWeight::get().reads(20))
+            .saturating_add(T::DbWeight::get().writes(14)), DispatchClass::Normal, Pays::No))]
+        pub fn unstake_all(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+        ) -> DispatchResult {
+            Self::do_unstake_all(origin, hotkey)
+        }
+    
     }
 }
