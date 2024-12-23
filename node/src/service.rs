@@ -9,7 +9,9 @@ use crate::ethereum::{
 };
 use futures::{channel::mpsc, future, FutureExt};
 use sc_client_api::{Backend as BackendT, BlockBackend};
-use sc_consensus::{BasicQueue, BoxBlockImport};
+use sc_consensus::{
+    BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxBlockImport, ImportResult,
+};
 use sc_consensus_grandpa::BlockNumberOps;
 use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
 use sc_executor::HostFunctions as HostFunctionsT;
@@ -21,10 +23,17 @@ use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ConstructRuntimeApi;
 use sp_consensus_aura::sr25519::{AuthorityId as AuraId, AuthorityPair as AuraPair};
 use sp_core::{H256, U256};
-use sp_runtime::traits::{Block as BlockT, NumberFor};
+use sp_runtime::traits::{Block as BlockT, Header, NumberFor};
 use std::{cell::RefCell, path::Path};
-use std::{sync::Arc, time::Duration};
+use std::{marker::PhantomData, sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
+use fp_consensus::{ensure_log, FindLogError};
+use fp_rpc::EthereumRuntimeRPCApi;
+use sp_api::ProvideRuntimeApi;
+use sp_block_builder::BlockBuilder as BlockBuilderApi;
+use sp_consensus::Error as ConsensusError;
+
+extern crate num_traits;
 
 // Runtime
 use node_subtensor_runtime::{
@@ -190,6 +199,106 @@ where
     })
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("Multiple runtime Ethereum blocks, rejecting!")]
+    MultipleRuntimeLogs,
+    #[error("Runtime Ethereum block not found, rejecting!")]
+    NoRuntimeLog,
+    #[error("Cannot access the runtime at genesis, rejecting!")]
+    RuntimeApiCallFailed,
+}
+
+impl From<Error> for String {
+    fn from(error: Error) -> String {
+        error.to_string()
+    }
+}
+
+impl From<FindLogError> for Error {
+    fn from(error: FindLogError) -> Error {
+        match error {
+            FindLogError::NotFound => Error::NoRuntimeLog,
+            FindLogError::MultipleLogs => Error::MultipleRuntimeLogs,
+        }
+    }
+}
+
+impl From<Error> for ConsensusError {
+    fn from(error: Error) -> ConsensusError {
+        ConsensusError::ClientImport(error.to_string())
+    }
+}
+
+pub struct ConditionalEVMBlockImport<B: BlockT, I, F, C> {
+    inner: I,
+    frontier_block_import: F,
+    client: Arc<C>,
+    _marker: PhantomData<B>,
+}
+
+impl<B, I, F, C> Clone for ConditionalEVMBlockImport<B, I, F, C>
+where
+    B: BlockT,
+    I: Clone + BlockImport<B>,
+    F: Clone + BlockImport<B>,
+{
+    fn clone(&self) -> Self {
+        ConditionalEVMBlockImport {
+            inner: self.inner.clone(),
+            frontier_block_import: self.frontier_block_import.clone(),
+            client: self.client.clone(),
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<B, I, F, C> ConditionalEVMBlockImport<B, I, F, C>
+where
+    B: BlockT,
+    I: BlockImport<B>,
+    I::Error: Into<ConsensusError>,
+    F: BlockImport<B>,
+    F::Error: Into<ConsensusError>,
+    C: ProvideRuntimeApi<B>,
+    C::Api: BlockBuilderApi<B> + EthereumRuntimeRPCApi<B>,
+{
+    pub fn new(inner: I, frontier_block_import: F, client: Arc<C>) -> Self {
+        Self {
+            inner,
+            frontier_block_import,
+            client,
+            _marker: PhantomData,
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl<B, I, F, C> BlockImport<B> for ConditionalEVMBlockImport<B, I, F, C>
+where
+    B: BlockT,
+    I: BlockImport<B> + Send + Sync,
+    I::Error: Into<ConsensusError>,
+    F: BlockImport<B> + Send + Sync,
+    F::Error: Into<ConsensusError>,
+    C: ProvideRuntimeApi<B> + Send + Sync,
+    C::Api: BlockBuilderApi<B> + EthereumRuntimeRPCApi<B>,
+{
+    type Error = ConsensusError;
+
+    async fn check_block(&self, block: BlockCheckParams<B>) -> Result<ImportResult, Self::Error> {
+        self.inner.check_block(block).await.map_err(Into::into)
+    }
+
+    async fn import_block(&self, block: BlockImportParams<B>) -> Result<ImportResult, Self::Error> {
+        // Import like Frontier, but fallback to grandpa import for errors
+        match ensure_log(block.header.digest()).map_err(Error::from) {
+            Ok(()) => self.inner.import_block(block).await.map_err(Into::into),
+            _ => self.inner.import_block(block).await.map_err(Into::into),
+        }
+    }
+}
+
 /// Build the import queue for the template runtime (aura + grandpa).
 pub fn build_aura_grandpa_import_queue<B, RA, HF>(
     client: Arc<FullClient<B, RA, HF>>,
@@ -207,8 +316,11 @@ where
     RA::RuntimeApi: RuntimeApiCollection<B, AuraId, AccountId, Nonce, Balance>,
     HF: HostFunctionsT + 'static,
 {
-    let frontier_block_import =
-        FrontierBlockImport::new(grandpa_block_import.clone(), client.clone());
+    let conditional_block_import = ConditionalEVMBlockImport::new(
+        grandpa_block_import.clone(),
+        FrontierBlockImport::new(grandpa_block_import.clone(), client.clone()),
+        client.clone(),
+    );
 
     let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
     let target_gas_price = eth_config.target_gas_price;
@@ -225,8 +337,8 @@ where
 
     let import_queue = sc_consensus_aura::import_queue::<AuraPair, _, _, _, _, _>(
         sc_consensus_aura::ImportQueueParams {
-            block_import: frontier_block_import.clone(),
-            justification_import: Some(Box::new(grandpa_block_import)),
+            block_import: conditional_block_import.clone(),
+            justification_import: Some(Box::new(grandpa_block_import.clone())),
             client,
             create_inherent_data_providers,
             spawner: &task_manager.spawn_essential_handle(),
@@ -238,7 +350,7 @@ where
     )
     .map_err::<ServiceError, _>(Into::into)?;
 
-    Ok((import_queue, Box::new(frontier_block_import)))
+    Ok((import_queue, Box::new(conditional_block_import)))
 }
 
 /// Build the import queue for the template runtime (manual seal).
@@ -248,23 +360,27 @@ pub fn build_manual_seal_import_queue<B, RA, HF>(
     _eth_config: &EthConfiguration,
     task_manager: &TaskManager,
     _telemetry: Option<TelemetryHandle>,
-    _grandpa_block_import: GrandpaBlockImport<B, FullClient<B, RA, HF>>,
+    grandpa_block_import: GrandpaBlockImport<B, FullClient<B, RA, HF>>,
 ) -> Result<(BasicQueue<B>, BoxBlockImport<B>), ServiceError>
 where
     B: BlockT,
     RA: ConstructRuntimeApi<B, FullClient<B, RA, HF>>,
     RA: Send + Sync + 'static,
     RA::RuntimeApi: RuntimeApiCollection<B, AuraId, AccountId, Nonce, Balance>,
-    HF: HostFunctionsT + 'static,
+    HF: HostFunctionsT + 'static, <<B as BlockT>::Header as Header>::Number: num_traits::cast::AsPrimitive<usize>
 {
-    let frontier_block_import = FrontierBlockImport::new(client.clone(), client);
+    let conditional_block_import = ConditionalEVMBlockImport::new(
+        grandpa_block_import.clone(),
+        FrontierBlockImport::new(grandpa_block_import.clone(), client.clone()),
+        client,
+    );
     Ok((
         sc_consensus_manual_seal::import_queue(
-            Box::new(frontier_block_import.clone()),
+            Box::new(conditional_block_import.clone()),
             &task_manager.spawn_essential_handle(),
             config.prometheus_registry(),
         ),
-        Box::new(frontier_block_import),
+        Box::new(conditional_block_import),
     ))
 }
 
