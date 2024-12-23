@@ -82,16 +82,18 @@ impl<T: Config> Pallet<T> {
                 .to_num::<u64>();
             // 8. Store the block emission for this subnet
             EmissionValues::<T>::insert(*netuid, subnet_emission);
-            // 9. Add the TAO into the subnet immediately: T_s_new = T_s_old + E_s
-            SubnetTAO::<T>::mutate(*netuid, |total| {
-                *total = total.saturating_add(subnet_emission)
-            });
-            // 10. Increase total stake here: T_total_new = T_total_old + E_s
-            TotalStake::<T>::mutate(|total| *total = total.saturating_add(subnet_emission));
-            // 11. Increase total issuance: I_new = I_old + E_s
-            TotalIssuance::<T>::mutate(|total| *total = total.saturating_add(subnet_emission));
             // 12. Switch on dynamic or Stable.
             if mechid == 1 {
+                // Stop emission on number vs pool size.
+                if I96F32::from_num(total_active_tao).saturating_div(I96F32::from_num(1_000_000_000)) < I96F32::from_num(Self::get_current_block_as_u64()) {
+                    SubnetTAO::<T>::mutate(*netuid, |total| {
+                        *total = total.saturating_add(subnet_emission)
+                    });
+                    // 10. Increase total stake here: T_total_new = T_total_old + E_s
+                    TotalStake::<T>::mutate(|total| *total = total.saturating_add(subnet_emission));
+                    // 11. Increase total issuance: I_new = I_old + E_s
+                    TotalIssuance::<T>::mutate(|total| *total = total.saturating_add(subnet_emission));
+                }
                 // 12a Dynamic: Add the SubnetAlpha directly into the pool immediately: A_s_new = A_s_old + E_m
                 SubnetAlphaIn::<T>::mutate(*netuid, |total| {
                     *total = total.saturating_add(block_emission.to_num::<u64>())
@@ -101,6 +103,14 @@ impl<T: Config> Pallet<T> {
                     *total = total.saturating_add(block_emission.to_num::<u64>())
                 });
             } else {
+                // Normal emission flow.
+                SubnetTAO::<T>::mutate(*netuid, |total| {
+                    *total = total.saturating_add(subnet_emission)
+                });
+                // 10. Increase total stake here: T_total_new = T_total_old + E_s
+                TotalStake::<T>::mutate(|total| *total = total.saturating_add(subnet_emission));
+                // 11. Increase total issuance: I_new = I_old + E_s
+                TotalIssuance::<T>::mutate(|total| *total = total.saturating_add(subnet_emission));
                 // 12c Stable: Set the pending emission as tao emission: P_e_new = P_e_old + E_s
                 PendingEmission::<T>::mutate(*netuid, |total| {
                     *total = total.saturating_add(subnet_emission)
