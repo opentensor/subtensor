@@ -112,10 +112,11 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// ---- The implementation for unstake_all.
+    /// ---- The implementation for unstake_all and unstake_all_alpha.
     ///
     pub fn do_unstake_all(
         origin: T::RuntimeOrigin,
+        alpha_only: bool,
     ) -> dispatch::DispatchResult {
         let coldkey = ensure_signed(origin)?;
 
@@ -157,7 +158,9 @@ impl<T: Config> Pallet<T> {
         
             // Iterate over all netuids and unstake
             let subnets: Vec<u16> = Self::get_all_subnet_netuids();
-            subnets.iter().for_each(|&netuid| {
+            subnets.iter().filter(|&netuid| {
+                !alpha_only || *netuid != Self::get_root_netuid()
+            }).for_each(|&netuid| {
                 // Get hotkey's stake in this netuid
                 let current_stake =
                     Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);

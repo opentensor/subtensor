@@ -1402,8 +1402,20 @@ mod dispatches {
         pub fn unstake_all(
             origin: OriginFor<T>,
         ) -> DispatchResult {
-            Self::do_unstake_all(origin)
+            Self::do_unstake_all(origin, false)
         }
-    
+
+        /// Unstake all alpha
+        #[pallet::call_index(84)]
+        #[pallet::weight((Weight::from_parts(111_000_000, 0)
+            .saturating_add(Weight::from_parts(0, 43991))
+            .saturating_add(T::DbWeight::get().reads(20))
+            .saturating_add(T::DbWeight::get().writes(14)), DispatchClass::Normal, Pays::No))]
+        pub fn unstake_all_alpha(
+            origin: OriginFor<T>,
+        ) -> DispatchResult {
+            Self::do_unstake_all(origin, true)
+        }
+        
     }
 }
