@@ -157,12 +157,12 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: u16,
-        stake: u64,
     ) {
         // Verify if the account is a nominator account by checking ownership of the hotkey by the coldkey.
         if !Self::coldkey_owns_hotkey(coldkey, hotkey) {
             // If the stake is below the minimum required, it's considered a small nomination and needs to be cleared.
             // Log if the stake is below the minimum required
+            let stake: u64 = Self::get_stake_for_hotkey_and_coldkey_on_subnet( hotkey, coldkey, netuid );
             if stake < Self::get_nominator_min_required_stake() {
                 // Log the clearing of a small nomination
                 // Remove the stake from the nominator account. (this is a more forceful unstake operation which )
@@ -180,8 +180,8 @@ impl<T: Config> Pallet<T> {
     /// used with caution.
     pub fn clear_small_nominations() {
         // Loop through all staking accounts to identify and clear nominations below the minimum stake.
-        for ((hotkey, coldkey, netuid), stake) in Alpha::<T>::iter() {
-            Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid, stake);
+        for ((hotkey, coldkey, netuid), _) in Alpha::<T>::iter() {
+            Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
         }
     }
 

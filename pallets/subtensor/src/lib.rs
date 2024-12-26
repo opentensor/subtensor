@@ -815,6 +815,17 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountLinkage<T>,
     >;
+    #[pallet::storage] // --- DMAP ( netuid, hotkey ) --> u64 | Last total dividend this hotkey got on tempo. 
+    pub type HotkeyDividendsPerSubnet<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        u16,
+        u64,
+        ValueQuery,
+        DefaultZeroU64<T>,
+    >;
     #[pallet::storage] // --- DMAP ( cold ) --> () | Maps coldkey to if a coldkey swap is scheduled.
     pub type ColdkeySwapScheduled<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, (), ValueQuery>;

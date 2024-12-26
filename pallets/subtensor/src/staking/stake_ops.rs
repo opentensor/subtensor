@@ -114,7 +114,7 @@ impl<T: Config> Pallet<T> {
         //     });
         // }
 
-        // Step 4. Deposit the unstaking event.
+        // Step 4. Deposit and log the unstaking event.
         Self::deposit_event(Event::StakeRemoved(
             coldkey.clone(),
             hotkey.clone(),
@@ -122,6 +122,14 @@ impl<T: Config> Pallet<T> {
             alpha,
             netuid,
         ));
+        log::info!(
+            "StakeRemoved( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?} )",
+            coldkey.clone(),
+            hotkey.clone(),
+            tao,
+            alpha,
+            netuid
+        );
 
         // Step 5: Return the amount of TAO unstaked.
         tao
@@ -150,7 +158,7 @@ impl<T: Config> Pallet<T> {
             StakingHotkeys::<T>::insert(coldkey, staking_hotkeys.clone());
         }
 
-        // Step 5: Deposit the staking event.
+        // Step 5. Deposit and log the staking event.
         Self::deposit_event(Event::StakeAdded(
             coldkey.clone(),
             hotkey.clone(),
@@ -158,6 +166,14 @@ impl<T: Config> Pallet<T> {
             alpha,
             netuid,
         ));
+        log::info!(
+            "StakeAdded( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?} )",
+            coldkey.clone(),
+            hotkey.clone(),
+            tao,
+            alpha,
+            netuid
+        );
 
         // Step 6: Return the amount of alpha staked
         alpha

@@ -57,27 +57,11 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 6. Get the current alpha stake for the origin hotkey-coldkey pair in the origin subnet
-        let origin_alpha = Alpha::<T>::get((origin_hotkey.clone(), coldkey.clone(), origin_netuid));
+        let origin_alpha = Self::get_stake_for_hotkey_and_coldkey_on_subnet( &origin_hotkey, &coldkey, origin_netuid );
         ensure!(
             alpha_amount <= origin_alpha,
             Error::<T>::NotEnoughStakeToWithdraw
         );
-
-        // Ensure we don't exceed stake rate limit for destination key
-        // let stakes_this_interval =
-        //     Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &destination_hotkey);
-        // ensure!(
-        //     stakes_this_interval < Self::get_target_stakes_per_interval(),
-        //     Error::<T>::StakeRateLimitExceeded
-        // ); (DEPRECATED)
-
-        // Ensure we don't exceed stake rate limit for origin key
-        // let unstakes_this_interval =
-        //     Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &origin_hotkey);
-        // ensure!(
-        //     unstakes_this_interval < Self::get_target_stakes_per_interval(),
-        //     Error::<T>::UnstakeRateLimitExceeded
-        // ); (DEPRECATED)
 
         // --- 7. Unstake the amount of alpha from the origin subnet, converting it to TAO
         let origin_tao = Self::unstake_from_subnet(
@@ -95,28 +79,7 @@ impl<T: Config> Pallet<T> {
             origin_tao,
         );
 
-        // Set last block for rate limiting
-        // let current_block = Self::get_current_block_as_u64();
-        // Self::set_last_tx_block(&coldkey, current_block);
-        // Self::set_stakes_this_interval_for_coldkey_hotkey(
-        //     &coldkey,
-        //     &destination_hotkey,
-        //     stakes_this_interval.saturating_add(1),
-        //     current_block,
-        // );
-        // Self::set_stakes_this_interval_for_coldkey_hotkey(
-        //     &coldkey,
-        //     &origin_hotkey,
-        //     unstakes_this_interval.saturating_add(1),
-        //     current_block,
-        // ); (DEPRECATED)
-
-        // Set the last time the stake increased for nominator drain protection.
-        // if alpha_amount > 0 {
-        //     LastAddStakeIncrease::<T>::insert(&destination_hotkey, &coldkey, current_block);
-        // } DEPRECATED
-
-        // --- 10. Log the event.
+        // --- 9. Log the event.
         log::info!(
             "StakeMoved( coldkey:{:?}, origin_hotkey:{:?}, origin_netuid:{:?}, destination_hotkey:{:?}, destination_netuid:{:?} )",
             coldkey.clone(),
@@ -133,7 +96,7 @@ impl<T: Config> Pallet<T> {
             destination_netuid,
         ));
 
-        // -- 11. Ok and return.
+        // -- 10. Ok and return.
         Ok(())
     }
 }

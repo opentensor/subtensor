@@ -260,8 +260,7 @@ impl<T: Config> Pallet<T> {
         decrement: u64,
     ) -> bool {
         // Retrieve the current stake for this hotkey-coldkey pair on the subnet
-        let current_stake =
-            Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
+        let current_stake = Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
 
         // Compare the current stake with the requested decrement
         // Return true if the current stake is greater than or equal to the decrement

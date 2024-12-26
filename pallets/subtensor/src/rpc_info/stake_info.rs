@@ -34,8 +34,7 @@ impl<T: Config> Pallet<T> {
             for netuid_i in netuids.clone().iter() {
                 for hotkey_i in staking_hotkeys.clone().iter() {
                     let alpha: u64 = Self::get_stake_for_hotkey_and_coldkey_on_subnet( &hotkey_i, &coldkey_i, *netuid_i);
-                    let emission: u64 = 0;
-                    let drain: u64 = 0;
+                    let emission: u64 = HotkeyDividendsPerSubnet::<T>::get( &hotkey_i, *netuid_i );
                     let is_registered: bool = Self::is_hotkey_registered_on_network(*netuid_i, &hotkey_i);
                     stake_info_for_coldkey.push(StakeInfo {
                         hotkey: hotkey_i.clone(),
@@ -44,7 +43,7 @@ impl<T: Config> Pallet<T> {
                         stake: alpha.into(),
                         locked: 0.into(),
                         emission: emission.into(),
-                        drain: drain.into(),
+                        drain: 0.into(),
                         is_registered,
                     });
                 }
