@@ -74,15 +74,14 @@ impl<T: Config> Pallet<T> {
 
         // Ensure we don't exceed stake rate limit
         // DEPRECATED
-        let stakes_this_interval =
-            Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey);
-        ensure!(
-            stakes_this_interval < Self::get_target_stakes_per_interval(),
-            Error::<T>::StakeRateLimitExceeded
-        );
+        // let stakes_this_interval = Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey);
+        // ensure!(
+        //     stakes_this_interval < Self::get_target_stakes_per_interval(),
+        //     Error::<T>::StakeRateLimitExceeded
+        // ); DEPRECATED
 
         // Set the last time the stake increased for nominator drain protection.
-        LastAddStakeIncrease::<T>::insert(&hotkey, &coldkey, Self::get_current_block_as_u64());
+        // LastAddStakeIncrease::<T>::insert(&hotkey, &coldkey, Self::get_current_block_as_u64()); (DEPRECATED)
 
         // If coldkey is not owner of the hotkey, it's a nomination stake.
         if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
@@ -106,12 +105,12 @@ impl<T: Config> Pallet<T> {
         Self::set_last_tx_block(&coldkey, block);
 
         // Emit the staking event.
-        Self::set_stakes_this_interval_for_coldkey_hotkey(
-            &coldkey,
-            &hotkey,
-            stakes_this_interval.saturating_add(1),
-            block,
-        );
+        // Self::set_stakes_this_interval_for_coldkey_hotkey(
+        //     &coldkey,
+        //     &hotkey,
+        //     stakes_this_interval.saturating_add(1),
+        //     block,
+        // ); DEPRECATED
         log::info!(
             "StakeAdded( hotkey:{:?}, alpha_staked:{:?} )",
             hotkey,

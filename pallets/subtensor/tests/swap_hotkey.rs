@@ -56,31 +56,31 @@ fn test_swap_owned_hotkeys() {
 }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_total_hotkey_coldkey_stakes_this_interval --exact --nocapture
-#[test]
-fn test_swap_total_hotkey_coldkey_stakes_this_interval() {
-    new_test_ext(1).execute_with(|| {
-        let old_hotkey = U256::from(1);
-        let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
+// #[test]
+// fn test_swap_total_hotkey_coldkey_stakes_this_interval() {
+//     new_test_ext(1).execute_with(|| {
+//         let old_hotkey = U256::from(1);
+//         let new_hotkey = U256::from(2);
+//         let coldkey = U256::from(3);
+//         let mut weight = Weight::zero();
 
-        TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(old_hotkey, coldkey, (100, 1000));
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
-            &old_hotkey,
-            &new_hotkey,
-            &coldkey,
-            &mut weight
-        ));
+//         TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(old_hotkey, coldkey, (100, 1000));
+//         assert_ok!(SubtensorModule::perform_hotkey_swap(
+//             &old_hotkey,
+//             &new_hotkey,
+//             &coldkey,
+//             &mut weight
+//         ));
 
-        assert!(!TotalHotkeyColdkeyStakesThisInterval::<Test>::contains_key(
-            old_hotkey, coldkey
-        ));
-        assert_eq!(
-            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(new_hotkey, coldkey),
-            (100, 1000)
-        );
-    });
-}
+//         assert!(!TotalHotkeyColdkeyStakesThisInterval::<Test>::contains_key(
+//             old_hotkey, coldkey
+//         ));
+//         assert_eq!(
+//             TotalHotkeyColdkeyStakesThisInterval::<Test>::get(new_hotkey, coldkey),
+//             (100, 1000)
+//         );
+//     });
+// } (DEPRECATED)
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_last_tx_block --exact --nocapture
 #[test]
@@ -845,31 +845,31 @@ fn test_swap_stake_old_hotkey_not_exist() {
 }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_total_hotkey_coldkey_stakes_this_interval_success --exact --nocapture
-#[test]
-fn test_swap_total_hotkey_coldkey_stakes_this_interval_success() {
-    new_test_ext(1).execute_with(|| {
-        let old_hotkey = U256::from(1);
-        let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
-        let stake = (1000u64, 42u64); // Example tuple value
-        let mut weight = Weight::zero();
+// #[test]
+// fn test_swap_total_hotkey_coldkey_stakes_this_interval_success() {
+//     new_test_ext(1).execute_with(|| {
+//         let old_hotkey = U256::from(1);
+//         let new_hotkey = U256::from(2);
+//         let coldkey = U256::from(3);
+//         let stake = (1000u64, 42u64); // Example tuple value
+//         let mut weight = Weight::zero();
 
-        // Initialize TotalHotkeyColdkeyStakesThisInterval for old_hotkey
-        TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(old_hotkey, coldkey, stake);
+//         // Initialize TotalHotkeyColdkeyStakesThisInterval for old_hotkey
+//         TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(old_hotkey, coldkey, stake);
 
-        // Perform the swap
-        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
+//         // Perform the swap
+//         SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
 
-        // Verify the swap
-        assert_eq!(
-            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(new_hotkey, coldkey),
-            stake
-        );
-        assert!(!TotalHotkeyColdkeyStakesThisInterval::<Test>::contains_key(
-            old_hotkey, coldkey
-        ));
-    });
-}
+//         // Verify the swap
+//         assert_eq!(
+//             TotalHotkeyColdkeyStakesThisInterval::<Test>::get(new_hotkey, coldkey),
+//             stake
+//         );
+//         assert!(!TotalHotkeyColdkeyStakesThisInterval::<Test>::contains_key(
+//             old_hotkey, coldkey
+//         ));
+//     });
+// }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_hotkey_error_cases --exact --nocapture
 #[test]

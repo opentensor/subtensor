@@ -46,8 +46,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
         Alpha::<T>::mutate((hotkey.clone(), coldkey.clone(), 0), |total| {
             *total = total.saturating_add(stake)
         });
-        // Set the total stake on the coldkey
-        TotalColdkeyAlpha::<T>::mutate(coldkey.clone(), 0, |total| {
+        TotalHotkeyShares::<T>::mutate(hotkey.clone(), 0, |total| {
             *total = total.saturating_add(stake)
         });
         // Set the total stake on the hotkey
@@ -64,40 +63,18 @@ pub fn migrate_rao<T: Config>() -> Weight {
             continue;
         }
         let owner: T::AccountId = SubnetOwner::<T>::get(netuid);
-        let current_lock: u64 = SubnetLocked::<T>::get(netuid); // Get the current locked.
-                                                                // Return lock to the original owner less 1 RAO
-        let tao = 1_u64;
-        let lock_to_return: u64 = current_lock.saturating_sub(tao);
-        let lock: u64 = current_lock.saturating_sub(lock_to_return);
-        Pallet::<T>::add_balance_to_coldkey_account(&owner, lock_to_return);
-
-        SubnetTAO::<T>::insert(netuid, lock); // Set TAO to the lock.
+        let lock: u64 = SubnetLocked::<T>::get(netuid);
+        Pallet::<T>::add_balance_to_coldkey_account(&owner, lock);
+        SubnetTAO::<T>::insert(netuid, 1); // Set TAO to the lock.
         SubnetAlphaIn::<T>::insert(netuid, 1); // Set AlphaIn to the initial alpha distribution.
-        SubnetAlphaOut::<T>::insert(netuid, lock); // Set AlphaOut to the initial alpha distribution.
-        TotalColdkeyAlpha::<T>::mutate(owner.clone(), 0, |total| {
-            *total = total.saturating_add(lock)
-        }); // Set the total coldkey alpha.
-        TotalHotkeyAlpha::<T>::mutate(owner.clone(), 0, |total| {
-            *total = total.saturating_add(lock)
-        }); // Set the total hotkey alpha.
-        Alpha::<T>::mutate((owner.clone(), owner.clone(), netuid), |total| {
-            *total = total.saturating_add(lock)
-        }); // Set the alpha.
-        Stake::<T>::mutate(&owner, &owner, |total| {
-            *total = total.saturating_add(lock);
-        }); // Increase the stake.
-        TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(lock)); // Increase the total stake.
+        SubnetAlphaOut::<T>::insert(netuid, 1); // Set AlphaOut to the initial alpha distribution.
         SubnetMechanism::<T>::insert(netuid, 1); // Convert to dynamic immediately with initialization.
-        SubnetLocked::<T>::insert(netuid, lock);
-        LargestLocked::<T>::insert(netuid, lock);
-        // Update all tempos to default
         Tempo::<T>::insert(netuid, DefaultTempo::<T>::get());
         // Set global weight to 1.0 for the start
         GlobalWeight::<T>::insert(netuid, u64::MAX);
-
-        HotkeyEmissionTempo::<T>::put(30); // same as subnet tempo
+        // HotkeyEmissionTempo::<T>::put(30); // same as subnet tempo // (DEPRECATED)
 		// Set the target stakes per interval to 10.
-		TargetStakesPerInterval::<T>::put(10);
+		// TargetStakesPerInterval::<T>::put(10); (DEPRECATED)
     }
 
     // Mark the migration as completed

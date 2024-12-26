@@ -201,9 +201,9 @@ mod config {
         /// Initial network max stake.
         #[pallet::constant]
         type InitialNetworkMaxStake: Get<u64>;
-        /// Initial hotkey emission tempo.
-        #[pallet::constant]
-        type InitialHotkeyEmissionTempo: Get<u64>;
+        // /// Initial hotkey emission tempo.
+        // #[pallet::constant]
+        // type InitialHotkeyEmissionTempo: Get<u64>; // (DEPRECATED)
         /// Initial global weight.
         #[pallet::constant]
         type InitialGlobalWeight: Get<u64>;

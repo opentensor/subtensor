@@ -1103,7 +1103,7 @@ fn test_hotkey_take_calculation_scenario() {
         let mining_emission = 0;
 
         step_block(1000); // should be past stake adding block by 2 tempos
-        LastAddStakeIncrease::<Test>::insert(&hotkey, coldkey, 1);
+        // LastAddStakeIncrease::<Test>::insert(&hotkey, coldkey, 1); DEPRECATED
         ParentKeys::<Test>::insert(hotkey, netuid, vec![(1000, parent)]);
 
         // Test with different childkey take values
@@ -1812,34 +1812,34 @@ fn test_fast_stake_unstake_protection_source_hotkey() {
     });
 }
 
-#[test]
-fn test_fast_stake_unstake_protection_source_nominator() {
-    new_test_ext(1).execute_with(|| {
-        let hotkey = U256::from(1);
-        let nominator1 = U256::from(2);
-        let nominator2 = U256::from(3);
-        let netuid = 1;
-        let emission = 10000;
+// #[test]
+// fn test_fast_stake_unstake_protection_source_nominator() {
+//     new_test_ext(1).execute_with(|| {
+//         let hotkey = U256::from(1);
+//         let nominator1 = U256::from(2);
+//         let nominator2 = U256::from(3);
+//         let netuid = 1;
+//         let emission = 10000;
 
-        // Set up stakes and delegations
-        SubtensorModule::stake_into_subnet(&hotkey, &nominator1, netuid, 500);
-        SubtensorModule::stake_into_subnet(&hotkey, &nominator2, netuid, 500);
-        Delegates::<Test>::insert(&hotkey, 16384); // 25% take
-        HotkeyEmissionTempo::<Test>::put(10);
+//         // Set up stakes and delegations
+//         SubtensorModule::stake_into_subnet(&hotkey, &nominator1, netuid, 500);
+//         SubtensorModule::stake_into_subnet(&hotkey, &nominator2, netuid, 500);
+//         Delegates::<Test>::insert(&hotkey, 16384); // 25% take
+//         HotkeyEmissionTempo::<Test>::put(10);
 
-        let mut emission_tuples: BTreeMap<(U256, U256), Vec<(u16, u64)>> = BTreeMap::new();
-        SubtensorModule::source_nominator_emission(
-            &hotkey,
-            netuid,
-            emission,
-            0,
-            &mut emission_tuples,
-        );
+//         let mut emission_tuples: BTreeMap<(U256, U256), Vec<(u16, u64)>> = BTreeMap::new();
+//         SubtensorModule::source_nominator_emission(
+//             &hotkey,
+//             netuid,
+//             emission,
+//             0,
+//             &mut emission_tuples,
+//         );
 
-        // Every hotkey is rejected because LastAddStakeIncrease is too close
-        assert_eq!(emission_tuples.len(), 0);
-    });
-}
+//         // Every hotkey is rejected because LastAddStakeIncrease is too close
+//         assert_eq!(emission_tuples.len(), 0);
+//     });
+// } // (DEPRECATED)
 
 #[test]
 fn test_basic_emission() {

@@ -174,7 +174,7 @@ parameter_types! {
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
-    pub const InitialHotkeyEmissionTempo: u64 = 0; // Defaults to draining every block.
+    // pub const InitialHotkeyEmissionTempo: u64 = 0; // Defaults to draining every block. // (DEPRECATED)
     pub const InitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500,000 TAO
     pub const InitialColdkeySwapScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
     pub const InitialGlobalWeight: u64 = 0; // zero global weight.
@@ -397,7 +397,7 @@ impl pallet_subtensor::Config for Test {
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;
-    type InitialHotkeyEmissionTempo = InitialHotkeyEmissionTempo;
+    // type InitialHotkeyEmissionTempo = InitialHotkeyEmissionTempo; // (DEPRECATED)
     type InitialNetworkMaxStake = InitialNetworkMaxStake;
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;

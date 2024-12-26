@@ -39,46 +39,46 @@ impl<T: Config> Pallet<T> {
     }
 
     // Retrieves the total stakes for a given hotkey (account ID) for the current staking interval.
-    pub fn get_stakes_this_interval_for_coldkey_hotkey(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-    ) -> u64 {
-        // Retrieve the configured stake interval duration from storage.
-        let stake_interval = StakeInterval::<T>::get();
+    // pub fn get_stakes_this_interval_for_coldkey_hotkey(
+    //     coldkey: &T::AccountId,
+    //     hotkey: &T::AccountId,
+    // ) -> u64 {
+    //     // Retrieve the configured stake interval duration from storage.
+    //     let stake_interval = StakeInterval::<T>::get();
 
-        // Obtain the current block number as an unsigned 64-bit integer.
-        let current_block = Self::get_current_block_as_u64();
+    //     // Obtain the current block number as an unsigned 64-bit integer.
+    //     let current_block = Self::get_current_block_as_u64();
 
-        // Fetch the total stakes and the last block number when stakes were made for the hotkey.
-        let (stakes, block_last_staked_at) =
-            TotalHotkeyColdkeyStakesThisInterval::<T>::get(coldkey, hotkey);
+    //     // Fetch the total stakes and the last block number when stakes were made for the hotkey.
+    //     let (stakes, block_last_staked_at) =
+    //         TotalHotkeyColdkeyStakesThisInterval::<T>::get(coldkey, hotkey);
 
-        // Calculate the block number after which the stakes for the hotkey should be reset.
-        let block_to_reset_after = block_last_staked_at.saturating_add(stake_interval);
+    //     // Calculate the block number after which the stakes for the hotkey should be reset.
+    //     let block_to_reset_after = block_last_staked_at.saturating_add(stake_interval);
 
-        // If the current block number is beyond the reset point,
-        // it indicates the end of the staking interval for the hotkey.
-        // Also reset if the current block is less than the last staked block, which can happen
-        // on chain clones when block number is rolled back.
-        if block_to_reset_after <= current_block || current_block <= block_last_staked_at {
-            // Reset the stakes for this hotkey for the current interval.
-            Self::set_stakes_this_interval_for_coldkey_hotkey(
-                coldkey,
-                hotkey,
-                0,
-                block_last_staked_at,
-            );
-            // Return 0 as the stake amount since we've just reset the stakes.
-            return 0;
-        }
+    //     // If the current block number is beyond the reset point,
+    //     // it indicates the end of the staking interval for the hotkey.
+    //     // Also reset if the current block is less than the last staked block, which can happen
+    //     // on chain clones when block number is rolled back.
+    //     if block_to_reset_after <= current_block || current_block <= block_last_staked_at {
+    //         // Reset the stakes for this hotkey for the current interval.
+    //         Self::set_stakes_this_interval_for_coldkey_hotkey(
+    //             coldkey,
+    //             hotkey,
+    //             0,
+    //             block_last_staked_at,
+    //         );
+    //         // Return 0 as the stake amount since we've just reset the stakes.
+    //         return 0;
+    //     }
 
-        // If the staking interval has not yet ended, return the current stake amount.
-        stakes
-    }
+    //     // If the staking interval has not yet ended, return the current stake amount.
+    //     stakes
+    // }   (DEPRECATED)
 
-    pub fn get_target_stakes_per_interval() -> u64 {
-        TargetStakesPerInterval::<T>::get()
-    }
+    // pub fn get_target_stakes_per_interval() -> u64 {
+    //     TargetStakesPerInterval::<T>::get()
+    // }  (DEPRECATED)
 
     // Creates a cold - hot pairing account if the hotkey is not already an active account.
     //

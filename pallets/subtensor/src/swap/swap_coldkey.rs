@@ -136,13 +136,13 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         // 1. Swap TotalHotkeyColdkeyStakesThisInterval
         // TotalHotkeyColdkeyStakesThisInterval: MAP ( hotkey, coldkey ) --> ( stake, block ) | Stake of the hotkey for the coldkey.
-        for hotkey in OwnedHotkeys::<T>::get(old_coldkey).iter() {
-            let (stake, block) =
-                TotalHotkeyColdkeyStakesThisInterval::<T>::get(&hotkey, old_coldkey);
-            TotalHotkeyColdkeyStakesThisInterval::<T>::remove(&hotkey, old_coldkey);
-            TotalHotkeyColdkeyStakesThisInterval::<T>::insert(&hotkey, new_coldkey, (stake, block));
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
-        }
+        // for hotkey in OwnedHotkeys::<T>::get(old_coldkey).iter() {
+        //     let (stake, block) =
+        //         TotalHotkeyColdkeyStakesThisInterval::<T>::get(&hotkey, old_coldkey);
+        //     TotalHotkeyColdkeyStakesThisInterval::<T>::remove(&hotkey, old_coldkey);
+        //     TotalHotkeyColdkeyStakesThisInterval::<T>::insert(&hotkey, new_coldkey, (stake, block));
+        //     weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+        // }  (DEPRECATED)
 
         // 2. Swap subnet owner.
         // SubnetOwner: MAP ( netuid ) --> (coldkey) | Owner of the subnet.
@@ -183,18 +183,18 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
         }
 
-        // 4. Swap TotalColdkeyAlpha
-        for netuid in Self::get_all_subnet_netuids() {
-            let old_alpha_stake: u64 = TotalColdkeyAlpha::<T>::get(old_coldkey, netuid);
-            let new_alpha_stake: u64 = TotalColdkeyAlpha::<T>::get(new_coldkey, netuid);
-            TotalColdkeyAlpha::<T>::insert(
-                new_coldkey,
-                netuid,
-                new_alpha_stake.saturating_add(old_alpha_stake),
-            );
-            TotalColdkeyAlpha::<T>::remove(old_coldkey, netuid);
-        }
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+        // 4. Swap TotalColdkeyAlpha (DEPRECATED)
+        // for netuid in Self::get_all_subnet_netuids() {
+        //     let old_alpha_stake: u64 = TotalColdkeyAlpha::<T>::get(old_coldkey, netuid);
+        //     let new_alpha_stake: u64 = TotalColdkeyAlpha::<T>::get(new_coldkey, netuid);
+        //     TotalColdkeyAlpha::<T>::insert(
+        //         new_coldkey,
+        //         netuid,
+        //         new_alpha_stake.saturating_add(old_alpha_stake),
+        //     );
+        //     TotalColdkeyAlpha::<T>::remove(old_coldkey, netuid);
+        // }
+        // weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
 
         // 5. Swap StakingHotkeys.
         // StakingHotkeys: MAP ( coldkey ) --> Vec<hotkeys> | Hotkeys staking for the coldkey.

@@ -302,11 +302,11 @@ pub mod pallet {
     pub fn DefaultTargetStakesPerInterval<T: Config>() -> u64 {
         T::InitialTargetStakesPerInterval::get()
     }
-    #[pallet::type_value]
+    // #[pallet::type_value]
     /// Default stake interval.
-    pub fn DefaultStakeInterval<T: Config>() -> u64 {
-        360
-    }
+    // pub fn DefaultStakeInterval<T: Config>() -> u64 {
+    //     360
+    // } (DEPRECATED)
     #[pallet::type_value]
     /// Default account linkage
     pub fn DefaultAccountLinkage<T: Config>() -> Vec<(u64, T::AccountId)> {
@@ -548,11 +548,11 @@ pub mod pallet {
         T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
             .expect("trailing zeroes always produce a valid account ID; qed")
     }
-    #[pallet::type_value]
-    /// Default value for network immunity period.
-    pub fn DefaultHotkeyEmissionTempo<T: Config>() -> u64 {
-        60 // T::InitialHotkeyEmissionTempo::get()
-    }
+    // #[pallet::type_value]
+    // /// Default value for network immunity period.
+    // pub fn DefaultHotkeyEmissionTempo<T: Config>() -> u64 {
+    //     60 // T::InitialHotkeyEmissionTempo::get()
+    // } (DEPRECATED)
     #[pallet::type_value]
     /// Default value for rate limiting
     pub fn DefaultTxRateLimit<T: Config>() -> u64 {
@@ -711,13 +711,19 @@ pub mod pallet {
     #[pallet::storage] // --- DMAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
     pub type SubnetAlphaOut<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- DMAP ( cold, netuid ) --> alpha | Returns the total amount of alpha a coldkey owns.
-    pub type TotalColdkeyAlpha<T: Config> = StorageDoubleMap<
+    #[pallet::storage] // --- DMAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
+    pub type StakingHotkeys<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
+    #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Returns the vector of hotkeys controlled by this coldkey.
+    pub type OwnedHotkeys<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
+    #[pallet::storage] /// (DEPRECATED) DMAP ( hot, cold ) --> stake | Returns the stake under a coldkey prefixed by hotkey.
+    pub type Stake<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         T::AccountId,
         Identity,
-        u16,
+        T::AccountId,
         u64,
         ValueQuery,
         DefaultZeroU64<T>,
@@ -733,7 +739,18 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroU64<T>,
     >;
-    #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> alpha | Returns the alpha for an account on a subnet.
+    #[pallet::storage] /// DMAP ( hot, netuid ) --> total_alpha_shares | Returns the number of alpha shares for a hotkey on a subnet. 
+    pub type TotalHotkeyShares<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        u16,
+        u64,
+        ValueQuery,
+        DefaultZeroU64<T>,
+    >;
+    #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> alpha | Returns the alpha shares for a hotkey, coldkey, netuid triplet.
     pub type Alpha<T: Config> = StorageNMap<
         _,
         (
@@ -750,8 +767,7 @@ pub mod pallet {
     /// ============================
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Global weight
-    pub type GlobalWeight<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultGlobalWeight<T>>;
+    pub type GlobalWeight<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultGlobalWeight<T>>;
     #[pallet::storage] // --- ITEM ( default_delegate_take )
     pub type MaxDelegateTake<T> = StorageValue<_, u16, ValueQuery, DefaultDelegateTake<T>>;
     #[pallet::storage] // --- ITEM ( min_delegate_take )
@@ -760,23 +776,6 @@ pub mod pallet {
     pub type MaxChildkeyTake<T> = StorageValue<_, u16, ValueQuery, DefaultMaxChildKeyTake<T>>;
     #[pallet::storage] // --- ITEM ( min_childkey_take )
     pub type MinChildkeyTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinChildKeyTake<T>>;
-
-    #[pallet::storage] // --- ITEM (target_stakes_per_interval)
-    pub type TargetStakesPerInterval<T> =
-        StorageValue<_, u64, ValueQuery, DefaultTargetStakesPerInterval<T>>;
-    #[pallet::storage] // --- ITEM (default_stake_interval)
-    pub type StakeInterval<T> = StorageValue<_, u64, ValueQuery, DefaultStakeInterval<T>>;
-    #[pallet::storage] // --- MAP (hot, cold) --> stake | Returns a tuple (u64: stakes, u64: block_number)
-    pub type TotalHotkeyColdkeyStakesThisInterval<T: Config> = StorageDoubleMap<
-        _,
-        Identity,
-        T::AccountId,
-        Identity,
-        T::AccountId,
-        (u64, u64),
-        ValueQuery,
-        DefaultStakesPerInterval<T>,
-    >;
     #[pallet::storage] // --- MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
@@ -793,39 +792,6 @@ pub mod pallet {
         u16, // Second key: netuid
         u16, // Value: take
         ValueQuery,
-    >;
-
-    #[pallet::storage]
-    /// DMAP ( hot, cold ) --> stake | Returns the stake under a coldkey prefixed by hotkey.
-    pub type Stake<T: Config> = StorageDoubleMap<
-        _,
-        Blake2_128Concat,
-        T::AccountId,
-        Identity,
-        T::AccountId,
-        u64,
-        ValueQuery,
-        DefaultZeroU64<T>,
-    >;
-    #[pallet::storage]
-    /// Map ( hot ) --> last_hotkey_emission_drain | Last block we drained this hotkey's emission.
-    pub type LastHotkeyEmissionDrain<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage]
-    /// ITEM ( hotkey_emission_tempo )
-    pub type HotkeyEmissionTempo<T> =
-        StorageValue<_, u64, ValueQuery, DefaultHotkeyEmissionTempo<T>>;
-    #[pallet::storage]
-    /// Map ( hot, cold ) --> block_number | Last add stake increase.
-    pub type LastAddStakeIncrease<T: Config> = StorageDoubleMap<
-        _,
-        Blake2_128Concat,
-        T::AccountId,
-        Identity,
-        T::AccountId,
-        u64,
-        ValueQuery,
-        DefaultZeroU64<T>,
     >;
     #[pallet::storage] // --- DMAP ( parent, netuid ) --> Vec<(proportion,child)>
     pub type ChildKeys<T: Config> = StorageDoubleMap<
@@ -849,13 +815,6 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountLinkage<T>,
     >;
-    #[pallet::storage] // --- DMAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
-    pub type StakingHotkeys<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
-    #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Returns the vector of hotkeys controlled by this coldkey.
-    pub type OwnedHotkeys<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
-
     #[pallet::storage] // --- DMAP ( cold ) --> () | Maps coldkey to if a coldkey swap is scheduled.
     pub type ColdkeySwapScheduled<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, (), ValueQuery>;
@@ -1259,10 +1218,9 @@ pub mod pallet {
         pub fn get_priority_set_weights(hotkey: &T::AccountId, netuid: u16) -> u64 {
             if let Ok(uid) = Self::get_uid_for_net_and_hotkey(netuid, hotkey) {
                 // TODO rethink this.
-                let _stake = Self::get_global_for_hotkey(hotkey);
+                let _stake = Self::get_inherited_for_hotkey_on_subnet(hotkey, netuid);
                 let current_block_number: u64 = Self::get_current_block_as_u64();
-                let default_priority: u64 =
-                    current_block_number.saturating_sub(Self::get_last_update_for_uid(netuid, uid));
+                let default_priority: u64 = current_block_number.saturating_sub(Self::get_last_update_for_uid(netuid, uid));
                 return default_priority.saturating_add(u32::MAX as u64);
             }
             0

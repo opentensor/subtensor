@@ -1,7 +1,9 @@
 use super::*;
+use crate::epoch::math::*;
 use frame_support::storage::IterableStorageMap;
-use sp_core::Get;
 use substrate_fixed::types::I110F18;
+use substrate_fixed::types::I96F32;
+use substrate_fixed::transcendental::ln;
 
 impl<T: Config> Pallet<T> {
     /// Executes the necessary operations for each block.
@@ -254,23 +256,16 @@ impl<T: Config> Pallet<T> {
     /// to 0.5 within 1 year at every adjustment interval.
     ///
     pub fn adjust_global_weight(block_number: u64) {
-        let adjustment_interval = GlobalWeightAdjustmentInterval::<T>::get();
-        if block_number % adjustment_interval == 0 {
-            // Calculate adjustment. Per block is u64::MAX / 2 / blocks_per_year
-            let adjustment_per_block: u64 = 213_503_982_334_601_u64;
-            let adjustment = adjustment_per_block.saturating_mul(adjustment_interval);
-
-            let subnets: Vec<u16> = Self::get_all_subnet_netuids();
-            for &netuid in subnets.iter() {
-                let current_weight = GlobalWeight::<T>::get(netuid);
-                let diff = current_weight.saturating_sub(u64::MAX / 2);
-                if diff > 0 {
-                    GlobalWeight::<T>::insert(
-                        netuid,
-                        current_weight.saturating_sub(adjustment.min(diff)),
-                    );
-                }
-            }
+        let blocks_per_day: I96F32 = I96F32::from_num(7200.0);
+        let days_in_month: I96F32 = I96F32::from_num(30.0);
+        let blocks_in_month: I96F32 = blocks_per_day.saturating_mul(days_in_month);
+        let decay_constant_inter: I96F32 = -ln::<I96F32, I96F32>(I96F32::from_num(0.01)).unwrap();
+        let decay_constant: I96F32 = decay_constant_inter.saturating_div(blocks_in_month);
+        let global_weight: I96F32 = exp_safe_f96(I96F32::from_num(-decay_constant.to_num::<f64>() * block_number as f64));
+        
+        let subnets: Vec<u16> = Self::get_all_subnet_netuids();
+        for &netuid in subnets.iter() {
+            GlobalWeight::<T>::insert(netuid, global_weight.to_num::<u64>());
         }
     }
 }

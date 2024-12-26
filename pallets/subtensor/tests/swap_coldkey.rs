@@ -16,35 +16,35 @@ use sp_core::U256;
 use sp_runtime::DispatchError;
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_total_hotkey_coldkey_stakes_this_interval --exact --nocapture
-#[test]
-fn test_swap_total_hotkey_coldkey_stakes_this_interval() {
-    new_test_ext(1).execute_with(|| {
-        let old_coldkey = U256::from(1);
-        let new_coldkey = U256::from(2);
-        let hotkey = U256::from(3);
-        let stake = 100;
-        let block = 42;
+// #[test]
+// fn test_swap_total_hotkey_coldkey_stakes_this_interval() {
+//     new_test_ext(1).execute_with(|| {
+//         let old_coldkey = U256::from(1);
+//         let new_coldkey = U256::from(2);
+//         let hotkey = U256::from(3);
+//         let stake = 100;
+//         let block = 42;
 
-        OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
-        TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(hotkey, old_coldkey, (stake, block));
+//         OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
+//         TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(hotkey, old_coldkey, (stake, block));
 
-        let mut weight = Weight::zero();
-        assert_ok!(SubtensorModule::perform_swap_coldkey(
-            &old_coldkey,
-            &new_coldkey,
-            &mut weight
-        ));
+//         let mut weight = Weight::zero();
+//         assert_ok!(SubtensorModule::perform_swap_coldkey(
+//             &old_coldkey,
+//             &new_coldkey,
+//             &mut weight
+//         ));
 
-        assert!(!TotalHotkeyColdkeyStakesThisInterval::<Test>::contains_key(
-            hotkey,
-            old_coldkey
-        ));
-        assert_eq!(
-            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(hotkey, new_coldkey),
-            (stake, block)
-        );
-    });
-}
+//         assert!(!TotalHotkeyColdkeyStakesThisInterval::<Test>::contains_key(
+//             hotkey,
+//             old_coldkey
+//         ));
+//         assert_eq!(
+//             TotalHotkeyColdkeyStakesThisInterval::<Test>::get(hotkey, new_coldkey),
+//             (stake, block)
+//         );
+//     });
+// }  (DEPRECATED)
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_subnet_owner --exact --nocapture
 #[test]
@@ -657,46 +657,46 @@ fn test_swap_delegated_stake_for_coldkey() {
 }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap_coldkey -- test_swap_total_hotkey_coldkey_stakes_this_interval_for_coldkey --exact --nocapture
-#[test]
-fn test_swap_total_hotkey_coldkey_stakes_this_interval_for_coldkey() {
-    new_test_ext(1).execute_with(|| {
-        let old_coldkey = U256::from(1);
-        let new_coldkey = U256::from(2);
-        let hotkey1 = U256::from(3);
-        let hotkey2 = U256::from(4);
-        let stake1 = (1000u64, 100u64);
-        let stake2 = (2000u64, 200u64);
-        let mut weight = Weight::zero();
+// #[test]
+// fn test_swap_total_hotkey_coldkey_stakes_this_interval_for_coldkey() {
+//     new_test_ext(1).execute_with(|| {
+//         let old_coldkey = U256::from(1);
+//         let new_coldkey = U256::from(2);
+//         let hotkey1 = U256::from(3);
+//         let hotkey2 = U256::from(4);
+//         let stake1 = (1000u64, 100u64);
+//         let stake2 = (2000u64, 200u64);
+//         let mut weight = Weight::zero();
 
-        // Initialize TotalHotkeyColdkeyStakesThisInterval for old_coldkey
-        TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(hotkey1, old_coldkey, stake1);
-        TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(hotkey2, old_coldkey, stake2);
+//         // Initialize TotalHotkeyColdkeyStakesThisInterval for old_coldkey
+//         TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(hotkey1, old_coldkey, stake1);
+//         TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(hotkey2, old_coldkey, stake2);
 
-        // Populate OwnedHotkeys map
-        OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
+//         // Populate OwnedHotkeys map
+//         OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
 
-        // Perform the swap
-        SubtensorModule::perform_swap_coldkey(&old_coldkey, &new_coldkey, &mut weight);
+//         // Perform the swap
+//         SubtensorModule::perform_swap_coldkey(&old_coldkey, &new_coldkey, &mut weight);
 
-        // Verify the swap
-        assert_eq!(
-            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(hotkey1, new_coldkey),
-            stake1
-        );
-        assert_eq!(
-            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(hotkey2, new_coldkey),
-            stake2
-        );
-        assert!(!TotalHotkeyColdkeyStakesThisInterval::<Test>::contains_key(
-            old_coldkey,
-            hotkey1
-        ));
-        assert!(!TotalHotkeyColdkeyStakesThisInterval::<Test>::contains_key(
-            old_coldkey,
-            hotkey2
-        ));
-    });
-}
+//         // Verify the swap
+//         assert_eq!(
+//             TotalHotkeyColdkeyStakesThisInterval::<Test>::get(hotkey1, new_coldkey),
+//             stake1
+//         );
+//         assert_eq!(
+//             TotalHotkeyColdkeyStakesThisInterval::<Test>::get(hotkey2, new_coldkey),
+//             stake2
+//         );
+//         assert!(!TotalHotkeyColdkeyStakesThisInterval::<Test>::contains_key(
+//             old_coldkey,
+//             hotkey1
+//         ));
+//         assert!(!TotalHotkeyColdkeyStakesThisInterval::<Test>::contains_key(
+//             old_coldkey,
+//             hotkey2
+//         ));
+//     });
+// }  (DEPRECATED)
 
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap_coldkey -- test_swap_subnet_owner_for_coldkey --exact --nocapture
 #[test]

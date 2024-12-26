@@ -1550,8 +1550,8 @@ fn test_clear_small_nominations() {
         );
 
         // Set min nomination to 10
-        let total_cold1_stake_before = TotalColdkeyAlpha::<Test>::get(cold1, netuid);
-        let total_cold2_stake_before = TotalColdkeyAlpha::<Test>::get(cold2, netuid);
+        // let total_cold1_stake_before = TotalColdkeyAlpha::<Test>::get(cold1, netuid);
+        // let total_cold2_stake_before = TotalColdkeyAlpha::<Test>::get(cold2, netuid); (DEPRECATED)
         let total_hot1_stake_before = TotalHotkeyAlpha::<Test>::get(hot1, netuid);
         let total_hot2_stake_before = TotalHotkeyAlpha::<Test>::get(hot2, netuid);
         let total_stake_before = TotalStake::<Test>::get();
@@ -1581,18 +1581,18 @@ fn test_clear_small_nominations() {
         assert_eq!(Balances::free_balance(cold2), 9);
 
         // Internal storage is updated
-        assert_eq!(
-            TotalColdkeyAlpha::<Test>::get(cold2, netuid),
-            total_cold2_stake_before - 1
-        );
+        // assert_eq!(
+        //     TotalColdkeyAlpha::<Test>::get(cold2, netuid),
+        //     total_cold2_stake_before - 1
+        // ); (DEPRECATED)
         assert_eq!(
             TotalHotkeyAlpha::<Test>::get(hot2, netuid),
             total_hot2_stake_before - 1
         );
-        assert_eq!(
-            TotalColdkeyAlpha::<Test>::get(cold1, netuid),
-            total_cold1_stake_before - 1
-        );
+        // assert_eq!(
+        //     TotalColdkeyAlpha::<Test>::get(cold1, netuid),
+        //     total_cold1_stake_before - 1
+        // ); (DEPRECATED)
         assert_eq!(
             TotalHotkeyAlpha::<Test>::get(hot1, netuid),
             total_hot1_stake_before - 1
@@ -1785,7 +1785,7 @@ fn test_remove_stake_below_minimum_threshold() {
         // Stake map entry is removed
         assert!(Alpha::<Test>::try_get((hotkey1, coldkey2, netuid)).is_err(),);
         // Stake tracking is updated
-        assert!(TotalColdkeyAlpha::<Test>::try_get(coldkey2, netuid).is_err());
+        // assert!(TotalColdkeyAlpha::<Test>::try_get(coldkey2, netuid).is_err()); (DEPRECATED)
         assert_eq!(
             TotalHotkeyAlpha::<Test>::try_get(hotkey1, netuid).unwrap(),
             total_hotkey_stake_before - stake_removed // Stake was removed from hotkey1 tracker

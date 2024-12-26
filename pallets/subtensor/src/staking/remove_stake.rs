@@ -71,12 +71,12 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure we don't exceed stake rate limit
-        let unstakes_this_interval =
-            Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey);
-        ensure!(
-            unstakes_this_interval < Self::get_target_stakes_per_interval(),
-            Error::<T>::UnstakeRateLimitExceeded
-        );
+        // let unstakes_this_interval =
+        //     Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey);
+        // ensure!(
+        //     unstakes_this_interval < Self::get_target_stakes_per_interval(),
+        //     Error::<T>::UnstakeRateLimitExceeded
+        // ); (DEPRECATED)
 
         // Convert and unstake from the subnet.
         let tao_unstaked: u64 =
@@ -92,16 +92,16 @@ impl<T: Config> Pallet<T> {
         Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid, new_stake);
 
         // Set last block for rate limiting
-        let block: u64 = Self::get_current_block_as_u64();
-        Self::set_last_tx_block(&coldkey, block);
+        // let block: u64 = Self::get_current_block_as_u64();
+        // Self::set_last_tx_block(&coldkey, block); (DEPRECATED)
 
         // Emit the unstaking event.
-        Self::set_stakes_this_interval_for_coldkey_hotkey(
-            &coldkey,
-            &hotkey,
-            unstakes_this_interval.saturating_add(1),
-            block,
-        );
+        // Self::set_stakes_this_interval_for_coldkey_hotkey(
+        //     &coldkey,
+        //     &hotkey,
+        //     unstakes_this_interval.saturating_add(1),
+        //     block,
+        // ); (DEPRECATED)
         log::info!(
             "StakeRemoved( hotkey:{:?}, tao_unstaked:{:?} )",
             hotkey.clone(),

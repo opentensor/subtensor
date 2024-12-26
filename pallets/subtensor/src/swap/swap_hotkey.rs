@@ -172,16 +172,31 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
         }
 
+        // 3. Swap total hotkey shares on all subnets
+        // TotalHotkeyShares( hotkey, netuid ) -> alpha -- the total alpha that the hotkey has on a specific subnet.
+        let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
+        for netuid in all_netuids {
+            let old_total_hotkey_shares = TotalHotkeyShares::<T>::get(old_hotkey, netuid);
+            let new_total_hotkey_shares = TotalHotkeyShares::<T>::get(new_hotkey, netuid);
+            TotalHotkeyShares::<T>::remove(old_hotkey, netuid);
+            TotalHotkeyShares::<T>::insert(
+                new_hotkey,
+                netuid,
+                old_total_hotkey_shares.saturating_add(new_total_hotkey_shares),
+            );
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+        }
+
         // 4. Swap total hotkey stakes.
         // TotalHotkeyColdkeyStakesThisInterval( hotkey ) --> (u64: stakes, u64: block_number)
-        let stake_tuples: Vec<(T::AccountId, (u64, u64))> =
-            TotalHotkeyColdkeyStakesThisInterval::<T>::iter_prefix(old_hotkey).collect();
-        for (coldkey, stake_tup) in stake_tuples {
-            // NOTE: You could use this to increase your allowed stake operations but this would cost.
-            TotalHotkeyColdkeyStakesThisInterval::<T>::insert(new_hotkey, &coldkey, stake_tup);
-            TotalHotkeyColdkeyStakesThisInterval::<T>::remove(old_hotkey, &coldkey);
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
-        }
+        // let stake_tuples: Vec<(T::AccountId, (u64, u64))> =
+        //     TotalHotkeyColdkeyStakesThisInterval::<T>::iter_prefix(old_hotkey).collect();
+        // for (coldkey, stake_tup) in stake_tuples {
+        //     // NOTE: You could use this to increase your allowed stake operations but this would cost.
+        //     TotalHotkeyColdkeyStakesThisInterval::<T>::insert(new_hotkey, &coldkey, stake_tup);
+        //     TotalHotkeyColdkeyStakesThisInterval::<T>::remove(old_hotkey, &coldkey);
+        //     weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+        // }  (DEPRECATED)
 
         // 5. Swap LastTxBlock
         // LastTxBlock( hotkey ) --> u64 -- the last transaction block for the hotkey.
@@ -405,13 +420,13 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // 14. Swap-merge LastAddStakeIncrease for all coldkeys.
-        for (coldkey, block_old) in LastAddStakeIncrease::<T>::iter_prefix(old_hotkey) {
-            let block_new = LastAddStakeIncrease::<T>::get(new_hotkey, &coldkey);
-            LastAddStakeIncrease::<T>::insert(new_hotkey, &coldkey, block_old.max(block_new));
-            LastAddStakeIncrease::<T>::remove(old_hotkey, &coldkey);
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
-        }
+        // // 14. Swap-merge LastAddStakeIncrease for all coldkeys.
+        // for (coldkey, block_old) in LastAddStakeIncrease::<T>::iter_prefix(old_hotkey) {
+        //     let block_new = LastAddStakeIncrease::<T>::get(new_hotkey, &coldkey);
+        //     LastAddStakeIncrease::<T>::insert(new_hotkey, &coldkey, block_old.max(block_new));
+        //     LastAddStakeIncrease::<T>::remove(old_hotkey, &coldkey);
+        //     weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+        // } DEPRECATED
 
         // Return successful after swapping all the relevant terms.
         Ok(())

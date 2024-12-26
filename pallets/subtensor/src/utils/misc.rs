@@ -149,27 +149,27 @@ impl<T: Config> Pallet<T> {
         WeightsMinStake::<T>::put(min_stake);
         Self::deposit_event(Event::WeightsMinStake(min_stake));
     }
-    pub fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
-        TargetStakesPerInterval::<T>::set(target_stakes_per_interval);
-        Self::deposit_event(Event::TargetStakesPerIntervalSet(
-            target_stakes_per_interval,
-        ));
-    }
-    pub fn set_stakes_this_interval_for_coldkey_hotkey(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-        stakes_this_interval: u64,
-        last_staked_block_number: u64,
-    ) {
-        TotalHotkeyColdkeyStakesThisInterval::<T>::insert(
-            coldkey,
-            hotkey,
-            (stakes_this_interval, last_staked_block_number),
-        );
-    }
-    pub fn set_stake_interval(block: u64) {
-        StakeInterval::<T>::set(block);
-    }
+    // pub fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
+    //     TargetStakesPerInterval::<T>::set(target_stakes_per_interval);
+    //     Self::deposit_event(Event::TargetStakesPerIntervalSet(
+    //         target_stakes_per_interval,
+    //     ));
+    // }
+    // pub fn set_stakes_this_interval_for_coldkey_hotkey(
+    //     coldkey: &T::AccountId,
+    //     hotkey: &T::AccountId,
+    //     stakes_this_interval: u64,
+    //     last_staked_block_number: u64,
+    // ) {
+    //     TotalHotkeyColdkeyStakesThisInterval::<T>::insert(
+    //         coldkey,
+    //         hotkey,
+    //         (stakes_this_interval, last_staked_block_number),
+    //     );
+    // }  (DEPRECATED)
+    // pub fn set_stake_interval(block: u64) {
+    //     StakeInterval::<T>::set(block);
+    // } DEPRECATED
     pub fn get_stake_weight(netuid: u16, uid: u16) -> u16 {
         let vec = StakeWeight::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
@@ -546,7 +546,6 @@ impl<T: Config> Pallet<T> {
             target_registrations_per_interval,
         ));
     }
-
     pub fn get_burn_as_u64(netuid: u16) -> u64 {
         Burn::<T>::get(netuid)
     }
@@ -702,22 +701,6 @@ impl<T: Config> Pallet<T> {
         LiquidAlphaOn::<T>::get(netuid)
     }
 
-    /// Gets the current hotkey emission tempo.
-    ///
-    /// # Returns
-    /// * `u64` - The current emission tempo value.
-    pub fn get_hotkey_emission_tempo() -> u64 {
-        HotkeyEmissionTempo::<T>::get()
-    }
-
-    /// Sets the hotkey emission tempo.
-    ///
-    /// # Arguments
-    /// * `emission_tempo` - The new emission tempo value to set.
-    pub fn set_hotkey_emission_tempo(emission_tempo: u64) {
-        HotkeyEmissionTempo::<T>::set(emission_tempo);
-        Self::deposit_event(Event::HotkeyEmissionTempoSet(emission_tempo));
-    }
 
     /// Retrieves the maximum stake allowed for a given network.
     ///
