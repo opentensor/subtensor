@@ -758,7 +758,15 @@ pub mod pallet {
             NMapKey<Blake2_128Concat, T::AccountId>, // cold
             NMapKey<Identity, u16>,                  // subnet
         ),
-        u64, // Stake
+        u64, // Shares
+        ValueQuery,
+    >;
+    #[pallet::storage] /// (DEPRECATED) DMAP ( hot ) --> Vec<cold> | Returns a list of managed coldkeys associated with a hotkey.
+    pub type ManagedKeys<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Vec<T::AccountId>,
         ValueQuery,
     >;
 
@@ -818,10 +826,10 @@ pub mod pallet {
     #[pallet::storage] // --- DMAP ( netuid, hotkey ) --> u64 | Last total dividend this hotkey got on tempo. 
     pub type HotkeyDividendsPerSubnet<T: Config> = StorageDoubleMap<
         _,
-        Blake2_128Concat,
-        T::AccountId,
         Identity,
         u16,
+        Blake2_128Concat,
+        T::AccountId,
         u64,
         ValueQuery,
         DefaultZeroU64<T>,

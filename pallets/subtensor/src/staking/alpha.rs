@@ -215,26 +215,6 @@ impl<T: Config> Pallet<T> {
         finalized_alpha.to_num::<u64>()
     }
 
-    /// Retrieves the total stake (alpha) for a given hotkey on a specific subnet.
-    ///
-    /// This function performs the following step:
-    /// 1. Retrieves and returns the total alpha value associated with the hotkey on the specified subnet.
-    ///
-    /// # Arguments
-    /// * `hotkey` - The account ID of the hotkey.
-    /// * `netuid` - The unique identifier of the subnet.
-    ///
-    /// # Returns
-    /// * `u64` - The total alpha value for the hotkey on the specified subnet.
-    ///
-    /// # Note
-    /// This function returns the cumulative stake across all coldkeys associated with this hotkey on the subnet.
-    pub fn get_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
-        // Retrieve and return the total alpha this hotkey owns on this subnet.
-        // This value represents the sum of stakes from all coldkeys associated with this hotkey.
-        TotalHotkeyAlpha::<T>::get(hotkey, netuid)
-    }
-
 
     /// Checks if a specific hotkey-coldkey pair has enough stake on a subnet to fulfill a given decrement.
     ///
@@ -313,6 +293,27 @@ impl<T: Config> Pallet<T> {
         coldkey_alphas.to_num::<u64>()
     }
 
+    /// Retrieves the total stake (alpha) for a given hotkey on a specific subnet.
+    ///
+    /// This function performs the following step:
+    /// 1. Retrieves and returns the total alpha value associated with the hotkey on the specified subnet.
+    ///
+    /// # Arguments
+    /// * `hotkey` - The account ID of the hotkey.
+    /// * `netuid` - The unique identifier of the subnet.
+    ///
+    /// # Returns
+    /// * `u64` - The total alpha value for the hotkey on the specified subnet.
+    ///
+    /// # Note
+    /// This function returns the cumulative stake across all coldkeys associated with this hotkey on the subnet.
+    pub fn get_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
+        // Retrieve and return the total alpha this hotkey owns on this subnet.
+        // This value represents the sum of stakes from all coldkeys associated with this hotkey.
+        TotalHotkeyAlpha::<T>::get(hotkey, netuid)
+    }
+
+
     /// Increase hotkey stake on a subnet.
     ///
     /// The function updates share totals given current prices.
@@ -323,6 +324,26 @@ impl<T: Config> Pallet<T> {
     /// * `amount` - The amount of alpha to be added.
     ///
     pub fn increase_stake_for_hotkey_on_subnet(  
+        hotkey: &T::AccountId,
+        netuid: u16,
+        amount: u64 
+    ) {
+        // Add to the total for this hotkey on this subnet.
+        TotalHotkeyAlpha::<T>::mutate( hotkey, netuid , |total| {
+            *total = total.saturating_add(amount);
+        });
+    }
+
+    /// Decrease hotkey stake on a subnet.
+    ///
+    /// The function updates share totals given current prices.
+    ///
+    /// # Arguments
+    /// * `hotkey` - The account ID of the hotkey.
+    /// * `netuid` - The unique identifier of the subnet.
+    /// * `amount` - The amount of alpha to be added.
+    ///
+    pub fn decrease_stake_for_hotkey_on_subnet(  
         hotkey: &T::AccountId,
         netuid: u16,
         amount: u64 

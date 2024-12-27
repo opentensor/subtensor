@@ -63,7 +63,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // 5. Swap the alpba to tao and update counters for this subnet.
-        let tao_unstaked: u64 =Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha_unstaked);
+        let tao_unstaked: u64 = Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha_unstaked);
 
         // 6. We add the balance to the coldkey. If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);

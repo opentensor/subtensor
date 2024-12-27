@@ -28,6 +28,8 @@ mod errors {
         HotKeyNotDelegateAndSignerNotOwnHotKey,
         /// Stake amount to withdraw is zero.
         StakeToWithdrawIsZero,
+        /// The caller does not have enought stake to perform this action.
+        NotEnoughStake,
         /// The caller is requesting removing more stake than there exists in the staking account. See: "[remove_stake()]".
         NotEnoughStakeToWithdraw,
         /// The caller is requesting to set weights but the caller has less than minimum stake required to set weights (less than WeightsMinStake).
@@ -198,5 +200,8 @@ mod errors {
         InputLengthsUnequal,
         /// A transactor exceeded the rate limit for setting weights.
         CommittingWeightsTooFast,
+        /// The hotkey is not managed, it cannot swap funds from it's pool.
+        HotkeyNotManaged,
+
     }
 }

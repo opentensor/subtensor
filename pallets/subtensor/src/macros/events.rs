@@ -225,5 +225,20 @@ mod events {
         /// - **netuid**: The network identifier.
         /// - **revealed_hashes**: A vector of hashes representing each revealed weight set.
         WeightsBatchRevealed(T::AccountId, u16, Vec<H256>),
+
+        /// Weights have been successfully batch revealed.
+        ///
+        /// - **who**: The hotkey that moved the funds
+        /// - **netuid**: The origin netuid
+        /// - **dest_netuid**: The dest neetuid where funds were recieved.
+        /// - **amount**: The amount moved from the original location/
+        /// - **received**: The amount received after the swap.
+        ManagedStakeSwap( T::AccountId, u16, u16, u64, u64 ),
+
+        /// Weights have been successfully batch revealed.
+        ///
+        /// - **manager**: The hotkey that will manage the other
+        /// - **client**: The coldeky that will have their funds managed.
+        NewManagedKey( T::AccountId, T::AccountId ),
     }
 }
