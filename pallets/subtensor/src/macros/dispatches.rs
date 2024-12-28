@@ -297,7 +297,7 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(10_151_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4104))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
-        pub fn set_root_weights(
+        pub fn set_tao_weights(
             _origin: OriginFor<T>,
             _netuid: u16,
             _hotkey: T::AccountId,
@@ -306,7 +306,7 @@ mod dispatches {
             _version_key: u64,
         ) -> DispatchResult {
             // DEPRECATED
-            // Self::do_set_root_weights(origin, netuid, hotkey, dests, weights, version_key)
+            // Self::do_set_tao_weights(origin, netuid, hotkey, dests, weights, version_key)
             Ok(())
         }
 

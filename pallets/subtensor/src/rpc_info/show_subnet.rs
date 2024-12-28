@@ -1,12 +1,10 @@
 use super::*;
 extern crate alloc;
-use crate::epoch::math::fixed_proportion_to_u16;
 use codec::Compact;
+use crate::epoch::math::*;
 use frame_support::pallet_prelude::{Decode, Encode};
-use substrate_fixed::types::I32F32;
-use subtensor_macros::freeze_struct;
+use substrate_fixed::types::I64F64;
 
-#[freeze_struct("8d1928a6434a43f5")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetState<T: Config> {
     netuid: Compact<u16>,
@@ -23,9 +21,9 @@ pub struct SubnetState<T: Config> {
     trust: Vec<Compact<u16>>,
     rank: Vec<Compact<u16>>,
     block_at_registration: Vec<Compact<u64>>,
-    local_stake: Vec<Compact<u64>>,
-    global_stake: Vec<Compact<u64>>,
-    stake_weight: Vec<Compact<u16>>,
+    alpha_stake: Vec<Compact<u64>>,
+    tao_stake: Vec<Compact<u64>>,
+    total_stake: Vec<Compact<u64>>,
     emission_history: Vec<Vec<Compact<u64>>>,
     // identities: Vec<ChainIdentityOf>,
     // tao_stake: Compact<u64>,
@@ -131,18 +129,19 @@ impl<T: Config> Pallet<T> {
             .into_iter()
             .map(Compact::from)
             .collect();
-        let (stake, raw_local_stake, raw_global_tao_stake): (Vec<I32F32>, Vec<u64>, Vec<u64>) =
-            Self::get_stake_weights_for_network(netuid);
-        let local_stake: Vec<Compact<u64>> =
-            raw_local_stake.into_iter().map(Compact::from).collect();
-        let global_stake: Vec<Compact<u64>> = raw_global_tao_stake
-            .into_iter()
-            .map(Compact::from)
-            .collect();
-        let stake_weight: Vec<Compact<u16>> = stake
+        let (total_stake_fl, alpha_stake_fl, tao_stake_fl): (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) = Self::get_stake_weights_for_network(netuid);
+        let alpha_stake: Vec<Compact<u64>> = alpha_stake_fl
+            .iter()
+            .map(|xi| Compact::from( fixed64_to_u64(*xi) ))
+            .collect::<Vec<Compact<u64>>>();
+        let tao_stake: Vec<Compact<u64>> = tao_stake_fl
+            .iter()
+            .map(|xi| Compact::from( fixed64_to_u64(*xi) ))
+            .collect::<Vec<Compact<u64>>>();
+        let total_stake: Vec<Compact<u64>> = total_stake_fl
 			.iter()
-			.map(|xi| Compact::from( fixed_proportion_to_u16(*xi) ))
-			.collect::<Vec<Compact<u16>>>();
+			.map(|xi| Compact::from( fixed64_to_u64(*xi) ))
+			.collect::<Vec<Compact<u64>>>();
         let emission_history: Vec<Vec<Compact<u64>>> = Self::get_emissions_history(hotkeys.clone());
         Some(SubnetState {
             netuid: netuid.into(),
@@ -159,9 +158,9 @@ impl<T: Config> Pallet<T> {
             trust: trust.into(),
             rank: rank.into(),
             block_at_registration: block_at_registration.into(),
-            local_stake: local_stake.into(),
-            global_stake: global_stake.into(),
-            stake_weight,
+            alpha_stake: alpha_stake.into(),
+            tao_stake: tao_stake.into(),
+            total_stake: total_stake.into(),
             emission_history,
         })
     }

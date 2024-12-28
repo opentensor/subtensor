@@ -686,7 +686,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::Triumvirate(..)
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_root_weights { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_tao_weights { .. })
             ),
             ProxyType::Triumvirate => matches!(
                 c,
@@ -711,7 +711,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
             ),
             ProxyType::RootWeights => matches!(
                 c,
-                RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_root_weights { .. })
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_tao_weights { .. })
             ),
         }
     }

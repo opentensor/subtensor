@@ -1426,7 +1426,7 @@ where
                     Err(InvalidTransaction::Custom(3).into())
                 }
             }
-            Some(Call::set_root_weights { netuid, hotkey, .. }) => {
+            Some(Call::set_tao_weights { netuid, hotkey, .. }) => {
                 if Self::check_weights_min_stake(hotkey, *netuid) {
                     let priority: u64 = Self::get_priority_set_weights(hotkey, *netuid);
                     Ok(ValidTransaction {

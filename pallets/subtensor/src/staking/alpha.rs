@@ -19,7 +19,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Note
     /// This function uses saturating division to prevent potential overflow errors.
-    pub fn get_root_weight(netuid: u16) -> I96F32 {
+    pub fn get_tao_weight(netuid: u16) -> I96F32 {
         // Step 1: Fetch the global weight from storage
         let stored_weight = GlobalWeight::<T>::get(netuid);
 
@@ -46,15 +46,15 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Note
     /// The weight is stored as a raw u64 value. To get the normalized weight between 0 and 1,
-    /// use the `get_root_weight()` function.
-    pub fn set_root_weight(weight: u64, netuid: u16) {
+    /// use the `get_tao_weight()` function.
+    pub fn set_tao_weight(weight: u64, netuid: u16) {
         // Update the GlobalWeight storage with the new weight value
         GlobalWeight::<T>::insert(netuid, weight);
     }
 
     /// Calculates the weighted combination of alpha and global tao for hotkeys on a subnet.
     ///
-    pub fn get_stake_weights_for_network(netuid: u16) -> (Vec<u64>, Vec<u64>, Vec<u64>) {
+    pub fn get_stake_weights_for_network(netuid: u16) -> (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) {
         // Step 1: Get the subnet size (number of neurons).
         let n: u16 = Self::get_subnetwork_n(netuid);
 
@@ -62,33 +62,33 @@ impl<T: Config> Pallet<T> {
         let hotkeys: Vec<(u16, T::AccountId)> = <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(netuid).collect();
 
         // Step 3: Calculate 
-        let mut alpha_stake: Vec<u64> = vec![0; n as usize];
+        let mut alpha_stake: Vec<I64F64> = vec![I64F64::from_num(0); n as usize];
         for (uid_i, hotkey) in &hotkeys {
             let alpha: u64 = Self::get_inherited_for_hotkey_on_subnet(hotkey, netuid);
-            alpha_stake[*uid_i as usize] = alpha;
+            alpha_stake[*uid_i as usize] = I64F64::from_num(alpha);
         }
 
         // Step 4: Calculate the global tao stake vector.
         // Initialize a vector to store global tao stakes for each neuron.
-        let mut tao_stake: Vec<u64> = vec![0; n as usize];
+        let mut tao_stake: Vec<I64F64> = vec![I64F64::from_num(0); n as usize];
         for (uid_i, hotkey) in &hotkeys {
             let tao: u64 = Self::get_inherited_for_hotkey_on_subnet(hotkey, 0);
-            tao_stake[*uid_i as usize] = tao;
+            tao_stake[*uid_i as usize] = I64F64::from_num(tao);
         }
 
         // Step 5: Combine alpha and root tao stakes.
         // Retrieve the global global weight.
-        let root_weight: I64F64 = I64F64::from_num(Self::get_root_weight(netuid));
+        let tao_weight: I64F64 = I64F64::from_num(Self::get_tao_weight(netuid));
         // Calculate the weighted average of alpha and global tao stakes for each neuron.
-        let mut full_stake: Vec<u64> = alpha_stake
+        let total_stake: Vec<I64F64> = alpha_stake
             .iter()
             .zip(tao_stake.iter())
             .map(|(alpha_i, tao_i)| {
-                (I64F64::from_num(alpha_i) + I64F64::from_num(tao_i) * root_weight).to_num::<u64>()
+                alpha_i + tao_i * tao_weight
             })
             .collect();
 
-        (full_stake, alpha_stake, tao_stake)
+        (total_stake, alpha_stake, tao_stake)
     }
 
     /// Calculates the total inherited stake (alpha) held by a hotkey on a network, considering child/parent relationships.

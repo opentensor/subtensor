@@ -88,7 +88,7 @@ impl<T: Config> Pallet<T> {
     /// A 2D vector ('Vec<Vec<I32F32>>') where each entry [i][j] represents the weight of subnetwork
     /// 'j' with according to the preferences of key. Validator 'i' within the root network.
     ///
-    pub fn get_root_weights() -> Vec<Vec<I64F64>> {
+    pub fn get_tao_weights() -> Vec<Vec<I64F64>> {
         // --- 0. The number of validators on the root network.
         let n: usize = Self::get_num_root_validators() as usize;
 
@@ -417,7 +417,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // DEPRECATED.
-    // pub fn do_set_root_weights(
+    // pub fn do_set_tao_weights(
     //     origin: T::RuntimeOrigin,
     //     netuid: u16,
     //     hotkey: T::AccountId,
@@ -428,7 +428,7 @@ impl<T: Config> Pallet<T> {
     //     // Check the caller's signature. This is the coldkey of a registered account.
     //     let coldkey = ensure_signed(origin)?;
     //     log::info!(
-    //         "do_set_root_weights( origin:{:?} netuid:{:?}, uids:{:?}, values:{:?})",
+    //         "do_set_tao_weights( origin:{:?} netuid:{:?}, uids:{:?}, values:{:?})",
     //         coldkey,
     //         netuid,
     //         uids,

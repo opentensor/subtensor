@@ -153,11 +153,11 @@ impl<T: Config> Pallet<T> {
                     // 7.6.3.1: Remove the hotkey take straight off the top.
                     let take_prop: I96F32 = I96F32::from_num(Self::get_hotkey_take( &hotkey_j )).checked_div( I96F32::from_num(u16::MAX) ).unwrap_or( I96F32::from_num( 0.0 ) );
                     let validator_take: I96F32 = take_prop * I96F32::from_num(divs_j);
-                    let rem_divs_j: I96F32 = divs_j - validator_take;
+                    let rem_divs_j: I96F32 = I96F32::from_num(divs_j) - validator_take;
 
                     // 7.6.3.2 Get the local alpha and root alpha.
                     let hotkey_tao: I96F32 = I96F32::from_num( Self::get_stake_for_hotkey_on_subnet( &hotkey, Self::get_root_netuid() ) );
-                    let hotkey_tao_as_alpha: I96F32 = hotkey_tao * Self::get_root_weight(netuid);
+                    let hotkey_tao_as_alpha: I96F32 = hotkey_tao * Self::get_tao_weight(netuid);
                     let hotkey_alpha = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet( &hotkey, netuid ));
 
                     // 7.6.3.3 Compute alpha and root proportions.
@@ -228,6 +228,9 @@ impl<T: Config> Pallet<T> {
         let mut total_contribution: I96F32 = I96F32::from_num(0);
         let mut contributions: Vec<(T::AccountId, I96F32)> = Vec::new();
 
+        // Get the weights for root and alpha stakes in emission distribution
+        let tao_weight: I96F32 = Self::get_tao_weight(netuid);
+
         // Calculate total root and alpha (subnet-specific) stakes from all parents
         for (proportion, parent) in Self::get_parents(hotkey, netuid) {
           
@@ -240,7 +243,7 @@ impl<T: Config> Pallet<T> {
 
             // Calculate the parent's contribution to the hotkey's stakes
             let parent_alpha_contribution: I96F32 = parent_alpha.saturating_mul(parent_proportion);
-            let parent_root_contribution: I96F32 = parent_root.saturating_mul(parent_proportion).saturating_mul( Self::get_root_weight(netuid) );
+            let parent_root_contribution: I96F32 = parent_root.saturating_mul(parent_proportion).saturating_mul( tao_weight );
             let combined_contribution: I96F32 = parent_alpha_contribution + parent_root_contribution;
 
             // Add to the total stakes
@@ -252,10 +255,6 @@ impl<T: Config> Pallet<T> {
                 combined_contribution,
             ));
         }
-
-        // Get the weights for root and alpha stakes in emission distribution
-        let root_weight: I96F32 = Self::get_root_weight(netuid);
-        let alpha_weight: I96F32 = I96F32::from_num(1.0).saturating_sub(root_weight);
 
         // Distribute emission to parents based on their contributions
         for (parent, contribution) in contributions {
