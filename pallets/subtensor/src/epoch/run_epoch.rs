@@ -14,8 +14,7 @@ impl<T: Config> Pallet<T> {
         let hotkeys: Vec<(u16, T::AccountId)> =
             <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(netuid)
                 .collect();
-        let (stake, raw_alpha_stake, raw_global_tao_stake): (Vec<I32F32>, Vec<u64>, Vec<u64>) =
-            Self::get_stake_weights_for_network(netuid);
+        let stake: Vec<u64> = Self::get_stake_weights_for_network(netuid);
         let cloned_stake_weight: Vec<u16> = stake
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))
@@ -25,8 +24,6 @@ impl<T: Config> Pallet<T> {
             .map(|&stake| I96F32::from_num(stake) * I96F32::from_num(rao_emission))
             .map(|e| e.to_num::<u64>())
             .collect();
-        LocalStake::<T>::insert(netuid, raw_alpha_stake.clone());
-        GlobalStake::<T>::insert(netuid, raw_global_tao_stake.clone());
         StakeWeight::<T>::insert(netuid, cloned_stake_weight.clone());
         Active::<T>::insert(netuid, vec![true; n as usize]);
         Emission::<T>::insert(netuid, emission.clone());
@@ -104,8 +101,8 @@ impl<T: Config> Pallet<T> {
         log::trace!("hotkeys: {:?}", &hotkeys);
 
         // Access network stake as normalized vector.
-        let (stake, raw_alpha_stake, raw_global_tao_stake): (Vec<I32F32>, Vec<u64>, Vec<u64>) =
-            Self::get_stake_weights_for_network(netuid);
+        let stake (Vec<u64>, Vec<u64>, Vec<u64>) = Self::get_stake_weights_for_network(netuid);
+        inplace_normalize(&mut active_stake);
         log::trace!("S:\n{:?}\n", &stake);
 
         // =======================

@@ -152,12 +152,12 @@ impl<T: Config> Pallet<T> {
 
                     // 7.6.3.1: Remove the hotkey take straight off the top.
                     let take_prop: I96F32 = I96F32::from_num(Self::get_hotkey_take( &hotkey_j )).checked_div( I96F32::from_num(u16::MAX) ).unwrap_or( I96F32::from_num( 0.0 ) );
-                    let validator_take: I96F32 = take_prop * divs_j;
-                    let rem_divs_j: I96F32 = divs_j - take_prop * divs_j;
+                    let validator_take: I96F32 = take_prop * I96F32::from_num(divs_j);
+                    let rem_divs_j: I96F32 = divs_j - validator_take;
 
                     // 7.6.3.2 Get the local alpha and root alpha.
                     let hotkey_tao: I96F32 = I96F32::from_num( Self::get_stake_for_hotkey_on_subnet( &hotkey, Self::get_root_netuid() ) );
-                    let hotkey_tao_as_alpha: I96F32 = hotkey_tao * Self::get_root_weight();
+                    let hotkey_tao_as_alpha: I96F32 = hotkey_tao * Self::get_root_weight(netuid);
                     let hotkey_alpha = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet( &hotkey, netuid ));
 
                     // 7.6.3.3 Compute alpha and root proportions.
@@ -180,8 +180,8 @@ impl<T: Config> Pallet<T> {
                     SubnetAlphaOut::<T>::mutate( netuid, |total| { *total = total.saturating_add( alpha_divs.to_num::<u64>() ); });
 
                     // 7.6.3.8: Distribute the root divs to the hotkey
-                    Self::increase_stake_for_hotkey_and_coldkey_on_subnet( &hotkey_j, &Owner::<T>::get( hotkey_j.clone() ), Self::get_root_netuid(), root_divs );
-                    SubnetTAO::<T>::mutate( netuid, |total| { *total = total.saturating_add( root_take_tao ) });
+                    Self::increase_stake_for_hotkey_and_coldkey_on_subnet( &hotkey_j, &Owner::<T>::get( hotkey_j.clone() ), Self::get_root_netuid(), root_divs_tao );
+                    SubnetTAO::<T>::mutate( netuid, |total| { *total = total.saturating_add( root_divs_tao ) });
 
                     // 7.6.3.9: Record dividends for this hotkey on this subnet.
                     HotkeyDividendsPerSubnet::<T>::mutate( netuid, hotkey_j.clone(), |divs| {
@@ -240,7 +240,7 @@ impl<T: Config> Pallet<T> {
 
             // Calculate the parent's contribution to the hotkey's stakes
             let parent_alpha_contribution: I96F32 = parent_alpha.saturating_mul(parent_proportion);
-            let parent_root_contribution: I96F32 = parent_root.saturating_mul(parent_proportion).saturating_mul( Self::get_root_weight() );
+            let parent_root_contribution: I96F32 = parent_root.saturating_mul(parent_proportion).saturating_mul( Self::get_root_weight(netuid) );
             let combined_contribution: I96F32 = parent_alpha_contribution + parent_root_contribution;
 
             // Add to the total stakes
@@ -260,7 +260,7 @@ impl<T: Config> Pallet<T> {
         // Distribute emission to parents based on their contributions
         for (parent, contribution) in contributions {
             // Sum up the total emission for this parent
-            let total_emission: u64 = validating_emission * ( contribution/total_contribution ).to_num::<u64>();
+            let total_emission: u64 = ( validating_emission.saturating_mul( contribution/total_contribution ) ).to_num::<u64>();
 
             // Reserve childkey take
             let child_emission_take: u64 = childkey_take_proportion.saturating_mul(I96F32::from_num(total_emission)).to_num::<u64>();

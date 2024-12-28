@@ -1,7 +1,6 @@
 use super::*;
-use crate::epoch::math::*;
 use frame_support::IterableStorageDoubleMap;
-use substrate_fixed::types::{I32F32, I64F64, I96F32};
+use substrate_fixed::types::{I64F64, I96F32};
 
 impl<T: Config> Pallet<T> {
     /// Retrieves the global global weight as a normalized value between 0 and 1.
@@ -55,7 +54,7 @@ impl<T: Config> Pallet<T> {
 
     /// Calculates the weighted combination of alpha and global tao for hotkeys on a subnet.
     ///
-    pub fn get_stake_weights_for_network(netuid: u16) -> Vec<u64> {
+    pub fn get_stake_weights_for_network(netuid: u16) -> (Vec<u64>, Vec<u64>, Vec<u64>) {
         // Step 1: Get the subnet size (number of neurons).
         let n: u16 = Self::get_subnetwork_n(netuid);
 
@@ -71,25 +70,25 @@ impl<T: Config> Pallet<T> {
 
         // Step 4: Calculate the global tao stake vector.
         // Initialize a vector to store global tao stakes for each neuron.
-        let mut root_tao: Vec<u64> = vec![0; n as usize];
+        let mut tao_stake: Vec<u64> = vec![0; n as usize];
         for (uid_i, hotkey) in &hotkeys {
             let tao: u64 = Self::get_inherited_for_hotkey_on_subnet(hotkey, 0);
-            root_tao[*uid_i as usize] = tao;
+            tao_stake[*uid_i as usize] = tao;
         }
 
         // Step 5: Combine alpha and root tao stakes.
         // Retrieve the global global weight.
         let root_weight: I64F64 = I64F64::from_num(Self::get_root_weight(netuid));
         // Calculate the weighted average of alpha and global tao stakes for each neuron.
-        let mut stake: Vec<u64> = alpha_stake
+        let mut full_stake: Vec<u64> = alpha_stake
             .iter()
-            .zip(root_tao.iter())
-            .map(|(alpha, tao)| {
-                (alpha + tao * root_weight).to_num::<u64>()
+            .zip(tao_stake.iter())
+            .map(|(alpha_i, tao_i)| {
+                (I64F64::from_num(alpha_i) + I64F64::from_num(tao_i) * root_weight).to_num::<u64>()
             })
             .collect();
 
-        stake
+        (full_stake, alpha_stake, tao_stake)
     }
 
     /// Calculates the total inherited stake (alpha) held by a hotkey on a network, considering child/parent relationships.
@@ -311,26 +310,6 @@ impl<T: Config> Pallet<T> {
         });
     }
 
-    /// Retrieves the total stake (alpha) for a given hotkey on a specific subnet.
-    ///
-    /// This function performs the following step:
-    /// 1. Retrieves and returns the total alpha value associated with the hotkey on the specified subnet.
-    ///
-    /// # Arguments
-    /// * `hotkey` - The account ID of the hotkey.
-    /// * `netuid` - The unique identifier of the subnet.
-    ///
-    /// # Returns
-    /// * `u64` - The total alpha value for the hotkey on the specified subnet.
-    ///
-    /// # Note
-    /// This function returns the cumulative stake across all coldkeys associated with this hotkey on the subnet.
-    pub fn get_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
-        // Retrieve and return the total alpha this hotkey owns on this subnet.
-        // This value represents the sum of stakes from all coldkeys associated with this hotkey.
-        TotalHotkeyAlpha::<T>::get(hotkey, netuid)
-    }
-
     /// Buys shares in the hotkey on a given subnet
     ///
     /// The function updates share totals given current prices.
@@ -351,21 +330,12 @@ impl<T: Config> Pallet<T> {
         // Step 1: Get the total number of shares associated with this hotkey on this subnet.
         let total_hotkey_shares: u64 = TotalHotkeyShares::<T>::get(hotkey, netuid);
 
-        // Step 3: Calculate the amount of TAO it is worth
-        let tao = Self::swap_tao_for_alpha( netuid, amount );
-
-        // Step 4: Swap it back to alpba
-        let alpha = Self::swap_tao_for_alpha( netuid, tao );
-
-        // Step 5: Increment the total amount of alpha on this subnet.
+        // Step 2: Increment the total amount of alpha on this subnet.
         TotalHotkeyAlpha::<T>::mutate( hotkey, netuid, |total| {
-            *total = total.saturating_add(alpha);
+            *total = total.saturating_add(amount);
         });
 
-        // Step 6: Get the new total alpha for this hotkey on this subnet.
-        let new_total_: u64 = TotalHotkeyTao::<T>::get(hotkey);
-
-        // Step 4: Get the new total alpha for this hotkey on this subnet.
+        // Step 3: Get the new total alpha for this hotkey on this subnet.
         let new_total_hotkey_alpha: u64 = TotalHotkeyAlpha::<T>::get(hotkey, netuid);
 
         // Step 4: Compute shares bought.
