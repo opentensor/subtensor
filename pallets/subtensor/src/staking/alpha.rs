@@ -6,7 +6,7 @@ impl<T: Config> Pallet<T> {
     /// Retrieves the global global weight as a normalized value between 0 and 1.
     ///
     /// This function performs the following steps:
-    /// 1. Fetches the global weight from storage using the GlobalWeight storage item.
+    /// 1. Fetches the global weight from storage using the TaoWeight storage item.
     /// 2. Converts the retrieved u64 value to a fixed-point number (I96F32).
     /// 3. Normalizes the weight by dividing it by the maximum possible u64 value.
     /// 4. Returns the normalized weight as an I96F32 fixed-point number.
@@ -21,7 +21,7 @@ impl<T: Config> Pallet<T> {
     /// This function uses saturating division to prevent potential overflow errors.
     pub fn get_tao_weight(netuid: u16) -> I96F32 {
         // Step 1: Fetch the global weight from storage
-        let stored_weight = GlobalWeight::<T>::get(netuid);
+        let stored_weight = TaoWeight::<T>::get(netuid);
 
         // Step 2: Convert the u64 weight to I96F32
         let weight_fixed = I96F32::from_num(stored_weight);
@@ -35,21 +35,21 @@ impl<T: Config> Pallet<T> {
     ///
     /// This function performs the following steps:
     /// 1. Takes the provided weight value as a u64.
-    /// 2. Updates the GlobalWeight storage item with the new value.
+    /// 2. Updates the TaoWeight storage item with the new value.
     ///
     /// # Arguments
     /// * `weight` - The new global weight value to be set, as a u64.
     ///
     /// # Effects
     /// This function modifies the following storage item:
-    /// - `GlobalWeight`: Updates it with the new weight value.
+    /// - `TaoWeight`: Updates it with the new weight value.
     ///
     /// # Note
     /// The weight is stored as a raw u64 value. To get the normalized weight between 0 and 1,
     /// use the `get_tao_weight()` function.
     pub fn set_tao_weight(weight: u64, netuid: u16) {
-        // Update the GlobalWeight storage with the new weight value
-        GlobalWeight::<T>::insert(netuid, weight);
+        // Update the TaoWeight storage with the new weight value
+        TaoWeight::<T>::insert(netuid, weight);
     }
 
     /// Calculates the weighted combination of alpha and global tao for hotkeys on a subnet.

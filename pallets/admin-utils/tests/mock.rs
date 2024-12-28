@@ -124,7 +124,7 @@ parameter_types! {
     // pub const InitialHotkeyEmissionTempo: u64 = 1; // (DEPRECATED)
     pub const InitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
     pub const InitialColdkeySwapScheduleDuration: u64 = 5 * 24 * 60 * 60 / 12; // 5 days
-    pub const InitialGlobalWeight: u64 = u64::MAX/2; // 50% global weight.
+    pub const InitialTaoWeight: u64 = u64::MAX/10; // 50% global weight.
 }
 
 impl pallet_subtensor::Config for Test {
@@ -189,7 +189,7 @@ impl pallet_subtensor::Config for Test {
     type InitialNetworkMaxStake = InitialNetworkMaxStake;
     type Preimages = ();
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
-    type InitialGlobalWeight = InitialGlobalWeight;
+    type InitialTaoWeight = InitialTaoWeight;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]

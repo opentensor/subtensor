@@ -958,7 +958,7 @@ parameter_types! {
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     // pub const SubtensorInitialHotkeyEmissionTempo: u64 = 7200; // Drain every day. // (DEPRECATED)
     pub const SubtensorInitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
-    pub const SubtensorInitialGlobalWeight: u64 = u64::MAX; // 100% global weight.
+    pub const SubtensorInitialTaoWeight: u64 = u64::MAX; // 100% global weight.
     pub const SubtensorInitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
 }
 // This is for the Local net.
@@ -1017,7 +1017,7 @@ parameter_types! {
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     // pub const SubtensorInitialHotkeyEmissionTempo: u64 = 7200; // Drain every day. // (DEPRECATED)
     pub const SubtensorInitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
-    pub const SubtensorInitialGlobalWeight: u64 = u64::MAX; // 100% global weigh.
+    pub const SubtensorInitialTaoWeight: u64 = 3_320_413_933_267_719_290; // 100% global weigh.
     pub const SubtensorInitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
 }
 // This is for the Local net.
@@ -1075,7 +1075,7 @@ parameter_types! {
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     // pub const SubtensorInitialHotkeyEmissionTempo: u64 = 1000; // Drain every hour. // (DEPRECATED)
-    pub const SubtensorInitialGlobalWeight: u64 = u64::MAX; // 100% global weight.
+    pub const SubtensorInitialTaoWeight: u64 = 3_320_413_933_267_719_290; // 18% global weight.
     //pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // 500_000 TAO
     pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64, this make the make stake infinity
     pub const SubtensorInitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
@@ -1135,7 +1135,7 @@ parameter_types! {
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     // pub const SubtensorInitialHotkeyEmissionTempo: u64 = 7200; // Drain every day. // (DEPRECATED)
     pub const SubtensorInitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
-    pub const SubtensorInitialGlobalWeight: u64 = u64::MAX; // 100% global weight.
+    pub const SubtensorInitialTaoWeight: u64 = 3_320_413_933_267_719_290; // 100% global weight.
     pub const SubtensorInitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
 }
 
@@ -1199,7 +1199,7 @@ impl pallet_subtensor::Config for Runtime {
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     // type InitialHotkeyEmissionTempo = SubtensorInitialHotkeyEmissionTempo; // (DEPRECATED)
     type InitialNetworkMaxStake = SubtensorInitialNetworkMaxStake;
-    type InitialGlobalWeight = SubtensorInitialGlobalWeight;
+    type InitialTaoWeight = SubtensorInitialTaoWeight;
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = SubtensorInitialColdkeySwapScheduleDuration;
 }

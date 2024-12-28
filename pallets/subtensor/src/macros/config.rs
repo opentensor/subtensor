@@ -206,7 +206,7 @@ mod config {
         // type InitialHotkeyEmissionTempo: Get<u64>; // (DEPRECATED)
         /// Initial global weight.
         #[pallet::constant]
-        type InitialGlobalWeight: Get<u64>;
+        type InitialTaoWeight: Get<u64>;
         /// Coldkey swap schedule duartion.
         #[pallet::constant]
         type InitialColdkeySwapScheduleDuration: Get<BlockNumberFor<Self>>;

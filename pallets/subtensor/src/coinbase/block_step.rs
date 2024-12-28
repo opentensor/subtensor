@@ -1,9 +1,6 @@
 use super::*;
-use crate::epoch::math::*;
 use frame_support::storage::IterableStorageMap;
 use substrate_fixed::types::I110F18;
-use substrate_fixed::types::I96F32;
-use substrate_fixed::transcendental::ln;
 
 impl<T: Config> Pallet<T> {
     /// Executes the necessary operations for each block.
@@ -22,9 +19,6 @@ impl<T: Config> Pallet<T> {
         //    // adjust every hour.
         //    Self::adjust_tempos();
         //}
-        // --- 4. Anneal global weight
-        Self::adjust_global_weight(block_number);
-        // Return ok.
         Ok(())
     }
     /// Adjusts the network difficulties/burns of every active network. Resetting state parameters.
@@ -252,20 +246,5 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Anneal global weight which starts at 1.0 at subnet registration and on conversion to rao
-    /// to 0.5 within 1 year at every adjustment interval.
-    ///
-    pub fn adjust_global_weight(block_number: u64) {
-        let blocks_per_day: I96F32 = I96F32::from_num(7200.0);
-        let days_in_month: I96F32 = I96F32::from_num(30.0);
-        let blocks_in_month: I96F32 = blocks_per_day.saturating_mul(days_in_month);
-        let decay_constant_inter: I96F32 = -ln::<I96F32, I96F32>(I96F32::from_num(0.01)).unwrap();
-        let decay_constant: I96F32 = decay_constant_inter.saturating_div(blocks_in_month);
-        let global_weight: I96F32 = exp_safe_f96(I96F32::from_num(-decay_constant.to_num::<f64>() * block_number as f64));
-        
-        let subnets: Vec<u16> = Self::get_all_subnet_netuids();
-        for &netuid in subnets.iter() {
-            GlobalWeight::<T>::insert(netuid, global_weight.to_num::<u64>());
-        }
-    }
+
 }

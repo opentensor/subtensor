@@ -88,7 +88,7 @@ impl<T: Config> Pallet<T> {
     /// A 2D vector ('Vec<Vec<I32F32>>') where each entry [i][j] represents the weight of subnetwork
     /// 'j' with according to the preferences of key. Validator 'i' within the root network.
     ///
-    pub fn get_tao_weights() -> Vec<Vec<I64F64>> {
+    pub fn get_root_weights() -> Vec<Vec<I64F64>> {
         // --- 0. The number of validators on the root network.
         let n: usize = Self::get_num_root_validators() as usize;
 

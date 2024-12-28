@@ -615,18 +615,13 @@ pub mod pallet {
     }
     #[pallet::type_value]
     /// Default value for global weight.
-    pub fn DefaultGlobalWeight<T: Config>() -> u64 {
-        T::InitialGlobalWeight::get()
+    pub fn DefaultTaoWeight<T: Config>() -> u64 {
+        T::InitialTaoWeight::get()
     }
     #[pallet::type_value]
     /// Default stake delta.
     pub fn DefaultStakeDelta<T: Config>() -> i128 {
         0
-    }
-    #[pallet::type_value]
-    /// Global Weight adjustment interval.
-    pub fn GlobalWeightAdjustmentInterval<T: Config>() -> u64 {
-        1 // 12 seconds
     }
 
     #[pallet::type_value]
@@ -775,7 +770,7 @@ pub mod pallet {
     /// ============================
     #[pallet::storage]
     /// --- MAP ( netuid ) --> Global weight
-    pub type GlobalWeight<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultGlobalWeight<T>>;
+    pub type TaoWeight<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultTaoWeight<T>>;
     #[pallet::storage] // --- ITEM ( default_delegate_take )
     pub type MaxDelegateTake<T> = StorageValue<_, u16, ValueQuery, DefaultDelegateTake<T>>;
     #[pallet::storage] // --- ITEM ( min_delegate_take )

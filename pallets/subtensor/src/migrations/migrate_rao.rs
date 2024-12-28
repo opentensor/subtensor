@@ -71,7 +71,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
         SubnetMechanism::<T>::insert(netuid, 1); // Convert to dynamic immediately with initialization.
         Tempo::<T>::insert(netuid, DefaultTempo::<T>::get());
         // Set global weight to 1.0 for the start
-        GlobalWeight::<T>::insert(netuid, u64::MAX);
+        TaoWeight::<T>::insert(netuid, u64::MAX);
         // HotkeyEmissionTempo::<T>::put(30); // same as subnet tempo // (DEPRECATED)
 		// Set the target stakes per interval to 10.
 		// TargetStakesPerInterval::<T>::put(10); (DEPRECATED)

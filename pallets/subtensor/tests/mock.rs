@@ -177,7 +177,7 @@ parameter_types! {
     // pub const InitialHotkeyEmissionTempo: u64 = 0; // Defaults to draining every block. // (DEPRECATED)
     pub const InitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500,000 TAO
     pub const InitialColdkeySwapScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
-    pub const InitialGlobalWeight: u64 = 0; // zero global weight.
+    pub const InitialTaoWeight: u64 = 0; // zero global weight.
 }
 
 // Configure collective pallet for council
@@ -401,7 +401,7 @@ impl pallet_subtensor::Config for Test {
     type InitialNetworkMaxStake = InitialNetworkMaxStake;
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
-    type InitialGlobalWeight = InitialGlobalWeight;
+    type InitialTaoWeight = InitialTaoWeight;
 }
 
 pub struct OriginPrivilegeCmp;
