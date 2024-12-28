@@ -739,25 +739,27 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroU64<T>,
     >;
-    #[pallet::storage] /// MAP ( hot ) --> total_alpha_shares | Returns the total number of shares this key has.
-    pub type TotalHotkeyShares<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        T::AccountId,
-        u64,
-        ValueQuery,
-        DefaultZeroU64<T>,
-    >;
-    #[pallet::storage] // --- NMAP ( hot, cold ) --> shares | Returns the number of shares this coldkey has with a hotkey.
-    pub type Shares<T: Config> = torageDoubleMap<
+    #[pallet::storage] /// DMAP ( hot, netuid ) --> total_alpha_shares | Returns the number of alpha shares for a hotkey on a subnet. 
+    pub type TotalHotkeyShares<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         T::AccountId,
         Identity,
-        T::AccountId,
+        u16,
         u64,
         ValueQuery,
         DefaultZeroU64<T>,
+    >;
+    #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> alpha | Returns the alpha shares for a hotkey, coldkey, netuid triplet.
+    pub type Alpha<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+            NMapKey<Identity, u16>,                  // subnet
+        ),
+        u64, // Shares
+        ValueQuery,
     >;
     #[pallet::storage] /// (DEPRECATED) DMAP ( hot ) --> Vec<cold> | Returns a list of managed coldkeys associated with a hotkey.
     pub type ManagedKeys<T: Config> = StorageMap<
