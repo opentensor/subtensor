@@ -204,7 +204,7 @@ impl<T: Config> Pallet<T> {
         current_stake >= decrement
     }
 
-    /// Retrieves the alpha (stake) value for a given hotkey and coldkey pair on a specific subnet.
+     /// Retrieves the alpha (stake) value for a given hotkey and coldkey pair on a specific subnet.
     ///
     /// This function performs the following steps:
     /// 1. Takes the hotkey, coldkey, and subnet ID as input parameters.
@@ -232,8 +232,8 @@ impl<T: Config> Pallet<T> {
         // Step 2: Get the total alpha allocated to those shares on this subnet.
         let total_hotkey_alpha: u64 = TotalHotkeyAlpha::<T>::get(hotkey, netuid);
 
-        // Step 3: Get the number of shares this coldkey has with this hotkey
-        let coldkey_shares: u64 = Shares::<T>::get(hotkey, coldkey);
+        // Step 3: Get the number of shares this coldkey has with this hotkey.
+        let coldkey_shares: u64 = Alpha::<T>::get((hotkey, coldkey, netuid));
 
         // Step 4: If there are no shares or alpha on this hotkey, return 0;
         if total_hotkey_shares == 0 || total_hotkey_alpha == 0 || coldkey_shares == 0 {
