@@ -311,19 +311,24 @@ impl<T: Config> Pallet<T> {
         });
     }
 
-    /// Get total
+    /// Retrieves the total stake (alpha) for a given hotkey on a specific subnet.
+    ///
+    /// This function performs the following step:
+    /// 1. Retrieves and returns the total alpha value associated with the hotkey on the specified subnet.
+    ///
+    /// # Arguments
+    /// * `hotkey` - The account ID of the hotkey.
+    /// * `netuid` - The unique identifier of the subnet.
+    ///
+    /// # Returns
+    /// * `u64` - The total alpha value for the hotkey on the specified subnet.
+    ///
+    /// # Note
+    /// This function returns the cumulative stake across all coldkeys associated with this hotkey on the subnet.
     pub fn get_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
-
-        TotalHotkeyAlpha::<T>::get(hotkey, netuid);
-
-        for subnet in Self::get_all_subnet_netuids() {
-            // Get the total amount of alpha on each subnet.
-            let alpha = TotalHotkeyAlpha::<T>::get(hotkey, netuid);
-            // determine how much is weighs
-            let weight = 
-
-
-        }
+        // Retrieve and return the total alpha this hotkey owns on this subnet.
+        // This value represents the sum of stakes from all coldkeys associated with this hotkey.
+        TotalHotkeyAlpha::<T>::get(hotkey, netuid)
     }
 
     /// Buys shares in the hotkey on a given subnet
@@ -345,7 +350,6 @@ impl<T: Config> Pallet<T> {
 
         // Step 1: Get the total number of shares associated with this hotkey on this subnet.
         let total_hotkey_shares: u64 = TotalHotkeyShares::<T>::get(hotkey, netuid);
-
 
         // Step 3: Calculate the amount of TAO it is worth
         let tao = Self::swap_tao_for_alpha( netuid, amount );
