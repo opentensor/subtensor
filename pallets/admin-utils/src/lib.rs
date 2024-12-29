@@ -1,11 +1,18 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+// extern crate alloc;
+
 pub use pallet::*;
 pub mod weights;
 pub use weights::WeightInfo;
 
 use frame_system::pallet_prelude::BlockNumberFor;
-use sp_runtime::{traits::Member, RuntimeAppPublic};
+// - we could replace it with Vec<(AuthorityId, u64)>, but we would need
+//   `sp_consensus_grandpa` for `AuthorityId` anyway
+// - we could use a type parameter for `AuthorityId`, but there is
+//   no sense for this as GRANDPA's `AuthorityId` is not a parameter -- it's always the same
+use sp_consensus_grandpa::AuthorityList;
+use sp_runtime::{traits::Member, DispatchResult, RuntimeAppPublic};
 
 mod benchmarking;
 
@@ -40,6 +47,9 @@ pub mod pallet {
 
         /// Implementation of the AuraInterface
         type Aura: crate::AuraInterface<<Self as Config>::AuthorityId, Self::MaxAuthorities>;
+
+        /// Implementation of [`GrandpaInterface`]
+        type Grandpa: crate::GrandpaInterface<Self>;
 
         /// The identifier type for an authority.
         type AuthorityId: Member
@@ -1238,6 +1248,34 @@ pub mod pallet {
             ChainId::<T>::set(chain_id);
             Ok(())
         }
+
+        /// A public interface for `pallet_grandpa::Pallet::schedule_grandpa_change`.
+        ///
+        /// Schedule a change in the authorities.
+        ///
+        /// The change will be applied at the end of execution of the block `in_blocks` after the
+        /// current block. This value may be 0, in which case the change is applied at the end of
+        /// the current block.
+        ///
+        /// If the `forced` parameter is defined, this indicates that the current set has been
+        /// synchronously determined to be offline and that after `in_blocks` the given change
+        /// should be applied. The given block number indicates the median last finalized block
+        /// number and it should be used as the canon block when starting the new grandpa voter.
+        ///
+        /// No change should be signaled while any change is pending. Returns an error if a change
+        /// is already pending.
+        #[pallet::call_index(59)]
+        #[pallet::weight(<T as Config>::WeightInfo::swap_authorities(next_authorities.len() as u32))]
+        pub fn schedule_grandpa_change(
+            origin: OriginFor<T>,
+            // grandpa ID is always the same type, so we don't need to parametrize it via `Config`
+            next_authorities: AuthorityList,
+            in_blocks: BlockNumberFor<T>,
+            forced: Option<BlockNumberFor<T>>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            T::Grandpa::schedule_change(next_authorities, in_blocks, forced)
+        }
     }
 }
 
@@ -1254,4 +1292,28 @@ pub trait AuraInterface<AuthorityId, MaxAuthorities> {
 
 impl<A, M> AuraInterface<A, M> for () {
     fn change_authorities(_: BoundedVec<A, M>) {}
+}
+
+pub trait GrandpaInterface<Runtime>
+where
+    Runtime: frame_system::Config,
+{
+    fn schedule_change(
+        next_authorities: AuthorityList,
+        in_blocks: BlockNumberFor<Runtime>,
+        forced: Option<BlockNumberFor<Runtime>>,
+    ) -> DispatchResult;
+}
+
+impl<R> GrandpaInterface<R> for ()
+where
+    R: frame_system::Config,
+{
+    fn schedule_change(
+        _next_authorities: AuthorityList,
+        _in_blocks: BlockNumberFor<R>,
+        _forced: Option<BlockNumberFor<R>>,
+    ) -> DispatchResult {
+        Ok(())
+    }
 }
