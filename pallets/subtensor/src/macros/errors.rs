@@ -91,9 +91,7 @@ mod errors {
         /// A transactor exceeded the rate limit for setting or swapping hotkey.
         HotKeySetTxRateLimitExceeded,
         /// A transactor exceeded the rate limit for staking.
-        StakeRateLimitExceeded,
-        /// A transactor exceeded the rate limit for unstaking.
-        UnstakeRateLimitExceeded,
+        StakingRateLimitExceeded,
         /// Registration is disabled.
         SubNetRegistrationDisabled,
         /// The number of registration attempts exceeded the allowed number in the interval.
