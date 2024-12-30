@@ -6,7 +6,7 @@ use substrate_fixed::types::I96F32;
 
 // Test titles and descriptions for exhaustive testing of stake_into_subnet function:
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test alpha -- test_stake_into_subnet_dynamic_mechanism --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test test_stake_into_subnet_dynamic_mechanism -- test_stake_into_subnet_dynamic_mechanism --exact --nocapture
 #[test]
 fn test_stake_into_subnet_dynamic_mechanism() {
     new_test_ext(1).execute_with(|| {

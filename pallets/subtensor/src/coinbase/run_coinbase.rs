@@ -185,7 +185,7 @@ impl<T: Config> Pallet<T> {
 
                     // 7.6.3.9: Record dividends for this hotkey on this subnet.
                     HotkeyDividendsPerSubnet::<T>::mutate( netuid, hotkey_j.clone(), |divs| {
-                        *divs = divs_j.saturating_add(divs_j);
+                        *divs = divs.saturating_add(divs_j);
                     });
                 }
             }

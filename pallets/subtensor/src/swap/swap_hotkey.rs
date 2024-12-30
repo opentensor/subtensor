@@ -228,22 +228,8 @@ impl<T: Config> Pallet<T> {
 
         // 9. swap PendingHotkeyEmissionOnNetuid
         let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
-        all_netuids.iter().for_each(|netuid| {
-            if PendingHotkeyEmissionOnNetuid::<T>::contains_key(old_hotkey, netuid) {
-                let old_pending_hotkey_emission =
-                    PendingHotkeyEmissionOnNetuid::<T>::get(old_hotkey, netuid);
-                let new_pending_hotkey_emission =
-                    PendingHotkeyEmissionOnNetuid::<T>::get(new_hotkey, netuid);
-                PendingHotkeyEmissionOnNetuid::<T>::remove(old_hotkey, netuid);
-                PendingHotkeyEmissionOnNetuid::<T>::insert(
-                    new_hotkey,
-                    netuid,
-                    old_pending_hotkey_emission.saturating_add(new_pending_hotkey_emission),
-                );
-                weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
-            }
-        });
-
+        // (DEPRECATED.)
+        
         // 10. Swap all subnet specific info.
         all_netuids.iter().for_each(|netuid| {
             // 10.1 Remove the previous hotkey and insert the new hotkey from membership.
