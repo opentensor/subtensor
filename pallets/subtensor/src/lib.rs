@@ -723,6 +723,7 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroU64<T>,
     >;
+
     #[pallet::storage] // --- DMAP ( hot, netuid ) --> alpha | Returns the total amount of alpha a hotkey owns.
     pub type TotalHotkeyAlpha<T: Config> = StorageDoubleMap<
         _,

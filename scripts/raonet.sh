@@ -79,6 +79,7 @@ alice_start=(
   --discover-local
   --unsafe-rpc-external
   --rpc-methods=unsafe
+  --unsafe-force-node-key-generation
 )
 
 bob_start=(
@@ -91,6 +92,7 @@ bob_start=(
   --validator
   --allow-private-ipv4
   --discover-local
+  --unsafe-force-node-key-generation
 )
 
 trap 'pkill -P $$' EXIT SIGINT SIGTERM

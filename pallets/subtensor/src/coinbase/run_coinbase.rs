@@ -157,16 +157,16 @@ impl<T: Config> Pallet<T> {
 
                     // 7.6.3.2 Get the local alpha and root alpha.
                     let hotkey_tao: I96F32 = I96F32::from_num( Self::get_stake_for_hotkey_on_subnet( &hotkey, Self::get_root_netuid() ) );
-                    let hotkey_tao_as_alpha: I96F32 = hotkey_tao * Self::get_tao_weight(netuid);
+                    let hotkey_tao_as_alpha: I96F32 = hotkey_tao.saturating_mul( Self::get_tao_weight(netuid) );
                     let hotkey_alpha = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet( &hotkey, netuid ));
 
                     // 7.6.3.3 Compute alpha and root proportions.
-                    let alpha_prop: I96F32 = hotkey_alpha / ( hotkey_alpha + hotkey_tao_as_alpha );
-                    let root_prop: I96F32 = hotkey_tao_as_alpha / ( hotkey_alpha + hotkey_tao_as_alpha ); 
+                    let alpha_prop: I96F32 = hotkey_alpha.checked_div( hotkey_alpha + hotkey_tao_as_alpha ).unwrap_or( I96F32::from_num( 0.0 ) );
+                    let root_prop: I96F32 = hotkey_tao_as_alpha.checked_div( hotkey_alpha + hotkey_tao_as_alpha ).unwrap_or( I96F32::from_num( 0.0 ) );
 
                     // 7.6.3.4 Compute alpha and root dividends
-                    let alpha_divs: I96F32 = I96F32::from_num( rem_divs_j ) * alpha_prop;
-                    let root_divs: I96F32 = I96F32::from_num( rem_divs_j ) * root_prop;
+                    let alpha_divs: I96F32 = I96F32::from_num( rem_divs_j ).saturating_mul( alpha_prop );
+                    let root_divs: I96F32 = I96F32::from_num( rem_divs_j ).saturating_mul( root_prop );
 
                     // 7.6.3.5: Swap the root divs intot tao.
                     let root_divs_tao: u64 = Self::swap_tao_for_alpha( Self::get_root_netuid(), Self::swap_alpha_for_tao( netuid, root_divs.to_num::<u64>() ) );
