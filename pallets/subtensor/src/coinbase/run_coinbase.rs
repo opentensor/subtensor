@@ -68,22 +68,18 @@ impl<T: Config> Pallet<T> {
                 // The mechanism is Dynamic (DTAO protocol)
                 // 6.3. Check if there is an excess of TAO emitted based on block height.
                 let should_emit_tao: bool = I96F32::from_num(total_active_tao).saturating_div(I96F32::from_num(1_000_000_000)) < I96F32::from_num(Self::get_current_block_as_u64());
-                // 6.4. Check if there is an excess of ALPHA emitted based on block height.
-                let should_emit_alpha: bool = I96F32::from_num(SubnetAlphaIn::<T>::get(*netuid)).saturating_div(I96F32::from_num(1_000_000_000)) < I96F32::from_num(Self::get_current_block_as_u64());
-                // 6.5. Conditionally emit TAO into the pool.
+                // 6.4. Conditionally emit TAO into the pool.
                 if should_emit_tao {
-                    // 6.6: Increase Tao in the subnet reserve conditionally.
+                    // 6.5: Increase Tao in the subnet reserve conditionally.
                     SubnetTAO::<T>::mutate(*netuid, |total| { *total = total.saturating_add(subnet_emission) });
-                    // 6.7. Increase total stake counter.
+                    // 6.6. Increase total stake counter.
                     TotalStake::<T>::mutate(|total| *total = total.saturating_add(subnet_emission));
-                    // 6.8. Increase total Tao issuance counter.
+                    // 6.7. Increase total Tao issuance counter.
                     TotalIssuance::<T>::mutate(|total| *total = total.saturating_add(subnet_emission));
                 }
-                if should_emit_alpha {
-                    // 6.9: Inject Alpha into the pool reserves here.
-                    SubnetAlphaIn::<T>::mutate(*netuid, |total| { *total = total.saturating_add(block_emission.to_num::<u64>())});
-                }
-                // 6.10 Inject Alpha for distribution later.
+                // 6.8: Inject Alpha into the pool reserves here.
+                SubnetAlphaIn::<T>::mutate(*netuid, |total| { *total = total.saturating_add(block_emission.to_num::<u64>())});
+                // 6.9 Inject Alpha for distribution later.
                 PendingEmission::<T>::mutate(*netuid, |total| { *total = total.saturating_add(block_emission.to_num::<u64>())});
             } else {
                 // The mechanism is Stable (FOR TESTING PURPOSES ONLY)
