@@ -154,18 +154,37 @@ impl<T: Config> Pallet<T> {
             target_stakes_per_interval,
         ));
     }
-    pub fn set_stakes_this_interval_for_coldkey_hotkey(
+
+    // Counts staking events within the [`StakeInterval`]. It increases the counter by 1 in case no
+    // limit exceeded, otherwise returns an error.
+    pub(crate) fn try_increase_staking_counter(
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
-        stakes_this_interval: u64,
-        last_staked_block_number: u64,
-    ) {
-        TotalHotkeyColdkeyStakesThisInterval::<T>::insert(
-            coldkey,
-            hotkey,
-            (stakes_this_interval, last_staked_block_number),
+    ) -> DispatchResult {
+        let current_block = Self::get_current_block_as_u64();
+        let stake_interval = StakeInterval::<T>::get();
+        let stakes_limit = TargetStakesPerInterval::<T>::get();
+        let (stakes_count, last_staked_at) =
+            TotalHotkeyColdkeyStakesThisInterval::<T>::get(coldkey, hotkey);
+
+        // Reset staking counter if it's been stake_interval blocks since the first staking action of the series.
+        if stakes_count == 0 || last_staked_at.saturating_add(stake_interval) <= current_block {
+            TotalHotkeyColdkeyStakesThisInterval::<T>::insert(coldkey, hotkey, (1, current_block));
+            return Ok(());
+        }
+
+        ensure!(
+            stakes_count < stakes_limit,
+            Error::<T>::StakingRateLimitExceeded
         );
+
+        TotalHotkeyColdkeyStakesThisInterval::<T>::mutate(coldkey, hotkey, |(count, _)| {
+            *count = count.saturating_add(1);
+        });
+
+        Ok(())
     }
+
     pub fn set_stake_interval(block: u64) {
         StakeInterval::<T>::set(block);
     }

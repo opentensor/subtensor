@@ -340,182 +340,175 @@ fn test_add_stake_total_issuance_no_change() {
 
 #[test]
 fn test_reset_stakes_per_interval() {
-    new_test_ext(0).execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(561330);
         let hotkey = U256::from(561337);
 
-        SubtensorModule::set_stake_interval(7);
-        SubtensorModule::set_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey, 5, 1);
+        SubtensorModule::set_stake_interval(3);
+        SubtensorModule::set_target_stakes_per_interval(3);
+
+        assert_ok!(SubtensorModule::try_increase_staking_counter(
+            &coldkey, &hotkey
+        ));
+
+        assert_eq!(
+            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(coldkey, hotkey),
+            (1, 1)
+        );
+
+        // block 2
         step_block(1);
 
         assert_eq!(
-            SubtensorModule::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey),
-            5
+            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(coldkey, hotkey),
+            (1, 1)
         );
 
-        // block: 7 interval not yet passed
-        step_block(6);
+        assert_ok!(SubtensorModule::try_increase_staking_counter(
+            &coldkey, &hotkey
+        ));
+
         assert_eq!(
-            SubtensorModule::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey),
-            5
+            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(coldkey, hotkey),
+            (2, 1)
         );
 
-        // block 8: interval passed
+        // block 3
         step_block(1);
+
         assert_eq!(
-            SubtensorModule::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey),
-            0
+            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(coldkey, hotkey),
+            (2, 1)
+        );
+
+        // block 4 - interval passed
+        step_block(1);
+
+        assert_eq!(
+            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(coldkey, hotkey),
+            (2, 1)
+        );
+
+        assert_ok!(SubtensorModule::try_increase_staking_counter(
+            &coldkey, &hotkey
+        ));
+
+        assert_eq!(
+            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(coldkey, hotkey),
+            (1, 4)
         );
     });
 }
 
 #[test]
-fn test_add_stake_under_limit() {
+fn test_staking_rate_limit() {
     new_test_ext(1).execute_with(|| {
-        let hotkey_account_id = U256::from(561337);
-        let coldkey_account_id = U256::from(61337);
-        let netuid: u16 = 1;
-        let start_nonce: u64 = 0;
-        let tempo: u16 = 13;
-        let max_stakes = 2;
+        let hotkey = U256::from(561337);
+        let coldkey = U256::from(61337);
+        let netuid = 1;
+        let max_stakes = 3;
 
+        SubtensorModule::set_stake_interval(3);
         SubtensorModule::set_target_stakes_per_interval(max_stakes);
-        add_network(netuid, tempo, 0);
-        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 60000);
-        assert_ok!(SubtensorModule::add_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id,
-            1,
-        ));
-        assert_ok!(SubtensorModule::add_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id,
-            1,
-        ));
 
-        let current_stakes = SubtensorModule::get_stakes_this_interval_for_coldkey_hotkey(
-            &coldkey_account_id,
-            &hotkey_account_id,
-        );
-        assert!(current_stakes <= max_stakes);
-    });
-}
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 60000);
 
-#[test]
-fn test_add_stake_rate_limit_exceeded() {
-    new_test_ext(1).execute_with(|| {
-        let hotkey_account_id = U256::from(561337);
-        let coldkey_account_id = U256::from(61337);
-        let netuid: u16 = 1;
-        let start_nonce: u64 = 0;
-        let tempo: u16 = 13;
-        let max_stakes = 2;
-        let block_number = 1;
-
-        SubtensorModule::set_target_stakes_per_interval(max_stakes);
-        SubtensorModule::set_stakes_this_interval_for_coldkey_hotkey(
-            &coldkey_account_id,
-            &hotkey_account_id,
-            max_stakes,
-            block_number,
+        // block 1, stake 1
+        assert_eq!(
+            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(coldkey, hotkey),
+            (0, 0)
         );
 
-        add_network(netuid, tempo, 0);
-        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 60000);
-        assert_err!(
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey,
+            1,
+        ));
+
+        assert_eq!(
+            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(coldkey, hotkey),
+            (1, 1)
+        );
+
+        // block 2
+        step_block(1);
+
+        // stake 2 and 3
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey,
+            1,
+        ));
+        // remove should increase the counter
+        assert_ok!(SubtensorModule::remove_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey,
+            1,
+        ));
+
+        // counter should be increased, while the block should not be changed
+        assert_eq!(
+            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(coldkey, hotkey),
+            (3, 1)
+        );
+
+        // block 3
+        step_block(1);
+
+        // stake 4
+        assert_noop!(
             SubtensorModule::add_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-                hotkey_account_id,
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                hotkey,
                 1,
             ),
-            Error::<Test>::StakeRateLimitExceeded
+            Error::<Test>::StakingRateLimitExceeded
         );
-
-        let current_stakes = SubtensorModule::get_stakes_this_interval_for_coldkey_hotkey(
-            &coldkey_account_id,
-            &hotkey_account_id,
-        );
-        assert_eq!(current_stakes, max_stakes);
-    });
-}
-
-// /***********************************************************
-// 	staking::remove_stake() tests
-// ************************************************************/
-#[test]
-fn test_remove_stake_under_limit() {
-    new_test_ext(1).execute_with(|| {
-        let hotkey_account_id = U256::from(561337);
-        let coldkey_account_id = U256::from(61337);
-        let netuid: u16 = 1;
-        let start_nonce: u64 = 0;
-        let tempo: u16 = 13;
-        let max_unstakes = 2;
-
-        SubtensorModule::set_target_stakes_per_interval(max_unstakes);
-        add_network(netuid, tempo, 0);
-        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 60000);
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, 2);
-
-        assert_ok!(SubtensorModule::remove_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id,
-            1,
-        ));
-        assert_ok!(SubtensorModule::remove_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id,
-            1,
-        ));
-
-        let current_unstakes = SubtensorModule::get_stakes_this_interval_for_coldkey_hotkey(
-            &coldkey_account_id,
-            &hotkey_account_id,
-        );
-        assert!(current_unstakes <= max_unstakes);
-    });
-}
-
-#[test]
-fn test_remove_stake_rate_limit_exceeded() {
-    new_test_ext(1).execute_with(|| {
-        let hotkey_account_id = U256::from(561337);
-        let coldkey_account_id = U256::from(61337);
-        let netuid: u16 = 1;
-        let start_nonce: u64 = 0;
-        let tempo: u16 = 13;
-        let max_unstakes = 1;
-        let block_number = 1;
-
-        SubtensorModule::set_target_stakes_per_interval(max_unstakes);
-        SubtensorModule::set_stakes_this_interval_for_coldkey_hotkey(
-            &coldkey_account_id,
-            &hotkey_account_id,
-            max_unstakes,
-            block_number,
-        );
-
-        add_network(netuid, tempo, 0);
-        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 60000);
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, 2);
-        assert_err!(
+        assert_noop!(
             SubtensorModule::remove_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-                hotkey_account_id,
-                2,
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                hotkey,
+                1,
             ),
-            Error::<Test>::UnstakeRateLimitExceeded
+            Error::<Test>::StakingRateLimitExceeded
         );
 
-        let current_unstakes = SubtensorModule::get_stakes_this_interval_for_coldkey_hotkey(
-            &coldkey_account_id,
-            &hotkey_account_id,
+        // should not be changed
+        assert_eq!(
+            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(coldkey, hotkey),
+            (3, 1)
         );
-        assert_eq!(current_unstakes, max_unstakes);
+
+        // block 4
+        step_block(1);
+
+        // should pass now, because of the interval end
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey,
+            1,
+        ));
+
+        assert_eq!(
+            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(coldkey, hotkey),
+            (1, 4)
+        );
+
+        // block 5
+        step_block(1);
+
+        assert_ok!(SubtensorModule::remove_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey,
+            1,
+        ));
+
+        assert_eq!(
+            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(coldkey, hotkey),
+            (2, 4)
+        );
     });
 }
 
