@@ -148,8 +148,8 @@ impl<T: Config> Pallet<T> {
 
                     // 7.6.3.1: Remove the hotkey take straight off the top.
                     let take_prop: I96F32 = I96F32::from_num(Self::get_hotkey_take( &hotkey_j )).checked_div( I96F32::from_num(u16::MAX) ).unwrap_or( I96F32::from_num( 0.0 ) );
-                    let validator_take: I96F32 = take_prop * I96F32::from_num(divs_j);
-                    let rem_divs_j: I96F32 = I96F32::from_num(divs_j) - validator_take;
+                    let validator_take: I96F32 = take_prop.saturating_mul(I96F32::from_num(divs_j));
+                    let rem_divs_j: I96F32 = I96F32::from_num(divs_j).saturating_sub(validator_take);
 
                     // 7.6.3.2 Get the local alpha and root alpha.
                     let hotkey_tao: I96F32 = I96F32::from_num( Self::get_stake_for_hotkey_on_subnet( &hotkey, Self::get_root_netuid() ) );
@@ -157,8 +157,8 @@ impl<T: Config> Pallet<T> {
                     let hotkey_alpha = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet( &hotkey, netuid ));
 
                     // 7.6.3.3 Compute alpha and root proportions.
-                    let alpha_prop: I96F32 = hotkey_alpha.checked_div( hotkey_alpha + hotkey_tao_as_alpha ).unwrap_or( I96F32::from_num( 0.0 ) );
-                    let root_prop: I96F32 = hotkey_tao_as_alpha.checked_div( hotkey_alpha + hotkey_tao_as_alpha ).unwrap_or( I96F32::from_num( 0.0 ) );
+                    let alpha_prop: I96F32 = hotkey_alpha.checked_div( hotkey_alpha.saturating_add(hotkey_tao_as_alpha) ).unwrap_or( I96F32::from_num( 0.0 ) );
+                    let root_prop: I96F32 = hotkey_tao_as_alpha.checked_div( hotkey_alpha.saturating_add(hotkey_tao_as_alpha) ).unwrap_or( I96F32::from_num( 0.0 ) );
 
                     // 7.6.3.4 Compute alpha and root dividends
                     let alpha_divs: I96F32 = I96F32::from_num( rem_divs_j ).saturating_mul( alpha_prop );
@@ -240,10 +240,10 @@ impl<T: Config> Pallet<T> {
             // Calculate the parent's contribution to the hotkey's stakes
             let parent_alpha_contribution: I96F32 = parent_alpha.saturating_mul(parent_proportion);
             let parent_root_contribution: I96F32 = parent_root.saturating_mul(parent_proportion).saturating_mul( tao_weight );
-            let combined_contribution: I96F32 = parent_alpha_contribution + parent_root_contribution;
+            let combined_contribution: I96F32 = parent_alpha_contribution.saturating_add(parent_root_contribution);
 
             // Add to the total stakes
-            total_contribution += combined_contribution;
+            total_contribution = total_contribution.saturating_add(combined_contribution);
 
             // Store the parent's contributions for later use
             contributions.push((
@@ -255,7 +255,8 @@ impl<T: Config> Pallet<T> {
         // Distribute emission to parents based on their contributions
         for (parent, contribution) in contributions {
             // Sum up the total emission for this parent
-            let total_emission: u64 = ( validating_emission.saturating_mul( contribution/total_contribution ) ).to_num::<u64>();
+            let emission_factor: I96F32 = contribution.checked_div(total_contribution).unwrap_or(I96F32::from_num(0));
+            let total_emission: u64 = ( validating_emission.saturating_mul(emission_factor) ).to_num::<u64>();
 
             // Reserve childkey take
             let child_emission_take: u64 = childkey_take_proportion.saturating_mul(I96F32::from_num(total_emission)).to_num::<u64>();
@@ -306,7 +307,7 @@ impl<T: Config> Pallet<T> {
         let netuid_plus_one = (netuid as u64).saturating_add(1);
         let tempo_plus_one = (tempo as u64).saturating_add(1);
         let adjusted_block = block_number.wrapping_add(netuid_plus_one);
-        let remainder = adjusted_block % tempo_plus_one;
+        let remainder = adjusted_block.checked_rem(tempo_plus_one).unwrap_or(0);
         (tempo as u64).saturating_sub(remainder)
     }
 }
