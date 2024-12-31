@@ -53,8 +53,8 @@ pub fn migrate_rao<T: Config>() -> Weight {
         TotalHotkeyAlpha::<T>::mutate(hotkey.clone(), 0, |total| {
             *total = total.saturating_add(stake)
         });
-        // 3 reads and 3 writes.
-        weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 3));
+        // 6 reads and 6 writes.
+        weight = weight.saturating_add(T::DbWeight::get().reads_writes(6, 6));
     });
 
     // Convert subnets and give them lock.

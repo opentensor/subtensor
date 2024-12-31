@@ -127,8 +127,10 @@ impl<T: Config> Pallet<T> {
             // 7.5 Run the epoch() --> hotkey emission.
             let hotkey_emission: Vec<(T::AccountId, u64, u64)> = Self::epoch_mock(netuid, remaining_emission);
 
-            // 7.6 Pay out the hotkeys.
+            // 7.6 Pay out the hotkey alpha dividends.
             // First clear the netuid from HotkeyDividends
+            let mut total_root_alpha_divs: u64 = 0;
+            let mut root_alpha_divs: BTreeMap<T::AccountId, u64> = BTreeMap::new();
             let _ = HotkeyDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
             for (hotkey, incentive, dividends) in hotkey_emission {
 
@@ -148,42 +150,55 @@ impl<T: Config> Pallet<T> {
 
                     // 7.6.3.1: Remove the hotkey take straight off the top.
                     let take_prop: I96F32 = I96F32::from_num(Self::get_hotkey_take( &hotkey_j )).checked_div( I96F32::from_num(u16::MAX) ).unwrap_or( I96F32::from_num( 0.0 ) );
-                    let validator_take: I96F32 = take_prop * I96F32::from_num(divs_j);
-                    let rem_divs_j: I96F32 = I96F32::from_num(divs_j) - validator_take;
+                    let validator_take: I96F32 = take_prop.saturating_mul(I96F32::from_num(divs_j));
+                    let rem_divs_j: I96F32 = I96F32::from_num(divs_j).saturating_sub(validator_take);
 
-                    // 7.6.3.2 Get the local alpha and root alpha.
+                    // 7.6.3.2: Distribute validator take automatically.
+                    Self::increase_stake_for_hotkey_and_coldkey_on_subnet( &hotkey_j, &Owner::<T>::get( hotkey_j.clone() ), netuid, validator_take.to_num::<u64>() );
+                    SubnetAlphaOut::<T>::mutate( netuid, |total| { *total = total.saturating_add( validator_take.to_num::<u64>() ); });
+
+                    // 7.6.3.3: Get the local alpha and root alpha.
                     let hotkey_tao: I96F32 = I96F32::from_num( Self::get_stake_for_hotkey_on_subnet( &hotkey, Self::get_root_netuid() ) );
                     let hotkey_tao_as_alpha: I96F32 = hotkey_tao.saturating_mul( Self::get_tao_weight(netuid) );
                     let hotkey_alpha = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet( &hotkey, netuid ));
 
-                    // 7.6.3.3 Compute alpha and root proportions.
-                    let alpha_prop: I96F32 = hotkey_alpha.checked_div( hotkey_alpha + hotkey_tao_as_alpha ).unwrap_or( I96F32::from_num( 0.0 ) );
-                    let root_prop: I96F32 = hotkey_tao_as_alpha.checked_div( hotkey_alpha + hotkey_tao_as_alpha ).unwrap_or( I96F32::from_num( 0.0 ) );
+                    // 7.6.3.4: Compute alpha and root proportions.
+                    let total_alpha_tao = hotkey_alpha + hotkey_tao_as_alpha;
+                    let alpha_prop: I96F32 = hotkey_alpha.checked_div(total_alpha_tao).unwrap_or(I96F32::from_num(0.0));
+                    let root_prop: I96F32 = hotkey_tao_as_alpha.checked_div(total_alpha_tao).unwrap_or(I96F32::from_num(0.0));
 
-                    // 7.6.3.4 Compute alpha and root dividends
+                    // 7.6.3.5: Compute alpha and root dividends
                     let alpha_divs: I96F32 = I96F32::from_num( rem_divs_j ).saturating_mul( alpha_prop );
                     let root_divs: I96F32 = I96F32::from_num( rem_divs_j ).saturating_mul( root_prop );
 
-                    // 7.6.3.5: Swap the root divs intot tao.
-                    let root_divs_tao: u64 = Self::swap_tao_for_alpha( Self::get_root_netuid(), Self::swap_alpha_for_tao( netuid, root_divs.to_num::<u64>() ) );
-
-                    // 7.6.3.6: Distribute
-                    Self::increase_stake_for_hotkey_and_coldkey_on_subnet( &hotkey_j, &Owner::<T>::get( hotkey_j.clone() ), netuid, validator_take.to_num::<u64>() );
-                    SubnetAlphaOut::<T>::mutate( netuid, |total| { *total = total.saturating_add( validator_take.to_num::<u64>() ); });
+                    // 7.6.3.6. Store the root alpha divs under hotkey_j
+                    root_alpha_divs.entry(hotkey_j.clone())
+                        .and_modify(|e| *e = e.saturating_add(root_divs.to_num::<u64>()))
+                        .or_insert(root_divs.to_num::<u64>());
+                    total_root_alpha_divs = total_root_alpha_divs.saturating_add(root_divs.to_num::<u64>());
 
                     // 7.6.3.7: Distribute the alpha divs to the hotkey.
                     Self::increase_stake_for_hotkey_on_subnet( &hotkey_j, netuid, alpha_divs.to_num::<u64>() );
                     SubnetAlphaOut::<T>::mutate( netuid, |total| { *total = total.saturating_add( alpha_divs.to_num::<u64>() ); });
-
-                    // 7.6.3.8: Distribute the root divs to the hotkey
-                    Self::increase_stake_for_hotkey_and_coldkey_on_subnet( &hotkey_j, &Owner::<T>::get( hotkey_j.clone() ), Self::get_root_netuid(), root_divs_tao );
-                    SubnetTAO::<T>::mutate( netuid, |total| { *total = total.saturating_add( root_divs_tao ) });
 
                     // 7.6.3.9: Record dividends for this hotkey on this subnet.
                     HotkeyDividendsPerSubnet::<T>::mutate( netuid, hotkey_j.clone(), |divs| {
                         *divs = divs.saturating_add(divs_j);
                     });
                 }
+            }
+
+            // 7.7 Pay out the hotkey root dividends.
+            // Swap the total_root_alpha_divs through the pool to attain the total tao to be distributed
+            let total_tao_to_distribute: u64 = Self::swap_alpha_for_tao( netuid, total_root_alpha_divs );
+            
+            // For all the root alpha divs give this proportion of the swapped tao to the root participants. 
+            for (hotkey_j, root_divs) in root_alpha_divs.iter() {
+                let proportion: I96F32 = I96F32::from_num(*root_divs).checked_div(I96F32::from_num(total_root_alpha_divs)).unwrap_or(I96F32::from_num(0));
+                let tao_to_pay: u64 = proportion.saturating_mul(I96F32::from_num(total_tao_to_distribute)).to_num::<u64>();
+
+                // Pay the tao to the hotkey on netuid 0
+                Self::increase_stake_for_hotkey_on_subnet(hotkey_j, Self::get_root_netuid(), tao_to_pay);
             }
         }
     }
@@ -243,8 +258,8 @@ impl<T: Config> Pallet<T> {
             let combined_contribution: I96F32 = parent_alpha_contribution + parent_root_contribution;
 
             // Add to the total stakes
-            total_contribution += combined_contribution;
-
+            total_contribution = total_contribution.saturating_add(combined_contribution);
+            
             // Store the parent's contributions for later use
             contributions.push((
                 parent.clone(),
