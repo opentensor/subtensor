@@ -21,6 +21,9 @@ services:
     ports:
       - "9944:9944"
       - "30334:30334"
+    expose:
+      - 9944
+      - 30334
     volumes:
       - subtensor-alice:/tmp/blockchain
     command:
@@ -30,6 +33,8 @@ services:
         node-subtensor \
           --base-path /tmp/blockchain \
           --chain localnet.json \
+          --rpc-external \
+          --rpc-methods=unsafe \
           --alice \
           --port 30334 \
           --rpc-port 9944 \
@@ -42,6 +47,9 @@ services:
   bob:
     <<: *common
     container_name: subtensor-bob
+    expose:
+      - 9945
+      - 30335
     ports:
       - "9945:9945"
       - "30335:30335"
@@ -55,6 +63,8 @@ services:
           --base-path /tmp/blockchain \
           --chain localnet.json \
           --bob \
+          --rpc-methods=unsafe \
+          --rpc-external \
           --port 30335 \
           --rpc-port 9945 \
           --validator \
