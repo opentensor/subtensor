@@ -12,7 +12,7 @@ use frame_system::pallet_prelude::BlockNumberFor;
 // - we could use a type parameter for `AuthorityId`, but there is
 //   no sense for this as GRANDPA's `AuthorityId` is not a parameter -- it's always the same
 use sp_consensus_grandpa::AuthorityList;
-use sp_runtime::{traits::Member, DispatchResult, RuntimeAppPublic};
+use sp_runtime::DispatchResult;
 
 mod benchmarking;
 
@@ -28,7 +28,6 @@ pub mod pallet {
     use frame_support::traits::tokens::Balance;
     use frame_system::pallet_prelude::*;
     use pallet_evm_chain_id::{self, ChainId};
-    use sp_runtime::BoundedVec;
 
     /// The main data structure of the module.
     #[pallet::pallet]
@@ -45,21 +44,8 @@ pub mod pallet {
         /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-        /// Implementation of the AuraInterface
-        type Aura: crate::AuraInterface<<Self as Config>::AuthorityId, Self::MaxAuthorities>;
-
         /// Implementation of [`GrandpaInterface`]
         type Grandpa: crate::GrandpaInterface<Self>;
-
-        /// The identifier type for an authority.
-        type AuthorityId: Member
-            + Parameter
-            + RuntimeAppPublic
-            + MaybeSerializeDeserialize
-            + MaxEncodedLen;
-
-        /// The maximum number of authorities that the pallet can hold.
-        type MaxAuthorities: Get<u32>;
 
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
@@ -85,25 +71,6 @@ pub mod pallet {
     /// Dispatchable functions allows users to interact with the pallet and invoke state changes.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// The extrinsic sets the new authorities for Aura consensus.
-        /// It is only callable by the root account.
-        /// The extrinsic will call the Aura pallet to change the authorities.
-        #[pallet::call_index(0)]
-        #[pallet::weight(<T as Config>::WeightInfo::swap_authorities(new_authorities.len() as u32))]
-        pub fn swap_authorities(
-            origin: OriginFor<T>,
-            new_authorities: BoundedVec<<T as Config>::AuthorityId, T::MaxAuthorities>,
-        ) -> DispatchResult {
-            ensure_root(origin)?;
-
-            T::Aura::change_authorities(new_authorities.clone());
-
-            log::debug!("Aura authorities changed: {:?}", new_authorities);
-
-            // Return a successful DispatchResultWithPostInfo
-            Ok(())
-        }
-
         /// The extrinsic sets the default take for the network.
         /// It is only callable by the root account.
         /// The extrinsic will call the Subtensor pallet to set the default take.
@@ -1279,21 +1246,6 @@ pub mod pallet {
             T::Grandpa::schedule_change(next_authorities, in_blocks, forced)
         }
     }
-}
-
-impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Pallet<T> {
-    type Public = <T as Config>::AuthorityId;
-}
-
-// Interfaces to interact with other pallets
-use sp_runtime::BoundedVec;
-
-pub trait AuraInterface<AuthorityId, MaxAuthorities> {
-    fn change_authorities(new: BoundedVec<AuthorityId, MaxAuthorities>);
-}
-
-impl<A, M> AuraInterface<A, M> for () {
-    fn change_authorities(_: BoundedVec<A, M>) {}
 }
 
 pub trait GrandpaInterface<Runtime>

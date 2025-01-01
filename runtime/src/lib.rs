@@ -371,14 +371,6 @@ impl frame_system::Config for Runtime {
     type PostTransactions = ();
 }
 
-impl pallet_aura::Config for Runtime {
-    type AuthorityId = AuraId;
-    type DisabledValidators = ();
-    type MaxAuthorities = ConstU32<32>;
-    type AllowMultipleBlocksPerSlot = ConstBool<false>;
-    type SlotDuration = pallet_aura::MinimumPeriodTimesTwo<Runtime>;
-}
-
 parameter_types! {
     pub EpochDuration: u64 = prod_or_fast!(
         EPOCH_DURATION_IN_SLOTS as u64,
@@ -1541,13 +1533,6 @@ impl pallet_subtensor::Config for Runtime {
 
 use sp_runtime::BoundedVec;
 
-pub struct AuraPalletIntrf;
-impl pallet_admin_utils::AuraInterface<AuraId, ConstU32<32>> for AuraPalletIntrf {
-    fn change_authorities(new: BoundedVec<AuraId, ConstU32<32>>) {
-        Aura::change_authorities(new);
-    }
-}
-
 pub struct GrandpaInterfaceImpl;
 impl pallet_admin_utils::GrandpaInterface<Runtime> for GrandpaInterfaceImpl {
     fn schedule_change(
@@ -1561,9 +1546,6 @@ impl pallet_admin_utils::GrandpaInterface<Runtime> for GrandpaInterfaceImpl {
 
 impl pallet_admin_utils::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type AuthorityId = AuraId;
-    type MaxAuthorities = ConstU32<32>;
-    type Aura = AuraPalletIntrf;
     type Grandpa = GrandpaInterfaceImpl;
     type Balance = Balance;
     type WeightInfo = pallet_admin_utils::weights::SubstrateWeight<Runtime>;
@@ -1590,10 +1572,10 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for FindAuthorTruncated<F> {
         I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
     {
         if let Some(author_index) = F::find_author(digests) {
-            pallet_aura::Authorities::<Runtime>::get()
+            pallet_babe::Authorities::<Runtime>::get()
                 .get(author_index as usize)
                 .and_then(|authority_id| {
-                    let raw_vec = authority_id.to_raw_vec();
+                    let raw_vec = authority_id.0.to_raw_vec();
                     raw_vec.get(4..24).map(H160::from_slice)
                 })
         } else {
@@ -1672,7 +1654,7 @@ impl pallet_evm::Config for Runtime {
     type Runner = pallet_evm::runner::stack::Runner<Self>;
     type OnChargeTransaction = ();
     type OnCreate = ();
-    type FindAuthor = FindAuthorTruncated<Aura>;
+    type FindAuthor = FindAuthorTruncated<Babe>;
     type GasLimitPovSizeRatio = GasLimitPovSizeRatio;
     type SuicideQuickClearLimit = SuicideQuickClearLimit;
     type Timestamp = Timestamp;
@@ -1810,7 +1792,7 @@ construct_runtime!(
         System: frame_system = 0,
         RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip = 1,
         Timestamp: pallet_timestamp = 2,
-        Aura: pallet_aura = 3,
+        // Aura: pallet_aura = 3,
         Grandpa: pallet_grandpa = 4,
         Balances: pallet_balances = 5,
         TransactionPayment: pallet_transaction_payment = 6,
@@ -2521,11 +2503,13 @@ impl_runtime_apis! {
 
     impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
         fn slot_duration() -> sp_consensus_aura::SlotDuration {
-            sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration())
+            unimplemented!()
+            // sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration())
         }
 
         fn authorities() -> Vec<AuraId> {
-            pallet_aura::Authorities::<Runtime>::get().into_inner()
+            unimplemented!()
+            // pallet_aura::Authorities::<Runtime>::get().into_inner()
         }
     }
 
