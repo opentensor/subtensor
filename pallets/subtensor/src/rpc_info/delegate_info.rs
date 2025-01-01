@@ -156,20 +156,6 @@ impl<T: Config> Pallet<T> {
         total_delegated
     }
 
-    // Helper function to get total delegated stake for a hotkey
-    pub fn get_total_hotkey_delegated_stake(hotkey: &T::AccountId) -> u64 {
-        let mut total_delegated = 0u64;
-
-        // Iterate through all delegators for this hotkey
-        for (delegator, stake) in Stake::<T>::iter_prefix(hotkey) {
-            if delegator != Self::get_coldkey_for_hotkey(hotkey) {
-                total_delegated = total_delegated.saturating_add(stake);
-            }
-        }
-
-        total_delegated
-    }
-
     // Helper function to get the coldkey associated with a hotkey
     pub fn get_coldkey_for_hotkey(hotkey: &T::AccountId) -> T::AccountId {
         Owner::<T>::get(hotkey)

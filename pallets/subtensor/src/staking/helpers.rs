@@ -3,7 +3,7 @@ use frame_support::{
     storage::IterableStorageDoubleMap,
     traits::{
         tokens::{
-            fungible::{Balanced as _, Inspect as _, Mutate as _},
+            fungible::{Balanced as _, Inspect as _},
             Fortitude, Precision, Preservation,
         },
         Imbalance,
@@ -57,42 +57,6 @@ impl<T: Config> Pallet<T> {
     //
     pub fn get_stake_for_coldkey_and_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
         Stake::<T>::get(hotkey, coldkey)
-    }
-
-    // Retrieves the total stakes for a given hotkey (account ID) for the current staking interval.
-    pub fn get_stakes_this_interval_for_coldkey_hotkey(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-    ) -> u64 {
-        // Retrieve the configured stake interval duration from storage.
-        let stake_interval = StakeInterval::<T>::get();
-
-        // Obtain the current block number as an unsigned 64-bit integer.
-        let current_block = Self::get_current_block_as_u64();
-
-        // Fetch the total stakes and the last block number when stakes were made for the hotkey.
-        let (stakes, block_last_staked_at) =
-            TotalHotkeyColdkeyStakesThisInterval::<T>::get(coldkey, hotkey);
-
-        // Calculate the block number after which the stakes for the hotkey should be reset.
-        let block_to_reset_after = block_last_staked_at.saturating_add(stake_interval);
-
-        // If the current block number is beyond the reset point,
-        // it indicates the end of the staking interval for the hotkey.
-        if block_to_reset_after <= current_block {
-            // Reset the stakes for this hotkey for the current interval.
-            Self::set_stakes_this_interval_for_coldkey_hotkey(
-                coldkey,
-                hotkey,
-                0,
-                block_last_staked_at,
-            );
-            // Return 0 as the stake amount since we've just reset the stakes.
-            return 0;
-        }
-
-        // If the staking interval has not yet ended, return the current stake amount.
-        stakes
     }
 
     pub fn get_target_stakes_per_interval() -> u64 {
@@ -297,6 +261,9 @@ impl<T: Config> Pallet<T> {
         staking_hotkeys.retain(|h| h != hotkey);
         StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
 
+        // Update stake delta
+        StakeDeltaSinceLastEmissionDrain::<T>::remove(hotkey, coldkey);
+
         current_stake
     }
 
@@ -336,13 +303,6 @@ impl<T: Config> Pallet<T> {
     ) {
         // infallible
         let _ = T::Currency::deposit(coldkey, amount, Precision::BestEffort);
-    }
-
-    pub fn set_balance_on_coldkey_account(
-        coldkey: &T::AccountId,
-        amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
-    ) {
-        T::Currency::set_balance(coldkey, amount);
     }
 
     pub fn can_remove_balance_from_coldkey_account(
@@ -431,6 +391,9 @@ impl<T: Config> Pallet<T> {
 
             // Add the balance to the coldkey account.
             Self::add_balance_to_coldkey_account(&delegate_coldkey_i, stake_i);
+
+            // Remove stake delta
+            StakeDeltaSinceLastEmissionDrain::<T>::remove(hotkey, &delegate_coldkey_i);
         }
     }
 }

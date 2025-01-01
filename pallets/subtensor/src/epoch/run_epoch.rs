@@ -803,18 +803,6 @@ impl<T: Config> Pallet<T> {
         I32F32::from_num(Self::get_kappa(netuid)).saturating_div(I32F32::from_num(u16::MAX))
     }
 
-    pub fn get_normalized_stake(netuid: u16) -> Vec<I32F32> {
-        let n = Self::get_subnetwork_n(netuid);
-        let mut stake_64: Vec<I64F64> = (0..n)
-            .map(|neuron_uid| {
-                I64F64::from_num(Self::get_stake_for_uid_and_subnetwork(netuid, neuron_uid))
-            })
-            .collect();
-        inplace_normalize_64(&mut stake_64);
-        let stake: Vec<I32F32> = vec_fixed64_to_fixed32(stake_64);
-        stake
-    }
-
     pub fn get_block_at_registration(netuid: u16) -> Vec<u64> {
         let n = Self::get_subnetwork_n(netuid);
         let block_at_registration: Vec<u64> = (0..n)

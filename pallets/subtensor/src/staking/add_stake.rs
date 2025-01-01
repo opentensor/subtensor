@@ -62,17 +62,6 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyNotDelegateAndSignerNotOwnHotKey
         );
 
-        // Ensure we don't exceed stake rate limit
-        let stakes_this_interval =
-            Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey);
-        ensure!(
-            stakes_this_interval < Self::get_target_stakes_per_interval(),
-            Error::<T>::StakeRateLimitExceeded
-        );
-
-        // Set the last time the stake increased for nominator drain protection.
-        LastAddStakeIncrease::<T>::insert(&hotkey, &coldkey, Self::get_current_block_as_u64());
-
         // If coldkey is not owner of the hotkey, it's a nomination stake.
         if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
             let total_stake_after_add =
@@ -84,6 +73,8 @@ impl<T: Config> Pallet<T> {
             );
         }
 
+        Self::try_increase_staking_counter(&coldkey, &hotkey)?;
+
         // Ensure the remove operation from the coldkey is a success.
         let actual_amount_to_stake =
             Self::remove_balance_from_coldkey_account(&coldkey, stake_to_be_added)?;
@@ -91,17 +82,15 @@ impl<T: Config> Pallet<T> {
         // If we reach here, add the balance to the hotkey.
         Self::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, actual_amount_to_stake);
 
+        // Track this addition in the stake delta.
+        StakeDeltaSinceLastEmissionDrain::<T>::mutate(&hotkey, &coldkey, |stake_delta| {
+            *stake_delta = stake_delta.saturating_add_unsigned(stake_to_be_added as u128);
+        });
+
         // Set last block for rate limiting
-        let block: u64 = Self::get_current_block_as_u64();
+        let block = Self::get_current_block_as_u64();
         Self::set_last_tx_block(&coldkey, block);
 
-        // Emit the staking event.
-        Self::set_stakes_this_interval_for_coldkey_hotkey(
-            &coldkey,
-            &hotkey,
-            stakes_this_interval.saturating_add(1),
-            block,
-        );
         log::debug!(
             "StakeAdded( hotkey:{:?}, stake_to_be_added:{:?} )",
             hotkey,

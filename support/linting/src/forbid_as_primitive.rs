@@ -45,10 +45,11 @@ fn is_as_primitive(ident: &Ident) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use quote::quote;
 
-    fn lint(input: &str) -> Result {
-        let expr: ExprMethodCall = syn::parse_str(input).expect("should only use on a method call");
+    fn lint(input: proc_macro2::TokenStream) -> Result {
         let mut visitor = AsPrimitiveVisitor::default();
+        let expr: ExprMethodCall = syn::parse2(input).expect("should be a valid method call");
         visitor.visit_expr_method_call(&expr);
         if !visitor.errors.is_empty() {
             return Err(visitor.errors);
@@ -58,21 +59,21 @@ mod tests {
 
     #[test]
     fn test_as_primitives() {
-        let input = r#"x.as_u32()"#;
+        let input = quote! {x.as_u32() };
         assert!(lint(input).is_err());
-        let input = r#"x.as_u64()"#;
+        let input = quote! {x.as_u64() };
         assert!(lint(input).is_err());
-        let input = r#"x.as_u128()"#;
+        let input = quote! {x.as_u128() };
         assert!(lint(input).is_err());
-        let input = r#"x.as_usize()"#;
+        let input = quote! {x.as_usize() };
         assert!(lint(input).is_err());
     }
 
     #[test]
     fn test_non_as_primitives() {
-        let input = r#"x.as_ref()"#;
+        let input = quote! {x.as_ref() };
         assert!(lint(input).is_ok());
-        let input = r#"x.as_slice()"#;
+        let input = quote! {x.as_slice() };
         assert!(lint(input).is_ok());
     }
 }

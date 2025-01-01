@@ -4,6 +4,8 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod events {
+    use codec::Compact;
+
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
@@ -102,7 +104,7 @@ mod events {
         /// setting the RAO recycled for registration.
         RAORecycledForRegistrationSet(u16, u64),
         /// min stake is set for validators to set weights.
-        WeightsMinStake(u64),
+        StakeThresholdSet(u64),
         /// setting the minimum required stake amount for senate registration.
         SenateRequiredStakePercentSet(u64),
         /// setting the adjustment alpha on a subnet.
@@ -179,6 +181,8 @@ mod events {
             /// The account ID of the coldkey
             coldkey: T::AccountId,
         },
+        /// Setting of children of a hotkey have been scheduled
+        SetChildrenScheduled(T::AccountId, u16, u64, Vec<(u64, T::AccountId)>),
         /// The children of a hotkey have been set
         SetChildren(T::AccountId, u16, Vec<(u64, T::AccountId)>),
         /// The hotkey emission tempo has been set
@@ -204,5 +208,45 @@ mod events {
         ColdkeySwapScheduleDurationSet(BlockNumberFor<T>),
         /// The duration of dissolve network has been set
         DissolveNetworkScheduleDurationSet(BlockNumberFor<T>),
+        /// Commit-reveal v3 weights have been successfully committed.
+        ///
+        /// - **who**: The account ID of the user committing the weights.
+        /// - **netuid**: The network identifier.
+        /// - **commit_hash**: The hash representing the committed weights.
+        CRV3WeightsCommitted(T::AccountId, u16, H256),
+        /// Weights have been successfully committed.
+        ///
+        /// - **who**: The account ID of the user committing the weights.
+        /// - **netuid**: The network identifier.
+        /// - **commit_hash**: The hash representing the committed weights.
+        WeightsCommitted(T::AccountId, u16, H256),
+
+        /// Weights have been successfully revealed.
+        ///
+        /// - **who**: The account ID of the user revealing the weights.
+        /// - **netuid**: The network identifier.
+        /// - **commit_hash**: The hash of the revealed weights.
+        WeightsRevealed(T::AccountId, u16, H256),
+
+        /// Weights have been successfully batch revealed.
+        ///
+        /// - **who**: The account ID of the user revealing the weights.
+        /// - **netuid**: The network identifier.
+        /// - **revealed_hashes**: A vector of hashes representing each revealed weight set.
+        WeightsBatchRevealed(T::AccountId, u16, Vec<H256>),
+
+        /// A batch of weights (or commits) have been force-set.
+        ///
+        /// - **netuids**: The netuids these weights were successfully set/committed for.
+        /// - **who**: The hotkey that set this batch.
+        BatchWeightsCompleted(Vec<Compact<u16>>, T::AccountId),
+
+        /// A batch extrinsic completed but with some errors.
+        BatchCompletedWithErrors(),
+
+        /// A weight set among a batch of weights failed.
+        ///
+        /// - **error**: The dispatch error emitted by the failed item.
+        BatchWeightItemFailed(sp_runtime::DispatchError),
     }
 }

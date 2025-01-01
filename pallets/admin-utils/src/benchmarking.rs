@@ -1,7 +1,9 @@
 //! Benchmarking setup
 #![cfg(feature = "runtime-benchmarks")]
 #![allow(clippy::arithmetic_side_effects)]
-use super::*;
+
+extern crate alloc;
+use alloc::vec::Vec;
 
 #[allow(unused)]
 use crate::Pallet as AdminUtils;
@@ -9,6 +11,8 @@ use frame_benchmarking::v1::account;
 use frame_benchmarking::v2::*;
 use frame_support::BoundedVec;
 use frame_system::RawOrigin;
+
+use super::*;
 
 #[benchmarks]
 mod benchmarks {
@@ -31,6 +35,17 @@ mod benchmarks {
 
         #[extrinsic_call]
         _(RawOrigin::Root, value);
+    }
+
+    #[benchmark]
+    fn schedule_grandpa_change(a: Linear<0, 32>) {
+        let next_authorities = (1..=a)
+            .map(|idx| account("Authority", idx, 0u32))
+            .collect::<Vec<(sp_consensus_grandpa::AuthorityId, u64)>>();
+        let in_blocks = BlockNumberFor::<T>::from(42u32);
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, next_authorities, in_blocks, None);
     }
 
     #[benchmark]
@@ -235,7 +250,7 @@ mod benchmarks {
         );
 
         #[extrinsic_call]
-		_(RawOrigin::Root, 1u16/*netuid*/, 3u64/*interval*/)/*set_commit_reveal_weights_interval()*/;
+		_(RawOrigin::Root, 1u16/*netuid*/, 3u64/*interval*/)/*sudo_set_commit_reveal_weights_interval()*/;
     }
 
     #[benchmark]
