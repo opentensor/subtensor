@@ -78,9 +78,11 @@ impl<T: Config> Pallet<T> {
                     TotalIssuance::<T>::mutate(|total| *total = total.saturating_add(subnet_emission));
                 }
                 // 6.8: Inject Alpha into the pool reserves here.
-                SubnetAlphaIn::<T>::mutate(*netuid, |total| { *total = total.saturating_add(block_emission.to_num::<u64>())});
+                // DEPRECATED(const): Not injecting
+                // SubnetAlphaIn::<T>::mutate(*netuid, |total| { *total = total.saturating_add(block_emission.to_num::<u64>())});
                 // 6.9 Inject Alpha for distribution later.
-                PendingEmission::<T>::mutate(*netuid, |total| { *total = total.saturating_add(block_emission.to_num::<u64>())});
+                let subnet_alpha_emission: u64 = Self::get_block_emission_for_issuance(Self::get_alpha_issuance( *netuid )).unwrap_or( 0 );
+                PendingEmission::<T>::mutate(*netuid, |total| { *total = total.saturating_add( subnet_alpha_emission )});
             } else {
                 // The mechanism is Stable (FOR TESTING PURPOSES ONLY)
                 // 6.12. Increase Tao in the subnet "reserves" unconditionally.

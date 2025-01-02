@@ -4,6 +4,21 @@ use substrate_fixed::types::{I64F64, I96F32};
 
 impl<T: Config> Pallet<T> {
 
+
+    /// Retrieves the total alpha issuance for a given subnet.
+    ///
+    /// This function calculates the total alpha issuance by summing the alpha
+    /// values from `SubnetAlphaIn` and `SubnetAlphaOut` for the specified subnet.
+    ///
+    /// # Arguments
+    /// * `netuid` - The unique identifier of the subnet.
+    ///
+    /// # Returns
+    /// * `u64` - The total alpha issuance for the specified subnet.
+    pub fn get_alpha_issuance(netuid: u16) -> u64 {
+        return SubnetAlphaIn::<T>::get(netuid) + SubnetAlphaOut::<T>::get(netuid);
+    }
+
     /// Retrieves the global global weight as a normalized value between 0 and 1.
     ///
     /// This function performs the following steps:
