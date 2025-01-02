@@ -108,7 +108,7 @@ impl StakingPrecompile {
     }
 
     fn add_proxy(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
-        let delegate = Self::parse_pub_key(data)?;
+        let delegate = sp_runtime::MultiAddress::Address32(Self::parse_pub_key(data)?);
         let call = RuntimeCall::Proxy(pallet_proxy::Call::<Runtime>::add_proxy {
             delegate,
             proxy_type: ProxyType::Staking,
@@ -119,7 +119,7 @@ impl StakingPrecompile {
     }
 
     fn remove_proxy(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
-        let delegate = Self::parse_pub_key(data)?;
+        let delegate = sp_runtime::MultiAddress::Address32(Self::parse_pub_key(data)?);
         let call = RuntimeCall::Proxy(pallet_proxy::Call::<Runtime>::remove_proxy {
             delegate,
             proxy_type: ProxyType::Staking,
