@@ -113,6 +113,19 @@ impl pallet_drand::Config for Runtime {
     type HttpFetchTimeout = ConstU64<1_000>;
 }
 
+impl frame_system::offchain::SigningTypes for Runtime {
+    type Public = <Signature as Verify>::Signer;
+    type Signature = Signature;
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
+where
+    RuntimeCall: From<C>,
+{
+    type Extrinsic = UncheckedExtrinsic;
+    type OverarchingCall = RuntimeCall;
+}
+
 impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>> for Runtime {
     fn create_transaction<S: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
         call: RuntimeCall,
@@ -1532,6 +1545,17 @@ impl pallet_subtensor::Config for Runtime {
 }
 
 use sp_runtime::BoundedVec;
+
+pub struct GrandpaInterfaceImpl;
+impl pallet_admin_utils::GrandpaInterface<Runtime> for GrandpaInterfaceImpl {
+    fn schedule_change(
+        next_authorities: Vec<(pallet_grandpa::AuthorityId, u64)>,
+        in_blocks: BlockNumber,
+        forced: Option<BlockNumber>,
+    ) -> sp_runtime::DispatchResult {
+        Grandpa::schedule_change(next_authorities, in_blocks, forced)
+    }
+}
 
 pub struct GrandpaInterfaceImpl;
 impl pallet_admin_utils::GrandpaInterface<Runtime> for GrandpaInterfaceImpl {

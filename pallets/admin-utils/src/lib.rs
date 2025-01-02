@@ -12,7 +12,7 @@ use frame_system::pallet_prelude::BlockNumberFor;
 // - we could use a type parameter for `AuthorityId`, but there is
 //   no sense for this as GRANDPA's `AuthorityId` is not a parameter -- it's always the same
 use sp_consensus_grandpa::AuthorityList;
-use sp_runtime::DispatchResult;
+use sp_runtime::{traits::Member, DispatchResult, RuntimeAppPublic};
 
 mod benchmarking;
 
@@ -28,6 +28,7 @@ pub mod pallet {
     use frame_support::traits::tokens::Balance;
     use frame_system::pallet_prelude::*;
     use pallet_evm_chain_id::{self, ChainId};
+    use sp_runtime::BoundedVec;
 
     /// The main data structure of the module.
     #[pallet::pallet]
