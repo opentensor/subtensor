@@ -36,7 +36,10 @@ use sp_runtime::traits::Dispatchable;
 use sp_runtime::traits::{BlakeTwo256, UniqueSaturatedInto};
 use sp_runtime::AccountId32;
 
-use crate::precompiles::{get_method_id, get_slice};
+use crate::{
+    precompiles::{get_method_id, get_slice},
+    ProxyType,
+};
 use sp_std::vec;
 
 use crate::{Runtime, RuntimeCall};
@@ -52,21 +55,23 @@ impl StakingPrecompile {
             .get(4..)
             .map_or_else(vec::Vec::new, |slice| slice.to_vec()); // Avoiding borrowing conflicts
 
-        match method_id {
-            id if id == get_method_id("addStake(bytes32,uint16)") => {
-                Self::add_stake(handle, &method_input)
-            }
-            id if id == get_method_id("removeStake(bytes32,uint256,uint16)") => {
-                Self::remove_stake(handle, &method_input)
-            }
-            _ => Err(PrecompileFailure::Error {
+        if method_id == get_method_id("addStake(bytes32,uint16)") {
+            Self::add_stake(handle, &method_input)
+        } else if method_id == get_method_id("removeStake(bytes32,uint256,uint16)") {
+            Self::remove_stake(handle, &method_input)
+        } else if method_id == get_method_id("addProxy(bytes32)") {
+            Self::add_proxy(handle, &method_input)
+        } else if method_id == get_method_id("removeProxy(bytes32)") {
+            Self::remove_proxy(handle, &method_input)
+        } else {
+            Err(PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
-            }),
+            })
         }
     }
 
     fn add_stake(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
-        let hotkey = Self::parse_hotkey(data)?.into();
+        let hotkey = Self::parse_pub_key(data)?.into();
         let amount: U256 = handle.context().apparent_value;
         let amount_sub =
             <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
@@ -80,8 +85,9 @@ impl StakingPrecompile {
         // Dispatch the add_stake call
         Self::dispatch(handle, call)
     }
+
     fn remove_stake(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
-        let hotkey = Self::parse_hotkey(data)?.into();
+        let hotkey = Self::parse_pub_key(data)?.into();
 
         // We have to treat this as uint256 (because of Solidity ABI encoding rules, it pads uint64),
         // but this will never exceed 8 bytes, se we will ignore higher bytes and will only use lower
@@ -101,15 +107,37 @@ impl StakingPrecompile {
         Self::dispatch(handle, call)
     }
 
-    fn parse_hotkey(data: &[u8]) -> Result<[u8; 32], PrecompileFailure> {
+    fn add_proxy(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
+        let delegate = Self::parse_pub_key(data)?;
+        let call = RuntimeCall::Proxy(pallet_proxy::Call::<Runtime>::add_proxy {
+            delegate,
+            proxy_type: ProxyType::Staking,
+            delay: 0,
+        });
+
+        Self::dispatch(handle, call)
+    }
+
+    fn remove_proxy(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
+        let delegate = Self::parse_pub_key(data)?;
+        let call = RuntimeCall::Proxy(pallet_proxy::Call::<Runtime>::remove_proxy {
+            delegate,
+            proxy_type: ProxyType::Staking,
+            delay: 0,
+        });
+
+        Self::dispatch(handle, call)
+    }
+
+    fn parse_pub_key(data: &[u8]) -> Result<[u8; 32], PrecompileFailure> {
         if data.len() < 32 {
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
             });
         }
-        let mut hotkey = [0u8; 32];
-        hotkey.copy_from_slice(get_slice(data, 0, 32)?);
-        Ok(hotkey)
+        let mut pubkey = [0u8; 32];
+        pubkey.copy_from_slice(get_slice(data, 0, 32)?);
+        Ok(pubkey)
     }
 
     fn dispatch(handle: &mut impl PrecompileHandle, call: RuntimeCall) -> PrecompileResult {

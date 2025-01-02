@@ -3,6 +3,19 @@
         "inputs": [
             {
                 "internalType": "bytes32",
+                "name": "delegate",
+                "type": "bytes32"
+            }
+        ],
+        "name": "addProxy",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
                 "name": "hotkey",
                 "type": "bytes32"
             },
@@ -15,6 +28,19 @@
         "name": "addStake",
         "outputs": [],
         "stateMutability": "payable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "delegate",
+                "type": "bytes32"
+            }
+        ],
+        "name": "removeProxy",
+        "outputs": [],
+        "stateMutability": "nonpayable",
         "type": "function"
     },
     {
@@ -37,7 +63,7 @@
         ],
         "name": "removeStake",
         "outputs": [],
-        "stateMutability": "payable",
+        "stateMutability": "nonpayable",
         "type": "function"
     }
 ]

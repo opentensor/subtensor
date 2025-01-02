@@ -42,4 +42,18 @@ interface IStaking {
    * - The existing stake amount must be not lower than specified amount
    */
   function removeStake(bytes32 hotkey, uint256 amount, uint16 netuid) external;
+
+  /**
+   * @dev Delegates staking to a proxy account.
+   *
+   * @param delegate The public key (32 bytes) of the delegate.
+   */
+  function addProxy(bytes32 delegate) external;
+
+  /**
+   * @dev Removes staking proxy account.
+   *
+   * @param delegate The public key (32 bytes) of the delegate.
+   */
+  function removeProxy(bytes32 delegate) external;
 }
