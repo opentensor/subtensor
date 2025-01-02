@@ -2,7 +2,7 @@
 //!
 //! Should only be used for benchmarking as it may break in other contexts.
 
-use crate::service::Client;
+use crate::client::FullClient;
 
 use node_subtensor_runtime as runtime;
 use node_subtensor_runtime::check_nonce;
@@ -21,12 +21,12 @@ use std::{sync::Arc, time::Duration};
 //
 // Note: Should only be used for benchmarking.
 pub struct RemarkBuilder {
-    client: Arc<Client>,
+    client: Arc<FullClient>,
 }
 
 impl RemarkBuilder {
     // Creates a new [`Self`] from the given client.
-    pub fn new(client: Arc<Client>) -> Self {
+    pub fn new(client: Arc<FullClient>) -> Self {
         Self { client }
     }
 }
@@ -58,14 +58,14 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for RemarkBuilder {
 //
 // Note: Should only be used for benchmarking.
 pub struct TransferKeepAliveBuilder {
-    client: Arc<Client>,
+    client: Arc<FullClient>,
     dest: AccountId,
     value: Balance,
 }
 
 impl TransferKeepAliveBuilder {
     // Creates a new [`Self`] from the given client.
-    pub fn new(client: Arc<Client>, dest: AccountId, value: Balance) -> Self {
+    pub fn new(client: Arc<FullClient>, dest: AccountId, value: Balance) -> Self {
         Self {
             client,
             dest,
@@ -105,7 +105,7 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for TransferKeepAliveBuilder {
 //
 // Note: Should only be used for benchmarking.
 pub fn create_benchmark_extrinsic(
-    client: &Client,
+    client: &FullClient,
     sender: sp_core::sr25519::Pair,
     call: runtime::RuntimeCall,
     nonce: u32,

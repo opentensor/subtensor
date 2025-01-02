@@ -301,8 +301,9 @@ impl<T: Config> Pallet<T> {
 
     /// Checks if registrations are allowed for a given subnet.
     ///
-    /// This function retrieves the subnet hyperparameters for the specified subnet and checks the `registration_allowed` flag.
-    /// If the subnet doesn't exist or doesn't have hyperparameters defined, it returns `false`.
+    /// This function retrieves the subnet hyperparameters for the specified subnet and checks the
+    /// `registration_allowed` flag. If the subnet doesn't exist or doesn't have hyperparameters
+    /// defined, it returns `false`.
     ///
     /// # Arguments
     ///
@@ -783,7 +784,7 @@ impl<T: Config> Pallet<T> {
 
         // Check to see if the hotkey has enough stake to set weights.
         ensure!(
-            Self::get_total_stake_for_hotkey(&hotkey) >= Self::get_weights_min_stake(),
+            Self::get_total_stake_for_hotkey(&hotkey) >= Self::get_stake_threshold(),
             Error::<T>::NotEnoughStakeToSetWeights
         );
 
@@ -916,10 +917,8 @@ impl<T: Config> Pallet<T> {
         let coldkey = ensure_signed(origin)?;
 
         // --- 1. Rate limit for network registrations.
-        let current_block = Self::get_current_block_as_u64();
-        let last_lock_block = Self::get_network_last_lock_block();
         ensure!(
-            current_block.saturating_sub(last_lock_block) >= NetworkRateLimit::<T>::get(),
+            Self::passes_rate_limit(&TransactionType::RegisterNetwork, &coldkey),
             Error::<T>::NetworkTxRateLimitExceeded
         );
 
@@ -1337,6 +1336,9 @@ impl<T: Config> Pallet<T> {
     }
     pub fn get_network_last_lock_block() -> u64 {
         NetworkLastRegistered::<T>::get()
+    }
+    pub fn set_network_last_lock_block(block: u64) {
+        NetworkLastRegistered::<T>::set(block);
     }
     pub fn set_lock_reduction_interval(interval: u64) {
         NetworkLockReductionInterval::<T>::set(interval);

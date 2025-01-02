@@ -144,9 +144,9 @@ impl<T: Config> Pallet<T> {
         *updated_validator_permit = validator_permit;
         ValidatorPermit::<T>::insert(netuid, updated_validator_permits);
     }
-    pub fn set_weights_min_stake(min_stake: u64) {
-        WeightsMinStake::<T>::put(min_stake);
-        Self::deposit_event(Event::WeightsMinStake(min_stake));
+    pub fn set_stake_threshold(min_stake: u64) {
+        StakeThreshold::<T>::put(min_stake);
+        Self::deposit_event(Event::StakeThresholdSet(min_stake));
     }
     pub fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
         TargetStakesPerInterval::<T>::set(target_stakes_per_interval);
@@ -154,18 +154,37 @@ impl<T: Config> Pallet<T> {
             target_stakes_per_interval,
         ));
     }
-    pub fn set_stakes_this_interval_for_coldkey_hotkey(
+
+    // Counts staking events within the [`StakeInterval`]. It increases the counter by 1 in case no
+    // limit exceeded, otherwise returns an error.
+    pub(crate) fn try_increase_staking_counter(
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
-        stakes_this_interval: u64,
-        last_staked_block_number: u64,
-    ) {
-        TotalHotkeyColdkeyStakesThisInterval::<T>::insert(
-            coldkey,
-            hotkey,
-            (stakes_this_interval, last_staked_block_number),
+    ) -> DispatchResult {
+        let current_block = Self::get_current_block_as_u64();
+        let stake_interval = StakeInterval::<T>::get();
+        let stakes_limit = TargetStakesPerInterval::<T>::get();
+        let (stakes_count, last_staked_at) =
+            TotalHotkeyColdkeyStakesThisInterval::<T>::get(coldkey, hotkey);
+
+        // Reset staking counter if it's been stake_interval blocks since the first staking action of the series.
+        if stakes_count == 0 || last_staked_at.saturating_add(stake_interval) <= current_block {
+            TotalHotkeyColdkeyStakesThisInterval::<T>::insert(coldkey, hotkey, (1, current_block));
+            return Ok(());
+        }
+
+        ensure!(
+            stakes_count < stakes_limit,
+            Error::<T>::StakingRateLimitExceeded
         );
+
+        TotalHotkeyColdkeyStakesThisInterval::<T>::mutate(coldkey, hotkey, |(count, _)| {
+            *count = count.saturating_add(1);
+        });
+
+        Ok(())
     }
+
     pub fn set_stake_interval(block: u64) {
         StakeInterval::<T>::set(block);
     }
@@ -213,8 +232,8 @@ impl<T: Config> Pallet<T> {
         let vec = ValidatorPermit::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(false)
     }
-    pub fn get_weights_min_stake() -> u64 {
-        WeightsMinStake::<T>::get()
+    pub fn get_stake_threshold() -> u64 {
+        StakeThreshold::<T>::get()
     }
 
     // ============================
@@ -424,9 +443,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::AdjustmentAlphaSet(netuid, adjustment_alpha));
     }
 
-    pub fn get_validator_prune_len(netuid: u16) -> u64 {
-        ValidatorPruneLen::<T>::get(netuid)
-    }
     pub fn set_validator_prune_len(netuid: u16, validator_prune_len: u64) {
         ValidatorPruneLen::<T>::insert(netuid, validator_prune_len);
         Self::deposit_event(Event::ValidatorPruneLenSet(netuid, validator_prune_len));

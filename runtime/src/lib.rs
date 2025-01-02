@@ -38,6 +38,7 @@ use sp_core::{
     crypto::{ByteArray, KeyTypeId},
     OpaqueMetadata, H160, H256, U256,
 };
+use sp_runtime::generic::Era;
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     traits::{
@@ -86,6 +87,65 @@ use precompiles::FrontierPrecompiles;
 use fp_rpc::TransactionStatus;
 use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
 use pallet_evm::{Account as EVMAccount, BalanceConverter, FeeCalculator, Runner};
+
+// Drand
+impl pallet_drand::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = pallet_drand::weights::SubstrateWeight<Runtime>;
+    type AuthorityId = pallet_drand::crypto::TestAuthId;
+    type Verifier = pallet_drand::verifier::QuicknetVerifier;
+    type UnsignedPriority = ConstU64<{ 1 << 20 }>;
+    type HttpFetchTimeout = ConstU64<1_000>;
+}
+
+impl frame_system::offchain::SigningTypes for Runtime {
+    type Public = <Signature as Verify>::Signer;
+    type Signature = Signature;
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
+where
+    RuntimeCall: From<C>,
+{
+    type Extrinsic = UncheckedExtrinsic;
+    type OverarchingCall = RuntimeCall;
+}
+
+impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>> for Runtime {
+    fn create_transaction<S: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+        call: RuntimeCall,
+        public: <Signature as Verify>::Signer,
+        account: AccountId,
+        index: Index,
+    ) -> Option<(
+        RuntimeCall,
+        <UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
+    )> {
+        use sp_runtime::traits::StaticLookup;
+
+        let address = <Runtime as frame_system::Config>::Lookup::unlookup(account.clone());
+        let extra: SignedExtra = (
+            frame_system::CheckNonZeroSender::<Runtime>::new(),
+            frame_system::CheckSpecVersion::<Runtime>::new(),
+            frame_system::CheckTxVersion::<Runtime>::new(),
+            frame_system::CheckGenesis::<Runtime>::new(),
+            frame_system::CheckEra::<Runtime>::from(Era::Immortal),
+            check_nonce::CheckNonce::<Runtime>::from(index),
+            frame_system::CheckWeight::<Runtime>::new(),
+            pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
+            pallet_subtensor::SubtensorSignedExtension::<Runtime>::new(),
+            pallet_commitments::CommitmentsSignedExtension::<Runtime>::new(),
+            frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
+        );
+
+        let raw_payload = SignedPayload::new(call.clone(), extra.clone()).ok()?;
+        let signature = raw_payload.using_encoded(|payload| S::sign(payload, public))?;
+
+        let signature_payload = (address, signature, extra);
+
+        Some((call, signature_payload))
+    }
+}
 
 // Subtensor module
 pub use pallet_scheduler;
@@ -160,7 +220,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 208,
+    spec_version: 217,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1061,22 +1121,40 @@ impl pallet_admin_utils::AuraInterface<AuraId, ConstU32<32>> for AuraPalletIntrf
     }
 }
 
+pub struct GrandpaInterfaceImpl;
+impl pallet_admin_utils::GrandpaInterface<Runtime> for GrandpaInterfaceImpl {
+    fn schedule_change(
+        next_authorities: Vec<(pallet_grandpa::AuthorityId, u64)>,
+        in_blocks: BlockNumber,
+        forced: Option<BlockNumber>,
+    ) -> sp_runtime::DispatchResult {
+        Grandpa::schedule_change(next_authorities, in_blocks, forced)
+    }
+}
+
 impl pallet_admin_utils::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type AuthorityId = AuraId;
     type MaxAuthorities = ConstU32<32>;
     type Aura = AuraPalletIntrf;
+    type Grandpa = GrandpaInterfaceImpl;
     type Balance = Balance;
     type WeightInfo = pallet_admin_utils::weights::SubstrateWeight<Runtime>;
 }
 
-// Define the ChainId
-parameter_types! {
-    pub const SubtensorChainId: u64 = 0x03B1; // Unicode for lowercase alpha
-    // pub const SubtensorChainId: u64 = 0x03C4; // Unicode for lowercase tau
-}
-
+/// Define the ChainId
+/// EVM Chain ID will be set by sudo transaction for each chain
+///     Mainnet Finney: 0x03C4 - Unicode for lowercase tau
+///     TestNet Finney: 0x03B1 - Unicode for lowercase alpha
 impl pallet_evm_chain_id::Config for Runtime {}
+
+pub struct ConfigurableChainId;
+
+impl Get<u64> for ConfigurableChainId {
+    fn get() -> u64 {
+        pallet_evm_chain_id::ChainId::<Runtime>::get()
+    }
+}
 
 pub struct FindAuthorTruncated<F>(PhantomData<F>);
 impl<F: FindAuthor<u32>> FindAuthor<H160> for FindAuthorTruncated<F> {
@@ -1119,18 +1197,34 @@ parameter_types! {
 const EVM_DECIMALS_FACTOR: u64 = 1_000_000_000_u64;
 
 pub struct SubtensorEvmBalanceConverter;
+
 impl BalanceConverter for SubtensorEvmBalanceConverter {
+    /// Convert from Substrate balance (u64) to EVM balance (U256)
     fn into_evm_balance(value: U256) -> Option<U256> {
-        U256::from(UniqueSaturatedInto::<u128>::unique_saturated_into(value))
+        value
             .checked_mul(U256::from(EVM_DECIMALS_FACTOR))
+            .and_then(|evm_value| {
+                // Ensure the result fits within the maximum U256 value
+                if evm_value <= U256::MAX {
+                    Some(evm_value)
+                } else {
+                    None
+                }
+            })
     }
 
+    /// Convert from EVM balance (U256) to Substrate balance (u64)
     fn into_substrate_balance(value: U256) -> Option<U256> {
-        if value <= U256::from(u64::MAX) {
-            value.checked_div(U256::from(EVM_DECIMALS_FACTOR))
-        } else {
-            None
-        }
+        value
+            .checked_div(U256::from(EVM_DECIMALS_FACTOR))
+            .and_then(|substrate_value| {
+                // Ensure the result fits within the TAO balance type (u64)
+                if substrate_value <= U256::from(u64::MAX) {
+                    Some(substrate_value)
+                } else {
+                    None
+                }
+            })
     }
 }
 
@@ -1146,7 +1240,7 @@ impl pallet_evm::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type PrecompilesType = FrontierPrecompiles<Self>;
     type PrecompilesValue = PrecompilesValue;
-    type ChainId = SubtensorChainId;
+    type ChainId = ConfigurableChainId;
     type BlockGasLimit = BlockGasLimit;
     type Runner = pallet_evm::runner::stack::Runner<Self>;
     type OnChargeTransaction = ();
@@ -1314,6 +1408,8 @@ construct_runtime!(
         EVMChainId: pallet_evm_chain_id = 23,
         DynamicFee: pallet_dynamic_fee = 24,
         BaseFee: pallet_base_fee = 25,
+
+        Drand: pallet_drand = 26,
     }
 );
 
@@ -1382,6 +1478,7 @@ mod benches {
         [pallet_commitments, Commitments]
         [pallet_admin_utils, AdminUtils]
         [pallet_subtensor, SubtensorModule]
+        [pallet_drand, Drand]
     );
 }
 
@@ -1738,6 +1835,7 @@ impl_runtime_apis! {
                 };
 
             let whitelist = pallet_evm::WhitelistedCreators::<Runtime>::get();
+            let whitelist_disabled = pallet_evm::DisableWhitelistCheck::<Runtime>::get();
             <Runtime as pallet_evm::Config>::Runner::create(
                 from,
                 data,
@@ -1748,6 +1846,7 @@ impl_runtime_apis! {
                 nonce,
                 access_list.unwrap_or_default(),
                 whitelist,
+                whitelist_disabled,
                 false,
                 true,
                 weight_limit,
@@ -1851,7 +1950,10 @@ impl_runtime_apis! {
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
 
+            #[allow(non_local_definitions)]
             impl frame_system_benchmarking::Config for Runtime {}
+
+            #[allow(non_local_definitions)]
             impl baseline::Config for Runtime {}
 
             use frame_support::traits::WhitelistedStorageKeys;
@@ -2003,9 +2105,6 @@ impl_runtime_apis! {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-
 #[test]
 fn check_whitelist() {
     use crate::*;
@@ -2028,4 +2127,72 @@ fn check_whitelist() {
     // System Events
     assert!(whitelist.contains("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7"));
 }
-// }
+
+#[test]
+fn test_into_substrate_balance_valid() {
+    // Valid conversion within u64 range
+    let evm_balance = U256::from(1_000_000_000_000_000_000u128); // 1 TAO in EVM
+    let expected_substrate_balance = U256::from(1_000_000_000u128); // 1 TAO in Substrate
+
+    let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
+    assert_eq!(result, Some(expected_substrate_balance));
+}
+
+#[test]
+fn test_into_substrate_balance_large_value() {
+    // Maximum valid balance for u64
+    let evm_balance = U256::from(u64::MAX) * U256::from(EVM_DECIMALS_FACTOR); // Max u64 TAO in EVM
+    let expected_substrate_balance = U256::from(u64::MAX);
+
+    let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
+    assert_eq!(result, Some(expected_substrate_balance));
+}
+
+#[test]
+fn test_into_substrate_balance_exceeds_u64() {
+    // EVM balance that exceeds u64 after conversion
+    let evm_balance = (U256::from(u64::MAX) + U256::from(1)) * U256::from(EVM_DECIMALS_FACTOR);
+
+    let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
+    assert_eq!(result, None); // Exceeds u64, should return None
+}
+
+#[test]
+fn test_into_substrate_balance_precision_loss() {
+    // EVM balance with precision loss
+    let evm_balance = U256::from(1_000_000_000_123_456_789u128); // 1 TAO + extra precision in EVM
+    let expected_substrate_balance = U256::from(1_000_000_000u128); // Truncated to 1 TAO in Substrate
+
+    let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
+    assert_eq!(result, Some(expected_substrate_balance));
+}
+
+#[test]
+fn test_into_substrate_balance_zero_value() {
+    // Zero balance should convert to zero
+    let evm_balance = U256::from(0);
+    let expected_substrate_balance = U256::from(0);
+
+    let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
+    assert_eq!(result, Some(expected_substrate_balance));
+}
+
+#[test]
+fn test_into_evm_balance_valid() {
+    // Valid conversion from Substrate to EVM
+    let substrate_balance = U256::from(1_000_000_000u128); // 1 TAO in Substrate
+    let expected_evm_balance = U256::from(1_000_000_000_000_000_000u128); // 1 TAO in EVM
+
+    let result = SubtensorEvmBalanceConverter::into_evm_balance(substrate_balance);
+    assert_eq!(result, Some(expected_evm_balance));
+}
+
+#[test]
+fn test_into_evm_balance_overflow() {
+    // Substrate balance larger than u64::MAX but valid within U256
+    let substrate_balance = U256::from(u64::MAX) + U256::from(1); // Large balance
+    let expected_evm_balance = substrate_balance * U256::from(EVM_DECIMALS_FACTOR);
+
+    let result = SubtensorEvmBalanceConverter::into_evm_balance(substrate_balance);
+    assert_eq!(result, Some(expected_evm_balance)); // Should return the scaled value
+}
