@@ -204,7 +204,7 @@ impl<T: Config> Pallet<T> {
         current_stake >= decrement
     }
 
-     /// Retrieves the alpha (stake) value for a given hotkey and coldkey pair on a specific subnet.
+    /// Retrieves the alpha (stake) value for a given hotkey and coldkey pair on a specific subnet.
     ///
     /// This function performs the following steps:
     /// 1. Takes the hotkey, coldkey, and subnet ID as input parameters.
@@ -247,7 +247,7 @@ impl<T: Config> Pallet<T> {
         let coldkey_alphas: I96F32 = alphas_per_share.saturating_mul( I96F32::from_num( coldkey_shares ) );
 
         // Return 
-        coldkey_alphas.to_num::<u64>()
+        return coldkey_alphas.to_num::<u64>();
     }
 
     /// Retrieves the total stake (alpha) for a given hotkey on a specific subnet.
@@ -321,49 +321,38 @@ impl<T: Config> Pallet<T> {
     /// * `netuid` - The unique identifier of the subnet.
     /// * `amount` - The amount of alpha to be added.
     ///
-    pub fn increase_stake_for_hotkey_and_coldkey_on_subnet(  
+    pub fn increase_stake_for_hotkey_and_coldkey_on_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: u16,
-        amount: u64 
+        amount: u64
     ) {
-
         // Step 1: Get the total number of shares associated with this hotkey on this subnet.
         let total_hotkey_shares: u64 = TotalHotkeyShares::<T>::get(hotkey, netuid);
 
-        // Step 2: Increment the total amount of alpha on this subnet.
-        TotalHotkeyAlpha::<T>::mutate( hotkey, netuid, |total| {
-            *total = total.saturating_add(amount);
-        });
-
-        // Step 3: Get the new total alpha for this hotkey on this subnet.
-        let new_total_hotkey_alpha: u64 = TotalHotkeyAlpha::<T>::get(hotkey, netuid);
-
-        // Step 4: Compute shares bought.
+        // Step 2: Determine the increase in pool stake.
         let alpha_shares_bought: u64 = if total_hotkey_shares == 0 {
-            // Step 5a: No shares, we use the initial value as the shares to bootstrap.
+            // Step 3a: No shares, we use the initial value as the shares to bootstrap.
             amount
         } else {
-            // Step 5b: Get the price per share: total_alpha / total_shares
-            let price_per_share: I96F32 = I96F32::from_num(new_total_hotkey_alpha)
-                .checked_div(I96F32::from_num(total_hotkey_shares))
-                .unwrap_or(I96F32::from_num(0.0));
-
-            // Step 5c: Attain the number of shares: alpha / price_per_alpha
-            (I96F32::from_num(amount)
-                .checked_div(price_per_share)
-                .unwrap_or(I96F32::from_num(0.0)))
-            .to_num::<u64>()
+            // Step 3b: Calculate the increase in shares.
+            let increase = I96F32::from_num(amount) / I96F32::from_num(TotalHotkeyAlpha::<T>::get(hotkey, netuid));
+            (increase * I96F32::from_num(total_hotkey_shares)).to_num::<u64>()
         };
 
-        // Step 6: Increment the total number of shares associated with this hotkey on this subnet.
-        TotalHotkeyShares::<T>::mutate( hotkey, netuid , |total| {
+        // Step 4: Issue the shares.
+        Alpha::<T>::mutate((hotkey, coldkey, netuid), |total| {
             *total = total.saturating_add(alpha_shares_bought);
         });
 
-        // Step 7: Actually set the shares here in the map.
-        Alpha::<T>::mutate((hotkey, coldkey, netuid), |total| {
+        // Step 5: Increment the total number of shares associated with this hotkey on this subnet.
+        TotalHotkeyShares::<T>::mutate(hotkey, netuid, |total| {
             *total = total.saturating_add(alpha_shares_bought);
+        });
+
+        // Step 6: Increase the pool stake.
+        TotalHotkeyAlpha::<T>::mutate(hotkey, netuid, |total| {
+            *total = total.saturating_add(amount);
         });
     }
 
@@ -377,13 +366,12 @@ impl<T: Config> Pallet<T> {
     /// * `netuid` - The unique identifier of the subnet.
     /// * `amount` - The amount of alpha to be added.
     ///
-    pub fn decrease_stake_for_hotkey_and_coldkey_on_subnet(  
+    pub fn decrease_stake_for_hotkey_and_coldkey_on_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: u16,
-        amount: u64 
+        amount: u64
     ) {
-
         // Step 1: Get the total shares on this hotkey.
         let total_hotkey_shares: u64 = TotalHotkeyShares::<T>::get(hotkey, netuid);
 
@@ -395,46 +383,44 @@ impl<T: Config> Pallet<T> {
             return;
         }
 
-        // Step 4: Get the price per share: total_alpha / total_shares
-        let price_per_share: I96F32 = I96F32::from_num( total_hotkey_alpha ).checked_div( I96F32::from_num( total_hotkey_shares ) ).unwrap_or( I96F32::from_num( 0.0) );
-        
-        // Step 5: Attain the number of shares sold: alpha_unstaked / price_per_alpha
-        let alpha_shares_sold: u64 = (I96F32::from_num( amount ).checked_div( I96F32::from_num( price_per_share )).unwrap_or( I96F32::from_num( 0.0 ) )).to_num::<u64>();
+        // Step 4: Calculate the decrease in shares.
+        let decrease = I96F32::from_num(amount) / I96F32::from_num(total_hotkey_alpha);
+        let alpha_shares_sold = (decrease * I96F32::from_num(total_hotkey_shares)).to_num::<u64>();
 
-        // Step 6: Ensure we are not selling more shares than we have.
-        let current_alpha_shares: u64 = Alpha::<T>::get( (hotkey, coldkey, netuid) );
+        // Step 5: Ensure we are not selling more shares than we have.
+        let current_alpha_shares: u64 = Alpha::<T>::get((hotkey, coldkey, netuid));
         if alpha_shares_sold > current_alpha_shares {
             return;
         }
 
-        // Step 7: Decrement the amount of alpha associated with the hotkey.
-        TotalHotkeyAlpha::<T>::mutate_exists( hotkey, netuid, |maybe_total| {
-            if let Some(total) = maybe_total {
-                let new_total = total.saturating_sub( amount );
-                if new_total == 0 {
-                    *maybe_total = None;
-                } else {
-                    *total = new_total;
-                }
-            }
-        });
-
-        // Step 9: Decrement the number of shares here.
-        TotalHotkeyShares::<T>::mutate_exists( hotkey, netuid , |maybe_total| {
-            if let Some(total) = maybe_total {
-                let new_total = total.saturating_sub(alpha_shares_sold);
-                if new_total == 0 {
-                    *maybe_total = None;
-                } else {
-                    *total = new_total;
-                }
-            }
-        });
-
-        // Step 10: Actually reduce the number of shares here.
+        // Step 6: Decrement the number of shares for the coldkey.
         Alpha::<T>::mutate_exists((hotkey, coldkey, netuid), |maybe_total| {
             if let Some(total) = maybe_total {
                 let new_total = total.saturating_sub(alpha_shares_sold);
+                if new_total == 0 {
+                    *maybe_total = None;
+                } else {
+                    *total = new_total;
+                }
+            }
+        });
+
+        // Step 7: Decrement the total number of shares associated with this hotkey on this subnet.
+        TotalHotkeyShares::<T>::mutate_exists(hotkey, netuid, |maybe_total| {
+            if let Some(total) = maybe_total {
+                let new_total = total.saturating_sub(alpha_shares_sold);
+                if new_total == 0 {
+                    *maybe_total = None;
+                } else {
+                    *total = new_total;
+                }
+            }
+        });
+
+        // Step 8: Decrease the pool stake.
+        TotalHotkeyAlpha::<T>::mutate_exists(hotkey, netuid, |maybe_total| {
+            if let Some(total) = maybe_total {
+                let new_total = total.saturating_sub(amount);
                 if new_total == 0 {
                     *maybe_total = None;
                 } else {

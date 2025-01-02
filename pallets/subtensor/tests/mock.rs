@@ -679,7 +679,6 @@ pub fn setup_dynamic_network(prm: &DynamicSubnetSetupParameters) {
         });
 
     // Setup parameters
-    SubtensorModule::set_hotkey_emission_tempo(prm.hotkey_tempo);
     SubtensorModule::set_weights_set_rate_limit(prm.netuid, 0);
     step_block(prm.subnet_tempo);
     pallet_subtensor::SubnetOwnerCut::<Test>::set(u16::MAX / 5);
