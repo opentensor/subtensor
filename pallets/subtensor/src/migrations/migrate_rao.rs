@@ -60,7 +60,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
             // Give root a single RAO in pool to avoid any catestrophic division by zero.
             SubnetAlphaIn::<T>::insert(netuid, 1);
             SubnetMechanism::<T>::insert(netuid, 0); // Set to zero mechanism.
-            TokenSymbol::<T>::insert(netuid, b"tau".to_vec());
+            TokenSymbol::<T>::insert(netuid, get_symbol_for_subnet(*netuid));
             continue;
         }
         let owner: T::AccountId = SubnetOwner::<T>::get(netuid);
