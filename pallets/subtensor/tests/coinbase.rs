@@ -28,10 +28,13 @@ fn test_dynamic_flow() {
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
         add_network(netuid, 110, 100);
+        Tempo::<Test>::insert(netuid, 1);
         SubnetMechanism::<Test>::insert(netuid, 1);
         SubnetTAO::<Test>::insert(netuid, 10_000_000_000); // 10 TAO
         SubnetAlphaIn::<Test>::insert(netuid, 100_000_000_000); // 100 Alpha
+        SubtensorModule::register_neuron( netuid, &hotkey );
+        SubtensorModule::stake_into_subnet( &hotkey, &coldkey, netuid, stake ); // Add Stake to hotkey.
         step_block(1);
-
+        assert_eq!( SubnetAlphaOut::<Test>::get( netuid ), 909978998 );
     });
 }
