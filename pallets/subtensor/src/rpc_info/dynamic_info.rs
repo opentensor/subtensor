@@ -18,6 +18,7 @@ pub struct DynamicInfo<T: Config> {
     tao_in: Compact<u64>,
     total_locked: Compact<u64>,
     owner_locked: Compact<u64>,
+    
 }
 
 impl<T: Config> Pallet<T> {

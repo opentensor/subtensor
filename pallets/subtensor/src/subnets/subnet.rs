@@ -1,6 +1,7 @@
 use super::*;
 use frame_support::IterableStorageMap;
 use sp_core::Get;
+use crate::subnets::symbols::get_symbol_for_subnet;
 
 impl<T: Config> Pallet<T> {
     /// Fetches the total count of subnets.
@@ -191,8 +192,9 @@ impl<T: Config> Pallet<T> {
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
 
         // --- 14. Init the pool by putting the lock as the initial alpha.
-        SubnetTAO::<T>::insert(netuid_to_register, 1); // add the TAO to the pool.
-        SubnetAlphaIn::<T>::insert(netuid_to_register, 1); // Set the alpha in based on the lock.
+        TokenSymbol::<T>::insert(netuid_to_register, get_symbol_for_subnet(netuid_to_register) ); // Set subnet token symbol.
+        SubnetTAO::<T>::insert(netuid_to_register, 1); // add the infintesimal amount of TAO to the pool.
+        SubnetAlphaIn::<T>::insert(netuid_to_register, 1); // add infintesimal amount of alpha to the pool.
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
         SubnetOwnerHotkey::<T>::insert(netuid_to_register, hotkey.clone());
 

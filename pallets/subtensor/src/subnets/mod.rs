@@ -6,3 +6,4 @@ pub mod subnet;
 pub mod tempo;
 pub mod uids;
 pub mod weights;
+pub mod symbols;

@@ -125,7 +125,8 @@ impl<T: Config> Pallet<T> {
 
         // Tokens are not burned but instead added to the TAO side of the pool.
         // This changes K and increases the price of alpha.
-        SubnetTAO::<T>::mutate(netuid, |val| val.saturating_sub(actual_burn_amount));
+        let _burned_alpha: u64 = Self::swap_tao_for_alpha( netuid, actual_burn_amount );
+        // SubnetTAO::<T>::mutate(netuid, |val| val.saturating_sub(actual_burn_amount));
 
         // --- 9. If the network account does not exist we will create it here.
         Self::create_account_if_non_existent(&coldkey, &hotkey);

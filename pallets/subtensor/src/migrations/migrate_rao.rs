@@ -3,6 +3,7 @@ use alloc::string::String;
 use frame_support::IterableStorageMap;
 use frame_support::{traits::Get, weights::Weight};
 use log;
+use crate::subnets::symbols::get_symbol_for_subnet;
 
 pub fn migrate_rao<T: Config>() -> Weight {
     let migration_name = b"migrate_rao".to_vec();
@@ -49,7 +50,6 @@ pub fn migrate_rao<T: Config>() -> Weight {
         TotalHotkeyAlpha::<T>::mutate(hotkey.clone(), 0, |total| {
             *total = total.saturating_add(stake)
         });
-        TokenSymbol::<T>::insert(0, b"tau".to_vec());
         // 6 reads and 6 writes.
         weight = weight.saturating_add(T::DbWeight::get().reads_writes(6, 6));
     });
@@ -60,6 +60,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
             // Give root a single RAO in pool to avoid any catestrophic division by zero.
             SubnetAlphaIn::<T>::insert(netuid, 1);
             SubnetMechanism::<T>::insert(netuid, 0); // Set to zero mechanism.
+            TokenSymbol::<T>::insert(netuid, b"tau".to_vec());
             continue;
         }
         let owner: T::AccountId = SubnetOwner::<T>::get(netuid);
@@ -72,9 +73,13 @@ pub fn migrate_rao<T: Config>() -> Weight {
         Tempo::<T>::insert(netuid, DefaultTempo::<T>::get());
         // Set global weight to 1.0 for the start
         TaoWeight::<T>::insert(netuid, u64::MAX);
+        
+        // Set the token symbol for this subnet using Self instead of Pallet::<T>
+        TokenSymbol::<T>::insert(netuid, get_symbol_for_subnet(*netuid));
+
         // HotkeyEmissionTempo::<T>::put(30); // same as subnet tempo // (DEPRECATED)
-		// Set the target stakes per interval to 10.
-		// TargetStakesPerInterval::<T>::put(10); (DEPRECATED)
+        // Set the target stakes per interval to 10.
+        // TargetStakesPerInterval::<T>::put(10); (DEPRECATED)
     }
 
     // Mark the migration as completed
