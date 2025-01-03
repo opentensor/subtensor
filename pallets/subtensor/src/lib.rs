@@ -623,6 +623,11 @@ pub mod pallet {
     pub fn DefaultStakeDelta<T: Config>() -> i128 {
         0
     }
+    #[pallet::type_value]
+    /// Default unicode vector for tau symbol.
+    pub fn DefaultUnicodeVecU8<T: Config>() -> Vec<u8> {
+        b"\xF0\x9D\x9C\x8F".to_vec() // Unicode for tau (𝜏)
+    }
 
     #[pallet::type_value]
     /// Default value for coldkey swap schedule duration
@@ -753,6 +758,9 @@ pub mod pallet {
         Vec<T::AccountId>,
         ValueQuery,
     >;
+    #[pallet::storage] // --- DMAP ( netuid ) --> token_symbol | Returns the token symbol for a subnet.
+    pub type TokenSymbol<T: Config> = StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
+
 
     /// ============================
     /// ==== Staking Variables ====

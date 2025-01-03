@@ -53,6 +53,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
         TotalHotkeyAlpha::<T>::mutate(hotkey.clone(), 0, |total| {
             *total = total.saturating_add(stake)
         });
+        TokenSymbol::<T>::insert(0, b"tau".to_vec());
         // 6 reads and 6 writes.
         weight = weight.saturating_add(T::DbWeight::get().reads_writes(6, 6));
     });
