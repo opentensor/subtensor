@@ -37,18 +37,25 @@ impl<T: Config> Pallet<T> {
             if *netuid == 0 {continue;}
             // 5.1: Get subnet mechanism ID
             let mechid: u16 = SubnetMechanism::<T>::get(*netuid);
+            log::debug!("Netuid: {:?}, Mechanism ID: {:?}", netuid, mechid);
             // 5.2: Get subnet TAO (T_s)
             let subnet_tao: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(*netuid));
+            log::debug!("Subnet TAO (T_s) for netuid {:?}: {:?}", netuid, subnet_tao);
             // 5.3: Get the denominator as the sum of all TAO associated with a specific mechanism (T_m)
             let mech_tao: I96F32 = *mechanism_tao.get(&mechid).unwrap_or(&I96F32::from_num(0));
+            log::debug!("Mechanism TAO (T_m) for mechanism ID {:?}: {:?}", mechid, mech_tao);
             // 5.4: Compute the mechanism emission proportion: P_m = T_m / T_total
             let mech_proportion: I96F32 = mech_tao.checked_div(total_active_tao).unwrap_or(I96F32::from_num(0));
+            log::debug!("Mechanism proportion (P_m) for mechanism ID {:?}: {:?}", mechid, mech_proportion);
             // 5.5: Compute the mechanism emission: E_m = P_m * E_b
             let mech_emission: I96F32 = mech_proportion.saturating_mul(block_emission);
+            log::debug!("Mechanism emission (E_m) for mechanism ID {:?}: {:?}", mechid, mech_emission);
             // 5.6: Calculate subnet's proportion of mechanism TAO: P_s = T_s / T_m
             let subnet_proportion: I96F32 = subnet_tao.checked_div(mech_tao).unwrap_or(I96F32::from_num(0));
+            log::debug!("Subnet proportion (P_s) for netuid {:?}: {:?}", netuid, subnet_proportion);
             // 5.7: Calculate subnet's TAO emission: E_s = P_s * E_m
             let tao_in: u64 = mech_emission.checked_mul(subnet_proportion).unwrap_or(I96F32::from_num(0)).to_num::<u64>();
+            log::debug!("Subnet TAO emission (E_s) for netuid {:?}: {:?}", netuid, tao_in);
             // 5.8: Store the subnet TAO emission. 
             *tao_in_map.entry(*netuid).or_insert(0) = tao_in;
             // 5.9: Store the block emission for this subnet for chain storage.
@@ -61,31 +68,43 @@ impl<T: Config> Pallet<T> {
             if *netuid == 0 {continue;}
             // 6.1. Get subnet mechanism ID
             let mechid: u16 = SubnetMechanism::<T>::get(*netuid);
+            log::debug!("Netuid: {:?}, Mechanism ID: {:?}", netuid, mechid);
             // 6.2: Get the subnet emission TAO.
-            let tao_in: I96F32 = I96F32::from_num(*tao_in_map.get(&netuid).unwrap_or(&0));
+            let tao_emission: I96F32 = I96F32::from_num(*tao_in_map.get(&netuid).unwrap_or(&0));
+            log::debug!("Subnet emission TAO for netuid {:?}: {:?}", netuid, tao_emission);
+            // 6.3: Get emission proportion
+            let tao_in: I96F32 = tao_emission / I96F32::from_num(block_emission);
+            log::debug!("Emission proportion {:?}: {:?}", netuid, tao_in);
             // 6.2. Switch on dynamic / Stable.
             if mechid == 1 {
                 // 6.3: Get the alpha issuance via the total supply.
                 let alpha_issuance: I96F32 = I96F32::from_num(Self::get_block_emission_for_issuance(Self::get_alpha_issuance(*netuid)).unwrap_or(0));
+                log::debug!("Alpha issuance for netuid {:?}: {:?}", netuid, alpha_issuance);
                 // 6.4: Compute the alpha price given pool terms.
                 let alpha_price: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(*netuid)).checked_div(I96F32::from_num(SubnetAlphaIn::<T>::get(*netuid))).unwrap_or(I96F32::from_num(0));
-                // 6.5: Computer alpha in from tao_in and price.
+                log::debug!("Alpha price for netuid {:?}: {:?}", netuid, alpha_price);
+                // 6.5: Compute alpha in from tao_in and price.
                 let alpha_in: I96F32;
                 if alpha_price <= tao_in {
                     // 6.5.1: alpha_price is less than tao_in: alpha_in = alpha_price / tao_in
+                    log::debug!("Alpha price ({:?}) is less than or equal to the tao_in ({:?})", alpha_price, tao_in);
                     alpha_in = I96F32::from_num(alpha_price).checked_div(tao_in).unwrap_or(I96F32::from_num(0)).saturating_mul(alpha_issuance);
                 } else {
                     // 6.5.2: alpha_price is greater than tao_in: alpha_in = tao_in / alpha_price
+                    log::debug!("Alpha price ({:?}) is greater than tao_in ({:?})", alpha_price, tao_in);
                     alpha_in = I96F32::from_num(tao_in).checked_div(alpha_price).unwrap_or(I96F32::from_num(0)).saturating_mul(alpha_issuance);
                 }
+                log::debug!("Computed alpha_in: {:?}", alpha_in);
+                log::debug!("Alpha in for netuid {:?}: {:?}", netuid, alpha_in);
                 // 6.6: Alpha out is the remainder of issuance and alpha_in. 
-                let alpha_out: I96F32 = alpha_issuance.saturating_sub( alpha_in );
+                let alpha_out: I96F32 = alpha_issuance.saturating_sub(alpha_in);
+                log::debug!("Alpha out for netuid {:?}: {:?}", netuid, alpha_out);
                 // 6.7: Inject Alpha into the pool reserves here: alpha_in.
-                SubnetAlphaIn::<T>::mutate(*netuid, |total| { *total = total.saturating_add( alpha_in.to_num::<u64>() ) });
+                SubnetAlphaIn::<T>::mutate(*netuid, |total| { *total = total.saturating_add(alpha_in.to_num::<u64>()) });
                 // 6.8: Increase Tao in the subnet reserve conditionally.
-                SubnetTAO::<T>::mutate(*netuid, |total| { *total = total.saturating_add( tao_in.to_num::<u64>() ) });
+                SubnetTAO::<T>::mutate(*netuid, |total| { *total = total.saturating_add(tao_emission.to_num::<u64>()) });
                 // 6.9: Inject Alpha for distribution later.
-                PendingEmission::<T>::mutate(*netuid, |total| { *total = total.saturating_add( alpha_out.to_num::<u64>() ) });
+                PendingEmission::<T>::mutate(*netuid, |total| { *total = total.saturating_add(alpha_out.to_num::<u64>()) });
                 // 6.10: Increase total stake counter.
                 TotalStake::<T>::mutate(|total| *total = total.saturating_add(tao_in.to_num::<u64>()));
                 // 6.11: Increase total Tao issuance counter.
@@ -99,7 +118,7 @@ impl<T: Config> Pallet<T> {
                 // 6.14. Increase total issuance of Tao.
                 TotalIssuance::<T>::mutate(|total| *total = total.saturating_add(tao_in.to_num::<u64>()));
                 // 6.15. Increase this subnet pending emission.
-                PendingEmission::<T>::mutate(*netuid, |total| { *total = total.saturating_add(tao_in.to_num::<u64>())});
+                PendingEmission::<T>::mutate(*netuid, |total| { *total = total.saturating_add(tao_in.to_num::<u64>()) });
             }
         }
 
