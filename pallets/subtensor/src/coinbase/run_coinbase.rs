@@ -73,10 +73,10 @@ impl<T: Config> Pallet<T> {
                 let alpha_in: u64;
                 if alpha_price <= tao_in {
                     // 6.5.1: alpha_price is less than tao_in: alpha_in = alpha_price / tao_in
-                    alpha_in = I96F32::from_num(alpha_price).checked_div(I96F32::from_num(tao_in)).unwrap_or(I96F32::from_num(0)).to_num::<u64>();
+                    alpha_in = I96F32::from_num(alpha_price).checked_div(I96F32::from_num(tao_in)).unwrap_or(I96F32::from_num(0)).saturating_mul(alpha_issuance).to_num::<u64>();
                 } else {
                     // 6.5.2: alpha_price is greater than tao_in: alpha_in = tao_in / alpha_price
-                    alpha_in = I96F32::from_num(I96F32::from_num(tao_in)).checked_div(alpha_price).unwrap_or(I96F32::from_num(0)).to_num::<u64>();
+                    alpha_in = I96F32::from_num(I96F32::from_num(tao_in)).checked_div(alpha_price).unwrap_or(I96F32::from_num(0)).saturating_mul(alpha_issuance).to_num::<u64>();
                 }
                 // 6.6: Alpha out is the remainder of issuance and alpha_in. 
                 let alpha_out = alpha_issuance.saturating_sub( alpha_in );
