@@ -38,10 +38,6 @@ pub fn migrate_rao<T: Config>() -> Weight {
         SubnetAlphaOut::<T>::mutate(0, |total| {
             *total = total.saturating_add(stake);
         });
-        // Increase SubnetAlphaIn on root.
-        SubnetAlphaIn::<T>::mutate(0, |total| {
-            *total = total.saturating_add(stake);
-        });
         // Set all the stake on root 0 subnet.
         Alpha::<T>::mutate((hotkey.clone(), coldkey.clone(), 0), |total| {
             *total = total.saturating_add(stake)
@@ -61,6 +57,9 @@ pub fn migrate_rao<T: Config>() -> Weight {
     // Convert subnets and give them lock.
     for netuid in netuids.iter().clone() {
         if *netuid == 0 {
+            // Give root a single RAO in pool to avoid any catestrophic division by zero.
+            SubnetAlphaIn::<T>::insert(netuid, 1);
+            SubnetMechanism::<T>::insert(netuid, 0); // Set to zero mechanism.
             continue;
         }
         let owner: T::AccountId = SubnetOwner::<T>::get(netuid);
@@ -68,7 +67,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
         Pallet::<T>::add_balance_to_coldkey_account(&owner, lock);
         SubnetTAO::<T>::insert(netuid, 1); // Set TAO to the lock.
         SubnetAlphaIn::<T>::insert(netuid, 1); // Set AlphaIn to the initial alpha distribution.
-        SubnetAlphaOut::<T>::insert(netuid, 1); // Set AlphaOut to the initial alpha distribution.
+        SubnetAlphaOut::<T>::insert(netuid, 0); // Set zero subnet alpha out.
         SubnetMechanism::<T>::insert(netuid, 1); // Convert to dynamic immediately with initialization.
         Tempo::<T>::insert(netuid, DefaultTempo::<T>::get());
         // Set global weight to 1.0 for the start
