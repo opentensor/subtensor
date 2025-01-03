@@ -1017,7 +1017,7 @@ parameter_types! {
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     // pub const SubtensorInitialHotkeyEmissionTempo: u64 = 7200; // Drain every day. // (DEPRECATED)
     pub const SubtensorInitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
-    pub const SubtensorInitialTaoWeight: u64 = 3_320_413_933_267_719_290; // 100% global weigh.
+    pub const SubtensorInitialTaoWeight: u64 = 3_320_413_933_267_719_290; // 18% global weigh.
     pub const SubtensorInitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
 }
 // This is for the Local net.

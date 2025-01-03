@@ -65,27 +65,31 @@ impl<T: Config> Pallet<T> {
             let tao_in: u64 = *tao_in_map.get(&netuid).unwrap_or(&0);
             // 6.2. Switch on dynamic / Stable.
             if mechid == 1 {
-                // The mechanism is Dynamic (DTAO protocol)
-                // 6.3. Check if there is an excess of TAO emitted based on block height.
-                let should_emit_tao: bool = I96F32::from_num(total_active_tao).saturating_div(I96F32::from_num(1_000_000_000)) < I96F32::from_num(Self::get_current_block_as_u64());
-                // 6.8: Calculate tao_price and alpha_in
-                // alpha_in = tao_in * tao_price
-                let tao_price: I96F32 = I96F32::from_num(SubnetAlphaIn::<T>::get(*netuid)).checked_div(I96F32::from_num(SubnetTAO::<T>::get(*netuid))).unwrap_or(I96F32::from_num(0));
-                let alpha_in: u64 = I96F32::from_num(tao_in).saturating_mul(tao_price).to_num::<u64>();
-                // 6.4. Conditionally emit TAO into the pool.
-                if should_emit_tao {
-                    // 6.4: Inject Alpha into the pool reserves here: alpha_in = 
-                    SubnetAlphaIn::<T>::mutate(*netuid, |total| { *total = total.saturating_add(alpha_in) });
-                    // 6.5: Increase Tao in the subnet reserve conditionally.
-                    SubnetTAO::<T>::mutate(*netuid, |total| { *total = total.saturating_add(tao_in) });
-                    // 6.6. Increase total stake counter.
-                    TotalStake::<T>::mutate(|total| *total = total.saturating_add(tao_in));
-                    // 6.7. Increase total Tao issuance counter.
-                    TotalIssuance::<T>::mutate(|total| *total = total.saturating_add(tao_in));
+                // 6.3: Get the alpha issuance via the total supply.
+                let alpha_issuance: u64 = Self::get_block_emission_for_issuance(Self::get_alpha_issuance(*netuid)).unwrap_or(0);
+                // 6.4: Compute the alpha price given pool terms.
+                let alpha_price: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(*netuid)).checked_div(I96F32::from_num(SubnetAlphaIn::<T>::get(*netuid))).unwrap_or(I96F32::from_num(0));
+                // 6.5: Computer alpha in from tao_in and price.
+                let alpha_in: u64;
+                if alpha_price <= tao_in {
+                    // 6.5.1: alpha_price is less than tao_in: alpha_in = alpha_price / tao_in
+                    alpha_in = I96F32::from_num(alpha_price).checked_div(I96F32::from_num(tao_in)).unwrap_or(I96F32::from_num(0)).to_num::<u64>();
+                } else {
+                    // 6.5.2: alpha_price is greater than tao_in: alpha_in = tao_in / alpha_price
+                    alpha_in = I96F32::from_num(I96F32::from_num(tao_in)).checked_div(alpha_price).unwrap_or(I96F32::from_num(0)).to_num::<u64>();
                 }
-                // 6.10 Inject Alpha for distribution later.
-                let subnet_alpha_emission: u64 = Self::get_block_emission_for_issuance(Self::get_alpha_issuance(*netuid)).unwrap_or(0);
-                PendingEmission::<T>::mutate(*netuid, |total| { *total = total.saturating_add(subnet_alpha_emission) });
+                // 6.6: Alpha out is the remainder of issuance and alpha_in. 
+                let alpha_out = alpha_issuance.saturating_sub( alpha_in );
+                // 6.7: Inject Alpha into the pool reserves here: alpha_in.
+                SubnetAlphaIn::<T>::mutate(*netuid, |total| { *total = total.saturating_add( alpha_in ) });
+                // 6.8: Increase Tao in the subnet reserve conditionally.
+                SubnetTAO::<T>::mutate(*netuid, |total| { *total = total.saturating_add( tao_in ) });
+                // 6.9: Inject Alpha for distribution later.
+                PendingEmission::<T>::mutate(*netuid, |total| { *total = total.saturating_add( alpha_out ) });
+                // 6.10: Increase total stake counter.
+                TotalStake::<T>::mutate(|total| *total = total.saturating_add(tao_in));
+                // 6.11: Increase total Tao issuance counter.
+                TotalIssuance::<T>::mutate(|total| *total = total.saturating_add(tao_in));
             } else {
                 // The mechanism is Stable (FOR TESTING PURPOSES ONLY)
                 // 6.12. Increase Tao in the subnet "reserves" unconditionally.
