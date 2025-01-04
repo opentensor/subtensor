@@ -72,54 +72,77 @@ impl<T: Config> Pallet<T> {
             // 6.2: Get the subnet emission TAO.
             let tao_emission: I96F32 = I96F32::from_num(*tao_in_map.get(&netuid).unwrap_or(&0));
             log::debug!("Subnet emission TAO for netuid {:?}: {:?}", netuid, tao_emission);
-            // 6.3: Get emission proportion
-            let tao_in: I96F32 = tao_emission / I96F32::from_num(block_emission);
-            log::debug!("Emission proportion {:?}: {:?}", netuid, tao_in);
-            // 6.2. Switch on dynamic / Stable.
-            if mechid == 1 {
-                // 6.3: Get the alpha issuance via the total supply.
-                let alpha_issuance: I96F32 = I96F32::from_num(Self::get_block_emission_for_issuance(Self::get_alpha_issuance(*netuid)).unwrap_or(0));
-                log::debug!("Alpha issuance for netuid {:?}: {:?}", netuid, alpha_issuance);
-                // 6.4: Compute the alpha price given pool terms.
-                let alpha_price: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(*netuid)).checked_div(I96F32::from_num(SubnetAlphaIn::<T>::get(*netuid))).unwrap_or(I96F32::from_num(0));
-                log::debug!("Alpha price for netuid {:?}: {:?}", netuid, alpha_price);
-                // 6.5: Compute alpha in from tao_in and price.
-                let alpha_in: I96F32;
-                if alpha_price <= tao_in {
-                    // 6.5.1: alpha_price is less than tao_in: alpha_in = alpha_price / tao_in
-                    log::debug!("Alpha price ({:?}) is less than or equal to the tao_in ({:?})", alpha_price, tao_in);
-                    alpha_in = I96F32::from_num(alpha_price).checked_div(tao_in).unwrap_or(I96F32::from_num(0)).saturating_mul(alpha_issuance);
-                } else {
-                    // 6.5.2: alpha_price is greater than tao_in: alpha_in = tao_in / alpha_price
-                    log::debug!("Alpha price ({:?}) is greater than tao_in ({:?})", alpha_price, tao_in);
-                    alpha_in = I96F32::from_num(tao_in).checked_div(alpha_price).unwrap_or(I96F32::from_num(0)).saturating_mul(alpha_issuance);
-                }
-                log::debug!("Computed alpha_in: {:?}", alpha_in);
-                log::debug!("Alpha in for netuid {:?}: {:?}", netuid, alpha_in);
-                // 6.6: Alpha out is the remainder of issuance and alpha_in. 
-                let alpha_out: I96F32 = alpha_issuance.saturating_sub(alpha_in);
-                log::debug!("Alpha out for netuid {:?}: {:?}", netuid, alpha_out);
-                // 6.7: Inject Alpha into the pool reserves here: alpha_in.
-                SubnetAlphaIn::<T>::mutate(*netuid, |total| { *total = total.saturating_add(alpha_in.to_num::<u64>()) });
-                // 6.8: Increase Tao in the subnet reserve conditionally.
-                SubnetTAO::<T>::mutate(*netuid, |total| { *total = total.saturating_add(tao_emission.to_num::<u64>()) });
-                // 6.9: Inject Alpha for distribution later.
-                PendingEmission::<T>::mutate(*netuid, |total| { *total = total.saturating_add(alpha_out.to_num::<u64>()) });
-                // 6.10: Increase total stake counter.
-                TotalStake::<T>::mutate(|total| *total = total.saturating_add(tao_in.to_num::<u64>()));
-                // 6.11: Increase total Tao issuance counter.
-                TotalIssuance::<T>::mutate(|total| *total = total.saturating_add(tao_in.to_num::<u64>()));
-            } else {
+            if mechid == 0 {
                 // The mechanism is Stable (FOR TESTING PURPOSES ONLY)
-                // 6.12. Increase Tao in the subnet "reserves" unconditionally.
-                SubnetTAO::<T>::mutate(*netuid, |total| { *total = total.saturating_add(tao_in.to_num::<u64>()) });
-                // 6.13. Increase total stake across all subnets.
-                TotalStake::<T>::mutate(|total| *total = total.saturating_add(tao_in.to_num::<u64>()));
-                // 6.14. Increase total issuance of Tao.
-                TotalIssuance::<T>::mutate(|total| *total = total.saturating_add(tao_in.to_num::<u64>()));
-                // 6.15. Increase this subnet pending emission.
-                PendingEmission::<T>::mutate(*netuid, |total| { *total = total.saturating_add(tao_in.to_num::<u64>()) });
+                // 6.2.1 Increase Tao in the subnet "reserves" unconditionally.
+                SubnetTAO::<T>::mutate(*netuid, |total| { *total = total.saturating_add(tao_emission.to_num::<u64>()) });
+                // 6.2.2 Increase total stake across all subnets.
+                TotalStake::<T>::mutate(|total| *total = total.saturating_add(tao_emission.to_num::<u64>()));
+                // 6.2.3 Increase total issuance of Tao.
+                TotalIssuance::<T>::mutate(|total| *total = total.saturating_add(tao_emission.to_num::<u64>()));
+                // 6.2.4 Increase this subnet pending emission.
+                PendingEmission::<T>::mutate(*netuid, |total| { *total = total.saturating_add(tao_emission.to_num::<u64>()) });
+                // 6.2.5 Go to next subnet.
+                continue
             }
+            // Dynamic TAO below:
+            // 6.3: Get the alpha emission per block as a function of supply.
+            let alpha_emission: I96F32 = I96F32::from_num(Self::get_block_emission_for_issuance( Self::get_alpha_issuance(*netuid) ).unwrap_or(0));
+            log::debug!("netuid {:?}: alpha_emission: {:?}", netuid, tao_emission);
+            // 6.4: Get tao_in, which is number between (0, 1), percent of block emission in tao.
+            let mut tao_in: I96F32 = tao_emission / I96F32::from_num(block_emission);
+            log::debug!("Emission proportion {:?}: {:?}", netuid, tao_in);
+            // 6.5: Get alpha price as function of tao_reserve and alpha_reserve.
+            let alpha_price: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(*netuid)).checked_div(I96F32::from_num(SubnetAlphaIn::<T>::get(*netuid))).unwrap_or(I96F32::from_num(0));
+            log::debug!("Alpha price for netuid {:?}: {:?}", netuid, alpha_price);
+            // 6.5: Compute alpha_in from tao_in and alpha_price.
+            let alpha_in: I96F32;
+            if alpha_price <= tao_in {
+                // 6.5.1: Set tao_in proportion to alpha_price.
+                tao_in = alpha_price;
+                log::debug!("Set tao_in to alpha_price: {:?}", tao_in);
+                // 6.5.2: Set alpha_in to a hard 1 (max value)
+                alpha_in = I96F32::from_num(1);
+                log::debug!("Set alpha_in to max value: {:?}", alpha_in);
+            } else {
+                // 6.5.2: tao_in remains unchanged
+                tao_in = tao_in;
+                log::debug!("tao_in remains unchanged: {:?}", tao_in);
+                // 6.5.3: alpha_in is computed based on tao_in and price to keep price fixed.
+                alpha_in = I96F32::from_num(tao_in).checked_div(alpha_price).unwrap_or(I96F32::from_num(0));
+                log::debug!("Computed alpha_in based on tao_in and alpha_price: {:?}", alpha_in);
+            }
+            // 6.6: Compute Alpha_in_issuance based on current issuance amount.
+            let alpha_in_emission: I96F32 = alpha_emission.saturating_mul(alpha_in);
+            log::debug!("Computed alpha_in_emission: {:?}", alpha_in_emission);
+            // 6.7: Compute Alpha_out_issuance based on alpha_in_issuance
+            let alpha_out_emission: I96F32 = 2 * alpha_emission - alpha_in_emission;
+            log::debug!("Computed alpha_out_emission: {:?}", alpha_out_emission);
+            // 6.7: Inject Alpha into the pool reserves here: alpha_in.
+            SubnetAlphaIn::<T>::mutate(*netuid, |total| { 
+                *total = total.saturating_add(alpha_in.to_num::<u64>());
+                log::debug!("Injected alpha_in into SubnetAlphaIn: {:?}", *total);
+            });
+            // 6.8: Increase Tao in the subnet reserve conditionally.
+            SubnetTAO::<T>::mutate(*netuid, |total| { 
+                *total = total.saturating_add(tao_emission.to_num::<u64>());
+                log::debug!("Increased Tao in SubnetTAO: {:?}", *total);
+            });
+            // 6.9: Inject Alpha for distribution later.
+            PendingEmission::<T>::mutate(*netuid, |total| { 
+                *total = total.saturating_add(alpha_out_emission.to_num::<u64>());
+                log::debug!("Injected alpha_out_emission into PendingEmission: {:?}", *total);
+            });
+            // 6.10: Increase total stake counter.
+            TotalStake::<T>::mutate(|total| { 
+                *total = total.saturating_add(tao_in.to_num::<u64>());
+                log::debug!("Increased TotalStake: {:?}", *total);
+            });
+            // 6.11: Increase total Tao issuance counter.
+            TotalIssuance::<T>::mutate(|total| { 
+                *total = total.saturating_add(tao_in.to_num::<u64>());
+                log::debug!("Increased TotalIssuance: {:?}", *total);
+            });
         }
 
         // --- 7. Drain pending emission through the subnet based on tempo.

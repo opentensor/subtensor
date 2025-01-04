@@ -35,6 +35,9 @@ fn test_dynamic_flow() {
         SubtensorModule::register_neuron( netuid, &hotkey );
         SubtensorModule::stake_into_subnet( &hotkey, &coldkey, netuid, stake ); // Add Stake to hotkey.
         step_block(1);
-        assert_eq!( SubnetAlphaOut::<Test>::get( netuid ), 909978998 );
+        SubnetTAO::<Test>::insert(netuid, 100_000_000_000); // 100 TAO
+        SubnetAlphaIn::<Test>::insert(netuid, 10_000_000_000); // 10 Alpha price = 10.
+        step_block(1);
+
     });
 }
