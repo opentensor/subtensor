@@ -259,6 +259,8 @@ impl<T: Config> Pallet<T> {
 
             // 7.7 Pay out the hotkey root dividends.
             // Swap the total_root_alpha_divs through the pool to attain the total tao to be distributed
+            // Increase alpha out first before unstaking them.
+            SubnetAlphaOut::<T>::mutate(netuid, |total| *total = total.saturating_add(total_root_alpha_divs));
             let total_tao_to_distribute: u64 = Self::swap_alpha_for_tao( netuid, total_root_alpha_divs );
             log::debug!("Total tao to distribute for netuid {:?}: {:?}", netuid, total_tao_to_distribute);
             
