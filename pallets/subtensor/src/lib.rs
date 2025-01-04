@@ -693,6 +693,12 @@ pub mod pallet {
     #[pallet::storage] // --- DMAP ( netuid ) --> tao_in_subnet | Returns the amount of TAO in the subnet.
     pub type SubnetTAO<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage] // --- DMAP ( netuid ) --> alpha_in_emission | Returns the amount of alph in  emission into the pool per block.
+    pub type SubnetAlphaInEmission<T: Config> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage] // --- DMAP ( netuid ) --> alpha_out_emission | Returns the amount of alpha out emission into the network per block.
+    pub type SubnetAlphaOutEmission<T: Config> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the subnet.
     pub type SubnetAlphaIn<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;

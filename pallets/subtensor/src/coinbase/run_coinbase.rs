@@ -114,9 +114,11 @@ impl<T: Config> Pallet<T> {
             }
             // 6.6: Compute Alpha_in_issuance based on current issuance amount.
             let alpha_in_emission: I96F32 = alpha_emission.saturating_mul(alpha_in);
+            SubnetAlphaInEmission::<T>::insert( *netuid, alpha_in_emission.to_num::<u64>()); 
             log::debug!("Computed alpha_in_emission: {:?}", alpha_in_emission);
             // 6.7: Compute Alpha_out_issuance based on alpha_in_issuance
             let alpha_out_emission: I96F32 = 2 * alpha_emission - alpha_in_emission;
+            SubnetAlphaOutEmission::<T>::insert( *netuid, alpha_out_emission.to_num::<u64>()); 
             log::debug!("Computed alpha_out_emission: {:?}", alpha_out_emission);
             // 6.7: Inject Alpha into the pool reserves here: alpha_in.
             SubnetAlphaIn::<T>::mutate(*netuid, |total| { 
