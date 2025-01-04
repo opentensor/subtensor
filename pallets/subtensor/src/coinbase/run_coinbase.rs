@@ -150,11 +150,11 @@ impl<T: Config> Pallet<T> {
         // --- 7. Drain pending emission through the subnet based on tempo.
         for &netuid in subnets.iter() {
             // 7.1: Pass on subnets that have not reached their tempo.
-            if !Self::should_run_epoch(netuid, current_block) {
-                // 7.1.1: Increment blocks since last step for this subnet.
-                BlocksSinceLastStep::<T>::mutate( netuid,|total| *total = total.saturating_add(1) );
-                continue;
-            }
+            // if !Self::should_run_epoch(netuid, current_block) {
+            //     // 7.1.1: Increment blocks since last step for this subnet.
+            //     BlocksSinceLastStep::<T>::mutate( netuid,|total| *total = total.saturating_add(1) );
+            //     continue;
+            // }
                 
             // 7.2 Get and drain the subnet pending emission.
             let alpha_out: u64 = PendingEmission::<T>::get(netuid);
@@ -223,7 +223,7 @@ impl<T: Config> Pallet<T> {
 
                     // 7.6.3.3: Get the local alpha and root alpha.
                     let hotkey_tao: I96F32 = I96F32::from_num( Self::get_stake_for_hotkey_on_subnet( &hotkey, Self::get_root_netuid() ) );
-                    let hotkey_tao_as_alpha: I96F32 = hotkey_tao.saturating_mul( Self::get_tao_weight(netuid) );
+                    let hotkey_tao_as_alpha: I96F32 = hotkey_tao.saturating_mul( I96F32::from_num(0) );
                     let hotkey_alpha = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet( &hotkey, netuid ));
                     log::debug!("Hotkey tao for hotkey {:?} on root netuid: {:?}, hotkey tao as alpha: {:?}, hotkey alpha: {:?}", hotkey, hotkey_tao, hotkey_tao_as_alpha, hotkey_alpha);
 
