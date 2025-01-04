@@ -99,7 +99,7 @@ impl<T: Config> Pallet<T> {
             let alpha_in: I96F32;
             if alpha_price <= tao_in {
                 // 6.5.1: Set tao_in proportion to alpha_price.
-                tao_in = alpha_price;
+                tao_emission = alpha_price * block_emission;
                 log::debug!("Set tao_in to alpha_price: {:?}", tao_in);
                 // 6.5.2: Set alpha_in to a hard 1 (max value)
                 alpha_in = I96F32::from_num(1);
@@ -122,27 +122,27 @@ impl<T: Config> Pallet<T> {
             log::debug!("Computed alpha_out_emission: {:?}", alpha_out_emission);
             // 6.7: Inject Alpha into the pool reserves here: alpha_in.
             SubnetAlphaIn::<T>::mutate(*netuid, |total| { 
-                *total = total.saturating_add(alpha_in.to_num::<u64>());
+                *total = total.saturating_add(alpha_in_emission.to_num::<u64>());
                 log::debug!("Injected alpha_in into SubnetAlphaIn: {:?}", *total);
             });
-            // 6.8: Increase Tao in the subnet reserve conditionally.
-            SubnetTAO::<T>::mutate(*netuid, |total| { 
-                *total = total.saturating_add(tao_emission.to_num::<u64>());
-                log::debug!("Increased Tao in SubnetTAO: {:?}", *total);
-            });
-            // 6.9: Inject Alpha for distribution later.
+            // 6.8: Inject Alpha for distribution later.
             PendingEmission::<T>::mutate(*netuid, |total| { 
                 *total = total.saturating_add(alpha_out_emission.to_num::<u64>());
                 log::debug!("Injected alpha_out_emission into PendingEmission: {:?}", *total);
             });
+            // 6.9: Increase Tao in the subnet reserve conditionally.
+            SubnetTAO::<T>::mutate(*netuid, |total| { 
+                *total = total.saturating_add(tao_emission.to_num::<u64>());
+                log::debug!("Increased Tao in SubnetTAO: {:?}", *total);
+            });
             // 6.10: Increase total stake counter.
             TotalStake::<T>::mutate(|total| { 
-                *total = total.saturating_add(tao_in.to_num::<u64>());
+                *total = total.saturating_add(tao_emission.to_num::<u64>());
                 log::debug!("Increased TotalStake: {:?}", *total);
             });
             // 6.11: Increase total Tao issuance counter.
             TotalIssuance::<T>::mutate(|total| { 
-                *total = total.saturating_add(tao_in.to_num::<u64>());
+                *total = total.saturating_add(tao_emission.to_num::<u64>());
                 log::debug!("Increased TotalIssuance: {:?}", *total);
             });
         }
@@ -173,8 +173,8 @@ impl<T: Config> Pallet<T> {
                 if let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
                     // Increase stake for both coldkey and hotkey on the subnet
                     Self::increase_stake_for_hotkey_and_coldkey_on_subnet(&owner_hotkey, &owner_coldkey, netuid, owner_cut);
-                    // Decrease the amount of outstanding alpha stake on this subnet.
-                    SubnetAlphaOut::<T>::mutate(netuid, |total| *total = total.saturating_sub(owner_cut));
+                    // Increase alpha out.
+                    SubnetAlphaOut::<T>::mutate(netuid, |total| *total = total.saturating_add(owner_cut));
                     log::debug!("Distributed owner cut for netuid {:?} to owner_hotkey {:?} and owner_coldkey {:?}", netuid, owner_hotkey, owner_coldkey);
                 }
             }
