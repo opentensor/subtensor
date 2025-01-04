@@ -75,9 +75,6 @@ polkadot-rpc = { workspace = true }
 pallet-drand = { workspace = true }
 sp-crypto-ec-utils = { workspace = true }
 sp-keystore = { workspace = true,  default-features = false }
-pallet-drand = { workspace = true }
-sp-crypto-ec-utils = { workspace = true }
-sp-keystore = { workspace = true,  default-features = false }
 
 
 # These dependencies are used for the subtensor's RPCs
