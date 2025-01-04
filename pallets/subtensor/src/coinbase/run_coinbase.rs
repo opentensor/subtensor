@@ -100,14 +100,14 @@ impl<T: Config> Pallet<T> {
             if alpha_price <= tao_in {
                 // 6.5.1: Set tao_in proportion to alpha_price.
                 tao_emission = alpha_price * block_emission;
-                log::debug!("Set tao_in to alpha_price: {:?}", tao_in);
+                log::debug!("Set tao_in to alpha_price: {:?}", tao_emission);
                 // 6.5.2: Set alpha_in to a hard 1 (max value)
                 alpha_in = I96F32::from_num(1);
                 log::debug!("Set alpha_in to max value: {:?}", alpha_in);
             } else {
                 // 6.5.2: tao_in remains unchanged
                 tao_emission = tao_in * block_emission;
-                log::debug!("tao_in remains unchanged: {:?}", tao_in);
+                log::debug!("tao_in remains unchanged: {:?}", tao_emission);
                 // 6.5.3: alpha_in is computed based on tao_in and price to keep price fixed.
                 alpha_in = I96F32::from_num(tao_in).checked_div(alpha_price).unwrap_or(I96F32::from_num(0));
                 log::debug!("Computed alpha_in based on tao_in and alpha_price: {:?}", alpha_in);
