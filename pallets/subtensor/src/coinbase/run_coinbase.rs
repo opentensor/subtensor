@@ -223,7 +223,7 @@ impl<T: Config> Pallet<T> {
 
                     // 7.6.3.3: Get the local alpha and root alpha.
                     let hotkey_tao: I96F32 = I96F32::from_num( Self::get_stake_for_hotkey_on_subnet( &hotkey, Self::get_root_netuid() ) );
-                    let hotkey_tao_as_alpha: I96F32 = hotkey_tao.saturating_mul( I96F32::from_num(0) );
+                    let hotkey_tao_as_alpha: I96F32 = hotkey_tao.saturating_mul( Self::get_tao_weight(netuid) );
                     let hotkey_alpha = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet( &hotkey, netuid ));
                     log::debug!("Hotkey tao for hotkey {:?} on root netuid: {:?}, hotkey tao as alpha: {:?}, hotkey alpha: {:?}", hotkey, hotkey_tao, hotkey_tao_as_alpha, hotkey_alpha);
 

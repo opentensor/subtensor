@@ -65,9 +65,11 @@ pub fn migrate_rao<T: Config>() -> Weight {
         }
         let owner: T::AccountId = SubnetOwner::<T>::get(netuid);
         let lock: u64 = SubnetLocked::<T>::get(netuid);
-        Pallet::<T>::add_balance_to_coldkey_account(&owner, lock);
-        SubnetTAO::<T>::insert(netuid, 1); // Set TAO to the lock.
-        SubnetAlphaIn::<T>::insert(netuid, 1); // Set AlphaIn to the initial alpha distribution.
+        let initial_liquidity: u64 = 100_000_000_000; // 100 TAO.
+        let remaining_lock: u64 = lock.saturating_sub( initial_liquidity );
+        Pallet::<T>::add_balance_to_coldkey_account(&owner, remaining_lock);
+        SubnetTAO::<T>::insert(netuid, initial_liquidity); // Set TAO to the lock.
+        SubnetAlphaIn::<T>::insert(netuid, initial_liquidity); // Set AlphaIn to the initial alpha distribution.
         SubnetAlphaOut::<T>::insert(netuid, 0); // Set zero subnet alpha out.
         SubnetMechanism::<T>::insert(netuid, 1); // Convert to dynamic immediately with initialization.
         Tempo::<T>::insert(netuid, DefaultTempo::<T>::get());
