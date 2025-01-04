@@ -70,7 +70,7 @@ impl<T: Config> Pallet<T> {
             let mechid: u16 = SubnetMechanism::<T>::get(*netuid);
             log::debug!("Netuid: {:?}, Mechanism ID: {:?}", netuid, mechid);
             // 6.2: Get the subnet emission TAO.
-            let tao_emission: I96F32 = I96F32::from_num(*tao_in_map.get(&netuid).unwrap_or(&0));
+            let mut tao_emission: I96F32 = I96F32::from_num(*tao_in_map.get(&netuid).unwrap_or(&0));
             log::debug!("Subnet emission TAO for netuid {:?}: {:?}", netuid, tao_emission);
             if mechid == 0 {
                 // The mechanism is Stable (FOR TESTING PURPOSES ONLY)
@@ -90,7 +90,7 @@ impl<T: Config> Pallet<T> {
             let alpha_emission: I96F32 = I96F32::from_num(Self::get_block_emission_for_issuance( Self::get_alpha_issuance(*netuid) ).unwrap_or(0));
             log::debug!("netuid {:?}: alpha_emission: {:?}", netuid, tao_emission);
             // 6.4: Get tao_in, which is number between (0, 1), percent of block emission in tao.
-            let mut tao_in: I96F32 = tao_emission / I96F32::from_num(block_emission);
+            let tao_in: I96F32 = tao_emission / I96F32::from_num(block_emission);
             log::debug!("Emission proportion {:?}: {:?}", netuid, tao_in);
             // 6.5: Get alpha price as function of tao_reserve and alpha_reserve.
             let alpha_price: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(*netuid)).checked_div(I96F32::from_num(SubnetAlphaIn::<T>::get(*netuid))).unwrap_or(I96F32::from_num(0));
@@ -106,7 +106,7 @@ impl<T: Config> Pallet<T> {
                 log::debug!("Set alpha_in to max value: {:?}", alpha_in);
             } else {
                 // 6.5.2: tao_in remains unchanged
-                tao_in = tao_in;
+                tao_emission = tao_in * block_emission;
                 log::debug!("tao_in remains unchanged: {:?}", tao_in);
                 // 6.5.3: alpha_in is computed based on tao_in and price to keep price fixed.
                 alpha_in = I96F32::from_num(tao_in).checked_div(alpha_price).unwrap_or(I96F32::from_num(0));
