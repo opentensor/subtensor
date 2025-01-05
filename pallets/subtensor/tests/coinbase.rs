@@ -120,22 +120,10 @@ fn test_dynamic_flow() {
         // Root Dividends are all pending to this hotkey.
         assert_eq!(RootDividendsPerSubnet::<Test>::get(netuid, &hotkey), root_pending);
 
-        // // Alpha_out = 2 - alpha_in thus == 2*block_emission - block_emission = block_emission
-        // let new_alpha_out: u64 = SubnetAlphaOutEmission::<Test>::get(netuid);
-        // assert_eq!(SubnetAlphaIn::<Test>::get(netuid), alpha_in_before + block_emission);
-
-        // assert_eq!(SubnetAlphaOutEmission::<Test>::get(netuid), block_emission);
-        // assert_eq!(SubnetAlphaOut::<Test>::get(netuid), alpha_out_before); // Unchanged.
+        // TODO( const ): test multiple subnets.
+        // TODO( const ): test multi root proportions
+        // TODO( const ): test parents etc
         
-
-
-
-
-        // assert_eq!(SubnetAlphaOutEmission::<Test>::get(netuid), block_emission);
-        // assert_eq!(HotkeyDividendsPerSubnet::<Test>::get(netuid, &hotkey), stake);
-        // SubnetTAO::<Test>::insert(netuid, 100_000_000_000); // 100 TAO
-        // SubnetAlphaIn::<Test>::insert(netuid, 10_000_000_000); // 10 Alpha price = 10.
-        // step_block(1);
 
     });
 }
