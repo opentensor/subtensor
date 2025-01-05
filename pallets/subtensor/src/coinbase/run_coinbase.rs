@@ -116,25 +116,21 @@ impl<T: Config> Pallet<T> {
             let alpha_in_emission: I96F32 = alpha_emission.saturating_mul(alpha_in);
             SubnetAlphaInEmission::<T>::insert( *netuid, alpha_in_emission.to_num::<u64>()); 
             log::debug!("Computed alpha_in_emission: {:?}", alpha_in_emission);
-            // 6.7: Compute Alpha_out_issuance based on alpha_in_issuance
-            let alpha_out_emission: I96F32 = 2 * alpha_emission - alpha_in_emission;
-            SubnetAlphaOutEmission::<T>::insert( *netuid, alpha_out_emission.to_num::<u64>()); 
-            log::debug!("Computed alpha_out_emission: {:?}", alpha_out_emission);
             // 6.7: Inject Alpha into the pool reserves here: alpha_in.
             SubnetAlphaIn::<T>::mutate(*netuid, |total| { 
                 *total = total.saturating_add(alpha_in_emission.to_num::<u64>());
                 log::debug!("Injected alpha_in into SubnetAlphaIn: {:?}", *total);
             });
-            // 6.8: Inject Alpha for distribution later.
-            PendingEmission::<T>::mutate(*netuid, |total| { 
-                *total = total.saturating_add(alpha_out_emission.to_num::<u64>());
-                log::debug!("Injected alpha_out_emission into PendingEmission: {:?}", *total);
-            });
+            // 6.7: Compute Alpha_out_issuance based on alpha_in_issuance
+            let mut alpha_out_emission: I96F32 = 2 * alpha_emission - alpha_in_emission;
+            SubnetAlphaOutEmission::<T>::insert( *netuid, alpha_out_emission.to_num::<u64>()); 
+            log::debug!("Computed alpha_out_emission: {:?}", alpha_out_emission);
             // 6.9: Increase Tao in the subnet reserve conditionally.
             SubnetTAO::<T>::mutate(*netuid, |total| { 
                 *total = total.saturating_add(tao_emission.to_num::<u64>());
                 log::debug!("Increased Tao in SubnetTAO: {:?}", *total);
             });
+            SubnetTaoInEmission::<T>::insert( *netuid, tao_emission.to_num::<u64>());
             // 6.10: Increase total stake counter.
             TotalStake::<T>::mutate(|total| { 
                 *total = total.saturating_add(tao_emission.to_num::<u64>());
@@ -145,135 +141,162 @@ impl<T: Config> Pallet<T> {
                 *total = total.saturating_add(tao_emission.to_num::<u64>());
                 log::debug!("Increased TotalIssuance: {:?}", *total);
             });
+            // Get total TAO on root.
+            let total_root_tao: I96F32 = I96F32::from_num(SubnetTAO::<T>::get( 0 ));
+            // Get total ALPHA on subnet.
+            let total_subnet_alpha: I96F32 = I96F32::from_num(SubnetAlphaOut::<T>::get( *netuid ));
+            // Get tao_weight
+            let tao_weight: I96F32 = Self::get_tao_weight( *netuid );
+            // Get root proportional dividends.
+            let root_proportion: I96F32 = (total_root_tao * tao_weight) / ((total_root_tao * tao_weight) + total_subnet_alpha);
+            // Get root proportion of alpha_out.
+            let root_proportion_of_alpha_out: I96F32 = root_proportion * alpha_out_emission;
+            // Increase root proportion immediately on alpha out
+            SubnetAlphaOut::<T>::mutate(netuid, |total| *total = total.saturating_add(root_proportion_of_alpha_out.to_num::<u64>()));
+            // Subtract root proporiton from alpha_out_emission
+            alpha_out_emission -= root_proportion_of_alpha_out;
+            // Sell root proportion of alpha_out through the pool into TAO.
+            let root_alpha_as_tao: u64 = Self::swap_alpha_for_tao( *netuid, root_proportion_of_alpha_out.to_num::<u64>() );
+            // Accumulate root tao dividends into the accumulator.
+            PendingRootDivs::<T>::mutate( *netuid, |total| { 
+                *total = total.saturating_add(root_alpha_as_tao);
+            });
+            // 6.8: Inject Alpha out for distribution later.
+            PendingEmission::<T>::mutate(*netuid, |total| { 
+                *total = total.saturating_add(alpha_out_emission.to_num::<u64>());
+                log::debug!("Injected alpha_out_emission into PendingEmission: {:?}", *total);
+            });
         }
 
         // --- 7. Drain pending emission through the subnet based on tempo.
         for &netuid in subnets.iter() {
             // 7.1: Pass on subnets that have not reached their tempo.
-            // if !Self::should_run_epoch(netuid, current_block) {
-            //     // 7.1.1: Increment blocks since last step for this subnet.
-            //     BlocksSinceLastStep::<T>::mutate( netuid,|total| *total = total.saturating_add(1) );
-            //     continue;
-            // }
-                
-            // 7.2 Get and drain the subnet pending emission.
-            let alpha_out: u64 = PendingEmission::<T>::get(netuid);
-            log::debug!("Draining pending emission for netuid {:?}: {:?}", netuid, alpha_out);
-            PendingEmission::<T>::insert(netuid, 0);
+            if Self::should_run_epoch(netuid, current_block) {
+                // Restart counters.
+                BlocksSinceLastStep::<T>::insert( netuid, 0 );
+                LastMechansimStepBlock::<T>::insert( netuid, current_block );  
+                // Drain pending root divs and alpha emission.      
+                Self::drain_pending_emission( netuid ); 
+            } else {
+                // Increment 
+                BlocksSinceLastStep::<T>::mutate( netuid,|total| *total = total.saturating_add(1) );                
+            }            
+        }
+    }
 
-            // 7.3 Set counters for block emission.
-            BlocksSinceLastStep::<T>::insert( netuid, 0 );
-            LastMechansimStepBlock::<T>::insert( netuid, current_block );
+    pub fn drain_pending_emission( netuid: u16 ) {
+        // 7.2 Get and drain the subnet pending emission.
+        let alpha_out: u64 = PendingEmission::<T>::get(netuid);
+        log::debug!("Draining pending emission for netuid {:?}: {:?}", netuid, alpha_out);
+        PendingEmission::<T>::insert(netuid, 0);
+    
+        // 7.4 Distribute the 18% owner cut.
+        let owner_cut: u64 = I96F32::from_num(alpha_out).saturating_mul(Self::get_float_subnet_owner_cut()).to_num::<u64>();
+        log::debug!("Owner cut for netuid {:?}: {:?}", netuid, owner_cut);
+        // 7.4.1: Check for existence of owner cold/hot pair and distribute emission directly to them.
+        if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
+            if let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
+                // Increase stake for both coldkey and hotkey on the subnet
+                Self::increase_stake_for_hotkey_and_coldkey_on_subnet(&owner_hotkey, &owner_coldkey, netuid, owner_cut);
+                // Increase alpha out.
+                SubnetAlphaOut::<T>::mutate(netuid, |total| *total = total.saturating_add(owner_cut));
+                log::debug!("Distributed owner cut for netuid {:?} to owner_hotkey {:?} and owner_coldkey {:?}", netuid, owner_hotkey, owner_coldkey);
+            }
+        }
+        let remaining_emission: u64 = alpha_out.saturating_sub(owner_cut);
+        log::debug!("Remaining emission for netuid {:?}: {:?}", netuid, remaining_emission);
         
-            // 7.4 Distribute the 18% owner cut.
-            let owner_cut: u64 = I96F32::from_num(alpha_out).saturating_mul(Self::get_float_subnet_owner_cut()).to_num::<u64>();
-            log::debug!("Owner cut for netuid {:?}: {:?}", netuid, owner_cut);
-            // 7.4.1: Check for existence of owner cold/hot pair and distribute emission directly to them.
-            if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
-                if let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
-                    // Increase stake for both coldkey and hotkey on the subnet
-                    Self::increase_stake_for_hotkey_and_coldkey_on_subnet(&owner_hotkey, &owner_coldkey, netuid, owner_cut);
-                    // Increase alpha out.
-                    SubnetAlphaOut::<T>::mutate(netuid, |total| *total = total.saturating_add(owner_cut));
-                    log::debug!("Distributed owner cut for netuid {:?} to owner_hotkey {:?} and owner_coldkey {:?}", netuid, owner_hotkey, owner_coldkey);
-                }
+        // 7.5 Run the epoch() --> hotkey emission.
+        let hotkey_emission: Vec<(T::AccountId, u64, u64)> = Self::epoch_mock(netuid, remaining_emission);
+        log::debug!("Hotkey emission for netuid {:?}: {:?}", netuid, hotkey_emission);
+
+        // 7.6 Pay out the hotkey alpha dividends.
+        // First clear the netuid from HotkeyDividends
+        let mut total_root_alpha_divs: u64 = 0;
+        let mut root_alpha_divs: BTreeMap<T::AccountId, u64> = BTreeMap::new();
+        let _ = HotkeyDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
+        for (hotkey, incentive, dividends) in hotkey_emission {
+            log::debug!("Processing hotkey {:?} with incentive {:?} and dividends {:?}", hotkey, incentive, dividends);
+
+            // 7.6.1: Distribute mining incentive immediately.
+            Self::increase_stake_for_hotkey_and_coldkey_on_subnet( &hotkey.clone(), &Owner::<T>::get( hotkey.clone() ), netuid, incentive );
+            SubnetAlphaOut::<T>::mutate(netuid, |total| { *total = total.saturating_add( incentive ) });
+            log::debug!("Distributed mining incentive for hotkey {:?} on netuid {:?}: {:?}", hotkey, netuid, incentive);
+
+            // 7.6.2: Get dividend tuples for parents and self based on childkey relationships and child-take.
+            let dividend_tuples: Vec<(T::AccountId, u64)> = Self::get_parent_dividends(
+                &hotkey,
+                netuid,
+                dividends,
+            );
+            log::debug!("Dividend tuples for hotkey {:?} on netuid {:?}: {:?}", hotkey, netuid, dividend_tuples);
+
+            // 7.6.3 Pay out dividends to hotkeys based on the local vs root proportion.
+            for (hotkey_j, divs_j) in dividend_tuples {
+                log::debug!("Processing dividend for hotkey {:?} to hotkey {:?}: {:?}", hotkey, hotkey_j, divs_j);
+
+                // 7.6.3.1: Remove the hotkey take straight off the top.
+                let take_prop: I96F32 = I96F32::from_num(Self::get_hotkey_take( &hotkey_j )).checked_div( I96F32::from_num(u16::MAX) ).unwrap_or( I96F32::from_num( 0.0 ) );
+                let validator_take: I96F32 = take_prop.saturating_mul(I96F32::from_num(divs_j));
+                let rem_divs_j: I96F32 = I96F32::from_num(divs_j).saturating_sub(validator_take);
+                log::debug!("Validator take for hotkey {:?}: {:?}, remaining dividends: {:?}", hotkey_j, validator_take, rem_divs_j);
+
+                // 7.6.3.2: Distribute validator take automatically.
+                Self::increase_stake_for_hotkey_and_coldkey_on_subnet( &hotkey_j, &Owner::<T>::get( hotkey_j.clone() ), netuid, validator_take.to_num::<u64>() );
+                SubnetAlphaOut::<T>::mutate( netuid, |total| { *total = total.saturating_add( validator_take.to_num::<u64>() ); });
+                log::debug!("Distributed validator take for hotkey {:?} on netuid {:?}: {:?}", hotkey_j, netuid, validator_take.to_num::<u64>());
+
+                // 7.6.3.3: Get the local alpha and root alpha.
+                let hotkey_tao: I96F32 = I96F32::from_num( Self::get_stake_for_hotkey_on_subnet( &hotkey, Self::get_root_netuid() ) );
+                let hotkey_tao_as_alpha: I96F32 = hotkey_tao.saturating_mul( Self::get_tao_weight(netuid) );
+                let hotkey_alpha = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet( &hotkey, netuid ));
+                log::debug!("Hotkey tao for hotkey {:?} on root netuid: {:?}, hotkey tao as alpha: {:?}, hotkey alpha: {:?}", hotkey, hotkey_tao, hotkey_tao_as_alpha, hotkey_alpha);
+
+                // 7.6.3.3 Compute alpha and root proportions.
+                let alpha_prop: I96F32 = hotkey_alpha.checked_div( hotkey_alpha.saturating_add(hotkey_tao_as_alpha) ).unwrap_or( I96F32::from_num( 0.0 ) );
+                let root_prop: I96F32 = hotkey_tao_as_alpha.checked_div( hotkey_alpha.saturating_add(hotkey_tao_as_alpha) ).unwrap_or( I96F32::from_num( 0.0 ) );
+                log::debug!("Alpha proportion: {:?}, root proportion: {:?}", alpha_prop, root_prop);
+
+                // 7.6.3.5: Compute alpha and root dividends
+                let root_divs: I96F32 = rem_divs_j.saturating_mul( root_prop );
+                log::debug!("Alpha dividends: {:?}, root dividends: {:?}", rem_divs_j, root_divs);
+
+                // 7.6.3.6. Store the root alpha divs under hotkey_j
+                root_alpha_divs.entry(hotkey_j.clone())
+                    .and_modify(|e| *e = e.saturating_add(root_divs.to_num::<u64>()))
+                    .or_insert(root_divs.to_num::<u64>());
+                total_root_alpha_divs = total_root_alpha_divs.saturating_add(root_divs.to_num::<u64>());
+                log::debug!("Stored root alpha dividends for hotkey {:?}: {:?}", hotkey_j, root_divs.to_num::<u64>());
+
+                // 7.6.3.7: Distribute the alpha divs to the hotkey.
+                Self::increase_stake_for_hotkey_on_subnet( &hotkey_j, netuid, rem_divs_j.to_num::<u64>() );
+                SubnetAlphaOut::<T>::mutate( netuid, |total| { *total = total.saturating_add( rem_divs_j.to_num::<u64>() ); });
+                log::debug!("Distributed alpha dividends for hotkey {:?} on netuid {:?}: {:?}", hotkey_j, netuid, rem_divs_j.to_num::<u64>() );
+
+                // 7.6.3.9: Record dividends for this hotkey on this subnet.
+                HotkeyDividendsPerSubnet::<T>::mutate( netuid, hotkey_j.clone(), |divs| {
+                    *divs = divs.saturating_add(divs_j);
+                });
+                log::debug!("Recorded dividends for hotkey {:?} on netuid {:?}: {:?}", hotkey_j, netuid, divs_j);
             }
-            let remaining_emission: u64 = alpha_out.saturating_sub(owner_cut);
-            log::debug!("Remaining emission for netuid {:?}: {:?}", netuid, remaining_emission);
-            
-            // 7.5 Run the epoch() --> hotkey emission.
-            let hotkey_emission: Vec<(T::AccountId, u64, u64)> = Self::epoch_mock(netuid, remaining_emission);
-            log::debug!("Hotkey emission for netuid {:?}: {:?}", netuid, hotkey_emission);
+        }
+        // For all the root alpha divs give this proportion of the swapped tao to the root participants. 
+        let _ = RootDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
+        let total_root_divs_to_distribute = PendingRootDivs::<T>::get( netuid );
+        PendingRootDivs::<T>::insert(netuid, 0);
+        for (hotkey_j, root_divs) in root_alpha_divs.iter() {
+            let proportion: I96F32 = I96F32::from_num(*root_divs).checked_div(I96F32::from_num(total_root_alpha_divs)).unwrap_or(I96F32::from_num(0));
+            let root_divs_to_pay: u64 = proportion.saturating_mul(I96F32::from_num(total_root_divs_to_distribute)).to_num::<u64>();
+            log::debug!("Proportion for hotkey {:?}: {:?}, root_divs_to_pay: {:?}", hotkey_j, proportion, root_divs_to_pay);
 
-            // 7.6 Pay out the hotkey alpha dividends.
-            // First clear the netuid from HotkeyDividends
-            let mut total_root_alpha_divs: u64 = 0;
-            let mut root_alpha_divs: BTreeMap<T::AccountId, u64> = BTreeMap::new();
-            let _ = HotkeyDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
-            for (hotkey, incentive, dividends) in hotkey_emission {
-                log::debug!("Processing hotkey {:?} with incentive {:?} and dividends {:?}", hotkey, incentive, dividends);
+            // Pay the tao to the hotkey on netuid 0
+            Self::increase_stake_for_hotkey_on_subnet(hotkey_j, Self::get_root_netuid(), root_divs_to_pay);
+            log::debug!("Paid tao to hotkey {:?} on root netuid: {:?}", hotkey_j, root_divs_to_pay);
 
-                // 7.6.1: Distribute mining incentive immediately.
-                Self::increase_stake_for_hotkey_and_coldkey_on_subnet( &hotkey.clone(), &Owner::<T>::get( hotkey.clone() ), netuid, incentive );
-                SubnetAlphaOut::<T>::mutate(netuid, |total| { *total = total.saturating_add( incentive ) });
-                log::debug!("Distributed mining incentive for hotkey {:?} on netuid {:?}: {:?}", hotkey, netuid, incentive);
-
-                // 7.6.2: Get dividend tuples for parents and self based on childkey relationships and child-take.
-                let dividend_tuples: Vec<(T::AccountId, u64)> = Self::get_parent_dividends(
-                    &hotkey,
-                    netuid,
-                    dividends,
-                );
-                log::debug!("Dividend tuples for hotkey {:?} on netuid {:?}: {:?}", hotkey, netuid, dividend_tuples);
-
-                // 7.6.3 Pay out dividends to hotkeys based on the local vs root proportion.
-                for (hotkey_j, divs_j) in dividend_tuples {
-                    log::debug!("Processing dividend for hotkey {:?} to hotkey {:?}: {:?}", hotkey, hotkey_j, divs_j);
-
-                    // 7.6.3.1: Remove the hotkey take straight off the top.
-                    let take_prop: I96F32 = I96F32::from_num(Self::get_hotkey_take( &hotkey_j )).checked_div( I96F32::from_num(u16::MAX) ).unwrap_or( I96F32::from_num( 0.0 ) );
-                    let validator_take: I96F32 = take_prop.saturating_mul(I96F32::from_num(divs_j));
-                    let rem_divs_j: I96F32 = I96F32::from_num(divs_j).saturating_sub(validator_take);
-                    log::debug!("Validator take for hotkey {:?}: {:?}, remaining dividends: {:?}", hotkey_j, validator_take, rem_divs_j);
-
-                    // 7.6.3.2: Distribute validator take automatically.
-                    Self::increase_stake_for_hotkey_and_coldkey_on_subnet( &hotkey_j, &Owner::<T>::get( hotkey_j.clone() ), netuid, validator_take.to_num::<u64>() );
-                    SubnetAlphaOut::<T>::mutate( netuid, |total| { *total = total.saturating_add( validator_take.to_num::<u64>() ); });
-                    log::debug!("Distributed validator take for hotkey {:?} on netuid {:?}: {:?}", hotkey_j, netuid, validator_take.to_num::<u64>());
-
-                    // 7.6.3.3: Get the local alpha and root alpha.
-                    let hotkey_tao: I96F32 = I96F32::from_num( Self::get_stake_for_hotkey_on_subnet( &hotkey, Self::get_root_netuid() ) );
-                    let hotkey_tao_as_alpha: I96F32 = hotkey_tao.saturating_mul( Self::get_tao_weight(netuid) );
-                    let hotkey_alpha = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet( &hotkey, netuid ));
-                    log::debug!("Hotkey tao for hotkey {:?} on root netuid: {:?}, hotkey tao as alpha: {:?}, hotkey alpha: {:?}", hotkey, hotkey_tao, hotkey_tao_as_alpha, hotkey_alpha);
-
-                    // 7.6.3.3 Compute alpha and root proportions.
-                    let alpha_prop: I96F32 = hotkey_alpha.checked_div( hotkey_alpha.saturating_add(hotkey_tao_as_alpha) ).unwrap_or( I96F32::from_num( 0.0 ) );
-                    let root_prop: I96F32 = hotkey_tao_as_alpha.checked_div( hotkey_alpha.saturating_add(hotkey_tao_as_alpha) ).unwrap_or( I96F32::from_num( 0.0 ) );
-                    log::debug!("Alpha proportion: {:?}, root proportion: {:?}", alpha_prop, root_prop);
-
-                    // 7.6.3.5: Compute alpha and root dividends
-                    let alpha_divs: I96F32 = I96F32::from_num( rem_divs_j ).saturating_mul( alpha_prop );
-                    let root_divs: I96F32 = I96F32::from_num( rem_divs_j ).saturating_mul( root_prop );
-                    log::debug!("Alpha dividends: {:?}, root dividends: {:?}", alpha_divs, root_divs);
-
-                    // 7.6.3.6. Store the root alpha divs under hotkey_j
-                    root_alpha_divs.entry(hotkey_j.clone())
-                        .and_modify(|e| *e = e.saturating_add(root_divs.to_num::<u64>()))
-                        .or_insert(root_divs.to_num::<u64>());
-                    total_root_alpha_divs = total_root_alpha_divs.saturating_add(root_divs.to_num::<u64>());
-                    log::debug!("Stored root alpha dividends for hotkey {:?}: {:?}", hotkey_j, root_divs.to_num::<u64>());
-
-                    // 7.6.3.7: Distribute the alpha divs to the hotkey.
-                    Self::increase_stake_for_hotkey_on_subnet( &hotkey_j, netuid, alpha_divs.to_num::<u64>() );
-                    SubnetAlphaOut::<T>::mutate( netuid, |total| { *total = total.saturating_add( alpha_divs.to_num::<u64>() ); });
-                    log::debug!("Distributed alpha dividends for hotkey {:?} on netuid {:?}: {:?}", hotkey_j, netuid, alpha_divs.to_num::<u64>());
-
-                    // 7.6.3.9: Record dividends for this hotkey on this subnet.
-                    HotkeyDividendsPerSubnet::<T>::mutate( netuid, hotkey_j.clone(), |divs| {
-                        *divs = divs.saturating_add(divs_j);
-                    });
-                    log::debug!("Recorded dividends for hotkey {:?} on netuid {:?}: {:?}", hotkey_j, netuid, divs_j);
-                }
-            }
-
-            // 7.7 Pay out the hotkey root dividends.
-            // Swap the total_root_alpha_divs through the pool to attain the total tao to be distributed
-            // Increase alpha out first before unstaking them.
-            SubnetAlphaOut::<T>::mutate(netuid, |total| *total = total.saturating_add(total_root_alpha_divs));
-            let total_tao_to_distribute: u64 = Self::swap_alpha_for_tao( netuid, total_root_alpha_divs );
-            log::debug!("Total tao to distribute for netuid {:?}: {:?}", netuid, total_tao_to_distribute);
-            
-            // For all the root alpha divs give this proportion of the swapped tao to the root participants. 
-            for (hotkey_j, root_divs) in root_alpha_divs.iter() {
-                let proportion: I96F32 = I96F32::from_num(*root_divs).checked_div(I96F32::from_num(total_root_alpha_divs)).unwrap_or(I96F32::from_num(0));
-                let tao_to_pay: u64 = proportion.saturating_mul(I96F32::from_num(total_tao_to_distribute)).to_num::<u64>();
-                log::debug!("Proportion for hotkey {:?}: {:?}, tao to pay: {:?}", hotkey_j, proportion, tao_to_pay);
-
-                // Pay the tao to the hotkey on netuid 0
-                Self::increase_stake_for_hotkey_on_subnet(hotkey_j, Self::get_root_netuid(), tao_to_pay);
-                log::debug!("Paid tao to hotkey {:?} on root netuid: {:?}", hotkey_j, tao_to_pay);
-            }
+            // 7.6.3.9: Record dividends for this hotkey on this subnet.
+            RootDividendsPerSubnet::<T>::mutate( netuid, hotkey_j.clone(), |divs| {
+                *divs = divs.saturating_add(root_divs_to_pay);
+            });
         }
     }
 

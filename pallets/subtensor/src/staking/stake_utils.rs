@@ -19,6 +19,25 @@ impl<T: Config> Pallet<T> {
         return SubnetAlphaIn::<T>::get(netuid) + SubnetAlphaOut::<T>::get(netuid);
     }
 
+    /// Calculates the price of alpha for a given subnet.
+    ///
+    /// This function determines the price of alpha by dividing the total TAO
+    /// reserves by the total alpha reserves (`SubnetAlphaIn`) for the specified subnet.
+    /// If the alpha reserves are zero, the function returns zero to avoid division by zero.
+    ///
+    /// # Arguments
+    /// * `netuid` - The unique identifier of the subnet.
+    ///
+    /// # Returns
+    /// * `I96F32` - The price of alpha for the specified subnet.
+    pub fn get_alpha_price(netuid: u16) -> I96F32 {
+        if SubnetAlphaIn::<T>::get(netuid) == 0 {
+            return I96F32::from_num(0);
+        } else{
+            return I96F32::from_num(SubnetTAO::<T>::get(netuid) )/ I96F32::from_num(SubnetAlphaIn::<T>::get(netuid));
+        }
+    }
+
     /// Retrieves the global global weight as a normalized value between 0 and 1.
     ///
     /// This function performs the following steps:
@@ -444,6 +463,59 @@ impl<T: Config> Pallet<T> {
             }
         });
     }
+
+    /// Swaps TAO for the alpha token on the subnet.
+    ///
+    /// Updates TaoIn, AlphaIn, and AlphaOut
+    pub fn sim_swap_tao_for_alpha( netuid: u16, tao: u64 ) -> u64 {
+        // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
+        let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
+        // Step 2: Initialized vars.
+        let alpha: I96F32 = if mechanism_id == 1 {
+            // Step 3.a.1: Dynamic mechanism calculations
+            let tao_reserves: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(netuid));
+            let alpha_reserves: I96F32 = I96F32::from_num(SubnetAlphaIn::<T>::get(netuid));
+            // Step 3.a.2: Compute constant product k = alpha * tao
+            let k: I96F32 = alpha_reserves.saturating_mul(tao_reserves);
+            // Step 3.a.3: Calculate alpha staked using the constant product formula
+            // alpha_stake_recieved = current_alpha - (k / (current_tao + new_tao))
+            alpha_reserves.saturating_sub(
+                k.checked_div(tao_reserves.saturating_add(I96F32::from_num(tao)))
+                    .unwrap_or(I96F32::from_num(0)),
+            )
+        } else {
+            // Step 3.b.1: Stable mechanism, just return the value 1:1
+            I96F32::from_num( tao ) 
+        };
+        // Return simulated amount.
+        alpha.to_num::<u64>()
+    }
+
+     /// Swaps a subnet's Alpba token for TAO.
+    ///
+    /// Updates TaoIn, AlphaIn, and AlphaOut
+    pub fn sim_swap_alpha_for_tao( netuid: u16, alpha: u64 ) -> u64 {
+        // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
+        let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
+        // Step 2: Swap alpha and attain tao
+        let tao: I96F32 = if mechanism_id == 1 {
+            // Step 3.a.1: Dynamic mechanism calculations
+            let tao_reserves: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(netuid));
+            let alpha_reserves: I96F32 = I96F32::from_num(SubnetAlphaIn::<T>::get(netuid));
+            // Step 3.a.2: Compute constant product k = alpha * tao
+            let k: I96F32 = alpha_reserves.saturating_mul(tao_reserves);
+            // Step 3.a.3: Calculate alpha staked using the constant product formula
+            // tao_recieved = tao_reserves - (k / (alpha_reserves + new_tao))
+            tao_reserves.saturating_sub(
+                k.checked_div(alpha_reserves.saturating_add(I96F32::from_num( alpha )))
+                    .unwrap_or(I96F32::from_num(0)),
+            )
+        } else {
+            // Step 3.b.1: Stable mechanism, just return the value 1:1
+            I96F32::from_num( alpha )
+        }; 
+        tao.to_num::<u64>()
+    }  
 
     /// Swaps TAO for the alpha token on the subnet.
     ///
