@@ -1,13 +1,14 @@
-use codec::Compact;
+// use codec::Compact;
 use frame_support::{assert_ok, traits::Currency};
 use frame_system::Config;
-use sp_core::{H256, U256};
-use sp_runtime::{
-    traits::{BlakeTwo256, Hash},
-    DispatchError,
-};
+// use sp_core::{H256, U256};
+use sp_core::U256;
+// use sp_runtime::{
+//     traits::{BlakeTwo256, Hash},
+//     DispatchError,
+// };
 
-use crate::{Error, Event};
+// use crate::{Error, Event};
 
 use super::mock::*;
 
@@ -46,184 +47,186 @@ fn test_batch_txs() {
 fn test_batch_set_weights() {
     // Verify the batch set weights call works
     new_test_ext(1).execute_with(|| {
-        let netuid_0: u16 = 1;
-        let netuid_1: u16 = 2;
-        let netuid_2: u16 = 3;
+        assert!(false);
 
-        // Create 3 networks
-        add_network(netuid_0, 1, 0);
-        add_network(netuid_1, 2, 0);
-        add_network(netuid_2, 3, 0);
+        // let netuid_0: u16 = 1;
+        // let netuid_1: u16 = 2;
+        // let netuid_2: u16 = 3;
 
-        let hotkey: U256 = U256::from(2);
-        let spare_hk: U256 = U256::from(3);
+        // // Create 3 networks
+        // add_network(netuid_0, 1, 0);
+        // add_network(netuid_1, 2, 0);
+        // add_network(netuid_2, 3, 0);
 
-        let coldkey: U256 = U256::from(101);
-        let spare_ck = U256::from(102);
+        // let hotkey: U256 = U256::from(2);
+        // let spare_hk: U256 = U256::from(3);
 
-        let stake_to_give_child = 109_999;
+        // let coldkey: U256 = U256::from(101);
+        // let spare_ck = U256::from(102);
 
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_to_give_child + 10);
+        // let stake_to_give_child = 109_999;
 
-        // Register both hotkeys on each network
-        register_ok_neuron(netuid_0, hotkey, coldkey, 1);
-        register_ok_neuron(netuid_0, spare_hk, spare_ck, 1);
+        // SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_to_give_child + 10);
 
-        register_ok_neuron(netuid_1, hotkey, coldkey, 1);
-        register_ok_neuron(netuid_1, spare_hk, spare_ck, 1);
+        // // Register both hotkeys on each network
+        // register_ok_neuron(netuid_0, hotkey, coldkey, 1);
+        // register_ok_neuron(netuid_0, spare_hk, spare_ck, 1);
 
-        register_ok_neuron(netuid_2, hotkey, coldkey, 1);
-        register_ok_neuron(netuid_2, spare_hk, spare_ck, 1);
+        // register_ok_neuron(netuid_1, hotkey, coldkey, 1);
+        // register_ok_neuron(netuid_1, spare_hk, spare_ck, 1);
 
-        // Increase stake on hotkey setting the weights
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-            &coldkey,
-            &hotkey,
-            stake_to_give_child,
-        );
+        // register_ok_neuron(netuid_2, hotkey, coldkey, 1);
+        // register_ok_neuron(netuid_2, spare_hk, spare_ck, 1);
 
-        // Set the rate limit to 0 for all networks
-        SubtensorModule::set_weights_set_rate_limit(netuid_0, 0);
-        SubtensorModule::set_weights_set_rate_limit(netuid_1, 0);
-        SubtensorModule::set_weights_set_rate_limit(netuid_2, 0);
+        // // Increase stake on hotkey setting the weights
+        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+        //     &coldkey,
+        //     &hotkey,
+        //     stake_to_give_child,
+        // );
 
-        // Has stake and no parent
-        step_block(7200 + 1);
+        // // Set the rate limit to 0 for all networks
+        // SubtensorModule::set_weights_set_rate_limit(netuid_0, 0);
+        // SubtensorModule::set_weights_set_rate_limit(netuid_1, 0);
+        // SubtensorModule::set_weights_set_rate_limit(netuid_2, 0);
 
-        // Set weights on the other hotkey and Use maximum value for u16
-        let weights: Vec<(Compact<u16>, Compact<u16>)> = vec![(Compact(1), Compact(u16::MAX))];
-        let version_key_0: Compact<u64> = SubtensorModule::get_weights_version_key(netuid_0).into();
-        let version_key_1: Compact<u64> = SubtensorModule::get_weights_version_key(netuid_1).into();
-        let version_key_2: Compact<u64> = SubtensorModule::get_weights_version_key(netuid_2).into();
+        // // Has stake and no parent
+        // step_block(7200 + 1);
 
-        // Set the min stake very high
-        SubtensorModule::set_stake_threshold(stake_to_give_child * 5);
+        // // Set weights on the other hotkey and Use maximum value for u16
+        // let weights: Vec<(Compact<u16>, Compact<u16>)> = vec![(Compact(1), Compact(u16::MAX))];
+        // let version_key_0: Compact<u64> = SubtensorModule::get_weights_version_key(netuid_0).into();
+        // let version_key_1: Compact<u64> = SubtensorModule::get_weights_version_key(netuid_1).into();
+        // let version_key_2: Compact<u64> = SubtensorModule::get_weights_version_key(netuid_2).into();
 
-        // Check the key has less stake than required
-        assert!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid_0)
-                < SubtensorModule::get_stake_threshold()
-        );
+        // // Set the min stake very high
+        // SubtensorModule::set_stake_threshold(stake_to_give_child * 5);
 
-        let netuids_vec: Vec<Compact<u16>> =
-            vec![netuid_0.into(), netuid_1.into(), netuid_2.into()];
+        // // Check the key has less stake than required
+        // assert!(
+        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid_0)
+        //         < SubtensorModule::get_stake_threshold()
+        // );
 
-        // Check the batch succeeds (force set weights)
-        assert_ok!(SubtensorModule::batch_set_weights(
-            RuntimeOrigin::signed(hotkey),
-            netuids_vec.clone(),
-            vec![weights.clone(), weights.clone(), weights.clone()], // One per network
-            vec![version_key_0, version_key_1, version_key_2]
-        ));
+        // let netuids_vec: Vec<Compact<u16>> =
+        //     vec![netuid_0.into(), netuid_1.into(), netuid_2.into()];
 
-        // Check the events are emitted, three errors about not enough stake
-        // Also events for batch completed with errors and batch complete with errors
-        assert!(System::events().iter().any(|event| matches!(
-            event.event.clone(),
-            RuntimeEvent::SubtensorModule(Event::BatchWeightsCompleted { .. })
-        )));
-        assert!(System::events().iter().any(|event| matches!(
-            event.event.clone(),
-            RuntimeEvent::SubtensorModule(Event::BatchCompletedWithErrors { .. })
-        )));
+        // // Check the batch succeeds (force set weights)
+        // assert_ok!(SubtensorModule::batch_set_weights(
+        //     RuntimeOrigin::signed(hotkey),
+        //     netuids_vec.clone(),
+        //     vec![weights.clone(), weights.clone(), weights.clone()], // One per network
+        //     vec![version_key_0, version_key_1, version_key_2]
+        // ));
 
-        let expected_err: DispatchError = Error::<Test>::NotEnoughStakeToSetWeights.into();
+        // // Check the events are emitted, three errors about not enough stake
+        // // Also events for batch completed with errors and batch complete with errors
+        // assert!(System::events().iter().any(|event| matches!(
+        //     event.event.clone(),
+        //     RuntimeEvent::SubtensorModule(Event::BatchWeightsCompleted { .. })
+        // )));
+        // assert!(System::events().iter().any(|event| matches!(
+        //     event.event.clone(),
+        //     RuntimeEvent::SubtensorModule(Event::BatchCompletedWithErrors { .. })
+        // )));
 
-        assert_eq!(
-            System::events()
-                .iter()
-                .filter(|event| match event.event {
-                    RuntimeEvent::SubtensorModule(Event::BatchWeightItemFailed(err)) =>
-                        err == expected_err,
-                    _ => false,
-                })
-                .collect::<Vec<_>>()
-                .len(),
-            3, // Three not enough stake errors
-            "{:?}",
-            System::events()
-        );
+        // let expected_err: DispatchError = Error::<Test>::NotEnoughStakeToSetWeights.into();
 
-        // Reset the events
-        System::reset_events();
+        // assert_eq!(
+        //     System::events()
+        //         .iter()
+        //         .filter(|event| match event.event {
+        //             RuntimeEvent::SubtensorModule(Event::BatchWeightItemFailed(err)) =>
+        //                 err == expected_err,
+        //             _ => false,
+        //         })
+        //         .collect::<Vec<_>>()
+        //         .len(),
+        //     3, // Three not enough stake errors
+        //     "{:?}",
+        //     System::events()
+        // );
 
-        assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid_0));
+        // // Reset the events
+        // System::reset_events();
 
-        // Set a minimum stake to set weights
-        SubtensorModule::set_stake_threshold(stake_to_give_child - 5);
+        // assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid_0));
 
-        // Check if the stake for the hotkey is above
-        assert!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid_0)
-                >= SubtensorModule::get_stake_threshold()
-        );
+        // // Set a minimum stake to set weights
+        // SubtensorModule::set_stake_threshold(stake_to_give_child - 5);
 
-        // Try with enough stake
-        assert_ok!(SubtensorModule::batch_set_weights(
-            RuntimeOrigin::signed(hotkey),
-            netuids_vec.clone(),
-            vec![weights.clone(), weights.clone(), weights.clone()],
-            vec![version_key_0, version_key_1, version_key_2]
-        ));
+        // // Check if the stake for the hotkey is above
+        // assert!(
+        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid_0)
+        //         >= SubtensorModule::get_stake_threshold()
+        // );
 
-        assert!(SubtensorModule::check_weights_min_stake(&hotkey, netuid_0));
+        // // Try with enough stake
+        // assert_ok!(SubtensorModule::batch_set_weights(
+        //     RuntimeOrigin::signed(hotkey),
+        //     netuids_vec.clone(),
+        //     vec![weights.clone(), weights.clone(), weights.clone()],
+        //     vec![version_key_0, version_key_1, version_key_2]
+        // ));
 
-        // Check the events are emitted, no errors
-        assert!(System::events().iter().any(|event| matches!(
-            event.event,
-            RuntimeEvent::SubtensorModule(Event::BatchWeightsCompleted { .. })
-        )));
+        // assert!(SubtensorModule::check_weights_min_stake(&hotkey, netuid_0));
 
-        // No errors
-        assert!(!System::events().iter().any(|event| matches!(
-            event.event,
-            RuntimeEvent::SubtensorModule(Event::BatchCompletedWithErrors { .. })
-        )));
-        assert!(!System::events().iter().any(|event| matches!(
-            event.event,
-            RuntimeEvent::SubtensorModule(Event::BatchWeightItemFailed { .. })
-        )));
+        // // Check the events are emitted, no errors
+        // assert!(System::events().iter().any(|event| matches!(
+        //     event.event,
+        //     RuntimeEvent::SubtensorModule(Event::BatchWeightsCompleted { .. })
+        // )));
 
-        // Reset events
-        System::reset_events();
+        // // No errors
+        // assert!(!System::events().iter().any(|event| matches!(
+        //     event.event,
+        //     RuntimeEvent::SubtensorModule(Event::BatchCompletedWithErrors { .. })
+        // )));
+        // assert!(!System::events().iter().any(|event| matches!(
+        //     event.event,
+        //     RuntimeEvent::SubtensorModule(Event::BatchWeightItemFailed { .. })
+        // )));
 
-        // Test again, but with only one failure, different reason
-        // Set version key higher for just one network
-        SubtensorModule::set_weights_version_key(netuid_2, u64::from(version_key_2) + 1_u64);
-        // Verify the version key is *not* correct
-        assert!(!SubtensorModule::check_version_key(
-            netuid_2,
-            version_key_2.into()
-        ));
-        assert_ok!(SubtensorModule::batch_set_weights(
-            RuntimeOrigin::signed(hotkey),
-            netuids_vec.clone(),
-            vec![weights.clone(), weights.clone(), weights.clone()],
-            vec![version_key_0, version_key_1, version_key_2] // Version key 2 is not correct
-        ));
+        // // Reset events
+        // System::reset_events();
 
-        // Check the events are emitted, one error
-        assert!(System::events().iter().any(|event| matches!(
-            event.event,
-            RuntimeEvent::SubtensorModule(Event::BatchWeightsCompleted { .. })
-        )));
-        assert!(System::events().iter().any(|event| matches!(
-            event.event,
-            RuntimeEvent::SubtensorModule(Event::BatchCompletedWithErrors { .. })
-        )));
+        // // Test again, but with only one failure, different reason
+        // // Set version key higher for just one network
+        // SubtensorModule::set_weights_version_key(netuid_2, u64::from(version_key_2) + 1_u64);
+        // // Verify the version key is *not* correct
+        // assert!(!SubtensorModule::check_version_key(
+        //     netuid_2,
+        //     version_key_2.into()
+        // ));
+        // assert_ok!(SubtensorModule::batch_set_weights(
+        //     RuntimeOrigin::signed(hotkey),
+        //     netuids_vec.clone(),
+        //     vec![weights.clone(), weights.clone(), weights.clone()],
+        //     vec![version_key_0, version_key_1, version_key_2] // Version key 2 is not correct
+        // ));
 
-        // Only one error
-        assert_eq!(
-            System::events()
-                .iter()
-                .filter(|event| matches!(
-                    event.event,
-                    RuntimeEvent::SubtensorModule(Event::BatchWeightItemFailed(..))
-                ))
-                .collect::<Vec<_>>()
-                .len(),
-            1
-        );
+        // // Check the events are emitted, one error
+        // assert!(System::events().iter().any(|event| matches!(
+        //     event.event,
+        //     RuntimeEvent::SubtensorModule(Event::BatchWeightsCompleted { .. })
+        // )));
+        // assert!(System::events().iter().any(|event| matches!(
+        //     event.event,
+        //     RuntimeEvent::SubtensorModule(Event::BatchCompletedWithErrors { .. })
+        // )));
+
+        // // Only one error
+        // assert_eq!(
+        //     System::events()
+        //         .iter()
+        //         .filter(|event| matches!(
+        //             event.event,
+        //             RuntimeEvent::SubtensorModule(Event::BatchWeightItemFailed(..))
+        //         ))
+        //         .collect::<Vec<_>>()
+        //         .len(),
+        //     1
+        // );
     });
 }
 
@@ -232,168 +235,170 @@ fn test_batch_set_weights() {
 fn test_batch_commit_weights() {
     // Verify the batch set weights call works
     new_test_ext(1).execute_with(|| {
-        let netuid_0: u16 = 1;
-        let netuid_1: u16 = 2;
-        let netuid_2: u16 = 3;
+        assert!(false);
 
-        // Create 3 networks
-        add_network(netuid_0, 1, 0);
-        add_network(netuid_1, 1, 0);
-        add_network(netuid_2, 1, 0);
+        // let netuid_0: u16 = 1;
+        // let netuid_1: u16 = 2;
+        // let netuid_2: u16 = 3;
 
-        let hotkey: U256 = U256::from(2);
-        let spare_hk: U256 = U256::from(3);
+        // // Create 3 networks
+        // add_network(netuid_0, 1, 0);
+        // add_network(netuid_1, 1, 0);
+        // add_network(netuid_2, 1, 0);
 
-        let coldkey: U256 = U256::from(101);
-        let spare_ck = U256::from(102);
+        // let hotkey: U256 = U256::from(2);
+        // let spare_hk: U256 = U256::from(3);
 
-        let stake_to_give_child = 109_999;
+        // let coldkey: U256 = U256::from(101);
+        // let spare_ck = U256::from(102);
 
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_to_give_child + 10);
+        // let stake_to_give_child = 109_999;
 
-        // Register both hotkeys on each network
-        register_ok_neuron(netuid_0, hotkey, coldkey, 1);
-        register_ok_neuron(netuid_0, spare_hk, spare_ck, 1);
+        // SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_to_give_child + 10);
 
-        register_ok_neuron(netuid_1, hotkey, coldkey, 1);
-        register_ok_neuron(netuid_1, spare_hk, spare_ck, 1);
+        // // Register both hotkeys on each network
+        // register_ok_neuron(netuid_0, hotkey, coldkey, 1);
+        // register_ok_neuron(netuid_0, spare_hk, spare_ck, 1);
 
-        register_ok_neuron(netuid_2, hotkey, coldkey, 1);
-        register_ok_neuron(netuid_2, spare_hk, spare_ck, 1);
+        // register_ok_neuron(netuid_1, hotkey, coldkey, 1);
+        // register_ok_neuron(netuid_1, spare_hk, spare_ck, 1);
 
-        // Increase stake on hotkey setting the weights
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-            &coldkey,
-            &hotkey,
-            stake_to_give_child,
-        );
+        // register_ok_neuron(netuid_2, hotkey, coldkey, 1);
+        // register_ok_neuron(netuid_2, spare_hk, spare_ck, 1);
 
-        // Set the rate limit to 0 for all networks
-        SubtensorModule::set_weights_set_rate_limit(netuid_0, 0);
-        SubtensorModule::set_weights_set_rate_limit(netuid_1, 0);
-        SubtensorModule::set_weights_set_rate_limit(netuid_2, 0);
+        // // Increase stake on hotkey setting the weights
+        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+        //     &coldkey,
+        //     &hotkey,
+        //     stake_to_give_child,
+        // );
 
-        // Disable commit reveal for all networks (pre-emptively)
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid_0, false);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid_1, false);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid_2, false);
+        // // Set the rate limit to 0 for all networks
+        // SubtensorModule::set_weights_set_rate_limit(netuid_0, 0);
+        // SubtensorModule::set_weights_set_rate_limit(netuid_1, 0);
+        // SubtensorModule::set_weights_set_rate_limit(netuid_2, 0);
 
-        // Has stake and no parent
-        step_block(7200 + 1);
+        // // Disable commit reveal for all networks (pre-emptively)
+        // SubtensorModule::set_commit_reveal_weights_enabled(netuid_0, false);
+        // SubtensorModule::set_commit_reveal_weights_enabled(netuid_1, false);
+        // SubtensorModule::set_commit_reveal_weights_enabled(netuid_2, false);
 
-        let hash: H256 = BlakeTwo256::hash_of(&vec![1, 2, 3]);
+        // // Has stake and no parent
+        // step_block(7200 + 1);
 
-        let netuids_vec: Vec<Compact<u16>> =
-            vec![netuid_0.into(), netuid_1.into(), netuid_2.into()];
+        // let hash: H256 = BlakeTwo256::hash_of(&vec![1, 2, 3]);
 
-        // Check the batch succeeds (force commit weights)
-        assert_ok!(SubtensorModule::batch_commit_weights(
-            RuntimeOrigin::signed(hotkey),
-            netuids_vec.clone(),
-            vec![hash, hash, hash], // One per network
-        ));
+        // let netuids_vec: Vec<Compact<u16>> =
+        //     vec![netuid_0.into(), netuid_1.into(), netuid_2.into()];
 
-        // Check the events are emitted, three errors about commit reveal disabled
-        // Also events for batch completed with errors and batch complete with errors
-        assert!(System::events().iter().any(|event| matches!(
-            event.event.clone(),
-            RuntimeEvent::SubtensorModule(Event::BatchWeightsCompleted { .. })
-        )));
-        assert!(System::events().iter().any(|event| matches!(
-            event.event.clone(),
-            RuntimeEvent::SubtensorModule(Event::BatchCompletedWithErrors { .. })
-        )));
+        // // Check the batch succeeds (force commit weights)
+        // assert_ok!(SubtensorModule::batch_commit_weights(
+        //     RuntimeOrigin::signed(hotkey),
+        //     netuids_vec.clone(),
+        //     vec![hash, hash, hash], // One per network
+        // ));
 
-        let expected_err: DispatchError = Error::<Test>::CommitRevealDisabled.into();
+        // // Check the events are emitted, three errors about commit reveal disabled
+        // // Also events for batch completed with errors and batch complete with errors
+        // assert!(System::events().iter().any(|event| matches!(
+        //     event.event.clone(),
+        //     RuntimeEvent::SubtensorModule(Event::BatchWeightsCompleted { .. })
+        // )));
+        // assert!(System::events().iter().any(|event| matches!(
+        //     event.event.clone(),
+        //     RuntimeEvent::SubtensorModule(Event::BatchCompletedWithErrors { .. })
+        // )));
 
-        assert_eq!(
-            System::events()
-                .iter()
-                .filter(|event| match event.event {
-                    RuntimeEvent::SubtensorModule(Event::BatchWeightItemFailed(err)) =>
-                        err == expected_err,
-                    _ => false,
-                })
-                .collect::<Vec<_>>()
-                .len(),
-            3 // Three commit reveal disabled errors
-        );
+        // let expected_err: DispatchError = Error::<Test>::CommitRevealDisabled.into();
 
-        // Reset the events
-        System::reset_events();
+        // assert_eq!(
+        //     System::events()
+        //         .iter()
+        //         .filter(|event| match event.event {
+        //             RuntimeEvent::SubtensorModule(Event::BatchWeightItemFailed(err)) =>
+        //                 err == expected_err,
+        //             _ => false,
+        //         })
+        //         .collect::<Vec<_>>()
+        //         .len(),
+        //     3 // Three commit reveal disabled errors
+        // );
 
-        // Enable commit reveal for all networks
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid_0, true);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid_1, true);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid_2, true);
+        // // Reset the events
+        // System::reset_events();
 
-        // Set a minimum stake to set weights
-        SubtensorModule::set_stake_threshold(stake_to_give_child - 5);
+        // // Enable commit reveal for all networks
+        // SubtensorModule::set_commit_reveal_weights_enabled(netuid_0, true);
+        // SubtensorModule::set_commit_reveal_weights_enabled(netuid_1, true);
+        // SubtensorModule::set_commit_reveal_weights_enabled(netuid_2, true);
 
-        // Check if the stake for the hotkey is above
-        assert!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid_0)
-                >= SubtensorModule::get_stake_threshold()
-        );
+        // // Set a minimum stake to set weights
+        // SubtensorModule::set_stake_threshold(stake_to_give_child - 5);
 
-        // Try with commit reveal enabled
-        assert_ok!(SubtensorModule::batch_commit_weights(
-            RuntimeOrigin::signed(hotkey),
-            netuids_vec.clone(),
-            vec![hash, hash, hash]
-        ));
+        // // Check if the stake for the hotkey is above
+        // assert!(
+        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid_0)
+        //         >= SubtensorModule::get_stake_threshold()
+        // );
 
-        assert!(SubtensorModule::check_weights_min_stake(&hotkey, netuid_0));
+        // // Try with commit reveal enabled
+        // assert_ok!(SubtensorModule::batch_commit_weights(
+        //     RuntimeOrigin::signed(hotkey),
+        //     netuids_vec.clone(),
+        //     vec![hash, hash, hash]
+        // ));
 
-        // Check the events are emitted, no errors
-        assert!(System::events().iter().any(|event| matches!(
-            event.event,
-            RuntimeEvent::SubtensorModule(Event::BatchWeightsCompleted { .. })
-        )));
+        // assert!(SubtensorModule::check_weights_min_stake(&hotkey, netuid_0));
 
-        // No errors
-        assert!(!System::events().iter().any(|event| matches!(
-            event.event,
-            RuntimeEvent::SubtensorModule(Event::BatchCompletedWithErrors { .. })
-        )));
-        assert!(!System::events().iter().any(|event| matches!(
-            event.event,
-            RuntimeEvent::SubtensorModule(Event::BatchWeightItemFailed { .. })
-        )));
+        // // Check the events are emitted, no errors
+        // assert!(System::events().iter().any(|event| matches!(
+        //     event.event,
+        //     RuntimeEvent::SubtensorModule(Event::BatchWeightsCompleted { .. })
+        // )));
 
-        // Reset events
-        System::reset_events();
+        // // No errors
+        // assert!(!System::events().iter().any(|event| matches!(
+        //     event.event,
+        //     RuntimeEvent::SubtensorModule(Event::BatchCompletedWithErrors { .. })
+        // )));
+        // assert!(!System::events().iter().any(|event| matches!(
+        //     event.event,
+        //     RuntimeEvent::SubtensorModule(Event::BatchWeightItemFailed { .. })
+        // )));
 
-        // Test again, but with only one failure, different reason
-        // Disable commit reveal for one network
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid_2, false);
-        assert_ok!(SubtensorModule::batch_commit_weights(
-            RuntimeOrigin::signed(hotkey),
-            netuids_vec.clone(),
-            vec![hash, hash, hash]
-        ));
+        // // Reset events
+        // System::reset_events();
 
-        // Check the events are emitted, one error
-        assert!(System::events().iter().any(|event| matches!(
-            event.event,
-            RuntimeEvent::SubtensorModule(Event::BatchWeightsCompleted { .. })
-        )));
-        assert!(System::events().iter().any(|event| matches!(
-            event.event,
-            RuntimeEvent::SubtensorModule(Event::BatchCompletedWithErrors { .. })
-        )));
+        // // Test again, but with only one failure, different reason
+        // // Disable commit reveal for one network
+        // SubtensorModule::set_commit_reveal_weights_enabled(netuid_2, false);
+        // assert_ok!(SubtensorModule::batch_commit_weights(
+        //     RuntimeOrigin::signed(hotkey),
+        //     netuids_vec.clone(),
+        //     vec![hash, hash, hash]
+        // ));
 
-        // Only one error
-        assert_eq!(
-            System::events()
-                .iter()
-                .filter(|event| matches!(
-                    event.event,
-                    RuntimeEvent::SubtensorModule(Event::BatchWeightItemFailed(..))
-                ))
-                .collect::<Vec<_>>()
-                .len(),
-            1
-        );
+        // // Check the events are emitted, one error
+        // assert!(System::events().iter().any(|event| matches!(
+        //     event.event,
+        //     RuntimeEvent::SubtensorModule(Event::BatchWeightsCompleted { .. })
+        // )));
+        // assert!(System::events().iter().any(|event| matches!(
+        //     event.event,
+        //     RuntimeEvent::SubtensorModule(Event::BatchCompletedWithErrors { .. })
+        // )));
+
+        // // Only one error
+        // assert_eq!(
+        //     System::events()
+        //         .iter()
+        //         .filter(|event| matches!(
+        //             event.event,
+        //             RuntimeEvent::SubtensorModule(Event::BatchWeightItemFailed(..))
+        //         ))
+        //         .collect::<Vec<_>>()
+        //         .len(),
+        //     1
+        // );
     });
 }

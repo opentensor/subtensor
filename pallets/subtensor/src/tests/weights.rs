@@ -2,21 +2,24 @@
 
 use super::mock::*;
 use crate::{
-    coinbase::run_coinbase::WeightsTlockPayload, CRV3WeightCommits, Error, Owner,
+    // coinbase::run_coinbase::WeightsTlockPayload, CRV3WeightCommits, Error, Owner,
+    coinbase::run_coinbase::WeightsTlockPayload, CRV3WeightCommits, Error,
     MAX_CRV3_COMMIT_SIZE_BYTES,
 };
 use ark_serialize::CanonicalDeserialize;
 use frame_support::{
     assert_err, assert_ok,
-    dispatch::{DispatchClass, DispatchInfo, DispatchResult, GetDispatchInfo, Pays},
-    pallet_prelude::{InvalidTransaction, TransactionValidityError},
+    // dispatch::{DispatchClass, DispatchInfo, DispatchResult, GetDispatchInfo, Pays},
+    dispatch::{DispatchClass, DispatchResult, GetDispatchInfo, Pays},
+    // pallet_prelude::{InvalidTransaction, TransactionValidityError},
 };
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 use scale_info::prelude::collections::HashMap;
 use sha2::Digest;
 use sp_core::{H256, U256};
 use sp_runtime::{
-    traits::{BlakeTwo256, ConstU32, DispatchInfoOf, Hash, SignedExtension},
+    // traits::{BlakeTwo256, ConstU32, DispatchInfoOf, Hash, SignedExtension},
+    traits::{BlakeTwo256, ConstU32, Hash},
     BoundedVec, DispatchError,
 };
 use sp_std::collections::vec_deque::VecDeque;
@@ -64,7 +67,7 @@ fn test_set_rootweights_dispatch_info_ok() {
         let netuid: u16 = 1;
         let version_key: u64 = 0;
         let hotkey: U256 = U256::from(1); // Add the hotkey field
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::set_root_weights {
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::set_tao_weights {
             netuid,
             dests,
             weights,
@@ -84,72 +87,74 @@ fn test_set_rootweights_validate() {
     // correctly filters this transaction.
 
     new_test_ext(0).execute_with(|| {
-        let dests = vec![1, 1];
-        let weights = vec![1, 1];
-        let netuid: u16 = 1;
-        let version_key: u64 = 0;
-        let coldkey = U256::from(0);
-        let hotkey: U256 = U256::from(1); // Add the hotkey field
-        assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
+        assert!(false);
 
-        let who = coldkey; // The coldkey signs this transaction
+        // let dests = vec![1, 1];
+        // let weights = vec![1, 1];
+        // let netuid: u16 = 1;
+        // let version_key: u64 = 0;
+        // let coldkey = U256::from(0);
+        // let hotkey: U256 = U256::from(1); // Add the hotkey field
+        // assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
 
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::set_root_weights {
-            netuid,
-            dests,
-            weights,
-            version_key,
-            hotkey, // Include the hotkey field
-        });
+        // let who = coldkey; // The coldkey signs this transaction
 
-        // Create netuid
-        add_network(netuid, 0, 0);
-        // Register the hotkey
-        SubtensorModule::append_neuron(netuid, &hotkey, 0);
-        Owner::<Test>::insert(hotkey, coldkey);
+        // let call = RuntimeCall::SubtensorModule(SubtensorCall::set_tao_weights {
+        //     netuid,
+        //     dests,
+        //     weights,
+        //     version_key,
+        //     hotkey, // Include the hotkey field
+        // });
 
-        let min_stake = 500_000_000_000;
-        // Set the minimum stake
-        SubtensorModule::set_stake_threshold(min_stake);
+        // // Create netuid
+        // add_network(netuid, 0, 0);
+        // // Register the hotkey
+        // SubtensorModule::append_neuron(netuid, &hotkey, 0);
+        // Owner::<Test>::insert(hotkey, coldkey);
 
-        // Verify stake is less than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-        let info: DispatchInfo =
-            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        // let min_stake = 500_000_000_000;
+        // // Set the minimum stake
+        // SubtensorModule::set_stake_threshold(min_stake);
 
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
-        // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
-        // Should fail
-        assert_err!(
-            // Should get an invalid transaction error
-            result_no_stake,
-            TransactionValidityError::Invalid(InvalidTransaction::Custom(4))
-        );
+        // // Verify stake is less than minimum
+        // assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
+        // let info: DispatchInfo =
+        //     DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        // Increase the stake to be equal to the minimum
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
+        // let extension = crate::SubtensorSignedExtension::<Test>::new();
+        // // Submit to the signed extension validate function
+        // let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
+        // // Should fail
+        // assert_err!(
+        //     // Should get an invalid transaction error
+        //     result_no_stake,
+        //     TransactionValidityError::Invalid(InvalidTransaction::Custom(4))
+        // );
 
-        // Verify stake is equal to minimum
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            min_stake
-        );
+        // // Increase the stake to be equal to the minimum
+        // SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
 
-        // Submit to the signed extension validate function
-        let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
-        // Now the call should pass
-        assert_ok!(result_min_stake);
+        // // Verify stake is equal to minimum
+        // assert_eq!(
+        //     SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+        //     min_stake
+        // );
 
-        // Try with more stake than minimum
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 1);
+        // // Submit to the signed extension validate function
+        // let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
+        // // Now the call should pass
+        // assert_ok!(result_min_stake);
 
-        // Verify stake is more than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
+        // // Try with more stake than minimum
+        // SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 1);
 
-        let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
-        // The call should still pass
-        assert_ok!(result_more_stake);
+        // // Verify stake is more than minimum
+        // assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
+
+        // let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
+        // // The call should still pass
+        // assert_ok!(result_more_stake);
     });
 }
 
@@ -183,73 +188,75 @@ fn test_commit_weights_validate() {
     // correctly filters this transaction.
 
     new_test_ext(0).execute_with(|| {
-        let dests = vec![1, 1];
-        let weights = vec![1, 1];
-        let netuid: u16 = 1;
-        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
-        let version_key: u64 = 0;
-        let coldkey = U256::from(0);
-        let hotkey: U256 = U256::from(1); // Add the hotkey field
-        assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
+        assert!(false);
 
-        let who = hotkey; // The hotkey signs this transaction
+        // let dests = vec![1, 1];
+        // let weights = vec![1, 1];
+        // let netuid: u16 = 1;
+        // let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        // let version_key: u64 = 0;
+        // let coldkey = U256::from(0);
+        // let hotkey: U256 = U256::from(1); // Add the hotkey field
+        // assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
 
-        let commit_hash: H256 =
-            BlakeTwo256::hash_of(&(hotkey, netuid, dests, weights, salt, version_key));
+        // let who = hotkey; // The hotkey signs this transaction
 
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::commit_weights {
-            netuid,
-            commit_hash,
-        });
+        // let commit_hash: H256 =
+        //     BlakeTwo256::hash_of(&(hotkey, netuid, dests, weights, salt, version_key));
 
-        // Create netuid
-        add_network(netuid, 0, 0);
-        // Register the hotkey
-        SubtensorModule::append_neuron(netuid, &hotkey, 0);
-        Owner::<Test>::insert(hotkey, coldkey);
+        // let call = RuntimeCall::SubtensorModule(SubtensorCall::commit_weights {
+        //     netuid,
+        //     commit_hash,
+        // });
 
-        let min_stake = 500_000_000_000;
-        // Set the minimum stake
-        SubtensorModule::set_stake_threshold(min_stake);
+        // // Create netuid
+        // add_network(netuid, 0, 0);
+        // // Register the hotkey
+        // SubtensorModule::append_neuron(netuid, &hotkey, 0);
+        // Owner::<Test>::insert(hotkey, coldkey);
 
-        // Verify stake is less than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-        let info: DispatchInfo =
-            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        // let min_stake = 500_000_000_000;
+        // // Set the minimum stake
+        // SubtensorModule::set_stake_threshold(min_stake);
 
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
-        // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
-        // Should fail
-        assert_err!(
-            // Should get an invalid transaction error
-            result_no_stake,
-            TransactionValidityError::Invalid(InvalidTransaction::Custom(1))
-        );
+        // // Verify stake is less than minimum
+        // assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
+        // let info: DispatchInfo =
+        //     DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        // Increase the stake to be equal to the minimum
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
+        // let extension = crate::SubtensorSignedExtension::<Test>::new();
+        // // Submit to the signed extension validate function
+        // let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
+        // // Should fail
+        // assert_err!(
+        //     // Should get an invalid transaction error
+        //     result_no_stake,
+        //     TransactionValidityError::Invalid(InvalidTransaction::Custom(1))
+        // );
 
-        // Verify stake is equal to minimum
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            min_stake
-        );
+        // // Increase the stake to be equal to the minimum
+        // SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
 
-        // Submit to the signed extension validate function
-        let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
-        // Now the call should pass
-        assert_ok!(result_min_stake);
+        // // Verify stake is equal to minimum
+        // assert_eq!(
+        //     SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+        //     min_stake
+        // );
 
-        // Try with more stake than minimum
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 1);
+        // // Submit to the signed extension validate function
+        // let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
+        // // Now the call should pass
+        // assert_ok!(result_min_stake);
 
-        // Verify stake is more than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
+        // // Try with more stake than minimum
+        // SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 1);
 
-        let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
-        // The call should still pass
-        assert_ok!(result_more_stake);
+        // // Verify stake is more than minimum
+        // assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
+
+        // let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
+        // // The call should still pass
+        // assert_ok!(result_more_stake);
     });
 }
 
@@ -282,57 +289,59 @@ fn test_set_weights_validate() {
     // correctly filters the `set_weights` transaction.
 
     new_test_ext(0).execute_with(|| {
-        let netuid: u16 = 1;
-        let coldkey = U256::from(0);
-        let hotkey: U256 = U256::from(1);
-        assert_ne!(hotkey, coldkey);
+        assert!(false);
 
-        let who = hotkey; // The hotkey signs this transaction
+        // let netuid: u16 = 1;
+        // let coldkey = U256::from(0);
+        // let hotkey: U256 = U256::from(1);
+        // assert_ne!(hotkey, coldkey);
 
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::set_weights {
-            netuid,
-            dests: vec![1, 1],
-            weights: vec![1, 1],
-            version_key: 0,
-        });
+        // let who = hotkey; // The hotkey signs this transaction
 
-        // Create netuid
-        add_network(netuid, 0, 0);
-        // Register the hotkey
-        SubtensorModule::append_neuron(netuid, &hotkey, 0);
-        Owner::<Test>::insert(hotkey, coldkey);
+        // let call = RuntimeCall::SubtensorModule(SubtensorCall::set_weights {
+        //     netuid,
+        //     dests: vec![1, 1],
+        //     weights: vec![1, 1],
+        //     version_key: 0,
+        // });
 
-        let min_stake = 500_000_000_000;
-        // Set the minimum stake
-        SubtensorModule::set_stake_threshold(min_stake);
+        // // Create netuid
+        // add_network(netuid, 0, 0);
+        // // Register the hotkey
+        // SubtensorModule::append_neuron(netuid, &hotkey, 0);
+        // Owner::<Test>::insert(hotkey, coldkey);
 
-        // Verify stake is less than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-        let info: DispatchInfo =
-            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        // let min_stake = 500_000_000_000;
+        // // Set the minimum stake
+        // SubtensorModule::set_stake_threshold(min_stake);
 
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
-        // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
-        // Should fail due to insufficient stake
-        assert_err!(
-            result_no_stake,
-            TransactionValidityError::Invalid(InvalidTransaction::Custom(3))
-        );
+        // // Verify stake is less than minimum
+        // assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
+        // let info: DispatchInfo =
+        //     DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        // Increase the stake to be equal to the minimum
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
+        // let extension = crate::SubtensorSignedExtension::<Test>::new();
+        // // Submit to the signed extension validate function
+        // let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
+        // // Should fail due to insufficient stake
+        // assert_err!(
+        //     result_no_stake,
+        //     TransactionValidityError::Invalid(InvalidTransaction::Custom(3))
+        // );
 
-        // Verify stake is equal to minimum
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            min_stake
-        );
+        // // Increase the stake to be equal to the minimum
+        // SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
 
-        // Submit to the signed extension validate function
-        let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
-        // Now the call should pass
-        assert_ok!(result_min_stake);
+        // // Verify stake is equal to minimum
+        // assert_eq!(
+        //     SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+        //     min_stake
+        // );
+
+        // // Submit to the signed extension validate function
+        // let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
+        // // Now the call should pass
+        // assert_ok!(result_min_stake);
     });
 }
 
@@ -342,73 +351,75 @@ fn test_reveal_weights_validate() {
     // correctly filters this transaction.
 
     new_test_ext(0).execute_with(|| {
-        let dests = vec![1, 1];
-        let weights = vec![1, 1];
-        let netuid: u16 = 1;
-        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
-        let version_key: u64 = 0;
-        let coldkey = U256::from(0);
-        let hotkey: U256 = U256::from(1); // Add the hotkey field
-        assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
+        assert!(false);
 
-        let who = hotkey; // The hotkey signs this transaction
+        // let dests = vec![1, 1];
+        // let weights = vec![1, 1];
+        // let netuid: u16 = 1;
+        // let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        // let version_key: u64 = 0;
+        // let coldkey = U256::from(0);
+        // let hotkey: U256 = U256::from(1); // Add the hotkey field
+        // assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
 
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::reveal_weights {
-            netuid,
-            uids: dests,
-            values: weights,
-            salt,
-            version_key,
-        });
+        // let who = hotkey; // The hotkey signs this transaction
 
-        // Create netuid
-        add_network(netuid, 0, 0);
-        // Register the hotkey
-        SubtensorModule::append_neuron(netuid, &hotkey, 0);
-        Owner::<Test>::insert(hotkey, coldkey);
+        // let call = RuntimeCall::SubtensorModule(SubtensorCall::reveal_weights {
+        //     netuid,
+        //     uids: dests,
+        //     values: weights,
+        //     salt,
+        //     version_key,
+        // });
 
-        let min_stake = 500_000_000_000;
-        // Set the minimum stake
-        SubtensorModule::set_stake_threshold(min_stake);
+        // // Create netuid
+        // add_network(netuid, 0, 0);
+        // // Register the hotkey
+        // SubtensorModule::append_neuron(netuid, &hotkey, 0);
+        // Owner::<Test>::insert(hotkey, coldkey);
 
-        // Verify stake is less than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-        let info: DispatchInfo =
-            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        // let min_stake = 500_000_000_000;
+        // // Set the minimum stake
+        // SubtensorModule::set_stake_threshold(min_stake);
 
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
-        // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
-        // Should fail
-        assert_err!(
-            // Should get an invalid transaction error
-            result_no_stake,
-            TransactionValidityError::Invalid(InvalidTransaction::Custom(2))
-        );
+        // // Verify stake is less than minimum
+        // assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
+        // let info: DispatchInfo =
+        //     DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        // Increase the stake to be equal to the minimum
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
+        // let extension = crate::SubtensorSignedExtension::<Test>::new();
+        // // Submit to the signed extension validate function
+        // let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
+        // // Should fail
+        // assert_err!(
+        //     // Should get an invalid transaction error
+        //     result_no_stake,
+        //     TransactionValidityError::Invalid(InvalidTransaction::Custom(2))
+        // );
 
-        // Verify stake is equal to minimum
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            min_stake
-        );
+        // // Increase the stake to be equal to the minimum
+        // SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
 
-        // Submit to the signed extension validate function
-        let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
-        // Now the call should pass
-        assert_ok!(result_min_stake);
+        // // Verify stake is equal to minimum
+        // assert_eq!(
+        //     SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+        //     min_stake
+        // );
 
-        // Try with more stake than minimum
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 1);
+        // // Submit to the signed extension validate function
+        // let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
+        // // Now the call should pass
+        // assert_ok!(result_min_stake);
 
-        // Verify stake is more than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
+        // // Try with more stake than minimum
+        // SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 1);
 
-        let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
-        // The call should still pass
-        assert_ok!(result_more_stake);
+        // // Verify stake is more than minimum
+        // assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
+
+        // let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
+        // // The call should still pass
+        // assert_ok!(result_more_stake);
     });
 }
 
@@ -483,46 +494,48 @@ fn test_weights_err_no_validator_permit() {
 #[test]
 fn test_set_stake_threshold_failed() {
     new_test_ext(0).execute_with(|| {
-        let dests = vec![0];
-        let weights = vec![1];
-        let netuid: u16 = 1;
-        let version_key: u64 = 0;
-        let hotkey = U256::from(0);
-        let coldkey = U256::from(0);
+        assert!(false);
 
-        add_network(netuid, 0, 0);
-        register_ok_neuron(netuid, hotkey, coldkey, 2143124);
-        SubtensorModule::set_stake_threshold(20_000_000_000_000);
+        // let dests = vec![0];
+        // let weights = vec![1];
+        // let netuid: u16 = 1;
+        // let version_key: u64 = 0;
+        // let hotkey = U256::from(0);
+        // let coldkey = U256::from(0);
 
-        // Check the signed extension function.
-        assert_eq!(SubtensorModule::get_stake_threshold(), 20_000_000_000_000);
-        assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 19_000_000_000_000);
-        assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 20_000_000_000_000);
-        assert!(SubtensorModule::check_weights_min_stake(&hotkey, netuid));
+        // add_network(netuid, 0, 0);
+        // register_ok_neuron(netuid, hotkey, coldkey, 2143124);
+        // SubtensorModule::set_stake_threshold(20_000_000_000_000);
 
-        // Check that it fails at the pallet level.
-        SubtensorModule::set_stake_threshold(100_000_000_000_000);
-        assert_eq!(
-            SubtensorModule::set_weights(
-                RuntimeOrigin::signed(hotkey),
-                netuid,
-                dests.clone(),
-                weights.clone(),
-                version_key,
-            ),
-            Err(Error::<Test>::NotEnoughStakeToSetWeights.into())
-        );
-        // Now passes
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 100_000_000_000_000);
-        assert_ok!(SubtensorModule::set_weights(
-            RuntimeOrigin::signed(hotkey),
-            netuid,
-            dests.clone(),
-            weights.clone(),
-            version_key
-        ));
+        // // Check the signed extension function.
+        // assert_eq!(SubtensorModule::get_stake_threshold(), 20_000_000_000_000);
+        // assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
+        // SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 19_000_000_000_000);
+        // assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
+        // SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 20_000_000_000_000);
+        // assert!(SubtensorModule::check_weights_min_stake(&hotkey, netuid));
+
+        // // Check that it fails at the pallet level.
+        // SubtensorModule::set_stake_threshold(100_000_000_000_000);
+        // assert_eq!(
+        //     SubtensorModule::set_weights(
+        //         RuntimeOrigin::signed(hotkey),
+        //         netuid,
+        //         dests.clone(),
+        //         weights.clone(),
+        //         version_key,
+        //     ),
+        //     Err(Error::<Test>::NotEnoughStakeToSetWeights.into())
+        // );
+        // // Now passes
+        // SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 100_000_000_000_000);
+        // assert_ok!(SubtensorModule::set_weights(
+        //     RuntimeOrigin::signed(hotkey),
+        //     netuid,
+        //     dests.clone(),
+        //     weights.clone(),
+        //     version_key
+        // ));
     });
 }
 

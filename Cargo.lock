@@ -5549,6 +5549,7 @@ dependencies = [
  "jsonrpsee",
  "memmap2 0.9.5",
  "node-subtensor-runtime",
+ "num-traits",
  "pallet-commitments",
  "pallet-drand",
  "pallet-transaction-payment",

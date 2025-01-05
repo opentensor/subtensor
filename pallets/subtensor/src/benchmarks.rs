@@ -111,8 +111,6 @@ benchmarks! {
     let modality: u16 = 0;
     let seed : u32 = 1;
 
-    Subtensor::<T>::set_target_stakes_per_interval(100);
-
     Subtensor::<T>::init_new_network(netuid, tempo);
 
     Subtensor::<T>::set_burn(netuid, 1);
@@ -139,8 +137,6 @@ benchmarks! {
     let tempo: u16 = 1;
     let modality: u16 = 0;
     let seed : u32 = 1;
-
-    Subtensor::<T>::set_target_stakes_per_interval(100);
 
     // Set our total stake to 1000 TAO
     Subtensor::<T>::increase_total_stake(1_000_000_000_000);
