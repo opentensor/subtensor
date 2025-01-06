@@ -2082,6 +2082,16 @@ impl_runtime_apis! {
             }
         }
 
+        fn get_dynamic_info(netuid: u16) -> Vec<u8> {
+            let _result = SubtensorModule::get_dynamic_info(netuid);
+            if _result.is_some() {
+                let result = _result.expect("Could not get DynamicInfo.");
+                result.encode()
+            } else {
+                vec![]
+            }
+        }
+
         fn get_all_dynamic_info() -> Vec<u8> {
             let result = SubtensorModule::get_all_dynamic_info();
             result.encode()
