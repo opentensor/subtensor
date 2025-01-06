@@ -2081,6 +2081,11 @@ impl_runtime_apis! {
                 vec![]
             }
         }
+
+        fn get_all_dynamic_info() -> Vec<u8> {
+            let result = SubtensorModule::get_all_dynamic_info();
+            result.encode()
+        }
     }
 
     impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {

@@ -69,6 +69,7 @@ fn test_stake_base_case() {
 // 1. Stakes are represented as shares in a pool
 // 2. Multiple coldkeys can stake to a single hotkey
 // 3. Direct hotkey stakes are distributed proportionally among existing coldkey stakes
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --workspace --test staking2 -- test_swap_tao_for_alpha_dynamic_mechanism --exact --nocapture
 #[test]
 fn test_share_based_staking() {
     new_test_ext(1).execute_with(|| {
