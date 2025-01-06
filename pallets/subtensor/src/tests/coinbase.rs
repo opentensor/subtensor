@@ -5,253 +5,114 @@ use frame_support::assert_ok;
 use sp_core::U256;
 use substrate_fixed::types::I64F64;
 
-// To run this test specifically, use the following command:
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test coinbase test_coinbase_basic -- --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --workspace --test coinbase -- test_dynamic_flow --exact --nocapture
 #[test]
-
-fn test_coinbase_basic() {
+fn test_dynamic_flow() {
     new_test_ext(1).execute_with(|| {
         assert!(false);
 
-        // // Define network ID
-        // let netuid: u16 = 1;
-        // let hotkey = U256::from(0);
-        // let coldkey = U256::from(3);
+        // let netuid = 1;
+        // let hotkey = U256::from(1);
+        // let coldkey = U256::from(2);
+        // let block_emission: u64 = 1000000000;
+        // let initial_subnet_tao: u64 = 10_000_000_000;
+        // let initial_subnet_alpha: u64 = 100_000_000_000;
+        // add_network(netuid, 110, 100);
+        // // Tempo::<Test>::insert(netuid, 1);
+        // SubnetMechanism::<Test>::insert(netuid, 1);
+        // SubnetTAO::<Test>::insert(netuid, initial_subnet_tao); // 10 TAO
+        // SubnetAlphaIn::<Test>::insert(netuid, initial_subnet_alpha); // 100 Alpha
+        // SubtensorModule::register_neuron( netuid, &hotkey );
 
-        // // Create a network with a tempo 1
-        // add_network(netuid, 1, 0);
-        // register_ok_neuron(netuid, hotkey, coldkey, 100000);
-        // SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, 1000);
+        // // Stake into the network adding 1 TAO through he pool.
+        // let stake: u64 = 1_000_000_000;
+        // SubtensorModule::stake_into_subnet( &hotkey, &coldkey, netuid, stake ); // Stake into subnet.
 
-        // // Set the subnet emission value to 1.
-        // SubtensorModule::set_emission_values(&[netuid], vec![1]).unwrap();
-        // assert_eq!(SubtensorModule::get_subnet_emission_value(netuid), 1);
+        // // Stake into root adding 1 TAO through the pool.
+        // SubtensorModule::stake_into_subnet( &hotkey, &coldkey, 0, stake ); // Stake into root.
 
-        // // Hotkey has no pending emission
-        // assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
+        // // Check price function.
+        // let total_alpha_reserves: u64 = SubnetAlphaIn::<Test>::get(netuid);
+        // let total_tao_reserves: u64 = SubnetTAO::<Test>::get(netuid);
+        // let expected_alpha_price: I96F32 = I96F32::from_num(total_tao_reserves) / I96F32::from_num(total_alpha_reserves);
+        // assert_eq!( SubtensorModule::get_alpha_price( netuid ), expected_alpha_price );
 
-        // // Hotkey has same stake
-        // assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey), 1000);
+        // // Run a block forward.
+        // let total_issuance_before: u64 = TotalIssuance::<Test>::get();
+        // let total_stake_before: u64 = TotalStake::<Test>::get();
+        // let subnet_tao_before: u64 = SubnetTAO::<Test>::get(netuid);
+        // let alpha_out_before: u64 = SubnetAlphaOut::<Test>::get(netuid);
+        // let alpha_in_before: u64 = SubnetAlphaIn::<Test>::get(netuid);
+        // step_block(1);
+        // // Single subnet gets 100% of block emission.
+        // assert_eq!(EmissionValues::<Test>::get(netuid), block_emission);
+        // // Alpha_in emission = 1 because alpha_price < emission_value/block_emission
+        // assert_eq!(SubnetAlphaInEmission::<Test>::get(netuid), block_emission);
+        // assert_eq!(SubnetAlphaIn::<Test>::get(netuid), alpha_in_before + block_emission);
+        // // Tao_in emission = block_emission * alpha_price
+        // let expected_tao_emission: u64 = (I96F32::from_num(block_emission) * expected_alpha_price).to_num::<u64>();
+        // assert_eq!(SubnetTaoInEmission::<Test>::get(netuid), expected_tao_emission );
+        // assert_eq!(TotalIssuance::<Test>::get(), total_issuance_before + expected_tao_emission );
+        // assert_eq!(TotalStake::<Test>::get(), total_stake_before + expected_tao_emission );
+        // assert_eq!(SubnetTAO::<Test>::get(netuid), subnet_tao_before + expected_tao_emission );
+        // // Alpha_out = 2 - alpha_in thus == 2*block_emission - block_emission = block_emission
+        // assert_eq!(SubnetAlphaOutEmission::<Test>::get(netuid), block_emission);
+        // assert_eq!(SubnetAlphaOut::<Test>::get(netuid), alpha_out_before); // Unchanged.
+        // assert_eq!(PendingEmission::<Test>::get(netuid), block_emission); // All alpha..
 
-        // // Subnet has no pending emission.
-        // assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+        // // Reset pending.
+        // PendingRootDivs::<Test>::insert(netuid, 0);
+        // PendingEmission::<Test>::insert(netuid, 0);
 
-        // // Step block
-        // next_block();
+        // // Set tao weight.
+        // TaoWeight::<Test>::insert( netuid, u64::MAX );
+        // let total_issuance_before: u64 = TotalIssuance::<Test>::get();
+        // let total_stake_before: u64 = TotalStake::<Test>::get();
+        // let root_tao_before: u64 = SubnetTAO::<Test>::get(0);
+        // let subnet_tao_before: u64 = SubnetTAO::<Test>::get(netuid);
+        // let alpha_out_before: u64 = SubnetAlphaOut::<Test>::get(netuid);
+        // let alpha_in_before: u64 = SubnetAlphaIn::<Test>::get(netuid);
+        // let previous_pending: u64 = PendingEmission::<Test>::get(netuid);
+        // step_block(1);
+        // // Single subnet gets 100% of block emission.
+        // assert_eq!(EmissionValues::<Test>::get(netuid), block_emission);
+        // // Alpha_in emission = 1 because alpha_price < emission_value/block_emission
+        // assert_eq!(SubnetAlphaInEmission::<Test>::get(netuid), block_emission);
+        // // Get the pending root dividends.
+        // let pending_root_divs: u64 = PendingRootDivs::<Test>::get(netuid);
+        // // Simualte the swap back to alpha.
+        // let pending_as_alpha: u64 = SubtensorModule::sim_swap_tao_for_alpha( netuid, pending_root_divs );
+        // // Subnet ALpha out Emission .
+        // assert_eq!(SubnetAlphaOutEmission::<Test>::get(netuid), block_emission);
+        // // Assert difference is Pending emission.
+        // assert_eq!(PendingEmission::<Test>::get(netuid), previous_pending + (block_emission - pending_as_alpha) - 6 ); // All alpha with rounding.
+        // // Alpha in is increased by emission.
+        // assert_eq!(SubnetAlphaIn::<Test>::get(netuid), alpha_in_before + block_emission + pending_as_alpha + 5 ); // Corret with rounding.
 
-        // // Hotkey has no pending emission
-        // assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
+        // // Lets train the pending.
+        // let total_issuance_before: u64 = TotalIssuance::<Test>::get();
+        // let total_stake_before: u64 = TotalStake::<Test>::get();
+        // let root_tao_before: u64 = SubnetTAO::<Test>::get(0);
+        // let subnet_tao_before: u64 = SubnetTAO::<Test>::get(netuid);
+        // let alpha_out_before: u64 = SubnetAlphaOut::<Test>::get(netuid);
+        // let alpha_in_before: u64 = SubnetAlphaIn::<Test>::get(netuid);
+        // let previous_pending: u64 = PendingEmission::<Test>::get(netuid);
+        // let root_pending: u64 = PendingRootDivs::<Test>::get(netuid);
+        // SubtensorModule::drain_pending_emission( netuid );
+        // // Drained
+        // assert_eq!(PendingEmission::<Test>::get(netuid), 0);
+        // // Unchanged.
+        // assert_eq!(SubnetAlphaIn::<Test>::get(netuid), alpha_in_before);
+        // // Dividends are all pending to this hotkey.
+        // assert_eq!(HotkeyDividendsPerSubnet::<Test>::get(netuid, &hotkey), previous_pending);
+        // // Root Dividends are all pending to this hotkey.
+        // assert_eq!(RootDividendsPerSubnet::<Test>::get(netuid, &hotkey), root_pending);
 
-        // // Hotkey has same stake
-        // assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey), 1000);
+        // // TODO( const ): test multiple subnets.
+        // // TODO( const ): test multi root proportions
+        // // TODO( const ): test parents etc
+        
 
-        // // Subnet has no pending emission of 1 ( from coinbase )
-        // assert_eq!(SubtensorModule::get_pending_emission(netuid), 1);
-
-        // // Step block releases
-        // next_block();
-
-        // // Subnet pending has been drained.
-        // assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
-
-        // // Hotkey pending immediately drained.
-        // assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
-
-        // // Hotkey has NEW stake
-        // assert_eq!(
-        //     SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-        //     1000 + 2
-        // );
-
-        // // Set the hotkey drain time to 2 block.
-        // SubtensorModule::set_hotkey_emission_tempo(2);
-
-        // // Step block releases
-        // next_block();
-
-        // // Subnet pending increased by 1
-        // assert_eq!(SubtensorModule::get_pending_emission(netuid), 1);
-
-        // // Hotkey pending not increased (still on subnet)
-        // assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
-
-        // // Hotkey has same stake
-        // assert_eq!(
-        //     SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-        //     1000 + 2
-        // );
-
-        // // Step block releases
-        // next_block();
-
-        // // Subnet pending has been drained.
-        // assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
-
-        // // Hotkey pending drained.
-        // assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
-
-        // // Hotkey has 2 new TAO.
-        // assert_eq!(
-        //     SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-        //     1000 + 4
-        // );
-    });
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --test coinbase test_coinbase_nominator_drainage_overflow -- --nocapture
-#[test]
-fn test_coinbase_nominator_drainage_overflow() {
-    new_test_ext(1).execute_with(|| {
-        assert!(false);
-
-        // // 1. Set up the network and accounts
-        // let netuid: u16 = 1;
-        // let hotkey = U256::from(0);
-        // let coldkey = U256::from(3);
-        // let nominator1 = U256::from(1);
-        // let nominator2 = U256::from(2);
-
-        // log::debug!("Setting up network with netuid: {}", netuid);
-        // log::debug!("Hotkey: {:?}, Coldkey: {:?}", hotkey, coldkey);
-        // log::debug!("Nominators: {:?}, {:?}", nominator1, nominator2);
-
-        // // 2. Create network and register neuron
-        // add_network(netuid, 1, 0);
-        // register_ok_neuron(netuid, hotkey, coldkey, 100000);
-        // SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
-
-        // log::debug!("Network created and neuron registered");
-
-        // // 3. Set up balances and stakes
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1000);
-        // SubtensorModule::add_balance_to_coldkey_account(&nominator1, 1500);
-        // SubtensorModule::add_balance_to_coldkey_account(&nominator2, 1500);
-
-        // log::debug!("Balances added to accounts");
-
-        // // 4. Make the hotkey a delegate
-        // let vali_take = (u16::MAX as u64 / 10);
-        // assert_ok!(SubtensorModule::do_become_delegate(
-        //     RuntimeOrigin::signed(coldkey),
-        //     hotkey,
-        //     vali_take as u16
-        // ));
-
-        // log::debug!("Hotkey became a delegate with minimum take");
-
-        // // Add stakes for nominators
-        // // Add the stake directly to their coldkey-hotkey account
-        // // This bypasses the accounting in stake delta
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&nominator1, &hotkey, 5e9 as u64);
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&nominator2, &hotkey, 5e9 as u64);
-        // let initial_stake = 5e9 as u64;
-
-        // // Log the stakes for hotkey, nominator1, and nominator2
-        // log::debug!(
-        //     "Initial stakes - Hotkey: {}, Nominator1: {}, Nominator2: {}",
-        //     SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey),
-        //     SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey),
-        //     SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator2, &hotkey)
-        // );
-        // log::debug!("Stakes added for nominators");
-
-        // // 5. Set emission and verify initial states
-        // let to_emit = 20_000e9 as u64;
-        // SubtensorModule::set_emission_values(&[netuid], vec![to_emit]).unwrap();
-        // assert_eq!(SubtensorModule::get_subnet_emission_value(netuid), to_emit);
-        // assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
-        // assert_eq!(
-        //     SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-        //     initial_stake * 2
-        // );
-        // assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
-
-        // log::debug!("Emission set and initial states verified");
-
-        // // 6. Set hotkey emission tempo
-        // SubtensorModule::set_hotkey_emission_tempo(1);
-        // log::debug!("Hotkey emission tempo set to 1");
-
-        // // 7. Simulate blocks and check emissions
-        // next_block();
-        // assert_eq!(SubtensorModule::get_pending_emission(netuid), to_emit);
-        // log::debug!(
-        //     "After first block, pending emission: {}",
-        //     SubtensorModule::get_pending_emission(netuid)
-        // );
-
-        // next_block();
-        // assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
-        // assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
-        // log::debug!("After second block, pending emission drained");
-
-        // // 8. Check final stakes
-        // let hotkey_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey);
-        // let nominator1_stake =
-        //     SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &hotkey);
-        // let nominator2_stake =
-        //     SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator2, &hotkey);
-
-        // log::debug!(
-        //     "Final stakes - Hotkey: {}, Nominator1: {}, Nominator2: {}",
-        //     hotkey_stake,
-        //     nominator1_stake,
-        //     nominator2_stake
-        // );
-
-        // // 9. Verify distribution
-        // let total_emission = to_emit * 2; // to_emit per block for 2 blocks
-        // let hotkey_emission = (I64F64::from_num(total_emission) / I64F64::from_num(u16::MAX)
-        //     * I64F64::from_num(vali_take))
-        // .to_num::<u64>();
-        // let remaining_emission = total_emission - hotkey_emission;
-        // let nominator_emission = remaining_emission / 2;
-
-        // log::debug!(
-        //     "Calculated emissions - Hotkey: {}, Each Nominator: {}",
-        //     hotkey_emission,
-        //     nominator_emission
-        // );
-
-        // // Debug: Print the actual stakes
-        // log::debug!("Actual hotkey stake: {}", hotkey_stake);
-        // log::debug!("Actual nominator1 stake: {}", nominator1_stake);
-        // log::debug!("Actual nominator2 stake: {}", nominator2_stake);
-
-        // // Debug: Check the total stake for the hotkey
-        // let total_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
-        // log::debug!("Total stake for hotkey: {}", total_stake);
-
-        // // Assertions
-        // let expected_hotkey_stake = 4_000e9 as u64;
-        // let eps = 0.5e9 as u64;
-        // assert!(
-        //     hotkey_stake >= expected_hotkey_stake - eps
-        //         && hotkey_stake <= expected_hotkey_stake + eps,
-        //     "Hotkey stake mismatch - expected: {}, actual: {}",
-        //     expected_hotkey_stake,
-        //     hotkey_stake
-        // );
-        // assert_eq!(
-        //     nominator1_stake,
-        //     initial_stake + nominator_emission,
-        //     "Nominator1 stake mismatch"
-        // );
-        // assert_eq!(
-        //     nominator2_stake,
-        //     initial_stake + nominator_emission,
-        //     "Nominator2 stake mismatch"
-        // );
-
-        // // 10. Check total stake
-        // assert_eq!(
-        //     total_stake,
-        //     initial_stake + initial_stake + total_emission,
-        //     "Total stake mismatch"
-        // );
-
-        // log::debug!("Test completed");
     });
 }
 

@@ -1489,5 +1489,42 @@ mod dispatches {
         ) -> DispatchResult {
             Self::user_add_network(origin, identity)
         }
+
+        /// ---- The implementation for the extrinsic unstake_all: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
+        ///
+        /// # Args:
+        /// * `origin` - (<T as frame_system::Config>::Origin):
+        ///     - The signature of the caller's coldkey.
+        ///
+        /// * `hotkey` (T::AccountId):
+        ///     - The associated hotkey account.
+        ///
+        /// # Event:
+        /// * StakeRemoved;
+        ///     - On the successfully removing stake from the hotkey account.
+        ///
+        /// # Raises:
+        /// * `NotRegistered`:
+        ///     - Thrown if the account we are attempting to unstake from is non existent.
+        ///
+        /// * `NonAssociatedColdKey`:
+        ///     - Thrown if the coldkey does not own the hotkey we are unstaking from.
+        ///
+        /// * `NotEnoughStakeToWithdraw`:
+        ///     - Thrown if there is not enough stake on the hotkey to withdraw this amount.
+        ///
+        /// * `TxRateLimitExceeded`:
+        ///     - Thrown if key has hit transaction rate limit
+        #[pallet::call_index(83)]
+        #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn unstake_all(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+        ) -> DispatchResult {
+            Self::do_unstake_all(
+                origin,
+                hotkey,
+            )
+        }
     }
 }

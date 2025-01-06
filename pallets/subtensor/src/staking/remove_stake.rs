@@ -87,4 +87,70 @@ impl<T: Config> Pallet<T> {
         // Done and ok.
         Ok(())
     }
+
+    /// ---- The implementation for the extrinsic unstake_all: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
+    ///
+    /// # Args:
+    /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    ///     -  The signature of the caller's coldkey.
+    ///
+    /// * 'hotkey' (T::AccountId):
+    ///     -  The associated hotkey account.
+    ///
+    /// # Event:
+    /// * StakeRemoved;
+    ///     -  On the successfully removing stake from the hotkey account.
+    ///
+    /// # Raises:
+    /// * 'NotRegistered':
+    ///     -  Thrown if the account we are attempting to unstake from is non existent.
+    ///
+    /// * 'NonAssociatedColdKey':
+    ///     -  Thrown if the coldkey does not own the hotkey we are unstaking from.
+    ///
+    /// * 'NotEnoughStakeToWithdraw':
+    ///     -  Thrown if there is not enough stake on the hotkey to withdraw this amount.
+    ///
+    /// * 'TxRateLimitExceeded':
+    ///     -  Thrown if key has hit transaction rate limit
+    ///
+    pub fn do_unstake_all(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+    ) -> dispatch::DispatchResult {
+
+        // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
+        let coldkey = ensure_signed(origin)?;
+        log::info!(
+            "do_unstake_all( origin:{:?} hotkey:{:?} )",
+            coldkey,
+            hotkey
+        );
+
+        // 2. Ensure that the hotkey account exists this is only possible through registration.
+        ensure!( Self::hotkey_account_exists(&hotkey), Error::<T>::HotKeyAccountNotExists );
+
+        // 3. Get all netuids.
+        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
+        log::debug!("All subnet netuids: {:?}", netuids);
+
+        // 4. Iterate through all subnets and remove stake.
+        for netuid in netuids.iter() {
+            // Ensure that the hotkey has enough stake to withdraw.
+            let alpha_unstaked = Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, *netuid);
+            if alpha_unstaked > 0 {
+                // Swap the alpha to tao and update counters for this subnet.
+                let tao_unstaked: u64 = Self::unstake_from_subnet(&hotkey, &coldkey, *netuid, alpha_unstaked);
+
+                // Add the balance to the coldkey. If the above fails we will not credit this coldkey.
+                Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
+
+                // If the stake is below the minimum, we clear the nomination from storage.
+                Self::clear_small_nomination_if_required(&hotkey, &coldkey, *netuid);
+            }
+        }
+
+        // 5. Done and ok.
+        Ok(())
+    }    
 }

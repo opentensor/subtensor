@@ -3,6 +3,7 @@ use alloc::string::String;
 use frame_support::IterableStorageMap;
 use frame_support::{traits::Get, weights::Weight};
 use log;
+use sp_runtime::format;
 use crate::subnets::symbols::get_symbol_for_subnet;
 
 pub fn migrate_rao<T: Config>() -> Weight {
@@ -65,17 +66,43 @@ pub fn migrate_rao<T: Config>() -> Weight {
         }
         let owner: T::AccountId = SubnetOwner::<T>::get(netuid);
         let lock: u64 = SubnetLocked::<T>::get(netuid);
-        Pallet::<T>::add_balance_to_coldkey_account(&owner, lock);
-        SubnetTAO::<T>::insert(netuid, 1); // Set TAO to the lock.
-        SubnetAlphaIn::<T>::insert(netuid, 1); // Set AlphaIn to the initial alpha distribution.
+        let initial_liquidity: u64 = 100_000_000_000; // 100 TAO.
+        let remaining_lock: u64 = lock.saturating_sub( initial_liquidity );
+        Pallet::<T>::add_balance_to_coldkey_account(&owner, remaining_lock);
+        SubnetTAO::<T>::insert(netuid, initial_liquidity); // Set TAO to the lock.
+        SubnetAlphaIn::<T>::insert(netuid, initial_liquidity); // Set AlphaIn to the initial alpha distribution.
         SubnetAlphaOut::<T>::insert(netuid, 0); // Set zero subnet alpha out.
         SubnetMechanism::<T>::insert(netuid, 1); // Convert to dynamic immediately with initialization.
         Tempo::<T>::insert(netuid, DefaultTempo::<T>::get());
-        // Set global weight to 1.0 for the start
-        TaoWeight::<T>::insert(netuid, u64::MAX);
-        
+        // Set global weight to 1.8% from the start
+        TaoWeight::<T>::insert(netuid, 320_413_933_267_719_290);
         // Set the token symbol for this subnet using Self instead of Pallet::<T>
         TokenSymbol::<T>::insert(netuid, get_symbol_for_subnet(*netuid));
+
+        if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
+            // Set Owner as the coldkey.
+            SubnetOwnerHotkey::<T>::insert(netuid, owner_coldkey.clone());
+            // Associate the coldkey to coldkey.
+            Pallet::<T>::create_account_if_non_existent( &owner_coldkey, &owner_coldkey );
+            // Register the owner_coldkey as neuron to the network.
+            let _neuron_uid: u16 = Pallet::<T>::register_neuron( *netuid, &owner_coldkey );
+            // Register the neuron immediately.
+            if !Identities::<T>::contains_key( owner_coldkey.clone() ) {
+                // Set the identitiy for the Owner coldkey if non existent.
+                let identity = ChainIdentityOf {
+                    name: format!("Owner{}", netuid).as_bytes().to_vec(),
+                    url: Vec::new(),
+                    image: Vec::new(),
+                    discord: Vec::new(),
+                    description: Vec::new(),
+                    additional: Vec::new(),
+                };
+                // Validate the created identity and set it.
+                if Pallet::<T>::is_valid_identity(&identity) {
+                    Identities::<T>::insert( owner_coldkey.clone(), identity.clone() );
+                }
+            }
+        }
 
         // HotkeyEmissionTempo::<T>::put(30); // same as subnet tempo // (DEPRECATED)
         // Set the target stakes per interval to 10.

@@ -25,7 +25,7 @@ pub fn get_symbol_for_subnet(netuid: u16) -> Vec<u8> {
         16 => b"\xCF\x80".to_vec(), // π (Pi)
         17 => b"\xCF\x81".to_vec(), // ρ (Rho)
         18 => b"\xCF\x83".to_vec(), // σ (Sigma)
-        19 => b"\xCF\x84".to_vec(), // τ (Tau)
+        19 => b"t".to_vec(), // t (Tau)
         20 => b"\xCF\x85".to_vec(), // υ (Upsilon)
         21 => b"\xCF\x86".to_vec(), // φ (Phi)
         22 => b"\xCF\x87".to_vec(), // χ (Chi)
