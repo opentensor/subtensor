@@ -1,9 +1,20 @@
 use super::*;
 use frame_support::IterableStorageMap;
 use sp_core::Get;
-use crate::subnets::symbols::get_symbol_for_subnet;
 
 impl<T: Config> Pallet<T> {
+
+    /// Retrieves the unique identifier (UID) for the root network.
+    ///
+    /// The root network is a special case and has a fixed UID of 0.
+    ///
+    /// # Returns:
+    /// * 'u16': The UID for the root network.
+    ///
+    pub fn get_root_netuid() -> u16 {
+        0
+    }
+
     /// Fetches the total count of subnets.
     ///
     /// This function retrieves the total number of subnets present on the chain.
@@ -104,6 +115,32 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// Sets the network rate limit and emit the `NetworkRateLimitSet` event
+    ///
+    pub fn set_network_rate_limit(limit: u64) {
+        NetworkRateLimit::<T>::set(limit);
+        Self::deposit_event(Event::NetworkRateLimitSet(limit));
+    }
+
+    /// Checks if registrations are allowed for a given subnet.
+    ///
+    /// This function retrieves the subnet hyperparameters for the specified subnet and checks the
+    /// `registration_allowed` flag. If the subnet doesn't exist or doesn't have hyperparameters
+    /// defined, it returns `false`.
+    ///
+    /// # Arguments
+    ///
+    /// * `netuid` - The unique identifier of the subnet.
+    ///
+    /// # Returns
+    ///
+    /// * `bool` - `true` if registrations are allowed for the subnet, `false` otherwise.
+    pub fn is_registration_allowed(netuid: u16) -> bool {
+        Self::get_subnet_hyperparams(netuid)
+            .map(|params| params.registration_allowed)
+            .unwrap_or(false)
+    }
+
     /// Facilitates user registration of a new subnetwork.
     ///
     /// # Args:
@@ -132,7 +169,7 @@ impl<T: Config> Pallet<T> {
         // --- 2. Ensure the hotkey does not exist or is owned by the coldkey.
         ensure!(
             !Self::hotkey_account_exists(hotkey) || Self::coldkey_owns_hotkey(&coldkey, hotkey),
-            Error::<T>::HotKeyNotDelegateAndSignerNotOwnHotKey
+            Error::<T>::NonAssociatedColdKey
         );
 
         // --- 3. Ensure the mechanism is Dynamic.
@@ -192,7 +229,7 @@ impl<T: Config> Pallet<T> {
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
 
         // --- 14. Init the pool by putting the lock as the initial alpha.
-        TokenSymbol::<T>::insert(netuid_to_register, get_symbol_for_subnet(netuid_to_register) ); // Set subnet token symbol.
+        TokenSymbol::<T>::insert(netuid_to_register, Self::get_symbol_for_subnet(netuid_to_register) ); // Set subnet token symbol.
         SubnetTAO::<T>::insert(netuid_to_register, 1); // add the infintesimal amount of TAO to the pool.
         SubnetAlphaIn::<T>::insert(netuid_to_register, 1); // add infintesimal amount of alpha to the pool.
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
@@ -305,3 +342,5 @@ impl<T: Config> Pallet<T> {
         }
     }
 }
+
+

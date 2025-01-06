@@ -4,7 +4,6 @@ use frame_support::IterableStorageMap;
 use frame_support::{traits::Get, weights::Weight};
 use log;
 use sp_runtime::format;
-use crate::subnets::symbols::get_symbol_for_subnet;
 
 pub fn migrate_rao<T: Config>() -> Weight {
     let migration_name = b"migrate_rao".to_vec();
@@ -61,7 +60,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
             // Give root a single RAO in pool to avoid any catestrophic division by zero.
             SubnetAlphaIn::<T>::insert(netuid, 1);
             SubnetMechanism::<T>::insert(netuid, 0); // Set to zero mechanism.
-            TokenSymbol::<T>::insert(netuid, get_symbol_for_subnet(*netuid));
+            TokenSymbol::<T>::insert(netuid, Pallet::<T>::get_symbol_for_subnet(0));
             continue;
         }
         let owner: T::AccountId = SubnetOwner::<T>::get(netuid);
@@ -77,7 +76,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
         // Set global weight to 1.8% from the start
         TaoWeight::<T>::insert(netuid, 320_413_933_267_719_290);
         // Set the token symbol for this subnet using Self instead of Pallet::<T>
-        TokenSymbol::<T>::insert(netuid, get_symbol_for_subnet(*netuid));
+        TokenSymbol::<T>::insert(netuid, Pallet::<T>::get_symbol_for_subnet(*netuid));
 
         if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
             // Set Owner as the coldkey.

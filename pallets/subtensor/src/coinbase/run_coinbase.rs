@@ -340,9 +340,131 @@ impl<T: Config> Pallet<T> {
             });
         }
     }
-    
-    /// The `reveal_crv3_commits` function is run at the very beginning of epoch `n`,
-    pub fn reveal_crv3_commits(netuid: u16) -> dispatch::DispatchResult {
+
+    /// Returns a list of tuples for each parent associated with this hotkey including self
+    /// Each tuples contains the dividends owed to that hotkey given their parent proportion
+    /// The hotkey child take proportion is removed from this and added to the tuples for self.
+    ///
+    /// # Arguments
+    /// * `hotkye` - The hotkey to distribute out from.
+    /// * `netuid` - The netuid we are computing on.
+    /// * `dividends` - the dividends to distribute.
+    ///
+    /// # Returns
+    /// * dividend_tuples: `Vec<(T::AccountId, u64)>` - Vector of (hotkey, divs) for each parent including self.
+    ///
+    pub fn get_parent_dividends(
+        hotkey: &T::AccountId,
+        netuid: u16,
+        dividends: u64,
+    ) -> Vec<(T::AccountId, u64)> {
+
+        // hotkey dividends.
+        let mut dividend_tuples: Vec<(T::AccountId, u64)> = vec![];
+
+        // Calculate the hotkey's share of the validator emission based on its childkey take
+        let validating_emission: I96F32 = I96F32::from_num(dividends);
+        let childkey_take_proportion: I96F32 =
+            I96F32::from_num(Self::get_childkey_take(hotkey, netuid))
+                .saturating_div(I96F32::from_num(u16::MAX));
+        let mut total_childkey_take: u64 = 0;
+        // NOTE: Only the validation emission should be split amongst parents.
+
+        // Initialize variables to track emission distribution
+        let mut to_parents: u64 = 0;
+
+        // Initialize variables to calculate total stakes from parents
+        let mut total_contribution: I96F32 = I96F32::from_num(0);
+        let mut contributions: Vec<(T::AccountId, I96F32)> = Vec::new();
+
+        // Get the weights for root and alpha stakes in emission distribution
+        let tao_weight: I96F32 = Self::get_tao_weight(netuid);
+
+        // Calculate total root and alpha (subnet-specific) stakes from all parents
+        for (proportion, parent) in Self::get_parents(hotkey, netuid) {
+          
+            // Convert the parent's stake proportion to a fractional value
+            let parent_proportion: I96F32 = I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
+
+            // Get the parent's root and subnet-specific (alpha) stakes
+            let parent_root: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(&parent, Self::get_root_netuid()));
+            let parent_alpha: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(&parent, netuid));
+
+            // Calculate the parent's contribution to the hotkey's stakes
+            let parent_alpha_contribution: I96F32 = parent_alpha.saturating_mul(parent_proportion);
+            let parent_root_contribution: I96F32 = parent_root.saturating_mul(parent_proportion).saturating_mul( tao_weight );
+            let combined_contribution: I96F32 = parent_alpha_contribution.saturating_add(parent_root_contribution);
+
+            // Add to the total stakes
+            total_contribution = total_contribution.saturating_add(combined_contribution);
+            // Store the parent's contributions for later use
+            contributions.push((
+                parent.clone(),
+                combined_contribution,
+            ));
+        }
+
+        // Distribute emission to parents based on their contributions
+        for (parent, contribution) in contributions {
+            // Sum up the total emission for this parent
+            let emission_factor: I96F32 = contribution.checked_div(total_contribution).unwrap_or(I96F32::from_num(0));
+            let total_emission: u64 = ( validating_emission.saturating_mul(emission_factor) ).to_num::<u64>();
+
+            // Reserve childkey take
+            let child_emission_take: u64 = childkey_take_proportion.saturating_mul(I96F32::from_num(total_emission)).to_num::<u64>();
+            total_childkey_take = total_childkey_take.saturating_add(child_emission_take);
+            let parent_total_emission = total_emission.saturating_sub(child_emission_take);
+
+            // Add the parent's emission to the distribution list
+            dividend_tuples.push((parent, parent_total_emission));
+
+            // Keep track of total emission distributed to parents
+            to_parents = to_parents.saturating_add(parent_total_emission);
+        }
+        // Calculate the final emission for the hotkey itself
+        let final_hotkey_emission = validating_emission.to_num::<u64>().saturating_sub(to_parents);
+
+        // Add the hotkey's own emission to the distribution list
+        dividend_tuples.push((hotkey.clone(), final_hotkey_emission));
+
+        dividend_tuples
+    }
+
+    /// Checks if the epoch should run for a given subnet based on the current block.
+    ///
+    /// # Arguments
+    /// * `netuid` - The unique identifier of the subnet.
+    ///
+    /// # Returns
+    /// * `bool` - True if the epoch should run, false otherwise.
+    pub fn should_run_epoch(netuid: u16, current_block: u64) -> bool {
+        Self::blocks_until_next_epoch(netuid, Self::get_tempo(netuid), current_block) == 0
+    }
+
+    /// Helper function which returns the number of blocks remaining before we will run the epoch on this
+    /// network. Networks run their epoch when (block_number + netuid + 1 ) % (tempo + 1) = 0
+    /// tempo | netuid | # first epoch block
+    ///   1        0               0
+    ///   1        1               1
+    ///   2        0               1
+    ///   2        1               0
+    ///   100      0              99
+    ///   100      1              98
+    /// Special case: tempo = 0, the network never runs.
+    ///
+    pub fn blocks_until_next_epoch(netuid: u16, tempo: u16, block_number: u64) -> u64 {
+        if tempo == 0 {
+            return u64::MAX;
+        }
+        let netuid_plus_one = (netuid as u64).saturating_add(1);
+        let tempo_plus_one = (tempo as u64).saturating_add(1);
+        let adjusted_block = block_number.wrapping_add(netuid_plus_one);
+        let remainder = adjusted_block.checked_rem(tempo_plus_one).unwrap_or(0);
+        (tempo as u64).saturating_sub(remainder)
+    }
+
+      /// The `reveal_crv3_commits` function is run at the very beginning of epoch `n`,
+      pub fn reveal_crv3_commits(netuid: u16) -> dispatch::DispatchResult {
         use ark_serialize::CanonicalDeserialize;
         use frame_support::traits::OriginTrait;
         use tle::curves::drand::TinyBLS381;
@@ -466,127 +588,5 @@ impl<T: Config> Pallet<T> {
         }
 
         Ok(())
-    }
-
-    /// Returns a list of tuples for each parent associated with this hotkey including self
-    /// Each tuples contains the dividends owed to that hotkey given their parent proportion
-    /// The hotkey child take proportion is removed from this and added to the tuples for self.
-    ///
-    /// # Arguments
-    /// * `hotkye` - The hotkey to distribute out from.
-    /// * `netuid` - The netuid we are computing on.
-    /// * `dividends` - the dividends to distribute.
-    ///
-    /// # Returns
-    /// * dividend_tuples: `Vec<(T::AccountId, u64)>` - Vector of (hotkey, divs) for each parent including self.
-    ///
-    pub fn get_parent_dividends(
-        hotkey: &T::AccountId,
-        netuid: u16,
-        dividends: u64,
-    ) -> Vec<(T::AccountId, u64)> {
-
-        // hotkey dividends.
-        let mut dividend_tuples: Vec<(T::AccountId, u64)> = vec![];
-
-        // Calculate the hotkey's share of the validator emission based on its childkey take
-        let validating_emission: I96F32 = I96F32::from_num(dividends);
-        let childkey_take_proportion: I96F32 =
-            I96F32::from_num(Self::get_childkey_take(hotkey, netuid))
-                .saturating_div(I96F32::from_num(u16::MAX));
-        let mut total_childkey_take: u64 = 0;
-        // NOTE: Only the validation emission should be split amongst parents.
-
-        // Initialize variables to track emission distribution
-        let mut to_parents: u64 = 0;
-
-        // Initialize variables to calculate total stakes from parents
-        let mut total_contribution: I96F32 = I96F32::from_num(0);
-        let mut contributions: Vec<(T::AccountId, I96F32)> = Vec::new();
-
-        // Get the weights for root and alpha stakes in emission distribution
-        let tao_weight: I96F32 = Self::get_tao_weight(netuid);
-
-        // Calculate total root and alpha (subnet-specific) stakes from all parents
-        for (proportion, parent) in Self::get_parents(hotkey, netuid) {
-          
-            // Convert the parent's stake proportion to a fractional value
-            let parent_proportion: I96F32 = I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
-
-            // Get the parent's root and subnet-specific (alpha) stakes
-            let parent_root: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(&parent, Self::get_root_netuid()));
-            let parent_alpha: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(&parent, netuid));
-
-            // Calculate the parent's contribution to the hotkey's stakes
-            let parent_alpha_contribution: I96F32 = parent_alpha.saturating_mul(parent_proportion);
-            let parent_root_contribution: I96F32 = parent_root.saturating_mul(parent_proportion).saturating_mul( tao_weight );
-            let combined_contribution: I96F32 = parent_alpha_contribution.saturating_add(parent_root_contribution);
-
-            // Add to the total stakes
-            total_contribution = total_contribution.saturating_add(combined_contribution);
-            // Store the parent's contributions for later use
-            contributions.push((
-                parent.clone(),
-                combined_contribution,
-            ));
-        }
-
-        // Distribute emission to parents based on their contributions
-        for (parent, contribution) in contributions {
-            // Sum up the total emission for this parent
-            let emission_factor: I96F32 = contribution.checked_div(total_contribution).unwrap_or(I96F32::from_num(0));
-            let total_emission: u64 = ( validating_emission.saturating_mul(emission_factor) ).to_num::<u64>();
-
-            // Reserve childkey take
-            let child_emission_take: u64 = childkey_take_proportion.saturating_mul(I96F32::from_num(total_emission)).to_num::<u64>();
-            total_childkey_take = total_childkey_take.saturating_add(child_emission_take);
-            let parent_total_emission = total_emission.saturating_sub(child_emission_take);
-
-            // Add the parent's emission to the distribution list
-            dividend_tuples.push((parent, parent_total_emission));
-
-            // Keep track of total emission distributed to parents
-            to_parents = to_parents.saturating_add(parent_total_emission);
-        }
-        // Calculate the final emission for the hotkey itself
-        let final_hotkey_emission = validating_emission.to_num::<u64>().saturating_sub(to_parents);
-
-        // Add the hotkey's own emission to the distribution list
-        dividend_tuples.push((hotkey.clone(), final_hotkey_emission));
-
-        dividend_tuples
-    }
-
-    /// Checks if the epoch should run for a given subnet based on the current block.
-    ///
-    /// # Arguments
-    /// * `netuid` - The unique identifier of the subnet.
-    ///
-    /// # Returns
-    /// * `bool` - True if the epoch should run, false otherwise.
-    pub fn should_run_epoch(netuid: u16, current_block: u64) -> bool {
-        Self::blocks_until_next_epoch(netuid, Self::get_tempo(netuid), current_block) == 0
-    }
-
-    /// Helper function which returns the number of blocks remaining before we will run the epoch on this
-    /// network. Networks run their epoch when (block_number + netuid + 1 ) % (tempo + 1) = 0
-    /// tempo | netuid | # first epoch block
-    ///   1        0               0
-    ///   1        1               1
-    ///   2        0               1
-    ///   2        1               0
-    ///   100      0              99
-    ///   100      1              98
-    /// Special case: tempo = 0, the network never runs.
-    ///
-    pub fn blocks_until_next_epoch(netuid: u16, tempo: u16, block_number: u64) -> u64 {
-        if tempo == 0 {
-            return u64::MAX;
-        }
-        let netuid_plus_one = (netuid as u64).saturating_add(1);
-        let tempo_plus_one = (tempo as u64).saturating_add(1);
-        let adjusted_block = block_number.wrapping_add(netuid_plus_one);
-        let remainder = adjusted_block.checked_rem(tempo_plus_one).unwrap_or(0);
-        (tempo as u64).saturating_sub(remainder)
     }
 }

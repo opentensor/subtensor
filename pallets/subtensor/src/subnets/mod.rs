@@ -4,3 +4,4 @@ pub mod serving;
 pub mod symbols;
 pub mod uids;
 pub mod weights;
+pub mod subnet;

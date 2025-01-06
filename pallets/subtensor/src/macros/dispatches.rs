@@ -1180,8 +1180,11 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(157_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))
 		.saturating_add(T::DbWeight::get().writes(30)), DispatchClass::Operational, Pays::No))]
-        pub fn register_network(origin: OriginFor<T>) -> DispatchResult {
-            Self::user_add_network(origin, None)
+        pub fn register_network(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+        ) -> DispatchResult {
+            Self::do_register_network(origin, &hotkey, 1, None)
         }
 
         /// Facility extrinsic for user to get taken from faucet
@@ -1485,9 +1488,10 @@ mod dispatches {
                 .saturating_add(T::DbWeight::get().writes(30)), DispatchClass::Operational, Pays::No))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
+            hotkey: T::AccountId,
             identity: Option<SubnetIdentityOf>,
         ) -> DispatchResult {
-            Self::user_add_network(origin, identity)
+            Self::do_register_network(origin, &hotkey, 1, identity)
         }
 
         /// ---- The implementation for the extrinsic unstake_all: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
