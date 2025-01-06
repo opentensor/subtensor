@@ -165,6 +165,7 @@ impl<T: Config> Pallet<T> {
             // 6.7: Compute Alpha_out_issuance based on alpha_in_issuance
             let mut alpha_out_emission: I96F32 = 2 * alpha_emission - alpha_in_emission;
             SubnetAlphaOutEmission::<T>::insert( *netuid, alpha_out_emission.to_num::<u64>()); 
+            SubnetAlphaOut::<T>::mutate(netuid, |total| { *total = total.saturating_add( alpha_out_emission.to_num::<u64>() ) });
             log::debug!("Computed alpha_out_emission: {:?}", alpha_out_emission);
             // 6.9: Increase Tao in the subnet reserve conditionally.
             SubnetTAO::<T>::mutate(*netuid, |total| { 
@@ -192,8 +193,6 @@ impl<T: Config> Pallet<T> {
             let root_proportion: I96F32 = (total_root_tao * tao_weight) / ((total_root_tao * tao_weight) + total_subnet_alpha);
             // Get root proportion of alpha_out.
             let root_proportion_of_alpha_out: I96F32 = root_proportion * alpha_out_emission * I96F32::from_num( 0.41 );
-            // Increase root proportion immediately on alpha out
-            SubnetAlphaOut::<T>::mutate(netuid, |total| *total = total.saturating_add(root_proportion_of_alpha_out.to_num::<u64>()));
             // Subtract root proporiton from alpha_out_emission
             alpha_out_emission -= root_proportion_of_alpha_out;
             // Sell root proportion of alpha_out through the pool into TAO.
@@ -239,8 +238,6 @@ impl<T: Config> Pallet<T> {
             if let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
                 // Increase stake for both coldkey and hotkey on the subnet
                 Self::increase_stake_for_hotkey_and_coldkey_on_subnet(&owner_hotkey, &owner_coldkey, netuid, owner_cut);
-                // Increase alpha out.
-                SubnetAlphaOut::<T>::mutate(netuid, |total| *total = total.saturating_add(owner_cut));
                 log::debug!("Distributed owner cut for netuid {:?} to owner_hotkey {:?} and owner_coldkey {:?}", netuid, owner_hotkey, owner_coldkey);
             }
         }
@@ -261,7 +258,6 @@ impl<T: Config> Pallet<T> {
 
             // 7.6.1: Distribute mining incentive immediately.
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet( &hotkey.clone(), &Owner::<T>::get( hotkey.clone() ), netuid, incentive );
-            SubnetAlphaOut::<T>::mutate(netuid, |total| { *total = total.saturating_add( incentive ) });
             log::debug!("Distributed mining incentive for hotkey {:?} on netuid {:?}: {:?}", hotkey, netuid, incentive);
 
             // 7.6.2: Get dividend tuples for parents and self based on childkey relationships and child-take.
@@ -284,7 +280,6 @@ impl<T: Config> Pallet<T> {
 
                 // 7.6.3.2: Distribute validator take automatically.
                 Self::increase_stake_for_hotkey_and_coldkey_on_subnet( &hotkey_j, &Owner::<T>::get( hotkey_j.clone() ), netuid, validator_take.to_num::<u64>() );
-                SubnetAlphaOut::<T>::mutate( netuid, |total| { *total = total.saturating_add( validator_take.to_num::<u64>() ); });
                 log::debug!("Distributed validator take for hotkey {:?} on netuid {:?}: {:?}", hotkey_j, netuid, validator_take.to_num::<u64>());
 
                 // 7.6.3.3: Get the local alpha and root alpha.
@@ -311,7 +306,6 @@ impl<T: Config> Pallet<T> {
 
                 // 7.6.3.7: Distribute the alpha divs to the hotkey.
                 Self::increase_stake_for_hotkey_on_subnet( &hotkey_j, netuid, rem_divs_j.to_num::<u64>() );
-                SubnetAlphaOut::<T>::mutate( netuid, |total| { *total = total.saturating_add( rem_divs_j.to_num::<u64>() ); });
                 log::debug!("Distributed alpha dividends for hotkey {:?} on netuid {:?}: {:?}", hotkey_j, netuid, rem_divs_j.to_num::<u64>() );
 
                 // 7.6.3.9: Record dividends for this hotkey on this subnet.
