@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=rust:1.83
 
-FROM $BASE_IMAGE AS builder
+FROM $BASE_IMAGE AS base_builder
 
 LABEL ai.opentensor.image.authors="operations@opentensor.ai" \
   ai.opentensor.image.vendor="Opentensor Foundation" \
@@ -21,24 +21,44 @@ RUN rm -rf /var/lib/apt/lists/*
 COPY . /build
 WORKDIR /build
 
+
+#
+# Image for building prod
+#
+FROM base_builder as prod_builder
 # Build the project
 RUN cargo build -p node-subtensor --profile production  --features="metadata-hash" --locked
-
 # Verify the binary was produced
 RUN test -e /build/target/production/node-subtensor
-
 EXPOSE 30333 9933 9944
 
+#
+# Final prod image
+#
 FROM $BASE_IMAGE AS subtensor
-
 # Copy all chainspec files
-COPY --from=builder /build/*.json /
-
+COPY --from=prod_builder /build/*.json /
 # Copy final binary
-COPY --from=builder /build/target/production/node-subtensor /usr/local/bin
+COPY --from=prod_builder /build/target/production/node-subtensor /usr/local/bin
 
 
-FROM subtensor AS subtensor-local
+#
+# Image for building local
+#
+FROM base_builder as local_builder
+# Build the project
+RUN cargo build --workspace --profile release --features="pow-faucet"
+# Verify the binary was produced
+RUN test -e /build/target/release/node-subtensor
+EXPOSE 30333 9933 9944
 
 
+#
+# Final local image
+#
+FROM $BASE_IMAGE AS subtensor-local
+# Copy all chainspec files
+COPY --from=local_builder /build/*.json /
+# Copy final binary
+COPY --from=local_builder /build/target/release/node-subtensor /usr/local/bin
 RUN "node-subtensor" build-spec --disable-default-bootnode --raw --chain local > /localnet.json
