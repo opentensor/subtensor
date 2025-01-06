@@ -191,7 +191,7 @@ impl<T: Config> Pallet<T> {
             // Get root proportional dividends.
             let root_proportion: I96F32 = (total_root_tao * tao_weight) / ((total_root_tao * tao_weight) + total_subnet_alpha);
             // Get root proportion of alpha_out.
-            let root_proportion_of_alpha_out: I96F32 = root_proportion * alpha_out_emission;
+            let root_proportion_of_alpha_out: I96F32 = root_proportion * alpha_out_emission * I96F32::from_num( 0.41 );
             // Increase root proportion immediately on alpha out
             SubnetAlphaOut::<T>::mutate(netuid, |total| *total = total.saturating_add(root_proportion_of_alpha_out.to_num::<u64>()));
             // Subtract root proporiton from alpha_out_emission
