@@ -20,49 +20,49 @@ pub struct WeightsTlockPayload {
 impl<T: Config> Pallet<T> {
 
 
-    pub fn get_dynamic_tao_emission( netuid: u16, subnet_emission: u64, tao_block_emission: u64, alpha_block_emission: u64 ) -> (u64, u64, u64) {
+    pub fn get_dynamic_tao_emission( netuid: u16, tao_emission: u64, alpha_block_emission: u64 ) -> (u64, u64, u64) {
 
-        // Compute tao_in, as proportion of block emission from subnet emission
-        let tao_in_proportion: I96F32 = I96F32::from_num(subnet_emission).checked_div( I96F32::from_num( tao_block_emission ) ).unwrap_or( I96F32::from_num(0) );
-        log::debug!("{:?} - tao_in_proportion: {:?}", netuid, tao_in_proportion);
+        // Init terms.
+        let mut tao_in_emission: I96F32 = I96F32::from_num( tao_emission );
+        let float_alpha_block_emission: I96F32 = I96F32::from_num( alpha_block_emission );
 
         // Get alpha price for subnet.
         let alpha_price: I96F32 = Self::get_alpha_price( netuid );
         log::debug!("{:?} - alpha_price: {:?}", netuid, alpha_price);
 
-        // Switch on relationship between alpha price and tao_in
-        let tao_in_emission: I96F32;
-        let alpha_in_emission: I96F32;
-        let alpha_out_emission: I96F32;
-        if alpha_price <= tao_in_proportion {
-            log::debug!("{:?} - alpha_price: {:?} <= tao_in_proportion: {:?}", netuid, alpha_price, tao_in_proportion);
-            // If price if less than tao_in, multiply alpha_price by total block_emission to get tao_emission.
-            tao_in_emission = alpha_price.saturating_mul( I96F32::from_num( tao_block_emission ) );
+        // Get initial alpha_in
+        let mut alpha_in_emission: I96F32 = I96F32::from_num( tao_emission ).checked_div( alpha_price ).unwrap_or( float_alpha_block_emission );
 
-            // Alpha in alpha block emission.
-            alpha_in_emission = I96F32::from_num( alpha_block_emission ) ;
+        // Check if we are emitting too much alpha_in
+        if alpha_in_emission >= float_alpha_block_emission {
+            log::debug!("{:?} - alpha_in_emission: {:?} > alpha_block_emission: {:?}", netuid, alpha_in_emission, float_alpha_block_emission);
 
-            // Set Alpha in emission.
-            alpha_out_emission = I96F32::from_num( 2 * alpha_block_emission).saturating_sub( alpha_in_emission );
-        } else {
-            log::debug!("{:?} - alpha_price: {:?} > tao_in_proportion: {:?}", netuid, alpha_price, tao_in_proportion);
-            // If price is greater than tao_in, multiply back tao_in by tao_block_emission.
-            tao_in_emission = I96F32::from_num( subnet_emission );
+            // Scale down tao_in
+            tao_in_emission = alpha_price.saturating_mul( float_alpha_block_emission);
 
-            // We attain alpha_in emission by dividing tao_in by alpha price and multiplying by alpha_block_emission
-            alpha_in_emission =  I96F32::from_num( alpha_block_emission ).saturating_mul( tao_in_proportion.checked_div(alpha_price).unwrap_or(I96F32::from_num(0)) );
+            // Set to max alpha_block_emission
+            alpha_in_emission = float_alpha_block_emission;
 
-            // Set Alpha in emission.
-            alpha_out_emission = I96F32::from_num(2).saturating_mul(I96F32::from_num(alpha_block_emission)).saturating_sub( alpha_in_emission );
         }
 
-        // Compute alpha out emission as 2 x alpha_block_emission - alpha_in_emission
+        // Avoid rounding errors.
+        if tao_in_emission < I96F32::from_num(1){
+            alpha_in_emission = I96F32::from_num(0);
+            tao_in_emission = I96F32::from_num(0);
+        }
+
+        // Set Alpha in emission.
+        let alpha_out_emission = I96F32::from_num(2).saturating_mul( float_alpha_block_emission ).saturating_sub( alpha_in_emission );
+
+        // Log results.
         log::debug!("{:?} - tao_in_emission: {:?}", netuid, tao_in_emission);
         log::debug!("{:?} - alpha_in_emission: {:?}", netuid, alpha_in_emission);
-        log::debug!("{:?} - alpha_in_emission: {:?}", netuid, alpha_out_emission);
+        log::debug!("{:?} - alpha_out_emission: {:?}", netuid, alpha_out_emission);
 
+        // Return result.
         (tao_in_emission.to_num::<u64>(), alpha_in_emission.to_num::<u64>(), alpha_out_emission.to_num::<u64>())
     }
+
 
 
     pub fn get_root_divs_in_alpha( netuid: u16, alpha_out_emission: I96F32 ) -> I96F32 {
@@ -170,7 +170,6 @@ impl<T: Config> Pallet<T> {
             let (tao_in_emission, alpha_in_emission, alpha_out_emission):( u64, u64, u64 ) = Self::get_dynamic_tao_emission(
                 *netuid, 
                 subnet_emission, 
-                block_emission.to_num::<u64>(), 
                 alpha_block_emission
             );
 
