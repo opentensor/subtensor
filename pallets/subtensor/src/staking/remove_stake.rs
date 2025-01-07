@@ -205,7 +205,7 @@ impl<T: Config> Pallet<T> {
         let mut total_tao_unstaked: u64 = 0;
         for netuid in netuids.iter() {
             // If not Root network.
-            if netuid != Self::get_root_netuid() {
+            if *netuid != Self::get_root_netuid() {
                 // Ensure that the hotkey has enough stake to withdraw.
                 let alpha_unstaked = Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, *netuid);
                 if alpha_unstaked > 0 {
@@ -222,7 +222,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // Stake into root.
-        Self::stake_into_subnet( &hotkey, &coldkey, Self::get_root_netuid(), total_tao_unstaked )
+        Self::stake_into_subnet( &hotkey, &coldkey, Self::get_root_netuid(), total_tao_unstaked );
 
         // 5. Done and ok.
         Ok(())

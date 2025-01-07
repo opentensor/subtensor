@@ -1556,7 +1556,7 @@ mod dispatches {
         ///
         /// * `TxRateLimitExceeded`:
         ///     - Thrown if key has hit transaction rate limit
-        #[pallet::call_index(83)]
+        #[pallet::call_index(84)]
         #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn unstake_all_alpha(
             origin: OriginFor<T>,
