@@ -213,7 +213,7 @@ impl<T: Config> Pallet<T> {
                     let tao_unstaked: u64 = Self::unstake_from_subnet(&hotkey, &coldkey, *netuid, alpha_unstaked);
 
                     // Increment total
-                    total_tao_unstaked += tao_unstaked;
+                    total_tao_unstaked = total_tao_unstaked.saturating_add(tao_unstaked);
 
                     // If the stake is below the minimum, we clear the nomination from storage.
                     Self::clear_small_nomination_if_required(&hotkey, &coldkey, *netuid);

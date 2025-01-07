@@ -103,7 +103,7 @@ impl<T: Config> Pallet<T> {
             let mechid: u16 = SubnetMechanism::<T>::get(*netuid);
             log::debug!("{:?} - mechid: {:?}", netuid, mechid);
             // 6.2: Get the subnet emission TAO.
-            let subnet_emission: u64 = *tao_in_map.get(&netuid).unwrap_or(&0);
+            let subnet_emission: u64 = *tao_in_map.get(netuid).unwrap_or(&0);
             log::debug!("{:?} subnet_emission: {:?}", netuid, subnet_emission );
             if mechid == 0 {
                 // The mechanism is Stable (FOR TESTING PURPOSES ONLY)

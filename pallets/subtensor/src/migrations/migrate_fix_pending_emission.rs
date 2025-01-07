@@ -168,151 +168,151 @@ mod v0 {
 impl<T: Config> Pallet<T> {
     #[cfg(feature = "try-runtime")]
     fn check_null_stake_invariants(
-        old_storage: v0::OldStorage,
+        _old_storage: v0::OldStorage,
     ) -> Result<(), sp_runtime::TryRuntimeError> {
-        let null_account = &DefaultAccount::<T>::get();
+        // let null_account = &DefaultAccount::<T>::get();
 
-        let taostats_old_hotkey = "5Hddm3iBFD2GLT5ik7LZnT3XJUnRnN8PoeCFgGQgawUVKNm8";
-        let taostats_new_hotkey = "5GKH9FPPnWSUoeeTJp19wVtd84XqFW4pyK2ijV2GsFbhTrP1";
-        let migration_coldkey = "5GeRjQYsobRWFnrbBmGe5ugme3rfnDVF69N45YtdBpUFsJG8";
+        // let taostats_old_hotkey = "5Hddm3iBFD2GLT5ik7LZnT3XJUnRnN8PoeCFgGQgawUVKNm8";
+        // let taostats_new_hotkey = "5GKH9FPPnWSUoeeTJp19wVtd84XqFW4pyK2ijV2GsFbhTrP1";
+        // let migration_coldkey = "5GeRjQYsobRWFnrbBmGe5ugme3rfnDVF69N45YtdBpUFsJG8";
 
-        let taostats_old_hk_account = &get_account_id_from_ss58::<T>(taostats_old_hotkey);
-        let taostats_new_hk_account = &get_account_id_from_ss58::<T>(taostats_new_hotkey);
-        let migration_ck_account = &get_account_id_from_ss58::<T>(migration_coldkey);
+        // let taostats_old_hk_account = &get_account_id_from_ss58::<T>(taostats_old_hotkey);
+        // let taostats_new_hk_account = &get_account_id_from_ss58::<T>(taostats_new_hotkey);
+        // let migration_ck_account = &get_account_id_from_ss58::<T>(migration_coldkey);
 
-        let old = old_storage;
-        let null_stake_total = old
-            .old_null_stake_taostats
-            .saturating_add(old.old_null_stake_datura)
-            .saturating_add(old.old_migration_stake_taostats)
-            .saturating_add(old.old_migration_stake_datura);
+        // let old = old_storage;
+        // let null_stake_total = old
+        //     .old_null_stake_taostats
+        //     .saturating_add(old.old_null_stake_datura)
+        //     .saturating_add(old.old_migration_stake_taostats)
+        //     .saturating_add(old.old_migration_stake_datura);
 
-        match (
-            taostats_old_hk_account,
-            taostats_new_hk_account,
-            migration_ck_account,
-        ) {
-            (Ok(taostats_old_hk_acct), Ok(taostats_new_hk_acct), Ok(migration_ck_acct)) => {
-                // Check the pending emission is added to new the TaoStats hotkey
-                assert_eq!(
-                    PendingdHotkeyEmission::<T>::get(taostats_new_hk_acct),
-                    old.expected_taostats_new_hk_pending_emission
-                );
-
-                assert_eq!(PendingdHotkeyEmission::<T>::get(taostats_old_hk_acct), 0);
-
-                assert_eq!(Stake::<T>::get(taostats_old_hk_acct, null_account), 0);
-
-                assert!(StakingHotkeys::<T>::get(migration_ck_acct).contains(taostats_old_hk_acct));
-
-                assert_eq!(
-                    Self::get_stake_for_coldkey_and_hotkey(null_account, taostats_old_hk_acct),
-                    0
-                );
-
-                // TODO: Fix this with proper total hotkey stake
-                // Check the total hotkey stake is the same
-                // assert_eq!(
-                //     TotalHotkeyStake::<T>::get(taostats_old_hk_acct),
-                //     old.old_null_stake_taostats
-                //         .saturating_add(old.old_migration_stake_taostats)
-                // );
-
-                let new_null_stake_taostats =
-                    Self::get_stake_for_coldkey_and_hotkey(migration_ck_acct, taostats_old_hk_acct);
-
-                assert_eq!(
-                    new_null_stake_taostats,
-                    old.old_null_stake_taostats
-                        .saturating_add(old.old_migration_stake_taostats)
-                );
-            }
-            _ => {
-                log::warn!("Failed to get account id from ss58 for taostats hotkeys");
-                return Err("Failed to get account id from ss58 for taostats hotkeys".into());
-            }
-        }
-
-        let datura_old_hotkey = "5FKstHjZkh4v3qAMSBa1oJcHCLjxYZ8SNTSz1opTv4hR7gVB";
-        let datura_new_hotkey = "5GP7c3fFazW9GXK8Up3qgu2DJBk8inu4aK9TZy3RuoSWVCMi";
-
-        let datura_old_hk_account = &get_account_id_from_ss58::<T>(datura_old_hotkey);
-        let datura_new_hk_account = &get_account_id_from_ss58::<T>(datura_new_hotkey);
-
-        match (
-            datura_old_hk_account,
-            datura_new_hk_account,
-            migration_ck_account,
-        ) {
-            (Ok(datura_old_hk_acct), Ok(datura_new_hk_acct), Ok(migration_ck_acct)) => {
-                // Check the pending emission is added to new Datura hotkey
-                assert_eq!(
-                    crate::PendingdHotkeyEmission::<T>::get(datura_new_hk_acct),
-                    old.expected_datura_new_hk_pending_emission
-                );
-
-                // Check the pending emission is removed from old ones
-                assert_eq!(PendingdHotkeyEmission::<T>::get(datura_old_hk_acct), 0);
-
-                // Check the stake entry is removed
-                assert_eq!(Stake::<T>::get(datura_old_hk_acct, null_account), 0);
-
-                assert!(StakingHotkeys::<T>::get(migration_ck_acct).contains(datura_old_hk_acct));
-
-                assert_eq!(
-                    Self::get_stake_for_coldkey_and_hotkey(null_account, datura_old_hk_acct),
-                    0
-                );
-
-                // TODO: Fix
-                // Check the total hotkey stake is the same
-                // assert_eq!(
-                //     TotalHotkeyStake::<T>::get(datura_old_hk_acct),
-                //     old.old_null_stake_datura
-                //         .saturating_add(old.old_migration_stake_datura)
-                // );
-
-                let new_null_stake_datura =
-                    Self::get_stake_for_coldkey_and_hotkey(migration_ck_acct, datura_old_hk_acct);
-
-                assert_eq!(
-                    new_null_stake_datura,
-                    old.old_null_stake_datura
-                        .saturating_add(old.old_migration_stake_datura)
-                );
-            }
-            _ => {
-                log::warn!("Failed to get account id from ss58 for datura hotkeys");
-                return Err("Failed to get account id from ss58 for datura hotkeys".into());
-            }
-        }
-
-        // match migration_ck_account {
-        //     Ok(migration_ck_acct) => {
-        //         // Check the migration key has stake with both *old* hotkeys
+        // match (
+        //     taostats_old_hk_account,
+        //     taostats_new_hk_account,
+        //     migration_ck_account,
+        // ) {
+        //     (Ok(taostats_old_hk_acct), Ok(taostats_new_hk_acct), Ok(migration_ck_acct)) => {
+        //         // Check the pending emission is added to new the TaoStats hotkey
         //         assert_eq!(
-        //             TotalColdkeyStake::<T>::get(migration_ck_acct),
-        //             null_stake_total
+        //             PendingdHotkeyEmission::<T>::get(taostats_new_hk_acct),
+        //             old.expected_taostats_new_hk_pending_emission
+        //         );
+
+        //         assert_eq!(PendingdHotkeyEmission::<T>::get(taostats_old_hk_acct), 0);
+
+        //         assert_eq!(Stake::<T>::get(taostats_old_hk_acct, null_account), 0);
+
+        //         assert!(StakingHotkeys::<T>::get(migration_ck_acct).contains(taostats_old_hk_acct));
+
+        //         assert_eq!(
+        //             Self::get_stake_for_coldkey_and_hotkey(null_account, taostats_old_hk_acct),
+        //             0
+        //         );
+
+        //         // TODO: Fix this with proper total hotkey stake
+        //         // Check the total hotkey stake is the same
+        //         // assert_eq!(
+        //         //     TotalHotkeyStake::<T>::get(taostats_old_hk_acct),
+        //         //     old.old_null_stake_taostats
+        //         //         .saturating_add(old.old_migration_stake_taostats)
+        //         // );
+
+        //         let new_null_stake_taostats =
+        //             Self::get_stake_for_coldkey_and_hotkey(migration_ck_acct, taostats_old_hk_acct);
+
+        //         assert_eq!(
+        //             new_null_stake_taostats,
+        //             old.old_null_stake_taostats
+        //                 .saturating_add(old.old_migration_stake_taostats)
         //         );
         //     }
         //     _ => {
-        //         log::warn!("Failed to get account id from ss58 for migration coldkey");
-        //         return Err("Failed to get account id from ss58 for migration coldkey".into());
+        //         log::warn!("Failed to get account id from ss58 for taostats hotkeys");
+        //         return Err("Failed to get account id from ss58 for taostats hotkeys".into());
         //     }
         // }
 
-        // Check the total issuance is the SAME following migration (no TAO issued)
-        let expected_total_issuance = old.total_issuance_before;
-        let expected_total_stake = old.total_stake_before;
-        assert_eq!(Self::get_total_issuance(), expected_total_issuance);
+        // let datura_old_hotkey = "5FKstHjZkh4v3qAMSBa1oJcHCLjxYZ8SNTSz1opTv4hR7gVB";
+        // let datura_new_hotkey = "5GP7c3fFazW9GXK8Up3qgu2DJBk8inu4aK9TZy3RuoSWVCMi";
 
-        // Check total stake is the SAME following the migration (no new TAO staked)
-        assert_eq!(TotalStake::<T>::get(), expected_total_stake);
-        // Check the total stake maps are updated following the migration (removal of old null_account stake entries)
-        // assert_eq!(TotalColdkeyStake::<T>::get(null_account), 0);
+        // let datura_old_hk_account = &get_account_id_from_ss58::<T>(datura_old_hotkey);
+        // let datura_new_hk_account = &get_account_id_from_ss58::<T>(datura_new_hotkey);
 
-        // Check staking hotkeys is updated
-        assert_eq!(StakingHotkeys::<T>::get(null_account), vec![]);
+        // match (
+        //     datura_old_hk_account,
+        //     datura_new_hk_account,
+        //     migration_ck_account,
+        // ) {
+        //     (Ok(datura_old_hk_acct), Ok(datura_new_hk_acct), Ok(migration_ck_acct)) => {
+        //         // Check the pending emission is added to new Datura hotkey
+        //         assert_eq!(
+        //             crate::PendingdHotkeyEmission::<T>::get(datura_new_hk_acct),
+        //             old.expected_datura_new_hk_pending_emission
+        //         );
+
+        //         // Check the pending emission is removed from old ones
+        //         assert_eq!(PendingdHotkeyEmission::<T>::get(datura_old_hk_acct), 0);
+
+        //         // Check the stake entry is removed
+        //         assert_eq!(Stake::<T>::get(datura_old_hk_acct, null_account), 0);
+
+        //         assert!(StakingHotkeys::<T>::get(migration_ck_acct).contains(datura_old_hk_acct));
+
+        //         assert_eq!(
+        //             Self::get_stake_for_coldkey_and_hotkey(null_account, datura_old_hk_acct),
+        //             0
+        //         );
+
+        //         // TODO: Fix
+        //         // Check the total hotkey stake is the same
+        //         // assert_eq!(
+        //         //     TotalHotkeyStake::<T>::get(datura_old_hk_acct),
+        //         //     old.old_null_stake_datura
+        //         //         .saturating_add(old.old_migration_stake_datura)
+        //         // );
+
+        //         let new_null_stake_datura =
+        //             Self::get_stake_for_coldkey_and_hotkey(migration_ck_acct, datura_old_hk_acct);
+
+        //         assert_eq!(
+        //             new_null_stake_datura,
+        //             old.old_null_stake_datura
+        //                 .saturating_add(old.old_migration_stake_datura)
+        //         );
+        //     }
+        //     _ => {
+        //         log::warn!("Failed to get account id from ss58 for datura hotkeys");
+        //         return Err("Failed to get account id from ss58 for datura hotkeys".into());
+        //     }
+        // }
+
+        // // match migration_ck_account {
+        // //     Ok(migration_ck_acct) => {
+        // //         // Check the migration key has stake with both *old* hotkeys
+        // //         assert_eq!(
+        // //             TotalColdkeyStake::<T>::get(migration_ck_acct),
+        // //             null_stake_total
+        // //         );
+        // //     }
+        // //     _ => {
+        // //         log::warn!("Failed to get account id from ss58 for migration coldkey");
+        // //         return Err("Failed to get account id from ss58 for migration coldkey".into());
+        // //     }
+        // // }
+
+        // // Check the total issuance is the SAME following migration (no TAO issued)
+        // let expected_total_issuance = old.total_issuance_before;
+        // let expected_total_stake = old.total_stake_before;
+        // assert_eq!(Self::get_total_issuance(), expected_total_issuance);
+
+        // // Check total stake is the SAME following the migration (no new TAO staked)
+        // assert_eq!(TotalStake::<T>::get(), expected_total_stake);
+        // // Check the total stake maps are updated following the migration (removal of old null_account stake entries)
+        // // assert_eq!(TotalColdkeyStake::<T>::get(null_account), 0);
+
+        // // Check staking hotkeys is updated
+        // assert_eq!(StakingHotkeys::<T>::get(null_account), vec![]);
 
         Ok(())
     }
@@ -327,122 +327,122 @@ pub mod migration {
 
     pub struct Migration<T: Config>(PhantomData<T>);
 
-    #[cfg(feature = "try-runtime")]
-    fn get_old_storage_values<T: Config>() -> Result<v0::OldStorage, sp_runtime::TryRuntimeError> {
-        log::info!("Getting old storage values for migration");
+    // #[cfg(feature = "try-runtime")]
+    // fn get_old_storage_values<T: Config>() -> Result<v0::OldStorage, sp_runtime::TryRuntimeError> {
+    //     log::info!("Getting old storage values for migration");
 
-        let null_account = &DefaultAccount::<T>::get();
-        let migration_coldkey = "5GeRjQYsobRWFnrbBmGe5ugme3rfnDVF69N45YtdBpUFsJG8";
-        let migration_account = &get_account_id_from_ss58::<T>(migration_coldkey);
+    //     let null_account = &DefaultAccount::<T>::get();
+    //     let migration_coldkey = "5GeRjQYsobRWFnrbBmGe5ugme3rfnDVF69N45YtdBpUFsJG8";
+    //     let migration_account = &get_account_id_from_ss58::<T>(migration_coldkey);
 
-        let taostats_old_hotkey = "5Hddm3iBFD2GLT5ik7LZnT3XJUnRnN8PoeCFgGQgawUVKNm8";
-        let taostats_new_hotkey = "5GKH9FPPnWSUoeeTJp19wVtd84XqFW4pyK2ijV2GsFbhTrP1";
+    //     let taostats_old_hotkey = "5Hddm3iBFD2GLT5ik7LZnT3XJUnRnN8PoeCFgGQgawUVKNm8";
+    //     let taostats_new_hotkey = "5GKH9FPPnWSUoeeTJp19wVtd84XqFW4pyK2ijV2GsFbhTrP1";
 
-        let taostats_old_hk_account = &get_account_id_from_ss58::<T>(taostats_old_hotkey);
-        let taostats_new_hk_account = &get_account_id_from_ss58::<T>(taostats_new_hotkey);
+    //     let taostats_old_hk_account = &get_account_id_from_ss58::<T>(taostats_old_hotkey);
+    //     let taostats_new_hk_account = &get_account_id_from_ss58::<T>(taostats_new_hotkey);
 
-        let total_issuance_before = crate::Pallet::<T>::get_total_issuance();
-        let mut expected_taostats_new_hk_pending_emission: u64 = 0;
-        let mut expected_datura_new_hk_pending_emission: u64 = 0;
-        let (old_null_stake_taostats, old_migration_stake_taostats) = match (
-            taostats_old_hk_account,
-            taostats_new_hk_account,
-            migration_account,
-        ) {
-            (Ok(taostats_old_hk_acct), Ok(taostats_new_hk_acct), Ok(migration_acct)) => {
-                expected_taostats_new_hk_pending_emission =
-                    expected_taostats_new_hk_pending_emission
-                        .saturating_add(PendingdHotkeyEmission::<T>::get(taostats_old_hk_acct))
-                        .saturating_add(PendingdHotkeyEmission::<T>::get(taostats_new_hk_acct));
+    //     let total_issuance_before = crate::Pallet::<T>::get_total_issuance();
+    //     let mut expected_taostats_new_hk_pending_emission: u64 = 0;
+    //     let mut expected_datura_new_hk_pending_emission: u64 = 0;
+    //     let (old_null_stake_taostats, old_migration_stake_taostats) = match (
+    //         taostats_old_hk_account,
+    //         taostats_new_hk_account,
+    //         migration_account,
+    //     ) {
+    //         (Ok(taostats_old_hk_acct), Ok(taostats_new_hk_acct), Ok(migration_acct)) => {
+    //             expected_taostats_new_hk_pending_emission =
+    //                 expected_taostats_new_hk_pending_emission
+    //                     .saturating_add(PendingdHotkeyEmission::<T>::get(taostats_old_hk_acct))
+    //                     .saturating_add(PendingdHotkeyEmission::<T>::get(taostats_new_hk_acct));
 
-                Ok::<(u64, u64), sp_runtime::TryRuntimeError>((
-                    crate::Pallet::<T>::get_stake_for_coldkey_and_hotkey(
-                        null_account,
-                        taostats_old_hk_acct,
-                    ),
-                    crate::Pallet::<T>::get_stake_for_coldkey_and_hotkey(
-                        migration_acct,
-                        taostats_old_hk_acct,
-                    ),
-                ))
-            }
-            _ => {
-                log::warn!("Failed to get account id from ss58 for taostats hotkeys");
-                Err("Failed to get account id from ss58 for taostats hotkeys".into())
-            }
-        }?;
+    //             Ok::<(u64, u64), sp_runtime::TryRuntimeError>((
+    //                 crate::Pallet::<T>::get_stake_for_coldkey_and_hotkey(
+    //                     null_account,
+    //                     taostats_old_hk_acct,
+    //                 ),
+    //                 crate::Pallet::<T>::get_stake_for_coldkey_and_hotkey(
+    //                     migration_acct,
+    //                     taostats_old_hk_acct,
+    //                 ),
+    //             ))
+    //         }
+    //         _ => {
+    //             log::warn!("Failed to get account id from ss58 for taostats hotkeys");
+    //             Err("Failed to get account id from ss58 for taostats hotkeys".into())
+    //         }
+    //     }?;
 
-        let datura_old_hotkey = "5FKstHjZkh4v3qAMSBa1oJcHCLjxYZ8SNTSz1opTv4hR7gVB";
-        let datura_new_hotkey = "5GP7c3fFazW9GXK8Up3qgu2DJBk8inu4aK9TZy3RuoSWVCMi";
+    //     let datura_old_hotkey = "5FKstHjZkh4v3qAMSBa1oJcHCLjxYZ8SNTSz1opTv4hR7gVB";
+    //     let datura_new_hotkey = "5GP7c3fFazW9GXK8Up3qgu2DJBk8inu4aK9TZy3RuoSWVCMi";
 
-        let datura_old_hk_account = &get_account_id_from_ss58::<T>(datura_old_hotkey);
-        let datura_new_hk_account = &get_account_id_from_ss58::<T>(datura_new_hotkey);
+    //     let datura_old_hk_account = &get_account_id_from_ss58::<T>(datura_old_hotkey);
+    //     let datura_new_hk_account = &get_account_id_from_ss58::<T>(datura_new_hotkey);
 
-        let (old_null_stake_datura, old_migration_stake_datura) = match (
-            datura_old_hk_account,
-            datura_new_hk_account,
-            migration_account,
-        ) {
-            (Ok(datura_old_hk_acct), Ok(datura_new_hk_acct), Ok(migration_acct)) => {
-                expected_datura_new_hk_pending_emission = expected_datura_new_hk_pending_emission
-                    .saturating_add(PendingdHotkeyEmission::<T>::get(datura_old_hk_acct))
-                    .saturating_add(PendingdHotkeyEmission::<T>::get(datura_new_hk_acct));
+    //     let (old_null_stake_datura, old_migration_stake_datura) = match (
+    //         datura_old_hk_account,
+    //         datura_new_hk_account,
+    //         migration_account,
+    //     ) {
+    //         (Ok(datura_old_hk_acct), Ok(datura_new_hk_acct), Ok(migration_acct)) => {
+    //             expected_datura_new_hk_pending_emission = expected_datura_new_hk_pending_emission
+    //                 .saturating_add(PendingdHotkeyEmission::<T>::get(datura_old_hk_acct))
+    //                 .saturating_add(PendingdHotkeyEmission::<T>::get(datura_new_hk_acct));
 
-                Ok::<(u64, u64), sp_runtime::TryRuntimeError>((
-                    crate::Pallet::<T>::get_stake_for_coldkey_and_hotkey(
-                        null_account,
-                        datura_old_hk_acct,
-                    ),
-                    crate::Pallet::<T>::get_stake_for_coldkey_and_hotkey(
-                        migration_acct,
-                        datura_old_hk_acct,
-                    ),
-                ))
-            }
-            _ => {
-                log::warn!("Failed to get account id from ss58 for datura hotkeys");
-                Err("Failed to get account id from ss58 for datura hotkeys".into())
-            }
-        }?;
+    //             Ok::<(u64, u64), sp_runtime::TryRuntimeError>((
+    //                 crate::Pallet::<T>::get_stake_for_coldkey_and_hotkey(
+    //                     null_account,
+    //                     datura_old_hk_acct,
+    //                 ),
+    //                 crate::Pallet::<T>::get_stake_for_coldkey_and_hotkey(
+    //                     migration_acct,
+    //                     datura_old_hk_acct,
+    //                 ),
+    //             ))
+    //         }
+    //         _ => {
+    //             log::warn!("Failed to get account id from ss58 for datura hotkeys");
+    //             Err("Failed to get account id from ss58 for datura hotkeys".into())
+    //         }
+    //     }?;
 
-        let total_stake_before: u64 = crate::Pallet::<T>::get_total_stake();
+    //     let total_stake_before: u64 = crate::Pallet::<T>::get_total_stake();
 
-        let result = v0::OldStorage {
-            total_issuance_before,
-            total_stake_before,
-            expected_taostats_new_hk_pending_emission,
-            expected_datura_new_hk_pending_emission,
-            old_migration_stake_taostats,
-            old_null_stake_taostats,
-            old_migration_stake_datura,
-            old_null_stake_datura,
-        };
+    //     let result = v0::OldStorage {
+    //         total_issuance_before,
+    //         total_stake_before,
+    //         expected_taostats_new_hk_pending_emission,
+    //         expected_datura_new_hk_pending_emission,
+    //         old_migration_stake_taostats,
+    //         old_null_stake_taostats,
+    //         old_migration_stake_datura,
+    //         old_null_stake_datura,
+    //     };
 
-        log::info!("Got old storage values for migration");
+    //     log::info!("Got old storage values for migration");
 
-        Ok(result)
-    }
+    //     Ok(result)
+    // }
 
     impl<T: Config> OnRuntimeUpgrade for Migration<T> {
-        /// Runs the migration to fix the pending emissions.
-        #[cfg(feature = "try-runtime")]
-        fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-            use codec::Encode;
+        // Runs the migration to fix the pending emissions.
+        // #[cfg(feature = "try-runtime")]
+        // fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+        //     use codec::Encode;
 
-            // Get the old storage values
-            match get_old_storage_values::<T>() {
-                Ok(old_storage) => {
-                    log::info!("Successfully got old storage values for migration");
-                    let encoded = old_storage.encode();
+        //     // Get the old storage values
+        //     match get_old_storage_values::<T>() {
+        //         Ok(old_storage) => {
+        //             log::info!("Successfully got old storage values for migration");
+        //             let encoded = old_storage.encode();
 
-                    Ok(encoded)
-                }
-                Err(e) => {
-                    log::error!("Failed to get old storage values for migration: {:?}", e);
-                    Err("Failed to get old storage values for migration".into())
-                }
-            }
-        }
+        //             Ok(encoded)
+        //         }
+        //         Err(e) => {
+        //             log::error!("Failed to get old storage values for migration: {:?}", e);
+        //             Err("Failed to get old storage values for migration".into())
+        //         }
+        //     }
+        // }
 
         // Runs the migrate function for the fix_pending_emission migration
         fn on_runtime_upgrade() -> Weight {

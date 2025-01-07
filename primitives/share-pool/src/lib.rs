@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::result_unit_err)]
 
 use sp_std::ops::Neg;
 use sp_std::marker;
@@ -66,18 +67,22 @@ where
     /// Every key's associated value effectively updates with this operation
     pub fn update_value_for_all(&mut self, update: i64) -> Result<(), ()> {
         let shared_value: I64F64 = self.state_ops.get_shared_value();
-        if update > 0 {
-            self.state_ops.set_shared_value(
-                shared_value
-                    .checked_add(I64F64::from_num(update))
-                    .ok_or_else(|| {})?,
-            );
-        } else if update < 0 {
-            self.state_ops.set_shared_value(
-                shared_value
-                    .checked_sub(I64F64::from_num(update.neg()))
-                    .ok_or_else(|| {})?,
-            );
+        match update.cmp(&0) {
+            sp_std::cmp::Ordering::Greater => {
+                self.state_ops.set_shared_value(
+                    shared_value
+                        .checked_add(I64F64::from_num(update))
+                        .ok_or({})?,
+                );
+            }
+            sp_std::cmp::Ordering::Less => {
+                self.state_ops.set_shared_value(
+                    shared_value
+                        .checked_sub(I64F64::from_num(update.neg()))
+                        .ok_or({})?,
+                );
+            }
+            _ => { }
         }
 
         Ok(())
@@ -106,18 +111,18 @@ where
 
             let shares_per_update: I64F64 = I64F64::from_num(update)
                 .checked_div(value_per_share)
-                .ok_or_else(|| {})?;
+                .ok_or({})?;
 
             self.state_ops.set_denominator(
                 denominator
                     .checked_add(shares_per_update)
-                    .ok_or_else(|| {})?,
+                    .ok_or({})?,
             );
             self.state_ops.set_share(
                 key,
                 current_share
                     .checked_add(shares_per_update)
-                    .ok_or_else(|| {})?,
+                    .ok_or({})?,
             );
         }
 

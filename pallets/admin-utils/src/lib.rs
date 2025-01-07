@@ -958,9 +958,9 @@ pub mod pallet {
             Ok(())
         }
 
-        /// The extrinsic sets the target stake per interval.
-        /// It is only callable by the root account.
-        /// The extrinsic will call the Subtensor pallet to set target stake per interval.
+        // The extrinsic sets the target stake per interval.
+        // It is only callable by the root account.
+        // The extrinsic will call the Subtensor pallet to set target stake per interval.
         // #[pallet::call_index(47)]
         // #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         // pub fn sudo_set_target_stakes_per_interval(
