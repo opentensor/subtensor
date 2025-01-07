@@ -186,11 +186,11 @@ impl<T: Config> Pallet<T> {
             // Get total TAO on root.
             let total_root_tao: I96F32 = I96F32::from_num(SubnetTAO::<T>::get( 0 ));
             // Get total ALPHA on subnet.
-            let total_subnet_alpha: I96F32 = I96F32::from_num(SubnetAlphaOut::<T>::get( *netuid ));
+            let total_alpha_issuance: I96F32 = I96F32::from_num(Self::get_alpha_issuance(*netuid));
             // Get tao_weight
             let tao_weight: I96F32 = Self::get_tao_weight( *netuid );
             // Get root proportional dividends.
-            let root_proportion: I96F32 = (total_root_tao * tao_weight) / ((total_root_tao * tao_weight) + total_subnet_alpha);
+            let root_proportion: I96F32 = (total_root_tao * tao_weight) / ((total_root_tao * tao_weight) + total_alpha_issuance);
             // Get root proportion of alpha_out dividends.
             let root_proportion_of_alpha_out: I96F32 = root_proportion * alpha_out_emission * I96F32::from_num( 0.41 );
             // Subtract root proporiton from alpha_out_emission
