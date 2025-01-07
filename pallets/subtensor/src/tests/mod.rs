@@ -1,6 +1,4 @@
 mod mock;
-
-mod alpha;
 mod batch_tx;
 mod children;
 mod coinbase;
