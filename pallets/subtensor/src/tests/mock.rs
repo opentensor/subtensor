@@ -181,7 +181,7 @@ parameter_types! {
     pub const InitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64
     pub const InitialColdkeySwapScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
     pub const InitialDissolveNetworkScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
-    pub const InitialTaoWeight: u64 = u64::MAX; // 100% global weight.
+    pub const InitialTaoWeight: u64 = 0; // 100% global weight.
 }
 
 // Configure collective pallet for council
