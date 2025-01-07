@@ -320,23 +320,23 @@ fn test_add_stake_total_issuance_no_change() {
 #[test]
 fn test_remove_stake_dispatch_info_ok() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
-
-        // let hotkey = U256::from(0);
-        // let amount_unstaked = 5000;
-        // let call = RuntimeCall::SubtensorModule(SubtensorCall::remove_stake {
-        //     hotkey,
-        //     amount_unstaked,
-        // });
-        // assert_eq!(
-        //     call.get_dispatch_info(),
-        //     DispatchInfo {
-        //         weight: frame_support::weights::Weight::from_parts(1_061_000_000, 0)
-        //             .add_proof_size(43991),
-        //         class: DispatchClass::Normal,
-        //         pays_fee: Pays::No
-        //     }
-        // );
+        let hotkey = U256::from(0);
+        let amount_unstaked = 5000;
+        let netuid = 1;
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::remove_stake {
+            hotkey,
+            netuid,
+            amount_unstaked,
+        });
+        assert_eq!(
+            call.get_dispatch_info(),
+            DispatchInfo {
+                weight: frame_support::weights::Weight::from_parts(1_061_000_000, 0)
+                    .add_proof_size(43991),
+                class: DispatchClass::Normal,
+                pays_fee: Pays::No
+            }
+        );
     });
 }
 
