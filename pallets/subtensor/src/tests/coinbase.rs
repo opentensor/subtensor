@@ -1,120 +1,245 @@
 #![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
 use super::mock::*;
 
-use frame_support::assert_ok;
+use crate::*;
 use sp_core::U256;
+use frame_support::assert_ok;
 use substrate_fixed::types::I64F64;
+use substrate_fixed::types::I96F32;
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --workspace --test coinbase -- test_dynamic_flow --exact --nocapture
+fn close(value: u64, target: u64, eps: u64)  {
+    assert!(
+        (value as i64 - target as i64).abs() < eps as i64,
+        "Assertion failed: value = {}, target = {}, eps = {}", value, target, eps
+    )
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_dynamic_function_various_values --exact --show-output --nocapture
 #[test]
-fn test_dynamic_flow() {
+fn test_dynamic_function_various_values() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let price_values: [f64; 9] = [0.001, 0.1, 0.5, 1.0, 2.0, 10.0, 100.0, 200.0, 1000.0];
+        let tao_in_values: [u64; 9] = [0, 1, 10, 100, 1_000, 1_000_000, 1_000_000_000, 1_000_000_000_000, 1_000_000_000_000_000 ];
+        let alpha_emission_values: [u64; 9] = [0, 1, 10, 100, 1_000, 1_000_000, 1_000_000_000, 1_000_000_000_000, 1_000_000_000_000_000 ];
 
-        // let netuid = 1;
-        // let hotkey = U256::from(1);
-        // let coldkey = U256::from(2);
-        // let block_emission: u64 = 1000000000;
-        // let initial_subnet_tao: u64 = 10_000_000_000;
-        // let initial_subnet_alpha: u64 = 100_000_000_000;
-        // add_network(netuid, 110, 100);
-        // // Tempo::<Test>::insert(netuid, 1);
-        // SubnetMechanism::<Test>::insert(netuid, 1);
-        // SubnetTAO::<Test>::insert(netuid, initial_subnet_tao); // 10 TAO
-        // SubnetAlphaIn::<Test>::insert(netuid, initial_subnet_alpha); // 100 Alpha
-        // SubtensorModule::register_neuron( netuid, &hotkey );
+        for &price in price_values.iter() {
+            for &tao_in in tao_in_values.iter() {
+                for &alpha_emission in alpha_emission_values.iter() {
+                    // Set the price.
+                    SubnetTAO::<Test>::insert(1, (price * 1_000_000_000.0) as u64);
+                    SubnetAlphaIn::<Test>::insert(1, 1_000_000_000);
 
-        // // Stake into the network adding 1 TAO through he pool.
-        // let stake: u64 = 1_000_000_000;
-        // SubtensorModule::stake_into_subnet( &hotkey, &coldkey, netuid, stake ); // Stake into subnet.
-
-        // // Stake into root adding 1 TAO through the pool.
-        // SubtensorModule::stake_into_subnet( &hotkey, &coldkey, 0, stake ); // Stake into root.
-
-        // // Check price function.
-        // let total_alpha_reserves: u64 = SubnetAlphaIn::<Test>::get(netuid);
-        // let total_tao_reserves: u64 = SubnetTAO::<Test>::get(netuid);
-        // let expected_alpha_price: I96F32 = I96F32::from_num(total_tao_reserves) / I96F32::from_num(total_alpha_reserves);
-        // assert_eq!( SubtensorModule::get_alpha_price( netuid ), expected_alpha_price );
-
-        // // Run a block forward.
-        // let total_issuance_before: u64 = TotalIssuance::<Test>::get();
-        // let total_stake_before: u64 = TotalStake::<Test>::get();
-        // let subnet_tao_before: u64 = SubnetTAO::<Test>::get(netuid);
-        // let alpha_out_before: u64 = SubnetAlphaOut::<Test>::get(netuid);
-        // let alpha_in_before: u64 = SubnetAlphaIn::<Test>::get(netuid);
-        // step_block(1);
-        // // Single subnet gets 100% of block emission.
-        // assert_eq!(EmissionValues::<Test>::get(netuid), block_emission);
-        // // Alpha_in emission = 1 because alpha_price < emission_value/block_emission
-        // assert_eq!(SubnetAlphaInEmission::<Test>::get(netuid), block_emission);
-        // assert_eq!(SubnetAlphaIn::<Test>::get(netuid), alpha_in_before + block_emission);
-        // // Tao_in emission = block_emission * alpha_price
-        // let expected_tao_emission: u64 = (I96F32::from_num(block_emission) * expected_alpha_price).to_num::<u64>();
-        // assert_eq!(SubnetTaoInEmission::<Test>::get(netuid), expected_tao_emission );
-        // assert_eq!(TotalIssuance::<Test>::get(), total_issuance_before + expected_tao_emission );
-        // assert_eq!(TotalStake::<Test>::get(), total_stake_before + expected_tao_emission );
-        // assert_eq!(SubnetTAO::<Test>::get(netuid), subnet_tao_before + expected_tao_emission );
-        // // Alpha_out = 2 - alpha_in thus == 2*block_emission - block_emission = block_emission
-        // assert_eq!(SubnetAlphaOutEmission::<Test>::get(netuid), block_emission);
-        // assert_eq!(SubnetAlphaOut::<Test>::get(netuid), alpha_out_before); // Unchanged.
-        // assert_eq!(PendingEmission::<Test>::get(netuid), block_emission); // All alpha..
-
-        // // Reset pending.
-        // PendingRootDivs::<Test>::insert(netuid, 0);
-        // PendingEmission::<Test>::insert(netuid, 0);
-
-        // // Set tao weight.
-        // TaoWeight::<Test>::insert( netuid, u64::MAX );
-        // let total_issuance_before: u64 = TotalIssuance::<Test>::get();
-        // let total_stake_before: u64 = TotalStake::<Test>::get();
-        // let root_tao_before: u64 = SubnetTAO::<Test>::get(0);
-        // let subnet_tao_before: u64 = SubnetTAO::<Test>::get(netuid);
-        // let alpha_out_before: u64 = SubnetAlphaOut::<Test>::get(netuid);
-        // let alpha_in_before: u64 = SubnetAlphaIn::<Test>::get(netuid);
-        // let previous_pending: u64 = PendingEmission::<Test>::get(netuid);
-        // step_block(1);
-        // // Single subnet gets 100% of block emission.
-        // assert_eq!(EmissionValues::<Test>::get(netuid), block_emission);
-        // // Alpha_in emission = 1 because alpha_price < emission_value/block_emission
-        // assert_eq!(SubnetAlphaInEmission::<Test>::get(netuid), block_emission);
-        // // Get the pending root dividends.
-        // let pending_root_divs: u64 = PendingRootDivs::<Test>::get(netuid);
-        // // Simualte the swap back to alpha.
-        // let pending_as_alpha: u64 = SubtensorModule::sim_swap_tao_for_alpha( netuid, pending_root_divs );
-        // // Subnet ALpha out Emission .
-        // assert_eq!(SubnetAlphaOutEmission::<Test>::get(netuid), block_emission);
-        // // Assert difference is Pending emission.
-        // assert_eq!(PendingEmission::<Test>::get(netuid), previous_pending + (block_emission - pending_as_alpha) - 6 ); // All alpha with rounding.
-        // // Alpha in is increased by emission.
-        // assert_eq!(SubnetAlphaIn::<Test>::get(netuid), alpha_in_before + block_emission + pending_as_alpha + 5 ); // Corret with rounding.
-
-        // // Lets train the pending.
-        // let total_issuance_before: u64 = TotalIssuance::<Test>::get();
-        // let total_stake_before: u64 = TotalStake::<Test>::get();
-        // let root_tao_before: u64 = SubnetTAO::<Test>::get(0);
-        // let subnet_tao_before: u64 = SubnetTAO::<Test>::get(netuid);
-        // let alpha_out_before: u64 = SubnetAlphaOut::<Test>::get(netuid);
-        // let alpha_in_before: u64 = SubnetAlphaIn::<Test>::get(netuid);
-        // let previous_pending: u64 = PendingEmission::<Test>::get(netuid);
-        // let root_pending: u64 = PendingRootDivs::<Test>::get(netuid);
-        // SubtensorModule::drain_pending_emission( netuid );
-        // // Drained
-        // assert_eq!(PendingEmission::<Test>::get(netuid), 0);
-        // // Unchanged.
-        // assert_eq!(SubnetAlphaIn::<Test>::get(netuid), alpha_in_before);
-        // // Dividends are all pending to this hotkey.
-        // assert_eq!(HotkeyDividendsPerSubnet::<Test>::get(netuid, &hotkey), previous_pending);
-        // // Root Dividends are all pending to this hotkey.
-        // assert_eq!(RootDividendsPerSubnet::<Test>::get(netuid, &hotkey), root_pending);
-
-        // // TODO( const ): test multiple subnets.
-        // // TODO( const ): test multi root proportions
-        // // TODO( const ): test parents etc
-        
-
+                    println!("price: {}, tao_in: {}, alpha_emission: {}", price, tao_in, alpha_emission);
+                    let (tao_in_emission, alpha_in_emission, alpha_out_emission) = SubtensorModule::get_dynamic_tao_emission( 1, tao_in, alpha_emission);
+                    println!("tao_in_emission: {}, alpha_in_emission: {}, alpha_out_emission: {}", tao_in_emission, alpha_in_emission, alpha_out_emission);
+                    assert!(tao_in_emission <= tao_in as u64, "tao_in_emission is greater than tao_in");
+                    assert!(alpha_in_emission <= alpha_emission as u64, "alpha_in_emission is greater than alpha_emission");
+                    assert!(alpha_out_emission <= 2 * alpha_emission as u64, "alpha_out_emission is greater than 2 * alpha_emission");
+                    assert!((alpha_in_emission + alpha_out_emission) <= 2 * alpha_emission as u64, "Sum of alpha_in_emission and alpha_out_emission is less than or equal to. 2 * alpha_emission");
+                    close( alpha_in_emission + alpha_out_emission, 2 * alpha_emission, 10 );
+                    if alpha_in_emission > 0 || tao_in_emission > 0 {
+                        assert!((tao_in_emission as f64 / alpha_in_emission as f64 - price).abs() < 1e-1, "Ratio of tao_in_emission to alpha_in_emission is not equal to price");
+                    }
+                }
+            }
+        }
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_dynamic_function_price_equal_emission --exact --show-output --nocapture
+#[test]
+fn test_dynamic_function_price_equal_emission() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let tao_subnet_emission: u64 = 100_000_000;
+        let tao_block_emission: u64 = 1_000_000_000;
+        let alpha_block_emission: u64 = 1_000_000_000;
+        SubnetTAO::<Test>::insert( netuid, 1_000_000_000);
+        SubnetAlphaIn::<Test>::insert( netuid, 1_000_000_000);
+        add_network(netuid, 110, 100);
+        let (tao_in, alpha_in, alpha_out): (u64, u64, u64) = SubtensorModule::get_dynamic_tao_emission( 
+            netuid, tao_subnet_emission, alpha_block_emission
+        );
+        assert_eq!( tao_in, tao_subnet_emission ); // at price == tao_in == tao_subnet_emission
+        let expected_alpha_in: u64 = (alpha_block_emission * tao_subnet_emission) / tao_block_emission;
+        close(alpha_in, expected_alpha_in, 10 );
+        close(alpha_out, 2 * alpha_block_emission - expected_alpha_in, 10 );
+    });
+}
+
+
+// Test when alpha price is greater than tao_in_proportion
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_dynamic_function_alpha_price_greater_than_tao_in --exact --show-output --nocapture
+#[test]
+fn test_dynamic_function_alpha_price_greater_than_tao_in() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let tao_subnet_emission: u64 = 500_000_000;
+        let tao_block_emission: u64 = 1_000_000_000;
+        let alpha_block_emission: u64 = 1_000_000_000;
+        SubnetTAO::<Test>::insert( netuid, 2_000_000_000); // Higher alpha reserves increases price.
+        SubnetAlphaIn::<Test>::insert( netuid, 1_000_000_000); 
+        add_network(netuid, 110, 100);
+        let (tao_in, alpha_in, alpha_out): (u64, u64, u64) = SubtensorModule::get_dynamic_tao_emission( 
+            netuid, tao_subnet_emission, alpha_block_emission
+        );
+        assert_eq!( tao_in, tao_subnet_emission ); // tao_in should be equal to tao_subnet_emission
+        close(alpha_in, tao_subnet_emission/2, 10 );
+        close(alpha_out, 2 * alpha_block_emission - tao_subnet_emission/2, 10 );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_dynamic_function_zero_tao_block_emission --exact --show-output --nocapture
+#[test]
+fn test_dynamic_function_zero_tao_block_emission() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let tao_subnet_emission: u64 = 100_000_000;
+        let tao_block_emission: u64 = 0; // Zero tao block emission
+        let alpha_block_emission: u64 = 1_000_000_000;
+        add_network(netuid, 110, 100);
+        let (tao_in, alpha_in, alpha_out): (u64, u64, u64) = SubtensorModule::get_dynamic_tao_emission( 
+            netuid, tao_subnet_emission, alpha_block_emission
+        );
+        assert_eq!( tao_in, 0 ); // tao_in should be zero due to zero tao_block_emission
+        assert_eq!( alpha_in, alpha_block_emission );
+        assert_eq!( alpha_out, alpha_block_emission );
+    });
+}
+
+// Test when alpha price is greater than tao_in_proportion
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_dynamic_function_at_alpha_halving --exact --show-output --nocapture
+#[test]
+fn test_dynamic_function_at_alpha_halving() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let tao_subnet_emission: u64 = 500_000_000;
+        let tao_block_emission: u64 = 1_000_000_000;
+        let alpha_block_emission: u64 = 500_000_000; // Half normal.
+        SubnetTAO::<Test>::insert( netuid, 2_000_000_000); // Higher alpha reserves increases price.
+        SubnetAlphaIn::<Test>::insert( netuid, 1_000_000_000); 
+        add_network(netuid, 110, 100);
+        let (tao_in, alpha_in, alpha_out): (u64, u64, u64) = SubtensorModule::get_dynamic_tao_emission( 
+            netuid, tao_subnet_emission, alpha_block_emission
+        );
+        assert_eq!( tao_in, tao_subnet_emission / 2 ); // tao_in should be equal to tao_subnet_emission
+        close(alpha_in, tao_in/2, 10 );
+        // close(alpha_out, 2 * alpha_block_emission - alpha_block_emission/2, 10 );
+    });
+}
+
+
+
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_dynamic_flow --exact --show-output
+// #[test]
+// fn test_dynamic_flow() {
+//     new_test_ext(1).execute_with(|| {
+
+//         let netuid = 1;
+//         let hotkey = U256::from(1);
+//         let coldkey = U256::from(2);
+//         let block_emission: u64 = 1000000000;
+//         let initial_subnet_tao: u64 = 10_000_000_000;
+//         let initial_subnet_alpha: u64 = 100_000_000_000;
+//         add_network(netuid, 110, 100);
+//         // Tempo::<Test>::insert(netuid, 1);
+//         SubnetMechanism::<Test>::insert(netuid, 1);
+//         SubnetTAO::<Test>::insert(netuid, initial_subnet_tao); // 10 TAO
+//         SubnetAlphaIn::<Test>::insert(netuid, initial_subnet_alpha); // 100 Alpha
+//         SubtensorModule::register_neuron( netuid, &hotkey );
+
+//         // Stake into the network adding 1 TAO through he pool.
+//         let stake: u64 = 1_000_000_000;
+//         SubtensorModule::stake_into_subnet( &hotkey, &coldkey, netuid, stake ); // Stake into subnet.
+
+//         // Stake into root adding 1 TAO through the pool.
+//         SubtensorModule::stake_into_subnet( &hotkey, &coldkey, 0, stake ); // Stake into root.
+
+//         // Check price function.
+//         let total_alpha_reserves: u64 = SubnetAlphaIn::<Test>::get(netuid);
+//         let total_tao_reserves: u64 = SubnetTAO::<Test>::get(netuid);
+//         let expected_alpha_price: I96F32 = I96F32::from_num(total_tao_reserves) / I96F32::from_num(total_alpha_reserves);
+//         assert_eq!( SubtensorModule::get_alpha_price( netuid ), expected_alpha_price );
+
+//         // Run a block forward.
+//         let total_issuance_before: u64 = TotalIssuance::<Test>::get();
+//         let total_stake_before: u64 = TotalStake::<Test>::get();
+//         let subnet_tao_before: u64 = SubnetTAO::<Test>::get(netuid);
+//         let alpha_out_before: u64 = SubnetAlphaOut::<Test>::get(netuid);
+//         let alpha_in_before: u64 = SubnetAlphaIn::<Test>::get(netuid);
+//         step_block(1);
+//         // Single subnet gets 100% of block emission.
+//         assert_eq!(EmissionValues::<Test>::get(netuid), block_emission);
+//         // Alpha_in emission = 1 because alpha_price < emission_value/block_emission
+//         assert_eq!(SubnetAlphaInEmission::<Test>::get(netuid), block_emission);
+//         assert_eq!(SubnetAlphaIn::<Test>::get(netuid), alpha_in_before + block_emission);
+//         // Tao_in emission = block_emission * alpha_price
+//         let expected_tao_emission: u64 = (I96F32::from_num(block_emission) * expected_alpha_price).to_num::<u64>();
+//         assert_eq!(SubnetTaoInEmission::<Test>::get(netuid), expected_tao_emission );
+//         assert_eq!(TotalIssuance::<Test>::get(), total_issuance_before + expected_tao_emission );
+//         assert_eq!(TotalStake::<Test>::get(), total_stake_before + expected_tao_emission );
+//         assert_eq!(SubnetTAO::<Test>::get(netuid), subnet_tao_before + expected_tao_emission );
+//         // Alpha_out = 2 - alpha_in thus == 2*block_emission - block_emission = block_emission
+//         assert_eq!(SubnetAlphaOutEmission::<Test>::get(netuid), block_emission);
+//         assert_eq!(SubnetAlphaOut::<Test>::get(netuid), alpha_out_before); // Unchanged.
+//         assert_eq!(PendingEmission::<Test>::get(netuid), block_emission); // All alpha..
+
+//         // Reset pending.
+//         PendingRootDivs::<Test>::insert(netuid, 0);
+//         PendingEmission::<Test>::insert(netuid, 0);
+
+//         // Set tao weight.
+//         TaoWeight::<Test>::insert( netuid, u64::MAX );
+//         let total_issuance_before: u64 = TotalIssuance::<Test>::get();
+//         let total_stake_before: u64 = TotalStake::<Test>::get();
+//         let root_tao_before: u64 = SubnetTAO::<Test>::get(0);
+//         let subnet_tao_before: u64 = SubnetTAO::<Test>::get(netuid);
+//         let alpha_out_before: u64 = SubnetAlphaOut::<Test>::get(netuid);
+//         let alpha_in_before: u64 = SubnetAlphaIn::<Test>::get(netuid);
+//         let previous_pending: u64 = PendingEmission::<Test>::get(netuid);
+//         step_block(1);
+//         // Single subnet gets 100% of block emission.
+//         assert_eq!(EmissionValues::<Test>::get(netuid), block_emission);
+//         // Alpha_in emission = 1 because alpha_price < emission_value/block_emission
+//         assert_eq!(SubnetAlphaInEmission::<Test>::get(netuid), block_emission);
+//         // Get the pending root dividends.
+//         let pending_root_divs: u64 = PendingRootDivs::<Test>::get(netuid);
+//         // Simualte the swap back to alpha.
+//         let pending_as_alpha: u64 = SubtensorModule::sim_swap_tao_for_alpha( netuid, pending_root_divs );
+//         // Subnet ALpha out Emission .
+//         assert_eq!(SubnetAlphaOutEmission::<Test>::get(netuid), block_emission);
+//         // Assert difference is Pending emission.
+//         assert_eq!(PendingEmission::<Test>::get(netuid), previous_pending + (block_emission - pending_as_alpha) - 6 ); // All alpha with rounding.
+//         // Alpha in is increased by emission.
+//         assert_eq!(SubnetAlphaIn::<Test>::get(netuid), alpha_in_before + block_emission + pending_as_alpha + 5 ); // Corret with rounding.
+
+//         // Lets train the pending.
+//         let total_issuance_before: u64 = TotalIssuance::<Test>::get();
+//         let total_stake_before: u64 = TotalStake::<Test>::get();
+//         let root_tao_before: u64 = SubnetTAO::<Test>::get(0);
+//         let subnet_tao_before: u64 = SubnetTAO::<Test>::get(netuid);
+//         let alpha_out_before: u64 = SubnetAlphaOut::<Test>::get(netuid);
+//         let alpha_in_before: u64 = SubnetAlphaIn::<Test>::get(netuid);
+//         let previous_pending: u64 = PendingEmission::<Test>::get(netuid);
+//         let root_pending: u64 = PendingRootDivs::<Test>::get(netuid);
+//         SubtensorModule::drain_pending_emission( netuid );
+//         // Drained
+//         assert_eq!(PendingEmission::<Test>::get(netuid), 0);
+//         // Unchanged.
+//         assert_eq!(SubnetAlphaIn::<Test>::get(netuid), alpha_in_before);
+//         // Dividends are all pending to this hotkey.
+//         assert_eq!(HotkeyDividendsPerSubnet::<Test>::get(netuid, &hotkey), previous_pending);
+//         // Root Dividends are all pending to this hotkey.
+//         assert_eq!(RootDividendsPerSubnet::<Test>::get(netuid, &hotkey), root_pending);
+
+//         // TODO( const ): test multiple subnets.
+//         // TODO( const ): test multi root proportions
+//         // TODO( const ): test parents etc
+        
+
+//     });
+// }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --test coinbase test_coinbase_nominator_drainage_no_deltas -- --nocapture
 #[test]

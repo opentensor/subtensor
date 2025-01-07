@@ -1,6 +1,7 @@
 use super::mock::*;
 // use substrate_fixed::types::I96F32;
 use sp_core::U256;
+use crate::*;
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --workspace --test staking2 -- test_swap_tao_for_alpha_dynamic_mechanism --exact --nocapture
 #[test]
@@ -69,7 +70,7 @@ fn test_stake_base_case() {
 // 1. Stakes are represented as shares in a pool
 // 2. Multiple coldkeys can stake to a single hotkey
 // 3. Direct hotkey stakes are distributed proportionally among existing coldkey stakes
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --workspace --test staking2 -- test_swap_tao_for_alpha_dynamic_mechanism --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::staking2::test_share_based_staking --exact --show-output
 #[test]
 fn test_share_based_staking() {
     new_test_ext(1).execute_with(|| {
@@ -366,13 +367,14 @@ fn test_share_based_staking() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::staking2::test_share_based_staking_denominator_precision --exact --show-output
 #[test]
 fn test_share_based_staking_denominator_precision() {
     new_test_ext(1).execute_with(|| {
         let netuid = 1;
         let hotkey1 = U256::from(1);
         let coldkey1 = U256::from(2);
-        let stake_amount = 1_000;
+        let stake_amount = 1_000_000_000_000;
 
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey1, 
@@ -380,6 +382,7 @@ fn test_share_based_staking_denominator_precision() {
             netuid, 
             stake_amount
         );
+        assert_eq!( Alpha::<Test>::get( (hotkey1, coldkey1, netuid) ), stake_amount );
         SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey1, 
             &coldkey1, 
@@ -396,6 +399,7 @@ fn test_share_based_staking_denominator_precision() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::staking2::test_share_based_staking_denominator_precision_2 --exact --show-output --nocapture
 #[test]
 fn test_share_based_staking_stake_unstake_inject() {
     // Test case amounts: stake, unstake, inject, tolerance

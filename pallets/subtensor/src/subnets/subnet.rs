@@ -337,9 +337,6 @@ impl<T: Config> Pallet<T> {
                 BurnRegistrationsThisInterval::<T>::get(netuid),
             );
         }
-        if !TaoWeight::<T>::contains_key(netuid) {
-            TaoWeight::<T>::insert(netuid, DefaultTaoWeight::<T>::get());
-        }
     }
 }
 

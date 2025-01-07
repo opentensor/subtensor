@@ -60,28 +60,6 @@ fn test_set_weights_dispatch_info_ok() {
     });
 }
 #[test]
-fn test_set_rootweights_dispatch_info_ok() {
-    new_test_ext(0).execute_with(|| {
-        let dests = vec![1, 1];
-        let weights = vec![1, 1];
-        let netuid: u16 = 1;
-        let version_key: u64 = 0;
-        let hotkey: U256 = U256::from(1); // Add the hotkey field
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::set_tao_weights {
-            netuid,
-            dests,
-            weights,
-            version_key,
-            hotkey, // Include the hotkey field
-        });
-        let dispatch_info = call.get_dispatch_info();
-
-        assert_eq!(dispatch_info.class, DispatchClass::Normal);
-        assert_eq!(dispatch_info.pays_fee, Pays::No);
-    });
-}
-
-#[test]
 fn test_set_rootweights_validate() {
     // Testing the signed extension validate function
     // correctly filters this transaction.

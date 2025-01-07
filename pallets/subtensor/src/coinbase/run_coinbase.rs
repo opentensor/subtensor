@@ -18,32 +18,69 @@ pub struct WeightsTlockPayload {
 }
 
 impl<T: Config> Pallet<T> {
-    /// The `coinbase` function performs a four-part emission distribution process involving
-    /// subnets, epochs, hotkeys, and nominators.
-    ///
-    /// It is divided into several steps, each handling a specific part of the distribution:
-    ///
-    /// Step 1: Compute the block-wise emission for each subnet.
-    /// This involves calculating how much (TAO) should be emitted into each subnet using the root
-    /// epoch function.
-    ///
-    /// Step 2: Accumulate the subnet block emission.
-    /// After calculating the block-wise emission, these values are accumulated to keep track of how
-    /// much each subnet should emit before the next distribution phase. This accumulation is a
-    /// running total that gets updated each block.
-    ///
-    /// Step 3: Distribute the accumulated emissions through epochs.
-    /// Subnets periodically distribute their accumulated emissions to hotkeys (active
-    /// validators/miners) in the network on a `tempo` --- the time between epochs. This step runs
-    /// Yuma consensus to determine how emissions are split among hotkeys based on their
-    /// contributions and roles. The accumulation of hotkey emissions is done through the
-    /// `accumulate_hotkey_emission` function. The function splits the rewards for a hotkey amongst
-    /// itself and its `parents`. The parents are the hotkeys that are delegating their stake to the
-    /// hotkey.
-    ///
-    /// Step 4: Further distribute emissions from hotkeys to nominators.
-    /// Finally, the emissions received by hotkeys are further distributed to their nominators, who
-    /// are stakeholders that support the hotkeys.
+
+
+    pub fn get_dynamic_tao_emission( netuid: u16, tao_emission: u64, alpha_block_emission: u64 ) -> (u64, u64, u64) {
+
+        // Init terms.
+        let mut tao_in_emission: I96F32 = I96F32::from_num( tao_emission );
+        let float_alpha_block_emission: I96F32 = I96F32::from_num( alpha_block_emission );
+
+        // Get alpha price for subnet.
+        let alpha_price: I96F32 = Self::get_alpha_price( netuid );
+        log::debug!("{:?} - alpha_price: {:?}", netuid, alpha_price);
+
+        // Get initial alpha_in
+        let mut alpha_in_emission: I96F32 = I96F32::from_num( tao_emission ).checked_div( alpha_price ).unwrap_or( float_alpha_block_emission );
+
+        // Check if we are emitting too much alpha_in
+        if alpha_in_emission >= float_alpha_block_emission {
+            log::debug!("{:?} - alpha_in_emission: {:?} > alpha_block_emission: {:?}", netuid, alpha_in_emission, float_alpha_block_emission);
+
+            // Scale down tao_in
+            tao_in_emission = alpha_price.saturating_mul( float_alpha_block_emission);
+
+            // Set to max alpha_block_emission
+            alpha_in_emission = float_alpha_block_emission;
+
+        }
+
+        // Avoid rounding errors.
+        if tao_in_emission < I96F32::from_num(1) || alpha_in_emission < I96F32::from_num(1) {
+            alpha_in_emission = I96F32::from_num(0);
+            tao_in_emission = I96F32::from_num(0);
+        }
+
+        // Set Alpha in emission.
+        let alpha_out_emission = I96F32::from_num(2).saturating_mul( float_alpha_block_emission ).saturating_sub( alpha_in_emission );
+
+        // Log results.
+        log::debug!("{:?} - tao_in_emission: {:?}", netuid, tao_in_emission);
+        log::debug!("{:?} - alpha_in_emission: {:?}", netuid, alpha_in_emission);
+        log::debug!("{:?} - alpha_out_emission: {:?}", netuid, alpha_out_emission);
+
+        // Return result.
+        (tao_in_emission.to_num::<u64>(), alpha_in_emission.to_num::<u64>(), alpha_out_emission.to_num::<u64>())
+    }
+
+
+
+    pub fn get_root_divs_in_alpha( netuid: u16, alpha_out_emission: I96F32 ) -> I96F32 {
+        // Get total TAO on root.
+        let total_root_tao: I96F32 = I96F32::from_num( SubnetTAO::<T>::get( 0 ) );
+        // Get total ALPHA on subnet.
+        let total_alpha_issuance: I96F32 = I96F32::from_num(Self::get_alpha_issuance( netuid ));
+        // Get tao_weight
+        let tao_weight: I96F32 = total_root_tao.saturating_mul( Self::get_tao_weight() );
+        // Get root proportional dividends.
+        let root_proportion: I96F32 = tao_weight.checked_div( tao_weight.saturating_add( total_alpha_issuance ) ).unwrap_or( I96F32::from_num( 0.0 ) );
+        // Get root proportion of alpha_out dividends.
+        let root_divs_in_alpha: I96F32 = root_proportion.saturating_mul( alpha_out_emission ).saturating_mul( I96F32::from_num( 0.41 ) );
+        // Return
+        root_divs_in_alpha
+    }
+
+
     pub fn run_coinbase() {
         // --- 0. Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
@@ -109,102 +146,74 @@ impl<T: Config> Pallet<T> {
             if *netuid == 0 {continue;}
             // 6.1. Get subnet mechanism ID
             let mechid: u16 = SubnetMechanism::<T>::get(*netuid);
-            log::debug!("Netuid: {:?}, Mechanism ID: {:?}", netuid, mechid);
+            log::debug!("{:?} - mechid: {:?}", netuid, mechid);
             // 6.2: Get the subnet emission TAO.
-            let mut tao_emission: I96F32 = I96F32::from_num(*tao_in_map.get(&netuid).unwrap_or(&0));
-            log::debug!("Subnet emission TAO for netuid {:?}: {:?}", netuid, tao_emission);
+            let subnet_emission: u64 = *tao_in_map.get(&netuid).unwrap_or(&0);
+            log::debug!("{:?} subnet_emission: {:?}", netuid, subnet_emission );
             if mechid == 0 {
                 // The mechanism is Stable (FOR TESTING PURPOSES ONLY)
                 // 6.2.1 Increase Tao in the subnet "reserves" unconditionally.
-                SubnetTAO::<T>::mutate(*netuid, |total| { *total = total.saturating_add(tao_emission.to_num::<u64>()) });
+                SubnetTAO::<T>::mutate(*netuid, |total| { *total = total.saturating_add( subnet_emission ) });
                 // 6.2.2 Increase total stake across all subnets.
-                TotalStake::<T>::mutate(|total| *total = total.saturating_add(tao_emission.to_num::<u64>()));
+                TotalStake::<T>::mutate(|total| *total = total.saturating_add( subnet_emission ));
                 // 6.2.3 Increase total issuance of Tao.
-                TotalIssuance::<T>::mutate(|total| *total = total.saturating_add(tao_emission.to_num::<u64>()));
+                TotalIssuance::<T>::mutate(|total| *total = total.saturating_add( subnet_emission ));
                 // 6.2.4 Increase this subnet pending emission.
-                PendingEmission::<T>::mutate(*netuid, |total| { *total = total.saturating_add(tao_emission.to_num::<u64>()) });
+                PendingEmission::<T>::mutate(*netuid, |total| { *total = total.saturating_add( subnet_emission ) });
                 // 6.2.5 Go to next subnet.
                 continue
             }
-            // Dynamic TAO below:
-            // 6.3: Get the alpha emission per block as a function of supply.
-            let alpha_emission: I96F32 = I96F32::from_num(Self::get_block_emission_for_issuance( Self::get_alpha_issuance(*netuid) ).unwrap_or(0));
-            log::debug!("netuid {:?}: alpha_emission: {:?}", netuid, tao_emission);
-            // 6.4: Get tao_in, which is number between (0, 1), percent of block emission in tao.
-            let tao_in: I96F32 = tao_emission / I96F32::from_num(block_emission);
-            log::debug!("Emission proportion {:?}: {:?}", netuid, tao_in);
-            // 6.5: Get alpha price as function of tao_reserve and alpha_reserve.
-            let alpha_price: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(*netuid)).checked_div(I96F32::from_num(SubnetAlphaIn::<T>::get(*netuid))).unwrap_or(I96F32::from_num(0));
-            log::debug!("Alpha price for netuid {:?}: {:?}", netuid, alpha_price);
-            // 6.5: Compute alpha_in from tao_in and alpha_price.
-            let alpha_in: I96F32;
-            if alpha_price <= tao_in {
-                // 6.5.1: Set tao_in proportion to alpha_price.
-                tao_emission = alpha_price * block_emission;
-                log::debug!("Set tao_in to alpha_price: {:?}", tao_emission);
-                // 6.5.2: Set alpha_in to a hard 1 (max value)
-                alpha_in = I96F32::from_num(1);
-                log::debug!("Set alpha_in to max value: {:?}", alpha_in);
-            } else {
-                // 6.5.2: tao_in remains unchanged
-                tao_emission = tao_in * block_emission;
-                log::debug!("tao_in remains unchanged: {:?}", tao_emission);
-                // 6.5.3: alpha_in is computed based on tao_in and price to keep price fixed.
-                alpha_in = I96F32::from_num(tao_in).checked_div(alpha_price).unwrap_or(I96F32::from_num(0));
-                log::debug!("Computed alpha_in based on tao_in and alpha_price: {:?}", alpha_in);
-            }
-            // 6.6: Compute Alpha_in_issuance based on current issuance amount.
-            let alpha_in_emission: I96F32 = alpha_emission.saturating_mul(alpha_in);
-            SubnetAlphaInEmission::<T>::insert( *netuid, alpha_in_emission.to_num::<u64>()); 
-            log::debug!("Computed alpha_in_emission: {:?}", alpha_in_emission);
-            // 6.7: Inject Alpha into the pool reserves here: alpha_in.
+            // Get the total_alpha_emission for the block
+            let alpha_block_emission: u64 = Self::get_block_emission_for_issuance( Self::get_alpha_issuance( *netuid ) ).unwrap_or( 0 );
+
+            // Compute emission into pool.
+            let (tao_in_emission, alpha_in_emission, alpha_out_emission):( u64, u64, u64 ) = Self::get_dynamic_tao_emission(
+                *netuid, 
+                subnet_emission, 
+                alpha_block_emission
+            );
+
+            // Set state vars.
+            SubnetTaoInEmission::<T>::insert( *netuid, tao_in_emission );
+            SubnetAlphaInEmission::<T>::insert( *netuid, alpha_in_emission ); 
+            SubnetAlphaOutEmission::<T>::insert( *netuid, alpha_out_emission ); 
+
+            // Increase counters.
             SubnetAlphaIn::<T>::mutate(*netuid, |total| { 
-                *total = total.saturating_add(alpha_in_emission.to_num::<u64>());
+                *total = total.saturating_add( alpha_in_emission );
                 log::debug!("Injected alpha_in into SubnetAlphaIn: {:?}", *total);
             });
-            // 6.7: Compute Alpha_out_issuance based on alpha_in_issuance
-            let mut alpha_out_emission: I96F32 = 2 * alpha_emission - alpha_in_emission;
-            SubnetAlphaOutEmission::<T>::insert( *netuid, alpha_out_emission.to_num::<u64>()); 
-            SubnetAlphaOut::<T>::mutate(netuid, |total| { *total = total.saturating_add( alpha_out_emission.to_num::<u64>() ) });
-            log::debug!("Computed alpha_out_emission: {:?}", alpha_out_emission);
-            // 6.9: Increase Tao in the subnet reserve conditionally.
+            SubnetAlphaOut::<T>::mutate(*netuid, |total| { 
+                *total = total.saturating_add( alpha_out_emission );
+                log::debug!("Injected alpha_in into SubnetAlphaIn: {:?}", *total);
+            });
             SubnetTAO::<T>::mutate(*netuid, |total| { 
-                *total = total.saturating_add(tao_emission.to_num::<u64>());
+                *total = total.saturating_add( tao_in_emission );
                 log::debug!("Increased Tao in SubnetTAO: {:?}", *total);
             });
-            SubnetTaoInEmission::<T>::insert( *netuid, tao_emission.to_num::<u64>());
-            // 6.10: Increase total stake counter.
             TotalStake::<T>::mutate(|total| { 
-                *total = total.saturating_add(tao_emission.to_num::<u64>());
+                *total = total.saturating_add( tao_in_emission );
                 log::debug!("Increased TotalStake: {:?}", *total);
             });
-            // 6.11: Increase total Tao issuance counter.
             TotalIssuance::<T>::mutate(|total| { 
-                *total = total.saturating_add(tao_emission.to_num::<u64>());
+                *total = total.saturating_add( tao_in_emission );
                 log::debug!("Increased TotalIssuance: {:?}", *total);
             });
-            // Get total TAO on root.
-            let total_root_tao: I96F32 = I96F32::from_num(SubnetTAO::<T>::get( 0 ));
-            // Get total ALPHA on subnet.
-            let total_alpha_issuance: I96F32 = I96F32::from_num(Self::get_alpha_issuance(*netuid));
-            // Get tao_weight
-            let tao_weight: I96F32 = Self::get_tao_weight( *netuid );
-            // Get root proportional dividends.
-            let root_proportion: I96F32 = (total_root_tao * tao_weight) / ((total_root_tao * tao_weight) + total_alpha_issuance);
-            // Get root proportion of alpha_out dividends.
-            let root_proportion_of_alpha_out: I96F32 = root_proportion * alpha_out_emission * I96F32::from_num( 0.41 );
-            // Subtract root proporiton from alpha_out_emission
-            alpha_out_emission -= root_proportion_of_alpha_out;
-            // Sell root proportion of alpha_out through the pool into TAO.
-            let root_alpha_as_tao: u64 = Self::swap_alpha_for_tao( *netuid, root_proportion_of_alpha_out.to_num::<u64>() );
-            // Accumulate root tao dividends into the accumulator.
+
+            // Get proportion of alpha out emission as root divs.
+            let root_emission_in_alpha: I96F32 = Self::get_root_divs_in_alpha( *netuid, I96F32::from_num(alpha_out_emission) );
+            // Subtract root divs from alpha divs.
+            let pending_alpha_emission: I96F32 = I96F32::from_num( alpha_out_emission ).saturating_sub( root_emission_in_alpha );
+            // Sell root emission through the pool.
+            let root_emission_in_tao: u64 = Self::swap_alpha_for_tao( *netuid, root_emission_in_alpha.to_num::<u64>() );
+            SubnetAlphaEmissionSell::<T>::insert( *netuid, root_emission_in_alpha.to_num::<u64>() ); 
+            // Accumulate root divs for subnet.
             PendingRootDivs::<T>::mutate( *netuid, |total| { 
-                *total = total.saturating_add(root_alpha_as_tao);
+                *total = total.saturating_add( root_emission_in_tao );
             });
-            // 6.8: Inject Alpha out for distribution later.
+            // Accumulate alpha emission in pending.
             PendingEmission::<T>::mutate(*netuid, |total| { 
-                *total = total.saturating_add(alpha_out_emission.to_num::<u64>());
-                log::debug!("Injected alpha_out_emission into PendingEmission: {:?}", *total);
+                *total = total.saturating_add( pending_alpha_emission.to_num::<u64>() );
             });
         }
 
@@ -284,7 +293,7 @@ impl<T: Config> Pallet<T> {
 
                 // 7.6.3.3: Get the local alpha and root alpha.
                 let hotkey_tao: I96F32 = I96F32::from_num( Self::get_stake_for_hotkey_on_subnet( &hotkey, Self::get_root_netuid() ) );
-                let hotkey_tao_as_alpha: I96F32 = hotkey_tao.saturating_mul( Self::get_tao_weight(netuid) );
+                let hotkey_tao_as_alpha: I96F32 = hotkey_tao.saturating_mul( Self::get_tao_weight() );
                 let hotkey_alpha = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet( &hotkey, netuid ));
                 log::debug!("Hotkey tao for hotkey {:?} on root netuid: {:?}, hotkey tao as alpha: {:?}, hotkey alpha: {:?}", hotkey, hotkey_tao, hotkey_tao_as_alpha, hotkey_alpha);
 
@@ -372,7 +381,7 @@ impl<T: Config> Pallet<T> {
         let mut contributions: Vec<(T::AccountId, I96F32)> = Vec::new();
 
         // Get the weights for root and alpha stakes in emission distribution
-        let tao_weight: I96F32 = Self::get_tao_weight(netuid);
+        let tao_weight: I96F32 = Self::get_tao_weight();
 
         // Calculate total root and alpha (subnet-specific) stakes from all parents
         for (proportion, parent) in Self::get_parents(hotkey, netuid) {
