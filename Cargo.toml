@@ -29,6 +29,7 @@ members = [
     "pallets/admin-utils",
     "pallets/collective",
     "pallets/registry",
+    "primitives/*",
     "runtime",
     "support/tools",
     "support/macros",
