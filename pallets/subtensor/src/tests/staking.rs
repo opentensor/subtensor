@@ -219,56 +219,47 @@ fn test_add_stake_total_balance_no_change() {
     // When we add stake, the total balance of the coldkey account should not change
     //    this is because the stake should be part of the coldkey account balance (reserved/locked)
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let hotkey_account_id = U256::from(551337);
+        let coldkey_account_id = U256::from(51337);
+        let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
 
-        // let hotkey_account_id = U256::from(551337);
-        // let coldkey_account_id = U256::from(51337);
-        // let netuid: u16 = 1;
-        // let tempo: u16 = 13;
-        // let start_nonce: u64 = 0;
+        // Give it some $$$ in his coldkey balance
+        let initial_balance = 10000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, initial_balance);
 
-        // //add network
-        // add_network(netuid, tempo, 0);
+        // Check we have zero staked before transfer
+        let initial_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
+        assert_eq!(initial_stake, 0);
 
-        // // Register neuron
-        // register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
+        // Check total balance is equal to initial balance
+        let initial_total_balance = Balances::total_balance(&coldkey_account_id);
+        assert_eq!(initial_total_balance, initial_balance);
 
-        // // Give it some $$$ in his coldkey balance
-        // let initial_balance = 10000;
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, initial_balance);
+        // Also total stake should be zero
+        assert_eq!(SubtensorModule::get_total_stake(), 0);
 
-        // // Check we have zero staked before transfer
-        // let initial_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
-        // assert_eq!(initial_stake, 0);
+        // Stake to hotkey account, and check if the result is ok
+        assert_ok!(SubtensorModule::add_stake(
+            RawOrigin::Signed(coldkey_account_id).into(),
+            hotkey_account_id,
+            netuid,
+            10000
+        ));
 
-        // // Check total balance is equal to initial balance
-        // let initial_total_balance = Balances::total_balance(&coldkey_account_id);
-        // assert_eq!(initial_total_balance, initial_balance);
+        // Check if stake has increased
+        let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
+        assert_eq!(new_stake, 10000);
 
-        // // Also total stake should be zero
-        // assert_eq!(SubtensorModule::get_total_stake(), 0);
+        // Check if free balance has decreased
+        let new_free_balance = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
+        assert_eq!(new_free_balance, 0);
 
-        // // Stake to hotkey account, and check if the result is ok
-        // assert_ok!(SubtensorModule::add_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-        //     hotkey_account_id,
-        //     10000
-        // ));
+        // Check if total stake has increased accordingly.
+        assert_eq!(SubtensorModule::get_total_stake(), 10000);
 
-        // // Check if stake has increased
-        // let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
-        // assert_eq!(new_stake, 10000);
-
-        // // Check if free balance has decreased
-        // let new_free_balance = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
-        // assert_eq!(new_free_balance, 0);
-
-        // // Check if total stake has increased accordingly.
-        // assert_eq!(SubtensorModule::get_total_stake(), 10000);
-
-        // // Check if total balance has remained the same. (no fee, includes reserved/locked balance)
-        // let total_balance = Balances::total_balance(&coldkey_account_id);
-        // assert_eq!(total_balance, initial_total_balance);
+        // Check if total balance has remained the same. (no fee, includes reserved/locked balance)
+        let total_balance = Balances::total_balance(&coldkey_account_id);
+        assert_eq!(total_balance, initial_total_balance);
     });
 }
 
