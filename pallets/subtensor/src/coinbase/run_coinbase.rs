@@ -206,6 +206,7 @@ impl<T: Config> Pallet<T> {
             let pending_alpha_emission: I96F32 = I96F32::from_num( alpha_out_emission ).saturating_sub( root_emission_in_alpha );
             // Sell root emission through the pool.
             let root_emission_in_tao: u64 = Self::swap_alpha_for_tao( *netuid, root_emission_in_alpha.to_num::<u64>() );
+            SubnetAlphaEmissionSell::<T>::insert( *netuid, root_emission_in_alpha.to_num::<u64>() ); 
             // Accumulate root divs for subnet.
             PendingRootDivs::<T>::mutate( *netuid, |total| { 
                 *total = total.saturating_add( root_emission_in_tao );
