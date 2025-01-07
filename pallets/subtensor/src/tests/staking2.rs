@@ -468,3 +468,57 @@ fn test_share_based_staking_stake_unstake_inject() {
         });
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::staking2::test_share_based_staking_stake_inject_stake_new --exact --show-output --nocapture
+#[test]
+fn test_share_based_staking_stake_inject_stake_new() {
+    // Test case amounts: stake, inject, stake, tolerance
+    [
+        (1, 2_000_000_000, 500_000_000, 1),
+		(1, 5_000_000_000, 50_000_000, 1),
+		(500_000_000, 1_000_000_000, 1_000_000_000, 1),
+    ].iter().for_each(|test_case| {
+        new_test_ext(1).execute_with(|| {
+            let netuid = 1;
+            let hotkey1 = U256::from(1);
+            let coldkey1 = U256::from(2);
+            let coldkey2 = U256::from(3);
+            let stake_amount = test_case.0;
+            let inject_amount = test_case.1;
+            let stake_amount_2 = test_case.2;
+            let tolerance = test_case.3;
+
+            SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1,
+                &coldkey1,
+                netuid,
+                stake_amount
+            );
+            SubtensorModule::increase_stake_for_hotkey_on_subnet(
+                &hotkey1,
+                netuid,
+                inject_amount
+            );
+            SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1,
+                &coldkey2,
+                netuid,
+                stake_amount_2
+            );
+
+            let stake1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1,
+                &coldkey1,
+                netuid
+            );
+            let stake2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1,
+                &coldkey2,
+                netuid
+            );
+
+            assert!((stake1 as i64 - (stake_amount + inject_amount) as i64).abs() <= tolerance);
+            assert!((stake2 as i64 - stake_amount_2 as i64).abs() <= tolerance);
+        });
+    });
+}
