@@ -81,6 +81,7 @@ pub mod pallet {
     use sp_std::collections::vec_deque::VecDeque;
     use sp_std::vec;
     use sp_std::vec::Vec;
+    use substrate_fixed::types::I64F64;
     use subtensor_macros::freeze_struct;
 
     #[cfg(not(feature = "std"))]
@@ -712,6 +713,12 @@ pub mod pallet {
         T::InitialDissolveNetworkScheduleDuration::get()
     }
 
+    #[pallet::type_value]
+    /// Default value for Share Pool variables
+    pub fn DefaultSharePoolZero<T: Config>() -> I64F64 {
+        I64F64::from_num(0)
+    }
+
     #[pallet::storage]
     pub type ColdkeySwapScheduleDuration<T: Config> =
         StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapScheduleDuration<T>>;
@@ -934,9 +941,9 @@ pub mod pallet {
         T::AccountId,
         Identity,
         u16,
-        u64,
+        I64F64,
         ValueQuery,
-        DefaultZeroU64<T>,
+        DefaultSharePoolZero<T>,
     >;
     #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> alpha | Returns the alpha shares for a hotkey, coldkey, netuid triplet.
     pub type Alpha<T: Config> = StorageNMap<
@@ -946,7 +953,7 @@ pub mod pallet {
             NMapKey<Blake2_128Concat, T::AccountId>, // cold
             NMapKey<Identity, u16>,                  // subnet
         ),
-        u64, // Shares
+        I64F64, // Shares
         ValueQuery,
     >;
     #[pallet::storage] // --- DMAP ( netuid ) --> token_symbol | Returns the token symbol for a subnet.

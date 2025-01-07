@@ -1,4 +1,7 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 use sp_std::ops::Neg;
+use sp_std::marker;
 use substrate_fixed::types::I64F64;
 
 pub trait SharePoolDataOperations<Key> {
@@ -6,6 +9,8 @@ pub trait SharePoolDataOperations<Key> {
     fn get_shared_value(&self) -> I64F64;
     /// Gets single share for a given key
     fn get_share(&self, key: &Key) -> I64F64;
+    // Tries to get a single share for a given key, as a result.
+    fn try_get_share(&self, key: &Key) -> Result<I64F64, ()>;
     /// Gets share pool denominator
     fn get_denominator(&self) -> I64F64;
     /// Updates shared value by provided signed value
@@ -19,22 +24,22 @@ pub trait SharePoolDataOperations<Key> {
 /// SharePool struct that depends on the Key type and uses the SharePoolDataOperations
 pub struct SharePool<K, Ops>
 where
-    K: Eq + std::hash::Hash,
+    K: Eq,
     Ops: SharePoolDataOperations<K>,
 {
     state_ops: Ops,
-    phantom_key: std::marker::PhantomData<K>,
+    phantom_key: marker::PhantomData<K>,
 }
 
 impl<K, Ops> SharePool<K, Ops>
 where
-    K: Eq + std::hash::Hash,
+    K: Eq,
     Ops: SharePoolDataOperations<K>,
 {
     pub fn new(ops: Ops) -> Self {
         SharePool {
             state_ops: ops,
-            phantom_key: std::marker::PhantomData,
+            phantom_key: marker::PhantomData,
         }
     }
 
@@ -50,6 +55,13 @@ where
             .to_num::<u64>()
     }
 
+    pub fn try_get_value(&self, key: &K) -> Result<u64, ()> {
+        match self.state_ops.try_get_share(key) {
+            Ok(_) => Ok(self.get_value(key)),
+            Err(i) => Err(i),
+        }
+    }
+    
     /// Update the total shared value.
     /// Every key's associated value effectively updates with this operation
     pub fn update_value_for_all(&mut self, update: i64) -> Result<(), ()> {
@@ -141,6 +153,13 @@ mod tests {
 
         fn get_share(&self, key: &u16) -> I64F64 {
             self.share.get(key).unwrap_or(&I64F64::from_num(0)).clone()
+        }
+
+        fn try_get_share(&self, key: &u16) -> Result<I64F64, ()> {
+            match self.share.get(key) {
+                Some(&value) => Ok(value),
+                None => Err(()),
+            }
         }
 
         fn get_denominator(&self) -> I64F64 {

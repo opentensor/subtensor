@@ -1,5 +1,7 @@
 use super::*;
 use frame_support::IterableStorageDoubleMap;
+use share_pool::{SharePool, SharePoolDataOperations};
+use sp_std::ops::Neg;
 use substrate_fixed::types::{I64F64, I96F32};
 
 impl<T: Config> Pallet<T> {
@@ -260,28 +262,31 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         netuid: u16,
     ) -> u64 {
-        // Step 1: Get the total number of shares that this hotkey has on this subnet.
-        let total_hotkey_shares: u64 = TotalHotkeyShares::<T>::get(hotkey, netuid);
+        // // Step 1: Get the total number of shares that this hotkey has on this subnet.
+        // let total_hotkey_shares: u64 = TotalHotkeyShares::<T>::get(hotkey, netuid);
 
-        // Step 2: Get the total alpha allocated to those shares on this subnet.
-        let total_hotkey_alpha: u64 = TotalHotkeyAlpha::<T>::get(hotkey, netuid);
+        // // Step 2: Get the total alpha allocated to those shares on this subnet.
+        // let total_hotkey_alpha: u64 = TotalHotkeyAlpha::<T>::get(hotkey, netuid);
 
-        // Step 3: Get the number of shares this coldkey has with this hotkey.
-        let coldkey_shares: u64 = Alpha::<T>::get((hotkey, coldkey, netuid));
+        // // Step 3: Get the number of shares this coldkey has with this hotkey.
+        // let coldkey_shares: u64 = Alpha::<T>::get((hotkey, coldkey, netuid));
 
-        // Step 4: If there are no shares or alpha on this hotkey, return 0;
-        if total_hotkey_shares == 0 || total_hotkey_alpha == 0 || coldkey_shares == 0 {
-            return 0;
-        }
+        // // Step 4: If there are no shares or alpha on this hotkey, return 0;
+        // if total_hotkey_shares == 0 || total_hotkey_alpha == 0 || coldkey_shares == 0 {
+        //     return 0;
+        // }
 
-        // Step 5: Compute the alphas per share.
-        let alphas_per_share: I96F32 = I96F32::from_num( total_hotkey_alpha ).checked_div( I96F32::from_num( total_hotkey_shares ) ).unwrap_or( I96F32::from_num( 0.0) );
+        // // Step 5: Compute the alphas per share.
+        // let alphas_per_share: I96F32 = I96F32::from_num( total_hotkey_alpha ).checked_div( I96F32::from_num( total_hotkey_shares ) ).unwrap_or( I96F32::from_num( 0.0) );
 
-        // Step 6: Compute implied alphas from coldkey shares
-        let coldkey_alphas: I96F32 = alphas_per_share.saturating_mul( I96F32::from_num( coldkey_shares ) );
+        // // Step 6: Compute implied alphas from coldkey shares
+        // let coldkey_alphas: I96F32 = alphas_per_share.saturating_mul( I96F32::from_num( coldkey_shares ) );
 
-        // Return 
-        return coldkey_alphas.to_num::<u64>();
+        // // Return 
+        // return coldkey_alphas.to_num::<u64>();
+
+        let alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
+        alpha_share_pool.try_get_value(&coldkey).unwrap_or(0)
     }
 
     /// Retrieves the total stake (alpha) for a given hotkey on a specific subnet.
@@ -319,10 +324,13 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         amount: u64 
     ) {
-        // Add to the total for this hotkey on this subnet.
-        TotalHotkeyAlpha::<T>::mutate( hotkey, netuid , |total| {
-            *total = total.saturating_add(amount);
-        });
+        // // Add to the total for this hotkey on this subnet.
+        // TotalHotkeyAlpha::<T>::mutate( hotkey, netuid , |total| {
+        //     *total = total.saturating_add(amount);
+        // });
+
+        let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
+        let _ = alpha_share_pool.update_value_for_all(amount as i64);
     }
 
     /// Decrease hotkey stake on a subnet.
@@ -339,10 +347,13 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         amount: u64 
     ) {
-        // Add to the total for this hotkey on this subnet.
-        TotalHotkeyAlpha::<T>::mutate( hotkey, netuid , |total| {
-            *total = total.saturating_add(amount);
-        });
+        // // Add to the total for this hotkey on this subnet.
+        // TotalHotkeyAlpha::<T>::mutate( hotkey, netuid , |total| {
+        //     *total = total.saturating_add(amount);
+        // });
+
+        let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
+        let _ = alpha_share_pool.update_value_for_all((amount as i64).neg());
     }
 
     /// Buys shares in the hotkey on a given subnet
@@ -361,33 +372,36 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         amount: u64
     ) {
-        // Step 1: Get the total number of shares associated with this hotkey on this subnet.
-        let total_hotkey_shares: u64 = TotalHotkeyShares::<T>::get(hotkey, netuid);
+        // // Step 1: Get the total number of shares associated with this hotkey on this subnet.
+        // let total_hotkey_shares: u64 = TotalHotkeyShares::<T>::get(hotkey, netuid);
 
-        // Step 2: Determine the increase in pool stake.
-        let alpha_shares_bought: u64 = if total_hotkey_shares == 0 {
-            // Step 3a: No shares, we use the initial value as the shares to bootstrap.
-            amount
-        } else {
-            // Step 3b: Calculate the increase in shares.
-            let increase = I96F32::from_num(amount) / I96F32::from_num(TotalHotkeyAlpha::<T>::get(hotkey, netuid));
-            (increase * I96F32::from_num(total_hotkey_shares)).to_num::<u64>()
-        };
+        // // Step 2: Determine the increase in pool stake.
+        // let alpha_shares_bought: u64 = if total_hotkey_shares == 0 {
+        //     // Step 3a: No shares, we use the initial value as the shares to bootstrap.
+        //     amount
+        // } else {
+        //     // Step 3b: Calculate the increase in shares.
+        //     let increase = I96F32::from_num(amount) / I96F32::from_num(TotalHotkeyAlpha::<T>::get(hotkey, netuid));
+        //     (increase * I96F32::from_num(total_hotkey_shares)).to_num::<u64>()
+        // };
 
-        // Step 4: Issue the shares.
-        Alpha::<T>::mutate((hotkey, coldkey, netuid), |total| {
-            *total = total.saturating_add(alpha_shares_bought);
-        });
+        // // Step 4: Issue the shares.
+        // Alpha::<T>::mutate((hotkey, coldkey, netuid), |total| {
+        //     *total = total.saturating_add(alpha_shares_bought);
+        // });
 
-        // Step 5: Increment the total number of shares associated with this hotkey on this subnet.
-        TotalHotkeyShares::<T>::mutate(hotkey, netuid, |total| {
-            *total = total.saturating_add(alpha_shares_bought);
-        });
+        // // Step 5: Increment the total number of shares associated with this hotkey on this subnet.
+        // TotalHotkeyShares::<T>::mutate(hotkey, netuid, |total| {
+        //     *total = total.saturating_add(alpha_shares_bought);
+        // });
 
-        // Step 6: Increase the pool stake.
-        TotalHotkeyAlpha::<T>::mutate(hotkey, netuid, |total| {
-            *total = total.saturating_add(amount);
-        });
+        // // Step 6: Increase the pool stake.
+        // TotalHotkeyAlpha::<T>::mutate(hotkey, netuid, |total| {
+        //     *total = total.saturating_add(amount);
+        // });
+
+        let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
+        let _ = alpha_share_pool.update_value_for_one(&coldkey, amount as i64);
     }
 
     /// Sell shares in the hotkey on a given subnet
@@ -406,62 +420,65 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         amount: u64
     ) {
-        // Step 1: Get the total shares on this hotkey.
-        let total_hotkey_shares: u64 = TotalHotkeyShares::<T>::get(hotkey, netuid);
+        // // Step 1: Get the total shares on this hotkey.
+        // let total_hotkey_shares: u64 = TotalHotkeyShares::<T>::get(hotkey, netuid);
 
-        // Step 2: Get the total alpha on this hotkey and subnet.
-        let total_hotkey_alpha: u64 = TotalHotkeyAlpha::<T>::get(hotkey, netuid);
+        // // Step 2: Get the total alpha on this hotkey and subnet.
+        // let total_hotkey_alpha: u64 = TotalHotkeyAlpha::<T>::get(hotkey, netuid);
 
-        // Step 3: Return if values are zero.
-        if total_hotkey_shares == 0 || total_hotkey_alpha == 0 || amount == 0 {
-            return;
-        }
+        // // Step 3: Return if values are zero.
+        // if total_hotkey_shares == 0 || total_hotkey_alpha == 0 || amount == 0 {
+        //     return;
+        // }
 
-        // Step 4: Calculate the decrease in shares.
-        let decrease = I96F32::from_num(amount) / I96F32::from_num(total_hotkey_alpha);
-        let alpha_shares_sold = (decrease * I96F32::from_num(total_hotkey_shares)).to_num::<u64>();
+        // // Step 4: Calculate the decrease in shares.
+        // let decrease = I96F32::from_num(amount) / I96F32::from_num(total_hotkey_alpha);
+        // let alpha_shares_sold = (decrease * I96F32::from_num(total_hotkey_shares)).to_num::<u64>();
 
-        // Step 5: Ensure we are not selling more shares than we have.
-        let current_alpha_shares: u64 = Alpha::<T>::get((hotkey, coldkey, netuid));
-        if alpha_shares_sold > current_alpha_shares {
-            return;
-        }
+        // // Step 5: Ensure we are not selling more shares than we have.
+        // let current_alpha_shares: u64 = Alpha::<T>::get((hotkey, coldkey, netuid));
+        // if alpha_shares_sold > current_alpha_shares {
+        //     return;
+        // }
 
-        // Step 6: Decrement the number of shares for the coldkey.
-        Alpha::<T>::mutate_exists((hotkey, coldkey, netuid), |maybe_total| {
-            if let Some(total) = maybe_total {
-                let new_total = total.saturating_sub(alpha_shares_sold);
-                if new_total == 0 {
-                    *maybe_total = None;
-                } else {
-                    *total = new_total;
-                }
-            }
-        });
+        // // Step 6: Decrement the number of shares for the coldkey.
+        // Alpha::<T>::mutate_exists((hotkey, coldkey, netuid), |maybe_total| {
+        //     if let Some(total) = maybe_total {
+        //         let new_total = total.saturating_sub(alpha_shares_sold);
+        //         if new_total == 0 {
+        //             *maybe_total = None;
+        //         } else {
+        //             *total = new_total;
+        //         }
+        //     }
+        // });
 
-        // Step 7: Decrement the total number of shares associated with this hotkey on this subnet.
-        TotalHotkeyShares::<T>::mutate_exists(hotkey, netuid, |maybe_total| {
-            if let Some(total) = maybe_total {
-                let new_total = total.saturating_sub(alpha_shares_sold);
-                if new_total == 0 {
-                    *maybe_total = None;
-                } else {
-                    *total = new_total;
-                }
-            }
-        });
+        // // Step 7: Decrement the total number of shares associated with this hotkey on this subnet.
+        // TotalHotkeyShares::<T>::mutate_exists(hotkey, netuid, |maybe_total| {
+        //     if let Some(total) = maybe_total {
+        //         let new_total = total.saturating_sub(alpha_shares_sold);
+        //         if new_total == 0 {
+        //             *maybe_total = None;
+        //         } else {
+        //             *total = new_total;
+        //         }
+        //     }
+        // });
 
-        // Step 8: Decrease the pool stake.
-        TotalHotkeyAlpha::<T>::mutate_exists(hotkey, netuid, |maybe_total| {
-            if let Some(total) = maybe_total {
-                let new_total = total.saturating_sub(amount);
-                if new_total == 0 {
-                    *maybe_total = None;
-                } else {
-                    *total = new_total;
-                }
-            }
-        });
+        // // Step 8: Decrease the pool stake.
+        // TotalHotkeyAlpha::<T>::mutate_exists(hotkey, netuid, |maybe_total| {
+        //     if let Some(total) = maybe_total {
+        //         let new_total = total.saturating_sub(amount);
+        //         if new_total == 0 {
+        //             *maybe_total = None;
+        //         } else {
+        //             *total = new_total;
+        //         }
+        //     }
+        // });
+
+        let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
+        let _ = alpha_share_pool.update_value_for_one(&coldkey, (amount as i64).neg());
     }
 
     /// Swaps TAO for the alpha token on the subnet.
@@ -692,5 +709,76 @@ impl<T: Config> Pallet<T> {
         alpha
     }
 
+    fn get_alpha_share_pool(
+        hotkey: <T as frame_system::Config>::AccountId,
+        netuid: u16,
+    ) -> SharePool<AlphaShareKey<T>, HotkeyAlphaSharePoolDataOperations<T>> {
+        let ops = HotkeyAlphaSharePoolDataOperations::new(hotkey, netuid);
+        SharePool::<AlphaShareKey<T>, HotkeyAlphaSharePoolDataOperations<T>>::new(ops)
+    }
     
+}
+
+///////////////////////////////////////////
+// Alpha share pool chain data layer
+
+struct HotkeyAlphaSharePoolDataOperations<T: frame_system::Config> {
+    netuid: u16,
+    hotkey: <T as frame_system::Config>::AccountId,
+    _marker: sp_std::marker::PhantomData<T>,
+}
+
+impl<T: Config> HotkeyAlphaSharePoolDataOperations<T> {
+    fn new(hotkey: <T as frame_system::Config>::AccountId, netuid: u16) -> Self {
+        HotkeyAlphaSharePoolDataOperations {
+            netuid,
+            hotkey,
+            _marker: sp_std::marker::PhantomData,
+        }
+    }
+}
+
+// Alpha share key is coldkey because the HotkeyAlphaSharePoolDataOperations struct already has hotkey and netuid
+type AlphaShareKey<T> = <T as frame_system::Config>::AccountId;
+
+impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>> for HotkeyAlphaSharePoolDataOperations<T> {
+    fn get_shared_value(&self) -> I64F64 {
+        I64F64::from_num(crate::TotalHotkeyAlpha::<T>::get(&self.hotkey, self.netuid))
+    }
+
+    fn get_share(&self, key: &AlphaShareKey<T>) -> I64F64 {
+        crate::Alpha::<T>::get((&(self.hotkey), key, self.netuid))
+    }
+
+    fn try_get_share(&self, key: &AlphaShareKey<T>) -> Result<I64F64, ()> {
+        crate::Alpha::<T>::try_get((&(self.hotkey), key, self.netuid))
+    }
+
+    fn get_denominator(&self) -> I64F64 {
+        crate::TotalHotkeyShares::<T>::get(&(self.hotkey), self.netuid)
+    }
+
+    fn set_shared_value(&mut self, value: I64F64) {
+        if value != 0 {
+            crate::TotalHotkeyAlpha::<T>::insert(&(self.hotkey), self.netuid, value.to_num::<u64>());
+        } else {
+            crate::TotalHotkeyAlpha::<T>::remove(&(self.hotkey), self.netuid);
+        }
+    }
+
+    fn set_share(&mut self, key: &AlphaShareKey<T>, share: I64F64) {
+        if share != 0 {
+            crate::Alpha::<T>::insert((&self.hotkey, key, self.netuid), share);
+        } else {
+            crate::Alpha::<T>::remove((&self.hotkey, key, self.netuid));
+        }
+    }
+
+    fn set_denominator(&mut self, update: I64F64) {
+        if update != 0 {
+            crate::TotalHotkeyShares::<T>::insert(&self.hotkey, self.netuid, update);
+        } else {
+            crate::TotalHotkeyShares::<T>::remove(&self.hotkey, self.netuid);
+        }
+    }
 }
