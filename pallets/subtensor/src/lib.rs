@@ -737,8 +737,8 @@ pub mod pallet {
     /// Eventually, Bittensor should migrate to using Holds afterwhich time we will not require this
     /// separate accounting.
     #[pallet::storage]
-    /// --- MAP ( netuid ) --> Global weight
-    pub type TaoWeight<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultTaoWeight<T>>;
+    /// --- ITEM --> Global weight
+    pub type TaoWeight<T> = StorageValue<_, u64, ValueQuery, DefaultTaoWeight<T>>;
     #[pallet::storage]
     /// --- ITEM ( default_delegate_take )
     pub type MaxDelegateTake<T> = StorageValue<_, u16, ValueQuery, DefaultDelegateTake<T>>;

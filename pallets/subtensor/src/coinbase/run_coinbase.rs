@@ -71,7 +71,7 @@ impl<T: Config> Pallet<T> {
         // Get total ALPHA on subnet.
         let total_alpha_issuance: I96F32 = I96F32::from_num(Self::get_alpha_issuance( netuid ));
         // Get tao_weight
-        let tao_weight: I96F32 = total_root_tao.saturating_mul( Self::get_tao_weight( netuid ) );
+        let tao_weight: I96F32 = total_root_tao.saturating_mul( Self::get_tao_weight() );
         // Get root proportional dividends.
         let root_proportion: I96F32 = tao_weight.checked_div( tao_weight.saturating_add( total_alpha_issuance ) ).unwrap_or( I96F32::from_num( 0.0 ) );
         // Get root proportion of alpha_out dividends.
@@ -293,7 +293,7 @@ impl<T: Config> Pallet<T> {
 
                 // 7.6.3.3: Get the local alpha and root alpha.
                 let hotkey_tao: I96F32 = I96F32::from_num( Self::get_stake_for_hotkey_on_subnet( &hotkey, Self::get_root_netuid() ) );
-                let hotkey_tao_as_alpha: I96F32 = hotkey_tao.saturating_mul( Self::get_tao_weight(netuid) );
+                let hotkey_tao_as_alpha: I96F32 = hotkey_tao.saturating_mul( Self::get_tao_weight() );
                 let hotkey_alpha = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet( &hotkey, netuid ));
                 log::debug!("Hotkey tao for hotkey {:?} on root netuid: {:?}, hotkey tao as alpha: {:?}, hotkey alpha: {:?}", hotkey, hotkey_tao, hotkey_tao_as_alpha, hotkey_alpha);
 
@@ -381,7 +381,7 @@ impl<T: Config> Pallet<T> {
         let mut contributions: Vec<(T::AccountId, I96F32)> = Vec::new();
 
         // Get the weights for root and alpha stakes in emission distribution
-        let tao_weight: I96F32 = Self::get_tao_weight(netuid);
+        let tao_weight: I96F32 = Self::get_tao_weight();
 
         // Calculate total root and alpha (subnet-specific) stakes from all parents
         for (proportion, parent) in Self::get_parents(hotkey, netuid) {
