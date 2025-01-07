@@ -5,6 +5,7 @@ use crate::epoch::math::*;
 use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I64F64;
 
+#[freeze_struct("1af112d561741563")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetState<T: Config> {
     netuid: Compact<u16>,

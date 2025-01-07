@@ -7,6 +7,68 @@ use substrate_fixed::{
 
 impl<T: Config> Pallet<T> {
 
+    /// Calculates the dynamic TAO emission for a given subnet.
+    ///
+    /// This function determines the three terms tao_in, alpha_in, alpha_out
+    /// which are consequetively, 1) the amount of tao injected into the pool
+    /// 2) the amount of alpha injected into the pool and 3) the amount of alpha
+    /// left to be distributed towards miners/validators/owners per block.
+    ///
+    /// # Arguments
+    /// * `netuid` - The unique identifier of the subnet.
+    /// * `tao_emission` - The amount of tao to distribute for this subnet.
+    /// * `alpha_block_emission` - The maximum alpha emission allowed for the block.
+    ///
+    /// # Returns
+    /// * `(u64, u64, u64)` - A tuple containing:
+    ///   - `tao_in_emission`: The adjusted TAO emission always lower or equalt to tao_emission
+    ///   - `alpha_in_emission`: The adjusted alpha emission amount to be added into the pool.
+    ///   - `alpha_out_emission`: The remaining alpha emission after adjustments to be distributed to miners/validatods.
+    ///
+    /// The algorithm ensures that the pool injection of tao_in_emission, alpha_in_emission does not effect the pool price
+    /// It also ensures that the total amount of alpha_in_emission + alpha_out_emission sum to 2 * alpha_block_emission
+    /// It also ensure that 1 < alpha_out_emission < 2 * alpha_block_emission and 0 < alpha_in_emission < alpha_block_emission.
+    pub fn get_dynamic_tao_emission(netuid: u16, tao_emission: u64, alpha_block_emission: u64) -> (u64, u64, u64) {
+        // Init terms.
+        let mut tao_in_emission: I96F32 = I96F32::from_num(tao_emission);
+        let float_alpha_block_emission: I96F32 = I96F32::from_num(alpha_block_emission);
+
+        // Get alpha price for subnet.
+        let alpha_price: I96F32 = Self::get_alpha_price(netuid);
+        log::debug!("{:?} - alpha_price: {:?}", netuid, alpha_price);
+
+        // Get initial alpha_in
+        let mut alpha_in_emission: I96F32 = I96F32::from_num(tao_emission).checked_div(alpha_price).unwrap_or(float_alpha_block_emission);
+
+        // Check if we are emitting too much alpha_in
+        if alpha_in_emission >= float_alpha_block_emission {
+            log::debug!("{:?} - alpha_in_emission: {:?} > alpha_block_emission: {:?}", netuid, alpha_in_emission, float_alpha_block_emission);
+
+            // Scale down tao_in
+            tao_in_emission = alpha_price.saturating_mul(float_alpha_block_emission);
+
+            // Set to max alpha_block_emission
+            alpha_in_emission = float_alpha_block_emission;
+        }
+
+        // Avoid rounding errors.
+        if tao_in_emission < I96F32::from_num(1) || alpha_in_emission < I96F32::from_num(1) {
+            alpha_in_emission = I96F32::from_num(0);
+            tao_in_emission = I96F32::from_num(0);
+        }
+
+        // Set Alpha in emission.
+        let alpha_out_emission = I96F32::from_num(2).saturating_mul(float_alpha_block_emission).saturating_sub(alpha_in_emission);
+
+        // Log results.
+        log::debug!("{:?} - tao_in_emission: {:?}", netuid, tao_in_emission);
+        log::debug!("{:?} - alpha_in_emission: {:?}", netuid, alpha_in_emission);
+        log::debug!("{:?} - alpha_out_emission: {:?}", netuid, alpha_out_emission);
+
+        // Return result.
+        (tao_in_emission.to_num::<u64>(), alpha_in_emission.to_num::<u64>(), alpha_out_emission.to_num::<u64>())
+    }
+
     /// Calculates the block emission based on the total issuance.
     ///
     /// This function computes the block emission by applying a logarithmic function

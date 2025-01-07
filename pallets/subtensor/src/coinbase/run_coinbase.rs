@@ -20,51 +20,6 @@ pub struct WeightsTlockPayload {
 impl<T: Config> Pallet<T> {
 
 
-    pub fn get_dynamic_tao_emission( netuid: u16, tao_emission: u64, alpha_block_emission: u64 ) -> (u64, u64, u64) {
-
-        // Init terms.
-        let mut tao_in_emission: I96F32 = I96F32::from_num( tao_emission );
-        let float_alpha_block_emission: I96F32 = I96F32::from_num( alpha_block_emission );
-
-        // Get alpha price for subnet.
-        let alpha_price: I96F32 = Self::get_alpha_price( netuid );
-        log::debug!("{:?} - alpha_price: {:?}", netuid, alpha_price);
-
-        // Get initial alpha_in
-        let mut alpha_in_emission: I96F32 = I96F32::from_num( tao_emission ).checked_div( alpha_price ).unwrap_or( float_alpha_block_emission );
-
-        // Check if we are emitting too much alpha_in
-        if alpha_in_emission >= float_alpha_block_emission {
-            log::debug!("{:?} - alpha_in_emission: {:?} > alpha_block_emission: {:?}", netuid, alpha_in_emission, float_alpha_block_emission);
-
-            // Scale down tao_in
-            tao_in_emission = alpha_price.saturating_mul( float_alpha_block_emission);
-
-            // Set to max alpha_block_emission
-            alpha_in_emission = float_alpha_block_emission;
-
-        }
-
-        // Avoid rounding errors.
-        if tao_in_emission < I96F32::from_num(1) || alpha_in_emission < I96F32::from_num(1) {
-            alpha_in_emission = I96F32::from_num(0);
-            tao_in_emission = I96F32::from_num(0);
-        }
-
-        // Set Alpha in emission.
-        let alpha_out_emission = I96F32::from_num(2).saturating_mul( float_alpha_block_emission ).saturating_sub( alpha_in_emission );
-
-        // Log results.
-        log::debug!("{:?} - tao_in_emission: {:?}", netuid, tao_in_emission);
-        log::debug!("{:?} - alpha_in_emission: {:?}", netuid, alpha_in_emission);
-        log::debug!("{:?} - alpha_out_emission: {:?}", netuid, alpha_out_emission);
-
-        // Return result.
-        (tao_in_emission.to_num::<u64>(), alpha_in_emission.to_num::<u64>(), alpha_out_emission.to_num::<u64>())
-    }
-
-
-
     pub fn get_root_divs_in_alpha( netuid: u16, alpha_out_emission: I96F32 ) -> I96F32 {
         // Get total TAO on root.
         let total_root_tao: I96F32 = I96F32::from_num( SubnetTAO::<T>::get( 0 ) );
