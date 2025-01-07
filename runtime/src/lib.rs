@@ -220,7 +220,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 217,
+    spec_version: 218,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1194,37 +1194,57 @@ parameter_types! {
 /// The difference between EVM decimals and Substrate decimals.
 /// Substrate balances has 9 decimals, while EVM has 18, so the
 /// difference factor is 9 decimals, or 10^9
-const EVM_DECIMALS_FACTOR: u64 = 1_000_000_000_u64;
+const EVM_TO_SUBSTRATE_DECIMALS: u64 = 1_000_000_000_u64;
 
 pub struct SubtensorEvmBalanceConverter;
 
 impl BalanceConverter for SubtensorEvmBalanceConverter {
     /// Convert from Substrate balance (u64) to EVM balance (U256)
     fn into_evm_balance(value: U256) -> Option<U256> {
-        value
-            .checked_mul(U256::from(EVM_DECIMALS_FACTOR))
-            .and_then(|evm_value| {
-                // Ensure the result fits within the maximum U256 value
-                if evm_value <= U256::MAX {
-                    Some(evm_value)
-                } else {
-                    None
-                }
-            })
+        if let Some(evm_value) = value.checked_mul(U256::from(EVM_TO_SUBSTRATE_DECIMALS)) {
+            // Ensure the result fits within the maximum U256 value
+            if evm_value <= U256::MAX {
+                Some(evm_value)
+            } else {
+                // Log value too large
+                log::debug!(
+                    "SubtensorEvmBalanceConverter::into_evm_balance( {:?} ) larger than U256::MAX",
+                    value
+                );
+                None
+            }
+        } else {
+            // Log overflow
+            log::debug!(
+                "SubtensorEvmBalanceConverter::into_evm_balance( {:?} ) overflow",
+                value
+            );
+            None
+        }
     }
 
     /// Convert from EVM balance (U256) to Substrate balance (u64)
     fn into_substrate_balance(value: U256) -> Option<U256> {
-        value
-            .checked_div(U256::from(EVM_DECIMALS_FACTOR))
-            .and_then(|substrate_value| {
-                // Ensure the result fits within the TAO balance type (u64)
-                if substrate_value <= U256::from(u64::MAX) {
-                    Some(substrate_value)
-                } else {
-                    None
-                }
-            })
+        if let Some(substrate_value) = value.checked_div(U256::from(EVM_TO_SUBSTRATE_DECIMALS)) {
+            // Ensure the result fits within the TAO balance type (u64)
+            if substrate_value <= U256::from(u64::MAX) {
+                Some(substrate_value)
+            } else {
+                // Log value too large
+                log::debug!(
+                    "SubtensorEvmBalanceConverter::into_substrate_balance( {:?} ) larger than u64::MAX",
+                    value
+                );
+                None
+            }
+        } else {
+            // Log overflow
+            log::debug!(
+                "SubtensorEvmBalanceConverter::into_substrate_balance( {:?} ) overflow",
+                value
+            );
+            None
+        }
     }
 }
 
@@ -2141,7 +2161,7 @@ fn test_into_substrate_balance_valid() {
 #[test]
 fn test_into_substrate_balance_large_value() {
     // Maximum valid balance for u64
-    let evm_balance = U256::from(u64::MAX) * U256::from(EVM_DECIMALS_FACTOR); // Max u64 TAO in EVM
+    let evm_balance = U256::from(u64::MAX) * U256::from(EVM_TO_SUBSTRATE_DECIMALS); // Max u64 TAO in EVM
     let expected_substrate_balance = U256::from(u64::MAX);
 
     let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
@@ -2151,7 +2171,8 @@ fn test_into_substrate_balance_large_value() {
 #[test]
 fn test_into_substrate_balance_exceeds_u64() {
     // EVM balance that exceeds u64 after conversion
-    let evm_balance = (U256::from(u64::MAX) + U256::from(1)) * U256::from(EVM_DECIMALS_FACTOR);
+    let evm_balance =
+        (U256::from(u64::MAX) + U256::from(1)) * U256::from(EVM_TO_SUBSTRATE_DECIMALS);
 
     let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
     assert_eq!(result, None); // Exceeds u64, should return None
@@ -2191,7 +2212,7 @@ fn test_into_evm_balance_valid() {
 fn test_into_evm_balance_overflow() {
     // Substrate balance larger than u64::MAX but valid within U256
     let substrate_balance = U256::from(u64::MAX) + U256::from(1); // Large balance
-    let expected_evm_balance = substrate_balance * U256::from(EVM_DECIMALS_FACTOR);
+    let expected_evm_balance = substrate_balance * U256::from(EVM_TO_SUBSTRATE_DECIMALS);
 
     let result = SubtensorEvmBalanceConverter::into_evm_balance(substrate_balance);
     assert_eq!(result, Some(expected_evm_balance)); // Should return the scaled value
