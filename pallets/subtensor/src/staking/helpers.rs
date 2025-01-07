@@ -46,9 +46,9 @@ impl<T: Config> Pallet<T> {
     //
     pub fn get_total_stake_for_hotkey(hotkey: &T::AccountId) -> u64 {
         Self::get_all_subnet_netuids().iter().map(|netuid| {
-            let alpha: I96F32 = I96F32::from_num(TotalHotkeyAlpha::<T>::get(hotkey, netuid));
-            let tao_price: I96F32 = I96F32::from_num(SubnetAlphaIn::<T>::get(*netuid)).checked_div(I96F32::from_num(SubnetTAO::<T>::get(*netuid))).unwrap_or(I96F32::from_num(0));
-            alpha.checked_div(tao_price).unwrap_or(I96F32::from_num(0)).to_num::<u64>()
+            let alpha: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet( hotkey, *netuid) );
+            let tao_price: I96F32 = Self::get_alpha_price( *netuid );
+            alpha.saturating_mul(tao_price).to_num::<u64>()
         }).sum()
     }
 

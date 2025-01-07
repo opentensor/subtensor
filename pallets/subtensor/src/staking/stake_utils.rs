@@ -33,6 +33,12 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `I96F32` - The price of alpha for the specified subnet.
     pub fn get_alpha_price(netuid: u16) -> I96F32 {
+        if netuid == Self::get_root_netuid() {
+            return I96F32::from_num(1.0); // Root.
+        }
+        if SubnetMechanism::<T>::get(netuid) == 0{
+            return I96F32::from_num(1.0); // Stable
+        }
         if SubnetAlphaIn::<T>::get(netuid) == 0 {
             return I96F32::from_num(0);
         } else{
