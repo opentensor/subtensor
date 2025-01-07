@@ -158,6 +158,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_inherited_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
         // Step 1: Retrieve the initial total stake (alpha) for the hotkey on the specified subnet.
         let initial_alpha: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
+        log::debug!("Initial alpha for hotkey {:?} on subnet {}: {:?}", hotkey, netuid, initial_alpha);
 
         // Initialize variables to track alpha allocated to children and inherited from parents.
         let mut alpha_to_children: I96F32 = I96F32::from_num(0);
@@ -166,43 +167,53 @@ impl<T: Config> Pallet<T> {
         // Step 2: Retrieve the lists of parents and children for the hotkey on the subnet.
         let parents: Vec<(u64, T::AccountId)> = Self::get_parents(hotkey, netuid);
         let children: Vec<(u64, T::AccountId)> = Self::get_children(hotkey, netuid);
+        log::debug!("Parents for hotkey {:?} on subnet {}: {:?}", hotkey, netuid, parents);
+        log::debug!("Children for hotkey {:?} on subnet {}: {:?}", hotkey, netuid, children);
 
         // Step 3: Calculate the total alpha allocated to children.
         for (proportion, _) in children {
             // Convert the proportion to a normalized value between 0 and 1.
             let normalized_proportion: I96F32 =
                 I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
+            log::debug!("Normalized proportion for child: {:?}", normalized_proportion);
 
             // Calculate the amount of alpha to be allocated to this child.
             let alpha_proportion_to_child: I96F32 =
                 I96F32::from_num(initial_alpha).saturating_mul(normalized_proportion);
+            log::debug!("Alpha proportion to child: {:?}", alpha_proportion_to_child);
 
             // Add this child's allocation to the total alpha allocated to children.
             alpha_to_children = alpha_to_children.saturating_add(alpha_proportion_to_child);
         }
+        log::debug!("Total alpha allocated to children: {:?}", alpha_to_children);
 
         // Step 4: Calculate the total alpha inherited from parents.
         for (proportion, parent) in parents {
             // Retrieve the parent's total stake on this subnet.
             let parent_alpha: I96F32 =
                 I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(&parent, netuid));
+            log::debug!("Parent alpha for parent {:?} on subnet {}: {:?}", parent, netuid, parent_alpha);
 
             // Convert the proportion to a normalized value between 0 and 1.
             let normalized_proportion: I96F32 =
                 I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
+            log::debug!("Normalized proportion from parent: {:?}", normalized_proportion);
 
             // Calculate the amount of alpha to be inherited from this parent.
             let alpha_proportion_from_parent: I96F32 =
                 I96F32::from_num(parent_alpha).saturating_mul(normalized_proportion);
+            log::debug!("Alpha proportion from parent: {:?}", alpha_proportion_from_parent);
 
             // Add this parent's contribution to the total alpha inherited from parents.
             alpha_from_parents = alpha_from_parents.saturating_add(alpha_proportion_from_parent);
         }
+        log::debug!("Total alpha inherited from parents: {:?}", alpha_from_parents);
 
         // Step 5: Calculate the final inherited alpha for the hotkey.
         let finalized_alpha: I96F32 = initial_alpha
             .saturating_sub(alpha_to_children) // Subtract alpha allocated to children
             .saturating_add(alpha_from_parents); // Add alpha inherited from parents
+        log::debug!("Finalized alpha for hotkey {:?} on subnet {}: {:?}", hotkey, netuid, finalized_alpha);
 
         // Step 6: Return the final inherited alpha value.
         finalized_alpha.to_num::<u64>()

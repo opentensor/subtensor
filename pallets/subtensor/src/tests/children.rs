@@ -5,8 +5,16 @@ use frame_support::{assert_err, assert_noop, assert_ok};
 use crate::{utils::rate_limiting::TransactionType, *};
 use sp_core::U256;
 
+
+fn close(value: u64, target: u64, eps: u64, msg: &str)  {
+    assert!(
+        (value as i64 - target as i64).abs() < eps as i64,
+        "{}: value = {}, target = {}, eps = {}", msg, value, target, eps
+    )
+}
+
 // 1: Successful setting of a single child
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_child_singular_success --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_set_child_singular_success --exact --show-output --nocapture
 #[test]
 fn test_do_set_child_singular_success() {
     new_test_ext(1).execute_with(|| {
@@ -30,7 +38,7 @@ fn test_do_set_child_singular_success() {
 }
 
 // 2: Attempt to set child in non-existent network
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_child_singular_network_does_not_exist --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_set_child_singular_network_does_not_exist --exact --show-output --nocapture
 #[test]
 fn test_do_set_child_singular_network_does_not_exist() {
     new_test_ext(1).execute_with(|| {
@@ -54,7 +62,7 @@ fn test_do_set_child_singular_network_does_not_exist() {
 }
 
 // 3: Attempt to set invalid child (same as hotkey)
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_child_singular_invalid_child --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_set_child_singular_invalid_child --exact --show-output --nocapture
 #[test]
 fn test_do_set_child_singular_invalid_child() {
     new_test_ext(1).execute_with(|| {
@@ -83,7 +91,7 @@ fn test_do_set_child_singular_invalid_child() {
 }
 
 // 4: Attempt to set child with non-associated coldkey
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_child_singular_non_associated_coldkey --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_set_child_singular_non_associated_coldkey --exact --show-output --nocapture
 #[test]
 fn test_do_set_child_singular_non_associated_coldkey() {
     new_test_ext(1).execute_with(|| {
@@ -111,7 +119,7 @@ fn test_do_set_child_singular_non_associated_coldkey() {
 }
 
 // 5: Attempt to set child in root network
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_child_singular_root_network --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_set_child_singular_root_network --exact --show-output --nocapture
 #[test]
 fn test_do_set_child_singular_root_network() {
     new_test_ext(1).execute_with(|| {
@@ -144,7 +152,7 @@ fn test_do_set_child_singular_root_network() {
 // - Replacing it with a new child
 // - Ensuring the old child is no longer associated
 // - Confirming the new child is correctly assigned
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_child_singular_old_children_cleanup --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_set_child_singular_old_children_cleanup --exact --show-output --nocapture
 #[test]
 fn test_do_set_child_singular_old_children_cleanup() {
     new_test_ext(1).execute_with(|| {
@@ -183,7 +191,7 @@ fn test_do_set_child_singular_old_children_cleanup() {
 // - Setting a child for a parent
 // - Confirming the child is correctly listed under the parent
 // - Ensuring the parent is correctly listed for the child
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_child_singular_new_children_assignment --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_set_child_singular_new_children_assignment --exact --show-output --nocapture
 #[test]
 fn test_do_set_child_singular_new_children_assignment() {
     new_test_ext(1).execute_with(|| {
@@ -216,7 +224,7 @@ fn test_do_set_child_singular_new_children_assignment() {
 // - Setting a child with the minimum possible proportion (0)
 // - Setting a child with the maximum possible proportion (u64::MAX)
 // - Confirming both assignments are processed correctly
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_child_singular_proportion_edge_cases --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_set_child_singular_proportion_edge_cases --exact --show-output --nocapture
 #[test]
 fn test_do_set_child_singular_proportion_edge_cases() {
     new_test_ext(1).execute_with(|| {
@@ -256,7 +264,7 @@ fn test_do_set_child_singular_proportion_edge_cases() {
 // - Setting a second child
 // - Confirming only the second child remains associated
 // - Verifying the first child is no longer associated
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_child_singular_multiple_children --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_set_child_singular_multiple_children --exact --show-output --nocapture
 #[test]
 fn test_do_set_child_singular_multiple_children() {
     new_test_ext(1).execute_with(|| {
@@ -299,51 +307,49 @@ fn test_do_set_child_singular_multiple_children() {
 // - Trying to set a child with an unassociated coldkey
 // - Setting an invalid child
 // - Successfully setting a valid child
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_add_singular_child --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_add_singular_child --exact --show-output --nocapture
 #[test]
 fn test_add_singular_child() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let netuid: u16 = 1;
+        let child = U256::from(1);
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        assert_eq!(
+            SubtensorModule::do_schedule_children(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                vec![(u64::MAX, child)]
+            ),
+            Err(Error::<Test>::SubNetworkDoesNotExist.into())
+        );
+        add_network(netuid, 0, 0);
+        step_rate_limit(&TransactionType::SetChildren, netuid);
+        assert_eq!(
+            SubtensorModule::do_schedule_children(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                vec![(u64::MAX, child)]
+            ),
+            Err(Error::<Test>::NonAssociatedColdKey.into())
+        );
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        step_rate_limit(&TransactionType::SetChildren, netuid);
+        assert_eq!(
+            SubtensorModule::do_schedule_children(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                vec![(u64::MAX, child)]
+            ),
+            Err(Error::<Test>::InvalidChild.into())
+        );
+        let child = U256::from(3);
+        step_rate_limit(&TransactionType::SetChildren, netuid);
 
-        // let netuid: u16 = 1;
-        // let child = U256::from(1);
-        // let hotkey = U256::from(1);
-        // let coldkey = U256::from(2);
-        // assert_eq!(
-        //     SubtensorModule::do_schedule_children(
-        //         RuntimeOrigin::signed(coldkey),
-        //         hotkey,
-        //         netuid,
-        //         vec![(u64::MAX, child)]
-        //     ),
-        //     Err(Error::<Test>::SubNetworkDoesNotExist.into())
-        // );
-        // add_network(netuid, 0, 0);
-        // step_rate_limit(&TransactionType::SetChildren, netuid);
-        // assert_eq!(
-        //     SubtensorModule::do_schedule_children(
-        //         RuntimeOrigin::signed(coldkey),
-        //         hotkey,
-        //         netuid,
-        //         vec![(u64::MAX, child)]
-        //     ),
-        //     Err(Error::<Test>::NonAssociatedColdKey.into())
-        // );
-        // SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
-        // step_rate_limit(&TransactionType::SetChildren, netuid);
-        // assert_eq!(
-        //     SubtensorModule::do_schedule_children(
-        //         RuntimeOrigin::signed(coldkey),
-        //         hotkey,
-        //         netuid,
-        //         vec![(u64::MAX, child)]
-        //     ),
-        //     Err(Error::<Test>::InvalidChild.into())
-        // );
-        // let child = U256::from(3);
-        // step_rate_limit(&TransactionType::SetChildren, netuid);
-
-        // mock_set_children(&coldkey, &hotkey, netuid, &[(u64::MAX, child)]);
+        mock_set_children(&coldkey, &hotkey, netuid, &[(u64::MAX, child)]);
     })
 }
 
@@ -354,47 +360,37 @@ fn test_add_singular_child() {
 // - Establishes a parent-child relationship with 100% stake allocation
 // - Checks that the parent's stake is correctly transferred to the child
 // - Ensures the total stake is preserved in the system
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_get_stake_for_hotkey_on_subnet --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_stake_for_hotkey_on_subnet --exact --show-output --nocapture
 #[test]
 fn test_get_stake_for_hotkey_on_subnet() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let netuid: u16 = 1;
+        let parent = U256::from(1);
+        let child = U256::from(2);
+        let coldkey1 = U256::from(3);
+        let coldkey2 = U256::from(4);
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, parent, coldkey1, 0);
+        register_ok_neuron(netuid, child, coldkey2, 0);
+        // Set parent-child relationship with 100% stake allocation
+        mock_set_children(&coldkey1, &parent, netuid, &[(u64::MAX, child)]);
+        // Stake 1000 to parent from coldkey1
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet( &parent, &coldkey1, netuid, 1000);
+        // Stake 1000 to parent from coldkey2
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet( &parent, &coldkey2, netuid, 1000);
+        // Stake 1000 to child from coldkey1
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet( &child, &coldkey1, netuid, 1000);
+        // Stake 1000 to child from coldkey2
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet( &child, &coldkey2, netuid, 1000);
+        let parent_stake = SubtensorModule::get_inherited_for_hotkey_on_subnet(&parent, netuid);
+        let child_stake = SubtensorModule::get_inherited_for_hotkey_on_subnet(&child, netuid);
+        // The parent should have 0 stake as it's all allocated to the child
+        assert_eq!(parent_stake, 0);
+        // The child should have its original stake (2000) plus the parent's stake (2000)
+        assert_eq!(child_stake, 4000);
 
-        // let netuid: u16 = 1;
-        // let parent = U256::from(1);
-        // let child = U256::from(2);
-        // let coldkey1 = U256::from(3);
-        // let coldkey2 = U256::from(4);
-
-        // add_network(netuid, 0, 0);
-        // register_ok_neuron(netuid, parent, coldkey1, 0);
-        // register_ok_neuron(netuid, child, coldkey2, 0);
-
-        // // Set parent-child relationship with 100% stake allocation
-        // mock_set_children(&coldkey1, &parent, netuid, &[(u64::MAX, child)]);
-
-        // // Stake 1000 to parent from coldkey1
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey1, &parent, 1000);
-        // // Stake 1000 to parent from coldkey2
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey2, &parent, 1000);
-        // // Stake 1000 to child from coldkey1
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey1, &child, 1000);
-        // // Stake 1000 to child from coldkey2
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey2, &child, 1000);
-
-        // let parent_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
-        // let child_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid);
-
-        // log::info!("Parent stake: {}", parent_stake);
-        // log::info!("Child stake: {}", child_stake);
-
-        // // The parent should have 0 stake as it's all allocated to the child
-        // assert_eq!(parent_stake, 0);
-        // // The child should have its original stake (2000) plus the parent's stake (2000)
-        // assert_eq!(child_stake, 4000);
-
-        // // Ensure total stake is preserved
-        // assert_eq!(parent_stake + child_stake, 4000);
+        // Ensure total stake is preserved
+        assert_eq!(parent_stake + child_stake, 4000);
     });
 }
 
@@ -405,7 +401,7 @@ fn test_get_stake_for_hotkey_on_subnet() {
 // - Revokes the child relationship
 // - Verifies that the child is removed from the parent's children list
 // - Ensures the parent is removed from the child's parents list
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_revoke_child_singular_success --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_revoke_child_singular_success --exact --show-output --nocapture
 #[test]
 fn test_do_revoke_child_singular_success() {
     new_test_ext(1).execute_with(|| {
@@ -414,27 +410,20 @@ fn test_do_revoke_child_singular_success() {
         let child = U256::from(3);
         let netuid: u16 = 1;
         let proportion: u64 = 1000;
-
         // Add network and register hotkey
         add_network(netuid, 13, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
-
         // Set child
         mock_set_children(&coldkey, &hotkey, netuid, &[(proportion, child)]);
-
         // Verify child assignment
         let children = SubtensorModule::get_children(&hotkey, netuid);
         assert_eq!(children, vec![(proportion, child)]);
-
         step_rate_limit(&TransactionType::SetChildren, netuid);
-
         // Revoke child
         mock_set_children(&coldkey, &hotkey, netuid, &[]);
-
         // Verify child removal
         let children = SubtensorModule::get_children(&hotkey, netuid);
         assert!(children.is_empty());
-
         // Verify parent removal
         let parents = SubtensorModule::get_parents(&child, netuid);
         assert!(parents.is_empty());
@@ -442,14 +431,13 @@ fn test_do_revoke_child_singular_success() {
 }
 
 // 13: Test setting empty child vector on a non-existing subnet
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_empty_children_network_does_not_exist --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_set_empty_children_network_does_not_exist --exact --show-output --nocapture
 #[test]
 fn test_do_set_empty_children_network_does_not_exist() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let netuid: u16 = 999; // Non-existent network
-
         // Attempt to revoke child
         assert_err!(
             SubtensorModule::do_schedule_children(
@@ -468,7 +456,7 @@ fn test_do_set_empty_children_network_does_not_exist() {
 // - Sets up a network with a hotkey registered to a different coldkey
 // - Attempts to revoke a child using an unassociated coldkey
 // - Verifies that the appropriate error is returned
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_revoke_child_singular_non_associated_coldkey --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_revoke_child_singular_non_associated_coldkey --exact --show-output --nocapture
 #[test]
 fn test_do_revoke_child_singular_non_associated_coldkey() {
     new_test_ext(1).execute_with(|| {
@@ -498,7 +486,7 @@ fn test_do_revoke_child_singular_non_associated_coldkey() {
 // - Sets up a network and registers a hotkey
 // - Attempts to revoke a child that was never associated with the parent
 // - Checks that the appropriate error is returned
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_revoke_child_singular_child_not_associated --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_revoke_child_singular_child_not_associated --exact --show-output --nocapture
 #[test]
 fn test_do_revoke_child_singular_child_not_associated() {
     new_test_ext(1).execute_with(|| {
@@ -528,7 +516,7 @@ fn test_do_revoke_child_singular_child_not_associated() {
 // - Sets multiple children with different proportions
 // - Verifies that the children are correctly assigned to the parent
 // - Checks that the parent is correctly assigned to each child
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_schedule_children_multiple_success --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_schedule_children_multiple_success --exact --show-output --nocapture
 #[test]
 fn test_do_schedule_children_multiple_success() {
     new_test_ext(1).execute_with(|| {
@@ -569,7 +557,7 @@ fn test_do_schedule_children_multiple_success() {
 // This test ensures that attempting to set multiple children in a non-existent network results in an error:
 // - Attempts to set children in a network that doesn't exist
 // - Verifies that the appropriate error is returned
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_schedule_children_multiple_network_does_not_exist --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_schedule_children_multiple_network_does_not_exist --exact --show-output --nocapture
 #[test]
 fn test_do_schedule_children_multiple_network_does_not_exist() {
     new_test_ext(1).execute_with(|| {
@@ -597,7 +585,7 @@ fn test_do_schedule_children_multiple_network_does_not_exist() {
 // - Sets up a network and registers a hotkey
 // - Attempts to set a child that is the same as the parent hotkey
 // - Checks that the appropriate error is returned
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_schedule_children_multiple_invalid_child --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_schedule_children_multiple_invalid_child --exact --show-output --nocapture
 #[test]
 fn test_do_schedule_children_multiple_invalid_child() {
     new_test_ext(1).execute_with(|| {
@@ -628,7 +616,7 @@ fn test_do_schedule_children_multiple_invalid_child() {
 // - Sets up a network with a hotkey registered to a different coldkey
 // - Attempts to set children using an unassociated coldkey
 // - Verifies that the appropriate error is returned
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_schedule_children_multiple_non_associated_coldkey --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_schedule_children_multiple_non_associated_coldkey --exact --show-output --nocapture
 #[test]
 fn test_do_schedule_children_multiple_non_associated_coldkey() {
     new_test_ext(1).execute_with(|| {
@@ -660,7 +648,7 @@ fn test_do_schedule_children_multiple_non_associated_coldkey() {
 // - Sets up the root network
 // - Attempts to set children in the root network
 // - Checks that the appropriate error is returned
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_schedule_children_multiple_root_network --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_schedule_children_multiple_root_network --exact --show-output --nocapture
 #[test]
 fn test_do_schedule_children_multiple_root_network() {
     new_test_ext(1).execute_with(|| {
@@ -693,7 +681,7 @@ fn test_do_schedule_children_multiple_root_network() {
 // - Replaces it with multiple new children
 // - Verifies that the old child is no longer associated
 // - Confirms the new children are correctly assigned
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_schedule_children_multiple_old_children_cleanup --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_schedule_children_multiple_old_children_cleanup --exact --show-output --nocapture
 #[test]
 fn test_do_schedule_children_multiple_old_children_cleanup() {
     new_test_ext(1).execute_with(|| {
@@ -740,7 +728,7 @@ fn test_do_schedule_children_multiple_old_children_cleanup() {
 // - Sets up a network and registers a hotkey
 // - Sets two children with minimum and maximum proportions respectively
 // - Verifies that the children are correctly assigned with their respective proportions
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_schedule_children_multiple_proportion_edge_cases --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_schedule_children_multiple_proportion_edge_cases --exact --show-output --nocapture
 #[test]
 fn test_do_schedule_children_multiple_proportion_edge_cases() {
     new_test_ext(1).execute_with(|| {
@@ -780,7 +768,7 @@ fn test_do_schedule_children_multiple_proportion_edge_cases() {
 // - Overwrites with new children
 // - Verifies that the final children assignment is correct
 // - Checks that old children are properly removed and new ones are correctly assigned
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_schedule_children_multiple_overwrite_existing --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_schedule_children_multiple_overwrite_existing --exact --show-output --nocapture
 #[test]
 fn test_do_schedule_children_multiple_overwrite_existing() {
     new_test_ext(1).execute_with(|| {
@@ -841,7 +829,7 @@ fn test_do_schedule_children_multiple_overwrite_existing() {
 // - Verifies the new take value is stored correctly
 // - Attempts to set an invalid take value and checks for appropriate error
 // - Tries to set take with a non-associated coldkey and verifies the error
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_childkey_take_functionality --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_childkey_take_functionality --exact --show-output --nocapture
 #[test]
 fn test_childkey_take_functionality() {
     new_test_ext(1).execute_with(|| {
@@ -917,7 +905,7 @@ fn test_childkey_take_functionality() {
 // - Performs multiple attempts to set childkey take
 // - Verifies that rate limiting prevents frequent changes
 // - Advances blocks to bypass rate limit and confirms successful change
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_childkey_take_rate_limiting --exact --nocapture
+//  SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_childkey_take_rate_limiting --exact --show-output --nocapture
 #[test]
 fn test_childkey_take_rate_limiting() {
     new_test_ext(1).execute_with(|| {
@@ -1017,7 +1005,7 @@ fn test_childkey_take_rate_limiting() {
 // - Verifies that each network has a different childkey take value
 // - Attempts to set childkey take again (should fail due to rate limit)
 // - Advances blocks to bypass rate limit and successfully updates take value
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_multiple_networks_childkey_take --exact --nocapture
+//  SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_multiple_networks_childkey_take --exact --show-output --nocapture
 #[test]
 fn test_multiple_networks_childkey_take() {
     new_test_ext(1).execute_with(|| {
@@ -1094,7 +1082,7 @@ fn test_multiple_networks_childkey_take() {
 // - Adds a network and registers a hotkey
 // - Sets an empty children list for the hotkey
 // - Verifies that the children assignment is empty
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_schedule_children_multiple_empty_list --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_schedule_children_multiple_empty_list --exact --show-output --nocapture
 #[test]
 fn test_do_schedule_children_multiple_empty_list() {
     new_test_ext(1).execute_with(|| {
@@ -1122,7 +1110,7 @@ fn test_do_schedule_children_multiple_empty_list() {
 // - Revokes all children by setting an empty list
 // - Verifies that the children list is empty
 // - Verifies that the parent-child relationships are removed for both children
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_revoke_children_multiple_success --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_revoke_children_multiple_success --exact --show-output --nocapture
 #[test]
 fn test_do_revoke_children_multiple_success() {
     new_test_ext(1).execute_with(|| {
@@ -1168,7 +1156,7 @@ fn test_do_revoke_children_multiple_success() {
 // This test verifies the behavior when attempting to revoke children on a non-existent network:
 // - Attempts to revoke children on a network that doesn't exist
 // - Verifies that the operation fails with the correct error
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_revoke_children_multiple_network_does_not_exist --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_revoke_children_multiple_network_does_not_exist --exact --show-output --nocapture
 #[test]
 fn test_do_revoke_children_multiple_network_does_not_exist() {
     new_test_ext(1).execute_with(|| {
@@ -1195,7 +1183,7 @@ fn test_do_revoke_children_multiple_network_does_not_exist() {
 // - Adds a network and registers a hotkey with a different coldkey
 // - Attempts to revoke children using an unassociated coldkey
 // - Verifies that the operation fails with the correct error
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_revoke_children_multiple_non_associated_coldkey --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_revoke_children_multiple_non_associated_coldkey --exact --show-output --nocapture
 #[test]
 fn test_do_revoke_children_multiple_non_associated_coldkey() {
     new_test_ext(1).execute_with(|| {
@@ -1229,7 +1217,7 @@ fn test_do_revoke_children_multiple_non_associated_coldkey() {
 // - Revokes one of the children
 // - Verifies that the correct children remain and the revoked child is removed
 // - Checks the parent-child relationships after partial revocation
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_revoke_children_multiple_partial_revocation --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_revoke_children_multiple_partial_revocation --exact --show-output --nocapture
 #[test]
 fn test_do_revoke_children_multiple_partial_revocation() {
     new_test_ext(1).execute_with(|| {
@@ -1288,7 +1276,7 @@ fn test_do_revoke_children_multiple_partial_revocation() {
 // - Attempts to revoke all children (including non-existent ones)
 // - Verifies that all children are removed, including the existing one
 // - Checks that the parent-child relationship is properly updated
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_revoke_children_multiple_non_existent_children --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_revoke_children_multiple_non_existent_children --exact --show-output --nocapture
 #[test]
 fn test_do_revoke_children_multiple_non_existent_children() {
     new_test_ext(1).execute_with(|| {
@@ -1325,7 +1313,7 @@ fn test_do_revoke_children_multiple_non_existent_children() {
 // - Adds a network and registers a hotkey
 // - Attempts to revoke children with an empty list
 // - Verifies that no changes occur in the children list
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_revoke_children_multiple_empty_list --exact --nocapture
+//  SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_revoke_children_multiple_empty_list --exact --show-output --nocapture
 #[test]
 fn test_do_revoke_children_multiple_empty_list() {
     new_test_ext(1).execute_with(|| {
@@ -1353,7 +1341,7 @@ fn test_do_revoke_children_multiple_empty_list() {
 // - Revokes one child and verifies the remaining children
 // - Revokes all remaining children
 // - Verifies that all parent-child relationships are properly updated
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_revoke_children_multiple_complex_scenario --exact --nocapture
+//  SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_revoke_children_multiple_complex_scenario --exact --show-output --nocapture
 #[test]
 fn test_do_revoke_children_multiple_complex_scenario() {
     new_test_ext(1).execute_with(|| {
@@ -1423,7 +1411,7 @@ fn test_do_revoke_children_multiple_complex_scenario() {
 // - Checks the default max stake value
 // - Sets a new max stake value
 // - Verifies that the new value is retrieved correctly
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_get_network_max_stake --exact --nocapture
+//  SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_network_max_stake --exact --show-output --nocapture
 #[test]
 fn test_get_network_max_stake() {
     new_test_ext(1).execute_with(|| {
@@ -1451,7 +1439,7 @@ fn test_get_network_max_stake() {
 // - Sets a new max stake value
 // - Verifies that the new value is set correctly
 // - Checks that the appropriate event is emitted
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_set_network_max_stake --exact --nocapture
+//  SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_set_network_max_stake --exact --show-output --nocapture
 #[test]
 fn test_set_network_max_stake() {
     new_test_ext(1).execute_with(|| {
@@ -1482,7 +1470,7 @@ fn test_set_network_max_stake() {
 // - Sets different max stake values for two networks
 // - Verifies that the values are set correctly for each network
 // - Checks that the values are different between networks
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_set_network_max_stake_multiple_networks --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_set_network_max_stake_multiple_networks --exact --show-output --nocapture
 #[test]
 fn test_set_network_max_stake_multiple_networks() {
     new_test_ext(1).execute_with(|| {
@@ -1511,7 +1499,7 @@ fn test_set_network_max_stake_multiple_networks() {
 // - Updates the max stake value
 // - Verifies that the value is updated correctly
 // - Checks that the appropriate event is emitted for the update
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_set_network_max_stake_update --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_set_network_max_stake_update --exact --show-output --nocapture
 #[test]
 fn test_set_network_max_stake_update() {
     new_test_ext(1).execute_with(|| {
@@ -1547,71 +1535,71 @@ fn test_set_network_max_stake_update() {
 // - Sets child neurons with specific proportions
 // - Verifies that the stake is correctly distributed among parent and child neurons
 // - Checks that the total stake remains constant across all neurons
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_children_stake_values --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_children_stake_values --exact --show-output --nocapture
 #[test]
 fn test_children_stake_values() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
 
-        // let coldkey = U256::from(1);
-        // let hotkey = U256::from(2);
-        // let child1 = U256::from(3);
-        // let child2 = U256::from(4);
-        // let child3 = U256::from(5);
-        // let netuid: u16 = 1;
-        // let proportion1: u64 = u64::MAX / 4;
-        // let proportion2: u64 = u64::MAX / 4;
-        // let proportion3: u64 = u64::MAX / 4;
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let child1 = U256::from(3);
+        let child2 = U256::from(4);
+        let child3 = U256::from(5);
+        let netuid: u16 = 1;
+        let proportion1: u64 = u64::MAX / 4;
+        let proportion2: u64 = u64::MAX / 4;
+        let proportion3: u64 = u64::MAX / 4;
 
-        // // Add network and register hotkey
-        // add_network(netuid, 13, 0);
-        // SubtensorModule::set_max_registrations_per_block(netuid, 4);
-        // SubtensorModule::set_target_registrations_per_interval(netuid, 4);
-        // register_ok_neuron(netuid, hotkey, coldkey, 0);
-        // register_ok_neuron(netuid, child1, coldkey, 0);
-        // register_ok_neuron(netuid, child2, coldkey, 0);
-        // register_ok_neuron(netuid, child3, coldkey, 0);
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-        //     &coldkey,
-        //     &hotkey,
-        //     100_000_000_000_000,
-        // );
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        SubtensorModule::set_max_registrations_per_block(netuid, 4);
+        SubtensorModule::set_target_registrations_per_interval(netuid, 4);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        register_ok_neuron(netuid, child1, coldkey, 0);
+        register_ok_neuron(netuid, child2, coldkey, 0);
+        register_ok_neuron(netuid, child3, coldkey, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            100_000_000_000_000,
+        );
 
-        // // Set multiple children with proportions.
-        // mock_set_children(
-        //     &coldkey,
-        //     &hotkey,
-        //     netuid,
-        //     &[
-        //         (proportion1, child1),
-        //         (proportion2, child2),
-        //         (proportion3, child3),
-        //     ],
-        // );
+        // Set multiple children with proportions.
+        mock_set_children(
+            &coldkey,
+            &hotkey,
+            netuid,
+            &[
+                (proportion1, child1),
+                (proportion2, child2),
+                (proportion3, child3),
+            ],
+        );
 
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid),
-        //     25_000_000_069_852
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid),
-        //     24_999_999_976_716
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid),
-        //     24_999_999_976_716
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&child3, netuid),
-        //     24_999_999_976_716
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&child3, netuid)
-        //         + SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid)
-        //         + SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid)
-        //         + SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid),
-        //     100_000_000_000_000
-        // );
+        assert_eq!(
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&hotkey, netuid),
+            25_000_000_069_849
+        );
+        assert_eq!(
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&child1, netuid),
+            24_999_999_976_716
+        );
+        assert_eq!(
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&child2, netuid),
+            24_999_999_976_716
+        );
+        assert_eq!(
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&child3, netuid),
+            24_999_999_976_716
+        );
+        assert_eq!(
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&child3, netuid)
+                + SubtensorModule::get_inherited_for_hotkey_on_subnet(&child2, netuid)
+                + SubtensorModule::get_inherited_for_hotkey_on_subnet(&child1, netuid)
+                + SubtensorModule::get_inherited_for_hotkey_on_subnet(&hotkey, netuid),
+            99999999999997
+        );
     });
 }
 
@@ -1622,7 +1610,7 @@ fn test_children_stake_values() {
 // - Tests the root neuron has no parents
 // - Tests a neuron with multiple parents
 // - Verifies correct behavior when adding a new parent to an existing child
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_get_parents_chain --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_parents_chain --exact --show-output --nocapture
 #[test]
 fn test_get_parents_chain() {
     new_test_ext(1).execute_with(|| {
@@ -1757,681 +1745,28 @@ fn test_get_parents_chain() {
     });
 }
 
-// 41: Test emission distribution between a childkey and a single parent
-// This test verifies the correct distribution of emissions between a child and a single parent:
-// - Sets up a network with a parent, child, and weight setter
-// - Establishes a parent-child relationship
-// - Sets weights on the child
-// - Runs an epoch with a hardcoded emission value
-// - Checks the emission distribution among parent, child, and weight setter
-// - Verifies that all parties received emissions and the weight setter received the most
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test children test_childkey_single_parent_emission -- --nocapture
-#[test]
-fn test_childkey_single_parent_emission() {
-    new_test_ext(1).execute_with(|| {
-        assert!(false);
 
-        // let netuid: u16 = 1;
-        // add_network(netuid, 1, 0);
-
-        // // Define hotkeys
-        // let parent: U256 = U256::from(1);
-        // let child: U256 = U256::from(2);
-        // let weight_setter: U256 = U256::from(3);
-
-        // // Define coldkeys with more readable names
-        // let coldkey_parent: U256 = U256::from(100);
-        // let coldkey_child: U256 = U256::from(101);
-        // let coldkey_weight_setter: U256 = U256::from(102);
-
-        // // Register parent with minimal stake and child with high stake
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_parent, 1);
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_child, 109_999);
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_weight_setter, 1_000_000);
-
-        // // Add neurons for parent, child and weight_setter
-        // register_ok_neuron(netuid, parent, coldkey_parent, 1);
-        // register_ok_neuron(netuid, child, coldkey_child, 1);
-        // register_ok_neuron(netuid, weight_setter, coldkey_weight_setter, 1);
-
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-        //     &coldkey_parent,
-        //     &parent,
-        //     109_999,
-        // );
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-        //     &coldkey_weight_setter,
-        //     &weight_setter,
-        //     1_000_000,
-        // );
-
-        // SubtensorModule::set_weights_set_rate_limit(netuid, 0);
-
-        // // Set parent-child relationship
-        // mock_set_children(&coldkey_parent, &parent, netuid, &[(u64::MAX, child)]);
-        // step_block(7200 + 1);
-        // // Set weights on the child using the weight_setter account
-        // let origin = RuntimeOrigin::signed(weight_setter);
-        // let uids: Vec<u16> = vec![1]; // Only set weight for the child (UID 1)
-        // let values: Vec<u16> = vec![u16::MAX]; // Use maximum value for u16
-        // let version_key = SubtensorModule::get_weights_version_key(netuid);
-        // assert_ok!(SubtensorModule::set_weights(
-        //     origin,
-        //     netuid,
-        //     uids,
-        //     values,
-        //     version_key
-        // ));
-
-        // // Run epoch with a hardcoded emission value
-        // let hardcoded_emission: u64 = 1_000_000_000; // 1 TAO
-        // let hotkey_emission: Vec<(U256, u64, u64)> =
-        //     SubtensorModule::epoch(netuid, hardcoded_emission);
-
-        // // Process the hotkey emission results
-        // for (hotkey, mining_emission, validator_emission) in hotkey_emission {
-        //     SubtensorModule::accumulate_hotkey_emission(
-        //         &hotkey,
-        //         netuid,
-        //         validator_emission,
-        //         mining_emission,
-        //     );
-        //     log::debug!(
-        //         "Accumulated emissions on hotkey {:?} for netuid {:?}: mining {:?}, validator {:?}",
-        //         hotkey,
-        //         netuid,
-        //         mining_emission,
-        //         validator_emission
-        //     );
-        // }
-        // step_block(7200 + 1);
-        // // Check emission distribution
-        // let parent_stake: u64 =
-        //     SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_parent, &parent);
-        // let parent_stake_on_subnet: u64 =
-        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
-
-        // log::debug!(
-        //     "Parent stake: {:?}, Parent stake on subnet: {:?}",
-        //     parent_stake,
-        //     parent_stake_on_subnet
-        // );
-
-        // let child_stake: u64 =
-        //     SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_child, &child);
-        // let child_stake_on_subnet: u64 =
-        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid);
-
-        // log::debug!(
-        //     "Child stake: {:?}, Child stake on subnet: {:?}",
-        //     child_stake,
-        //     child_stake_on_subnet
-        // );
-
-        // let weight_setter_stake: u64 = SubtensorModule::get_stake_for_coldkey_and_hotkey(
-        //     &coldkey_weight_setter,
-        //     &weight_setter,
-        // );
-        // let weight_setter_stake_on_subnet: u64 =
-        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&weight_setter, netuid);
-
-        // log::debug!(
-        //     "Weight setter stake: {:?}, Weight setter stake on subnet: {:?}",
-        //     weight_setter_stake,
-        //     weight_setter_stake_on_subnet
-        // );
-
-        // assert!(parent_stake > 1, "Parent should have received emission");
-        // assert!(child_stake > 109_999, "Child should have received emission");
-        // assert!(
-        //     weight_setter_stake > 1_000_000,
-        //     "Weight setter should have received emission"
-        // );
-
-        // // Additional assertion to verify that the weight setter received the most emission
-        // assert!(
-        //     weight_setter_stake > parent_stake && weight_setter_stake > child_stake,
-        //     "Weight setter should have received the most emission"
-        // );
-    });
-}
-
-// 43: Test emission distribution between a childkey and multiple parents
-// This test verifies the correct distribution of emissions between a child and multiple parents:
-// - Sets up a network with two parents, a child, and a weight setter
-// - Establishes parent-child relationships with different stake proportions
-// - Sets weights on the child and one parent
-// - Runs an epoch with a hardcoded emission value
-// - Checks the emission distribution among parents, child, and weight setter
-// - Verifies that all parties received emissions and the total stake increased correctly
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test coinbase test_childkey_multiple_parents_emission -- --nocapture
-#[test]
-fn test_childkey_multiple_parents_emission() {
-    new_test_ext(1).execute_with(|| {
-        assert!(false);
-
-        // let netuid: u16 = 1;
-        // add_network(netuid, 1, 0);
-
-        // // Set registration parameters and emission tempo
-        // SubtensorModule::set_max_registrations_per_block(netuid, 1000);
-        // SubtensorModule::set_target_registrations_per_interval(netuid, 1000);
-        // SubtensorModule::set_hotkey_emission_tempo(10);
-
-        // // Define hotkeys and coldkeys
-        // let parent1: U256 = U256::from(1);
-        // let parent2: U256 = U256::from(2);
-        // let child: U256 = U256::from(3);
-        // let weight_setter: U256 = U256::from(4);
-        // let coldkey_parent1: U256 = U256::from(100);
-        // let coldkey_parent2: U256 = U256::from(101);
-        // let coldkey_child: U256 = U256::from(102);
-        // let coldkey_weight_setter: U256 = U256::from(103);
-
-        // // Register neurons and add initial stakes
-        // let initial_stakes: Vec<(U256, U256, u64)> = vec![
-        //     (coldkey_parent1, parent1, 200_000),
-        //     (coldkey_parent2, parent2, 150_000),
-        //     (coldkey_child, child, 20_000),
-        //     (coldkey_weight_setter, weight_setter, 100_000),
-        // ];
-
-        // for (coldkey, hotkey, stake) in initial_stakes.iter() {
-        //     SubtensorModule::add_balance_to_coldkey_account(coldkey, *stake);
-        //     register_ok_neuron(netuid, *hotkey, *coldkey, 0);
-        //     SubtensorModule::increase_stake_on_coldkey_hotkey_account(coldkey, hotkey, *stake);
-        // }
-
-        // SubtensorModule::set_weights_set_rate_limit(netuid, 0);
-        // step_block(2);
-
-        // // Set parent-child relationships
-        // mock_set_children(&coldkey_parent1, &parent1, netuid, &[(100_000, child)]);
-        // mock_set_children(&coldkey_parent2, &parent2, netuid, &[(75_000, child)]);
-
-        // // Set weights
-        // let uids: Vec<u16> = vec![0, 1, 2];
-        // let values: Vec<u16> = vec![0, 65354, 65354];
-        // let version_key = SubtensorModule::get_weights_version_key(netuid);
-        // assert_ok!(SubtensorModule::set_weights(
-        //     RuntimeOrigin::signed(weight_setter),
-        //     netuid,
-        //     uids,
-        //     values,
-        //     version_key
-        // ));
-
-        // // Run epoch with a hardcoded emission value
-        // let hardcoded_emission: u64 = 1_000_000_000; // 1 billion
-        // let hotkey_emission: Vec<(U256, u64, u64)> =
-        //     SubtensorModule::epoch(netuid, hardcoded_emission);
-
-        // // Process the hotkey emission results
-        // for (hotkey, mining_emission, validator_emission) in hotkey_emission {
-        //     SubtensorModule::accumulate_hotkey_emission(
-        //         &hotkey,
-        //         netuid,
-        //         validator_emission,
-        //         mining_emission,
-        //     );
-        //     log::debug!(
-        //         "Accumulated emissions on hotkey {:?} for netuid {:?}: mining {:?}, validator {:?}",
-        //         hotkey,
-        //         netuid,
-        //         mining_emission,
-        //         validator_emission
-        //     );
-        // }
-
-        // step_block(11);
-
-        // // Check emission distribution
-        // let stakes: Vec<(U256, U256, &str)> = vec![
-        //     (coldkey_parent1, parent1, "Parent1"),
-        //     (coldkey_parent2, parent2, "Parent2"),
-        //     (coldkey_child, child, "Child"),
-        //     (coldkey_weight_setter, weight_setter, "Weight setter"),
-        // ];
-
-        // for (coldkey, hotkey, name) in stakes.iter() {
-        //     let stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(coldkey, hotkey);
-        //     let stake_on_subnet = SubtensorModule::get_stake_for_hotkey_on_subnet(hotkey, netuid);
-        //     log::debug!(
-        //         "{} stake: {:?}, {} stake on subnet: {:?}",
-        //         name,
-        //         stake,
-        //         name,
-        //         stake_on_subnet
-        //     );
-        // }
-
-        // let parent1_stake =
-        //     SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_parent1, &parent1);
-        // let parent2_stake =
-        //     SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_parent2, &parent2);
-        // let child_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_child, &child);
-        // let weight_setter_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(
-        //     &coldkey_weight_setter,
-        //     &weight_setter,
-        // );
-
-        // assert!(
-        //     parent1_stake > 200_000,
-        //     "Parent1 should have received emission"
-        // );
-        // assert!(
-        //     parent2_stake > 150_000,
-        //     "Parent2 should have received emission"
-        // );
-        // assert!(child_stake > 20_000, "Child should have received emission");
-        // assert!(
-        //     weight_setter_stake > 100_000,
-        //     "Weight setter should have received emission"
-        // );
-
-        // // Check individual stake increases
-        // let parent1_stake_increase = parent1_stake - 200_000;
-        // let parent2_stake_increase = parent2_stake - 150_000;
-        // let child_stake_increase = child_stake - 20_000;
-
-        // log::debug!(
-        //     "Stake increases - Parent1: {}, Parent2: {}, Child: {}",
-        //     parent1_stake_increase,
-        //     parent2_stake_increase,
-        //     child_stake_increase
-        // );
-
-        // // Assert that all neurons received some emission
-        // assert!(
-        //     parent1_stake_increase > 0,
-        //     "Parent1 should have received some emission"
-        // );
-        // assert!(
-        //     parent2_stake_increase > 0,
-        //     "Parent2 should have received some emission"
-        // );
-        // assert!(
-        //     child_stake_increase > 0,
-        //     "Child should have received some emission"
-        // );
-
-        // // Check that the total stake has increased by the hardcoded emission amount
-        // let total_stake = parent1_stake + parent2_stake + child_stake + weight_setter_stake;
-        // let initial_total_stake: u64 = initial_stakes.iter().map(|(_, _, stake)| stake).sum();
-        // assert_eq!(
-        //     total_stake,
-        //     initial_total_stake + hardcoded_emission - 2, // U64::MAX normalization rounding error
-        //     "Total stake should have increased by the hardcoded emission amount"
-        // );
-    });
-}
-
-// 44: Test with a chain of parent-child relationships (e.g., A -> B -> C)
-// This test verifies the correct distribution of emissions in a chain of parent-child relationships:
-// - Sets up a network with three neurons A, B, and C in a chain (A -> B -> C)
-// - Establishes parent-child relationships with different stake proportions
-// - Sets weights for all neurons
-// - Runs an epoch with a hardcoded emission value
-// - Checks the emission distribution among A, B, and C
-// - Verifies that all parties received emissions and the total stake increased correctly
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test coinbase test_parent_child_chain_emission -- --nocapture
-#[test]
-fn test_parent_child_chain_emission() {
-    new_test_ext(1).execute_with(|| {
-        assert!(false);
-
-        // let netuid: u16 = 1;
-        // add_network(netuid, 1, 0);
-
-        // // Define hotkeys and coldkeys
-        // let hotkey_a: U256 = U256::from(1);
-        // let hotkey_b: U256 = U256::from(2);
-        // let hotkey_c: U256 = U256::from(3);
-        // let coldkey_a: U256 = U256::from(100);
-        // let coldkey_b: U256 = U256::from(101);
-        // let coldkey_c: U256 = U256::from(102);
-
-        // // Register neurons with decreasing stakes
-        // register_ok_neuron(netuid, hotkey_a, coldkey_a, 0);
-        // register_ok_neuron(netuid, hotkey_b, coldkey_b, 0);
-        // register_ok_neuron(netuid, hotkey_c, coldkey_c, 0);
-
-        // // Add initial stakes
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 300_000);
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_b, 100_000);
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_c, 50_000);
-
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_a, &hotkey_a, 300_000);
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_b, &hotkey_b, 100_000);
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_c, &hotkey_c, 50_000);
-
-        // // Set parent-child relationships
-        // // A -> B (50% of A's stake)
-        // mock_set_children(&coldkey_a, &hotkey_a, netuid, &[(u64::MAX / 2, hotkey_b)]);
-
-        // // B -> C (50% of B's stake)
-        // mock_set_children(&coldkey_b, &hotkey_b, netuid, &[(u64::MAX / 2, hotkey_c)]);
-
-        // step_block(2);
-
-        // // Set weights
-        // let origin = RuntimeOrigin::signed(hotkey_a);
-        // let uids: Vec<u16> = vec![0, 1, 2]; // UIDs for hotkey_a, hotkey_b, hotkey_c
-        // let values: Vec<u16> = vec![65535, 65535, 65535]; // Set equal weights for all hotkeys
-        // let version_key = SubtensorModule::get_weights_version_key(netuid);
-
-        // // Ensure we can set weights without rate limiting
-        // SubtensorModule::set_weights_set_rate_limit(netuid, 0);
-
-        // assert_ok!(SubtensorModule::set_weights(
-        //     origin,
-        //     netuid,
-        //     uids,
-        //     values,
-        //     version_key
-        // ));
-
-        // // Run epoch with a hardcoded emission value
-        // let hardcoded_emission: u64 = 1_000_000; // 1 million (adjust as needed)
-        // let hotkey_emission: Vec<(U256, u64, u64)> =
-        //     SubtensorModule::epoch(netuid, hardcoded_emission);
-
-        // // Process the hotkey emission results
-        // for (hotkey, mining_emission, validator_emission) in hotkey_emission {
-        //     SubtensorModule::accumulate_hotkey_emission(
-        //         &hotkey,
-        //         netuid,
-        //         validator_emission,
-        //         mining_emission,
-        //     );
-        // }
-
-        // // Log PendingEmission Tuple for a, b, c
-        // let pending_emission_a = SubtensorModule::get_pending_hotkey_emission(&hotkey_a);
-        // let pending_emission_b = SubtensorModule::get_pending_hotkey_emission(&hotkey_b);
-        // let pending_emission_c = SubtensorModule::get_pending_hotkey_emission(&hotkey_c);
-
-        // log::info!("Pending Emission for A: {:?}", pending_emission_a);
-        // log::info!("Pending Emission for B: {:?}", pending_emission_b);
-        // log::info!("Pending Emission for C: {:?}", pending_emission_c);
-
-        // // Assert that pending emissions are non-zero
-        // // A's pending emission: 2/3 of total emission (due to having 2/3 of total stake)
-        // assert!(
-        //     pending_emission_a == 666667,
-        //     "A should have pending emission of 2/3 of total emission"
-        // );
-        // // B's pending emission: 2/9 of total emission (1/3 of A's emission + 1/3 of total emission)
-        // assert!(
-        //     pending_emission_b == 222222,
-        //     "B should have pending emission of 2/9 of total emission"
-        // );
-        // // C's pending emission: 1/9 of total emission (1/2 of B's emission)
-        // assert!(
-        //     pending_emission_c == 111109,
-        //     "C should have pending emission of 1/9 of total emission"
-        // );
-
-        // SubtensorModule::set_hotkey_emission_tempo(10);
-
-        // step_block(10 + 1);
-        // // Retrieve the current stake for each hotkey on the subnet
-        // let stake_a: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_a, netuid);
-        // let stake_b: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_b, netuid);
-        // let stake_c: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_c, netuid);
-
-        // // Log the current stakes for debugging purposes
-        // log::info!("Stake for hotkey A: {:?}", stake_a);
-        // log::info!("Stake for hotkey B: {:?}", stake_b);
-        // log::info!("Stake for hotkey C: {:?}", stake_c);
-
-        // // Assert that the stakes have been updated correctly after emission distribution
-        // assert_eq!(
-        //     stake_a, 483334,
-        //     "A's stake should be 483334 (initial 300_000 + 666667 emission - 483333 given to B)"
-        // );
-        // assert_eq!(
-        //     stake_b, 644445,
-        //     "B's stake should be 644445 (initial 100_000 + 222222 emission + 483333 from A - 161110 given to C)"
-        // );
-        // assert_eq!(
-        //     stake_c, 322219,
-        //     "C's stake should be 322219 (initial 50_000 + 111109 emission + 161110 from B)"
-        // );
-
-        // // Check that the total stake has increased by the hardcoded emission amount
-        // let total_stake = stake_a + stake_b + stake_c;
-        // let initial_total_stake = 300_000 + 100_000 + 50_000;
-        // let hardcoded_emission = 1_000_000; // Define the hardcoded emission value
-        // assert_eq!(
-        //     total_stake,
-        //     initial_total_stake + hardcoded_emission - 2, // U64::MAX normalization rounding error
-        //     "Total stake should have increased by the hardcoded emission amount"
-        // );
-    });
-}
-
-// 46: Test emission distribution when adding/removing parent-child relationships mid-epoch
-// This test verifies the correct distribution of emissions when parent-child relationships change:
-// - Sets up a network with three neurons: parent, child1, and child2
-// - Establishes initial parent-child relationship between parent and child1
-// - Runs first epoch and distributes emissions
-// - Changes parent-child relationships to include both child1 and child2
-// - Runs second epoch and distributes emissions
-// - Checks final emission distribution and stake updates
-// - Verifies correct parent-child relationships and stake proportions
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test children -- test_dynamic_parent_child_relationships --exact --nocapture
-#[test]
-fn test_dynamic_parent_child_relationships() {
-    new_test_ext(1).execute_with(|| {
-        assert!(false);
-
-        // let netuid: u16 = 1;
-        // add_network(netuid, 1, 0);
-
-        // // Define hotkeys and coldkeys
-        // let parent: U256 = U256::from(1);
-        // let child1: U256 = U256::from(2);
-        // let child2: U256 = U256::from(3);
-        // let coldkey_parent: U256 = U256::from(100);
-        // let coldkey_child1: U256 = U256::from(101);
-        // let coldkey_child2: U256 = U256::from(102);
-
-        // // Register neurons with varying stakes
-        // register_ok_neuron(netuid, parent, coldkey_parent, 0);
-        // register_ok_neuron(netuid, child1, coldkey_child1, 0);
-        // register_ok_neuron(netuid, child2, coldkey_child2, 0);
-
-        // // Add initial stakes
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_parent, 500_000);
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_child1, 50_000);
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_child2, 30_000);
-
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_parent, &parent, 500_000);
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_child1, &child1, 50_000);
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_child2, &child2, 30_000);
-
-        // mock_set_children(&coldkey_parent, &parent, netuid, &[(u64::MAX / 2, child1)]);
-
-        // step_block(2);
-
-        // // Set weights
-        // let origin = RuntimeOrigin::signed(parent);
-        // let uids: Vec<u16> = vec![0, 1, 2]; // UIDs for parent, child1, child2
-        // let values: Vec<u16> = vec![65535, 65535, 65535]; // Set equal weights for all hotkeys
-        // let version_key = SubtensorModule::get_weights_version_key(netuid);
-
-        // // Ensure we can set weights without rate limiting
-        // SubtensorModule::set_weights_set_rate_limit(netuid, 0);
-
-        // assert_ok!(SubtensorModule::set_weights(
-        //     origin,
-        //     netuid,
-        //     uids,
-        //     values,
-        //     version_key
-        // ));
-
-        // // Set hotkey emission tempo
-        // SubtensorModule::set_hotkey_emission_tempo(10);
-
-        // // Run first epoch
-        // let hardcoded_emission: u64 = 1_000_000; // 1 million (adjust as needed)
-        // let hotkey_emission: Vec<(U256, u64, u64)> = SubtensorModule::epoch(netuid, hardcoded_emission);
-
-        // // Process the hotkey emission results
-        // for (hotkey, mining_emission, validator_emission) in hotkey_emission {
-        //     SubtensorModule::accumulate_hotkey_emission(&hotkey, netuid, validator_emission, mining_emission);
-        // }
-
-        // // Step blocks to allow for emission distribution
-        // step_block(11);
-        // step_rate_limit(&TransactionType::SetChildren, netuid);
-
-        // // Change parent-child relationships
-        // mock_set_children(&coldkey_parent, &parent, netuid, &[(u64::MAX / 4, child1), (u64::MAX / 3, child2)]);
-
-        // // Run second epoch
-        // let hotkey_emission: Vec<(U256, u64, u64)> = SubtensorModule::epoch(netuid, hardcoded_emission);
-
-        // // Process the hotkey emission results
-        // for (hotkey, mining_emission, validator_emission) in hotkey_emission {
-        //     SubtensorModule::accumulate_hotkey_emission(&hotkey, netuid, validator_emission, mining_emission);
-        // }
-
-        // // Step blocks again to allow for emission distribution
-        // step_block(11);
-
-        // // Check final emission distribution
-        // let parent_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
-        // let child1_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid);
-        // let child2_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
-
-        // log::info!("Final stakes:");
-        // log::info!("Parent stake: {}", parent_stake);
-        // log::info!("Child1 stake: {}", child1_stake);
-        // log::info!("Child2 stake: {}", child2_stake);
-
-        // const TOLERANCE: u64 = 5; // Allow for a small discrepancy due to potential rounding
-
-        // // Precise assertions with tolerance
-        // assert!(
-        //     (parent_stake as i64 - 926725).abs() <= TOLERANCE as i64,
-        //     "Parent stake should be close to 926,725, but was {}",
-        //     parent_stake
-        // );
-        // // Parent stake calculation:
-        // // Initial stake: 500,000
-        // // First epoch: ~862,500 (500,000 + 725,000 * 1/2)
-        // // Second epoch: ~926,725 (862,500 + 725,000 * 5/12)
-
-        // assert!(
-        //     (child1_stake as i64 - 778446).abs() <= TOLERANCE as i64,
-        //     "Child1 stake should be close to 778,446, but was {}",
-        //     child1_stake
-        // );
-        // // Child1 stake calculation:
-        // // Initial stake: 50,000
-        // // First epoch: ~412,500 (50,000 + 725,000 * 1/2)
-        // // Second epoch: ~778,446 (412,500 + 725,000 * 1/2 * 1/4 + 137,500)
-
-        // assert!(
-        //     (child2_stake as i64 - 874826).abs() <= TOLERANCE as i64,
-        //     "Child2 stake should be close to 874,826, but was {}",
-        //     child2_stake
-        // );
-        // // Child2 stake calculation:
-        // // Initial stake: 30,000
-        // // First epoch: ~167,500 (30,000 + 137,500)
-        // // Second epoch: ~874,826 (167,500 + 725,000 * 1/2 * 1/3 + 137,500)
-
-        // // Check that the total stake has increased by approximately twice the hardcoded emission amount
-        // let total_stake: u64 = parent_stake + child1_stake + child2_stake;
-        // let initial_total_stake: u64 = 500_000 + 50_000 + 30_000;
-        // let total_emission: u64 = 2 * hardcoded_emission;
-        // assert!(
-        //     (total_stake as i64 - (initial_total_stake + total_emission) as i64).abs() <= TOLERANCE as i64,
-        //     "Total stake should have increased by approximately twice the hardcoded emission amount"
-        // );
-        // // Total stake calculation:
-        // // Initial total stake: 500,000 + 50,000 + 30,000 = 580,000
-        // // Total emission: 2 * 1,000,000 = 2,000,000
-        // // Expected total stake: 580,000 + 2,000,000 = 2,580,000
-
-        // // Additional checks for parent-child relationships
-        // let parent_children: Vec<(u64, U256)> = SubtensorModule::get_children(&parent, netuid);
-        // assert_eq!(
-        //     parent_children,
-        //     vec![(u64::MAX / 4, child1), (u64::MAX / 3, child2)],
-        //     "Parent should have both children with correct proportions"
-        // );
-        // // Parent-child relationship:
-        // // child1: 1/4 of parent's stake
-        // // child2: 1/3 of parent's stake
-
-        // let child1_parents: Vec<(u64, U256)> = SubtensorModule::get_parents(&child1, netuid);
-        // assert_eq!(
-        //     child1_parents,
-        //     vec![(u64::MAX / 4, parent)],
-        //     "Child1 should have parent as its parent with correct proportion"
-        // );
-        // // Child1-parent relationship:
-        // // parent: 1/4 of child1's stake
-
-        // let child2_parents: Vec<(u64, U256)> = SubtensorModule::get_parents(&child2, netuid);
-        // assert_eq!(
-        //     child2_parents,
-        //     vec![(u64::MAX / 3, parent)],
-        //     "Child2 should have parent as its parent with correct proportion"
-        // );
-        // // Child2-parent relationship:
-        // // parent: 1/3 of child2's stake
-
-        // // Check that child2 has received more stake than child1
-        // assert!(
-        //     child2_stake > child1_stake,
-        //     "Child2 should have received more emission than Child1 due to higher proportion"
-        // );
-        // // Child2 stake (874,826) > Child1 stake (778,446)
-
-        // // Check the approximate difference between child2 and child1 stakes
-        // let stake_difference: u64 = child2_stake - child1_stake;
-        // assert!(
-        //     (stake_difference as i64 - 96_380).abs() <= TOLERANCE as i64,
-        //     "The difference between Child2 and Child1 stakes should be close to 96,380, but was {}",
-        //     stake_difference
-        // );
-        // // Stake difference calculation:
-        // // Child2 stake: 874,826
-        // // Child1 stake: 778,446
-        // // Difference: 874,826 - 778,446 = 96,380
-    });
-}
 
 // 47: Test basic stake retrieval for a single hotkey on a subnet
 /// This test verifies the basic functionality of retrieving stake for a single hotkey on a subnet:
 /// - Sets up a network with one neuron
 /// - Increases stake for the neuron
 /// - Checks if the retrieved stake matches the increased amount
-///     SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test children -- test_get_stake_for_hotkey_on_subnet_basic --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_stake_for_hotkey_on_subnet_basic --exact --show-output --nocapture
 #[test]
 fn test_get_stake_for_hotkey_on_subnet_basic() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let netuid: u16 = 1;
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
 
-        // let netuid: u16 = 1;
-        // let hotkey = U256::from(1);
-        // let coldkey = U256::from(2);
-
-        // add_network(netuid, 0, 0);
-        // register_ok_neuron(netuid, hotkey, coldkey, 0);
-
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, 1000);
-
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid),
-        //     1000
-        // );
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet( &hotkey, &coldkey, netuid, 1000);
+        assert_eq!(
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&hotkey, netuid),
+            1000
+        );
     });
 }
 
@@ -2440,27 +1775,25 @@ fn test_get_stake_for_hotkey_on_subnet_basic() {
 /// - Sets up a network with one neuron and two coldkeys
 /// - Increases stake from both coldkeys
 /// - Checks if the retrieved stake matches the total increased amount
-///     SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test children -- test_get_stake_for_hotkey_on_subnet_multiple_coldkeys --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_stake_for_hotkey_on_subnet_multiple_coldkeys --exact --show-output --nocapture
 #[test]
 fn test_get_stake_for_hotkey_on_subnet_multiple_coldkeys() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let netuid: u16 = 1;
+        let hotkey = U256::from(1);
+        let coldkey1 = U256::from(2);
+        let coldkey2 = U256::from(3);
 
-        // let netuid: u16 = 1;
-        // let hotkey = U256::from(1);
-        // let coldkey1 = U256::from(2);
-        // let coldkey2 = U256::from(3);
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey, coldkey1, 0);
 
-        // add_network(netuid, 0, 0);
-        // register_ok_neuron(netuid, hotkey, coldkey1, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet( &hotkey, &coldkey1, netuid, 1000);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet( &hotkey, &coldkey2, netuid, 2000);
 
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey1, &hotkey, 1000);
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey2, &hotkey, 2000);
-
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid),
-        //     3000
-        // );
+        assert_eq!(
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&hotkey, netuid),
+            3000
+        );
     });
 }
 
@@ -2470,33 +1803,32 @@ fn test_get_stake_for_hotkey_on_subnet_multiple_coldkeys() {
 /// - Increases stake for the parent
 /// - Sets the child as the parent's only child with 100% stake allocation
 /// - Checks if the retrieved stake for both parent and child is correct
-///     SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test children -- test_get_stake_for_hotkey_on_subnet_single_parent_child --exact --nocapture
+/// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_stake_for_hotkey_on_subnet_single_parent_child --exact --show-output --nocapture
 #[test]
 fn test_get_stake_for_hotkey_on_subnet_single_parent_child() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
 
-        // let netuid: u16 = 1;
-        // let parent = U256::from(1);
-        // let child = U256::from(2);
-        // let coldkey = U256::from(3);
+        let netuid: u16 = 1;
+        let parent = U256::from(1);
+        let child = U256::from(2);
+        let coldkey = U256::from(3);
 
-        // add_network(netuid, 0, 0);
-        // register_ok_neuron(netuid, parent, coldkey, 0);
-        // register_ok_neuron(netuid, child, coldkey, 0);
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, parent, coldkey, 0);
+        register_ok_neuron(netuid, child, coldkey, 0);
 
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &parent, 1000);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet( &parent, &coldkey, netuid, 1000);
 
-        // mock_set_children(&coldkey, &parent, netuid, &[(u64::MAX, child)]);
+        mock_set_children(&coldkey, &parent, netuid, &[(u64::MAX, child)]);
 
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid),
-        //     0
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid),
-        //     1000
-        // );
+        assert_eq!(
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&parent, netuid),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&child, netuid),
+            1000
+        );
     });
 }
 
@@ -2506,41 +1838,46 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_child() {
 /// - Increases stake for both parents
 /// - Sets the child as a 50% stake recipient for both parents
 /// - Checks if the retrieved stake for parents and child is correct
-///     SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test children -- test_get_stake_for_hotkey_on_subnet_multiple_parents_single_child --exact --nocapture
+///  SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_stake_for_hotkey_on_subnet_multiple_parents_single_child --exact --show-output --nocapture
 #[test]
 fn test_get_stake_for_hotkey_on_subnet_multiple_parents_single_child() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
 
-        // let netuid: u16 = 1;
-        // let parent1 = U256::from(1);
-        // let parent2 = U256::from(2);
-        // let child = U256::from(3);
-        // let coldkey = U256::from(4);
+        let netuid: u16 = 1;
+        let parent1 = U256::from(1);
+        let parent2 = U256::from(2);
+        let child = U256::from(3);
+        let coldkey = U256::from(4);
 
-        // add_network(netuid, 0, 0);
-        // register_ok_neuron(netuid, parent1, coldkey, 0);
-        // register_ok_neuron(netuid, parent2, coldkey, 0);
-        // register_ok_neuron(netuid, child, coldkey, 0);
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, parent1, coldkey, 0);
+        register_ok_neuron(netuid, parent2, coldkey, 0);
+        register_ok_neuron(netuid, child, coldkey, 0);
 
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &parent1, 1000);
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &parent2, 2000);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&parent1, &coldkey, netuid, 1000);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&parent2, &coldkey, netuid, 2000);
 
-        // mock_set_children(&coldkey, &parent1, netuid, &[(u64::MAX / 2, child)]);
-        // mock_set_children(&coldkey, &parent2, netuid, &[(u64::MAX / 2, child)]);
+        mock_set_children(&coldkey, &parent1, netuid, &[(u64::MAX / 2, child)]);
+        mock_set_children(&coldkey, &parent2, netuid, &[(u64::MAX / 2, child)]);
 
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&parent1, netuid),
-        //     501
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&parent2, netuid),
-        //     1001
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid),
-        //     1498
-        // );
+        close(
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&parent1, netuid),
+            500,
+            10,
+            "Incorrect inherited stake for parent1"
+        );
+        close(
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&parent2, netuid),
+            1000,
+            10,
+            "Incorrect inherited stake for parent2"
+        );
+        close(
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&child, netuid),
+            1499,
+            10,
+            "Incorrect inherited stake for child"
+        );
     });
 }
 
@@ -2550,51 +1887,50 @@ fn test_get_stake_for_hotkey_on_subnet_multiple_parents_single_child() {
 /// - Increases stake for the parent
 /// - Sets both children as 1/3 stake recipients of the parent
 /// - Checks if the retrieved stake for parent and children is correct and preserves total stake
-///     SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test children -- test_get_stake_for_hotkey_on_subnet_single_parent_multiple_children --exact --nocapture
+///  SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_stake_for_hotkey_on_subnet_single_parent_multiple_children --exact --show-output --nocapture
 #[test]
 fn test_get_stake_for_hotkey_on_subnet_single_parent_multiple_children() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
 
-        // let netuid: u16 = 1;
-        // let parent = U256::from(1);
-        // let child1 = U256::from(2);
-        // let child2 = U256::from(3);
-        // let coldkey = U256::from(4);
+        let netuid: u16 = 1;
+        let parent = U256::from(1);
+        let child1 = U256::from(2);
+        let child2 = U256::from(3);
+        let coldkey = U256::from(4);
 
-        // add_network(netuid, 0, 0);
-        // register_ok_neuron(netuid, parent, coldkey, 0);
-        // register_ok_neuron(netuid, child1, coldkey, 0);
-        // register_ok_neuron(netuid, child2, coldkey, 0);
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, parent, coldkey, 0);
+        register_ok_neuron(netuid, child1, coldkey, 0);
+        register_ok_neuron(netuid, child2, coldkey, 0);
 
-        // let total_stake = 3000;
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &parent, total_stake);
+        let total_stake = 3000;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&parent, &coldkey, netuid, total_stake);
 
-        // mock_set_children(
-        //     &coldkey,
-        //     &parent,
-        //     netuid,
-        //     &[(u64::MAX / 3, child1), (u64::MAX / 3, child2)],
-        // );
+        mock_set_children(
+            &coldkey,
+            &parent,
+            netuid,
+            &[(u64::MAX / 3, child1), (u64::MAX / 3, child2)],
+        );
 
-        // let parent_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
-        // let child1_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid);
-        // let child2_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
+        let parent_stake = SubtensorModule::get_inherited_for_hotkey_on_subnet(&parent, netuid);
+        let child1_stake = SubtensorModule::get_inherited_for_hotkey_on_subnet(&child1, netuid);
+        let child2_stake = SubtensorModule::get_inherited_for_hotkey_on_subnet(&child2, netuid);
 
-        // // Check that the total stake is preserved
-        // assert_eq!(parent_stake + child1_stake + child2_stake, total_stake);
+        // Check that the total stake is preserved
+        close(parent_stake + child1_stake + child2_stake, total_stake, 10, "Total stake not preserved");
 
-        // // Check that the parent stake is slightly higher due to rounding
-        // assert_eq!(parent_stake, 1002);
+        // Check that the parent stake is slightly higher due to rounding
+        close(parent_stake, 1000, 10, "Parent stake incorrect");
 
-        // // Check that each child gets an equal share of the remaining stake
-        // assert_eq!(child1_stake, 999);
-        // assert_eq!(child2_stake, 999);
+        // Check that each child gets an equal share of the remaining stake
+        close(child1_stake, 1000, 10, "Child1 stake incorrect");
+        close(child2_stake, 1000, 10, "Child2 stake incorrect");
 
-        // // Log the actual stake values
-        // log::info!("Parent stake: {}", parent_stake);
-        // log::info!("Child1 stake: {}", child1_stake);
-        // log::info!("Child2 stake: {}", child2_stake);
+        // Log the actual stake values
+        log::info!("Parent stake: {}", parent_stake);
+        log::info!("Child1 stake: {}", child1_stake);
+        log::info!("Child2 stake: {}", child2_stake);
     });
 }
 
@@ -2604,63 +1940,64 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_multiple_children() {
 /// - Increases stake to the network maximum
 /// - Sets children with 0% and 100% stake allocation
 /// - Checks if the retrieved stake for parent and children is correct and preserves total stake
-///     SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test children -- test_get_stake_for_hotkey_on_subnet_edge_cases --exact --nocapture
+///  SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_stake_for_hotkey_on_subnet_edge_cases --exact --show-output --nocapture
 #[test]
 fn test_get_stake_for_hotkey_on_subnet_edge_cases() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
 
-        // let netuid: u16 = 1;
-        // let parent = U256::from(1);
-        // let child1 = U256::from(2);
-        // let child2 = U256::from(3);
-        // let coldkey = U256::from(4);
+        let netuid: u16 = 1;
+        let parent = U256::from(1);
+        let child1 = U256::from(2);
+        let child2 = U256::from(3);
+        let coldkey = U256::from(4);
 
-        // add_network(netuid, 0, 0);
-        // register_ok_neuron(netuid, parent, coldkey, 0);
-        // register_ok_neuron(netuid, child1, coldkey, 0);
-        // register_ok_neuron(netuid, child2, coldkey, 0);
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, parent, coldkey, 0);
+        register_ok_neuron(netuid, child1, coldkey, 0);
+        register_ok_neuron(netuid, child2, coldkey, 0);
 
-        // // Set network max stake
-        // let network_max_stake: u64 = 500_000_000_000_000; // 500_000 TAO
-        // SubtensorModule::set_network_max_stake(netuid, network_max_stake);
+        // Set network max stake
+        let network_max_stake: u64 = 500_000_000_000_000; // 500_000 TAO
+        SubtensorModule::set_network_max_stake(netuid, network_max_stake);
 
-        // // Increase stake to the network max
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-        //     &coldkey,
-        //     &parent,
-        //     network_max_stake,
-        // );
+        // Increase stake to the network max
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &parent,
+            &coldkey,
+            netuid,
+            network_max_stake,
+        );
 
-        // // Test with 0% and 100% stake allocation
-        // mock_set_children(
-        //     &coldkey,
-        //     &parent,
-        //     netuid,
-        //     &[(0, child1), (u64::MAX, child2)],
-        // );
+        // Test with 0% and 100% stake allocation
+        mock_set_children(
+            &coldkey,
+            &parent,
+            netuid,
+            &[(0, child1), (u64::MAX, child2)],
+        );
 
-        // let parent_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
-        // let child1_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid);
-        // let child2_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
+        let parent_stake = SubtensorModule::get_inherited_for_hotkey_on_subnet(&parent, netuid);
+        let child1_stake = SubtensorModule::get_inherited_for_hotkey_on_subnet(&child1, netuid);
+        let child2_stake = SubtensorModule::get_inherited_for_hotkey_on_subnet(&child2, netuid);
 
-        // log::info!("Parent stake: {}", parent_stake);
-        // log::info!("Child1 stake: {}", child1_stake);
-        // log::info!("Child2 stake: {}", child2_stake);
+        log::info!("Parent stake: {}", parent_stake);
+        log::info!("Child1 stake: {}", child1_stake);
+        log::info!("Child2 stake: {}", child2_stake);
 
-        // assert_eq!(parent_stake, 0, "Parent should have 0 stake");
-        // assert_eq!(child1_stake, 0, "Child1 should have 0 stake");
-        // assert_eq!(
-        //     child2_stake, network_max_stake,
-        //     "Child2 should have all the stake"
-        // );
+        assert_eq!(parent_stake, 0, "Parent should have 0 stake");
+        assert_eq!(child1_stake, 0, "Child1 should have 0 stake");
+        assert_eq!(
+            child2_stake, network_max_stake,
+            "Child2 should have all the stake"
+        );
 
-        // // Check that the total stake is preserved and equal to the network max stake
-        // assert_eq!(
-        //     parent_stake + child1_stake + child2_stake,
-        //     network_max_stake,
-        //     "Total stake should equal the network max stake"
-        // );
+        // Check that the total stake is preserved and equal to the network max stake
+        close(
+            parent_stake + child1_stake + child2_stake,
+            network_max_stake,
+            10,
+            "Total stake should equal network max stake"
+        );
     });
 }
 
@@ -2672,183 +2009,182 @@ fn test_get_stake_for_hotkey_on_subnet_edge_cases() {
 // - Checks stake distribution after setting up the first level of relationships
 // - Checks stake distribution after setting up the second level of relationships
 // - Verifies correct stake calculations, parent-child relationships, and preservation of total stake
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test children -- test_get_stake_for_hotkey_on_subnet_complex_hierarchy --exact --nocapture
-
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_stake_for_hotkey_on_subnet_complex_hierarchy --exact --show-output --nocapture
 #[test]
 fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        
+        let netuid: u16 = 1;
+        let parent = U256::from(1);
+        let child1 = U256::from(2);
+        let child2 = U256::from(3);
+        let grandchild = U256::from(4);
+        let coldkey_parent = U256::from(5);
+        let coldkey_child1 = U256::from(6);
+        let coldkey_child2 = U256::from(7);
+        let coldkey_grandchild = U256::from(8);
 
-        // let netuid: u16 = 1;
-        // let parent = U256::from(1);
-        // let child1 = U256::from(2);
-        // let child2 = U256::from(3);
-        // let grandchild = U256::from(4);
-        // let coldkey_parent = U256::from(5);
-        // let coldkey_child1 = U256::from(6);
-        // let coldkey_child2 = U256::from(7);
-        // let coldkey_grandchild = U256::from(8);
+        add_network(netuid, 0, 0);
+        SubtensorModule::set_max_registrations_per_block(netuid, 1000);
+        SubtensorModule::set_target_registrations_per_interval(netuid, 1000);
+        register_ok_neuron(netuid, parent, coldkey_parent, 0);
+        register_ok_neuron(netuid, child1, coldkey_child1, 0);
+        register_ok_neuron(netuid, child2, coldkey_child2, 0);
+        register_ok_neuron(netuid, grandchild, coldkey_grandchild, 0);
 
-        // add_network(netuid, 0, 0);
-        // SubtensorModule::set_max_registrations_per_block(netuid, 1000);
-        // SubtensorModule::set_target_registrations_per_interval(netuid, 1000);
-        // register_ok_neuron(netuid, parent, coldkey_parent, 0);
-        // register_ok_neuron(netuid, child1, coldkey_child1, 0);
-        // register_ok_neuron(netuid, child2, coldkey_child2, 0);
-        // register_ok_neuron(netuid, grandchild, coldkey_grandchild, 0);
+        let total_stake = 1000;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &parent,
+            &coldkey_parent,
+            netuid,
+            total_stake,
+        );
 
-        // let total_stake = 1000;
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-        //     &coldkey_parent,
-        //     &parent,
-        //     total_stake,
-        // );
+        log::info!("Initial stakes:");
+        log::info!(
+            "Parent stake: {}",
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&parent, netuid)
+        );
+        log::info!(
+            "Child1 stake: {}",
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&child1, netuid)
+        );
+        log::info!(
+            "Child2 stake: {}",
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&child2, netuid)
+        );
+        log::info!(
+            "Grandchild stake: {}",
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&grandchild, netuid)
+        );
 
-        // log::info!("Initial stakes:");
-        // log::info!(
-        //     "Parent stake: {}",
-        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid)
-        // );
-        // log::info!(
-        //     "Child1 stake: {}",
-        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid)
-        // );
-        // log::info!(
-        //     "Child2 stake: {}",
-        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid)
-        // );
-        // log::info!(
-        //     "Grandchild stake: {}",
-        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&grandchild, netuid)
-        // );
+        // Step 1: Set children for parent
+        mock_set_children(
+            &coldkey_parent,
+            &parent,
+            netuid,
+            &[(u64::MAX / 2, child1), (u64::MAX / 2, child2)],
+        );
 
-        // // Step 1: Set children for parent
-        // mock_set_children(
-        //     &coldkey_parent,
-        //     &parent,
-        //     netuid,
-        //     &[(u64::MAX / 2, child1), (u64::MAX / 2, child2)],
-        // );
+        log::info!("After setting parent's children:");
+        log::info!(
+            "Parent's children: {:?}",
+            SubtensorModule::get_children(&parent, netuid)
+        );
+        log::info!(
+            "Child1's parents: {:?}",
+            SubtensorModule::get_parents(&child1, netuid)
+        );
+        log::info!(
+            "Child2's parents: {:?}",
+            SubtensorModule::get_parents(&child2, netuid)
+        );
 
-        // log::info!("After setting parent's children:");
-        // log::info!(
-        //     "Parent's children: {:?}",
-        //     SubtensorModule::get_children(&parent, netuid)
-        // );
-        // log::info!(
-        //     "Child1's parents: {:?}",
-        //     SubtensorModule::get_parents(&child1, netuid)
-        // );
-        // log::info!(
-        //     "Child2's parents: {:?}",
-        //     SubtensorModule::get_parents(&child2, netuid)
-        // );
+        let parent_stake_1 = SubtensorModule::get_inherited_for_hotkey_on_subnet(&parent, netuid);
+        let child1_stake_1 = SubtensorModule::get_inherited_for_hotkey_on_subnet(&child1, netuid);
+        let child2_stake_1 = SubtensorModule::get_inherited_for_hotkey_on_subnet(&child2, netuid);
 
-        // let parent_stake_1 = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
-        // let child1_stake_1 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid);
-        // let child2_stake_1 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
+        log::info!("Parent stake: {}", parent_stake_1);
+        log::info!("Child1 stake: {}", child1_stake_1);
+        log::info!("Child2 stake: {}", child2_stake_1);
 
-        // log::info!("Parent stake: {}", parent_stake_1);
-        // log::info!("Child1 stake: {}", child1_stake_1);
-        // log::info!("Child2 stake: {}", child2_stake_1);
+        assert_eq!(
+            parent_stake_1, 0,
+            "Parent should have 0 stake after distributing all stake to children"
+        );
+        close(child1_stake_1, 499, 10, "Child1 should have 499 stake");
+        close(child2_stake_1, 499, 10, "Child2 should have 499 stake");
 
-        // assert_eq!(
-        //     parent_stake_1, 2,
-        //     "Parent should have 2 stake due to rounding"
-        // );
-        // assert_eq!(child1_stake_1, 499, "Child1 should have 499 stake");
-        // assert_eq!(child2_stake_1, 499, "Child2 should have 499 stake");
+        // Step 2: Set children for child1
+        mock_set_children(&coldkey_child1, &child1, netuid, &[(u64::MAX, grandchild)]);
 
-        // // Step 2: Set children for child1
-        // mock_set_children(&coldkey_child1, &child1, netuid, &[(u64::MAX, grandchild)]);
+        log::info!("After setting child1's children:");
+        log::info!(
+            "Child1's children: {:?}",
+            SubtensorModule::get_children(&child1, netuid)
+        );
+        log::info!(
+            "Grandchild's parents: {:?}",
+            SubtensorModule::get_parents(&grandchild, netuid)
+        );
 
-        // log::info!("After setting child1's children:");
-        // log::info!(
-        //     "Child1's children: {:?}",
-        //     SubtensorModule::get_children(&child1, netuid)
-        // );
-        // log::info!(
-        //     "Grandchild's parents: {:?}",
-        //     SubtensorModule::get_parents(&grandchild, netuid)
-        // );
+        let parent_stake_2 = SubtensorModule::get_inherited_for_hotkey_on_subnet(&parent, netuid);
+        let child1_stake_2 = SubtensorModule::get_inherited_for_hotkey_on_subnet(&child1, netuid);
+        let child2_stake_2 = SubtensorModule::get_inherited_for_hotkey_on_subnet(&child2, netuid);
+        let grandchild_stake = SubtensorModule::get_inherited_for_hotkey_on_subnet(&grandchild, netuid);
 
-        // let parent_stake_2 = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
-        // let child1_stake_2 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid);
-        // let child2_stake_2 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
-        // let grandchild_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&grandchild, netuid);
+        log::info!("Parent stake: {}", parent_stake_2);
+        log::info!("Child1 stake: {}", child1_stake_2);
+        log::info!("Child2 stake: {}", child2_stake_2);
+        log::info!("Grandchild stake: {}", grandchild_stake);
 
-        // log::info!("Parent stake: {}", parent_stake_2);
-        // log::info!("Child1 stake: {}", child1_stake_2);
-        // log::info!("Child2 stake: {}", child2_stake_2);
-        // log::info!("Grandchild stake: {}", grandchild_stake);
+        close(parent_stake_2, 0, 10, "Parent stake should remain 2");
+        close(
+            child1_stake_2, 499, 10, "Child1 should still have 499 stake"
+        );
+        close(child2_stake_2, 499, 10, "Child2 should still have 499 stake");
+        close(
+            grandchild_stake, 0, 10,
+            "Grandchild should have 0 stake, as child1 doesn't have any owned stake"
+        );
 
-        // assert_eq!(parent_stake_2, 2, "Parent stake should remain 2");
-        // assert_eq!(
-        //     child1_stake_2, 499,
-        //     "Child1 stake should be be the same , as it doesnt have owned stake"
-        // );
-        // assert_eq!(child2_stake_2, 499, "Child2 should still have 499 stake");
-        // assert_eq!(
-        //     grandchild_stake, 0,
-        //     "Grandchild should have 0 , as child1 doesnt have any  owned stake"
-        // );
+        // Check that the total stake is preserved
+        close(
+            parent_stake_2 + child1_stake_2 + child2_stake_2 + grandchild_stake,
+            total_stake,
+            10,
+            "Total stake should equal the initial stake"
+        );
 
-        // // Check that the total stake is preserved
-        // assert_eq!(
-        //     parent_stake_2 + child1_stake_2 + child2_stake_2 + grandchild_stake,
-        //     total_stake,
-        //     "Total stake should equal the initial stake"
-        // );
+        // Additional checks
+        log::info!("Final parent-child relationships:");
+        log::info!(
+            "Parent's children: {:?}",
+            SubtensorModule::get_children(&parent, netuid)
+        );
+        log::info!(
+            "Child1's parents: {:?}",
+            SubtensorModule::get_parents(&child1, netuid)
+        );
+        log::info!(
+            "Child2's parents: {:?}",
+            SubtensorModule::get_parents(&child2, netuid)
+        );
+        log::info!(
+            "Child1's children: {:?}",
+            SubtensorModule::get_children(&child1, netuid)
+        );
+        log::info!(
+            "Grandchild's parents: {:?}",
+            SubtensorModule::get_parents(&grandchild, netuid)
+        );
 
-        // // Additional checks
-        // log::info!("Final parent-child relationships:");
-        // log::info!(
-        //     "Parent's children: {:?}",
-        //     SubtensorModule::get_children(&parent, netuid)
-        // );
-        // log::info!(
-        //     "Child1's parents: {:?}",
-        //     SubtensorModule::get_parents(&child1, netuid)
-        // );
-        // log::info!(
-        //     "Child2's parents: {:?}",
-        //     SubtensorModule::get_parents(&child2, netuid)
-        // );
-        // log::info!(
-        //     "Child1's children: {:?}",
-        //     SubtensorModule::get_children(&child1, netuid)
-        // );
-        // log::info!(
-        //     "Grandchild's parents: {:?}",
-        //     SubtensorModule::get_parents(&grandchild, netuid)
-        // );
-
-        // // Check if the parent-child relationships are correct
-        // assert_eq!(
-        //     SubtensorModule::get_children(&parent, netuid),
-        //     vec![(u64::MAX / 2, child1), (u64::MAX / 2, child2)],
-        //     "Parent should have both children"
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_parents(&child1, netuid),
-        //     vec![(u64::MAX / 2, parent)],
-        //     "Child1 should have parent as its parent"
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_parents(&child2, netuid),
-        //     vec![(u64::MAX / 2, parent)],
-        //     "Child2 should have parent as its parent"
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_children(&child1, netuid),
-        //     vec![(u64::MAX, grandchild)],
-        //     "Child1 should have grandchild as its child"
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_parents(&grandchild, netuid),
-        //     vec![(u64::MAX, child1)],
-        //     "Grandchild should have child1 as its parent"
-        // );
+        // Check if the parent-child relationships are correct
+        assert_eq!(
+            SubtensorModule::get_children(&parent, netuid),
+            vec![(u64::MAX / 2, child1), (u64::MAX / 2, child2)],
+            "Parent should have both children"
+        );
+        assert_eq!(
+            SubtensorModule::get_parents(&child1, netuid),
+            vec![(u64::MAX / 2, parent)],
+            "Child1 should have parent as its parent"
+        );
+        assert_eq!(
+            SubtensorModule::get_parents(&child2, netuid),
+            vec![(u64::MAX / 2, parent)],
+            "Child2 should have parent as its parent"
+        );
+        assert_eq!(
+            SubtensorModule::get_children(&child1, netuid),
+            vec![(u64::MAX, grandchild)],
+            "Child1 should have grandchild as its child"
+        );
+        assert_eq!(
+            SubtensorModule::get_parents(&grandchild, netuid),
+            vec![(u64::MAX, child1)],
+            "Grandchild should have child1 as its parent"
+        );
     });
 }
 
@@ -2858,33 +2194,34 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
 // - Adds initial stake to the neuron
 // - Checks that the stake is correctly reflected on both networks
 // - Verifies that changes in stake are consistently applied across all networks
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test children -- test_get_stake_for_hotkey_on_subnet_multiple_networks --exact --nocapture
-
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_stake_for_hotkey_on_subnet_multiple_networks --exact --show-output --nocapture
 #[test]
 fn test_get_stake_for_hotkey_on_subnet_multiple_networks() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let netuid1: u16 = 1;
+        let netuid2: u16 = 2;
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
 
-        // let netuid1: u16 = 1;
-        // let netuid2: u16 = 2;
-        // let hotkey = U256::from(1);
-        // let coldkey = U256::from(2);
+        add_network(netuid1, 0, 0);
+        add_network(netuid2, 0, 0);
+        register_ok_neuron(netuid1, hotkey, coldkey, 0);
+        register_ok_neuron(netuid2, hotkey, coldkey, 0);
 
-        // add_network(netuid1, 0, 0);
-        // add_network(netuid2, 0, 0);
-        // register_ok_neuron(netuid1, hotkey, coldkey, 0);
-        // register_ok_neuron(netuid2, hotkey, coldkey, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid1, 1000);
 
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, 1000);
-
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid1),
-        //     1000
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid2),
-        //     1000
-        // );
+        close(
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&hotkey, netuid1),
+            1000,
+            10,
+            "Stake on network 1 incorrect"
+        );
+        close(
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&hotkey, netuid2),
+            0,
+            10,
+            "Stake on network 2 incorrect"
+        );
     });
 }
 
@@ -3895,5 +3232,517 @@ fn test_do_set_child_registration_disabled() {
         // // Ensure the childkeys are applied
         // let children_after = SubtensorModule::get_children(&parent, netuid);
         // assert_eq!(children_after, vec![(proportion, child)]);
+    });
+}
+
+// 43: Test emission distribution between a childkey and multiple parents
+// This test verifies the correct distribution of emissions between a child and multiple parents:
+// - Sets up a network with two parents, a child, and a weight setter
+// - Establishes parent-child relationships with different stake proportions
+// - Sets weights on the child and one parent
+// - Runs an epoch with a hardcoded emission value
+// - Checks the emission distribution among parents, child, and weight setter
+// - Verifies that all parties received emissions and the total stake increased correctly
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test coinbase test_childkey_multiple_parents_emission -- --nocapture
+#[test]
+fn test_childkey_multiple_parents_emission() {
+    new_test_ext(1).execute_with(|| {
+        assert!(false);
+
+        // let netuid: u16 = 1;
+        // add_network(netuid, 1, 0);
+
+        // // Set registration parameters and emission tempo
+        // SubtensorModule::set_max_registrations_per_block(netuid, 1000);
+        // SubtensorModule::set_target_registrations_per_interval(netuid, 1000);
+        // SubtensorModule::set_hotkey_emission_tempo(10);
+
+        // // Define hotkeys and coldkeys
+        // let parent1: U256 = U256::from(1);
+        // let parent2: U256 = U256::from(2);
+        // let child: U256 = U256::from(3);
+        // let weight_setter: U256 = U256::from(4);
+        // let coldkey_parent1: U256 = U256::from(100);
+        // let coldkey_parent2: U256 = U256::from(101);
+        // let coldkey_child: U256 = U256::from(102);
+        // let coldkey_weight_setter: U256 = U256::from(103);
+
+        // // Register neurons and add initial stakes
+        // let initial_stakes: Vec<(U256, U256, u64)> = vec![
+        //     (coldkey_parent1, parent1, 200_000),
+        //     (coldkey_parent2, parent2, 150_000),
+        //     (coldkey_child, child, 20_000),
+        //     (coldkey_weight_setter, weight_setter, 100_000),
+        // ];
+
+        // for (coldkey, hotkey, stake) in initial_stakes.iter() {
+        //     SubtensorModule::add_balance_to_coldkey_account(coldkey, *stake);
+        //     register_ok_neuron(netuid, *hotkey, *coldkey, 0);
+        //     SubtensorModule::increase_stake_on_coldkey_hotkey_account(coldkey, hotkey, *stake);
+        // }
+
+        // SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        // step_block(2);
+
+        // // Set parent-child relationships
+        // mock_set_children(&coldkey_parent1, &parent1, netuid, &[(100_000, child)]);
+        // mock_set_children(&coldkey_parent2, &parent2, netuid, &[(75_000, child)]);
+
+        // // Set weights
+        // let uids: Vec<u16> = vec![0, 1, 2];
+        // let values: Vec<u16> = vec![0, 65354, 65354];
+        // let version_key = SubtensorModule::get_weights_version_key(netuid);
+        // assert_ok!(SubtensorModule::set_weights(
+        //     RuntimeOrigin::signed(weight_setter),
+        //     netuid,
+        //     uids,
+        //     values,
+        //     version_key
+        // ));
+
+        // // Run epoch with a hardcoded emission value
+        // let hardcoded_emission: u64 = 1_000_000_000; // 1 billion
+        // let hotkey_emission: Vec<(U256, u64, u64)> =
+        //     SubtensorModule::epoch(netuid, hardcoded_emission);
+
+        // // Process the hotkey emission results
+        // for (hotkey, mining_emission, validator_emission) in hotkey_emission {
+        //     SubtensorModule::accumulate_hotkey_emission(
+        //         &hotkey,
+        //         netuid,
+        //         validator_emission,
+        //         mining_emission,
+        //     );
+        //     log::debug!(
+        //         "Accumulated emissions on hotkey {:?} for netuid {:?}: mining {:?}, validator {:?}",
+        //         hotkey,
+        //         netuid,
+        //         mining_emission,
+        //         validator_emission
+        //     );
+        // }
+
+        // step_block(11);
+
+        // // Check emission distribution
+        // let stakes: Vec<(U256, U256, &str)> = vec![
+        //     (coldkey_parent1, parent1, "Parent1"),
+        //     (coldkey_parent2, parent2, "Parent2"),
+        //     (coldkey_child, child, "Child"),
+        //     (coldkey_weight_setter, weight_setter, "Weight setter"),
+        // ];
+
+        // for (coldkey, hotkey, name) in stakes.iter() {
+        //     let stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(coldkey, hotkey);
+        //     let stake_on_subnet = SubtensorModule::get_stake_for_hotkey_on_subnet(hotkey, netuid);
+        //     log::debug!(
+        //         "{} stake: {:?}, {} stake on subnet: {:?}",
+        //         name,
+        //         stake,
+        //         name,
+        //         stake_on_subnet
+        //     );
+        // }
+
+        // let parent1_stake =
+        //     SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_parent1, &parent1);
+        // let parent2_stake =
+        //     SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_parent2, &parent2);
+        // let child_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_child, &child);
+        // let weight_setter_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(
+        //     &coldkey_weight_setter,
+        //     &weight_setter,
+        // );
+
+        // assert!(
+        //     parent1_stake > 200_000,
+        //     "Parent1 should have received emission"
+        // );
+        // assert!(
+        //     parent2_stake > 150_000,
+        //     "Parent2 should have received emission"
+        // );
+        // assert!(child_stake > 20_000, "Child should have received emission");
+        // assert!(
+        //     weight_setter_stake > 100_000,
+        //     "Weight setter should have received emission"
+        // );
+
+        // // Check individual stake increases
+        // let parent1_stake_increase = parent1_stake - 200_000;
+        // let parent2_stake_increase = parent2_stake - 150_000;
+        // let child_stake_increase = child_stake - 20_000;
+
+        // log::debug!(
+        //     "Stake increases - Parent1: {}, Parent2: {}, Child: {}",
+        //     parent1_stake_increase,
+        //     parent2_stake_increase,
+        //     child_stake_increase
+        // );
+
+        // // Assert that all neurons received some emission
+        // assert!(
+        //     parent1_stake_increase > 0,
+        //     "Parent1 should have received some emission"
+        // );
+        // assert!(
+        //     parent2_stake_increase > 0,
+        //     "Parent2 should have received some emission"
+        // );
+        // assert!(
+        //     child_stake_increase > 0,
+        //     "Child should have received some emission"
+        // );
+
+        // // Check that the total stake has increased by the hardcoded emission amount
+        // let total_stake = parent1_stake + parent2_stake + child_stake + weight_setter_stake;
+        // let initial_total_stake: u64 = initial_stakes.iter().map(|(_, _, stake)| stake).sum();
+        // assert_eq!(
+        //     total_stake,
+        //     initial_total_stake + hardcoded_emission - 2, // U64::MAX normalization rounding error
+        //     "Total stake should have increased by the hardcoded emission amount"
+        // );
+    });
+}
+
+// 44: Test with a chain of parent-child relationships (e.g., A -> B -> C)
+// This test verifies the correct distribution of emissions in a chain of parent-child relationships:
+// - Sets up a network with three neurons A, B, and C in a chain (A -> B -> C)
+// - Establishes parent-child relationships with different stake proportions
+// - Sets weights for all neurons
+// - Runs an epoch with a hardcoded emission value
+// - Checks the emission distribution among A, B, and C
+// - Verifies that all parties received emissions and the total stake increased correctly
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test coinbase test_parent_child_chain_emission -- --nocapture
+#[test]
+fn test_parent_child_chain_emission() {
+    new_test_ext(1).execute_with(|| {
+        assert!(false);
+
+        // let netuid: u16 = 1;
+        // add_network(netuid, 1, 0);
+
+        // // Define hotkeys and coldkeys
+        // let hotkey_a: U256 = U256::from(1);
+        // let hotkey_b: U256 = U256::from(2);
+        // let hotkey_c: U256 = U256::from(3);
+        // let coldkey_a: U256 = U256::from(100);
+        // let coldkey_b: U256 = U256::from(101);
+        // let coldkey_c: U256 = U256::from(102);
+
+        // // Register neurons with decreasing stakes
+        // register_ok_neuron(netuid, hotkey_a, coldkey_a, 0);
+        // register_ok_neuron(netuid, hotkey_b, coldkey_b, 0);
+        // register_ok_neuron(netuid, hotkey_c, coldkey_c, 0);
+
+        // // Add initial stakes
+        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 300_000);
+        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_b, 100_000);
+        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_c, 50_000);
+
+        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_a, &hotkey_a, 300_000);
+        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_b, &hotkey_b, 100_000);
+        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_c, &hotkey_c, 50_000);
+
+        // // Set parent-child relationships
+        // // A -> B (50% of A's stake)
+        // mock_set_children(&coldkey_a, &hotkey_a, netuid, &[(u64::MAX / 2, hotkey_b)]);
+
+        // // B -> C (50% of B's stake)
+        // mock_set_children(&coldkey_b, &hotkey_b, netuid, &[(u64::MAX / 2, hotkey_c)]);
+
+        // step_block(2);
+
+        // // Set weights
+        // let origin = RuntimeOrigin::signed(hotkey_a);
+        // let uids: Vec<u16> = vec![0, 1, 2]; // UIDs for hotkey_a, hotkey_b, hotkey_c
+        // let values: Vec<u16> = vec![65535, 65535, 65535]; // Set equal weights for all hotkeys
+        // let version_key = SubtensorModule::get_weights_version_key(netuid);
+
+        // // Ensure we can set weights without rate limiting
+        // SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+
+        // assert_ok!(SubtensorModule::set_weights(
+        //     origin,
+        //     netuid,
+        //     uids,
+        //     values,
+        //     version_key
+        // ));
+
+        // // Run epoch with a hardcoded emission value
+        // let hardcoded_emission: u64 = 1_000_000; // 1 million (adjust as needed)
+        // let hotkey_emission: Vec<(U256, u64, u64)> =
+        //     SubtensorModule::epoch(netuid, hardcoded_emission);
+
+        // // Process the hotkey emission results
+        // for (hotkey, mining_emission, validator_emission) in hotkey_emission {
+        //     SubtensorModule::accumulate_hotkey_emission(
+        //         &hotkey,
+        //         netuid,
+        //         validator_emission,
+        //         mining_emission,
+        //     );
+        // }
+
+        // // Log PendingEmission Tuple for a, b, c
+        // let pending_emission_a = SubtensorModule::get_pending_hotkey_emission(&hotkey_a);
+        // let pending_emission_b = SubtensorModule::get_pending_hotkey_emission(&hotkey_b);
+        // let pending_emission_c = SubtensorModule::get_pending_hotkey_emission(&hotkey_c);
+
+        // log::info!("Pending Emission for A: {:?}", pending_emission_a);
+        // log::info!("Pending Emission for B: {:?}", pending_emission_b);
+        // log::info!("Pending Emission for C: {:?}", pending_emission_c);
+
+        // // Assert that pending emissions are non-zero
+        // // A's pending emission: 2/3 of total emission (due to having 2/3 of total stake)
+        // assert!(
+        //     pending_emission_a == 666667,
+        //     "A should have pending emission of 2/3 of total emission"
+        // );
+        // // B's pending emission: 2/9 of total emission (1/3 of A's emission + 1/3 of total emission)
+        // assert!(
+        //     pending_emission_b == 222222,
+        //     "B should have pending emission of 2/9 of total emission"
+        // );
+        // // C's pending emission: 1/9 of total emission (1/2 of B's emission)
+        // assert!(
+        //     pending_emission_c == 111109,
+        //     "C should have pending emission of 1/9 of total emission"
+        // );
+
+        // SubtensorModule::set_hotkey_emission_tempo(10);
+
+        // step_block(10 + 1);
+        // // Retrieve the current stake for each hotkey on the subnet
+        // let stake_a: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_a, netuid);
+        // let stake_b: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_b, netuid);
+        // let stake_c: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_c, netuid);
+
+        // // Log the current stakes for debugging purposes
+        // log::info!("Stake for hotkey A: {:?}", stake_a);
+        // log::info!("Stake for hotkey B: {:?}", stake_b);
+        // log::info!("Stake for hotkey C: {:?}", stake_c);
+
+        // // Assert that the stakes have been updated correctly after emission distribution
+        // assert_eq!(
+        //     stake_a, 483334,
+        //     "A's stake should be 483334 (initial 300_000 + 666667 emission - 483333 given to B)"
+        // );
+        // assert_eq!(
+        //     stake_b, 644445,
+        //     "B's stake should be 644445 (initial 100_000 + 222222 emission + 483333 from A - 161110 given to C)"
+        // );
+        // assert_eq!(
+        //     stake_c, 322219,
+        //     "C's stake should be 322219 (initial 50_000 + 111109 emission + 161110 from B)"
+        // );
+
+        // // Check that the total stake has increased by the hardcoded emission amount
+        // let total_stake = stake_a + stake_b + stake_c;
+        // let initial_total_stake = 300_000 + 100_000 + 50_000;
+        // let hardcoded_emission = 1_000_000; // Define the hardcoded emission value
+        // assert_eq!(
+        //     total_stake,
+        //     initial_total_stake + hardcoded_emission - 2, // U64::MAX normalization rounding error
+        //     "Total stake should have increased by the hardcoded emission amount"
+        // );
+    });
+}
+
+// 46: Test emission distribution when adding/removing parent-child relationships mid-epoch
+// This test verifies the correct distribution of emissions when parent-child relationships change:
+// - Sets up a network with three neurons: parent, child1, and child2
+// - Establishes initial parent-child relationship between parent and child1
+// - Runs first epoch and distributes emissions
+// - Changes parent-child relationships to include both child1 and child2
+// - Runs second epoch and distributes emissions
+// - Checks final emission distribution and stake updates
+// - Verifies correct parent-child relationships and stake proportions
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test children -- test_dynamic_parent_child_relationships --exact --nocapture
+#[test]
+fn test_dynamic_parent_child_relationships() {
+    new_test_ext(1).execute_with(|| {
+        assert!(false);
+
+        // let netuid: u16 = 1;
+        // add_network(netuid, 1, 0);
+
+        // // Define hotkeys and coldkeys
+        // let parent: U256 = U256::from(1);
+        // let child1: U256 = U256::from(2);
+        // let child2: U256 = U256::from(3);
+        // let coldkey_parent: U256 = U256::from(100);
+        // let coldkey_child1: U256 = U256::from(101);
+        // let coldkey_child2: U256 = U256::from(102);
+
+        // // Register neurons with varying stakes
+        // register_ok_neuron(netuid, parent, coldkey_parent, 0);
+        // register_ok_neuron(netuid, child1, coldkey_child1, 0);
+        // register_ok_neuron(netuid, child2, coldkey_child2, 0);
+
+        // // Add initial stakes
+        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_parent, 500_000);
+        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_child1, 50_000);
+        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_child2, 30_000);
+
+        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_parent, &parent, 500_000);
+        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_child1, &child1, 50_000);
+        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_child2, &child2, 30_000);
+
+        // mock_set_children(&coldkey_parent, &parent, netuid, &[(u64::MAX / 2, child1)]);
+
+        // step_block(2);
+
+        // // Set weights
+        // let origin = RuntimeOrigin::signed(parent);
+        // let uids: Vec<u16> = vec![0, 1, 2]; // UIDs for parent, child1, child2
+        // let values: Vec<u16> = vec![65535, 65535, 65535]; // Set equal weights for all hotkeys
+        // let version_key = SubtensorModule::get_weights_version_key(netuid);
+
+        // // Ensure we can set weights without rate limiting
+        // SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+
+        // assert_ok!(SubtensorModule::set_weights(
+        //     origin,
+        //     netuid,
+        //     uids,
+        //     values,
+        //     version_key
+        // ));
+
+        // // Set hotkey emission tempo
+        // SubtensorModule::set_hotkey_emission_tempo(10);
+
+        // // Run first epoch
+        // let hardcoded_emission: u64 = 1_000_000; // 1 million (adjust as needed)
+        // let hotkey_emission: Vec<(U256, u64, u64)> = SubtensorModule::epoch(netuid, hardcoded_emission);
+
+        // // Process the hotkey emission results
+        // for (hotkey, mining_emission, validator_emission) in hotkey_emission {
+        //     SubtensorModule::accumulate_hotkey_emission(&hotkey, netuid, validator_emission, mining_emission);
+        // }
+
+        // // Step blocks to allow for emission distribution
+        // step_block(11);
+        // step_rate_limit(&TransactionType::SetChildren, netuid);
+
+        // // Change parent-child relationships
+        // mock_set_children(&coldkey_parent, &parent, netuid, &[(u64::MAX / 4, child1), (u64::MAX / 3, child2)]);
+
+        // // Run second epoch
+        // let hotkey_emission: Vec<(U256, u64, u64)> = SubtensorModule::epoch(netuid, hardcoded_emission);
+
+        // // Process the hotkey emission results
+        // for (hotkey, mining_emission, validator_emission) in hotkey_emission {
+        //     SubtensorModule::accumulate_hotkey_emission(&hotkey, netuid, validator_emission, mining_emission);
+        // }
+
+        // // Step blocks again to allow for emission distribution
+        // step_block(11);
+
+        // // Check final emission distribution
+        // let parent_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
+        // let child1_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid);
+        // let child2_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
+
+        // log::info!("Final stakes:");
+        // log::info!("Parent stake: {}", parent_stake);
+        // log::info!("Child1 stake: {}", child1_stake);
+        // log::info!("Child2 stake: {}", child2_stake);
+
+        // const TOLERANCE: u64 = 5; // Allow for a small discrepancy due to potential rounding
+
+        // // Precise assertions with tolerance
+        // assert!(
+        //     (parent_stake as i64 - 926725).abs() <= TOLERANCE as i64,
+        //     "Parent stake should be close to 926,725, but was {}",
+        //     parent_stake
+        // );
+        // // Parent stake calculation:
+        // // Initial stake: 500,000
+        // // First epoch: ~862,500 (500,000 + 725,000 * 1/2)
+        // // Second epoch: ~926,725 (862,500 + 725,000 * 5/12)
+
+        // assert!(
+        //     (child1_stake as i64 - 778446).abs() <= TOLERANCE as i64,
+        //     "Child1 stake should be close to 778,446, but was {}",
+        //     child1_stake
+        // );
+        // // Child1 stake calculation:
+        // // Initial stake: 50,000
+        // // First epoch: ~412,500 (50,000 + 725,000 * 1/2)
+        // // Second epoch: ~778,446 (412,500 + 725,000 * 1/2 * 1/4 + 137,500)
+
+        // assert!(
+        //     (child2_stake as i64 - 874826).abs() <= TOLERANCE as i64,
+        //     "Child2 stake should be close to 874,826, but was {}",
+        //     child2_stake
+        // );
+        // // Child2 stake calculation:
+        // // Initial stake: 30,000
+        // // First epoch: ~167,500 (30,000 + 137,500)
+        // // Second epoch: ~874,826 (167,500 + 725,000 * 1/2 * 1/3 + 137,500)
+
+        // // Check that the total stake has increased by approximately twice the hardcoded emission amount
+        // let total_stake: u64 = parent_stake + child1_stake + child2_stake;
+        // let initial_total_stake: u64 = 500_000 + 50_000 + 30_000;
+        // let total_emission: u64 = 2 * hardcoded_emission;
+        // assert!(
+        //     (total_stake as i64 - (initial_total_stake + total_emission) as i64).abs() <= TOLERANCE as i64,
+        //     "Total stake should have increased by approximately twice the hardcoded emission amount"
+        // );
+        // // Total stake calculation:
+        // // Initial total stake: 500,000 + 50,000 + 30,000 = 580,000
+        // // Total emission: 2 * 1,000,000 = 2,000,000
+        // // Expected total stake: 580,000 + 2,000,000 = 2,580,000
+
+        // // Additional checks for parent-child relationships
+        // let parent_children: Vec<(u64, U256)> = SubtensorModule::get_children(&parent, netuid);
+        // assert_eq!(
+        //     parent_children,
+        //     vec![(u64::MAX / 4, child1), (u64::MAX / 3, child2)],
+        //     "Parent should have both children with correct proportions"
+        // );
+        // // Parent-child relationship:
+        // // child1: 1/4 of parent's stake
+        // // child2: 1/3 of parent's stake
+
+        // let child1_parents: Vec<(u64, U256)> = SubtensorModule::get_parents(&child1, netuid);
+        // assert_eq!(
+        //     child1_parents,
+        //     vec![(u64::MAX / 4, parent)],
+        //     "Child1 should have parent as its parent with correct proportion"
+        // );
+        // // Child1-parent relationship:
+        // // parent: 1/4 of child1's stake
+
+        // let child2_parents: Vec<(u64, U256)> = SubtensorModule::get_parents(&child2, netuid);
+        // assert_eq!(
+        //     child2_parents,
+        //     vec![(u64::MAX / 3, parent)],
+        //     "Child2 should have parent as its parent with correct proportion"
+        // );
+        // // Child2-parent relationship:
+        // // parent: 1/3 of child2's stake
+
+        // // Check that child2 has received more stake than child1
+        // assert!(
+        //     child2_stake > child1_stake,
+        //     "Child2 should have received more emission than Child1 due to higher proportion"
+        // );
+        // // Child2 stake (874,826) > Child1 stake (778,446)
+
+        // // Check the approximate difference between child2 and child1 stakes
+        // let stake_difference: u64 = child2_stake - child1_stake;
+        // assert!(
+        //     (stake_difference as i64 - 96_380).abs() <= TOLERANCE as i64,
+        //     "The difference between Child2 and Child1 stakes should be close to 96,380, but was {}",
+        //     stake_difference
+        // );
+        // // Stake difference calculation:
+        // // Child2 stake: 874,826
+        // // Child1 stake: 778,446
+        // // Difference: 874,826 - 778,446 = 96,380
     });
 }
