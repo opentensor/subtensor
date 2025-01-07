@@ -132,17 +132,17 @@ fn test_dividends_with_run_to_block() {
 #[test]
 fn test_add_stake_err_signature() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let hotkey_account_id = U256::from(654); // bogus
+        let amount = 20000; // Not used
+        let netuid = 1;
 
-        // let hotkey_account_id = U256::from(654); // bogus
-        // let amount = 20000; // Not used
-
-        // let result = SubtensorModule::add_stake(
-        //     <<Test as Config>::RuntimeOrigin>::none(),
-        //     hotkey_account_id,
-        //     amount,
-        // );
-        // assert_eq!(result, DispatchError::BadOrigin.into());
+        let result = SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::none(),
+            hotkey_account_id,
+            netuid,
+            amount,
+        );
+        assert_eq!(result, DispatchError::BadOrigin.into());
     });
 }
 
