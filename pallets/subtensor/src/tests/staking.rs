@@ -149,20 +149,22 @@ fn test_add_stake_err_signature() {
 #[test]
 fn test_add_stake_not_registered_key_pair() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
-
-        // let coldkey_account_id = U256::from(435445);
-        // let hotkey_account_id = U256::from(54544);
-        // let amount = 1337;
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1800);
-        // assert_eq!(
-        //     SubtensorModule::add_stake(
-        //         <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-        //         hotkey_account_id,
-        //         amount
-        //     ),
-        //     Err(Error::<Test>::HotKeyAccountNotExists.into())
-        // );
+        let subnet_owner_coldkey = U256::from(1);
+        let subnet_owner_hotkey = U256::from(2);
+        let coldkey_account_id = U256::from(435445);
+        let hotkey_account_id = U256::from(54544);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let amount = 1337;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1800);
+        assert_eq!(
+            SubtensorModule::add_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                hotkey_account_id,
+                netuid,
+                amount
+            ),
+            Err(Error::<Test>::HotKeyAccountNotExists.into())
+        );
     });
 }
 
