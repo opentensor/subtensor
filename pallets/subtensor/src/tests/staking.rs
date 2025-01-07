@@ -2,7 +2,7 @@
 #![allow(clippy::arithmetic_side_effects)]
 
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
-use frame_system::Config;
+use frame_system::{Config, RawOrigin};
 
 use super::mock::*;
 use crate::*;
@@ -136,13 +136,15 @@ fn test_add_stake_err_signature() {
         let amount = 20000; // Not used
         let netuid = 1;
 
-        let result = SubtensorModule::add_stake(
-            <<Test as Config>::RuntimeOrigin>::none(),
-            hotkey_account_id,
-            netuid,
-            amount,
+        assert_err!(
+            SubtensorModule::add_stake(
+                RawOrigin::None.into(),
+                hotkey_account_id,
+                netuid,
+                amount,
+            ),
+            DispatchError::BadOrigin
         );
-        assert_eq!(result, DispatchError::BadOrigin.into());
     });
 }
 
@@ -156,14 +158,14 @@ fn test_add_stake_not_registered_key_pair() {
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         let amount = 1337;
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1800);
-        assert_eq!(
+        assert_err!(
             SubtensorModule::add_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                RawOrigin::Signed(coldkey_account_id).into(),
                 hotkey_account_id,
                 netuid,
                 amount
             ),
-            Err(Error::<Test>::HotKeyAccountNotExists.into())
+            Error::<Test>::HotKeyAccountNotExists
         );
     });
 }
@@ -181,7 +183,7 @@ fn test_add_stake_ok_neuron_does_not_belong_to_coldkey() {
 
         // Perform the request which is signed by a different cold key
         assert_ok!(SubtensorModule::add_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(other_cold_key),
+            RawOrigin::Signed(other_cold_key).into(),
             hotkey_id,
             netuid,
             1000,
@@ -192,28 +194,22 @@ fn test_add_stake_ok_neuron_does_not_belong_to_coldkey() {
 #[test]
 fn test_add_stake_err_not_enough_belance() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let coldkey_id = U256::from(544);
+        let hotkey_id = U256::from(54544);
+        let stake = 60_000;
+        let netuid: u16 = add_dynamic_network(&hotkey_id, &coldkey_id);
 
-        // let coldkey_id = U256::from(544);
-        // let hotkey_id = U256::from(54544);
-        // let netuid: u16 = 1;
-        // let tempo: u16 = 13;
-        // let start_nonce: u64 = 0;
-
-        // //add network
-        // add_network(netuid, tempo, 0);
-
-        // register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
-
-        // // Lets try to stake with 0 balance in cold key account
-        // assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_id), 0);
-        // let result = SubtensorModule::add_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(coldkey_id),
-        //     hotkey_id,
-        //     60000,
-        // );
-
-        // assert_eq!(result, Err(Error::<Test>::NotEnoughBalanceToStake.into()));
+        // Lets try to stake with 0 balance in cold key account
+        assert!(SubtensorModule::get_coldkey_balance(&coldkey_id) < stake);
+        assert_err!(
+            SubtensorModule::add_stake(
+                RawOrigin::Signed(coldkey_id).into(),
+                hotkey_id,
+                netuid,
+                stake,
+            ),
+            Error::<Test>::NotEnoughBalanceToStake
+        );
     });
 }
 
