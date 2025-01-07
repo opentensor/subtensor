@@ -10,6 +10,7 @@ use pallet_subtensor::{migrations, Event};
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{ed25519, Pair, U256};
 
+use crate::pallet::PrecompileEnable;
 use crate::Error;
 use mock::*;
 
@@ -1488,5 +1489,76 @@ fn test_schedule_grandpa_change() {
         Grandpa::on_finalize(42);
 
         assert_eq!(Grandpa::grandpa_authorities(), vec![(bob, 1)]);
+    });
+}
+
+#[test]
+fn test_sudo_toggle_evm_precompile() {
+    new_test_ext().execute_with(|| {
+        let precompile_id = crate::PrecompileEnum::BalanceTransfer;
+        let initial_enabled = PrecompileEnable::<Test>::get(precompile_id);
+        assert_eq!(initial_enabled, true); // Assuming the default is true
+
+        run_to_block(1);
+
+        assert_eq!(
+            AdminUtils::sudo_toggle_evm_precompile(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                precompile_id,
+                false
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+
+        assert_ok!(AdminUtils::sudo_toggle_evm_precompile(
+            RuntimeOrigin::root(),
+            precompile_id,
+            false
+        ));
+
+        assert_eq!(
+            System::events()
+                .iter()
+                .filter(|r| r.event
+                    == RuntimeEvent::AdminUtils(crate::Event::PrecompileUpdated {
+                        precompile_id,
+                        enabled: false
+                    }))
+                .count(),
+            1
+        );
+
+        let updated_enabled = PrecompileEnable::<Test>::get(precompile_id);
+        assert_eq!(updated_enabled, false);
+
+        run_to_block(2);
+
+        assert_ok!(AdminUtils::sudo_toggle_evm_precompile(
+            RuntimeOrigin::root(),
+            precompile_id,
+            false
+        ));
+
+        // no event without status change
+        assert_eq!(
+            System::events()
+                .iter()
+                .filter(|r| r.event
+                    == RuntimeEvent::AdminUtils(crate::Event::PrecompileUpdated {
+                        precompile_id,
+                        enabled: false
+                    }))
+                .count(),
+            0
+        );
+
+        assert_ok!(AdminUtils::sudo_toggle_evm_precompile(
+            RuntimeOrigin::root(),
+            precompile_id,
+            true
+        ));
+
+        let final_enabled = PrecompileEnable::<Test>::get(precompile_id);
+        assert_eq!(final_enabled, true);
     });
 }
