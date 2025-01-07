@@ -1201,30 +1201,50 @@ pub struct SubtensorEvmBalanceConverter;
 impl BalanceConverter for SubtensorEvmBalanceConverter {
     /// Convert from Substrate balance (u64) to EVM balance (U256)
     fn into_evm_balance(value: U256) -> Option<U256> {
-        value
-            .checked_mul(U256::from(EVM_TO_SUBSTRATE_DECIMALS))
-            .and_then(|evm_value| {
-                // Ensure the result fits within the maximum U256 value
-                if evm_value <= U256::MAX {
-                    Some(evm_value)
-                } else {
-                    None
-                }
-            })
+        if let Some(evm_value) = value.checked_mul(U256::from(EVM_TO_SUBSTRATE_DECIMALS)) {
+            // Ensure the result fits within the maximum U256 value
+            if evm_value <= U256::MAX {
+                Some(evm_value)
+            } else {
+                // Log value too large
+                log::debug!(
+                    "SubtensorEvmBalanceConverter::into_evm_balance( {:?} ) larger than U256::MAX",
+                    value
+                );
+                None
+            }
+        } else {
+            // Log overflow
+            log::debug!(
+                "SubtensorEvmBalanceConverter::into_evm_balance( {:?} ) overflow",
+                value
+            );
+            None
+        }
     }
 
     /// Convert from EVM balance (U256) to Substrate balance (u64)
     fn into_substrate_balance(value: U256) -> Option<U256> {
-        value
-            .checked_div(U256::from(EVM_TO_SUBSTRATE_DECIMALS))
-            .and_then(|substrate_value| {
-                // Ensure the result fits within the TAO balance type (u64)
-                if substrate_value <= U256::from(u64::MAX) {
-                    Some(substrate_value)
-                } else {
-                    None
-                }
-            })
+        if let Some(substrate_value) = value.checked_div(U256::from(EVM_TO_SUBSTRATE_DECIMALS)) {
+            // Ensure the result fits within the TAO balance type (u64)
+            if substrate_value <= U256::from(u64::MAX) {
+                Some(substrate_value)
+            } else {
+                // Log value too large
+                log::debug!(
+                    "SubtensorEvmBalanceConverter::into_substrate_balance( {:?} ) larger than u64::MAX",
+                    value
+                );
+                None
+            }
+        } else {
+            // Log overflow
+            log::debug!(
+                "SubtensorEvmBalanceConverter::into_substrate_balance( {:?} ) overflow",
+                value
+            );
+            None
+        }
     }
 }
 
@@ -2151,7 +2171,8 @@ fn test_into_substrate_balance_large_value() {
 #[test]
 fn test_into_substrate_balance_exceeds_u64() {
     // EVM balance that exceeds u64 after conversion
-    let evm_balance = (U256::from(u64::MAX) + U256::from(1)) * U256::from(EVM_TO_SUBSTRATE_DECIMALS);
+    let evm_balance =
+        (U256::from(u64::MAX) + U256::from(1)) * U256::from(EVM_TO_SUBSTRATE_DECIMALS);
 
     let result = SubtensorEvmBalanceConverter::into_substrate_balance(evm_balance);
     assert_eq!(result, None); // Exceeds u64, should return None
