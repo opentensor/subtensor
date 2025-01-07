@@ -42,7 +42,7 @@ fn test_add_stake_ok_no_emission() {
         let coldkey_account_id = U256::from(55453);
 
         //add network
-        let netuid: u16 = add_dynamic_network(0, 0, &hotkey_account_id, &coldkey_account_id);
+        let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
 
         println!("Created subnet {:?}", netuid);
 
@@ -83,52 +83,49 @@ fn test_add_stake_ok_no_emission() {
 #[test]
 fn test_dividends_with_run_to_block() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let neuron_src_hotkey_id = U256::from(1);
+        let neuron_dest_hotkey_id = U256::from(2);
+        let coldkey_account_id = U256::from(667);
+        let hotkey_account_id = U256::from(668);
+        let initial_stake: u64 = 5000;
 
-    // let neuron_src_hotkey_id = U256::from(1);
-    // let neuron_dest_hotkey_id = U256::from(2);
-    // let coldkey_account_id = U256::from(667);
-    // let netuid: u16 = 1;
+        //add network
+        let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+        Tempo::<Test>::insert(netuid, 13);
 
-    // let initial_stake: u64 = 5000;
+        // Register neuron, this will set a self weight
+        SubtensorModule::set_max_registrations_per_block(netuid, 3);
+        SubtensorModule::set_max_allowed_uids(1, 5);
 
-    // //add network
-    // add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, neuron_src_hotkey_id, coldkey_account_id, 192213123);
+        register_ok_neuron(netuid, neuron_dest_hotkey_id, coldkey_account_id, 12323);
 
-    // // Register neuron, this will set a self weight
-    // SubtensorModule::set_max_registrations_per_block(netuid, 3);
-    // SubtensorModule::set_max_allowed_uids(1, 5);
+        // Add some stake to the hotkey account, so we can test for emission before the transfer takes place
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&neuron_src_hotkey_id, &coldkey_account_id, netuid, initial_stake);
 
-    // register_ok_neuron(netuid, U256::from(0), coldkey_account_id, 2112321);
-    // register_ok_neuron(netuid, neuron_src_hotkey_id, coldkey_account_id, 192213123);
-    // register_ok_neuron(netuid, neuron_dest_hotkey_id, coldkey_account_id, 12323);
+        // Check if the initial stake has arrived
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&neuron_src_hotkey_id),
+            initial_stake
+        );
 
-    // // Add some stake to the hotkey account, so we can test for emission before the transfer takes place
-    // SubtensorModule::increase_stake_on_hotkey_account(&neuron_src_hotkey_id, initial_stake);
+        // Check if all three neurons are registered
+        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 3);
 
-    // // Check if the initial stake has arrived
-    // assert_eq!(
-    //     SubtensorModule::get_total_stake_for_hotkey(&neuron_src_hotkey_id),
-    //     initial_stake
-    // );
+        // Run a couple of blocks to check if emission works
+        run_to_block(2);
 
-    // // Check if all three neurons are registered
-    // assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 3);
+        // Check if the stake is equal to the inital stake + transfer
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&neuron_src_hotkey_id),
+            initial_stake
+        );
 
-    // // Run a couple of blocks to check if emission works
-    // run_to_block(2);
-
-    // // Check if the stake is equal to the inital stake + transfer
-    // assert_eq!(
-    //     SubtensorModule::get_total_stake_for_hotkey(&neuron_src_hotkey_id),
-    //     initial_stake
-    // );
-
-    // // Check if the stake is equal to the inital stake + transfer
-    // assert_eq!(
-    //     SubtensorModule::get_total_stake_for_hotkey(&neuron_dest_hotkey_id),
-    //     0
-    // );
+        // Check if the stake is equal to the inital stake + transfer
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&neuron_dest_hotkey_id),
+            0
+        );
     });
 }
 
