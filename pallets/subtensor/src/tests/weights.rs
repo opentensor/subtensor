@@ -4443,8 +4443,8 @@ fn test_reveal_crv3_commits_success() {
         }
     });
 }
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_reveal_crv3_commits_cannot_reveal_after_reveal_epoch --exact --show-output --nocapture
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_reveal_crv3_commits_cannot_reveal_after_reveal_epoch --exact --show-output --nocapture
 #[test]
 fn test_reveal_crv3_commits_cannot_reveal_after_reveal_epoch() {
     new_test_ext(100).execute_with(|| {
@@ -4572,7 +4572,6 @@ fn test_reveal_crv3_commits_cannot_reveal_after_reveal_epoch() {
 }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_do_commit_crv3_weights_success --exact --show-output --nocapture
-
 #[test]
 fn test_do_commit_crv3_weights_success() {
     new_test_ext(1).execute_with(|| {
