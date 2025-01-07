@@ -38,8 +38,8 @@ impl<T: Config> Pallet<T> {
         let blocks_since_last_step: u64 = current_block.saturating_sub(last_step);
         Some(DynamicInfo {
             netuid: netuid.into(),
-            owner_hotkey: SubnetOwnerHotkey::<T>::get(netuid).into(),
-            owner_coldkey: SubnetOwner::<T>::get(netuid).into(),
+            owner_hotkey: SubnetOwnerHotkey::<T>::get(netuid),
+            owner_coldkey: SubnetOwner::<T>::get(netuid),
             subnet_name: Self::get_name_for_subnet(netuid).into_iter().map(Compact).collect(),
             token_symbol: Self::get_symbol_for_subnet(netuid).into_iter().map(Compact).collect(),
             tempo: Tempo::<T>::get(netuid).into(),

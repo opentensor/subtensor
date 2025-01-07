@@ -1,5 +1,4 @@
 use super::*;
-use frame_support::IterableStorageDoubleMap;
 use share_pool::{SharePool, SharePoolDataOperations};
 use sp_std::ops::Neg;
 use substrate_fixed::types::{I64F64, I96F32};
@@ -18,7 +17,8 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `u64` - The total alpha issuance for the specified subnet.
     pub fn get_alpha_issuance(netuid: u16) -> u64 {
-        return SubnetAlphaIn::<T>::get(netuid) + SubnetAlphaOut::<T>::get(netuid);
+        SubnetAlphaIn::<T>::get(netuid)
+            .saturating_add(SubnetAlphaOut::<T>::get(netuid))
     }
 
     /// Calculates the price of alpha for a given subnet.
@@ -33,13 +33,17 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `I96F32` - The price of alpha for the specified subnet.
     pub fn get_alpha_price(netuid: u16) -> I96F32 {
-        if SubnetAlphaIn::<T>::get(netuid) == 0 {
-            return I96F32::from_num(0);
-        } else{
-            return I96F32::from_num(SubnetTAO::<T>::get(netuid) )/ I96F32::from_num(SubnetAlphaIn::<T>::get(netuid));
-        }
+        I96F32::from_num(
+            if SubnetAlphaIn::<T>::get(netuid) == 0 {
+                0
+            } else {
+                SubnetTAO::<T>::get(netuid)
+            }
+        )
+        .checked_div(I96F32::from_num(SubnetAlphaIn::<T>::get(netuid)))
+        .unwrap_or(I96F32::from_num(0))
     }
-    
+
     /// Retrieves the global global weight as a normalized value between 0 and 1.
     ///
     /// This function performs the following steps:
@@ -92,36 +96,28 @@ impl<T: Config> Pallet<T> {
     /// Calculates the weighted combination of alpha and global tao for hotkeys on a subnet.
     ///
     pub fn get_stake_weights_for_network(netuid: u16) -> (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) {
-        // Step 1: Get the subnet size (number of neurons).
-        let n: u16 = Self::get_subnetwork_n(netuid);
-
-        // Step 2: Retrieve all hotkeys (neuron keys) on this subnet.
-        let hotkeys: Vec<(u16, T::AccountId)> = <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(netuid).collect();
-
-        // Step 3: Calculate 
-        let mut alpha_stake: Vec<I64F64> = vec![I64F64::from_num(0); n as usize];
-        for (uid_i, hotkey) in &hotkeys {
-            let alpha: u64 = Self::get_inherited_for_hotkey_on_subnet(hotkey, netuid);
-            alpha_stake[*uid_i as usize] = I64F64::from_num(alpha);
-        }
-
-        // Step 4: Calculate the global tao stake vector.
-        // Initialize a vector to store global tao stakes for each neuron.
-        let mut tao_stake: Vec<I64F64> = vec![I64F64::from_num(0); n as usize];
-        for (uid_i, hotkey) in &hotkeys {
-            let tao: u64 = Self::get_inherited_for_hotkey_on_subnet(hotkey, 0);
-            tao_stake[*uid_i as usize] = I64F64::from_num(tao);
-        }
-
-        // Step 5: Combine alpha and root tao stakes.
         // Retrieve the global global weight.
         let tao_weight: I64F64 = I64F64::from_num(Self::get_tao_weight());
+
+        // Step 1: Retrieve all hotkeys (neuron keys) on this subnet.
+        // Step 2: Get stake of all hotkeys (neurons)
+        let alpha_stake: Vec<I64F64> = Keys::<T>::iter_prefix(netuid)
+            .map(|(_uid, hotkey)| I64F64::from_num(Self::get_inherited_for_hotkey_on_subnet(&hotkey, netuid)))
+            .collect();
+
+        // Step 3: Calculate the global tao stake vector.
+        // Initialize a vector to store global tao stakes for each neuron.
+        let tao_stake: Vec<I64F64> = Keys::<T>::iter_prefix(netuid)
+            .map(|(_uid, hotkey)| I64F64::from_num(Self::get_inherited_for_hotkey_on_subnet(&hotkey, 0)))
+            .collect();
+
+        // Step 4: Combine alpha and root tao stakes.
         // Calculate the weighted average of alpha and global tao stakes for each neuron.
         let total_stake: Vec<I64F64> = alpha_stake
             .iter()
             .zip(tao_stake.iter())
             .map(|(alpha_i, tao_i)| {
-                alpha_i + tao_i * tao_weight
+                alpha_i.saturating_add(tao_i.saturating_mul(tao_weight))
             })
             .collect();
 
@@ -274,7 +270,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
     ) -> u64 {
         let alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
-        alpha_share_pool.try_get_value(&coldkey).unwrap_or(0)
+        alpha_share_pool.try_get_value(coldkey).unwrap_or(0)
     }
 
     /// Retrieves the total stake (alpha) for a given hotkey on a specific subnet.
@@ -351,7 +347,7 @@ impl<T: Config> Pallet<T> {
         amount: u64
     ) {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
-        let _ = alpha_share_pool.update_value_for_one(&coldkey, amount as i64);
+        let _ = alpha_share_pool.update_value_for_one(coldkey, amount as i64);
     }
 
     /// Sell shares in the hotkey on a given subnet
@@ -371,7 +367,7 @@ impl<T: Config> Pallet<T> {
         amount: u64
     ) {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
-        let _ = alpha_share_pool.update_value_for_one(&coldkey, (amount as i64).neg());
+        let _ = alpha_share_pool.update_value_for_one(coldkey, (amount as i64).neg());
     }
 
     /// Swaps TAO for the alpha token on the subnet.
