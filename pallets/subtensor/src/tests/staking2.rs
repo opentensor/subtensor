@@ -397,56 +397,70 @@ fn test_share_based_staking_denominator_precision() {
 }
 
 #[test]
-fn test_share_based_staking_denominator_precision_2() {
-    new_test_ext(1).execute_with(|| {
-        let netuid = 1;
-        let hotkey1 = U256::from(1);
-        let coldkey1 = U256::from(2);
-        let coldkey2 = U256::from(3);
-        let stake_amount = 1_000;
+fn test_share_based_staking_stake_unstake_inject() {
+    // Test case amounts: stake, unstake, inject, tolerance
+    [
+        (1_000, 999, 1_000_000, 0),
+        (1_000_000, 999_999, 100_000_000, 0),
+        (1_000_000, 900_000, 100_000_000, 0),
+        (100_000_000_000, 1_000_000_000, 1_000_000_000_000, 1),
+        (100_000_000_000, 99_000_000_000, 1_000_000_000_000, 1),
+        (100_000_000_000, 99_999_999_500, 1_000_000_000_000, 1),
+        (100_000_000_000, 99_999_999_500, 1_234_567_890, 1),
+    ].iter().for_each(|test_case| {
+        new_test_ext(1).execute_with(|| {
+            let netuid = 1;
+            let hotkey1 = U256::from(1);
+            let coldkey1 = U256::from(2);
+            let coldkey2 = U256::from(3);
+            let stake_amount = test_case.0;
+            let unstake_amount = test_case.1;
+            let inject_amount = test_case.2;
+            let tolerance = test_case.3;
 
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey1, 
-            &coldkey1, 
-            netuid, 
-            stake_amount
-        );
-        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey1, 
-            &coldkey1, 
-            netuid, 
-            999
-        );
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey1, 
-            &coldkey2, 
-            netuid, 
-            stake_amount
-        );
-        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey1, 
-            &coldkey2, 
-            netuid, 
-            999
-        );
-        SubtensorModule::increase_stake_for_hotkey_on_subnet(
-            &hotkey1, 
-            netuid, 
-            1_000_000
-        );
+            SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1, 
+                &coldkey1, 
+                netuid, 
+                stake_amount
+            );
+            SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1, 
+                &coldkey1, 
+                netuid, 
+                unstake_amount
+            );
+            SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1, 
+                &coldkey2, 
+                netuid, 
+                stake_amount
+            );
+            SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1, 
+                &coldkey2, 
+                netuid, 
+                unstake_amount
+            );
+            SubtensorModule::increase_stake_for_hotkey_on_subnet(
+                &hotkey1, 
+                netuid, 
+                inject_amount
+            );
+    
+            let stake1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1, 
+                &coldkey1, 
+                netuid
+            );
+            let stake2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1, 
+                &coldkey2, 
+                netuid
+            );
 
-        let stake1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey1, 
-            &coldkey1, 
-            netuid
-        );
-        let stake2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey1, 
-            &coldkey2, 
-            netuid
-        );
-
-        assert_eq!(stake1, 500_000);
-        assert_eq!(stake2, 500_000);
+            assert!((stake1 as i64 - (stake_amount as i64 - unstake_amount as i64 + (inject_amount / 2) as i64)).abs() <= tolerance);
+            assert!((stake2 as i64 - (stake_amount as i64 - unstake_amount as i64 + (inject_amount / 2) as i64)).abs() <= tolerance);
+        });
     });
 }
