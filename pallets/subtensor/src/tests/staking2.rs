@@ -365,3 +365,88 @@ fn test_share_based_staking() {
         );
     });
 }
+
+#[test]
+fn test_share_based_staking_denominator_precision() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let hotkey1 = U256::from(1);
+        let coldkey1 = U256::from(2);
+        let stake_amount = 1_000;
+
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1, 
+            &coldkey1, 
+            netuid, 
+            stake_amount
+        );
+        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1, 
+            &coldkey1, 
+            netuid, 
+            990
+        );
+
+        let stake1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1, 
+            &coldkey1, 
+            netuid
+        );
+        assert_eq!(stake1, 10);
+    });
+}
+
+#[test]
+fn test_share_based_staking_denominator_precision_2() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let hotkey1 = U256::from(1);
+        let coldkey1 = U256::from(2);
+        let coldkey2 = U256::from(3);
+        let stake_amount = 1_000;
+
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1, 
+            &coldkey1, 
+            netuid, 
+            stake_amount
+        );
+        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1, 
+            &coldkey1, 
+            netuid, 
+            999
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1, 
+            &coldkey2, 
+            netuid, 
+            stake_amount
+        );
+        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1, 
+            &coldkey2, 
+            netuid, 
+            999
+        );
+        SubtensorModule::increase_stake_for_hotkey_on_subnet(
+            &hotkey1, 
+            netuid, 
+            1_000_000
+        );
+
+        let stake1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1, 
+            &coldkey1, 
+            netuid
+        );
+        let stake2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1, 
+            &coldkey2, 
+            netuid
+        );
+
+        assert_eq!(stake1, 500_000);
+        assert_eq!(stake2, 500_000);
+    });
+}
