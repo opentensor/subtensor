@@ -29,10 +29,7 @@ fn test_dynamic_function_various_values() {
                     SubnetMechanism::<Test>::insert(1, 1);
                     SubnetTAO::<Test>::insert(1, (price * 1_000_000_000.0) as u64);
                     SubnetAlphaIn::<Test>::insert(1, 1_000_000_000);
-
-                    println!("price: {}, tao_in: {}, alpha_emission: {}", price, tao_in, alpha_emission);
                     let (tao_in_emission, alpha_in_emission, alpha_out_emission) = SubtensorModule::get_dynamic_tao_emission( 1, tao_in, alpha_emission);
-                    println!("tao_in_emission: {}, alpha_in_emission: {}, alpha_out_emission: {}", tao_in_emission, alpha_in_emission, alpha_out_emission);
                     assert!(tao_in_emission <= tao_in as u64, "tao_in_emission is greater than tao_in");
                     assert!(alpha_in_emission <= alpha_emission as u64, "alpha_in_emission is greater than alpha_emission");
                     assert!(alpha_out_emission <= 2 * alpha_emission as u64, "alpha_out_emission is greater than 2 * alpha_emission");

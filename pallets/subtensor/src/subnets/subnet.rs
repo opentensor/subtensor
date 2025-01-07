@@ -105,7 +105,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `u16` - The next available mechanism ID.
     pub fn get_next_netuid() -> u16 {
-        let mut next_netuid = 0;
+        let mut next_netuid = 1; // do not allow creation of root
         let netuids: Vec<u16> = Self::get_all_subnet_netuids();
         loop {
             if !netuids.contains(&next_netuid) {
@@ -205,7 +205,7 @@ impl<T: Config> Pallet<T> {
         // --- 8. Set initial and custom parameters for the network.
         let default_tempo = DefaultTempo::<T>::get();
         Self::init_new_network(netuid_to_register, default_tempo);
-        log::debug!("init_new_network: {:?}", netuid_to_register);
+        println!("init_new_network: {:?}", netuid_to_register);
 
         // --- 9 . Add the caller to the neuron set.
         Self::create_account_if_non_existent(&coldkey, hotkey);
@@ -230,8 +230,8 @@ impl<T: Config> Pallet<T> {
 
         // --- 14. Init the pool by putting the lock as the initial alpha.
         TokenSymbol::<T>::insert(netuid_to_register, Self::get_symbol_for_subnet(netuid_to_register) ); // Set subnet token symbol.
-        SubnetTAO::<T>::insert(netuid_to_register, 1); // add the infintesimal amount of TAO to the pool.
-        SubnetAlphaIn::<T>::insert(netuid_to_register, 1); // add infintesimal amount of alpha to the pool.
+        SubnetTAO::<T>::insert(netuid_to_register, 1_000_000); // add the infintesimal amount of TAO to the pool.
+        SubnetAlphaIn::<T>::insert(netuid_to_register, 1_000_000); // add infintesimal amount of alpha to the pool.
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
         SubnetOwnerHotkey::<T>::insert(netuid_to_register, hotkey.clone());
 

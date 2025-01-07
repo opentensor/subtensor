@@ -1,14 +1,13 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::arithmetic_side_effects)]
 
-// use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
 use frame_system::Config;
 
 use super::mock::*;
 use crate::*;
-// use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
-// use frame_support::sp_runtime::DispatchError;
+use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
+use frame_support::sp_runtime::DispatchError;
 use sp_core::{H256, U256};
 
 /***********************************************************
@@ -18,71 +17,66 @@ use sp_core::{H256, U256};
 #[test]
 fn test_add_stake_dispatch_info_ok() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
-
-        // let hotkey = U256::from(0);
-        // let amount_staked = 5000;
-        // let call = RuntimeCall::SubtensorModule(SubtensorCall::add_stake {
-        //     hotkey,
-        //     amount_staked,
-        // });
-        // assert_eq!(
-        //     call.get_dispatch_info(),
-        //     DispatchInfo {
-        //         weight: frame_support::weights::Weight::from_parts(1_074_000_000, 0),
-        //         class: DispatchClass::Normal,
-        //         pays_fee: Pays::No
-        //     }
-        // );
+        let hotkey = U256::from(0);
+        let amount_staked = 5000;
+        let netuid = 1;
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::add_stake {
+            hotkey,
+            netuid,
+            amount_staked,
+        });
+        assert_eq!(
+            call.get_dispatch_info(),
+            DispatchInfo {
+                weight: frame_support::weights::Weight::from_parts(1_074_000_000, 0),
+                class: DispatchClass::Normal,
+                pays_fee: Pays::No
+            }
+        );
     });
 }
 #[test]
 fn test_add_stake_ok_no_emission() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
 
-        // let hotkey_account_id = U256::from(533453);
-        // let coldkey_account_id = U256::from(55453);
-        // let netuid: u16 = 1;
-        // let tempo: u16 = 13;
-        // let start_nonce: u64 = 0;
+        //add network
+        let netuid: u16 = add_dynamic_network(0, 0, &hotkey_account_id, &coldkey_account_id);
 
-        // //add network
-        // add_network(netuid, tempo, 0);
+        println!("Created subnet {:?}", netuid);
 
-        // // Register neuron
-        // register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
 
-        // // Give it some $$$ in his coldkey balance
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+        // Check we have zero staked before transfer
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            0
+        );
 
-        // // Check we have zero staked before transfer
-        // assert_eq!(
-        //     SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-        //     0
-        // );
+        // Also total stake should be zero
+        assert_eq!(SubtensorModule::get_total_stake(), 0);
 
-        // // Also total stake should be zero
-        // assert_eq!(SubtensorModule::get_total_stake(), 0);
+        // Transfer to hotkey account, and check if the result is ok
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            10000
+        ));
 
-        // // Transfer to hotkey account, and check if the result is ok
-        // assert_ok!(SubtensorModule::add_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-        //     hotkey_account_id,
-        //     10000
-        // ));
+        // Check if stake has increased
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            9999
+        );
 
-        // // Check if stake has increased
-        // assert_eq!(
-        //     SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-        //     9999
-        // );
+        // Check if balance has decreased
+        assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 1);
 
-        // // Check if balance has decreased
-        // assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 1);
-
-        // // Check if total stake has increased accordingly.
-        // assert_eq!(SubtensorModule::get_total_stake(), 9999);
+        // Check if total stake has increased accordingly.
+        assert_eq!(SubtensorModule::get_total_stake(), 9999);
     });
 }
 
