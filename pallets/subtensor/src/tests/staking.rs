@@ -343,48 +343,42 @@ fn test_remove_stake_dispatch_info_ok() {
 #[test]
 fn test_remove_stake_ok_no_emission() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let subnet_owner_coldkey = U256::from(1);
+        let subnet_owner_hotkey = U256::from(2);
+        let coldkey_account_id = U256::from(4343);
+        let hotkey_account_id = U256::from(4968585);
+        let amount = 10000;
+        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
-        // let coldkey_account_id = U256::from(4343);
-        // let hotkey_account_id = U256::from(4968585);
-        // let amount = 10000;
-        // let netuid: u16 = 1;
-        // let tempo: u16 = 13;
-        // let start_nonce: u64 = 0;
+        // Some basic assertions
+        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            0
+        );
+        assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
 
-        // //add network
-        // add_network(netuid, tempo, 0);
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey_account_id, &coldkey_account_id, netuid, amount);
 
-        // // Let's spin up a neuron
-        // register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
+        // Do the magic
+        assert_ok!(SubtensorModule::remove_stake(
+            RawOrigin::Signed(coldkey_account_id).into(),
+            hotkey_account_id,
+            netuid,
+            amount
+        ));
 
-        // // Some basic assertions
-        // assert_eq!(SubtensorModule::get_total_stake(), 0);
-        // assert_eq!(
-        //     SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-        //     0
-        // );
-        // assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
-
-        // // Give the neuron some stake to remove
-        // SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, amount);
-
-        // // Do the magic
-        // assert_ok!(SubtensorModule::remove_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-        //     hotkey_account_id,
-        //     amount
-        // ));
-
-        // assert_eq!(
-        //     SubtensorModule::get_coldkey_balance(&coldkey_account_id),
-        //     amount
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-        //     0
-        // );
-        // assert_eq!(SubtensorModule::get_total_stake(), 0);
+        // we do not expect the exact amount due to slippage
+        assert!(
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id) > amount / 10 * 9,
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            0
+        );
+        assert_eq!(SubtensorModule::get_total_stake(), 0);
     });
 }
 
