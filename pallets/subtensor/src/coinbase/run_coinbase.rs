@@ -46,7 +46,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // Avoid rounding errors.
-        if tao_in_emission < I96F32::from_num(1){
+        if tao_in_emission < I96F32::from_num(1) || alpha_in_emission < I96F32::from_num(1) {
             alpha_in_emission = I96F32::from_num(0);
             tao_in_emission = I96F32::from_num(0);
         }
