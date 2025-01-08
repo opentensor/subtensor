@@ -437,32 +437,23 @@ fn test_remove_stake_err_signature() {
 }
 
 #[test]
-fn test_remove_stake_err_hotkey_does_not_belong_to_coldkey() {
+fn test_remove_stake_ok_hotkey_does_not_belong_to_coldkey() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let coldkey_id = U256::from(544);
+        let hotkey_id = U256::from(54544);
+        let other_cold_key = U256::from(99498);
+        let amount = 1000;
+        let netuid: u16 = add_dynamic_network(&hotkey_id, &coldkey_id);
 
-        // let coldkey_id = U256::from(544);
-        // let hotkey_id = U256::from(54544);
-        // let other_cold_key = U256::from(99498);
-        // let netuid: u16 = 1;
-        // let tempo: u16 = 13;
-        // let start_nonce: u64 = 0;
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey_id, &other_cold_key, netuid, amount);
 
-        // //add network
-        // add_network(netuid, tempo, 0);
-
-        // register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
-
-        // // Perform the request which is signed by a different cold key
-        // let result = SubtensorModule::remove_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(other_cold_key),
-        //     hotkey_id,
-        //     1000,
-        // );
-        // assert_eq!(
-        //     result,
-        //     Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
-        // );
+        assert_ok!(SubtensorModule::remove_stake(
+            RawOrigin::Signed(other_cold_key).into(),
+            hotkey_id,
+            netuid,
+            amount,
+        ));        
     });
 }
 
