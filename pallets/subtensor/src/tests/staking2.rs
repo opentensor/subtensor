@@ -1,5 +1,5 @@
 use super::mock::*;
-// use substrate_fixed::types::I96F32;
+use substrate_fixed::types::I96F32;
 use sp_core::U256;
 use crate::*;
 
@@ -7,61 +7,59 @@ use crate::*;
 #[test]
 fn test_stake_base_case() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let netuid = 1;
+        let tao_to_swap = 1_000_000_000; // 1 TAO
 
-        // let netuid = 1;
-        // let tao_to_swap = 1_000_000_000; // 1 TAO
+        // Set up the subnet with dynamic mechanism
+        SubnetMechanism::<Test>::insert(netuid, 1);
 
-        // // Set up the subnet with dynamic mechanism
-        // SubnetMechanism::<Test>::insert(netuid, 1);
+        // Initialize subnet with some existing TAO and Alpha
+        let initial_subnet_tao = 10_000_000_000; // 10 TAO
+        let initial_subnet_alpha = 5_000_000; // 5 Alpha
+        SubnetTAO::<Test>::insert(netuid, initial_subnet_tao);
+        SubnetAlphaIn::<Test>::insert(netuid, initial_subnet_alpha);
+        SubnetAlphaOut::<Test>::insert(netuid, initial_subnet_alpha);
 
-        // // Initialize subnet with some existing TAO and Alpha
-        // let initial_subnet_tao = 10_000_000_000; // 10 TAO
-        // let initial_subnet_alpha = 5_000_000; // 5 Alpha
-        // SubnetTAO::<Test>::insert(netuid, initial_subnet_tao);
-        // SubnetAlphaIn::<Test>::insert(netuid, initial_subnet_alpha);
-        // SubnetAlphaOut::<Test>::insert(netuid, initial_subnet_alpha);
+        // Record initial total stake
+        let initial_total_stake = TotalStake::<Test>::get();
 
-        // // Record initial total stake
-        // let initial_total_stake = TotalStake::<Test>::get();
+        // Perform swap
+        let alpha_received = SubtensorModule::swap_tao_for_alpha(netuid, tao_to_swap);
 
-        // // Perform swap
-        // let alpha_received = SubtensorModule::swap_tao_for_alpha(netuid, tao_to_swap);
-
-        // // Verify correct alpha calculation using constant product formula
-        // let k = I96F32::from_num(initial_subnet_alpha) * I96F32::from_num(initial_subnet_tao);
-        // let expected_alpha = I96F32::from_num(initial_subnet_alpha) - 
-        //     (k / (I96F32::from_num(initial_subnet_tao + tao_to_swap)));
-        // let expected_alpha_u64 = expected_alpha.to_num::<u64>();
+        // Verify correct alpha calculation using constant product formula
+        let k: I96F32 = I96F32::from_num(initial_subnet_alpha) * I96F32::from_num(initial_subnet_tao);
+        let expected_alpha: I96F32 = I96F32::from_num(initial_subnet_alpha) - 
+            (k / (I96F32::from_num(initial_subnet_tao + tao_to_swap)));
+        let expected_alpha_u64 = expected_alpha.to_num::<u64>();
         
-        // assert_eq!(
-        //     alpha_received, expected_alpha_u64,
-        //     "Alpha received calculation is incorrect"
-        // );
+        assert_eq!(
+            alpha_received, expected_alpha_u64,
+            "Alpha received calculation is incorrect"
+        );
 
-        // // Check subnet updates
-        // assert_eq!(
-        //     SubnetTAO::<Test>::get(netuid),
-        //     initial_subnet_tao + tao_to_swap,
-        //     "Subnet TAO not updated correctly"
-        // );
-        // assert_eq!(
-        //     SubnetAlphaIn::<Test>::get(netuid),
-        //     initial_subnet_alpha - alpha_received,
-        //     "Subnet Alpha In not updated correctly"
-        // );
-        // assert_eq!(
-        //     SubnetAlphaOut::<Test>::get(netuid),
-        //     initial_subnet_alpha + alpha_received,
-        //     "Subnet Alpha Out not updated correctly"
-        // );
+        // Check subnet updates
+        assert_eq!(
+            SubnetTAO::<Test>::get(netuid),
+            initial_subnet_tao + tao_to_swap,
+            "Subnet TAO not updated correctly"
+        );
+        assert_eq!(
+            SubnetAlphaIn::<Test>::get(netuid),
+            initial_subnet_alpha - alpha_received,
+            "Subnet Alpha In not updated correctly"
+        );
+        assert_eq!(
+            SubnetAlphaOut::<Test>::get(netuid),
+            initial_subnet_alpha + alpha_received,
+            "Subnet Alpha Out not updated correctly"
+        );
 
-        // // Check total stake update
-        // assert_eq!(
-        //     TotalStake::<Test>::get(),
-        //     initial_total_stake + tao_to_swap,
-        //     "Total stake not updated correctly"
-        // );
+        // Check total stake update
+        assert_eq!(
+            TotalStake::<Test>::get(),
+            initial_total_stake + tao_to_swap,
+            "Total stake not updated correctly"
+        );
     });
 }
 
@@ -370,32 +368,43 @@ fn test_share_based_staking() {
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::staking2::test_share_based_staking_denominator_precision --exact --show-output
 #[test]
 fn test_share_based_staking_denominator_precision() {
-    new_test_ext(1).execute_with(|| {
-        let netuid = 1;
-        let hotkey1 = U256::from(1);
-        let coldkey1 = U256::from(2);
-        let stake_amount = 1_000_000_000_000;
+    // Test case amounts: stake, unstake, inject, tolerance
+    [
+        (1_000, 990),
+        (1_000, 999),
+        (1_000_000, 990_000),
+        (1_000_000, 999_990),
+        (1_000_000_000, 999_999_990),
+        (1_000_000_000_000, 999_999_999_990),
+    ].iter().for_each(|test_case| {
+        new_test_ext(1).execute_with(|| {
+            let netuid = 1;
+            let hotkey1 = U256::from(1);
+            let coldkey1 = U256::from(2);
+            let stake_amount = test_case.0;
+            let unstake_amount = test_case.1;
 
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey1, 
-            &coldkey1, 
-            netuid, 
-            stake_amount
-        );
-        assert_eq!( Alpha::<Test>::get( (hotkey1, coldkey1, netuid) ), stake_amount );
-        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey1, 
-            &coldkey1, 
-            netuid, 
-            990
-        );
+            SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1, 
+                &coldkey1, 
+                netuid, 
+                stake_amount
+            );
+            assert_eq!( Alpha::<Test>::get( (hotkey1, coldkey1, netuid) ), stake_amount );
+            SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1, 
+                &coldkey1, 
+                netuid, 
+                unstake_amount
+            );
 
-        let stake1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey1, 
-            &coldkey1, 
-            netuid
-        );
-        assert_eq!(stake1, 10);
+            let stake1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1, 
+                &coldkey1, 
+                netuid
+            );
+            assert_eq!(stake1, stake_amount - unstake_amount);
+        });
     });
 }
 
