@@ -461,7 +461,7 @@ fn test_swap_concurrent_modifications() {
         add_network(netuid, 1, 1);
         SubtensorModule::add_balance_to_coldkey_account(
             &new_coldkey,
-            initial_stake + additional_stake + 1000_000,
+            initial_stake + additional_stake + 1_000_000,
         );
         register_ok_neuron(netuid, hotkey, new_coldkey, 1001000);
         assert_ok!(SubtensorModule::add_stake(
@@ -744,7 +744,7 @@ fn test_swap_stake_for_coldkey() {
         // Give some balance to old coldkey
         SubtensorModule::add_balance_to_coldkey_account(
             &old_coldkey,
-            stake_amount1 + stake_amount2 + 1000_000,
+            stake_amount1 + stake_amount2 + 1_000_000,
         );
 
         // Stake to hotkeys
@@ -781,7 +781,7 @@ fn test_swap_stake_for_coldkey() {
 
         // Insert existing for same hotkey1
         // give new coldkey some balance
-        SubtensorModule::add_balance_to_coldkey_account(&new_coldkey, stake_amount3 + 1000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&new_coldkey, stake_amount3 + 1_000_000);
         // Stake to hotkey1
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(new_coldkey),
@@ -895,7 +895,7 @@ fn test_swap_staking_hotkeys_for_coldkey() {
         // Give some balance to old coldkey
         SubtensorModule::add_balance_to_coldkey_account(
             &old_coldkey,
-            stake_amount1 + stake_amount2 + 1000_000,
+            stake_amount1 + stake_amount2 + 1_000_000,
         );
         // Register hotkeys
         register_ok_neuron(netuid, hotkey1, old_coldkey, 0);
@@ -982,7 +982,7 @@ fn test_swap_delegated_stake_for_coldkey() {
         // === Give old_coldkey some balance ===
         SubtensorModule::add_balance_to_coldkey_account(
             &old_coldkey,
-            stake_amount1 + stake_amount2 + 1000_000,
+            stake_amount1 + stake_amount2 + 1_000_000,
         );
         // === Stake to hotkeys ===
         assert_ok!(SubtensorModule::add_stake(

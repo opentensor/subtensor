@@ -1,4 +1,6 @@
 #![allow(clippy::indexing_slicing)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::arithmetic_side_effects)]
 use super::mock::*;
 use frame_support::{assert_err, assert_noop, assert_ok};
 
@@ -1817,6 +1819,7 @@ fn test_get_stake_for_hotkey_on_subnet_multiple_coldkeys() {
 /// - Increases stake for the parent
 /// - Sets the child as the parent's only child with 100% stake allocation
 /// - Checks if the retrieved stake for both parent and child is correct
+///
 /// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_stake_for_hotkey_on_subnet_single_parent_child --exact --show-output --nocapture
 #[test]
 fn test_get_stake_for_hotkey_on_subnet_single_parent_child() {
@@ -1853,7 +1856,8 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_child() {
 /// - Increases stake for both parents
 /// - Sets the child as a 50% stake recipient for both parents
 /// - Checks if the retrieved stake for parents and child is correct
-///  SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_stake_for_hotkey_on_subnet_multiple_parents_single_child --exact --show-output --nocapture
+///
+/// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_stake_for_hotkey_on_subnet_multiple_parents_single_child --exact --show-output --nocapture
 #[test]
 fn test_get_stake_for_hotkey_on_subnet_multiple_parents_single_child() {
     new_test_ext(1).execute_with(|| {
@@ -1905,7 +1909,8 @@ fn test_get_stake_for_hotkey_on_subnet_multiple_parents_single_child() {
 /// - Increases stake for the parent
 /// - Sets both children as 1/3 stake recipients of the parent
 /// - Checks if the retrieved stake for parent and children is correct and preserves total stake
-///  SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_stake_for_hotkey_on_subnet_single_parent_multiple_children --exact --show-output --nocapture
+///
+/// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_stake_for_hotkey_on_subnet_single_parent_multiple_children --exact --show-output --nocapture
 #[test]
 fn test_get_stake_for_hotkey_on_subnet_single_parent_multiple_children() {
     new_test_ext(1).execute_with(|| {
@@ -1967,7 +1972,8 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_multiple_children() {
 /// - Increases stake to the network maximum
 /// - Sets children with 0% and 100% stake allocation
 /// - Checks if the retrieved stake for parent and children is correct and preserves total stake
-///  SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_stake_for_hotkey_on_subnet_edge_cases --exact --show-output --nocapture
+///
+/// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_stake_for_hotkey_on_subnet_edge_cases --exact --show-output --nocapture
 #[test]
 fn test_get_stake_for_hotkey_on_subnet_edge_cases() {
     new_test_ext(1).execute_with(|| {
