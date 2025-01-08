@@ -668,10 +668,9 @@ pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> u16 {
     let lock_cost = SubtensorModule::get_network_lock_cost();
     SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost);
 
-    assert_ok!(
-        SubtensorModule::register_network(
-            RawOrigin::Signed(coldkey.clone()).into(),
-            hotkey.clone()
+    assert_ok!(SubtensorModule::register_network(
+        RawOrigin::Signed(coldkey.clone()).into(),
+        hotkey.clone()
     ));
     NetworkRegistrationAllowed::<Test>::insert(netuid, true);
     NetworkPowRegistrationAllowed::<Test>::insert(netuid, true);

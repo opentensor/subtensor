@@ -218,7 +218,7 @@ impl<T: Config> Pallet<T> {
 
         // 9. swap PendingHotkeyEmissionOnNetuid
         // (DEPRECATED.)
-        
+
         // 10. Swap all subnet specific info.
         let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
         all_netuids.iter().for_each(|netuid| {

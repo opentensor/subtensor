@@ -2,15 +2,18 @@
 use super::mock::*;
 
 use crate::*;
-use sp_core::U256;
 use frame_support::assert_ok;
+use sp_core::U256;
 use substrate_fixed::types::I64F64;
 use substrate_fixed::types::I96F32;
 
-fn close(value: u64, target: u64, eps: u64)  {
+fn close(value: u64, target: u64, eps: u64) {
     assert!(
         (value as i64 - target as i64).abs() < eps as i64,
-        "Assertion failed: value = {}, target = {}, eps = {}", value, target, eps
+        "Assertion failed: value = {}, target = {}, eps = {}",
+        value,
+        target,
+        eps
     )
 }
 
@@ -52,15 +55,19 @@ fn test_dynamic_function_price_equal_emission() {
         let tao_subnet_emission: u64 = 100_000_000;
         let tao_block_emission: u64 = 1_000_000_000;
         let alpha_block_emission: u64 = 1_000_000_000;
-        SubnetTAO::<Test>::insert( netuid, 1_000_000_000);
-        SubnetAlphaIn::<Test>::insert( netuid, 1_000_000_000);
+        SubnetTAO::<Test>::insert(netuid, 1_000_000_000);
+        SubnetAlphaIn::<Test>::insert(netuid, 1_000_000_000);
         add_network(netuid, 110, 100);
-        let (tao_in, alpha_in, alpha_out): (u64, u64, u64) = SubtensorModule::get_dynamic_tao_emission( 
-            netuid, tao_subnet_emission, alpha_block_emission
-        );
-        assert_eq!( tao_in, tao_subnet_emission ); // at price == tao_in == tao_subnet_emission
-        let expected_alpha_in: u64 = (alpha_block_emission * tao_subnet_emission) / tao_block_emission;
-        close(alpha_in, expected_alpha_in, 10 );
-        close(alpha_out, 2 * alpha_block_emission - expected_alpha_in, 10 );
+        let (tao_in, alpha_in, alpha_out): (u64, u64, u64) =
+            SubtensorModule::get_dynamic_tao_emission(
+                netuid,
+                tao_subnet_emission,
+                alpha_block_emission,
+            );
+        assert_eq!(tao_in, tao_subnet_emission); // at price == tao_in == tao_subnet_emission
+        let expected_alpha_in: u64 =
+            (alpha_block_emission * tao_subnet_emission) / tao_block_emission;
+        close(alpha_in, expected_alpha_in, 10);
+        close(alpha_out, 2 * alpha_block_emission - expected_alpha_in, 10);
     });
 }

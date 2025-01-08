@@ -3,12 +3,15 @@
 use super::mock::*;
 use crate::{
     // coinbase::run_coinbase::WeightsTlockPayload, CRV3WeightCommits, Error, Owner,
-    coinbase::run_coinbase::WeightsTlockPayload, CRV3WeightCommits, Error,
+    coinbase::run_coinbase::WeightsTlockPayload,
+    CRV3WeightCommits,
+    Error,
     MAX_CRV3_COMMIT_SIZE_BYTES,
 };
 use ark_serialize::CanonicalDeserialize;
 use frame_support::{
-    assert_err, assert_ok,
+    assert_err,
+    assert_ok,
     // dispatch::{DispatchClass, DispatchInfo, DispatchResult, GetDispatchInfo, Pays},
     dispatch::{DispatchClass, DispatchResult, GetDispatchInfo, Pays},
     // pallet_prelude::{InvalidTransaction, TransactionValidityError},
@@ -67,7 +70,6 @@ fn test_set_rootweights_validate() {
     // correctly filters this transaction.
 
     new_test_ext(0).execute_with(|| {
-
         let dests = vec![1, 1];
         let weights = vec![1, 1];
         let netuid: u16 = 1;
@@ -92,7 +94,7 @@ fn test_set_rootweights_validate() {
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
 
-        SubtensorModule::add_balance_to_coldkey_account(&hotkey,u64::MAX);
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
 
         let min_stake = 500_000_000_000;
         // Set the minimum stake
@@ -101,7 +103,7 @@ fn test_set_rootweights_validate() {
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
         let info: crate::DispatchInfo =
-        crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
         let extension = crate::SubtensorSignedExtension::<Test>::new();
         // Submit to the signed extension validate function
@@ -114,7 +116,12 @@ fn test_set_rootweights_validate() {
         );
 
         // Increase the stake to be equal to the minimum
-        assert_ok!(SubtensorModule::do_add_stake(RuntimeOrigin::signed(hotkey), hotkey, netuid, min_stake));
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(hotkey),
+            hotkey,
+            netuid,
+            min_stake
+        ));
 
         // Verify stake is equal to minimum
         assert_eq!(
@@ -128,7 +135,12 @@ fn test_set_rootweights_validate() {
         assert_ok!(result_min_stake);
 
         // Try with more stake than minimum
-        assert_ok!(SubtensorModule::do_add_stake(RuntimeOrigin::signed(hotkey), hotkey, netuid, 1));
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(hotkey),
+            hotkey,
+            netuid,
+            1
+        ));
 
         // Verify stake is more than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
@@ -171,7 +183,6 @@ fn test_commit_weights_validate() {
     // correctly filters this transaction.
 
     new_test_ext(0).execute_with(|| {
-
         let dests = vec![1, 1];
         let weights = vec![1, 1];
         let netuid: u16 = 1;
@@ -197,7 +208,7 @@ fn test_commit_weights_validate() {
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
 
-        SubtensorModule::add_balance_to_coldkey_account(&hotkey,u64::MAX);
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
 
         let min_stake = 500_000_000_000;
         // Set the minimum stake
@@ -206,7 +217,7 @@ fn test_commit_weights_validate() {
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
         let info: crate::DispatchInfo =
-        crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
         let extension = crate::SubtensorSignedExtension::<Test>::new();
         // Submit to the signed extension validate function
@@ -219,7 +230,12 @@ fn test_commit_weights_validate() {
         );
 
         // Increase the stake to be equal to the minimum
-        assert_ok!(SubtensorModule::do_add_stake(RuntimeOrigin::signed(hotkey), hotkey, netuid, min_stake));
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(hotkey),
+            hotkey,
+            netuid,
+            min_stake
+        ));
 
         // Verify stake is equal to minimum
         assert_eq!(
@@ -233,7 +249,12 @@ fn test_commit_weights_validate() {
         assert_ok!(result_min_stake);
 
         // Try with more stake than minimum
-        assert_ok!(SubtensorModule::do_add_stake(RuntimeOrigin::signed(hotkey), hotkey, netuid, 1));
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(hotkey),
+            hotkey,
+            netuid,
+            1
+        ));
 
         // Verify stake is more than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
@@ -275,7 +296,6 @@ fn test_set_weights_validate() {
     // correctly filters the `set_weights` transaction.
 
     new_test_ext(0).execute_with(|| {
-
         let netuid: u16 = 1;
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1);
@@ -296,7 +316,7 @@ fn test_set_weights_validate() {
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
 
-        SubtensorModule::add_balance_to_coldkey_account(&hotkey,u64::MAX);
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
 
         let min_stake = 500_000_000_000;
         // Set the minimum stake
@@ -305,7 +325,7 @@ fn test_set_weights_validate() {
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
         let info: crate::DispatchInfo =
-        crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
         let extension = crate::SubtensorSignedExtension::<Test>::new();
         // Submit to the signed extension validate function
@@ -317,7 +337,12 @@ fn test_set_weights_validate() {
         );
 
         // Increase the stake to be equal to the minimum
-        assert_ok!(SubtensorModule::do_add_stake(RuntimeOrigin::signed(hotkey), hotkey, netuid, min_stake));
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(hotkey),
+            hotkey,
+            netuid,
+            min_stake
+        ));
 
         // Verify stake is equal to minimum
         assert_eq!(
@@ -363,7 +388,7 @@ fn test_reveal_weights_validate() {
         // Register the hotkey
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
-        SubtensorModule::add_balance_to_coldkey_account(&hotkey,u64::MAX);
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
 
         let min_stake = 500_000_000_000;
         // Set the minimum stake
@@ -372,7 +397,7 @@ fn test_reveal_weights_validate() {
         // Verify stake is less than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
         let info: crate::DispatchInfo =
-        crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
         let extension = crate::SubtensorSignedExtension::<Test>::new();
         // Submit to the signed extension validate function
@@ -385,7 +410,12 @@ fn test_reveal_weights_validate() {
         );
 
         // Increase the stake to be equal to the minimum
-        assert_ok!(SubtensorModule::do_add_stake(RuntimeOrigin::signed(hotkey), hotkey, netuid, min_stake));
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(hotkey),
+            hotkey,
+            netuid,
+            min_stake
+        ));
 
         // Verify stake is equal to minimum
         assert_eq!(
@@ -399,7 +429,12 @@ fn test_reveal_weights_validate() {
         assert_ok!(result_min_stake);
 
         // Try with more stake than minimum
-        assert_ok!(SubtensorModule::do_add_stake(RuntimeOrigin::signed(hotkey), hotkey, netuid, 1));
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(hotkey),
+            hotkey,
+            netuid,
+            1
+        ));
 
         // Verify stake is more than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
@@ -483,7 +518,6 @@ fn test_weights_err_no_validator_permit() {
 #[test]
 fn test_set_stake_threshold_failed() {
     new_test_ext(0).execute_with(|| {
-
         let dests = vec![0];
         let weights = vec![1];
         let netuid: u16 = 1;
@@ -494,14 +528,24 @@ fn test_set_stake_threshold_failed() {
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 2143124);
         SubtensorModule::set_stake_threshold(20_000_000_000_000);
-        SubtensorModule::add_balance_to_coldkey_account(&hotkey,u64::MAX);
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
 
         // Check the signed extension function.
         assert_eq!(SubtensorModule::get_stake_threshold(), 20_000_000_000_000);
         assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
-        assert_ok!(SubtensorModule::do_add_stake(RuntimeOrigin::signed(hotkey), hotkey, netuid, 19_000_000_000_000));
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(hotkey),
+            hotkey,
+            netuid,
+            19_000_000_000_000
+        ));
         assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
-        assert_ok!(SubtensorModule::do_add_stake(RuntimeOrigin::signed(hotkey), hotkey, netuid, 20_000_000_000_000));
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(hotkey),
+            hotkey,
+            netuid,
+            20_000_000_000_000
+        ));
         assert!(SubtensorModule::check_weights_min_stake(&hotkey, netuid));
 
         // Check that it fails at the pallet level.
@@ -517,7 +561,12 @@ fn test_set_stake_threshold_failed() {
             Err(Error::<Test>::NotEnoughStakeToSetWeights.into())
         );
         // Now passes
-        assert_ok!(SubtensorModule::do_add_stake(RuntimeOrigin::signed(hotkey), hotkey, netuid, 100_000_000_000_000));
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(hotkey),
+            hotkey,
+            netuid,
+            100_000_000_000_000
+        ));
         assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,

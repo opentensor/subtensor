@@ -90,7 +90,7 @@ impl StakingPrecompile {
 
         // TODO: Use netuid method parameter here
         let netuid: u16 = 0;
-        
+
         // We have to treat this as uint256 (because of Solidity ABI encoding rules, it pads uint64),
         // but this will never exceed 8 bytes, se we will ignore higher bytes and will only use lower
         // 8 bytes.

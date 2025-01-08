@@ -1,4 +1,3 @@
-mod mock;
 mod batch_tx;
 mod children;
 mod coinbase;
@@ -7,6 +6,7 @@ mod emission;
 mod epoch;
 mod math;
 mod migration;
+mod mock;
 mod networks;
 mod neuron_info;
 mod registration;

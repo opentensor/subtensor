@@ -1,7 +1,7 @@
 use super::*;
 extern crate alloc;
-use codec::Compact;
 use crate::epoch::math::*;
+use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I64F64;
 
@@ -130,19 +130,23 @@ impl<T: Config> Pallet<T> {
             .into_iter()
             .map(Compact::from)
             .collect();
-        let (total_stake_fl, alpha_stake_fl, tao_stake_fl): (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) = Self::get_stake_weights_for_network(netuid);
+        let (total_stake_fl, alpha_stake_fl, tao_stake_fl): (
+            Vec<I64F64>,
+            Vec<I64F64>,
+            Vec<I64F64>,
+        ) = Self::get_stake_weights_for_network(netuid);
         let alpha_stake: Vec<Compact<u64>> = alpha_stake_fl
             .iter()
-            .map(|xi| Compact::from( fixed64_to_u64(*xi) ))
+            .map(|xi| Compact::from(fixed64_to_u64(*xi)))
             .collect::<Vec<Compact<u64>>>();
         let tao_stake: Vec<Compact<u64>> = tao_stake_fl
             .iter()
-            .map(|xi| Compact::from( fixed64_to_u64(*xi) ))
+            .map(|xi| Compact::from(fixed64_to_u64(*xi)))
             .collect::<Vec<Compact<u64>>>();
         let total_stake: Vec<Compact<u64>> = total_stake_fl
-			.iter()
-			.map(|xi| Compact::from( fixed64_to_u64(*xi) ))
-			.collect::<Vec<Compact<u64>>>();
+            .iter()
+            .map(|xi| Compact::from(fixed64_to_u64(*xi)))
+            .collect::<Vec<Compact<u64>>>();
         let emission_history: Vec<Vec<Compact<u64>>> = Self::get_emissions_history(hotkeys.clone());
         Some(SubnetState {
             netuid: netuid.into(),

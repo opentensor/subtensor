@@ -69,7 +69,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
         let owner: T::AccountId = SubnetOwner::<T>::get(netuid);
         let lock: u64 = SubnetLocked::<T>::get(netuid);
         let initial_liquidity: u64 = 100_000_000_000; // 100 TAO.
-        let remaining_lock: u64 = lock.saturating_sub( initial_liquidity );
+        let remaining_lock: u64 = lock.saturating_sub(initial_liquidity);
         Pallet::<T>::add_balance_to_coldkey_account(&owner, remaining_lock);
         SubnetTAO::<T>::insert(netuid, initial_liquidity); // Set TAO to the lock.
         SubnetAlphaIn::<T>::insert(netuid, initial_liquidity); // Set AlphaIn to the initial alpha distribution.
@@ -83,11 +83,11 @@ pub fn migrate_rao<T: Config>() -> Weight {
             // Set Owner as the coldkey.
             SubnetOwnerHotkey::<T>::insert(netuid, owner_coldkey.clone());
             // Associate the coldkey to coldkey.
-            Pallet::<T>::create_account_if_non_existent( &owner_coldkey, &owner_coldkey );
+            Pallet::<T>::create_account_if_non_existent(&owner_coldkey, &owner_coldkey);
             // Register the owner_coldkey as neuron to the network.
-            let _neuron_uid: u16 = Pallet::<T>::register_neuron( *netuid, &owner_coldkey );
+            let _neuron_uid: u16 = Pallet::<T>::register_neuron(*netuid, &owner_coldkey);
             // Register the neuron immediately.
-            if !Identities::<T>::contains_key( owner_coldkey.clone() ) {
+            if !Identities::<T>::contains_key(owner_coldkey.clone()) {
                 // Set the identitiy for the Owner coldkey if non existent.
                 let identity = ChainIdentityOf {
                     name: format!("Owner{}", netuid).as_bytes().to_vec(),
@@ -99,7 +99,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
                 };
                 // Validate the created identity and set it.
                 if Pallet::<T>::is_valid_identity(&identity) {
-                    Identities::<T>::insert( owner_coldkey.clone(), identity.clone() );
+                    Identities::<T>::insert(owner_coldkey.clone(), identity.clone());
                 }
             }
         }
