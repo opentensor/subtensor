@@ -593,66 +593,65 @@ fn test_1_graph() {
 #[test]
 fn test_10_graph() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
-
-        // log::info!("test_10_graph");
-        // // Function for adding a nodes to the graph.
-        // pub fn add_node(netuid: u16, coldkey: U256, hotkey: U256, uid: u16, stake_amount: u64) {
-        //     log::info!(
-        //         "+Add net:{:?} coldkey:{:?} hotkey:{:?} uid:{:?} stake_amount: {:?} subn: {:?}",
-        //         netuid,
-        //         coldkey,
-        //         hotkey,
-        //         uid,
-        //         stake_amount,
-        //         SubtensorModule::get_subnetwork_n(netuid),
-        //     );
-        //     SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-        //         &coldkey,
-        //         &hotkey,
-        //         stake_amount,
-        //     );
-        //     SubtensorModule::append_neuron(netuid, &hotkey, 0);
-        //     assert_eq!(SubtensorModule::get_subnetwork_n(netuid) - 1, uid);
-        // }
-        // // Build the graph with 10 items
-        // // each with 1 stake and self weights.
-        // let n: usize = 10;
-        // let netuid: u16 = 1;
-        // add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
-        // SubtensorModule::set_max_allowed_uids(netuid, n as u16);
-        // for i in 0..10 {
-        //     add_node(netuid, U256::from(i), U256::from(i), i as u16, 1)
-        // }
-        // assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 10);
-        // run_to_block(1); // run to next block to ensure weights are set on nodes after their registration block
-        // for i in 0..10 {
-        //     assert_ok!(SubtensorModule::set_weights(
-        //         RuntimeOrigin::signed(U256::from(i)),
-        //         netuid,
-        //         vec![i as u16],
-        //         vec![u16::MAX],
-        //         0
-        //     ));
-        // }
-        // // Run the epoch.
-        // SubtensorModule::epoch(netuid, 1_000_000_000);
-        // // Check return values.
-        // for i in 0..n {
-        //     assert_eq!(
-        //         SubtensorModule::get_total_stake_for_hotkey(&(U256::from(i))),
-        //         1
-        //     );
-        //     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, i as u16), 0);
-        //     assert_eq!(SubtensorModule::get_trust_for_uid(netuid, i as u16), 0);
-        //     assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, i as u16), 0);
-        //     assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, i as u16), 0);
-        //     assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, i as u16), 0);
-        //     assert_eq!(
-        //         SubtensorModule::get_emission_for_uid(netuid, i as u16),
-        //         99999999
-        //     );
-        // }
+        log::info!("test_10_graph");
+        // Function for adding a nodes to the graph.
+        pub fn add_node(netuid: u16, coldkey: U256, hotkey: U256, uid: u16, stake_amount: u64) {
+            log::info!(
+                "+Add net:{:?} coldkey:{:?} hotkey:{:?} uid:{:?} stake_amount: {:?} subn: {:?}",
+                netuid,
+                coldkey,
+                hotkey,
+                uid,
+                stake_amount,
+                SubtensorModule::get_subnetwork_n(netuid),
+            );
+            SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &coldkey,
+                netuid,
+                stake_amount,
+            );
+            SubtensorModule::append_neuron(netuid, &hotkey, 0);
+            assert_eq!(SubtensorModule::get_subnetwork_n(netuid) - 1, uid);
+        }
+        // Build the graph with 10 items
+        // each with 1 stake and self weights.
+        let n: usize = 10;
+        let netuid: u16 = 1;
+        add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
+        SubtensorModule::set_max_allowed_uids(netuid, n as u16);
+        for i in 0..10 {
+            add_node(netuid, U256::from(i), U256::from(i), i as u16, 1)
+        }
+        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 10);
+        run_to_block(1); // run to next block to ensure weights are set on nodes after their registration block
+        for i in 0..10 {
+            assert_ok!(SubtensorModule::set_weights(
+                RuntimeOrigin::signed(U256::from(i)),
+                netuid,
+                vec![i as u16],
+                vec![u16::MAX],
+                0
+            ));
+        }
+        // Run the epoch.
+        SubtensorModule::epoch(netuid, 1_000_000_000);
+        // Check return values.
+        for i in 0..n {
+            assert_eq!(
+                SubtensorModule::get_total_stake_for_hotkey(&(U256::from(i))),
+                1
+            );
+            assert_eq!(SubtensorModule::get_rank_for_uid(netuid, i as u16), 0);
+            assert_eq!(SubtensorModule::get_trust_for_uid(netuid, i as u16), 0);
+            assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, i as u16), 0);
+            assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, i as u16), 0);
+            assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, i as u16), 0);
+            assert_eq!(
+                SubtensorModule::get_emission_for_uid(netuid, i as u16),
+                99999999
+            );
+        }
     });
 }
 
