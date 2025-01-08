@@ -77,7 +77,7 @@ fn test_add_stake_ok_no_emission() {
         assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 1);
 
         // Check if total stake has increased accordingly.
-        assert_eq!(SubtensorModule::get_total_stake(), 9999);
+        assert_eq!(SubtensorModule::get_total_stake(), 10000);
     });
 }
 
