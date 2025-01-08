@@ -1,7 +1,7 @@
 use super::mock::*;
-use substrate_fixed::types::I96F32;
-use sp_core::U256;
 use crate::*;
+use sp_core::U256;
+use substrate_fixed::types::I96F32;
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --workspace --test staking2 -- test_swap_tao_for_alpha_dynamic_mechanism --exact --nocapture
 #[test]
@@ -27,11 +27,12 @@ fn test_stake_base_case() {
         let alpha_received = SubtensorModule::swap_tao_for_alpha(netuid, tao_to_swap);
 
         // Verify correct alpha calculation using constant product formula
-        let k: I96F32 = I96F32::from_num(initial_subnet_alpha) * I96F32::from_num(initial_subnet_tao);
-        let expected_alpha: I96F32 = I96F32::from_num(initial_subnet_alpha) - 
-            (k / (I96F32::from_num(initial_subnet_tao + tao_to_swap)));
+        let k: I96F32 =
+            I96F32::from_num(initial_subnet_alpha) * I96F32::from_num(initial_subnet_tao);
+        let expected_alpha: I96F32 = I96F32::from_num(initial_subnet_alpha)
+            - (k / (I96F32::from_num(initial_subnet_tao + tao_to_swap)));
         let expected_alpha_u64 = expected_alpha.to_num::<u64>();
-        
+
         assert_eq!(
             alpha_received, expected_alpha_u64,
             "Alpha received calculation is incorrect"
@@ -76,45 +77,51 @@ fn test_share_based_staking() {
         let primary_hotkey = U256::from(1);
         let primary_coldkey = U256::from(2);
         let stake_amount = 1_000_000_000; // 1 TAO
-        
+
         // Test Case 1: Initial Stake
         // The first stake should create shares 1:1 with the staked amount
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &primary_hotkey, 
-            &primary_coldkey, 
-            netuid, 
-            stake_amount
+            &primary_hotkey,
+            &primary_coldkey,
+            netuid,
+            stake_amount,
         );
         let initial_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &primary_hotkey, 
-            &primary_coldkey, 
-            netuid
+            &primary_hotkey,
+            &primary_coldkey,
+            netuid,
         );
         log::info!(
-            "Initial stake: {} = {} + {} = {}", 
-            initial_stake, 0, stake_amount, 0 + stake_amount
+            "Initial stake: {} = {} + {} = {}",
+            initial_stake,
+            0,
+            stake_amount,
+            stake_amount
         );
         assert_eq!(
             initial_stake, stake_amount,
             "Initial stake should match the staked amount exactly"
         );
-        
+
         // Test Case 2: Additional Stake to Same Account
         // Adding more stake to the same account should increase shares proportionally
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &primary_hotkey, 
-            &primary_coldkey, 
-            netuid, 
-            stake_amount
+            &primary_hotkey,
+            &primary_coldkey,
+            netuid,
+            stake_amount,
         );
         let stake_after_second = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &primary_hotkey, 
-            &primary_coldkey, 
-            netuid
+            &primary_hotkey,
+            &primary_coldkey,
+            netuid,
         );
         log::info!(
-            "Stake after second deposit: {} = {} + {} = {}", 
-            stake_after_second, initial_stake, stake_amount, initial_stake + stake_amount
+            "Stake after second deposit: {} = {} + {} = {}",
+            stake_after_second,
+            initial_stake,
+            stake_amount,
+            initial_stake + stake_amount
         );
         assert!(
             (stake_after_second as i64 - (initial_stake + stake_amount) as i64).abs() <= 1,
@@ -123,57 +130,58 @@ fn test_share_based_staking() {
 
         // Test Case 3: Direct Hotkey Stake
         // When staking directly to hotkey, the stake should be distributed proportionally
-        SubtensorModule::increase_stake_for_hotkey_on_subnet(
-            &primary_hotkey, 
-            netuid, 
-            stake_amount
-        );
+        SubtensorModule::increase_stake_for_hotkey_on_subnet(&primary_hotkey, netuid, stake_amount);
         let stake_after_direct = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &primary_hotkey, 
-            &primary_coldkey, 
-            netuid
+            &primary_hotkey,
+            &primary_coldkey,
+            netuid,
         );
         log::info!(
-            "Stake after direct hotkey deposit: {} = {} + {} = {}", 
-            stake_after_direct, stake_after_second, stake_amount, stake_after_second + stake_amount
+            "Stake after direct hotkey deposit: {} = {} + {} = {}",
+            stake_after_direct,
+            stake_after_second,
+            stake_amount,
+            stake_after_second + stake_amount
         );
         assert!(
-             (stake_after_direct as i64 - (stake_after_second + stake_amount) as i64).abs() <= 1,
-             "Direct hotkey stake should be added to existing stake (within rounding error)"
+            (stake_after_direct as i64 - (stake_after_second + stake_amount) as i64).abs() <= 1,
+            "Direct hotkey stake should be added to existing stake (within rounding error)"
         );
 
         // Test Case 4: Multiple Coldkey Support
         // System should support multiple coldkeys staking to the same hotkey
         let secondary_coldkey = U256::from(3);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &primary_hotkey, 
-            &secondary_coldkey, 
-            netuid, 
-            stake_amount
+            &primary_hotkey,
+            &secondary_coldkey,
+            netuid,
+            stake_amount,
         );
         let secondary_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &primary_hotkey, 
-            &secondary_coldkey, 
-            netuid
+            &primary_hotkey,
+            &secondary_coldkey,
+            netuid,
         );
         log::info!(
-            "Secondary coldkey stake: {} = {} + {} = {}", 
-            secondary_stake, 0, stake_amount, 0 + stake_amount
+            "Secondary coldkey stake: {} = {} + {} = {}",
+            secondary_stake,
+            0,
+            stake_amount,
+            stake_amount
         );
         assert!(
-             (secondary_stake as i64 - (stake_amount) as i64).abs() <= 1,
-             "Secondary coldkey should receive full stake amount (within rounding error)"
+            (secondary_stake as i64 - (stake_amount) as i64).abs() <= 1,
+            "Secondary coldkey should receive full stake amount (within rounding error)"
         );
 
         // Test Case 5: Total Stake Verification
         // Verify the total stake across all coldkeys matches expected amount
-        let total_hotkey_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(
-            &primary_hotkey, 
-            netuid 
-        );
+        let total_hotkey_stake =
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&primary_hotkey, netuid);
         log::info!(
-            "Total hotkey stake: {} = {}", 
-            total_hotkey_stake, stake_after_direct + stake_amount
+            "Total hotkey stake: {} = {}",
+            total_hotkey_stake,
+            stake_after_direct + stake_amount
         );
         assert!(
             (total_hotkey_stake as i64 - (stake_after_direct + stake_amount) as i64).abs() <= 1,
@@ -182,42 +190,38 @@ fn test_share_based_staking() {
 
         // Test Case 6: Proportional Distribution
         // When adding stake directly to hotkey, it should be distributed proportionally
-        SubtensorModule::increase_stake_for_hotkey_on_subnet(
-            &primary_hotkey, 
-            netuid, 
-            stake_amount
-        );
+        SubtensorModule::increase_stake_for_hotkey_on_subnet(&primary_hotkey, netuid, stake_amount);
         let primary_final_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &primary_hotkey, 
-            &primary_coldkey, 
-            netuid
+            &primary_hotkey,
+            &primary_coldkey,
+            netuid,
         );
         let secondary_final_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &primary_hotkey, 
-            &secondary_coldkey, 
-            netuid
+            &primary_hotkey,
+            &secondary_coldkey,
+            netuid,
         );
-        
+
         // Calculate expected proportional distribution
-        let primary_expected = stake_after_direct as f64 + 
-            stake_amount as f64 * (stake_after_direct as f64 / total_hotkey_stake as f64);
-        let secondary_expected = secondary_stake as f64 + 
-            stake_amount as f64 * (secondary_stake as f64 / total_hotkey_stake as f64);
-            
+        let primary_expected = stake_after_direct as f64
+            + stake_amount as f64 * (stake_after_direct as f64 / total_hotkey_stake as f64);
+        let secondary_expected = secondary_stake as f64
+            + stake_amount as f64 * (secondary_stake as f64 / total_hotkey_stake as f64);
+
         log::info!(
-            "Primary final stake: {} (expected: {})", 
-            primary_final_stake, 
+            "Primary final stake: {} (expected: {})",
+            primary_final_stake,
             primary_expected
         );
         log::info!(
-            "Secondary final stake: {} (expected: {})", 
-            secondary_final_stake, 
+            "Secondary final stake: {} (expected: {})",
+            secondary_final_stake,
             secondary_expected
         );
-        
+
         assert!(
-             (primary_final_stake as f64 - primary_expected).abs() <= 1.0,
-             "Primary stake should increase proportionally"
+            (primary_final_stake as f64 - primary_expected).abs() <= 1.0,
+            "Primary stake should increase proportionally"
         );
         assert!(
             (secondary_final_stake as f64 - secondary_expected).abs() <= 1.0,
@@ -227,58 +231,65 @@ fn test_share_based_staking() {
         // Test Case 7: Stake Removal
         // Verify correct stake removal from both accounts
         SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-            &primary_hotkey, 
-            &primary_coldkey, 
-            netuid, 
-            stake_amount
+            &primary_hotkey,
+            &primary_coldkey,
+            netuid,
+            stake_amount,
         );
         let primary_after_removal = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &primary_hotkey, 
-            &primary_coldkey, 
-            netuid
+            &primary_hotkey,
+            &primary_coldkey,
+            netuid,
         );
         log::info!(
-            "Primary stake after removal: {} = {} - {} = {}", 
-            primary_after_removal, primary_final_stake, stake_amount, primary_final_stake - stake_amount
+            "Primary stake after removal: {} = {} - {} = {}",
+            primary_after_removal,
+            primary_final_stake,
+            stake_amount,
+            primary_final_stake - stake_amount
         );
         assert!(
-             (primary_after_removal as i64 - (primary_final_stake - stake_amount) as i64).abs() <= 1,
-             "Stake removal should decrease balance by exact amount"
+            (primary_after_removal as i64 - (primary_final_stake - stake_amount) as i64).abs() <= 1,
+            "Stake removal should decrease balance by exact amount"
         );
 
         SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-            &primary_hotkey, 
-            &secondary_coldkey, 
-            netuid, 
-            stake_amount
+            &primary_hotkey,
+            &secondary_coldkey,
+            netuid,
+            stake_amount,
         );
         let secondary_after_removal = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &primary_hotkey, 
-            &secondary_coldkey, 
-            netuid
+            &primary_hotkey,
+            &secondary_coldkey,
+            netuid,
         );
         log::info!(
-            "Secondary stake after removal: {} = {} - {} = {}", 
-            secondary_after_removal, secondary_final_stake, stake_amount, secondary_final_stake - stake_amount
+            "Secondary stake after removal: {} = {} - {} = {}",
+            secondary_after_removal,
+            secondary_final_stake,
+            stake_amount,
+            secondary_final_stake - stake_amount
         );
         assert!(
-             (secondary_after_removal as i64 - (secondary_final_stake - stake_amount) as i64).abs() <= 1,
-             "Stake removal should decrease balance by exact amount"
+            (secondary_after_removal as i64 - (secondary_final_stake - stake_amount) as i64).abs()
+                <= 1,
+            "Stake removal should decrease balance by exact amount"
         );
 
         // Test Case 8: Final Total Verification
         // Verify final total matches sum of remaining stakes
-        let final_total = SubtensorModule::get_stake_for_hotkey_on_subnet(
-            &primary_hotkey, 
-            netuid 
-        );
+        let final_total = SubtensorModule::get_stake_for_hotkey_on_subnet(&primary_hotkey, netuid);
         log::info!(
-            "Final total stake: {} = {} + {} = {}", 
-            final_total, primary_after_removal, secondary_after_removal, 
+            "Final total stake: {} = {} + {} = {}",
+            final_total,
+            primary_after_removal,
+            secondary_after_removal,
             primary_after_removal + secondary_after_removal
         );
         assert!(
-            (final_total as i64 - (primary_after_removal + secondary_after_removal) as i64).abs() <= 1,
+            (final_total as i64 - (primary_after_removal + secondary_after_removal) as i64).abs()
+                <= 1,
             "Final total should match sum of remaining stakes"
         );
 
@@ -286,15 +297,15 @@ fn test_share_based_staking() {
 
         // Test staking with zero amount
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &primary_hotkey, 
-            &primary_coldkey, 
-            netuid, 
-            0
+            &primary_hotkey,
+            &primary_coldkey,
+            netuid,
+            0,
         );
         let zero_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &primary_hotkey, 
-            &primary_coldkey, 
-            netuid
+            &primary_hotkey,
+            &primary_coldkey,
+            netuid,
         );
         assert!(
             zero_stake == primary_after_removal,
@@ -303,25 +314,26 @@ fn test_share_based_staking() {
 
         // Test removing more stake than available
         let available_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &primary_hotkey, 
-            &primary_coldkey, 
-            netuid
-        );        
+            &primary_hotkey,
+            &primary_coldkey,
+            netuid,
+        );
         let excessive_amount = available_stake + 1000;
         log::info!(
-            "Attempting to remove excessive stake: {} + 1000 = {}", 
-            available_stake, excessive_amount
-        );
-        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-            &primary_hotkey, 
-            &primary_coldkey, 
-            netuid, 
+            "Attempting to remove excessive stake: {} + 1000 = {}",
+            available_stake,
             excessive_amount
         );
+        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+            &primary_hotkey,
+            &primary_coldkey,
+            netuid,
+            excessive_amount,
+        );
         let after_excessive_removal = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &primary_hotkey, 
-            &primary_coldkey, 
-            netuid
+            &primary_hotkey,
+            &primary_coldkey,
+            netuid,
         );
         log::info!(
             "Stake after attempting excessive removal: {}",
@@ -329,21 +341,21 @@ fn test_share_based_staking() {
         );
         assert!(
             after_excessive_removal == available_stake,
-            "Removing more stake performs no action" 
+            "Removing more stake performs no action"
         );
 
         // Test staking to non-existent hotkey
-        let non_existent_hotkey =  U256::from(4);
+        let non_existent_hotkey = U256::from(4);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &non_existent_hotkey, 
-            &primary_coldkey, 
-            netuid, 
-            stake_amount
+            &non_existent_hotkey,
+            &primary_coldkey,
+            netuid,
+            stake_amount,
         );
         let non_existent_hotkey_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &non_existent_hotkey, 
-            &primary_coldkey, 
-            netuid
+            &non_existent_hotkey,
+            &primary_coldkey,
+            netuid,
         );
         assert!(
             non_existent_hotkey_stake == stake_amount,
@@ -351,18 +363,19 @@ fn test_share_based_staking() {
         );
 
         // Test removing stake from non-existent coldkey
-        let non_existent_coldkey =  U256::from(5);
+        let non_existent_coldkey = U256::from(5);
         SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-            &primary_hotkey, 
-            &non_existent_coldkey, 
-            netuid, 
-            stake_amount
+            &primary_hotkey,
+            &non_existent_coldkey,
+            netuid,
+            stake_amount,
         );
-        let non_existent_coldkey_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &primary_hotkey, 
-            &non_existent_coldkey, 
-            netuid
-        );
+        let non_existent_coldkey_stake =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &primary_hotkey,
+                &non_existent_coldkey,
+                netuid,
+            );
         assert!(
             non_existent_coldkey_stake == 0,
             "Removing stake from non-existent coldkey should not change the stake"
@@ -381,7 +394,9 @@ fn test_share_based_staking_denominator_precision() {
         (1_000_000, 999_990),
         (1_000_000_000, 999_999_990),
         (1_000_000_000_000, 999_999_999_990),
-    ].iter().for_each(|test_case| {
+    ]
+    .iter()
+    .for_each(|test_case| {
         new_test_ext(1).execute_with(|| {
             let netuid = 1;
             let hotkey1 = U256::from(1);
@@ -390,23 +405,24 @@ fn test_share_based_staking_denominator_precision() {
             let unstake_amount = test_case.1;
 
             SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey1, 
-                &coldkey1, 
-                netuid, 
+                &hotkey1,
+                &coldkey1,
+                netuid,
+                stake_amount,
+            );
+            assert_eq!(
+                Alpha::<Test>::get((hotkey1, coldkey1, netuid)),
                 stake_amount
             );
-            assert_eq!( Alpha::<Test>::get( (hotkey1, coldkey1, netuid) ), stake_amount );
             SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey1, 
-                &coldkey1, 
-                netuid, 
-                unstake_amount
+                &hotkey1,
+                &coldkey1,
+                netuid,
+                unstake_amount,
             );
 
             let stake1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey1, 
-                &coldkey1, 
-                netuid
+                &hotkey1, &coldkey1, netuid,
             );
             assert_eq!(stake1, stake_amount - unstake_amount);
         });
@@ -425,7 +441,9 @@ fn test_share_based_staking_stake_unstake_inject() {
         (100_000_000_000, 99_000_000_000, 1_000_000_000_000, 1),
         (100_000_000_000, 99_999_999_500, 1_000_000_000_000, 1),
         (100_000_000_000, 99_999_999_500, 1_234_567_890, 1),
-    ].iter().for_each(|test_case| {
+    ]
+    .iter()
+    .for_each(|test_case| {
         new_test_ext(1).execute_with(|| {
             let netuid = 1;
             let hotkey1 = U256::from(1);
@@ -437,48 +455,50 @@ fn test_share_based_staking_stake_unstake_inject() {
             let tolerance = test_case.3;
 
             SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey1, 
-                &coldkey1, 
-                netuid, 
-                stake_amount
+                &hotkey1,
+                &coldkey1,
+                netuid,
+                stake_amount,
             );
             SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey1, 
-                &coldkey1, 
-                netuid, 
-                unstake_amount
+                &hotkey1,
+                &coldkey1,
+                netuid,
+                unstake_amount,
             );
             SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey1, 
-                &coldkey2, 
-                netuid, 
-                stake_amount
+                &hotkey1,
+                &coldkey2,
+                netuid,
+                stake_amount,
             );
             SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey1, 
-                &coldkey2, 
-                netuid, 
-                unstake_amount
+                &hotkey1,
+                &coldkey2,
+                netuid,
+                unstake_amount,
             );
-            SubtensorModule::increase_stake_for_hotkey_on_subnet(
-                &hotkey1, 
-                netuid, 
-                inject_amount
-            );
-    
+            SubtensorModule::increase_stake_for_hotkey_on_subnet(&hotkey1, netuid, inject_amount);
+
             let stake1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey1, 
-                &coldkey1, 
-                netuid
+                &hotkey1, &coldkey1, netuid,
             );
             let stake2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey1, 
-                &coldkey2, 
-                netuid
+                &hotkey1, &coldkey2, netuid,
             );
 
-            assert!((stake1 as i64 - (stake_amount as i64 - unstake_amount as i64 + (inject_amount / 2) as i64)).abs() <= tolerance);
-            assert!((stake2 as i64 - (stake_amount as i64 - unstake_amount as i64 + (inject_amount / 2) as i64)).abs() <= tolerance);
+            assert!(
+                (stake1 as i64
+                    - (stake_amount as i64 - unstake_amount as i64 + (inject_amount / 2) as i64))
+                    .abs()
+                    <= tolerance
+            );
+            assert!(
+                (stake2 as i64
+                    - (stake_amount as i64 - unstake_amount as i64 + (inject_amount / 2) as i64))
+                    .abs()
+                    <= tolerance
+            );
         });
     });
 }
@@ -489,9 +509,11 @@ fn test_share_based_staking_stake_inject_stake_new() {
     // Test case amounts: stake, inject, stake, tolerance
     [
         (1, 2_000_000_000, 500_000_000, 1),
-		(1, 5_000_000_000, 50_000_000, 1),
-		(500_000_000, 1_000_000_000, 1_000_000_000, 1),
-    ].iter().for_each(|test_case| {
+        (1, 5_000_000_000, 50_000_000, 1),
+        (500_000_000, 1_000_000_000, 1_000_000_000, 1),
+    ]
+    .iter()
+    .for_each(|test_case| {
         new_test_ext(1).execute_with(|| {
             let netuid = 1;
             let hotkey1 = U256::from(1);
@@ -506,29 +528,21 @@ fn test_share_based_staking_stake_inject_stake_new() {
                 &hotkey1,
                 &coldkey1,
                 netuid,
-                stake_amount
+                stake_amount,
             );
-            SubtensorModule::increase_stake_for_hotkey_on_subnet(
-                &hotkey1,
-                netuid,
-                inject_amount
-            );
+            SubtensorModule::increase_stake_for_hotkey_on_subnet(&hotkey1, netuid, inject_amount);
             SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey1,
                 &coldkey2,
                 netuid,
-                stake_amount_2
+                stake_amount_2,
             );
 
             let stake1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey1,
-                &coldkey1,
-                netuid
+                &hotkey1, &coldkey1, netuid,
             );
             let stake2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey1,
-                &coldkey2,
-                netuid
+                &hotkey1, &coldkey2, netuid,
             );
 
             assert!((stake1 as i64 - (stake_amount + inject_amount) as i64).abs() <= tolerance);

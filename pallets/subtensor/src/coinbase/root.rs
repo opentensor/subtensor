@@ -24,8 +24,6 @@ use sp_std::vec;
 use substrate_fixed::types::I64F64;
 
 impl<T: Config> Pallet<T> {
-
-
     /// Fetches the total count of root network validators
     ///
     /// This function retrieves the total number of root network validators.
@@ -47,7 +45,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_max_root_validators() -> u16 {
         Self::get_max_allowed_uids(Self::get_root_netuid())
     }
-  
+
     /// Checks for any UIDs in the given list that are either equal to the root netuid or exceed the total number of subnets.
     ///
     /// It's important to check for invalid UIDs to ensure data integrity and avoid referencing nonexistent subnets.
@@ -145,8 +143,6 @@ impl<T: Config> Pallet<T> {
         // --- 5. Return the filled weights matrix.
         weights
     }
-
-
 
     /// Registers a user's hotkey to the root network.
     ///
@@ -392,7 +388,8 @@ impl<T: Config> Pallet<T> {
             });
 
             if let Some(last) = sorted_members.last() {
-                let last_stake = Self::get_stake_for_hotkey_on_subnet(last, Self::get_root_netuid());
+                let last_stake =
+                    Self::get_stake_for_hotkey_on_subnet(last, Self::get_root_netuid());
 
                 if last_stake < current_stake {
                     // Swap the member with the lowest stake.
@@ -407,8 +404,6 @@ impl<T: Config> Pallet<T> {
         // Return the swapped out member, if any.
         Ok(last)
     }
-
-
 
     pub fn do_vote_root(
         origin: T::RuntimeOrigin,
@@ -456,8 +451,6 @@ impl<T: Config> Pallet<T> {
             .into())
     }
 
-
-
     /// Facilitates the removal of a user's subnetwork.
     ///
     /// # Args:
@@ -499,7 +492,6 @@ impl<T: Config> Pallet<T> {
         // --- 7. Return success.
         Ok(())
     }
-
 
     /// Removes a network (identified by netuid) and all associated parameters.
     ///

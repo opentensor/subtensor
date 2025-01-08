@@ -668,10 +668,9 @@ pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> u16 {
     let lock_cost = SubtensorModule::get_network_lock_cost();
     SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost);
 
-    assert_ok!(
-        SubtensorModule::register_network(
-            RawOrigin::Signed(coldkey.clone()).into(),
-            hotkey.clone()
+    assert_ok!(SubtensorModule::register_network(
+        RawOrigin::Signed(*coldkey).into(),
+        *hotkey
     ));
     NetworkRegistrationAllowed::<Test>::insert(netuid, true);
     NetworkPowRegistrationAllowed::<Test>::insert(netuid, true);
@@ -738,7 +737,7 @@ pub fn increase_stake_on_coldkey_hotkey_account(
     tao_staked: u64,
     netuid: u16,
 ) {
-    SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked);
+    SubtensorModule::stake_into_subnet(hotkey, coldkey, netuid, tao_staked);
 }
 
 /// Increases the stake on the hotkey account under its owning coldkey.
