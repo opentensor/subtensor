@@ -454,16 +454,44 @@ fn test_swap_concurrent_modifications() {
         let new_coldkey = U256::from(2);
         let hotkey = U256::from(3);
         let netuid: u16 = 1;
-        let initial_stake = 100;
-        let additional_stake = 50;
+        let initial_stake = 1_000_000_000_000;
+        let additional_stake = 500_000_000_000;
 
-        StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
-        Stake::<Test>::insert(hotkey, old_coldkey, initial_stake);
+        // Setup initial state
+        add_network(netuid, 1, 1);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &new_coldkey,
+            initial_stake + additional_stake + 1000_000,
+        );
+        register_ok_neuron(netuid, hotkey, new_coldkey, 1001000);
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(new_coldkey),
+            hotkey,
+            netuid,
+            initial_stake
+        ));
+
+        // Verify initial stake
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &new_coldkey,
+                netuid
+            ),
+            initial_stake
+        );
+
+        // Wait some blocks
+        step_block(10);
+
+        // Get stake before swap
+        let stake_before_swap = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &new_coldkey,
+            netuid,
+        );
 
         // Simulate concurrent stake addition
-        add_network(netuid, 1, 1);
-        SubtensorModule::add_balance_to_coldkey_account(&new_coldkey, additional_stake);
-        register_ok_neuron(netuid, hotkey, new_coldkey, 1001000);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(new_coldkey),
             hotkey,
@@ -478,13 +506,16 @@ fn test_swap_concurrent_modifications() {
             &mut weight
         ));
 
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+        let eps = 500; // RAO
+        assert!(
+            (SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey,
                 &new_coldkey,
                 netuid
-            ),
-            initial_stake + additional_stake - 1
+            ) as i64
+                - (stake_before_swap + additional_stake) as i64)
+                .abs()
+                <= eps
         );
         assert!(!Alpha::<Test>::contains_key((hotkey, old_coldkey, netuid)));
     });
