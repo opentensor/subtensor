@@ -1,7 +1,7 @@
 use super::*;
 use frame_support::weights::Weight;
 use sp_core::Get;
-use substrate_fixed::types::I64F64;
+use substrate_fixed::types::U64F64;
 
 impl<T: Config> Pallet<T> {
     /// Swaps the hotkey of a coldkey account.
@@ -327,9 +327,9 @@ impl<T: Config> Pallet<T> {
             // 3.1 Swap Alpha
             for netuid in Self::get_all_subnet_netuids() {
                 // Get the stake on the old (hot,coldkey) account.
-                let old_alpha: I64F64 = Alpha::<T>::get((&old_hotkey, coldkey.clone(), netuid));
+                let old_alpha: U64F64 = Alpha::<T>::get((&old_hotkey, coldkey.clone(), netuid));
                 // Get the stake on the new (hot,coldkey) account.
-                let new_alpha: I64F64 = Alpha::<T>::get((&new_hotkey, coldkey.clone(), netuid));
+                let new_alpha: U64F64 = Alpha::<T>::get((&new_hotkey, coldkey.clone(), netuid));
                 // Add the stake to new account.
                 Alpha::<T>::insert(
                     (&new_hotkey, coldkey.clone(), netuid),

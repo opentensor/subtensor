@@ -81,7 +81,7 @@ pub mod pallet {
     use sp_std::collections::vec_deque::VecDeque;
     use sp_std::vec;
     use sp_std::vec::Vec;
-    use substrate_fixed::types::I64F64;
+    use substrate_fixed::types::U64F64;
     use subtensor_macros::freeze_struct;
 
     #[cfg(not(feature = "std"))]
@@ -715,8 +715,8 @@ pub mod pallet {
 
     #[pallet::type_value]
     /// Default value for Share Pool variables
-    pub fn DefaultSharePoolZero<T: Config>() -> I64F64 {
-        I64F64::from_num(0)
+    pub fn DefaultSharePoolZero<T: Config>() -> U64F64 {
+        U64F64::from_num(0)
     }
 
     #[pallet::storage]
@@ -944,7 +944,7 @@ pub mod pallet {
         T::AccountId,
         Identity,
         u16,
-        I64F64,
+        U64F64,
         ValueQuery,
         DefaultSharePoolZero<T>,
     >;
@@ -956,7 +956,7 @@ pub mod pallet {
             NMapKey<Blake2_128Concat, T::AccountId>, // cold
             NMapKey<Identity, u16>,                  // subnet
         ),
-        I64F64, // Shares
+        U64F64, // Shares
         ValueQuery,
     >;
     #[pallet::storage] // --- DMAP ( netuid ) --> token_symbol | Returns the token symbol for a subnet.

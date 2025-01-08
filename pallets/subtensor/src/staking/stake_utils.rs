@@ -1,7 +1,7 @@
 use super::*;
 use share_pool::{SharePool, SharePoolDataOperations};
 use sp_std::ops::Neg;
-use substrate_fixed::types::{I64F64, I96F32};
+use substrate_fixed::types::{I64F64, I96F32, U64F64};
 
 impl<T: Config> Pallet<T> {
 
@@ -334,7 +334,7 @@ impl<T: Config> Pallet<T> {
         amount: u64 
     ) {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
-        let _ = alpha_share_pool.update_value_for_all(amount as i64);
+        alpha_share_pool.update_value_for_all(amount as i64);
     }
 
     /// Decrease hotkey stake on a subnet.
@@ -352,7 +352,7 @@ impl<T: Config> Pallet<T> {
         amount: u64 
     ) {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
-        let _ = alpha_share_pool.update_value_for_all((amount as i64).neg());
+        alpha_share_pool.update_value_for_all((amount as i64).neg());
     }
 
     /// Buys shares in the hotkey on a given subnet
@@ -372,7 +372,7 @@ impl<T: Config> Pallet<T> {
         amount: u64
     ) {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
-        let _ = alpha_share_pool.update_value_for_one(coldkey, amount as i64);
+        alpha_share_pool.update_value_for_one(coldkey, amount as i64);
     }
 
     /// Sell shares in the hotkey on a given subnet
@@ -392,7 +392,11 @@ impl<T: Config> Pallet<T> {
         amount: u64
     ) {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
-        let _ = alpha_share_pool.update_value_for_one(coldkey, (amount as i64).neg());
+        if let Ok(value) = alpha_share_pool.try_get_value(&coldkey) {
+            if value >= amount {
+                alpha_share_pool.update_value_for_one(coldkey, (amount as i64).neg());
+            }
+        }
     }
 
     /// Swaps TAO for the alpha token on the subnet.
@@ -656,23 +660,23 @@ impl<T: Config> HotkeyAlphaSharePoolDataOperations<T> {
 type AlphaShareKey<T> = <T as frame_system::Config>::AccountId;
 
 impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>> for HotkeyAlphaSharePoolDataOperations<T> {
-    fn get_shared_value(&self) -> I64F64 {
-        I64F64::from_num(crate::TotalHotkeyAlpha::<T>::get(&self.hotkey, self.netuid))
+    fn get_shared_value(&self) -> U64F64 {
+        U64F64::from_num(crate::TotalHotkeyAlpha::<T>::get(&self.hotkey, self.netuid))
     }
 
-    fn get_share(&self, key: &AlphaShareKey<T>) -> I64F64 {
+    fn get_share(&self, key: &AlphaShareKey<T>) -> U64F64 {
         crate::Alpha::<T>::get((&(self.hotkey), key, self.netuid))
     }
 
-    fn try_get_share(&self, key: &AlphaShareKey<T>) -> Result<I64F64, ()> {
+    fn try_get_share(&self, key: &AlphaShareKey<T>) -> Result<U64F64, ()> {
         crate::Alpha::<T>::try_get((&(self.hotkey), key, self.netuid))
     }
 
-    fn get_denominator(&self) -> I64F64 {
+    fn get_denominator(&self) -> U64F64 {
         crate::TotalHotkeyShares::<T>::get(&(self.hotkey), self.netuid)
     }
 
-    fn set_shared_value(&mut self, value: I64F64) {
+    fn set_shared_value(&mut self, value: U64F64) {
         if value != 0 {
             crate::TotalHotkeyAlpha::<T>::insert(&(self.hotkey), self.netuid, value.to_num::<u64>());
         } else {
@@ -680,7 +684,7 @@ impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>> for HotkeyAlphaSharePo
         }
     }
 
-    fn set_share(&mut self, key: &AlphaShareKey<T>, share: I64F64) {
+    fn set_share(&mut self, key: &AlphaShareKey<T>, share: U64F64) {
         if share != 0 {
             crate::Alpha::<T>::insert((&self.hotkey, key, self.netuid), share);
         } else {
@@ -688,7 +692,7 @@ impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>> for HotkeyAlphaSharePo
         }
     }
 
-    fn set_denominator(&mut self, update: I64F64) {
+    fn set_denominator(&mut self, update: U64F64) {
         if update != 0 {
             crate::TotalHotkeyShares::<T>::insert(&self.hotkey, self.netuid, update);
         } else {

@@ -302,10 +302,15 @@ fn test_share_based_staking() {
         );
 
         // Test removing more stake than available
-        let excessive_amount = primary_after_removal + 1000;
+        let available_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &primary_hotkey, 
+            &primary_coldkey, 
+            netuid
+        );        
+        let excessive_amount = available_stake + 1000;
         log::info!(
             "Attempting to remove excessive stake: {} + 1000 = {}", 
-            primary_after_removal, excessive_amount
+            available_stake, excessive_amount
         );
         SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &primary_hotkey, 
@@ -323,7 +328,7 @@ fn test_share_based_staking() {
             after_excessive_removal
         );
         assert!(
-            after_excessive_removal == primary_after_removal,
+            after_excessive_removal == available_stake,
             "Removing more stake performs no action" 
         );
 
