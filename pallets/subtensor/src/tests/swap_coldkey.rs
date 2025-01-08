@@ -446,44 +446,47 @@ fn test_swap_effect_on_delegated_stake() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_concurrent_modifications --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_swap_concurrent_modifications --exact --show-output
 #[test]
 fn test_swap_concurrent_modifications() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let old_coldkey = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+        let netuid: u16 = 1;
+        let initial_stake = 100;
+        let additional_stake = 50;
 
-        // let old_coldkey = U256::from(1);
-        // let new_coldkey = U256::from(2);
-        // let hotkey = U256::from(3);
-        // let netuid: u16 = 1;
-        // let initial_stake = 100;
-        // let additional_stake = 50;
+        StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
+        Stake::<Test>::insert(hotkey, old_coldkey, initial_stake);
 
-        // StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
-        // Stake::<Test>::insert(hotkey, old_coldkey, initial_stake);
+        // Simulate concurrent stake addition
+        add_network(netuid, 1, 1);
+        SubtensorModule::add_balance_to_coldkey_account(&new_coldkey, additional_stake);
+        register_ok_neuron(netuid, hotkey, new_coldkey, 1001000);
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(new_coldkey),
+            hotkey,
+            netuid,
+            additional_stake
+        ));
 
-        // // Simulate concurrent stake addition
-        // add_network(netuid, 1, 1);
-        // SubtensorModule::add_balance_to_coldkey_account(&new_coldkey, additional_stake);
-        // register_ok_neuron(netuid, hotkey, new_coldkey, 1001000);
-        // assert_ok!(SubtensorModule::add_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(new_coldkey),
-        //     hotkey,
-        //     additional_stake
-        // ));
+        let mut weight = Weight::zero();
+        assert_ok!(SubtensorModule::perform_swap_coldkey(
+            &old_coldkey,
+            &new_coldkey,
+            &mut weight
+        ));
 
-        // let mut weight = Weight::zero();
-        // assert_ok!(SubtensorModule::perform_swap_coldkey(
-        //     &old_coldkey,
-        //     &new_coldkey,
-        //     &mut weight
-        // ));
-
-        // assert_eq!(
-        //     Stake::<Test>::get(hotkey, new_coldkey),
-        //     initial_stake + additional_stake - 1
-        // );
-        // assert!(!Stake::<Test>::contains_key(hotkey, old_coldkey));
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &new_coldkey,
+                netuid
+            ),
+            initial_stake + additional_stake - 1
+        );
+        assert!(!Alpha::<Test>::contains_key((hotkey, old_coldkey, netuid)));
     });
 }
 
