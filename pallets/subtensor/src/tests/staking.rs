@@ -2,7 +2,7 @@
 #![allow(clippy::arithmetic_side_effects)]
 
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
-use frame_system::{Config, RawOrigin};
+use frame_system::RawOrigin;
 
 use super::mock::*;
 use crate::*;
@@ -509,7 +509,7 @@ fn test_remove_stake_total_balance_no_change() {
 
         // Do the magic
         assert_ok!(SubtensorModule::remove_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            RawOrigin::Signed(coldkey_account_id).into(),
             hotkey_account_id,
             netuid,
             amount
@@ -962,21 +962,22 @@ fn test_has_enough_stake_no_for_zero() {
 #[test]
 fn test_non_existent_account() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
-
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-        //     &U256::from(0),
-        //     &(U256::from(0)),
-        //     10,
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_coldkey_and_hotkey(&U256::from(0), &U256::from(0)),
-        //     10
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_total_stake_for_coldkey(&(U256::from(0))),
-        //     10
-        // );
+        let netuid = 1;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &U256::from(0),
+            &(U256::from(0)),
+            netuid,
+            10,
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&U256::from(0), &U256::from(0), netuid),
+            10
+        );
+        // No subnets => no iteration => zero total stake
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&(U256::from(0))),
+            0
+        );
     });
 }
 
@@ -994,7 +995,7 @@ fn test_delegate_stake_division_by_zero_check() {
         add_network(netuid, tempo, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 2341312);
         assert_ok!(SubtensorModule::become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            RawOrigin::Signed(coldkey).into(),
             hotkey
         ));
     });
@@ -1021,7 +1022,7 @@ fn test_faucet_ok() {
 
         #[cfg(feature = "pow-faucet")]
         assert_ok!(SubtensorModule::do_faucet(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            RawOrigin::Signed(coldkey).into(),
             block_number,
             nonce,
             vec_work
@@ -1029,7 +1030,7 @@ fn test_faucet_ok() {
 
         #[cfg(not(feature = "pow-faucet"))]
         assert_ok!(SubtensorModule::do_faucet(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            RawOrigin::Signed(coldkey).into(),
             block_number,
             nonce,
             vec_work
@@ -1044,165 +1045,150 @@ fn test_faucet_ok() {
 #[test]
 fn test_clear_small_nominations() {
     new_test_ext(0).execute_with(|| {
-        assert!(false);
+        // Create subnet and accounts.
+        let subnet_owner_coldkey = U256::from(10);
+        let subnet_owner_hotkey = U256::from(20);
+        let hot1 = U256::from(1);
+        let hot2 = U256::from(2);
+        let cold1 = U256::from(3);
+        let cold2 = U256::from(4);
+        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
-        // System::set_block_number(1);
+        // Register hot1.
+        register_ok_neuron(netuid, hot1, cold1, 0);
+        assert_ok!(SubtensorModule::do_become_delegate(
+            RawOrigin::Signed(cold1).into(),
+            hot1,
+            SubtensorModule::get_min_delegate_take()
+        ));
+        assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot1), cold1);
 
-        // // Create accounts.
-        // let netuid = 1;
-        // let hot1 = U256::from(1);
-        // let hot2 = U256::from(2);
-        // let cold1 = U256::from(3);
-        // let cold2 = U256::from(4);
+        // Register hot2.
+        register_ok_neuron(netuid, hot2, cold2, 0);
+        assert_ok!(SubtensorModule::do_become_delegate(
+            RawOrigin::Signed(cold2).into(),
+            hot2,
+            SubtensorModule::get_min_delegate_take()
+        ));
+        assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot2), cold2);
 
-        // SubtensorModule::set_target_stakes_per_interval(10);
-        // // Register hot1 and hot2 .
-        // add_network(netuid, 0, 0);
+        // Add stake cold1 --> hot1 (non delegation.)
+        SubtensorModule::add_balance_to_coldkey_account(&cold1, 5);
+        assert_ok!(SubtensorModule::add_stake(
+            RawOrigin::Signed(cold1).into(),
+            hot1,
+            netuid,
+            1
+        ));
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold1, netuid),
+            1
+        );
+        assert_eq!(Balances::free_balance(cold1), 4);
 
-        // // Register hot1.
-        // register_ok_neuron(netuid, hot1, cold1, 0);
-        // assert_ok!(SubtensorModule::do_become_delegate(
-        //     <<Test as Config>::RuntimeOrigin>::signed(cold1),
-        //     hot1,
-        //     SubtensorModule::get_min_delegate_take()
-        // ));
-        // assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot1), cold1);
+        // Add stake cold2 --> hot1 (is delegation.)
+        SubtensorModule::add_balance_to_coldkey_account(&cold2, 5);
+        assert_ok!(SubtensorModule::add_stake(
+            RawOrigin::Signed(cold2).into(),
+            hot1,
+            netuid,
+            1
+        ));
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold2, netuid),
+            1
+        );
+        assert_eq!(Balances::free_balance(cold2), 4);
 
-        // // Register hot2.
-        // register_ok_neuron(netuid, hot2, cold2, 0);
-        // assert_ok!(SubtensorModule::do_become_delegate(
-        //     <<Test as Config>::RuntimeOrigin>::signed(cold2),
-        //     hot2,
-        //     SubtensorModule::get_min_delegate_take()
-        // ));
-        // assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot2), cold2);
+        // Add stake cold1 --> hot2 (non delegation.)
+        SubtensorModule::add_balance_to_coldkey_account(&cold1, 5);
+        assert_ok!(SubtensorModule::add_stake(
+            RawOrigin::Signed(cold1).into(),
+            hot2,
+            netuid,
+            1
+        ));
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold1, netuid),
+            1
+        );
+        assert_eq!(Balances::free_balance(cold1), 8);
 
-        // // Add stake cold1 --> hot1 (non delegation.)
-        // SubtensorModule::add_balance_to_coldkey_account(&cold1, 5);
-        // assert_ok!(SubtensorModule::add_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(cold1),
-        //     hot1,
-        //     netuid,
-        //     1
-        // ));
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold1, netuid),
-        //     1
-        // );
-        // assert_eq!(Balances::free_balance(cold1), 4);
+        // Add stake cold2 --> hot2 (is delegation.)
+        SubtensorModule::add_balance_to_coldkey_account(&cold2, 5);
+        assert_ok!(SubtensorModule::add_stake(
+            RawOrigin::Signed(cold2).into(),
+            hot2,
+            netuid,
+            1
+        ));
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold2, netuid),
+            1
+        );
+        assert_eq!(Balances::free_balance(cold2), 8);
 
-        // // Add stake cold2 --> hot1 (is delegation.)
-        // SubtensorModule::add_balance_to_coldkey_account(&cold2, 5);
-        // assert_ok!(SubtensorModule::add_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(cold2),
-        //     hot1,
-        //     netuid,
-        //     1
-        // ));
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold2, netuid),
-        //     1
-        // );
-        // assert_eq!(Balances::free_balance(cold2), 4);
+        // Run clear all small nominations when min stake is zero (noop)
+        SubtensorModule::set_nominator_min_required_stake(0);
+        assert_eq!(SubtensorModule::get_nominator_min_required_stake(), 0);
+        SubtensorModule::clear_small_nominations();
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold1, netuid),
+            1
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold1, netuid),
+            1
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold2, netuid),
+            1
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold2, netuid),
+            1
+        );
 
-        // // Add stake cold1 --> hot2 (non delegation.)
-        // SubtensorModule::add_balance_to_coldkey_account(&cold1, 5);
-        // assert_ok!(SubtensorModule::add_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(cold1),
-        //     hot2,
-        //     netuid,
-        //     1
-        // ));
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold1, netuid),
-        //     1
-        // );
-        // assert_eq!(Balances::free_balance(cold1), 8);
+        // Set min nomination to 10
+        // let total_cold1_stake_before = TotalColdkeyAlpha::<Test>::get(cold1, netuid);
+        // let total_cold2_stake_before = TotalColdkeyAlpha::<Test>::get(cold2, netuid); (DEPRECATED)
+        let total_hot1_stake_before = TotalHotkeyAlpha::<Test>::get(hot1, netuid);
+        let total_hot2_stake_before = TotalHotkeyAlpha::<Test>::get(hot2, netuid);
+        let total_stake_before = TotalStake::<Test>::get();
+        SubtensorModule::set_nominator_min_required_stake(10);
 
-        // // Add stake cold2 --> hot2 (is delegation.)
-        // SubtensorModule::add_balance_to_coldkey_account(&cold2, 5);
-        // assert_ok!(SubtensorModule::add_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(cold2),
-        //     hot2,
-        //     netuid,
-        //     1
-        // ));
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold2, netuid),
-        //     1
-        // );
-        // assert_eq!(Balances::free_balance(cold2), 8);
+        // Run clear all small nominations (removes delegations under 10)
+        SubtensorModule::clear_small_nominations();
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold1, netuid),
+            1
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold1, netuid),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold2, netuid),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold2, netuid),
+            1
+        );
 
-        // // Run clear all small nominations when min stake is zero (noop)
-        // SubtensorModule::set_nominator_min_required_stake(0);
-        // assert_eq!(SubtensorModule::get_nominator_min_required_stake(), 0);
-        // SubtensorModule::clear_small_nominations();
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold1, netuid),
-        //     1
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold1, netuid),
-        //     1
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold2, netuid),
-        //     1
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold2, netuid),
-        //     1
-        // );
+        // Balances have been added back into accounts.
+        assert_eq!(Balances::free_balance(cold1), 9);
+        assert_eq!(Balances::free_balance(cold2), 9);
 
-        // // Set min nomination to 10
-        // // let total_cold1_stake_before = TotalColdkeyAlpha::<Test>::get(cold1, netuid);
-        // // let total_cold2_stake_before = TotalColdkeyAlpha::<Test>::get(cold2, netuid); (DEPRECATED)
-        // let total_hot1_stake_before = TotalHotkeyAlpha::<Test>::get(hot1, netuid);
-        // let total_hot2_stake_before = TotalHotkeyAlpha::<Test>::get(hot2, netuid);
-        // let total_stake_before = TotalStake::<Test>::get();
-        // SubtensorModule::set_nominator_min_required_stake(10);
-
-        // // Run clear all small nominations (removes delegations under 10)
-        // SubtensorModule::clear_small_nominations();
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold1, netuid),
-        //     1
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold1, netuid),
-        //     0
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold2, netuid),
-        //     0
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot2, &cold2, netuid),
-        //     1
-        // );
-
-        // // Balances have been added back into accounts.
-        // assert_eq!(Balances::free_balance(cold1), 9);
-        // assert_eq!(Balances::free_balance(cold2), 9);
-
-        // // Internal storage is updated
-        // // assert_eq!(
-        // //     TotalColdkeyAlpha::<Test>::get(cold2, netuid),
-        // //     total_cold2_stake_before - 1
-        // // ); (DEPRECATED)
-        // assert_eq!(
-        //     TotalHotkeyAlpha::<Test>::get(hot2, netuid),
-        //     total_hot2_stake_before - 1
-        // );
-        // // assert_eq!(
-        // //     TotalColdkeyAlpha::<Test>::get(cold1, netuid),
-        // //     total_cold1_stake_before - 1
-        // // ); (DEPRECATED)
-        // assert_eq!(
-        //     TotalHotkeyAlpha::<Test>::get(hot1, netuid),
-        //     total_hot1_stake_before - 1
-        // );
-        // assert_eq!(TotalStake::<Test>::get(), total_stake_before - 2);
+        assert_eq!(
+            TotalHotkeyAlpha::<Test>::get(hot2, netuid),
+            total_hot2_stake_before - 1
+        );
+        assert_eq!(
+            TotalHotkeyAlpha::<Test>::get(hot1, netuid),
+            total_hot1_stake_before - 1
+        );
+        assert_eq!(TotalStake::<Test>::get(), total_stake_before - 2);
     });
 }
 
@@ -1230,13 +1216,13 @@ fn test_add_stake_below_minimum_threshold() {
         // // Register the neuron to a new network.
         // register_ok_neuron(netuid, hotkey1, coldkey1, 0);
         // assert_ok!(SubtensorModule::become_delegate(
-        //     <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+        //     RawOrigin::Signed(coldkey1).into(),
         //     hotkey1
         // ));
 
         // // Coldkey staking on its own hotkey can stake below min threshold.
         // assert_ok!(SubtensorModule::add_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+        //     RawOrigin::Signed(coldkey1).into(),
         //     hotkey1,
         //     amount_below
         // ));
@@ -1244,7 +1230,7 @@ fn test_add_stake_below_minimum_threshold() {
         // // Nomination stake cannot stake below min threshold.
         // assert_noop!(
         //     SubtensorModule::add_stake(
-        //         <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
+        //         RawOrigin::Signed(coldkey2).into(),
         //         hotkey1,
         //         amount_below
         //     ),
@@ -1279,23 +1265,23 @@ fn test_remove_stake_below_minimum_threshold() {
         // // Register the neuron to a new network.
         // register_ok_neuron(netuid, hotkey1, coldkey1, 0);
         // assert_ok!(SubtensorModule::become_delegate(
-        //     <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+        //     RawOrigin::Signed(coldkey1).into(),
         //     hotkey1
         // ));
         // assert_ok!(SubtensorModule::add_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+        //     RawOrigin::Signed(coldkey1).into(),
         //     hotkey1,
         //     initial_stake
         // ));
         // assert_ok!(SubtensorModule::add_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
+        //     RawOrigin::Signed(coldkey2).into(),
         //     hotkey1,
         //     initial_stake
         // ));
 
         // // Coldkey staking on its own hotkey can unstake below min threshold.
         // assert_ok!(SubtensorModule::remove_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+        //     RawOrigin::Signed(coldkey1).into(),
         //     hotkey1,
         //     stake_amount_to_remove
         // ));
@@ -1310,7 +1296,7 @@ fn test_remove_stake_below_minimum_threshold() {
         // // check the premise of the test is correct
         // assert!(initial_stake - stake_amount_to_remove < minimum_threshold);
         // assert_ok!(SubtensorModule::remove_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
+        //     RawOrigin::Signed(coldkey2).into(),
         //     hotkey1,
         //     stake_amount_to_remove
         // ));
@@ -1366,7 +1352,7 @@ fn test_delegate_take_can_be_decreased() {
 
         // Coldkey / hotkey 0 become delegates with 9% take
         assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            RawOrigin::Signed(coldkey0).into(),
             hotkey0,
             SubtensorModule::get_min_delegate_take()
         ));
@@ -1378,7 +1364,7 @@ fn test_delegate_take_can_be_decreased() {
         // Coldkey / hotkey 0 decreases take to 5%. This should fail as the minimum take is 9%
         assert_err!(
             SubtensorModule::do_decrease_take(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+                RawOrigin::Signed(coldkey0).into(),
                 hotkey0,
                 u16::MAX / 20
             ),
@@ -1405,14 +1391,14 @@ fn test_can_set_min_take_ok() {
 
         // Coldkey / hotkey 0 become delegates
         assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            RawOrigin::Signed(coldkey0).into(),
             hotkey0,
             u16::MAX / 10
         ));
 
         // Coldkey / hotkey 0 decreases take to min
         assert_ok!(SubtensorModule::do_decrease_take(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            RawOrigin::Signed(coldkey0).into(),
             hotkey0,
             SubtensorModule::get_min_delegate_take()
         ));
@@ -1441,7 +1427,7 @@ fn test_delegate_take_can_not_be_increased_with_decrease_take() {
 
         // Coldkey / hotkey 0 become delegates with 10% take
         assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            RawOrigin::Signed(coldkey0).into(),
             hotkey0,
             SubtensorModule::get_min_delegate_take()
         ));
@@ -1453,7 +1439,7 @@ fn test_delegate_take_can_not_be_increased_with_decrease_take() {
         // Coldkey / hotkey 0 tries to increase take to 12.5%
         assert_eq!(
             SubtensorModule::do_decrease_take(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+                RawOrigin::Signed(coldkey0).into(),
                 hotkey0,
                 u16::MAX / 8
             ),
@@ -1484,7 +1470,7 @@ fn test_delegate_take_can_be_increased() {
 
         // Coldkey / hotkey 0 become delegates with 9% take
         assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            RawOrigin::Signed(coldkey0).into(),
             hotkey0,
             SubtensorModule::get_min_delegate_take()
         ));
@@ -1497,7 +1483,7 @@ fn test_delegate_take_can_be_increased() {
 
         // Coldkey / hotkey 0 decreases take to 12.5%
         assert_ok!(SubtensorModule::do_increase_take(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            RawOrigin::Signed(coldkey0).into(),
             hotkey0,
             u16::MAX / 8
         ));
@@ -1523,7 +1509,7 @@ fn test_delegate_take_can_not_be_decreased_with_increase_take() {
 
         // Coldkey / hotkey 0 become delegates with 9% take
         assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            RawOrigin::Signed(coldkey0).into(),
             hotkey0,
             SubtensorModule::get_min_delegate_take()
         ));
@@ -1535,7 +1521,7 @@ fn test_delegate_take_can_not_be_decreased_with_increase_take() {
         // Coldkey / hotkey 0 tries to decrease take to 5%
         assert_eq!(
             SubtensorModule::do_increase_take(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+                RawOrigin::Signed(coldkey0).into(),
                 hotkey0,
                 u16::MAX / 20
             ),
@@ -1566,7 +1552,7 @@ fn test_delegate_take_can_be_increased_to_limit() {
 
         // Coldkey / hotkey 0 become delegates with 9% take
         assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            RawOrigin::Signed(coldkey0).into(),
             hotkey0,
             SubtensorModule::get_min_delegate_take()
         ));
@@ -1579,7 +1565,7 @@ fn test_delegate_take_can_be_increased_to_limit() {
 
         // Coldkey / hotkey 0 tries to increase take to InitialDefaultDelegateTake+1
         assert_ok!(SubtensorModule::do_increase_take(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            RawOrigin::Signed(coldkey0).into(),
             hotkey0,
             InitialDefaultDelegateTake::get()
         ));
@@ -1612,7 +1598,7 @@ fn test_delegate_take_can_not_be_set_beyond_limit() {
         if InitialDefaultDelegateTake::get() != u16::MAX {
             assert_eq!(
                 SubtensorModule::do_become_delegate(
-                    <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+                    RawOrigin::Signed(coldkey0).into(),
                     hotkey0,
                     InitialDefaultDelegateTake::get() + 1
                 ),
@@ -1641,7 +1627,7 @@ fn test_delegate_take_can_not_be_increased_beyond_limit() {
 
         // Coldkey / hotkey 0 become delegates with 9% take
         assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            RawOrigin::Signed(coldkey0).into(),
             hotkey0,
             SubtensorModule::get_min_delegate_take()
         ));
@@ -1655,7 +1641,7 @@ fn test_delegate_take_can_not_be_increased_beyond_limit() {
         if InitialDefaultDelegateTake::get() != u16::MAX {
             assert_eq!(
                 SubtensorModule::do_increase_take(
-                    <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+                    RawOrigin::Signed(coldkey0).into(),
                     hotkey0,
                     InitialDefaultDelegateTake::get() + 1
                 ),
@@ -1687,7 +1673,7 @@ fn test_rate_limits_enforced_on_increase_take() {
 
         // Coldkey / hotkey 0 become delegates with 9% take
         assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            RawOrigin::Signed(coldkey0).into(),
             hotkey0,
             SubtensorModule::get_min_delegate_take()
         ));
@@ -1699,7 +1685,7 @@ fn test_rate_limits_enforced_on_increase_take() {
         // Coldkey / hotkey 0 increases take to 12.5%
         assert_eq!(
             SubtensorModule::do_increase_take(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+                RawOrigin::Signed(coldkey0).into(),
                 hotkey0,
                 u16::MAX / 8
             ),
@@ -1714,7 +1700,7 @@ fn test_rate_limits_enforced_on_increase_take() {
 
         // Can increase after waiting
         assert_ok!(SubtensorModule::do_increase_take(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            RawOrigin::Signed(coldkey0).into(),
             hotkey0,
             u16::MAX / 8
         ));
