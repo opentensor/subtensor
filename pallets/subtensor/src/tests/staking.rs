@@ -6,6 +6,7 @@ use frame_system::{Config, RawOrigin};
 
 use super::mock::*;
 use crate::*;
+use approx::assert_abs_diff_eq;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
 use frame_support::sp_runtime::DispatchError;
 use sp_core::{H256, U256};
@@ -389,7 +390,7 @@ fn test_remove_stake_amount_zero() {
         let subnet_owner_hotkey = U256::from(2);
         let coldkey_account_id = U256::from(4343);
         let hotkey_account_id = U256::from(4968585);
-        let amount = 10000;
+        let amount = 10_000;
         let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
@@ -485,54 +486,53 @@ fn test_remove_stake_total_balance_no_change() {
     //    this is because the stake should be part of the coldkey account balance (reserved/locked)
     //    then the removed stake just becomes free balance
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let subnet_owner_coldkey = U256::from(1);
+        let subnet_owner_hotkey = U256::from(2);
+        let hotkey_account_id = U256::from(571337);
+        let coldkey_account_id = U256::from(71337);
+        let amount = 10_000;
+        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
-        // let hotkey_account_id = U256::from(571337);
-        // let coldkey_account_id = U256::from(71337);
-        // let netuid: u16 = 1;
-        // let tempo: u16 = 13;
-        // let start_nonce: u64 = 0;
-        // let amount = 10000;
+        // Some basic assertions
+        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            0
+        );
+        assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
+        let initial_total_balance = Balances::total_balance(&coldkey_account_id);
+        assert_eq!(initial_total_balance, 0);
 
-        // //add network
-        // add_network(netuid, tempo, 0);
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey_account_id, &coldkey_account_id, netuid, amount);
 
-        // // Register neuron
-        // register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
+        // Do the magic
+        assert_ok!(SubtensorModule::remove_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            amount
+        ));
 
-        // // Some basic assertions
-        // assert_eq!(SubtensorModule::get_total_stake(), 0);
-        // assert_eq!(
-        //     SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-        //     0
-        // );
-        // assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
-        // let initial_total_balance = Balances::total_balance(&coldkey_account_id);
-        // assert_eq!(initial_total_balance, 0);
+        assert_abs_diff_eq!(
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id),
+            amount,
+            epsilon = 1,
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            0
+        );
+        assert_eq!(SubtensorModule::get_total_stake(), 0);
 
-        // // Give the neuron some stake to remove
-        // SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, amount);
-
-        // // Do the magic
-        // assert_ok!(SubtensorModule::remove_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-        //     hotkey_account_id,
-        //     amount
-        // ));
-
-        // assert_eq!(
-        //     SubtensorModule::get_coldkey_balance(&coldkey_account_id),
-        //     amount
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-        //     0
-        // );
-        // assert_eq!(SubtensorModule::get_total_stake(), 0);
-
-        // // Check total balance is equal to the added stake. Even after remove stake (no fee, includes reserved/locked balance)
-        // let total_balance = Balances::total_balance(&coldkey_account_id);
-        // assert_eq!(total_balance, amount);
+        // Check total balance is equal to the added stake. Even after remove stake (no fee, includes reserved/locked balance)
+        let total_balance = Balances::total_balance(&coldkey_account_id);
+        assert_abs_diff_eq!(
+            total_balance,
+            amount,
+            epsilon = 1,
+        );
     });
 }
 

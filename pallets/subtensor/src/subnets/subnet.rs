@@ -230,12 +230,16 @@ impl<T: Config> Pallet<T> {
 
         // --- 14. Init the pool by putting the lock as the initial alpha.
         TokenSymbol::<T>::insert(netuid_to_register, Self::get_symbol_for_subnet(netuid_to_register) ); // Set subnet token symbol.
-        SubnetTAO::<T>::insert(netuid_to_register, 1_000_000); // add the infintesimal amount of TAO to the pool.
-        SubnetAlphaIn::<T>::insert(netuid_to_register, 1_000_000); // add infintesimal amount of alpha to the pool.
+
+        // Put 100 TAO from lock into subnet TAO and produce numerically equal amount of Alpha
+        let pool_initial_tao = 100_000_000_000;
+        let actual_tao_lock_amount_less_pool_tao = actual_tao_lock_amount.saturating_sub(pool_initial_tao);
+        SubnetTAO::<T>::insert(netuid_to_register, pool_initial_tao);
+        SubnetAlphaIn::<T>::insert(netuid_to_register, pool_initial_tao);
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
         SubnetOwnerHotkey::<T>::insert(netuid_to_register, hotkey.clone());
 
-        Self::burn_tokens(actual_tao_lock_amount);
+        Self::burn_tokens(actual_tao_lock_amount_less_pool_tao);
 
         // --- 15. Add the identity if it exists
         if let Some(identity_value) = identity {
