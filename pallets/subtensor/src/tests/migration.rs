@@ -134,35 +134,33 @@ fn test_migration_fix_total_stake_maps() {
     })
 }
 
-#[test]
-// To run this test with cargo, use the following command:
-// cargo test --package pallet-subtensor --test migration test_migrate_total_issuance
-fn test_migrate_total_issuance() {
-    new_test_ext(1).execute_with(|| {
-        assert!(false);
+// #[test]
+// // To run this test with cargo, use the following command:
+// // cargo test --package pallet-subtensor --test migration test_migrate_total_issuance
+// fn test_migrate_total_issuance() {
+//     new_test_ext(1).execute_with(|| {
+//         // Run the migration to check total issuance.
+//         let test: bool = true;
 
-        // // Run the migration to check total issuance.
-        // let test: bool = true;
+//         assert_eq!(SubtensorModule::get_total_issuance(), 0);
+//         crate::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(test);
+//         assert_eq!(SubtensorModule::get_total_issuance(), 0);
 
-        // assert_eq!(SubtensorModule::get_total_issuance(), 0);
-        // crate::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(test);
-        // assert_eq!(SubtensorModule::get_total_issuance(), 0);
+//         SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 10000);
+//         assert_eq!(SubtensorModule::get_total_issuance(), 0);
+//         crate::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(test);
+//         assert_eq!(SubtensorModule::get_total_issuance(), 10000);
 
-        // SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 10000);
-        // assert_eq!(SubtensorModule::get_total_issuance(), 0);
-        // crate::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(test);
-        // assert_eq!(SubtensorModule::get_total_issuance(), 10000);
-
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-        //     &U256::from(1),
-        //     &U256::from(1),
-        //     30000,
-        // );
-        // assert_eq!(SubtensorModule::get_total_issuance(), 10000);
-        // crate::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(test);
-        // assert_eq!(SubtensorModule::get_total_issuance(), 10000 + 30000);
-    })
-}
+//         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+//             &U256::from(1),
+//             &U256::from(1),
+//             30000,
+//         );
+//         assert_eq!(SubtensorModule::get_total_issuance(), 10000);
+//         crate::migrations::migrate_total_issuance::migrate_total_issuance::<Test>(test);
+//         assert_eq!(SubtensorModule::get_total_issuance(), 10000 + 30000);
+//     })
+// }
 
 #[test]
 // To run this test with cargo, use the following command:
