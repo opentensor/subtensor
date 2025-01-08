@@ -219,56 +219,47 @@ fn test_add_stake_total_balance_no_change() {
     // When we add stake, the total balance of the coldkey account should not change
     //    this is because the stake should be part of the coldkey account balance (reserved/locked)
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let hotkey_account_id = U256::from(551337);
+        let coldkey_account_id = U256::from(51337);
+        let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
 
-        // let hotkey_account_id = U256::from(551337);
-        // let coldkey_account_id = U256::from(51337);
-        // let netuid: u16 = 1;
-        // let tempo: u16 = 13;
-        // let start_nonce: u64 = 0;
+        // Give it some $$$ in his coldkey balance
+        let initial_balance = 10000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, initial_balance);
 
-        // //add network
-        // add_network(netuid, tempo, 0);
+        // Check we have zero staked before transfer
+        let initial_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
+        assert_eq!(initial_stake, 0);
 
-        // // Register neuron
-        // register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
+        // Check total balance is equal to initial balance
+        let initial_total_balance = Balances::total_balance(&coldkey_account_id);
+        assert_eq!(initial_total_balance, initial_balance);
 
-        // // Give it some $$$ in his coldkey balance
-        // let initial_balance = 10000;
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, initial_balance);
+        // Also total stake should be zero
+        assert_eq!(SubtensorModule::get_total_stake(), 0);
 
-        // // Check we have zero staked before transfer
-        // let initial_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
-        // assert_eq!(initial_stake, 0);
+        // Stake to hotkey account, and check if the result is ok
+        assert_ok!(SubtensorModule::add_stake(
+            RawOrigin::Signed(coldkey_account_id).into(),
+            hotkey_account_id,
+            netuid,
+            10000
+        ));
 
-        // // Check total balance is equal to initial balance
-        // let initial_total_balance = Balances::total_balance(&coldkey_account_id);
-        // assert_eq!(initial_total_balance, initial_balance);
+        // Check if stake has increased
+        let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
+        assert_eq!(new_stake, 10000);
 
-        // // Also total stake should be zero
-        // assert_eq!(SubtensorModule::get_total_stake(), 0);
+        // Check if free balance has decreased
+        let new_free_balance = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
+        assert_eq!(new_free_balance, 0);
 
-        // // Stake to hotkey account, and check if the result is ok
-        // assert_ok!(SubtensorModule::add_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-        //     hotkey_account_id,
-        //     10000
-        // ));
+        // Check if total stake has increased accordingly.
+        assert_eq!(SubtensorModule::get_total_stake(), 10000);
 
-        // // Check if stake has increased
-        // let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
-        // assert_eq!(new_stake, 10000);
-
-        // // Check if free balance has decreased
-        // let new_free_balance = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
-        // assert_eq!(new_free_balance, 0);
-
-        // // Check if total stake has increased accordingly.
-        // assert_eq!(SubtensorModule::get_total_stake(), 10000);
-
-        // // Check if total balance has remained the same. (no fee, includes reserved/locked balance)
-        // let total_balance = Balances::total_balance(&coldkey_account_id);
-        // assert_eq!(total_balance, initial_total_balance);
+        // Check if total balance has remained the same. (no fee, includes reserved/locked balance)
+        let total_balance = Balances::total_balance(&coldkey_account_id);
+        assert_eq!(total_balance, initial_total_balance);
     });
 }
 
@@ -278,242 +269,116 @@ fn test_add_stake_total_issuance_no_change() {
     // When we add stake, the total issuance of the balances pallet should not change
     //    this is because the stake should be part of the coldkey account balance (reserved/locked)
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let hotkey_account_id = U256::from(561337);
+        let coldkey_account_id = U256::from(61337);
+        let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
 
-        // let hotkey_account_id = U256::from(561337);
-        // let coldkey_account_id = U256::from(61337);
-        // let netuid: u16 = 1;
-        // let tempo: u16 = 13;
-        // let start_nonce: u64 = 0;
+        // Give it some $$$ in his coldkey balance
+        let initial_balance = 10000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, initial_balance);
 
-        // //add network
-        // add_network(netuid, tempo, 0);
+        // Check we have zero staked before transfer
+        let initial_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
+        assert_eq!(initial_stake, 0);
 
-        // // Register neuron
-        // register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
+        // Check total balance is equal to initial balance
+        let initial_total_balance = Balances::total_balance(&coldkey_account_id);
+        assert_eq!(initial_total_balance, initial_balance);
 
-        // // Give it some $$$ in his coldkey balance
-        // let initial_balance = 10000;
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, initial_balance);
+        // Check total issuance is equal to initial balance
+        let initial_total_issuance = Balances::total_issuance();
+        assert_eq!(initial_total_issuance, initial_balance);
 
-        // // Check we have zero staked before transfer
-        // let initial_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
-        // assert_eq!(initial_stake, 0);
+        // Also total stake should be zero
+        assert_eq!(SubtensorModule::get_total_stake(), 0);
 
-        // // Check total balance is equal to initial balance
-        // let initial_total_balance = Balances::total_balance(&coldkey_account_id);
-        // assert_eq!(initial_total_balance, initial_balance);
+        // Stake to hotkey account, and check if the result is ok
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            10000
+        ));
 
-        // // Check total issuance is equal to initial balance
-        // let initial_total_issuance = Balances::total_issuance();
-        // assert_eq!(initial_total_issuance, initial_balance);
+        // Check if stake has increased
+        let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
+        assert_eq!(new_stake, 10000);
 
-        // // Also total stake should be zero
-        // assert_eq!(SubtensorModule::get_total_stake(), 0);
+        // Check if free balance has decreased
+        let new_free_balance = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
+        assert_eq!(new_free_balance, 0);
 
-        // // Stake to hotkey account, and check if the result is ok
-        // assert_ok!(SubtensorModule::add_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-        //     hotkey_account_id,
-        //     10000
-        // ));
+        // Check if total stake has increased accordingly.
+        assert_eq!(SubtensorModule::get_total_stake(), 10000);
 
-        // // Check if stake has increased
-        // let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
-        // assert_eq!(new_stake, 10000);
-
-        // // Check if free balance has decreased
-        // let new_free_balance = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
-        // assert_eq!(new_free_balance, 0);
-
-        // // Check if total stake has increased accordingly.
-        // assert_eq!(SubtensorModule::get_total_stake(), 10000);
-
-        // // Check if total issuance has remained the same. (no fee, includes reserved/locked balance)
-        // let total_issuance = Balances::total_issuance();
-        // assert_eq!(total_issuance, initial_total_issuance);
-    });
-}
-
-#[test]
-fn test_staking_rate_limit() {
-    new_test_ext(1).execute_with(|| {
-        assert!(false);
-
-        // let hotkey = U256::from(561337);
-        // let coldkey = U256::from(61337);
-        // let netuid = 1;
-        // let max_stakes = 3;
-
-        // add_network(netuid, 13, 0);
-        // register_ok_neuron(netuid, hotkey, coldkey, 0);
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey, 60000);
-
-        // // block 1, stake 1
-        // assert_eq!(
-        //     TotalHotkeyColdkeyStakesThisInterval::<Test>::get(coldkey, hotkey),
-        //     (0, 0)
-        // );
-
-        // assert_ok!(SubtensorModule::add_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-        //     hotkey,
-        //     1,
-        // ));
-
-        // assert_eq!(
-        //     TotalHotkeyColdkeyStakesThisInterval::<Test>::get(coldkey, hotkey),
-        //     (1, 1)
-        // );
-
-        // // block 2
-        // step_block(1);
-
-        // // stake 2 and 3
-        // assert_ok!(SubtensorModule::add_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-        //     hotkey,
-        //     1,
-        // ));
-        // // remove should increase the counter
-        // assert_ok!(SubtensorModule::remove_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-        //     hotkey,
-        //     1,
-        // ));
-
-        // // counter should be increased, while the block should not be changed
-        // assert_eq!(
-        //     TotalHotkeyColdkeyStakesThisInterval::<Test>::get(coldkey, hotkey),
-        //     (3, 1)
-        // );
-
-        // // block 3
-        // step_block(1);
-
-        // // stake 4
-        // assert_noop!(
-        //     SubtensorModule::add_stake(
-        //         <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-        //         hotkey,
-        //         1,
-        //     ),
-        //     Error::<Test>::StakingRateLimitExceeded
-        // );
-        // assert_noop!(
-        //     SubtensorModule::remove_stake(
-        //         <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-        //         hotkey,
-        //         1,
-        //     ),
-        //     Error::<Test>::StakingRateLimitExceeded
-        // );
-
-        // // should not be changed
-        // assert_eq!(
-        //     TotalHotkeyColdkeyStakesThisInterval::<Test>::get(coldkey, hotkey),
-        //     (3, 1)
-        // );
-
-        // // block 4
-        // step_block(1);
-
-        // // should pass now, because of the interval end
-        // assert_ok!(SubtensorModule::add_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-        //     hotkey,
-        //     1,
-        // ));
-
-        // assert_eq!(
-        //     TotalHotkeyColdkeyStakesThisInterval::<Test>::get(coldkey, hotkey),
-        //     (1, 4)
-        // );
-
-        // // block 5
-        // step_block(1);
-
-        // assert_ok!(SubtensorModule::remove_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-        //     hotkey,
-        //     1,
-        // ));
-
-        // assert_eq!(
-        //     TotalHotkeyColdkeyStakesThisInterval::<Test>::get(coldkey, hotkey),
-        //     (2, 4)
-        // );
+        // Check if total issuance has remained the same. (no fee, includes reserved/locked balance)
+        let total_issuance = Balances::total_issuance();
+        assert_eq!(total_issuance, initial_total_issuance);
     });
 }
 
 #[test]
 fn test_remove_stake_dispatch_info_ok() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
-
-        // let hotkey = U256::from(0);
-        // let amount_unstaked = 5000;
-        // let call = RuntimeCall::SubtensorModule(SubtensorCall::remove_stake {
-        //     hotkey,
-        //     amount_unstaked,
-        // });
-        // assert_eq!(
-        //     call.get_dispatch_info(),
-        //     DispatchInfo {
-        //         weight: frame_support::weights::Weight::from_parts(1_061_000_000, 0)
-        //             .add_proof_size(43991),
-        //         class: DispatchClass::Normal,
-        //         pays_fee: Pays::No
-        //     }
-        // );
+        let hotkey = U256::from(0);
+        let amount_unstaked = 5000;
+        let netuid = 1;
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::remove_stake {
+            hotkey,
+            netuid,
+            amount_unstaked,
+        });
+        assert_eq!(
+            call.get_dispatch_info(),
+            DispatchInfo {
+                weight: frame_support::weights::Weight::from_parts(1_061_000_000, 0)
+                    .add_proof_size(43991),
+                class: DispatchClass::Normal,
+                pays_fee: Pays::No
+            }
+        );
     });
 }
 
 #[test]
 fn test_remove_stake_ok_no_emission() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let subnet_owner_coldkey = U256::from(1);
+        let subnet_owner_hotkey = U256::from(2);
+        let coldkey_account_id = U256::from(4343);
+        let hotkey_account_id = U256::from(4968585);
+        let amount = 10000;
+        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
-        // let coldkey_account_id = U256::from(4343);
-        // let hotkey_account_id = U256::from(4968585);
-        // let amount = 10000;
-        // let netuid: u16 = 1;
-        // let tempo: u16 = 13;
-        // let start_nonce: u64 = 0;
+        // Some basic assertions
+        assert_eq!(SubtensorModule::get_total_stake(), 0);
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            0
+        );
+        assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
 
-        // //add network
-        // add_network(netuid, tempo, 0);
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey_account_id, &coldkey_account_id, netuid, amount);
 
-        // // Let's spin up a neuron
-        // register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
+        // Do the magic
+        assert_ok!(SubtensorModule::remove_stake(
+            RawOrigin::Signed(coldkey_account_id).into(),
+            hotkey_account_id,
+            netuid,
+            amount
+        ));
 
-        // // Some basic assertions
-        // assert_eq!(SubtensorModule::get_total_stake(), 0);
-        // assert_eq!(
-        //     SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-        //     0
-        // );
-        // assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
-
-        // // Give the neuron some stake to remove
-        // SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, amount);
-
-        // // Do the magic
-        // assert_ok!(SubtensorModule::remove_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-        //     hotkey_account_id,
-        //     amount
-        // ));
-
-        // assert_eq!(
-        //     SubtensorModule::get_coldkey_balance(&coldkey_account_id),
-        //     amount
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-        //     0
-        // );
-        // assert_eq!(SubtensorModule::get_total_stake(), 0);
+        // we do not expect the exact amount due to slippage
+        assert!(
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id) > amount / 10 * 9,
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            0
+        );
+        assert_eq!(SubtensorModule::get_total_stake(), 0);
     });
 }
 

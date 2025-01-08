@@ -176,6 +176,15 @@ impl<T: Config> Pallet<T> {
         for &netuid in subnets.iter() {
             // 7.1: Pass on subnets that have not reached their tempo.
             if Self::should_run_epoch(netuid, current_block) {
+
+                if let Err(e) = Self::reveal_crv3_commits(netuid) {
+                    log::warn!(
+                        "Failed to reveal commits for subnet {} due to error: {:?}",
+                        netuid,
+                        e
+                    );
+                };
+
                 // Restart counters.
                 BlocksSinceLastStep::<T>::insert( netuid, 0 );
                 LastMechansimStepBlock::<T>::insert( netuid, current_block );  
