@@ -813,7 +813,7 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountLinkage<T>,
     >;
-    #[pallet::storage] // --- DMAP ( netuid, hotkey ) --> u64 | Last total dividend this hotkey got on tempo. 
+    #[pallet::storage] // --- DMAP ( netuid, hotkey ) --> u64 | Last total dividend this hotkey got on tempo.
     pub type HotkeyDividendsPerSubnet<T: Config> = StorageDoubleMap<
         _,
         Identity,
@@ -910,7 +910,8 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Returns the vector of hotkeys controlled by this coldkey.
     pub type OwnedHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
-    #[pallet::storage] /// (DEPRECATED) DMAP ( hot, cold ) --> stake | Returns the stake under a coldkey prefixed by hotkey.
+    #[pallet::storage]
+    /// (DEPRECATED) DMAP ( hot, cold ) --> stake | Returns the stake under a coldkey prefixed by hotkey.
     pub type Stake<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -920,6 +921,17 @@ pub mod pallet {
         u64,
         ValueQuery,
         DefaultZeroU64<T>,
+    >;
+    #[pallet::storage]
+    /// (DEPRECATED) DMAP ( netuid, hot ) --> Vec<cold> | Returns the coldkeys added stake on subnet
+    pub type StakedColdkeysOnSubnet<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        u16,
+        Identity,
+        T::AccountId,
+        Vec<T::AccountId>,
+        ValueQuery,
     >;
 
     #[pallet::storage] // --- DMAP ( cold ) --> () | Maps coldkey to if a coldkey swap is scheduled.
@@ -937,7 +949,8 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroU64<T>,
     >;
-    #[pallet::storage] /// DMAP ( hot, netuid ) --> total_alpha_shares | Returns the number of alpha shares for a hotkey on a subnet. 
+    #[pallet::storage]
+    /// DMAP ( hot, netuid ) --> total_alpha_shares | Returns the number of alpha shares for a hotkey on a subnet.
     pub type TotalHotkeyShares<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -960,9 +973,11 @@ pub mod pallet {
         ValueQuery,
     >;
     #[pallet::storage] // --- DMAP ( netuid ) --> token_symbol | Returns the token symbol for a subnet.
-    pub type TokenSymbol<T: Config> = StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
+    pub type TokenSymbol<T: Config> =
+        StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> subnet_name | Returns the name of the subnet.
-    pub type SubnetName<T: Config> = StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
+    pub type SubnetName<T: Config> =
+        StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
 
     /// ============================
     /// ==== Global Parameters =====
@@ -1460,7 +1475,8 @@ pub mod pallet {
                 // TODO rethink this.
                 let _stake = Self::get_inherited_for_hotkey_on_subnet(hotkey, netuid);
                 let current_block_number: u64 = Self::get_current_block_as_u64();
-                let default_priority: u64 = current_block_number.saturating_sub(Self::get_last_update_for_uid(netuid, uid));
+                let default_priority: u64 =
+                    current_block_number.saturating_sub(Self::get_last_update_for_uid(netuid, uid));
                 return default_priority.saturating_add(u32::MAX as u64);
             }
             0
