@@ -1,14 +1,12 @@
 use super::*;
 use substrate_fixed::types::I96F32;
 
-use frame_support::{
-    traits::{
-        tokens::{
-            fungible::{Balanced as _, Inspect as _},
-            Fortitude, Precision, Preservation,
-        },
-        Imbalance,
+use frame_support::traits::{
+    tokens::{
+        fungible::{Balanced as _, Inspect as _},
+        Fortitude, Precision, Preservation,
     },
+    Imbalance,
 };
 
 impl<T: Config> Pallet<T> {
@@ -45,11 +43,34 @@ impl<T: Config> Pallet<T> {
     // Returns the total amount of stake under a hotkey (delegative or otherwise)
     //
     pub fn get_total_stake_for_hotkey(hotkey: &T::AccountId) -> u64 {
-        Self::get_all_subnet_netuids().iter().map(|netuid| {
-            let alpha: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet( hotkey, *netuid) );
-            let tao_price: I96F32 = Self::get_alpha_price( *netuid );
-            alpha.saturating_mul(tao_price).to_num::<u64>()
-        }).sum()
+        Self::get_all_subnet_netuids()
+            .iter()
+            .map(|netuid| {
+                let alpha: I96F32 =
+                    I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, *netuid));
+                let tao_price: I96F32 = Self::get_alpha_price(*netuid);
+                alpha.saturating_mul(tao_price).to_num::<u64>()
+            })
+            .sum()
+    }
+
+    // Returns the total amount of stake under a coldkey
+    //
+    pub fn get_total_stake_for_coldkey(coldkey: &T::AccountId) -> u64 {
+        let hotkeys = StakingHotkeys::<T>::get(coldkey);
+        hotkeys
+            .iter()
+            .map(|hotkey| {
+                let mut total_stake = 0;
+                for (netuid, alpha) in Alpha::<T>::iter_prefix((hotkey, coldkey)) {
+                    let tao_price: I96F32 = Self::get_alpha_price(netuid);
+                    total_stake += I96F32::from_num(alpha)
+                        .saturating_mul(tao_price)
+                        .to_num::<u64>();
+                }
+                total_stake
+            })
+            .sum::<u64>()
     }
 
     // Returns the stake under the cold - hot pairing in the staking table.
@@ -153,7 +174,8 @@ impl<T: Config> Pallet<T> {
         if !Self::coldkey_owns_hotkey(coldkey, hotkey) {
             // If the stake is below the minimum required, it's considered a small nomination and needs to be cleared.
             // Log if the stake is below the minimum required
-            let stake: u64 = Self::get_stake_for_hotkey_and_coldkey_on_subnet( hotkey, coldkey, netuid );
+            let stake: u64 =
+                Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
             if stake < Self::get_nominator_min_required_stake() {
                 // Log the clearing of a small nomination
                 // Remove the stake from the nominator account. (this is a more forceful unstake operation which )

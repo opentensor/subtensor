@@ -1258,44 +1258,63 @@ fn test_swap_senate_member() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap_coldkey -- test_coldkey_delegations --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_coldkey_delegations --exact --show-output
 #[test]
 fn test_coldkey_delegations() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
 
-        // let new_coldkey = U256::from(0);
-        // let owner = U256::from(1);
-        // let coldkey = U256::from(4);
-        // let delegate = U256::from(2);
-        // let netuid = 1u16;
-        // add_network(netuid, 13, 0);
-        // register_ok_neuron(netuid, delegate, owner, 0);
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1000);
-        // assert_ok!(SubtensorModule::do_become_delegate(
-        //     <<Test as Config>::RuntimeOrigin>::signed(owner),
-        //     delegate,
-        //     u16::MAX / 10
-        // ));
-        // assert_ok!(SubtensorModule::add_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-        //     delegate,
-        //     100
-        // ));
-        // let mut weight = Weight::zero();
-        // assert_ok!(SubtensorModule::perform_swap_coldkey(
-        //     &coldkey,
-        //     &new_coldkey,
-        //     &mut weight
-        // ));
-        // assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate), 100);
-        // assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey), 0);
-        // assert_eq!(
-        //     SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
-        //     100
-        // );
-        // assert_eq!(Stake::<Test>::get(delegate, new_coldkey), 100);
-        // assert_eq!(Stake::<Test>::get(delegate, coldkey), 0);
+        let new_coldkey = U256::from(0);
+        let owner = U256::from(1);
+        let coldkey = U256::from(4);
+        let delegate = U256::from(2);
+        let netuid = 0u16; // Stake to 0
+		let netuid2 = 1u16; // Stake to 1
+
+		add_network(netuid, 13, 0); // root
+        add_network(netuid2, 13, 0);
+
+		assert_ok!(SubtensorModule::root_register(
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            delegate
+        )); // register on root
+        register_ok_neuron(netuid2, delegate, owner, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1000);
+
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            delegate,
+			netuid,
+            100_u64
+        ));
+
+		// Add stake to netuid2
+		assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            delegate,
+			netuid2,
+            100_u64
+        ));
+
+		// Perform the swap
+        let mut weight = Weight::zero();
+        assert_ok!(SubtensorModule::perform_swap_coldkey(
+            &coldkey,
+            &new_coldkey,
+            &mut weight
+        ));
+
+		// Verify stake was moved for the delegate
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate), 100 * 2);
+        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey), 0);
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
+            100 * 2
+        );
+        assert_eq!(Alpha::<Test>::get((delegate, new_coldkey, netuid)), 100);
+        assert_eq!(Alpha::<Test>::get((delegate, coldkey, netuid)), 0);
+
+		assert_eq!(Alpha::<Test>::get((delegate, new_coldkey, netuid2)), 100);
+        assert_eq!(Alpha::<Test>::get((delegate, coldkey, netuid2)), 0);
     });
 }
 
