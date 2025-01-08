@@ -677,38 +677,28 @@ fn test_add_stake_to_hotkey_account_ok() {
 #[test]
 fn test_remove_stake_from_hotkey_account() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let subnet_owner_coldkey = U256::from(1);
+        let subnet_owner_hotkey = U256::from(2);
+        let hotkey_id = U256::from(5445);
+        let coldkey_id = U256::from(5443433);
+        let amount = 10_000;
+        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(netuid, hotkey_id, coldkey_id, 192213123);        
 
-        // let hotkey_id = U256::from(5445);
-        // let coldkey_id = U256::from(5443433);
-        // let amount: u64 = 10000;
-        // let netuid: u16 = 1;
-        // let tempo: u16 = 13;
-        // let start_nonce: u64 = 0;
+        // Add some stake that can be removed
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey_id, &coldkey_id, netuid, amount);
 
-        // //add network
-        // add_network(netuid, tempo, 0);
+        // Prelimiary checks
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
+            amount
+        );
 
-        // register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
+        // Remove stake
+        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(&hotkey_id, &coldkey_id, netuid, amount);
 
-        // // Add some stake that can be removed
-        // SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, amount);
-
-        // // Prelimiary checks
-        // assert_eq!(SubtensorModule::get_total_stake(), amount);
-        // assert_eq!(
-        //     SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
-        //     amount
-        // );
-
-        // // Remove stake
-        // SubtensorModule::decrease_stake_on_hotkey_account(&hotkey_id, amount);
-
-        // // The stake on the hotkey account should be 0
-        // assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
-
-        // // The total amount of stake should be 0
-        // assert_eq!(SubtensorModule::get_total_stake(), 0);
+        // The stake on the hotkey account should be 0
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
     });
 }
 
