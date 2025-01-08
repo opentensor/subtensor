@@ -1463,18 +1463,25 @@ fn test_rate_limits_enforced_on_increase_take() {
             SubtensorModule::get_min_delegate_take()
         );
 
-        // Coldkey / hotkey 0 increases take to 12.5%
+        // Increase take first time
+        assert_ok!(SubtensorModule::do_increase_take(
+            RuntimeOrigin::signed(coldkey0),
+            hotkey0,
+            SubtensorModule::get_min_delegate_take() + 1
+        ));
+
+        // Increase again
         assert_eq!(
             SubtensorModule::do_increase_take(
                 RuntimeOrigin::signed(coldkey0),
                 hotkey0,
-                u16::MAX / 8
+                SubtensorModule::get_min_delegate_take() + 2
             ),
             Err(Error::<Test>::DelegateTxRateLimitExceeded.into())
         );
         assert_eq!(
             SubtensorModule::get_hotkey_take(&hotkey0),
-            SubtensorModule::get_min_delegate_take()
+            SubtensorModule::get_min_delegate_take() + 1
         );
 
         step_block(1 + InitialTxDelegateTakeRateLimit::get() as u16);
@@ -1483,9 +1490,9 @@ fn test_rate_limits_enforced_on_increase_take() {
         assert_ok!(SubtensorModule::do_increase_take(
             RuntimeOrigin::signed(coldkey0),
             hotkey0,
-            u16::MAX / 8
+            SubtensorModule::get_min_delegate_take() + 2
         ));
-        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 8);
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), SubtensorModule::get_min_delegate_take() + 2);
     });
 }
 
