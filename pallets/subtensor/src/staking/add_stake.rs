@@ -65,10 +65,8 @@ impl<T: Config> Pallet<T> {
         let tao_staked: u64 = Self::remove_balance_from_coldkey_account(&coldkey, stake_to_be_added)?;
 
         // 6. Swap the stake into alpha on the subnet and increase counters.
-        Self::stake_into_subnet( &hotkey, &coldkey, netuid, tao_staked );
-
-        // TODO: Regression
         // Emit the staking event.
+        Self::stake_into_subnet( &hotkey, &coldkey, netuid, tao_staked );
 
         // Ok and return.
         Ok(())

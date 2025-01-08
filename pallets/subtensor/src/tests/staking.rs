@@ -645,38 +645,29 @@ fn test_get_coldkey_balance_with_balance() {
 }
 
 // /***********************************************************
-// 	staking::add_stake_to_hotkey_account() tests
+// 	staking::increase_stake_for_hotkey_and_coldkey_on_subnet() tests
 // ************************************************************/
 #[test]
 fn test_add_stake_to_hotkey_account_ok() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let subnet_owner_coldkey = U256::from(1);
+        let subnet_owner_hotkey = U256::from(2);
+        let hotkey_id = U256::from(5445);
+        let coldkey_id = U256::from(5443433);
+        let amount = 10_000;
+        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(netuid, hotkey_id, coldkey_id, 192213123);        
 
-        // let hotkey_id = U256::from(5445);
-        // let coldkey_id = U256::from(5443433);
-        // let amount: u64 = 10000;
-        // let netuid: u16 = 1;
-        // let tempo: u16 = 13;
-        // let start_nonce: u64 = 0;
+        // There is not stake in the system at first, so result should be 0;
+        assert_eq!(SubtensorModule::get_total_stake(), 0);
 
-        // //add network
-        // add_network(netuid, tempo, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey_id, &coldkey_id, netuid, amount);
 
-        // register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
-
-        // // There is not stake in the system at first, so result should be 0;
-        // assert_eq!(SubtensorModule::get_total_stake(), 0);
-
-        // SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, amount);
-
-        // // The stake that is now in the account, should equal the amount
-        // assert_eq!(
-        //     SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
-        //     amount
-        // );
-
-        // // The total stake should have been increased by the amount -> 0 + amount = amount
-        // assert_eq!(SubtensorModule::get_total_stake(), amount);
+        // The stake that is now in the account, should equal the amount
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
+            amount
+        );
     });
 }
 
