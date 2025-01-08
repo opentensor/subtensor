@@ -473,48 +473,48 @@ fn test_weights_err_no_validator_permit() {
 #[test]
 fn test_set_stake_threshold_failed() {
     new_test_ext(0).execute_with(|| {
-        assert!(false);
 
-        // let dests = vec![0];
-        // let weights = vec![1];
-        // let netuid: u16 = 1;
-        // let version_key: u64 = 0;
-        // let hotkey = U256::from(0);
-        // let coldkey = U256::from(0);
+        let dests = vec![0];
+        let weights = vec![1];
+        let netuid: u16 = 1;
+        let version_key: u64 = 0;
+        let hotkey = U256::from(0);
+        let coldkey = U256::from(0);
 
-        // add_network(netuid, 0, 0);
-        // register_ok_neuron(netuid, hotkey, coldkey, 2143124);
-        // SubtensorModule::set_stake_threshold(20_000_000_000_000);
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 2143124);
+        SubtensorModule::set_stake_threshold(20_000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey,u64::MAX);
 
-        // // Check the signed extension function.
-        // assert_eq!(SubtensorModule::get_stake_threshold(), 20_000_000_000_000);
-        // assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
-        // SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 19_000_000_000_000);
-        // assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
-        // SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 20_000_000_000_000);
-        // assert!(SubtensorModule::check_weights_min_stake(&hotkey, netuid));
+        // Check the signed extension function.
+        assert_eq!(SubtensorModule::get_stake_threshold(), 20_000_000_000_000);
+        assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
+        assert_ok!(SubtensorModule::do_add_stake(RuntimeOrigin::signed(hotkey), hotkey, netuid, 19_000_000_000_000));
+        assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
+        assert_ok!(SubtensorModule::do_add_stake(RuntimeOrigin::signed(hotkey), hotkey, netuid, 20_000_000_000_000));
+        assert!(SubtensorModule::check_weights_min_stake(&hotkey, netuid));
 
-        // // Check that it fails at the pallet level.
-        // SubtensorModule::set_stake_threshold(100_000_000_000_000);
-        // assert_eq!(
-        //     SubtensorModule::set_weights(
-        //         RuntimeOrigin::signed(hotkey),
-        //         netuid,
-        //         dests.clone(),
-        //         weights.clone(),
-        //         version_key,
-        //     ),
-        //     Err(Error::<Test>::NotEnoughStakeToSetWeights.into())
-        // );
-        // // Now passes
-        // SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 100_000_000_000_000);
-        // assert_ok!(SubtensorModule::set_weights(
-        //     RuntimeOrigin::signed(hotkey),
-        //     netuid,
-        //     dests.clone(),
-        //     weights.clone(),
-        //     version_key
-        // ));
+        // Check that it fails at the pallet level.
+        SubtensorModule::set_stake_threshold(100_000_000_000_000);
+        assert_eq!(
+            SubtensorModule::set_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                dests.clone(),
+                weights.clone(),
+                version_key,
+            ),
+            Err(Error::<Test>::NotEnoughStakeToSetWeights.into())
+        );
+        // Now passes
+        assert_ok!(SubtensorModule::do_add_stake(RuntimeOrigin::signed(hotkey), hotkey, netuid, 100_000_000_000_000));
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            dests.clone(),
+            weights.clone(),
+            version_key
+        ));
     });
 }
 
