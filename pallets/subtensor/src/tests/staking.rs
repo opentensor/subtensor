@@ -1898,7 +1898,7 @@ fn test_mining_emission_distribution_validator_valiminer_miner() {
         crate::Kappa::<Test>::set(netuid, u16::MAX / 5);
 
         // Run run_coinbase until emissions are drained
-        step_block((subnet_tempo * 4) as u16);
+        step_block((subnet_tempo * 4));
 
         // Verify how emission is split between keys
         //   - 50% goes to miners and 50% goes to validators

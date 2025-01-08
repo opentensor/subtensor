@@ -149,7 +149,7 @@ mod tests {
         }
 
         fn get_share(&self, key: &u16) -> U64F64 {
-            self.share.get(key).unwrap_or(&U64F64::from_num(0)).clone()
+            *self.share.get(key).unwrap_or(&U64F64::from_num(0))
         }
 
         fn try_get_share(&self, key: &u16) -> Result<U64F64, ()> {

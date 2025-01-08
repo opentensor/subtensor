@@ -37,11 +37,11 @@ impl<T: Config> Pallet<T> {
             return I96F32::from_num(1.0); // Stable
         }
         if SubnetAlphaIn::<T>::get(netuid) == 0 {
-            return I96F32::from_num(0);
+            I96F32::from_num(0)
         } else {
-            return I96F32::from_num(SubnetTAO::<T>::get(netuid))
+            I96F32::from_num(SubnetTAO::<T>::get(netuid))
                 .checked_div(I96F32::from_num(SubnetAlphaIn::<T>::get(netuid)))
-                .unwrap_or(I96F32::from_num(0));
+                .unwrap_or(I96F32::from_num(0))
         }
     }
 
@@ -418,7 +418,7 @@ impl<T: Config> Pallet<T> {
         amount: u64,
     ) {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
-        if let Ok(value) = alpha_share_pool.try_get_value(&coldkey) {
+        if let Ok(value) = alpha_share_pool.try_get_value(coldkey) {
             if value >= amount {
                 alpha_share_pool.update_value_for_one(coldkey, (amount as i64).neg());
             }

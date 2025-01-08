@@ -96,7 +96,7 @@ fn test_share_based_staking() {
             initial_stake,
             0,
             stake_amount,
-            0 + stake_amount
+            stake_amount
         );
         assert_eq!(
             initial_stake, stake_amount,
@@ -167,7 +167,7 @@ fn test_share_based_staking() {
             secondary_stake,
             0,
             stake_amount,
-            0 + stake_amount
+            stake_amount
         );
         assert!(
             (secondary_stake as i64 - (stake_amount) as i64).abs() <= 1,
