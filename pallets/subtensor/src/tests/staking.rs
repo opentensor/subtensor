@@ -101,7 +101,12 @@ fn test_dividends_with_run_to_block() {
         register_ok_neuron(netuid, neuron_dest_hotkey_id, coldkey_account_id, 12323);
 
         // Add some stake to the hotkey account, so we can test for emission before the transfer takes place
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&neuron_src_hotkey_id, &coldkey_account_id, netuid, initial_stake);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &neuron_src_hotkey_id,
+            &coldkey_account_id,
+            netuid,
+            initial_stake,
+        );
 
         // Check if the initial stake has arrived
         assert_eq!(
@@ -137,12 +142,7 @@ fn test_add_stake_err_signature() {
         let netuid = 1;
 
         assert_err!(
-            SubtensorModule::add_stake(
-                RawOrigin::None.into(),
-                hotkey_account_id,
-                netuid,
-                amount,
-            ),
+            SubtensorModule::add_stake(RawOrigin::None.into(), hotkey_account_id, netuid, amount,),
             DispatchError::BadOrigin
         );
     });
@@ -360,7 +360,12 @@ fn test_remove_stake_ok_no_emission() {
         assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
 
         // Give the neuron some stake to remove
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey_account_id, &coldkey_account_id, netuid, amount);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+            amount,
+        );
 
         // Do the magic
         assert_ok!(SubtensorModule::remove_stake(
@@ -371,9 +376,7 @@ fn test_remove_stake_ok_no_emission() {
         ));
 
         // we do not expect the exact amount due to slippage
-        assert!(
-            SubtensorModule::get_coldkey_balance(&coldkey_account_id) > amount / 10 * 9,
-        );
+        assert!(SubtensorModule::get_coldkey_balance(&coldkey_account_id) > amount / 10 * 9,);
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
@@ -1992,108 +1995,6 @@ fn test_get_total_delegated_stake_exclude_owner_stake() {
         //     actual_delegated_stake, expected_delegated_stake,
         //     "Delegated stake should exclude owner's stake. Expected: {}, Actual: {}",
         //     expected_delegated_stake, actual_delegated_stake
-        // );
-    });
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test staking -- test_stake_delta_tracks_adds_and_removes --exact --nocapture
-#[test]
-fn test_stake_delta_tracks_adds_and_removes() {
-    new_test_ext(1).execute_with(|| {
-        assert!(false);
-
-        // let netuid = 1u16;
-        // let delegate_coldkey = U256::from(1);
-        // let delegate_hotkey = U256::from(2);
-        // let delegator = U256::from(3);
-
-        // let owner_stake = 1000;
-        // let owner_added_stake = 123;
-        // let owner_removed_stake = 456;
-        // // Add more than removed to test that the delta is updated correctly
-        // let owner_adds_more_stake = owner_removed_stake + 1;
-
-        // let delegator_added_stake = 999;
-
-        // add_network(netuid, 0, 0);
-        // register_ok_neuron(netuid, delegate_hotkey, delegate_coldkey, 0);
-        // // Give extra stake to the owner
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-        //     &delegate_coldkey,
-        //     &delegate_hotkey,
-        //     owner_stake,
-        // );
-
-        // // Register as a delegate
-        // assert_ok!(SubtensorModule::become_delegate(
-        //     RuntimeOrigin::signed(delegate_coldkey),
-        //     delegate_hotkey
-        // ));
-
-        // // Verify that the stake delta is empty
-        // assert_eq!(
-        //     StakeDeltaSinceLastEmissionDrain::<Test>::get(delegate_hotkey, delegate_coldkey),
-        //     0
-        // );
-
-        // // Give the coldkey some balance; extra just in case
-        // SubtensorModule::add_balance_to_coldkey_account(
-        //     &delegate_coldkey,
-        //     owner_added_stake + owner_adds_more_stake,
-        // );
-
-        // // Add some stake
-        // assert_ok!(SubtensorModule::add_stake(
-        //     RuntimeOrigin::signed(delegate_coldkey),
-        //     delegate_hotkey,
-        //     owner_added_stake
-        // ));
-
-        // // Verify that the stake delta is correct
-        // assert_eq!(
-        //     StakeDeltaSinceLastEmissionDrain::<Test>::get(delegate_hotkey, delegate_coldkey),
-        //     i128::from(owner_added_stake)
-        // );
-
-        // // Add some stake from a delegator
-        // SubtensorModule::add_balance_to_coldkey_account(&delegator, delegator_added_stake);
-        // assert_ok!(SubtensorModule::add_stake(
-        //     RuntimeOrigin::signed(delegator),
-        //     delegate_hotkey,
-        //     delegator_added_stake
-        // ));
-
-        // // Verify that the stake delta is unchanged for the owner
-        // assert_eq!(
-        //     StakeDeltaSinceLastEmissionDrain::<Test>::get(delegate_hotkey, delegate_coldkey),
-        //     i128::from(owner_added_stake)
-        // );
-
-        // // Remove some stake
-        // assert_ok!(SubtensorModule::remove_stake(
-        //     RuntimeOrigin::signed(delegate_coldkey),
-        //     delegate_hotkey,
-        //     owner_removed_stake
-        // ));
-
-        // // Verify that the stake delta is correct
-        // assert_eq!(
-        //     StakeDeltaSinceLastEmissionDrain::<Test>::get(delegate_hotkey, delegate_coldkey),
-        //     i128::from(owner_added_stake).saturating_sub_unsigned(owner_removed_stake.into())
-        // );
-
-        // // Add more stake than was removed
-        // assert_ok!(SubtensorModule::add_stake(
-        //     RuntimeOrigin::signed(delegate_coldkey),
-        //     delegate_hotkey,
-        //     owner_adds_more_stake
-        // ));
-
-        // // Verify that the stake delta is correct
-        // assert_eq!(
-        //     StakeDeltaSinceLastEmissionDrain::<Test>::get(delegate_hotkey, delegate_coldkey),
-        //     i128::from(owner_added_stake)
-        //         .saturating_add_unsigned((owner_adds_more_stake - owner_removed_stake).into())
         // );
     });
 }
