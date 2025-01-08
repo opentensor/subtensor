@@ -46,8 +46,6 @@ fn test_add_stake_ok_no_emission() {
         //add network
         let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
 
-        println!("Created subnet {:?}", netuid);
-
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
 

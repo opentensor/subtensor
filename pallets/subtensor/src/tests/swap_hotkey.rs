@@ -1,5 +1,6 @@
 #![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
 
+use approx::assert_abs_diff_eq;
 use codec::Encode;
 use frame_support::weights::Weight;
 use frame_support::{assert_err, assert_noop, assert_ok};
@@ -59,53 +60,59 @@ fn test_swap_owned_hotkeys() {
 #[test]
 fn test_swap_total_hotkey_stake() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let amount = 10_000;
+        let mut weight = Weight::zero();
 
-        // let old_hotkey = U256::from(1);
-        // let new_hotkey = U256::from(2);
-        // let coldkey = U256::from(3);
-        // let mut weight = Weight::zero();
+        //add network
+        let netuid: u16 = add_dynamic_network(&old_hotkey, &coldkey);
 
-        // TotalHotkeyStake::<Test>::insert(old_hotkey, 100);
-        // TotalHotkeyStake::<Test>::insert(new_hotkey, 50);
-        // assert_ok!(SubtensorModule::perform_hotkey_swap(
-        //     &old_hotkey,
-        //     &new_hotkey,
-        //     &coldkey,
-        //     &mut weight
-        // ));
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount);
 
-        // assert!(!TotalHotkeyStake::<Test>::contains_key(old_hotkey));
-        // assert_eq!(TotalHotkeyStake::<Test>::get(new_hotkey), 150);
+        // Add stake
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            old_hotkey,
+            netuid,
+            amount
+        ));
+
+        // Check if stake has increased
+        assert_abs_diff_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&old_hotkey),
+            amount,
+            epsilon = 1,
+        );
+        assert_abs_diff_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&new_hotkey),
+            0,
+            epsilon = 1,
+        );
+
+        // Swap hotkey
+        assert_ok!(SubtensorModule::perform_hotkey_swap(
+            &old_hotkey,
+            &new_hotkey,
+            &coldkey,
+            &mut weight
+        ));
+
+        // Verify that total hotkey stake swapped
+        assert_abs_diff_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&old_hotkey),
+            0,
+            epsilon = 1,
+        );
+        assert_abs_diff_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&new_hotkey),
+            amount,
+            epsilon = 1,
+        );
     });
 }
-
-// // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_total_hotkey_coldkey_stakes_this_interval --exact --nocapture
-// #[test]
-// fn test_swap_total_hotkey_coldkey_stakes_this_interval() {
-//     new_test_ext(1).execute_with(|| {
-//         let old_hotkey = U256::from(1);
-//         let new_hotkey = U256::from(2);
-//         let coldkey = U256::from(3);
-//         let mut weight = Weight::zero();
-
-//         TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(old_hotkey, coldkey, (100, 1000));
-//         assert_ok!(SubtensorModule::perform_hotkey_swap(
-//             &old_hotkey,
-//             &new_hotkey,
-//             &coldkey,
-//             &mut weight
-//         ));
-
-//         assert!(!TotalHotkeyColdkeyStakesThisInterval::<Test>::contains_key(
-//             old_hotkey, coldkey
-//         ));
-//         assert_eq!(
-//             TotalHotkeyColdkeyStakesThisInterval::<Test>::get(new_hotkey, coldkey),
-//             (100, 1000)
-//         );
-//     });
-// }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_last_tx_block --exact --nocapture
 #[test]
