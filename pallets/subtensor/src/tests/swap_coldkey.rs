@@ -493,162 +493,168 @@ fn test_swap_with_invalid_subnet_ownership() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_do_swap_coldkey_success --exact --show-output
 #[test]
 fn test_do_swap_coldkey_success() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let old_coldkey = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let hotkey1 = U256::from(3);
+        let hotkey2 = U256::from(4);
+        let netuid = 1u16;
+        let stake_amount1 = 1000u64;
+        let stake_amount2 = 2000u64;
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+        let free_balance_old = 12345u64 + swap_cost;
 
-        // let old_coldkey = U256::from(1);
-        // let new_coldkey = U256::from(2);
-        // let hotkey1 = U256::from(3);
-        // let hotkey2 = U256::from(4);
-        // let netuid = 1u16;
-        // let stake_amount1 = 1000u64;
-        // let stake_amount2 = 2000u64;
-        // let swap_cost = SubtensorModule::get_key_swap_cost();
-        // let free_balance_old = 12345u64 + swap_cost;
+        // Setup initial state
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey1, old_coldkey, 0);
+        register_ok_neuron(netuid, hotkey2, old_coldkey, 0);
 
-        // // Setup initial state
-        // add_network(netuid, 13, 0);
-        // register_ok_neuron(netuid, hotkey1, old_coldkey, 0);
-        // register_ok_neuron(netuid, hotkey2, old_coldkey, 0);
+        // Add balance to old coldkey
+        SubtensorModule::add_balance_to_coldkey_account(
+            &old_coldkey,
+            stake_amount1 + stake_amount2 + free_balance_old,
+        );
 
-        // // Add balance to old coldkey
-        // SubtensorModule::add_balance_to_coldkey_account(
-        //     &old_coldkey,
-        //     stake_amount1 + stake_amount2 + free_balance_old,
-        // );
+        // Log initial state
+        log::info!(
+            "Initial total stake: {}",
+            SubtensorModule::get_total_stake()
+        );
+        log::info!(
+            "Initial old coldkey stake: {}",
+            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey)
+        );
+        log::info!(
+            "Initial new coldkey stake: {}",
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey)
+        );
 
-        // // Log initial state
-        // log::info!(
-        //     "Initial total stake: {}",
-        //     SubtensorModule::get_total_stake()
-        // );
-        // log::info!(
-        //     "Initial old coldkey stake: {}",
-        //     SubtensorModule::get_total_stake_for_coldkey(&old_coldkey)
-        // );
-        // log::info!(
-        //     "Initial new coldkey stake: {}",
-        //     SubtensorModule::get_total_stake_for_coldkey(&new_coldkey)
-        // );
+        // Add stake to the neurons
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+            hotkey1,
+            netuid,
+            stake_amount1
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+            hotkey2,
+            netuid,
+            stake_amount2
+        ));
 
-        // // Add stake to the neurons
-        // assert_ok!(SubtensorModule::add_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
-        //     hotkey1,
-        //     stake_amount1
-        // ));
-        // assert_ok!(SubtensorModule::add_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
-        //     hotkey2,
-        //     stake_amount2
-        // ));
+        // Insert an Identity
+        let name: Vec<u8> = b"The fourth Coolest Identity".to_vec();
+        let identity: ChainIdentity = ChainIdentity {
+            name: name.clone(),
+            url: vec![],
+            image: vec![],
+            discord: vec![],
+            description: vec![],
+            additional: vec![],
+        };
 
-        // // Insert an Identity
-        // let name: Vec<u8> = b"The fourth Coolest Identity".to_vec();
-        // let identity: ChainIdentity = ChainIdentity {
-        //     name: name.clone(),
-        //     url: vec![],
-        //     image: vec![],
-        //     discord: vec![],
-        //     description: vec![],
-        //     additional: vec![],
-        // };
+        Identities::<Test>::insert(old_coldkey, identity.clone());
 
-        // Identities::<Test>::insert(old_coldkey, identity.clone());
+        assert!(Identities::<Test>::get(old_coldkey).is_some());
+        assert!(Identities::<Test>::get(new_coldkey).is_none());
 
-        // assert!(Identities::<Test>::get(old_coldkey).is_some());
-        // assert!(Identities::<Test>::get(new_coldkey).is_none());
+        // Log state after adding stake
+        log::info!(
+            "Total stake after adding: {}",
+            SubtensorModule::get_total_stake()
+        );
+        log::info!(
+            "Old coldkey stake after adding: {}",
+            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey)
+        );
+        log::info!(
+            "New coldkey stake after adding: {}",
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey)
+        );
 
-        // // Log state after adding stake
-        // log::info!(
-        //     "Total stake after adding: {}",
-        //     SubtensorModule::get_total_stake()
-        // );
-        // log::info!(
-        //     "Old coldkey stake after adding: {}",
-        //     SubtensorModule::get_total_stake_for_coldkey(&old_coldkey)
-        // );
-        // log::info!(
-        //     "New coldkey stake after adding: {}",
-        //     SubtensorModule::get_total_stake_for_coldkey(&new_coldkey)
-        // );
+        // Record total stake before swap
+        let total_stake_before_swap = SubtensorModule::get_total_stake();
 
-        // // Record total stake before swap
-        // let total_stake_before_swap = SubtensorModule::get_total_stake();
+        let hk1_alpha = Alpha::<Test>::get((hotkey1, old_coldkey, netuid));
+        let hk2_alpha = Alpha::<Test>::get((hotkey2, old_coldkey, netuid));
+        let total_ck_stake = SubtensorModule::get_total_stake_for_coldkey(&old_coldkey);
 
-        // // Perform the swap
-        // assert_ok!(SubtensorModule::do_swap_coldkey(
-        //     // <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
-        //     &old_coldkey,
-        //     &new_coldkey
-        // ));
 
-        // // Log state after swap
-        // log::info!(
-        //     "Total stake after swap: {}",
-        //     SubtensorModule::get_total_stake()
-        // );
-        // log::info!(
-        //     "Old coldkey stake after swap: {}",
-        //     SubtensorModule::get_total_stake_for_coldkey(&old_coldkey)
-        // );
-        // log::info!(
-        //     "New coldkey stake after swap: {}",
-        //     SubtensorModule::get_total_stake_for_coldkey(&new_coldkey)
-        // );
+        // Perform the swap
+        assert_ok!(SubtensorModule::do_swap_coldkey(
+            // <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+            &old_coldkey,
+            &new_coldkey
+        ));
 
-        // // Verify the swap
-        // assert_eq!(Owner::<Test>::get(hotkey1), new_coldkey);
-        // assert_eq!(Owner::<Test>::get(hotkey2), new_coldkey);
-        // assert_eq!(
-        //     TotalColdkeyStake::<Test>::get(new_coldkey),
-        //     stake_amount1 + stake_amount2
-        // );
-        // assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
-        // assert_eq!(Stake::<Test>::get(hotkey1, new_coldkey), stake_amount1);
-        // assert_eq!(Stake::<Test>::get(hotkey2, new_coldkey), stake_amount2);
-        // assert!(!Stake::<Test>::contains_key(hotkey1, old_coldkey));
-        // assert!(!Stake::<Test>::contains_key(hotkey2, old_coldkey));
+        // Log state after swap
+        log::info!(
+            "Total stake after swap: {}",
+            SubtensorModule::get_total_stake()
+        );
+        log::info!(
+            "Old coldkey stake after swap: {}",
+            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey)
+        );
+        log::info!(
+            "New coldkey stake after swap: {}",
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey)
+        );
 
-        // // Verify OwnedHotkeys
-        // let new_owned_hotkeys = OwnedHotkeys::<Test>::get(new_coldkey);
-        // assert!(new_owned_hotkeys.contains(&hotkey1));
-        // assert!(new_owned_hotkeys.contains(&hotkey2));
-        // assert_eq!(new_owned_hotkeys.len(), 2);
-        // assert!(!OwnedHotkeys::<Test>::contains_key(old_coldkey));
+        // Verify the swap
+        assert_eq!(Owner::<Test>::get(hotkey1), new_coldkey);
+        assert_eq!(Owner::<Test>::get(hotkey2), new_coldkey);
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
+            total_ck_stake
+        );
+        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&old_coldkey), 0);
+        assert_eq!(Alpha::<Test>::get((hotkey1, new_coldkey, netuid)), hk1_alpha);
+        assert_eq!(Alpha::<Test>::get((hotkey2, new_coldkey, netuid)), hk2_alpha);
+        assert!(!Alpha::<Test>::contains_key((hotkey1, old_coldkey, netuid)));
+        assert!(!Alpha::<Test>::contains_key((hotkey2, old_coldkey, netuid)));
 
-        // // Verify balance transfer
-        // assert_eq!(
-        //     SubtensorModule::get_coldkey_balance(&new_coldkey),
-        //     free_balance_old - swap_cost
-        // );
-        // assert_eq!(SubtensorModule::get_coldkey_balance(&old_coldkey), 0);
+        // Verify OwnedHotkeys
+        let new_owned_hotkeys = OwnedHotkeys::<Test>::get(new_coldkey);
+        assert!(new_owned_hotkeys.contains(&hotkey1));
+        assert!(new_owned_hotkeys.contains(&hotkey2));
+        assert_eq!(new_owned_hotkeys.len(), 2);
+        assert!(!OwnedHotkeys::<Test>::contains_key(old_coldkey));
 
-        // // Verify total stake remains unchanged
-        // assert_eq!(
-        //     SubtensorModule::get_total_stake(),
-        //     total_stake_before_swap,
-        //     "Total stake changed unexpectedly"
-        // );
+        // Verify balance transfer
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&new_coldkey),
+            free_balance_old - swap_cost
+        );
+        assert_eq!(SubtensorModule::get_coldkey_balance(&old_coldkey), 0);
 
-        // // Verify identities were swapped
-        // assert!(Identities::<Test>::get(old_coldkey).is_none());
-        // assert!(Identities::<Test>::get(new_coldkey).is_some());
-        // assert_eq!(
-        //     Identities::<Test>::get(new_coldkey).expect("Expected an Identity"),
-        //     identity
-        // );
+        // Verify total stake remains unchanged
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            total_stake_before_swap,
+            "Total stake changed unexpectedly"
+        );
 
-        // // Verify event emission
-        // System::assert_last_event(
-        //     Event::ColdkeySwapped {
-        //         old_coldkey,
-        //         new_coldkey,
-        //     }
-        //     .into(),
-        // );
+        // Verify identities were swapped
+        assert!(Identities::<Test>::get(old_coldkey).is_none());
+        assert!(Identities::<Test>::get(new_coldkey).is_some());
+        assert_eq!(
+            Identities::<Test>::get(new_coldkey).expect("Expected an Identity"),
+            identity
+        );
+
+        // Verify event emission
+        System::assert_last_event(
+            Event::ColdkeySwapped {
+                old_coldkey,
+                new_coldkey,
+            }
+            .into(),
+        );
     });
 }
 
