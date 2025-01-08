@@ -460,28 +460,22 @@ fn test_remove_stake_ok_hotkey_does_not_belong_to_coldkey() {
 #[test]
 fn test_remove_stake_no_enough_stake() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let coldkey_id = U256::from(544);
+        let hotkey_id = U256::from(54544);
+        let amount = 10000;
+        let netuid = add_dynamic_network(&hotkey_id, &coldkey_id);
 
-        // let coldkey_id = U256::from(544);
-        // let hotkey_id = U256::from(54544);
-        // let amount = 10000;
-        // let netuid: u16 = 1;
-        // let tempo: u16 = 13;
-        // let start_nonce: u64 = 0;
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
 
-        // //add network
-        // add_network(netuid, tempo, 0);
-
-        // register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
-
-        // assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
-
-        // let result = SubtensorModule::remove_stake(
-        //     <<Test as Config>::RuntimeOrigin>::signed(coldkey_id),
-        //     hotkey_id,
-        //     amount,
-        // );
-        // assert_eq!(result, Err(Error::<Test>::NotEnoughStakeToWithdraw.into()));
+        assert_err!(
+            SubtensorModule::remove_stake(
+                RawOrigin::Signed(coldkey_id).into(),
+                hotkey_id,
+                netuid,
+                amount,
+            ),
+            Error::<Test>::NotEnoughStakeToWithdraw
+        );        
     });
 }
 
