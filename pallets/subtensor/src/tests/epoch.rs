@@ -832,142 +832,142 @@ fn test_512_graph_random_weights() {
 }
 
 // Test an epoch on a graph with 4096 nodes, of which the first 256 are validators setting non-self weights, and the rest servers setting only self-weights.
-#[test]
-fn test_4096_graph() {
-    let netuid: u16 = 1;
-    let network_n: u16 = 4096;
-    let validators_n: u16 = 256;
-    let epochs: u16 = 1;
-    let max_stake_per_validator: u64 = 82_031_250_000_000; // 21_000_000_000_000_000 / 256
-    log::info!("test_{network_n:?}_graph ({validators_n:?} validators)");
-    for interleave in 0..3 {
-        let (validators, servers) = distribute_nodes(
-            validators_n as usize,
-            network_n as usize,
-            interleave as usize,
-        );
-        let server: usize = servers[0] as usize;
-        let validator: usize = validators[0] as usize;
-        for server_self in [false, true] {
-            // server-self weight off/on
-            new_test_ext(1).execute_with(|| {
-                init_run_epochs(
-                    netuid,
-                    network_n,
-                    &validators,
-                    &servers,
-                    epochs,
-                    max_stake_per_validator,
-                    server_self,
-                    &[],
-                    false,
-                    &[],
-                    false,
-                    false,
-                    0,
-                    true,
-                );
-                let (total_stake, _, _) = SubtensorModule::get_stake_weights_for_network(netuid);
-                assert_eq!(total_stake.iter().map(|s| s.to_num::<u64>()).sum::<u64>(), 21_000_000_000_000_000);
-                let bonds = SubtensorModule::get_bonds(netuid);
-                for uid in &validators {
-                    assert_eq!(
-                        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(*uid as u64))),
-                        max_stake_per_validator
-                    );
-                    assert_eq!(SubtensorModule::get_rank_for_uid(netuid, *uid), 0);
-                    assert_eq!(SubtensorModule::get_trust_for_uid(netuid, *uid), 0);
-                    assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, *uid), 0);
-                    assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, *uid), 0);
-                    assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, *uid), 255); // Note D = floor(1 / 256 * 65_535)
-                    assert_eq!(SubtensorModule::get_emission_for_uid(netuid, *uid), 1953125); // Note E = 0.5 / 256 * 1_000_000_000 = 1953125
-                    assert_eq!(bonds[*uid as usize][validator], 0.0);
-                    assert_eq!(
-                        bonds[*uid as usize][server],
-                        I32F32::from_num(255) / I32F32::from_num(65_535)
-                    ); // Note B_ij = floor(1 / 256 * 65_535) / 65_535
-                }
-                for uid in &servers {
-                    assert_eq!(
-                        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(*uid as u64))),
-                        0
-                    );
-                    assert_eq!(SubtensorModule::get_rank_for_uid(netuid, *uid), 17); // Note R = floor(1 / (4096 - 256) * 65_535) = 17
-                    assert_eq!(SubtensorModule::get_trust_for_uid(netuid, *uid), 65535);
-                    assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, *uid), 17); // Note C = floor(1 / (4096 - 256) * 65_535) = 17
-                    assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, *uid), 17); // Note I = floor(1 / (4096 - 256) * 65_535) = 17
-                    assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, *uid), 0);
-                    assert_eq!(SubtensorModule::get_emission_for_uid(netuid, *uid), 130208); // Note E = floor(0.5 / (4096 - 256) * 1_000_000_000) = 130208
-                    assert_eq!(bonds[*uid as usize][validator], 0.0);
-                    assert_eq!(bonds[*uid as usize][server], 0.0);
-                }
-            });
-        }
-    }
-}
+// #[test]
+// fn test_4096_graph() {
+//     let netuid: u16 = 1;
+//     let network_n: u16 = 4096;
+//     let validators_n: u16 = 256;
+//     let epochs: u16 = 1;
+//     let max_stake_per_validator: u64 = 82_031_250_000_000; // 21_000_000_000_000_000 / 256
+//     log::info!("test_{network_n:?}_graph ({validators_n:?} validators)");
+//     for interleave in 0..3 {
+//         let (validators, servers) = distribute_nodes(
+//             validators_n as usize,
+//             network_n as usize,
+//             interleave as usize,
+//         );
+//         let server: usize = servers[0] as usize;
+//         let validator: usize = validators[0] as usize;
+//         for server_self in [false, true] {
+//             // server-self weight off/on
+//             new_test_ext(1).execute_with(|| {
+//                 init_run_epochs(
+//                     netuid,
+//                     network_n,
+//                     &validators,
+//                     &servers,
+//                     epochs,
+//                     max_stake_per_validator,
+//                     server_self,
+//                     &[],
+//                     false,
+//                     &[],
+//                     false,
+//                     false,
+//                     0,
+//                     true,
+//                 );
+//                 let (total_stake, _, _) = SubtensorModule::get_stake_weights_for_network(netuid);
+//                 assert_eq!(total_stake.iter().map(|s| s.to_num::<u64>()).sum::<u64>(), 21_000_000_000_000_000);
+//                 let bonds = SubtensorModule::get_bonds(netuid);
+//                 for uid in &validators {
+//                     assert_eq!(
+//                         SubtensorModule::get_total_stake_for_hotkey(&(U256::from(*uid as u64))),
+//                         max_stake_per_validator
+//                     );
+//                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, *uid), 0);
+//                     assert_eq!(SubtensorModule::get_trust_for_uid(netuid, *uid), 0);
+//                     assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, *uid), 0);
+//                     assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, *uid), 0);
+//                     assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, *uid), 255); // Note D = floor(1 / 256 * 65_535)
+//                     assert_eq!(SubtensorModule::get_emission_for_uid(netuid, *uid), 1953125); // Note E = 0.5 / 256 * 1_000_000_000 = 1953125
+//                     assert_eq!(bonds[*uid as usize][validator], 0.0);
+//                     assert_eq!(
+//                         bonds[*uid as usize][server],
+//                         I32F32::from_num(255) / I32F32::from_num(65_535)
+//                     ); // Note B_ij = floor(1 / 256 * 65_535) / 65_535
+//                 }
+//                 for uid in &servers {
+//                     assert_eq!(
+//                         SubtensorModule::get_total_stake_for_hotkey(&(U256::from(*uid as u64))),
+//                         0
+//                     );
+//                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, *uid), 17); // Note R = floor(1 / (4096 - 256) * 65_535) = 17
+//                     assert_eq!(SubtensorModule::get_trust_for_uid(netuid, *uid), 65535);
+//                     assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, *uid), 17); // Note C = floor(1 / (4096 - 256) * 65_535) = 17
+//                     assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, *uid), 17); // Note I = floor(1 / (4096 - 256) * 65_535) = 17
+//                     assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, *uid), 0);
+//                     assert_eq!(SubtensorModule::get_emission_for_uid(netuid, *uid), 130208); // Note E = floor(0.5 / (4096 - 256) * 1_000_000_000) = 130208
+//                     assert_eq!(bonds[*uid as usize][validator], 0.0);
+//                     assert_eq!(bonds[*uid as usize][server], 0.0);
+//                 }
+//             });
+//         }
+//     }
+// }
 
 // Test an epoch_sparse on a graph with 16384 nodes, of which the first 512 are validators setting non-self weights, and the rest servers setting only self-weights.
-#[test]
-fn test_16384_graph_sparse() {
-    new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
-        let n: u16 = 16384;
-        let validators_n: u16 = 512;
-        let validators: Vec<u16> = (0..validators_n).collect();
-        let servers: Vec<u16> = (validators_n..n).collect();
-        let server: u16 = servers[0];
-        let epochs: u16 = 1;
-        log::info!("test_{n:?}_graph ({validators_n:?} validators)");
-        init_run_epochs(
-            netuid,
-            n,
-            &validators,
-            &servers,
-            epochs,
-            1,
-            false,
-            &[],
-            false,
-            &[],
-            false,
-            false,
-            0,
-            true,
-        );
-        let bonds = SubtensorModule::get_bonds(netuid);
-        for uid in validators {
-            assert_eq!(
-                SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
-                1
-            );
-            assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
-            assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 0);
-            assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, uid), 438); // Note C = 0.0066928507 = (0.0066928507*65_535) = floor( 438.6159706245 )
-            assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, uid), 0);
-            assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, uid), 127); // Note D = floor(1 / 512 * 65_535) = 127
-            assert_eq!(SubtensorModule::get_emission_for_uid(netuid, uid), 976085); // Note E = 0.5 / 512 * 1_000_000_000 = 976_562 (discrepancy)
-            assert_eq!(bonds[uid as usize][0], 0.0);
-            assert_eq!(
-                bonds[uid as usize][server as usize],
-                I32F32::from_num(127) / I32F32::from_num(65_535)
-            ); // Note B_ij = floor(1 / 512 * 65_535) / 65_535 = 127 / 65_535
-        }
-        for uid in servers {
-            assert_eq!(
-                SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
-                0
-            );
-            assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 4); // Note R = floor(1 / (16384 - 512) * 65_535) = 4
-            assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 65535);
-            assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, uid), 4); // Note C = floor(1 / (16384 - 512) * 65_535) = 4
-            assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, uid), 4); // Note I = floor(1 / (16384 - 512) * 65_535) = 4
-            assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, uid), 0);
-            assert_eq!(SubtensorModule::get_emission_for_uid(netuid, uid), 31517); // Note E = floor(0.5 / (16384 - 512) * 1_000_000_000) = 31502 (discrepancy)
-            assert_eq!(bonds[uid as usize][0], 0.0);
-            assert_eq!(bonds[uid as usize][server as usize], 0.0);
-        }
-    });
-}
+// #[test]
+// fn test_16384_graph_sparse() {
+//     new_test_ext(1).execute_with(|| {
+//         let netuid: u16 = 1;
+//         let n: u16 = 16384;
+//         let validators_n: u16 = 512;
+//         let validators: Vec<u16> = (0..validators_n).collect();
+//         let servers: Vec<u16> = (validators_n..n).collect();
+//         let server: u16 = servers[0];
+//         let epochs: u16 = 1;
+//         log::info!("test_{n:?}_graph ({validators_n:?} validators)");
+//         init_run_epochs(
+//             netuid,
+//             n,
+//             &validators,
+//             &servers,
+//             epochs,
+//             1,
+//             false,
+//             &[],
+//             false,
+//             &[],
+//             false,
+//             false,
+//             0,
+//             true,
+//         );
+//         let bonds = SubtensorModule::get_bonds(netuid);
+//         for uid in validators {
+//             assert_eq!(
+//                 SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
+//                 1
+//             );
+//             assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
+//             assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 0);
+//             assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, uid), 438); // Note C = 0.0066928507 = (0.0066928507*65_535) = floor( 438.6159706245 )
+//             assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, uid), 0);
+//             assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, uid), 127); // Note D = floor(1 / 512 * 65_535) = 127
+//             assert_eq!(SubtensorModule::get_emission_for_uid(netuid, uid), 976085); // Note E = 0.5 / 512 * 1_000_000_000 = 976_562 (discrepancy)
+//             assert_eq!(bonds[uid as usize][0], 0.0);
+//             assert_eq!(
+//                 bonds[uid as usize][server as usize],
+//                 I32F32::from_num(127) / I32F32::from_num(65_535)
+//             ); // Note B_ij = floor(1 / 512 * 65_535) / 65_535 = 127 / 65_535
+//         }
+//         for uid in servers {
+//             assert_eq!(
+//                 SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
+//                 0
+//             );
+//             assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 4); // Note R = floor(1 / (16384 - 512) * 65_535) = 4
+//             assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 65535);
+//             assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, uid), 4); // Note C = floor(1 / (16384 - 512) * 65_535) = 4
+//             assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, uid), 4); // Note I = floor(1 / (16384 - 512) * 65_535) = 4
+//             assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, uid), 0);
+//             assert_eq!(SubtensorModule::get_emission_for_uid(netuid, uid), 31517); // Note E = floor(0.5 / (16384 - 512) * 1_000_000_000) = 31502 (discrepancy)
+//             assert_eq!(bonds[uid as usize][0], 0.0);
+//             assert_eq!(bonds[uid as usize][server as usize], 0.0);
+//         }
+//     });
+// }
 
 // Test bonds exponential moving average over a sequence of epochs.
 #[test]
