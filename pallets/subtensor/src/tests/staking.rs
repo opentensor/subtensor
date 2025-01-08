@@ -1056,20 +1056,12 @@ fn test_clear_small_nominations() {
 
         // Register hot1.
         register_ok_neuron(netuid, hot1, cold1, 0);
-        assert_ok!(SubtensorModule::do_become_delegate(
-            RuntimeOrigin::signed(cold1),
-            hot1,
-            SubtensorModule::get_min_delegate_take()
-        ));
+        Delegates::<Test>::insert(hot1, SubtensorModule::get_min_delegate_take());
         assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot1), cold1);
 
         // Register hot2.
         register_ok_neuron(netuid, hot2, cold2, 0);
-        assert_ok!(SubtensorModule::do_become_delegate(
-            RuntimeOrigin::signed(cold2),
-            hot2,
-            SubtensorModule::get_min_delegate_take()
-        ));
+        Delegates::<Test>::insert(hot2, SubtensorModule::get_min_delegate_take());
         assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot2), cold2);
 
         // Add stake cold1 --> hot1 (non delegation.)
@@ -1209,11 +1201,7 @@ fn test_delegate_take_can_be_decreased() {
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
-        assert_ok!(SubtensorModule::do_become_delegate(
-            RuntimeOrigin::signed(coldkey0),
-            hotkey0,
-            SubtensorModule::get_min_delegate_take()
-        ));
+        Delegates::<Test>::insert(hotkey0, SubtensorModule::get_min_delegate_take());
         assert_eq!(
             SubtensorModule::get_hotkey_take(&hotkey0),
             SubtensorModule::get_min_delegate_take()
@@ -1248,11 +1236,7 @@ fn test_can_set_min_take_ok() {
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates
-        assert_ok!(SubtensorModule::do_become_delegate(
-            RuntimeOrigin::signed(coldkey0),
-            hotkey0,
-            u16::MAX / 10
-        ));
+        Delegates::<Test>::insert(hotkey0, u16::MAX / 10);
 
         // Coldkey / hotkey 0 decreases take to min
         assert_ok!(SubtensorModule::do_decrease_take(
@@ -1283,23 +1267,15 @@ fn test_delegate_take_can_not_be_increased_with_decrease_take() {
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
-        // Coldkey / hotkey 0 become delegates with 10% take
-        assert_ok!(SubtensorModule::do_become_delegate(
-            RuntimeOrigin::signed(coldkey0),
-            hotkey0,
-            SubtensorModule::get_min_delegate_take()
-        ));
-        assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
-            SubtensorModule::get_min_delegate_take()
-        );
+        // Set min take
+        Delegates::<Test>::insert(hotkey0, SubtensorModule::get_min_delegate_take());
 
         // Coldkey / hotkey 0 tries to increase take to 12.5%
         assert_eq!(
             SubtensorModule::do_decrease_take(
                 RuntimeOrigin::signed(coldkey0),
                 hotkey0,
-                u16::MAX / 8
+                SubtensorModule::get_max_delegate_take()
             ),
             Err(Error::<Test>::DelegateTakeTooLow.into())
         );
@@ -1327,11 +1303,7 @@ fn test_delegate_take_can_be_increased() {
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
-        assert_ok!(SubtensorModule::do_become_delegate(
-            RuntimeOrigin::signed(coldkey0),
-            hotkey0,
-            SubtensorModule::get_min_delegate_take()
-        ));
+        Delegates::<Test>::insert(hotkey0, SubtensorModule::get_min_delegate_take());
         assert_eq!(
             SubtensorModule::get_hotkey_take(&hotkey0),
             SubtensorModule::get_min_delegate_take()
@@ -1366,11 +1338,7 @@ fn test_delegate_take_can_not_be_decreased_with_increase_take() {
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
-        assert_ok!(SubtensorModule::do_become_delegate(
-            RuntimeOrigin::signed(coldkey0),
-            hotkey0,
-            SubtensorModule::get_min_delegate_take()
-        ));
+        Delegates::<Test>::insert(hotkey0, SubtensorModule::get_min_delegate_take());
         assert_eq!(
             SubtensorModule::get_hotkey_take(&hotkey0),
             SubtensorModule::get_min_delegate_take()
@@ -1409,11 +1377,7 @@ fn test_delegate_take_can_be_increased_to_limit() {
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
-        assert_ok!(SubtensorModule::do_become_delegate(
-            RuntimeOrigin::signed(coldkey0),
-            hotkey0,
-            SubtensorModule::get_min_delegate_take()
-        ));
+        Delegates::<Test>::insert(hotkey0, SubtensorModule::get_min_delegate_take());
         assert_eq!(
             SubtensorModule::get_hotkey_take(&hotkey0),
             SubtensorModule::get_min_delegate_take()
@@ -1434,39 +1398,6 @@ fn test_delegate_take_can_be_increased_to_limit() {
     });
 }
 
-// Verify delegate take can not be set above InitialDefaultDelegateTake
-#[test]
-fn test_delegate_take_can_not_be_set_beyond_limit() {
-    new_test_ext(1).execute_with(|| {
-        // Make account
-        let hotkey0 = U256::from(1);
-        let coldkey0 = U256::from(3);
-
-        // Add balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 100000);
-
-        // Register the neuron to a new network
-        let netuid = 1;
-        add_network(netuid, 0, 0);
-        register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
-        let before = SubtensorModule::get_hotkey_take(&hotkey0);
-
-        // Coldkey / hotkey 0 attempt to become delegates with take above maximum
-        // (Disable this check if InitialDefaultDelegateTake is u16::MAX)
-        if InitialDefaultDelegateTake::get() != u16::MAX {
-            assert_eq!(
-                SubtensorModule::do_become_delegate(
-                    RuntimeOrigin::signed(coldkey0),
-                    hotkey0,
-                    InitialDefaultDelegateTake::get() + 1
-                ),
-                Err(Error::<Test>::DelegateTakeTooHigh.into())
-            );
-        }
-        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), before);
-    });
-}
-
 // Verify delegate take can not be increased above InitialDefaultDelegateTake (18%)
 #[test]
 fn test_delegate_take_can_not_be_increased_beyond_limit() {
@@ -1484,11 +1415,7 @@ fn test_delegate_take_can_not_be_increased_beyond_limit() {
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
-        assert_ok!(SubtensorModule::do_become_delegate(
-            RuntimeOrigin::signed(coldkey0),
-            hotkey0,
-            SubtensorModule::get_min_delegate_take()
-        ));
+        Delegates::<Test>::insert(hotkey0, SubtensorModule::get_min_delegate_take());
         assert_eq!(
             SubtensorModule::get_hotkey_take(&hotkey0),
             SubtensorModule::get_min_delegate_take()
@@ -1530,11 +1457,7 @@ fn test_rate_limits_enforced_on_increase_take() {
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
-        assert_ok!(SubtensorModule::do_become_delegate(
-            RuntimeOrigin::signed(coldkey0),
-            hotkey0,
-            SubtensorModule::get_min_delegate_take()
-        ));
+        Delegates::<Test>::insert(hotkey0, SubtensorModule::get_min_delegate_take());
         assert_eq!(
             SubtensorModule::get_hotkey_take(&hotkey0),
             SubtensorModule::get_min_delegate_take()

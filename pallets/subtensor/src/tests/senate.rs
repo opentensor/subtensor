@@ -17,6 +17,8 @@ use frame_system::pallet_prelude::*;
 use frame_system::Config;
 use pallet_collective::Event as CollectiveEvent;
 
+use crate::Delegates;
+
 pub fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
 
@@ -90,11 +92,7 @@ fn test_senate_join_works() {
         );
 
         // Lets make this new key a delegate with a 10% take.
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id,
-            u16::MAX / 10
-        ));
+        Delegates::<Test>::insert(hotkey_account_id, u16::MAX / 10);
 
         let staker_coldkey = U256::from(7);
         SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, 100_000);
@@ -165,11 +163,7 @@ fn test_senate_vote_works() {
         );
 
         // Lets make this new key a delegate with a 10% take.
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id,
-            u16::MAX / 10
-        ));
+        Delegates::<Test>::insert(hotkey_account_id, u16::MAX / 10);
 
         let staker_coldkey = U256::from(7);
         SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, 100_000);
@@ -338,11 +332,7 @@ fn test_senate_leave_works() {
         );
 
         // Lets make this new key a delegate with a 10% take.
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id,
-            u16::MAX / 10
-        ));
+        Delegates::<Test>::insert(hotkey_account_id, u16::MAX / 10);
 
         let staker_coldkey = U256::from(7);
         SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, 100_000);
@@ -413,11 +403,7 @@ fn test_senate_leave_vote_removal() {
         );
 
         // Lets make this new key a delegate with a 10% take.
-        assert_ok!(SubtensorModule::do_become_delegate(
-            coldkey_origin.clone(),
-            hotkey_account_id,
-            u16::MAX / 10
-        ));
+        Delegates::<Test>::insert(hotkey_account_id, u16::MAX / 10);
 
         let staker_coldkey = U256::from(7);
         SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, 100_000);
@@ -556,11 +542,7 @@ fn test_senate_not_leave_when_stake_removed() {
         );
 
         // Lets make this new key a delegate with a 10% take.
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id,
-            u16::MAX / 10
-        ));
+        Delegates::<Test>::insert(hotkey_account_id, u16::MAX / 10);
 
         let staker_coldkey = U256::from(7);
         let stake_amount: u64 = 100_000;

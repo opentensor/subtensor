@@ -456,8 +456,11 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(79_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
-        pub fn become_delegate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-            Self::do_become_delegate(origin, hotkey, Self::get_default_delegate_take())
+        pub fn become_delegate(_origin: OriginFor<T>, _hotkey: T::AccountId) -> DispatchResult {
+            // DEPRECATED
+            // Self::do_become_delegate(origin, hotkey, Self::get_default_delegate_take())
+
+            Ok(())
         }
 
         /// --- Allows delegates to decrease its take value.
