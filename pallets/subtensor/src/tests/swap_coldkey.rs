@@ -955,36 +955,12 @@ fn test_coldkey_swap_total() {
         register_ok_neuron(netuid1, delegate1, delegate1, 0);
         register_ok_neuron(netuid2, delegate2, delegate2, 0);
         register_ok_neuron(netuid3, delegate3, delegate3, 0);
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            hotkey1,
-            u16::MAX / 10
-        ));
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            hotkey2,
-            u16::MAX / 10
-        ));
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            hotkey3,
-            u16::MAX / 10
-        ));
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(delegate1),
-            delegate1,
-            u16::MAX / 10
-        ));
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(delegate2),
-            delegate2,
-            u16::MAX / 10
-        ));
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(delegate3),
-            delegate3,
-            u16::MAX / 10
-        ));
+        Delegates::<Test>::insert(hotkey1, u16::MAX / 10);
+        Delegates::<Test>::insert(hotkey2, u16::MAX / 10);
+        Delegates::<Test>::insert(hotkey3, u16::MAX / 10);
+        Delegates::<Test>::insert(delegate1, u16::MAX / 10);
+        Delegates::<Test>::insert(delegate2, u16::MAX / 10);
+        Delegates::<Test>::insert(delegate3, u16::MAX / 10);
 
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
