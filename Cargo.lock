@@ -6426,6 +6426,7 @@ dependencies = [
 name = "pallet-subtensor"
 version = "4.0.0-dev"
 dependencies = [
+ "approx",
  "ark-bls12-381",
  "ark-serialize",
  "frame-benchmarking",

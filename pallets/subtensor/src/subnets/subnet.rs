@@ -205,7 +205,7 @@ impl<T: Config> Pallet<T> {
         // --- 8. Set initial and custom parameters for the network.
         let default_tempo = DefaultTempo::<T>::get();
         Self::init_new_network(netuid_to_register, default_tempo);
-        println!("init_new_network: {:?}", netuid_to_register);
+        log::debug!("init_new_network: {:?}", netuid_to_register);
 
         // --- 9 . Add the caller to the neuron set.
         Self::create_account_if_non_existent(&coldkey, hotkey);
@@ -230,12 +230,24 @@ impl<T: Config> Pallet<T> {
 
         // --- 14. Init the pool by putting the lock as the initial alpha.
         TokenSymbol::<T>::insert(netuid_to_register, Self::get_symbol_for_subnet(netuid_to_register) ); // Set subnet token symbol.
-        SubnetTAO::<T>::insert(netuid_to_register, 1_000_000); // add the infintesimal amount of TAO to the pool.
-        SubnetAlphaIn::<T>::insert(netuid_to_register, 1_000_000); // add infintesimal amount of alpha to the pool.
+
+        // Put 100 TAO from lock into subnet TAO and produce numerically equal amount of Alpha
+        let mut pool_initial_tao = 100_000_000_000;
+        if pool_initial_tao > actual_tao_lock_amount {
+            pool_initial_tao = actual_tao_lock_amount;
+        }
+        if pool_initial_tao < 1 {
+            pool_initial_tao = 1;
+        }
+        let actual_tao_lock_amount_less_pool_tao = actual_tao_lock_amount.saturating_sub(pool_initial_tao);
+        SubnetTAO::<T>::insert(netuid_to_register, pool_initial_tao);
+        SubnetAlphaIn::<T>::insert(netuid_to_register, pool_initial_tao);
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
         SubnetOwnerHotkey::<T>::insert(netuid_to_register, hotkey.clone());
 
-        Self::burn_tokens(actual_tao_lock_amount);
+        if actual_tao_lock_amount_less_pool_tao > 0 {
+            Self::burn_tokens(actual_tao_lock_amount_less_pool_tao);
+        }
 
         // --- 15. Add the identity if it exists
         if let Some(identity_value) = identity {

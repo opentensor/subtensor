@@ -7,7 +7,9 @@
 use super::mock::*;
 use crate::epoch::math::safe_exp;
 use crate::*;
-use frame_support::assert_ok;
+
+use frame_support::{assert_ok, assert_err};
+
 // use frame_system::Config;
 use rand::{distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
 use sp_core::U256;
@@ -1482,40 +1484,38 @@ fn test_bonds_with_liquid_alpha() {
     });
 }
 
-// 
+//
 #[test]
 fn test_set_alpha_disabled() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(1 + 456);
+        let netuid = add_dynamic_network(&hotkey, &coldkey);
+        let signer = RuntimeOrigin::signed(coldkey);
 
-        // let netuid: u16 = 1;
-        // let hotkey: U256 = U256::from(1);
-        // let coldkey: U256 = U256::from(1 + 456);
-        // let signer = <<Test as Config>::RuntimeOrigin>::signed(coldkey);
+        // Enable Liquid Alpha and setup
+        SubtensorModule::set_liquid_alpha_enabled(netuid, true);
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
+        assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
+        assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, netuid, 1000));
+        // Only owner can set alpha values
+        assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey));
 
-        // // Enable Liquid Alpha and setup
-        // SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-        // migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
-        // assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
-        // assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, 1000));
-        // // Only owner can set alpha values
-        // assert_ok!(SubtensorModule::register_network(signer.clone()));
+        // Explicitly set to false
+        SubtensorModule::set_liquid_alpha_enabled(netuid, false);
+        assert_err!(
+            SubtensorModule::do_set_alpha_values(signer.clone(), netuid, 12_u16, u16::MAX),
+            Error::<Test>::LiquidAlphaDisabled
+        );
 
-        // // Explicitly set to false
-        // SubtensorModule::set_liquid_alpha_enabled(netuid, false);
-        // assert_err!(
-        //     SubtensorModule::do_set_alpha_values(signer.clone(), netuid, 12_u16, u16::MAX),
-        //     Error::<Test>::LiquidAlphaDisabled
-        // );
-
-        // SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-        // assert_ok!(SubtensorModule::do_set_alpha_values(
-        //     signer.clone(),
-        //     netuid,
-        //     12_u16,
-        //     u16::MAX
-        // ));
+        SubtensorModule::set_liquid_alpha_enabled(netuid, true);
+        assert_ok!(SubtensorModule::do_set_alpha_values(
+            signer.clone(),
+            netuid,
+            12_u16,
+            u16::MAX
+        ));
     });
 }
 
