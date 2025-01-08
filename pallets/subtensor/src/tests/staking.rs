@@ -407,7 +407,7 @@ fn test_remove_stake_amount_zero() {
         // Do the magic
         assert_noop!(
             SubtensorModule::remove_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                RawOrigin::Signed(coldkey_account_id).into(),
                 hotkey_account_id,
                 netuid,
                 0
@@ -420,17 +420,19 @@ fn test_remove_stake_amount_zero() {
 #[test]
 fn test_remove_stake_err_signature() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let hotkey_account_id = U256::from(4968585);
+        let amount = 10000; // Amount to be removed
+        let netuid = 1;
 
-        // let hotkey_account_id = U256::from(4968585);
-        // let amount = 10000; // Amount to be removed
-
-        // let result = SubtensorModule::remove_stake(
-        //     <<Test as Config>::RuntimeOrigin>::none(),
-        //     hotkey_account_id,
-        //     amount,
-        // );
-        // assert_eq!(result, DispatchError::BadOrigin.into());
+        assert_err!(
+            SubtensorModule::remove_stake(
+                RawOrigin::None.into(),
+                hotkey_account_id,
+                netuid,
+                amount,
+            ),
+            DispatchError::BadOrigin
+        );
     });
 }
 
