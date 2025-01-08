@@ -1896,22 +1896,6 @@ fn test_mining_emission_distribution_validator_valiminer_miner() {
         crate::LastUpdate::<Test>::set(netuid, vec![2, 2, 2]);
         crate::Kappa::<Test>::set(netuid, u16::MAX / 5);
 
-        // Run run_coinbase until root epoch is run
-        while crate::PendingEmission::<Test>::get(netuid) == 0 {
-            step_block(1);
-        }
-
-        // Prevent further root epochs
-        crate::Tempo::<Test>::set(root_id, u16::MAX);
-
-        // Run run_coinbase until EmissionValues are populated
-        while crate::EmissionValues::<Test>::get(netuid) == 0 {
-            step_block(1);
-        }
-
-        // Prevent further subnet epochs
-        crate::Tempo::<Test>::set(netuid, u16::MAX);
-
         // Run run_coinbase until emissions are drained
         step_block((subnet_tempo * 4) as u16);
 
