@@ -63,7 +63,6 @@ impl<T: Config> Pallet<T> {
                                 49 => b"automl".to_vec(), // ר (Resh)
                                 50 => b"audio".to_vec(), // ש (Shin)
                                 51 => b"celium".to_vec(), // ת (Tav)
-
                                 52 => b"dojo".to_vec(), // ا (Alif)
                                 53 => b"frontier".to_vec(), // ب (Ba)
                                 54 => b"safescan".to_vec(), // ت (Ta)

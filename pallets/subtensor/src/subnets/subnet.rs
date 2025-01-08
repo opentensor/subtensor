@@ -205,7 +205,7 @@ impl<T: Config> Pallet<T> {
         // --- 8. Set initial and custom parameters for the network.
         let default_tempo = DefaultTempo::<T>::get();
         Self::init_new_network(netuid_to_register, default_tempo);
-        println!("init_new_network: {:?}", netuid_to_register);
+        log::debug!("init_new_network: {:?}", netuid_to_register);
 
         // --- 9 . Add the caller to the neuron set.
         Self::create_account_if_non_existent(&coldkey, hotkey);
