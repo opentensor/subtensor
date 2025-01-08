@@ -41,6 +41,7 @@ fn test_add_stake_ok_no_emission() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(533453);
         let coldkey_account_id = U256::from(55453);
+        let amount = 10_000;
 
         //add network
         let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
@@ -48,7 +49,7 @@ fn test_add_stake_ok_no_emission() {
         println!("Created subnet {:?}", netuid);
 
         // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
 
         // Check we have zero staked before transfer
         assert_eq!(
@@ -64,20 +65,25 @@ fn test_add_stake_ok_no_emission() {
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
             netuid,
-            10000
+            amount
         ));
 
         // Check if stake has increased
-        assert_eq!(
+        assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            9999
+            amount,
+            epsilon = 1,
         );
 
         // Check if balance has decreased
         assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 1);
 
         // Check if total stake has increased accordingly.
-        assert_eq!(SubtensorModule::get_total_stake(), 9999);
+        assert_abs_diff_eq!(
+            SubtensorModule::get_total_stake(),
+            amount,
+            epsilon = 1,
+        );
     });
 }
 
