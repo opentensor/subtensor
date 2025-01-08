@@ -73,12 +73,6 @@ impl<T: Config> Pallet<T> {
             .sum::<u64>()
     }
 
-    // Returns the stake under the cold - hot pairing in the staking table.
-    //
-    pub fn get_stake_for_coldkey_and_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
-        Stake::<T>::get(hotkey, coldkey)
-    }
-
     // Creates a cold - hot pairing account if the hotkey is not already an active account.
     //
     pub fn create_account_if_non_existent(coldkey: &T::AccountId, hotkey: &T::AccountId) {
@@ -149,19 +143,6 @@ impl<T: Config> Pallet<T> {
         } else {
             false
         }
-    }
-
-    /// Returns true if the cold-hot staking account has enough balance to fulfill the decrement.
-    ///
-    /// # Arguments
-    /// * `coldkey` - The coldkey account ID.
-    /// * `hotkey` - The hotkey account ID.
-    /// * `decrement` - The amount to be decremented.
-    ///
-    /// # Returns
-    /// True if the account has enough balance, false otherwise.
-    pub fn has_enough_stake(coldkey: &T::AccountId, hotkey: &T::AccountId, decrement: u64) -> bool {
-        Self::get_stake_for_coldkey_and_hotkey(coldkey, hotkey) >= decrement
     }
 
     /// Clears the nomination for an account, if it is a nominator account and the stake is below the minimum required threshold.

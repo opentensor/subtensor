@@ -885,30 +885,26 @@ fn test_can_remove_balance_from_coldkey_account_err_insufficient_balance() {
 #[test]
 fn test_has_enough_stake_yes() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let hotkey_id = U256::from(4334);
+        let coldkey_id = U256::from(87989);
+        let intial_amount = 10_000;
+        let netuid = add_dynamic_network(&hotkey_id, &coldkey_id);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey_id, &coldkey_id, netuid, intial_amount);
 
-        // let hotkey_id = U256::from(4334);
-        // let coldkey_id = U256::from(87989);
-        // let intial_amount = 10000;
-        // let netuid = 1;
-        // let tempo: u16 = 13;
-        // let start_nonce: u64 = 0;
-        // add_network(netuid, tempo, 0);
-        // register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
-        // SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, intial_amount);
-        // assert_eq!(
-        //     SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
-        //     10000
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_id, &hotkey_id),
-        //     10000
-        // );
-        // assert!(SubtensorModule::has_enough_stake(
-        //     &coldkey_id,
-        //     &hotkey_id,
-        //     5000
-        // ));
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
+            intial_amount
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey_id, &coldkey_id, netuid),
+            intial_amount
+        );
+        assert!(SubtensorModule::has_enough_stake_on_subnet(
+            &hotkey_id,
+            &coldkey_id,
+            netuid,
+            intial_amount / 2
+        ));
     });
 }
 
