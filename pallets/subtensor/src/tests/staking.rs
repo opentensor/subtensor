@@ -1569,68 +1569,79 @@ fn test_rate_limits_enforced_on_increase_take() {
 #[test]
 fn test_get_total_delegated_stake_after_unstaking() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let delegate_coldkey = U256::from(1);
+        let delegate_hotkey = U256::from(2);
+        let delegator = U256::from(3);
+        let initial_stake = 2_000;
+        let unstake_amount = 500;
+        let existential_deposit = ExistentialDeposit::get();
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
-        // let netuid = 1u16;
-        // let delegate_coldkey = U256::from(1);
-        // let delegate_hotkey = U256::from(2);
-        // let delegator = U256::from(3);
-        // let initial_stake = 2000;
-        // let unstake_amount = 500;
-        // let existential_deposit = 1; // Account for the existential deposit
+        register_ok_neuron(netuid, delegate_hotkey, delegate_coldkey, 0);
 
-        // add_network(netuid, 0, 0);
-        // register_ok_neuron(netuid, delegate_hotkey, delegate_coldkey, 0);
+        // Make the account a delegate
+        assert_ok!(SubtensorModule::become_delegate(
+            RuntimeOrigin::signed(delegate_coldkey),
+            delegate_hotkey
+        ));
 
-        // // Make the account a delegate
-        // assert_ok!(SubtensorModule::become_delegate(
-        //     RuntimeOrigin::signed(delegate_coldkey),
-        //     delegate_hotkey
-        // ));
+        // Add balance to delegator
+        SubtensorModule::add_balance_to_coldkey_account(&delegator, initial_stake);
 
-        // // Add balance to delegator
-        // SubtensorModule::add_balance_to_coldkey_account(&delegator, initial_stake);
+        // Delegate stake
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(delegator),
+            delegate_hotkey,
+            netuid,
+            initial_stake
+        ));
 
-        // // Delegate stake
-        // assert_ok!(SubtensorModule::add_stake(
-        //     RuntimeOrigin::signed(delegator),
-        //     delegate_hotkey,
-        //     initial_stake
-        // ));
+        // Check initial delegated stake
+        assert_abs_diff_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&delegator),
+            initial_stake - existential_deposit,
+            epsilon = 1,
+        );
+        assert_abs_diff_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&delegate_hotkey),
+            initial_stake - existential_deposit,
+            epsilon = 1,
+        );
 
-        // // Check initial delegated stake
-        // assert_eq!(
-        //     SubtensorModule::get_total_delegated_stake(&delegate_coldkey),
-        //     initial_stake - existential_deposit,
-        //     "Initial delegated stake is incorrect"
-        // );
+        // Unstake part of the delegation
+        assert_ok!(SubtensorModule::remove_stake(
+            RuntimeOrigin::signed(delegator),
+            delegate_hotkey,
+            netuid,
+            unstake_amount
+        ));
 
-        // // Unstake part of the delegation
-        // assert_ok!(SubtensorModule::remove_stake(
-        //     RuntimeOrigin::signed(delegator),
-        //     delegate_hotkey,
-        //     unstake_amount
-        // ));
+        // Calculate the expected delegated stake
+        let expected_delegated_stake = initial_stake - unstake_amount - existential_deposit;
 
-        // // Calculate the expected delegated stake
-        // let expected_delegated_stake = initial_stake - unstake_amount - existential_deposit;
+        // Debug prints
+        log::debug!("Initial stake: {}", initial_stake);
+        log::debug!("Unstake amount: {}", unstake_amount);
+        log::debug!("Existential deposit: {}", existential_deposit);
+        log::debug!("Expected delegated stake: {}", expected_delegated_stake);
+        log::debug!(
+            "Actual delegated stake: {}",
+            SubtensorModule::get_total_stake_for_coldkey(&delegate_coldkey)
+        );
 
-        // // Debug prints
-        // println!("Initial stake: {}", initial_stake);
-        // println!("Unstake amount: {}", unstake_amount);
-        // println!("Existential deposit: {}", existential_deposit);
-        // println!("Expected delegated stake: {}", expected_delegated_stake);
-        // println!(
-        //     "Actual delegated stake: {}",
-        //     SubtensorModule::get_total_delegated_stake(&delegate_coldkey)
-        // );
-
-        // // Check the total delegated stake after unstaking
-        // assert_eq!(
-        //     SubtensorModule::get_total_delegated_stake(&delegate_coldkey),
-        //     expected_delegated_stake,
-        //     "Delegated stake mismatch after unstaking"
-        // );
+        // Check the total delegated stake after unstaking
+        assert_abs_diff_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&delegator),
+            expected_delegated_stake,
+            epsilon = 1,
+        );
+        assert_abs_diff_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&delegate_hotkey),
+            expected_delegated_stake,
+            epsilon = 1,
+        );
     });
 }
 
@@ -1651,7 +1662,7 @@ fn test_get_total_delegated_stake_no_delegations() {
         ));
 
         // Check that there's no delegated stake
-        assert_eq!(SubtensorModule::get_total_delegated_stake(&delegate), 0);
+        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&delegate), 0);
     });
 }
 
@@ -1691,11 +1702,11 @@ fn test_get_total_delegated_stake_single_delegator() {
         // println!("Stake amount: {}", stake_amount);
         // println!("Existential deposit: {}", existential_deposit);
         // println!("Total stake for hotkey: {}", SubtensorModule::get_total_stake_for_hotkey(&delegate_hotkey));
-        // println!("Delegated stake for coldkey: {}", SubtensorModule::get_total_delegated_stake(&delegate_coldkey));
+        // println!("Delegated stake for coldkey: {}", SubtensorModule::get_total_stake_for_coldkey(&delegate_coldkey));
 
         // // Calculate expected delegated stake
         // let expected_delegated_stake = stake_amount - existential_deposit;
-        // let actual_delegated_stake = SubtensorModule::get_total_delegated_stake(&delegate_coldkey);
+        // let actual_delegated_stake = SubtensorModule::get_total_stake_for_coldkey(&delegate_coldkey);
 
         // assert_eq!(
         //     actual_delegated_stake,
@@ -1751,11 +1762,11 @@ fn test_get_total_delegated_stake_multiple_delegators() {
         // println!("Delegator2 stake: {}", stake2);
         // println!("Existential deposit: {}", existential_deposit);
         // println!("Total stake for hotkey: {}", SubtensorModule::get_total_stake_for_hotkey(&delegate_hotkey));
-        // println!("Delegated stake for coldkey: {}", SubtensorModule::get_total_delegated_stake(&delegate_coldkey));
+        // println!("Delegated stake for coldkey: {}", SubtensorModule::get_total_stake_for_coldkey(&delegate_coldkey));
 
         // // Calculate expected total delegated stake
         // let expected_total_delegated = stake1 + stake2 - 2 * existential_deposit;
-        // let actual_total_delegated = SubtensorModule::get_total_delegated_stake(&delegate_coldkey);
+        // let actual_total_delegated = SubtensorModule::get_total_stake_for_coldkey(&delegate_coldkey);
 
         // assert_eq!(
         //     actual_total_delegated,
@@ -1815,12 +1826,12 @@ fn test_get_total_delegated_stake_exclude_owner_stake() {
         // );
         // println!(
         //     "Delegated stake for coldkey: {}",
-        //     SubtensorModule::get_total_delegated_stake(&delegate_coldkey)
+        //     SubtensorModule::get_total_stake_for_coldkey(&delegate_coldkey)
         // );
 
         // // Check the total delegated stake (should exclude owner's stake)
         // let expected_delegated_stake = delegator_stake - existential_deposit;
-        // let actual_delegated_stake = SubtensorModule::get_total_delegated_stake(&delegate_coldkey);
+        // let actual_delegated_stake = SubtensorModule::get_total_stake_for_coldkey(&delegate_coldkey);
 
         // assert_eq!(
         //     actual_delegated_stake, expected_delegated_stake,
