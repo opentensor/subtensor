@@ -170,6 +170,13 @@ impl<T: Config> Pallet<T> {
                 netuid,
                 old_total_hotkey_alpha.saturating_add(new_total_hotkey_alpha),
             );
+
+            let staking_coldkeys = StakedColdkeysOnSubnet::<T>::get(netuid, &old_hotkey);
+            if !staking_coldkeys.is_empty() {
+                StakedColdkeysOnSubnet::<T>::remove(netuid, &old_hotkey);
+                StakedColdkeysOnSubnet::<T>::insert(netuid, &new_hotkey, staking_coldkeys);
+            }
+
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
         }
 
@@ -218,7 +225,7 @@ impl<T: Config> Pallet<T> {
 
         // 9. swap PendingHotkeyEmissionOnNetuid
         // (DEPRECATED.)
-        
+
         // 10. Swap all subnet specific info.
         let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
         all_netuids.iter().for_each(|netuid| {
