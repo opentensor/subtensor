@@ -705,58 +705,47 @@ fn test_remove_stake_from_hotkey_account() {
 #[test]
 fn test_remove_stake_from_hotkey_account_registered_in_various_networks() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let hotkey_id = U256::from(5445);
+        let coldkey_id = U256::from(5443433);
+        let amount: u64 = 10_000;
+        let netuid = add_dynamic_network(&hotkey_id, &coldkey_id);
+        let netuid_ex = add_dynamic_network(&hotkey_id, &coldkey_id);
 
-        // let hotkey_id = U256::from(5445);
-        // let coldkey_id = U256::from(5443433);
-        // let amount: u64 = 10000;
-        // let netuid: u16 = 1;
-        // let netuid_ex = 2;
-        // let tempo: u16 = 13;
-        // let start_nonce: u64 = 0;
-        // //
-        // add_network(netuid, tempo, 0);
-        // add_network(netuid_ex, tempo, 0);
-        // //
-        // register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
-        // register_ok_neuron(netuid_ex, hotkey_id, coldkey_id, 48141209);
+        let neuron_uid = match SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_id) {
+            Ok(k) => k,
+            Err(e) => panic!("Error: {:?}", e),
+        };
 
-        // //let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_id);
+        let neuron_uid_ex = match SubtensorModule::get_uid_for_net_and_hotkey(netuid_ex, &hotkey_id)
+        {
+            Ok(k) => k,
+            Err(e) => panic!("Error: {:?}", e),
+        };
 
-        // let neuron_uid = match SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_id) {
-        //     Ok(k) => k,
-        //     Err(e) => panic!("Error: {:?}", e),
-        // };
-        // //let neuron_uid_ex = SubtensorModule::get_uid_for_net_and_hotkey(netuid_ex, &hotkey_id);
+        // Add some stake that can be removed
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey_id, &coldkey_id, netuid, amount);
 
-        // let neuron_uid_ex = match SubtensorModule::get_uid_for_net_and_hotkey(netuid_ex, &hotkey_id)
-        // {
-        //     Ok(k) => k,
-        //     Err(e) => panic!("Error: {:?}", e),
-        // };
-        // //Add some stake that can be removed
-        // SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, amount);
+        assert_eq!(
+            SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
+            amount
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_uid_and_subnetwork(netuid_ex, neuron_uid_ex),
+            0
+        );
 
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
-        //     amount
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_uid_and_subnetwork(netuid_ex, neuron_uid_ex),
-        //     amount
-        // );
+        // Remove all stake
+        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(&hotkey_id, &coldkey_id, netuid, amount);
 
-        // // Remove stake
-        // SubtensorModule::decrease_stake_on_hotkey_account(&hotkey_id, amount);
-        // //
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
-        //     0
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_uid_and_subnetwork(netuid_ex, neuron_uid_ex),
-        //     0
-        // );
+        //
+        assert_eq!(
+            SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_uid_and_subnetwork(netuid_ex, neuron_uid_ex),
+            0
+        );
     });
 }
 
