@@ -962,21 +962,22 @@ fn test_has_enough_stake_no_for_zero() {
 #[test]
 fn test_non_existent_account() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
-
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-        //     &U256::from(0),
-        //     &(U256::from(0)),
-        //     10,
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_stake_for_coldkey_and_hotkey(&U256::from(0), &U256::from(0)),
-        //     10
-        // );
-        // assert_eq!(
-        //     SubtensorModule::get_total_stake_for_coldkey(&(U256::from(0))),
-        //     10
-        // );
+        let netuid = 1;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &U256::from(0),
+            &(U256::from(0)),
+            netuid,
+            10,
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&U256::from(0), &U256::from(0), netuid),
+            10
+        );
+        // No subnets => no iteration => zero total stake
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&(U256::from(0))),
+            0
+        );
     });
 }
 
