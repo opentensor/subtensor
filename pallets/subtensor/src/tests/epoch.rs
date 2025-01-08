@@ -153,7 +153,7 @@ fn init_run_epochs(
     random_seed: u64,
     sparse: bool,
 ) {
-    // // === Create the network
+    // === Create the network
     add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
 
     // === Register uids
