@@ -711,144 +711,141 @@ fn get_account_id_from_ss58(ss58_str: &str) -> U256 {
 #[test]
 fn test_migrate_rao() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        // Setup initial state
+        let netuid_0: u16 = 0;
+        let netuid_1: u16 = 1;
+        let hotkey1 = U256::from(1);
+        let hotkey2 = U256::from(2);
+        let coldkey1 = U256::from(3);
+        let coldkey2 = U256::from(4);
+        let coldkey3 = U256::from(5);
+        let stake_amount: u64 = 1_000_000_000;
+        let lock_amount: u64 = 500;
 
-        // // Setup initial state
-        // let netuid_0: u16 = 0;
-        // let netuid_1: u16 = 1;
-        // let hotkey1 = U256::from(1);
-        // let hotkey2 = U256::from(2);
-        // let coldkey1 = U256::from(3);
-        // let coldkey2 = U256::from(4);
-        // let coldkey3 = U256::from(5);
-        // let stake_amount: u64 = 1_000_000_000;
-        // let lock_amount: u64 = 500;
-
-        // // Add networks root and alpha
-        // add_network(netuid_0, 1, 0);
-        // add_network(netuid_1, 1, 0);
+        // Add networks root and alpha
+        add_network(netuid_0, 1, 0);
+        add_network(netuid_1, 1, 0);
         
-        // // Set subnet lock
-        // SubnetLocked::<Test>::insert(netuid_1, lock_amount);
+        // Set subnet lock
+        SubnetLocked::<Test>::insert(netuid_1, lock_amount);
         
-        // // Add some initial stake
-        // Owner::<Test>::insert(hotkey1, coldkey1);
-        // Owner::<Test>::insert(hotkey2, coldkey2);
-        // Stake::<Test>::insert(hotkey1, coldkey1, stake_amount);
-        // Stake::<Test>::insert(hotkey1, coldkey2, stake_amount);
-        // Stake::<Test>::insert(hotkey2, coldkey2, stake_amount);
-        // Stake::<Test>::insert(hotkey2, coldkey3, stake_amount);
+        // Add some initial stake
+        Owner::<Test>::insert(hotkey1, coldkey1);
+        Owner::<Test>::insert(hotkey2, coldkey2);
+        Stake::<Test>::insert(hotkey1, coldkey1, stake_amount);
+        Stake::<Test>::insert(hotkey1, coldkey2, stake_amount);
+        Stake::<Test>::insert(hotkey2, coldkey2, stake_amount);
+        Stake::<Test>::insert(hotkey2, coldkey3, stake_amount);
 
-        // // Verify initial conditions
-        // assert_eq!(SubnetTAO::<Test>::get(netuid_0), 0);
-        // assert_eq!(SubnetTAO::<Test>::get(netuid_1), 0);
-        // assert_eq!(SubnetAlphaOut::<Test>::get(netuid_0), 0);
-        // assert_eq!(SubnetAlphaOut::<Test>::get(netuid_1), 0);
-        // assert_eq!(SubnetAlphaIn::<Test>::get(netuid_0), 0);
-        // assert_eq!(SubnetAlphaIn::<Test>::get(netuid_1), 0);
-        // assert_eq!(TotalHotkeyShares::<Test>::get(hotkey1, netuid_0), 0);
-        // assert_eq!(TotalHotkeyShares::<Test>::get(hotkey1, netuid_1), 0);
-        // assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey1, netuid_0), 0);
-        // assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey2, netuid_1), 0);
+        // Verify initial conditions
+        assert_eq!(SubnetTAO::<Test>::get(netuid_0), 0);
+        assert_eq!(SubnetTAO::<Test>::get(netuid_1), 0);
+        assert_eq!(SubnetAlphaOut::<Test>::get(netuid_0), 0);
+        assert_eq!(SubnetAlphaOut::<Test>::get(netuid_1), 0);
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid_0), 0);
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid_1), 0);
+        assert_eq!(TotalHotkeyShares::<Test>::get(hotkey1, netuid_0), 0);
+        assert_eq!(TotalHotkeyShares::<Test>::get(hotkey1, netuid_1), 0);
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey1, netuid_0), 0);
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey2, netuid_1), 0);
         
-        // // Run migration
-        // crate::migrations::migrate_rao::migrate_rao::<Test>();
+        // Run migration
+        crate::migrations::migrate_rao::migrate_rao::<Test>();
 
-        // // Verify root subnet (netuid 0) state after migration
-        // assert_eq!(SubnetTAO::<Test>::get(netuid_0), 4 * stake_amount); // Root has everything
-        // assert_eq!(SubnetTAO::<Test>::get(netuid_1), 1 ); // Initial Rao amount.
-        // assert_eq!(SubnetAlphaIn::<Test>::get(netuid_0), 1); // No Alpha in pool on root.
-        // assert_eq!(SubnetAlphaIn::<Test>::get(netuid_1), 1); // Initial Rao amount.
-        // assert_eq!(SubnetAlphaOut::<Test>::get(netuid_0), 4 * stake_amount); // All stake is outstanding.
-        // assert_eq!(SubnetAlphaOut::<Test>::get(netuid_1), 0); // No stake outstanding.
+        // Verify root subnet (netuid 0) state after migration
+        assert_eq!(SubnetTAO::<Test>::get(netuid_0), 4 * stake_amount); // Root has everything
+        assert_eq!(SubnetTAO::<Test>::get(netuid_1), 100_000_000_000 ); // Initial Rao amount.
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid_0), 1); // No Alpha in pool on root.
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid_1), 100_000_000_000); // Initial Rao amount.
+        assert_eq!(SubnetAlphaOut::<Test>::get(netuid_0), 4 * stake_amount); // All stake is outstanding.
+        assert_eq!(SubnetAlphaOut::<Test>::get(netuid_1), 0); // No stake outstanding.
 
-        // // Assert share information for hotkey1 on netuid_0
-        // assert_eq!(TotalHotkeyShares::<Test>::get(hotkey1, netuid_0), 2 * stake_amount); // Shares
-        // // Assert no shares for hotkey1 on netuid_1
-        // assert_eq!(TotalHotkeyShares::<Test>::get(hotkey1, netuid_1), 0 ); // No shares
-        // // Assert alpha for hotkey1 on netuid_0
-        // assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey1, netuid_0), 2 * stake_amount); // Alpha
-        // // Assert no alpha for hotkey1 on netuid_1
-        // assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey1, netuid_1), 0 ); // No alpha.
-        // // Assert share information for hotkey2 on netuid_0
-        // assert_eq!(TotalHotkeyShares::<Test>::get(hotkey2, netuid_0), 2 * stake_amount); // Shares
-        // // Assert no shares for hotkey2 on netuid_1
-        // assert_eq!(TotalHotkeyShares::<Test>::get(hotkey2, netuid_1), 0 ); // No shares
-        // // Assert alpha for hotkey2 on netuid_0
-        // assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey2, netuid_0), 2 * stake_amount); // Alpha
-        // // Assert no alpha for hotkey2 on netuid_1
-        // assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey2, netuid_1), 0 ); // No alpha.
+        // Assert share information for hotkey1 on netuid_0
+        assert_eq!(TotalHotkeyShares::<Test>::get(hotkey1, netuid_0), 2 * stake_amount); // Shares
+        // Assert no shares for hotkey1 on netuid_1
+        assert_eq!(TotalHotkeyShares::<Test>::get(hotkey1, netuid_1), 0 ); // No shares
+        // Assert alpha for hotkey1 on netuid_0
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey1, netuid_0), 2 * stake_amount); // Alpha
+        // Assert no alpha for hotkey1 on netuid_1
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey1, netuid_1), 0 ); // No alpha.
+        // Assert share information for hotkey2 on netuid_0
+        assert_eq!(TotalHotkeyShares::<Test>::get(hotkey2, netuid_0), 2 * stake_amount); // Shares
+        // Assert no shares for hotkey2 on netuid_1
+        assert_eq!(TotalHotkeyShares::<Test>::get(hotkey2, netuid_1), 0 ); // No shares
+        // Assert alpha for hotkey2 on netuid_0
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey2, netuid_0), 2 * stake_amount); // Alpha
+        // Assert no alpha for hotkey2 on netuid_1
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey2, netuid_1), 0 ); // No alpha.
 
-        // // Assert stake balances for hotkey1 and coldkey1 on netuid_0
-        // assert_eq!( SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-        //     &hotkey1, 
-        //     &coldkey1, 
-        //     netuid_0
-        // ), stake_amount );
-        // // Assert stake balances for hotkey1 and coldkey2 on netuid_0
-        // assert_eq!( SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-        //     &hotkey1, 
-        //     &coldkey2, 
-        //     netuid_0
-        // ), stake_amount );
-        // // Assert stake balances for hotkey2 and coldkey2 on netuid_0
-        // assert_eq!( SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-        //     &hotkey2, 
-        //     &coldkey2, 
-        //     netuid_0
-        // ), stake_amount );
-        // // Assert stake balances for hotkey2 and coldkey3 on netuid_0
-        // assert_eq!( SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-        //     &hotkey2, 
-        //     &coldkey3, 
-        //     netuid_0
-        // ), stake_amount );
-        // // Assert total stake for hotkey1 on netuid_0
-        // assert_eq!( SubtensorModule::get_stake_for_hotkey_on_subnet(
-        //     &hotkey1, 
-        //     netuid_0
-        // ), 2 * stake_amount );
-        // // Assert total stake for hotkey2 on netuid_0
-        // assert_eq!( SubtensorModule::get_stake_for_hotkey_on_subnet(
-        //     &hotkey2, 
-        //     netuid_0
-        // ), 2 * stake_amount );
-        // // Increase stake for hotkey1 and coldkey1 on netuid_0
-        // SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-        //     &hotkey1, 
-        //     &coldkey1, 
-        //     netuid_0, 
-        //     stake_amount
-        // );
-        // // Assert updated stake for hotkey1 and coldkey1 on netuid_0
-        // assert_eq!( SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-        //     &hotkey1, 
-        //     &coldkey1, 
-        //     netuid_0
-        // ), 2 * stake_amount );
-        // // Assert updated total stake for hotkey1 on netuid_0
-        // assert_eq!( SubtensorModule::get_stake_for_hotkey_on_subnet(
-        //     &hotkey1, 
-        //     netuid_0
-        // ), 3 * stake_amount );
-        // // Increase stake for hotkey1 and coldkey1 on netuid_1
-        // SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-        //     &hotkey1, 
-        //     &coldkey1, 
-        //     netuid_1, 
-        //     stake_amount
-        // );
-        // // Assert updated stake for hotkey1 and coldkey1 on netuid_1
-        // assert_eq!( SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-        //     &hotkey1, 
-        //     &coldkey1, 
-        //     netuid_1
-        // ), stake_amount );
-        // // Assert updated total stake for hotkey1 on netuid_1
-        // assert_eq!( SubtensorModule::get_stake_for_hotkey_on_subnet(
-        //     &hotkey1, 
-        //     netuid_1
-        // ), stake_amount );
-
+        // Assert stake balances for hotkey1 and coldkey1 on netuid_0
+        assert_eq!( SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1, 
+            &coldkey1, 
+            netuid_0
+        ), stake_amount );
+        // Assert stake balances for hotkey1 and coldkey2 on netuid_0
+        assert_eq!( SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1, 
+            &coldkey2, 
+            netuid_0
+        ), stake_amount );
+        // Assert stake balances for hotkey2 and coldkey2 on netuid_0
+        assert_eq!( SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2, 
+            &coldkey2, 
+            netuid_0
+        ), stake_amount );
+        // Assert stake balances for hotkey2 and coldkey3 on netuid_0
+        assert_eq!( SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2, 
+            &coldkey3, 
+            netuid_0
+        ), stake_amount );
+        // Assert total stake for hotkey1 on netuid_0
+        assert_eq!( SubtensorModule::get_stake_for_hotkey_on_subnet(
+            &hotkey1, 
+            netuid_0
+        ), 2 * stake_amount );
+        // Assert total stake for hotkey2 on netuid_0
+        assert_eq!( SubtensorModule::get_stake_for_hotkey_on_subnet(
+            &hotkey2, 
+            netuid_0
+        ), 2 * stake_amount );
+        // Increase stake for hotkey1 and coldkey1 on netuid_0
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1, 
+            &coldkey1, 
+            netuid_0, 
+            stake_amount
+        );
+        // Assert updated stake for hotkey1 and coldkey1 on netuid_0
+        assert_eq!( SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1, 
+            &coldkey1, 
+            netuid_0
+        ), 2 * stake_amount );
+        // Assert updated total stake for hotkey1 on netuid_0
+        assert_eq!( SubtensorModule::get_stake_for_hotkey_on_subnet(
+            &hotkey1, 
+            netuid_0
+        ), 3 * stake_amount );
+        // Increase stake for hotkey1 and coldkey1 on netuid_1
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1, 
+            &coldkey1, 
+            netuid_1, 
+            stake_amount
+        );
+        // Assert updated stake for hotkey1 and coldkey1 on netuid_1
+        assert_eq!( SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1, 
+            &coldkey1, 
+            netuid_1
+        ), stake_amount );
+        // Assert updated total stake for hotkey1 on netuid_1
+        assert_eq!( SubtensorModule::get_stake_for_hotkey_on_subnet(
+            &hotkey1, 
+            netuid_1
+        ), stake_amount );
     });
 }
