@@ -3,7 +3,6 @@ use frame_support::IterableStorageMap;
 use sp_core::Get;
 
 impl<T: Config> Pallet<T> {
-
     /// Retrieves the unique identifier (UID) for the root network.
     ///
     /// The root network is a special case and has a fixed UID of 0.
@@ -205,7 +204,6 @@ impl<T: Config> Pallet<T> {
         // --- 8. Set initial and custom parameters for the network.
         let default_tempo = DefaultTempo::<T>::get();
         Self::init_new_network(netuid_to_register, default_tempo);
-        println!("init_new_network: {:?}", netuid_to_register);
 
         // --- 9 . Add the caller to the neuron set.
         Self::create_account_if_non_existent(&coldkey, hotkey);
@@ -229,7 +227,10 @@ impl<T: Config> Pallet<T> {
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
 
         // --- 14. Init the pool by putting the lock as the initial alpha.
-        TokenSymbol::<T>::insert(netuid_to_register, Self::get_symbol_for_subnet(netuid_to_register) ); // Set subnet token symbol.
+        TokenSymbol::<T>::insert(
+            netuid_to_register,
+            Self::get_symbol_for_subnet(netuid_to_register),
+        ); // Set subnet token symbol.
         SubnetTAO::<T>::insert(netuid_to_register, 1_000_000); // add the infintesimal amount of TAO to the pool.
         SubnetAlphaIn::<T>::insert(netuid_to_register, 1_000_000); // add infintesimal amount of alpha to the pool.
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
@@ -339,5 +340,3 @@ impl<T: Config> Pallet<T> {
         }
     }
 }
-
-

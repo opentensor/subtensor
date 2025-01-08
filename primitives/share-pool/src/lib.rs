@@ -1,8 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::result_unit_err)]
 
-use sp_std::ops::Neg;
 use sp_std::marker;
+use sp_std::ops::Neg;
 use substrate_fixed::types::I64F64;
 
 pub trait SharePoolDataOperations<Key> {
@@ -62,7 +62,7 @@ where
             Err(i) => Err(i),
         }
     }
-    
+
     /// Update the total shared value.
     /// Every key's associated value effectively updates with this operation
     pub fn update_value_for_all(&mut self, update: i64) -> Result<(), ()> {
@@ -82,7 +82,7 @@ where
                         .ok_or({})?,
                 );
             }
-            _ => { }
+            _ => {}
         }
 
         Ok(())
@@ -113,17 +113,10 @@ where
                 .checked_div(value_per_share)
                 .ok_or({})?;
 
-            self.state_ops.set_denominator(
-                denominator
-                    .checked_add(shares_per_update)
-                    .ok_or({})?,
-            );
-            self.state_ops.set_share(
-                key,
-                current_share
-                    .checked_add(shares_per_update)
-                    .ok_or({})?,
-            );
+            self.state_ops
+                .set_denominator(denominator.checked_add(shares_per_update).ok_or({})?);
+            self.state_ops
+                .set_share(key, current_share.checked_add(shares_per_update).ok_or({})?);
         }
 
         Ok(())
@@ -157,7 +150,7 @@ mod tests {
         }
 
         fn get_share(&self, key: &u16) -> I64F64 {
-            self.share.get(key).unwrap_or(&I64F64::from_num(0)).clone()
+            *self.share.get(key).unwrap_or(&I64F64::from_num(0))
         }
 
         fn try_get_share(&self, key: &u16) -> Result<I64F64, ()> {
@@ -252,5 +245,5 @@ mod tests {
 
         assert_eq!(value1, 10);
         assert_eq!(value2, 10);
-    }    
+    }
 }
