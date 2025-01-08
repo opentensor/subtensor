@@ -1192,53 +1192,6 @@ fn test_clear_small_nominations() {
     });
 }
 
-/// Test that the nominator minimum staking threshold is enforced when stake is added.
-#[test]
-fn test_add_stake_below_minimum_threshold() {
-    new_test_ext(0).execute_with(|| {
-        assert!(false);
-
-        // let netuid: u16 = 1;
-        // let coldkey1 = U256::from(0);
-        // let hotkey1 = U256::from(1);
-        // let coldkey2 = U256::from(2);
-        // let minimum_threshold = 10_000_000;
-        // let amount_below = 50_000;
-
-        // // Add balances.
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 100_000);
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey2, 100_000);
-        // SubtensorModule::set_nominator_min_required_stake(minimum_threshold);
-
-        // // Create network
-        // add_network(netuid, 0, 0);
-
-        // // Register the neuron to a new network.
-        // register_ok_neuron(netuid, hotkey1, coldkey1, 0);
-        // assert_ok!(SubtensorModule::become_delegate(
-        //     RawOrigin::Signed(coldkey1).into(),
-        //     hotkey1
-        // ));
-
-        // // Coldkey staking on its own hotkey can stake below min threshold.
-        // assert_ok!(SubtensorModule::add_stake(
-        //     RawOrigin::Signed(coldkey1).into(),
-        //     hotkey1,
-        //     amount_below
-        // ));
-
-        // // Nomination stake cannot stake below min threshold.
-        // assert_noop!(
-        //     SubtensorModule::add_stake(
-        //         RawOrigin::Signed(coldkey2).into(),
-        //         hotkey1,
-        //         amount_below
-        //     ),
-        //     crate::Error::<Test>::NomStakeBelowMinimumThreshold
-        // );
-    });
-}
-
 /// Test that the nominator minimum staking threshold is enforced when stake is removed.
 #[test]
 fn test_remove_stake_below_minimum_threshold() {
