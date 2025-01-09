@@ -44,12 +44,6 @@ pub fn migrate_rao<T: Config>() -> Weight {
         Alpha::<T>::mutate((hotkey.clone(), coldkey.clone(), 0), |total| {
             *total = total.saturating_add(I64F64::from_num(stake))
         });
-        // Set the hotkey -> staked coldkeys relation on root.
-        let mut staking_coldkeys = StakedColdkeysOnSubnet::<T>::get(0, &hotkey);
-        if !staking_coldkeys.contains(&coldkey) {
-            staking_coldkeys.push(coldkey.clone());
-            StakedColdkeysOnSubnet::<T>::insert(0, &hotkey, staking_coldkeys);
-        }
         TotalHotkeyShares::<T>::mutate(hotkey.clone(), 0, |total| {
             *total = total.saturating_add(I64F64::from_num(stake))
         });

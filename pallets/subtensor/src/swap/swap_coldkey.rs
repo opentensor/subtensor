@@ -179,15 +179,6 @@ impl<T: Config> Pallet<T> {
                 );
                 // Remove the value from the old account.
                 Alpha::<T>::remove((&hotkey, old_coldkey, netuid));
-
-                let mut staking_coldkeys = StakedColdkeysOnSubnet::<T>::get(netuid, &hotkey);
-                if staking_coldkeys.contains(&old_coldkey) {
-                    staking_coldkeys.retain(|x| *x != old_coldkey.clone());
-                    if !staking_coldkeys.contains(&new_coldkey) {
-                        staking_coldkeys.push(new_coldkey.clone());
-                    }
-                    StakedColdkeysOnSubnet::<T>::insert(netuid, &hotkey, staking_coldkeys);
-                }
             }
             // Add the weight for the read and write.
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));

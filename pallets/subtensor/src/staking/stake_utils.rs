@@ -607,12 +607,6 @@ impl<T: Config> Pallet<T> {
             StakingHotkeys::<T>::insert(coldkey, staking_hotkeys.clone());
         }
 
-        let mut staking_coldkeys = StakedColdkeysOnSubnet::<T>::get(netuid, hotkey);
-        if !staking_coldkeys.contains(coldkey) {
-            staking_coldkeys.push(coldkey.clone());
-            StakedColdkeysOnSubnet::<T>::insert(netuid, hotkey, staking_coldkeys);
-        }
-
         // Step 5. Deposit and log the staking event.
         Self::deposit_event(Event::StakeAdded(
             coldkey.clone(),
@@ -701,13 +695,6 @@ impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>>
             crate::Alpha::<T>::insert((&self.hotkey, key, self.netuid), share);
         } else {
             crate::Alpha::<T>::remove((&self.hotkey, key, self.netuid));
-
-            let mut staking_coldkeys =
-                crate::StakedColdkeysOnSubnet::<T>::get(self.netuid, &self.hotkey);
-            if staking_coldkeys.contains(&key) {
-                staking_coldkeys.retain(|x| *x != key.clone());
-                StakedColdkeysOnSubnet::<T>::insert(self.netuid, &self.hotkey, staking_coldkeys);
-            }
         }
     }
 

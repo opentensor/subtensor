@@ -179,7 +179,7 @@ fn test_replace_neuron_multiple_subnets() {
 }
 
 #[test]
-fn test_replace_neuron_multiple_subnets_unstake_all() {
+fn test_replace_neuron_with_stake_update() {
     new_test_ext(1).execute_with(|| {
         let block_number: u64 = 0;
         let netuid: u16 = 1;

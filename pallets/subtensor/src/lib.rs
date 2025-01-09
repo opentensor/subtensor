@@ -922,17 +922,6 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroU64<T>,
     >;
-    #[pallet::storage]
-    /// (DEPRECATED) DMAP ( netuid, hot ) --> Vec<cold> | Returns the coldkeys added stake on subnet
-    pub type StakedColdkeysOnSubnet<T: Config> = StorageDoubleMap<
-        _,
-        Blake2_128Concat,
-        u16,
-        Identity,
-        T::AccountId,
-        Vec<T::AccountId>,
-        ValueQuery,
-    >;
 
     #[pallet::storage] // --- DMAP ( cold ) --> () | Maps coldkey to if a coldkey swap is scheduled.
     pub type ColdkeySwapScheduled<T: Config> =

@@ -42,22 +42,23 @@ impl<T: Config> Pallet<T> {
         NeuronCertificates::<T>::remove(netuid, old_hotkey.clone());
 
         // 5 unstake all from old hotkey
-        let staked_coldkeys = StakedColdkeysOnSubnet::<T>::get(netuid, &old_hotkey);
-        for coldkey in staked_coldkeys.iter() {
-            let current_stake =
-                Self::get_stake_for_hotkey_and_coldkey_on_subnet(&old_hotkey, coldkey, netuid);
+        for (coldkey, stake_netuid) in Alpha::<T>::iter_key_prefix((&old_hotkey,)) {
+            if stake_netuid == netuid {
+                let current_stake =
+                    Self::get_stake_for_hotkey_and_coldkey_on_subnet(&old_hotkey, &coldkey, netuid);
 
-            let tao_unstaked: u64 =
-                Self::unstake_from_subnet(&old_hotkey, &coldkey, netuid, current_stake);
+                let tao_unstaked: u64 =
+                    Self::unstake_from_subnet(&old_hotkey, &coldkey, netuid, current_stake);
 
-            // 7. We add the balance to the coldkey. If the above fails we will not credit this coldkey.
-            Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
+                // We add the balance to the coldkey. If the above fails we will not credit this coldkey.
+                Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 
-            // 8. If the stake is below the minimum, we clear the nomination from storage.
-            Self::clear_small_nomination_if_required(&old_hotkey, &coldkey, netuid);
+                // If the stake is below the minimum, we clear the nomination from storage.
+                Self::clear_small_nomination_if_required(&old_hotkey, &coldkey, netuid);
+            }
         }
 
-        // 9. Check if stake lowered below MinStake and remove Pending children if it did
+        // 6. Check if stake lowered below MinStake and remove Pending children if it did
         if Self::get_total_stake_for_hotkey(&old_hotkey) < StakeThreshold::<T>::get() {
             Self::get_all_subnet_netuids().iter().for_each(|netuid| {
                 PendingChildKeys::<T>::remove(netuid, &old_hotkey);
