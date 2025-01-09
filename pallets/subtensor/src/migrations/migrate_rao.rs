@@ -31,7 +31,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
     weight = weight.saturating_add(T::DbWeight::get().reads_writes(netuids.len() as u64, 0));
 
     // Set the Dynamic block.
-    DynamicBlock::<T>::insert(netuid, Pallet::<T>::get_current_block_as_u64() );
+    DynamicBlock::<T>::set( Pallet::<T>::get_current_block_as_u64() );
 
     // Migrate all TAO to root.
     Stake::<T>::iter().for_each(|(hotkey, coldkey, stake)| {
