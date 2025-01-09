@@ -915,7 +915,11 @@ fn test_do_swap_coldkey_with_subnet_ownership() {
         OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
 
         // Perform the swap
-        assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey, swap_cost));
+        assert_ok!(SubtensorModule::do_swap_coldkey(
+            &old_coldkey,
+            &new_coldkey,
+            swap_cost
+        ));
 
         // Verify subnet ownership transfer
         assert_eq!(SubnetOwner::<Test>::get(netuid), new_coldkey);
@@ -1327,7 +1331,6 @@ fn test_schedule_swap_coldkey_success() {
         // Add balance to the old coldkey account
         SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 1000);
 
-
         let swap_cost = SubtensorModule::get_key_swap_cost();
 
         // Schedule the coldkey swap
@@ -1588,7 +1591,11 @@ fn test_coldkey_swap_no_identity_no_changes() {
         assert!(Identities::<Test>::get(old_coldkey).is_none());
 
         // Perform the coldkey swap
-        assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey, burn_cost));
+        assert_ok!(SubtensorModule::do_swap_coldkey(
+            &old_coldkey,
+            &new_coldkey,
+            burn_cost
+        ));
 
         // Ensure no identities have been changed
         assert!(Identities::<Test>::get(old_coldkey).is_none());
@@ -1632,7 +1639,11 @@ fn test_coldkey_swap_no_identity_no_changes_newcoldkey_exists() {
         assert!(Identities::<Test>::get(old_coldkey).is_none());
 
         // Perform the coldkey swap
-        assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey, burn_cost));
+        assert_ok!(SubtensorModule::do_swap_coldkey(
+            &old_coldkey,
+            &new_coldkey,
+            burn_cost
+        ));
 
         // Ensure no identities have been changed
         assert!(Identities::<Test>::get(old_coldkey).is_none());
