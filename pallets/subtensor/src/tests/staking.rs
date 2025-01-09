@@ -1730,12 +1730,12 @@ fn test_get_alpha_share_stake_multiple_delegators() {
         // Debug prints
         println!("Delegator1 stake: {}", stake1);
         println!("Delegator2 stake: {}", stake2);
-        println!("Alpha share for for 1: {}", SubtensorModule::get_alpha_share_pool(hotkey1.clone(), netuid).get_value(&coldkey1));
-        println!("Alpha share for for 2: {}", SubtensorModule::get_alpha_share_pool(hotkey2.clone(), netuid).get_value(&coldkey2));
+        println!("Alpha share for for 1: {}", SubtensorModule::get_alpha_share_pool(hotkey1, netuid).get_value(&coldkey1));
+        println!("Alpha share for for 2: {}", SubtensorModule::get_alpha_share_pool(hotkey2, netuid).get_value(&coldkey2));
 
         // Calculate expected total delegated stake
         let expected_total_stake = stake1 + stake2 - existential_deposit * 2;
-        let actual_total_stake = SubtensorModule::get_alpha_share_pool(hotkey1.clone(), netuid).get_value(&coldkey1) + SubtensorModule::get_alpha_share_pool(hotkey2.clone(), netuid).get_value(&coldkey2);
+        let actual_total_stake = SubtensorModule::get_alpha_share_pool(hotkey1, netuid).get_value(&coldkey1) + SubtensorModule::get_alpha_share_pool(hotkey2, netuid).get_value(&coldkey2);
 
         assert_eq!(
             actual_total_stake,

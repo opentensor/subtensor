@@ -325,7 +325,7 @@ impl<T: Config> Pallet<T> {
             // StakingHotkeys( coldkey ) --> Vec<hotkey> -- the hotkeys that the coldkey stakes.
             let mut staking_hotkeys = StakingHotkeys::<T>::get(&coldkey);
             weight.saturating_accrue(T::DbWeight::get().reads(1));
-            if staking_hotkeys.contains(&old_hotkey) {
+            if staking_hotkeys.contains(old_hotkey) {
                 staking_hotkeys.retain(|hk| *hk != *old_hotkey && *hk != *new_hotkey);
                 staking_hotkeys.push(new_hotkey.clone());
                 StakingHotkeys::<T>::insert(&coldkey, staking_hotkeys);
