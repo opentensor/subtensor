@@ -1555,7 +1555,11 @@ fn test_coldkey_swap_delegate_identity_updated() {
         assert!(Identities::<Test>::get(old_coldkey).is_some());
         assert!(Identities::<Test>::get(new_coldkey).is_none());
 
-        assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey));
+        assert_ok!(SubtensorModule::do_swap_coldkey(
+            &old_coldkey,
+            &new_coldkey,
+            burn_cost
+        ));
 
         assert!(Identities::<Test>::get(old_coldkey).is_none());
         assert!(Identities::<Test>::get(new_coldkey).is_some());
