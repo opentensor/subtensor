@@ -106,11 +106,11 @@ impl<T: Config> Pallet<T> {
 
         // Step 1: Get stake of hotkey (neuron)
         let alpha_stake =
-            I64F64::from_num(Self::get_inherited_for_hotkey_on_subnet(&hotkey, netuid));
+            I64F64::from_num(Self::get_inherited_for_hotkey_on_subnet(hotkey, netuid));
         log::trace!("alpha_stake: {:?}", alpha_stake);
 
         // Step 2: Get the global tao stake for the hotkey
-        let tao_stake = I64F64::from_num(Self::get_inherited_for_hotkey_on_subnet(&hotkey, 0));
+        let tao_stake = I64F64::from_num(Self::get_inherited_for_hotkey_on_subnet(hotkey, 0));
         log::trace!("tao_stake: {:?}", tao_stake);
 
         // Step 3: Combine alpha and tao stakes
