@@ -450,9 +450,11 @@ fn test_swap_staking_hotkeys() {
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
         let mut weight = Weight::zero();
+        let netuid = 1;
 
         Stake::<Test>::insert(old_hotkey, coldkey, 100);
         StakingHotkeys::<Test>::insert(coldkey, vec![old_hotkey]);
+        Alpha::<Test>::insert((old_hotkey, coldkey, netuid), U64F64::from_num(100));
 
         assert_ok!(SubtensorModule::perform_hotkey_swap(
             &old_hotkey,
@@ -476,11 +478,15 @@ fn test_swap_hotkey_with_multiple_coldkeys() {
         let coldkey1 = U256::from(3);
         let coldkey2 = U256::from(4);
         let mut weight = Weight::zero();
+        let netuid = 1;
 
         Stake::<Test>::insert(old_hotkey, coldkey1, 100);
         Stake::<Test>::insert(old_hotkey, coldkey2, 200);
         StakingHotkeys::<Test>::insert(coldkey1, vec![old_hotkey]);
         StakingHotkeys::<Test>::insert(coldkey2, vec![old_hotkey]);
+
+        Alpha::<Test>::insert((old_hotkey, coldkey1, netuid), U64F64::from_num(100));
+        Alpha::<Test>::insert((old_hotkey, coldkey2, netuid), U64F64::from_num(200));
 
         assert_ok!(SubtensorModule::perform_hotkey_swap(
             &old_hotkey,
@@ -558,10 +564,15 @@ fn test_swap_staking_hotkeys_multiple_coldkeys() {
         let coldkey1 = U256::from(3);
         let coldkey2 = U256::from(4);
         let mut weight = Weight::zero();
+        let netuid = 1;
 
         // Set up initial state
         Stake::<Test>::insert(old_hotkey, coldkey1, 100);
         Stake::<Test>::insert(old_hotkey, coldkey2, 200);
+
+        Alpha::<Test>::insert((old_hotkey, coldkey1, netuid), U64F64::from_num(100));
+        Alpha::<Test>::insert((old_hotkey, coldkey2, netuid), U64F64::from_num(200));
+
         StakingHotkeys::<Test>::insert(coldkey1, vec![old_hotkey]);
         StakingHotkeys::<Test>::insert(coldkey2, vec![old_hotkey, U256::from(5)]);
 
