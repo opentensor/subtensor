@@ -8,9 +8,9 @@ use frame_system::{Config, RawOrigin};
 
 use super::mock::*;
 use crate::*;
-use substrate_fixed::types::U64F64;
 use sp_core::{Get, H256, U256};
 use sp_runtime::SaturatedConversion;
+use substrate_fixed::types::U64F64;
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_owner --exact --nocapture
 #[test]
@@ -815,27 +815,25 @@ fn test_swap_owner_new_hotkey_already_exists() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_delegates_success --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey::test_swap_delegates_success --exact --show-output
 #[test]
 fn test_swap_delegates_success() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let delegate_take = 10u16;
+        let mut weight = Weight::zero();
 
-        // let old_hotkey = U256::from(1);
-        // let new_hotkey = U256::from(2);
-        // let coldkey = U256::from(3);
-        // let delegate_take = 10u16;
-        // let mut weight = Weight::zero();
+        // Initialize Delegates for old_hotkey
+        Delegates::<Test>::insert(old_hotkey, delegate_take);
 
-        // // Initialize Delegates for old_hotkey
-        // Delegates::<Test>::insert(old_hotkey, delegate_take);
+        // Perform the swap
+        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
 
-        // // Perform the swap
-        // SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
-
-        // // Verify the swap
-        // assert_eq!(Delegates::<Test>::get(new_hotkey), delegate_take);
-        // assert!(!Delegates::<Test>::contains_key(old_hotkey));
+        // Verify the swap
+        assert_eq!(Delegates::<Test>::get(new_hotkey), delegate_take);
+        assert!(!Delegates::<Test>::contains_key(old_hotkey));
     });
 }
 
@@ -865,10 +863,22 @@ fn test_swap_stake_success() {
         // Verify the swap
         assert_eq!(TotalHotkeyAlpha::<Test>::get(old_hotkey, netuid), 0);
         assert_eq!(TotalHotkeyAlpha::<Test>::get(new_hotkey, netuid), amount);
-        assert_eq!(TotalHotkeyShares::<Test>::get(old_hotkey, netuid), U64F64::from_num(0));
-        assert_eq!(TotalHotkeyShares::<Test>::get(new_hotkey, netuid), U64F64::from_num(shares));
-        assert_eq!(Alpha::<Test>::get((old_hotkey, coldkey, netuid)), U64F64::from_num(0));
-        assert_eq!(Alpha::<Test>::get((new_hotkey, coldkey, netuid)), U64F64::from_num(amount));
+        assert_eq!(
+            TotalHotkeyShares::<Test>::get(old_hotkey, netuid),
+            U64F64::from_num(0)
+        );
+        assert_eq!(
+            TotalHotkeyShares::<Test>::get(new_hotkey, netuid),
+            U64F64::from_num(shares)
+        );
+        assert_eq!(
+            Alpha::<Test>::get((old_hotkey, coldkey, netuid)),
+            U64F64::from_num(0)
+        );
+        assert_eq!(
+            Alpha::<Test>::get((new_hotkey, coldkey, netuid)),
+            U64F64::from_num(amount)
+        );
     });
 }
 
