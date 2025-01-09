@@ -1,4 +1,6 @@
 #![allow(clippy::indexing_slicing)]
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::arithmetic_side_effects)]
 use super::mock::*;
 use frame_support::{assert_err, assert_noop, assert_ok};
 
@@ -1817,6 +1819,7 @@ fn test_get_stake_for_hotkey_on_subnet_multiple_coldkeys() {
 /// - Increases stake for the parent
 /// - Sets the child as the parent's only child with 100% stake allocation
 /// - Checks if the retrieved stake for both parent and child is correct
+///
 /// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_stake_for_hotkey_on_subnet_single_parent_child --exact --show-output --nocapture
 #[test]
 fn test_get_stake_for_hotkey_on_subnet_single_parent_child() {
@@ -1853,7 +1856,8 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_child() {
 /// - Increases stake for both parents
 /// - Sets the child as a 50% stake recipient for both parents
 /// - Checks if the retrieved stake for parents and child is correct
-///  SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_stake_for_hotkey_on_subnet_multiple_parents_single_child --exact --show-output --nocapture
+///
+/// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_stake_for_hotkey_on_subnet_multiple_parents_single_child --exact --show-output --nocapture
 #[test]
 fn test_get_stake_for_hotkey_on_subnet_multiple_parents_single_child() {
     new_test_ext(1).execute_with(|| {
@@ -1905,7 +1909,8 @@ fn test_get_stake_for_hotkey_on_subnet_multiple_parents_single_child() {
 /// - Increases stake for the parent
 /// - Sets both children as 1/3 stake recipients of the parent
 /// - Checks if the retrieved stake for parent and children is correct and preserves total stake
-///  SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_stake_for_hotkey_on_subnet_single_parent_multiple_children --exact --show-output --nocapture
+///
+/// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_stake_for_hotkey_on_subnet_single_parent_multiple_children --exact --show-output --nocapture
 #[test]
 fn test_get_stake_for_hotkey_on_subnet_single_parent_multiple_children() {
     new_test_ext(1).execute_with(|| {
@@ -1967,7 +1972,8 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_multiple_children() {
 /// - Increases stake to the network maximum
 /// - Sets children with 0% and 100% stake allocation
 /// - Checks if the retrieved stake for parent and children is correct and preserves total stake
-///  SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_stake_for_hotkey_on_subnet_edge_cases --exact --show-output --nocapture
+///
+/// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_stake_for_hotkey_on_subnet_edge_cases --exact --show-output --nocapture
 #[test]
 fn test_get_stake_for_hotkey_on_subnet_edge_cases() {
     new_test_ext(1).execute_with(|| {
@@ -2731,83 +2737,82 @@ fn test_childkey_set_weights_single_parent() {
 fn test_set_weights_no_parent() {
     // Verify that a regular key without a parent delegation is effected by the minimum stake requirements
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
 
-        // let netuid: u16 = 1;
-        // add_network(netuid, 1, 0);
+        let hotkey: U256 = U256::from(2);
+        let spare_hk: U256 = U256::from(3);
 
-        // let hotkey: U256 = U256::from(2);
-        // let spare_hk: U256 = U256::from(3);
+        let coldkey: U256 = U256::from(101);
+        let spare_ck = U256::from(102);
 
-        // let coldkey: U256 = U256::from(101);
-        // let spare_ck = U256::from(102);
+        let stake_to_give_child = 109_999;
 
-        // let stake_to_give_child = 109_999;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_to_give_child + 10);
 
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_to_give_child + 10);
+        // Is registered
+        register_ok_neuron(netuid, hotkey, coldkey, 1);
+        // Register a spare key
+        register_ok_neuron(netuid, spare_hk, spare_ck, 1);
 
-        // // Is registered
-        // register_ok_neuron(netuid, hotkey, coldkey, 1);
-        // // Register a spare key
-        // register_ok_neuron(netuid, spare_hk, spare_ck, 1);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            stake_to_give_child,
+        );
 
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-        //     &coldkey,
-        //     &hotkey,
-        //     stake_to_give_child,
-        // );
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
-        // SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        // Has stake and no parent
+        step_block(7200 + 1);
 
-        // // Has stake and no parent
-        // step_block(7200 + 1);
+        let uids: Vec<u16> = vec![1]; // Set weights on the other hotkey
+        let values: Vec<u16> = vec![u16::MAX]; // Use maximum value for u16
+        let version_key = SubtensorModule::get_weights_version_key(netuid);
 
-        // let uids: Vec<u16> = vec![1]; // Set weights on the other hotkey
-        // let values: Vec<u16> = vec![u16::MAX]; // Use maximum value for u16
-        // let version_key = SubtensorModule::get_weights_version_key(netuid);
+        // Set the min stake very high
+        SubtensorModule::set_stake_threshold(stake_to_give_child * 5);
 
-        // // Set the min stake very high
-        // SubtensorModule::set_stake_threshold(stake_to_give_child * 5);
+        // Check the key has less stake than required
+        assert!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid)
+                < SubtensorModule::get_stake_threshold()
+        );
 
-        // // Check the key has less stake than required
-        // assert!(
-        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid)
-        //         < SubtensorModule::get_stake_threshold()
-        // );
+        // Check the hotkey cannot set weights
+        assert_noop!(
+            SubtensorModule::set_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                uids.clone(),
+                values.clone(),
+                version_key
+            ),
+            Error::<Test>::NotEnoughStakeToSetWeights
+        );
 
-        // // Check the hotkey cannot set weights
-        // assert_noop!(
-        //     SubtensorModule::set_weights(
-        //         RuntimeOrigin::signed(hotkey),
-        //         netuid,
-        //         uids.clone(),
-        //         values.clone(),
-        //         version_key
-        //     ),
-        //     Error::<Test>::NotEnoughStakeToSetWeights
-        // );
+        assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
 
-        // assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
+        // Set a minimum stake to set weights
+        SubtensorModule::set_stake_threshold(stake_to_give_child - 5);
 
-        // // Set a minimum stake to set weights
-        // SubtensorModule::set_stake_threshold(stake_to_give_child - 5);
+        // Check if the stake for the hotkey is above
+        assert!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid)
+                >= SubtensorModule::get_stake_threshold()
+        );
 
-        // // Check if the stake for the hotkey is above
-        // assert!(
-        //     SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid)
-        //         >= SubtensorModule::get_stake_threshold()
-        // );
+        // Check the hotkey can set weights
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            uids,
+            values,
+            version_key
+        ));
 
-        // // Check the hotkey can set weights
-        // assert_ok!(SubtensorModule::set_weights(
-        //     RuntimeOrigin::signed(hotkey),
-        //     netuid,
-        //     uids,
-        //     values,
-        //     version_key
-        // ));
-
-        // assert!(SubtensorModule::check_weights_min_stake(&hotkey, netuid));
+        assert!(SubtensorModule::check_weights_min_stake(&hotkey, netuid));
     });
 }
 

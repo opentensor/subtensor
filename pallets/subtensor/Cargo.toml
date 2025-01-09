@@ -104,7 +104,8 @@ std = [
 	"ark-serialize/std",
 	"w3f-bls/std",
 	"rand_chacha/std",
-	"sha2/std"
+	"sha2/std",
+	"share-pool/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

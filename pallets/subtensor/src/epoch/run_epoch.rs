@@ -65,9 +65,10 @@ impl<T: Config> Pallet<T> {
         log::trace!("hotkeys: {:?}", &hotkeys);
 
         // Access network stake as normalized vector.
-        let ( mut total_stake, _alpha_stake, _tao_stake):(Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) = Self::get_stake_weights_for_network(netuid);
+        let (mut total_stake, _alpha_stake, _tao_stake): (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) =
+            Self::get_stake_weights_for_network(netuid);
         inplace_normalize_64(&mut total_stake);
-        let stake: Vec<I32F32>  = vec_fixed64_to_fixed32(total_stake);
+        let stake: Vec<I32F32> = vec_fixed64_to_fixed32(total_stake);
         log::trace!("S:\n{:?}\n", &stake);
 
         // =======================
@@ -395,9 +396,10 @@ impl<T: Config> Pallet<T> {
         log::trace!("hotkeys: {:?}", &hotkeys);
 
         // Access network stake as normalized vector.
-        let (mut total_stake, _alpha_stake, _tao_stake): (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) = Self::get_stake_weights_for_network(netuid);
+        let (mut total_stake, _alpha_stake, _tao_stake): (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) =
+            Self::get_stake_weights_for_network(netuid);
         inplace_normalize_64(&mut total_stake);
-        let stake: Vec<I32F32>  = vec_fixed64_to_fixed32(total_stake);
+        let stake: Vec<I32F32> = vec_fixed64_to_fixed32(total_stake);
         log::trace!("Normalised Stake: {:?}", &stake);
 
         // =======================

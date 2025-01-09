@@ -3,7 +3,6 @@ use frame_support::IterableStorageMap;
 use sp_core::Get;
 
 impl<T: Config> Pallet<T> {
-
     /// Retrieves the unique identifier (UID) for the root network.
     ///
     /// The root network is a special case and has a fixed UID of 0.
@@ -229,7 +228,10 @@ impl<T: Config> Pallet<T> {
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
 
         // --- 14. Init the pool by putting the lock as the initial alpha.
-        TokenSymbol::<T>::insert(netuid_to_register, Self::get_symbol_for_subnet(netuid_to_register) ); // Set subnet token symbol.
+        TokenSymbol::<T>::insert(
+            netuid_to_register,
+            Self::get_symbol_for_subnet(netuid_to_register),
+        ); // Set subnet token symbol.
 
         // Put 100 TAO from lock into subnet TAO and produce numerically equal amount of Alpha
         let mut pool_initial_tao = 100_000_000_000;
@@ -239,7 +241,8 @@ impl<T: Config> Pallet<T> {
         if pool_initial_tao < 1 {
             pool_initial_tao = 1;
         }
-        let actual_tao_lock_amount_less_pool_tao = actual_tao_lock_amount.saturating_sub(pool_initial_tao);
+        let actual_tao_lock_amount_less_pool_tao =
+            actual_tao_lock_amount.saturating_sub(pool_initial_tao);
         SubnetTAO::<T>::insert(netuid_to_register, pool_initial_tao);
         SubnetAlphaIn::<T>::insert(netuid_to_register, pool_initial_tao);
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
@@ -351,5 +354,3 @@ impl<T: Config> Pallet<T> {
         }
     }
 }
-
-

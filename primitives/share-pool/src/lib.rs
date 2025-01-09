@@ -1,8 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::result_unit_err)]
 
-use sp_std::ops::Neg;
 use sp_std::marker;
+use sp_std::ops::Neg;
 use substrate_fixed::types::{I64F64, U64F64};
 
 pub trait SharePoolDataOperations<Key> {
@@ -23,6 +23,7 @@ pub trait SharePoolDataOperations<Key> {
 }
 
 /// SharePool struct that depends on the Key type and uses the SharePoolDataOperations
+#[derive(Debug)]
 pub struct SharePool<K, Ops>
 where
     K: Eq,
@@ -62,18 +63,16 @@ where
             Err(i) => Err(i),
         }
     }
-    
+
     /// Update the total shared value.
     /// Every key's associated value effectively updates with this operation
     pub fn update_value_for_all(&mut self, update: i64) {
         let shared_value: U64F64 = self.state_ops.get_shared_value();
-        self.state_ops.set_shared_value(
-            if update >= 0 {
-                shared_value.saturating_add(U64F64::from_num(update))
-            } else {
-                shared_value.saturating_sub(U64F64::from_num(update.neg()))
-            }
-        );
+        self.state_ops.set_shared_value(if update >= 0 {
+            shared_value.saturating_add(U64F64::from_num(update))
+        } else {
+            shared_value.saturating_sub(U64F64::from_num(update.neg()))
+        });
     }
 
     /// Update the value associated with an item identified by the Key
@@ -93,30 +92,31 @@ where
             self.state_ops.set_share(key, new_shared_value);
         } else {
             // There are already keys in the pool, set or update this key
-            let value_per_share: I64F64 = I64F64::from_num(shared_value
-                .checked_div(denominator)  // denominator is never 0 here
-                .unwrap_or(U64F64::from_num(0))
+            let value_per_share: I64F64 = I64F64::from_num(
+                shared_value
+                    .checked_div(denominator) // denominator is never 0 here
+                    .unwrap_or(U64F64::from_num(0)),
             );
 
             let shares_per_update: I64F64 = I64F64::from_num(update)
                 .checked_div(value_per_share)
                 .unwrap_or(I64F64::from_num(0));
 
-            if shares_per_update >= 0{
+            if shares_per_update >= 0 {
                 self.state_ops.set_denominator(
-                    denominator.saturating_add(U64F64::from_num(shares_per_update))
+                    denominator.saturating_add(U64F64::from_num(shares_per_update)),
                 );
                 self.state_ops.set_share(
                     key,
-                    current_share.saturating_add(U64F64::from_num(shares_per_update))
+                    current_share.saturating_add(U64F64::from_num(shares_per_update)),
                 );
             } else {
                 self.state_ops.set_denominator(
-                    denominator.saturating_sub(U64F64::from_num(shares_per_update.neg()))
+                    denominator.saturating_sub(U64F64::from_num(shares_per_update.neg())),
                 );
                 self.state_ops.set_share(
                     key,
-                    current_share.saturating_sub(U64F64::from_num(shares_per_update.neg()))
+                    current_share.saturating_sub(U64F64::from_num(shares_per_update.neg())),
                 );
             }
         }
@@ -150,7 +150,7 @@ mod tests {
         }
 
         fn get_share(&self, key: &u16) -> U64F64 {
-            self.share.get(key).unwrap_or(&U64F64::from_num(0)).clone()
+            *self.share.get(key).unwrap_or(&U64F64::from_num(0))
         }
 
         fn try_get_share(&self, key: &u16) -> Result<U64F64, ()> {
@@ -269,5 +269,5 @@ mod tests {
 
         pool.update_value_for_all(1000);
         assert_eq!(pool.state_ops.shared_value, U64F64::from_num(1000));
-    }    
+    }
 }

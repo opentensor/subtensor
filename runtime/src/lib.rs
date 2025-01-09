@@ -1103,7 +1103,7 @@ impl pallet_subtensor::Config for Runtime {
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     type InitialNetworkMaxStake = SubtensorInitialNetworkMaxStake;
-    type InitialTaoWeight = SubtensorInitialTaoWeight;    
+    type InitialTaoWeight = SubtensorInitialTaoWeight;
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;

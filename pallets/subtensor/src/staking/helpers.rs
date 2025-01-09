@@ -61,12 +61,14 @@ impl<T: Config> Pallet<T> {
         hotkeys
             .iter()
             .map(|hotkey| {
-                let mut total_stake = 0;
+                let mut total_stake: u64 = 0;
                 for (netuid, alpha) in Alpha::<T>::iter_prefix((hotkey, coldkey)) {
                     let tao_price: I96F32 = Self::get_alpha_price(netuid);
-                    total_stake += I96F32::from_num(alpha)
-                        .saturating_mul(tao_price)
-                        .to_num::<u64>();
+                    total_stake = total_stake.saturating_add(
+                        I96F32::from_num(alpha)
+                            .saturating_mul(tao_price)
+                            .to_num::<u64>(),
+                    );
                 }
                 total_stake
             })
@@ -77,7 +79,7 @@ impl<T: Config> Pallet<T> {
     //
     pub fn create_account_if_non_existent(coldkey: &T::AccountId, hotkey: &T::AccountId) {
         if !Self::hotkey_account_exists(hotkey) {
-            Stake::<T>::insert(hotkey, coldkey, 0);
+            Stake::<T>::insert(hotkey, coldkey, 0); // This is the way to index coldkeys by a hotkey
             Owner::<T>::insert(hotkey, coldkey);
 
             // Update OwnedHotkeys map

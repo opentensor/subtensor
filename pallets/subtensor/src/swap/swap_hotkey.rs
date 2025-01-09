@@ -218,7 +218,7 @@ impl<T: Config> Pallet<T> {
 
         // 9. swap PendingHotkeyEmissionOnNetuid
         // (DEPRECATED.)
-        
+
         // 10. Swap all subnet specific info.
         let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
         all_netuids.iter().for_each(|netuid| {
@@ -303,6 +303,36 @@ impl<T: Config> Pallet<T> {
             }
         });
 
+        // 11. Swap Alpha
+        // Alpha( hotkey, coldkey, netuid ) -> alpha
+        let old_alpha_values: Vec<((T::AccountId, u16), U64F64)> =
+            Alpha::<T>::iter_prefix((old_hotkey,)).collect();
+        // Clear the entire old prefix here.
+        let _ = Alpha::<T>::clear_prefix((old_hotkey,), old_alpha_values.len() as u32, None);
+        weight.saturating_accrue(T::DbWeight::get().reads(old_alpha_values.len() as u64));
+        weight.saturating_accrue(T::DbWeight::get().writes(old_alpha_values.len() as u64));
+
+        // Insert the new alpha values.
+        for ((coldkey, netuid), alpha) in old_alpha_values {
+            let new_alpha = Alpha::<T>::get((new_hotkey, &coldkey, netuid));
+            Alpha::<T>::insert(
+                (new_hotkey, &coldkey, netuid),
+                new_alpha.saturating_add(alpha),
+            );
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+
+            // Swap StakingHotkeys.
+            // StakingHotkeys( coldkey ) --> Vec<hotkey> -- the hotkeys that the coldkey stakes.
+            let mut staking_hotkeys = StakingHotkeys::<T>::get(&coldkey);
+            weight.saturating_accrue(T::DbWeight::get().reads(1));
+            if staking_hotkeys.contains(old_hotkey) {
+                staking_hotkeys.retain(|hk| *hk != *old_hotkey && *hk != *new_hotkey);
+                staking_hotkeys.push(new_hotkey.clone());
+                StakingHotkeys::<T>::insert(&coldkey, staking_hotkeys);
+                weight.saturating_accrue(T::DbWeight::get().writes(1));
+            }
+        }
+
         // 11. Swap Stake.
         // Stake( hotkey, coldkey ) -> stake -- the stake that the hotkey controls on behalf of the coldkey.
         let stakes: Vec<(T::AccountId, u64)> = Stake::<T>::iter_prefix(old_hotkey).collect();
@@ -322,30 +352,7 @@ impl<T: Config> Pallet<T> {
                 &coldkey,
                 new_stake_value.saturating_add(old_stake_amount),
             );
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-
-            // 3.1 Swap Alpha
-            for netuid in Self::get_all_subnet_netuids() {
-                // Get the stake on the old (hot,coldkey) account.
-                let old_alpha: U64F64 = Alpha::<T>::get((&old_hotkey, coldkey.clone(), netuid));
-                // Get the stake on the new (hot,coldkey) account.
-                let new_alpha: U64F64 = Alpha::<T>::get((&new_hotkey, coldkey.clone(), netuid));
-                // Add the stake to new account.
-                Alpha::<T>::insert(
-                    (&new_hotkey, coldkey.clone(), netuid),
-                    new_alpha.saturating_add(old_alpha),
-                );
-                // Remove the value from the old account.
-                Alpha::<T>::remove((&old_hotkey, coldkey.clone(), netuid));
-            }
-
-            // Swap StakingHotkeys.
-            // StakingHotkeys( coldkey ) --> Vec<hotkey> -- the hotkeys that the coldkey stakes.
-            let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey.clone());
-            staking_hotkeys.retain(|hk| *hk != *old_hotkey && *hk != *new_hotkey);
-            staking_hotkeys.push(new_hotkey.clone());
-            StakingHotkeys::<T>::insert(coldkey.clone(), staking_hotkeys);
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+            weight.saturating_accrue(T::DbWeight::get().writes(1));
         }
 
         // 12. Swap ChildKeys.
