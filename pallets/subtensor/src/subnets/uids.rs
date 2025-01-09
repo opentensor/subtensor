@@ -54,6 +54,13 @@ impl<T: Config> Pallet<T> {
                 Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
             }
         }
+
+        // 6 check old hotkey stake below stake threshold
+        if Self::get_total_stake_for_hotkey(&old_hotkey) < StakeThreshold::<T>::get() {
+            Self::get_all_subnet_netuids().iter().for_each(|netuid| {
+                PendingChildKeys::<T>::remove(netuid, &old_hotkey);
+            })
+        }
     }
 
     /// Appends the uid to the network.
