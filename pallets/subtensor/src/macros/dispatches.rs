@@ -954,12 +954,13 @@ mod dispatches {
             origin: OriginFor<T>,
             old_coldkey: T::AccountId,
             new_coldkey: T::AccountId,
+            swap_cost: u64,
         ) -> DispatchResultWithPostInfo {
             // Ensure it's called with root privileges (scheduler has root privileges)
             ensure_root(origin)?;
             log::info!("swap_coldkey: {:?} -> {:?}", old_coldkey, new_coldkey);
 
-            Self::do_swap_coldkey(&old_coldkey, &new_coldkey)
+            Self::do_swap_coldkey(&old_coldkey, &new_coldkey, swap_cost)
         }
 
         /// Sets the childkey take for a given hotkey.
@@ -1326,10 +1327,6 @@ mod dispatches {
                 Error::<T>::NotEnoughBalanceToPaySwapColdKey
             );
 
-            // Remove and burn the swap cost from the old coldkey's account
-            let actual_burn_amount = Self::remove_balance_from_coldkey_account(&who, swap_cost)?;
-            Self::burn_tokens(actual_burn_amount);
-
             let current_block: BlockNumberFor<T> = <frame_system::Pallet<T>>::block_number();
             let duration: BlockNumberFor<T> = ColdkeySwapScheduleDuration::<T>::get();
             let when: BlockNumberFor<T> = current_block.saturating_add(duration);
@@ -1337,6 +1334,7 @@ mod dispatches {
             let call = Call::<T>::swap_coldkey {
                 old_coldkey: who.clone(),
                 new_coldkey: new_coldkey.clone(),
+                swap_cost,
             };
 
             let bound_call = T::Preimages::bound(LocalCallOf::<T>::from(call.clone()))

@@ -32,6 +32,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_swap_coldkey(
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
+        swap_cost: u64,
     ) -> DispatchResultWithPostInfo {
         // 2. Initialize the weight for this operation
         let mut weight: Weight = T::DbWeight::get().reads(2);
@@ -53,6 +54,19 @@ impl<T: Config> Pallet<T> {
         if let Some(identity) = Identities::<T>::take(old_coldkey) {
             Identities::<T>::insert(new_coldkey, identity);
         }
+
+        // 6. Ensure sufficient balance for the swap cost
+        ensure!(
+            Self::can_remove_balance_from_coldkey_account(old_coldkey, swap_cost),
+            Error::<T>::NotEnoughBalanceToPaySwapColdKey
+        );
+
+        // 7. Remove and burn the swap cost from the old coldkey's account
+        let actual_burn_amount = Self::remove_balance_from_coldkey_account(old_coldkey, swap_cost)?;
+        Self::burn_tokens(actual_burn_amount);
+
+        // 8. Update the weight for the balance operations
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
         // 9. Perform the actual coldkey swap
         let _ = Self::perform_swap_coldkey(old_coldkey, new_coldkey, &mut weight);
