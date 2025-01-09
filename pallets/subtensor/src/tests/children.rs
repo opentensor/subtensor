@@ -3402,186 +3402,167 @@ fn test_parent_child_chain_emission() {
 #[test]
 fn test_dynamic_parent_child_relationships() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
 
-        // let netuid: u16 = 1;
-        // add_network(netuid, 1, 0);
+        // Define hotkeys and coldkeys
+        let parent: U256 = U256::from(1);
+        let child1: U256 = U256::from(2);
+        let child2: U256 = U256::from(3);
+        let coldkey_parent: U256 = U256::from(100);
+        let coldkey_child1: U256 = U256::from(101);
+        let coldkey_child2: U256 = U256::from(102);
 
-        // // Define hotkeys and coldkeys
-        // let parent: U256 = U256::from(1);
-        // let child1: U256 = U256::from(2);
-        // let child2: U256 = U256::from(3);
-        // let coldkey_parent: U256 = U256::from(100);
-        // let coldkey_child1: U256 = U256::from(101);
-        // let coldkey_child2: U256 = U256::from(102);
+        // Register neurons with varying stakes
+        register_ok_neuron(netuid, parent, coldkey_parent, 0);
+        register_ok_neuron(netuid, child1, coldkey_child1, 0);
+        register_ok_neuron(netuid, child2, coldkey_child2, 0);
 
-        // // Register neurons with varying stakes
-        // register_ok_neuron(netuid, parent, coldkey_parent, 0);
-        // register_ok_neuron(netuid, child1, coldkey_child1, 0);
-        // register_ok_neuron(netuid, child2, coldkey_child2, 0);
+        // Add initial stakes
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_parent, 500_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_child1, 50_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_child2, 30_000);
 
-        // // Add initial stakes
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_parent, 500_000);
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_child1, 50_000);
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_child2, 30_000);
+        SubtensorModule::add_stake(RuntimeOrigin::signed(coldkey_parent), parent, netuid, 500_000).unwrap();
+        SubtensorModule::add_stake(RuntimeOrigin::signed(coldkey_child1), child1, netuid, 50_000).unwrap();
+        SubtensorModule::add_stake(RuntimeOrigin::signed(coldkey_child2), child2, netuid, 30_000).unwrap();
 
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_parent, &parent, 500_000);
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_child1, &child1, 50_000);
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_child2, &child2, 30_000);
+        mock_set_children(&coldkey_parent, &parent, netuid, &[(u64::MAX / 2, child1)]);
 
-        // mock_set_children(&coldkey_parent, &parent, netuid, &[(u64::MAX / 2, child1)]);
+        step_block(2);
 
-        // step_block(2);
+        // Set weights
+        let origin = RuntimeOrigin::signed(parent);
+        let uids: Vec<u16> = vec![0, 1, 2]; // UIDs for parent, child1, child2
+        let values: Vec<u16> = vec![65535, 65535, 65535]; // Set equal weights for all hotkeys
+        let version_key = SubtensorModule::get_weights_version_key(netuid);
 
-        // // Set weights
-        // let origin = RuntimeOrigin::signed(parent);
-        // let uids: Vec<u16> = vec![0, 1, 2]; // UIDs for parent, child1, child2
-        // let values: Vec<u16> = vec![65535, 65535, 65535]; // Set equal weights for all hotkeys
-        // let version_key = SubtensorModule::get_weights_version_key(netuid);
+        // Ensure we can set weights without rate limiting
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
-        // // Ensure we can set weights without rate limiting
-        // SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        assert_ok!(SubtensorModule::set_weights(
+            origin,
+            netuid,
+            uids,
+            values,
+            version_key
+        ));
 
-        // assert_ok!(SubtensorModule::set_weights(
-        //     origin,
-        //     netuid,
-        //     uids,
-        //     values,
-        //     version_key
-        // ));
+        // Run first epoch
+        let hardcoded_emission: u64 = 1_000_000; // 1 million (adjust as needed)
 
-        // // Set hotkey emission tempo
-        // SubtensorModule::set_hotkey_emission_tempo(10);
+        // Step blocks to allow for emission distribution
+        step_block(11);
+        step_rate_limit(&TransactionType::SetChildren, netuid);
 
-        // // Run first epoch
-        // let hardcoded_emission: u64 = 1_000_000; // 1 million (adjust as needed)
-        // let hotkey_emission: Vec<(U256, u64, u64)> = SubtensorModule::epoch(netuid, hardcoded_emission);
+        // Change parent-child relationships
+        mock_set_children(&coldkey_parent, &parent, netuid, &[(u64::MAX / 4, child1), (u64::MAX / 3, child2)]);
 
-        // // Process the hotkey emission results
-        // for (hotkey, mining_emission, validator_emission) in hotkey_emission {
-        //     SubtensorModule::accumulate_hotkey_emission(&hotkey, netuid, validator_emission, mining_emission);
-        // }
+        // Step blocks again to allow for emission distribution
+        step_block(11);
 
-        // // Step blocks to allow for emission distribution
-        // step_block(11);
-        // step_rate_limit(&TransactionType::SetChildren, netuid);
+        // Check final emission distribution
+        let parent_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
+        let child1_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid);
+        let child2_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
 
-        // // Change parent-child relationships
-        // mock_set_children(&coldkey_parent, &parent, netuid, &[(u64::MAX / 4, child1), (u64::MAX / 3, child2)]);
+        log::info!("Final stakes:");
+        log::info!("Parent stake: {}", parent_stake);
+        log::info!("Child1 stake: {}", child1_stake);
+        log::info!("Child2 stake: {}", child2_stake);
 
-        // // Run second epoch
-        // let hotkey_emission: Vec<(U256, u64, u64)> = SubtensorModule::epoch(netuid, hardcoded_emission);
+        const TOLERANCE: u64 = 5; // Allow for a small discrepancy due to potential rounding
 
-        // // Process the hotkey emission results
-        // for (hotkey, mining_emission, validator_emission) in hotkey_emission {
-        //     SubtensorModule::accumulate_hotkey_emission(&hotkey, netuid, validator_emission, mining_emission);
-        // }
+        // Precise assertions with tolerance
+        assert!(
+            (parent_stake as i128 - 926725i128).abs() <= TOLERANCE as i128,
+            "Parent stake should be close to 926,725, but was {}",
+            parent_stake
+        );
+        // Parent stake calculation:
+        // Initial stake: 500,000
+        // First epoch: ~862,500 (500,000 + 725,000 * 1/2)
+        // Second epoch: ~926,725 (862,500 + 725,000 * 5/12)
 
-        // // Step blocks again to allow for emission distribution
-        // step_block(11);
+        assert!(
+            (child1_stake as i64 - 778446).abs() <= TOLERANCE as i64,
+            "Child1 stake should be close to 778,446, but was {}",
+            child1_stake
+        );
+        // Child1 stake calculation:
+        // Initial stake: 50,000
+        // First epoch: ~412,500 (50,000 + 725,000 * 1/2)
+        // Second epoch: ~778,446 (412,500 + 725,000 * 1/2 * 1/4 + 137,500)
 
-        // // Check final emission distribution
-        // let parent_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
-        // let child1_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid);
-        // let child2_stake: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
+        assert!(
+            (child2_stake as i64 - 874826).abs() <= TOLERANCE as i64,
+            "Child2 stake should be close to 874,826, but was {}",
+            child2_stake
+        );
+        // Child2 stake calculation:
+        // Initial stake: 30,000
+        // First epoch: ~167,500 (30,000 + 137,500)
+        // Second epoch: ~874,826 (167,500 + 725,000 * 1/2 * 1/3 + 137,500)
 
-        // log::info!("Final stakes:");
-        // log::info!("Parent stake: {}", parent_stake);
-        // log::info!("Child1 stake: {}", child1_stake);
-        // log::info!("Child2 stake: {}", child2_stake);
+        // Check that the total stake has increased by approximately twice the hardcoded emission amount
+        let total_stake: u64 = parent_stake + child1_stake + child2_stake;
+        let initial_total_stake: u64 = 500_000 + 50_000 + 30_000;
+        let total_emission: u64 = 2 * hardcoded_emission;
+        assert!(
+            (total_stake as i64 - (initial_total_stake + total_emission) as i64).abs() <= TOLERANCE as i64,
+            "Total stake should have increased by approximately twice the hardcoded emission amount"
+        );
+        // Total stake calculation:
+        // Initial total stake: 500,000 + 50,000 + 30,000 = 580,000
+        // Total emission: 2 * 1,000,000 = 2,000,000
+        // Expected total stake: 580,000 + 2,000,000 = 2,580,000
 
-        // const TOLERANCE: u64 = 5; // Allow for a small discrepancy due to potential rounding
+        // Additional checks for parent-child relationships
+        let parent_children: Vec<(u64, U256)> = SubtensorModule::get_children(&parent, netuid);
+        assert_eq!(
+            parent_children,
+            vec![(u64::MAX / 4, child1), (u64::MAX / 3, child2)],
+            "Parent should have both children with correct proportions"
+        );
+        // Parent-child relationship:
+        // child1: 1/4 of parent's stake
+        // child2: 1/3 of parent's stake
 
-        // // Precise assertions with tolerance
-        // assert!(
-        //     (parent_stake as i64 - 926725).abs() <= TOLERANCE as i64,
-        //     "Parent stake should be close to 926,725, but was {}",
-        //     parent_stake
-        // );
-        // // Parent stake calculation:
-        // // Initial stake: 500,000
-        // // First epoch: ~862,500 (500,000 + 725,000 * 1/2)
-        // // Second epoch: ~926,725 (862,500 + 725,000 * 5/12)
+        let child1_parents: Vec<(u64, U256)> = SubtensorModule::get_parents(&child1, netuid);
+        assert_eq!(
+            child1_parents,
+            vec![(u64::MAX / 4, parent)],
+            "Child1 should have parent as its parent with correct proportion"
+        );
+        // Child1-parent relationship:
+        // parent: 1/4 of child1's stake
 
-        // assert!(
-        //     (child1_stake as i64 - 778446).abs() <= TOLERANCE as i64,
-        //     "Child1 stake should be close to 778,446, but was {}",
-        //     child1_stake
-        // );
-        // // Child1 stake calculation:
-        // // Initial stake: 50,000
-        // // First epoch: ~412,500 (50,000 + 725,000 * 1/2)
-        // // Second epoch: ~778,446 (412,500 + 725,000 * 1/2 * 1/4 + 137,500)
+        let child2_parents: Vec<(u64, U256)> = SubtensorModule::get_parents(&child2, netuid);
+        assert_eq!(
+            child2_parents,
+            vec![(u64::MAX / 3, parent)],
+            "Child2 should have parent as its parent with correct proportion"
+        );
+        // Child2-parent relationship:
+        // parent: 1/3 of child2's stake
 
-        // assert!(
-        //     (child2_stake as i64 - 874826).abs() <= TOLERANCE as i64,
-        //     "Child2 stake should be close to 874,826, but was {}",
-        //     child2_stake
-        // );
-        // // Child2 stake calculation:
-        // // Initial stake: 30,000
-        // // First epoch: ~167,500 (30,000 + 137,500)
-        // // Second epoch: ~874,826 (167,500 + 725,000 * 1/2 * 1/3 + 137,500)
+        // Check that child2 has received more stake than child1
+        assert!(
+            child2_stake > child1_stake,
+            "Child2 should have received more emission than Child1 due to higher proportion"
+        );
+        // Child2 stake (874,826) > Child1 stake (778,446)
 
-        // // Check that the total stake has increased by approximately twice the hardcoded emission amount
-        // let total_stake: u64 = parent_stake + child1_stake + child2_stake;
-        // let initial_total_stake: u64 = 500_000 + 50_000 + 30_000;
-        // let total_emission: u64 = 2 * hardcoded_emission;
-        // assert!(
-        //     (total_stake as i64 - (initial_total_stake + total_emission) as i64).abs() <= TOLERANCE as i64,
-        //     "Total stake should have increased by approximately twice the hardcoded emission amount"
-        // );
-        // // Total stake calculation:
-        // // Initial total stake: 500,000 + 50,000 + 30,000 = 580,000
-        // // Total emission: 2 * 1,000,000 = 2,000,000
-        // // Expected total stake: 580,000 + 2,000,000 = 2,580,000
-
-        // // Additional checks for parent-child relationships
-        // let parent_children: Vec<(u64, U256)> = SubtensorModule::get_children(&parent, netuid);
-        // assert_eq!(
-        //     parent_children,
-        //     vec![(u64::MAX / 4, child1), (u64::MAX / 3, child2)],
-        //     "Parent should have both children with correct proportions"
-        // );
-        // // Parent-child relationship:
-        // // child1: 1/4 of parent's stake
-        // // child2: 1/3 of parent's stake
-
-        // let child1_parents: Vec<(u64, U256)> = SubtensorModule::get_parents(&child1, netuid);
-        // assert_eq!(
-        //     child1_parents,
-        //     vec![(u64::MAX / 4, parent)],
-        //     "Child1 should have parent as its parent with correct proportion"
-        // );
-        // // Child1-parent relationship:
-        // // parent: 1/4 of child1's stake
-
-        // let child2_parents: Vec<(u64, U256)> = SubtensorModule::get_parents(&child2, netuid);
-        // assert_eq!(
-        //     child2_parents,
-        //     vec![(u64::MAX / 3, parent)],
-        //     "Child2 should have parent as its parent with correct proportion"
-        // );
-        // // Child2-parent relationship:
-        // // parent: 1/3 of child2's stake
-
-        // // Check that child2 has received more stake than child1
-        // assert!(
-        //     child2_stake > child1_stake,
-        //     "Child2 should have received more emission than Child1 due to higher proportion"
-        // );
-        // // Child2 stake (874,826) > Child1 stake (778,446)
-
-        // // Check the approximate difference between child2 and child1 stakes
-        // let stake_difference: u64 = child2_stake - child1_stake;
-        // assert!(
-        //     (stake_difference as i64 - 96_380).abs() <= TOLERANCE as i64,
-        //     "The difference between Child2 and Child1 stakes should be close to 96,380, but was {}",
-        //     stake_difference
-        // );
-        // // Stake difference calculation:
-        // // Child2 stake: 874,826
-        // // Child1 stake: 778,446
-        // // Difference: 874,826 - 778,446 = 96,380
+        // Check the approximate difference between child2 and child1 stakes
+        let stake_difference: u64 = child2_stake - child1_stake;
+        assert!(
+            (stake_difference as i64 - 96_380).abs() <= TOLERANCE as i64,
+            "The difference between Child2 and Child1 stakes should be close to 96,380, but was {}",
+            stake_difference
+        );
+        // Stake difference calculation:
+        // Child2 stake: 874,826
+        // Child1 stake: 778,446
+        // Difference: 874,826 - 778,446 = 96,380
     });
 }
