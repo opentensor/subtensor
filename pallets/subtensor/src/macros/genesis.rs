@@ -69,7 +69,11 @@ mod genesis {
                     U64F64::from_num(1_000_000_000),
                 );
                 TotalHotkeyAlpha::<T>::insert(hotkey.clone(), netuid, 1_000_000_000);
-                TotalHotkeyShares::<T>::insert(hotkey.clone(), netuid, U64F64::from_num(1_000_000_000));
+                TotalHotkeyShares::<T>::insert(
+                    hotkey.clone(),
+                    netuid,
+                    U64F64::from_num(1_000_000_000),
+                );
                 // TotalColdkeyAlpha::<T>::insert(hotkey.clone(), netuid, 1_000_000_000);
                 SubnetAlphaOut::<T>::insert(netuid, 1_000_000_000);
                 let mut staking_hotkeys = StakingHotkeys::<T>::get(hotkey.clone());

@@ -8,7 +8,7 @@ use super::mock::*;
 use crate::epoch::math::safe_exp;
 use crate::*;
 
-use frame_support::{assert_ok, assert_err};
+use frame_support::{assert_err, assert_ok};
 
 // use frame_system::Config;
 use rand::{distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
@@ -555,7 +555,12 @@ fn test_1_graph() {
         add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
         SubtensorModule::set_max_allowed_uids(netuid, 1);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_amount);
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet( &hotkey, &coldkey, netuid, stake_amount);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            stake_amount,
+        );
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
         run_to_block(1); // run to next block to ensure weights are set on nodes after their registration block
@@ -1266,7 +1271,6 @@ fn test_bonds() {
 	});
 }
 
-
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::epoch::test_512_graph_random_weights --exact --show-output --nocapture
 #[test]
 fn test_bonds_with_liquid_alpha() {
@@ -1498,7 +1502,12 @@ fn test_set_alpha_disabled() {
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
-        assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, netuid, 1000));
+        assert_ok!(SubtensorModule::add_stake(
+            signer.clone(),
+            hotkey,
+            netuid,
+            1000
+        ));
         // Only owner can set alpha values
         assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey));
 
@@ -1559,7 +1568,7 @@ fn test_active_stake() {
             SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &U256::from(key),
                 &U256::from(key),
-				netuid,
+                netuid,
                 stake,
             );
         }

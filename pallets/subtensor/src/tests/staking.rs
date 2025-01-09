@@ -46,8 +46,6 @@ fn test_add_stake_ok_no_emission() {
         //add network
         let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
 
-        println!("Created subnet {:?}", netuid);
-
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
 
@@ -79,6 +77,7 @@ fn test_add_stake_ok_no_emission() {
         assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 1);
 
         // Check if total stake has increased accordingly.
+        assert_eq!(SubtensorModule::get_total_stake(), 10000);
         assert_abs_diff_eq!(SubtensorModule::get_total_stake(), amount, epsilon = 1,);
     });
 }
@@ -1893,7 +1892,7 @@ fn test_mining_emission_distribution_validator_valiminer_miner() {
         crate::Kappa::<Test>::set(netuid, u16::MAX / 5);
 
         // Run run_coinbase until emissions are drained
-        step_block((subnet_tempo * 4) as u16);
+        step_block(subnet_tempo * 4);
 
         // Verify how emission is split between keys
         //   - 50% goes to miners and 50% goes to validators

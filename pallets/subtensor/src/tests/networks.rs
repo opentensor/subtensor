@@ -1,9 +1,9 @@
 use super::mock::*;
+use crate::*;
 use crate::{ColdkeySwapScheduleDuration, DissolveNetworkScheduleDuration, Event};
 use frame_support::assert_ok;
 use frame_system::Config;
 use sp_core::U256;
-use crate::*;
 
 #[test]
 fn test_registration_ok() {
@@ -325,13 +325,7 @@ fn test_register_subnet_high_lock_cost() {
         assert!(SubtensorModule::if_subnet_exist(netuid));
 
         // Ensure that both Subnet TAO and Subnet Alpha In equal to 100 TAO
-        assert_eq!(
-            SubnetTAO::<Test>::get(netuid),
-            100_000_000_000,
-        );
-        assert_eq!(
-            SubnetAlphaIn::<Test>::get(netuid),
-            100_000_000_000,
-        );
+        assert_eq!(SubnetTAO::<Test>::get(netuid), 100_000_000_000,);
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid), 100_000_000_000,);
     })
 }

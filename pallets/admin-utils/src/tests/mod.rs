@@ -1,7 +1,6 @@
 use frame_support::sp_runtime::DispatchError;
 use frame_support::{
-    assert_err, 
-    assert_noop, assert_ok,
+    assert_err, assert_noop, assert_ok,
     dispatch::{DispatchClass, GetDispatchInfo, Pays},
     traits::Hooks,
 };
@@ -936,7 +935,6 @@ mod sudo_set_nominator_min_required_stake {
     #[test]
     fn clears_staker_nominations_below_min() {
         new_test_ext().execute_with(|| {
-
             System::set_block_number(1);
 
             // Create accounts.
@@ -1175,7 +1173,6 @@ fn test_set_alpha_values_dispatch_info_ok() {
 #[test]
 fn test_sudo_get_set_alpha() {
     new_test_ext().execute_with(|| {
-
         let netuid: u16 = 1;
         let alpha_low: u16 = 12_u16;
         let alpha_high: u16 = u16::MAX - 10;
@@ -1186,7 +1183,9 @@ fn test_sudo_get_set_alpha() {
 
         // Enable Liquid Alpha and setup
         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-        pallet_subtensor::migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
+        pallet_subtensor::migrations::migrate_create_root_network::migrate_create_root_network::<
+            Test,
+        >();
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
 

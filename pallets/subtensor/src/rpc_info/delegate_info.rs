@@ -60,7 +60,8 @@ impl<T: Config> Pallet<T> {
         let owner = Self::get_owning_coldkey_for_hotkey(&delegate.clone());
         let take: Compact<u16> = <Delegates<T>>::get(delegate.clone()).into();
 
-        let total_stake: U64F64 = Self::get_stake_for_hotkey_on_subnet(&delegate.clone(), Self::get_root_netuid()).into();
+        let total_stake: U64F64 =
+            Self::get_stake_for_hotkey_on_subnet(&delegate.clone(), Self::get_root_netuid()).into();
 
         let return_per_1000: U64F64 = if total_stake > U64F64::from_num(0) {
             emissions_per_day
@@ -121,7 +122,15 @@ impl<T: Config> Pallet<T> {
         for delegate in <Delegates<T> as IterableStorageMap<T::AccountId, u16>>::iter_keys() {
             // Staked to this delegate, so add to list
             let delegate_info = Self::get_delegate_by_existing_account(delegate.clone());
-            delegates.push((delegate_info, Self::get_stake_for_hotkey_and_coldkey_on_subnet( &delegatee, &delegate, Self::get_root_netuid() ).into()));
+            delegates.push((
+                delegate_info,
+                Self::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    &delegatee,
+                    &delegate,
+                    Self::get_root_netuid(),
+                )
+                .into(),
+            ));
         }
 
         delegates
