@@ -17,7 +17,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     /// * `(u64, u64, u64)` - A tuple containing:
-    ///   - `tao_in_emission`: The adjusted TAO emission always lower or equalt to tao_emission
+    ///   - `tao_in_emission`: The adjusted TAO emission always lower or equal to tao_emission
     ///   - `alpha_in_emission`: The adjusted alpha emission amount to be added into the pool.
     ///   - `alpha_out_emission`: The remaining alpha emission after adjustments to be distributed to miners/validatods.
     ///
