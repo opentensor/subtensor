@@ -212,24 +212,28 @@ fn test_transfer_remaining_balance() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_with_no_stake --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_swap_with_no_stake --exact --show-output
 #[test]
 fn test_swap_with_no_stake() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let old_coldkey = U256::from(1);
+        let new_coldkey = U256::from(2);
 
-        // let old_coldkey = U256::from(1);
-        // let new_coldkey = U256::from(2);
+        let mut weight = Weight::zero();
+        assert_ok!(SubtensorModule::perform_swap_coldkey(
+            &old_coldkey,
+            &new_coldkey,
+            &mut weight
+        ));
 
-        // let mut weight = Weight::zero();
-        // assert_ok!(SubtensorModule::perform_swap_coldkey(
-        //     &old_coldkey,
-        //     &new_coldkey,
-        //     &mut weight
-        // ));
-
-        // assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
-        // assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), 0);
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
+            0
+        );
     });
 }
 
