@@ -521,6 +521,11 @@ impl<T: Config> Pallet<T> {
                 .saturating_div(I96F32::from_num(u16::MAX));
         // NOTE: Only the validation emission should be split amongst parents.
 
+        // Reserve childkey take
+        let child_emission_take: I96F32 =
+            childkey_take_proportion.saturating_mul(I96F32::from_num(validating_emission));
+        let remaining_emission: I96F32 = validating_emission.saturating_sub(child_emission_take);
+
         // Initialize variables to track emission distribution
         let mut to_parents: u64 = 0;
 
@@ -577,29 +582,24 @@ impl<T: Config> Pallet<T> {
             let emission_factor: I96F32 = contribution
                 .checked_div(total_contribution)
                 .unwrap_or(I96F32::from_num(0));
-            let total_emission: u64 =
-                (validating_emission.saturating_mul(emission_factor)).to_num::<u64>();
-
-            // Reserve childkey take
-            let child_emission_take: u64 = childkey_take_proportion
-                .saturating_mul(I96F32::from_num(total_emission))
-                .to_num::<u64>();
-            let parent_total_emission = total_emission.saturating_sub(child_emission_take);
+            let parent_emission: u64 =
+                (remaining_emission.saturating_mul(emission_factor)).to_num::<u64>();
 
             // Add the parent's emission to the distribution list
-            dividend_tuples.push((parent, parent_total_emission));
+            dividend_tuples.push((parent, parent_emission));
 
             // Keep track of total emission distributed to parents
-            to_parents = to_parents.saturating_add(parent_total_emission);
+            to_parents = to_parents.saturating_add(parent_emission);
         }
         // Calculate the final emission for the hotkey itself.
         // This includes the take left from the parents and the self contribution.
-        let final_hotkey_emission = validating_emission
+        let child_emission = remaining_emission
+            .saturating_add(child_emission_take)
             .to_num::<u64>()
             .saturating_sub(to_parents);
 
         // Add the hotkey's own emission to the distribution list
-        dividend_tuples.push((hotkey.clone(), final_hotkey_emission));
+        dividend_tuples.push((hotkey.clone(), child_emission));
 
         dividend_tuples
     }
