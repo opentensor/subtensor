@@ -4,7 +4,7 @@ use frame_support::IterableStorageMap;
 use frame_support::{traits::Get, weights::Weight};
 use log;
 use sp_runtime::format;
-use substrate_fixed::types::I64F64;
+use substrate_fixed::types::U64F64;
 
 pub fn migrate_rao<T: Config>() -> Weight {
     let migration_name = b"migrate_rao".to_vec();
@@ -42,10 +42,10 @@ pub fn migrate_rao<T: Config>() -> Weight {
         });
         // Set all the stake on root 0 subnet.
         Alpha::<T>::mutate((hotkey.clone(), coldkey.clone(), 0), |total| {
-            *total = total.saturating_add(I64F64::from_num(stake))
+            *total = total.saturating_add(U64F64::from_num(stake))
         });
         TotalHotkeyShares::<T>::mutate(hotkey.clone(), 0, |total| {
-            *total = total.saturating_add(I64F64::from_num(stake))
+            *total = total.saturating_add(U64F64::from_num(stake))
         });
         // Set the total stake on the hotkey
         TotalHotkeyAlpha::<T>::mutate(hotkey.clone(), 0, |total| {

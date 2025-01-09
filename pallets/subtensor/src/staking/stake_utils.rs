@@ -1,7 +1,7 @@
 use super::*;
 use share_pool::{SharePool, SharePoolDataOperations};
 use sp_std::ops::Neg;
-use substrate_fixed::types::{I64F64, I96F32};
+use substrate_fixed::types::{I64F64, I96F32, U64F64};
 
 impl<T: Config> Pallet<T> {
     /// Retrieves the total alpha issuance for a given subnet.
@@ -37,11 +37,11 @@ impl<T: Config> Pallet<T> {
             return I96F32::from_num(1.0); // Stable
         }
         if SubnetAlphaIn::<T>::get(netuid) == 0 {
-            return I96F32::from_num(0);
+            I96F32::from_num(0)
         } else {
-            return I96F32::from_num(SubnetTAO::<T>::get(netuid))
+            I96F32::from_num(SubnetTAO::<T>::get(netuid))
                 .checked_div(I96F32::from_num(SubnetAlphaIn::<T>::get(netuid)))
-                .unwrap_or(I96F32::from_num(0));
+                .unwrap_or(I96F32::from_num(0))
         }
     }
 
@@ -99,22 +99,37 @@ impl<T: Config> Pallet<T> {
     pub fn get_stake_weights_for_network(netuid: u16) -> (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) {
         // Retrieve the global global weight.
         let tao_weight: I64F64 = I64F64::from_num(Self::get_tao_weight());
+        log::debug!("tao_weight: {:?}", tao_weight);
 
-        // Step 1: Retrieve all hotkeys (neuron keys) on this subnet.
-        // Step 2: Get stake of all hotkeys (neurons)
-        let alpha_stake: Vec<I64F64> = Keys::<T>::iter_prefix(netuid)
-            .map(|(_uid, hotkey)| {
-                I64F64::from_num(Self::get_inherited_for_hotkey_on_subnet(&hotkey, netuid))
+        // Step 1: Get subnetwork size
+        let n: u16 = Self::get_subnetwork_n(netuid);
+
+        // Step 2: Get stake of all hotkeys (neurons) ordered by uid
+        let alpha_stake: Vec<I64F64> = (0..n)
+            .map(|uid| {
+                if Keys::<T>::contains_key(netuid, uid) {
+                    let hotkey: T::AccountId = Keys::<T>::get(netuid, uid);
+                    I64F64::from_num(Self::get_inherited_for_hotkey_on_subnet(&hotkey, netuid))
+                } else {
+                    I64F64::from_num(0)
+                }
             })
             .collect();
+        log::trace!("alpha_stake: {:?}", alpha_stake);
 
         // Step 3: Calculate the global tao stake vector.
         // Initialize a vector to store global tao stakes for each neuron.
-        let tao_stake: Vec<I64F64> = Keys::<T>::iter_prefix(netuid)
-            .map(|(_uid, hotkey)| {
-                I64F64::from_num(Self::get_inherited_for_hotkey_on_subnet(&hotkey, 0))
+        let tao_stake: Vec<I64F64> = (0..n)
+            .map(|uid| {
+                if Keys::<T>::contains_key(netuid, uid) {
+                    let hotkey: T::AccountId = Keys::<T>::get(netuid, uid);
+                    I64F64::from_num(Self::get_inherited_for_hotkey_on_subnet(&hotkey, 0))
+                } else {
+                    I64F64::from_num(0)
+                }
             })
             .collect();
+        log::trace!("tao_stake: {:?}", tao_stake);
 
         // Step 4: Combine alpha and root tao stakes.
         // Calculate the weighted average of alpha and global tao stakes for each neuron.
@@ -123,6 +138,7 @@ impl<T: Config> Pallet<T> {
             .zip(tao_stake.iter())
             .map(|(alpha_i, tao_i)| alpha_i.saturating_add(tao_i.saturating_mul(tao_weight)))
             .collect();
+        log::trace!("total_stake: {:?}", total_stake);
 
         (total_stake, alpha_stake, tao_stake)
     }
@@ -158,12 +174,15 @@ impl<T: Config> Pallet<T> {
         // Step 1: Retrieve the initial total stake (alpha) for the hotkey on the specified subnet.
         let initial_alpha: I96F32 =
             I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
-        log::debug!(
+        log::trace!(
             "Initial alpha for hotkey {:?} on subnet {}: {:?}",
             hotkey,
             netuid,
             initial_alpha
         );
+        if netuid == 0 {
+            return initial_alpha.to_num::<u64>();
+        }
 
         // Initialize variables to track alpha allocated to children and inherited from parents.
         let mut alpha_to_children: I96F32 = I96F32::from_num(0);
@@ -172,13 +191,13 @@ impl<T: Config> Pallet<T> {
         // Step 2: Retrieve the lists of parents and children for the hotkey on the subnet.
         let parents: Vec<(u64, T::AccountId)> = Self::get_parents(hotkey, netuid);
         let children: Vec<(u64, T::AccountId)> = Self::get_children(hotkey, netuid);
-        log::debug!(
+        log::trace!(
             "Parents for hotkey {:?} on subnet {}: {:?}",
             hotkey,
             netuid,
             parents
         );
-        log::debug!(
+        log::trace!(
             "Children for hotkey {:?} on subnet {}: {:?}",
             hotkey,
             netuid,
@@ -190,7 +209,7 @@ impl<T: Config> Pallet<T> {
             // Convert the proportion to a normalized value between 0 and 1.
             let normalized_proportion: I96F32 =
                 I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
-            log::debug!(
+            log::trace!(
                 "Normalized proportion for child: {:?}",
                 normalized_proportion
             );
@@ -198,19 +217,19 @@ impl<T: Config> Pallet<T> {
             // Calculate the amount of alpha to be allocated to this child.
             let alpha_proportion_to_child: I96F32 =
                 I96F32::from_num(initial_alpha).saturating_mul(normalized_proportion);
-            log::debug!("Alpha proportion to child: {:?}", alpha_proportion_to_child);
+            log::trace!("Alpha proportion to child: {:?}", alpha_proportion_to_child);
 
             // Add this child's allocation to the total alpha allocated to children.
             alpha_to_children = alpha_to_children.saturating_add(alpha_proportion_to_child);
         }
-        log::debug!("Total alpha allocated to children: {:?}", alpha_to_children);
+        log::trace!("Total alpha allocated to children: {:?}", alpha_to_children);
 
         // Step 4: Calculate the total alpha inherited from parents.
         for (proportion, parent) in parents {
             // Retrieve the parent's total stake on this subnet.
             let parent_alpha: I96F32 =
                 I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(&parent, netuid));
-            log::debug!(
+            log::trace!(
                 "Parent alpha for parent {:?} on subnet {}: {:?}",
                 parent,
                 netuid,
@@ -220,7 +239,7 @@ impl<T: Config> Pallet<T> {
             // Convert the proportion to a normalized value between 0 and 1.
             let normalized_proportion: I96F32 =
                 I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
-            log::debug!(
+            log::trace!(
                 "Normalized proportion from parent: {:?}",
                 normalized_proportion
             );
@@ -228,7 +247,7 @@ impl<T: Config> Pallet<T> {
             // Calculate the amount of alpha to be inherited from this parent.
             let alpha_proportion_from_parent: I96F32 =
                 I96F32::from_num(parent_alpha).saturating_mul(normalized_proportion);
-            log::debug!(
+            log::trace!(
                 "Alpha proportion from parent: {:?}",
                 alpha_proportion_from_parent
             );
@@ -236,7 +255,7 @@ impl<T: Config> Pallet<T> {
             // Add this parent's contribution to the total alpha inherited from parents.
             alpha_from_parents = alpha_from_parents.saturating_add(alpha_proportion_from_parent);
         }
-        log::debug!(
+        log::trace!(
             "Total alpha inherited from parents: {:?}",
             alpha_from_parents
         );
@@ -245,7 +264,7 @@ impl<T: Config> Pallet<T> {
         let finalized_alpha: I96F32 = initial_alpha
             .saturating_sub(alpha_to_children) // Subtract alpha allocated to children
             .saturating_add(alpha_from_parents); // Add alpha inherited from parents
-        log::debug!(
+        log::trace!(
             "Finalized alpha for hotkey {:?} on subnet {}: {:?}",
             hotkey,
             netuid,
@@ -345,7 +364,7 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn increase_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16, amount: u64) {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
-        let _ = alpha_share_pool.update_value_for_all(amount as i64);
+        alpha_share_pool.update_value_for_all(amount as i64);
     }
 
     /// Decrease hotkey stake on a subnet.
@@ -359,7 +378,7 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn decrease_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16, amount: u64) {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
-        let _ = alpha_share_pool.update_value_for_all((amount as i64).neg());
+        alpha_share_pool.update_value_for_all((amount as i64).neg());
     }
 
     /// Buys shares in the hotkey on a given subnet
@@ -379,7 +398,7 @@ impl<T: Config> Pallet<T> {
         amount: u64,
     ) {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
-        let _ = alpha_share_pool.update_value_for_one(coldkey, amount as i64);
+        alpha_share_pool.update_value_for_one(coldkey, amount as i64);
     }
 
     /// Sell shares in the hotkey on a given subnet
@@ -399,7 +418,11 @@ impl<T: Config> Pallet<T> {
         amount: u64,
     ) {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
-        let _ = alpha_share_pool.update_value_for_one(coldkey, (amount as i64).neg());
+        if let Ok(value) = alpha_share_pool.try_get_value(coldkey) {
+            if value >= amount {
+                alpha_share_pool.update_value_for_one(coldkey, (amount as i64).neg());
+            }
+        }
     }
 
     /// Swaps TAO for the alpha token on the subnet.
@@ -662,23 +685,23 @@ type AlphaShareKey<T> = <T as frame_system::Config>::AccountId;
 impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>>
     for HotkeyAlphaSharePoolDataOperations<T>
 {
-    fn get_shared_value(&self) -> I64F64 {
-        I64F64::from_num(crate::TotalHotkeyAlpha::<T>::get(&self.hotkey, self.netuid))
+    fn get_shared_value(&self) -> U64F64 {
+        U64F64::from_num(crate::TotalHotkeyAlpha::<T>::get(&self.hotkey, self.netuid))
     }
 
-    fn get_share(&self, key: &AlphaShareKey<T>) -> I64F64 {
+    fn get_share(&self, key: &AlphaShareKey<T>) -> U64F64 {
         crate::Alpha::<T>::get((&(self.hotkey), key, self.netuid))
     }
 
-    fn try_get_share(&self, key: &AlphaShareKey<T>) -> Result<I64F64, ()> {
+    fn try_get_share(&self, key: &AlphaShareKey<T>) -> Result<U64F64, ()> {
         crate::Alpha::<T>::try_get((&(self.hotkey), key, self.netuid))
     }
 
-    fn get_denominator(&self) -> I64F64 {
+    fn get_denominator(&self) -> U64F64 {
         crate::TotalHotkeyShares::<T>::get(&(self.hotkey), self.netuid)
     }
 
-    fn set_shared_value(&mut self, value: I64F64) {
+    fn set_shared_value(&mut self, value: U64F64) {
         if value != 0 {
             crate::TotalHotkeyAlpha::<T>::insert(
                 &(self.hotkey),
@@ -690,7 +713,7 @@ impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>>
         }
     }
 
-    fn set_share(&mut self, key: &AlphaShareKey<T>, share: I64F64) {
+    fn set_share(&mut self, key: &AlphaShareKey<T>, share: U64F64) {
         if share != 0 {
             crate::Alpha::<T>::insert((&self.hotkey, key, self.netuid), share);
         } else {
@@ -698,7 +721,7 @@ impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>>
         }
     }
 
-    fn set_denominator(&mut self, update: I64F64) {
+    fn set_denominator(&mut self, update: U64F64) {
         if update != 0 {
             crate::TotalHotkeyShares::<T>::insert(&self.hotkey, self.netuid, update);
         } else {

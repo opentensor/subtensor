@@ -40,8 +40,14 @@ impl<T: Config> Pallet<T> {
             netuid: netuid.into(),
             owner_hotkey: SubnetOwnerHotkey::<T>::get(netuid),
             owner_coldkey: SubnetOwner::<T>::get(netuid),
-            subnet_name: Self::get_name_for_subnet(netuid).into_iter().map(Compact).collect(),
-            token_symbol: Self::get_symbol_for_subnet(netuid).into_iter().map(Compact).collect(),
+            subnet_name: Self::get_name_for_subnet(netuid)
+                .into_iter()
+                .map(Compact)
+                .collect(),
+            token_symbol: Self::get_symbol_for_subnet(netuid)
+                .into_iter()
+                .map(Compact)
+                .collect(),
             tempo: Tempo::<T>::get(netuid).into(),
             last_step: last_step.into(),
             blocks_since_last_step: blocks_since_last_step.into(),
@@ -52,7 +58,7 @@ impl<T: Config> Pallet<T> {
             alpha_out_emission: SubnetAlphaOutEmission::<T>::get(netuid).into(),
             alpha_in_emission: SubnetAlphaInEmission::<T>::get(netuid).into(),
             tao_in_emission: SubnetTaoInEmission::<T>::get(netuid).into(),
-            pending_alpha_emission:  PendingEmission::<T>::get(netuid).into(),
+            pending_alpha_emission: PendingEmission::<T>::get(netuid).into(),
             pending_root_emission: PendingRootDivs::<T>::get(netuid).into(),
             network_registered_at: NetworkRegisteredAt::<T>::get(netuid).into(),
             subnet_identity: SubnetIdentities::<T>::get(netuid),

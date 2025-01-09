@@ -34,7 +34,7 @@ impl<T: Config> Pallet<T> {
         // Return the UID of the neuron.
         neuron_uid
     }
-    
+
     /// ---- The implementation for the extrinsic do_burned_registration: registering by burning TAO.
     ///
     /// # Args:
@@ -123,10 +123,9 @@ impl<T: Config> Pallet<T> {
         let actual_burn_amount =
             Self::remove_balance_from_coldkey_account(&coldkey, registration_cost)?;
 
-        // Tokens are not burned but instead added to the TAO side of the pool.
-        // This changes K and increases the price of alpha.
-        let _burned_alpha: u64 = Self::swap_tao_for_alpha( netuid, actual_burn_amount );
-        // SubnetTAO::<T>::mutate(netuid, |val| val.saturating_sub(actual_burn_amount));
+        // Tokens are swapped and then burned.
+        let burned_alpha: u64 = Self::swap_tao_for_alpha(netuid, actual_burn_amount);
+        SubnetAlphaOut::<T>::mutate(netuid, |total| *total = total.saturating_sub(burned_alpha));
 
         // --- 9. If the network account does not exist we will create it here.
         Self::create_account_if_non_existent(&coldkey, &hotkey);

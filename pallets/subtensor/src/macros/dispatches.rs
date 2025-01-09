@@ -456,8 +456,11 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(79_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
-        pub fn become_delegate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-            Self::do_become_delegate(origin, hotkey, Self::get_default_delegate_take())
+        pub fn become_delegate(_origin: OriginFor<T>, _hotkey: T::AccountId) -> DispatchResult {
+            // DEPRECATED
+            // Self::do_become_delegate(origin, hotkey, Self::get_default_delegate_take())
+
+            Ok(())
         }
 
         /// --- Allows delegates to decrease its take value.
@@ -1180,10 +1183,7 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(157_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))
 		.saturating_add(T::DbWeight::get().writes(30)), DispatchClass::Operational, Pays::No))]
-        pub fn register_network(
-            origin: OriginFor<T>,
-            hotkey: T::AccountId,
-        ) -> DispatchResult {
+        pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
         }
 
@@ -1521,14 +1521,8 @@ mod dispatches {
         ///     - Thrown if key has hit transaction rate limit
         #[pallet::call_index(83)]
         #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        pub fn unstake_all(
-            origin: OriginFor<T>,
-            hotkey: T::AccountId,
-        ) -> DispatchResult {
-            Self::do_unstake_all(
-                origin,
-                hotkey,
-            )
+        pub fn unstake_all(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+            Self::do_unstake_all(origin, hotkey)
         }
 
         /// ---- The implementation for the extrinsic unstake_all: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
@@ -1558,14 +1552,8 @@ mod dispatches {
         ///     - Thrown if key has hit transaction rate limit
         #[pallet::call_index(84)]
         #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        pub fn unstake_all_alpha(
-            origin: OriginFor<T>,
-            hotkey: T::AccountId,
-        ) -> DispatchResult {
-            Self::do_unstake_all_alpha(
-                origin,
-                hotkey,
-            )
+        pub fn unstake_all_alpha(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+            Self::do_unstake_all_alpha(origin, hotkey)
         }
     }
 }
