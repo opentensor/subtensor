@@ -6,8 +6,8 @@ impl<T: Config> Pallet<T> {
     /// Calculates the dynamic TAO emission for a given subnet.
     ///
     /// This function determines the three terms tao_in, alpha_in, alpha_out
-    /// which are consequetively, 1) the amount of tao injected into the pool
-    /// 2) the amount of alpha injected into the pool and 3) the amount of alpha
+    /// which are consecutively, 1) the amount of tao injected into the pool
+    /// 2) the amount of alpha injected into the pool, and 3) the amount of alpha
     /// left to be distributed towards miners/validators/owners per block.
     ///
     /// # Arguments
@@ -19,11 +19,11 @@ impl<T: Config> Pallet<T> {
     /// * `(u64, u64, u64)` - A tuple containing:
     ///   - `tao_in_emission`: The adjusted TAO emission always lower or equal to tao_emission
     ///   - `alpha_in_emission`: The adjusted alpha emission amount to be added into the pool.
-    ///   - `alpha_out_emission`: The remaining alpha emission after adjustments to be distributed to miners/validatods.
+    ///   - `alpha_out_emission`: The remaining alpha emission after adjustments to be distributed to miners/validators.
     ///
     /// The algorithm ensures that the pool injection of tao_in_emission, alpha_in_emission does not effect the pool price
     /// It also ensures that the total amount of alpha_in_emission + alpha_out_emission sum to 2 * alpha_block_emission
-    /// It also ensure that 1 < alpha_out_emission < 2 * alpha_block_emission and 0 < alpha_in_emission < alpha_block_emission.
+    /// It also ensures that 1 < alpha_out_emission < 2 * alpha_block_emission and 0 < alpha_in_emission < alpha_block_emission.
     pub fn get_dynamic_tao_emission(
         netuid: u16,
         tao_emission: u64,
