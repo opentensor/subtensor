@@ -2819,6 +2819,7 @@ fn test_set_weights_no_parent() {
 }
 
 /// Test that drain_hotkey_emission sends childkey take fully to the childkey.
+#[allow(clippy::assertions_on_constants)]
 #[test]
 fn test_childkey_take_drain() {
     new_test_ext(1).execute_with(|| {
