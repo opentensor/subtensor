@@ -970,7 +970,10 @@ pub mod pallet {
     #[pallet::storage] // --- DMAP ( netuid ) --> subnet_name | Returns the name of the subnet.
     pub type SubnetName<T: Config> =
         StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
-
+    #[pallet::storage] // --- DMAP ( netuid ) --> block_at_dtao_transition | Returns the block when the subnet transitioned to DTAO.
+    pub type DynamicBlock<T: Config> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultUnicodeVecU8<T>>;
+    
     /// ============================
     /// ==== Global Parameters =====
     /// ============================

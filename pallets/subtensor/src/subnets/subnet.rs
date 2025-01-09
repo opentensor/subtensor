@@ -226,6 +226,7 @@ impl<T: Config> Pallet<T> {
         // --- 11. Set the creation terms.
         NetworkLastRegistered::<T>::set(current_block);
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
+        DynamicBlock::<T>::insert( netuid_to_register, current_block );
 
         // --- 14. Init the pool by putting the lock as the initial alpha.
         TokenSymbol::<T>::insert(
@@ -247,7 +248,7 @@ impl<T: Config> Pallet<T> {
         SubnetAlphaIn::<T>::insert(netuid_to_register, pool_initial_tao);
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
         SubnetOwnerHotkey::<T>::insert(netuid_to_register, hotkey.clone());
-
+        
         if actual_tao_lock_amount_less_pool_tao > 0 {
             Self::burn_tokens(actual_tao_lock_amount_less_pool_tao);
         }
