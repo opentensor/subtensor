@@ -1357,6 +1357,7 @@ mod dispatches {
                 old_coldkey: who.clone(),
                 new_coldkey: new_coldkey.clone(),
                 execution_block: when,
+                swap_cost,
             });
 
             Ok(().into())

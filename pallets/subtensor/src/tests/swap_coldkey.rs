@@ -1325,6 +1325,9 @@ fn test_schedule_swap_coldkey_success() {
         // Add balance to the old coldkey account
         SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 1000);
 
+
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+
         // Schedule the coldkey swap
         assert_ok!(SubtensorModule::schedule_swap_coldkey(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
@@ -1343,6 +1346,7 @@ fn test_schedule_swap_coldkey_success() {
                 old_coldkey,
                 new_coldkey,
                 execution_block: expected_execution_block,
+                swap_cost,
             }
             .into(),
         );
@@ -1403,6 +1407,8 @@ fn test_schedule_swap_coldkey_execution() {
             "Initial ownership check failed"
         );
 
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+
         // Schedule the swap
         assert_ok!(SubtensorModule::schedule_swap_coldkey(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
@@ -1418,6 +1424,7 @@ fn test_schedule_swap_coldkey_execution() {
                 old_coldkey,
                 new_coldkey,
                 execution_block,
+                swap_cost,
             }
             .into(),
         );
@@ -1455,6 +1462,7 @@ fn test_schedule_swap_coldkey_execution() {
             Event::ColdkeySwapped {
                 old_coldkey,
                 new_coldkey,
+                swap_cost,
             }
             .into(),
         );

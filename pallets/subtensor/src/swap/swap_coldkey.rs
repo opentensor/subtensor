@@ -68,6 +68,7 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::ColdkeySwapped {
             old_coldkey: old_coldkey.clone(),
             new_coldkey: new_coldkey.clone(),
+            swap_cost,
         });
 
         // 12. Return the result with the updated weight
