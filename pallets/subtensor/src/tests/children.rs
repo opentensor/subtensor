@@ -3268,136 +3268,134 @@ fn test_childkey_multiple_parents_emission() {
 #[test]
 fn test_parent_child_chain_emission() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
 
-        // let netuid: u16 = 1;
-        // add_network(netuid, 1, 0);
+        // Define hotkeys and coldkeys
+        let hotkey_a: U256 = U256::from(1);
+        let hotkey_b: U256 = U256::from(2);
+        let hotkey_c: U256 = U256::from(3);
+        let coldkey_a: U256 = U256::from(100);
+        let coldkey_b: U256 = U256::from(101);
+        let coldkey_c: U256 = U256::from(102);
 
-        // // Define hotkeys and coldkeys
-        // let hotkey_a: U256 = U256::from(1);
-        // let hotkey_b: U256 = U256::from(2);
-        // let hotkey_c: U256 = U256::from(3);
-        // let coldkey_a: U256 = U256::from(100);
-        // let coldkey_b: U256 = U256::from(101);
-        // let coldkey_c: U256 = U256::from(102);
+        // Register neurons with decreasing stakes
+        register_ok_neuron(netuid, hotkey_a, coldkey_a, 0);
+        register_ok_neuron(netuid, hotkey_b, coldkey_b, 0);
+        register_ok_neuron(netuid, hotkey_c, coldkey_c, 0);
 
-        // // Register neurons with decreasing stakes
-        // register_ok_neuron(netuid, hotkey_a, coldkey_a, 0);
-        // register_ok_neuron(netuid, hotkey_b, coldkey_b, 0);
-        // register_ok_neuron(netuid, hotkey_c, coldkey_c, 0);
+        // Add initial stakes
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 300_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_b, 100_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_c, 50_000);
 
-        // // Add initial stakes
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 300_000);
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_b, 100_000);
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_c, 50_000);
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_a, &hotkey_a, 300_000);
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_b, &hotkey_b, 100_000);
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_c, &hotkey_c, 50_000);
 
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_a, &hotkey_a, 300_000);
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_b, &hotkey_b, 100_000);
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_c, &hotkey_c, 50_000);
+        // Set parent-child relationships
+        // A -> B (50% of A's stake)
+        mock_set_children(&coldkey_a, &hotkey_a, netuid, &[(u64::MAX / 2, hotkey_b)]);
 
-        // // Set parent-child relationships
-        // // A -> B (50% of A's stake)
-        // mock_set_children(&coldkey_a, &hotkey_a, netuid, &[(u64::MAX / 2, hotkey_b)]);
+        // B -> C (50% of B's stake)
+        mock_set_children(&coldkey_b, &hotkey_b, netuid, &[(u64::MAX / 2, hotkey_c)]);
 
-        // // B -> C (50% of B's stake)
-        // mock_set_children(&coldkey_b, &hotkey_b, netuid, &[(u64::MAX / 2, hotkey_c)]);
+        step_block(2);
 
-        // step_block(2);
+        // Set weights
+        let origin = RuntimeOrigin::signed(hotkey_a);
+        let uids: Vec<u16> = vec![0, 1, 2]; // UIDs for hotkey_a, hotkey_b, hotkey_c
+        let values: Vec<u16> = vec![65535, 65535, 65535]; // Set equal weights for all hotkeys
+        let version_key = SubtensorModule::get_weights_version_key(netuid);
 
-        // // Set weights
-        // let origin = RuntimeOrigin::signed(hotkey_a);
-        // let uids: Vec<u16> = vec![0, 1, 2]; // UIDs for hotkey_a, hotkey_b, hotkey_c
-        // let values: Vec<u16> = vec![65535, 65535, 65535]; // Set equal weights for all hotkeys
-        // let version_key = SubtensorModule::get_weights_version_key(netuid);
+        // Ensure we can set weights without rate limiting
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
-        // // Ensure we can set weights without rate limiting
-        // SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        assert_ok!(SubtensorModule::set_weights(
+            origin,
+            netuid,
+            uids,
+            values,
+            version_key
+        ));
 
-        // assert_ok!(SubtensorModule::set_weights(
-        //     origin,
-        //     netuid,
-        //     uids,
-        //     values,
-        //     version_key
-        // ));
+        // Run epoch with a hardcoded emission value
+        let hardcoded_emission: u64 = 1_000_000; // 1 million (adjust as needed)
+        let hotkey_emission: Vec<(U256, u64, u64)> =
+            SubtensorModule::epoch(netuid, hardcoded_emission);
 
-        // // Run epoch with a hardcoded emission value
-        // let hardcoded_emission: u64 = 1_000_000; // 1 million (adjust as needed)
-        // let hotkey_emission: Vec<(U256, u64, u64)> =
-        //     SubtensorModule::epoch(netuid, hardcoded_emission);
+        // Process the hotkey emission results
+        for (hotkey, mining_emission, validator_emission) in hotkey_emission {
+            SubtensorModule::accumulate_hotkey_emission(
+                &hotkey,
+                netuid,
+                validator_emission,
+                mining_emission,
+            );
+        }
 
-        // // Process the hotkey emission results
-        // for (hotkey, mining_emission, validator_emission) in hotkey_emission {
-        //     SubtensorModule::accumulate_hotkey_emission(
-        //         &hotkey,
-        //         netuid,
-        //         validator_emission,
-        //         mining_emission,
-        //     );
-        // }
+        // Log PendingEmission Tuple for a, b, c
+        let pending_emission_a = SubtensorModule::get_pending_hotkey_emission(&hotkey_a);
+        let pending_emission_b = SubtensorModule::get_pending_hotkey_emission(&hotkey_b);
+        let pending_emission_c = SubtensorModule::get_pending_hotkey_emission(&hotkey_c);
 
-        // // Log PendingEmission Tuple for a, b, c
-        // let pending_emission_a = SubtensorModule::get_pending_hotkey_emission(&hotkey_a);
-        // let pending_emission_b = SubtensorModule::get_pending_hotkey_emission(&hotkey_b);
-        // let pending_emission_c = SubtensorModule::get_pending_hotkey_emission(&hotkey_c);
+        log::info!("Pending Emission for A: {:?}", pending_emission_a);
+        log::info!("Pending Emission for B: {:?}", pending_emission_b);
+        log::info!("Pending Emission for C: {:?}", pending_emission_c);
 
-        // log::info!("Pending Emission for A: {:?}", pending_emission_a);
-        // log::info!("Pending Emission for B: {:?}", pending_emission_b);
-        // log::info!("Pending Emission for C: {:?}", pending_emission_c);
+        // Assert that pending emissions are non-zero
+        // A's pending emission: 2/3 of total emission (due to having 2/3 of total stake)
+        assert!(
+            pending_emission_a == 666667,
+            "A should have pending emission of 2/3 of total emission"
+        );
+        // B's pending emission: 2/9 of total emission (1/3 of A's emission + 1/3 of total emission)
+        assert!(
+            pending_emission_b == 222222,
+            "B should have pending emission of 2/9 of total emission"
+        );
+        // C's pending emission: 1/9 of total emission (1/2 of B's emission)
+        assert!(
+            pending_emission_c == 111109,
+            "C should have pending emission of 1/9 of total emission"
+        );
 
-        // // Assert that pending emissions are non-zero
-        // // A's pending emission: 2/3 of total emission (due to having 2/3 of total stake)
-        // assert!(
-        //     pending_emission_a == 666667,
-        //     "A should have pending emission of 2/3 of total emission"
-        // );
-        // // B's pending emission: 2/9 of total emission (1/3 of A's emission + 1/3 of total emission)
-        // assert!(
-        //     pending_emission_b == 222222,
-        //     "B should have pending emission of 2/9 of total emission"
-        // );
-        // // C's pending emission: 1/9 of total emission (1/2 of B's emission)
-        // assert!(
-        //     pending_emission_c == 111109,
-        //     "C should have pending emission of 1/9 of total emission"
-        // );
+        SubtensorModule::set_hotkey_emission_tempo(10);
 
-        // SubtensorModule::set_hotkey_emission_tempo(10);
+        step_block(10 + 1);
+        // Retrieve the current stake for each hotkey on the subnet
+        let stake_a: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_a, netuid);
+        let stake_b: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_b, netuid);
+        let stake_c: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_c, netuid);
 
-        // step_block(10 + 1);
-        // // Retrieve the current stake for each hotkey on the subnet
-        // let stake_a: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_a, netuid);
-        // let stake_b: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_b, netuid);
-        // let stake_c: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_c, netuid);
+        // Log the current stakes for debugging purposes
+        log::info!("Stake for hotkey A: {:?}", stake_a);
+        log::info!("Stake for hotkey B: {:?}", stake_b);
+        log::info!("Stake for hotkey C: {:?}", stake_c);
 
-        // // Log the current stakes for debugging purposes
-        // log::info!("Stake for hotkey A: {:?}", stake_a);
-        // log::info!("Stake for hotkey B: {:?}", stake_b);
-        // log::info!("Stake for hotkey C: {:?}", stake_c);
+        // Assert that the stakes have been updated correctly after emission distribution
+        assert_eq!(
+            stake_a, 483334,
+            "A's stake should be 483334 (initial 300_000 + 666667 emission - 483333 given to B)"
+        );
+        assert_eq!(
+            stake_b, 644445,
+            "B's stake should be 644445 (initial 100_000 + 222222 emission + 483333 from A - 161110 given to C)"
+        );
+        assert_eq!(
+            stake_c, 322219,
+            "C's stake should be 322219 (initial 50_000 + 111109 emission + 161110 from B)"
+        );
 
-        // // Assert that the stakes have been updated correctly after emission distribution
-        // assert_eq!(
-        //     stake_a, 483334,
-        //     "A's stake should be 483334 (initial 300_000 + 666667 emission - 483333 given to B)"
-        // );
-        // assert_eq!(
-        //     stake_b, 644445,
-        //     "B's stake should be 644445 (initial 100_000 + 222222 emission + 483333 from A - 161110 given to C)"
-        // );
-        // assert_eq!(
-        //     stake_c, 322219,
-        //     "C's stake should be 322219 (initial 50_000 + 111109 emission + 161110 from B)"
-        // );
-
-        // // Check that the total stake has increased by the hardcoded emission amount
-        // let total_stake = stake_a + stake_b + stake_c;
-        // let initial_total_stake = 300_000 + 100_000 + 50_000;
-        // let hardcoded_emission = 1_000_000; // Define the hardcoded emission value
-        // assert_eq!(
-        //     total_stake,
-        //     initial_total_stake + hardcoded_emission - 2, // U64::MAX normalization rounding error
-        //     "Total stake should have increased by the hardcoded emission amount"
-        // );
+        // Check that the total stake has increased by the hardcoded emission amount
+        let total_stake = stake_a + stake_b + stake_c;
+        let initial_total_stake = 300_000 + 100_000 + 50_000;
+        let hardcoded_emission = 1_000_000; // Define the hardcoded emission value
+        assert_eq!(
+            total_stake,
+            initial_total_stake + hardcoded_emission - 2, // U64::MAX normalization rounding error
+            "Total stake should have increased by the hardcoded emission amount"
+        );
     });
 }
 
