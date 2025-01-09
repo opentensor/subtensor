@@ -508,7 +508,6 @@ impl<T: Config> Pallet<T> {
     ///
     /// Updates TaoIn, AlphaIn, and AlphaOut
     pub fn swap_tao_for_alpha(netuid: u16, tao: u64) -> u64 {
-
         // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
         let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
         // Step 2: Initialized vars.
