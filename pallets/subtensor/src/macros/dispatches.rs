@@ -86,11 +86,11 @@ mod dispatches {
             weights: Vec<u16>,
             version_key: u64,
         ) -> DispatchResult {
-            if Self::get_commit_reveal_weights_enabled(netuid) {
-                Err(Error::<T>::CommitRevealEnabled.into())
-            } else {
-                Self::do_set_weights(origin, netuid, dests, weights, version_key)
-            }
+            ensure!(
+                !CommitRevealWeightsEnabled::<T>::get(netuid),
+                Error::<T>::CommitRevealEnabled
+            );
+            Self::do_set_weights(origin, netuid, dests, weights, version_key)
         }
 
         /// --- Allows a hotkey to set weights for multiple netuids as a batch.
@@ -454,7 +454,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
         pub fn become_delegate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-            Self::do_become_delegate(origin, hotkey, Self::get_default_delegate_take())
+            Self::do_become_delegate(origin, hotkey, MaxDelegateTake::<T>::get())
         }
 
         /// --- Allows delegates to decrease its take value.

@@ -48,7 +48,7 @@ impl<T: Config> Pallet<T> {
                 }
 
                 let emission: U64F64 = Self::get_emission_for_uid(*netuid, uid).into();
-                let tempo: U64F64 = Self::get_tempo(*netuid).into();
+                let tempo: U64F64 = Tempo::<T>::get(*netuid).into();
                 if tempo > U64F64::from_num(0) {
                     let epochs_per_day: U64F64 = U64F64::from_num(7200).saturating_div(tempo);
                     emissions_per_day =
@@ -57,10 +57,10 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        let owner = Self::get_owning_coldkey_for_hotkey(&delegate.clone());
+        let owner = Owner::<T>::get(&delegate.clone());
         let take: Compact<u16> = <Delegates<T>>::get(delegate.clone()).into();
 
-        let total_stake: U64F64 = Self::get_total_stake_for_hotkey(&delegate.clone()).into();
+        let total_stake: U64F64 = TotalHotkeyStake::<T>::get(&delegate.clone()).into();
 
         let return_per_1000: U64F64 = if total_stake > U64F64::from_num(0) {
             emissions_per_day
@@ -119,8 +119,7 @@ impl<T: Config> Pallet<T> {
 
         let mut delegates: Vec<(DelegateInfo<T>, Compact<u64>)> = Vec::new();
         for delegate in <Delegates<T> as IterableStorageMap<T::AccountId, u16>>::iter_keys() {
-            let staked_to_this_delegatee =
-                Self::get_stake_for_coldkey_and_hotkey(&delegatee.clone(), &delegate.clone());
+            let staked_to_this_delegatee = Stake::<T>::get(&delegate, &delegatee);
             if staked_to_this_delegatee == 0 {
                 continue; // No stake to this delegate
             }
@@ -154,10 +153,5 @@ impl<T: Config> Pallet<T> {
             total_delegated
         );
         total_delegated
-    }
-
-    // Helper function to get the coldkey associated with a hotkey
-    pub fn get_coldkey_for_hotkey(hotkey: &T::AccountId) -> T::AccountId {
-        Owner::<T>::get(hotkey)
     }
 }

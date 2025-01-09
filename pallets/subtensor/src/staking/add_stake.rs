@@ -52,13 +52,13 @@ impl<T: Config> Pallet<T> {
 
         // Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
-            Self::hotkey_account_exists(&hotkey),
+            Owner::<T>::contains_key(&hotkey),
             Error::<T>::HotKeyAccountNotExists
         );
 
         // Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
         ensure!(
-            Self::hotkey_is_delegate(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+            Delegates::<T>::contains_key(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
             Error::<T>::HotKeyNotDelegateAndSignerNotOwnHotKey
         );
 
@@ -89,7 +89,7 @@ impl<T: Config> Pallet<T> {
 
         // Set last block for rate limiting
         let block = Self::get_current_block_as_u64();
-        Self::set_last_tx_block(&coldkey, block);
+        LastTxBlock::<T>::insert(&coldkey, block);
 
         log::debug!(
             "StakeAdded( hotkey:{:?}, stake_to_be_added:{:?} )",

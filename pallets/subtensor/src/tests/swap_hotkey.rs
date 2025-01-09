@@ -669,13 +669,13 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
         let tx_rate_limit = 1;
 
         // Get the current transaction rate limit
-        let current_tx_rate_limit = SubtensorModule::get_tx_rate_limit();
+        let current_tx_rate_limit = TxRateLimit::<Test>::get();
         log::info!("current_tx_rate_limit: {:?}", current_tx_rate_limit);
 
         // Set the transaction rate limit
         SubtensorModule::set_tx_rate_limit(tx_rate_limit);
         // assert the rate limit is set to 1000 blocks
-        assert_eq!(SubtensorModule::get_tx_rate_limit(), tx_rate_limit);
+        assert_eq!(TxRateLimit::<Test>::get(), tx_rate_limit);
 
         // Setup initial state
         add_network(netuid, tempo, 0);
@@ -936,7 +936,7 @@ fn test_swap_hotkey_error_cases() {
         LastTxBlock::<Test>::insert(coldkey, 0);
 
         // Test not enough balance
-        let swap_cost = SubtensorModule::get_key_swap_cost();
+        let swap_cost = <Test as crate::Config>::KeySwapCost::get();
         assert_noop!(
             SubtensorModule::do_swap_hotkey(
                 RuntimeOrigin::signed(coldkey),
@@ -946,7 +946,7 @@ fn test_swap_hotkey_error_cases() {
             Error::<Test>::NotEnoughBalanceToPaySwapHotKey
         );
 
-        let initial_balance = SubtensorModule::get_key_swap_cost() + 1000;
+        let initial_balance = <Test as crate::Config>::KeySwapCost::get() + 1000;
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_balance);
 
         // Test new hotkey same as old

@@ -44,7 +44,7 @@ impl<T: Config> Pallet<T> {
 
         // 4. Ensure the new coldkey is not a hotkey
         ensure!(
-            !Self::hotkey_account_exists(new_coldkey),
+            !Owner::<T>::contains_key(new_coldkey),
             Error::<T>::NewColdKeyIsHotkey
         );
         weight = weight.saturating_add(T::DbWeight::get().reads(1));
@@ -55,7 +55,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // 6. Calculate the swap cost and ensure sufficient balance
-        let swap_cost = Self::get_key_swap_cost();
+        let swap_cost = T::KeySwapCost::get();
         ensure!(
             Self::can_remove_balance_from_coldkey_account(old_coldkey, swap_cost),
             Error::<T>::NotEnoughBalanceToPaySwapColdKey
@@ -72,7 +72,7 @@ impl<T: Config> Pallet<T> {
         let _ = Self::perform_swap_coldkey(old_coldkey, new_coldkey, &mut weight);
 
         // 10. Update the last transaction block for the new coldkey
-        Self::set_last_tx_block(new_coldkey, Self::get_current_block_as_u64());
+        LastTxBlock::<T>::insert(new_coldkey, Self::get_current_block_as_u64());
         weight.saturating_accrue(T::DbWeight::get().writes(1));
 
         // 11. Remove the coldkey swap scheduled record

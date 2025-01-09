@@ -47,14 +47,14 @@ impl<T: Config> Pallet<T> {
 
         // --- 4. Ensure we are not already a delegate (dont allow changing delegate take.)
         ensure!(
-            !Self::hotkey_is_delegate(&hotkey),
+            !Delegates::<T>::contains_key(&hotkey),
             Error::<T>::HotKeyAlreadyDelegate
         );
 
         // --- 5. Ensure we don't exceed tx rate limit
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
-            !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
+            !Self::exceeds_tx_rate_limit(LastTxBlock::<T>::get(&coldkey), block),
             Error::<T>::DelegateTxRateLimitExceeded
         );
 
@@ -65,11 +65,11 @@ impl<T: Config> Pallet<T> {
         ensure!(take <= max_take, Error::<T>::DelegateTakeTooHigh);
 
         // --- 6. Delegate the key.
-        Self::delegate_hotkey(&hotkey, take);
+        Delegates::<T>::insert(&hotkey, take);
 
         // Set last block for rate limiting
-        Self::set_last_tx_block(&coldkey, block);
-        Self::set_last_tx_block_delegate_take(&coldkey, block);
+        LastTxBlock::<T>::insert(&coldkey, block);
+        LastTxBlockDelegateTake::<T>::insert(&coldkey, block);
 
         // --- 7. Emit the staking event.
         log::debug!(

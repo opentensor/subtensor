@@ -1371,31 +1371,7 @@ pub mod pallet {
         /// Is the caller allowed to set weights
         pub fn check_weights_min_stake(hotkey: &T::AccountId, netuid: u16) -> bool {
             // Blacklist weights transactions for low stake peers.
-            Self::get_stake_for_hotkey_on_subnet(hotkey, netuid) >= Self::get_stake_threshold()
-        }
-
-        /// Helper function to check if register is allowed
-        pub fn checked_allowed_register(netuid: u16) -> bool {
-            if netuid == Self::get_root_netuid() {
-                return false;
-            }
-            if !Self::if_subnet_exist(netuid) {
-                return false;
-            }
-            if !Self::get_network_registration_allowed(netuid) {
-                return false;
-            }
-            if Self::get_registrations_this_block(netuid)
-                >= Self::get_max_registrations_per_block(netuid)
-            {
-                return false;
-            }
-            if Self::get_registrations_this_interval(netuid)
-                >= Self::get_target_registrations_per_interval(netuid).saturating_mul(3)
-            {
-                return false;
-            }
-            true
+            Self::get_stake_for_hotkey_on_subnet(hotkey, netuid) >= StakeThreshold::<T>::get()
         }
     }
 }
@@ -1583,10 +1559,9 @@ where
                 ..Default::default()
             }),
             Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {
-                let registrations_this_interval =
-                    Pallet::<T>::get_registrations_this_interval(*netuid);
+                let registrations_this_interval = RegistrationsThisInterval::<T>::get(*netuid);
                 let max_registrations_per_interval =
-                    Pallet::<T>::get_target_registrations_per_interval(*netuid);
+                    TargetRegistrationsPerInterval::<T>::get(netuid);
                 if registrations_this_interval >= (max_registrations_per_interval.saturating_mul(3))
                 {
                     // If the registration limit for the interval is exceeded, reject the transaction

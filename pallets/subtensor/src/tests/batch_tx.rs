@@ -7,7 +7,7 @@ use sp_runtime::{
     DispatchError,
 };
 
-use crate::{Error, Event};
+use crate::{CommitRevealWeightsEnabled, Error, Event, StakeThreshold, WeightsVersionKey};
 
 use super::mock::*;
 
@@ -92,9 +92,9 @@ fn test_batch_set_weights() {
 
         // Set weights on the other hotkey and Use maximum value for u16
         let weights: Vec<(Compact<u16>, Compact<u16>)> = vec![(Compact(1), Compact(u16::MAX))];
-        let version_key_0: Compact<u64> = SubtensorModule::get_weights_version_key(netuid_0).into();
-        let version_key_1: Compact<u64> = SubtensorModule::get_weights_version_key(netuid_1).into();
-        let version_key_2: Compact<u64> = SubtensorModule::get_weights_version_key(netuid_2).into();
+        let version_key_0: Compact<u64> = WeightsVersionKey::<Test>::get(netuid_0).into();
+        let version_key_1: Compact<u64> = WeightsVersionKey::<Test>::get(netuid_1).into();
+        let version_key_2: Compact<u64> = WeightsVersionKey::<Test>::get(netuid_2).into();
 
         // Set the min stake very high
         SubtensorModule::set_stake_threshold(stake_to_give_child * 5);
@@ -102,7 +102,7 @@ fn test_batch_set_weights() {
         // Check the key has less stake than required
         assert!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid_0)
-                < SubtensorModule::get_stake_threshold()
+                < StakeThreshold::<Test>::get()
         );
 
         let netuids_vec: Vec<Compact<u16>> =
@@ -155,7 +155,7 @@ fn test_batch_set_weights() {
         // Check if the stake for the hotkey is above
         assert!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid_0)
-                >= SubtensorModule::get_stake_threshold()
+                >= StakeThreshold::<Test>::get()
         );
 
         // Try with enough stake
@@ -274,9 +274,9 @@ fn test_batch_commit_weights() {
         SubtensorModule::set_weights_set_rate_limit(netuid_2, 0);
 
         // Disable commit reveal for all networks (pre-emptively)
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid_0, false);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid_1, false);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid_2, false);
+        CommitRevealWeightsEnabled::<Test>::set(netuid_0, false);
+        CommitRevealWeightsEnabled::<Test>::set(netuid_1, false);
+        CommitRevealWeightsEnabled::<Test>::set(netuid_2, false);
 
         // Has stake and no parent
         step_block(7200 + 1);
@@ -323,9 +323,9 @@ fn test_batch_commit_weights() {
         System::reset_events();
 
         // Enable commit reveal for all networks
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid_0, true);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid_1, true);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid_2, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid_0, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid_1, true);
+        CommitRevealWeightsEnabled::<Test>::set(netuid_2, true);
 
         // Set a minimum stake to set weights
         SubtensorModule::set_stake_threshold(stake_to_give_child - 5);
@@ -333,7 +333,7 @@ fn test_batch_commit_weights() {
         // Check if the stake for the hotkey is above
         assert!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid_0)
-                >= SubtensorModule::get_stake_threshold()
+                >= StakeThreshold::<Test>::get()
         );
 
         // Try with commit reveal enabled
@@ -366,7 +366,7 @@ fn test_batch_commit_weights() {
 
         // Test again, but with only one failure, different reason
         // Disable commit reveal for one network
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid_2, false);
+        CommitRevealWeightsEnabled::<Test>::set(netuid_2, false);
         assert_ok!(SubtensorModule::batch_commit_weights(
             RuntimeOrigin::signed(hotkey),
             netuids_vec.clone(),

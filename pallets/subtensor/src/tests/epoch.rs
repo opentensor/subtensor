@@ -110,7 +110,7 @@ fn distribute_nodes(
 fn uid_stats(netuid: u16, uid: u16) {
     log::info!(
         "stake: {:?}",
-        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid)))
+        TotalHotkeyStake::<Test>::get(U256::from(uid))
     );
     log::info!("rank: {:?}", SubtensorModule::get_rank_for_uid(netuid, uid));
     log::info!(
@@ -176,12 +176,12 @@ fn init_run_epochs(
             stake,
         );
     }
-    assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
+    assert_eq!(SubnetworkN::<Test>::get(netuid), n);
 
     // === Issue validator permits
     SubtensorModule::set_max_allowed_validators(netuid, validators.len() as u16);
     assert_eq!(
-        SubtensorModule::get_max_allowed_validators(netuid),
+        MaxAllowedValidators::<Test>::get(netuid),
         validators.len() as u16
     );
     SubtensorModule::epoch(netuid, 1_000_000_000); // run first epoch to set allowed validators
@@ -552,7 +552,7 @@ fn test_1_graph() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_amount);
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_amount);
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 1);
         run_to_block(1); // run to next block to ensure weights are set on nodes after their registration block
         assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(U256::from(uid)),
@@ -564,15 +564,9 @@ fn test_1_graph() {
         // SubtensorModule::set_weights_for_testing( netuid, i as u16, vec![ ( 0, u16::MAX )]); // doesn't set update status
         // SubtensorModule::set_bonds_for_testing( netuid, uid, vec![ ( 0, u16::MAX )]); // rather, bonds are calculated in epoch
         SubtensorModule::set_emission_values(&[netuid], vec![1_000_000_000]).unwrap();
-        assert_eq!(
-            SubtensorModule::get_subnet_emission_value(netuid),
-            1_000_000_000
-        );
+        assert_eq!(EmissionValues::<Test>::get(netuid), 1_000_000_000);
         SubtensorModule::epoch(netuid, 1_000_000_000);
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            stake_amount
-        );
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey), stake_amount);
         assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
         assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 0);
         assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, uid), 0);
@@ -599,7 +593,7 @@ fn test_10_graph() {
                 hotkey,
                 uid,
                 stake_amount,
-                SubtensorModule::get_subnetwork_n(netuid),
+                SubnetworkN::<Test>::get(netuid),
             );
             SubtensorModule::increase_stake_on_coldkey_hotkey_account(
                 &coldkey,
@@ -607,7 +601,7 @@ fn test_10_graph() {
                 stake_amount,
             );
             SubtensorModule::append_neuron(netuid, &hotkey, 0);
-            assert_eq!(SubtensorModule::get_subnetwork_n(netuid) - 1, uid);
+            assert_eq!(SubnetworkN::<Test>::get(netuid) - 1, uid);
         }
         // Build the graph with 10 items
         // each with 1 stake and self weights.
@@ -618,7 +612,7 @@ fn test_10_graph() {
         for i in 0..10 {
             add_node(netuid, U256::from(i), U256::from(i), i as u16, 1)
         }
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 10);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), 10);
         run_to_block(1); // run to next block to ensure weights are set on nodes after their registration block
         for i in 0..10 {
             assert_ok!(SubtensorModule::set_weights(
@@ -633,10 +627,7 @@ fn test_10_graph() {
         SubtensorModule::epoch(netuid, 1_000_000_000);
         // Check return values.
         for i in 0..n {
-            assert_eq!(
-                SubtensorModule::get_total_stake_for_hotkey(&(U256::from(i))),
-                1
-            );
+            assert_eq!(TotalHotkeyStake::<Test>::get(U256::from(i)), 1);
             assert_eq!(SubtensorModule::get_rank_for_uid(netuid, i as u16), 0);
             assert_eq!(SubtensorModule::get_trust_for_uid(netuid, i as u16), 0);
             assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, i as u16), 0);
@@ -689,7 +680,7 @@ fn test_512_graph() {
                 let bonds = SubtensorModule::get_bonds(netuid);
                 for uid in validators {
                     assert_eq!(
-                        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
+                        TotalHotkeyStake::<Test>::get(U256::from(uid)),
                         max_stake_per_validator
                     );
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
@@ -703,10 +694,7 @@ fn test_512_graph() {
                     // Note B_ij = floor(1 / 64 * 65_535) / 65_535 = 1023 / 65_535, then max-upscaled to 65_535
                 }
                 for uid in servers {
-                    assert_eq!(
-                        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
-                        0
-                    );
+                    assert_eq!(TotalHotkeyStake::<Test>::get(U256::from(uid)), 0);
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 146); // Note R = floor(1 / (512 - 64) * 65_535) = 146
                     assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 65535);
                     assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, uid), 146); // Note C = floor(1 / (512 - 64) * 65_535) = 146
@@ -861,11 +849,11 @@ fn test_4096_graph() {
                     0,
                     true,
                 );
-                assert_eq!(SubtensorModule::get_total_stake(), 21_000_000_000_000_000);
+                assert_eq!(TotalStake::<Test>::get(), 21_000_000_000_000_000);
                 let bonds = SubtensorModule::get_bonds(netuid);
                 for uid in &validators {
                     assert_eq!(
-                        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(*uid as u64))),
+                        TotalHotkeyStake::<Test>::get(U256::from(*uid as u64)),
                         max_stake_per_validator
                     );
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, *uid), 0);
@@ -881,10 +869,7 @@ fn test_4096_graph() {
                     ); // Note B_ij = floor(1 / 256 * 65_535) / 65_535
                 }
                 for uid in &servers {
-                    assert_eq!(
-                        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(*uid as u64))),
-                        0
-                    );
+                    assert_eq!(TotalHotkeyStake::<Test>::get(U256::from(*uid as u64)), 0);
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, *uid), 17); // Note R = floor(1 / (4096 - 256) * 65_535) = 17
                     assert_eq!(SubtensorModule::get_trust_for_uid(netuid, *uid), 65535);
                     assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, *uid), 17); // Note C = floor(1 / (4096 - 256) * 65_535) = 17
@@ -930,10 +915,7 @@ fn test_16384_graph_sparse() {
         );
         let bonds = SubtensorModule::get_bonds(netuid);
         for uid in validators {
-            assert_eq!(
-                SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
-                1
-            );
+            assert_eq!(TotalHotkeyStake::<Test>::get(U256::from(uid)), 1);
             assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
             assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 0);
             assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, uid), 438); // Note C = 0.0066928507 = (0.0066928507*65_535) = floor( 438.6159706245 )
@@ -947,10 +929,7 @@ fn test_16384_graph_sparse() {
             ); // Note B_ij = floor(1 / 512 * 65_535) / 65_535 = 127 / 65_535
         }
         for uid in servers {
-            assert_eq!(
-                SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
-                0
-            );
+            assert_eq!(TotalHotkeyStake::<Test>::get(U256::from(uid)), 0);
             assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 4); // Note R = floor(1 / (16384 - 512) * 65_535) = 4
             assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 65535);
             assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, uid), 4); // Note C = floor(1 / (16384 - 512) * 65_535) = 4
@@ -976,7 +955,7 @@ fn test_bonds() {
         let block_number = System::block_number();
 		add_network(netuid, tempo, 0);
 		SubtensorModule::set_max_allowed_uids( netuid, n );
-		assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
+		assert_eq!(MaxAllowedUids::<Test>::get(netuid), n);
 		SubtensorModule::set_max_registrations_per_block( netuid, n );
 		SubtensorModule::set_target_registrations_per_interval(netuid, n);
 		SubtensorModule::set_weights_set_rate_limit( netuid, 0 );
@@ -990,12 +969,12 @@ fn test_bonds() {
 			assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(U256::from(key)), netuid, block_number, nonce, work, U256::from(key), U256::from(key)));
 			SubtensorModule::increase_stake_on_coldkey_hotkey_account( &U256::from(key), &U256::from(key), stakes[key as usize] );
 		}
-		assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
-		assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
+		assert_eq!(MaxAllowedUids::<Test>::get(netuid), n);
+		assert_eq!(SubnetworkN::<Test>::get(netuid), n);
 
 		// === Issue validator permits
 		SubtensorModule::set_max_allowed_validators(netuid, n);
-		assert_eq!( SubtensorModule::get_max_allowed_validators(netuid), n);
+		assert_eq!( MaxAllowedValidators::<Test>::get(netuid), n);
 		SubtensorModule::epoch( netuid, 1_000_000_000 ); // run first epoch to set allowed validators
         next_block(); // run to next block to ensure weights are set on nodes after their registration block
 
@@ -1318,7 +1297,7 @@ fn test_bonds_with_liquid_alpha() {
         }
 
         // Enable Liquid Alpha
-        SubtensorModule::set_liquid_alpha_enabled(netuid, true);
+        LiquidAlphaOn::<Test>::set(netuid, true);
         // Run epoch with Liquid Alpha
         if sparse {
             SubtensorModule::epoch(netuid, 1_000_000_000);
@@ -1481,7 +1460,7 @@ fn test_set_alpha_disabled() {
         let signer = <<Test as Config>::RuntimeOrigin>::signed(coldkey);
 
         // Enable Liquid Alpha and setup
-        SubtensorModule::set_liquid_alpha_enabled(netuid, true);
+        LiquidAlphaOn::<Test>::set(netuid, true);
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
@@ -1490,13 +1469,13 @@ fn test_set_alpha_disabled() {
         assert_ok!(SubtensorModule::register_network(signer.clone()));
 
         // Explicitly set to false
-        SubtensorModule::set_liquid_alpha_enabled(netuid, false);
+        LiquidAlphaOn::<Test>::set(netuid, false);
         assert_err!(
             SubtensorModule::do_set_alpha_values(signer.clone(), netuid, 12_u16, u16::MAX),
             Error::<Test>::LiquidAlphaDisabled
         );
 
-        SubtensorModule::set_liquid_alpha_enabled(netuid, true);
+        LiquidAlphaOn::<Test>::set(netuid, true);
         assert_ok!(SubtensorModule::do_set_alpha_values(
             signer.clone(),
             netuid,
@@ -1519,7 +1498,7 @@ fn test_active_stake() {
         let stake: u64 = 1;
         add_network(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
-        assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
+        assert_eq!(MaxAllowedUids::<Test>::get(netuid), n);
         SubtensorModule::set_max_registrations_per_block(netuid, n);
         SubtensorModule::set_target_registrations_per_interval(netuid, n);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
@@ -1549,12 +1528,12 @@ fn test_active_stake() {
                 stake,
             );
         }
-        assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
+        assert_eq!(MaxAllowedUids::<Test>::get(netuid), n);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), n);
 
         // === Issue validator permits
         SubtensorModule::set_max_allowed_validators(netuid, n);
-        assert_eq!(SubtensorModule::get_max_allowed_validators(netuid), n);
+        assert_eq!(MaxAllowedValidators::<Test>::get(netuid), n);
         SubtensorModule::epoch(netuid, 1_000_000_000); // run first epoch to set allowed validators
         next_block(); // run to next block to ensure weights are set on nodes after their registration block
 
@@ -1596,7 +1575,7 @@ fn test_active_stake() {
                 assert_eq!(*i, I32F32::from_num(65_535)); // floor(0.5*(2^16-1))/(2^16-1), then max-upscale to 65_535
             }
         }
-        let activity_cutoff: u64 = SubtensorModule::get_activity_cutoff(netuid) as u64;
+        let activity_cutoff = ActivityCutoff::<Test>::get(netuid) as u64;
         run_to_block(activity_cutoff + 2); // run to block where validator (uid 0, 1) weights become outdated
 
         // === Update uid 0 weights
@@ -1730,7 +1709,7 @@ fn test_outdated_weights() {
         SubtensorModule::set_target_registrations_per_interval(netuid, n);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
         SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 0);
 
         // === Register [validator1, validator2, server1, server2]
         for key in 0..n as u64 {
@@ -1756,16 +1735,16 @@ fn test_outdated_weights() {
                 stake,
             );
         }
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 4);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), n);
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 4);
 
         // === Issue validator permits
         SubtensorModule::set_max_allowed_validators(netuid, n);
-        assert_eq!(SubtensorModule::get_max_allowed_validators(netuid), n);
+        assert_eq!(MaxAllowedValidators::<Test>::get(netuid), n);
         SubtensorModule::epoch(netuid, 1_000_000_000); // run first epoch to set allowed validators
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 4);
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 4);
         block_number = next_block(); // run to next block to ensure weights are set on nodes after their registration block
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 0);
 
         // === Set weights [val1->srv1: 2/3, val1->srv2: 1/3, val2->srv1: 2/3, val2->srv2: 1/3, srv1->srv1: 1, srv2->srv2: 1]
         for uid in 0..(n / 2) as u64 {
@@ -1828,8 +1807,8 @@ fn test_outdated_weights() {
             &U256::from(new_key),
         );
         assert_eq!(System::block_number(), block_number);
-        assert_eq!(SubtensorModule::get_max_registrations_per_block(netuid), n);
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
+        assert_eq!(MaxRegistrationsPerBlock::<Test>::get(netuid), n);
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 0);
         assert_ok!(SubtensorModule::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(new_key)),
             netuid,
@@ -1942,7 +1921,7 @@ fn test_zero_weights() {
                 stake,
             );
         }
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
+        assert_eq!(SubnetworkN::<Test>::get(netuid), n);
 
         // === No weights
         if sparse {
@@ -2119,10 +2098,7 @@ fn test_validator_permits() {
                     let block_number: u64 = 0;
                     add_network(netuid, tempo, 0);
                     SubtensorModule::set_max_allowed_uids(netuid, network_n as u16);
-                    assert_eq!(
-                        SubtensorModule::get_max_allowed_uids(netuid),
-                        network_n as u16
-                    );
+                    assert_eq!(MaxAllowedUids::<Test>::get(netuid), network_n as u16);
                     SubtensorModule::set_max_registrations_per_block(netuid, network_n as u16);
                     SubtensorModule::set_target_registrations_per_interval(
                         netuid,
@@ -2157,12 +2133,12 @@ fn test_validator_permits() {
                             stake[key as usize],
                         );
                     }
-                    assert_eq!(SubtensorModule::get_subnetwork_n(netuid), network_n as u16);
+                    assert_eq!(SubnetworkN::<Test>::get(netuid), network_n as u16);
 
                     // === Issue validator permits
                     SubtensorModule::set_max_allowed_validators(netuid, validators_n as u16);
                     assert_eq!(
-                        SubtensorModule::get_max_allowed_validators(netuid),
+                        MaxAllowedValidators::<Test>::get(netuid),
                         validators_n as u16
                     );
                     SubtensorModule::epoch(netuid, 1_000_000_000); // run first epoch to set allowed validators
@@ -2558,7 +2534,7 @@ fn test_get_set_alpha() {
         let signer = <<Test as Config>::RuntimeOrigin>::signed(coldkey);
 
         // Enable Liquid Alpha and setup
-        SubtensorModule::set_liquid_alpha_enabled(netuid, true);
+        LiquidAlphaOn::<Test>::set(netuid, true);
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
@@ -2578,8 +2554,7 @@ fn test_get_set_alpha() {
             alpha_low,
             alpha_high
         ));
-        let (grabbed_alpha_low, grabbed_alpha_high): (u16, u16) =
-            SubtensorModule::get_alpha_values(netuid);
+        let (grabbed_alpha_low, grabbed_alpha_high): (u16, u16) = AlphaValues::<Test>::get(netuid);
 
         log::info!(
             "alpha_low: {:?} alpha_high: {:?}",
@@ -2617,13 +2592,13 @@ fn test_get_set_alpha() {
         );
 
         // 1. Liquid alpha disabled
-        SubtensorModule::set_liquid_alpha_enabled(netuid, false);
+        LiquidAlphaOn::<Test>::set(netuid, false);
         assert_err!(
             SubtensorModule::do_set_alpha_values(signer.clone(), netuid, alpha_low, alpha_high),
             Error::<Test>::LiquidAlphaDisabled
         );
         // Correct scenario after error
-        SubtensorModule::set_liquid_alpha_enabled(netuid, true); // Re-enable for further tests
+        LiquidAlphaOn::<Test>::set(netuid, true); // Re-enable for further tests
         assert_ok!(SubtensorModule::do_set_alpha_values(
             signer.clone(),
             netuid,
@@ -2698,11 +2673,11 @@ fn test_blocks_since_last_step() {
         let tempo: u16 = 7200;
         add_network(netuid, tempo, 0);
 
-        let original_blocks: u64 = SubtensorModule::get_blocks_since_last_step(netuid);
+        let original_blocks: u64 = BlocksSinceLastStep::<Test>::get(netuid);
 
         step_block(5);
 
-        let new_blocks: u64 = SubtensorModule::get_blocks_since_last_step(netuid);
+        let new_blocks: u64 = BlocksSinceLastStep::<Test>::get(netuid);
 
         assert!(new_blocks > original_blocks);
         assert_eq!(new_blocks, 5);
@@ -2715,7 +2690,7 @@ fn test_blocks_since_last_step() {
             + 10;
         step_block(blocks_to_step);
 
-        let post_blocks: u64 = SubtensorModule::get_blocks_since_last_step(netuid);
+        let post_blocks: u64 = BlocksSinceLastStep::<Test>::get(netuid);
 
         assert_eq!(post_blocks, 10);
 
@@ -2727,13 +2702,13 @@ fn test_blocks_since_last_step() {
             + 20;
         step_block(blocks_to_step);
 
-        let new_post_blocks: u64 = SubtensorModule::get_blocks_since_last_step(netuid);
+        let new_post_blocks: u64 = BlocksSinceLastStep::<Test>::get(netuid);
 
         assert_eq!(new_post_blocks, 20);
 
         step_block(7);
 
-        assert_eq!(SubtensorModule::get_blocks_since_last_step(netuid), 27);
+        assert_eq!(BlocksSinceLastStep::<Test>::get(netuid), 27);
     });
 }
 
