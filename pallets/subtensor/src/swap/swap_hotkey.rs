@@ -170,7 +170,6 @@ impl<T: Config> Pallet<T> {
                 netuid,
                 old_total_hotkey_alpha.saturating_add(new_total_hotkey_alpha),
             );
-
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
         }
 
