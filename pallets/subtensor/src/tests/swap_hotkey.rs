@@ -8,6 +8,7 @@ use frame_system::{Config, RawOrigin};
 
 use super::mock::*;
 use crate::*;
+use substrate_fixed::types::U64F64;
 use sp_core::{Get, H256, U256};
 use sp_runtime::SaturatedConversion;
 
@@ -842,25 +843,32 @@ fn test_swap_delegates_success() {
 #[test]
 fn test_swap_stake_success() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let amount = 10_000;
+        let shares = U64F64::from_num(123456);
+        let mut weight = Weight::zero();
 
-        // rao TODO: Test all staking variables
+        // Initialize staking variables for old_hotkey
+        Stake::<Test>::insert(old_hotkey, coldkey, 0);
+        TotalHotkeyAlpha::<Test>::insert(old_hotkey, netuid, amount);
+        TotalHotkeyShares::<Test>::insert(old_hotkey, netuid, U64F64::from_num(shares));
+        Alpha::<Test>::insert((old_hotkey, coldkey, netuid), U64F64::from_num(amount));
 
-        // let old_hotkey = U256::from(1);
-        // let new_hotkey = U256::from(2);
-        // let coldkey = U256::from(3);
-        // let stake_amount = 1000u64;
-        // let mut weight = Weight::zero();
+        // Perform the swap
+        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
 
-        // // Initialize Stake for old_hotkey
-        // Stake::<Test>::insert(old_hotkey, coldkey, stake_amount);
-
-        // // Perform the swap
-        // SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
-
-        // // Verify the swap
-        // assert_eq!(Stake::<Test>::get(new_hotkey, coldkey), stake_amount);
-        // assert!(!Stake::<Test>::contains_key(old_hotkey, coldkey));
+        // Verify the swap
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(old_hotkey, netuid), 0);
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(new_hotkey, netuid), amount);
+        assert_eq!(TotalHotkeyShares::<Test>::get(old_hotkey, netuid), U64F64::from_num(0));
+        assert_eq!(TotalHotkeyShares::<Test>::get(new_hotkey, netuid), U64F64::from_num(shares));
+        assert_eq!(Alpha::<Test>::get((old_hotkey, coldkey, netuid)), U64F64::from_num(0));
+        assert_eq!(Alpha::<Test>::get((new_hotkey, coldkey, netuid)), U64F64::from_num(amount));
     });
 }
 
