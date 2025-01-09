@@ -434,27 +434,42 @@ fn test_swap_with_max_values() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_with_non_existent_new_coldkey --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_swap_with_non_existent_new_coldkey --exact --show-output
 #[test]
 fn test_swap_with_non_existent_new_coldkey() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let old_coldkey = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+        let stake = 100;
+        let netuid = 1u16;
+        add_network(netuid, 1, 0);
+        register_ok_neuron(netuid, hotkey, old_coldkey, 1001000);
+        // Give old coldkey some balance.
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, stake + 1_000);
+        // Stake to hotkey.
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+            hotkey,
+            netuid,
+            stake
+        ));
 
-        // let old_coldkey = U256::from(1);
-        // let new_coldkey = U256::from(2);
-        // let stake = 100;
+        let mut weight = Weight::zero();
+        assert_ok!(SubtensorModule::perform_swap_coldkey(
+            &old_coldkey,
+            &new_coldkey,
+            &mut weight
+        ));
 
-        // TotalColdkeyStake::<Test>::insert(old_coldkey, stake);
-
-        // let mut weight = Weight::zero();
-        // assert_ok!(SubtensorModule::perform_swap_coldkey(
-        //     &old_coldkey,
-        //     &new_coldkey,
-        //     &mut weight
-        // ));
-
-        // assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
-        // assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), stake);
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
+            stake
+        );
     });
 }
 
