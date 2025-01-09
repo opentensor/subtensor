@@ -94,10 +94,36 @@ impl<T: Config> Pallet<T> {
         TaoWeight::<T>::set(weight);
     }
 
+    /// Calculates the weighted combination of alpha and global tao for a single hotkey onet a subnet.
+    ///
+    pub fn get_stake_weights_for_hotkey_on_subnet(
+        hotkey: &T::AccountId,
+        netuid: u16,
+    ) -> (I64F64, I64F64, I64F64) {
+        // Retrieve the global tao weight.
+        let tao_weight = I64F64::from_num(Self::get_tao_weight());
+        log::debug!("tao_weight: {:?}", tao_weight);
+
+        // Step 1: Get stake of hotkey (neuron)
+        let alpha_stake =
+            I64F64::from_num(Self::get_inherited_for_hotkey_on_subnet(&hotkey, netuid));
+        log::trace!("alpha_stake: {:?}", alpha_stake);
+
+        // Step 2: Get the global tao stake for the hotkey
+        let tao_stake = I64F64::from_num(Self::get_inherited_for_hotkey_on_subnet(&hotkey, 0));
+        log::trace!("tao_stake: {:?}", tao_stake);
+
+        // Step 3: Combine alpha and tao stakes
+        let total_stake = alpha_stake.saturating_add(tao_stake.saturating_mul(tao_weight));
+        log::trace!("total_stake: {:?}", total_stake);
+
+        (total_stake, alpha_stake, tao_stake)
+    }
+
     /// Calculates the weighted combination of alpha and global tao for hotkeys on a subnet.
     ///
     pub fn get_stake_weights_for_network(netuid: u16) -> (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) {
-        // Retrieve the global global weight.
+        // Retrieve the global tao weight.
         let tao_weight: I64F64 = I64F64::from_num(Self::get_tao_weight());
         log::debug!("tao_weight: {:?}", tao_weight);
 
