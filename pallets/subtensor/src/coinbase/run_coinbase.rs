@@ -46,22 +46,26 @@ impl<T: Config> Pallet<T> {
         let subnets: Vec<u16> = Self::get_all_subnet_netuids();
         log::debug!("All subnet netuids: {:?}", subnets);
 
-        // --- 2. Sum all the SubnetTAO associated with the same mechanism.
-        // Mechanisms get emission based on the proportion of TAO across all their subnets
-        let mut total_active_tao: I96F32 = I96F32::from_num(0);
-        let mut mechanism_tao: BTreeMap<u16, I96F32> = BTreeMap::new();
+        /// Calculates the total active weight and mechanism weights for emission distribution.
+        /// For each subnet (except root), sums the SubnetTAO and a portion of the total stake at dynamic registration
+        /// into mechanism-specific weights. The mechanism weights determine emission proportions.
+        let mut total_active_weight: I96F32 = I96F32::from_num(0);
+        let mut mechanism_weight: BTreeMap<u16, I96F32> = BTreeMap::new();
         for netuid in subnets.iter() {
             if *netuid == 0 {
                 continue;
             } // Skip root network
             let mechid = SubnetMechanism::<T>::get(*netuid);
             let subnet_tao = I96F32::from_num(SubnetTAO::<T>::get(*netuid));
-            let new_subnet_tao = subnet_tao
-                .saturating_add(*mechanism_tao.entry(mechid).or_insert(I96F32::from_num(0)));
-            *mechanism_tao.entry(mechid).or_insert(I96F32::from_num(0)) = new_subnet_tao;
-            total_active_tao = total_active_tao.saturating_add(subnet_tao);
+            let tao_at_dynamic = I96F32::from_num( TotalStakeAtDynamic::<T>::get(*netuid) );
+            let num_subnets = I96F32::from_num( Self::get_num_subnets() as u64 );
+            let subnet_weight = subnet_tao.saturating_add( tao_at_dynamic.checked_div( num_subnets ).unwrap_or(I96F32::from_num( 0.0)) );
+            let new_subnet_weight = subnet_weight
+                .saturating_add(*mechanism_weight.entry(mechid).or_insert(I96F32::from_num(0)));
+            *mechanism_weight.entry(mechid).or_insert(I96F32::from_num(0)) = new_subnet_weight;
+            total_active_weight = total_active_weight.saturating_add(subnet_weight);
         }
-        log::debug!("Mechanism TAO sums: {:?}", mechanism_tao);
+        log::debug!("Mechanism TAO sums: {:?}", mechanism_weight);
 
         // --- 3. Compute subnet emission values (amount of tao inflation this block).
         let mut tao_in_map: BTreeMap<u16, u64> = BTreeMap::new();
@@ -77,7 +81,7 @@ impl<T: Config> Pallet<T> {
             let subnet_tao: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(*netuid));
             log::debug!("Subnet TAO (T_s) for netuid {:?}: {:?}", netuid, subnet_tao);
             // 3.3: Get the denominator as the sum of all TAO associated with a specific mechanism (T_m)
-            let mech_tao: I96F32 = *mechanism_tao.get(&mechid).unwrap_or(&I96F32::from_num(0));
+            let mech_tao: I96F32 = *mechanism_weight.get(&mechid).unwrap_or(&I96F32::from_num(0));
             log::debug!(
                 "Mechanism TAO (T_m) for mechanism ID {:?}: {:?}",
                 mechid,
@@ -85,7 +89,7 @@ impl<T: Config> Pallet<T> {
             );
             // 3.4: Compute the mechanism emission proportion: P_m = T_m / T_total
             let mech_proportion: I96F32 = mech_tao
-                .checked_div(total_active_tao)
+                .checked_div(total_active_weight)
                 .unwrap_or(I96F32::from_num(0));
             log::debug!(
                 "Mechanism proportion (P_m) for mechanism ID {:?}: {:?}",

@@ -81,6 +81,9 @@ pub fn migrate_rao<T: Config>() -> Weight {
         Tempo::<T>::insert(netuid, DefaultTempo::<T>::get());
         // Set the token symbol for this subnet using Self instead of Pallet::<T>
         TokenSymbol::<T>::insert(netuid, Pallet::<T>::get_symbol_for_subnet(*netuid));
+        SubnetTAO::<T>::insert(netuid, initial_liquidity); // Set TAO to the lock.
+        TotalStakeAtDynamic::<T>::insert(netuid, 0); 
+
 
         if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
             // Set Owner as the coldkey.

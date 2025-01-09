@@ -903,6 +903,9 @@ pub mod pallet {
     #[pallet::storage] // --- DMAP ( netuid ) --> alpha_sell_per_block | Alpha sold per block.
     pub type SubnetAlphaEmissionSell<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage] // --- DMAP ( netuid ) --> total_stake_at_moment_of_subnet_registration
+    pub type TotalStakeAtDynamic<T: Config> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the subnet.
     pub type SubnetAlphaIn<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
@@ -972,7 +975,7 @@ pub mod pallet {
     #[pallet::storage] // --- DMAP ( netuid ) --> subnet_name | Returns the name of the subnet.
     pub type SubnetName<T: Config> =
         StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
-    
+        
     /// ============================
     /// ==== Global Parameters =====
     /// ============================
