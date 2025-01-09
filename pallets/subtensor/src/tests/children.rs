@@ -3,7 +3,6 @@
 #![allow(clippy::arithmetic_side_effects)]
 use super::mock::*;
 use frame_support::{assert_err, assert_noop, assert_ok};
-use substrate_fixed::types::I96F32;
 
 use crate::{utils::rate_limiting::TransactionType, *};
 use sp_core::U256;
