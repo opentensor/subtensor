@@ -2758,7 +2758,7 @@ fn test_set_weights_no_parent() {
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey,
-			netuid,
+            netuid,
             stake_to_give_child,
         );
 
