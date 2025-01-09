@@ -1778,63 +1778,59 @@ fn test_get_total_delegated_stake_multiple_delegators() {
 #[test]
 fn test_get_total_delegated_stake_exclude_owner_stake() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let delegate_coldkey = U256::from(1);
+        let delegate_hotkey = U256::from(2);
+        let delegator = U256::from(3);
+        let owner_stake = 1000;
+        let delegator_stake = 999;
 
-        // let netuid = 1u16;
-        // let delegate_coldkey = U256::from(1);
-        // let delegate_hotkey = U256::from(2);
-        // let delegator = U256::from(3);
-        // let owner_stake = 1000;
-        // let delegator_stake = 999;
-        // let existential_deposit = 1; // Account for the existential deposit
+        let netuid = add_dynamic_network(&delegate_hotkey, &delegate_coldkey);
 
-        // add_network(netuid, 0, 0);
-        // register_ok_neuron(netuid, delegate_hotkey, delegate_coldkey, 0);
+        // Make the account a delegate
+        assert_ok!(SubtensorModule::become_delegate(
+            RuntimeOrigin::signed(delegate_coldkey),
+            delegate_hotkey
+        ));
 
-        // // Make the account a delegate
-        // assert_ok!(SubtensorModule::become_delegate(
-        //     RuntimeOrigin::signed(delegate_coldkey),
-        //     delegate_hotkey
-        // ));
+        // Add owner stake
+        SubtensorModule::add_balance_to_coldkey_account(&delegate_coldkey, owner_stake);
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(delegate_coldkey),
+            delegate_hotkey,
+            netuid,
+            owner_stake
+        ));
 
-        // // Add owner stake
-        // SubtensorModule::add_balance_to_coldkey_account(&delegate_coldkey, owner_stake);
-        // assert_ok!(SubtensorModule::add_stake(
-        //     RuntimeOrigin::signed(delegate_coldkey),
-        //     delegate_hotkey,
-        //     owner_stake
-        // ));
+        // Add delegator stake
+        SubtensorModule::add_balance_to_coldkey_account(&delegator, delegator_stake);
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(delegator),
+            delegate_hotkey,
+            netuid,
+            delegator_stake
+        ));
 
-        // // Add delegator stake
-        // SubtensorModule::add_balance_to_coldkey_account(&delegator, delegator_stake);
-        // assert_ok!(SubtensorModule::add_stake(
-        //     RuntimeOrigin::signed(delegator),
-        //     delegate_hotkey,
-        //     delegator_stake
-        // ));
+        // Debug prints
+        println!("Owner stake: {}", owner_stake);
+        println!(
+            "Total stake for hotkey: {}",
+            SubtensorModule::get_total_stake_for_hotkey(&delegate_hotkey)
+        );
+        println!(
+            "Delegated stake for coldkey: {}",
+            SubtensorModule::get_total_stake_for_coldkey(&delegate_coldkey)
+        );
 
-        // // Debug prints
-        // println!("Owner stake: {}", owner_stake);
-        // println!("Delegator stake: {}", delegator_stake);
-        // println!("Existential deposit: {}", existential_deposit);
-        // println!(
-        //     "Total stake for hotkey: {}",
-        //     SubtensorModule::get_total_stake_for_hotkey(&delegate_hotkey)
-        // );
-        // println!(
-        //     "Delegated stake for coldkey: {}",
-        //     SubtensorModule::get_total_stake_for_coldkey(&delegate_coldkey)
-        // );
+        // Check the total delegated stake (should exclude owner's stake)
+        let expected_delegated_stake = delegator_stake;
+        let actual_delegated_stake =
+            SubtensorModule::get_total_stake_for_coldkey(&delegate_coldkey);
 
-        // // Check the total delegated stake (should exclude owner's stake)
-        // let expected_delegated_stake = delegator_stake - existential_deposit;
-        // let actual_delegated_stake = SubtensorModule::get_total_stake_for_coldkey(&delegate_coldkey);
-
-        // assert_eq!(
-        //     actual_delegated_stake, expected_delegated_stake,
-        //     "Delegated stake should exclude owner's stake. Expected: {}, Actual: {}",
-        //     expected_delegated_stake, actual_delegated_stake
-        // );
+        assert_eq!(
+            actual_delegated_stake, expected_delegated_stake,
+            "Delegated stake should exclude owner's stake. Expected: {}, Actual: {}",
+            expected_delegated_stake, actual_delegated_stake
+        );
     });
 }
 
