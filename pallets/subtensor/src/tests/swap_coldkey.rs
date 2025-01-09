@@ -1666,3 +1666,22 @@ fn test_coldkey_swap_stake_delta() {
         );
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap_coldkey -- test_cant_schedule_swap_without_enough_to_burn --exact --nocapture
+#[test]
+fn test_cant_schedule_swap_without_enough_to_burn() {
+    new_test_ext(1).execute_with(|| {
+        let old_coldkey = U256::from(3);
+        let new_coldkey = U256::from(4);
+        let hotkey = U256::from(5);
+
+        let burn_cost = SubtensorModule::get_key_swap_cost();
+        assert_noop!(
+            SubtensorModule::schedule_swap_coldkey(
+                <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+                new_coldkey
+            ),
+            Error::<Test>::NotEnoughBalanceToPaySwapColdKey
+        );
+    });
+}

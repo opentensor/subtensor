@@ -1319,6 +1319,17 @@ mod dispatches {
                 Error::<T>::SwapAlreadyScheduled
             );
 
+            // Calculate the swap cost and ensure sufficient balance
+            let swap_cost = Self::get_key_swap_cost();
+            ensure!(
+                Self::can_remove_balance_from_coldkey_account(&who, swap_cost),
+                Error::<T>::NotEnoughBalanceToPaySwapColdKey
+            );
+
+            // Remove and burn the swap cost from the old coldkey's account
+            let actual_burn_amount = Self::remove_balance_from_coldkey_account(&who, swap_cost)?;
+            Self::burn_tokens(actual_burn_amount);
+
             let current_block: BlockNumberFor<T> = <frame_system::Pallet<T>>::block_number();
             let duration: BlockNumberFor<T> = ColdkeySwapScheduleDuration::<T>::get();
             let when: BlockNumberFor<T> = current_block.saturating_add(duration);
