@@ -3,6 +3,7 @@
 #![allow(clippy::arithmetic_side_effects)]
 use super::mock::*;
 use frame_support::{assert_err, assert_noop, assert_ok};
+use substrate_fixed::types::I96F32;
 
 use crate::{utils::rate_limiting::TransactionType, *};
 use sp_core::U256;
@@ -3264,7 +3265,7 @@ fn test_childkey_multiple_parents_emission() {
 // - Runs an epoch with a hardcoded emission value
 // - Checks the emission distribution among A, B, and C
 // - Verifies that all parties received emissions and the total stake increased correctly
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test coinbase test_parent_child_chain_emission -- --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_parent_child_chain_emission --exact --show-output
 #[test]
 fn test_parent_child_chain_emission() {
     new_test_ext(1).execute_with(|| {
@@ -3272,6 +3273,8 @@ fn test_parent_child_chain_emission() {
 
         // let netuid: u16 = 1;
         // add_network(netuid, 1, 0);
+        // // Set owner cut to 0
+        // SubtensorModule::set_subnet_owner_cut(0_u16);
 
         // // Define hotkeys and coldkeys
         // let hotkey_a: U256 = U256::from(1);
@@ -3287,13 +3290,56 @@ fn test_parent_child_chain_emission() {
         // register_ok_neuron(netuid, hotkey_c, coldkey_c, 0);
 
         // // Add initial stakes
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 300_000);
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_b, 100_000);
-        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_c, 50_000);
+        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 1_000);
+        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_b, 1_000);
+        // SubtensorModule::add_balance_to_coldkey_account(&coldkey_c, 1_000);
 
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_a, &hotkey_a, 300_000);
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_b, &hotkey_b, 100_000);
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_c, &hotkey_c, 50_000);
+        // // Swap to alpha
+        // let total_tao: I96F32 = I96F32::from_num(300_000 + 100_000 + 50_000);
+        // let total_alpha: I96F32 = I96F32::from_num(SubtensorModule::swap_tao_for_alpha(
+        //     netuid,
+        //     total_tao.saturating_to_num::<u64>(),
+        // ));
+
+        // // Set the stakes directly
+        // // This avoids needing to swap tao to alpha, impacting the initial stake distribution.
+        // SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        //     &hotkey_a,
+        //     &coldkey_a,
+        //     netuid,
+        //     (total_alpha * I96F32::from_num(300_000) / total_tao).saturating_to_num::<u64>(),
+        // );
+        // SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        //     &hotkey_b,
+        //     &coldkey_b,
+        //     netuid,
+        //     (total_alpha * I96F32::from_num(100_000) / total_tao).saturating_to_num::<u64>(),
+        // );
+        // SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        //     &hotkey_c,
+        //     &coldkey_c,
+        //     netuid,
+        //     (total_alpha * I96F32::from_num(50_000) / total_tao).saturating_to_num::<u64>(),
+        // );
+
+        // // Get old stakes
+        // let stake_a: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_a);
+        // let stake_b: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_b);
+        // let stake_c: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_c);
+
+        // let total_stake: I96F32 = I96F32::from_num(stake_a + stake_b + stake_c);
+
+        // // Assert initial stake is correct
+        // let rel_stake_a = I96F32::from_num(stake_a) / total_tao;
+        // let rel_stake_b = I96F32::from_num(stake_b) / total_tao;
+        // let rel_stake_c = I96F32::from_num(stake_c) / total_tao;
+
+        // log::info!("rel_stake_a: {:?}", rel_stake_a); // 0.6666 -> 2/3
+        // log::info!("rel_stake_b: {:?}", rel_stake_b); // 0.2222 -> 2/9
+        // log::info!("rel_stake_c: {:?}", rel_stake_c); // 0.1111 -> 1/9
+        // assert_eq!(rel_stake_a, I96F32::from_num(300_000) / total_tao);
+        // assert_eq!(rel_stake_b, I96F32::from_num(100_000) / total_tao);
+        // assert_eq!(rel_stake_c, I96F32::from_num(50_000) / total_tao);
 
         // // Set parent-child relationships
         // // A -> B (50% of A's stake)
@@ -3302,101 +3348,114 @@ fn test_parent_child_chain_emission() {
         // // B -> C (50% of B's stake)
         // mock_set_children(&coldkey_b, &hotkey_b, netuid, &[(u64::MAX / 2, hotkey_c)]);
 
-        // step_block(2);
+        // // Set CHK take rate to 1/9
+        // let chk_take: I96F32 = I96F32::from_num(1_f64 / 9_f64);
+        // let chk_take_u16: u16 = (chk_take * I96F32::from_num(u16::MAX)).saturating_to_num::<u16>();
+        // ChildkeyTake::<Test>::insert(hotkey_b, netuid, chk_take_u16);
+        // ChildkeyTake::<Test>::insert(hotkey_c, netuid, chk_take_u16);
 
-        // // Set weights
-        // let origin = RuntimeOrigin::signed(hotkey_a);
-        // let uids: Vec<u16> = vec![0, 1, 2]; // UIDs for hotkey_a, hotkey_b, hotkey_c
-        // let values: Vec<u16> = vec![65535, 65535, 65535]; // Set equal weights for all hotkeys
-        // let version_key = SubtensorModule::get_weights_version_key(netuid);
+        // // Set the weight of root TAO to be 0%, so only alpha is effective.
+        // SubtensorModule::set_tao_weight(0);
 
-        // // Ensure we can set weights without rate limiting
-        // SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        // let hardcoded_emission: I96F32 = I96F32::from_num(1_000_000); // 1 million (adjust as needed)
 
-        // assert_ok!(SubtensorModule::set_weights(
-        //     origin,
-        //     netuid,
-        //     uids,
-        //     values,
-        //     version_key
-        // ));
-
-        // // Run epoch with a hardcoded emission value
-        // let hardcoded_emission: u64 = 1_000_000; // 1 million (adjust as needed)
         // let hotkey_emission: Vec<(U256, u64, u64)> =
-        //     SubtensorModule::epoch(netuid, hardcoded_emission);
+        //     SubtensorModule::epoch(netuid, hardcoded_emission.saturating_to_num::<u64>());
+        // log::info!("hotkey_emission: {:?}", hotkey_emission);
+        // let total_emission: I96F32 = hotkey_emission
+        //     .iter()
+        //     .map(|(_, _, emission)| I96F32::from_num(*emission))
+        //     .sum();
 
-        // // Process the hotkey emission results
-        // for (hotkey, mining_emission, validator_emission) in hotkey_emission {
-        //     SubtensorModule::accumulate_hotkey_emission(
-        //         &hotkey,
-        //         netuid,
-        //         validator_emission,
-        //         mining_emission,
-        //     );
-        // }
-
-        // // Log PendingEmission Tuple for a, b, c
-        // let pending_emission_a = SubtensorModule::get_pending_hotkey_emission(&hotkey_a);
-        // let pending_emission_b = SubtensorModule::get_pending_hotkey_emission(&hotkey_b);
-        // let pending_emission_c = SubtensorModule::get_pending_hotkey_emission(&hotkey_c);
-
-        // log::info!("Pending Emission for A: {:?}", pending_emission_a);
-        // log::info!("Pending Emission for B: {:?}", pending_emission_b);
-        // log::info!("Pending Emission for C: {:?}", pending_emission_c);
-
-        // // Assert that pending emissions are non-zero
-        // // A's pending emission: 2/3 of total emission (due to having 2/3 of total stake)
+        // // Verify emissions match expected from CHK arrangements
+        // let em_eps: I96F32 = I96F32::from_num(1e-4); // 4 decimal places
+        //                                              // A's pending emission:
         // assert!(
-        //     pending_emission_a == 666667,
-        //     "A should have pending emission of 2/3 of total emission"
+        //     ((I96F32::from_num(hotkey_emission[0].2) / total_emission) -
+        //     I96F32::from_num(2_f64 / 3_f64 * 1_f64 / 2_f64)).abs() // 2/3 * 1/2 = 1/3; 50% -> B
+        // 	<= em_eps,
+        //     "A should have pending emission of 1/3 of total emission"
         // );
-        // // B's pending emission: 2/9 of total emission (1/3 of A's emission + 1/3 of total emission)
+        // // B's pending emission:
         // assert!(
-        //     pending_emission_b == 222222,
-        //     "B should have pending emission of 2/9 of total emission"
+        //     ((I96F32::from_num(hotkey_emission[1].2) / total_emission) -
+        //     (I96F32::from_num(2_f64 / 9_f64 * 1_f64 / 2_f64 + 2_f64 / 3_f64 * 1_f64 / 2_f64))).abs() // 2/9 * 1/2 + 2/3 * 1/2; 50% -> C + 50% from A
+        //     <= em_eps,
+        //     "B should have pending emission of 4/9 of total emission"
         // );
-        // // C's pending emission: 1/9 of total emission (1/2 of B's emission)
+        // // C's pending emission:
         // assert!(
-        //     pending_emission_c == 111109,
+        //     ((I96F32::from_num(hotkey_emission[2].2) / total_emission) -
+        //     (I96F32::from_num(1_f64 / 9_f64 + 1_f64 / 2_f64 * 2_f64 / 9_f64))).abs() // 1/9 + 2/9 * 1/2; 50% from B
+        //     <= em_eps,
         //     "C should have pending emission of 1/9 of total emission"
         // );
 
-        // SubtensorModule::set_hotkey_emission_tempo(10);
+        // // Run epoch with a hardcoded emission value
+        // SubtensorModule::run_coinbase(hardcoded_emission);
 
-        // step_block(10 + 1);
-        // // Retrieve the current stake for each hotkey on the subnet
-        // let stake_a: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_a, netuid);
-        // let stake_b: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_b, netuid);
-        // let stake_c: u64 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_c, netuid);
+        // // Log new stake
+        // let stake_a_new: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_a);
+        // let stake_b_new: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_b);
+        // let stake_c_new: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_c);
+        // let total_stake_new: I96F32 = I96F32::from_num(stake_a_new + stake_b_new + stake_c_new);
+        // log::info!("Stake for hotkey A: {:?}", stake_a_new);
+        // log::info!("Stake for hotkey B: {:?}", stake_b_new);
+        // log::info!("Stake for hotkey C: {:?}", stake_c_new);
 
-        // // Log the current stakes for debugging purposes
-        // log::info!("Stake for hotkey A: {:?}", stake_a);
-        // log::info!("Stake for hotkey B: {:?}", stake_b);
-        // log::info!("Stake for hotkey C: {:?}", stake_c);
+        // let stake_inc_a: u64 = stake_a_new - stake_a;
+        // let stake_inc_b: u64 = stake_b_new - stake_b;
+        // let stake_inc_c: u64 = stake_c_new - stake_c;
+        // let total_stake_inc: I96F32 = total_stake_new - total_stake;
+        // log::info!("Stake increase for hotkey A: {:?}", stake_inc_a);
+        // log::info!("Stake increase for hotkey B: {:?}", stake_inc_b);
+        // log::info!("Stake increase for hotkey C: {:?}", stake_inc_c);
+        // log::info!("Total stake increase: {:?}", total_stake_inc);
+        // let rel_stake_inc_a = I96F32::from_num(stake_inc_a) / total_stake_inc;
+        // let rel_stake_inc_b = I96F32::from_num(stake_inc_b) / total_stake_inc;
+        // let rel_stake_inc_c = I96F32::from_num(stake_inc_c) / total_stake_inc;
+        // log::info!("rel_stake_inc_a: {:?}", rel_stake_inc_a);
+        // log::info!("rel_stake_inc_b: {:?}", rel_stake_inc_b);
+        // log::info!("rel_stake_inc_c: {:?}", rel_stake_inc_c);
 
-        // // Assert that the stakes have been updated correctly after emission distribution
-        // assert_eq!(
-        //     stake_a, 483334,
-        //     "A's stake should be 483334 (initial 300_000 + 666667 emission - 483333 given to B)"
+        // // Verify the final stake distribution
+        // let stake_inc_eps: I96F32 = I96F32::from_num(1e-4); // 4 decimal places
+        //                                                     // Each child has chk_take take
+
+        // let expected_a = I96F32::from_num(2_f64 / 3_f64)
+        //     * (I96F32::from_num(1_f64) - (I96F32::from_num(1_f64 / 2_f64) * chk_take));
+        // assert!(
+        //     (rel_stake_inc_a - expected_a).abs() // B's take on 50% CHK
+        //     <= stake_inc_eps,
+        //     "A should have {:?} of total stake increase; {:?}",
+        //     expected_a,
+        //     rel_stake_inc_a
         // );
-        // assert_eq!(
-        //     stake_b, 644445,
-        //     "B's stake should be 644445 (initial 100_000 + 222222 emission + 483333 from A - 161110 given to C)"
+        // let expected_b = I96F32::from_num(2_f64 / 9_f64)
+        //     * (I96F32::from_num(1_f64) - (I96F32::from_num(1_f64 / 2_f64) * chk_take))
+        //     + I96F32::from_num(2_f64 / 3_f64) * (I96F32::from_num(1_f64 / 2_f64) * chk_take);
+        // assert!(
+        //     (rel_stake_inc_b - expected_b).abs() // C's take on 50% CHK + take from A
+        //     <= stake_inc_eps,
+        //     "B should have {:?} of total stake increase; {:?}",
+        //     expected_b,
+        //     rel_stake_inc_b
         // );
-        // assert_eq!(
-        //     stake_c, 322219,
-        //     "C's stake should be 322219 (initial 50_000 + 111109 emission + 161110 from B)"
+        // let expected_c = I96F32::from_num(1_f64 / 9_f64)
+        //     + (I96F32::from_num(2_f64 / 9_f64) * I96F32::from_num(1_f64 / 2_f64) * chk_take);
+        // assert!(
+        //     (rel_stake_inc_c - expected_c).abs() // B's take on 50% CHK
+        //     <= stake_inc_eps,
+        //     "C should have {:?} of total stake increase; {:?}",
+        //     expected_c,
+        //     rel_stake_inc_c
         // );
 
-        // // Check that the total stake has increased by the hardcoded emission amount
-        // let total_stake = stake_a + stake_b + stake_c;
-        // let initial_total_stake = 300_000 + 100_000 + 50_000;
-        // let hardcoded_emission = 1_000_000; // Define the hardcoded emission value
-        // assert_eq!(
-        //     total_stake,
-        //     initial_total_stake + hardcoded_emission - 2, // U64::MAX normalization rounding error
-        //     "Total stake should have increased by the hardcoded emission amount"
+        // let eps: I96F32 = I96F32::from_num(10_000);
+        // assert!(
+        //     (total_stake_new - (total_stake + hardcoded_emission)).abs() <= eps,
+        //     "Total stake should have increased by the hardcoded emission amount {:?}",
+        //     total_stake_new - (total_stake + hardcoded_emission)
         // );
     });
 }
