@@ -8,9 +8,9 @@ use frame_system::{Config, RawOrigin};
 
 use super::mock::*;
 use crate::*;
-use substrate_fixed::types::U64F64;
 use sp_core::{Get, H256, U256};
 use sp_runtime::SaturatedConversion;
+use substrate_fixed::types::U64F64;
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_owner --exact --nocapture
 #[test]
@@ -863,10 +863,22 @@ fn test_swap_stake_success() {
         // Verify the swap
         assert_eq!(TotalHotkeyAlpha::<Test>::get(old_hotkey, netuid), 0);
         assert_eq!(TotalHotkeyAlpha::<Test>::get(new_hotkey, netuid), amount);
-        assert_eq!(TotalHotkeyShares::<Test>::get(old_hotkey, netuid), U64F64::from_num(0));
-        assert_eq!(TotalHotkeyShares::<Test>::get(new_hotkey, netuid), U64F64::from_num(shares));
-        assert_eq!(Alpha::<Test>::get((old_hotkey, coldkey, netuid)), U64F64::from_num(0));
-        assert_eq!(Alpha::<Test>::get((new_hotkey, coldkey, netuid)), U64F64::from_num(amount));
+        assert_eq!(
+            TotalHotkeyShares::<Test>::get(old_hotkey, netuid),
+            U64F64::from_num(0)
+        );
+        assert_eq!(
+            TotalHotkeyShares::<Test>::get(new_hotkey, netuid),
+            U64F64::from_num(shares)
+        );
+        assert_eq!(
+            Alpha::<Test>::get((old_hotkey, coldkey, netuid)),
+            U64F64::from_num(0)
+        );
+        assert_eq!(
+            Alpha::<Test>::get((new_hotkey, coldkey, netuid)),
+            U64F64::from_num(amount)
+        );
     });
 }
 
