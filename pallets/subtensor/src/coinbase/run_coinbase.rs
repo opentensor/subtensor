@@ -310,7 +310,7 @@ impl<T: Config> Pallet<T> {
 
             // 6.3.2: Get dividend tuples for parents and self based on childkey relationships and child-take.
             let dividend_tuples: Vec<(T::AccountId, u64)> =
-                Self::get_parent_dividends(&hotkey, netuid, dividends);
+                Self::get_dividends_distribution(&hotkey, netuid, dividends);
             log::debug!(
                 "Dividend tuples for hotkey {:?} on netuid {:?}: {:?}",
                 hotkey,
@@ -460,9 +460,43 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    pub fn get_self_contribution(hotkey: &T::AccountId, netuid: u16) -> u64 {
+        // Get all childkeys for this hotkey.
+        let childkeys = Self::get_children(hotkey, netuid);
+        let mut remaining_proportion: I96F32 = I96F32::from_num(1.0);
+        for (proportion, _) in childkeys {
+            remaining_proportion = remaining_proportion.saturating_sub(
+                I96F32::from_num(proportion) // Normalize
+                    .saturating_div(I96F32::from_num(u64::MAX)),
+            );
+        }
+
+        // Get TAO weight
+        let tao_weight: I96F32 = Self::get_tao_weight();
+
+        // Get the hotkey's stake including weight
+        let root_stake: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(
+            &hotkey,
+            Self::get_root_netuid(),
+        ));
+        let alpha_stake: I96F32 =
+            I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(&hotkey, netuid));
+
+        // Calculate the
+        let alpha_contribution: I96F32 = alpha_stake.saturating_mul(remaining_proportion);
+        let root_contribution: I96F32 = root_stake
+            .saturating_mul(remaining_proportion)
+            .saturating_mul(tao_weight);
+        let combined_contribution: I96F32 = alpha_contribution.saturating_add(root_contribution);
+
+        // Return the combined contribution as a u64
+        combined_contribution.to_num::<u64>()
+    }
+
     /// Returns a list of tuples for each parent associated with this hotkey including self
     /// Each tuples contains the dividends owed to that hotkey given their parent proportion
     /// The hotkey child take proportion is removed from this and added to the tuples for self.
+    /// The hotkey also gets a portion based on its own stake contribution, this is added to the childkey take.
     ///
     /// # Arguments
     /// * `hotkye` - The hotkey to distribute out from.
@@ -472,7 +506,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * dividend_tuples: `Vec<(T::AccountId, u64)>` - Vector of (hotkey, divs) for each parent including self.
     ///
-    pub fn get_parent_dividends(
+    pub fn get_dividends_distribution(
         hotkey: &T::AccountId,
         netuid: u16,
         dividends: u64,
@@ -485,7 +519,6 @@ impl<T: Config> Pallet<T> {
         let childkey_take_proportion: I96F32 =
             I96F32::from_num(Self::get_childkey_take(hotkey, netuid))
                 .saturating_div(I96F32::from_num(u16::MAX));
-        let mut total_childkey_take: u64 = 0;
         // NOTE: Only the validation emission should be split amongst parents.
 
         // Initialize variables to track emission distribution
@@ -493,10 +526,21 @@ impl<T: Config> Pallet<T> {
 
         // Initialize variables to calculate total stakes from parents
         let mut total_contribution: I96F32 = I96F32::from_num(0);
-        let mut contributions: Vec<(T::AccountId, I96F32)> = Vec::new();
+        let mut parent_contributions: Vec<(T::AccountId, I96F32)> = Vec::new();
 
         // Get the weights for root and alpha stakes in emission distribution
         let tao_weight: I96F32 = Self::get_tao_weight();
+
+        // Get self contribution, removing any childkey proportions.
+        let self_contribution = Self::get_self_contribution(hotkey, netuid);
+        log::debug!(
+            "Self contribution for hotkey {:?} on netuid {:?}: {:?}",
+            hotkey,
+            netuid,
+            self_contribution
+        );
+        // Add self contribution to total contribution but not to the parent contributions.
+        total_contribution = total_contribution.saturating_add(I96F32::from_num(self_contribution));
 
         // Calculate total root and alpha (subnet-specific) stakes from all parents
         for (proportion, parent) in Self::get_parents(hotkey, netuid) {
@@ -523,11 +567,12 @@ impl<T: Config> Pallet<T> {
             // Add to the total stakes
             total_contribution = total_contribution.saturating_add(combined_contribution);
             // Store the parent's contributions for later use
-            contributions.push((parent.clone(), combined_contribution));
+            parent_contributions.push((parent.clone(), combined_contribution));
         }
 
-        // Distribute emission to parents based on their contributions
-        for (parent, contribution) in contributions {
+        // Distribute emission to parents based on their contributions.
+        // Deduct childkey take from parent contribution.
+        for (parent, contribution) in parent_contributions {
             // Sum up the total emission for this parent
             let emission_factor: I96F32 = contribution
                 .checked_div(total_contribution)
@@ -539,7 +584,6 @@ impl<T: Config> Pallet<T> {
             let child_emission_take: u64 = childkey_take_proportion
                 .saturating_mul(I96F32::from_num(total_emission))
                 .to_num::<u64>();
-            total_childkey_take = total_childkey_take.saturating_add(child_emission_take);
             let parent_total_emission = total_emission.saturating_sub(child_emission_take);
 
             // Add the parent's emission to the distribution list
@@ -548,7 +592,8 @@ impl<T: Config> Pallet<T> {
             // Keep track of total emission distributed to parents
             to_parents = to_parents.saturating_add(parent_total_emission);
         }
-        // Calculate the final emission for the hotkey itself
+        // Calculate the final emission for the hotkey itself.
+        // This includes the take left from the parents and the self contribution.
         let final_hotkey_emission = validating_emission
             .to_num::<u64>()
             .saturating_sub(to_parents);
