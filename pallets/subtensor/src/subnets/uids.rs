@@ -52,17 +52,7 @@ impl<T: Config> Pallet<T> {
 
                 // We add the balance to the coldkey. If the above fails we will not credit this coldkey.
                 Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
-
-                // If the stake is below the minimum, we clear the nomination from storage.
-                Self::clear_small_nomination_if_required(&old_hotkey, &coldkey, netuid);
             }
-        }
-
-        // 6. Check if stake lowered below MinStake and remove Pending children if it did
-        if Self::get_total_stake_for_hotkey(&old_hotkey) < StakeThreshold::<T>::get() {
-            Self::get_all_subnet_netuids().iter().for_each(|netuid| {
-                PendingChildKeys::<T>::remove(netuid, &old_hotkey);
-            })
         }
     }
 
