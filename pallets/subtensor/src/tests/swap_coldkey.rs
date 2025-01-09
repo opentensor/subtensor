@@ -107,11 +107,6 @@ fn test_swap_total_coldkey_stake() {
         SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, stake * 2 + 1_000);
         register_ok_neuron(netuid, hotkey, old_coldkey, 1001000);
         register_ok_neuron(netuid, other_hotkey, other_coldkey, 1001000);
-        // make delegate
-        assert_ok!(SubtensorModule::become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(other_coldkey),
-            other_hotkey
-        ));
 
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
@@ -380,11 +375,7 @@ fn test_swap_with_max_values() {
         // hotkey2 is owned by other_coldkey.
         register_ok_neuron(netuid, hotkey, old_coldkey, 1001000);
         register_ok_neuron(netuid2, hotkey2, other_coldkey, 1001000);
-        // Make hotkey2 a delegate.
-        assert_ok!(SubtensorModule::become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(other_coldkey),
-            hotkey2
-        ));
+
         // Give balance to old_coldkey and old_coldkey2.
         SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, max_stake + 1_000);
         SubtensorModule::add_balance_to_coldkey_account(&old_coldkey2, max_stake + 1_000);
@@ -978,11 +969,6 @@ fn test_swap_staking_hotkeys_for_coldkey() {
         // Register hotkeys
         register_ok_neuron(netuid, hotkey1, old_coldkey, 0);
         register_ok_neuron(netuid, hotkey2, other_coldkey, 0);
-        // Make hotkey2 a delegate
-        assert_ok!(SubtensorModule::become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(other_coldkey),
-            hotkey2
-        ));
 
         // Stake to hotkeys
         assert_ok!(SubtensorModule::add_stake(
@@ -1046,14 +1032,6 @@ fn test_swap_delegated_stake_for_coldkey() {
         add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey1, other_coldkey, 0);
         register_ok_neuron(netuid, hotkey2, other_coldkey, 0);
-        assert_ok!(SubtensorModule::become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(other_coldkey),
-            hotkey1
-        ));
-        assert_ok!(SubtensorModule::become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(other_coldkey),
-            hotkey2
-        ));
 
         // Notice hotkey1 and hotkey2 are Owned by other_coldkey
         // old_coldkey and new_coldkey therefore delegates stake to them

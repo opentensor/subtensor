@@ -1051,22 +1051,6 @@ fn test_non_existent_account() {
 ************************************************************/
 
 #[test]
-fn test_delegate_stake_division_by_zero_check() {
-    new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
-        let tempo: u16 = 1;
-        let hotkey = U256::from(1);
-        let coldkey = U256::from(3);
-        add_network(netuid, tempo, 0);
-        register_ok_neuron(netuid, hotkey, coldkey, 2341312);
-        assert_ok!(SubtensorModule::become_delegate(
-            RuntimeOrigin::signed(coldkey),
-            hotkey
-        ));
-    });
-}
-
-#[test]
 fn test_faucet_ok() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(123560);
@@ -1647,12 +1631,6 @@ fn test_get_total_delegated_stake_no_delegations() {
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, delegate, coldkey, 0);
 
-        // Make the delegate a delegate
-        assert_ok!(SubtensorModule::become_delegate(
-            RuntimeOrigin::signed(coldkey),
-            delegate
-        ));
-
         // Check that there's no delegated stake
         assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&delegate), 0);
     });
@@ -1779,12 +1757,6 @@ fn test_get_total_delegated_stake_exclude_owner_stake() {
         let delegator_stake = 999;
 
         let netuid = add_dynamic_network(&delegate_hotkey, &delegate_coldkey);
-
-        // Make the account a delegate
-        assert_ok!(SubtensorModule::become_delegate(
-            RuntimeOrigin::signed(delegate_coldkey),
-            delegate_hotkey
-        ));
 
         // Add owner stake
         SubtensorModule::add_balance_to_coldkey_account(&delegate_coldkey, owner_stake);
