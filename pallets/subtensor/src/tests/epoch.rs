@@ -1925,194 +1925,193 @@ fn test_outdated_weights() {
 #[test]
 fn test_zero_weights() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let sparse: bool = true;
+        let n: u16 = 2;
+        let netuid: u16 = 1;
+        let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
+        let mut block_number: u64 = 0;
+        let stake: u64 = 1;
+        add_network(netuid, tempo, 0);
+        SubtensorModule::set_max_allowed_uids(netuid, n);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        SubtensorModule::set_max_registrations_per_block(netuid, n);
+        SubtensorModule::set_target_registrations_per_interval(netuid, n);
+        SubtensorModule::set_min_allowed_weights(netuid, 0);
+        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
 
-        // let sparse: bool = true;
-        // let n: u16 = 2;
-        // let netuid: u16 = 1;
-        // let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
-        // let mut block_number: u64 = 0;
-        // let stake: u64 = 1;
-        // add_network(netuid, tempo, 0);
-        // SubtensorModule::set_max_allowed_uids(netuid, n);
-        // SubtensorModule::set_weights_set_rate_limit(netuid, 0);
-        // SubtensorModule::set_max_registrations_per_block(netuid, n);
-        // SubtensorModule::set_target_registrations_per_interval(netuid, n);
-        // SubtensorModule::set_min_allowed_weights(netuid, 0);
-        // SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
+        // === Register [validator, server]
+        for key in 0..n as u64 {
+            let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+                netuid,
+                block_number,
+                key * 1_000_000,
+                &U256::from(key),
+            );
+            assert_ok!(SubtensorModule::register(
+                RuntimeOrigin::signed(U256::from(key)),
+                netuid,
+                block_number,
+                nonce,
+                work,
+                U256::from(key),
+                U256::from(key)
+            ));
+        }
+        for validator in 0..(n / 2) as u64 {
+            SubtensorModule::add_balance_to_coldkey_account(&U256::from(validator), stake);
+            SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                &U256::from(validator),
+                &U256::from(validator),
+                netuid,
+                stake,
+            );
+        }
+        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
 
-        // // === Register [validator, server]
-        // for key in 0..n as u64 {
-        //     let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
-        //         netuid,
-        //         block_number,
-        //         key * 1_000_000,
-        //         &U256::from(key),
-        //     );
-        //     assert_ok!(SubtensorModule::register(
-        //         <<Test as Config>::RuntimeOrigin>::signed(U256::from(key)),
-        //         netuid,
-        //         block_number,
-        //         nonce,
-        //         work,
-        //         U256::from(key),
-        //         U256::from(key)
-        //     ));
-        // }
-        // for validator in 0..(n / 2) as u64 {
-        //     SubtensorModule::add_balance_to_coldkey_account(&U256::from(validator), stake);
-        //     SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-        //         &U256::from(validator),
-        //         &U256::from(validator),
-        //         stake,
-        //     );
-        // }
-        // assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
+        // === No weights
+        if sparse {
+            SubtensorModule::epoch(netuid, 1_000_000_000);
+        } else {
+            SubtensorModule::epoch_dense(netuid, 1_000_000_000);
+        }
+        /*	current_block: 0; activity_cutoff: 5000; Last update: [0, 0]; Inactive: [false, false]
+        S: [1, 0]; S (mask): [1, 0]; S (mask+norm): [1, 0]; Block at registration: [0, 0]
+        W: [[], []]; W (diagmask): [[], []]; W (diag+outdatemask): [[], []]; W (mask+norm): [[], []]
+        R: [0, 0]; W (threshold): [[], []]; T: [0, 0]; C: [0.006693358, 0.006693358]; I: [0, 0]
+        B: [[], []]; B (outdatedmask): [[], []]; B (mask+norm): [[], []];
+        ΔB: [[], []]; ΔB (norm): [[], []]; emaB: [[], []]; D: [0, 0]
+        E: [1000000000, 0]; P: [1, 0] */
+        for validator in 0..(n / 2) {
+            assert_eq!(
+                SubtensorModule::get_emission_for_uid(netuid, validator),
+                1000000000
+            ); // Note E = 1 * 1_000_000_000
+        }
+        for server in (n / 2)..n {
+            assert_eq!(SubtensorModule::get_emission_for_uid(netuid, server), 0);
+            // no stake
+        }
+        run_to_block(1);
+        block_number += 1; // run to next block to ensure weights are set on nodes after their registration block
 
-        // // === No weights
-        // if sparse {
-        //     SubtensorModule::epoch(netuid, 1_000_000_000);
-        // } else {
-        //     SubtensorModule::epoch_dense(netuid, 1_000_000_000);
-        // }
-        // /*	current_block: 0; activity_cutoff: 5000; Last update: [0, 0]; Inactive: [false, false]
-        // S: [1, 0]; S (mask): [1, 0]; S (mask+norm): [1, 0]; Block at registration: [0, 0]
-        // W: [[], []]; W (diagmask): [[], []]; W (diag+outdatemask): [[], []]; W (mask+norm): [[], []]
-        // R: [0, 0]; W (threshold): [[], []]; T: [0, 0]; C: [0.006693358, 0.006693358]; I: [0, 0]
-        // B: [[], []]; B (outdatedmask): [[], []]; B (mask+norm): [[], []];
-        // ΔB: [[], []]; ΔB (norm): [[], []]; emaB: [[], []]; D: [0, 0]
-        // E: [1000000000, 0]; P: [1, 0] */
-        // for validator in 0..(n / 2) {
-        //     assert_eq!(
-        //         SubtensorModule::get_emission_for_uid(netuid, validator),
-        //         1000000000
-        //     ); // Note E = 1 * 1_000_000_000
-        // }
-        // for server in (n / 2)..n {
-        //     assert_eq!(SubtensorModule::get_emission_for_uid(netuid, server), 0);
-        //     // no stake
-        // }
-        // run_to_block(1);
-        // block_number += 1; // run to next block to ensure weights are set on nodes after their registration block
+        // === Self-weights only: set weights [srv->srv: 1]
+        for uid in ((n / 2) as u64)..n as u64 {
+            assert_ok!(SubtensorModule::set_weights(
+                RuntimeOrigin::signed(U256::from(uid)),
+                netuid,
+                vec![uid as u16],
+                vec![u16::MAX],
+                0
+            )); // server self-weight
+        }
+        if sparse {
+            SubtensorModule::epoch(netuid, 1_000_000_000);
+        } else {
+            SubtensorModule::epoch_dense(netuid, 1_000_000_000);
+        }
+        /*	current_block: 1; activity_cutoff: 5000; Last update: [0, 1]; Inactive: [false, false]
+        S: [1, 0]; S (mask): [1, 0]; S (mask+norm): [1, 0]; Block at registration: [0, 0]
+        W: [[], [(1, 1)]]
+        W (diagmask): [[], []]; W (diag+outdatemask): [[], []]; W (mask+norm): [[], []]
+        R: [0, 0]; W (threshold): [[], []]; T: [0, 0]; C: [0.006693358, 0.006693358]; I: [0, 0]
+        B: [[], []]: B (outdatedmask): [[], []]; B (mask+norm): [[], []]
+        ΔB: [[], []]; ΔB (norm): [[], []]; emaB: [[], []]; D: [0, 0]
+        E: [1000000000, 0]; P: [1, 0] */
+        for validator in 0..(n / 2) {
+            assert_eq!(
+                SubtensorModule::get_emission_for_uid(netuid, validator),
+                1000000000
+            ); // Note E = 1 * 1_000_000_000
+        }
+        for server in (n / 2)..n {
+            assert_eq!(SubtensorModule::get_emission_for_uid(netuid, server), 0);
+            // no stake
+        }
+        run_to_block(2);
+        block_number += 1;
 
-        // // === Self-weights only: set weights [srv->srv: 1]
-        // for uid in ((n / 2) as u64)..n as u64 {
-        //     assert_ok!(SubtensorModule::set_weights(
-        //         RuntimeOrigin::signed(U256::from(uid)),
-        //         netuid,
-        //         vec![uid as u16],
-        //         vec![u16::MAX],
-        //         0
-        //     )); // server self-weight
-        // }
-        // if sparse {
-        //     SubtensorModule::epoch(netuid, 1_000_000_000);
-        // } else {
-        //     SubtensorModule::epoch_dense(netuid, 1_000_000_000);
-        // }
-        // /*	current_block: 1; activity_cutoff: 5000; Last update: [0, 1]; Inactive: [false, false]
-        // S: [1, 0]; S (mask): [1, 0]; S (mask+norm): [1, 0]; Block at registration: [0, 0]
-        // W: [[], [(1, 1)]]
-        // W (diagmask): [[], []]; W (diag+outdatemask): [[], []]; W (mask+norm): [[], []]
-        // R: [0, 0]; W (threshold): [[], []]; T: [0, 0]; C: [0.006693358, 0.006693358]; I: [0, 0]
-        // B: [[], []]: B (outdatedmask): [[], []]; B (mask+norm): [[], []]
-        // ΔB: [[], []]; ΔB (norm): [[], []]; emaB: [[], []]; D: [0, 0]
-        // E: [1000000000, 0]; P: [1, 0] */
-        // for validator in 0..(n / 2) {
-        //     assert_eq!(
-        //         SubtensorModule::get_emission_for_uid(netuid, validator),
-        //         1000000000
-        //     ); // Note E = 1 * 1_000_000_000
-        // }
-        // for server in (n / 2)..n {
-        //     assert_eq!(SubtensorModule::get_emission_for_uid(netuid, server), 0);
-        //     // no stake
-        // }
-        // run_to_block(2);
-        // block_number += 1;
+        // === Set weights [val->srv: 1/(n/2)]
+        for uid in 0..(n / 2) as u64 {
+            assert_ok!(SubtensorModule::set_weights(
+                RuntimeOrigin::signed(U256::from(uid)),
+                netuid,
+                ((n / 2)..n).collect(),
+                vec![u16::MAX / (n / 2); (n / 2) as usize],
+                0
+            ));
+        }
 
-        // // === Set weights [val->srv: 1/(n/2)]
-        // for uid in 0..(n / 2) as u64 {
-        //     assert_ok!(SubtensorModule::set_weights(
-        //         RuntimeOrigin::signed(U256::from(uid)),
-        //         netuid,
-        //         ((n / 2)..n).collect(),
-        //         vec![u16::MAX / (n / 2); (n / 2) as usize],
-        //         0
-        //     ));
-        // }
+        // === Outdate weights by reregistering servers
+        for new_key in n..n + (n / 2) {
+            // register a new key while at max capacity, which means the least emission uid will be deregistered
+            let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+                netuid,
+                block_number,
+                new_key as u64 * 1_000_000,
+                &(U256::from(new_key)),
+            );
+            assert_ok!(SubtensorModule::register(
+                RuntimeOrigin::signed(U256::from(new_key)),
+                netuid,
+                block_number,
+                nonce,
+                work,
+                U256::from(new_key),
+                U256::from(new_key)
+            ));
+        }
+        if sparse {
+            SubtensorModule::epoch(netuid, 1_000_000_000);
+        } else {
+            SubtensorModule::epoch_dense(netuid, 1_000_000_000);
+        }
+        /*	current_block: 2; activity_cutoff: 5000; Last update: [2, 1]; Inactive: [false, false];
+        S: [1, 0]; S (mask): [1, 0]; S (mask+norm): [1, 0]; Block at registration: [0, 2];
+        W: [[(1, 1)], []]; W (diagmask): [[(1, 1)], []]; W (diag+outdatemask): [[], []]; W (mask+norm): [[], []];
+        R: [0, 0]; W (threshold): [[], []]; T: [0, 0]; C: [0.006693358, 0.006693358]; I: [0, 0];
+        B: [[], []]; B (outdatedmask): [[], []]; B (mask+norm): [[], []];
+        ΔB: [[], []]; ΔB (norm): [[], []]; emaB: [[], []]; D: [0, 0];
+        E: [1000000000, 0]; P: [1, 0] */
+        for validator in 0..(n / 2) {
+            assert_eq!(
+                SubtensorModule::get_emission_for_uid(netuid, validator),
+                1000000000
+            ); // Note E = 1 * 1_000_000_000
+        }
+        for server in (n / 2)..n {
+            assert_eq!(SubtensorModule::get_emission_for_uid(netuid, server), 0);
+            // no stake
+        }
+        run_to_block(3);
 
-        // // === Outdate weights by reregistering servers
-        // for new_key in n..n + (n / 2) {
-        //     // register a new key while at max capacity, which means the least emission uid will be deregistered
-        //     let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
-        //         netuid,
-        //         block_number,
-        //         new_key as u64 * 1_000_000,
-        //         &(U256::from(new_key)),
-        //     );
-        //     assert_ok!(SubtensorModule::register(
-        //         <<Test as Config>::RuntimeOrigin>::signed(U256::from(new_key)),
-        //         netuid,
-        //         block_number,
-        //         nonce,
-        //         work,
-        //         U256::from(new_key),
-        //         U256::from(new_key)
-        //     ));
-        // }
-        // if sparse {
-        //     SubtensorModule::epoch(netuid, 1_000_000_000);
-        // } else {
-        //     SubtensorModule::epoch_dense(netuid, 1_000_000_000);
-        // }
-        // /*	current_block: 2; activity_cutoff: 5000; Last update: [2, 1]; Inactive: [false, false];
-        // S: [1, 0]; S (mask): [1, 0]; S (mask+norm): [1, 0]; Block at registration: [0, 2];
-        // W: [[(1, 1)], []]; W (diagmask): [[(1, 1)], []]; W (diag+outdatemask): [[], []]; W (mask+norm): [[], []];
-        // R: [0, 0]; W (threshold): [[], []]; T: [0, 0]; C: [0.006693358, 0.006693358]; I: [0, 0];
-        // B: [[], []]; B (outdatedmask): [[], []]; B (mask+norm): [[], []];
-        // ΔB: [[], []]; ΔB (norm): [[], []]; emaB: [[], []]; D: [0, 0];
-        // E: [1000000000, 0]; P: [1, 0] */
-        // for validator in 0..(n / 2) {
-        //     assert_eq!(
-        //         SubtensorModule::get_emission_for_uid(netuid, validator),
-        //         1000000000
-        //     ); // Note E = 1 * 1_000_000_000
-        // }
-        // for server in (n / 2)..n {
-        //     assert_eq!(SubtensorModule::get_emission_for_uid(netuid, server), 0);
-        //     // no stake
-        // }
-        // run_to_block(3);
-
-        // // === Set new weights [val->srv: 1/(n/2)] to check that updated weights would produce non-zero incentive
-        // for uid in 0..(n / 2) as u64 {
-        //     assert_ok!(SubtensorModule::set_weights(
-        //         RuntimeOrigin::signed(U256::from(uid)),
-        //         netuid,
-        //         ((n / 2)..n).collect(),
-        //         vec![u16::MAX / (n / 2); (n / 2) as usize],
-        //         0
-        //     ));
-        // }
-        // if sparse {
-        //     SubtensorModule::epoch(netuid, 1_000_000_000);
-        // } else {
-        //     SubtensorModule::epoch_dense(netuid, 1_000_000_000);
-        // }
-        // /*	current_block: 3; activity_cutoff: 5000; Last update: [3, 1]; Inactive: [false, false];
-        // S: [1, 0]; S (mask): [1, 0]; S (mask+norm): [1, 0]; Block at registration: [0, 2];
-        // W: [[(1, 1)], []]; W (diagmask): [[(1, 1)], []]; W (diag+outdatemask): [[(1, 1)], []]; W (mask+norm): [[(1, 1)], []];
-        // R: [0, 1]; W (threshold): [[(1, 1)], []]; T: [0, 1]; C: [0.006693358, 0.9933076561]; I: [0, 1];
-        // B: [[], []]; B (outdatedmask): [[], []]; B (mask+norm): [[], []];
-        // ΔB: [[(1, 1)], []]; ΔB (norm): [[(1, 1)], []]; emaB: [[(1, 1)], []]; D: [1, 0]; emaB (max-upscale): [[(1, 1)], []]
-        // E: [500000000, 500000000]; P: [0.5, 0.5] */
-        // for validator in 0..n {
-        //     assert_eq!(
-        //         SubtensorModule::get_emission_for_uid(netuid, validator),
-        //         1000000000 / (n as u64)
-        //     ); // Note E = 1/2 * 1_000_000_000
-        // }
+        // === Set new weights [val->srv: 1/(n/2)] to check that updated weights would produce non-zero incentive
+        for uid in 0..(n / 2) as u64 {
+            assert_ok!(SubtensorModule::set_weights(
+                RuntimeOrigin::signed(U256::from(uid)),
+                netuid,
+                ((n / 2)..n).collect(),
+                vec![u16::MAX / (n / 2); (n / 2) as usize],
+                0
+            ));
+        }
+        if sparse {
+            SubtensorModule::epoch(netuid, 1_000_000_000);
+        } else {
+            SubtensorModule::epoch_dense(netuid, 1_000_000_000);
+        }
+        /*	current_block: 3; activity_cutoff: 5000; Last update: [3, 1]; Inactive: [false, false];
+        S: [1, 0]; S (mask): [1, 0]; S (mask+norm): [1, 0]; Block at registration: [0, 2];
+        W: [[(1, 1)], []]; W (diagmask): [[(1, 1)], []]; W (diag+outdatemask): [[(1, 1)], []]; W (mask+norm): [[(1, 1)], []];
+        R: [0, 1]; W (threshold): [[(1, 1)], []]; T: [0, 1]; C: [0.006693358, 0.9933076561]; I: [0, 1];
+        B: [[], []]; B (outdatedmask): [[], []]; B (mask+norm): [[], []];
+        ΔB: [[(1, 1)], []]; ΔB (norm): [[(1, 1)], []]; emaB: [[(1, 1)], []]; D: [1, 0]; emaB (max-upscale): [[(1, 1)], []]
+        E: [500000000, 500000000]; P: [0.5, 0.5] */
+        for validator in 0..n {
+            assert_eq!(
+                SubtensorModule::get_emission_for_uid(netuid, validator),
+                1000000000 / (n as u64)
+            ); // Note E = 1/2 * 1_000_000_000
+        }
     });
 }
 
