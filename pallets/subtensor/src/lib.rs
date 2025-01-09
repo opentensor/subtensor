@@ -883,6 +883,8 @@ pub mod pallet {
     pub type TotalIssuance<T> = StorageValue<_, u64, ValueQuery, DefaultTotalIssuance<T>>;
     #[pallet::storage] // --- ITEM ( total_stake )
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
+    #[pallet::storage] // --- ITEM ( dynamic_block ) -- block when dynamic was turned on.
+    pub type DynamicBlock<T> = StorageValue<_, u64, ValueQuery>;
     #[pallet::storage] // --- DMAP ( netuid ) --> total_volume | The total amount of TAO bought and sold since the start of the network.
     pub type SubnetVolume<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
@@ -970,9 +972,6 @@ pub mod pallet {
     #[pallet::storage] // --- DMAP ( netuid ) --> subnet_name | Returns the name of the subnet.
     pub type SubnetName<T: Config> =
         StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> block_at_dtao_transition | Returns the block when the subnet transitioned to DTAO.
-    pub type DynamicBlock<T: Config> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultUnicodeVecU8<T>>;
     
     /// ============================
     /// ==== Global Parameters =====

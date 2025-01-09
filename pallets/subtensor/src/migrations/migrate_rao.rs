@@ -30,6 +30,9 @@ pub fn migrate_rao<T: Config>() -> Weight {
         .collect();
     weight = weight.saturating_add(T::DbWeight::get().reads_writes(netuids.len() as u64, 0));
 
+    // Set the Dynamic block.
+    DynamicBlock::<T>::insert(netuid, Pallet::<T>::get_current_block_as_u64() );
+
     // Migrate all TAO to root.
     Stake::<T>::iter().for_each(|(hotkey, coldkey, stake)| {
         // Increase SubnetTAO on root.
@@ -59,7 +62,6 @@ pub fn migrate_rao<T: Config>() -> Weight {
     // Set global weight to 18% from the start
     TaoWeight::<T>::set(332_041_393_326_771_929);
     for netuid in netuids.iter().clone() {
-        DynamicBlock::<T>::insert(netuid, Pallet::<T>::get_current_block_as_u64() );
         if *netuid == 0 {
             // Give root a single RAO in pool to avoid any catestrophic division by zero.
             SubnetAlphaIn::<T>::insert(netuid, 1);

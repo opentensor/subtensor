@@ -226,7 +226,6 @@ impl<T: Config> Pallet<T> {
         // --- 11. Set the creation terms.
         NetworkLastRegistered::<T>::set(current_block);
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
-        DynamicBlock::<T>::insert( netuid_to_register, current_block );
 
         // --- 14. Init the pool by putting the lock as the initial alpha.
         TokenSymbol::<T>::insert(
