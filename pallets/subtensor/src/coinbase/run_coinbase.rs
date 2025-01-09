@@ -285,7 +285,7 @@ impl<T: Config> Pallet<T> {
         // First clear the netuid from HotkeyDividends
         let mut total_root_alpha_divs: u64 = 0;
         let mut root_alpha_divs: BTreeMap<T::AccountId, u64> = BTreeMap::new();
-        let _ = HotkeyDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
         for (hotkey, incentive, dividends) in hotkey_emission {
             log::debug!(
                 "Processing hotkey {:?} with incentive {:?} and dividends {:?}",
@@ -412,7 +412,7 @@ impl<T: Config> Pallet<T> {
                 );
 
                 // 7.6.3.9: Record dividends for this hotkey on this subnet.
-                HotkeyDividendsPerSubnet::<T>::mutate(netuid, hotkey_j.clone(), |divs| {
+                AlphaDividendsPerSubnet::<T>::mutate(netuid, hotkey_j.clone(), |divs| {
                     *divs = divs.saturating_add(divs_j);
                 });
                 log::debug!(
@@ -424,7 +424,7 @@ impl<T: Config> Pallet<T> {
             }
         }
         // For all the root alpha divs give this proportion of the swapped tao to the root participants.
-        let _ = RootDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = TaoDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
         let total_root_divs_to_distribute = PendingRootDivs::<T>::get(netuid);
         PendingRootDivs::<T>::insert(netuid, 0);
         for (hotkey_j, root_divs) in root_alpha_divs.iter() {
@@ -454,7 +454,7 @@ impl<T: Config> Pallet<T> {
             );
 
             // 7.6.3.9: Record dividends for this hotkey on this subnet.
-            RootDividendsPerSubnet::<T>::mutate(netuid, hotkey_j.clone(), |divs| {
+            TaoDividendsPerSubnet::<T>::mutate(netuid, hotkey_j.clone(), |divs| {
                 *divs = divs.saturating_add(root_divs_to_pay);
             });
         }

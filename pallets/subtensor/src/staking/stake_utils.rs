@@ -482,6 +482,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// Updates TaoIn, AlphaIn, and AlphaOut
     pub fn swap_tao_for_alpha(netuid: u16, tao: u64) -> u64 {
+
         // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
         let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
         // Step 2: Initialized vars.
@@ -517,7 +518,11 @@ impl<T: Config> Pallet<T> {
         TotalStake::<T>::mutate(|total| {
             *total = total.saturating_add(tao);
         });
-        // Step 8. Return the alpha received.
+        // Step 8. Decrease Alpha reserves.
+        SubnetVolume::<T>::mutate(netuid, |total| {
+            *total = total.saturating_sub(tao);
+        });
+        // Step 9. Return the alpha received.
         alpha.to_num::<u64>()
     }
 
@@ -560,7 +565,11 @@ impl<T: Config> Pallet<T> {
         TotalStake::<T>::mutate(|total| {
             *total = total.saturating_sub(tao.to_num::<u64>());
         });
-        // Step 8. Return the tao received.
+        // Step 8. Decrease Alpha reserves.
+        SubnetVolume::<T>::mutate(netuid, |total| {
+            *total = total.saturating_sub(tao.to_num::<u64>());
+        });
+        // Step 9. Return the tao received.
         tao.to_num::<u64>()
     }
 

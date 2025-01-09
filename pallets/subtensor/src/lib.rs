@@ -814,7 +814,7 @@ pub mod pallet {
         DefaultAccountLinkage<T>,
     >;
     #[pallet::storage] // --- DMAP ( netuid, hotkey ) --> u64 | Last total dividend this hotkey got on tempo.
-    pub type HotkeyDividendsPerSubnet<T: Config> = StorageDoubleMap<
+    pub type AlphaDividendsPerSubnet<T: Config> = StorageDoubleMap<
         _,
         Identity,
         u16,
@@ -825,7 +825,7 @@ pub mod pallet {
         DefaultZeroU64<T>,
     >;
     #[pallet::storage] // --- DMAP ( netuid, hotkey ) --> u64 | Last total root dividend paid to this hotkey on this subnet.
-    pub type RootDividendsPerSubnet<T: Config> = StorageDoubleMap<
+    pub type TaoDividendsPerSubnet<T: Config> = StorageDoubleMap<
         _,
         Identity,
         u16,
@@ -883,6 +883,9 @@ pub mod pallet {
     pub type TotalIssuance<T> = StorageValue<_, u64, ValueQuery, DefaultTotalIssuance<T>>;
     #[pallet::storage] // --- ITEM ( total_stake )
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
+    #[pallet::storage] // --- DMAP ( netuid ) --> total_volume | The total amount of TAO bought and sold since the start of the network.
+    pub type SubnetVolume<T: Config> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> tao_in_subnet | Returns the amount of TAO in the subnet.
     pub type SubnetTAO<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
