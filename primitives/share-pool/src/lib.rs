@@ -23,6 +23,7 @@ pub trait SharePoolDataOperations<Key> {
 }
 
 /// SharePool struct that depends on the Key type and uses the SharePoolDataOperations
+#[derive(Debug)]
 pub struct SharePool<K, Ops>
 where
     K: Eq,

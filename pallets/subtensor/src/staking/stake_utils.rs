@@ -651,7 +651,7 @@ impl<T: Config> Pallet<T> {
         alpha
     }
 
-    fn get_alpha_share_pool(
+    pub fn get_alpha_share_pool(
         hotkey: <T as frame_system::Config>::AccountId,
         netuid: u16,
     ) -> SharePool<AlphaShareKey<T>, HotkeyAlphaSharePoolDataOperations<T>> {
@@ -663,7 +663,8 @@ impl<T: Config> Pallet<T> {
 ///////////////////////////////////////////
 // Alpha share pool chain data layer
 
-struct HotkeyAlphaSharePoolDataOperations<T: frame_system::Config> {
+#[derive(Debug)]
+pub struct HotkeyAlphaSharePoolDataOperations<T: frame_system::Config> {
     netuid: u16,
     hotkey: <T as frame_system::Config>::AccountId,
     _marker: sp_std::marker::PhantomData<T>,

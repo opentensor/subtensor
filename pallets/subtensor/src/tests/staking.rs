@@ -1715,62 +1715,57 @@ fn test_get_total_delegated_stake_single_delegator() {
 }
 
 #[test]
-fn test_get_total_delegated_stake_multiple_delegators() {
+fn test_get_alpha_share_stake_multiple_delegators() {
     new_test_ext(1).execute_with(|| {
-        assert!(false);
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let hotkey1 = U256::from(2);
+        let hotkey2 = U256::from(20);
+        let coldkey1 = U256::from(3);
+        let coldkey2 = U256::from(4);
+        let existential_deposit = 2;
+        let stake1 = 1000;
+        let stake2 = 1999;
 
-        // let netuid = 1u16;
-        // let delegate_coldkey = U256::from(1);
-        // let delegate_hotkey = U256::from(2);
-        // let delegator1 = U256::from(3);
-        // let delegator2 = U256::from(4);
-        // let stake1 = 1000;
-        // let stake2 = 1999;
-        // let existential_deposit = 1; // Account for the existential deposit
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(netuid, hotkey1, coldkey1, 0);
+        register_ok_neuron(netuid, hotkey2, coldkey2, 0);
 
-        // add_network(netuid, 0, 0);
-        // register_ok_neuron(netuid, delegate_hotkey, delegate_coldkey, 0);
+        // Add stake from delegator1
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, stake1);
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey1),
+            hotkey1,
+            netuid,
+            stake1
+        ));
 
-        // // Make the account a delegate
-        // assert_ok!(SubtensorModule::become_delegate(
-        //     RuntimeOrigin::signed(delegate_coldkey),
-        //     delegate_hotkey
-        // ));
+        // Add stake from delegator2
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey2, stake2);
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey2),
+            hotkey2,
+            netuid,
+            stake2
+        ));
 
-        // // Add stake from delegator1
-        // SubtensorModule::add_balance_to_coldkey_account(&delegator1, stake1);
-        // assert_ok!(SubtensorModule::add_stake(
-        //     RuntimeOrigin::signed(delegator1),
-        //     delegate_hotkey,
-        //     stake1
-        // ));
+        // Debug prints
+        println!("Delegator1 stake: {}", stake1);
+        println!("Delegator2 stake: {}", stake2);
+        println!("Alpha share for for 1: {}", SubtensorModule::get_alpha_share_pool(hotkey1.clone(), netuid).get_value(&coldkey1));
+        println!("Alpha share for for 2: {}", SubtensorModule::get_alpha_share_pool(hotkey2.clone(), netuid).get_value(&coldkey2));
 
-        // // Add stake from delegator2
-        // SubtensorModule::add_balance_to_coldkey_account(&delegator2, stake2);
-        // assert_ok!(SubtensorModule::add_stake(
-        //     RuntimeOrigin::signed(delegator2),
-        //     delegate_hotkey,
-        //     stake2
-        // ));
+        // Calculate expected total delegated stake
+        let expected_total_stake = stake1 + stake2 - existential_deposit * 2;
+        let actual_total_stake = SubtensorModule::get_alpha_share_pool(hotkey1.clone(), netuid).get_value(&coldkey1) + SubtensorModule::get_alpha_share_pool(hotkey2.clone(), netuid).get_value(&coldkey2);
 
-        // // Debug prints
-        // println!("Delegator1 stake: {}", stake1);
-        // println!("Delegator2 stake: {}", stake2);
-        // println!("Existential deposit: {}", existential_deposit);
-        // println!("Total stake for hotkey: {}", SubtensorModule::get_total_stake_for_hotkey(&delegate_hotkey));
-        // println!("Delegated stake for coldkey: {}", SubtensorModule::get_total_stake_for_coldkey(&delegate_coldkey));
-
-        // // Calculate expected total delegated stake
-        // let expected_total_delegated = stake1 + stake2 - 2 * existential_deposit;
-        // let actual_total_delegated = SubtensorModule::get_total_stake_for_coldkey(&delegate_coldkey);
-
-        // assert_eq!(
-        //     actual_total_delegated,
-        //     expected_total_delegated,
-        //     "Total delegated stake should match the sum of delegators' stakes minus existential deposits. Expected: {}, Actual: {}",
-        //     expected_total_delegated,
-        //     actual_total_delegated
-        // );
+        assert_eq!(
+            actual_total_stake,
+            expected_total_stake,
+            "Total subnet stake should match the sum of delegators' stakes minus existential deposits. Expected: {}, Actual: {}",
+            expected_total_stake,
+            actual_total_stake
+        );
     });
 }
 
