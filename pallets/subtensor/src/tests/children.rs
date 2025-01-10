@@ -2823,20 +2823,21 @@ fn test_set_weights_no_parent() {
 #[test]
 fn test_childkey_take_drain() {
     new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
         let coldkey = U256::from(1);
         let parent = U256::from(2);
         let child = U256::from(3);
         let nominator = U256::from(4);
-        let netuid: u16 = 1;
         let root_id: u16 = 0;
         let subnet_tempo = 10;
-        let hotkey_tempo = 20;
         let stake = 100_000_000_000;
         let proportion: u64 = u64::MAX;
 
         // Add network, register hotkeys, and setup network parameters
         add_network(root_id, subnet_tempo, 0);
-        add_network(netuid, subnet_tempo, 0);
+        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        crate::Tempo::<Test>::set(netuid, subnet_tempo);
         register_ok_neuron(netuid, child, coldkey, 0);
         register_ok_neuron(netuid, parent, coldkey, 1);
 
@@ -2903,13 +2904,6 @@ fn test_childkey_take_drain() {
         crate::Weights::<Test>::insert(root_id, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
         crate::Weights::<Test>::insert(root_id, 1, vec![(0, 0xFFFF), (1, 0xFFFF)]);
 
-        // Prevent further subnet epochs
-        crate::Tempo::<Test>::set(netuid, u16::MAX);
-        crate::Tempo::<Test>::set(root_id, u16::MAX);
-
-        // Run run_coinbase until PendingHotkeyEmission is drained for both child and parent
-        step_block((hotkey_tempo * 2) as u16);
-
         // Verify how emission is split between keys
         //   - Child stake increased by its child key take only (20% * 50% = 10% of total emission)
         //   - Parent stake increased by 40% of total emission
@@ -2919,21 +2913,9 @@ fn test_childkey_take_drain() {
         let nominator_emission = crate::Stake::<Test>::get(child, nominator).saturating_sub(stake);
         let total_emission = child_emission + parent_emission + nominator_emission;
 
-        assert!(is_within_tolerance(
-            child_emission,
-            total_emission / 10,
-            500
-        ));
-        assert!(is_within_tolerance(
-            parent_emission,
-            total_emission / 10 * 4,
-            500
-        ));
-        assert!(is_within_tolerance(
-            nominator_emission,
-            total_emission / 2,
-            500
-        ));
+        assert_abs_diff_eq!(child_emission, total_emission / 10, epsilon = 500);
+        assert_abs_diff_eq!(parent_emission, total_emission / 10 * 4, epsilon = 500);
+        assert_abs_diff_eq!(nominator_emission, total_emission / 2, epsilon = 500);
     });
 }
 
@@ -3037,17 +3019,9 @@ fn test_childkey_take_drain_validator_take() {
         let nominator_emission = crate::Stake::<Test>::get(child, nominator).saturating_sub(stake);
         let total_emission = child_emission + parent_emission + nominator_emission;
 
-        assert!(is_within_tolerance(child_emission, total_emission / 5, 500));
-        assert!(is_within_tolerance(
-            parent_emission,
-            total_emission / 10 * 4,
-            500
-        ));
-        assert!(is_within_tolerance(
-            nominator_emission,
-            total_emission / 10 * 4,
-            500
-        ));
+        assert_abs_diff_eq!(child_emission, total_emission / 5, epsilon = 500);
+        assert_abs_diff_eq!(parent_emission, total_emission / 10 * 4, epsilon = 500);
+        assert_abs_diff_eq!(nominator_emission, total_emission / 10 * 4, epsilon = 500);
     });
 }
 
