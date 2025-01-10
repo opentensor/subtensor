@@ -60,7 +60,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
 
     // Convert subnets and give them lock.
     // Set global weight to 18% from the start
-    TaoWeight::<T>::set(332_041_393_326_771_929);
+    TaoWeight::<T>::set(3_320_413_933_267_719_290);
     for netuid in netuids.iter().clone() {
         if *netuid == 0 {
             // Give root a single RAO in pool to avoid any catestrophic division by zero.
