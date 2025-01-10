@@ -1469,7 +1469,7 @@ fn test_sudo_toggle_evm_precompile() {
     new_test_ext().execute_with(|| {
         let precompile_id = crate::PrecompileEnum::BalanceTransfer;
         let initial_enabled = PrecompileEnable::<Test>::get(precompile_id);
-        assert_eq!(initial_enabled, true); // Assuming the default is true
+        assert!(initial_enabled); // Assuming the default is true
 
         run_to_block(1);
 
@@ -1501,7 +1501,7 @@ fn test_sudo_toggle_evm_precompile() {
         );
 
         let updated_enabled = PrecompileEnable::<Test>::get(precompile_id);
-        assert_eq!(updated_enabled, false);
+        assert!(!updated_enabled);
 
         run_to_block(2);
 
@@ -1531,6 +1531,6 @@ fn test_sudo_toggle_evm_precompile() {
         ));
 
         let final_enabled = PrecompileEnable::<Test>::get(precompile_id);
-        assert_eq!(final_enabled, true);
+        assert!(final_enabled);
     });
 }

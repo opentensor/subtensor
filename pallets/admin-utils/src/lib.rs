@@ -1321,7 +1321,6 @@ pub mod pallet {
                     enabled,
                 });
             }
-            // T::Grandpa::schedule_change(next_authorities, in_blocks, forced)
             Ok(())
         }
     }
