@@ -19,6 +19,8 @@ use sp_runtime::{
 };
 use sp_std::cmp::Ordering;
 
+use crate::*;
+
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
@@ -174,15 +176,14 @@ parameter_types! {
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
-    pub const InitialTargetStakesPerInterval: u16 = 2;
     pub const InitialKeySwapCost: u64 = 1_000_000_000;
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
-    pub const InitialHotkeyEmissionTempo: u64 = 0; // Defaults to draining every block.
     pub const InitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64
     pub const InitialColdkeySwapScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
     pub const InitialDissolveNetworkScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
+    pub const InitialTaoWeight: u64 = 0; // 100% global weight.
 }
 
 // Configure collective pallet for council
@@ -213,7 +214,7 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
     }
 }
 
-use crate::{CollectiveInterface, MemberManagement};
+use crate::{CollectiveInterface, MemberManagement, StakeThreshold};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
@@ -397,16 +398,15 @@ impl crate::Config for Test {
     type InitialNetworkLockReductionInterval = InitialNetworkLockReductionInterval;
     type InitialSubnetLimit = InitialSubnetLimit;
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
-    type InitialTargetStakesPerInterval = InitialTargetStakesPerInterval;
     type KeySwapCost = InitialKeySwapCost;
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;
-    type InitialHotkeyEmissionTempo = InitialHotkeyEmissionTempo;
     type InitialNetworkMaxStake = InitialNetworkMaxStake;
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
+    type InitialTaoWeight = InitialTaoWeight;
 }
 
 pub struct OriginPrivilegeCmp;
@@ -662,11 +662,26 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
 }
 
+#[allow(dead_code)]
+pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> u16 {
+    let netuid = SubtensorModule::get_next_netuid();
+    let lock_cost = SubtensorModule::get_network_lock_cost();
+    SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost);
+
+    assert_ok!(SubtensorModule::register_network(
+        RawOrigin::Signed(*coldkey).into(),
+        *hotkey
+    ));
+    NetworkRegistrationAllowed::<Test>::insert(netuid, true);
+    NetworkPowRegistrationAllowed::<Test>::insert(netuid, true);
+    netuid
+}
+
 // Helper function to set up a neuron with stake
 #[allow(dead_code)]
 pub fn setup_neuron_with_stake(netuid: u16, hotkey: U256, coldkey: U256, stake: u64) {
     register_ok_neuron(netuid, hotkey, coldkey, stake);
-    SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake);
+    increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake, netuid);
 }
 
 // Helper function to check if a value is within tolerance of an expected value
@@ -680,12 +695,62 @@ pub fn is_within_tolerance(actual: u64, expected: u64, tolerance: u64) -> bool {
     difference <= tolerance
 }
 
+#[allow(dead_code)]
+pub fn wait_and_set_pending_children(netuid: u16) {
+    let original_block = System::block_number();
+    System::set_block_number(System::block_number() + 7300);
+    SubtensorModule::do_set_pending_children(netuid);
+    System::set_block_number(original_block);
+}
+
+#[allow(dead_code)]
+pub fn mock_set_children(coldkey: &U256, parent: &U256, netuid: u16, child_vec: &[(u64, U256)]) {
+    // Set minimum stake for setting children
+    StakeThreshold::<Test>::put(0);
+
+    // Set initial parent-child relationship
+    assert_ok!(SubtensorModule::do_schedule_children(
+        RuntimeOrigin::signed(*coldkey),
+        *parent,
+        netuid,
+        child_vec.to_vec()
+    ));
+    wait_and_set_pending_children(netuid);
+}
+
 // Helper function to wait for the rate limit
 #[allow(dead_code)]
 pub fn step_rate_limit(transaction_type: &TransactionType, netuid: u16) {
     // Check rate limit
-    let limit = SubtensorModule::get_rate_limit(transaction_type, netuid);
+    let limit = SubtensorModule::get_rate_limit_on_subnet(transaction_type, netuid);
 
     // Step that many blocks
     step_block(limit as u16);
+}
+
+/// Helper function to mock now missing increase_stake_on_coldkey_hotkey_account with
+/// minimal changes
+#[allow(dead_code)]
+pub fn increase_stake_on_coldkey_hotkey_account(
+    coldkey: &U256,
+    hotkey: &U256,
+    tao_staked: u64,
+    netuid: u16,
+) {
+    SubtensorModule::stake_into_subnet(hotkey, coldkey, netuid, tao_staked);
+}
+
+/// Increases the stake on the hotkey account under its owning coldkey.
+///
+/// # Arguments
+/// * `hotkey` - The hotkey account ID.
+/// * `increment` - The amount to be incremented.
+#[allow(dead_code)]
+pub fn increase_stake_on_hotkey_account(hotkey: &U256, increment: u64, netuid: u16) {
+    increase_stake_on_coldkey_hotkey_account(
+        &SubtensorModule::get_owning_coldkey_for_hotkey(hotkey),
+        hotkey,
+        increment,
+        netuid,
+    );
 }

@@ -16,7 +16,7 @@
 
 use crate::{
     mock::*, BeaconConfig, BeaconConfigurationPayload, BeaconInfoResponse, Call, DrandResponseBody,
-    Error, Pulse, Pulses, PulsesPayload, RoundNumber,
+    Error, Pulse, Pulses, PulsesPayload, ENDPOINTS, QUICKNET_CHAIN_HASH,
 };
 use codec::Encode;
 use frame_support::{
@@ -38,6 +38,7 @@ pub const ROUND_NUMBER: u64 = 1000;
 // Quicknet parameters
 pub const DRAND_PULSE: &str = "{\"round\":1000,\"randomness\":\"fe290beca10872ef2fb164d2aa4442de4566183ec51c56ff3cd603d930e54fdd\",\"signature\":\"b44679b9a59af2ec876b1a6b1ad52ea9b1615fc3982b19576350f93447cb1125e342b73a8dd2bacbe47e4b6b63ed5e39\"}";
 pub const DRAND_INFO_RESPONSE: &str = "{\"public_key\":\"83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c8c4b450b6a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809bd274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a\",\"period\":3,\"genesis_time\":1692803367,\"hash\":\"52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971\",\"groupHash\":\"f477d5c89f21a17c863a7f937c6a6d15859414d2be09cd448d4279af331c5d3e\",\"schemeID\":\"bls-unchained-g1-rfc9380\",\"metadata\":{\"beaconID\":\"quicknet\"}}";
+const INVALID_JSON: &str = r#"{"round":1000,"randomness":"not base64??","signature":}"#;
 
 #[test]
 fn it_can_submit_valid_pulse_when_beacon_config_exists() {
@@ -342,53 +343,45 @@ fn test_not_validate_unsigned_write_pulse_with_no_payload_signature() {
 }
 
 #[test]
-#[ignore]
-fn test_validate_unsigned_write_pulse_by_non_authority() {
-    // TODO: https://github.com/ideal-lab5/pallet-drand/issues/3
-    todo!(
-        "the transaction should be validated even if the signer of the payload is not an authority"
-    );
-}
-
-#[test]
-#[ignore]
-fn test_not_validate_unsigned_set_beacon_config_by_non_authority() {
-    // TODO: https://github.com/ideal-lab5/pallet-drand/issues/3
-    todo!(
-        "the transaction should not be validated if the signer of the payload is not an authority"
-    );
-}
-
-#[test]
 fn can_execute_and_handle_valid_http_responses() {
+    use serde_json;
+
+    let expected_pulse: DrandResponseBody = serde_json::from_str(DRAND_PULSE).unwrap();
+
     let (offchain, state) = TestOffchainExt::new();
     let mut t = sp_io::TestExternalities::default();
     t.register_extension(OffchainWorkerExt::new(offchain));
 
     {
         let mut state = state.write();
-        state.expect_request(PendingRequest {
-            method: "GET".into(),
-            uri: "https://drand.cloudflare.com/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/1".into(),
-            response: Some(DRAND_PULSE.as_bytes().to_vec()),
-            sent: true,
-            ..Default::default()
-        });
-        state.expect_request(PendingRequest {
-            method: "GET".into(),
-            uri: "https://drand.cloudflare.com/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/latest".into(),
-            response: Some(DRAND_PULSE.as_bytes().to_vec()),
-            sent: true,
-            ..Default::default()
-        });
+
+        for endpoint in ENDPOINTS.iter() {
+            state.expect_request(PendingRequest {
+                method: "GET".into(),
+                uri: format!("{}/{}/public/1000", endpoint, QUICKNET_CHAIN_HASH),
+                response: Some(DRAND_PULSE.as_bytes().to_vec()),
+                sent: true,
+                ..Default::default()
+            });
+        }
+
+        for endpoint in ENDPOINTS.iter() {
+            state.expect_request(PendingRequest {
+                method: "GET".into(),
+                uri: format!("{}/{}/public/latest", endpoint, QUICKNET_CHAIN_HASH),
+                response: Some(DRAND_PULSE.as_bytes().to_vec()),
+                sent: true,
+                ..Default::default()
+            });
+        }
     }
 
     t.execute_with(|| {
-        let actual_specific = Drand::fetch_drand_by_round(RoundNumber::from(1u64)).unwrap();
-        assert_eq!(actual_specific, DRAND_PULSE);
+        let actual_specific = Drand::fetch_drand_by_round(1000u64).unwrap();
+        assert_eq!(actual_specific, expected_pulse);
 
         let actual_pulse = Drand::fetch_drand_latest().unwrap();
-        assert_eq!(actual_pulse, DRAND_PULSE);
+        assert_eq!(actual_pulse, expected_pulse);
     });
 }
 
@@ -415,5 +408,144 @@ fn validate_unsigned_rejects_future_block_number() {
         let validity = Drand::validate_unsigned(source, &call);
 
         assert_noop!(validity, InvalidTransaction::Future);
+    });
+}
+
+#[test]
+fn test_all_endpoints_fail() {
+    let (offchain, state) = TestOffchainExt::new();
+    let mut t = sp_io::TestExternalities::default();
+    t.register_extension(OffchainWorkerExt::new(offchain));
+
+    {
+        let mut state = state.write();
+        let endpoints = ENDPOINTS;
+
+        for endpoint in endpoints.iter() {
+            state.expect_request(PendingRequest {
+                method: "GET".into(),
+                uri: format!("{}/{}/public/1000", endpoint, QUICKNET_CHAIN_HASH),
+                response: Some(INVALID_JSON.as_bytes().to_vec()),
+                sent: true,
+                ..Default::default()
+            });
+        }
+    }
+
+    t.execute_with(|| {
+        let result = Drand::fetch_drand_by_round(1000u64);
+        assert!(
+            result.is_err(),
+            "All endpoints should fail due to invalid JSON responses"
+        );
+    });
+}
+
+#[test]
+fn test_eventual_success() {
+    let expected_pulse: DrandResponseBody = serde_json::from_str(DRAND_PULSE).unwrap();
+
+    let (offchain, state) = TestOffchainExt::new();
+    let mut t = sp_io::TestExternalities::default();
+    t.register_extension(OffchainWorkerExt::new(offchain));
+
+    {
+        let mut state = state.write();
+        let endpoints = ENDPOINTS;
+
+        // We'll make all endpoints except the last return invalid JSON.
+        // Since no meta is provided, these are "200 OK" but invalid JSON, causing decode failures.
+        // The last endpoint returns the valid DRAND_PULSE JSON, leading to success.
+
+        // Endpoint 0: Invalid JSON (decode fail)
+        state.expect_request(PendingRequest {
+            method: "GET".into(),
+            uri: format!("{}/{}/public/1000", endpoints[0], QUICKNET_CHAIN_HASH),
+            response: Some(INVALID_JSON.as_bytes().to_vec()),
+            sent: true,
+            ..Default::default()
+        });
+
+        // Endpoint 1: Invalid JSON
+        state.expect_request(PendingRequest {
+            method: "GET".into(),
+            uri: format!("{}/{}/public/1000", endpoints[1], QUICKNET_CHAIN_HASH),
+            response: Some(Vec::new()),
+            sent: true,
+            ..Default::default()
+        });
+
+        // Endpoint 2: Invalid JSON
+        state.expect_request(PendingRequest {
+            method: "GET".into(),
+            uri: format!("{}/{}/public/1000", endpoints[2], QUICKNET_CHAIN_HASH),
+            response: Some(INVALID_JSON.as_bytes().to_vec()),
+            sent: true,
+            ..Default::default()
+        });
+
+        // Endpoint 3: Invalid JSON
+        state.expect_request(PendingRequest {
+            method: "GET".into(),
+            uri: format!("{}/{}/public/1000", endpoints[3], QUICKNET_CHAIN_HASH),
+            response: Some(INVALID_JSON.as_bytes().to_vec()),
+            sent: true,
+            ..Default::default()
+        });
+
+        // Endpoint 4: Valid JSON (success)
+        state.expect_request(PendingRequest {
+            method: "GET".into(),
+            uri: format!("{}/{}/public/1000", endpoints[4], QUICKNET_CHAIN_HASH),
+            response: Some(DRAND_PULSE.as_bytes().to_vec()),
+            sent: true,
+            ..Default::default()
+        });
+    }
+
+    t.execute_with(|| {
+        let actual = Drand::fetch_drand_by_round(1000u64).unwrap();
+        assert_eq!(
+            actual, expected_pulse,
+            "Should succeed on the last endpoint after failing at the previous ones"
+        );
+    });
+}
+
+#[test]
+fn test_invalid_json_then_success() {
+    let expected_pulse: DrandResponseBody = serde_json::from_str(DRAND_PULSE).unwrap();
+
+    let (offchain, state) = TestOffchainExt::new();
+    let mut t = sp_io::TestExternalities::default();
+    t.register_extension(OffchainWorkerExt::new(offchain));
+
+    {
+        let mut state = state.write();
+
+        let endpoints = ENDPOINTS;
+
+        // Endpoint 1: Invalid JSON
+        state.expect_request(PendingRequest {
+            method: "GET".into(),
+            uri: format!("{}/{}/public/1000", endpoints[0], QUICKNET_CHAIN_HASH),
+            response: Some(INVALID_JSON.as_bytes().to_vec()),
+            sent: true,
+            ..Default::default()
+        });
+
+        // Endpoint 2: Valid response
+        state.expect_request(PendingRequest {
+            method: "GET".into(),
+            uri: format!("{}/{}/public/1000", endpoints[1], QUICKNET_CHAIN_HASH),
+            response: Some(DRAND_PULSE.as_bytes().to_vec()),
+            sent: true,
+            ..Default::default()
+        });
+    }
+
+    t.execute_with(|| {
+        let actual = Drand::fetch_drand_by_round(1000u64).unwrap();
+        assert_eq!(actual, expected_pulse);
     });
 }

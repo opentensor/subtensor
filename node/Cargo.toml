@@ -25,6 +25,7 @@ clap = { workspace = true, features = ["derive"] }
 futures = { workspace = true, features = ["thread-pool"] }
 scale-codec = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+hex = { workspace = true }
 
 # Storage import
 memmap2 = { workspace = true }
@@ -102,6 +103,7 @@ fp-rpc = { workspace = true }
 fc-mapping-sync = { workspace = true }
 fp-consensus = { workspace = true }
 thiserror = { workspace = true }
+num-traits = { version = "0.2", features = ["std"] }
 
 # Local Dependencies
 node-subtensor-runtime = { path = "../runtime" }

@@ -6,7 +6,7 @@ use crate::{
 use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::Saturating;
-use substrate_fixed::types::I32F32;
+use substrate_fixed::types::{I32F32, I96F32};
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
@@ -144,31 +144,11 @@ impl<T: Config> Pallet<T> {
         *updated_validator_permit = validator_permit;
         ValidatorPermit::<T>::insert(netuid, updated_validator_permits);
     }
-    pub fn set_weights_min_stake(min_stake: u64) {
-        WeightsMinStake::<T>::put(min_stake);
-        Self::deposit_event(Event::WeightsMinStake(min_stake));
+    pub fn set_stake_threshold(min_stake: u64) {
+        StakeThreshold::<T>::put(min_stake);
+        Self::deposit_event(Event::StakeThresholdSet(min_stake));
     }
-    pub fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
-        TargetStakesPerInterval::<T>::set(target_stakes_per_interval);
-        Self::deposit_event(Event::TargetStakesPerIntervalSet(
-            target_stakes_per_interval,
-        ));
-    }
-    pub fn set_stakes_this_interval_for_coldkey_hotkey(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-        stakes_this_interval: u64,
-        last_staked_block_number: u64,
-    ) {
-        TotalHotkeyColdkeyStakesThisInterval::<T>::insert(
-            coldkey,
-            hotkey,
-            (stakes_this_interval, last_staked_block_number),
-        );
-    }
-    pub fn set_stake_interval(block: u64) {
-        StakeInterval::<T>::set(block);
-    }
+
     pub fn get_rank_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Rank::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
@@ -213,8 +193,8 @@ impl<T: Config> Pallet<T> {
         let vec = ValidatorPermit::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(false)
     }
-    pub fn get_weights_min_stake() -> u64 {
-        WeightsMinStake::<T>::get()
+    pub fn get_stake_threshold() -> u64 {
+        StakeThreshold::<T>::get()
     }
 
     // ============================
@@ -603,6 +583,9 @@ impl<T: Config> Pallet<T> {
     pub fn get_subnet_owner_cut() -> u16 {
         SubnetOwnerCut::<T>::get()
     }
+    pub fn get_float_subnet_owner_cut() -> I96F32 {
+        I96F32::from_num(SubnetOwnerCut::<T>::get()).saturating_div(I96F32::from_num(u16::MAX))
+    }
     pub fn set_subnet_owner_cut(subnet_owner_cut: u16) {
         SubnetOwnerCut::<T>::set(subnet_owner_cut);
         Self::deposit_event(Event::SubnetOwnerCutSet(subnet_owner_cut));
@@ -686,27 +669,6 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_liquid_alpha_enabled(netuid: u16) -> bool {
         LiquidAlphaOn::<T>::get(netuid)
-    }
-
-    /// Gets the current hotkey emission tempo.
-    ///
-    /// # Returns
-    /// * `u64` - The current emission tempo value.
-    pub fn get_hotkey_emission_tempo() -> u64 {
-        HotkeyEmissionTempo::<T>::get()
-    }
-
-    /// Sets the hotkey emission tempo.
-    ///
-    /// # Arguments
-    /// * `emission_tempo` - The new emission tempo value to set.
-    pub fn set_hotkey_emission_tempo(emission_tempo: u64) {
-        HotkeyEmissionTempo::<T>::set(emission_tempo);
-        Self::deposit_event(Event::HotkeyEmissionTempoSet(emission_tempo));
-    }
-
-    pub fn get_pending_hotkey_emission(hotkey: &T::AccountId) -> u64 {
-        PendingdHotkeyEmission::<T>::get(hotkey)
     }
 
     /// Retrieves the maximum stake allowed for a given network.

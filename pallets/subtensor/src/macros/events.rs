@@ -4,6 +4,8 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod events {
+    use codec::Compact;
+
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
@@ -12,9 +14,9 @@ mod events {
         /// a network is removed.
         NetworkRemoved(u16),
         /// stake has been transferred from the a coldkey account onto the hotkey staking account.
-        StakeAdded(T::AccountId, u64),
+        StakeAdded(T::AccountId, T::AccountId, u64, u64, u16),
         /// stake has been removed from the hotkey staking account onto the coldkey account.
-        StakeRemoved(T::AccountId, u64),
+        StakeRemoved(T::AccountId, T::AccountId, u64, u64, u16),
         /// a caller successfully sets their weights on a subnetwork.
         WeightsSet(u16, u16),
         /// a new neuron account has been registered to the chain.
@@ -102,7 +104,7 @@ mod events {
         /// setting the RAO recycled for registration.
         RAORecycledForRegistrationSet(u16, u64),
         /// min stake is set for validators to set weights.
-        WeightsMinStake(u64),
+        StakeThresholdSet(u64),
         /// setting the minimum required stake amount for senate registration.
         SenateRequiredStakePercentSet(u64),
         /// setting the adjustment alpha on a subnet.
@@ -138,8 +140,6 @@ mod events {
         MaxDelegateTakeSet(u16),
         /// minimum delegate take is set by sudo/admin transaction
         MinDelegateTakeSet(u16),
-        /// the target stakes per interval is set by sudo/admin transaction
-        TargetStakesPerIntervalSet(u64),
         /// a member of the senate is adjusted
         SenateAdjusted {
             /// the account ID of the old senate member, if any
@@ -179,10 +179,12 @@ mod events {
             /// The account ID of the coldkey
             coldkey: T::AccountId,
         },
+        /// Setting of children of a hotkey have been scheduled
+        SetChildrenScheduled(T::AccountId, u16, u64, Vec<(u64, T::AccountId)>),
         /// The children of a hotkey have been set
         SetChildren(T::AccountId, u16, Vec<(u64, T::AccountId)>),
-        /// The hotkey emission tempo has been set
-        HotkeyEmissionTempoSet(u64),
+        // /// The hotkey emission tempo has been set
+        // HotkeyEmissionTempoSet(u64),
         /// The network maximum stake has been set
         NetworkMaxStakeSet(u16, u64),
         /// The identity of a coldkey has been set
@@ -230,5 +232,19 @@ mod events {
         /// - **netuid**: The network identifier.
         /// - **revealed_hashes**: A vector of hashes representing each revealed weight set.
         WeightsBatchRevealed(T::AccountId, u16, Vec<H256>),
+
+        /// A batch of weights (or commits) have been force-set.
+        ///
+        /// - **netuids**: The netuids these weights were successfully set/committed for.
+        /// - **who**: The hotkey that set this batch.
+        BatchWeightsCompleted(Vec<Compact<u16>>, T::AccountId),
+
+        /// A batch extrinsic completed but with some errors.
+        BatchCompletedWithErrors(),
+
+        /// A weight set among a batch of weights failed.
+        ///
+        /// - **error**: The dispatch error emitted by the failed item.
+        BatchWeightItemFailed(sp_runtime::DispatchError),
     }
 }

@@ -1,11 +1,18 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+// extern crate alloc;
+
 pub use pallet::*;
 pub mod weights;
 pub use weights::WeightInfo;
 
 use frame_system::pallet_prelude::BlockNumberFor;
-use sp_runtime::{traits::Member, RuntimeAppPublic};
+// - we could replace it with Vec<(AuthorityId, u64)>, but we would need
+//   `sp_consensus_grandpa` for `AuthorityId` anyway
+// - we could use a type parameter for `AuthorityId`, but there is
+//   no sense for this as GRANDPA's `AuthorityId` is not a parameter -- it's always the same
+use sp_consensus_grandpa::AuthorityList;
+use sp_runtime::{traits::Member, DispatchResult, RuntimeAppPublic};
 
 mod benchmarking;
 
@@ -20,6 +27,7 @@ pub mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_support::traits::tokens::Balance;
     use frame_system::pallet_prelude::*;
+    use pallet_evm_chain_id::{self, ChainId};
     use sp_runtime::BoundedVec;
 
     /// The main data structure of the module.
@@ -29,12 +37,19 @@ pub mod pallet {
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
-    pub trait Config: frame_system::Config + pallet_subtensor::pallet::Config {
+    pub trait Config:
+        frame_system::Config
+        + pallet_subtensor::pallet::Config
+        + pallet_evm_chain_id::pallet::Config
+    {
         /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// Implementation of the AuraInterface
         type Aura: crate::AuraInterface<<Self as Config>::AuthorityId, Self::MaxAuthorities>;
+
+        /// Implementation of [`GrandpaInterface`]
+        type Grandpa: crate::GrandpaInterface<Self>;
 
         /// The identifier type for an authority.
         type AuthorityId: Member
@@ -885,9 +900,9 @@ pub mod pallet {
         /// The extrinsic will call the Subtensor pallet to set the weights min stake.
         #[pallet::call_index(42)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_weights_min_stake(origin: OriginFor<T>, min_stake: u64) -> DispatchResult {
+        pub fn sudo_set_stake_threshold(origin: OriginFor<T>, min_stake: u64) -> DispatchResult {
             ensure_root(origin)?;
-            pallet_subtensor::Pallet::<T>::set_weights_min_stake(min_stake);
+            pallet_subtensor::Pallet::<T>::set_stake_threshold(min_stake);
             Ok(())
         }
 
@@ -943,25 +958,25 @@ pub mod pallet {
             Ok(())
         }
 
-        /// The extrinsic sets the target stake per interval.
-        /// It is only callable by the root account.
-        /// The extrinsic will call the Subtensor pallet to set target stake per interval.
-        #[pallet::call_index(47)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_target_stakes_per_interval(
-            origin: OriginFor<T>,
-            target_stakes_per_interval: u64,
-        ) -> DispatchResult {
-            ensure_root(origin)?;
-            pallet_subtensor::Pallet::<T>::set_target_stakes_per_interval(
-                target_stakes_per_interval,
-            );
-            log::debug!(
-                "TxTargetStakesPerIntervalSet( set_target_stakes_per_interval: {:?} ) ",
-                target_stakes_per_interval
-            );
-            Ok(())
-        }
+        // The extrinsic sets the target stake per interval.
+        // It is only callable by the root account.
+        // The extrinsic will call the Subtensor pallet to set target stake per interval.
+        // #[pallet::call_index(47)]
+        // #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        // pub fn sudo_set_target_stakes_per_interval(
+        //     origin: OriginFor<T>,
+        //     target_stakes_per_interval: u64,
+        // ) -> DispatchResult {
+        //     ensure_root(origin)?;
+        //     pallet_subtensor::Pallet::<T>::set_target_stakes_per_interval(
+        //         target_stakes_per_interval,
+        //     );
+        //     log::debug!(
+        //         "TxTargetStakesPerIntervalSet( set_target_stakes_per_interval: {:?} ) ",
+        //         target_stakes_per_interval
+        //     ); (DEPRECATED)
+        //     Ok(())
+        // } (DEPRECATED)
 
         /// The extrinsic enabled/disables commit/reaveal for a given subnet.
         /// It is only callable by the root account or subnet owner.
@@ -1026,35 +1041,21 @@ pub mod pallet {
             )
         }
 
-        /// Sets the hotkey emission tempo.
-        ///
-        /// This extrinsic allows the root account to set the hotkey emission tempo, which determines
-        /// the number of blocks before a hotkey drains accumulated emissions through to nominator staking accounts.
-        ///
-        /// # Arguments
-        /// * `origin` - The origin of the call, which must be the root account.
-        /// * `emission_tempo` - The new emission tempo value to set.
-        ///
-        /// # Emits
-        /// * `Event::HotkeyEmissionTempoSet` - When the hotkey emission tempo is successfully set.
-        ///
-        /// # Errors
-        /// * `DispatchError::BadOrigin` - If the origin is not the root account.
-        // #[pallet::weight(<T as Config>::WeightInfo::sudo_set_hotkey_emission_tempo())]
-        #[pallet::call_index(52)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_hotkey_emission_tempo(
-            origin: OriginFor<T>,
-            emission_tempo: u64,
-        ) -> DispatchResult {
-            ensure_root(origin)?;
-            pallet_subtensor::Pallet::<T>::set_hotkey_emission_tempo(emission_tempo);
-            log::debug!(
-                "HotkeyEmissionTempoSet( emission_tempo: {:?} )",
-                emission_tempo
-            );
-            Ok(())
-        }
+        // DEPRECATED
+        // #[pallet::call_index(52)]
+        // #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        // pub fn sudo_set_hotkey_emission_tempo(
+        //     origin: OriginFor<T>,
+        //     emission_tempo: u64,
+        // ) -> DispatchResult {
+        //     ensure_root(origin)?;
+        //     pallet_subtensor::Pallet::<T>::set_hotkey_emission_tempo(emission_tempo);
+        //     log::debug!(
+        //         "HotkeyEmissionTempoSet( emission_tempo: {:?} )",
+        //         emission_tempo
+        //     );
+        //     Ok(())
+        // }
 
         /// Sets the maximum stake allowed for a specific network.
         ///
@@ -1212,6 +1213,55 @@ pub mod pallet {
             );
             Ok(())
         }
+
+        /// Sets the EVM ChainID.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the subnet owner or the root account.
+        /// * `chainId` - The u64 chain ID
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the caller is neither the subnet owner nor the root account.
+        ///
+        /// # Weight
+        /// Weight is handled by the `#[pallet::weight]` attribute.
+        #[pallet::call_index(58)]
+        #[pallet::weight(<T as Config>::WeightInfo::sudo_set_evm_chain_id())]
+        pub fn sudo_set_evm_chain_id(origin: OriginFor<T>, chain_id: u64) -> DispatchResult {
+            // Ensure the call is made by the root account
+            ensure_root(origin)?;
+
+            ChainId::<T>::set(chain_id);
+            Ok(())
+        }
+
+        /// A public interface for `pallet_grandpa::Pallet::schedule_grandpa_change`.
+        ///
+        /// Schedule a change in the authorities.
+        ///
+        /// The change will be applied at the end of execution of the block `in_blocks` after the
+        /// current block. This value may be 0, in which case the change is applied at the end of
+        /// the current block.
+        ///
+        /// If the `forced` parameter is defined, this indicates that the current set has been
+        /// synchronously determined to be offline and that after `in_blocks` the given change
+        /// should be applied. The given block number indicates the median last finalized block
+        /// number and it should be used as the canon block when starting the new grandpa voter.
+        ///
+        /// No change should be signaled while any change is pending. Returns an error if a change
+        /// is already pending.
+        #[pallet::call_index(59)]
+        #[pallet::weight(<T as Config>::WeightInfo::swap_authorities(next_authorities.len() as u32))]
+        pub fn schedule_grandpa_change(
+            origin: OriginFor<T>,
+            // grandpa ID is always the same type, so we don't need to parametrize it via `Config`
+            next_authorities: AuthorityList,
+            in_blocks: BlockNumberFor<T>,
+            forced: Option<BlockNumberFor<T>>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            T::Grandpa::schedule_change(next_authorities, in_blocks, forced)
+        }
     }
 }
 
@@ -1228,4 +1278,28 @@ pub trait AuraInterface<AuthorityId, MaxAuthorities> {
 
 impl<A, M> AuraInterface<A, M> for () {
     fn change_authorities(_: BoundedVec<A, M>) {}
+}
+
+pub trait GrandpaInterface<Runtime>
+where
+    Runtime: frame_system::Config,
+{
+    fn schedule_change(
+        next_authorities: AuthorityList,
+        in_blocks: BlockNumberFor<Runtime>,
+        forced: Option<BlockNumberFor<Runtime>>,
+    ) -> DispatchResult;
+}
+
+impl<R> GrandpaInterface<R> for ()
+where
+    R: frame_system::Config,
+{
+    fn schedule_change(
+        _next_authorities: AuthorityList,
+        _in_blocks: BlockNumberFor<R>,
+        _forced: Option<BlockNumberFor<R>>,
+    ) -> DispatchResult {
+        Ok(())
+    }
 }

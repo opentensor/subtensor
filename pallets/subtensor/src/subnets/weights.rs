@@ -1,5 +1,6 @@
 use super::*;
 use crate::epoch::math::*;
+use codec::Compact;
 use sp_core::{ConstU32, H256};
 use sp_runtime::{
     traits::{BlakeTwo256, Hash},
@@ -108,6 +109,84 @@ impl<T: Config> Pallet<T> {
         })
     }
 
+    /// ---- The implementation for the extrinsic batch_commit_weights.
+    ///
+    /// This call runs a batch of commit weights calls, continuing on errors.
+    ///
+    /// # Args:
+    ///  * 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    ///    - The signature of the calling hotkey.
+    ///
+    ///  * 'netuids' ( Vec<Compact<u16>> ):
+    ///    - The u16 network identifiers.
+    ///
+    ///  * 'commit_hashes' ( Vec<H256> ):
+    ///    - The commit hashes to be committed, one hash for each netuid in the batch.
+    ///
+    /// # Event:
+    ///  * WeightsCommitted;
+    ///    - On successfully storing the weight hashes.
+    ///  * BatchCompletedWithErrors;
+    ///    - Emitted when at least on of the weight commits has an error.
+    ///  * BatchWeightItemFailed;
+    ///    - Emitted for each error within the batch.
+    ///  * BatchWeightsCompleted
+    ///    - Emitted when the batch of weights is completed.
+    ///  * InputLengthsUnequal;
+    ///    - Emitted when the lengths of the input vectors are not equal.
+    ///
+    pub fn do_batch_commit_weights(
+        origin: T::RuntimeOrigin,
+        netuids: Vec<Compact<u16>>,
+        commit_hashes: Vec<H256>,
+    ) -> dispatch::DispatchResult {
+        // --- 1. Check the caller's signature. This is the hotkey of a registered account.
+        let hotkey = ensure_signed(origin.clone())?;
+        log::debug!(
+            "do_batch_commit_weights( origin:{:?}, netuids:{:?}, hashes:{:?} )",
+            hotkey,
+            netuids,
+            commit_hashes
+        );
+
+        ensure!(
+            netuids.len() == commit_hashes.len(),
+            Error::<T>::InputLengthsUnequal
+        );
+
+        let results: Vec<dispatch::DispatchResult> = netuids
+            .iter()
+            .zip(commit_hashes.iter())
+            .map(|(&netuid, &commit_hash)| {
+                let origin_cloned = origin.clone();
+
+                Self::do_commit_weights(origin_cloned, netuid.into(), commit_hash)
+            })
+            .collect();
+
+        let mut completed_with_errors: bool = false;
+        for result in results {
+            if let Some(err) = result.err() {
+                if !completed_with_errors {
+                    Self::deposit_event(Event::BatchCompletedWithErrors());
+                    completed_with_errors = true;
+                }
+                Self::deposit_event(Event::BatchWeightItemFailed(err));
+            }
+        }
+
+        // --- 19. Emit the tracking event.
+        log::debug!(
+            "BatchWeightsCompleted( netuids:{:?}, hotkey:{:?} )",
+            netuids,
+            hotkey
+        );
+        Self::deposit_event(Event::BatchWeightsCompleted(netuids, hotkey));
+
+        // --- 20. Return ok.
+        Ok(())
+    }
+
     /// ---- The implementation for committing commit-reveal v3 weights.
     ///
     /// # Args:
@@ -183,7 +262,11 @@ impl<T: Config> Pallet<T> {
 
         // 5. Retrieve or initialize the VecDeque of commits for the hotkey.
         let cur_block = Self::get_current_block_as_u64();
-        let cur_epoch = Self::get_epoch_index(netuid, cur_block);
+        let cur_epoch = match Self::should_run_epoch(netuid, commit_block) {
+            true => Self::get_epoch_index(netuid, cur_block).saturating_add(1),
+            false => Self::get_epoch_index(netuid, cur_block),
+        };
+
         CRV3WeightCommits::<T>::try_mutate(netuid, cur_epoch, |commits| -> DispatchResult {
             // 6. Verify that the number of unrevealed commits is within the allowed limit.
 
@@ -657,7 +740,6 @@ impl<T: Config> Pallet<T> {
                 Error::<T>::SettingWeightsTooFast
             );
         }
-
         // --- 10. Check that the neuron uid is an allowed validator permitted to set non-self weights.
         ensure!(
             Self::check_validator_permit(netuid, neuron_uid, &uids, &values),
@@ -709,6 +791,104 @@ impl<T: Config> Pallet<T> {
             neuron_uid
         );
         Self::deposit_event(Event::WeightsSet(netuid, neuron_uid));
+
+        // --- 20. Return ok.
+        Ok(())
+    }
+
+    /// ---- The implementation for the extrinsic batch_set_weights.
+    ///
+    /// This call runs a batch of set weights calls, continuing on errors.
+    ///
+    /// # Args:
+    ///  * 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    ///    - The signature of the calling hotkey.
+    ///
+    ///  * 'netuids' ( Vec<Compact<u16>> ):
+    ///    - The u16 network identifiers.
+    ///
+    ///  * 'weights' ( Vec<Vec<(Compact<u16>, Compact<u16>)>> ):
+    ///    - Tuples of (uid, value) of the weights to be set on the chain,
+    ///         one Vec for each netuid in the batch.
+    ///
+    ///  * 'version_keys' ( Vec<Compact<u64>> ):
+    ///    - The network version key, one u64 for each netuid in the batch.
+    ///
+    /// # Event:
+    ///  * WeightsSet;
+    ///    - On successfully setting the weights on chain.
+    ///  * BatchCompletedWithErrors;
+    ///    - Emitted when at least on of the weight sets has an error.
+    ///  * BatchWeightItemFailed;
+    ///    - Emitted for each error within the batch.
+    ///  * BatchWeightsCompleted;
+    ///    - Emitted when the batch of weights is completed.
+    ///  * InputLengthsUnequal;
+    ///    - Emitted when the lengths of the input vectors are not equal.
+    ///
+    pub fn do_batch_set_weights(
+        origin: T::RuntimeOrigin,
+        netuids: Vec<Compact<u16>>,
+        weights: Vec<Vec<(Compact<u16>, Compact<u16>)>>,
+        version_keys: Vec<Compact<u64>>,
+    ) -> dispatch::DispatchResult {
+        // --- 1. Check the caller's signature. This is the hotkey of a registered account.
+        let hotkey = ensure_signed(origin.clone())?;
+        log::debug!(
+            "do_batch_set_weights( origin:{:?} netuids:{:?}, weights:{:?}",
+            hotkey,
+            netuids,
+            weights
+        );
+
+        ensure!(
+            netuids.len() == weights.len() && netuids.len() == version_keys.len(),
+            Error::<T>::InputLengthsUnequal
+        );
+
+        let results: Vec<dispatch::DispatchResult> = netuids
+            .iter()
+            .zip(weights.iter())
+            .zip(version_keys.iter())
+            .map(|((&netuid, w), &version_key)| {
+                let origin_cloned = origin.clone();
+
+                if Self::get_commit_reveal_weights_enabled(netuid.into()) {
+                    return Err(Error::<T>::CommitRevealEnabled.into());
+                }
+
+                let uids = w.iter().map(|(u, _)| (*u).into()).collect::<Vec<u16>>();
+
+                let values = w.iter().map(|(_, v)| (*v).into()).collect::<Vec<u16>>();
+
+                Self::do_set_weights(
+                    origin_cloned,
+                    netuid.into(),
+                    uids,
+                    values,
+                    version_key.into(),
+                )
+            })
+            .collect();
+
+        let mut completed_with_errors: bool = false;
+        for result in results {
+            if let Some(err) = result.err() {
+                if !completed_with_errors {
+                    Self::deposit_event(Event::BatchCompletedWithErrors());
+                    completed_with_errors = true;
+                }
+                Self::deposit_event(Event::BatchWeightItemFailed(err));
+            }
+        }
+
+        // --- 19. Emit the tracking event.
+        log::debug!(
+            "BatchWeightsSet( netuids:{:?}, hotkey:{:?} )",
+            netuids,
+            hotkey
+        );
+        Self::deposit_event(Event::BatchWeightsCompleted(netuids, hotkey));
 
         // --- 20. Return ok.
         Ok(())
