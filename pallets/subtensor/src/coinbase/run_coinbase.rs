@@ -460,6 +460,8 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// Returns the self contribution of a hotkey on a subnet.
+    /// This is the portion of the hotkey's stake that is provided by itself, and not delegated to other hotkeys.
     pub fn get_self_contribution(hotkey: &T::AccountId, netuid: u16) -> u64 {
         // Get all childkeys for this hotkey.
         let childkeys = Self::get_children(hotkey, netuid);
