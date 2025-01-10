@@ -519,12 +519,27 @@ impl<T: Config> Pallet<T> {
         let childkey_take_proportion: I96F32 =
             I96F32::from_num(Self::get_childkey_take(hotkey, netuid))
                 .saturating_div(I96F32::from_num(u16::MAX));
+        log::debug!(
+            "Childkey take proportion: {:?} for hotkey {:?}",
+            childkey_take_proportion,
+            hotkey
+        );
         // NOTE: Only the validation emission should be split amongst parents.
 
         // Reserve childkey take
         let child_emission_take: I96F32 =
             childkey_take_proportion.saturating_mul(I96F32::from_num(validating_emission));
         let remaining_emission: I96F32 = validating_emission.saturating_sub(child_emission_take);
+        log::debug!(
+            "Child emission take: {:?} for hotkey {:?}",
+            child_emission_take,
+            hotkey
+        );
+        log::debug!(
+            "Remaining emission: {:?} for hotkey {:?}",
+            remaining_emission,
+            hotkey
+        );
 
         // Initialize variables to track emission distribution
         let mut to_parents: u64 = 0;
@@ -573,6 +588,12 @@ impl<T: Config> Pallet<T> {
             total_contribution = total_contribution.saturating_add(combined_contribution);
             // Store the parent's contributions for later use
             parent_contributions.push((parent.clone(), combined_contribution));
+            log::debug!(
+                "Parent contribution for hotkey {:?} from parent {:?}: {:?}",
+                hotkey,
+                parent,
+                combined_contribution
+            );
         }
 
         // Distribute emission to parents based on their contributions.
