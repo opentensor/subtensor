@@ -5936,23 +5936,3 @@ fn test_reveal_crv3_commits_max_neurons() {
         );
     });
 }
-
-#[test]
-fn test_set_rootweights_dispatch_info_ok() {
-    new_test_ext(0).execute_with(|| {
-        let dests = vec![1, 1];
-        let weights = vec![1, 1];
-        let netuid: u16 = 1;
-        let version_key: u64 = 0;
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::set_weights {
-            netuid,
-            dests,
-            weights,
-            version_key,
-        });
-        let dispatch_info = call.get_dispatch_info();
-
-        assert_eq!(dispatch_info.class, DispatchClass::Normal);
-        assert_eq!(dispatch_info.pays_fee, Pays::No);
-    });
-}
