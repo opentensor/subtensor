@@ -3414,8 +3414,9 @@ fn test_parent_child_chain_emission() {
         assert!(
             (rel_stake_inc_a - expected_a).abs() // B's take on 50% CHK
             <= stake_inc_eps,
-            "A should have ? of total stake increase {:?}",
-            expected_a
+            "A should have {:?} of total stake increase; {:?}",
+            expected_a,
+            rel_stake_inc_a
         );
         let expected_b = I96F32::from_num(2_f64 / 9_f64)
             * (I96F32::from_num(1_f64) - (I96F32::from_num(1_f64 / 2_f64) * chk_take))
@@ -3423,16 +3424,18 @@ fn test_parent_child_chain_emission() {
         assert!(
             (rel_stake_inc_b - expected_b).abs() // C's take on 50% CHK + take from A
             <= stake_inc_eps,
-            "B should have ? of total stake increase {:?}",
-            expected_b
+            "B should have {:?} of total stake increase; {:?}",
+            expected_b,
+            rel_stake_inc_b
         );
         let expected_c = I96F32::from_num(1_f64 / 9_f64)
             + (I96F32::from_num(2_f64 / 9_f64) * I96F32::from_num(1_f64 / 2_f64) * chk_take);
         assert!(
             (rel_stake_inc_c - expected_c).abs() // B's take on 50% CHK
             <= stake_inc_eps,
-            "C should have ? of total stake increase {:?}",
-            expected_c
+            "C should have {:?} of total stake increase; {:?}",
+            expected_c,
+            rel_stake_inc_c
         );
 
         let eps: I96F32 = I96F32::from_num(10_000);
