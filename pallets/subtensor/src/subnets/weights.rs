@@ -728,6 +728,7 @@ impl<T: Config> Pallet<T> {
         // --- 7. Ensure the uid is not setting weights faster than the weights_set_rate_limit.
         let neuron_uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey)?;
         let current_block: u64 = Self::get_current_block_as_u64();
+
         ensure!(
             Self::check_rate_limit(netuid, neuron_uid, current_block),
             Error::<T>::SettingWeightsTooFast
