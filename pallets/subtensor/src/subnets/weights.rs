@@ -729,14 +729,16 @@ impl<T: Config> Pallet<T> {
         let neuron_uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey)?;
         let current_block: u64 = Self::get_current_block_as_u64();
 
-        ensure!(
-            Self::check_rate_limit(netuid, neuron_uid, current_block),
-            Error::<T>::SettingWeightsTooFast
-        );
+        if !Self::get_commit_reveal_weights_enabled(netuid) {
+            ensure!(
+                Self::check_rate_limit(netuid, neuron_uid, current_block),
+                Error::<T>::SettingWeightsTooFast
+            );
+        }
 
         // --- 8. Check that the neuron uid is an allowed validator permitted to set non-self weights.
         ensure!(
-            !Self::get_commit_reveal_weights_enabled(netuid),
+            Self::check_validator_permit(netuid, neuron_uid, &uids, &values),
             Error::<T>::NeuronNoValidatorPermit
         );
 
