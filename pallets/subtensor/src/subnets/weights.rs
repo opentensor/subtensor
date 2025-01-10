@@ -262,7 +262,11 @@ impl<T: Config> Pallet<T> {
 
         // 5. Retrieve or initialize the VecDeque of commits for the hotkey.
         let cur_block = Self::get_current_block_as_u64();
-        let cur_epoch = Self::get_epoch_index(netuid, cur_block);
+        let cur_epoch = match Self::should_run_epoch(netuid, commit_block) {
+            true => Self::get_epoch_index(netuid, cur_block).saturating_add(1),
+            false => Self::get_epoch_index(netuid, cur_block),
+        };
+
         CRV3WeightCommits::<T>::try_mutate(netuid, cur_epoch, |commits| -> DispatchResult {
             // 6. Verify that the number of unrevealed commits is within the allowed limit.
 
@@ -736,7 +740,6 @@ impl<T: Config> Pallet<T> {
                 Error::<T>::SettingWeightsTooFast
             );
         }
-
         // --- 10. Check that the neuron uid is an allowed validator permitted to set non-self weights.
         ensure!(
             Self::check_validator_permit(netuid, neuron_uid, &uids, &values),
