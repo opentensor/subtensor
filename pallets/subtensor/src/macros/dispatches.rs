@@ -1,3 +1,5 @@
+#![allow(clippy::crate_in_macro_def)]
+
 use frame_support::pallet_macros::pallet_section;
 
 /// A [`pallet_section`] that defines the errors for a pallet.
@@ -8,6 +10,8 @@ mod dispatches {
     use frame_support::traits::schedule::DispatchTime;
     use frame_system::pallet_prelude::BlockNumberFor;
     use sp_runtime::traits::Saturating;
+
+    use crate::MAX_CRV3_COMMIT_SIZE_BYTES;
     /// Dispatchable functions allow users to interact with the pallet and invoke state changes.
     /// These functions materialize as "extrinsics", which are often compared to transactions.
     /// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
@@ -82,11 +86,49 @@ mod dispatches {
             weights: Vec<u16>,
             version_key: u64,
         ) -> DispatchResult {
-            if !Self::get_commit_reveal_weights_enabled(netuid) {
-                return Self::do_set_weights(origin, netuid, dests, weights, version_key);
+            if Self::get_commit_reveal_weights_enabled(netuid) {
+                Err(Error::<T>::CommitRevealEnabled.into())
+            } else {
+                Self::do_set_weights(origin, netuid, dests, weights, version_key)
             }
+        }
 
-            Err(Error::<T>::CommitRevealEnabled.into())
+        /// --- Allows a hotkey to set weights for multiple netuids as a batch.
+        ///
+        /// # Args:
+        /// * `origin`: (<T as frame_system::Config>Origin):
+        ///     - The caller, a hotkey who wishes to set their weights.
+        ///
+        /// * `netuids` (Vec<Compact<u16>>):
+        /// 	- The network uids we are setting these weights on.
+        ///
+        /// * `weights` (Vec<Vec<(Compact<u16>, Compact<u16>)>):
+        /// 	- The weights to set for each network. [(uid, weight), ...]
+        ///
+        /// * `version_keys` (Vec<Compact<u64>>):
+        /// 	- The network version keys to check if the validator is up to date.
+        ///
+        /// # Event:
+        /// * WeightsSet;
+        /// 	- On successfully setting the weights on chain.
+        /// * BatchWeightsCompleted;
+        /// 	- On success of the batch.
+        /// * BatchCompletedWithErrors;
+        /// 	- On failure of any of the weights in the batch.
+        /// * BatchWeightItemFailed;
+        /// 	- On failure for each failed item in the batch.
+        ///
+        #[pallet::call_index(80)]
+        #[pallet::weight((Weight::from_parts(22_060_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(4106))
+        .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        pub fn batch_set_weights(
+            origin: OriginFor<T>,
+            netuids: Vec<Compact<u16>>,
+            weights: Vec<Vec<(Compact<u16>, Compact<u16>)>>,
+            version_keys: Vec<Compact<u64>>,
+        ) -> DispatchResult {
+            Self::do_batch_set_weights(origin, netuids, weights, version_keys)
         }
 
         /// ---- Used to commit a hash of your weight values to later be revealed.
@@ -102,8 +144,11 @@ mod dispatches {
         ///   - The hash representing the committed weights.
         ///
         /// # Raises:
-        /// * `WeightsCommitNotAllowed`:
-        ///   - Attempting to commit when it is not allowed.
+        /// * `CommitRevealDisabled`:
+        ///   - Attempting to commit when the commit-reveal mechanism is disabled.
+        ///
+        /// * `TooManyUnrevealedCommits`:
+        ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
         ///
         #[pallet::call_index(96)]
         #[pallet::weight((Weight::from_parts(46_000_000, 0)
@@ -115,6 +160,40 @@ mod dispatches {
             commit_hash: H256,
         ) -> DispatchResult {
             Self::do_commit_weights(origin, netuid, commit_hash)
+        }
+
+        /// --- Allows a hotkey to commit weight hashes for multiple netuids as a batch.
+        ///
+        /// # Args:
+        /// * `origin`: (<T as frame_system::Config>Origin):
+        ///     - The caller, a hotkey who wishes to set their weights.
+        ///
+        /// * `netuids` (Vec<Compact<u16>>):
+        /// 	- The network uids we are setting these weights on.
+        ///
+        /// * `commit_hashes` (Vec<H256>):
+        /// 	- The commit hashes to commit.
+        ///
+        /// # Event:
+        /// * WeightsSet;
+        /// 	- On successfully setting the weights on chain.
+        /// * BatchWeightsCompleted;
+        /// 	- On success of the batch.
+        /// * BatchCompletedWithErrors;
+        /// 	- On failure of any of the weights in the batch.
+        /// * BatchWeightItemFailed;
+        /// 	- On failure for each failed item in the batch.
+        ///
+        #[pallet::call_index(100)]
+        #[pallet::weight((Weight::from_parts(46_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(1))
+        .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        pub fn batch_commit_weights(
+            origin: OriginFor<T>,
+            netuids: Vec<Compact<u16>>,
+            commit_hashes: Vec<H256>,
+        ) -> DispatchResult {
+            Self::do_batch_commit_weights(origin, netuids, commit_hashes)
         }
 
         /// ---- Used to reveal the weights for a previously committed hash.
@@ -132,21 +211,27 @@ mod dispatches {
         /// * `values` (`Vec<u16>`):
         ///   - The values of the weights being revealed.
         ///
-        /// * `salt` (`Vec<u8>`):
-        ///   - The random salt to protect from brute-force guessing attack in case of small weight changes bit-wise.
+        /// * `salt` (`Vec<u16>`):
+        ///   - The salt used to generate the commit hash.
         ///
         /// * `version_key` (`u64`):
         ///   - The network version key.
         ///
         /// # Raises:
+        /// * `CommitRevealDisabled`:
+        ///   - Attempting to reveal weights when the commit-reveal mechanism is disabled.
+        ///
         /// * `NoWeightsCommitFound`:
         ///   - Attempting to reveal weights without an existing commit.
         ///
-        /// * `InvalidRevealCommitHashNotMatchTempo`:
-        ///   - Attempting to reveal weights outside the valid tempo.
+        /// * `ExpiredWeightCommit`:
+        ///   - Attempting to reveal a weight commit that has expired.
+        ///
+        /// * `RevealTooEarly`:
+        ///   - Attempting to reveal weights outside the valid reveal period.
         ///
         /// * `InvalidRevealCommitHashNotMatch`:
-        ///   - The revealed hash does not match the committed hash.
+        ///   - The revealed hash does not match any committed hash.
         ///
         #[pallet::call_index(97)]
         #[pallet::weight((Weight::from_parts(103_000_000, 0)
@@ -161,6 +246,109 @@ mod dispatches {
             version_key: u64,
         ) -> DispatchResult {
             Self::do_reveal_weights(origin, netuid, uids, values, salt, version_key)
+        }
+
+        /// ---- Used to commit encrypted commit-reveal v3 weight values to later be revealed.
+        ///
+        /// # Args:
+        /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
+        ///   - The committing hotkey.
+        ///
+        /// * `netuid` (`u16`):
+        ///   - The u16 network identifier.
+        ///
+        /// * `commit` (`Vec<u8>`):
+        ///   - The encrypted compressed commit.
+        ///     The steps for this are:
+        ///     1. Instantiate [`WeightsTlockPayload`]
+        ///     2. Serialize it using the `parity_scale_codec::Encode` trait
+        ///     3. Encrypt it following the steps (here)[https://github.com/ideal-lab5/tle/blob/f8e6019f0fb02c380ebfa6b30efb61786dede07b/timelock/src/tlock.rs#L283-L336]
+        ///        to produce a [`TLECiphertext<TinyBLS381>`] type.
+        ///     4. Serialize and compress using the `ark-serialize` `CanonicalSerialize` trait.
+        ///
+        /// * reveal_round (`u64`):
+        ///    - The drand reveal round which will be avaliable during epoch `n+1` from the current
+        ///      epoch.
+        ///
+        /// # Raises:
+        /// * `CommitRevealV3Disabled`:
+        ///   - Attempting to commit when the commit-reveal mechanism is disabled.
+        ///
+        /// * `TooManyUnrevealedCommits`:
+        ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
+        ///
+        #[pallet::call_index(99)]
+        #[pallet::weight((Weight::from_parts(46_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
+        pub fn commit_crv3_weights(
+            origin: T::RuntimeOrigin,
+            netuid: u16,
+            commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
+            reveal_round: u64,
+        ) -> DispatchResult {
+            Self::do_commit_crv3_weights(origin, netuid, commit, reveal_round)
+        }
+
+        /// ---- The implementation for batch revealing committed weights.
+        ///
+        /// # Args:
+        /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
+        ///   - The signature of the revealing hotkey.
+        ///
+        /// * `netuid` (`u16`):
+        ///   - The u16 network identifier.
+        ///
+        /// * `uids_list` (`Vec<Vec<u16>>`):
+        ///   - A list of uids for each set of weights being revealed.
+        ///
+        /// * `values_list` (`Vec<Vec<u16>>`):
+        ///   - A list of values for each set of weights being revealed.
+        ///
+        /// * `salts_list` (`Vec<Vec<u16>>`):
+        ///   - A list of salts used to generate the commit hashes.
+        ///
+        /// * `version_keys` (`Vec<u64>`):
+        ///   - A list of network version keys.
+        ///
+        /// # Raises:
+        /// * `CommitRevealDisabled`:
+        ///   - Attempting to reveal weights when the commit-reveal mechanism is disabled.
+        ///
+        /// * `NoWeightsCommitFound`:
+        ///   - Attempting to reveal weights without an existing commit.
+        ///
+        /// * `ExpiredWeightCommit`:
+        ///   - Attempting to reveal a weight commit that has expired.
+        ///
+        /// * `RevealTooEarly`:
+        ///   - Attempting to reveal weights outside the valid reveal period.
+        ///
+        /// * `InvalidRevealCommitHashNotMatch`:
+        ///   - The revealed hash does not match any committed hash.
+        ///
+        /// * `InvalidInputLengths`:
+        ///   - The input vectors are of mismatched lengths.
+        #[pallet::call_index(98)]
+        #[pallet::weight((Weight::from_parts(367_612_000, 0)
+		.saturating_add(T::DbWeight::get().reads(14))
+		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
+        pub fn batch_reveal_weights(
+            origin: T::RuntimeOrigin,
+            netuid: u16,
+            uids_list: Vec<Vec<u16>>,
+            values_list: Vec<Vec<u16>>,
+            salts_list: Vec<Vec<u16>>,
+            version_keys: Vec<u64>,
+        ) -> DispatchResult {
+            Self::do_batch_reveal_weights(
+                origin,
+                netuid,
+                uids_list,
+                values_list,
+                salts_list,
+                version_keys,
+            )
         }
 
         /// # Args:
@@ -227,15 +415,18 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(10_151_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4104))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
-        pub fn set_root_weights(
-            origin: OriginFor<T>,
-            netuid: u16,
-            hotkey: T::AccountId,
-            dests: Vec<u16>,
-            weights: Vec<u16>,
-            version_key: u64,
+        pub fn set_tao_weights(
+            _origin: OriginFor<T>,
+            _netuid: u16,
+            _hotkey: T::AccountId,
+            _dests: Vec<u16>,
+            _weights: Vec<u16>,
+            _version_key: u64,
         ) -> DispatchResult {
-            Self::do_set_root_weights(origin, netuid, hotkey, dests, weights, version_key)
+            // DEPRECATED
+            // Self::do_set_root_weights(origin, netuid, hotkey, dests, weights, version_key)
+            // Self::do_set_tao_weights(origin, netuid, hotkey, dests, weights, version_key)
+            Ok(())
         }
 
         /// --- Sets the key as a delegate.
@@ -265,8 +456,11 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(79_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
-        pub fn become_delegate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-            Self::do_become_delegate(origin, hotkey, Self::get_default_delegate_take())
+        pub fn become_delegate(_origin: OriginFor<T>, _hotkey: T::AccountId) -> DispatchResult {
+            // DEPRECATED
+            // Self::do_become_delegate(origin, hotkey, Self::get_default_delegate_take())
+
+            Ok(())
         }
 
         /// --- Allows delegates to decrease its take value.
@@ -389,9 +583,10 @@ mod dispatches {
         pub fn add_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
+            netuid: u16,
             amount_staked: u64,
         ) -> DispatchResult {
-            Self::do_add_stake(origin, hotkey, amount_staked)
+            Self::do_add_stake(origin, hotkey, netuid, amount_staked)
         }
 
         /// Remove stake from the staking account. The call must be made
@@ -430,12 +625,13 @@ mod dispatches {
         pub fn remove_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
+            netuid: u16,
             amount_unstaked: u64,
         ) -> DispatchResult {
-            Self::do_remove_stake(origin, hotkey, amount_unstaked)
+            Self::do_remove_stake(origin, hotkey, netuid, amount_unstaked)
         }
 
-        /// Serves or updates axon /promethteus information for the neuron associated with the caller. If the caller is
+        /// Serves or updates axon /prometheus information for the neuron associated with the caller. If the caller is
         /// already registered the metadata is updated. If the caller is not registered this call throws NotRegistered.
         ///
         /// # Args:
@@ -511,6 +707,92 @@ mod dispatches {
                 protocol,
                 placeholder1,
                 placeholder2,
+                None,
+            )
+        }
+
+        /// Same as `serve_axon` but takes a certificate as an extra optional argument.
+        /// Serves or updates axon /prometheus information for the neuron associated with the caller. If the caller is
+        /// already registered the metadata is updated. If the caller is not registered this call throws NotRegistered.
+        ///
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the caller.
+        ///
+        /// * 'netuid' (u16):
+        /// 	- The u16 network identifier.
+        ///
+        /// * 'version' (u64):
+        /// 	- The bittensor version identifier.
+        ///
+        /// * 'ip' (u64):
+        /// 	- The endpoint ip information as a u128 encoded integer.
+        ///
+        /// * 'port' (u16):
+        /// 	- The endpoint port information as a u16 encoded integer.
+        ///
+        /// * 'ip_type' (u8):
+        /// 	- The endpoint ip version as a u8, 4 or 6.
+        ///
+        /// * 'protocol' (u8):
+        /// 	- UDP:1 or TCP:0
+        ///
+        /// * 'placeholder1' (u8):
+        /// 	- Placeholder for further extra params.
+        ///
+        /// * 'placeholder2' (u8):
+        /// 	- Placeholder for further extra params.
+        ///
+        /// * 'certificate' (Vec<u8>):
+        ///     - TLS certificate for inter neuron communitation.
+        ///
+        /// # Event:
+        /// * AxonServed;
+        /// 	- On successfully serving the axon info.
+        ///
+        /// # Raises:
+        /// * 'SubNetworkDoesNotExist':
+        /// 	- Attempting to set weights on a non-existent network.
+        ///
+        /// * 'NotRegistered':
+        /// 	- Attempting to set weights from a non registered account.
+        ///
+        /// * 'InvalidIpType':
+        /// 	- The ip type is not 4 or 6.
+        ///
+        /// * 'InvalidIpAddress':
+        /// 	- The numerically encoded ip address does not resolve to a proper ip.
+        ///
+        /// * 'ServingRateLimitExceeded':
+        /// 	- Attempting to set prometheus information withing the rate limit min.
+        ///
+        #[pallet::call_index(40)]
+        #[pallet::weight((Weight::from_parts(46_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(4))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
+        pub fn serve_axon_tls(
+            origin: OriginFor<T>,
+            netuid: u16,
+            version: u32,
+            ip: u128,
+            port: u16,
+            ip_type: u8,
+            protocol: u8,
+            placeholder1: u8,
+            placeholder2: u8,
+            certificate: Vec<u8>,
+        ) -> DispatchResult {
+            Self::do_serve_axon(
+                origin,
+                netuid,
+                version,
+                ip,
+                port,
+                ip_type,
+                protocol,
+                placeholder1,
+                placeholder2,
+                Some(certificate),
             )
         }
 
@@ -901,8 +1183,8 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(157_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))
 		.saturating_add(T::DbWeight::get().writes(30)), DispatchClass::Operational, Pays::No))]
-        pub fn register_network(origin: OriginFor<T>) -> DispatchResult {
-            Self::user_add_network(origin, None)
+        pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+            Self::do_register_network(origin, &hotkey, 1, None)
         }
 
         /// Facility extrinsic for user to get taken from faucet
@@ -995,7 +1277,7 @@ mod dispatches {
             netuid: u16,
             children: Vec<(u64, T::AccountId)>,
         ) -> DispatchResultWithPostInfo {
-            Self::do_set_children(origin, hotkey, netuid, children)?;
+            Self::do_schedule_children(origin, hotkey, netuid, children)?;
             Ok(().into())
         }
 
@@ -1206,9 +1488,72 @@ mod dispatches {
                 .saturating_add(T::DbWeight::get().writes(30)), DispatchClass::Operational, Pays::No))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
+            hotkey: T::AccountId,
             identity: Option<SubnetIdentityOf>,
         ) -> DispatchResult {
-            Self::user_add_network(origin, identity)
+            Self::do_register_network(origin, &hotkey, 1, identity)
+        }
+
+        /// ---- The implementation for the extrinsic unstake_all: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
+        ///
+        /// # Args:
+        /// * `origin` - (<T as frame_system::Config>::Origin):
+        ///     - The signature of the caller's coldkey.
+        ///
+        /// * `hotkey` (T::AccountId):
+        ///     - The associated hotkey account.
+        ///
+        /// # Event:
+        /// * StakeRemoved;
+        ///     - On the successfully removing stake from the hotkey account.
+        ///
+        /// # Raises:
+        /// * `NotRegistered`:
+        ///     - Thrown if the account we are attempting to unstake from is non existent.
+        ///
+        /// * `NonAssociatedColdKey`:
+        ///     - Thrown if the coldkey does not own the hotkey we are unstaking from.
+        ///
+        /// * `NotEnoughStakeToWithdraw`:
+        ///     - Thrown if there is not enough stake on the hotkey to withdraw this amount.
+        ///
+        /// * `TxRateLimitExceeded`:
+        ///     - Thrown if key has hit transaction rate limit
+        #[pallet::call_index(83)]
+        #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn unstake_all(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+            Self::do_unstake_all(origin, hotkey)
+        }
+
+        /// ---- The implementation for the extrinsic unstake_all: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
+        ///
+        /// # Args:
+        /// * `origin` - (<T as frame_system::Config>::Origin):
+        ///     - The signature of the caller's coldkey.
+        ///
+        /// * `hotkey` (T::AccountId):
+        ///     - The associated hotkey account.
+        ///
+        /// # Event:
+        /// * StakeRemoved;
+        ///     - On the successfully removing stake from the hotkey account.
+        ///
+        /// # Raises:
+        /// * `NotRegistered`:
+        ///     - Thrown if the account we are attempting to unstake from is non existent.
+        ///
+        /// * `NonAssociatedColdKey`:
+        ///     - Thrown if the coldkey does not own the hotkey we are unstaking from.
+        ///
+        /// * `NotEnoughStakeToWithdraw`:
+        ///     - Thrown if there is not enough stake on the hotkey to withdraw this amount.
+        ///
+        /// * `TxRateLimitExceeded`:
+        ///     - Thrown if key has hit transaction rate limit
+        #[pallet::call_index(84)]
+        #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn unstake_all_alpha(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+            Self::do_unstake_all_alpha(origin, hotkey)
         }
     }
 }

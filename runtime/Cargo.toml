@@ -20,6 +20,7 @@ name = "spec_version"
 path = "src/spec_version.rs"
 
 [dependencies]
+ed25519-dalek = { workspace = true, default-features = false, features = ["alloc"] }
 subtensor-macros.workspace = true
 subtensor-custom-rpc-runtime-api = { path = "../pallets/subtensor/runtime-api", default-features = false }
 smallvec = { workspace = true }
@@ -93,6 +94,33 @@ pallet-registry = { default-features = false, path = "../pallets/registry" }
 # Metadata commitment pallet
 pallet-commitments = { default-features = false, path = "../pallets/commitments" }
 
+# Frontier
+fp-evm = { workspace = true }
+fp-rpc = { workspace = true }
+fp-self-contained = { workspace = true }
+
+# Frontier FRAME
+pallet-base-fee = { workspace = true }
+pallet-dynamic-fee = { workspace = true }
+pallet-ethereum = { workspace = true }
+pallet-evm = { workspace = true }
+pallet-evm-chain-id = { workspace = true }
+pallet-evm-precompile-modexp = { workspace = true }
+pallet-evm-precompile-sha3fips = { workspace = true }
+pallet-evm-precompile-simple = { workspace = true }
+pallet-hotfix-sufficients = { workspace = true }
+fp-account = { workspace = true }
+
+#drand
+pallet-drand = { workspace = true, default-features = false }
+getrandom = { workspace = true, default-features = false }
+tle = { workspace = true }
+hex = { workspace = true }
+rand_chacha = { workspace = true }
+w3f-bls = { workspace = true }
+sha2 = { workspace = true }
+ark-serialize = { workspace = true }
+
 [dev-dependencies]
 frame-metadata = { workspace = true }
 sp-io = { workspace = true }
@@ -104,12 +132,15 @@ substrate-wasm-builder = { workspace = true, optional = true }
 [features]
 default = ["std"]
 pow-faucet = ["pallet-subtensor/pow-faucet"]
-fast-blocks = []
+fast-blocks = [
+	"pallet-subtensor/fast-blocks"
+]
 std = [
 	"frame-try-runtime?/std",
 	"frame-system-benchmarking?/std",
 	"frame-benchmarking/std",
 	"codec/std",
+	"ed25519-dalek/std",
 	"scale-info/std",
 	"frame-executive/std",
 	"frame-metadata-hash-extension/std",
@@ -156,6 +187,29 @@ std = [
 	"log/std",
 	"sp-storage/std",
 	"sp-genesis-builder/std",
+	# Frontier
+	"fp-evm/std",
+	"fp-rpc/std",
+	"fp-self-contained/std",
+	# Frontier FRAME
+	"pallet-base-fee/std",
+	"pallet-dynamic-fee/std",
+	"pallet-ethereum/std",
+	"pallet-evm/std",
+	"pallet-evm-chain-id/std",
+	"pallet-evm-precompile-modexp/std",
+	"pallet-evm-precompile-sha3fips/std",
+	"pallet-evm-precompile-simple/std",
+	"pallet-hotfix-sufficients/std",
+	"fp-account/std",
+	"pallet-drand/std",
+	"getrandom/std",
+	"tle/std",
+	"ark-serialize/std",
+	"hex/std",
+	"rand_chacha/std",
+	"sha2/std",
+	"w3f-bls/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -179,6 +233,12 @@ runtime-benchmarks = [
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
+
+	# EVM + Frontier
+	"pallet-ethereum/runtime-benchmarks",
+	"pallet-evm/runtime-benchmarks",
+	"pallet-hotfix-sufficients/runtime-benchmarks",
+	"pallet-drand/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
@@ -189,6 +249,7 @@ try-runtime = [
 	"pallet-sudo/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-grandpa/try-runtime",
+	"pallet-hotfix-sufficients/try-runtime",
 	"pallet-insecure-randomness-collective-flip/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
@@ -205,5 +266,14 @@ try-runtime = [
 	"pallet-admin-utils/try-runtime",
 	"pallet-commitments/try-runtime",
 	"pallet-registry/try-runtime",
+
+	# EVM + Frontier
+	"fp-self-contained/try-runtime",
+	"pallet-base-fee/try-runtime",
+	"pallet-dynamic-fee/try-runtime",
+	"pallet-ethereum/try-runtime",
+	"pallet-evm/try-runtime",
+	"pallet-evm-chain-id/try-runtime",
+	"pallet-drand/try-runtime"
 ]
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]

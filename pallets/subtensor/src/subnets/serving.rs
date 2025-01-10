@@ -31,6 +31,9 @@ impl<T: Config> Pallet<T> {
     /// * 'placeholder2' (u8):
     ///     - Placeholder for further extra params.
     ///
+    /// * 'certificate' (Option<Vec<u8>>):
+    ///     - Certificate for mutual Tls connection between neurons
+    ///
     /// # Event:
     /// * AxonServed;
     ///     - On successfully serving the axon info.
@@ -61,6 +64,7 @@ impl<T: Config> Pallet<T> {
         protocol: u8,
         placeholder1: u8,
         placeholder2: u8,
+        certificate: Option<Vec<u8>>,
     ) -> dispatch::DispatchResult {
         // We check the callers (hotkey) signature.
         let hotkey_id = ensure_signed(origin)?;
@@ -85,6 +89,13 @@ impl<T: Config> Pallet<T> {
             Self::axon_passes_rate_limit(netuid, &prev_axon, current_block),
             Error::<T>::ServingRateLimitExceeded
         );
+
+        // Check certificate
+        if let Some(certificate) = certificate {
+            if let Ok(certificate) = NeuronCertificateOf::try_from(certificate) {
+                NeuronCertificates::<T>::insert(netuid, hotkey_id.clone(), certificate)
+            }
+        }
 
         // We insert the axon meta.
         prev_axon.block = Self::get_current_block_as_u64();
@@ -233,14 +244,6 @@ impl<T: Config> Pallet<T> {
         let rate_limit: u64 = Self::get_serving_rate_limit(netuid);
         let last_serve = prev_prometheus_info.block;
         rate_limit == 0 || last_serve == 0 || current_block.saturating_sub(last_serve) >= rate_limit
-    }
-
-    pub fn has_axon_info(netuid: u16, hotkey: &T::AccountId) -> bool {
-        Axons::<T>::contains_key(netuid, hotkey)
-    }
-
-    pub fn has_prometheus_info(netuid: u16, hotkey: &T::AccountId) -> bool {
-        Prometheus::<T>::contains_key(netuid, hotkey)
     }
 
     pub fn get_axon_info(netuid: u16, hotkey: &T::AccountId) -> AxonInfoOf {

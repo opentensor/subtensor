@@ -111,8 +111,6 @@ benchmarks! {
     let modality: u16 = 0;
     let seed : u32 = 1;
 
-    Subtensor::<T>::set_target_stakes_per_interval(100);
-
     Subtensor::<T>::init_new_network(netuid, tempo);
 
     Subtensor::<T>::set_burn(netuid, 1);
@@ -129,7 +127,7 @@ benchmarks! {
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
 
     assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
-  }: add_stake(RawOrigin::Signed( coldkey.clone() ), hotkey, amount)
+  }: add_stake(RawOrigin::Signed( coldkey.clone() ), hotkey, netuid, amount)
 
   benchmark_remove_stake{
     let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
@@ -139,8 +137,6 @@ benchmarks! {
     let tempo: u16 = 1;
     let modality: u16 = 0;
     let seed : u32 = 1;
-
-    Subtensor::<T>::set_target_stakes_per_interval(100);
 
     // Set our total stake to 1000 TAO
     Subtensor::<T>::increase_total_stake(1_000_000_000_000);
@@ -159,16 +155,15 @@ benchmarks! {
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), wallet_bal);
 
     assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
-    assert_ok!(Subtensor::<T>::do_become_delegate(RawOrigin::Signed(coldkey.clone()).into(), hotkey.clone(), Subtensor::<T>::get_default_delegate_take()));
 
       // Stake 10% of our current total staked TAO
       let u64_staked_amt = 100_000_000_000;
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), u64_staked_amt);
 
-    assert_ok!( Subtensor::<T>::add_stake(RawOrigin::Signed( coldkey.clone() ).into() , hotkey.clone(), u64_staked_amt));
+    assert_ok!( Subtensor::<T>::add_stake(RawOrigin::Signed( coldkey.clone() ).into() , hotkey.clone(), netuid, u64_staked_amt));
 
     let amount_unstaked: u64 = u64_staked_amt - 1;
-  }: remove_stake(RawOrigin::Signed( coldkey.clone() ), hotkey.clone(), amount_unstaked)
+  }: remove_stake(RawOrigin::Signed( coldkey.clone() ), hotkey.clone(), netuid, amount_unstaked)
 
   benchmark_serve_axon{
     let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
@@ -293,25 +288,27 @@ benchmarks! {
     let seed : u32 = 1;
 
     let coldkey: T::AccountId = account("Test", 0, seed);
+    let hotkey: T::AccountId = account("TestHotkey", 0, seed);
 
     Subtensor::<T>::set_network_rate_limit(1);
 
     let amount: u64 = 1;
     let amount_to_be_staked = 100_000_000_000_000u64;
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
-  }: register_network(RawOrigin::Signed(coldkey))
+  }: register_network(RawOrigin::Signed(coldkey), hotkey.clone())
 
   benchmark_dissolve_network {
     let seed : u32 = 1;
 
     let coldkey: T::AccountId = account("Test", 0, seed);
+    let hotkey: T::AccountId = account("TestHotkey", 0, seed);
 
     Subtensor::<T>::set_network_rate_limit(0);
 
     let amount: u64 = 1;
     let amount_to_be_staked = 100_000_000_000_000u64;
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
-    assert_ok!(Subtensor::<T>::register_network(RawOrigin::Signed(coldkey.clone()).into()));
+    assert_ok!(Subtensor::<T>::register_network(RawOrigin::Signed(coldkey.clone()).into(), hotkey.clone()));
   }: dissolve_network(RawOrigin::Root, coldkey.clone(), 1)
 
 
@@ -416,7 +413,6 @@ reveal_weights {
     );
 
     Subtensor::<T>::set_validator_permit_for_uid(netuid, 0, true);
-    Subtensor::<T>::set_commit_reveal_weights_interval(netuid, 0);
 
     let commit_hash: H256 = BlakeTwo256::hash_of(&(
       hotkey.clone(),
@@ -520,5 +516,83 @@ reveal_weights {
 
     // Benchmark setup complete, now execute the extrinsic
 }: swap_coldkey(RawOrigin::Root, old_coldkey.clone(), new_coldkey.clone())
+
+batch_reveal_weights {
+  let tempo: u16 = 0;
+  let netuid: u16 = 1;
+  let num_commits: usize = 10;
+
+  let hotkey: T::AccountId = account("hot", 0, 1);
+  let coldkey: T::AccountId = account("cold", 0, 2);
+
+  Subtensor::<T>::init_new_network(netuid, tempo);
+  Subtensor::<T>::set_network_registration_allowed(netuid, true);
+  Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
+  Subtensor::<T>::set_commit_reveal_weights_enabled(netuid, true);
+  Subtensor::<T>::set_weights_set_rate_limit(netuid, 0); // Disable rate limiting for benchmarking
+
+  let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
+  let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number(
+      netuid,
+      block_number,
+      3,
+      &hotkey,
+  );
+
+  let origin = T::RuntimeOrigin::from(RawOrigin::Signed(hotkey.clone()));
+  assert_ok!(Subtensor::<T>::register(
+      origin.clone(),
+      netuid,
+      block_number,
+      nonce,
+      work.clone(),
+      hotkey.clone(),
+      coldkey.clone(),
+  ));
+
+  let uid: u16 = 0;
+
+  Subtensor::<T>::set_validator_permit_for_uid(netuid, uid, true);
+
+  let mut uids_list = Vec::new();
+  let mut values_list = Vec::new();
+  let mut salts_list = Vec::new();
+  let mut version_keys = Vec::new();
+
+  for i in 0..num_commits {
+      let uids: Vec<u16> = vec![uid];
+      let values: Vec<u16> = vec![i as u16];
+      let salt: Vec<u16> = vec![i as u16];
+      let version_key_i: u64 = i as u64;
+
+      let commit_hash: H256 = BlakeTwo256::hash_of(&(
+          hotkey.clone(),
+          netuid,
+          uids.clone(),
+          values.clone(),
+          salt.clone(),
+          version_key_i,
+      ));
+
+      assert_ok!(Subtensor::<T>::commit_weights(
+          T::RuntimeOrigin::from(RawOrigin::Signed(hotkey.clone())),
+          netuid,
+          commit_hash,
+      ));
+
+      uids_list.push(uids);
+      values_list.push(values);
+      salts_list.push(salt);
+      version_keys.push(version_key_i);
+  }
+}: batch_reveal_weights(
+  RawOrigin::Signed(hotkey.clone()),
+  netuid,
+  uids_list,
+  values_list,
+  salts_list,
+  version_keys
+)
+
 
 }
