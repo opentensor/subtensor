@@ -35,7 +35,7 @@ impl<T: Config> Pallet<T> {
                     let alpha: u64 = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
                         hotkey_i, coldkey_i, *netuid_i,
                     );
-                    let emission: u64 = HotkeyDividendsPerSubnet::<T>::get(*netuid_i, &hotkey_i);
+                    let emission: u64 = AlphaDividendsPerSubnet::<T>::get(*netuid_i, &hotkey_i);
                     let is_registered: bool =
                         Self::is_hotkey_registered_on_network(*netuid_i, hotkey_i);
                     stake_info_for_coldkey.push(StakeInfo {

@@ -106,11 +106,11 @@ impl<T: Config> Pallet<T> {
 
         // Step 1: Get stake of hotkey (neuron)
         let alpha_stake =
-            I64F64::from_num(Self::get_inherited_for_hotkey_on_subnet(&hotkey, netuid));
+            I64F64::from_num(Self::get_inherited_for_hotkey_on_subnet(hotkey, netuid));
         log::trace!("alpha_stake: {:?}", alpha_stake);
 
         // Step 2: Get the global tao stake for the hotkey
-        let tao_stake = I64F64::from_num(Self::get_inherited_for_hotkey_on_subnet(&hotkey, 0));
+        let tao_stake = I64F64::from_num(Self::get_inherited_for_hotkey_on_subnet(hotkey, 0));
         log::trace!("tao_stake: {:?}", tao_stake);
 
         // Step 3: Combine alpha and tao stakes
@@ -543,7 +543,11 @@ impl<T: Config> Pallet<T> {
         TotalStake::<T>::mutate(|total| {
             *total = total.saturating_add(tao);
         });
-        // Step 8. Return the alpha received.
+        // Step 8. Decrease Alpha reserves.
+        SubnetVolume::<T>::mutate(netuid, |total| {
+            *total = total.saturating_sub(tao);
+        });
+        // Step 9. Return the alpha received.
         alpha.to_num::<u64>()
     }
 
@@ -586,7 +590,11 @@ impl<T: Config> Pallet<T> {
         TotalStake::<T>::mutate(|total| {
             *total = total.saturating_sub(tao.to_num::<u64>());
         });
-        // Step 8. Return the tao received.
+        // Step 8. Decrease Alpha reserves.
+        SubnetVolume::<T>::mutate(netuid, |total| {
+            *total = total.saturating_sub(tao.to_num::<u64>());
+        });
+        // Step 9. Return the tao received.
         tao.to_num::<u64>()
     }
 

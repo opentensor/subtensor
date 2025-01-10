@@ -30,6 +30,9 @@ pub fn migrate_rao<T: Config>() -> Weight {
         .collect();
     weight = weight.saturating_add(T::DbWeight::get().reads_writes(netuids.len() as u64, 0));
 
+    // Set the Dynamic block.
+    DynamicBlock::<T>::set(Pallet::<T>::get_current_block_as_u64());
+
     // Migrate all TAO to root.
     Stake::<T>::iter().for_each(|(hotkey, coldkey, stake)| {
         // Increase SubnetTAO on root.
@@ -57,7 +60,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
 
     // Convert subnets and give them lock.
     // Set global weight to 18% from the start
-    TaoWeight::<T>::set(320_413_933_267_719_290);
+    TaoWeight::<T>::set(332_041_393_326_771_929);
     for netuid in netuids.iter().clone() {
         if *netuid == 0 {
             // Give root a single RAO in pool to avoid any catestrophic division by zero.
@@ -78,6 +81,8 @@ pub fn migrate_rao<T: Config>() -> Weight {
         Tempo::<T>::insert(netuid, DefaultTempo::<T>::get());
         // Set the token symbol for this subnet using Self instead of Pallet::<T>
         TokenSymbol::<T>::insert(netuid, Pallet::<T>::get_symbol_for_subnet(*netuid));
+        SubnetTAO::<T>::insert(netuid, initial_liquidity); // Set TAO to the lock.
+        TotalStakeAtDynamic::<T>::insert(netuid, 0);
 
         if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
             // Set Owner as the coldkey.
