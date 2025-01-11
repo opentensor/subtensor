@@ -550,3 +550,88 @@ fn test_share_based_staking_stake_inject_stake_new() {
         });
     });
 }
+
+// Tests the moving average alpha price calculation
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::staking2::test_moving_average_alpha_price --exact --show-output --nocapture
+// #[test]
+// fn test_moving_average_alpha_price() {
+//     new_test_ext(1).execute_with(|| {
+//         let netuid = 1;
+        
+//         // Set initial price to 1.0
+//         SubnetMovingPrice::<Test>::insert(netuid, SubtensorModule::encode_price(I96F32::from_num(1.0)));
+
+//         // Set alpha price to 2.0 by setting TAO and alpha reserves
+//         SubnetTAO::<Test>::set(netuid, 2_000_000);
+//         SubnetAlphaIn::<Test>::set(netuid, 1_000_000);
+
+//         // Get moving average price
+//         let moving_price = SubtensorModule::get_moving_average_alpha_price(netuid);
+//         log::info!("Moving average price: {:?}", moving_price);
+
+//         // With alpha = 0.99:
+//         // new_price = 2.0 * 0.99 = 1.98
+//         // old_price = 1.0 * 0.01 = 0.01
+//         // moving_price = 1.98 + 0.01 = 1.99
+//         let expected = I96F32::from_num(1.99);
+//         let tolerance = I96F32::from_num(0.01);
+//         log::info!("Expected price: {:?}", expected);
+//         log::info!("Tolerance: {:?}", tolerance);
+//         log::info!("Difference: {:?}", (moving_price - expected).abs());
+        
+//         assert!((moving_price - expected).abs() <= tolerance);
+
+//         // Verify storage was updated
+//         let stored_price = SubtensorModule::decode_price(SubnetPrice::<Test>::get(netuid));
+//         let stored_moving = SubtensorModule::decode_price(SubnetMovingPrice::<Test>::get(netuid));
+        
+//         assert!((stored_price - I96F32::from_num(2.0)).abs() <= tolerance);
+//         assert!((stored_moving - expected).abs() <= tolerance);
+//     });
+// }
+
+// // // Tests the moving average alpha price calculation with zero alpha reserves
+// // // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::staking2::test_moving_average_alpha_price_zero_alpha --exact --show-output --nocapture
+// // #[test]
+// // fn test_moving_average_alpha_price_zero_alpha() {
+// //     new_test_ext(1).execute_with(|| {
+// //         let netuid = 1;
+
+// //         // Set initial prices
+// //         SubnetMovingPrice::<Test>::insert(netuid, SubtensorModule::encode_price(I96F32::from_num(1.0)));
+
+// //         // Set alpha reserves to 0
+// //         SubnetTAO::<Test>::set(netuid, 1_000_000);
+// //         SubnetAlphaIn::<Test>::set(netuid, 0);
+
+// //         let moving_price = SubtensorModule::get_moving_average_alpha_price(netuid);
+
+// //         // With zero alpha reserves, price should be 0
+// //         let expected = I96F32::from_num(0.01); // 1.0 * 0.01 (old price contribution)
+// //         let tolerance = I96F32::from_num(0.001);
+
+// //         assert!((moving_price - expected).abs() <= tolerance);
+// //     });
+// // }
+
+// // // Tests the moving average alpha price calculation for root subnet
+// // // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::staking2::test_moving_average_alpha_price_root --exact --show-output --nocapture
+// // #[test]
+// // fn test_moving_average_alpha_price_root() {
+// //     new_test_ext(1).execute_with(|| {
+// //         let root_netuid = 0;
+
+// //         // Set some arbitrary TAO and alpha values that should be ignored
+// //         SubnetTAO::<Test>::set(root_netuid, 2_000_000);
+// //         SubnetAlphaIn::<Test>::set(root_netuid, 1_000_000);
+
+// //         let moving_price = SubtensorModule::get_moving_average_alpha_price(root_netuid);
+
+// //         // Root subnet should always return price of 1.0
+// //         let expected = I96F32::from_num(1.0);
+// //         let tolerance = I96F32::from_num(0.001);
+
+// //         assert!((moving_price - expected).abs() <= tolerance);
+// //     });
+// // }
+

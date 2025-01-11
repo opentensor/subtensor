@@ -45,6 +45,64 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    // /// Calculates the price of alpha for a given subnet.
+    // ///
+    // /// This function determines the price of alpha by dividing the total TAO
+    // /// reserves by the total alpha reserves (`SubnetAlphaIn`) for the specified subnet.
+    // /// If the alpha reserves are zero, the function returns zero to avoid division by zero.
+    // ///
+    // /// # Arguments
+    // /// * `netuid` - The unique identifier of the subnet.
+    // ///
+    // /// # Returns
+    // /// * `I96F32` - The price of alpha for the specified subnet.
+    // pub fn get_moving_average_alpha_price(netuid: u16) -> I96F32 {
+    //     // get the current price
+    //     let alpha_price = Self::get_alpha_price(netuid);
+    //     let moving_alpha = Self::get_moving_alpha();
+    //     let new_price: I96F32 = alpha_price.saturating_mul(moving_alpha);
+    //     log::debug!("get_moving_average_alpha_price: netuid: {}, alpha_price: {:?}, moving_alpha: {:?}, new_price: {:?}", 
+    //         netuid, alpha_price, moving_alpha, new_price);
+
+    //     // get the moving price
+    //     let current_moving_price = SubnetMovingPrice::<T>::get(netuid);
+    //     let decoded_moving_price = Self::decode_price(current_moving_price);
+    //     let old_price: I96F32 = decoded_moving_price
+    //         .saturating_mul(I96F32::from_num(1.0).saturating_sub(moving_alpha));
+    //     log::debug!("get_moving_average_alpha_price: current_moving_price: {}, decoded_moving_price: {:?}, old_price: {:?}",
+    //         current_moving_price, decoded_moving_price, old_price);
+
+    //     // Apply moving average
+    //     let moving_price: I96F32 = new_price.saturating_add(old_price);
+    //     log::debug!("get_moving_average_alpha_price: moving_price: {:?}", moving_price);
+
+    //     // Set the price.
+    //     let encoded_new_price = Self::encode_price(new_price);
+    //     SubnetPrice::<T>::set(netuid, encoded_new_price);
+    //     log::debug!("get_moving_average_alpha_price: encoded_new_price: {}", encoded_new_price);
+
+    //     // Set the new moving price
+    //     let encoded_moving_price = Self::encode_price(moving_price);
+    //     SubnetMovingPrice::<T>::set(netuid, encoded_moving_price);
+    //     log::debug!("get_moving_average_alpha_price: encoded_moving_price: {}", encoded_moving_price);
+
+    //     moving_price
+    // }
+    // pub fn get_moving_alpha() -> I96F32 {
+    //     // alpha term in moving average
+    //     I96F32::from_num(0.99)
+    // }
+    // pub fn get_precision() -> I96F32 {
+    //     // 6 decimals
+    //     I96F32::from_num(1_000_000)
+    // }
+    // pub fn decode_price(encoded: u64) -> I96F32 {
+    //     I96F32::from_num(encoded).checked_div(Self::get_precision()).unwrap_or(I96F32::from_num(0.0))
+    // }
+    // pub fn encode_price(price: I96F32) -> u64 {
+    //     price.saturating_mul(Self::get_precision()).to_num::<u64>()
+    // }
+
     /// Retrieves the global global weight as a normalized value between 0 and 1.
     ///
     /// This function performs the following steps:

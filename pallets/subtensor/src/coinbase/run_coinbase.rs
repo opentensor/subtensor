@@ -55,7 +55,7 @@ impl<T: Config> Pallet<T> {
                 continue;
             } // Skip root network
             let mechid = SubnetMechanism::<T>::get(*netuid);
-            let subnet_tao = I96F32::from_num(SubnetTAO::<T>::get(*netuid));
+            let subnet_tao = Self::get_alpha_price( *netuid );
             let new_subnet_tao = subnet_tao
                 .saturating_add(*mechanism_tao.entry(mechid).or_insert(I96F32::from_num(0)));
             *mechanism_tao.entry(mechid).or_insert(I96F32::from_num(0)) = new_subnet_tao;

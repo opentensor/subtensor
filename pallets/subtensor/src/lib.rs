@@ -888,6 +888,12 @@ pub mod pallet {
     #[pallet::storage] // --- DMAP ( netuid ) --> total_volume | The total amount of TAO bought and sold since the start of the network.
     pub type SubnetVolume<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage] // --- DMAP ( netuid ) --> subnet_price | The total amount of TAO bought and sold since the start of the network.
+    pub type SubnetPrice<T: Config> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage] // --- DMAP ( netuid ) --> total_volume | The total amount of TAO bought and sold since the start of the network.
+    pub type SubnetMovingPrice<T: Config> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> tao_in_subnet | Returns the amount of TAO in the subnet.
     pub type SubnetTAO<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
