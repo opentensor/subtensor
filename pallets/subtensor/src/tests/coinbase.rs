@@ -7,6 +7,7 @@ use sp_core::U256;
 use substrate_fixed::types::I64F64;
 use substrate_fixed::types::I96F32;
 
+#[allow(clippy::arithmetic_side_effects)]
 fn close(value: u64, target: u64, eps: u64) {
     assert!(
         (value as i64 - target as i64).abs() < eps as i64,

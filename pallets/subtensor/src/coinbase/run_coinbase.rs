@@ -476,11 +476,11 @@ impl<T: Config> Pallet<T> {
 
         // Get the hotkey's stake including weight
         let root_stake: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(
-            &hotkey,
+            hotkey,
             Self::get_root_netuid(),
         ));
         let alpha_stake: I96F32 =
-            I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(&hotkey, netuid));
+            I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
 
         // Calculate the
         let alpha_contribution: I96F32 = alpha_stake.saturating_mul(remaining_proportion);
