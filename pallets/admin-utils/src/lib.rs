@@ -1305,9 +1305,20 @@ pub mod pallet {
             T::Grandpa::schedule_change(next_authorities, in_blocks, forced)
         }
 
-        /// A public interface for `pallet_grandpa::Pallet::schedule_grandpa_change`.
+        /// Toggles the enablement of an EVM precompile.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the root account.
+        /// * `precompile_id` - The identifier of the EVM precompile to toggle.
+        /// * `enabled` - The new enablement state of the precompile.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the caller is not the root account.
+        ///
+        /// # Weight
+        /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(60)]
-        #[pallet::weight(Weight::from_parts(46_000_000, 0))]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_toggle_evm_precompile(
             origin: OriginFor<T>,
             precompile_id: PrecompileEnum,
