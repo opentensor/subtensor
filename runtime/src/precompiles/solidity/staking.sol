@@ -14,13 +14,13 @@ interface IStaking {
    * https://github.com/polkadot-evm/frontier/blob/2e219e17a526125da003e64ef22ec037917083fa/frame/evm/src/lib.rs#L739
    *
    * @param hotkey The hotkey public key (32 bytes).
-   * @param netuid The subnet to stake to (uint16). Currently a noop, functionality will be enabled with RAO.
+   * @param netuid The subnet to stake to (uint256). Currently a noop, functionality will be enabled with RAO.
    *
    * Requirements:
    * - `hotkey` must be a valid hotkey registered on the network, ensuring that the stake is
    *   correctly attributed.
    */
-  function addStake(bytes32 hotkey, uint16 netuid) external payable;
+  function addStake(bytes32 hotkey, uint256 netuid) external payable;
 
   /**
    * @dev Removes a subtensor stake `amount` from the specified `hotkey`.
@@ -33,7 +33,7 @@ interface IStaking {
    *
    * @param hotkey The hotkey public key (32 bytes).
    * @param amount The amount to unstake in rao.
-   * @param netuid The subnet to stake to (uint16). Currently a noop, functionality will be enabled with RAO.
+   * @param netuid The subnet to stake to (uint256). Currently a noop, functionality will be enabled with RAO.
 
    *
    * Requirements:
@@ -41,5 +41,5 @@ interface IStaking {
    *   correctly attributed.
    * - The existing stake amount must be not lower than specified amount
    */
-  function removeStake(bytes32 hotkey, uint256 amount, uint16 netuid) external;
+  function removeStake(bytes32 hotkey, uint256 amount, uint256 netuid) external;
 }
