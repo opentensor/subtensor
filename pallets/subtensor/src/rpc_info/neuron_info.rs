@@ -2,8 +2,9 @@ use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
 use codec::Compact;
+use substrate_fixed::types::{I64F64};
 
-#[freeze_struct("45e69321f5c74b4b")]
+#[freeze_struct("9661186d06cb9ff4")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct NeuronInfo<T: Config> {
     hotkey: T::AccountId,
@@ -14,6 +15,9 @@ pub struct NeuronInfo<T: Config> {
     axon_info: AxonInfo,
     prometheus_info: PrometheusInfo,
     stake: Vec<(T::AccountId, Compact<u64>)>, // map of coldkey to stake on this neuron/hotkey (includes delegations)
+    total_stake: Compact<u64>,
+    alpha_stake: Compact<u64>,
+    tao_stake: Compact<u64>,
     rank: Compact<u16>,
     emission: Compact<u64>,
     incentive: Compact<u16>,
@@ -28,7 +32,7 @@ pub struct NeuronInfo<T: Config> {
     pruning_score: Compact<u16>,
 }
 
-#[freeze_struct("c21f0f4f22bcb2a1")]
+#[freeze_struct("4eeff1a244369b21")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct NeuronInfoLite<T: Config> {
     hotkey: T::AccountId,
@@ -39,6 +43,9 @@ pub struct NeuronInfoLite<T: Config> {
     axon_info: AxonInfo,
     prometheus_info: PrometheusInfo,
     stake: Vec<(T::AccountId, Compact<u64>)>, // map of coldkey to stake on this neuron/hotkey (includes delegations)
+    total_stake: Compact<u64>,
+    alpha_stake: Compact<u64>,
+    tao_stake: Compact<u64>,
     rank: Compact<u16>,
     emission: Compact<u64>,
     incentive: Compact<u16>,
@@ -78,11 +85,8 @@ impl<T: Config> Pallet<T> {
         };
 
         let axon_info = Self::get_axon_info(netuid, &hotkey.clone());
-
         let prometheus_info = Self::get_prometheus_info(netuid, &hotkey.clone());
-
         let coldkey = Owner::<T>::get(hotkey.clone()).clone();
-
         let active = Self::get_active_for_uid(netuid, uid);
         let rank = Self::get_rank_for_uid(netuid, uid);
         let emission = Self::get_emission_for_uid(netuid, uid);
@@ -120,6 +124,8 @@ impl<T: Config> Pallet<T> {
             coldkey.clone(),
             Self::get_stake_for_hotkey_on_subnet(&hotkey, netuid).into(),
         )];
+        let (total_stake, alpha_stake, tao_stake): (I64F64,I64F64,I64F64) = Self::get_stake_weights_for_hotkey_on_subnet( &hotkey, netuid );
+
         let neuron = NeuronInfo {
             hotkey: hotkey.clone(),
             coldkey: coldkey.clone(),
@@ -129,6 +135,9 @@ impl<T: Config> Pallet<T> {
             axon_info,
             prometheus_info,
             stake,
+            total_stake: total_stake.to_num::<u64>().into(),
+            alpha_stake: alpha_stake.to_num::<u64>().into(),
+            tao_stake: tao_stake.to_num::<u64>().into(),
             rank: rank.into(),
             emission: emission.into(),
             incentive: incentive.into(),
@@ -182,6 +191,7 @@ impl<T: Config> Pallet<T> {
             coldkey.clone(),
             Self::get_stake_for_hotkey_on_subnet(&hotkey, netuid).into(),
         )];
+        let (total_stake, alpha_stake, tao_stake): (I64F64,I64F64,I64F64) = Self::get_stake_weights_for_hotkey_on_subnet( &hotkey, netuid );
 
         let neuron = NeuronInfoLite {
             hotkey: hotkey.clone(),
@@ -192,6 +202,9 @@ impl<T: Config> Pallet<T> {
             axon_info,
             prometheus_info,
             stake,
+            total_stake: total_stake.to_num::<u64>().into(),
+            alpha_stake: alpha_stake.to_num::<u64>().into(),
+            tao_stake: tao_stake.to_num::<u64>().into(),
             rank: rank.into(),
             emission: emission.into(),
             incentive: incentive.into(),

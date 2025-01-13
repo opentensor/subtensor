@@ -1379,8 +1379,8 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
         pub fn schedule_dissolve_network(
-            origin: OriginFor<T>,
-            netuid: u16,
+            _origin: OriginFor<T>,
+            _netuid: u16,
         ) -> DispatchResultWithPostInfo {
             Ok(().into())
         }
