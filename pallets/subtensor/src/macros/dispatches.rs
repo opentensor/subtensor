@@ -1382,36 +1382,6 @@ mod dispatches {
             origin: OriginFor<T>,
             netuid: u16,
         ) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
-
-            let current_block: BlockNumberFor<T> = <frame_system::Pallet<T>>::block_number();
-            let duration: BlockNumberFor<T> = DissolveNetworkScheduleDuration::<T>::get();
-            let when: BlockNumberFor<T> = current_block.saturating_add(duration);
-
-            let call = Call::<T>::dissolve_network {
-                coldkey: who.clone(),
-                netuid,
-            };
-
-            let bound_call = T::Preimages::bound(LocalCallOf::<T>::from(call.clone()))
-                .map_err(|_| Error::<T>::FailedToSchedule)?;
-
-            T::Scheduler::schedule(
-                DispatchTime::At(when),
-                None,
-                63,
-                frame_system::RawOrigin::Root.into(),
-                bound_call,
-            )
-            .map_err(|_| Error::<T>::FailedToSchedule)?;
-
-            // Emit the SwapScheduled event
-            Self::deposit_event(Event::DissolveNetworkScheduled {
-                account: who.clone(),
-                netuid,
-                execution_block: when,
-            });
-
             Ok(().into())
         }
 
