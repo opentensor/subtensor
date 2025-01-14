@@ -119,7 +119,7 @@ impl StakingPrecompile {
     }
 
     fn parse_netuid(data: &[u8], offset: usize) -> Result<u16, PrecompileFailure> {
-        if data.len() < (offset + 2) as usize {
+        if data.len() < offset + 2 {
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
             });
