@@ -31,9 +31,9 @@ use pallet_evm::{
     ExitError, ExitSucceed, PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult,
 };
 use sp_core::crypto::Ss58Codec;
-use sp_core::U256;
+use sp_core::{U256, H256};
 use sp_runtime::traits::Dispatchable;
-use sp_runtime::traits::{BlakeTwo256, UniqueSaturatedInto};
+use sp_runtime::traits::{BlakeTwo256, UniqueSaturatedInto, StaticLookup};
 use sp_runtime::AccountId32;
 
 use crate::{
@@ -108,7 +108,8 @@ impl StakingPrecompile {
     }
 
     fn add_proxy(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
-        let delegate = sp_runtime::MultiAddress::Address32(Self::parse_pub_key(data)?);
+		let delegate = AccountId32::from(Self::parse_pub_key(data)?);
+        let delegate = <Runtime as frame_system::Config>::Lookup::unlookup(delegate);
         let call = RuntimeCall::Proxy(pallet_proxy::Call::<Runtime>::add_proxy {
             delegate,
             proxy_type: ProxyType::Staking,
@@ -119,7 +120,8 @@ impl StakingPrecompile {
     }
 
     fn remove_proxy(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
-        let delegate = sp_runtime::MultiAddress::Address32(Self::parse_pub_key(data)?);
+		let delegate = AccountId32::from(Self::parse_pub_key(data)?);
+        let delegate = <Runtime as frame_system::Config>::Lookup::unlookup(delegate);
         let call = RuntimeCall::Proxy(pallet_proxy::Call::<Runtime>::remove_proxy {
             delegate,
             proxy_type: ProxyType::Staking,
