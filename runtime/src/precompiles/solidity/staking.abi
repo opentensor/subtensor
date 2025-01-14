@@ -18,30 +18,6 @@
         "type": "function"
     },
     {
-        inputs: [
-        {
-            internalType: "bytes32",
-            name: "hotkey",
-            type: "bytes32",
-        },
-        {
-            internalType: "bytes32",
-            name: "coldkey",
-            type: "bytes32",
-        },
-        ],
-        name: "getStake",
-        outputs: [
-        {
-            internalType: "uint64",
-            name: "",
-            type: "uint64",
-        },
-        ],
-        stateMutability: "view",
-        type: "function",
-    },
-    {
         "inputs": [
             {
                 "internalType": "bytes32",
