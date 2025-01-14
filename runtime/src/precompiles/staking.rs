@@ -59,7 +59,7 @@ impl StakingPrecompile {
             id if id == get_method_id("removeStake(bytes32,uint256,uint16)") => {
                 Self::remove_stake(handle, &method_input)
             }
-            id if id == get_method_id("getStake(bytes32,bytes32)") => {
+            id if id == get_method_id("getStake(bytes32,bytes32,uint16)") => {
                 Self::get_stake(&method_input)
             }
             _ => Err(PrecompileFailure::Error {
