@@ -115,10 +115,12 @@ impl StakingPrecompile {
 
     fn get_stake(data: &[u8]) -> PrecompileResult {
         let (hotkey, coldkey) = Self::parse_hotkey_coldkey(data)?;
+        let netuid = Self::parse_netuid(data, 0x3E)?;
 
-        let stake = pallet_subtensor::Pallet::<Runtime>::get_stake_for_coldkey_and_hotkey(
+        let stake = pallet_subtensor::Pallet::<Runtime>::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey.into(),
             &coldkey.into(),
+            netuid,
         );
 
         let stake_u256 = U256::from(stake);
