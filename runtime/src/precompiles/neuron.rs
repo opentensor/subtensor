@@ -3,7 +3,7 @@ use pallet_evm::{
     ExitError, ExitSucceed, PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult,
 };
 
-use crate::precompiles::{get_method_id, get_slice};
+use crate::precompiles::{dispatch, get_method_id, get_slice};
 use sp_std::{vec, vec::Vec};
 
 use crate::{Runtime, RuntimeCall};
@@ -34,7 +34,6 @@ impl NeuronPrecompile {
     }
 
     pub fn set_weights(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
-        log::error!("++++++ set_weights {:?}", data);
         let len = data.len();
         let mut index = 0;
         while index < len / 32 {
@@ -42,8 +41,6 @@ impl NeuronPrecompile {
             log::error!("index: {:?}", tmp);
             index += 1;
         }
-
-        log::error!("++++++ set_weights call parse_netuid_dests_weights");
 
         let (netuid, dests, weights, version_key) = Self::parse_netuid_dests_weights(data)?;
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::<Runtime>::set_weights {
@@ -53,11 +50,7 @@ impl NeuronPrecompile {
             version_key,
         });
 
-        // dispatch(handle, call, NEURON_CONTRACT_ADDRESS)
-        Ok(PrecompileOutput {
-            exit_status: ExitSucceed::Returned,
-            output: vec![],
-        })
+        dispatch(handle, call, NEURON_CONTRACT_ADDRESS)
     }
 
     // pub fn commit_weights(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
@@ -98,7 +91,7 @@ impl NeuronPrecompile {
     fn parse_netuid_dests_weights(
         data: &[u8],
     ) -> Result<(u16, Vec<u16>, Vec<u16>, u64), PrecompileFailure> {
-        if data.len() < 12 * 32 {
+        if data.len() < 4 * 32 {
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
             });
@@ -145,8 +138,6 @@ impl NeuronPrecompile {
             second_position + 32,
         )?);
         let weights_len = u16::from_be_bytes(weights_len_vec) as usize;
-
-        log::error!("++++++ 4 {}", weights_len);
 
         for i in 0..weights_len {
             let mut tmp_vec = [0u8; 2];
