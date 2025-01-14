@@ -565,7 +565,7 @@ impl<T: Config> Pallet<T> {
         ValidatorPermit::<T>::remove(netuid);
         ValidatorTrust::<T>::remove(netuid);
 
-        for key in keys {
+        for (_uid, key) in keys {
             IsNetworkMember::<T>::remove(key, netuid);
         }
 

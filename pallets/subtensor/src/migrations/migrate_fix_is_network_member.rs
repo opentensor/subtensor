@@ -38,20 +38,21 @@ pub fn migrate_fix_is_network_member<T: Config>() -> Weight {
 }
 
 fn do_fix_is_network_member<T: Config>(weight: Weight) -> Weight {
+    let mut weight = weight;
     // Clear the IsNetworkMember storage
-    let mut curr = IsNetworkMember::<T>::clear(U32::MAX, None);
-    weight = weight.saturating_add(T::DbWeight::get().reads_writes(curr.loops, curr.unique));
+    let mut curr = IsNetworkMember::<T>::clear(u32::MAX, None);
+    weight = weight
+        .saturating_add(T::DbWeight::get().reads_writes(curr.loops as u64, curr.unique as u64));
     while curr.maybe_cursor.is_some() {
         // Clear until empty
-        curr = IsNetworkMember::<T>::clear(U32::MAX, curr.maybe_cursor);
-        weight = weight.saturating_add(T::DbWeight::get().reads_writes(curr.loops, curr.unique));
+        curr = IsNetworkMember::<T>::clear(u32::MAX, curr.maybe_cursor.as_deref());
+        weight = weight
+            .saturating_add(T::DbWeight::get().reads_writes(curr.loops as u64, curr.unique as u64));
     }
     // Repopulate the IsNetworkMember storage using the Keys map
-    let netuids = Subtensor::<T>::get_all_subnet_netuids();
-    for netuid in netuids {
-        for key in Keys::<T>::iter_prefix(netuid) {
-            IsNetworkMember::<T>::insert(key, netuid, true);
-        }
+    for (netuid, _uid, key) in Keys::<T>::iter() {
+        IsNetworkMember::<T>::insert(key, netuid, true);
+        weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
     }
 
     weight
