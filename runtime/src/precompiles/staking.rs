@@ -68,7 +68,7 @@ impl StakingPrecompile {
     fn add_stake(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
         let hotkey = Self::parse_hotkey(data)?.into();
         let amount: U256 = handle.context().apparent_value;
-        let netuid: u16 = Self::parse_netuid(data, 0x3E)?;
+        let netuid = Self::parse_netuid(data, 0x3E)?;
 
         let amount_sub =
             <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
@@ -86,7 +86,7 @@ impl StakingPrecompile {
 
     fn remove_stake(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
         let hotkey = Self::parse_hotkey(data)?.into();
-        let netuid: u16 = Self::parse_netuid(data, 0x5E)?;
+        let netuid = Self::parse_netuid(data, 0x5E)?;
 
         // We have to treat this as uint256 (because of Solidity ABI encoding rules, it pads uint64),
         // but this will never exceed 8 bytes, se we will ignore higher bytes and will only use lower
