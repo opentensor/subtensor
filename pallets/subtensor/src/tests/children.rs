@@ -3514,9 +3514,6 @@ fn test_dynamic_parent_child_relationships() {
             version_key
         ));
 
-        // Run first epoch
-        let hardcoded_emission: u64 = 1_000_000;
-
         // Step blocks to allow for emission distribution
         step_block(11);
         step_rate_limit(&TransactionType::SetChildren, netuid);
@@ -3552,8 +3549,8 @@ fn test_dynamic_parent_child_relationships() {
         let stake_child2_2: u64 =
             SubtensorModule::get_inherited_for_hotkey_on_subnet(&child2, netuid);
         let total_parent_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
-        let total_child1_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid);
-        let total_child2_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
+        let _total_child1_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid);
+        let _total_child2_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
 
         log::info!("Final stakes:");
         log::info!("Parent stake: {}", stake_parent_2);
