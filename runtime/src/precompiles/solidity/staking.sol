@@ -51,6 +51,7 @@ interface IStaking {
    *
    * @param hotkey The hotkey public key (32 bytes).
    * @param coldkey The coldkey public key (32 bytes).
+   * @param netuid The subnet the stake is on (uint16).
    * @return The current stake amount in uint64 format.
    */
   function getStake(bytes32 hotkey, bytes32 coldkey, uint16 netuid) external view returns (uint64);
