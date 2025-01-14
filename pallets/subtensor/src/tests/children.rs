@@ -3590,7 +3590,7 @@ fn test_dynamic_parent_child_relationships() {
         // Second epoch: 5/12 parent_stake
 
         let expected_child1_stake = total_emission * rel_stake_child1_0
-            + I96F32::from_num(stake_child1_0 + (total_parent_stake) * 1 / 4);
+            + I96F32::from_num(stake_child1_0 + (total_parent_stake) / 4);
         assert!(
             (I96F32::from_num(stake_child1_2) - expected_child1_stake).abs()
                 / expected_child1_stake
@@ -3605,7 +3605,7 @@ fn test_dynamic_parent_child_relationships() {
         // Second epoch: 1/4 parent_stake + child1_stake
 
         let expected_child2_stake = total_emission * rel_stake_child2_0
-            + I96F32::from_num(stake_child2_0 + (total_parent_stake) * 1 / 3);
+            + I96F32::from_num(stake_child2_0 + (total_parent_stake) / 3);
         assert!(
             (I96F32::from_num(stake_child2_2) - expected_child2_stake).abs()
                 / expected_child2_stake
