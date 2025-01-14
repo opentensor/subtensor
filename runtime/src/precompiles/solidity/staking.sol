@@ -14,7 +14,7 @@ interface IStaking {
    * https://github.com/polkadot-evm/frontier/blob/2e219e17a526125da003e64ef22ec037917083fa/frame/evm/src/lib.rs#L739
    *
    * @param hotkey The hotkey public key (32 bytes).
-   * @param netuid The subnet to stake to (uint256). Currently a noop, functionality will be enabled with RAO.
+   * @param netuid The subnet to stake to (uint256).
    *
    * Requirements:
    * - `hotkey` must be a valid hotkey registered on the network, ensuring that the stake is
@@ -33,8 +33,7 @@ interface IStaking {
    *
    * @param hotkey The hotkey public key (32 bytes).
    * @param amount The amount to unstake in rao.
-   * @param netuid The subnet to stake to (uint256). Currently a noop, functionality will be enabled with RAO.
-
+   * @param netuid The subnet to stake to (uint256).
    *
    * Requirements:
    * - `hotkey` must be a valid hotkey registered on the network, ensuring that the stake is
@@ -42,4 +41,17 @@ interface IStaking {
    * - The existing stake amount must be not lower than specified amount
    */
   function removeStake(bytes32 hotkey, uint256 amount, uint256 netuid) external;
+
+  /**
+  * @dev Returns the stake amount associated with the specified `hotkey` and `coldkey`.
+  *
+  * This function retrieves the current stake amount linked to a specific hotkey and coldkey pair.
+  * It is a view function, meaning it does not modify the state of the contract and is free to call.
+  *
+  * @param hotkey The hotkey public key (32 bytes).
+  * @param coldkey The coldkey public key (32 bytes).
+  * @param netuid The subnet the stake is on (uint256).
+  * @return The current stake amount in uint256 format.
+  */
+  function getStake(bytes32 hotkey, bytes32 coldkey, uint256 netuid) external view returns (uint256);
 }

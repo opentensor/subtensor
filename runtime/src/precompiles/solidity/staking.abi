@@ -18,28 +18,33 @@
         "type": "function"
     },
     {
-        inputs: [
-        {
-            internalType: "bytes32",
-            name: "hotkey",
-            type: "bytes32",
-        },
-        {
-            internalType: "bytes32",
-            name: "coldkey",
-            type: "bytes32",
-        },
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "hotkey",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "bytes32",
+                "name": "coldkey",
+                "type": "bytes32"
+            },
+            {
+                "internalType": "uint256",
+                "name": "netuid",
+                "type": "uint256"
+            }
         ],
-        name: "getStake",
-        outputs: [
-        {
-            internalType: "uint64",
-            name: "",
-            type: "uint64",
-        },
+        "name": "getStake",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
         ],
-        stateMutability: "view",
-        type: "function",
+        "stateMutability": "view",
+        "type": "function"
     },
     {
         "inputs": [
