@@ -53,10 +53,10 @@ impl StakingPrecompile {
             .map_or_else(vec::Vec::new, |slice| slice.to_vec()); // Avoiding borrowing conflicts
 
         match method_id {
-            id if id == get_method_id("addStake(bytes32,uint16)") => {
+            id if id == get_method_id("addStake(bytes32,uint256)") => {
                 Self::add_stake(handle, &method_input)
             }
-            id if id == get_method_id("removeStake(bytes32,uint256,uint16)") => {
+            id if id == get_method_id("removeStake(bytes32,uint256,uint256)") => {
                 Self::remove_stake(handle, &method_input)
             }
             _ => Err(PrecompileFailure::Error {
@@ -68,9 +68,7 @@ impl StakingPrecompile {
     fn add_stake(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
         let hotkey = Self::parse_hotkey(data)?.into();
         let amount: U256 = handle.context().apparent_value;
-
-        // TODO: Use netuid method parameter here
-        let netuid: u16 = 0;
+        let netuid = Self::parse_netuid(data, 0x3E)?;
 
         let amount_sub =
             <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
@@ -85,11 +83,10 @@ impl StakingPrecompile {
         // Dispatch the add_stake call
         Self::dispatch(handle, call)
     }
+
     fn remove_stake(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
         let hotkey = Self::parse_hotkey(data)?.into();
-
-        // TODO: Use netuid method parameter here
-        let netuid: u16 = 0;
+        let netuid = Self::parse_netuid(data, 0x5E)?;
 
         // We have to treat this as uint256 (because of Solidity ABI encoding rules, it pads uint64),
         // but this will never exceed 8 bytes, se we will ignore higher bytes and will only use lower
@@ -121,6 +118,20 @@ impl StakingPrecompile {
         Ok(hotkey)
     }
 
+    fn parse_netuid(data: &[u8], offset: usize) -> Result<u16, PrecompileFailure> {
+        if data.len() < offset + 2 {
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+
+        let mut netuid_bytes = [0u8; 2];
+        netuid_bytes.copy_from_slice(get_slice(data, offset, offset + 2)?);
+        let netuid: u16 = netuid_bytes[1] as u16 | ((netuid_bytes[0] as u16) << 8u16);
+
+        Ok(netuid)
+    }
+
     fn dispatch(handle: &mut impl PrecompileHandle, call: RuntimeCall) -> PrecompileResult {
         let account_id =
             <HashedAddressMapping<BlakeTwo256> as AddressMapping<AccountId32>>::into_account_id(
@@ -145,9 +156,12 @@ impl StakingPrecompile {
                 exit_status: ExitSucceed::Returned,
                 output: vec![],
             }),
-            Err(_) => Err(PrecompileFailure::Error {
-                exit_status: ExitError::Other("Subtensor call failed".into()),
-            }),
+            Err(_) => {
+                log::warn!("Returning error PrecompileFailure::Error");
+                Err(PrecompileFailure::Error {
+                    exit_status: ExitError::Other("Subtensor call failed".into()),
+                })
+            }
         }
     }
 
