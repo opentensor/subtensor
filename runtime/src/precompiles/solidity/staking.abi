@@ -52,6 +52,11 @@
                 "internalType": "bytes32",
                 "name": "coldkey",
                 "type": "bytes32"
+            },
+            {
+                "internalType": "uint256",
+                "name": "netuid",
+                "type": "uint256"
             }
         ],
         "name": "getStake",
