@@ -126,7 +126,7 @@ impl StakingPrecompile {
         }
 
         let mut netuid_bytes = [0u8; 2];
-        netuid_bytes.copy_from_slice(get_slice(data, offset, offset+2)?);
+        netuid_bytes.copy_from_slice(get_slice(data, offset, offset + 2)?);
         let netuid: u16 = netuid_bytes[1] as u16 | ((netuid_bytes[0] as u16) << 8u16);
 
         Ok(netuid)
@@ -161,7 +161,7 @@ impl StakingPrecompile {
                 Err(PrecompileFailure::Error {
                     exit_status: ExitError::Other("Subtensor call failed".into()),
                 })
-            },
+            }
         }
     }
 
