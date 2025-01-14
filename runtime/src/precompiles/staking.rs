@@ -59,6 +59,9 @@ impl StakingPrecompile {
             id if id == get_method_id("removeStake(bytes32,uint256,uint16)") => {
                 Self::remove_stake(handle, &method_input)
             }
+            id if id == get_method_id("getStakeColdkey(bytes32)") => {
+                Self::get_stake_coldkey(&method_input)
+            }
             _ => Err(PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
             }),
@@ -108,6 +111,22 @@ impl StakingPrecompile {
             amount_unstaked: amount_sub.unique_saturated_into(),
         });
         Self::dispatch(handle, call)
+    }
+
+    fn get_stake_coldkey(data: &[u8]) -> PrecompileResult {
+        // TODO: rename parse_hotkey to parse_key or something?
+        let coldkey: AccountId32 = Self::parse_hotkey(data)?.into();
+
+        // get total stake of coldkey
+        let total_stake = pallet_subtensor::TotalColdkeyStake::<Runtime>::get(coldkey);
+        let result_u256 = U256::from(total_stake);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&result_u256, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
     }
 
     fn parse_hotkey(data: &[u8]) -> Result<[u8; 32], PrecompileFailure> {
