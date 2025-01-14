@@ -31,7 +31,7 @@ use pallet_evm::{
     ExitError, ExitSucceed, PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult,
 };
 use sp_core::crypto::Ss58Codec;
-use sp_core::{H256, U256};
+use sp_core::U256;
 use sp_runtime::traits::Dispatchable;
 use sp_runtime::traits::{BlakeTwo256, StaticLookup, UniqueSaturatedInto};
 use sp_runtime::AccountId32;
