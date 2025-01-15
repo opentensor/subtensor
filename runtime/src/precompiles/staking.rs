@@ -53,14 +53,17 @@ impl StakingPrecompile {
             .map_or_else(vec::Vec::new, |slice| slice.to_vec()); // Avoiding borrowing conflicts
 
         match method_id {
-            id if id == get_method_id("addStake(bytes32,uint16)") => {
+            id if id == get_method_id("addStake(bytes32,uint256)") => {
                 Self::add_stake(handle, &method_input)
             }
-            id if id == get_method_id("removeStake(bytes32,uint256,uint16)") => {
+            id if id == get_method_id("removeStake(bytes32,uint256,uint256)") => {
                 Self::remove_stake(handle, &method_input)
             }
             id if id == get_method_id("getStakeColdkey(bytes32)") => {
                 Self::get_stake_coldkey(&method_input)
+            }
+            id if id == get_method_id("getStake(bytes32,bytes32,uint256)") => {
+                Self::get_stake(&method_input)
             }
             _ => Err(PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
@@ -69,11 +72,9 @@ impl StakingPrecompile {
     }
 
     fn add_stake(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
-        let hotkey = Self::parse_ss58(data)?.into();
+        let hotkey = Self::parse_key(data)?.into();
         let amount: U256 = handle.context().apparent_value;
-
-        // TODO: Use netuid method parameter here
-        let netuid: u16 = 0;
+        let netuid = Self::parse_netuid(data, 0x3E)?;
 
         let amount_sub =
             <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
@@ -88,11 +89,10 @@ impl StakingPrecompile {
         // Dispatch the add_stake call
         Self::dispatch(handle, call)
     }
-    fn remove_stake(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
-        let hotkey = Self::parse_ss58(data)?.into();
 
-        // TODO: Use netuid method parameter here
-        let netuid: u16 = 0;
+    fn remove_stake(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
+        let hotkey = Self::parse_key(data)?.into();
+        let netuid = Self::parse_netuid(data, 0x5E)?;
 
         // We have to treat this as uint256 (because of Solidity ABI encoding rules, it pads uint64),
         // but this will never exceed 8 bytes, se we will ignore higher bytes and will only use lower
@@ -114,11 +114,10 @@ impl StakingPrecompile {
     }
 
     fn get_stake_coldkey(data: &[u8]) -> PrecompileResult {
-        // TODO: rename parse_ss58 to parse_key or something?
-        let coldkey: AccountId32 = Self::parse_ss58(data)?.into();
+        let coldkey: AccountId32 = Self::parse_key(data)?.into();
 
         // get total stake of coldkey
-        let total_stake = pallet_subtensor::TotalColdkeyStake::<Runtime>::get(coldkey);
+        let total_stake = pallet_subtensor::Pallet::<Runtime>::get_total_stake_for_coldkey(&coldkey);
         let result_u256 = U256::from(total_stake);
         let mut result = [0_u8; 32];
         U256::to_big_endian(&result_u256, &mut result);
@@ -129,15 +128,68 @@ impl StakingPrecompile {
         })
     }
 
-    fn parse_ss58(data: &[u8]) -> Result<[u8; 32], PrecompileFailure> {
-        if data.len() < 32 {
+    fn get_stake(data: &[u8]) -> PrecompileResult {
+        let (hotkey, coldkey) = Self::parse_hotkey_coldkey(data)?;
+        let netuid: u16 = Self::parse_netuid(data, 0x5E)?;
+
+        let stake = pallet_subtensor::Pallet::<Runtime>::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey.into(),
+            &coldkey.into(),
+            netuid,
+        );
+
+        // Convert to EVM decimals
+        let stake_u256 = U256::from(stake);
+        let stake_eth =
+            <Runtime as pallet_evm::Config>::BalanceConverter::into_evm_balance(stake_u256)
+                .ok_or(ExitError::InvalidRange)?;
+
+        // Format output
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&stake_eth, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
+    }
+
+    fn parse_hotkey_coldkey(data: &[u8]) -> Result<([u8; 32], [u8; 32]), PrecompileFailure> {
+        if data.len() < 64 {
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
             });
         }
         let mut hotkey = [0u8; 32];
         hotkey.copy_from_slice(get_slice(data, 0, 32)?);
-        Ok(hotkey)
+        let mut coldkey = [0u8; 32];
+        coldkey.copy_from_slice(get_slice(data, 32, 64)?);
+        Ok((hotkey, coldkey))
+    }
+
+    fn parse_key(data: &[u8]) -> Result<[u8; 32], PrecompileFailure> {
+        if data.len() < 32 {
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+        let mut key = [0u8; 32];
+        key.copy_from_slice(get_slice(data, 0, 32)?);
+        Ok(key)
+    }
+
+    fn parse_netuid(data: &[u8], offset: usize) -> Result<u16, PrecompileFailure> {
+        if data.len() < offset + 2 {
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+
+        let mut netuid_bytes = [0u8; 2];
+        netuid_bytes.copy_from_slice(get_slice(data, offset, offset + 2)?);
+        let netuid: u16 = netuid_bytes[1] as u16 | ((netuid_bytes[0] as u16) << 8u16);
+
+        Ok(netuid)
     }
 
     fn dispatch(handle: &mut impl PrecompileHandle, call: RuntimeCall) -> PrecompileResult {
@@ -164,9 +216,12 @@ impl StakingPrecompile {
                 exit_status: ExitSucceed::Returned,
                 output: vec![],
             }),
-            Err(_) => Err(PrecompileFailure::Error {
-                exit_status: ExitError::Other("Subtensor call failed".into()),
-            }),
+            Err(_) => {
+                log::warn!("Returning error PrecompileFailure::Error");
+                Err(PrecompileFailure::Error {
+                    exit_status: ExitError::Other("Subtensor call failed".into()),
+                })
+            }
         }
     }
 
