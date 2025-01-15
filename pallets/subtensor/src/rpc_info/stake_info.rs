@@ -2,7 +2,6 @@ use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
 use codec::Compact;
-use sp_core::hexdisplay::AsBytesRef;
 
 #[freeze_struct("4f16c654467bc8b6")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]

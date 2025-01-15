@@ -5,7 +5,6 @@ use frame_support::IterableStorageDoubleMap;
 use substrate_fixed::types::U64F64;
 extern crate alloc;
 use codec::Compact;
-use sp_core::hexdisplay::AsBytesRef;
 
 #[freeze_struct("66105c2cfec0608d")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
