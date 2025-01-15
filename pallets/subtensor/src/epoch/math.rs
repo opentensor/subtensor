@@ -1022,6 +1022,79 @@ pub fn weighted_median_col_sparse(
     median
 }
 
+// Element-wise interpolation of two matrices: Result = A + ratio * (B - A).
+// ratio is has intended range [0, 1]
+// ratio=0: Result = A
+// ratio=1: Result = B
+#[allow(dead_code)]
+pub fn interpolate(
+    mat1: &Vec<Vec<I32F32>>,
+    mat2: &Vec<Vec<I32F32>>,
+    ratio: I32F32,
+) -> Vec<Vec<I32F32>> {
+    if ratio == I32F32::from_num(0) {
+        return mat1.clone();
+    }
+    if ratio == I32F32::from_num(1) {
+        return mat2.clone();
+    }
+    assert!(mat1.len() == mat2.len());
+    if mat1.len() == 0 {
+        return vec![vec![]; 1];
+    }
+    if mat1[0].len() == 0 {
+        return vec![vec![]; 1];
+    }
+    let mut result: Vec<Vec<I32F32>> = vec![vec![I32F32::from_num(0); mat1[0].len()]; mat1.len()];
+    for i in 0..mat1.len() {
+        assert!(mat1[i].len() == mat2[i].len());
+        for j in 0..mat1[i].len() {
+            result[i][j] = mat1[i][j] + ratio * (mat2[i][j] - mat1[i][j]);
+        }
+    }
+    result
+}
+
+// Element-wise interpolation of two sparse matrices: Result = A + ratio * (B - A).
+// ratio is has intended range [0, 1]
+// ratio=0: Result = A
+// ratio=1: Result = B
+#[allow(dead_code)]
+pub fn interpolate_sparse(
+    mat1: &Vec<Vec<(u16, I32F32)>>,
+    mat2: &Vec<Vec<(u16, I32F32)>>,
+    columns: u16,
+    ratio: I32F32,
+) -> Vec<Vec<(u16, I32F32)>> {
+    if ratio == I32F32::from_num(0) {
+        return mat1.clone();
+    }
+    if ratio == I32F32::from_num(1) {
+        return mat2.clone();
+    }
+    assert!(mat1.len() == mat2.len());
+    let rows = mat1.len();
+    let zero: I32F32 = I32F32::from_num(0);
+    let mut result: Vec<Vec<(u16, I32F32)>> = vec![vec![]; rows];
+    for i in 0..rows {
+        let mut row1: Vec<I32F32> = vec![zero; columns as usize];
+        for (j, value) in mat1[i].iter() {
+            row1[*j as usize] = *value;
+        }
+        let mut row2: Vec<I32F32> = vec![zero; columns as usize];
+        for (j, value) in mat2[i].iter() {
+            row2[*j as usize] = *value;
+        }
+        for j in 0..columns as usize {
+            let interp: I32F32 = row1[j] + ratio * (row2[j] - row1[j]);
+            if zero < interp {
+                result[i].push((j as u16, interp))
+            }
+        }
+    }
+    result
+}
+
 // Element-wise product of two matrices.
 #[allow(dead_code)]
 pub fn hadamard(mat1: &[Vec<I32F32>], mat2: &[Vec<I32F32>]) -> Vec<Vec<I32F32>> {
