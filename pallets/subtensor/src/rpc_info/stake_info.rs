@@ -56,24 +56,13 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_stake_info_for_coldkeys(
-        coldkey_account_vecs: Vec<Vec<u8>>,
+        coldkey_accounts: Vec<T::AccountId>,
     ) -> Vec<(T::AccountId, Vec<StakeInfo<T::AccountId>>)> {
-        let mut coldkeys: Vec<T::AccountId> = Vec::new();
-        for coldkey_account_vec in coldkey_account_vecs {
-            if coldkey_account_vec.len() != 32 {
-                continue; // Invalid coldkey
-            }
-            let Ok(coldkey) = T::AccountId::decode(&mut coldkey_account_vec.as_bytes_ref()) else {
-                continue;
-            };
-            coldkeys.push(coldkey);
+        if coldkey_accounts.is_empty() {
+            return Vec::new(); // Empty coldkeys
         }
 
-        if coldkeys.is_empty() {
-            return Vec::new(); // Invalid coldkey
-        }
-
-        Self::_get_stake_info_for_coldkeys(coldkeys)
+        Self::_get_stake_info_for_coldkeys(coldkey_accounts)
     }
 
     pub fn get_stake_info_for_coldkey(
