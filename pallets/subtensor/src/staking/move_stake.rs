@@ -57,7 +57,11 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 6. Get the current alpha stake for the origin hotkey-coldkey pair in the origin subnet
-        let origin_alpha = Self::get_stake_for_hotkey_and_coldkey_on_subnet( &origin_hotkey, &coldkey, origin_netuid );
+        let origin_alpha = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &origin_hotkey,
+            &coldkey,
+            origin_netuid,
+        );
         ensure!(
             alpha_amount <= origin_alpha,
             Error::<T>::NotEnoughStakeToWithdraw
@@ -94,6 +98,7 @@ impl<T: Config> Pallet<T> {
             origin_netuid,
             destination_hotkey,
             destination_netuid,
+            origin_tao,
         ));
 
         // -- 10. Ok and return.
