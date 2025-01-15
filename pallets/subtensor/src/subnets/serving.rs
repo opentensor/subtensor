@@ -92,9 +92,10 @@ impl<T: Config> Pallet<T> {
 
         // Check certificate
         if let Some(certificate) = certificate {
-            if let Ok(certificate) = NeuronCertificateOf::try_from(certificate) {
-                NeuronCertificates::<T>::insert(netuid, hotkey_id.clone(), certificate)
-            }
+			let certificate = NeuronCertificateOf::try_from(certificate);
+			ensure!(certificate.is_ok(), Error::<T>::InvalidNeuronCertificate);
+
+            NeuronCertificates::<T>::insert(netuid, hotkey_id.clone(), certificate.unwrap());
         }
 
         // We insert the axon meta.

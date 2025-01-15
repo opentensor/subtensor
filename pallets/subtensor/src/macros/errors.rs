@@ -183,5 +183,7 @@ mod errors {
         InputLengthsUnequal,
         /// A transactor exceeded the rate limit for setting weights.
         CommittingWeightsTooFast,
+		/// Invalid Neuron certificate uploaded
+		InvalidNeuronCertificate,
     }
 }
