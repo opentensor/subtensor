@@ -69,7 +69,7 @@ impl StakingPrecompile {
     }
 
     fn add_stake(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
-        let hotkey = Self::parse_hotkey(data)?.into();
+        let hotkey = Self::parse_ss58(data)?.into();
         let amount: U256 = handle.context().apparent_value;
 
         // TODO: Use netuid method parameter here
@@ -89,7 +89,7 @@ impl StakingPrecompile {
         Self::dispatch(handle, call)
     }
     fn remove_stake(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
-        let hotkey = Self::parse_hotkey(data)?.into();
+        let hotkey = Self::parse_ss58(data)?.into();
 
         // TODO: Use netuid method parameter here
         let netuid: u16 = 0;
@@ -114,8 +114,8 @@ impl StakingPrecompile {
     }
 
     fn get_stake_coldkey(data: &[u8]) -> PrecompileResult {
-        // TODO: rename parse_hotkey to parse_key or something?
-        let coldkey: AccountId32 = Self::parse_hotkey(data)?.into();
+        // TODO: rename parse_ss58 to parse_key or something?
+        let coldkey: AccountId32 = Self::parse_ss58(data)?.into();
 
         // get total stake of coldkey
         let total_stake = pallet_subtensor::TotalColdkeyStake::<Runtime>::get(coldkey);
@@ -129,7 +129,7 @@ impl StakingPrecompile {
         })
     }
 
-    fn parse_hotkey(data: &[u8]) -> Result<[u8; 32], PrecompileFailure> {
+    fn parse_ss58(data: &[u8]) -> Result<[u8; 32], PrecompileFailure> {
         if data.len() < 32 {
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
