@@ -4,8 +4,8 @@ extern crate alloc;
 use codec::Compact;
 use sp_core::hexdisplay::AsBytesRef;
 
-#[freeze_struct("5df24a1844c64c02")]
-#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
+#[freeze_struct("4f16c654467bc8b6")]
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct StakeInfo<AccountId: TypeInfo + Encode + Decode> {
     hotkey: AccountId,
     coldkey: AccountId,
@@ -77,16 +77,9 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_stake_info_for_coldkey(
-        coldkey_account_vec: Vec<u8>,
+        coldkey_account: T::AccountId,
     ) -> Vec<StakeInfo<T::AccountId>> {
-        if coldkey_account_vec.len() != 32 {
-            return Vec::new(); // Invalid coldkey
-        }
-
-        let Ok(coldkey) = T::AccountId::decode(&mut coldkey_account_vec.as_bytes_ref()) else {
-            return Vec::new();
-        };
-        let stake_info = Self::_get_stake_info_for_coldkeys(vec![coldkey]);
+        let stake_info = Self::_get_stake_info_for_coldkeys(vec![coldkey_account]);
 
         if stake_info.is_empty() {
             Vec::new() // Invalid coldkey

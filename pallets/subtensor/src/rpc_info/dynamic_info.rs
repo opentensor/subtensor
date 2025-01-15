@@ -4,8 +4,8 @@ use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
 use subtensor_macros::freeze_struct;
 
-#[freeze_struct("53fed74f77f5b71f")]
-#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
+#[freeze_struct("6e369f6fe935112e")]
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct DynamicInfo<AccountId: TypeInfo + Encode + Decode> {
     netuid: Compact<u16>,
     owner_hotkey: AccountId,

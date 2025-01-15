@@ -3,8 +3,8 @@ use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
 use codec::Compact;
 
-#[freeze_struct("9b6756e259900456")]
-#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
+#[freeze_struct("d6da7340b3350951")]
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct NeuronInfo<AccountId: TypeInfo + Encode + Decode> {
     hotkey: AccountId,
     coldkey: AccountId,
@@ -28,8 +28,8 @@ pub struct NeuronInfo<AccountId: TypeInfo + Encode + Decode> {
     pruning_score: Compact<u16>,
 }
 
-#[freeze_struct("685712e677d02e69")]
-#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
+#[freeze_struct("3e9eed057f379b3b")]
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct NeuronInfoLite<AccountId: TypeInfo + Encode + Decode> {
     hotkey: AccountId,
     coldkey: AccountId,

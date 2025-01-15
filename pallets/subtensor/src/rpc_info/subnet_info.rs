@@ -4,8 +4,8 @@ use frame_support::storage::IterableStorageMap;
 extern crate alloc;
 use codec::Compact;
 
-#[freeze_struct("9b767ca31b7ce512")]
-#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
+#[freeze_struct("1eee6f3911800c6b")]
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetInfo<AccountId: TypeInfo + Encode + Decode> {
     netuid: Compact<u16>,
     rho: Compact<u16>,
@@ -27,8 +27,8 @@ pub struct SubnetInfo<AccountId: TypeInfo + Encode + Decode> {
     owner: AccountId,
 }
 
-#[freeze_struct("d1f0d678a059f78")]
-#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
+#[freeze_struct("ae2cf407a8d95ef6")]
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetInfov2<AccountId: TypeInfo + Encode + Decode> {
     netuid: Compact<u16>,
     rho: Compact<u16>,
@@ -51,8 +51,8 @@ pub struct SubnetInfov2<AccountId: TypeInfo + Encode + Decode> {
     identity: Option<SubnetIdentity>,
 }
 
-#[freeze_struct("55b472510f10e76a")]
-#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
+#[freeze_struct("4714b5e2336f7b19")]
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetHyperparams {
     rho: Compact<u16>,
     kappa: Compact<u16>,
