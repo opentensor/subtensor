@@ -756,7 +756,7 @@ fn test_512_graph_random_weights() {
     for interleave in 0..3 {
         // server-self weight off/on
         for server_self in [false, true] {
-            for bonds_penalty in vec![0, u16::MAX / 2, u16::MAX] {
+            for bonds_penalty in [0, u16::MAX / 2, u16::MAX] {
                 let (validators, servers) = distribute_nodes(
                     validators_n as usize,
                     network_n as usize,
@@ -783,9 +783,9 @@ fn test_512_graph_random_weights() {
                         epochs,
                         1,
                         server_self,
-                        &vec![],
+                        &[],
                         false,
-                        &vec![],
+                        &[],
                         false,
                         true,
                         interleave as u64,
@@ -814,9 +814,9 @@ fn test_512_graph_random_weights() {
                         epochs,
                         1,
                         server_self,
-                        &vec![],
+                        &[],
                         false,
-                        &vec![],
+                        &[],
                         false,
                         true,
                         interleave as u64,
