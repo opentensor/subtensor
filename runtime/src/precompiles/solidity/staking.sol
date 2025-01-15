@@ -43,6 +43,20 @@ interface IStaking {
   function removeStake(bytes32 hotkey, uint256 amount, uint256 netuid) external;
 
   /**
+   * @dev Delegates staking to a proxy account.
+   *
+   * @param delegate The public key (32 bytes) of the delegate.
+   */
+  function addProxy(bytes32 delegate) external;
+
+  /**
+   * @dev Removes staking proxy account.
+   *
+   * @param delegate The public key (32 bytes) of the delegate.
+   */
+  function removeProxy(bytes32 delegate) external;
+
+  /**
   * @dev Returns the stake amount associated with the specified `hotkey` and `coldkey`.
   *
   * This function retrieves the current stake amount linked to a specific hotkey and coldkey pair.
