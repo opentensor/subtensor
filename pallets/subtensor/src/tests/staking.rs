@@ -1901,3 +1901,30 @@ fn test_mining_emission_distribution_validator_valiminer_miner() {
         assert_eq!(miner_emission, total_emission / 4);
     });
 }
+
+// Verify staking too low amount is impossible
+#[test]
+fn test_staking_too_little_fails() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
+        let amount = 10_000;
+
+        //add network
+        let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
+
+        // Coldkey / hotkey 0 decreases take to 5%. This should fail as the minimum take is 9%
+        assert_err!(
+            SubtensorModule::add_stake(
+                RuntimeOrigin::signed(coldkey_account_id),
+                hotkey_account_id,
+                netuid,
+                1
+            ),
+            Error::<Test>::AmountTooLow
+        );
+    });
+}
