@@ -209,6 +209,7 @@ fn dispatch(
     }
 
     let result = call.dispatch(RawOrigin::Signed(account_id.clone()).into());
+
     match &result {
         Ok(post_info) => log::info!("Dispatch succeeded. Post info: {:?}", post_info),
         Err(dispatch_error) => log::error!("Dispatch failed. Error: {:?}", dispatch_error),
