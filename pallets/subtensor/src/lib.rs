@@ -703,8 +703,9 @@ pub mod pallet {
 
     #[pallet::type_value]
     /// Default minimum stake.
+    /// 2M rao matches $1 at $500/TAO
     pub fn DefaultMinStake<T: Config>() -> u64 {
-        1_000
+        2_000_000
     }
 
     #[pallet::type_value]

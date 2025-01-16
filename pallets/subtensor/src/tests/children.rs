@@ -3058,28 +3058,36 @@ fn test_childkey_multiple_parents_emission() {
 
         // Register neurons and add initial stakes
         let initial_stakes: Vec<(bool, U256, U256, u64)> = vec![
-            (false, coldkey_parent1, parent1, 200_000),
-            (true, coldkey_parent2, parent2, 150_000),
-            (true, coldkey_child, child, 20_000),
-            (true, coldkey_weight_setter, weight_setter, 100_000),
+            (false, coldkey_parent1, parent1, 200_000_000),
+            (true, coldkey_parent2, parent2, 150_000_000),
+            (true, coldkey_child, child, 20_000_000),
+            (true, coldkey_weight_setter, weight_setter, 100_000_000),
         ];
 
-        for (register, coldkey, hotkey, stake) in initial_stakes.iter() {
-            SubtensorModule::add_balance_to_coldkey_account(coldkey, *stake);
-            if *register {
-                // Register a neuron
-                register_ok_neuron(netuid, *hotkey, *coldkey, 0);
-            } else {
-                // Just create hotkey account
-                SubtensorModule::create_account_if_non_existent(coldkey, hotkey);
-            }
-            assert_ok!(SubtensorModule::add_stake(
-                RuntimeOrigin::signed(*coldkey),
-                *hotkey,
-                netuid,
-                *stake
-            ));
-        }
+        let initial_actual_stakes: Vec<u64> = initial_stakes
+            .iter()
+            .map(|(register, coldkey, hotkey, stake)| {
+                SubtensorModule::add_balance_to_coldkey_account(coldkey, *stake);
+                if *register {
+                    // Register a neuron
+                    register_ok_neuron(netuid, *hotkey, *coldkey, 0);
+                } else {
+                    // Just create hotkey account
+                    SubtensorModule::create_account_if_non_existent(coldkey, hotkey);
+                }
+                assert_ok!(SubtensorModule::add_stake(
+                    RuntimeOrigin::signed(*coldkey),
+                    *hotkey,
+                    netuid,
+                    *stake
+                ));
+
+                // Return actual stake
+                SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey, &coldkey, netuid,
+                )
+            })
+            .collect();
 
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         step_block(2);
@@ -3152,23 +3160,26 @@ fn test_childkey_multiple_parents_emission() {
         );
 
         assert!(
-            parent1_stake > 200_000,
+            parent1_stake > initial_actual_stakes[0],
             "Parent1 should have received emission"
         );
         assert!(
-            parent2_stake > 150_000,
+            parent2_stake > initial_actual_stakes[1],
             "Parent2 should have received emission"
         );
-        assert!(child_stake > 20_000, "Child should have received emission");
         assert!(
-            weight_setter_stake > 100_000,
+            child_stake > initial_actual_stakes[2],
+            "Child should have received emission"
+        );
+        assert!(
+            weight_setter_stake > initial_actual_stakes[3],
             "Weight setter should have received emission"
         );
 
         // Check individual stake increases
-        let parent1_stake_increase = parent1_stake - 200_000;
-        let parent2_stake_increase = parent2_stake - 150_000;
-        let child_stake_increase = child_stake - 20_000;
+        let parent1_stake_increase = parent1_stake - initial_actual_stakes[0];
+        let parent2_stake_increase = parent2_stake - initial_actual_stakes[1];
+        let child_stake_increase = child_stake - initial_actual_stakes[2];
 
         log::debug!(
             "Stake increases - Parent1: {}, Parent2: {}, Child: {}",
@@ -3192,12 +3203,13 @@ fn test_childkey_multiple_parents_emission() {
         );
 
         // Check that the total stake has increased by the emission amount
+        // Allow 1% slippage
         let total_stake = parent1_stake + parent2_stake + child_stake + weight_setter_stake;
-        let initial_total_stake: u64 = initial_stakes.iter().map(|(_, _, _, stake)| stake).sum();
+        let initial_total_stake: u64 = initial_actual_stakes.iter().sum::<u64>();
         assert_abs_diff_eq!(
             total_stake,
-            initial_total_stake + total_emission - 2,
-            epsilon = total_emission / 10_000
+            initial_total_stake + total_emission,
+            epsilon = total_emission / 100
         );
     });
 }

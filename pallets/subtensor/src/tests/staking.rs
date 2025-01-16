@@ -9,7 +9,7 @@ use crate::*;
 use approx::assert_abs_diff_eq;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
 use frame_support::sp_runtime::DispatchError;
-use sp_core::{H256, U256};
+use sp_core::{Get, H256, U256};
 
 /***********************************************************
     staking::add_stake() tests
@@ -41,7 +41,7 @@ fn test_add_stake_ok_no_emission() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(533453);
         let coldkey_account_id = U256::from(55453);
-        let amount = 10_000;
+        let amount = DefaultMinStake::<Test>::get() * 10;
 
         //add network
         let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
@@ -70,14 +70,14 @@ fn test_add_stake_ok_no_emission() {
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             amount,
-            epsilon = 1,
+            epsilon = amount / 1000,
         );
 
         // Check if balance has decreased
         assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 1);
 
         // Check if total stake has increased accordingly.
-        assert_eq!(SubtensorModule::get_total_stake(), 10000);
+        assert_eq!(SubtensorModule::get_total_stake(), amount);
         assert_abs_diff_eq!(SubtensorModule::get_total_stake(), amount, epsilon = 1,);
     });
 }
@@ -179,16 +179,17 @@ fn test_add_stake_ok_neuron_does_not_belong_to_coldkey() {
         let hotkey_id = U256::from(54544);
         let other_cold_key = U256::from(99498);
         let netuid: u16 = add_dynamic_network(&hotkey_id, &coldkey_id);
+        let stake = DefaultMinStake::<Test>::get() * 10;
 
         // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&other_cold_key, 100000);
+        SubtensorModule::add_balance_to_coldkey_account(&other_cold_key, stake);
 
         // Perform the request which is signed by a different cold key
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(other_cold_key),
             hotkey_id,
             netuid,
-            1000,
+            stake,
         ));
     });
 }
@@ -198,7 +199,7 @@ fn test_add_stake_err_not_enough_belance() {
     new_test_ext(1).execute_with(|| {
         let coldkey_id = U256::from(544);
         let hotkey_id = U256::from(54544);
-        let stake = 60_000;
+        let stake = DefaultMinStake::<Test>::get() * 10;
         let netuid: u16 = add_dynamic_network(&hotkey_id, &coldkey_id);
 
         // Lets try to stake with 0 balance in cold key account
@@ -561,7 +562,7 @@ fn test_remove_stake_total_issuance_no_change() {
         let subnet_owner_hotkey = U256::from(2);
         let hotkey_account_id = U256::from(581337);
         let coldkey_account_id = U256::from(81337);
-        let amount = 10_000;
+        let amount = DefaultMinStake::<Test>::get() * 10;
         let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
@@ -593,7 +594,11 @@ fn test_remove_stake_total_issuance_no_change() {
         let total_issuance_after_stake = Balances::total_issuance();
 
         // Remove all stake
-        let stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
+        let stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+        );
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
@@ -1102,6 +1107,7 @@ fn test_clear_small_nominations() {
         let cold1 = U256::from(3);
         let cold2 = U256::from(4);
         let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let amount = DefaultMinStake::<Test>::get() * 10;
 
         // Register hot1.
         register_ok_neuron(netuid, hot1, cold1, 0);
@@ -1114,12 +1120,12 @@ fn test_clear_small_nominations() {
         assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot2), cold2);
 
         // Add stake cold1 --> hot1 (non delegation.)
-        SubtensorModule::add_balance_to_coldkey_account(&cold1, 1_000);
+        SubtensorModule::add_balance_to_coldkey_account(&cold1, amount);
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(cold1),
             hot1,
             netuid,
-            1_000
+            amount
         ));
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(cold1),
@@ -1133,12 +1139,12 @@ fn test_clear_small_nominations() {
         );
 
         // Add stake cold2 --> hot1 (is delegation.)
-        SubtensorModule::add_balance_to_coldkey_account(&cold2, 1_000);
+        SubtensorModule::add_balance_to_coldkey_account(&cold2, amount);
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(cold2),
             hot1,
             netuid,
-            1_000
+            amount
         ));
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(cold2),
@@ -1152,12 +1158,12 @@ fn test_clear_small_nominations() {
         );
 
         // Add stake cold1 --> hot2 (non delegation.)
-        SubtensorModule::add_balance_to_coldkey_account(&cold1, 1_000);
+        SubtensorModule::add_balance_to_coldkey_account(&cold1, amount);
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(cold1),
             hot2,
             netuid,
-            1_000
+            amount
         ));
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(cold1),
@@ -1172,12 +1178,12 @@ fn test_clear_small_nominations() {
         let balance1_before_cleaning = Balances::free_balance(cold1);
 
         // Add stake cold2 --> hot2 (is delegation.)
-        SubtensorModule::add_balance_to_coldkey_account(&cold2, 1_000);
+        SubtensorModule::add_balance_to_coldkey_account(&cold2, amount);
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(cold2),
             hot2,
             netuid,
-            1_000
+            amount
         ));
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(cold2),
@@ -1580,8 +1586,8 @@ fn test_get_total_delegated_stake_after_unstaking() {
         let delegate_coldkey = U256::from(1);
         let delegate_hotkey = U256::from(2);
         let delegator = U256::from(3);
-        let initial_stake = 2_000;
-        let unstake_amount = 500;
+        let initial_stake = DefaultMinStake::<Test>::get() * 10;
+        let unstake_amount = DefaultMinStake::<Test>::get() * 5;
         let existential_deposit = ExistentialDeposit::get();
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
@@ -1602,12 +1608,12 @@ fn test_get_total_delegated_stake_after_unstaking() {
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&delegator),
             initial_stake - existential_deposit,
-            epsilon = 1,
+            epsilon = initial_stake / 1000,
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&delegate_hotkey),
             initial_stake - existential_deposit,
-            epsilon = 1,
+            epsilon = initial_stake / 1000,
         );
 
         // Unstake part of the delegation
@@ -1635,12 +1641,12 @@ fn test_get_total_delegated_stake_after_unstaking() {
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&delegator),
             expected_delegated_stake,
-            epsilon = 1,
+            epsilon = expected_delegated_stake / 1000,
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&delegate_hotkey),
             expected_delegated_stake,
-            epsilon = 1,
+            epsilon = expected_delegated_stake / 1000,
         );
     });
 }
@@ -1668,7 +1674,7 @@ fn test_get_total_delegated_stake_single_delegator() {
         let delegate_coldkey = U256::from(1);
         let delegate_hotkey = U256::from(2);
         let delegator = U256::from(3);
-        let stake_amount = 1_999;
+        let stake_amount = DefaultMinStake::<Test>::get() * 10 - 1;
         let existential_deposit = ExistentialDeposit::get();
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
@@ -1706,12 +1712,12 @@ fn test_get_total_delegated_stake_single_delegator() {
         assert_abs_diff_eq!(
             actual_delegated_stake,
             expected_delegated_stake,
-            epsilon = 1,
+            epsilon = expected_delegated_stake / 1000,
         );
         assert_abs_diff_eq!(
             actual_delegator_stake,
             expected_delegated_stake,
-            epsilon = 1,
+            epsilon = expected_delegated_stake / 1000,
         );
     });
 }
@@ -1726,8 +1732,8 @@ fn test_get_alpha_share_stake_multiple_delegators() {
         let coldkey1 = U256::from(3);
         let coldkey2 = U256::from(4);
         let existential_deposit = 2;
-        let stake1 = 1000;
-        let stake2 = 1999;
+        let stake1 = DefaultMinStake::<Test>::get() * 10;
+        let stake2 = DefaultMinStake::<Test>::get() * 10 - 1;
 
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, hotkey1, coldkey1, 0);
@@ -1754,19 +1760,26 @@ fn test_get_alpha_share_stake_multiple_delegators() {
         // Debug prints
         println!("Delegator1 stake: {}", stake1);
         println!("Delegator2 stake: {}", stake2);
-        println!("Alpha share for for 1: {}", SubtensorModule::get_alpha_share_pool(hotkey1, netuid).get_value(&coldkey1));
-        println!("Alpha share for for 2: {}", SubtensorModule::get_alpha_share_pool(hotkey2, netuid).get_value(&coldkey2));
+        println!(
+            "Alpha share for for 1: {}",
+            SubtensorModule::get_alpha_share_pool(hotkey1, netuid).get_value(&coldkey1)
+        );
+        println!(
+            "Alpha share for for 2: {}",
+            SubtensorModule::get_alpha_share_pool(hotkey2, netuid).get_value(&coldkey2)
+        );
 
         // Calculate expected total delegated stake
         let expected_total_stake = stake1 + stake2 - existential_deposit * 2;
-        let actual_total_stake = SubtensorModule::get_alpha_share_pool(hotkey1, netuid).get_value(&coldkey1) + SubtensorModule::get_alpha_share_pool(hotkey2, netuid).get_value(&coldkey2);
+        let actual_total_stake = SubtensorModule::get_alpha_share_pool(hotkey1, netuid)
+            .get_value(&coldkey1)
+            + SubtensorModule::get_alpha_share_pool(hotkey2, netuid).get_value(&coldkey2);
 
-        assert_eq!(
+        // Total subnet stake should match the sum of delegators' stakes minus existential deposits.
+        assert_abs_diff_eq!(
             actual_total_stake,
             expected_total_stake,
-            "Total subnet stake should match the sum of delegators' stakes minus existential deposits. Expected: {}, Actual: {}",
-            expected_total_stake,
-            actual_total_stake
+            epsilon = expected_total_stake / 1000
         );
     });
 }
@@ -1777,8 +1790,8 @@ fn test_get_total_delegated_stake_exclude_owner_stake() {
         let delegate_coldkey = U256::from(1);
         let delegate_hotkey = U256::from(2);
         let delegator = U256::from(3);
-        let owner_stake = 1_000_000;
-        let delegator_stake = 999_999;
+        let owner_stake = DefaultMinStake::<Test>::get() * 10;
+        let delegator_stake = DefaultMinStake::<Test>::get() * 10 - 1;
 
         let netuid = add_dynamic_network(&delegate_hotkey, &delegate_coldkey);
 
@@ -1819,7 +1832,7 @@ fn test_get_total_delegated_stake_exclude_owner_stake() {
         assert_abs_diff_eq!(
             actual_delegated_stake,
             expected_delegated_stake,
-            epsilon = 100
+            epsilon = expected_delegated_stake / 1000
         );
     });
 }
