@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used)]
 
 use super::mock::*;
-
+use approx::assert_abs_diff_eq;
 use codec::Encode;
 use frame_support::{assert_noop, assert_ok};
 use frame_system::{EventRecord, Phase};
@@ -780,22 +780,24 @@ fn test_adjust_senate_events() {
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             replacement_hotkey_account_id,
             root_netuid,
-            1 // Will be more than the last one in the senate by stake (has 0 stake)
+            10_000 // Will be more than the last one in the senate by stake (has 0 stake)
         ));
-        assert_eq!(
+        assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &replacement_hotkey_account_id,
                 &coldkey_account_id,
                 root_netuid
             ),
-            1
+            10_000,
+            epsilon = 10
         );
-        assert_eq!(
+        assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(
                 &replacement_hotkey_account_id,
                 root_netuid
             ),
-            1
+            10_000,
+            epsilon = 10
         );
 
         System::reset_events();

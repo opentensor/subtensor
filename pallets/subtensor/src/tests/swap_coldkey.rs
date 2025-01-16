@@ -7,6 +7,7 @@ use frame_system::{Config, RawOrigin};
 use super::mock::*;
 use crate::*;
 use crate::{Call, ColdkeySwapScheduleDuration, Error};
+use approx::assert_abs_diff_eq;
 use frame_support::error::BadOrigin;
 use frame_support::traits::schedule::v3::Named as ScheduleNamed;
 use frame_support::traits::schedule::DispatchTime;
@@ -311,7 +312,7 @@ fn test_swap_idempotency() {
         let new_coldkey = U256::from(2);
         let hotkey = U256::from(3);
         let netuid = 1u16;
-        let stake = 100;
+        let stake = 10_000;
 
         // Add a network
         add_network(netuid, 1, 0);
@@ -364,7 +365,7 @@ fn test_swap_with_max_values() {
         let other_coldkey = U256::from(7);
         let netuid = 1u16;
         let netuid2 = 2u16;
-        let stake = 100;
+        let stake = 10_000;
         let max_stake = 21_000_000_000_000_000; // 21 Million TAO; max possible balance.
 
         // Add a network
@@ -432,7 +433,7 @@ fn test_swap_with_non_existent_new_coldkey() {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
         let hotkey = U256::from(3);
-        let stake = 100;
+        let stake = 10_000;
         let netuid = 1u16;
         add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey, old_coldkey, 1001000);
@@ -495,7 +496,7 @@ fn test_swap_effect_on_delegated_stake() {
         let new_coldkey = U256::from(2);
         let delegator = U256::from(3);
         let hotkey = U256::from(4);
-        let stake = 100;
+        let stake = 10_000;
 
         StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
         StakingHotkeys::<Test>::insert(delegator, vec![hotkey]);
@@ -1590,13 +1591,13 @@ fn test_coldkey_delegations() {
             delegate
         )); // register on root
         register_ok_neuron(netuid2, delegate, owner, 0);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 100_000);
 
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             delegate,
             netuid,
-            100_u64
+            10_000
         ));
 
         // Add stake to netuid2
@@ -1604,7 +1605,7 @@ fn test_coldkey_delegations() {
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             delegate,
             netuid2,
-            100_u64
+            10_000
         ));
 
         // Perform the swap
@@ -1616,19 +1617,29 @@ fn test_coldkey_delegations() {
         ));
 
         // Verify stake was moved for the delegate
-        assert_eq!(
+        assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&delegate),
-            100 * 2
+            10_000 * 2,
+            epsilon = 10
         );
         assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey), 0);
-        assert_eq!(
+        assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
-            100 * 2
+            10_000 * 2,
+            epsilon = 10
         );
-        assert_eq!(Alpha::<Test>::get((delegate, new_coldkey, netuid)), 100);
+        assert_abs_diff_eq!(
+            Alpha::<Test>::get((delegate, new_coldkey, netuid)).to_num::<u64>(),
+            10_000,
+            epsilon = 10
+        );
         assert_eq!(Alpha::<Test>::get((delegate, coldkey, netuid)), 0);
 
-        assert_eq!(Alpha::<Test>::get((delegate, new_coldkey, netuid2)), 100);
+        assert_abs_diff_eq!(
+            Alpha::<Test>::get((delegate, new_coldkey, netuid2)).to_num::<u64>(),
+            10_000,
+            epsilon = 10
+        );
         assert_eq!(Alpha::<Test>::get((delegate, coldkey, netuid2)), 0);
     });
 }

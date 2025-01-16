@@ -62,7 +62,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyAccountNotExists
         );
 
-        // Ensure stake_to_ve_added is at least DefaultMinStake
+        // Ensure stake_to_be_added is at least DefaultMinStake
         ensure!(
             stake_to_be_added >= DefaultMinStake::<T>::get(),
             Error::<T>::AmountTooLow
