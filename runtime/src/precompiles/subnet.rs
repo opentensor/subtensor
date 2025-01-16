@@ -27,10 +27,10 @@ impl SubnetPrecompile {
             .map_or_else(vec::Vec::new, |slice| slice.to_vec()); // Avoiding borrowing conflicts
 
         match method_id {
-            id if id == get_method_id("registerNetwork(bytes,bytes,bytes)") => {
+            id if id == get_method_id("registerNetwork(bytes32,bytes,bytes,bytes)") => {
                 Self::register_network(handle, &method_input)
             }
-            id if id == get_method_id("registerNetwork()") => {
+            id if id == get_method_id("registerNetwork(bytes32)") => {
                 Self::register_network(handle, &[0_u8; 0])
             }
             _ => Err(PrecompileFailure::Error {
@@ -41,13 +41,15 @@ impl SubnetPrecompile {
 
     fn register_network(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
         let call = if data.is_empty() {
+            let hotkey = Self::parse_pub_key(data)?.into();
             RuntimeCall::SubtensorModule(
                 pallet_subtensor::Call::<Runtime>::register_network_with_identity {
+                    hotkey,
                     identity: None,
                 },
             )
         } else {
-            let (subnet_name, github_repo, subnet_contact) =
+            let (pubkey, subnet_name, github_repo, subnet_contact) =
                 Self::parse_register_network_parameters(data)?;
 
             let identity: pallet_subtensor::SubnetIdentityOf = pallet_subtensor::SubnetIdentityOf {
@@ -59,6 +61,7 @@ impl SubnetPrecompile {
             // Create the register_network callcle
             RuntimeCall::SubtensorModule(
                 pallet_subtensor::Call::<Runtime>::register_network_with_identity {
+                    hotkey: pubkey.into(),
                     identity: Some(identity),
                 },
             )
@@ -68,19 +71,33 @@ impl SubnetPrecompile {
         dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
     }
 
+    fn parse_pub_key(data: &[u8]) -> Result<[u8; 32], PrecompileFailure> {
+        if data.len() < 32 {
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+        let mut pubkey = [0u8; 32];
+        pubkey.copy_from_slice(get_slice(data, 0, 32)?);
+        Ok(pubkey)
+    }
+
     fn parse_register_network_parameters(
         data: &[u8],
-    ) -> Result<(vec::Vec<u8>, vec::Vec<u8>, vec::Vec<u8>), PrecompileFailure> {
+    ) -> Result<([u8; 32], vec::Vec<u8>, vec::Vec<u8>, vec::Vec<u8>), PrecompileFailure> {
+        let mut pubkey = [0u8; 32];
+        pubkey.copy_from_slice(get_slice(data, 0, 32)?);
+
         let mut buf = [0_u8; 4];
 
         // get all start point for three data items: name, repo and contact
-        buf.copy_from_slice(get_slice(data, 28, 32)?);
+        buf.copy_from_slice(get_slice(data, 60, 64)?);
         let subnet_name_start: usize = u32::from_be_bytes(buf) as usize;
 
-        buf.copy_from_slice(get_slice(data, 60, 64)?);
+        buf.copy_from_slice(get_slice(data, 92, 96)?);
         let github_repo_start: usize = u32::from_be_bytes(buf) as usize;
 
-        buf.copy_from_slice(get_slice(data, 92, 96)?);
+        buf.copy_from_slice(get_slice(data, 124, 128)?);
         let subnet_contact_start: usize = u32::from_be_bytes(buf) as usize;
 
         // get name
@@ -128,6 +145,6 @@ impl SubnetPrecompile {
             subnet_contact_start + subnet_contact_len + 32,
         )?);
 
-        Ok((name_vec, repo_vec, contact_vec))
+        Ok((pubkey, name_vec, repo_vec, contact_vec))
     }
 }
