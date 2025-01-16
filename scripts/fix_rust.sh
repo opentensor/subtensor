@@ -6,7 +6,7 @@ set -e  # Exit immediately if a command exits with a non-zero status.
 commit_if_changes() {
     if [ -n "$(git status --porcelain)" ]; then
         echo "changes detected, committing..."
-        git commit --allow-empty -am "$1"
+        git commit -am "$1"
         echo "commit created."
     fi
 }
