@@ -3084,7 +3084,7 @@ fn test_childkey_multiple_parents_emission() {
 
                 // Return actual stake
                 SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-                    &hotkey, &coldkey, netuid,
+                    hotkey, coldkey, netuid,
                 )
             })
             .collect();
