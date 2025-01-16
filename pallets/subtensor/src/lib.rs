@@ -702,6 +702,13 @@ pub mod pallet {
     }
 
     #[pallet::type_value]
+    /// Default minimum stake.
+    /// 2M rao matches $1 at $500/TAO
+    pub fn DefaultMinStake<T: Config>() -> u64 {
+        2_000_000
+    }
+
+    #[pallet::type_value]
     /// Default unicode vector for tau symbol.
     pub fn DefaultUnicodeVecU8<T: Config>() -> Vec<u8> {
         b"\xF0\x9D\x9C\x8F".to_vec() // Unicode for tau (𝜏)
