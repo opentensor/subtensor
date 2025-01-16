@@ -139,7 +139,7 @@ fn test_set_rootweights_validate() {
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            1
+            10_000
         ));
 
         // Verify stake is more than minimum
@@ -253,7 +253,7 @@ fn test_commit_weights_validate() {
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            1
+            10_000
         ));
 
         // Verify stake is more than minimum
@@ -433,7 +433,7 @@ fn test_reveal_weights_validate() {
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            1
+            10_000
         ));
 
         // Verify stake is more than minimum

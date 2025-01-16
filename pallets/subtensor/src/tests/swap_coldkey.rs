@@ -101,7 +101,7 @@ fn test_swap_total_coldkey_stake() {
         let other_coldkey = U256::from(3);
         let hotkey = U256::from(4);
         let other_hotkey = U256::from(5);
-        let stake = 100;
+        let stake = 10_000;
 
         let netuid = 1u16;
         add_network(netuid, 1, 0);
@@ -1234,13 +1234,13 @@ fn test_coldkey_swap_total() {
         let netuid1 = 1u16;
         let netuid2 = 2u16;
         let netuid3 = 3u16;
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1000);
-        SubtensorModule::add_balance_to_coldkey_account(&delegate1, 1000);
-        SubtensorModule::add_balance_to_coldkey_account(&delegate2, 1000);
-        SubtensorModule::add_balance_to_coldkey_account(&delegate3, 1000);
-        SubtensorModule::add_balance_to_coldkey_account(&nominator1, 1000);
-        SubtensorModule::add_balance_to_coldkey_account(&nominator2, 1000);
-        SubtensorModule::add_balance_to_coldkey_account(&nominator3, 1000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 100_000);
+        SubtensorModule::add_balance_to_coldkey_account(&delegate1, 100_000);
+        SubtensorModule::add_balance_to_coldkey_account(&delegate2, 100_000);
+        SubtensorModule::add_balance_to_coldkey_account(&delegate3, 100_000);
+        SubtensorModule::add_balance_to_coldkey_account(&nominator1, 100_000);
+        SubtensorModule::add_balance_to_coldkey_account(&nominator2, 100_000);
+        SubtensorModule::add_balance_to_coldkey_account(&nominator3, 100_000);
 
         // Setup initial state
         add_network(netuid1, 13, 0);
@@ -1263,113 +1263,113 @@ fn test_coldkey_swap_total() {
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             hotkey1,
             netuid1,
-            100
+            10_000
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             hotkey2,
             netuid1,
-            100
+            10_000
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             hotkey3,
             netuid1,
-            100
+            10_000
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             delegate1,
             netuid1,
-            100
+            10_000
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             delegate2,
             netuid1,
-            100
+            10_000
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             delegate3,
             netuid1,
-            100
+            10_000
         ));
 
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(delegate1),
             hotkey1,
             netuid1,
-            100
+            10_000
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(delegate2),
             hotkey2,
             netuid1,
-            100
+            10_000
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(delegate3),
             hotkey3,
             netuid1,
-            100
+            10_000
         ));
 
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(delegate1),
             delegate1,
             netuid1,
-            100
+            10_000
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(delegate2),
             delegate2,
             netuid1,
-            100
+            10_000
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(delegate3),
             delegate3,
             netuid1,
-            100
+            10_000
         ));
 
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(nominator1),
             hotkey1,
             netuid1,
-            100
+            10_000
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(nominator2),
             hotkey2,
             netuid1,
-            100
+            10_000
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(nominator3),
             hotkey3,
             netuid1,
-            100
+            10_000
         ));
 
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(nominator1),
             delegate1,
             netuid1,
-            100
+            10_000
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(nominator2),
             delegate2,
             netuid1,
-            100
+            10_000
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(nominator3),
             delegate3,
             netuid1,
-            100
+            10_000
         ));
 
         assert_eq!(
@@ -1714,7 +1714,7 @@ fn test_schedule_swap_coldkey_execution() {
         let new_coldkey = U256::from(2);
         let hotkey = U256::from(3);
         let netuid = 1u16;
-        let stake_amount = 100;
+        let stake_amount = 10_000;
 
         add_network(netuid, 13, 0);
         register_ok_neuron(netuid, hotkey, old_coldkey, 0);
