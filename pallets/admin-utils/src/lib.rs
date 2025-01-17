@@ -101,10 +101,8 @@ pub mod pallet {
         Subnet,
         /// Enum for metagraph precompile
         Metagraph,
-        /// Enum for subnets precompile
-        Subnets,
-        /// Enum for neurons precompile
-        Neurons,
+        /// Enum for neuron precompile
+        Neuron,
     }
 
     #[pallet::type_value]
