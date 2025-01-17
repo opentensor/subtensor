@@ -30,7 +30,6 @@ jobs:
       - name: Determine Docker tag and ref
         id: tag
         run: |
-          # Use the provided branch-or-tag input or fallback to the current ref
           branch_or_tag="${{ github.event.inputs.branch-or-tag || github.ref_name }}"
           echo "Determined branch or tag: $branch_or_tag"
           echo "tag=$branch_or_tag" >> $GITHUB_ENV
@@ -61,4 +60,3 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ github.repository }}:${{ env.tag }}
-            ghcr.io/${{ github.repository }}:latest
