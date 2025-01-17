@@ -1,4 +1,5 @@
 use super::*;
+use sp_core::Get;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic add_stake: Adds stake to a hotkey account.
@@ -59,6 +60,12 @@ impl<T: Config> Pallet<T> {
         ensure!(
             Self::hotkey_account_exists(&hotkey),
             Error::<T>::HotKeyAccountNotExists
+        );
+
+        // Ensure stake_to_be_added is at least DefaultMinStake
+        ensure!(
+            stake_to_be_added >= DefaultMinStake::<T>::get(),
+            Error::<T>::AmountTooLow
         );
 
         // 5. Ensure the remove operation from the coldkey is a success.
