@@ -4,6 +4,11 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+  push:
+    branches:
+      - devnet-ready
+      - devnet
+      - testnet
 
 permissions:
   contents: read
@@ -32,11 +37,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: ghcr.io/${{ github.repository }}
+      - name: Determine Docker tag
+        id: tag
+        run: |
+          case "${{ github.ref_name }}" in
+            devnet-ready)
+              echo "tag=devnet-ready" >> $GITHUB_ENV
+              ;;
+            devnet)
+              echo "tag=devnet" >> $GITHUB_ENV
+              ;;
+            testnet)
+              echo "tag=testnet" >> $GITHUB_ENV
+              ;;
+            *)
+              echo "Branch not recognized for custom tagging."
+              exit 1
+              ;;
+          esac
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
@@ -44,6 +62,5 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ steps.meta.outputs.tags }}
+            ghcr.io/${{ github.repository }}:${{ env.tag }}
             ghcr.io/${{ github.repository }}:latest
-          labels: ${{ steps.meta.outputs.labels }}
