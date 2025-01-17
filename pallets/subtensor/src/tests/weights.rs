@@ -1,25 +1,17 @@
 #![allow(clippy::indexing_slicing)]
 
 use super::mock::*;
-use crate::{
-    // coinbase::run_coinbase::WeightsTlockPayload, CRV3WeightCommits, Error, Owner,
-    coinbase::run_coinbase::WeightsTlockPayload,
-    CRV3WeightCommits,
-    Error,
-    MAX_CRV3_COMMIT_SIZE_BYTES,
-};
+use crate::coinbase::run_coinbase::WeightsTlockPayload;
+use crate::*;
 use ark_serialize::CanonicalDeserialize;
 use frame_support::{
-    assert_err,
-    assert_ok,
-    // dispatch::{DispatchClass, DispatchInfo, DispatchResult, GetDispatchInfo, Pays},
+    assert_err, assert_ok,
     dispatch::{DispatchClass, DispatchResult, GetDispatchInfo, Pays},
-    // pallet_prelude::{InvalidTransaction, TransactionValidityError},
 };
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 use scale_info::prelude::collections::HashMap;
 use sha2::Digest;
-use sp_core::{H256, U256};
+use sp_core::{Get, H256, U256};
 use sp_runtime::{
     traits::{BlakeTwo256, ConstU32, Hash, SignedExtension},
     BoundedVec, DispatchError,
@@ -139,7 +131,7 @@ fn test_set_rootweights_validate() {
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            1
+            DefaultMinStake::<Test>::get() * 10
         ));
 
         // Verify stake is more than minimum
@@ -253,7 +245,7 @@ fn test_commit_weights_validate() {
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            1
+            DefaultMinStake::<Test>::get() * 10
         ));
 
         // Verify stake is more than minimum
@@ -433,7 +425,7 @@ fn test_reveal_weights_validate() {
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            1
+            DefaultMinStake::<Test>::get() * 10
         ));
 
         // Verify stake is more than minimum

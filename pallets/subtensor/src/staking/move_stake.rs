@@ -1,5 +1,5 @@
 use super::*;
-// use substrate_fixed::types::I96F32;
+use sp_core::Get;
 
 impl<T: Config> Pallet<T> {
     /// Moves stake from one hotkey to another across subnets.
@@ -57,7 +57,11 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 6. Get the current alpha stake for the origin hotkey-coldkey pair in the origin subnet
-        let origin_alpha = Self::get_stake_for_hotkey_and_coldkey_on_subnet( &origin_hotkey, &coldkey, origin_netuid );
+        let origin_alpha = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &origin_hotkey,
+            &coldkey,
+            origin_netuid,
+        );
         ensure!(
             alpha_amount <= origin_alpha,
             Error::<T>::NotEnoughStakeToWithdraw
@@ -69,6 +73,12 @@ impl<T: Config> Pallet<T> {
             &coldkey.clone(),
             origin_netuid,
             alpha_amount,
+        );
+
+        // Ensure origin_tao is at least DefaultMinStake
+        ensure!(
+            origin_tao >= DefaultMinStake::<T>::get(),
+            Error::<T>::AmountTooLow
         );
 
         // --- 8. Stake the resulting TAO into the destination subnet for the destination hotkey
@@ -94,6 +104,7 @@ impl<T: Config> Pallet<T> {
             origin_netuid,
             destination_hotkey,
             destination_netuid,
+            origin_tao,
         ));
 
         // -- 10. Ok and return.
