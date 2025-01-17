@@ -1,6 +1,6 @@
-use super::*;
 #[cfg(feature = "try-runtime")]
 use super::subnets::subnet::POOL_INITIAL_TAO;
+use super::*;
 
 impl<T: Config> Pallet<T> {
     /// Checks if the accounting invariants for [`TotalStake`], [`TotalSubnetLocked`], and [`TotalIssuance`] are correct.
