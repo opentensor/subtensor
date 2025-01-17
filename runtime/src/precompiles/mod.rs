@@ -26,16 +26,16 @@ use crate::{Runtime, RuntimeCall};
 mod balance_transfer;
 mod ed25519;
 mod metagraph;
+mod neuron;
 mod staking;
 mod subnet;
-mod subnets;
 
 use balance_transfer::*;
 use ed25519::*;
 use metagraph::*;
+use neuron::*;
 use staking::*;
 use subnet::*;
-use subnets::*;
 pub struct FrontierPrecompiles<R>(PhantomData<R>);
 impl<R> Default for FrontierPrecompiles<R>
 where
@@ -67,7 +67,7 @@ where
             hash(STAKING_PRECOMPILE_INDEX),
             hash(SUBNET_PRECOMPILE_INDEX),
             hash(METAGRAPH_PRECOMPILE_INDEX),
-            hash(SUBNETS_PRECOMPILE_INDEX),
+            hash(NEURON_PRECOMPILE_INDEX),
         ]
     }
 }
@@ -96,7 +96,7 @@ where
             a if a == hash(METAGRAPH_PRECOMPILE_INDEX) => {
                 Some(MetagraphPrecompile::execute(handle))
             }
-            a if a == hash(SUBNETS_PRECOMPILE_INDEX) => Some(SubnetsPrecompile::execute(handle)),
+            a if a == hash(NEURON_PRECOMPILE_INDEX) => Some(NeuronPrecompile::execute(handle)),
 
             _ => None,
         }

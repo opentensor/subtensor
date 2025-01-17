@@ -4,14 +4,14 @@ use crate::precompiles::{dispatch, get_method_id, get_slice};
 use sp_std::vec;
 
 use crate::{Runtime, RuntimeCall};
-pub const SUBNETS_PRECOMPILE_INDEX: u64 = 2052;
+pub const NEURON_PRECOMPILE_INDEX: u64 = 2052;
 
-// this is subnets smart contract's(0x0000000000000000000000000000000000000804) sr25519 address
-pub const SUBNETS_CONTRACT_ADDRESS: &str = "5GKZiUUgTnWSz3BgiVBMehEKkLszsG4ZXnvgWpWFUFKqrqyn";
+// this is neuron smart contract's(0x0000000000000000000000000000000000000804) sr25519 address
+pub const NEURON_CONTRACT_ADDRESS: &str = "5GKZiUUgTnWSz3BgiVBMehEKkLszsG4ZXnvgWpWFUFKqrqyn";
 
-pub struct SubnetsPrecompile;
+pub struct NeuronPrecompile;
 
-impl SubnetsPrecompile {
+impl NeuronPrecompile {
     pub fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
         let txdata = handle.input();
         let method_id = get_slice(txdata, 0, 4)?;
@@ -37,7 +37,7 @@ impl SubnetsPrecompile {
                 netuid,
                 hotkey: hotkey.into(),
             });
-        dispatch(handle, call, SUBNETS_CONTRACT_ADDRESS)
+        dispatch(handle, call, NEURON_CONTRACT_ADDRESS)
     }
 
     fn parse_netuid_hotkey_parameter(data: &[u8]) -> Result<(u16, [u8; 32]), PrecompileFailure> {
