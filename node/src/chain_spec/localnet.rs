@@ -3,7 +3,7 @@
 
 use super::*;
 
-pub fn localnet_config() -> Result<ChainSpec, String> {
+pub fn localnet_config(single_authority: bool) -> Result<ChainSpec, String> {
     let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 
     // Give front-ends necessary data to present to users
@@ -11,17 +11,6 @@ pub fn localnet_config() -> Result<ChainSpec, String> {
     properties.insert("tokenSymbol".into(), "TAO".into());
     properties.insert("tokenDecimals".into(), 9.into());
     properties.insert("ss58Format".into(), 42.into());
-    let genesis = localnet_genesis(
-        // Initial PoA authorities (Validators)
-        // aura | grandpa
-        vec![
-            // Keys for debug
-            authority_keys_from_seed("Alice"),
-            authority_keys_from_seed("Bob"),
-        ],
-        // Pre-funded accounts
-        false,
-    );
 
     Ok(ChainSpec::builder(
         wasm_binary,
@@ -40,7 +29,21 @@ pub fn localnet_config() -> Result<ChainSpec, String> {
     .with_protocol_id("bittensor")
     .with_id("bittensor")
     .with_chain_type(ChainType::Development)
-    .with_genesis_config_patch(genesis)
+    .with_genesis_config_patch(localnet_genesis(
+        // Initial PoA authorities (Validators)
+        // aura | grandpa
+        if single_authority {
+            // single authority allows you to run the network using a single node
+            vec![authority_keys_from_seed("Alice")]
+        } else {
+            vec![
+                authority_keys_from_seed("Alice"),
+                authority_keys_from_seed("Bob"),
+            ]
+        },
+        // Pre-funded accounts
+        true,
+    ))
     .with_properties(properties)
     .build())
 }
@@ -157,8 +160,8 @@ fn localnet_genesis(
         "senateMembers": {
             "members": senate_members,
         },
-        "subtensorModule": {
-            "initializeNetwork3": false,
+        "evmChainId": {
+            "chainId": 42,
         },
     })
 }

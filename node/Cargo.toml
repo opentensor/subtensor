@@ -20,9 +20,12 @@ targets = ["x86_64-unknown-linux-gnu"]
 name = "node-subtensor"
 
 [dependencies]
+async-trait = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 futures = { workspace = true, features = ["thread-pool"] }
+scale-codec = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+hex = { workspace = true }
 
 # Storage import
 memmap2 = { workspace = true }
@@ -52,12 +55,19 @@ sc-client-api = { workspace = true }
 sp-runtime = { workspace = true }
 sp-io = { workspace = true }
 sp-timestamp = { workspace = true }
+sp-transaction-pool = { workspace = true, features = ["default"] }
 sp-inherents = { workspace = true }
 sp-keyring = { workspace = true }
+sp-offchain = { workspace = true }
+sp-session = { workspace = true }
 frame-metadata-hash-extension = { workspace = true }
 frame-system = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-commitments = { path = "../pallets/commitments" }
+pallet-drand = { workspace = true }
+sp-crypto-ec-utils = { workspace = true }
+sp-keystore = { workspace = true,  default-features = false }
+
 
 # These dependencies are used for the subtensor's RPCs
 jsonrpsee = { workspace = true, features = ["server"] }
@@ -69,10 +79,31 @@ sp-block-builder = { workspace = true }
 sc-basic-authorship = { workspace = true }
 substrate-frame-rpc-system = { workspace = true }
 pallet-transaction-payment-rpc = { workspace = true }
+frame-system-rpc-runtime-api = { workspace = true }
+pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 
 # These dependencies are used for runtime benchmarking
 frame-benchmarking = { workspace = true }
 frame-benchmarking-cli = { workspace = true }
+
+# Needed for Frontier
+sc-consensus-manual-seal = { workspace = true }
+sc-network-sync = { workspace = true }
+substrate-prometheus-endpoint = { workspace = true }
+
+# Frontier
+fc-storage = { workspace = true }
+fc-db = { workspace = true }
+fc-consensus = { workspace = true }
+fp-dynamic-fee = { workspace = true }
+fc-api = { workspace = true }
+fc-rpc = { workspace = true }
+fc-rpc-core = { workspace = true }
+fp-rpc = { workspace = true }
+fc-mapping-sync = { workspace = true }
+fp-consensus = { workspace = true }
+thiserror = { workspace = true }
+num-traits = { version = "0.2", features = ["std"] }
 
 # Local Dependencies
 node-subtensor-runtime = { path = "../runtime" }
@@ -83,7 +114,17 @@ subtensor-custom-rpc-runtime-api = { path = "../pallets/subtensor/runtime-api" }
 substrate-build-script-utils = { workspace = true }
 
 [features]
-default = []
+default = ["rocksdb", "sql", "txpool"]
+fast-blocks = ["node-subtensor-runtime/fast-blocks"]
+sql = ["fc-db/sql", "fc-mapping-sync/sql"]
+rocksdb = [
+	"sc-service/rocksdb",
+	"fc-db/rocksdb",
+	"fc-mapping-sync/rocksdb",
+	"fc-rpc/rocksdb",
+]
+txpool = ["fc-rpc/txpool", "fc-rpc-core/txpool"]
+
 # Dependencies that are only required if runtime benchmarking should be build.
 runtime-benchmarks = [
 	"node-subtensor-runtime/runtime-benchmarks",
@@ -93,9 +134,9 @@ runtime-benchmarks = [
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"pallet-commitments/runtime-benchmarks",
+	"pallet-drand/runtime-benchmarks"
 ]
 pow-faucet = []
-fast-blocks = []
 
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.
@@ -105,6 +146,7 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
 	"pallet-commitments/try-runtime",
+	"pallet-drand/try-runtime"
 ]
 
 metadata-hash = ["node-subtensor-runtime/metadata-hash"]

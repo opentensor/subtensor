@@ -40,12 +40,20 @@ pallet-transaction-payment = { workspace = true }
 pallet-utility = { workspace = true }
 ndarray = { workspace = true }
 hex = { workspace = true }
+share-pool = { default-features = false, path = "../../primitives/share-pool" }
+approx = { workspace = true }
 
-# Used for sudo decentralization
 pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../collective" }
+pallet-drand = { path = "../drand", default-features = false }
 pallet-membership = { workspace = true }
 hex-literal = { workspace = true }
 num-traits = { version = "0.2.19", default-features = false, features = ["libm"] }
+tle = { workspace = true, default-features = false }
+ark-bls12-381 = { workspace = true, default-features = false }
+ark-serialize = { workspace = true, default-features = false }
+w3f-bls = { workspace = true, default-features = false }
+sha2 = { workspace = true }
+rand_chacha = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
@@ -89,7 +97,15 @@ std = [
 	"serde_with/std",
 	"substrate-fixed/std",
 	"num-traits/std",
-	"serde_json/std"
+	"serde_json/std",
+	"tle/std",
+	"pallet-drand/std",
+	"ark-bls12-381/std",
+	"ark-serialize/std",
+	"w3f-bls/std",
+	"rand_chacha/std",
+	"sha2/std",
+	"share-pool/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -102,6 +118,7 @@ runtime-benchmarks = [
 	"pallet-collective/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
+	"pallet-drand/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -113,7 +130,8 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",
-	"pallet-collective/try-runtime"
+	"pallet-collective/try-runtime",
+	"pallet-drand/try-runtime"
 ]
 pow-faucet = []
 fast-blocks = []

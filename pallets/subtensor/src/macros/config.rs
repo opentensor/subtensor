@@ -7,7 +7,7 @@ use frame_support::pallet_macros::pallet_section;
 mod config {
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
-    pub trait Config: frame_system::Config {
+    pub trait Config: frame_system::Config + pallet_drand::Config {
         /// call type
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
@@ -183,9 +183,6 @@ mod config {
         /// Initial network creation rate limit
         #[pallet::constant]
         type InitialNetworkRateLimit: Get<u64>;
-        /// Initial target stakes per interval issuance.
-        #[pallet::constant]
-        type InitialTargetStakesPerInterval: Get<u64>;
         /// Cost of swapping a hotkey.
         #[pallet::constant]
         type KeySwapCost: Get<u64>;
@@ -201,14 +198,17 @@ mod config {
         /// Initial network max stake.
         #[pallet::constant]
         type InitialNetworkMaxStake: Get<u64>;
-        /// Initial hotkey emission tempo.
-        #[pallet::constant]
-        type InitialHotkeyEmissionTempo: Get<u64>;
+        // /// Initial hotkey emission tempo.
+        // #[pallet::constant]
+        // type InitialHotkeyEmissionTempo: Get<u64>;
         /// Coldkey swap schedule duartion.
         #[pallet::constant]
         type InitialColdkeySwapScheduleDuration: Get<BlockNumberFor<Self>>;
         /// Dissolve network schedule duration
         #[pallet::constant]
         type InitialDissolveNetworkScheduleDuration: Get<BlockNumberFor<Self>>;
+        /// Initial TAO weight.
+        #[pallet::constant]
+        type InitialTaoWeight: Get<u64>;
     }
 }

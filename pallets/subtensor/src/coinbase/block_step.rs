@@ -1,16 +1,19 @@
 use super::*;
 use frame_support::storage::IterableStorageMap;
-use substrate_fixed::types::I110F18;
+use substrate_fixed::types::{I110F18, I96F32};
 
-impl<T: Config> Pallet<T> {
+impl<T: Config + pallet_drand::Config> Pallet<T> {
     /// Executes the necessary operations for each block.
     pub fn block_step() -> Result<(), &'static str> {
         let block_number: u64 = Self::get_current_block_as_u64();
         log::debug!("block_step for block: {:?} ", block_number);
         // --- 1. Adjust difficulties.
         Self::adjust_registration_terms_for_networks();
-        // --- 2. Run emission through network.
-        Self::run_coinbase();
+        // --- 2. Get the current coinbase emission.
+        let block_emission: I96F32 = I96F32::from_num(Self::get_block_emission().unwrap_or(0));
+        log::debug!("Block emission: {:?}", block_emission);
+        // --- 3. Run emission through network.
+        Self::run_coinbase(block_emission);
         // Return ok.
         Ok(())
     }

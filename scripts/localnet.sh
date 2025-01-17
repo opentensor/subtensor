@@ -63,6 +63,10 @@ echo "*** Building chainspec..."
 "$BASE_DIR/target/release/node-subtensor" build-spec --disable-default-bootnode --raw --chain $CHAIN >$FULL_PATH
 echo "*** Chainspec built and output to file"
 
+# generate node keys
+$BASE_DIR/target/release/node-subtensor key generate-node-key --chain="$FULL_PATH" --base-path /tmp/alice
+$BASE_DIR/target/release/node-subtensor key generate-node-key --chain="$FULL_PATH" --base-path /tmp/bob
+
 if [ $NO_PURGE -eq 1 ]; then
   echo "*** Purging previous state skipped..."
 else
@@ -79,7 +83,7 @@ alice_start=(
   --chain="$FULL_PATH"
   --alice
   --port 30334
-  --rpc-port 9946
+  --rpc-port 9944
   --validator
   --rpc-cors=all
   --allow-private-ipv4
@@ -99,6 +103,7 @@ bob_start=(
   --allow-private-ipv4
   --discover-local
   --unsafe-force-node-key-generation
+#  --offchain-worker=Never
 )
 
 trap 'pkill -P $$' EXIT SIGINT SIGTERM

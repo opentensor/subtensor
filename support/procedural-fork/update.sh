@@ -5,7 +5,7 @@ set -e
 
 # Set the repository and tag
 REPO_URL="git@github.com:paritytech/polkadot-sdk.git"
-POLKADOT_SDK_TAG="v1.10.0-rc3"
+POLKADOT_SDK_TAG="v1.16.0-rc1"
 
 # Create a temporary directory for cloning
 TMP_DIR=$(mktemp -d)

@@ -2,7 +2,7 @@
 //!
 //! Should only be used for benchmarking as it may break in other contexts.
 
-use crate::service::FullClient;
+use crate::client::FullClient;
 
 use node_subtensor_runtime as runtime;
 use node_subtensor_runtime::check_nonce;

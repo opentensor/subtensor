@@ -69,6 +69,7 @@ pub fn expand_outer_dispatch(
     quote! {
         #( #query_call_part_macros )*
 
+        /// The aggregated runtime call type.
         #[derive(
             Clone, PartialEq, Eq,
             #scrate::__private::codec::Encode,

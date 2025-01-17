@@ -22,33 +22,44 @@ mod errors {
         HotKeyAccountNotExists,
         /// The hotkey is not registered in any subnet.
         HotKeyNotRegisteredInNetwork,
-        /// Request to stake, unstake or subscribe is made by a coldkey that is not associated with the hotkey account.
+        /// Request to stake, unstake or subscribe is made by a coldkey that is not associated with
+        /// the hotkey account.
         NonAssociatedColdKey,
-        /// The hotkey is not a delegate and the signer is not the owner of the hotkey.
-        HotKeyNotDelegateAndSignerNotOwnHotKey,
         /// Stake amount to withdraw is zero.
         StakeToWithdrawIsZero,
-        /// The caller is requesting removing more stake than there exists in the staking account. See: "[remove_stake()]".
+        /// The caller does not have enought stake to perform this action.
+        NotEnoughStake,
+        /// The caller is requesting removing more stake than there exists in the staking account.
+        /// See: "[remove_stake()]".
         NotEnoughStakeToWithdraw,
-        /// The caller is requesting to set weights but the caller has less than minimum stake required to set weights (less than WeightsMinStake).
+        /// The caller is requesting to set weights but the caller has less than minimum stake
+        /// required to set weights (less than WeightsMinStake).
         NotEnoughStakeToSetWeights,
-        /// The caller is requesting adding more stake than there exists in the coldkey account. See: "[add_stake()]"
+        /// The parent hotkey doesn't have enough own stake to set childkeys.
+        NotEnoughStakeToSetChildkeys,
+        /// The caller is requesting adding more stake than there exists in the coldkey account.
+        /// See: "[add_stake()]"
         NotEnoughBalanceToStake,
-        /// The caller is trying to add stake, but for some reason the requested amount could not be withdrawn from the coldkey account.
+        /// The caller is trying to add stake, but for some reason the requested amount could not be
+        /// withdrawn from the coldkey account.
         BalanceWithdrawalError,
-        /// Unsuccessfully withdraw, balance could be zero (can not make account exist) after withdrawal.
+        /// Unsuccessfully withdraw, balance could be zero (can not make account exist) after
+        /// withdrawal.
         ZeroBalanceAfterWithdrawn,
         /// The caller is attempting to set non-self weights without being a permitted validator.
         NeuronNoValidatorPermit,
-        /// The caller is attempting to set the weight keys and values but these vectors have different size.
+        /// The caller is attempting to set the weight keys and values but these vectors have
+        /// different size.
         WeightVecNotEqualSize,
         /// The caller is attempting to set weights with duplicate UIDs in the weight matrix.
         DuplicateUids,
-        /// The caller is attempting to set weight to at least one UID that does not exist in the metagraph.
+        /// The caller is attempting to set weight to at least one UID that does not exist in the
+        /// metagraph.
         UidVecContainInvalidOne,
         /// The dispatch is attempting to set weights on chain with fewer elements than are allowed.
         WeightVecLengthIsLow,
-        /// Number of registrations in this block exceeds the allowed number (i.e., exceeds the subnet hyperparameter "max_regs_per_block").
+        /// Number of registrations in this block exceeds the allowed number (i.e., exceeds the
+        /// subnet hyperparameter "max_regs_per_block").
         TooManyRegistrationsThisBlock,
         /// The caller is requesting registering a neuron which already exists in the active set.
         HotKeyAlreadyRegisteredInSubNet,
@@ -60,7 +71,8 @@ mod errors {
         InvalidDifficulty,
         /// The supplied PoW hash seal does not match the supplied work.
         InvalidSeal,
-        /// The dispatch is attempting to set weights on chain with weight value exceeding the MaxWeightLimit (max_weight_limit subnet hyperparameter).
+        /// The dispatch is attempting to set weights on chain with weight value exceeding the
+        /// MaxWeightLimit (max_weight_limit subnet hyperparameter).
         MaxWeightExceeded,
         /// The hotkey is attempting to become a delegate when the hotkey is already a delegate.
         HotKeyAlreadyDelegate,
@@ -71,7 +83,7 @@ mod errors {
         /// An axon or prometheus serving exceeded the rate limit for a registered neuron.
         ServingRateLimitExceeded,
         /// The caller is attempting to set weights with more UIDs than allowed.
-        UidsLengthExceedUidsInSubNet,
+        UidsLengthExceedUidsInSubNet, // 32
         /// A transactor exceeded the rate limit for add network transaction.
         NetworkTxRateLimitExceeded,
         /// A transactor exceeded the rate limit for delegate transaction.
@@ -79,9 +91,7 @@ mod errors {
         /// A transactor exceeded the rate limit for setting or swapping hotkey.
         HotKeySetTxRateLimitExceeded,
         /// A transactor exceeded the rate limit for staking.
-        StakeRateLimitExceeded,
-        /// A transactor exceeded the rate limit for unstaking.
-        UnstakeRateLimitExceeded,
+        StakingRateLimitExceeded,
         /// Registration is disabled.
         SubNetRegistrationDisabled,
         /// The number of registration attempts exceeded the allowed number in the interval.
@@ -108,18 +118,13 @@ mod errors {
         CanNotSetRootNetworkWeights,
         /// No neuron ID is available.
         NoNeuronIdAvailable,
-        /// Stake amount below the minimum threshold for nominator validations.
-        NomStakeBelowMinimumThreshold,
         /// Delegate take is too low.
         DelegateTakeTooLow,
         /// Delegate take is too high.
         DelegateTakeTooHigh,
-        /// Not allowed to commit weights.
-        WeightsCommitNotAllowed,
-        /// No commit found for the provided hotkey+netuid combination when attempting to reveal the weights.
+        /// No commit found for the provided hotkey+netuid combination when attempting to reveal the
+        /// weights.
         NoWeightsCommitFound,
-        /// Not the correct block/range to reveal weights.
-        InvalidRevealCommitTempo,
         /// Committed hash does not equal the hashed reveal data.
         InvalidRevealCommitHashNotMatch,
         /// Attempting to call set_weights when commit/reveal is enabled
@@ -136,28 +141,10 @@ mod errors {
         AlphaLowOutOfRange,
         /// The coldkey has already been swapped
         ColdKeyAlreadyAssociated,
-        /// The coldkey swap transaction rate limit exceeded
-        ColdKeySwapTxRateLimitExceeded,
-        /// The new coldkey is the same as the old coldkey
-        NewColdKeyIsSameWithOld,
-        /// The coldkey does not exist
-        NotExistColdkey,
         /// The coldkey balance is not enough to pay for the swap
         NotEnoughBalanceToPaySwapColdKey,
-        /// No balance to transfer
-        NoBalanceToTransfer,
-        /// Same coldkey
-        SameColdkey,
         /// The coldkey is in arbitration
         ColdkeyIsInArbitration,
-        /// The new coldkey is already registered for the drain
-        DuplicateColdkey,
-        /// Error thrown on a coldkey swap.
-        ColdkeySwapError,
-        /// Insufficient Balance to Schedule coldkey swap
-        InsufficientBalanceToPerformColdkeySwap,
-        /// The maximum number of coldkey destinations has been reached
-        MaxColdkeyDestinationsReached,
         /// Attempting to set an invalid child for a hotkey on a network.
         InvalidChild,
         /// Duplicate child when setting children.
@@ -168,21 +155,35 @@ mod errors {
         TooManyChildren,
         /// Default transaction rate limit exceeded.
         TxRateLimitExceeded,
-        /// Swap coldkey only callable by root.
-        SwapColdkeyOnlyCallableByRoot,
         /// Swap already scheduled.
         SwapAlreadyScheduled,
         /// failed to swap coldkey
         FailedToSchedule,
         /// New coldkey is hotkey
         NewColdKeyIsHotkey,
-        /// New coldkey is in arbitration
-        NewColdkeyIsInArbitration,
         /// Childkey take is invalid.
         InvalidChildkeyTake,
         /// Childkey take rate limit exceeded.
         TxChildkeyTakeRateLimitExceeded,
         /// Invalid identity.
         InvalidIdentity,
+        /// Trying to register a subnet into a mechanism that does not exist.
+        MechanismDoesNotExist,
+        /// Trying to unstake your lock amount.
+        CannotUnstakeLock,
+        /// Trying to perform action on non-existent subnet.
+        SubnetNotExists,
+        /// Maximum commit limit reached
+        TooManyUnrevealedCommits,
+        /// Attempted to reveal weights that are expired.
+        ExpiredWeightCommit,
+        /// Attempted to reveal weights too early.
+        RevealTooEarly,
+        /// Attempted to batch reveal weights with mismatched vector input lenghts.
+        InputLengthsUnequal,
+        /// A transactor exceeded the rate limit for setting weights.
+        CommittingWeightsTooFast,
+        /// Stake amount is too low.
+        AmountTooLow,
     }
 }
