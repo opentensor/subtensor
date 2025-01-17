@@ -2,6 +2,8 @@ use super::*;
 use frame_support::IterableStorageMap;
 use sp_core::Get;
 
+pub(crate) const POOL_INITIAL_TAO: u64 = 100_000_000_000;
+
 impl<T: Config> Pallet<T> {
     /// Retrieves the unique identifier (UID) for the root network.
     ///
@@ -234,7 +236,7 @@ impl<T: Config> Pallet<T> {
         ); // Set subnet token symbol.
 
         // Put 100 TAO from lock into subnet TAO and produce numerically equal amount of Alpha
-        let mut pool_initial_tao = 100_000_000_000;
+        let mut pool_initial_tao = POOL_INITIAL_TAO;
         if pool_initial_tao > actual_tao_lock_amount {
             pool_initial_tao = actual_tao_lock_amount;
         }
