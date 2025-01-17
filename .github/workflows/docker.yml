@@ -4,6 +4,12 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      branch-or-tag:
+        description: "Branch or tag to use for the Docker image tag (optional)"
+        required: false
+        default: ""
+
   push:
     branches:
       - devnet-ready
@@ -40,21 +46,10 @@ jobs:
       - name: Determine Docker tag
         id: tag
         run: |
-          case "${{ github.ref_name }}" in
-            devnet-ready)
-              echo "tag=devnet-ready" >> $GITHUB_ENV
-              ;;
-            devnet)
-              echo "tag=devnet" >> $GITHUB_ENV
-              ;;
-            testnet)
-              echo "tag=testnet" >> $GITHUB_ENV
-              ;;
-            *)
-              echo "Branch not recognized for custom tagging."
-              exit 1
-              ;;
-          esac
+          # Use the provided branch-or-tag input or fallback to the current ref
+          branch_or_tag="${{ github.event.inputs.branch-or-tag || github.ref_name }}"
+          echo "Determined branch or tag: $branch_or_tag"
+          echo "tag=$branch_or_tag" >> $GITHUB_ENV
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
