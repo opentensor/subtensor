@@ -78,7 +78,7 @@ impl<T: Config> Pallet<T> {
             destination_coldkey,
             hotkey,
             netuid,
-            origin_tao,
+            alpha_amount,
         ));
 
         // -- 8. Ok and return.
