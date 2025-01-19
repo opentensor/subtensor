@@ -18,6 +18,7 @@ impl<T: Config> Pallet<T> {
     /// * The origin is not signed by the `origin_coldkey`.
     /// * The subnet does not exist.
     /// * The `hotkey` does not exist.
+    /// * The coldkey doesn't have enough stake to transfer.
     ///
     /// # Events
     /// Emits a `StakeTransferred` event upon successful completion of the stake movement.
@@ -42,11 +43,9 @@ impl<T: Config> Pallet<T> {
 
         // --- 4. Get the current alpha stake for the origin hotkey-coldkey pair in the origin subnet
         ensure!(
-   Self::has_enough_stake_on_subnet(&hotkey, &coldkey, netuid, alpha_amount)
+            Self::has_enough_stake_on_subnet(&hotkey, &coldkey, netuid, alpha_amount),
             Error::<T>::NotEnoughStakeToWithdraw
         );
-
-        let origin_tao: u64 = Self::swap_alpha_for_tao(netuid, alpha_amount);
 
         // --- 5. Unstake the amount of alpha from the origin coldkey
         Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
@@ -66,7 +65,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 7. Log the event.
         log::info!(
-            "StakeTransferred( coldkey:{:?}, destination_coldkey:{:?}, hotkey:{:?}, netuid:{:?}, alpha:{:?} )",
+            "StakeTransferred( coldkey:{:?}, destination_coldkey:{:?}, hotkey:{:?}, netuid:{:?}, alpha_amount:{:?} )",
             coldkey.clone(),
             destination_coldkey.clone(),
             hotkey,
