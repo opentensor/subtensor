@@ -58,7 +58,7 @@ impl<T: Config> Pallet<T> {
             alpha_amount,
         );
 
-        // --- 6. Unstake the amount of alpha for the destination coldkey
+        // --- 6. Stake the amount of alpha for the destination coldkey
         Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey.clone(),
             &destination_coldkey.clone(),
