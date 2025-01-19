@@ -66,12 +66,12 @@ impl<T: Config> Pallet<T> {
 
         // --- 7. Log the event.
         log::info!(
-            "StakeTransferred( coldkey:{:?}, origin_hotkey:{:?}, origin_netuid:{:?}, destination_hotkey:{:?}, destination_netuid:{:?} )",
+            "StakeTransferred( coldkey:{:?}, destination_coldkey:{:?}, hotkey:{:?}, netuid:{:?}, alpha:{:?} )",
             coldkey.clone(),
             destination_coldkey.clone(),
             hotkey,
             netuid.clone(),
-            origin_tao
+            alpha_amount
         );
         Self::deposit_event(Event::StakeTransferred(
             coldkey,
