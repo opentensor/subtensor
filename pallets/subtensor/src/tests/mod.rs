@@ -7,6 +7,7 @@ mod epoch;
 mod math;
 mod migration;
 mod mock;
+mod move_stake;
 mod networks;
 mod neuron_info;
 mod registration;
