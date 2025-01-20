@@ -225,6 +225,10 @@ impl<T: Config> Pallet<T> {
             PendingEmission::<T>::mutate(*netuid, |total| {
                 *total = total.saturating_add(pending_alpha_emission.to_num::<u64>());
             });
+            // Accumulate the owner cut in pending.
+            PendingOwnerCut::<T>::mutate(*netuid, |total| {
+                *total = total.saturating_add(owner_cut);
+            });
         }
 
         // --- 5. Drain pending emission through the subnet based on tempo.
@@ -251,8 +255,9 @@ impl<T: Config> Pallet<T> {
                 let pending_root_divs: u64 = PendingRootDivs::<T>::get(netuid);
                 PendingRootDivs::<T>::insert(netuid, 0);
 
-                // 5.2.3 Get owner cut.
-                let owner_cut: u64 = *owner_cuts.get(&netuid).unwrap_or(&0);
+                // 5.2.3 Get owner cut and drain.
+                let owner_cut: u64 = PendingOwnerCut::<T>::get(netuid);
+                PendingOwnerCut::<T>::insert(netuid, 0);
 
                 // 5.2.4 Drain pending root divs, alpha emission, and owner cut.
                 Self::drain_pending_emission(

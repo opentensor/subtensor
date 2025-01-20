@@ -1097,6 +1097,9 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> pending_root_emission
     pub type PendingRootDivs<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage]
+    /// --- MAP ( netuid ) --> pending_owner_cut
+    pub type PendingOwnerCut<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage]
     /// --- MAP ( netuid ) --> blocks_since_last_step
     pub type BlocksSinceLastStep<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBlocksSinceLastStep<T>>;
