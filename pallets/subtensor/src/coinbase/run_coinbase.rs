@@ -18,7 +18,11 @@ pub struct WeightsTlockPayload {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn get_root_divs_in_alpha(netuid: u16, alpha_out_emission: I96F32) -> I96F32 {
+    pub fn get_root_divs_in_alpha(
+        netuid: u16,
+        alpha_out_emission: I96F32,
+        validator_proportion: I96F32,
+    ) -> I96F32 {
         // Get total TAO on root.
         let total_root_tao: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(0));
         // Get total ALPHA on subnet.
@@ -32,7 +36,8 @@ impl<T: Config> Pallet<T> {
         // Get root proportion of alpha_out dividends.
         let root_divs_in_alpha: I96F32 = root_proportion
             .saturating_mul(alpha_out_emission)
-            .saturating_mul(I96F32::from_num(0.41));
+            .saturating_mul(validator_proportion); // % of emission that goes to *all* validators.
+
         // Return
         root_divs_in_alpha
     }
@@ -207,9 +212,14 @@ impl<T: Config> Pallet<T> {
                 remaining_emission
             );
 
+            // Validators get 50% of remaining emission.
+            let validator_proportion: I96F32 = I96F32::from_num(0.5);
             // Get proportion of alpha out emission as root divs.
-            let root_emission_in_alpha: I96F32 =
-                Self::get_root_divs_in_alpha(*netuid, I96F32::from_num(remaining_emission));
+            let root_emission_in_alpha: I96F32 = Self::get_root_divs_in_alpha(
+                *netuid,
+                I96F32::from_num(remaining_emission),
+                validator_proportion,
+            );
             // Subtract root divs from alpha divs.
             let pending_alpha_emission: I96F32 =
                 I96F32::from_num(remaining_emission).saturating_sub(root_emission_in_alpha);
