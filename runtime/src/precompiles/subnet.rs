@@ -52,7 +52,7 @@ impl SubnetPrecompile {
                     },
                 )
             }
-            32.. => {
+            33.. => {
                 let (pubkey, subnet_name, github_repo, subnet_contact) =
                     Self::parse_register_network_parameters(data)?;
 
