@@ -31,7 +31,7 @@ impl SubnetPrecompile {
                 Self::register_network(handle, &method_input)
             }
             id if id == get_method_id("registerNetwork(bytes32)") => {
-                Self::register_network(handle, &[0_u8; 0])
+                Self::register_network(handle, &method_input)
             }
             _ => Err(PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
@@ -40,15 +40,17 @@ impl SubnetPrecompile {
     }
 
     fn register_network(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
-        let call = if data.is_empty() {
-            let hotkey = Self::parse_pub_key(data)?.into();
+        let call = if data.len() == 32 {
+            let mut hotkey = [0u8; 32];
+            hotkey.copy_from_slice(get_slice(data, 0, 32)?);
+
             RuntimeCall::SubtensorModule(
                 pallet_subtensor::Call::<Runtime>::register_network_with_identity {
-                    hotkey,
+                    hotkey: hotkey.into(),
                     identity: None,
                 },
             )
-        } else {
+        } else if data.len() > 32 {
             let (pubkey, subnet_name, github_repo, subnet_contact) =
                 Self::parse_register_network_parameters(data)?;
 
@@ -65,21 +67,14 @@ impl SubnetPrecompile {
                     identity: Some(identity),
                 },
             )
+        } else {
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
         };
 
         // Dispatch the register_network call
         dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
-    }
-
-    fn parse_pub_key(data: &[u8]) -> Result<[u8; 32], PrecompileFailure> {
-        if data.len() < 32 {
-            return Err(PrecompileFailure::Error {
-                exit_status: ExitError::InvalidRange,
-            });
-        }
-        let mut pubkey = [0u8; 32];
-        pubkey.copy_from_slice(get_slice(data, 0, 32)?);
-        Ok(pubkey)
     }
 
     fn parse_register_network_parameters(
