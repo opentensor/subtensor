@@ -685,9 +685,16 @@ pub fn setup_neuron_with_stake(netuid: u16, hotkey: U256, coldkey: U256, stake: 
 }
 
 #[allow(dead_code)]
+pub fn wait_set_pending_children_cooldown(netuid: u16) {
+    let cooldown = DefaultPendingCooldown::<Test>::get();
+    step_block(cooldown as u16); // Wait for cooldown to pass
+    step_epochs(1, netuid); // Run next epoch
+}
+
+#[allow(dead_code)]
 pub fn wait_and_set_pending_children(netuid: u16) {
     let original_block = System::block_number();
-    System::set_block_number(System::block_number() + 7300);
+    wait_set_pending_children_cooldown(netuid);
     SubtensorModule::do_set_pending_children(netuid);
     System::set_block_number(original_block);
 }

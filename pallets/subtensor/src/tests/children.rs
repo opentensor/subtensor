@@ -2439,6 +2439,73 @@ fn test_do_set_child_cooldown_period() {
     });
 }
 
+// Test that pending childkeys get set during the epoch after the cooldown period.
+//
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_do_set_pending_children_runs_in_epoch --exact --show-output --nocapture
+#[cfg(test)]
+#[test]
+fn test_do_set_pending_children_runs_in_epoch() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let parent = U256::from(2);
+        let child = U256::from(3);
+        let netuid: u16 = 1;
+        let proportion: u64 = 1000;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, parent, coldkey, 0);
+
+        // Set minimum stake for setting children
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &parent,
+            &coldkey,
+            netuid,
+            StakeThreshold::<Test>::get(),
+        );
+
+        // Schedule parent-child relationship
+        assert_ok!(SubtensorModule::do_schedule_children(
+            RuntimeOrigin::signed(coldkey),
+            parent,
+            netuid,
+            vec![(proportion, child)],
+        ));
+
+        // Ensure the childkeys are not yet applied
+        let children_before = SubtensorModule::get_children(&parent, netuid);
+        close(
+            children_before.len() as u64,
+            0,
+            0,
+            "Children vector should be empty before cooldown",
+        );
+
+        wait_set_pending_children_cooldown(netuid);
+
+        // Verify child assignment
+        let children_after = SubtensorModule::get_children(&parent, netuid);
+        close(
+            children_after.len() as u64,
+            1,
+            0,
+            "Children vector should have one entry after cooldown",
+        );
+        close(
+            children_after[0].0,
+            proportion,
+            0,
+            "Child proportion should match",
+        );
+        close(
+            children_after[0].1.try_into().unwrap(),
+            child.try_into().unwrap(),
+            0,
+            "Child key should match",
+        );
+    });
+}
+
 // Test that revoking childkeys does not require minimum stake
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_revoke_child_no_min_stake_check --exact --show-output --nocapture
 #[test]
