@@ -231,9 +231,6 @@ impl<T: Config> Pallet<T> {
 
                 // Drain pending root divs and alpha emission.
                 Self::drain_pending_emission(netuid, pending_emission);
-
-                // Set pending children.
-                Self::do_set_pending_children(netuid);
             } else {
                 // Increment
                 BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));

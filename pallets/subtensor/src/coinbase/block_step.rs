@@ -14,8 +14,22 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         log::debug!("Block emission: {:?}", block_emission);
         // --- 3. Run emission through network.
         Self::run_coinbase(block_emission);
+
+        // --- 4. Set pending children on the epoch; but only after the coinbase has been run.
+        Self::try_set_pending_children(block_number);
+
         // Return ok.
         Ok(())
+    }
+
+    fn try_set_pending_children(block_number: u64) {
+        let subnets: Vec<u16> = Self::get_all_subnet_netuids();
+        for &netuid in subnets.iter() {
+            if Self::should_run_epoch(netuid, block_number) {
+                // Set pending children on the epoch.
+                Self::do_set_pending_children(netuid);
+            }
+        }
     }
 
     /// Adjusts the network difficulties/burns of every active network. Resetting state parameters.
