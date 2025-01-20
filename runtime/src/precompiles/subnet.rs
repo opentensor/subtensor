@@ -40,37 +40,42 @@ impl SubnetPrecompile {
     }
 
     fn register_network(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
-        let call = if data.len() == 32 {
-            let mut hotkey = [0u8; 32];
-            hotkey.copy_from_slice(get_slice(data, 0, 32)?);
+        let call = match data.len() {
+            32 => {
+                let mut hotkey = [0u8; 32];
+                hotkey.copy_from_slice(get_slice(data, 0, 32)?);
 
-            RuntimeCall::SubtensorModule(
-                pallet_subtensor::Call::<Runtime>::register_network_with_identity {
-                    hotkey: hotkey.into(),
-                    identity: None,
-                },
-            )
-        } else if data.len() > 32 {
-            let (pubkey, subnet_name, github_repo, subnet_contact) =
-                Self::parse_register_network_parameters(data)?;
+                RuntimeCall::SubtensorModule(
+                    pallet_subtensor::Call::<Runtime>::register_network_with_identity {
+                        hotkey: hotkey.into(),
+                        identity: None,
+                    },
+                )
+            }
+            32.. => {
+                let (pubkey, subnet_name, github_repo, subnet_contact) =
+                    Self::parse_register_network_parameters(data)?;
 
-            let identity: pallet_subtensor::SubnetIdentityOf = pallet_subtensor::SubnetIdentityOf {
-                subnet_name,
-                github_repo,
-                subnet_contact,
-            };
+                let identity: pallet_subtensor::SubnetIdentityOf =
+                    pallet_subtensor::SubnetIdentityOf {
+                        subnet_name,
+                        github_repo,
+                        subnet_contact,
+                    };
 
-            // Create the register_network callcle
-            RuntimeCall::SubtensorModule(
-                pallet_subtensor::Call::<Runtime>::register_network_with_identity {
-                    hotkey: pubkey.into(),
-                    identity: Some(identity),
-                },
-            )
-        } else {
-            return Err(PrecompileFailure::Error {
-                exit_status: ExitError::InvalidRange,
-            });
+                // Create the register_network callcle
+                RuntimeCall::SubtensorModule(
+                    pallet_subtensor::Call::<Runtime>::register_network_with_identity {
+                        hotkey: pubkey.into(),
+                        identity: Some(identity),
+                    },
+                )
+            }
+            _ => {
+                return Err(PrecompileFailure::Error {
+                    exit_status: ExitError::InvalidRange,
+                });
+            }
         };
 
         // Dispatch the register_network call
