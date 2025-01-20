@@ -684,17 +684,6 @@ pub fn setup_neuron_with_stake(netuid: u16, hotkey: U256, coldkey: U256, stake: 
     increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake, netuid);
 }
 
-// Helper function to check if a value is within tolerance of an expected value
-#[allow(dead_code)]
-pub fn is_within_tolerance(actual: u64, expected: u64, tolerance: u64) -> bool {
-    let difference = if actual > expected {
-        actual - expected
-    } else {
-        expected - actual
-    };
-    difference <= tolerance
-}
-
 #[allow(dead_code)]
 pub fn wait_and_set_pending_children(netuid: u16) {
     let original_block = System::block_number();
