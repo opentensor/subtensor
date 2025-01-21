@@ -2112,6 +2112,16 @@ impl_runtime_apis! {
             }
         }
 
+        fn get_metagraph(netuid: u16) -> Vec<u8> {
+            let _result = SubtensorModule::get_metagraph(netuid);
+            if _result.is_some() {
+                let result = _result.expect("Could not get Metagraph.");
+                result.encode()
+            } else {
+                vec![]
+            }
+        }
+
         fn get_subnet_state(netuid: u16) -> Vec<u8> {
             let _result = SubtensorModule::get_subnet_state(netuid);
             if _result.is_some() {
@@ -2120,6 +2130,11 @@ impl_runtime_apis! {
             } else {
                 vec![]
             }
+        }
+
+        fn get_all_metagraphs() -> Vec<u8> {
+            let result = SubtensorModule::get_all_dynamic_info();
+            result.encode()
         }
 
         fn get_all_dynamic_info() -> Vec<u8> {
