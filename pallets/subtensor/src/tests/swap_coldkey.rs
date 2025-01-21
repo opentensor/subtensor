@@ -1658,10 +1658,10 @@ fn test_schedule_swap_coldkey_success() {
         let old_coldkey: U256 = U256::from(1);
         let new_coldkey: U256 = U256::from(2);
 
-        // Add balance to the old coldkey account
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 1000);
-
         let swap_cost = SubtensorModule::get_key_swap_cost();
+
+        // Add balance to the old coldkey account
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, swap_cost + 1_000);
 
         // Schedule the coldkey swap
         assert_ok!(SubtensorModule::schedule_swap_coldkey(
@@ -1698,7 +1698,9 @@ fn test_schedule_swap_coldkey_duplicate() {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
 
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 2000);
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, swap_cost + 2_000);
 
         assert_ok!(SubtensorModule::schedule_swap_coldkey(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
@@ -1836,7 +1838,9 @@ fn test_schedule_swap_coldkey_with_pending_swap() {
         let new_coldkey1 = U256::from(2);
         let new_coldkey2 = U256::from(3);
 
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 2000);
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, swap_cost + 1_000);
 
         assert_ok!(SubtensorModule::schedule_swap_coldkey(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
