@@ -1565,5 +1565,46 @@ mod dispatches {
         pub fn unstake_all_alpha(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_unstake_all_alpha(origin, hotkey)
         }
+
+        /// ---- The implementation for the extrinsic move_stake: Moves specified amount of stake from a hotkey to another across subnets.
+        ///
+        /// # Args:
+        /// * `origin` - (<T as frame_system::Config>::Origin):
+        ///     - The signature of the caller's coldkey.
+        ///
+        /// * `origin_hotkey` (T::AccountId):
+        ///     - The hotkey account to move stake from.
+        ///
+        /// * `destination_hotkey` (T::AccountId):
+        ///     - The hotkey account to move stake to.
+        ///
+        /// * `origin_netuid` (T::AccountId):
+        ///     - The subnet ID to move stake from.
+        ///
+        /// * `destination_netuid` (T::AccountId):
+        ///     - The subnet ID to move stake to.
+        ///
+        /// * `alpha_amount` (T::AccountId):
+        ///     - The alpha stake amount to move.
+        ///
+        #[pallet::call_index(85)]
+        #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn move_stake(
+            origin: T::RuntimeOrigin,
+            origin_hotkey: T::AccountId,
+            destination_hotkey: T::AccountId,
+            origin_netuid: u16,
+            destination_netuid: u16,
+            alpha_amount: u64,
+        ) -> DispatchResult {
+            Self::do_move_stake(
+                origin,
+                origin_hotkey,
+                destination_hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            )
+        }
     }
 }
