@@ -231,6 +231,10 @@ impl<T: Config> Pallet<T> {
             PendingRootDivs::<T>::mutate(*netuid, |total| {
                 *total = total.saturating_add(root_emission_in_tao);
             });
+            // Accumulate alpha that was swapped for the pending root divs.
+            PendingAlphaSwapped::<T>::mutate(*netuid, |total| {
+                *total = total.saturating_add(root_emission_in_alpha.to_num::<u64>());
+            });
             // Accumulate alpha emission in pending.
             PendingEmission::<T>::mutate(*netuid, |total| {
                 *total = total.saturating_add(pending_alpha_emission.to_num::<u64>());
@@ -261,9 +265,13 @@ impl<T: Config> Pallet<T> {
                 let pending_emission: u64 = PendingEmission::<T>::get(netuid);
                 PendingEmission::<T>::insert(netuid, 0);
 
-                // 5.2.2 Get and drain the subnet pending root divs.
+                // 5.2.2a Get and drain the subnet pending root divs.
                 let pending_root_divs: u64 = PendingRootDivs::<T>::get(netuid);
                 PendingRootDivs::<T>::insert(netuid, 0);
+
+                // 5.2.2b Get this amount as alpha that was swapped for pending root divs.
+                let pending_alpha_swapped: u64 = PendingAlphaSwapped::<T>::get(netuid);
+                PendingAlphaSwapped::<T>::insert(netuid, 0);
 
                 // 5.2.3 Get owner cut and drain.
                 let owner_cut: u64 = PendingOwnerCut::<T>::get(netuid);
@@ -274,6 +282,7 @@ impl<T: Config> Pallet<T> {
                     netuid,
                     pending_emission,
                     pending_root_divs,
+                    pending_alpha_swapped,
                     owner_cut,
                 );
             } else {
@@ -287,19 +296,24 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         pending_alpha_emission: u64,
         pending_root_divs: u64,
+        pending_alpha_swapped: u64,
         owner_cut: u64,
     ) {
         log::debug!(
-            "Draining pending alpha emission for netuid {:?}: {:?}, with pending root divs {:?}, and owner cut {:?}",
+            "Draining pending alpha emission for netuid {:?}: {:?}, with pending root divs {:?}, pending alpha swapped {:?}, and owner cut {:?}",
             netuid,
             pending_alpha_emission,
             pending_root_divs,
+            pending_alpha_swapped,
             owner_cut
         );
 
         // Run the epoch() --> hotkey emission.
-        let hotkey_emission: Vec<(T::AccountId, u64, u64)> =
-            Self::epoch(netuid, pending_alpha_emission);
+        // Needs to run on the full emission to the subnet.
+        let hotkey_emission: Vec<(T::AccountId, u64, u64)> = Self::epoch(
+            netuid,
+            pending_alpha_emission.saturating_add(pending_alpha_swapped),
+        );
         log::debug!(
             "Hotkey emission for netuid {:?}: {:?}",
             netuid,
