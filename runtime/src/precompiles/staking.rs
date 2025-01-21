@@ -61,8 +61,10 @@ impl StakingPrecompile {
             Self::remove_stake(handle, &method_input)
         } else if method_id == get_method_id("getStake(bytes32,bytes32,uint256)") {
             Self::get_stake(&method_input)
-        } else if method_id == get_method_id("getStakeColdkey(bytes32)") {
-            Self::get_stake_coldkey(&method_input)
+        } else if method_id == get_method_id("getTotalColdkeyStake(bytes32)") {
+            Self::get_total_coldkey_stake(&method_input)
+        } else if method_id == get_method_id("getTotalHotkeyStake(bytes32)") {
+            Self::get_total_hotkey_stake(&method_input)
         } else if method_id == get_method_id("addProxy(bytes32)") {
             Self::add_proxy(handle, &method_input)
         } else if method_id == get_method_id("removeProxy(bytes32)") {
@@ -116,11 +118,26 @@ impl StakingPrecompile {
         Self::dispatch(handle, call)
     }
 
-    fn get_stake_coldkey(data: &[u8]) -> PrecompileResult { 
+    fn get_total_coldkey_stake(data: &[u8]) -> PrecompileResult { 
         let coldkey: AccountId32 = Self::parse_pub_key(data)?.into();
 
         // get total stake of coldkey
         let total_stake = pallet_subtensor::Pallet::<Runtime>::get_total_stake_for_coldkey(&coldkey);
+        let result_u256 = U256::from(total_stake);
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&result_u256, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
+    }
+
+    fn get_total_hotkey_stake(data: &[u8]) -> PrecompileResult {
+        let hotkey: AccountId32 = Self::parse_pub_key(data)?.into();
+
+        // get total stake of hotkey
+        let total_stake = pallet_subtensor::Pallet::<Runtime>::get_total_stake_for_hotkey(&hotkey);
         let result_u256 = U256::from(total_stake);
         let mut result = [0_u8; 32];
         U256::to_big_endian(&result_u256, &mut result);
