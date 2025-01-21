@@ -252,5 +252,10 @@ mod events {
         ///
         /// - **error**: The dispatch error emitted by the failed item.
         BatchWeightItemFailed(sp_runtime::DispatchError),
+
+        /// Stake has been transferred from one coldkey to another on the same subnet.
+        /// Parameters:
+        /// (origin_coldkey, destination_coldkey, hotkey, origin_netuid, destination_netuid, amount)
+        StakeTransferred(T::AccountId, T::AccountId, T::AccountId, u16, u16, u64),
     }
 }
