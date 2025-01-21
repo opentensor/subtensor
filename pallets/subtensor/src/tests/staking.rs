@@ -1941,3 +1941,100 @@ fn test_staking_too_little_fails() {
         );
     });
 }
+
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_add_stake_fee_goes_to_subnet_tao --exact --show-output --nocapture
+#[test]
+fn test_add_stake_fee_goes_to_subnet_tao() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let existential_deposit = ExistentialDeposit::get();
+        let tao_to_stake = DefaultMinStake::<Test>::get() * 10;
+        let fee = DefaultMinStake::<Test>::get();
+
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        let subnet_tao_before = SubnetTAO::<Test>::get(netuid);
+
+        // Add stake
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, tao_to_stake);
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            tao_to_stake
+        ));
+
+        // Calculate expected stake
+        let expected_alpha = tao_to_stake - existential_deposit - fee;
+        let actual_alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        let subnet_tao_after = SubnetTAO::<Test>::get(netuid);
+
+        // Total subnet stake should match the sum of delegators' stakes minus existential deposits.
+        assert_abs_diff_eq!(
+            actual_alpha,
+            expected_alpha,
+            epsilon = expected_alpha / 1000
+        );
+
+        // Subnet TAO should have increased by the full tao_to_stake amount
+        assert_abs_diff_eq!(
+            subnet_tao_before + tao_to_stake,
+            subnet_tao_after,
+            epsilon = 10
+        );
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_remove_stake_fee_goes_to_subnet_tao --exact --show-output --nocapture
+#[test]
+fn test_remove_stake_fee_goes_to_subnet_tao() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let tao_to_stake = DefaultMinStake::<Test>::get() * 10;
+        let fee = DefaultMinStake::<Test>::get();
+
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        let subnet_tao_before = SubnetTAO::<Test>::get(netuid);
+
+        // Add stake
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, tao_to_stake);
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            tao_to_stake
+        ));
+
+        // Remove all stake
+        let alpha_to_unstake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        assert_ok!(SubtensorModule::remove_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            alpha_to_unstake
+        ));
+        let subnet_tao_after = SubnetTAO::<Test>::get(netuid);
+
+        // Subnet TAO should have increased by 2x fee as a result of staking + unstaking
+        assert_abs_diff_eq!(
+            subnet_tao_before + 2 * fee,
+            subnet_tao_after,
+            epsilon = alpha_to_unstake / 1000
+        );
+
+        // User balance should decrease by 2x fee as a result of staking + unstaking
+        let balance_after = SubtensorModule::get_coldkey_balance(&coldkey);
+        assert_abs_diff_eq!(
+            balance_after + 2 * fee,
+            tao_to_stake,
+            epsilon = tao_to_stake / 1000
+        );
+    });
+}
