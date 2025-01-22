@@ -356,29 +356,6 @@ impl<T: Config> Pallet<T> {
 
         // Calculate the validator take and root alpha divs using the alpha divs.
         for (hotkey, dividend_tuples) in dividends_to_distribute.iter() {
-            // Get the local alpha and root alpha.
-            let hotkey_tao: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(
-                hotkey,
-                Self::get_root_netuid(),
-            ));
-            let hotkey_tao_as_alpha: I96F32 = hotkey_tao.saturating_mul(Self::get_tao_weight());
-            let hotkey_alpha =
-                I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
-            log::debug!("Hotkey tao for hotkey {:?} on root netuid: {:?}, hotkey tao as alpha: {:?}, hotkey alpha: {:?}", hotkey, hotkey_tao, hotkey_tao_as_alpha, hotkey_alpha);
-
-            // Compute alpha and root proportions.
-            let alpha_prop: I96F32 = hotkey_alpha
-                .checked_div(hotkey_alpha.saturating_add(hotkey_tao_as_alpha))
-                .unwrap_or(I96F32::from_num(0.0));
-            let root_prop: I96F32 = hotkey_tao_as_alpha
-                .checked_div(hotkey_alpha.saturating_add(hotkey_tao_as_alpha))
-                .unwrap_or(I96F32::from_num(0.0));
-            log::debug!(
-                "Alpha proportion: {:?}, root proportion: {:?}",
-                alpha_prop,
-                root_prop
-            );
-
             // Calculate the dividends to hotkeys based on the local vs root proportion.
             for (hotkey_j, divs_j) in dividend_tuples.iter() {
                 log::debug!(
@@ -386,6 +363,29 @@ impl<T: Config> Pallet<T> {
                     hotkey,
                     hotkey_j,
                     *divs_j
+                );
+
+                // Get the local alpha and root alpha.
+                let hotkey_tao: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(
+                    hotkey_j,
+                    Self::get_root_netuid(),
+                ));
+                let hotkey_tao_as_alpha: I96F32 = hotkey_tao.saturating_mul(Self::get_tao_weight());
+                let hotkey_alpha =
+                    I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(hotkey_j, netuid));
+                log::debug!("Hotkey tao for hotkey {:?} on root netuid: {:?}, hotkey tao as alpha: {:?}, hotkey alpha: {:?}", hotkey_j, hotkey_tao, hotkey_tao_as_alpha, hotkey_alpha);
+
+                // Compute alpha and root proportions.
+                let alpha_prop: I96F32 = hotkey_alpha
+                    .checked_div(hotkey_alpha.saturating_add(hotkey_tao_as_alpha))
+                    .unwrap_or(I96F32::from_num(0.0));
+                let root_prop: I96F32 = hotkey_tao_as_alpha
+                    .checked_div(hotkey_alpha.saturating_add(hotkey_tao_as_alpha))
+                    .unwrap_or(I96F32::from_num(0.0));
+                log::debug!(
+                    "Alpha proportion: {:?}, root proportion: {:?}",
+                    alpha_prop,
+                    root_prop
                 );
 
                 // Remove the hotkey take straight off the top.
