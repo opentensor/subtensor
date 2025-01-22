@@ -2826,7 +2826,7 @@ fn test_compute_ema_bonds_sparse() {
     ];
 
     // Call the function
-    let ema_bonds = SubtensorModule::compute_ema_bonds_sparse(&weights, &bonds, alpha);
+    let ema_bonds = SubtensorModule::compute_ema_bonds_sparse(&bonds_delta, &bonds, alpha);
 
     // Assert the results with an epsilon for approximate equality
     let epsilon = I32F32::from_num(1e-6);
@@ -2845,7 +2845,7 @@ fn test_compute_ema_bonds_sparse_empty() {
     let expected_ema_bonds: Vec<Vec<(u16, I32F32)>> = vec![];
 
     // Call the function
-    let ema_bonds = SubtensorModule::compute_ema_bonds_sparse(&weights, &bonds, alpha);
+    let ema_bonds = SubtensorModule::compute_ema_bonds_sparse(&bonds_delta, &bonds, alpha);
 
     // Assert the results
     assert_eq!(

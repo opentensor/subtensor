@@ -204,18 +204,11 @@ impl<T: Config> Pallet<T> {
         inplace_col_normalize(&mut bonds); // sum_i b_ij = 1
         log::trace!("B:\n{:?}\n", &bonds);
 
+        // Get alpha values
+        let alpha = Self::compute_liquid_alpha(netuid, consensus.clone());
+
         // Compute the Exponential Moving Average (EMA) of bonds.
-        // Check if Liquid Alpha is enabled, consensus is not empty, and contains non-zero values.
-        let mut ema_bonds = if let Some(clamped_bonds_alpha) =
-            Self::compute_liquid_alpha(netuid, consensus.clone())
-        {
-            // Compute the Exponential Moving Average (EMA) of bonds using the clamped alpha values.
-            Self::compute_ema_bonds_with_liquid_alpha(&weights.clone(), &bonds, clamped_bonds_alpha)
-        } else {
-            log::trace!("Using Bonds Moving Average");
-            // Compute the EMA of bonds using a normal alpha value.
-            Self::compute_ema_bonds_normal(&weights.clone(), &bonds, netuid)
-        };
+        let mut ema_bonds = Self::compute_ema_bonds(&weights.clone(), &bonds, alpha);
         // Normalize EMA bonds.
         inplace_col_normalize(&mut ema_bonds); // sum_i b_ij = 1
         log::trace!("emaB:\n{:?}\n", &ema_bonds);
@@ -591,22 +584,11 @@ impl<T: Config> Pallet<T> {
         inplace_col_normalize_sparse(&mut bonds, n);
         log::trace!("B (mask+norm): {:?}", &bonds);
 
-        // Compute the Exponential Moving Average (EMA) of bonds.
-        let mut ema_bonds = if let Some(clamped_bonds_alpha) =
-            Self::compute_liquid_alpha(netuid, consensus.clone())
-        {
-            // Compute the Exponential Moving Average (EMA) of bonds using the clamped alpha values.
-            Self::compute_ema_bonds_with_liquid_alpha_sparse(
-                &weights.clone(),
-                &bonds,
-                clamped_bonds_alpha,
-            )
-        } else {
-            log::trace!("Using Bonds Moving Average");
-            // Compute the EMA of bonds using a normal alpha value.
-            Self::compute_ema_bonds_normal_sparse(&weights.clone(), &bonds, netuid)
-        };
+        // Get alpha values
+        let alpha = Self::compute_liquid_alpha(netuid, consensus.clone());
 
+        // Compute the Exponential Moving Average (EMA) of bonds.
+        let mut ema_bonds = Self::compute_ema_bonds_sparse(&weights.clone(), &bonds, alpha);
         // Normalize EMA bonds.
         inplace_col_normalize_sparse(&mut ema_bonds, n); // sum_i b_ij = 1
         log::trace!("Exponential Moving Average Bonds: {:?}", &ema_bonds);
@@ -1014,11 +996,11 @@ impl<T: Config> Pallet<T> {
     /// # Args:
     /// * `bonds_delta` - A vector of bond deltas.
     /// * `bonds` - A vector of bonds.
-    /// * `alpha` - A vector of clamped alpha values.
+    /// * `alpha` - A vector of clamped alpha values (for liquid alpha) or constant alpha values.
     ///
     /// # Returns:
     /// A vector of EMA bonds.
-    pub fn compute_ema_bonds_with_liquid_alpha_sparse(
+    pub fn compute_ema_bonds_sparse(
         bonds_delta: &[Vec<(u16, I32F32)>],
         bonds: &[Vec<(u16, I32F32)>],
         alpha: Vec<I32F32>,
@@ -1027,25 +1009,22 @@ impl<T: Config> Pallet<T> {
         let ema_bonds = mat_ema_alpha_vec_sparse(bonds_delta, bonds, &alpha);
 
         // Log the computed EMA bonds for debugging purposes.
-        log::trace!(
-            "Exponential Moving Average Bonds Liquid Alpha: {:?}",
-            ema_bonds
-        );
+        log::trace!("Exponential Moving Average Bonds: {:?}", ema_bonds);
 
         // Return the computed EMA bonds.
         ema_bonds
     }
 
-    /// Compute the Exponential Moving Average (EMA) of bonds using the clamped alpha values.
+    /// Compute the Exponential Moving Average (EMA) of bonds using the alpha values.
     ///
     /// # Args:
     /// * `bonds_delta` - A vector of bond deltas.
     /// * `bonds` - A vector of bonds.
-    /// * `alpha` - A vector of clamped alpha values.
+    /// * `alpha` - A vector of clamped alpha values (for liquid alpha) or constant alpha values.
     ///
     /// # Returns:
     /// A vector of EMA bonds.
-    pub fn compute_ema_bonds_with_liquid_alpha(
+    pub fn compute_ema_bonds(
         bonds_delta: &[Vec<I32F32>],
         bonds: &[Vec<I32F32>],
         alpha: Vec<I32F32>,
@@ -1054,78 +1033,7 @@ impl<T: Config> Pallet<T> {
         let ema_bonds = mat_ema_alpha_vec(bonds_delta, bonds, &alpha);
 
         // Log the computed EMA bonds for debugging purposes.
-        log::trace!(
-            "Exponential Moving Average Bonds Liquid Alpha: {:?}",
-            ema_bonds
-        );
-
-        // Return the computed EMA bonds.
-        ema_bonds
-    }
-
-    /// Compute the Exponential Moving Average (EMA) of bonds using a normal alpha value for a sparse matrix.
-    ///
-    /// # Args:
-    /// * `bonds_delta` - A vector of bond deltas.
-    /// * `bonds` - A vector of bonds.
-    /// * `netuid` - The network ID.
-    ///
-    /// # Returns:
-    /// A vector of EMA bonds.
-    pub fn compute_ema_bonds_normal_sparse(
-        bonds_delta: &[Vec<(u16, I32F32)>],
-        bonds: &[Vec<(u16, I32F32)>],
-        netuid: u16,
-    ) -> Vec<Vec<(u16, I32F32)>> {
-        // Retrieve the bonds moving average for the given network ID and scale it down.
-        let bonds_moving_average: I64F64 =
-            I64F64::saturating_from_num(Self::get_bonds_moving_average(netuid))
-                .safe_div(I64F64::saturating_from_num(1_000_000));
-
-        // Calculate the alpha value for the EMA calculation.
-        // Alpha is derived by subtracting the scaled bonds moving average from 1.
-        let alpha: I32F32 = I32F32::saturating_from_num(1)
-            .saturating_sub(I32F32::saturating_from_num(bonds_moving_average));
-
-        // Compute the Exponential Moving Average (EMA) of bonds using the calculated alpha value.
-        let ema_bonds = mat_ema_sparse(bonds_delta, bonds, alpha);
-
-        // Log the computed EMA bonds for debugging purposes.
-        log::trace!("Exponential Moving Average Bonds Normal: {:?}", ema_bonds);
-
-        // Return the computed EMA bonds.
-        ema_bonds
-    }
-
-    /// Compute the Exponential Moving Average (EMA) of bonds using a normal alpha value.
-    ///
-    /// # Args:
-    /// * `bonds_delta` - A vector of bond deltas.
-    /// * `bonds` - A vector of bonds.
-    /// * `netuid` - The network ID.
-    ///
-    /// # Returns:
-    /// A vector of EMA bonds.
-    pub fn compute_ema_bonds_normal(
-        bonds_delta: &[Vec<I32F32>],
-        bonds: &[Vec<I32F32>],
-        netuid: u16,
-    ) -> Vec<Vec<I32F32>> {
-        // Retrieve the bonds moving average for the given network ID and scale it down.
-        let bonds_moving_average: I64F64 =
-            I64F64::saturating_from_num(Self::get_bonds_moving_average(netuid))
-                .safe_div(I64F64::saturating_from_num(1_000_000));
-
-        // Calculate the alpha value for the EMA calculation.
-        // Alpha is derived by subtracting the scaled bonds moving average from 1.
-        let alpha: I32F32 = I32F32::saturating_from_num(1)
-            .saturating_sub(I32F32::saturating_from_num(bonds_moving_average));
-
-        // Compute the Exponential Moving Average (EMA) of bonds using the calculated alpha value.
-        let ema_bonds = mat_ema(bonds_delta, bonds, alpha);
-
-        // Log the computed EMA bonds for debugging purposes.
-        log::trace!("Exponential Moving Average Bonds Normal: {:?}", ema_bonds);
+        log::trace!("Exponential Moving Average Bonds: {:?}", ema_bonds);
 
         // Return the computed EMA bonds.
         ema_bonds
@@ -1139,7 +1047,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns:
     /// A vector of alphas
-    pub fn compute_liquid_alpha(netuid: u16, consensus: Vec<I32F32>) -> Option<Vec<I32F32>> {
+    pub fn compute_liquid_alpha(netuid: u16, consensus: Vec<I32F32>) -> Vec<I32F32> {
         // Check if Liquid Alpha is enabled, consensus is not empty, and contains non-zero values.
         if LiquidAlphaOn::<T>::get(netuid)
             && !consensus.is_empty()
@@ -1174,10 +1082,24 @@ impl<T: Config> Pallet<T> {
                 // Clamp the alpha values between alpha_high and alpha_low.
                 let clamped_alpha = Self::clamp_alpha_values(alpha, alpha_high, alpha_low);
 
-                return Some(clamped_alpha);
+                return clamped_alpha;
             }
         }
-        None
+
+        // Liquid Alpha is disabled
+        // or high and low consensus values do not meet the required conditions.
+        // return vector of constant alpha
+
+        // Retrieve the bonds moving average for the given network ID and scale it down.
+        let bonds_moving_average: I64F64 = I64F64::from_num(Self::get_bonds_moving_average(netuid))
+            .saturating_div(I64F64::from_num(1_000_000));
+
+        // Calculate the alpha value for the EMA calculation.
+        // Alpha is derived by subtracting the scaled bonds moving average from 1.
+        let alpha: I32F32 =
+            I32F32::from_num(1).saturating_sub(I32F32::from_num(bonds_moving_average));
+
+        vec![alpha; consensus.len()]
     }
 
     pub fn do_set_alpha_values(
