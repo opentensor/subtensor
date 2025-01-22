@@ -700,7 +700,12 @@ pub fn wait_and_set_pending_children(netuid: u16) {
 }
 
 #[allow(dead_code)]
-pub fn mock_set_children(coldkey: &U256, parent: &U256, netuid: u16, child_vec: &[(u64, U256)]) {
+pub fn mock_schedule_children(
+    coldkey: &U256,
+    parent: &U256,
+    netuid: u16,
+    child_vec: &[(u64, U256)],
+) {
     // Set minimum stake for setting children
     StakeThreshold::<Test>::put(0);
 
@@ -711,6 +716,11 @@ pub fn mock_set_children(coldkey: &U256, parent: &U256, netuid: u16, child_vec: 
         netuid,
         child_vec.to_vec()
     ));
+}
+
+#[allow(dead_code)]
+pub fn mock_set_children(coldkey: &U256, parent: &U256, netuid: u16, child_vec: &[(u64, U256)]) {
+    mock_schedule_children(coldkey, parent, netuid, child_vec);
     wait_and_set_pending_children(netuid);
 }
 

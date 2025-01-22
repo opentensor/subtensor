@@ -1664,7 +1664,7 @@ fn test_get_parents_chain() {
 
         // Set up parent-child relationships
         for i in 0..num_keys - 1 {
-            mock_set_children(
+            mock_schedule_children(
                 &coldkey,
                 &hotkeys[i],
                 netuid,
@@ -1677,6 +1677,8 @@ fn test_get_parents_chain() {
                 proportion
             );
         }
+        // Wait for children to be set
+        wait_and_set_pending_children(netuid);
 
         // Test get_parents for each hotkey
         for i in 1..num_keys {
