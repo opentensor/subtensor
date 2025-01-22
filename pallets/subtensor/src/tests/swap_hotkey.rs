@@ -66,6 +66,7 @@ fn test_swap_total_hotkey_stake() {
         let coldkey = U256::from(3);
         let amount = DefaultMinStake::<Test>::get() * 10;
         let mut weight = Weight::zero();
+        let fee = DefaultMinStake::<Test>::get();
 
         //add network
         let netuid: u16 = add_dynamic_network(&old_hotkey, &coldkey);
@@ -84,7 +85,7 @@ fn test_swap_total_hotkey_stake() {
         // Check if stake has increased
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&old_hotkey),
-            amount,
+            amount - fee,
             epsilon = amount / 1000,
         );
         assert_abs_diff_eq!(
@@ -109,7 +110,7 @@ fn test_swap_total_hotkey_stake() {
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&new_hotkey),
-            amount,
+            amount - fee,
             epsilon = amount / 1000,
         );
     });

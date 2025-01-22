@@ -1,7 +1,5 @@
 use super::*;
-use crate::DefaultMinStake;
 use share_pool::{SharePool, SharePoolDataOperations};
-use sp_core::Get;
 use sp_std::ops::Neg;
 use substrate_fixed::types::{I64F64, I96F32, U64F64};
 
@@ -608,6 +606,7 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         netuid: u16,
         alpha: u64,
+        fee: u64,
     ) -> u64 {
         // Step 1: Swap the alpha for TAO.
         let tao: u64 = Self::swap_alpha_for_tao(netuid, alpha);
@@ -624,10 +623,12 @@ impl<T: Config> Pallet<T> {
         // }
 
         // Step 4. Reduce tao amount by staking fee and credit this fee to SubnetTAO
-        let fee = DefaultMinStake::<T>::get();
         let tao_unstaked = tao.saturating_sub(fee);
         let actual_fee = tao.saturating_sub(tao_unstaked);
         SubnetTAO::<T>::mutate(netuid, |total| {
+            *total = total.saturating_add(actual_fee);
+        });
+        TotalStake::<T>::mutate(|total| {
             *total = total.saturating_add(actual_fee);
         });
 
@@ -660,11 +661,11 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         netuid: u16,
         tao: u64,
+        fee: u64,
     ) -> u64 {
         // Step 1. Reduce tao amount by staking fee and credit this fee to SubnetTAO
-        // At this point tao was already withdrawn from the user balance and is considered 
+        // At this point tao was already withdrawn from the user balance and is considered
         // available
-        let fee = DefaultMinStake::<T>::get();
         let tao_staked = tao.saturating_sub(fee);
         let actual_fee = tao.saturating_sub(tao_staked);
 
@@ -684,6 +685,9 @@ impl<T: Config> Pallet<T> {
 
         // Step 5. Increase Tao reserves by the fee amount.
         SubnetTAO::<T>::mutate(netuid, |total| {
+            *total = total.saturating_add(actual_fee);
+        });
+        TotalStake::<T>::mutate(|total| {
             *total = total.saturating_add(actual_fee);
         });
 

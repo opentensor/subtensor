@@ -74,7 +74,8 @@ impl<T: Config> Pallet<T> {
 
         // 6. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
-        Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked);
+        let fee = DefaultMinStake::<T>::get();
+        Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked, fee);
 
         // Ok and return.
         Ok(())
