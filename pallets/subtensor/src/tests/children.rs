@@ -1718,7 +1718,7 @@ fn test_get_parents_chain() {
         let last_hotkey = hotkeys[num_keys - 1];
         let new_parent = U256::from(num_keys as u64 + 2);
         // Set reg diff back down (adjusted from last block steps)
-        SubtensorModule::set_difficulty(1);
+        SubtensorModule::set_difficulty(netuid, 1);
         register_ok_neuron(netuid, new_parent, coldkey, 99 * 2);
         log::info!(
             "Registered new parent neuron: new_parent={}, coldkey={}, netuid={}",
