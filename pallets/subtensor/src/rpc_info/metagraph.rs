@@ -188,7 +188,7 @@ impl<T: Config> Pallet<T> {
             // Registration
             num_uids: Self::get_subnetwork_n(netuid).into(),
             max_uids: Self::get_max_allowed_uids(netuid).into(),
-            registration_allowed: Self::get_network_registration_allowed(netuid).into(), // allows registrations.
+            registration_allowed: Self::get_network_registration_allowed(netuid), // allows registrations.
             difficulty: Self::get_difficulty_as_u64(netuid).into(), // current difficulty.
             burn: Self::get_burn_as_u64(netuid).into(),
             immunity_period: Self::get_immunity_period(netuid).into(), // subnet miner immunity period
@@ -203,22 +203,22 @@ impl<T: Config> Pallet<T> {
             serving_rate_limit: Self::get_serving_rate_limit(netuid).into(), // axon serving rate limit
 
             // CR
-            commit_reveal_weights_enabled: Self::get_commit_reveal_weights_enabled(netuid).into(), // Is CR enabled.
+            commit_reveal_weights_enabled: Self::get_commit_reveal_weights_enabled(netuid), // Is CR enabled.
             commit_reveal_period: Self::get_reveal_period(netuid).into(), // Commit reveal interval
 
             // Bonds
-            liquid_alpha_enabled: Self::get_liquid_alpha_enabled(netuid).into(), // Bonds liquid enabled.
+            liquid_alpha_enabled: Self::get_liquid_alpha_enabled(netuid), // Bonds liquid enabled.
             alpha_high: Self::get_alpha_values(netuid).1.into(), // Alpha param high
             alpha_low: Self::get_alpha_values(netuid).0.into(), // Alpha param low
             bonds_moving_avg: Self::get_bonds_moving_average(netuid).into(), // Bonds moving avg
 
             // Metagraph info.
-            hotkeys: hotkeys.into(), // hotkey per UID
-            coldkeys: coldkeys.into(), // coldkey per UID
-            axons: axons.into(), // Axon information per UID.
-            identities: identities.into(),
-            active: Active::<T>::get(netuid).into(), // Avtive per UID
-            validator_permit: ValidatorPermit::<T>::get(netuid).into(), // Val permit per UID
+            hotkeys, // hotkey per UID
+            coldkeys, // coldkey per UID
+            axons, // Axon information per UID.
+            identities,
+            active: Active::<T>::get(netuid), // Avtive per UID
+            validator_permit: ValidatorPermit::<T>::get(netuid), // Val permit per UID
             pruning_score: PruningScores::<T>::get(netuid).into_iter().map(Compact::from).collect(), // Pruning per UID
             last_update: LastUpdate::<T>::get(netuid).into_iter().map(Compact::from).collect(), // Last update per UID
             emission: Emission::<T>::get(netuid).into_iter().map(Compact::from).collect(), // Emission per UID
@@ -227,14 +227,14 @@ impl<T: Config> Pallet<T> {
             consensus: Consensus::<T>::get(netuid).into_iter().map(Compact::from).collect(), // Consensus per UID
             trust: Trust::<T>::get(netuid).into_iter().map(Compact::from).collect(), // Trust per UID
             rank: Rank::<T>::get(netuid).into_iter().map(Compact::from).collect(), // Rank per UID
-            block_at_registration: block_at_registration.into(), // Reg block per UID
+            block_at_registration, // Reg block per UID
             alpha_stake: alpha_stake_fl.iter().map(|xi| Compact::from(fixed64_to_u64(*xi))).collect::<Vec<Compact<u64>>>(), // Alpha staked per UID
             tao_stake: tao_stake_fl.iter().map(|xi| Compact::from(fixed64_to_u64(*xi))).collect::<Vec<Compact<u64>>>(), // TAO staked per UID
             total_stake: total_stake_fl.iter().map(|xi| Compact::from(fixed64_to_u64(*xi))).collect::<Vec<Compact<u64>>>(), // Total stake per UID
 
             // Dividend break down.
-            tao_dividends_per_hotkey: tao_dividends_per_hotkey.into(),
-            alpha_dividends_per_hotkey: alpha_dividends_per_hotkey.into(),
+            tao_dividends_per_hotkey,
+            alpha_dividends_per_hotkey,
         })
        
     }
