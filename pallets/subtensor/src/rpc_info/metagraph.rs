@@ -6,7 +6,7 @@ use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I64F64;
 use subtensor_macros::freeze_struct;
 
-#[freeze_struct("ff645727bfa3de1f")]
+#[freeze_struct("eff674535ea437ae")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct Metagraph<T: Config> {
     // Subnet index
@@ -57,6 +57,7 @@ pub struct Metagraph<T: Config> {
     burn: Compact<u64>,                     // current burn cost..
     difficulty: Compact<u64>,               // current difficulty.
     registration_allowed: bool,             // allows registrations.
+    pow_registration_allowed: bool,         // pow registration enabled.
     immunity_period: Compact<u16>,          // subnet miner immunity period
     min_difficulty: Compact<u64>,           // min pow difficulty
     max_difficulty: Compact<u64>,           // max pow difficulty
@@ -193,6 +194,7 @@ impl<T: Config> Pallet<T> {
             num_uids: Self::get_subnetwork_n(netuid).into(),
             max_uids: Self::get_max_allowed_uids(netuid).into(),
             registration_allowed: Self::get_network_registration_allowed(netuid), // allows registrations.
+            pow_registration_allowed: Self::get_network_pow_registration_allowed(netuid), // allows pow registrations.
             difficulty: Self::get_difficulty_as_u64(netuid).into(), // current difficulty.
             burn: Self::get_burn_as_u64(netuid).into(),
             immunity_period: Self::get_immunity_period(netuid).into(), // subnet miner immunity period
