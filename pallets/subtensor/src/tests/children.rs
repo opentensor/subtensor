@@ -3282,11 +3282,15 @@ fn test_childkey_multiple_parents_emission() {
         );
 
         let mut total_stake_on_subnet = 0;
-        for hk in vec![parent1, parent2, child, weight_setter] {
-            for (_, alpha) in TotalHotkeyAlpha::<Test>::iter_prefix(hk) {
+        let hks = vec![parent1, parent2, child, weight_setter];
+        for (hk, net, alpha) in TotalHotkeyAlpha::<Test>::iter() {
+            if hks.contains(&hk) && net == netuid {
                 total_stake_on_subnet += alpha;
+            } else {
+                log::info!("hk: {:?}, net: {:?}, alpha: {:?}", hk, net, alpha);
             }
         }
+        
         log::info!("total_stake_on_subnet: {:?}", total_stake_on_subnet);
 
         // Check that the total stake has increased by the emission amount
