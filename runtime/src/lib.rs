@@ -974,7 +974,7 @@ impl pallet_commitments::Config for Runtime {
     type MaxFields = MaxCommitFields;
     type InitialDeposit = CommitmentInitialDeposit;
     type FieldDeposit = CommitmentFieldDeposit;
-    type RateLimit = CommitmentRateLimit;
+    type DefaultRateLimit = CommitmentRateLimit;
 }
 
 #[cfg(not(feature = "fast-blocks"))]
