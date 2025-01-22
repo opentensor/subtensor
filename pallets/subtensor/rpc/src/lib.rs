@@ -230,11 +230,9 @@ where
     fn get_all_metagraphs(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
-        api.get_all_metagraphs(at).map_err(|e| {
-            Error::RuntimeError(format!("Unable to get metagraps: {:?}", e)).into()
-        })
+        api.get_all_metagraphs(at)
+            .map_err(|e| Error::RuntimeError(format!("Unable to get metagraps: {:?}", e)).into())
     }
-
 
     fn get_dynamic_info(
         &self,
