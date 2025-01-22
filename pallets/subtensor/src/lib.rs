@@ -891,34 +891,34 @@ pub mod pallet {
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
     #[pallet::storage] // --- ITEM ( dynamic_block ) -- block when dynamic was turned on.
     pub type DynamicBlock<T> = StorageValue<_, u64, ValueQuery>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> total_volume | The total amount of TAO bought and sold since the start of the network.
+    #[pallet::storage] // --- MAP ( netuid ) --> total_volume | The total amount of TAO bought and sold since the start of the network.
     pub type SubnetVolume<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> tao_in_subnet | Returns the amount of TAO in the subnet.
+    #[pallet::storage] // --- MAP ( netuid ) --> tao_in_subnet | Returns the amount of TAO in the subnet.
     pub type SubnetTAO<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> alpha_in_emission | Returns the amount of alph in  emission into the pool per block.
+    #[pallet::storage] // --- MAP ( netuid ) --> alpha_in_emission | Returns the amount of alph in  emission into the pool per block.
     pub type SubnetAlphaInEmission<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> alpha_out_emission | Returns the amount of alpha out emission into the network per block.
+    #[pallet::storage] // --- MAP ( netuid ) --> alpha_out_emission | Returns the amount of alpha out emission into the network per block.
     pub type SubnetAlphaOutEmission<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> tao_in_emission | Returns the amount of tao emitted into this subent on the last block.
+    #[pallet::storage] // --- MAP ( netuid ) --> tao_in_emission | Returns the amount of tao emitted into this subent on the last block.
     pub type SubnetTaoInEmission<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> alpha_sell_per_block | Alpha sold per block.
+    #[pallet::storage] // --- MAP ( netuid ) --> alpha_sell_per_block | Alpha sold per block.
     pub type SubnetAlphaEmissionSell<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> total_stake_at_moment_of_subnet_registration
+    #[pallet::storage] // --- MAP ( netuid ) --> total_stake_at_moment_of_subnet_registration
     pub type TotalStakeAtDynamic<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the subnet.
+    #[pallet::storage] // --- MAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the pool.
     pub type SubnetAlphaIn<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
+    #[pallet::storage] // --- MAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
     pub type SubnetAlphaOut<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- DMAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
+    #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
     pub type StakingHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
     #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Returns the vector of hotkeys controlled by this coldkey.
@@ -975,10 +975,10 @@ pub mod pallet {
         U64F64, // Shares
         ValueQuery,
     >;
-    #[pallet::storage] // --- DMAP ( netuid ) --> token_symbol | Returns the token symbol for a subnet.
+    #[pallet::storage] // --- MAP ( netuid ) --> token_symbol | Returns the token symbol for a subnet.
     pub type TokenSymbol<T: Config> =
         StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> subnet_name | Returns the name of the subnet.
+    #[pallet::storage] // --- MAP ( netuid ) --> subnet_name | Returns the name of the subnet.
     pub type SubnetName<T: Config> =
         StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
 
@@ -1279,49 +1279,49 @@ pub mod pallet {
     pub type Keys<T: Config> =
         StorageDoubleMap<_, Identity, u16, Identity, u16, T::AccountId, ValueQuery, DefaultKey<T>>;
     #[pallet::storage]
-    /// --- DMAP ( netuid ) --> (hotkey, se, ve)
+    /// --- MAP ( netuid ) --> (hotkey, se, ve)
     pub type LoadedEmission<T: Config> =
         StorageMap<_, Identity, u16, Vec<(T::AccountId, u64, u64)>, OptionQuery>;
     #[pallet::storage]
-    /// --- DMAP ( netuid ) --> active
+    /// --- MAP ( netuid ) --> active
     pub type Active<T: Config> =
         StorageMap<_, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T>>;
     #[pallet::storage]
-    /// --- DMAP ( netuid ) --> rank
+    /// --- MAP ( netuid ) --> rank
     pub type Rank<T: Config> = StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
-    /// --- DMAP ( netuid ) --> trust
+    /// --- MAP ( netuid ) --> trust
     pub type Trust<T: Config> = StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
-    /// --- DMAP ( netuid ) --> consensus
+    /// --- MAP ( netuid ) --> consensus
     pub type Consensus<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
-    /// --- DMAP ( netuid ) --> incentive
+    /// --- MAP ( netuid ) --> incentive
     pub type Incentive<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
-    /// --- DMAP ( netuid ) --> dividends
+    /// --- MAP ( netuid ) --> dividends
     pub type Dividends<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
-    /// --- DMAP ( netuid ) --> emission
+    /// --- MAP ( netuid ) --> emission
     pub type Emission<T: Config> =
         StorageMap<_, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
     #[pallet::storage]
-    /// --- DMAP ( netuid ) --> last_update
+    /// --- MAP ( netuid ) --> last_update
     pub type LastUpdate<T: Config> =
         StorageMap<_, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
     #[pallet::storage]
-    /// --- DMAP ( netuid ) --> validator_trust
+    /// --- MAP ( netuid ) --> validator_trust
     pub type ValidatorTrust<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
-    /// --- DMAP ( netuid ) --> pruning_scores
+    /// --- MAP ( netuid ) --> pruning_scores
     pub type PruningScores<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
-    /// --- DMAP ( netuid ) --> validator_permit
+    /// --- MAP ( netuid ) --> validator_permit
     pub type ValidatorPermit<T: Config> =
         StorageMap<_, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T>>;
     #[pallet::storage]
