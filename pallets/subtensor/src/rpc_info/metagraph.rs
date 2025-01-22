@@ -6,9 +6,9 @@ use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I64F64;
 use subtensor_macros::freeze_struct;
 
-#[freeze_struct("eff674535ea437ae")]
-#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
-pub struct Metagraph<T: Config> {
+#[freeze_struct("4b65aed880c83b01")]
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
+pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     // Subnet index
     netuid: Compact<u16>,
 
@@ -19,8 +19,8 @@ pub struct Metagraph<T: Config> {
     network_registered_at: Compact<u64>, // block at registration
 
     // Keys for owner.
-    owner_hotkey: T::AccountId,  // hotkey
-    owner_coldkey: T::AccountId, // coldkey.
+    owner_hotkey: AccountId,  // hotkey
+    owner_coldkey: AccountId, // coldkey.
 
     // Tempo terms.
     block: Compact<u64>,                  // block at call.
@@ -80,8 +80,8 @@ pub struct Metagraph<T: Config> {
     bonds_moving_avg: Compact<u64>, // Bonds moving avg
 
     // Metagraph info.
-    hotkeys: Vec<T::AccountId>,               // hotkey per UID
-    coldkeys: Vec<T::AccountId>,              // coldkey per UID
+    hotkeys: Vec<AccountId>,                  // hotkey per UID
+    coldkeys: Vec<AccountId>,                 // coldkey per UID
     identities: Vec<ChainIdentityOf>,         // coldkeys identities
     axons: Vec<AxonInfo>,                     // UID axons.
     active: Vec<bool>,                        // Avtive per UID
@@ -100,12 +100,12 @@ pub struct Metagraph<T: Config> {
     total_stake: Vec<Compact<u64>>,           // Total stake per UID
 
     // Dividend break down.
-    tao_dividends_per_hotkey: Vec<(T::AccountId, Compact<u64>)>, // List of dividend payouts in tao via root.
-    alpha_dividends_per_hotkey: Vec<(T::AccountId, Compact<u64>)>, // List of dividend payout in alpha via subnet.
+    tao_dividends_per_hotkey: Vec<(AccountId, Compact<u64>)>, // List of dividend payouts in tao via root.
+    alpha_dividends_per_hotkey: Vec<(AccountId, Compact<u64>)>, // List of dividend payout in alpha via subnet.
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn get_metagraph(netuid: u16) -> Option<Metagraph<T>> {
+    pub fn get_metagraph(netuid: u16) -> Option<Metagraph<T::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }
@@ -276,9 +276,9 @@ impl<T: Config> Pallet<T> {
             alpha_dividends_per_hotkey,
         })
     }
-    pub fn get_all_metagraphs() -> Vec<Option<Metagraph<T>>> {
+    pub fn get_all_metagraphs() -> Vec<Option<Metagraph<T::AccountId>>> {
         let netuids: Vec<u16> = Self::get_all_subnet_netuids();
-        let mut metagraphs = Vec::<Option<Metagraph<T>>>::new();
+        let mut metagraphs = Vec::<Option<Metagraph<T::AccountId>>>::new();
         for netuid in netuids.clone().iter() {
             metagraphs.push(Self::get_metagraph(*netuid));
         }

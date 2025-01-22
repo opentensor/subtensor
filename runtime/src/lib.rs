@@ -33,6 +33,7 @@ use pallet_registry::CanRegisterIdentity;
 use pallet_subtensor::rpc_info::{
     delegate_info::DelegateInfo,
     dynamic_info::DynamicInfo,
+    metagraph::Metagraph,
     neuron_info::{NeuronInfo, NeuronInfoLite},
     show_subnet::SubnetState,
     stake_info::StakeInfo,
@@ -2072,23 +2073,16 @@ impl_runtime_apis! {
             SubtensorModule::get_dynamic_info(netuid)
         }
 
-		fn get_metagraph(netuid: u16) -> Vec<u8> {
-			let _result = SubtensorModule::get_metagraph(netuid);
-			if _result.is_some() {
-				let result = _result.expect("Could not get Metagraph.");
-				result.encode()
-			} else {
-				vec![]
-			}
-		}
+        fn get_metagraph(netuid: u16) -> Option<Metagraph<AccountId32>> {
+            SubtensorModule::get_metagraph(netuid)
+        }
 
-		fn get_subnet_state(netuid: u16) -> Option<SubnetState<AccountId32>> {
+        fn get_subnet_state(netuid: u16) -> Option<SubnetState<AccountId32>> {
             SubtensorModule::get_subnet_state(netuid)
         }
 
-		fn get_all_metagraphs() -> Vec<u8> {
-            let result = SubtensorModule::get_all_metagraphs();
-            result.encode()
+        fn get_all_metagraphs() -> Vec<Option<Metagraph<AccountId32>>> {
+            SubtensorModule::get_all_metagraphs()
         }
 
         fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<AccountId32>>> {

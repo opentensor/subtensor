@@ -284,8 +284,11 @@ where
     fn get_all_metagraphs(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
-        api.get_all_metagraphs(at)
-            .map_err(|e| Error::RuntimeError(format!("Unable to get metagraps: {:?}", e)).into())
+
+        match api.get_all_metagraphs(at) {
+            Ok(result) => Ok(result.encode()),
+            Err(e) => Err(Error::RuntimeError(format!("Unable to get metagraps: {:?}", e)).into()),
+        }
     }
 
     fn get_dynamic_info(
@@ -313,9 +316,14 @@ where
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
-        api.get_metagraph(at, netuid).map_err(|e| {
-            Error::RuntimeError(format!("Unable to get dynamic subnets info: {:?}", e)).into()
-        })
+        match api.get_metagraph(at, netuid) {
+            Ok(result) => Ok(result.encode()),
+            Err(e) => Err(Error::RuntimeError(format!(
+                "Unable to get dynamic subnets info: {:?}",
+                e
+            ))
+            .into()),
+        }
     }
 
     fn get_subnet_state(
