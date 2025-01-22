@@ -1276,7 +1276,7 @@ fn test_delegate_take_can_be_decreased() {
 
         // Register the neuron to a new network
         let netuid = 1;
-        add_network(netuid, 1,  0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
@@ -1311,7 +1311,7 @@ fn test_can_set_min_take_ok() {
 
         // Register the neuron to a new network
         let netuid = 1;
-        add_network(netuid, 1,  0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates
@@ -1343,7 +1343,7 @@ fn test_delegate_take_can_not_be_increased_with_decrease_take() {
 
         // Register the neuron to a new network
         let netuid = 1;
-        add_network(netuid, 1,  0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Set min take
@@ -1378,7 +1378,7 @@ fn test_delegate_take_can_be_increased() {
 
         // Register the neuron to a new network
         let netuid = 1;
-        add_network(netuid, 1,  0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
@@ -1413,7 +1413,7 @@ fn test_delegate_take_can_not_be_decreased_with_increase_take() {
 
         // Register the neuron to a new network
         let netuid = 1;
-        add_network(netuid, 1,  0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
@@ -1452,7 +1452,7 @@ fn test_delegate_take_can_be_increased_to_limit() {
 
         // Register the neuron to a new network
         let netuid = 1;
-        add_network(netuid, 1,  0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
@@ -1490,7 +1490,7 @@ fn test_delegate_take_can_not_be_increased_beyond_limit() {
 
         // Register the neuron to a new network
         let netuid = 1;
-        add_network(netuid, 1,  0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
@@ -1532,7 +1532,7 @@ fn test_rate_limits_enforced_on_increase_take() {
 
         // Register the neuron to a new network
         let netuid = 1;
-        add_network(netuid, 1,  0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
@@ -1658,7 +1658,7 @@ fn test_get_total_delegated_stake_no_delegations() {
         let coldkey = U256::from(2);
         let netuid = 1u16;
 
-        add_network(netuid, 1,  0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, delegate, coldkey, 0);
 
         // Check that there's no delegated stake
