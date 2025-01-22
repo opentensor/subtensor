@@ -2133,7 +2133,7 @@ impl_runtime_apis! {
         }
 
         fn get_all_metagraphs() -> Vec<u8> {
-            let result = SubtensorModule::get_all_dynamic_info();
+            let result = SubtensorModule::get_all_metagraphs();
             result.encode()
         }
 
