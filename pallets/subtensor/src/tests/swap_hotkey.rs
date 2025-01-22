@@ -66,7 +66,7 @@ fn test_swap_total_hotkey_stake() {
         let coldkey = U256::from(3);
         let amount = DefaultMinStake::<Test>::get() * 10;
         let mut weight = Weight::zero();
-        let fee = DefaultMinStake::<Test>::get();
+        let fee = DefaultStakingFee::<Test>::get();
 
         //add network
         let netuid: u16 = add_dynamic_network(&old_hotkey, &coldkey);

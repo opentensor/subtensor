@@ -702,8 +702,14 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default minimum stake.
     /// 500k rao matches $0.25 at $500/TAO
-    /// Also used as staking fee
     pub fn DefaultMinStake<T: Config>() -> u64 {
+        500_000
+    }
+
+    #[pallet::type_value]
+    /// Default staking fee.
+    /// 500k rao matches $0.25 at $500/TAO
+    pub fn DefaultStakingFee<T: Config>() -> u64 {
         500_000
     }
 
@@ -1545,6 +1551,7 @@ pub enum CallType {
 pub enum CustomTransactionError {
     ColdkeyInSwapSchedule,
     StakeAmountTooLow,
+    BalanceTooLow,
 }
 
 impl From<CustomTransactionError> for u8 {
@@ -1552,6 +1559,7 @@ impl From<CustomTransactionError> for u8 {
         match variant {
             CustomTransactionError::ColdkeyInSwapSchedule => 0,
             CustomTransactionError::StakeAmountTooLow => 1,
+            CustomTransactionError::BalanceTooLow => 2,
         }
     }
 }
@@ -1704,7 +1712,7 @@ where
             Some(Call::add_stake {
                 hotkey: _,
                 netuid: _,
-                amount_staked,
+                amount,
             }) => {
                 // Check that amount parameter is at least the min stake
                 // also check the coldkey balance
@@ -1713,12 +1721,14 @@ where
                 >>::reducible_balance(
                     who, Preservation::Expendable, Fortitude::Polite
                 );
+                let min_amount =
+                    DefaultMinStake::<T>::get().saturating_add(DefaultStakingFee::<T>::get());
 
-                if (*amount_staked < DefaultMinStake::<T>::get())
-                    || (coldkey_balance < DefaultMinStake::<T>::get())
-                {
+                if *amount < min_amount {
                     InvalidTransaction::Custom(CustomTransactionError::StakeAmountTooLow.into())
                         .into()
+                } else if coldkey_balance < min_amount {
+                    InvalidTransaction::Custom(CustomTransactionError::BalanceTooLow.into()).into()
                 } else {
                     Ok(ValidTransaction {
                         priority: Self::get_priority_vanilla(),

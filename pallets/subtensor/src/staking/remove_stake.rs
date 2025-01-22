@@ -66,7 +66,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // 6. Swap the alpba to tao and update counters for this subnet.
-        let fee = DefaultMinStake::<T>::get();
+        let fee = DefaultStakingFee::<T>::get();
         let tao_unstaked: u64 =
             Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha_unstaked, fee);
 
@@ -117,7 +117,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
     ) -> dispatch::DispatchResult {
-        let fee = DefaultMinStake::<T>::get();
+        let fee = DefaultStakingFee::<T>::get();
 
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
@@ -185,7 +185,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
     ) -> dispatch::DispatchResult {
-        let fee = DefaultMinStake::<T>::get();
+        let fee = DefaultStakingFee::<T>::get();
 
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;

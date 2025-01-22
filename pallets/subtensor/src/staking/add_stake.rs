@@ -62,11 +62,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyAccountNotExists
         );
 
-        // Ensure stake_to_be_added is at least DefaultMinStake
-        ensure!(
-            stake_to_be_added >= DefaultMinStake::<T>::get(),
-            Error::<T>::AmountTooLow
-        );
+        // Ensure stake_to_be_added is at least DefaultMinStake plus fee
+        let min_amount = DefaultMinStake::<T>::get().saturating_add(DefaultStakingFee::<T>::get());
+        ensure!(stake_to_be_added >= min_amount, Error::<T>::AmountTooLow);
 
         // 5. Ensure the remove operation from the coldkey is a success.
         let tao_staked: u64 =
@@ -74,7 +72,7 @@ impl<T: Config> Pallet<T> {
 
         // 6. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
-        let fee = DefaultMinStake::<T>::get();
+        let fee = DefaultStakingFee::<T>::get();
         Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked, fee);
 
         // Ok and return.

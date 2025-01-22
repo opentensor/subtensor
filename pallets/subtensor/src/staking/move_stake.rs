@@ -68,7 +68,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 7. Unstake the amount of alpha from the origin subnet, converting it to TAO
-        let fee = DefaultMinStake::<T>::get().saturating_div(2); // fee is half of min stake because it is applied twice
+        let fee = DefaultStakingFee::<T>::get().saturating_div(2); // fee is half of min stake because it is applied twice
         let origin_tao = Self::unstake_from_subnet(
             &origin_hotkey.clone(),
             &coldkey.clone(),
@@ -79,7 +79,7 @@ impl<T: Config> Pallet<T> {
 
         // Ensure origin_tao is at least DefaultMinStake
         ensure!(
-            origin_tao >= DefaultMinStake::<T>::get(),
+            origin_tao.saturating_sub(fee) >= DefaultMinStake::<T>::get(),
             Error::<T>::AmountTooLow
         );
 
@@ -181,13 +181,13 @@ impl<T: Config> Pallet<T> {
         );
 
         // 6. Unstake from the origin coldkey; this returns an amount of TAO.
-        let fee = DefaultMinStake::<T>::get().saturating_div(2);
+        let fee = DefaultStakingFee::<T>::get().saturating_div(2);
         let origin_tao =
             Self::unstake_from_subnet(&hotkey, &coldkey, origin_netuid, alpha_amount, fee);
 
         // 7. Ensure the returned TAO meets a minimum stake requirement (if required).
         ensure!(
-            origin_tao >= DefaultMinStake::<T>::get(),
+            origin_tao.saturating_sub(fee) >= DefaultMinStake::<T>::get(),
             Error::<T>::AmountTooLow
         );
 
@@ -288,17 +288,18 @@ impl<T: Config> Pallet<T> {
         );
 
         // 6. Unstake from the origin subnet, returning TAO (or a 1:1 equivalent).
+        let fee = DefaultStakingFee::<T>::get().saturating_div(2);
         let tao_unstaked =
-            Self::unstake_from_subnet(&hotkey, &coldkey, origin_netuid, alpha_amount);
+            Self::unstake_from_subnet(&hotkey, &coldkey, origin_netuid, alpha_amount, fee);
 
         // 7. Check that the unstaked amount is above the minimum stake threshold.
         ensure!(
-            tao_unstaked >= DefaultMinStake::<T>::get(),
+            tao_unstaked.saturating_sub(fee) >= DefaultMinStake::<T>::get(),
             Error::<T>::AmountTooLow
         );
 
         // 8. Stake the unstaked amount into the destination subnet, using the same coldkey/hotkey.
-        Self::stake_into_subnet(&hotkey, &coldkey, destination_netuid, tao_unstaked);
+        Self::stake_into_subnet(&hotkey, &coldkey, destination_netuid, tao_unstaked, fee);
 
         // 9. Emit an event for logging.
         log::info!(
