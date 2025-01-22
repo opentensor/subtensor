@@ -3162,8 +3162,9 @@ fn test_childkey_multiple_parents_emission() {
         step_block(2);
 
         // Set parent-child relationships
-        mock_set_children(&coldkey_parent1, &parent1, netuid, &[(u64::MAX, child)]);
-        mock_set_children(&coldkey_parent2, &parent2, netuid, &[(u64::MAX / 2, child)]);
+        mock_schedule_children(&coldkey_parent1, &parent1, netuid, &[(u64::MAX, child)]);
+        mock_schedule_children(&coldkey_parent2, &parent2, netuid, &[(u64::MAX / 2, child)]);
+        wait_and_set_pending_children(netuid);
         ChildkeyTake::<Test>::insert(child, netuid, u16::MAX / 5);
 
         // Set weights (subnet owner is uid 0, ignore him)
@@ -3367,10 +3368,11 @@ fn test_parent_child_chain_emission() {
 
         // Set parent-child relationships
         // A -> B (50% of A's stake)
-        mock_set_children(&coldkey_a, &hotkey_a, netuid, &[(u64::MAX / 2, hotkey_b)]);
+        mock_schedule_children(&coldkey_a, &hotkey_a, netuid, &[(u64::MAX / 2, hotkey_b)]);
 
         // B -> C (50% of B's stake)
-        mock_set_children(&coldkey_b, &hotkey_b, netuid, &[(u64::MAX / 2, hotkey_c)]);
+        mock_schedule_children(&coldkey_b, &hotkey_b, netuid, &[(u64::MAX / 2, hotkey_c)]);
+        wait_and_set_pending_children(netuid); // Don't want to run blocks before both children are scheduled
 
         // Set CHK take rate to 1/9
         let chk_take: I96F32 = I96F32::from_num(1_f64 / 9_f64);
