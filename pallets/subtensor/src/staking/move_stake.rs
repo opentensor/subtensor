@@ -181,7 +181,9 @@ impl<T: Config> Pallet<T> {
         );
 
         // 6. Unstake from the origin coldkey; this returns an amount of TAO.
-        let origin_tao = Self::unstake_from_subnet(&hotkey, &coldkey, origin_netuid, alpha_amount);
+        let fee = DefaultMinStake::<T>::get().saturating_div(2);
+        let origin_tao =
+            Self::unstake_from_subnet(&hotkey, &coldkey, origin_netuid, alpha_amount, fee);
 
         // 7. Ensure the returned TAO meets a minimum stake requirement (if required).
         ensure!(
@@ -196,6 +198,7 @@ impl<T: Config> Pallet<T> {
             &destination_coldkey,
             destination_netuid,
             origin_tao,
+            fee,
         );
 
         // 9. Emit an event for logging/monitoring.
