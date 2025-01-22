@@ -1207,6 +1207,15 @@ pub fn interpolate_sparse(
     result
 }
 
+// Element-wise product of two vectors.
+#[allow(dead_code)]
+pub fn vec_mul(a: &[I32F32], b: &[I32F32]) -> Vec<I32F32> {
+    a.iter()
+        .zip(b.iter())
+        .map(|(x, y)| x.checked_mul(*y).unwrap_or_default())
+        .collect()
+}
+
 // Element-wise product of two matrices.
 #[allow(dead_code)]
 pub fn hadamard(mat1: &[Vec<I32F32>], mat2: &[Vec<I32F32>]) -> Vec<Vec<I32F32>> {
@@ -1446,9 +1455,21 @@ pub fn mat_ema_alpha_vec(
                 old_row.get(j),
                 result.get_mut(i).and_then(|row| row.get_mut(j)),
             ) {
-                *result_val = alpha_val
-                    .saturating_mul(*new_val)
-                    .saturating_add(one_minus_alpha.saturating_mul(*old_val));
+                let decayed_val = one_minus_alpha.saturating_mul(*old_val);
+                let remaining_capacity = I32F32::from_num(1.0)
+                    .saturating_sub(decayed_val)
+                    .max(I32F32::from_num(0.0));
+
+                // Each validator can increase bonds by at most clamped_alpha per epoch towards the cap
+                // Validators allocate their purchase across miners based on weights
+                let purchase_increment = alpha_val.saturating_mul(*new_val);
+
+                // Ensure that purchase does not exceed remaining capacity
+                let purchase = purchase_increment.min(remaining_capacity);
+
+                *result_val = decayed_val
+                    .saturating_add(purchase)
+                    .min(I32F32::from_num(1.0));
             }
         }
     }
