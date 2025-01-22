@@ -40,7 +40,7 @@ interface IStaking {
    *   correctly attributed.
    * - The existing stake amount must be not lower than specified amount
    */
-  function removeStake(bytes32 hotkey, uint256 amount, uint16 netuid) external;
+  function removeStake(bytes32 hotkey, uint256 amount, uint256 netuid) external;
 
   /**
    * @dev Returns the amount of RAO staked by the coldkey.
