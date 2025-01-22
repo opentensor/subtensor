@@ -233,6 +233,14 @@ fn dispatch(
     }
 }
 
+/// Retrieves a single u8 value from the given data slice at the specified index.
+///
+/// # Args
+/// * `data`: The slice of bytes from which to retrieve the u8 value.
+/// * `index`: The index within the `data` slice where the u8 value is located.
+///
+/// # Returns
+/// A `Result` containing the u8 value at the specified index if successful, or a `PrecompileFailure` if the index is out of range.
 pub fn get_single_u8(data: &[u8], index: usize) -> Result<u8, PrecompileFailure> {
     if let Some(result) = data.get(index) {
         Ok(*result)
