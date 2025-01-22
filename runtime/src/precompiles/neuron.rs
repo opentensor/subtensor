@@ -163,7 +163,7 @@ impl NeuronPrecompile {
     fn parse_serve_axon_tls_parameters(
         data: &[u8],
     ) -> Result<(u16, u32, u128, u16, u8, u8, u8, u8, vec::Vec<u8>), PrecompileFailure> {
-        if data.len() < 256 {
+        if data.len() < 288 {
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
             });
@@ -188,6 +188,17 @@ impl NeuronPrecompile {
         let protocol = data[191];
         let placeholder1 = data[223];
         let placeholder2 = data[255];
+
+        let mut len_position_vec = [0u8; 2];
+        len_position_vec.copy_from_slice(get_slice(data, 286, 288)?);
+        let len_position = u16::from_be_bytes(len_position_vec) as usize;
+
+        let mut len_vec = [0u8; 2];
+        len_vec.copy_from_slice(get_slice(data, len_position + 30, len_position + 32)?);
+        let vec_len = u16::from_be_bytes(len_vec) as usize;
+
+        let vec_result = get_slice(data, len_position + 32, len_position + 32 + vec_len)?.to_vec();
+
         Ok((
             netuid,
             version,
@@ -197,7 +208,7 @@ impl NeuronPrecompile {
             protocol,
             placeholder1,
             placeholder2,
-            vec![],
+            vec_result,
         ))
     }
 
