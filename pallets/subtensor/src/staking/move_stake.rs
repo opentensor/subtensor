@@ -217,4 +217,101 @@ impl<T: Config> Pallet<T> {
         // 10. Return success.
         Ok(())
     }
+
+    /// Swaps a specified amount of stake for the same `(coldkey, hotkey)` pair from one subnet
+    /// (`origin_netuid`) to another (`destination_netuid`).
+    ///
+    /// # Arguments
+    /// * `origin` - The origin of the transaction, which must be signed by the coldkey that owns the hotkey.
+    /// * `hotkey` - The hotkey whose stake is being swapped.
+    /// * `origin_netuid` - The subnet ID from which stake is removed.
+    /// * `destination_netuid` - The subnet ID to which stake is added.
+    /// * `alpha_amount` - The amount of stake to swap.
+    ///
+    /// # Returns
+    /// * `DispatchResult` - Indicates success or failure.
+    ///
+    /// # Errors
+    /// This function returns an error if:
+    /// * The origin is not signed by the correct coldkey (i.e., not associated with `hotkey`).
+    /// * Either the `origin_netuid` or the `destination_netuid` does not exist.
+    /// * The specified `hotkey` does not exist.
+    /// * The `(coldkey, hotkey, origin_netuid)` does not have enough stake (`alpha_amount`).
+    /// * The unstaked amount is below `DefaultMinStake`.
+    ///
+    /// # Events
+    /// Emits a `StakeSwapped` event upon successful completion.
+    pub fn do_swap_stake(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+        origin_netuid: u16,
+        destination_netuid: u16,
+        alpha_amount: u64,
+    ) -> dispatch::DispatchResult {
+        // 1. Ensure the extrinsic is signed by the coldkey.
+        let coldkey = ensure_signed(origin)?;
+
+        // 2. Check that both subnets exist.
+        ensure!(
+            Self::if_subnet_exist(origin_netuid),
+            Error::<T>::SubnetNotExists
+        );
+        ensure!(
+            Self::if_subnet_exist(destination_netuid),
+            Error::<T>::SubnetNotExists
+        );
+
+        // 3. Check that the hotkey exists.
+        ensure!(
+            Self::hotkey_account_exists(&hotkey),
+            Error::<T>::HotKeyAccountNotExists
+        );
+
+        // 4. Ensure this coldkey actually owns the hotkey.
+        ensure!(
+            Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+            Error::<T>::NonAssociatedColdKey
+        );
+
+        // 5. Ensure there is enough stake in the origin subnet.
+        let origin_alpha =
+            Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, origin_netuid);
+        ensure!(
+            alpha_amount <= origin_alpha,
+            Error::<T>::NotEnoughStakeToWithdraw
+        );
+
+        // 6. Unstake from the origin subnet, returning TAO (or a 1:1 equivalent).
+        let tao_unstaked =
+            Self::unstake_from_subnet(&hotkey, &coldkey, origin_netuid, alpha_amount);
+
+        // 7. Check that the unstaked amount is above the minimum stake threshold.
+        ensure!(
+            tao_unstaked >= DefaultMinStake::<T>::get(),
+            Error::<T>::AmountTooLow
+        );
+
+        // 8. Stake the unstaked amount into the destination subnet, using the same coldkey/hotkey.
+        Self::stake_into_subnet(&hotkey, &coldkey, destination_netuid, tao_unstaked);
+
+        // 9. Emit an event for logging.
+        log::info!(
+            "StakeSwapped(coldkey: {:?}, hotkey: {:?}, origin_netuid: {:?}, destination_netuid: {:?}, amount: {:?})",
+            coldkey,
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            tao_unstaked
+        );
+        Self::deposit_event(Event::StakeSwapped(
+            coldkey,
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            tao_unstaked,
+        ));
+
+        // 10. Return success.
+        Ok(())
+    }
 }

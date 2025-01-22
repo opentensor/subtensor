@@ -1026,3 +1026,363 @@ fn test_do_transfer_different_subnets() {
         assert_abs_diff_eq!(dest_stake, stake_amount, epsilon = stake_amount / 1000);
     });
 }
+
+#[test]
+fn test_do_swap_success() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let origin_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let destination_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let stake_amount = DefaultMinStake::<Test>::get() * 10;
+
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, origin_netuid, stake_amount);
+        let alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            origin_netuid,
+        );
+
+        assert_ok!(SubtensorModule::do_swap_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            alpha_before,
+        ));
+
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &coldkey,
+                origin_netuid
+            ),
+            0
+        );
+
+        let alpha_after = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            destination_netuid,
+        );
+        assert_abs_diff_eq!(alpha_after, stake_amount, epsilon = stake_amount / 1000);
+    });
+}
+
+#[test]
+fn test_do_swap_nonexistent_subnet() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let nonexistent_netuid: u16 = 9999;
+        let stake_amount = 1_000_000;
+
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+
+        assert_noop!(
+            SubtensorModule::do_swap_stake(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                nonexistent_netuid,
+                nonexistent_netuid,
+                stake_amount
+            ),
+            Error::<Test>::SubnetNotExists
+        );
+    });
+}
+
+#[test]
+fn test_do_swap_nonexistent_hotkey() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let netuid1 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid2 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let coldkey = U256::from(1);
+        let nonexistent_hotkey = U256::from(999);
+        let stake_amount = 10_000;
+
+        assert_noop!(
+            SubtensorModule::do_swap_stake(
+                RuntimeOrigin::signed(coldkey),
+                nonexistent_hotkey,
+                netuid1,
+                netuid2,
+                stake_amount
+            ),
+            Error::<Test>::HotKeyAccountNotExists
+        );
+    });
+}
+
+#[test]
+fn test_do_swap_insufficient_stake() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let netuid1 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid2 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let stake_amount = DefaultMinStake::<Test>::get() * 5;
+        let attempted_swap = stake_amount * 2;
+
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid1, stake_amount);
+
+        assert_noop!(
+            SubtensorModule::do_swap_stake(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid1,
+                netuid2,
+                attempted_swap
+            ),
+            Error::<Test>::NotEnoughStakeToWithdraw
+        );
+    });
+}
+
+#[test]
+fn test_do_swap_wrong_origin() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1010);
+        let subnet_owner_hotkey = U256::from(1011);
+        let netuid1 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid2 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let real_coldkey = U256::from(1);
+        let wrong_coldkey = U256::from(9999);
+        let hotkey = U256::from(3);
+        let stake_amount = 100_000;
+
+        SubtensorModule::create_account_if_non_existent(&real_coldkey, &hotkey);
+        SubtensorModule::stake_into_subnet(&hotkey, &real_coldkey, netuid1, stake_amount);
+
+        assert_noop!(
+            SubtensorModule::do_swap_stake(
+                RuntimeOrigin::signed(wrong_coldkey),
+                hotkey,
+                netuid1,
+                netuid2,
+                stake_amount
+            ),
+            Error::<Test>::NonAssociatedColdKey
+        );
+    });
+}
+
+#[test]
+fn test_do_swap_minimum_stake_check() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(3);
+        let total_stake = DefaultMinStake::<Test>::get();
+        let swap_amount = 1;
+
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, total_stake);
+
+        assert_err!(
+            SubtensorModule::do_swap_stake(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                netuid,
+                swap_amount
+            ),
+            Error::<Test>::AmountTooLow
+        );
+    });
+}
+
+#[test]
+fn test_do_swap_same_subnet() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1100);
+        let subnet_owner_hotkey = U256::from(1101);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let stake_amount = DefaultMinStake::<Test>::get() * 10;
+
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, stake_amount);
+
+        let alpha_before =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+
+        assert_ok!(SubtensorModule::do_swap_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            netuid,
+            alpha_before
+        ));
+
+        let alpha_after =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        assert_abs_diff_eq!(alpha_after, alpha_before, epsilon = 5);
+    });
+}
+
+#[test]
+fn test_do_swap_partial_stake() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1100);
+        let subnet_owner_hotkey = U256::from(1101);
+        let origin_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let destination_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let total_stake = DefaultMinStake::<Test>::get() * 10;
+
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, origin_netuid, total_stake);
+
+        let swap_amount = total_stake / 2;
+        assert_ok!(SubtensorModule::do_swap_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            swap_amount,
+        ));
+
+        assert_abs_diff_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &coldkey,
+                origin_netuid
+            ),
+            total_stake - swap_amount,
+            epsilon = total_stake / 1000
+        );
+        assert_abs_diff_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &coldkey,
+                destination_netuid
+            ),
+            swap_amount,
+            epsilon = total_stake / 1000
+        );
+    });
+}
+
+#[test]
+fn test_do_swap_storage_updates() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1300);
+        let subnet_owner_hotkey = U256::from(1301);
+        let origin_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let destination_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let stake_amount = DefaultMinStake::<Test>::get() * 10;
+
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, origin_netuid, stake_amount);
+
+        let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            origin_netuid,
+        );
+        assert_ok!(SubtensorModule::do_swap_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            alpha
+        ));
+
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &coldkey,
+                origin_netuid
+            ),
+            0
+        );
+
+        assert_abs_diff_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &coldkey,
+                destination_netuid
+            ),
+            alpha,
+            epsilon = 5
+        );
+    });
+}
+
+#[test]
+fn test_do_swap_multiple_times() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1500);
+        let subnet_owner_hotkey = U256::from(1501);
+        let netuid1 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid2 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let initial_stake = DefaultMinStake::<Test>::get() * 10;
+
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid1, initial_stake);
+
+        for _ in 0..3 {
+            let alpha1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey, &coldkey, netuid1,
+            );
+            if alpha1 > 0 {
+                assert_ok!(SubtensorModule::do_swap_stake(
+                    RuntimeOrigin::signed(coldkey),
+                    hotkey,
+                    netuid1,
+                    netuid2,
+                    alpha1
+                ));
+            }
+            let alpha2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey, &coldkey, netuid2,
+            );
+            if alpha2 > 0 {
+                assert_ok!(SubtensorModule::do_swap_stake(
+                    RuntimeOrigin::signed(coldkey),
+                    hotkey,
+                    netuid2,
+                    netuid1,
+                    alpha2
+                ));
+            }
+        }
+
+        let final_stake_netuid1 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid1);
+        let final_stake_netuid2 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid2);
+        assert_abs_diff_eq!(
+            final_stake_netuid1,
+            initial_stake,
+            epsilon = initial_stake / 1000
+        );
+        assert_eq!(final_stake_netuid2, 0);
+    });
+}
