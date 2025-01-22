@@ -12,7 +12,7 @@ use frame_support::{assert_err, assert_ok};
 
 // use frame_system::Config;
 use rand::{distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
-use sp_core::U256;
+use sp_core::{Get, U256};
 // use sp_runtime::DispatchError;
 use std::time::Instant;
 use substrate_fixed::types::I32F32;
@@ -1505,7 +1505,7 @@ fn test_set_alpha_disabled() {
             signer.clone(),
             hotkey,
             netuid,
-            1000
+            DefaultMinStake::<Test>::get()
         ));
         // Only owner can set alpha values
         assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey));
@@ -2600,7 +2600,7 @@ fn test_get_set_alpha() {
             signer.clone(),
             hotkey,
             netuid,
-            1000
+            DefaultMinStake::<Test>::get()
         ));
 
         assert_ok!(SubtensorModule::do_set_alpha_values(

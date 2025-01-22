@@ -962,12 +962,13 @@ mod dispatches {
             origin: OriginFor<T>,
             old_coldkey: T::AccountId,
             new_coldkey: T::AccountId,
+            swap_cost: u64,
         ) -> DispatchResultWithPostInfo {
             // Ensure it's called with root privileges (scheduler has root privileges)
             ensure_root(origin)?;
             log::info!("swap_coldkey: {:?} -> {:?}", old_coldkey, new_coldkey);
 
-            Self::do_swap_coldkey(&old_coldkey, &new_coldkey)
+            Self::do_swap_coldkey(&old_coldkey, &new_coldkey, swap_cost)
         }
 
         /// Sets the childkey take for a given hotkey.
@@ -1327,6 +1328,13 @@ mod dispatches {
                 Error::<T>::SwapAlreadyScheduled
             );
 
+            // Calculate the swap cost and ensure sufficient balance
+            let swap_cost = Self::get_key_swap_cost();
+            ensure!(
+                Self::can_remove_balance_from_coldkey_account(&who, swap_cost),
+                Error::<T>::NotEnoughBalanceToPaySwapColdKey
+            );
+
             let current_block: BlockNumberFor<T> = <frame_system::Pallet<T>>::block_number();
             let duration: BlockNumberFor<T> = ColdkeySwapScheduleDuration::<T>::get();
             let when: BlockNumberFor<T> = current_block.saturating_add(duration);
@@ -1334,6 +1342,7 @@ mod dispatches {
             let call = Call::<T>::swap_coldkey {
                 old_coldkey: who.clone(),
                 new_coldkey: new_coldkey.clone(),
+                swap_cost,
             };
 
             let bound_call = T::Preimages::bound(LocalCallOf::<T>::from(call.clone()))
@@ -1354,6 +1363,7 @@ mod dispatches {
                 old_coldkey: who.clone(),
                 new_coldkey: new_coldkey.clone(),
                 execution_block: when,
+                swap_cost,
             });
 
             Ok(().into())
@@ -1554,6 +1564,91 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn unstake_all_alpha(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_unstake_all_alpha(origin, hotkey)
+        }
+
+        /// ---- The implementation for the extrinsic move_stake: Moves specified amount of stake from a hotkey to another across subnets.
+        ///
+        /// # Args:
+        /// * `origin` - (<T as frame_system::Config>::Origin):
+        ///     - The signature of the caller's coldkey.
+        ///
+        /// * `origin_hotkey` (T::AccountId):
+        ///     - The hotkey account to move stake from.
+        ///
+        /// * `destination_hotkey` (T::AccountId):
+        ///     - The hotkey account to move stake to.
+        ///
+        /// * `origin_netuid` (T::AccountId):
+        ///     - The subnet ID to move stake from.
+        ///
+        /// * `destination_netuid` (T::AccountId):
+        ///     - The subnet ID to move stake to.
+        ///
+        /// * `alpha_amount` (T::AccountId):
+        ///     - The alpha stake amount to move.
+        ///
+        #[pallet::call_index(85)]
+        #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn move_stake(
+            origin: T::RuntimeOrigin,
+            origin_hotkey: T::AccountId,
+            destination_hotkey: T::AccountId,
+            origin_netuid: u16,
+            destination_netuid: u16,
+            alpha_amount: u64,
+        ) -> DispatchResult {
+            Self::do_move_stake(
+                origin,
+                origin_hotkey,
+                destination_hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            )
+        }
+
+        /// Transfers a specified amount of stake from one coldkey to another, optionally across subnets,
+        /// while keeping the same hotkey.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the transaction, which must be signed by the `origin_coldkey`.
+        /// * `destination_coldkey` - The coldkey to which the stake is transferred.
+        /// * `hotkey` - The hotkey associated with the stake.
+        /// * `origin_netuid` - The network/subnet ID to move stake from.
+        /// * `destination_netuid` - The network/subnet ID to move stake to (for cross-subnet transfer).
+        /// * `alpha_amount` - The amount of stake to transfer.
+        ///
+        /// # Weight
+        /// Uses a fixed weight of 3_000_000 (plus any DB write overhead).
+        ///
+        /// # Errors
+        /// Returns an error if:
+        /// * The origin is not signed by the correct coldkey.
+        /// * Either subnet does not exist.
+        /// * The hotkey does not exist.
+        /// * There is insufficient stake on `(origin_coldkey, hotkey, origin_netuid)`.
+        /// * The transfer amount is below the minimum stake requirement.
+        ///
+        /// # Events
+        /// May emit a `StakeTransferred` event on success.
+        #[pallet::call_index(86)]
+        #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn transfer_stake(
+            origin: T::RuntimeOrigin,
+            destination_coldkey: T::AccountId,
+            hotkey: T::AccountId,
+            origin_netuid: u16,
+            destination_netuid: u16,
+            alpha_amount: u64,
+        ) -> DispatchResult {
+            Self::do_transfer_stake(
+                origin,
+                destination_coldkey,
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            )
         }
     }
 }

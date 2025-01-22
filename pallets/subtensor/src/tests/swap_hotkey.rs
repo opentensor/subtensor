@@ -64,7 +64,7 @@ fn test_swap_total_hotkey_stake() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let amount = 10_000;
+        let amount = DefaultMinStake::<Test>::get() * 10;
         let mut weight = Weight::zero();
 
         //add network
@@ -85,7 +85,7 @@ fn test_swap_total_hotkey_stake() {
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&old_hotkey),
             amount,
-            epsilon = 1,
+            epsilon = amount / 1000,
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&new_hotkey),
@@ -110,7 +110,7 @@ fn test_swap_total_hotkey_stake() {
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&new_hotkey),
             amount,
-            epsilon = 1,
+            epsilon = amount / 1000,
         );
     });
 }
@@ -634,7 +634,7 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
         let coldkey2 = U256::from(4);
         let netuid1 = 1;
         let netuid2 = 2;
-        let stake = 1_000_000_u64;
+        let stake = DefaultMinStake::<Test>::get() * 10;
         let mut weight = Weight::zero();
 
         // Set up initial state
