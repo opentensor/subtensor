@@ -56,6 +56,10 @@ pub trait SubtensorCustomApi<BlockHash> {
     fn get_all_dynamic_info(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getDynamicInfo")]
     fn get_dynamic_info(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    #[method(name = "subnetInfo_getAllMetagraphs")]
+    fn get_all_metagraphs(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    #[method(name = "subnetInfo_getMetagraph")]
+    fn get_metagraph(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetState")]
     fn get_subnet_state(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getLockCost")]
@@ -277,6 +281,13 @@ where
         }
     }
 
+    fn get_all_metagraphs(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+        api.get_all_metagraphs(at)
+            .map_err(|e| Error::RuntimeError(format!("Unable to get metagraps: {:?}", e)).into())
+    }
+
     fn get_dynamic_info(
         &self,
         netuid: u16,
@@ -293,6 +304,18 @@ where
             ))
             .into()),
         }
+    }
+
+    fn get_metagraph(
+        &self,
+        netuid: u16,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+        api.get_metagraph(at, netuid).map_err(|e| {
+            Error::RuntimeError(format!("Unable to get dynamic subnets info: {:?}", e)).into()
+        })
     }
 
     fn get_subnet_state(
