@@ -155,6 +155,8 @@ mod events {
             old_coldkey: T::AccountId,
             /// the account ID of new coldkey
             new_coldkey: T::AccountId,
+            /// the swap cost
+            swap_cost: u64,
         },
         /// All balance of a hotkey has been unstaked and transferred to a new coldkey
         AllBalanceUnstakedAndTransferredToNewColdkey {
@@ -175,6 +177,8 @@ mod events {
             new_coldkey: T::AccountId,
             /// The arbitration block for the coldkey swap
             execution_block: BlockNumberFor<T>,
+            /// The swap cost
+            swap_cost: u64,
         },
         /// The arbitration period has been extended
         ArbitrationPeriodExtended {
@@ -248,5 +252,10 @@ mod events {
         ///
         /// - **error**: The dispatch error emitted by the failed item.
         BatchWeightItemFailed(sp_runtime::DispatchError),
+
+        /// Stake has been transferred from one coldkey to another on the same subnet.
+        /// Parameters:
+        /// (origin_coldkey, destination_coldkey, hotkey, origin_netuid, destination_netuid, amount)
+        StakeTransferred(T::AccountId, T::AccountId, T::AccountId, u16, u16, u64),
     }
 }

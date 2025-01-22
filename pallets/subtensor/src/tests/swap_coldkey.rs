@@ -712,7 +712,8 @@ fn test_do_swap_coldkey_success() {
         assert_ok!(SubtensorModule::do_swap_coldkey(
             // <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
             &old_coldkey,
-            &new_coldkey
+            &new_coldkey,
+            swap_cost
         ));
 
         // Log state after swap
@@ -785,6 +786,7 @@ fn test_do_swap_coldkey_success() {
             Event::ColdkeySwapped {
                 old_coldkey,
                 new_coldkey,
+                swap_cost,
             }
             .into(),
         );
@@ -1201,7 +1203,11 @@ fn test_do_swap_coldkey_with_subnet_ownership() {
         OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
 
         // Perform the swap
-        assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey));
+        assert_ok!(SubtensorModule::do_swap_coldkey(
+            &old_coldkey,
+            &new_coldkey,
+            swap_cost
+        ));
 
         // Verify subnet ownership transfer
         assert_eq!(SubnetOwner::<Test>::get(netuid), new_coldkey);
@@ -1659,8 +1665,10 @@ fn test_schedule_swap_coldkey_success() {
         let old_coldkey: U256 = U256::from(1);
         let new_coldkey: U256 = U256::from(2);
 
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+
         // Add balance to the old coldkey account
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 1000);
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, swap_cost + 1_000);
 
         // Schedule the coldkey swap
         assert_ok!(SubtensorModule::schedule_swap_coldkey(
@@ -1680,6 +1688,7 @@ fn test_schedule_swap_coldkey_success() {
                 old_coldkey,
                 new_coldkey,
                 execution_block: expected_execution_block,
+                swap_cost,
             }
             .into(),
         );
@@ -1696,7 +1705,9 @@ fn test_schedule_swap_coldkey_duplicate() {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
 
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 2000);
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, swap_cost + 2_000);
 
         assert_ok!(SubtensorModule::schedule_swap_coldkey(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
@@ -1741,6 +1752,8 @@ fn test_schedule_swap_coldkey_execution() {
             "Initial ownership check failed"
         );
 
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+
         // Schedule the swap
         assert_ok!(SubtensorModule::schedule_swap_coldkey(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
@@ -1756,6 +1769,7 @@ fn test_schedule_swap_coldkey_execution() {
                 old_coldkey,
                 new_coldkey,
                 execution_block,
+                swap_cost,
             }
             .into(),
         );
@@ -1797,6 +1811,7 @@ fn test_schedule_swap_coldkey_execution() {
             Event::ColdkeySwapped {
                 old_coldkey,
                 new_coldkey,
+                swap_cost,
             }
             .into(),
         );
@@ -1814,7 +1829,8 @@ fn test_direct_swap_coldkey_call_fails() {
             SubtensorModule::swap_coldkey(
                 <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
                 old_coldkey,
-                new_coldkey
+                new_coldkey,
+                0
             ),
             BadOrigin
         );
@@ -1829,7 +1845,9 @@ fn test_schedule_swap_coldkey_with_pending_swap() {
         let new_coldkey1 = U256::from(2);
         let new_coldkey2 = U256::from(3);
 
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 2000);
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, swap_cost + 1_000);
 
         assert_ok!(SubtensorModule::schedule_swap_coldkey(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
@@ -1883,7 +1901,11 @@ fn test_coldkey_swap_delegate_identity_updated() {
         assert!(Identities::<Test>::get(old_coldkey).is_some());
         assert!(Identities::<Test>::get(new_coldkey).is_none());
 
-        assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey));
+        assert_ok!(SubtensorModule::do_swap_coldkey(
+            &old_coldkey,
+            &new_coldkey,
+            burn_cost
+        ));
 
         assert!(Identities::<Test>::get(old_coldkey).is_none());
         assert!(Identities::<Test>::get(new_coldkey).is_some());
@@ -1919,7 +1941,11 @@ fn test_coldkey_swap_no_identity_no_changes() {
         assert!(Identities::<Test>::get(old_coldkey).is_none());
 
         // Perform the coldkey swap
-        assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey));
+        assert_ok!(SubtensorModule::do_swap_coldkey(
+            &old_coldkey,
+            &new_coldkey,
+            burn_cost
+        ));
 
         // Ensure no identities have been changed
         assert!(Identities::<Test>::get(old_coldkey).is_none());
@@ -1963,10 +1989,33 @@ fn test_coldkey_swap_no_identity_no_changes_newcoldkey_exists() {
         assert!(Identities::<Test>::get(old_coldkey).is_none());
 
         // Perform the coldkey swap
-        assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey));
+        assert_ok!(SubtensorModule::do_swap_coldkey(
+            &old_coldkey,
+            &new_coldkey,
+            burn_cost
+        ));
 
         // Ensure no identities have been changed
         assert!(Identities::<Test>::get(old_coldkey).is_none());
         assert!(Identities::<Test>::get(new_coldkey).is_some());
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap_coldkey -- test_cant_schedule_swap_without_enough_to_burn --exact --nocapture
+#[test]
+fn test_cant_schedule_swap_without_enough_to_burn() {
+    new_test_ext(1).execute_with(|| {
+        let old_coldkey = U256::from(3);
+        let new_coldkey = U256::from(4);
+        let hotkey = U256::from(5);
+
+        let burn_cost = SubtensorModule::get_key_swap_cost();
+        assert_noop!(
+            SubtensorModule::schedule_swap_coldkey(
+                <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+                new_coldkey
+            ),
+            Error::<Test>::NotEnoughBalanceToPaySwapColdKey
+        );
     });
 }
