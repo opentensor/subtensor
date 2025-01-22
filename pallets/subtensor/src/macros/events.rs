@@ -257,5 +257,11 @@ mod events {
         /// Parameters:
         /// (origin_coldkey, destination_coldkey, hotkey, origin_netuid, destination_netuid, amount)
         StakeTransferred(T::AccountId, T::AccountId, T::AccountId, u16, u16, u64),
+
+        /// Stake has been swapped from one subnet to another for the same coldkey-hotkey pair.
+        ///
+        /// Parameters:
+        /// (coldkey, hotkey, origin_netuid, destination_netuid, amount)
+        StakeSwapped(T::AccountId, T::AccountId, u16, u16, u64),
     }
 }
