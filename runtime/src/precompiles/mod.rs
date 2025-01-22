@@ -232,3 +232,14 @@ fn dispatch(
         }),
     }
 }
+
+pub fn get_single_u8(data: &[u8], index: usize) -> Result<u8, PrecompileFailure> {
+    if let Some(result) = data.get(index) {
+        Ok(*result)
+    } else {
+        log::error!("fail to get data from data, {:?}, at {}", &data, index);
+        Err(PrecompileFailure::Error {
+            exit_status: ExitError::InvalidRange,
+        })
+    }
+}

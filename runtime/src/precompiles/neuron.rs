@@ -1,6 +1,6 @@
 use pallet_evm::{ExitError, PrecompileFailure, PrecompileHandle, PrecompileResult};
 
-use crate::precompiles::{dispatch, get_method_id, get_slice};
+use crate::precompiles::{dispatch, get_method_id, get_single_u8, get_slice};
 use sp_std::vec;
 
 use crate::{Runtime, RuntimeCall};
@@ -144,10 +144,10 @@ impl NeuronPrecompile {
         port_vec.copy_from_slice(get_slice(data, 126, 128)?);
         let port = u16::from_be_bytes(port_vec);
 
-        let ip_type = data[159];
-        let protocol = data[191];
-        let placeholder1 = data[223];
-        let placeholder2 = data[255];
+        let ip_type = get_single_u8(data, 159)?;
+        let protocol = get_single_u8(data, 191)?;
+        let placeholder1 = get_single_u8(data, 223)?;
+        let placeholder2 = get_single_u8(data, 255)?;
         Ok((
             netuid,
             version,
@@ -184,10 +184,10 @@ impl NeuronPrecompile {
         port_vec.copy_from_slice(get_slice(data, 126, 128)?);
         let port = u16::from_be_bytes(port_vec);
 
-        let ip_type = data[159];
-        let protocol = data[191];
-        let placeholder1 = data[223];
-        let placeholder2 = data[255];
+        let ip_type = get_single_u8(data, 159)?;
+        let protocol = get_single_u8(data, 191)?;
+        let placeholder1 = get_single_u8(data, 223)?;
+        let placeholder2 = get_single_u8(data, 255)?;
 
         let mut len_position_vec = [0u8; 2];
         len_position_vec.copy_from_slice(get_slice(data, 286, 288)?);
@@ -236,7 +236,7 @@ impl NeuronPrecompile {
         port_vec.copy_from_slice(get_slice(data, 126, 128)?);
         let port = u16::from_be_bytes(port_vec);
 
-        let ip_type = data[159];
+        let ip_type = get_single_u8(data, 159)?;
         Ok((netuid, version, ip, port, ip_type))
     }
 }
