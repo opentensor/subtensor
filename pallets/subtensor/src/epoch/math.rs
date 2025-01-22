@@ -1387,7 +1387,20 @@ pub fn mat_ema_alpha_vec_sparse(
                 I32F32::saturating_from_num(1.0).saturating_sub(alpha_val);
             // Compute the EMA component for the old value and add it to the row using saturating operations.
             if let Some(row_val) = row.get_mut(*j as usize) {
-                *row_val = row_val.saturating_add(one_minus_alpha.saturating_mul(*value));
+                let decayed_val = one_minus_alpha.saturating_mul(*value);
+                let remaining_capacity = I32F32::from_num(1.0)
+                    .saturating_sub(decayed_val)
+                    .max(I32F32::from_num(0.0));
+                // Each validator can increase bonds by at most clamped_alpha per epoch towards the cap
+                // Validators allocate their purchase across miners based on weights
+                let purchase_increment = alpha_val.saturating_mul(*row_val);
+
+                // Ensure that purchase does not exceed remaining capacity
+                let purchase = purchase_increment.min(remaining_capacity);
+
+                *row_val = decayed_val
+                    .saturating_add(purchase)
+                    .min(I32F32::from_num(1.0));
             }
             log::trace!(
                 "old[{}][{}] * (1 - alpha[{}]) = {} * {} = {}",
