@@ -3109,9 +3109,11 @@ fn test_childkey_take_drain_validator_take() {
 fn test_childkey_multiple_parents_emission() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
-        let subnet_owner_hotkey = U256::from(1002);
+        let subnet_owner_hotkey: U256 = U256::from(1002);
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         Tempo::<Test>::insert(netuid, 10); // run epoch every 10 blocks
+        // Set subnet owner cut to 0
+        SubtensorModule::set_subnet_owner_cut(0);
 
         // Set registration parameters and emission tempo
         SubtensorModule::set_max_registrations_per_block(netuid, 1000);
@@ -3135,9 +3137,9 @@ fn test_childkey_multiple_parents_emission() {
             (true, coldkey_weight_setter, weight_setter, 100_000_000),
         ];
 
-        let initial_actual_stakes: Vec<u64> = initial_stakes
+        initial_stakes
             .iter()
-            .map(|(register, coldkey, hotkey, stake)| {
+            .for_each(|(register, coldkey, hotkey, stake)| {
                 SubtensorModule::add_balance_to_coldkey_account(coldkey, *stake);
                 if *register {
                     // Register a neuron
@@ -3152,11 +3154,7 @@ fn test_childkey_multiple_parents_emission() {
                     netuid,
                     *stake
                 ));
-
-                // Return actual stake
-                SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid)
-            })
-            .collect();
+            });
 
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         step_block(2);
@@ -3166,6 +3164,17 @@ fn test_childkey_multiple_parents_emission() {
         mock_schedule_children(&coldkey_parent2, &parent2, netuid, &[(u64::MAX / 2, child)]);
         wait_and_set_pending_children(netuid);
         ChildkeyTake::<Test>::insert(child, netuid, u16::MAX / 5);
+
+        // Set pending emission to 0
+        PendingEmission::<Test>::insert(netuid, 0);
+
+        let initial_actual_stakes: Vec<u64> = initial_stakes
+            .iter()
+            .map(|(_register, coldkey, hotkey, _stake)| {
+                // Return actual stake
+                SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid)
+            })
+            .collect();
 
         // Set weights (subnet owner is uid 0, ignore him)
         let uids: Vec<u16> = vec![1, 2];
@@ -3272,6 +3281,14 @@ fn test_childkey_multiple_parents_emission() {
             "Child should have received some emission"
         );
 
+        let mut total_stake_on_subnet = 0;
+        for hk in vec![parent1, parent2, child, weight_setter] {
+            for (_, alpha) in TotalHotkeyAlpha::<Test>::iter_prefix(hk) {
+                total_stake_on_subnet += alpha;
+            }
+        }
+        log::info!("total_stake_on_subnet: {:?}", total_stake_on_subnet);
+
         // Check that the total stake has increased by the emission amount
         // Allow 1% slippage
         let total_stake = parent1_stake + parent2_stake + child_stake + weight_setter_stake;
@@ -3352,7 +3369,7 @@ fn test_parent_child_chain_emission() {
         let stake_b: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_b);
         let stake_c: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_c);
 
-        let total_stake: I96F32 = I96F32::from_num(stake_a + stake_b + stake_c);
+        let _total_stake: I96F32 = I96F32::from_num(stake_a + stake_b + stake_c);
 
         // Assert initial stake is correct
         let rel_stake_a = I96F32::from_num(stake_a) / total_tao;
@@ -3373,6 +3390,13 @@ fn test_parent_child_chain_emission() {
         // B -> C (50% of B's stake)
         mock_schedule_children(&coldkey_b, &hotkey_b, netuid, &[(u64::MAX / 2, hotkey_c)]);
         wait_and_set_pending_children(netuid); // Don't want to run blocks before both children are scheduled
+
+        // Get old stakes after children are scheduled
+        let stake_a_old: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_a);
+        let stake_b_old: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_b);
+        let stake_c_old: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_c);
+
+        let total_stake_old: I96F32 = I96F32::from_num(stake_a_old + stake_b_old + stake_c_old);
 
         // Set CHK take rate to 1/9
         let chk_take: I96F32 = I96F32::from_num(1_f64 / 9_f64);
@@ -3417,6 +3441,9 @@ fn test_parent_child_chain_emission() {
             "C should have pending emission of 1/9 of total emission"
         );
 
+        // Set pending emission to 0
+        PendingEmission::<Test>::insert(netuid, 0);
+
         // Run epoch with a hardcoded emission value
         SubtensorModule::run_coinbase(hardcoded_emission);
 
@@ -3429,10 +3456,10 @@ fn test_parent_child_chain_emission() {
         log::info!("Stake for hotkey B: {:?}", stake_b_new);
         log::info!("Stake for hotkey C: {:?}", stake_c_new);
 
-        let stake_inc_a: u64 = stake_a_new - stake_a;
-        let stake_inc_b: u64 = stake_b_new - stake_b;
-        let stake_inc_c: u64 = stake_c_new - stake_c;
-        let total_stake_inc: I96F32 = total_stake_new - total_stake;
+        let stake_inc_a: u64 = stake_a_new - stake_a_old;
+        let stake_inc_b: u64 = stake_b_new - stake_b_old;
+        let stake_inc_c: u64 = stake_c_new - stake_c_old;
+        let total_stake_inc: I96F32 = total_stake_new - total_stake_old;
         log::info!("Stake increase for hotkey A: {:?}", stake_inc_a);
         log::info!("Stake increase for hotkey B: {:?}", stake_inc_b);
         log::info!("Stake increase for hotkey C: {:?}", stake_inc_c);
@@ -3479,9 +3506,9 @@ fn test_parent_child_chain_emission() {
 
         let eps: I96F32 = I96F32::from_num(10_000);
         assert!(
-            (total_stake_new - (total_stake + hardcoded_emission)).abs() <= eps,
+            (total_stake_new - (total_stake_old + hardcoded_emission)).abs() <= eps,
             "Total stake should have increased by the hardcoded emission amount {:?}",
-            total_stake_new - (total_stake + hardcoded_emission)
+            total_stake_new - (total_stake_old + hardcoded_emission)
         );
     });
 }
