@@ -744,7 +744,8 @@ pub fn increase_stake_on_coldkey_hotkey_account(
     tao_staked: u64,
     netuid: u16,
 ) {
-    SubtensorModule::stake_into_subnet(hotkey, coldkey, netuid, tao_staked);
+    let fee = 0;
+    SubtensorModule::stake_into_subnet(hotkey, coldkey, netuid, tao_staked, fee);
 }
 
 /// Increases the stake on the hotkey account under its owning coldkey.
