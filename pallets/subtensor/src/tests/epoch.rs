@@ -2706,7 +2706,7 @@ fn test_calculate_logistic_params_edge_cases() {
 }
 
 #[test]
-fn test_compute_ema_bonds_with_liquid_alpha_sparse() {
+fn test_compute_ema_bonds_sparse() {
     // Define test inputs
     let bonds_delta = vec![
         vec![(0, I32F32::from_num(0.1)), (1, I32F32::from_num(0.2))],
@@ -2735,8 +2735,7 @@ fn test_compute_ema_bonds_with_liquid_alpha_sparse() {
     ];
 
     // Call the function
-    let ema_bonds =
-        SubtensorModule::compute_ema_bonds_with_liquid_alpha_sparse(&bonds_delta, &bonds, alpha);
+    let ema_bonds = SubtensorModule::compute_ema_bonds_sparse(&bonds_delta, &bonds, alpha);
 
     // Assert the results with an epsilon for approximate equality
     let epsilon = I32F32::from_num(1e-6);
@@ -2744,7 +2743,7 @@ fn test_compute_ema_bonds_with_liquid_alpha_sparse() {
 }
 
 #[test]
-fn test_compute_ema_bonds_with_liquid_alpha_sparse_empty() {
+fn test_compute_ema_bonds_sparse_empty() {
     // Test with empty inputs
     let bonds_delta: Vec<Vec<(u16, I32F32)>> = vec![];
     let bonds: Vec<Vec<(u16, I32F32)>> = vec![];
@@ -2754,8 +2753,7 @@ fn test_compute_ema_bonds_with_liquid_alpha_sparse_empty() {
     let expected_ema_bonds: Vec<Vec<(u16, I32F32)>> = vec![];
 
     // Call the function
-    let ema_bonds =
-        SubtensorModule::compute_ema_bonds_with_liquid_alpha_sparse(&bonds_delta, &bonds, alpha);
+    let ema_bonds = SubtensorModule::compute_ema_bonds_sparse(&bonds_delta, &bonds, alpha);
 
     // Assert the results
     assert_eq!(

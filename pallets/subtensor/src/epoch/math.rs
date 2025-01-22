@@ -1268,66 +1268,6 @@ pub fn hadamard_sparse(
     result
 }
 
-// Return matrix exponential moving average: `alpha * a_ij + one_minus_alpha * b_ij`.
-// `alpha` is the EMA coefficient, how much to add of the new observation, typically small,
-// higher alpha discounts older observations faster.
-#[allow(dead_code)]
-pub fn mat_ema(new: &[Vec<I32F32>], old: &[Vec<I32F32>], alpha: I32F32) -> Vec<Vec<I32F32>> {
-    let Some(first_row) = new.first() else {
-        return vec![vec![]];
-    };
-    if first_row.is_empty() {
-        return vec![vec![]; 1];
-    }
-    let one_minus_alpha: I32F32 = I32F32::saturating_from_num(1.0).saturating_sub(alpha);
-    new.iter()
-        .zip(old)
-        .map(|(new_row, old_row)| {
-            new_row
-                .iter()
-                .zip(old_row)
-                .map(|(new_elem, old_elem)| {
-                    alpha
-                        .saturating_mul(*new_elem)
-                        .saturating_add(one_minus_alpha.saturating_mul(*old_elem))
-                })
-                .collect()
-        })
-        .collect()
-}
-
-// Return sparse matrix exponential moving average: `alpha * a_ij + one_minus_alpha * b_ij`.
-// `alpha` is the EMA coefficient, how much to add of the new observation, typically small,
-// higher alpha discounts older observations faster.
-#[allow(dead_code, clippy::indexing_slicing)]
-pub fn mat_ema_sparse(
-    new: &[Vec<(u16, I32F32)>],
-    old: &[Vec<(u16, I32F32)>],
-    alpha: I32F32,
-) -> Vec<Vec<(u16, I32F32)>> {
-    assert!(new.len() == old.len());
-    let n = new.len(); // assume square matrix, rows=cols
-    let zero: I32F32 = I32F32::saturating_from_num(0.0);
-    let one_minus_alpha: I32F32 = I32F32::saturating_from_num(1.0).saturating_sub(alpha);
-    let mut result: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
-    for i in 0..new.len() {
-        let mut row: Vec<I32F32> = vec![zero; n];
-        for (j, value) in new[i].iter() {
-            row[*j as usize] = row[*j as usize].saturating_add(alpha.saturating_mul(*value));
-        }
-        for (j, value) in old[i].iter() {
-            row[*j as usize] =
-                row[*j as usize].saturating_add(one_minus_alpha.saturating_mul(*value));
-        }
-        for (j, value) in row.iter().enumerate() {
-            if *value > zero {
-                result[i].push((j as u16, *value))
-            }
-        }
-    }
-    result
-}
-
 // Return sparse matrix only with elements >= threshold of an input sparse matrix.
 #[allow(dead_code)]
 pub fn sparse_threshold(w: &[Vec<(u16, I32F32)>], threshold: I32F32) -> Vec<Vec<(u16, I32F32)>> {
@@ -1342,6 +1282,10 @@ pub fn sparse_threshold(w: &[Vec<(u16, I32F32)>], threshold: I32F32) -> Vec<Vec<
 }
 
 /// Calculates the exponential moving average (EMA) for a sparse matrix using dynamic alpha values.
+/// Return matrix exponential moving average: `alpha_j * a_ij + one_minus_alpha_j * b_ij`.
+// `alpha` is the EMA coefficient, how much to add of the new observation, typically small,
+// higher alpha discounts older observations faster.
+// if liquid alpha off then the alpha vector will be constant
 #[allow(dead_code)]
 pub fn mat_ema_alpha_vec_sparse(
     new: &[Vec<(u16, I32F32)>],
@@ -1430,6 +1374,7 @@ pub fn mat_ema_alpha_vec_sparse(
 
 /// Return matrix exponential moving average: `alpha_j * a_ij + one_minus_alpha_j * b_ij`.
 /// `alpha_` is the EMA coefficient passed as a vector per column.
+// if liquid alpha off then the alpha vector will be constant
 #[allow(dead_code)]
 pub fn mat_ema_alpha_vec(
     new: &[Vec<I32F32>],
@@ -1454,7 +1399,6 @@ pub fn mat_ema_alpha_vec(
 
     // Iterate over each row of the matrices.
     for (i, (new_row, old_row)) in new.iter().zip(old).enumerate() {
-        // Ensure the current row of the new and old matrices have the same length.
         assert!(new_row.len() == old_row.len());
 
         // Iterate over each column of the current row.
