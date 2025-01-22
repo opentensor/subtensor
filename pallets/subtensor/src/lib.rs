@@ -12,7 +12,10 @@ use frame_support::{
     dispatch::{self, DispatchInfo, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo},
     ensure,
     pallet_macros::import_section,
-    traits::{tokens::fungible, IsSubType},
+    traits::{
+        tokens::{fungible, Fortitude, Preservation},
+        IsSubType,
+    },
 };
 
 use codec::{Decode, Encode};
@@ -21,6 +24,7 @@ use frame_support::sp_runtime::transaction_validity::ValidTransaction;
 use pallet_balances::Call as BalancesCall;
 // use pallet_scheduler as Scheduler;
 use scale_info::TypeInfo;
+use sp_core::Get;
 use sp_runtime::{
     traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
     transaction_validity::{TransactionValidity, TransactionValidityError},
@@ -697,9 +701,10 @@ pub mod pallet {
 
     #[pallet::type_value]
     /// Default minimum stake.
-    /// 2M rao matches $1 at $500/TAO
+    /// 500k rao matches $0.25 at $500/TAO
+    /// Also used as staking fee
     pub fn DefaultMinStake<T: Config>() -> u64 {
-        2_000_000
+        500_000
     }
 
     #[pallet::type_value]
@@ -1532,12 +1537,14 @@ pub enum CallType {
 #[derive(Debug, PartialEq)]
 pub enum CustomTransactionError {
     ColdkeyInSwapSchedule,
+    StakeAmountTooLow,
 }
 
 impl From<CustomTransactionError> for u8 {
     fn from(variant: CustomTransactionError) -> u8 {
         match variant {
             CustomTransactionError::ColdkeyInSwapSchedule => 0,
+            CustomTransactionError::StakeAmountTooLow => 1,
         }
     }
 }
@@ -1687,10 +1694,31 @@ where
                     Err(InvalidTransaction::Custom(7).into())
                 }
             }
-            Some(Call::add_stake { .. }) => Ok(ValidTransaction {
-                priority: Self::get_priority_vanilla(),
-                ..Default::default()
-            }),
+            Some(Call::add_stake {
+                hotkey: _,
+                netuid: _,
+                amount_staked,
+            }) => {
+                // Check that amount parameter is at least the min stake
+                // also check the coldkey balance
+                let coldkey_balance = <<T as Config>::Currency as fungible::Inspect<
+                    <T as frame_system::Config>::AccountId,
+                >>::reducible_balance(
+                    who, Preservation::Expendable, Fortitude::Polite
+                );
+
+                if (*amount_staked < DefaultMinStake::<T>::get())
+                    || (coldkey_balance < DefaultMinStake::<T>::get())
+                {
+                    InvalidTransaction::Custom(CustomTransactionError::StakeAmountTooLow.into())
+                        .into()
+                } else {
+                    Ok(ValidTransaction {
+                        priority: Self::get_priority_vanilla(),
+                        ..Default::default()
+                    })
+                }
+            }
             Some(Call::remove_stake { .. }) => Ok(ValidTransaction {
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
