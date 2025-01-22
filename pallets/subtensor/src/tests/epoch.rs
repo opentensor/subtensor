@@ -484,7 +484,7 @@ fn init_run_epochs(
 //     new_test_ext(1).execute_with(|| {
 //         log::info!("test_overflow:");
 //         let netuid: u16 = 1;
-//         add_network(netuid, 0, 0);
+//         add_network(netuid, 1,  0);
 //         SubtensorModule::set_max_allowed_uids(netuid, 3);
 //         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
 //             &U256::from(0),

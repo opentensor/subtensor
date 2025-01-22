@@ -331,7 +331,7 @@ fn test_add_singular_child() {
             ),
             Err(Error::<Test>::SubNetworkDoesNotExist.into())
         );
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         step_rate_limit(&TransactionType::SetChildren, netuid);
         assert_eq!(
             SubtensorModule::do_schedule_children(
@@ -376,7 +376,7 @@ fn test_get_stake_for_hotkey_on_subnet() {
         let child = U256::from(2);
         let coldkey1 = U256::from(3);
         let coldkey2 = U256::from(4);
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, parent, coldkey1, 0);
         register_ok_neuron(netuid, child, coldkey2, 0);
         // Set parent-child relationship with 100% stake allocation
@@ -1776,7 +1776,7 @@ fn test_get_stake_for_hotkey_on_subnet_basic() {
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
 
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey, &coldkey, netuid, 1000,
@@ -1802,7 +1802,7 @@ fn test_get_stake_for_hotkey_on_subnet_multiple_coldkeys() {
         let coldkey1 = U256::from(2);
         let coldkey2 = U256::from(3);
 
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey, coldkey1, 0);
 
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -1835,7 +1835,7 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_child() {
         let child = U256::from(2);
         let coldkey = U256::from(3);
 
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, parent, coldkey, 0);
         register_ok_neuron(netuid, child, coldkey, 0);
 
@@ -1873,7 +1873,7 @@ fn test_get_stake_for_hotkey_on_subnet_multiple_parents_single_child() {
         let child = U256::from(3);
         let coldkey = U256::from(4);
 
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, parent1, coldkey, 0);
         register_ok_neuron(netuid, parent2, coldkey, 0);
         register_ok_neuron(netuid, child, coldkey, 0);
@@ -1926,7 +1926,7 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_multiple_children() {
         let child2 = U256::from(3);
         let coldkey = U256::from(4);
 
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, parent, coldkey, 0);
         register_ok_neuron(netuid, child1, coldkey, 0);
         register_ok_neuron(netuid, child2, coldkey, 0);
@@ -1989,7 +1989,7 @@ fn test_get_stake_for_hotkey_on_subnet_edge_cases() {
         let child2 = U256::from(3);
         let coldkey = U256::from(4);
 
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, parent, coldkey, 0);
         register_ok_neuron(netuid, child1, coldkey, 0);
         register_ok_neuron(netuid, child2, coldkey, 0);
@@ -2061,7 +2061,7 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
         let coldkey_child2 = U256::from(7);
         let coldkey_grandchild = U256::from(8);
 
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, 1000);
         SubtensorModule::set_target_registrations_per_interval(netuid, 1000);
         register_ok_neuron(netuid, parent, coldkey_parent, 0);
@@ -2251,8 +2251,8 @@ fn test_get_stake_for_hotkey_on_subnet_multiple_networks() {
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
 
-        add_network(netuid1, 0, 0);
-        add_network(netuid2, 0, 0);
+        add_network(netuid1, 1, 0);
+        add_network(netuid2, 1, 0);
         register_ok_neuron(netuid1, hotkey, coldkey, 0);
         register_ok_neuron(netuid2, hotkey, coldkey, 0);
 

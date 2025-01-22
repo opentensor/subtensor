@@ -226,7 +226,7 @@ fn test_do_move_nonexistent_destination_hotkey() {
         SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount);
 
         // Attempt to move stake from a non-existent origin hotkey
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1,  0);
         assert_noop!(
             SubtensorModule::do_move_stake(
                 RuntimeOrigin::signed(coldkey),
@@ -502,7 +502,7 @@ fn test_do_move_wrong_origin() {
         );
 
         // Attempt to move stake with wrong origin
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1,  0);
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
         assert_err!(

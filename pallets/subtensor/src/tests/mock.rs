@@ -599,6 +599,7 @@ pub(crate) fn step_epochs(count: u16, netuid: u16) {
             SubtensorModule::get_tempo(netuid),
             SubtensorModule::get_current_block_as_u64(),
         );
+        log::info!("Blocks to next epoch: {:?}", blocks_to_next_epoch);
         step_block(blocks_to_next_epoch as u16);
 
         assert!(SubtensorModule::should_run_epoch(
