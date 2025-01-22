@@ -144,10 +144,10 @@ impl NeuronPrecompile {
         port_vec.copy_from_slice(get_slice(data, 126, 128)?);
         let port = u16::from_be_bytes(port_vec);
 
-        let ip_type = data[160];
-        let protocol = data[192];
-        let placeholder1 = data[224];
-        let placeholder2 = data[256];
+        let ip_type = data[159];
+        let protocol = data[191];
+        let placeholder1 = data[223];
+        let placeholder2 = data[255];
         Ok((
             netuid,
             version,
@@ -184,10 +184,10 @@ impl NeuronPrecompile {
         port_vec.copy_from_slice(get_slice(data, 126, 128)?);
         let port = u16::from_be_bytes(port_vec);
 
-        let ip_type = data[160];
-        let protocol = data[192];
-        let placeholder1 = data[224];
-        let placeholder2 = data[256];
+        let ip_type = data[159];
+        let protocol = data[191];
+        let placeholder1 = data[223];
+        let placeholder2 = data[255];
         Ok((
             netuid,
             version,
@@ -225,7 +225,7 @@ impl NeuronPrecompile {
         port_vec.copy_from_slice(get_slice(data, 126, 128)?);
         let port = u16::from_be_bytes(port_vec);
 
-        let ip_type = data[160];
+        let ip_type = data[159];
         Ok((netuid, version, ip, port, ip_type))
     }
 }
