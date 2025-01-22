@@ -472,6 +472,15 @@ impl<T: Config> Pallet<T> {
                     rem_divs_j
                 );
 
+                let possible_root_divs = *root_alpha_divs.get(hotkey_j).unwrap_or(&0);
+                let alpha_divs: I96F32 =
+                    rem_divs_j.saturating_sub(I96F32::from_num(possible_root_divs));
+                log::debug!(
+                    "Removed root divs for hotkey {:?}: {:?}",
+                    hotkey_j,
+                    possible_root_divs
+                );
+
                 // Distribute validator take.
                 Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                     hotkey_j,
@@ -490,18 +499,20 @@ impl<T: Config> Pallet<T> {
                 Self::increase_stake_for_hotkey_on_subnet(
                     hotkey_j,
                     netuid,
-                    rem_divs_j.to_num::<u64>(),
+                    alpha_divs.to_num::<u64>(),
                 );
                 log::debug!(
                     "Distributed alpha dividends for hotkey {:?} on netuid {:?}: {:?}",
                     hotkey_j,
                     netuid,
-                    rem_divs_j.to_num::<u64>()
+                    alpha_divs.to_num::<u64>()
                 );
 
                 // Record dividends for this hotkey on this subnet.
                 AlphaDividendsPerSubnet::<T>::mutate(netuid, hotkey_j.clone(), |divs| {
-                    *divs = divs.saturating_add(*divs_j);
+                    *divs = divs
+                        .saturating_add(alpha_divs.to_num::<u64>())
+                        .saturating_add(validator_take.to_num::<u64>());
                 });
                 log::debug!(
                     "Recorded dividends for hotkey {:?} on netuid {:?}: {:?}",
