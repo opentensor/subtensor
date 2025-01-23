@@ -19,12 +19,12 @@ use sp_core::{Get, H256, U256};
 fn test_add_stake_dispatch_info_ok() {
     new_test_ext(1).execute_with(|| {
         let hotkey = U256::from(0);
-        let amount_staked = 5000;
+        let amount = 5000;
         let netuid = 1;
         let call = RuntimeCall::SubtensorModule(SubtensorCall::add_stake {
             hotkey,
             netuid,
-            amount_staked,
+            amount,
         });
         assert_eq!(
             call.get_dispatch_info(),
@@ -158,8 +158,9 @@ fn test_add_stake_not_registered_key_pair() {
         let coldkey_account_id = U256::from(435445);
         let hotkey_account_id = U256::from(54544);
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        let amount = 1337;
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1800);
+        let amount = DefaultMinStake::<Test>::get() * 10;
+        let fee = DefaultStakingFee::<Test>::get();
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount + fee);
         assert_err!(
             SubtensorModule::add_stake(
                 RuntimeOrigin::signed(coldkey_account_id),
@@ -390,7 +391,7 @@ fn test_remove_stake_ok_no_emission() {
 }
 
 #[test]
-fn test_remove_stake_amount_zero() {
+fn test_remove_stake_amount_too_low() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1);
         let subnet_owner_hotkey = U256::from(2);
@@ -424,7 +425,7 @@ fn test_remove_stake_amount_zero() {
                 netuid,
                 0
             ),
-            Error::<Test>::StakeToWithdrawIsZero
+            Error::<Test>::AmountTooLow
         );
     });
 }
@@ -454,7 +455,7 @@ fn test_remove_stake_ok_hotkey_does_not_belong_to_coldkey() {
         let coldkey_id = U256::from(544);
         let hotkey_id = U256::from(54544);
         let other_cold_key = U256::from(99498);
-        let amount = 1000;
+        let amount = DefaultMinStake::<Test>::get() * 10;
         let netuid: u16 = add_dynamic_network(&hotkey_id, &coldkey_id);
 
         // Give the neuron some stake to remove
@@ -479,7 +480,7 @@ fn test_remove_stake_no_enough_stake() {
     new_test_ext(1).execute_with(|| {
         let coldkey_id = U256::from(544);
         let hotkey_id = U256::from(54544);
-        let amount = 10000;
+        let amount = DefaultMinStake::<Test>::get() * 10;
         let netuid = add_dynamic_network(&hotkey_id, &coldkey_id);
 
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
@@ -2074,17 +2075,17 @@ fn test_stake_below_min_validate() {
         let subnet_owner_hotkey = U256::from(1002);
         let hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let amount_staked = DefaultMinStake::<Test>::get() + DefaultStakingFee::<Test>::get() - 1;
+        let amount = DefaultMinStake::<Test>::get() + DefaultStakingFee::<Test>::get() - 1;
 
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount_staked);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount);
 
         // Add stake call
         let call = RuntimeCall::SubtensorModule(SubtensorCall::add_stake {
             hotkey,
             netuid,
-            amount_staked,
+            amount,
         });
 
         let info: crate::DispatchInfo =
@@ -2097,24 +2098,28 @@ fn test_stake_below_min_validate() {
         // Should fail due to insufficient stake
         assert_err!(
             result_no_stake,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(1))
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::StakeAmountTooLow.into()
+            ))
         );
 
         // Increase the stake to be equal to the minimum, but leave the balance low
-        let amount_staked = DefaultMinStake::<Test>::get() + DefaultStakingFee::<Test>::get();
+        let amount = DefaultMinStake::<Test>::get() + DefaultStakingFee::<Test>::get();
         let call_2 = RuntimeCall::SubtensorModule(SubtensorCall::add_stake {
             hotkey,
             netuid,
-            amount_staked,
+            amount,
         });
 
         // Submit to the signed extension validate function
         let result_low_balance = extension.validate(&coldkey, &call_2.clone(), &info, 10);
 
-        // Still doesn't pass
+        // Still doesn't pass, but with a different reason (balance too low)
         assert_err!(
             result_low_balance,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(2))
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::BalanceTooLow.into()
+            ))
         );
 
         // Increase the coldkey balance to match the minimum

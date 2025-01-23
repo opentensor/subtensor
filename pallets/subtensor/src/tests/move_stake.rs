@@ -511,7 +511,7 @@ fn test_do_move_wrong_origin() {
         let origin_hotkey = U256::from(2);
         let destination_hotkey = U256::from(3);
         let netuid = 1;
-        let stake_amount = 1000;
+        let stake_amount = DefaultMinStake::<Test>::get() * 10;
         let fee = 0;
 
         // Set up initial stake
@@ -535,7 +535,7 @@ fn test_do_move_wrong_origin() {
                 netuid,
                 alpha,
             ),
-            Error::<Test>::NotEnoughStakeToWithdraw
+            Error::<Test>::NonAssociatedColdKey
         );
 
         // Check that no stake was moved
@@ -770,7 +770,7 @@ fn test_do_move_max_values() {
 
 // Verify moving too low amount is impossible
 #[test]
-fn test_moving_too_little_fails() {
+fn test_moving_too_little_unstakes() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(533453);
         let coldkey_account_id = U256::from(55453);
@@ -791,7 +791,6 @@ fn test_moving_too_little_fails() {
             amount + fee
         ));
 
-        // Coldkey / hotkey 0 decreases take to 5%. This should fail as the minimum take is 9%
         assert_err!(
             SubtensorModule::move_stake(
                 RuntimeOrigin::signed(coldkey_account_id),

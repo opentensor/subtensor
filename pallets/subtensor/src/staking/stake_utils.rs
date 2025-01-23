@@ -719,6 +719,128 @@ impl<T: Config> Pallet<T> {
         let ops = HotkeyAlphaSharePoolDataOperations::new(hotkey, netuid);
         SharePool::<AlphaShareKey<T>, HotkeyAlphaSharePoolDataOperations<T>>::new(ops)
     }
+
+    /// Validate add_stake user input
+    ///
+    pub fn validate_add_stake(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+        netuid: u16,
+        stake_to_be_added: u64,
+    ) -> Result<(), Error<T>> {
+        // Ensure that the subnet exists.
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+
+        // Get the minimum balance (and amount) that satisfies the transaction
+        let min_amount = DefaultMinStake::<T>::get().saturating_add(DefaultStakingFee::<T>::get());
+
+        // Ensure that the stake_to_be_added is at least the min_amount
+        ensure!(stake_to_be_added >= min_amount, Error::<T>::AmountTooLow);
+
+        // Ensure the callers coldkey has enough stake to perform the transaction.
+        ensure!(
+            Self::can_remove_balance_from_coldkey_account(coldkey, stake_to_be_added),
+            Error::<T>::NotEnoughBalanceToStake
+        );
+
+        // Ensure that the hotkey account exists this is only possible through registration.
+        ensure!(
+            Self::hotkey_account_exists(hotkey),
+            Error::<T>::HotKeyAccountNotExists
+        );
+
+        Ok(())
+    }
+
+    /// Validate remove_stake user input
+    ///
+    pub fn validate_remove_stake(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+        netuid: u16,
+        alpha_unstaked: u64,
+    ) -> Result<(), Error<T>> {
+        // Ensure that the subnet exists.
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+
+        // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
+        let tao_equivalent = Self::sim_swap_alpha_for_tao(netuid, alpha_unstaked);
+        ensure!(
+            tao_equivalent > DefaultMinStake::<T>::get(),
+            Error::<T>::AmountTooLow
+        );
+
+        // Ensure that the hotkey account exists this is only possible through registration.
+        ensure!(
+            Self::hotkey_account_exists(hotkey),
+            Error::<T>::HotKeyAccountNotExists
+        );
+
+        // Ensure that the hotkey has enough stake to withdraw.
+        ensure!(
+            Self::has_enough_stake_on_subnet(hotkey, coldkey, netuid, alpha_unstaked),
+            Error::<T>::NotEnoughStakeToWithdraw
+        );
+
+        Ok(())
+    }
+
+    /// Validate stake transition user input
+    /// That works for move_stake, transfer_stake, and swap_stake
+    ///
+    pub fn validate_stake_transition(
+        origin_coldkey: &T::AccountId,
+        _destination_coldkey: &T::AccountId,
+        origin_hotkey: &T::AccountId,
+        _destination_hotkey: &T::AccountId,
+        origin_netuid: u16,
+        destination_netuid: u16,
+        alpha_amount: u64,
+    ) -> Result<(), Error<T>> {
+        // Ensure that both subnets exist.
+        ensure!(
+            Self::if_subnet_exist(origin_netuid),
+            Error::<T>::SubnetNotExists
+        );
+        if origin_netuid != destination_netuid {
+            ensure!(
+                Self::if_subnet_exist(destination_netuid),
+                Error::<T>::SubnetNotExists
+            );
+        }
+
+        // Ensure that the origin hotkey account exists
+        ensure!(
+            Self::hotkey_account_exists(origin_hotkey),
+            Error::<T>::HotKeyAccountNotExists
+        );
+
+        // Ensure origin coldkey owns the origin hotkey.
+        ensure!(
+            Self::coldkey_owns_hotkey(origin_coldkey, origin_hotkey),
+            Error::<T>::NonAssociatedColdKey
+        );
+
+        // Ensure there is enough stake in the origin subnet.
+        let origin_alpha = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
+            origin_hotkey,
+            origin_coldkey,
+            origin_netuid,
+        );
+        ensure!(
+            alpha_amount <= origin_alpha,
+            Error::<T>::NotEnoughStakeToWithdraw
+        );
+
+        // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
+        let tao_equivalent = Self::sim_swap_alpha_for_tao(origin_netuid, alpha_amount);
+        ensure!(
+            tao_equivalent > DefaultMinStake::<T>::get(),
+            Error::<T>::AmountTooLow
+        );
+
+        Ok(())
+    }
 }
 
 ///////////////////////////////////////////

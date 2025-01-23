@@ -12,10 +12,7 @@ use frame_support::{
     dispatch::{self, DispatchInfo, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo},
     ensure,
     pallet_macros::import_section,
-    traits::{
-        tokens::{fungible, Fortitude, Preservation},
-        IsSubType,
-    },
+    traits::{tokens::fungible, IsSubType},
 };
 
 use codec::{Decode, Encode};
@@ -1552,6 +1549,11 @@ pub enum CustomTransactionError {
     ColdkeyInSwapSchedule,
     StakeAmountTooLow,
     BalanceTooLow,
+    SubnetDoesntExist,
+    HotkeyAccountDoesntExist,
+    NotEnoughStakeToWithdraw,
+    RateLimitExceeded,
+    BadRequest,
 }
 
 impl From<CustomTransactionError> for u8 {
@@ -1560,6 +1562,11 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::ColdkeyInSwapSchedule => 0,
             CustomTransactionError::StakeAmountTooLow => 1,
             CustomTransactionError::BalanceTooLow => 2,
+            CustomTransactionError::SubnetDoesntExist => 3,
+            CustomTransactionError::HotkeyAccountDoesntExist => 4,
+            CustomTransactionError::NotEnoughStakeToWithdraw => 5,
+            CustomTransactionError::RateLimitExceeded => 6,
+            CustomTransactionError::BadRequest => 255,
         }
     }
 }
@@ -1601,6 +1608,41 @@ where
 
     pub fn check_weights_min_stake(who: &T::AccountId, netuid: u16) -> bool {
         Pallet::<T>::check_weights_min_stake(who, netuid)
+    }
+
+    pub fn result_to_validity(result: Result<(), Error<T>>) -> TransactionValidity {
+        if let Err(err) = result {
+            match err {
+                Error::<T>::AmountTooLow => Err(InvalidTransaction::Custom(
+                    CustomTransactionError::StakeAmountTooLow.into(),
+                )
+                .into()),
+                Error::<T>::SubnetNotExists => Err(InvalidTransaction::Custom(
+                    CustomTransactionError::SubnetDoesntExist.into(),
+                )
+                .into()),
+                Error::<T>::NotEnoughBalanceToStake => Err(InvalidTransaction::Custom(
+                    CustomTransactionError::BalanceTooLow.into(),
+                )
+                .into()),
+                Error::<T>::HotKeyAccountNotExists => Err(InvalidTransaction::Custom(
+                    CustomTransactionError::HotkeyAccountDoesntExist.into(),
+                )
+                .into()),
+                Error::<T>::NotEnoughStakeToWithdraw => Err(InvalidTransaction::Custom(
+                    CustomTransactionError::NotEnoughStakeToWithdraw.into(),
+                )
+                .into()),
+                _ => Err(
+                    InvalidTransaction::Custom(CustomTransactionError::BadRequest.into()).into(),
+                ),
+            }
+        } else {
+            Ok(ValidTransaction {
+                priority: Self::get_priority_vanilla(),
+                ..Default::default()
+            })
+        }
     }
 }
 
@@ -1646,7 +1688,10 @@ where
                         ..Default::default()
                     })
                 } else {
-                    Err(InvalidTransaction::Custom(1).into())
+                    Err(InvalidTransaction::Custom(
+                        CustomTransactionError::StakeAmountTooLow.into(),
+                    )
+                    .into())
                 }
             }
             Some(Call::reveal_weights { netuid, .. }) => {
@@ -1658,7 +1703,10 @@ where
                         ..Default::default()
                     })
                 } else {
-                    Err(InvalidTransaction::Custom(2).into())
+                    Err(InvalidTransaction::Custom(
+                        CustomTransactionError::StakeAmountTooLow.into(),
+                    )
+                    .into())
                 }
             }
             Some(Call::batch_reveal_weights { netuid, .. }) => {
@@ -1670,7 +1718,10 @@ where
                         ..Default::default()
                     })
                 } else {
-                    Err(InvalidTransaction::Custom(6).into())
+                    Err(InvalidTransaction::Custom(
+                        CustomTransactionError::StakeAmountTooLow.into(),
+                    )
+                    .into())
                 }
             }
             Some(Call::set_weights { netuid, .. }) => {
@@ -1682,7 +1733,10 @@ where
                         ..Default::default()
                     })
                 } else {
-                    Err(InvalidTransaction::Custom(3).into())
+                    Err(InvalidTransaction::Custom(
+                        CustomTransactionError::StakeAmountTooLow.into(),
+                    )
+                    .into())
                 }
             }
             Some(Call::set_tao_weights { netuid, hotkey, .. }) => {
@@ -1694,7 +1748,10 @@ where
                         ..Default::default()
                     })
                 } else {
-                    Err(InvalidTransaction::Custom(4).into())
+                    Err(InvalidTransaction::Custom(
+                        CustomTransactionError::StakeAmountTooLow.into(),
+                    )
+                    .into())
                 }
             }
             Some(Call::commit_crv3_weights { netuid, .. }) => {
@@ -1706,40 +1763,88 @@ where
                         ..Default::default()
                     })
                 } else {
-                    Err(InvalidTransaction::Custom(7).into())
+                    Err(InvalidTransaction::Custom(
+                        CustomTransactionError::StakeAmountTooLow.into(),
+                    )
+                    .into())
                 }
             }
             Some(Call::add_stake {
-                hotkey: _,
-                netuid: _,
+                hotkey,
+                netuid,
                 amount,
             }) => {
-                // Check that amount parameter is at least the min stake
-                // also check the coldkey balance
-                let coldkey_balance = <<T as Config>::Currency as fungible::Inspect<
-                    <T as frame_system::Config>::AccountId,
-                >>::reducible_balance(
-                    who, Preservation::Expendable, Fortitude::Polite
-                );
-                let min_amount =
-                    DefaultMinStake::<T>::get().saturating_add(DefaultStakingFee::<T>::get());
-
-                if *amount < min_amount {
-                    InvalidTransaction::Custom(CustomTransactionError::StakeAmountTooLow.into())
-                        .into()
-                } else if coldkey_balance < min_amount {
-                    InvalidTransaction::Custom(CustomTransactionError::BalanceTooLow.into()).into()
-                } else {
-                    Ok(ValidTransaction {
-                        priority: Self::get_priority_vanilla(),
-                        ..Default::default()
-                    })
-                }
+                // Fully validate the user input
+                Self::result_to_validity(Pallet::<T>::validate_add_stake(
+                    who, hotkey, *netuid, *amount,
+                ))
             }
-            Some(Call::remove_stake { .. }) => Ok(ValidTransaction {
-                priority: Self::get_priority_vanilla(),
-                ..Default::default()
-            }),
+            Some(Call::remove_stake {
+                hotkey,
+                netuid,
+                amount_unstaked,
+            }) => {
+                // Fully validate the user input
+                Self::result_to_validity(Pallet::<T>::validate_remove_stake(
+                    who,
+                    hotkey,
+                    *netuid,
+                    *amount_unstaked,
+                ))
+            }
+            Some(Call::move_stake {
+                origin_hotkey,
+                destination_hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            }) => {
+                // Fully validate the user input
+                Self::result_to_validity(Pallet::<T>::validate_stake_transition(
+                    who,
+                    who,
+                    origin_hotkey,
+                    destination_hotkey,
+                    *origin_netuid,
+                    *destination_netuid,
+                    *alpha_amount,
+                ))
+            }
+            Some(Call::transfer_stake {
+                destination_coldkey,
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            }) => {
+                // Fully validate the user input
+                Self::result_to_validity(Pallet::<T>::validate_stake_transition(
+                    who,
+                    destination_coldkey,
+                    hotkey,
+                    hotkey,
+                    *origin_netuid,
+                    *destination_netuid,
+                    *alpha_amount,
+                ))
+            }
+            Some(Call::swap_stake {
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            }) => {
+                // Fully validate the user input
+                Self::result_to_validity(Pallet::<T>::validate_stake_transition(
+                    who,
+                    who,
+                    hotkey,
+                    hotkey,
+                    *origin_netuid,
+                    *destination_netuid,
+                    *alpha_amount,
+                ))
+            }
             Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {
                 let registrations_this_interval =
                     Pallet::<T>::get_registrations_this_interval(*netuid);
@@ -1748,7 +1853,10 @@ where
                 if registrations_this_interval >= (max_registrations_per_interval.saturating_mul(3))
                 {
                     // If the registration limit for the interval is exceeded, reject the transaction
-                    return Err(InvalidTransaction::Custom(5).into());
+                    return Err(InvalidTransaction::Custom(
+                        CustomTransactionError::RateLimitExceeded.into(),
+                    )
+                    .into());
                 }
                 Ok(ValidTransaction {
                     priority: Self::get_priority_vanilla(),

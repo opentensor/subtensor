@@ -47,36 +47,21 @@ impl<T: Config> Pallet<T> {
             alpha_unstaked
         );
 
-        // 2. Ensure that the stake amount to be removed is above zero.
-        ensure!(alpha_unstaked > 0, Error::<T>::StakeToWithdrawIsZero);
+        // 2. Validate the user input
+        Self::validate_remove_stake(&coldkey, &hotkey, netuid, alpha_unstaked)?;
 
-        // 3. Ensure that the subnet exists.
-        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
-
-        // 4. Ensure that the hotkey account exists this is only possible through registration.
-        ensure!(
-            Self::hotkey_account_exists(&hotkey),
-            Error::<T>::HotKeyAccountNotExists
-        );
-
-        // 5. Ensure that the hotkey has enough stake to withdraw.
-        ensure!(
-            Self::has_enough_stake_on_subnet(&hotkey, &coldkey, netuid, alpha_unstaked),
-            Error::<T>::NotEnoughStakeToWithdraw
-        );
-
-        // 6. Swap the alpba to tao and update counters for this subnet.
+        // 3. Swap the alpba to tao and update counters for this subnet.
         let fee = DefaultStakingFee::<T>::get();
         let tao_unstaked: u64 =
             Self::unstake_from_subnet(&hotkey, &coldkey, netuid, alpha_unstaked, fee);
 
-        // 7. We add the balance to the coldkey. If the above fails we will not credit this coldkey.
+        // 4. We add the balance to the coldkey. If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 
-        // 8. If the stake is below the minimum, we clear the nomination from storage.
+        // 5. If the stake is below the minimum, we clear the nomination from storage.
         Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
 
-        // 9. Check if stake lowered below MinStake and remove Pending children if it did
+        // 6. Check if stake lowered below MinStake and remove Pending children if it did
         if Self::get_total_stake_for_hotkey(&hotkey) < StakeThreshold::<T>::get() {
             Self::get_all_subnet_netuids().iter().for_each(|netuid| {
                 PendingChildKeys::<T>::remove(netuid, &hotkey);
