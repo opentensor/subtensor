@@ -141,8 +141,8 @@ impl StakingPrecompile {
         let netuid = Self::parse_netuid(data, 0x5E)?;
 
         let stake = pallet_subtensor::Pallet::<Runtime>::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey.into(),
-            &coldkey.into(),
+            &hotkey,
+            &coldkey,
             netuid,
         );
 
