@@ -1080,6 +1080,8 @@ fn test_do_swap_success() {
         let origin_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         let destination_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
+        let fee = DefaultMinStake::<Test>::get();
+
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let stake_amount = DefaultMinStake::<Test>::get() * 10;
@@ -1114,7 +1116,11 @@ fn test_do_swap_success() {
             &coldkey,
             destination_netuid,
         );
-        assert_abs_diff_eq!(alpha_after, stake_amount, epsilon = stake_amount / 1000);
+        assert_abs_diff_eq!(
+            alpha_after,
+            stake_amount - fee,
+            epsilon = stake_amount / 1000
+        );
     });
 }
 
@@ -1259,6 +1265,8 @@ fn test_do_swap_same_subnet() {
         let subnet_owner_hotkey = U256::from(1101);
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
+        let fee = DefaultMinStake::<Test>::get();
+
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let stake_amount = DefaultMinStake::<Test>::get() * 10;
@@ -1268,6 +1276,7 @@ fn test_do_swap_same_subnet() {
 
         let alpha_before =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        let fee_as_alpha = SubtensorModule::swap_tao_for_alpha(netuid, fee);
 
         assert_ok!(SubtensorModule::do_swap_stake(
             RuntimeOrigin::signed(coldkey),
@@ -1279,7 +1288,8 @@ fn test_do_swap_same_subnet() {
 
         let alpha_after =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
-        assert_abs_diff_eq!(alpha_after, alpha_before, epsilon = 5);
+        assert_abs_diff_eq!(alpha_after, alpha_before - fee_as_alpha, epsilon = 15);
+        // Some slippage due to fee on same subnet.
     });
 }
 
@@ -1291,6 +1301,8 @@ fn test_do_swap_partial_stake() {
         let origin_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         let destination_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
+        let fee = DefaultMinStake::<Test>::get();
+
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let total_stake = DefaultMinStake::<Test>::get() * 10;
@@ -1298,6 +1310,7 @@ fn test_do_swap_partial_stake() {
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
         SubtensorModule::stake_into_subnet(&hotkey, &coldkey, origin_netuid, total_stake, 0);
 
+        let fee_as_alpha2 = SubtensorModule::swap_tao_for_alpha(destination_netuid, fee);
         let swap_amount = total_stake / 2;
         assert_ok!(SubtensorModule::do_swap_stake(
             RuntimeOrigin::signed(coldkey),
@@ -1322,7 +1335,7 @@ fn test_do_swap_partial_stake() {
                 &coldkey,
                 destination_netuid
             ),
-            swap_amount,
+            swap_amount - fee_as_alpha2,
             epsilon = total_stake / 1000
         );
     });
@@ -1335,6 +1348,8 @@ fn test_do_swap_storage_updates() {
         let subnet_owner_hotkey = U256::from(1301);
         let origin_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         let destination_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let fee = DefaultMinStake::<Test>::get();
 
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -1365,13 +1380,15 @@ fn test_do_swap_storage_updates() {
             0
         );
 
+        let fee_as_alpha = SubtensorModule::swap_tao_for_alpha(destination_netuid, fee);
+
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey,
                 &coldkey,
                 destination_netuid
             ),
-            alpha,
+            alpha - fee_as_alpha,
             epsilon = 5
         );
     });
@@ -1385,6 +1402,8 @@ fn test_do_swap_multiple_times() {
         let netuid1 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         let netuid2 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
+        let fee = DefaultMinStake::<Test>::get();
+
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let initial_stake = DefaultMinStake::<Test>::get() * 10;
@@ -1392,6 +1411,7 @@ fn test_do_swap_multiple_times() {
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
         SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid1, initial_stake, 0);
 
+        let mut total_alpha1_fee = 0;
         for _ in 0..3 {
             let alpha1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey, &coldkey, netuid1,
@@ -1404,6 +1424,9 @@ fn test_do_swap_multiple_times() {
                     netuid2,
                     alpha1
                 ));
+
+                let fee_as_alpha = SubtensorModule::swap_tao_for_alpha(netuid1, fee);
+                total_alpha1_fee += fee_as_alpha;
             }
             let alpha2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey, &coldkey, netuid2,
@@ -1416,17 +1439,21 @@ fn test_do_swap_multiple_times() {
                     netuid1,
                     alpha2
                 ));
+
+                let fee_as_alpha = SubtensorModule::swap_tao_for_alpha(netuid1, fee);
+                total_alpha1_fee += fee_as_alpha;
             }
         }
 
-        let final_stake_netuid1 =
+        let final_stake_netuid1: u64 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid1);
         let final_stake_netuid2 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid2);
+        let expected_stake = initial_stake - total_alpha1_fee;
         assert_abs_diff_eq!(
             final_stake_netuid1,
-            initial_stake,
-            epsilon = initial_stake / 1000
+            expected_stake,
+            epsilon = expected_stake / 1000
         );
         assert_eq!(final_stake_netuid2, 0);
     });
