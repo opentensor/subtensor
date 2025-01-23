@@ -1,5 +1,3 @@
-#[cfg(feature = "try-runtime")]
-use super::subnets::subnet::POOL_INITIAL_TAO;
 use super::*;
 
 impl<T: Config> Pallet<T> {
@@ -17,8 +15,8 @@ impl<T: Config> Pallet<T> {
     pub fn check_accounting_invariants() -> Result<(), sp_runtime::TryRuntimeError> {
         use frame_support::traits::fungible::Inspect;
 
-		// Disabled: https://github.com/opentensor/subtensor/pull/1166
-		//
+        // Disabled: https://github.com/opentensor/subtensor/pull/1166
+        //
         // // Calculate the total staked amount
         // let total_staked = SubnetTAO::<T>::iter().fold(0u64, |acc, (netuid, stake)| {
         //     let acc = acc.saturating_add(stake);
