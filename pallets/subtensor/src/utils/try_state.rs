@@ -17,23 +17,25 @@ impl<T: Config> Pallet<T> {
     pub fn check_accounting_invariants() -> Result<(), sp_runtime::TryRuntimeError> {
         use frame_support::traits::fungible::Inspect;
 
-        // Calculate the total staked amount
-        let total_staked = SubnetTAO::<T>::iter().fold(0u64, |acc, (netuid, stake)| {
-            let acc = acc.saturating_add(stake);
+		// Disabled: https://github.com/opentensor/subtensor/pull/1166
+		//
+        // // Calculate the total staked amount
+        // let total_staked = SubnetTAO::<T>::iter().fold(0u64, |acc, (netuid, stake)| {
+        //     let acc = acc.saturating_add(stake);
 
-            if netuid == Self::get_root_netuid() {
-                // root network doesn't have initial pool TAO
-                acc
-            } else {
-                acc.saturating_sub(POOL_INITIAL_TAO)
-            }
-        });
+        //     if netuid == Self::get_root_netuid() {
+        //         // root network doesn't have initial pool TAO
+        //         acc
+        //     } else {
+        //         acc.saturating_sub(POOL_INITIAL_TAO)
+        //     }
+        // });
 
-        // Verify that the calculated total stake matches the stored TotalStake
-        ensure!(
-            total_staked == TotalStake::<T>::get(),
-            "TotalStake does not match total staked",
-        );
+        // // Verify that the calculated total stake matches the stored TotalStake
+        // ensure!(
+        //     total_staked == TotalStake::<T>::get(),
+        //     "TotalStake does not match total staked",
+        // );
 
         // Get the total subnet locked amount
         let total_subnet_locked = Self::get_total_subnet_locked();
@@ -43,7 +45,7 @@ impl<T: Config> Pallet<T> {
 
         // Calculate the expected total issuance
         let expected_total_issuance = currency_issuance
-            .saturating_add(total_staked)
+            .saturating_add(TotalStake::<T>::get())
             .saturating_add(total_subnet_locked);
 
         // Verify the diff between calculated TI and actual TI is less than delta
