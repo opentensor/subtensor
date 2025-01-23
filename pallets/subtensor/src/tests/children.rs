@@ -3312,38 +3312,6 @@ fn test_parent_child_chain_emission() {
 
         let hardcoded_emission: I96F32 = I96F32::from_num(1_000_000); // 1 million (adjust as needed)
 
-        let hotkey_emission: Vec<(U256, u64, u64)> =
-            SubtensorModule::epoch(netuid, hardcoded_emission.saturating_to_num::<u64>());
-        log::info!("hotkey_emission: {:?}", hotkey_emission);
-        let total_emission: I96F32 = hotkey_emission
-            .iter()
-            .map(|(_, _, emission)| I96F32::from_num(*emission))
-            .sum();
-
-        // Verify emissions match expected from CHK arrangements
-        let em_eps: I96F32 = I96F32::from_num(1e-4); // 4 decimal places
-                                                     // A's pending emission:
-        assert!(
-            ((I96F32::from_num(hotkey_emission[0].2) / total_emission) -
-            I96F32::from_num(2_f64 / 3_f64 * 1_f64 / 2_f64)).abs() // 2/3 * 1/2 = 1/3; 50% -> B
-			<= em_eps,
-            "A should have pending emission of 1/3 of total emission"
-        );
-        // B's pending emission:
-        assert!(
-            ((I96F32::from_num(hotkey_emission[1].2) / total_emission) -
-            (I96F32::from_num(2_f64 / 9_f64 * 1_f64 / 2_f64 + 2_f64 / 3_f64 * 1_f64 / 2_f64))).abs() // 2/9 * 1/2 + 2/3 * 1/2; 50% -> C + 50% from A
-            <= em_eps,
-            "B should have pending emission of 4/9 of total emission"
-        );
-        // C's pending emission:
-        assert!(
-            ((I96F32::from_num(hotkey_emission[2].2) / total_emission) -
-            (I96F32::from_num(1_f64 / 9_f64 + 1_f64 / 2_f64 * 2_f64 / 9_f64))).abs() // 1/9 + 2/9 * 1/2; 50% from B
-            <= em_eps,
-            "C should have pending emission of 1/9 of total emission"
-        );
-
         // Run epoch with a hardcoded emission value
         SubtensorModule::run_coinbase(hardcoded_emission);
 
@@ -3413,7 +3381,138 @@ fn test_parent_child_chain_emission() {
     });
 }
 
-// 45: Test dividend distribution with children
+// 45: Test *epoch* with a chain of parent-child relationships (e.g., A -> B -> C)
+// This test verifies the correct distribution of emissions in a chain of parent-child relationships:
+// - Sets up a network with three neurons A, B, and C in a chain (A -> B -> C)
+// - Establishes parent-child relationships with different stake proportions
+// - Sets weights for all neurons
+// - Runs an epoch with a hardcoded emission value
+// - Checks the emission distribution among A, B, and C
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_parent_child_chain_epoch --exact --show-output
+#[test]
+fn test_parent_child_chain_epoch() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+        // Set owner cut to 0
+        SubtensorModule::set_subnet_owner_cut(0_u16);
+
+        // Define hotkeys and coldkeys
+        let hotkey_a: U256 = U256::from(1);
+        let hotkey_b: U256 = U256::from(2);
+        let hotkey_c: U256 = U256::from(3);
+        let coldkey_a: U256 = U256::from(100);
+        let coldkey_b: U256 = U256::from(101);
+        let coldkey_c: U256 = U256::from(102);
+
+        // Register neurons with decreasing stakes
+        register_ok_neuron(netuid, hotkey_a, coldkey_a, 0);
+        register_ok_neuron(netuid, hotkey_b, coldkey_b, 0);
+        register_ok_neuron(netuid, hotkey_c, coldkey_c, 0);
+
+        // Add initial stakes
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 1_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_b, 1_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_c, 1_000);
+
+        // Swap to alpha
+        let total_tao: I96F32 = I96F32::from_num(300_000 + 100_000 + 50_000);
+        let total_alpha: I96F32 = I96F32::from_num(SubtensorModule::swap_tao_for_alpha(
+            netuid,
+            total_tao.saturating_to_num::<u64>(),
+        ));
+
+        // Set the stakes directly
+        // This avoids needing to swap tao to alpha, impacting the initial stake distribution.
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_a,
+            &coldkey_a,
+            netuid,
+            (total_alpha * I96F32::from_num(300_000) / total_tao).saturating_to_num::<u64>(),
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_b,
+            &coldkey_b,
+            netuid,
+            (total_alpha * I96F32::from_num(100_000) / total_tao).saturating_to_num::<u64>(),
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_c,
+            &coldkey_c,
+            netuid,
+            (total_alpha * I96F32::from_num(50_000) / total_tao).saturating_to_num::<u64>(),
+        );
+
+        // Get old stakes
+        let stake_a: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_a);
+        let stake_b: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_b);
+        let stake_c: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_c);
+
+        // Assert initial stake is correct
+        let rel_stake_a = I96F32::from_num(stake_a) / total_tao;
+        let rel_stake_b = I96F32::from_num(stake_b) / total_tao;
+        let rel_stake_c = I96F32::from_num(stake_c) / total_tao;
+
+        log::info!("rel_stake_a: {:?}", rel_stake_a); // 0.6666 -> 2/3
+        log::info!("rel_stake_b: {:?}", rel_stake_b); // 0.2222 -> 2/9
+        log::info!("rel_stake_c: {:?}", rel_stake_c); // 0.1111 -> 1/9
+        assert_eq!(rel_stake_a, I96F32::from_num(300_000) / total_tao);
+        assert_eq!(rel_stake_b, I96F32::from_num(100_000) / total_tao);
+        assert_eq!(rel_stake_c, I96F32::from_num(50_000) / total_tao);
+
+        // Set parent-child relationships
+        // A -> B (50% of A's stake)
+        mock_set_children(&coldkey_a, &hotkey_a, netuid, &[(u64::MAX / 2, hotkey_b)]);
+
+        // B -> C (50% of B's stake)
+        mock_set_children(&coldkey_b, &hotkey_b, netuid, &[(u64::MAX / 2, hotkey_c)]);
+
+        // Set CHK take rate to 1/9
+        let chk_take: I96F32 = I96F32::from_num(1_f64 / 9_f64);
+        let chk_take_u16: u16 = (chk_take * I96F32::from_num(u16::MAX)).saturating_to_num::<u16>();
+        ChildkeyTake::<Test>::insert(hotkey_b, netuid, chk_take_u16);
+        ChildkeyTake::<Test>::insert(hotkey_c, netuid, chk_take_u16);
+
+        // Set the weight of root TAO to be 0%, so only alpha is effective.
+        SubtensorModule::set_tao_weight(0);
+
+        let hardcoded_emission: I96F32 = I96F32::from_num(1_000_000); // 1 million (adjust as needed)
+
+        let hotkey_emission: Vec<(U256, u64, u64)> =
+            SubtensorModule::epoch(netuid, hardcoded_emission.saturating_to_num::<u64>());
+        log::info!("hotkey_emission: {:?}", hotkey_emission);
+        let total_emission: I96F32 = hotkey_emission
+            .iter()
+            .map(|(_, _, emission)| I96F32::from_num(*emission))
+            .sum();
+
+        // Verify emissions match expected from CHK arrangements
+        let em_eps: I96F32 = I96F32::from_num(1e-4); // 4 decimal places
+                                                     // A's pending emission:
+        assert!(
+            ((I96F32::from_num(hotkey_emission[0].2) / total_emission) -
+            I96F32::from_num(2_f64 / 3_f64 * 1_f64 / 2_f64)).abs() // 2/3 * 1/2 = 1/3; 50% -> B
+			<= em_eps,
+            "A should have pending emission of 1/3 of total emission"
+        );
+        // B's pending emission:
+        assert!(
+            ((I96F32::from_num(hotkey_emission[1].2) / total_emission) -
+            (I96F32::from_num(2_f64 / 9_f64 * 1_f64 / 2_f64 + 2_f64 / 3_f64 * 1_f64 / 2_f64))).abs() // 2/9 * 1/2 + 2/3 * 1/2; 50% -> C + 50% from A
+            <= em_eps,
+            "B should have pending emission of 4/9 of total emission"
+        );
+        // C's pending emission:
+        assert!(
+            ((I96F32::from_num(hotkey_emission[2].2) / total_emission) -
+            (I96F32::from_num(1_f64 / 9_f64 + 1_f64 / 2_f64 * 2_f64 / 9_f64))).abs() // 1/9 + 2/9 * 1/2; 50% from B
+            <= em_eps,
+            "C should have pending emission of 1/9 of total emission"
+        );
+    });
+}
+
+// 46: Test dividend distribution with children
 // This test verifies the correct distribution of emissions in a chain of parent-child relationships:
 // - Sets up a network with three neurons A, B, and C in a chain (A -> B -> C)
 // - Establishes parent-child relationships with different stake proportions
@@ -3636,7 +3735,7 @@ fn test_dividend_distribution_with_children() {
     });
 }
 
-// 46: Test emission distribution when adding/removing parent-child relationships mid-epoch
+// 47: Test emission distribution when adding/removing parent-child relationships mid-epoch
 // This test verifies the correct distribution of emissions when parent-child relationships change:
 // - Sets up a network with three neurons: parent, child1, and child2
 // - Establishes initial parent-child relationship between parent and child1
