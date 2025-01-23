@@ -1,4 +1,5 @@
 use super::*;
+use sp_core::Get;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic add_stake: Adds stake to a hotkey account.
@@ -61,13 +62,20 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyAccountNotExists
         );
 
+        // Ensure stake_to_be_added is at least DefaultMinStake
+        ensure!(
+            stake_to_be_added >= DefaultMinStake::<T>::get(),
+            Error::<T>::AmountTooLow
+        );
+
         // 5. Ensure the remove operation from the coldkey is a success.
         let tao_staked: u64 =
             Self::remove_balance_from_coldkey_account(&coldkey, stake_to_be_added)?;
 
         // 6. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
-        Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked);
+        let fee = DefaultMinStake::<T>::get();
+        Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked, fee);
 
         // Ok and return.
         Ok(())
