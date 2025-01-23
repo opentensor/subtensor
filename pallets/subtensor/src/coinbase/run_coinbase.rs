@@ -356,11 +356,11 @@ impl<T: Config> Pallet<T> {
         }
 
         // Initialize maps for dividend calculations.
-        let mut root_divs: BTreeMap<T::AccountId, u64> = BTreeMap::new();
+        let mut root_alpha_divs: BTreeMap<T::AccountId, u64> = BTreeMap::new();
         let mut alpha_divs: BTreeMap<T::AccountId, u64> = BTreeMap::new();
-        let mut validator_takes: BTreeMap<T::AccountId, u64> = BTreeMap::new();
-
-        // 2.2 --- Calculate the validator_take, alpha_divs, and root_divs using above dividend tuples.
+        let mut validator_alpha_takes: BTreeMap<T::AccountId, u64> = BTreeMap::new();
+        let mut validator_root_alpha_takes: BTreeMap<T::AccountId, u64> = BTreeMap::new();
+        // 2.2 --- Calculate the validator_take, alpha_divs, and root_alpha_divs using above dividend tuples.
         for (hotkey, dividend_tuples) in dividends_to_distribute.iter() {
             // Calculate the proportion of root vs alpha divs for each hotkey using their stake.
             for (hotkey_j, divs_j) in dividend_tuples.iter() {
@@ -394,52 +394,67 @@ impl<T: Config> Pallet<T> {
                     root_prop
                 );
 
-                // 2.3.1 --- Remove the hotkey take from both alpha and root divs.
+                let divs_j: I96F32 = I96F32::from_num(*divs_j);
+                // 2.3.1 --- Compute root dividends
+                let root_alpha_divs_j: I96F32 = divs_j.saturating_mul(root_prop);
+                // 2.3.2 --- Compute alpha dividends
+                let alpha_divs_j: I96F32 = divs_j.saturating_sub(root_alpha_divs_j);
+                log::debug!(
+                    "Alpha dividends: {:?}, Root alpha-dividends: {:?}",
+                    alpha_divs_j,
+                    root_alpha_divs_j
+                );
+
+                // 2.4.1 --- Remove the hotkey take from both alpha and root divs.
                 let take_prop: I96F32 = I96F32::from_num(Self::get_hotkey_take(hotkey_j))
                     .checked_div(I96F32::from_num(u16::MAX))
                     .unwrap_or(I96F32::from_num(0.0));
-                let validator_take: I96F32 = take_prop.saturating_mul(I96F32::from_num(*divs_j));
-                let rem_divs_j: I96F32 = I96F32::from_num(*divs_j).saturating_sub(validator_take);
+
+                let validator_alpha_take: I96F32 = take_prop.saturating_mul(alpha_divs_j);
+                let validator_root_alpha_take: I96F32 = take_prop.saturating_mul(root_alpha_divs_j);
+
+                let rem_alpha_divs_j: I96F32 = alpha_divs_j.saturating_sub(validator_alpha_take);
+                let rem_root_alpha_divs_j: I96F32 =
+                    root_alpha_divs_j.saturating_sub(validator_root_alpha_take);
                 log::debug!(
-                    "Validator take for hotkey {:?}: {:?}, remaining dividends: {:?}",
+                    "Validator take for hotkey {:?}: alpha take: {:?}, remaining alpha: {:?}, root-alpha take: {:?}, remaining root-alpha: {:?}",
                     hotkey_j,
-                    validator_take,
-                    rem_divs_j
+                    validator_alpha_take,
+                    rem_alpha_divs_j,
+                    validator_root_alpha_take,
+                    rem_root_alpha_divs_j
                 );
 
-                // 2.3.2 --- Store the validator take.
-                validator_takes
+                // 2.4.2 --- Store the validator takes.
+                validator_alpha_takes
                     .entry(hotkey_j.clone())
-                    .and_modify(|e| *e = e.saturating_add(validator_take.to_num::<u64>()))
-                    .or_insert(validator_take.to_num::<u64>());
+                    .and_modify(|e| *e = e.saturating_add(validator_alpha_take.to_num::<u64>()))
+                    .or_insert(validator_alpha_take.to_num::<u64>());
+                validator_root_alpha_takes
+                    .entry(hotkey_j.clone())
+                    .and_modify(|e| {
+                        *e = e.saturating_add(validator_root_alpha_take.to_num::<u64>())
+                    })
+                    .or_insert(validator_root_alpha_take.to_num::<u64>());
                 log::debug!(
-                    "Stored validator take for hotkey {:?}: {:?}",
+                    "Stored validator take for hotkey {:?}: alpha take: {:?}, root-alpha take: {:?}",
                     hotkey_j,
-                    validator_take.to_num::<u64>()
+                    validator_alpha_take.to_num::<u64>(),
+                    validator_root_alpha_take.to_num::<u64>()
                 );
 
-                // 2.4.1 --- Compute root dividends
-                let root_divs_j: I96F32 = rem_divs_j.saturating_mul(root_prop);
-                // 2.4.2 --- Compute alpha dividends
-                let alpha_divs_j: I96F32 = rem_divs_j.saturating_sub(root_divs_j);
-                log::debug!(
-                    "Alpha dividends: {:?}, root dividends: {:?}",
-                    alpha_divs_j,
-                    root_divs_j
-                );
-
-                // 2.4.3 --- Store the root divs under hotkey_j
-                root_divs
+                // 2.5.1 --- Store the root divs under hotkey_j
+                root_alpha_divs
                     .entry(hotkey_j.clone())
-                    .and_modify(|e| *e = e.saturating_add(root_divs_j.to_num::<u64>()))
-                    .or_insert(root_divs_j.to_num::<u64>());
+                    .and_modify(|e| *e = e.saturating_add(root_alpha_divs_j.to_num::<u64>()))
+                    .or_insert(root_alpha_divs_j.to_num::<u64>());
                 log::debug!(
                     "Stored root alpha dividends for hotkey {:?}: {:?}",
                     hotkey_j,
-                    root_divs_j.to_num::<u64>()
+                    root_alpha_divs_j.to_num::<u64>()
                 );
 
-                // 2.4.4 --- Store the alpha dividends
+                // 2.5.2 --- Store the alpha dividends
                 alpha_divs
                     .entry(hotkey_j.clone())
                     .and_modify(|e| *e = e.saturating_add(alpha_divs_j.to_num::<u64>()))
@@ -452,7 +467,10 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        let total_root_divs: u64 = root_divs.values().sum();
+        let total_root_alpha_divs: u64 = root_alpha_divs
+            .values()
+            .sum()
+            .saturating_add(validator_root_alpha_takes.values().sum());
 
         // === 3. Distribute the dividends to the hotkeys.
 
@@ -488,9 +506,9 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        // 3.3 --- Distribute validator take
-        for (validator_j, validator_take) in validator_takes {
-            // 3.3.1 --- Distribute validator take to the validator.
+        // 3.3.1 --- Distribute validator alpha takes
+        for (validator_j, validator_take) in validator_alpha_takes {
+            // 3.3.1a --- Distribute validator take to the validator.
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &validator_j.clone(),
                 &Owner::<T>::get(validator_j.clone()),
@@ -504,7 +522,7 @@ impl<T: Config> Pallet<T> {
                 validator_take
             );
 
-            // 3.3.2 --- Record dividends for this validator on this subnet.
+            // 3.3.1b --- Record dividends for this validator on this subnet.
             AlphaDividendsPerSubnet::<T>::mutate(netuid, validator_j.clone(), |divs| {
                 *divs = divs.saturating_add(validator_take);
             });
@@ -513,6 +531,49 @@ impl<T: Config> Pallet<T> {
                 validator_j,
                 netuid,
                 validator_take
+            );
+        }
+
+        // 3.3.2 --- Distribute validator root-alpha takes
+        for (validator_j, validator_take) in validator_root_alpha_takes {
+            // 3.3.2a --- Calculate the proportion of root divs to pay out to this validator's take.
+            let proportion: I96F32 = I96F32::from_num(validator_take)
+                .checked_div(I96F32::from_num(total_root_alpha_divs))
+                .unwrap_or(I96F32::from_num(0));
+            // 3.3.2b --- Get the proportion of root divs from the pending root divs.
+            let take_as_root_divs: u64 = proportion
+                .saturating_mul(I96F32::from_num(pending_root_divs))
+                .to_num::<u64>();
+            log::debug!(
+                "Root div proportion for validator take {:?}: {:?}, take_as_root_divs: {:?}",
+                validator_take,
+                proportion,
+                take_as_root_divs
+            );
+
+            // 3.3.2c --- Distribute validator take to the validator.
+            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                &validator_j.clone(),
+                &Owner::<T>::get(validator_j.clone()),
+                Self::get_root_netuid(),
+                take_as_root_divs,
+            );
+            log::debug!(
+                "Distributed validator take for hotkey {:?} on root netuid {:?}: {:?}",
+                validator_j,
+                Self::get_root_netuid(),
+                take_as_root_divs
+            );
+
+            // 3.3.2d --- Record dividends for this validator on this subnet.
+            TaoDividendsPerSubnet::<T>::mutate(netuid, validator_j.clone(), |divs| {
+                *divs = divs.saturating_add(take_as_root_divs);
+            });
+            log::debug!(
+                "Recorded dividends for validator {:?} on netuid {:?}: {:?}",
+                validator_j,
+                netuid,
+                take_as_root_divs
             );
         }
 
@@ -541,10 +602,10 @@ impl<T: Config> Pallet<T> {
 
         // 3.5 --- Distribute root divs
         // For all the root-alpha divs give this proportion of the swapped tao to the root participants.
-        for (hotkey_j, root_divs_j) in root_divs.iter() {
+        for (hotkey_j, root_alpha_divs_j) in root_alpha_divs.iter() {
             // 3.5.1 --- Calculate the proportion of root divs to pay out to this hotkey.
-            let proportion: I96F32 = I96F32::from_num(*root_divs_j)
-                .checked_div(I96F32::from_num(total_root_divs))
+            let proportion: I96F32 = I96F32::from_num(*root_alpha_divs_j)
+                .checked_div(I96F32::from_num(total_root_alpha_divs))
                 .unwrap_or(I96F32::from_num(0));
             // 3.5.2 --- Get the proportion of root divs from the pending root divs.
             let root_divs_to_pay: u64 = proportion
