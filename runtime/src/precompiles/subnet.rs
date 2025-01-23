@@ -1,6 +1,7 @@
 use crate::precompiles::{dispatch, get_method_id, get_pubkey, get_slice};
 use crate::{Runtime, RuntimeCall};
 use pallet_evm::{ExitError, PrecompileFailure, PrecompileHandle, PrecompileResult};
+use sp_runtime::AccountId32;
 use sp_std::vec;
 
 pub const SUBNET_PRECOMPILE_INDEX: u64 = 2051;
@@ -42,7 +43,7 @@ impl SubnetPrecompile {
     fn register_network(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
         let call = match data.len() {
             32 => {
-                let (hotkey, _) = get_pubkey(data);
+                let (hotkey, _) = get_pubkey(data)?;
 
                 RuntimeCall::SubtensorModule(
                     pallet_subtensor::Call::<Runtime>::register_network_with_identity {
@@ -83,7 +84,7 @@ impl SubnetPrecompile {
 
     fn parse_register_network_parameters(
         data: &[u8],
-    ) -> Result<([u8; 32], vec::Vec<u8>, vec::Vec<u8>, vec::Vec<u8>), PrecompileFailure> {
+    ) -> Result<(AccountId32, vec::Vec<u8>, vec::Vec<u8>, vec::Vec<u8>), PrecompileFailure> {
         let (pubkey, _) = get_pubkey(data)?;
 
         let mut buf = [0_u8; 4];

@@ -233,9 +233,9 @@ fn dispatch(
     }
 }
 
-pub fn get_pubkey(data: &[u8]) -> Result<(AccountId32, Vec<u8>), PrecompileFailure> {
+pub fn get_pubkey(data: &[u8]) -> Result<(AccountId32, vec::Vec<u8>), PrecompileFailure> {
     let mut pubkey = [0u8; 32];
-    pubkey.copy_from_slice(data.get_slice(0, 32)?);
+    pubkey.copy_from_slice(get_slice(data, 0, 32)?);
 
     Ok((
         pubkey.into(),
