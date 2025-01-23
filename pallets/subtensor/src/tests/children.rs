@@ -3282,7 +3282,7 @@ fn test_childkey_multiple_parents_emission() {
         );
 
         let mut total_stake_on_subnet = 0;
-        let hks = vec![parent1, parent2, child, weight_setter];
+        let hks = [parent1, parent2, child, weight_setter];
         for (hk, net, alpha) in TotalHotkeyAlpha::<Test>::iter() {
             if hks.contains(&hk) && net == netuid {
                 total_stake_on_subnet += alpha;
