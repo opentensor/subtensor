@@ -25,11 +25,10 @@
 //   - Precompile checks the result of do_remove_stake and, in case of a failure, reverts the transaction.
 //
 
-use frame_support::dispatch::{GetDispatchInfo, Pays};
 use frame_system::RawOrigin;
 use pallet_evm::{
-    AddressMapping, BalanceConverter, ExitError, ExitSucceed, GasWeightMapping,
-    HashedAddressMapping, PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult,
+    AddressMapping, BalanceConverter, ExitError, ExitSucceed, HashedAddressMapping,
+    PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult,
 };
 use precompile_utils::prelude::RuntimeHelper;
 use sp_core::crypto::Ss58Codec;
