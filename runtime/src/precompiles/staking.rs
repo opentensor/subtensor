@@ -25,24 +25,24 @@
 //   - Precompile checks the result of do_remove_stake and, in case of a failure, reverts the transaction.
 //
 
+use frame_support::dispatch::{GetDispatchInfo, Pays};
 use frame_system::RawOrigin;
-use pallet_evm::{AddressMapping, BalanceConverter, HashedAddressMapping};
 use pallet_evm::{
-    ExitError, ExitSucceed, PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult,
+    AddressMapping, BalanceConverter, ExitError, ExitSucceed, GasWeightMapping,
+    HashedAddressMapping, PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult,
 };
+use precompile_utils::prelude::RuntimeHelper;
 use sp_core::crypto::Ss58Codec;
 use sp_core::U256;
-use sp_runtime::traits::Dispatchable;
-use sp_runtime::traits::{BlakeTwo256, StaticLookup, UniqueSaturatedInto};
+use sp_runtime::traits::{BlakeTwo256, Dispatchable, StaticLookup, UniqueSaturatedInto};
 use sp_runtime::AccountId32;
+use sp_std::vec;
 
 use crate::{
     precompiles::{get_method_id, get_slice},
-    ProxyType,
+    ProxyType, Runtime, RuntimeCall,
 };
-use sp_std::vec;
 
-use crate::{Runtime, RuntimeCall};
 pub const STAKING_PRECOMPILE_INDEX: u64 = 2049;
 
 pub struct StakingPrecompile;
@@ -209,24 +209,28 @@ impl StakingPrecompile {
             );
 
         // Transfer the amount back to the caller before executing the staking operation
-        // let caller = handle.context().caller;
         let amount = handle.context().apparent_value;
 
         if !amount.is_zero() {
             Self::transfer_back_to_caller(&account_id, amount)?;
         }
 
-        let result = call.dispatch(RawOrigin::Signed(account_id.clone()).into());
-        match &result {
-            Ok(post_info) => log::info!("Dispatch succeeded. Post info: {:?}", post_info),
-            Err(dispatch_error) => log::error!("Dispatch failed. Error: {:?}", dispatch_error),
-        }
-        match result {
-            Ok(_) => Ok(PrecompileOutput {
-                exit_status: ExitSucceed::Returned,
-                output: vec![],
-            }),
-            Err(_) => {
+        match RuntimeHelper::<Runtime>::try_dispatch(
+            handle,
+            RawOrigin::Signed(account_id.clone()).into(),
+            call,
+        ) {
+            Ok(post_info) => {
+                log::info!("Dispatch succeeded. Post info: {:?}", post_info);
+
+                Ok(PrecompileOutput {
+                    exit_status: ExitSucceed::Returned,
+                    output: vec![],
+                })
+            }
+
+            Err(dispatch_error) => {
+                log::error!("Dispatch failed. Error: {:?}", dispatch_error);
                 log::warn!("Returning error PrecompileFailure::Error");
                 Err(PrecompileFailure::Error {
                     exit_status: ExitError::Other("Subtensor call failed".into()),

@@ -180,9 +180,10 @@ fc-consensus = { git = "https://github.com/opentensor/frontier", rev = "635bdac8
 fp-consensus = { git = "https://github.com/opentensor/frontier", rev = "635bdac882", default-features = false }
 fp-dynamic-fee = { git = "https://github.com/opentensor/frontier", rev = "635bdac882", default-features = false }
 fc-api = { git = "https://github.com/opentensor/frontier", rev = "635bdac882", default-features = false }
-fc-rpc = { git = "https://github.com/opentensor/frontier", rev = "635bdac882", default-features = false }
+fc-rpc = { git = "https://github.com/opentensor/frontier", rev = "635bdac882", default-features = false, features = ["rpc-binary-search-estimate"]}
 fc-rpc-core = { git = "https://github.com/opentensor/frontier", rev = "635bdac882", default-features = false }
 fc-mapping-sync = { git = "https://github.com/opentensor/frontier", rev = "635bdac882", default-features = false }
+precompile-utils = { git = "https://github.com/opentensor/frontier", rev = "635bdac882", default-features = false }
 
 # Frontier FRAME
 pallet-base-fee = { git = "https://github.com/opentensor/frontier", rev = "635bdac882", default-features = false }
