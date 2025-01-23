@@ -3112,7 +3112,7 @@ fn test_childkey_multiple_parents_emission() {
         let subnet_owner_hotkey: U256 = U256::from(1002);
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         Tempo::<Test>::insert(netuid, 10); // run epoch every 10 blocks
-        // Set subnet owner cut to 0
+                                           // Set subnet owner cut to 0
         SubtensorModule::set_subnet_owner_cut(0);
 
         // Set registration parameters and emission tempo
@@ -3290,7 +3290,7 @@ fn test_childkey_multiple_parents_emission() {
                 log::info!("hk: {:?}, net: {:?}, alpha: {:?}", hk, net, alpha);
             }
         }
-        
+
         log::info!("total_stake_on_subnet: {:?}", total_stake_on_subnet);
 
         // Check that the total stake has increased by the emission amount
