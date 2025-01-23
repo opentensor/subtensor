@@ -69,6 +69,7 @@ fn test_set_rootweights_validate() {
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1); // Add the hotkey field
         assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
+        let fee = DefaultMinStake::<Test>::get();
 
         let who = coldkey; // The coldkey signs this transaction
 
@@ -112,7 +113,7 @@ fn test_set_rootweights_validate() {
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            min_stake
+            min_stake + fee
         ));
 
         // Verify stake is equal to minimum
@@ -183,6 +184,7 @@ fn test_commit_weights_validate() {
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1); // Add the hotkey field
         assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
+        let fee = DefaultMinStake::<Test>::get();
 
         let who = hotkey; // The hotkey signs this transaction
 
@@ -226,7 +228,7 @@ fn test_commit_weights_validate() {
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            min_stake
+            min_stake + fee
         ));
 
         // Verify stake is equal to minimum
@@ -292,6 +294,7 @@ fn test_set_weights_validate() {
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1);
         assert_ne!(hotkey, coldkey);
+        let fee = DefaultMinStake::<Test>::get();
 
         let who = hotkey; // The hotkey signs this transaction
 
@@ -333,7 +336,7 @@ fn test_set_weights_validate() {
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            min_stake
+            min_stake + fee
         ));
 
         // Verify stake is equal to minimum
@@ -364,6 +367,7 @@ fn test_reveal_weights_validate() {
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1); // Add the hotkey field
         assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
+        let fee = DefaultMinStake::<Test>::get();
 
         let who = hotkey; // The hotkey signs this transaction
 
@@ -406,7 +410,7 @@ fn test_reveal_weights_validate() {
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            min_stake
+            min_stake + fee
         ));
 
         // Verify stake is equal to minimum
