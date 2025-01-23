@@ -124,18 +124,6 @@ pub fn get_method_id(method_signature: &str) -> [u8; 4] {
     [hash[0], hash[1], hash[2], hash[3]]
 }
 
-/// Convert bytes to AccountId32 with PrecompileFailure as Error
-/// which consumes all gas
-///
-pub fn bytes_to_account_id(account_id_bytes: &[u8]) -> Result<AccountId32, PrecompileFailure> {
-    AccountId32::try_from(account_id_bytes).map_err(|_| {
-        log::info!("Error parsing account id bytes {:?}", account_id_bytes);
-        PrecompileFailure::Error {
-            exit_status: ExitError::InvalidRange,
-        }
-    })
-}
-
 /// Takes a slice from bytes with PrecompileFailure as Error
 ///
 pub fn get_slice(data: &[u8], from: usize, to: usize) -> Result<&[u8], PrecompileFailure> {

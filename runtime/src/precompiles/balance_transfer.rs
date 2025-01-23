@@ -9,7 +9,7 @@ use sp_std::vec;
 
 use crate::{Runtime, RuntimeCall};
 
-use crate::precompiles::{bytes_to_account_id, get_method_id, get_slice};
+use crate::precompiles::{get_method_id, get_pubkey, get_slice};
 
 pub const BALANCE_TRANSFER_INDEX: u64 = 2048;
 
@@ -47,8 +47,8 @@ impl BalanceTransferPrecompile {
                 0x62, 0x93, 0x70, 0x5d,
             ];
             let address_bytes_dst: &[u8] = get_slice(txdata, 4, 36)?;
-            let account_id_src = bytes_to_account_id(&ADDRESS_BYTES_SRC)?;
-            let account_id_dst = bytes_to_account_id(address_bytes_dst)?;
+            let (account_id_src, _) = get_pubkey(&ADDRESS_BYTES_SRC)?;
+            let (account_id_dst, _) = get_pubkey(address_bytes_dst)?;
 
             let call =
                 RuntimeCall::Balances(pallet_balances::Call::<Runtime>::transfer_allow_death {
