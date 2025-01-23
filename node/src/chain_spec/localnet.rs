@@ -77,7 +77,7 @@ fn localnet_genesis(
             get_account_id_from_seed::<sr25519::Public>("Ferdie"),
             2000000000000u128,
         ),
-		// ETH
+        // ETH
         (
             // Alith - 0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac
             AccountId::from_str("5Fghzk1AJt88PeFEzuRfXzbPchiBbsVGTTXcdx599VdZzkTA").unwrap(),
@@ -131,7 +131,7 @@ fn localnet_genesis(
         "senateMembers": {
             "members": senate_members,
         },
-		"evmChainId": {
+        "evmChainId": {
             "chainId": 42,
         },
     })
