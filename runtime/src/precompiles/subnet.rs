@@ -1,4 +1,4 @@
-use crate::precompiles::{dispatch, get_method_id, get_slice};
+use crate::precompiles::{dispatch, get_method_id, get_pubkey, get_slice};
 use crate::{Runtime, RuntimeCall};
 use pallet_evm::{ExitError, PrecompileFailure, PrecompileHandle, PrecompileResult};
 use sp_std::vec;
@@ -42,8 +42,7 @@ impl SubnetPrecompile {
     fn register_network(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
         let call = match data.len() {
             32 => {
-                let mut hotkey = [0u8; 32];
-                hotkey.copy_from_slice(get_slice(data, 0, 32)?);
+                let (hotkey, _) = get_pubkey(data);
 
                 RuntimeCall::SubtensorModule(
                     pallet_subtensor::Call::<Runtime>::register_network_with_identity {
@@ -85,11 +84,9 @@ impl SubnetPrecompile {
     fn parse_register_network_parameters(
         data: &[u8],
     ) -> Result<([u8; 32], vec::Vec<u8>, vec::Vec<u8>, vec::Vec<u8>), PrecompileFailure> {
-        let mut pubkey = [0u8; 32];
-        pubkey.copy_from_slice(get_slice(data, 0, 32)?);
+        let (pubkey, _) = get_pubkey(data)?;
 
         let mut buf = [0_u8; 4];
-
         // get all start point for three data items: name, repo and contact
         buf.copy_from_slice(get_slice(data, 60, 64)?);
         let subnet_name_start: usize = u32::from_be_bytes(buf) as usize;
