@@ -31,10 +31,9 @@ use pallet_evm::{
 };
 use sp_core::U256;
 use sp_runtime::traits::{StaticLookup, UniqueSaturatedInto};
-use sp_runtime::AccountId32;
 
 use crate::{
-    precompiles::{dispatch, get_method_id, get_slice},
+    precompiles::{dispatch, get_method_id, get_pubkey, get_slice},
     ProxyType,
 };
 use sp_std::vec;
@@ -71,7 +70,7 @@ impl StakingPrecompile {
     }
 
     fn add_stake(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
-        let hotkey = Self::parse_pub_key(data)?.into();
+        let (hotkey, _) = get_pubkey(data)?;
         let amount: U256 = handle.context().apparent_value;
         let netuid = Self::parse_netuid(data, 0x3E)?;
 
@@ -90,7 +89,7 @@ impl StakingPrecompile {
     }
 
     fn remove_stake(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
-        let hotkey = Self::parse_pub_key(data)?.into();
+        let (hotkey, _) = get_pubkey(data)?;
         let netuid = Self::parse_netuid(data, 0x5E)?;
 
         // We have to treat this as uint256 (because of Solidity ABI encoding rules, it pads uint64),
@@ -113,7 +112,7 @@ impl StakingPrecompile {
     }
 
     fn add_proxy(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
-        let delegate = AccountId32::from(Self::parse_pub_key(data)?);
+        let (delegate, _) = get_pubkey(data)?;
         let delegate = <Runtime as frame_system::Config>::Lookup::unlookup(delegate);
         let call = RuntimeCall::Proxy(pallet_proxy::Call::<Runtime>::add_proxy {
             delegate,
@@ -125,7 +124,7 @@ impl StakingPrecompile {
     }
 
     fn remove_proxy(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
-        let delegate = AccountId32::from(Self::parse_pub_key(data)?);
+        let (delegate, _) = get_pubkey(data)?;
         let delegate = <Runtime as frame_system::Config>::Lookup::unlookup(delegate);
         let call = RuntimeCall::Proxy(pallet_proxy::Call::<Runtime>::remove_proxy {
             delegate,
@@ -137,7 +136,8 @@ impl StakingPrecompile {
     }
 
     fn get_stake(data: &[u8]) -> PrecompileResult {
-        let (hotkey, coldkey) = Self::parse_hotkey_coldkey(data)?;
+        let (hotkey, left_data) = get_pubkey(data)?;
+        let (coldkey, _) = get_pubkey(&left_data)?;
         let netuid = Self::parse_netuid(data, 0x5E)?;
 
         let stake = pallet_subtensor::Pallet::<Runtime>::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -160,30 +160,6 @@ impl StakingPrecompile {
             exit_status: ExitSucceed::Returned,
             output: result.into(),
         })
-    }
-
-    fn parse_hotkey_coldkey(data: &[u8]) -> Result<([u8; 32], [u8; 32]), PrecompileFailure> {
-        if data.len() < 64 {
-            return Err(PrecompileFailure::Error {
-                exit_status: ExitError::InvalidRange,
-            });
-        }
-        let mut hotkey = [0u8; 32];
-        hotkey.copy_from_slice(get_slice(data, 0, 32)?);
-        let mut coldkey = [0u8; 32];
-        coldkey.copy_from_slice(get_slice(data, 32, 64)?);
-        Ok((hotkey, coldkey))
-    }
-
-    fn parse_pub_key(data: &[u8]) -> Result<[u8; 32], PrecompileFailure> {
-        if data.len() < 32 {
-            return Err(PrecompileFailure::Error {
-                exit_status: ExitError::InvalidRange,
-            });
-        }
-        let mut pubkey = [0u8; 32];
-        pubkey.copy_from_slice(get_slice(data, 0, 32)?);
-        Ok(pubkey)
     }
 
     fn parse_netuid(data: &[u8], offset: usize) -> Result<u16, PrecompileFailure> {

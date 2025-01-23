@@ -1,6 +1,7 @@
 use pallet_evm::{ExitError, PrecompileFailure, PrecompileHandle, PrecompileResult};
 
-use crate::precompiles::{dispatch, get_method_id, get_slice};
+use crate::precompiles::{dispatch, get_method_id, get_pubkey, get_slice};
+use sp_runtime::AccountId32;
 use sp_std::vec;
 
 use crate::{Runtime, RuntimeCall};
@@ -35,12 +36,12 @@ impl NeuronPrecompile {
         let call =
             RuntimeCall::SubtensorModule(pallet_subtensor::Call::<Runtime>::burned_register {
                 netuid,
-                hotkey: hotkey.into(),
+                hotkey,
             });
         dispatch(handle, call, NEURON_CONTRACT_ADDRESS)
     }
 
-    fn parse_netuid_hotkey_parameter(data: &[u8]) -> Result<(u16, [u8; 32]), PrecompileFailure> {
+    fn parse_netuid_hotkey_parameter(data: &[u8]) -> Result<(u16, AccountId32), PrecompileFailure> {
         if data.len() < 64 {
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
@@ -50,9 +51,8 @@ impl NeuronPrecompile {
         netuid_vec.copy_from_slice(get_slice(data, 30, 32)?);
         let netuid = u16::from_be_bytes(netuid_vec);
 
-        let mut parameter = [0u8; 32];
-        parameter.copy_from_slice(get_slice(data, 32, 64)?);
+        let (hotkey, _) = get_pubkey(get_slice(data, 32, 64)?)?;
 
-        Ok((netuid, parameter))
+        Ok((netuid, hotkey))
     }
 }

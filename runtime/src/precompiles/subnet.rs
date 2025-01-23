@@ -47,13 +47,13 @@ impl SubnetPrecompile {
 
                 RuntimeCall::SubtensorModule(
                     pallet_subtensor::Call::<Runtime>::register_network_with_identity {
-                        hotkey: hotkey.into(),
+                        hotkey,
                         identity: None,
                     },
                 )
             }
             33.. => {
-                let (pubkey, subnet_name, github_repo, subnet_contact) =
+                let (hotkey, subnet_name, github_repo, subnet_contact) =
                     Self::parse_register_network_parameters(data)?;
 
                 let identity: pallet_subtensor::SubnetIdentityOf =
@@ -66,7 +66,7 @@ impl SubnetPrecompile {
                 // Create the register_network callcle
                 RuntimeCall::SubtensorModule(
                     pallet_subtensor::Call::<Runtime>::register_network_with_identity {
-                        hotkey: pubkey.into(),
+                        hotkey,
                         identity: Some(identity),
                     },
                 )
