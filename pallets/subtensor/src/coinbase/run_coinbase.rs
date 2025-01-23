@@ -469,8 +469,8 @@ impl<T: Config> Pallet<T> {
 
         let total_root_alpha_divs: u64 = root_alpha_divs
             .values()
-            .sum()
-            .saturating_add(validator_root_alpha_takes.values().sum());
+            .sum::<u64>()
+            .saturating_add(validator_root_alpha_takes.values().sum::<u64>());
 
         // === 3. Distribute the dividends to the hotkeys.
 
