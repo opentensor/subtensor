@@ -69,7 +69,7 @@ fn test_set_rootweights_validate() {
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1); // Add the hotkey field
         assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
-        let fee = DefaultMinStake::<Test>::get();
+        let fee = DefaultStakingFee::<Test>::get();
 
         let who = coldkey; // The coldkey signs this transaction
 
@@ -105,7 +105,9 @@ fn test_set_rootweights_validate() {
         assert_err!(
             // Should get an invalid transaction error
             result_no_stake,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(4))
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::StakeAmountTooLow.into()
+            ))
         );
 
         // Increase the stake to be equal to the minimum
@@ -184,7 +186,7 @@ fn test_commit_weights_validate() {
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1); // Add the hotkey field
         assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
-        let fee = DefaultMinStake::<Test>::get();
+        let fee = DefaultStakingFee::<Test>::get();
 
         let who = hotkey; // The hotkey signs this transaction
 
@@ -294,7 +296,7 @@ fn test_set_weights_validate() {
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1);
         assert_ne!(hotkey, coldkey);
-        let fee = DefaultMinStake::<Test>::get();
+        let fee = DefaultStakingFee::<Test>::get();
 
         let who = hotkey; // The hotkey signs this transaction
 
@@ -328,7 +330,9 @@ fn test_set_weights_validate() {
         // Should fail due to insufficient stake
         assert_err!(
             result_no_stake,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(3))
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::StakeAmountTooLow.into()
+            ))
         );
 
         // Increase the stake to be equal to the minimum
@@ -367,7 +371,7 @@ fn test_reveal_weights_validate() {
         let coldkey = U256::from(0);
         let hotkey: U256 = U256::from(1); // Add the hotkey field
         assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
-        let fee = DefaultMinStake::<Test>::get();
+        let fee = DefaultStakingFee::<Test>::get();
 
         let who = hotkey; // The hotkey signs this transaction
 
@@ -402,7 +406,9 @@ fn test_reveal_weights_validate() {
         assert_err!(
             // Should get an invalid transaction error
             result_no_stake,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(2))
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::StakeAmountTooLow.into()
+            ))
         );
 
         // Increase the stake to be equal to the minimum

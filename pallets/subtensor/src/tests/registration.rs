@@ -3,7 +3,7 @@
 use frame_support::traits::Currency;
 
 use super::mock::*;
-use crate::{AxonInfoOf, Error, SubtensorSignedExtension};
+use crate::{AxonInfoOf, CustomTransactionError, Error, SubtensorSignedExtension};
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
 use frame_support::sp_runtime::{transaction_validity::InvalidTransaction, DispatchError};
 use frame_support::{assert_err, assert_noop, assert_ok};
@@ -274,7 +274,10 @@ fn test_registration_rate_limit_exceeded() {
         let result = extension.validate(&who, &call.into(), &info, 10);
 
         // Expectation: The transaction should be rejected
-        assert_err!(result, InvalidTransaction::Custom(5));
+        assert_err!(
+            result,
+            InvalidTransaction::Custom(CustomTransactionError::RateLimitExceeded.into())
+        );
 
         let current_registrants = SubtensorModule::get_registrations_this_interval(netuid);
         assert!(current_registrants <= max_registrants);
@@ -356,7 +359,10 @@ fn test_burned_registration_rate_limit_exceeded() {
             extension.validate(&who, &call_burned_register.into(), &info, 10);
 
         // Expectation: The transaction should be rejected
-        assert_err!(burned_register_result, InvalidTransaction::Custom(5));
+        assert_err!(
+            burned_register_result,
+            InvalidTransaction::Custom(CustomTransactionError::RateLimitExceeded.into())
+        );
 
         let current_registrants = SubtensorModule::get_registrations_this_interval(netuid);
         assert!(current_registrants <= max_registrants);

@@ -1522,7 +1522,7 @@ fn test_set_alpha_disabled() {
             signer.clone(),
             hotkey,
             netuid,
-            DefaultMinStake::<Test>::get()
+            DefaultMinStake::<Test>::get() + DefaultStakingFee::<Test>::get()
         ));
         // Only owner can set alpha values
         assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey));
@@ -2618,7 +2618,7 @@ fn test_get_set_alpha() {
             signer.clone(),
             hotkey,
             netuid,
-            DefaultMinStake::<Test>::get()
+            DefaultMinStake::<Test>::get() + DefaultStakingFee::<Test>::get()
         ));
 
         assert_ok!(SubtensorModule::do_set_alpha_values(
