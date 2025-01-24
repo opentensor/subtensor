@@ -473,7 +473,7 @@ fn test_senate_leave_vote_removal() {
         // Add two networks.
         let root_netuid: u16 = 0;
         let other_netuid: u16 = 5;
-        add_network(other_netuid, 0, 0);
+        add_network(other_netuid, 1, 0);
         SubtensorModule::set_burn(other_netuid, 0);
         SubtensorModule::set_max_registrations_per_block(other_netuid, 1000);
         SubtensorModule::set_target_registrations_per_interval(other_netuid, 1000);

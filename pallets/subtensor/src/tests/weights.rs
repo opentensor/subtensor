@@ -82,7 +82,7 @@ fn test_set_rootweights_validate() {
         });
 
         // Create netuid
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         // Register the hotkey
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
@@ -197,7 +197,7 @@ fn test_commit_weights_validate() {
         });
 
         // Create netuid
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         // Register the hotkey
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
@@ -306,7 +306,7 @@ fn test_set_weights_validate() {
         });
 
         // Create netuid
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         // Register the hotkey
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
@@ -380,7 +380,7 @@ fn test_reveal_weights_validate() {
         });
 
         // Create netuid
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         // Register the hotkey
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
@@ -521,7 +521,7 @@ fn test_set_stake_threshold_failed() {
         let hotkey = U256::from(0);
         let coldkey = U256::from(0);
 
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 2143124);
         SubtensorModule::set_stake_threshold(20_000_000_000_000);
         SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
@@ -583,8 +583,8 @@ fn test_weights_version_key() {
         let netuid0: u16 = 1;
         let netuid1: u16 = 2;
 
-        add_network(netuid0, 0, 0);
-        add_network(netuid1, 0, 0);
+        add_network(netuid0, 1, 0);
+        add_network(netuid1, 1, 0);
         register_ok_neuron(netuid0, hotkey, coldkey, 2143124);
         register_ok_neuron(netuid1, hotkey, coldkey, 3124124);
 
@@ -1421,7 +1421,7 @@ fn test_check_len_uids_within_allowed_not_within_network_pool() {
 fn test_set_weights_commit_reveal_enabled_error() {
     new_test_ext(0).execute_with(|| {
         let netuid: u16 = 1;
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, U256::from(1), U256::from(2), 10);
 
         let uids = vec![0];
