@@ -5,10 +5,10 @@ use crate::precompiles::{dispatch, get_method_id, get_slice};
 use sp_std::{vec, vec::Vec};
 
 use crate::{Runtime, RuntimeCall};
-pub const NEURON_PRECOMPILE_INDEX: u64 = 2053;
+pub const NEURON_PRECOMPILE_INDEX: u64 = 2052;
 
-// this is subnets smart contract's(0x0000000000000000000000000000000000000805) sr25519 address
-pub const NEURON_CONTRACT_ADDRESS: &str = "5Ha1yegRNUqRYrE9myDohjtkozYniugt7K46AN7ywDSW5MXz";
+// this is subnets smart contract's(0x0000000000000000000000000000000000000802) sr25519 address
+pub const NEURON_CONTRACT_ADDRESS: &str = "5GKZiUUgTnWSz3BgiVBMehEKkLszsG4ZXnvgWpWFUFKqrqyn";
 
 pub struct NeuronPrecompile;
 
