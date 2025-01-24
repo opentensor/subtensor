@@ -222,10 +222,10 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_remove_stake_limit(
-        origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
+        _origin: T::RuntimeOrigin,
+        _hotkey: T::AccountId,
         netuid: u16,
-        stake_to_be_added: u64,
+        _stake_to_be_added: u64,
         limit_price: u64,
     ) -> dispatch::DispatchResult {
         // TODO: Do all checks

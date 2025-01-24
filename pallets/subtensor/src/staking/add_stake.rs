@@ -105,17 +105,33 @@ impl<T: Config> Pallet<T> {
         stake_to_be_added: u64,
         limit_price: u64,
     ) -> dispatch::DispatchResult {
-        // TODO: Do all checks
+        // 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
+        let coldkey = ensure_signed(origin)?;
+        log::debug!(
+            "do_add_stake( origin:{:?} hotkey:{:?}, netuid:{:?}, stake_to_be_added:{:?} )",
+            coldkey,
+            hotkey,
+            netuid,
+            stake_to_be_added
+        );
 
-        // Calcaulate the maximum amount that can be executed with price limit
+        // 2. Validate user input
+        Self::validate_add_stake(&coldkey, &hotkey, netuid, stake_to_be_added)?;
+
+        // 3. Calcaulate the maximum amount that can be executed with price limit
         let max_amount = Self::get_max_amount_add(netuid, limit_price);
         let mut possible_stake = stake_to_be_added;
         if possible_stake > max_amount {
             possible_stake = max_amount;
         }
 
-        // Perform staking
-        // TODO
+        // 4. Ensure the remove operation from the coldkey is a success.
+        let tao_staked: u64 = Self::remove_balance_from_coldkey_account(&coldkey, possible_stake)?;
+
+        // 5. Swap the stake into alpha on the subnet and increase counters.
+        // Emit the staking event.
+        let fee = DefaultStakingFee::<T>::get();
+        Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked, fee);
 
         // Ok and return.
         Ok(())
@@ -149,9 +165,9 @@ impl<T: Config> Pallet<T> {
         let tao_reserve_float: U96F32 = U96F32::from_num(tao_reserve);
 
         // Corner case: limit_price < current_price (price cannot decrease with staking)
-        let limit_price_float: U96F32 = U96F32::from_num(limit_price).checked_div(
-            U96F32::from_num(1_000_000_000)
-        ).unwrap_or(U96F32::from_num(0));
+        let limit_price_float: U96F32 = U96F32::from_num(limit_price)
+            .checked_div(U96F32::from_num(1_000_000_000))
+            .unwrap_or(U96F32::from_num(0));
         if limit_price_float < Self::get_alpha_price(netuid) {
             return 0;
         }
@@ -162,15 +178,14 @@ impl<T: Config> Pallet<T> {
         let zero: U96F32 = U96F32::from_num(0.0);
         let sqrt: U96F32 = checked_sqrt(
             limit_price_float
-                .saturating_mul(
-                    tao_reserve_float
-                )
-                .saturating_mul(
-                    alpha_in_float
-                ),
-            U96F32::from_num(0.1)
-        ).unwrap_or(zero);
+                .saturating_mul(tao_reserve_float)
+                .saturating_mul(alpha_in_float),
+            U96F32::from_num(0.1),
+        )
+        .unwrap_or(zero);
 
-        U96F32::from_num(sqrt).saturating_sub(U96F32::from_num(tao_reserve_float)).to_num::<u64>()
+        U96F32::from_num(sqrt)
+            .saturating_sub(U96F32::from_num(tao_reserve_float))
+            .to_num::<u64>()
     }
 }

@@ -1,10 +1,8 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::arithmetic_side_effects)]
 
-use coinbase::block_step;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
 use frame_system::RawOrigin;
-use sp_runtime::print;
 
 use super::mock::*;
 use crate::*;
@@ -12,7 +10,7 @@ use approx::assert_abs_diff_eq;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
 use frame_support::sp_runtime::DispatchError;
 use sp_core::{Get, H256, U256};
-use substrate_fixed::types::{U96F32, U32F32};
+use substrate_fixed::types::U96F32;
 
 /***********************************************************
     staking::add_stake() tests
@@ -2136,7 +2134,6 @@ fn test_stake_below_min_validate() {
     });
 }
 
-
 #[test]
 fn test_stake_overflow() {
     new_test_ext(0).execute_with(|| {
@@ -2150,10 +2147,10 @@ fn test_stake_overflow() {
         SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
         SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
 
-        println!("Price = {:?}", SubtensorModule::get_alpha_price(netuid));
-        println!("SubnetAlphaIn = {:?}", SubnetAlphaIn::<Test>::get(netuid));
-        println!("SubnetTAO = {:?}", SubnetTAO::<Test>::get(netuid));
-        
+        // println!("Price = {:?}", SubtensorModule::get_alpha_price(netuid));
+        // println!("SubnetAlphaIn = {:?}", SubnetAlphaIn::<Test>::get(netuid));
+        // println!("SubnetTAO = {:?}", SubnetTAO::<Test>::get(netuid));
+
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&subnet_owner_coldkey, amount);
 
@@ -2165,16 +2162,13 @@ fn test_stake_overflow() {
             amount
         ));
 
-        println!("Price = {:?}", SubtensorModule::get_alpha_price(netuid));
-        println!("SubnetAlphaIn = {:?}", SubnetAlphaIn::<Test>::get(netuid));
-        println!("SubnetTAO = {:?}", SubnetTAO::<Test>::get(netuid));
+        // println!("Price = {:?}", SubtensorModule::get_alpha_price(netuid));
+        // println!("SubnetAlphaIn = {:?}", SubnetAlphaIn::<Test>::get(netuid));
+        // println!("SubnetTAO = {:?}", SubnetTAO::<Test>::get(netuid));
 
-        // Let it live for a few epochs
+        // Let it live for a few epochs to make sure there are no panics
         Tempo::<Test>::insert(netuid, 10);
         step_epochs(100, netuid);
-
-        println!("Price after = {:?}", SubtensorModule::get_alpha_price(netuid));
-
     });
 }
 
@@ -2188,13 +2182,22 @@ fn test_max_amount_add_root() {
         assert_eq!(SubtensorModule::get_max_amount_add(0, 999_999_999), 0);
 
         // 1.0 price on root => max is u64::MAX
-        assert_eq!(SubtensorModule::get_max_amount_add(0, 1_000_000_000), u64::MAX);
+        assert_eq!(
+            SubtensorModule::get_max_amount_add(0, 1_000_000_000),
+            u64::MAX
+        );
 
         // 1.000...001 price on root => max is u64::MAX
-        assert_eq!(SubtensorModule::get_max_amount_add(0, 1_000_000_001), u64::MAX);
+        assert_eq!(
+            SubtensorModule::get_max_amount_add(0, 1_000_000_001),
+            u64::MAX
+        );
 
         // 2.0 price on root => max is u64::MAX
-        assert_eq!(SubtensorModule::get_max_amount_add(0, 2_000_000_000), u64::MAX);
+        assert_eq!(
+            SubtensorModule::get_max_amount_add(0, 2_000_000_000),
+            u64::MAX
+        );
     });
 }
 
@@ -2211,13 +2214,22 @@ fn test_max_amount_add_stable() {
         assert_eq!(SubtensorModule::get_max_amount_add(netuid, 999_999_999), 0);
 
         // 1.0 price => max is u64::MAX
-        assert_eq!(SubtensorModule::get_max_amount_add(netuid, 1_000_000_000), u64::MAX);
+        assert_eq!(
+            SubtensorModule::get_max_amount_add(netuid, 1_000_000_000),
+            u64::MAX
+        );
 
         // 1.000...001 price => max is u64::MAX
-        assert_eq!(SubtensorModule::get_max_amount_add(netuid, 1_000_000_001), u64::MAX);
+        assert_eq!(
+            SubtensorModule::get_max_amount_add(netuid, 1_000_000_001),
+            u64::MAX
+        );
 
         // 2.0 price => max is u64::MAX
-        assert_eq!(SubtensorModule::get_max_amount_add(netuid, 2_000_000_000), u64::MAX);
+        assert_eq!(
+            SubtensorModule::get_max_amount_add(netuid, 2_000_000_000),
+            u64::MAX
+        );
     });
 }
 
@@ -2240,16 +2252,28 @@ fn test_max_amount_add_dynamic() {
         assert_eq!(SubtensorModule::get_max_amount_add(netuid, 0), 0);
 
         // 1.499999... price => max is 0
-        assert_eq!(SubtensorModule::get_max_amount_add(netuid, 1_499_999_999), 0);
+        assert_eq!(
+            SubtensorModule::get_max_amount_add(netuid, 1_499_999_999),
+            0
+        );
 
         // 1.5 price => max is 0 because of non-zero slippage
-        assert_eq!(SubtensorModule::get_max_amount_add(netuid, 1_500_000_000), 0);
+        assert_eq!(
+            SubtensorModule::get_max_amount_add(netuid, 1_500_000_000),
+            0
+        );
 
         // 4x price => max is 1x TAO
-        assert_eq!(SubtensorModule::get_max_amount_add(netuid, 6_000_000_000), 150_000_000_000);
+        assert_eq!(
+            SubtensorModule::get_max_amount_add(netuid, 6_000_000_000),
+            150_000_000_000
+        );
 
         // 1.50000....1 price => max is 46 rao
-        assert_eq!(SubtensorModule::get_max_amount_add(netuid, 1_500_000_001), 46);
+        assert_eq!(
+            SubtensorModule::get_max_amount_add(netuid, 1_500_000_001),
+            46
+        );
 
         // Max price doesn't panic and returns something meaningful
         assert!(SubtensorModule::get_max_amount_add(netuid, u64::MAX) < 21_000_000_000_000_000);
