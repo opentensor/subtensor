@@ -64,7 +64,7 @@ impl<T: Config> Pallet<T> {
         Consensus::<T>::mutate(netuid, |v| v.push(0));
         Incentive::<T>::mutate(netuid, |v| v.push(0));
         Dividends::<T>::mutate(netuid, |v| v.push(0));
-        LastUpdate::<T>::mutate(netuid, |v| v.push(block_number));
+        LastUpdate::<T>::mutate(netuid, |v| v.push(0));
         PruningScores::<T>::mutate(netuid, |v| v.push(0));
         ValidatorTrust::<T>::mutate(netuid, |v| v.push(0));
         ValidatorPermit::<T>::mutate(netuid, |v| v.push(false));
