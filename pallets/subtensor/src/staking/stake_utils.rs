@@ -606,6 +606,7 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         netuid: u16,
         alpha: u64,
+        fee: u64,
     ) -> u64 {
         // Step 1: Swap the alpha for TAO.
         let tao: u64 = Self::swap_alpha_for_tao(netuid, alpha);
@@ -621,11 +622,21 @@ impl<T: Config> Pallet<T> {
         //     });
         // }
 
-        // Step 4. Deposit and log the unstaking event.
+        // Step 4. Reduce tao amount by staking fee and credit this fee to SubnetTAO
+        let tao_unstaked = tao.saturating_sub(fee);
+        let actual_fee = tao.saturating_sub(tao_unstaked);
+        SubnetTAO::<T>::mutate(netuid, |total| {
+            *total = total.saturating_add(actual_fee);
+        });
+        TotalStake::<T>::mutate(|total| {
+            *total = total.saturating_add(actual_fee);
+        });
+
+        // Step 5. Deposit and log the unstaking event.
         Self::deposit_event(Event::StakeRemoved(
             coldkey.clone(),
             hotkey.clone(),
-            tao,
+            tao_unstaked,
             alpha,
             netuid,
         ));
@@ -633,13 +644,13 @@ impl<T: Config> Pallet<T> {
             "StakeRemoved( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?} )",
             coldkey.clone(),
             hotkey.clone(),
-            tao,
+            tao_unstaked,
             alpha,
             netuid
         );
 
-        // Step 5: Return the amount of TAO unstaked.
-        tao
+        // Step 6: Return the amount of TAO unstaked.
+        tao_unstaked
     }
 
     /// Stakes TAO into a subnet for a given hotkey and coldkey pair.
@@ -650,25 +661,41 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         netuid: u16,
         tao: u64,
+        fee: u64,
     ) -> u64 {
-        // Step 1. Swap the tao to alpha.
-        let alpha: u64 = Self::swap_tao_for_alpha(netuid, tao);
+        // Step 1. Reduce tao amount by staking fee and credit this fee to SubnetTAO
+        // At this point tao was already withdrawn from the user balance and is considered
+        // available
+        let tao_staked = tao.saturating_sub(fee);
+        let actual_fee = tao.saturating_sub(tao_staked);
 
-        // Step 2: Increase the alpha on the hotkey account.
-        Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
+        // Step 2. Swap the tao to alpha.
+        let alpha: u64 = Self::swap_tao_for_alpha(netuid, tao_staked);
+        if (tao_staked > 0) && (alpha > 0) {
+            // Step 3: Increase the alpha on the hotkey account.
+            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
 
-        // Step 4: Update the list of hotkeys staking for this coldkey
-        let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
-        if !staking_hotkeys.contains(hotkey) {
-            staking_hotkeys.push(hotkey.clone());
-            StakingHotkeys::<T>::insert(coldkey, staking_hotkeys.clone());
+            // Step 4: Update the list of hotkeys staking for this coldkey
+            let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
+            if !staking_hotkeys.contains(hotkey) {
+                staking_hotkeys.push(hotkey.clone());
+                StakingHotkeys::<T>::insert(coldkey, staking_hotkeys.clone());
+            }
         }
 
-        // Step 5. Deposit and log the staking event.
+        // Step 5. Increase Tao reserves by the fee amount.
+        SubnetTAO::<T>::mutate(netuid, |total| {
+            *total = total.saturating_add(actual_fee);
+        });
+        TotalStake::<T>::mutate(|total| {
+            *total = total.saturating_add(actual_fee);
+        });
+
+        // Step 6. Deposit and log the staking event.
         Self::deposit_event(Event::StakeAdded(
             coldkey.clone(),
             hotkey.clone(),
-            tao,
+            tao_staked,
             alpha,
             netuid,
         ));
@@ -676,12 +703,12 @@ impl<T: Config> Pallet<T> {
             "StakeAdded( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?} )",
             coldkey.clone(),
             hotkey.clone(),
-            tao,
+            tao_staked,
             alpha,
             netuid
         );
 
-        // Step 6: Return the amount of alpha staked
+        // Step 7: Return the amount of alpha staked
         alpha
     }
 

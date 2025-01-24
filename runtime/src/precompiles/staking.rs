@@ -25,20 +25,19 @@
 //   - Precompile checks the result of do_remove_stake and, in case of a failure, reverts the transaction.
 //
 
-use pallet_evm::BalanceConverter;
 use pallet_evm::{
-    ExitError, ExitSucceed, PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult,
+    BalanceConverter, ExitError, ExitSucceed, PrecompileFailure, PrecompileHandle,
+    PrecompileOutput, PrecompileResult,
 };
 use sp_core::U256;
 use sp_runtime::traits::{StaticLookup, UniqueSaturatedInto};
 
 use crate::{
     precompiles::{dispatch, get_method_id, get_pubkey, get_slice},
-    ProxyType,
+    ProxyType, Runtime, RuntimeCall,
 };
 use sp_std::vec;
 
-use crate::{Runtime, RuntimeCall};
 pub const STAKING_PRECOMPILE_INDEX: u64 = 2049;
 // this is staking smart contract's(0x0000000000000000000000000000000000000801) sr25519 address
 pub const STAKING_CONTRACT_ADDRESS: &str = "5CwnBK9Ack1mhznmCnwiibCNQc174pYQVktYW3ayRpLm4K2X";
