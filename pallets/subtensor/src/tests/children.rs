@@ -3104,7 +3104,7 @@ fn test_childkey_take_drain_validator_take() {
 // - Runs an epoch
 // - Checks the emission distribution among parents, child, and weight setter
 // - Verifies that all parties received emissions and the total stake increased correctly
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test coinbase test_childkey_multiple_parents_emission -- --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_childkey_multiple_parents_emission --exact --nocapture
 #[test]
 fn test_childkey_multiple_parents_emission() {
     new_test_ext(1).execute_with(|| {
@@ -3114,6 +3114,7 @@ fn test_childkey_multiple_parents_emission() {
         Tempo::<Test>::insert(netuid, 10); // run epoch every 10 blocks
                                            // Set subnet owner cut to 0
         SubtensorModule::set_subnet_owner_cut(0);
+        SubtensorModule::set_tao_weight(0); // No TAO weight
 
         // Set registration parameters and emission tempo
         SubtensorModule::set_max_registrations_per_block(netuid, 1000);
@@ -3188,7 +3189,7 @@ fn test_childkey_multiple_parents_emission() {
             values,
             version_key
         ));
-
+        log::info!("Running an epoch");
         // Wait until epoch
         let start_block = SubtensorModule::get_current_block_as_u64();
         loop {
@@ -3199,8 +3200,19 @@ fn test_childkey_multiple_parents_emission() {
             }
             step_block(1);
         }
-        let total_emission = SubtensorModule::get_block_emission().unwrap_or(0)
-            * (SubtensorModule::get_current_block_as_u64() - start_block + 1);
+        // We substract one because we are running it *after* the epoch, so we don't expect it to effect the emission.
+        let blocks_passed = SubtensorModule::get_current_block_as_u64() - start_block - 1;
+        log::info!("blocks_passed: {:?}", blocks_passed);
+        let alpha_block_emission: u64 = SubtensorModule::get_block_emission_for_issuance(
+            SubtensorModule::get_alpha_issuance(netuid),
+        )
+        .unwrap_or(0);
+        let (_, _, per_block_emission) = SubtensorModule::get_dynamic_tao_emission(
+            netuid,
+            SubtensorModule::get_block_emission().unwrap_or(0),
+            alpha_block_emission,
+        );
+        let total_emission = per_block_emission * blocks_passed;
 
         // Check emission distribution
         let stakes: Vec<(U256, U256, &str)> = vec![
@@ -3292,7 +3304,8 @@ fn test_childkey_multiple_parents_emission() {
         }
 
         log::info!("total_stake_on_subnet: {:?}", total_stake_on_subnet);
-
+        log::info!("total_stake: {:?}", TotalStake::<Test>::get());
+        log::info!("total_emission: {:?}", total_emission);
         // Check that the total stake has increased by the emission amount
         // Allow 1% slippage
         let total_stake = parent1_stake + parent2_stake + child_stake + weight_setter_stake;
@@ -3300,7 +3313,7 @@ fn test_childkey_multiple_parents_emission() {
         assert_abs_diff_eq!(
             total_stake,
             initial_total_stake + total_emission,
-            epsilon = total_emission / 100
+            epsilon = total_emission / 100,
         );
     });
 }
