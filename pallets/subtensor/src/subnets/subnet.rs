@@ -234,7 +234,7 @@ impl<T: Config> Pallet<T> {
         ); // Set subnet token symbol.
 
         // Put initial TAO from lock into subnet TAO and produce numerically equal amount of Alpha
-        // The initial TAO is the locked amount, with a minimum of 1 TAO and a cap of 100 TAO.
+        // The initial TAO is the locked amount, with a minimum of 1 RAO and a cap of 100 TAO.
         let pool_initial_tao = 100_000_000_000.min(actual_tao_lock_amount.max(1));
 
         let actual_tao_lock_amount_less_pool_tao =
