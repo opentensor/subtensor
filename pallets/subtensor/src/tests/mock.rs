@@ -601,6 +601,7 @@ pub(crate) fn step_epochs(count: u16, netuid: u16) {
             SubtensorModule::get_tempo(netuid),
             SubtensorModule::get_current_block_as_u64(),
         );
+        log::info!("Blocks to next epoch: {:?}", blocks_to_next_epoch);
         step_block(blocks_to_next_epoch as u16);
 
         assert!(SubtensorModule::should_run_epoch(
@@ -687,15 +688,27 @@ pub fn setup_neuron_with_stake(netuid: u16, hotkey: U256, coldkey: U256, stake: 
 }
 
 #[allow(dead_code)]
+pub fn wait_set_pending_children_cooldown(netuid: u16) {
+    let cooldown = DefaultPendingCooldown::<Test>::get();
+    step_block(cooldown as u16); // Wait for cooldown to pass
+    step_epochs(1, netuid); // Run next epoch
+}
+
+#[allow(dead_code)]
 pub fn wait_and_set_pending_children(netuid: u16) {
     let original_block = System::block_number();
-    System::set_block_number(System::block_number() + 7300);
+    wait_set_pending_children_cooldown(netuid);
     SubtensorModule::do_set_pending_children(netuid);
     System::set_block_number(original_block);
 }
 
 #[allow(dead_code)]
-pub fn mock_set_children(coldkey: &U256, parent: &U256, netuid: u16, child_vec: &[(u64, U256)]) {
+pub fn mock_schedule_children(
+    coldkey: &U256,
+    parent: &U256,
+    netuid: u16,
+    child_vec: &[(u64, U256)],
+) {
     // Set minimum stake for setting children
     StakeThreshold::<Test>::put(0);
 
@@ -706,6 +719,11 @@ pub fn mock_set_children(coldkey: &U256, parent: &U256, netuid: u16, child_vec: 
         netuid,
         child_vec.to_vec()
     ));
+}
+
+#[allow(dead_code)]
+pub fn mock_set_children(coldkey: &U256, parent: &U256, netuid: u16, child_vec: &[(u64, U256)]) {
+    mock_schedule_children(coldkey, parent, netuid, child_vec);
     wait_and_set_pending_children(netuid);
 }
 
