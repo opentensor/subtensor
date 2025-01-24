@@ -49,34 +49,16 @@ impl<T: Config> Pallet<T> {
             stake_to_be_added
         );
 
-        // 2. Ensure that the subnet exists.
-        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+        // 2. Validate user input
+        Self::validate_add_stake(&coldkey, &hotkey, netuid, stake_to_be_added)?;
 
-        // 3. Ensure the callers coldkey has enough stake to perform the transaction.
-        ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, stake_to_be_added),
-            Error::<T>::NotEnoughBalanceToStake
-        );
-
-        // 4. Ensure that the hotkey account exists this is only possible through registration.
-        ensure!(
-            Self::hotkey_account_exists(&hotkey),
-            Error::<T>::HotKeyAccountNotExists
-        );
-
-        // Ensure stake_to_be_added is at least DefaultMinStake
-        ensure!(
-            stake_to_be_added >= DefaultMinStake::<T>::get(),
-            Error::<T>::AmountTooLow
-        );
-
-        // 5. Ensure the remove operation from the coldkey is a success.
+        // 3. Ensure the remove operation from the coldkey is a success.
         let tao_staked: u64 =
             Self::remove_balance_from_coldkey_account(&coldkey, stake_to_be_added)?;
 
-        // 6. Swap the stake into alpha on the subnet and increase counters.
+        // 4. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
-        let fee = DefaultMinStake::<T>::get();
+        let fee = DefaultStakingFee::<T>::get();
         Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked, fee);
 
         // Ok and return.
