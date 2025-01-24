@@ -84,7 +84,7 @@ impl StakingPrecompile {
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::<Runtime>::add_stake {
             hotkey,
             netuid,
-            amount: amount_sub.unique_saturated_into(),
+            amount_staked: amount_sub.unique_saturated_into(),
         });
         // Dispatch the add_stake call
         Self::dispatch(handle, call)

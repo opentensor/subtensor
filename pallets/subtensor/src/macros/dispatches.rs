@@ -584,9 +584,9 @@ mod dispatches {
             origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: u16,
-            amount: u64,
+            amount_staked: u64,
         ) -> DispatchResult {
-            Self::do_add_stake(origin, hotkey, netuid, amount)
+            Self::do_add_stake(origin, hotkey, netuid, amount_staked)
         }
 
         /// Remove stake from the staking account. The call must be made

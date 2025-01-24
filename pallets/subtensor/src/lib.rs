@@ -1781,11 +1781,11 @@ where
             Some(Call::add_stake {
                 hotkey,
                 netuid,
-                amount,
+                amount_staked,
             }) => {
                 // Fully validate the user input
                 Self::result_to_validity(Pallet::<T>::validate_add_stake(
-                    who, hotkey, *netuid, *amount,
+                    who, hotkey, *netuid, *amount_staked,
                 ))
             }
             Some(Call::remove_stake {

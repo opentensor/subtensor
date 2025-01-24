@@ -19,12 +19,12 @@ use sp_core::{Get, H256, U256};
 fn test_add_stake_dispatch_info_ok() {
     new_test_ext(1).execute_with(|| {
         let hotkey = U256::from(0);
-        let amount = 5000;
+        let amount_staked = 5000;
         let netuid = 1;
         let call = RuntimeCall::SubtensorModule(SubtensorCall::add_stake {
             hotkey,
             netuid,
-            amount,
+            amount_staked,
         });
         assert_eq!(
             call.get_dispatch_info(),
@@ -2075,17 +2075,17 @@ fn test_stake_below_min_validate() {
         let subnet_owner_hotkey = U256::from(1002);
         let hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let amount = DefaultMinStake::<Test>::get() + DefaultStakingFee::<Test>::get() - 1;
+        let amount_staked = DefaultMinStake::<Test>::get() + DefaultStakingFee::<Test>::get() - 1;
 
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount_staked);
 
         // Add stake call
         let call = RuntimeCall::SubtensorModule(SubtensorCall::add_stake {
             hotkey,
             netuid,
-            amount,
+            amount_staked,
         });
 
         let info: crate::DispatchInfo =
@@ -2104,11 +2104,11 @@ fn test_stake_below_min_validate() {
         );
 
         // Increase the stake to be equal to the minimum, but leave the balance low
-        let amount = DefaultMinStake::<Test>::get() + DefaultStakingFee::<Test>::get();
+        let amount_staked = DefaultMinStake::<Test>::get() + DefaultStakingFee::<Test>::get();
         let call_2 = RuntimeCall::SubtensorModule(SubtensorCall::add_stake {
             hotkey,
             netuid,
-            amount,
+            amount_staked,
         });
 
         // Submit to the signed extension validate function
