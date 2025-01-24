@@ -1,9 +1,53 @@
 use super::*;
 use share_pool::{SharePool, SharePoolDataOperations};
 use sp_std::ops::Neg;
-use substrate_fixed::types::{I64F64, I96F32, U64F64};
+use substrate_fixed::types::{I64F64, I96F32, U64F64, FixedI128};
 
 impl<T: Config> Pallet<T> {
+
+
+    pub fn increase_root_claimable_for_hotkey_and_subnet( hotkey: &T::AccountId, netuid: u16, amount: u64 ) {
+        // Get total stake on this hotkey on root.
+        let total: FixedI128 = FixedI128::from_num( Self::get_stake_for_hotkey_on_subnet( hotkey, netuid ) );
+
+        // Get increment
+        let increment: FixedI128 = FixedI128::from_num( amount ).checked_div( total ).unwrap_or( FixedI128::from_num(0.0) );
+
+        // Convert owed to u64, mapping negative values to 0
+        let increment_u64: u64 = if increment.is_negative() { 0 } else { increment.to_num::<u64>() };
+
+        // Increment claimable for this subnet.
+        RootClaimable::<T>::mutate(netuid, |total| {
+            *total = total.saturating_add( increment_u64 );
+        });
+    }
+
+    pub fn root_claim( hotkey: &T::AccountId, coldkey: &T::AccountId, netuid ){
+        // Get this keys balance on root.
+        let balance: FixedI128 = FixedI128::from_num( Self::get_stake_for_hotkey_and_coldkey_on_subnet( hotkey, coldkey, Self::get_root_netuid() ) );
+
+        // Get the total claimable_rate for this hotkey and this network
+        let claimable_rate: FixedI128 = FixedI128::from_num( RootClaimable::<T>::get( hotkey, netuid ) );
+
+        // Compute the proportion owed to this coldkey via balance.
+        let claimable: claimable_rate.saturating_mul( balance );
+
+        // Attain the claimable debt to avoid overclaiming.
+        let debt: FixedI128 = FixedI128::from_num( RootDebt::<T>::get( (hotkey, coldkey, netuid) ) );
+
+        // Substract the debt.
+        let owed: FixedI128 = claimable - debt;
+
+        // Update your root debt so your rewards are drained.
+        RootDebt::<T>::insert( (hotkey, coldkey, netuid), claimable_rate );
+
+        // Convert owed to u64, mapping negative values to 0
+        let owed_u64: u64 = if owed.is_negative() { 0 } else { owed.to_num::<u64>() };
+
+        // Actually perform the stake operation on the new network.
+        Self::increase_stake_for_hotkey_and_coldkey_on_subnet( hotkey, coldkey, netuid, owed_u64 );
+    }
+
     /// Retrieves the total alpha issuance for a given subnet.
     ///
     /// This function calculates the total alpha issuance by summing the alpha

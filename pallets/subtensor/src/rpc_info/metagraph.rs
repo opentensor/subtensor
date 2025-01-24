@@ -37,7 +37,6 @@ pub struct Metagraph<T: Config> {
     alpha_in_emission: Compact<u64>,      // amount injected outstanding per block
     tao_in_emission: Compact<u64>,        // amount of tao injected per block
     pending_alpha_emission: Compact<u64>, // pending alpha to be distributed
-    pending_root_emission: Compact<u64>,  // panding tao for root divs to be distributed
 
     // Hparams for epoch
     rho: Compact<u16>,   // subnet rho param
@@ -100,7 +99,6 @@ pub struct Metagraph<T: Config> {
     total_stake: Vec<Compact<u64>>,           // Total stake per UID
 
     // Dividend break down.
-    tao_dividends_per_hotkey: Vec<(T::AccountId, Compact<u64>)>, // List of dividend payouts in tao via root.
     alpha_dividends_per_hotkey: Vec<(T::AccountId, Compact<u64>)>, // List of dividend payout in alpha via subnet.
 }
 
@@ -125,12 +123,9 @@ impl<T: Config> Pallet<T> {
             identities.push(Identities::<T>::get(coldkey.clone())?);
             axons.push(Self::get_axon_info(netuid, &hotkey));
         }
-        let mut tao_dividends_per_hotkey: Vec<(T::AccountId, Compact<u64>)> = vec![];
         let mut alpha_dividends_per_hotkey: Vec<(T::AccountId, Compact<u64>)> = vec![];
         for hotkey in hotkeys.clone() {
-            let tao_divs = TaoDividendsPerSubnet::<T>::get(netuid, hotkey.clone());
             let alpha_divs = AlphaDividendsPerSubnet::<T>::get(netuid, hotkey.clone());
-            tao_dividends_per_hotkey.push((hotkey.clone(), tao_divs.into()));
             alpha_dividends_per_hotkey.push((hotkey.clone(), alpha_divs.into()));
         }
         let current_block: u64 = Pallet::<T>::get_current_block_as_u64();
@@ -176,7 +171,6 @@ impl<T: Config> Pallet<T> {
             alpha_in_emission: SubnetAlphaInEmission::<T>::get(netuid).into(), // amount injected outstanding per block
             tao_in_emission: SubnetTaoInEmission::<T>::get(netuid).into(), // amount of tao injected per block
             pending_alpha_emission: PendingEmission::<T>::get(netuid).into(), // pending alpha to be distributed
-            pending_root_emission: PendingRootDivs::<T>::get(netuid).into(), // panding tao for root divs to be distributed
 
             // Hparams for epoch
             rho: Self::get_rho(netuid).into(), // subnet rho param
@@ -272,7 +266,6 @@ impl<T: Config> Pallet<T> {
                 .collect::<Vec<Compact<u64>>>(), // Total stake per UID
 
             // Dividend break down.
-            tao_dividends_per_hotkey,
             alpha_dividends_per_hotkey,
         })
     }

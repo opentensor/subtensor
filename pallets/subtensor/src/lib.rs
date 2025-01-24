@@ -86,6 +86,7 @@ pub mod pallet {
     use sp_std::vec;
     use sp_std::vec::Vec;
     use substrate_fixed::types::U64F64;
+    use substrate_fixed::types::FixedI128;
     use subtensor_macros::freeze_struct;
 
     #[cfg(not(feature = "std"))]
@@ -729,6 +730,11 @@ pub mod pallet {
     pub fn DefaultSharePoolZero<T: Config>() -> U64F64 {
         U64F64::from_num(0)
     }
+    #[pallet::type_value]
+    /// Default value for Share Pool variables
+    pub fn DefaultClaimableDebt<T: Config>() -> FixedI128 {
+        FixedI128::from_num(0)
+    }
 
     #[pallet::storage]
     pub type ColdkeySwapScheduleDuration<T: Config> =
@@ -835,17 +841,6 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroU64<T>,
     >;
-    #[pallet::storage] // --- DMAP ( netuid, hotkey ) --> u64 | Last total root dividend paid to this hotkey on this subnet.
-    pub type TaoDividendsPerSubnet<T: Config> = StorageDoubleMap<
-        _,
-        Identity,
-        u16,
-        Blake2_128Concat,
-        T::AccountId,
-        u64,
-        ValueQuery,
-        DefaultZeroU64<T>,
-    >;
 
     /// ==================
     /// ==== Coinbase ====
@@ -910,9 +905,6 @@ pub mod pallet {
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> tao_in_emission | Returns the amount of tao emitted into this subent on the last block.
     pub type SubnetTaoInEmission<T: Config> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> alpha_sell_per_block | Alpha sold per block.
-    pub type SubnetAlphaEmissionSell<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> total_stake_at_moment_of_subnet_registration
     pub type TotalStakeAtDynamic<T: Config> =
@@ -980,6 +972,30 @@ pub mod pallet {
         U64F64, // Shares
         ValueQuery,
     >;
+    #[pallet::storage] // --- DMAP ( hot, netuid ) --> claimable_dividends | Root claimable dividends.
+    pub type RootClaimable<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        u16,
+        u64,
+        ValueQuery,
+        DefaultZeroU64<T>,
+    >;
+    #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> claimable_debt | Returns a keys debt for claimable divs.
+    pub type RootDebt<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+            NMapKey<Identity, u16>,                  // subnet
+        ),
+        FixedI128, // Shares
+        ValueQuery,
+    >;
+
+
     #[pallet::storage] // --- MAP ( netuid ) --> token_symbol | Returns the token symbol for a subnet.
     pub type TokenSymbol<T: Config> =
         StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
@@ -1103,16 +1119,6 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> pending_emission
     pub type PendingEmission<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultPendingEmission<T>>;
-    #[pallet::storage]
-    /// --- MAP ( netuid ) --> pending_root_emission
-    pub type PendingRootDivs<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage]
-    /// --- MAP ( netuid ) --> pending_alpha_swapped
-    pub type PendingAlphaSwapped<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage]
-    /// --- MAP ( netuid ) --> pending_owner_cut
-    pub type PendingOwnerCut<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> blocks_since_last_step
     pub type BlocksSinceLastStep<T> =
