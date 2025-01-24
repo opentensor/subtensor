@@ -235,4 +235,25 @@ impl<T: Config> Pallet<T> {
         // 5. Done and ok.
         Ok(())
     }
+
+    pub fn do_remove_stake_limit(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+        netuid: u16,
+        stake_to_be_added: u64,
+        limit_price: u64,
+    ) -> dispatch::DispatchResult {
+        // TODO: Do all checks
+
+        // Calcaulate the maximum amount that can be executed with price limit
+        let _max_amount = Self::get_max_amount_remove(netuid, limit_price);
+
+        // Ok and return.
+        Ok(())
+    }
+
+    // Returns the maximum amount of RAO that can be executed with price limit
+    pub fn get_max_amount_remove(_netuid: u16, _limit_price: u64) -> u64 {
+        0
+    }
 }

@@ -8,7 +8,7 @@ use sp_std::cmp::Ordering;
 
 use sp_std::vec;
 use substrate_fixed::transcendental::{exp, ln};
-use substrate_fixed::types::{I32F32, I64F64};
+use substrate_fixed::types::{I32F32, I64F64, U96F32};
 
 // TODO: figure out what cfg gate this needs to not be a warning in rustc
 #[allow(unused)]
@@ -1410,4 +1410,52 @@ pub fn safe_ln(value: I32F32) -> I32F32 {
 /// Safe exp function, returns 0 if value is 0.
 pub fn safe_exp(value: I32F32) -> I32F32 {
     exp(value).unwrap_or(I32F32::from_num(0.0))
+}
+
+fn abs_diff(a: U96F32, b: U96F32) -> U96F32 {
+    if a < b {
+        b.saturating_sub(a)
+    } else {
+        a.saturating_sub(b)
+    }
+}
+
+/// Safe sqrt with good precision
+pub fn checked_sqrt(value: U96F32, epsilon: U96F32) -> Option<U96F32> {
+    let zero: U96F32 = U96F32::from_num(0);
+    let two: U96F32 = U96F32::from_num(2);
+
+    // print!("sqrt({:?}) = ...", value);
+
+    if value < zero {
+        return None;
+    }
+
+    let mut high: U96F32 = value;
+    let mut low: U96F32 = zero;
+    let mut middle: U96F32 = (high + low) / two;
+
+    let mut iteration = 0;
+    let max_iterations = 128;
+
+    // Iterative approximation using bisection
+    while abs_diff(value.checked_div(middle).unwrap_or(zero), middle) > epsilon {
+        // println!("abs diff = {:?}", abs_diff(value.checked_div(middle).unwrap_or(zero), middle));
+
+        if value.checked_div(middle).unwrap_or(zero) < middle {
+            high = middle;
+        } else {
+            low = middle;
+        }
+
+        middle = (high + low) / two;
+
+        iteration += 1;
+        if iteration > max_iterations {
+            break;
+        }
+    }
+
+    // println!("iterations = {:?}, result = {:?}", iteration, middle);
+    Some(middle)
 }
