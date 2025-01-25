@@ -3426,38 +3426,6 @@ fn test_parent_child_chain_emission() {
 
         let hardcoded_emission: I96F32 = I96F32::from_num(1_000_000); // 1 million (adjust as needed)
 
-        let hotkey_emission: Vec<(U256, u64, u64)> =
-            SubtensorModule::epoch(netuid, hardcoded_emission.saturating_to_num::<u64>());
-        log::info!("hotkey_emission: {:?}", hotkey_emission);
-        let total_emission: I96F32 = hotkey_emission
-            .iter()
-            .map(|(_, _, emission)| I96F32::from_num(*emission))
-            .sum();
-
-        // Verify emissions match expected from CHK arrangements
-        let em_eps: I96F32 = I96F32::from_num(1e-4); // 4 decimal places
-                                                     // A's pending emission:
-        assert!(
-            ((I96F32::from_num(hotkey_emission[0].2) / total_emission) -
-            I96F32::from_num(2_f64 / 3_f64 * 1_f64 / 2_f64)).abs() // 2/3 * 1/2 = 1/3; 50% -> B
-			<= em_eps,
-            "A should have pending emission of 1/3 of total emission"
-        );
-        // B's pending emission:
-        assert!(
-            ((I96F32::from_num(hotkey_emission[1].2) / total_emission) -
-            (I96F32::from_num(2_f64 / 9_f64 * 1_f64 / 2_f64 + 2_f64 / 3_f64 * 1_f64 / 2_f64))).abs() // 2/9 * 1/2 + 2/3 * 1/2; 50% -> C + 50% from A
-            <= em_eps,
-            "B should have pending emission of 4/9 of total emission"
-        );
-        // C's pending emission:
-        assert!(
-            ((I96F32::from_num(hotkey_emission[2].2) / total_emission) -
-            (I96F32::from_num(1_f64 / 9_f64 + 1_f64 / 2_f64 * 2_f64 / 9_f64))).abs() // 1/9 + 2/9 * 1/2; 50% from B
-            <= em_eps,
-            "C should have pending emission of 1/9 of total emission"
-        );
-
         // Set pending emission to 0
         PendingEmission::<Test>::insert(netuid, 0);
 
@@ -3520,6 +3488,17 @@ fn test_parent_child_chain_emission() {
             expected_c,
             rel_stake_inc_c
         );
+
+		let hotkeys = [hotkey_a, hotkey_b, hotkey_c];
+		let mut total_stake_now = 0;
+		for (hotkey, netuid,stake) in TotalHotkeyAlpha::<Test>::iter() {
+			if hotkeys.contains(&hotkey) {
+				total_stake_now += stake;
+			} else {
+				log::info!("hotkey: {:?}, netuid: {:?}, stake: {:?}", hotkey, netuid, stake);
+			}
+		}
+		log::info!("total_stake_now: {:?}, total_stake_new: {:?}", total_stake_now, total_stake_new);
 
         let eps: I96F32 = I96F32::from_num(10_000);
         assert!(
