@@ -122,7 +122,7 @@ impl<T: Config> Pallet<T> {
             hotkeys.push(hotkey.clone());
             coldkeys.push(coldkey.clone());
             block_at_registration.push(BlockAtRegistration::<T>::get(netuid, uid).into());
-            identities.push(Identities::<T>::get(coldkey.clone())?);
+            identities.push(Identities::<T>::get(coldkey.clone()).unwrap_or_default());
             axons.push(Self::get_axon_info(netuid, &hotkey));
         }
         let mut tao_dividends_per_hotkey: Vec<(T::AccountId, Compact<u64>)> = vec![];
