@@ -457,12 +457,12 @@ impl<T: Config> Pallet<T> {
                 // 2.5.2 --- Store the alpha dividends
                 alpha_divs
                     .entry(hotkey_j.clone())
-                    .and_modify(|e| *e = e.saturating_add(alpha_divs_j.to_num::<u64>()))
-                    .or_insert(alpha_divs_j.to_num::<u64>());
+                    .and_modify(|e| *e = e.saturating_add(rem_alpha_divs_j.to_num::<u64>()))
+                    .or_insert(rem_alpha_divs_j.to_num::<u64>());
                 log::debug!(
                     "Stored alpha dividends for hotkey {:?}: {:?}",
                     hotkey_j,
-                    alpha_divs_j.to_num::<u64>()
+                    rem_alpha_divs_j.to_num::<u64>()
                 );
             }
         }
