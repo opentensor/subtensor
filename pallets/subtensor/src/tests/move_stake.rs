@@ -1401,15 +1401,18 @@ fn test_do_swap_storage_updates() {
         );
 
         let alpha_fee =
-            SubtensorModule::get_alpha_price(destination_netuid) * I96F32::from_num(fee);
+            I96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
+        let expected_value = I96F32::from_num(alpha)
+            * SubtensorModule::get_alpha_price(origin_netuid)
+            / SubtensorModule::get_alpha_price(destination_netuid);
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey,
                 &coldkey,
                 destination_netuid
             ),
-            alpha - alpha_fee.to_num::<u64>(),
-            epsilon = 5
+            (expected_value - alpha_fee).to_num::<u64>(),
+            epsilon = (expected_value / 1000).to_num::<u64>()
         );
     });
 }
