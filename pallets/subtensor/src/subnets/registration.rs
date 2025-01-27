@@ -119,6 +119,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotEnoughBalanceToStake
         );
 
+        // If the network account does not exist we will create it here.
+        Self::create_account_if_non_existent(&coldkey, &hotkey);
+
         // --- 8. Ensure that the pairing is correct.
         ensure!(
             Self::coldkey_owns_hotkey(&coldkey, &hotkey),
@@ -138,9 +141,6 @@ impl<T: Config> Pallet<T> {
         // Tokens are swapped and then burned.
         let burned_alpha: u64 = Self::swap_tao_for_alpha(netuid, actual_burn_amount);
         SubnetAlphaOut::<T>::mutate(netuid, |total| *total = total.saturating_sub(burned_alpha));
-
-        // --- 11. If the network account does not exist we will create it here.
-        Self::create_account_if_non_existent(&coldkey, &hotkey);
 
         // Actually perform the registration.
         let neuron_uid: u16 = Self::register_neuron(netuid, &hotkey);
