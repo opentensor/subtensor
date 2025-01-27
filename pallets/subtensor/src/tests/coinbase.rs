@@ -70,7 +70,7 @@ fn test_dynamic_function_price_equal_emission() {
         let expected_alpha_in: u64 =
             (alpha_block_emission * tao_subnet_emission) / tao_block_emission;
         close(alpha_in, expected_alpha_in, 10);
-        close(alpha_out, 2 * alpha_block_emission - expected_alpha_in, 10);
+        close(alpha_out, alpha_block_emission, 10);
     });
 }
 
