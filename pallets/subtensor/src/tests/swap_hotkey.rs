@@ -1264,6 +1264,8 @@ fn test_swap_parent_hotkey_childkey_maps() {
 
         // Set child and verify state maps
         mock_set_children(&coldkey, &parent_old, netuid, &[(u64::MAX, child)]);
+        // Wait rate limit
+        step_rate_limit(&TransactionType::SetChildren, netuid);
         // Schedule some pending child keys.
         mock_schedule_children(&coldkey, &parent_old, netuid, &[(u64::MAX, child_other)]);
 
@@ -1317,6 +1319,8 @@ fn test_swap_child_hotkey_childkey_maps() {
 
         // Set child and verify state maps
         mock_set_children(&coldkey, &parent, netuid, &[(u64::MAX, child_old)]);
+        // Wait rate limit
+        step_rate_limit(&TransactionType::SetChildren, netuid);
         // Schedule some pending child keys.
         mock_schedule_children(&coldkey, &parent, netuid, &[(u64::MAX, child_old)]);
 
