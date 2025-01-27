@@ -446,12 +446,12 @@ impl<T: Config> Pallet<T> {
                 // 2.5.1 --- Store the root divs under hotkey_j
                 root_alpha_divs
                     .entry(hotkey_j.clone())
-                    .and_modify(|e| *e = e.saturating_add(root_alpha_divs_j.to_num::<u64>()))
-                    .or_insert(root_alpha_divs_j.to_num::<u64>());
+                    .and_modify(|e| *e = e.saturating_add(rem_root_alpha_divs_j.to_num::<u64>()))
+                    .or_insert(rem_root_alpha_divs_j.to_num::<u64>());
                 log::debug!(
                     "Stored root alpha dividends for hotkey {:?}: {:?}",
                     hotkey_j,
-                    root_alpha_divs_j.to_num::<u64>()
+                    rem_root_alpha_divs_j.to_num::<u64>()
                 );
 
                 // 2.5.2 --- Store the alpha dividends
