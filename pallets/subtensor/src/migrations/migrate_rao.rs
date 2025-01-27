@@ -98,8 +98,12 @@ pub fn migrate_rao<T: Config>() -> Weight {
             SubnetOwnerHotkey::<T>::insert(netuid, owner_coldkey.clone());
             // Associate the coldkey to coldkey.
             Pallet::<T>::create_account_if_non_existent(&owner_coldkey, &owner_coldkey);
-            // Register the owner_coldkey as neuron to the network.
-            let _neuron_uid: u16 = Pallet::<T>::register_neuron(*netuid, &owner_coldkey);
+
+            // Only register the owner coldkey if it's not already a hotkey on the subnet.
+            if !Uids::<T>::contains_key(*netuid, &owner_coldkey) {
+                // Register the owner_coldkey as neuron to the network.
+                let _neuron_uid: u16 = Pallet::<T>::register_neuron(*netuid, &owner_coldkey);
+            }
             // Register the neuron immediately.
             if !Identities::<T>::contains_key(owner_coldkey.clone()) {
                 // Set the identitiy for the Owner coldkey if non existent.

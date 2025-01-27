@@ -68,9 +68,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // Set Alpha in emission.
-        let alpha_out_emission = I96F32::saturating_from_num(2)
-            .saturating_mul(float_alpha_block_emission)
-            .saturating_sub(alpha_in_emission);
+        let alpha_out_emission = float_alpha_block_emission;
 
         // Log results.
         log::debug!("{:?} - tao_in_emission: {:?}", netuid, tao_in_emission);
