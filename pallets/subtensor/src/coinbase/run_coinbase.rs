@@ -1,6 +1,6 @@
 use super::*;
-use crate::epoch::math::*;
 use alloc::collections::BTreeMap;
+use safe_math::*;
 use substrate_fixed::types::I96F32;
 use tle::stream_ciphers::AESGCMStreamCipherProvider;
 use tle::tlock::tld;
@@ -118,7 +118,7 @@ impl<T: Config> Pallet<T> {
             let tao_in: u64 = mech_emission
                 .checked_mul(subnet_proportion)
                 .unwrap_or(I96F32::from_num(0))
-                .to_num::<u64>();
+                .saturating_to_num::<u64>();
             log::debug!(
                 "Subnet TAO emission (E_s) for netuid {:?}: {:?}",
                 netuid,
@@ -201,7 +201,7 @@ impl<T: Config> Pallet<T> {
             // Calculate the owner cut.
             let owner_cut: u64 = I96F32::from_num(alpha_out_emission)
                 .saturating_mul(Self::get_float_subnet_owner_cut())
-                .to_num::<u64>();
+                .saturating_to_num::<u64>();
             log::debug!("Owner cut for netuid {:?}: {:?}", netuid, owner_cut);
             // Store the owner cut for this subnet.
             *owner_cuts.entry(*netuid).or_insert(0) = owner_cut;
@@ -225,20 +225,25 @@ impl<T: Config> Pallet<T> {
             let pending_alpha_emission: I96F32 =
                 I96F32::from_num(remaining_emission).saturating_sub(root_emission_in_alpha);
             // Sell root emission through the pool.
-            let root_emission_in_tao: u64 =
-                Self::swap_alpha_for_tao(*netuid, root_emission_in_alpha.to_num::<u64>());
-            SubnetAlphaEmissionSell::<T>::insert(*netuid, root_emission_in_alpha.to_num::<u64>());
+            let root_emission_in_tao: u64 = Self::swap_alpha_for_tao(
+                *netuid,
+                root_emission_in_alpha.saturating_to_num::<u64>(),
+            );
+            SubnetAlphaEmissionSell::<T>::insert(
+                *netuid,
+                root_emission_in_alpha.saturating_to_num::<u64>(),
+            );
             // Accumulate root divs for subnet.
             PendingRootDivs::<T>::mutate(*netuid, |total| {
                 *total = total.saturating_add(root_emission_in_tao);
             });
             // Accumulate alpha that was swapped for the pending root divs.
             PendingAlphaSwapped::<T>::mutate(*netuid, |total| {
-                *total = total.saturating_add(root_emission_in_alpha.to_num::<u64>());
+                *total = total.saturating_add(root_emission_in_alpha.saturating_to_num::<u64>());
             });
             // Accumulate alpha emission in pending.
             PendingEmission::<T>::mutate(*netuid, |total| {
-                *total = total.saturating_add(pending_alpha_emission.to_num::<u64>());
+                *total = total.saturating_add(pending_alpha_emission.saturating_to_num::<u64>());
             });
             // Accumulate the owner cut in pending.
             PendingOwnerCut::<T>::mutate(*netuid, |total| {
@@ -413,14 +418,14 @@ impl<T: Config> Pallet<T> {
                 // Store the root-alpha divs under hotkey_j
                 root_alpha_divs
                     .entry(hotkey_j.clone())
-                    .and_modify(|e| *e = e.saturating_add(root_divs.to_num::<u64>()))
-                    .or_insert(root_divs.to_num::<u64>());
+                    .and_modify(|e| *e = e.saturating_add(root_divs.saturating_to_num::<u64>()))
+                    .or_insert(root_divs.saturating_to_num::<u64>());
                 total_root_alpha_divs =
-                    total_root_alpha_divs.saturating_add(root_divs.to_num::<u64>());
+                    total_root_alpha_divs.saturating_add(root_divs.saturating_to_num::<u64>());
                 log::debug!(
                     "Stored root alpha dividends for hotkey {:?}: {:?}",
                     hotkey_j,
-                    root_divs.to_num::<u64>()
+                    root_divs.saturating_to_num::<u64>()
                 );
             }
         }
@@ -478,26 +483,26 @@ impl<T: Config> Pallet<T> {
                     hotkey_j,
                     &Owner::<T>::get(hotkey_j.clone()),
                     netuid,
-                    validator_take.to_num::<u64>(),
+                    validator_take.saturating_to_num::<u64>(),
                 );
                 log::debug!(
                     "Distributed validator take for hotkey {:?} on netuid {:?}: {:?}",
                     hotkey_j,
                     netuid,
-                    validator_take.to_num::<u64>()
+                    validator_take.saturating_to_num::<u64>()
                 );
 
                 // Distribute the alpha divs to the hotkey.
                 Self::increase_stake_for_hotkey_on_subnet(
                     hotkey_j,
                     netuid,
-                    rem_divs_j.to_num::<u64>(),
+                    rem_divs_j.saturating_to_num::<u64>(),
                 );
                 log::debug!(
                     "Distributed alpha dividends for hotkey {:?} on netuid {:?}: {:?}",
                     hotkey_j,
                     netuid,
-                    rem_divs_j.to_num::<u64>()
+                    rem_divs_j.saturating_to_num::<u64>()
                 );
 
                 // Record dividends for this hotkey on this subnet.
@@ -522,7 +527,7 @@ impl<T: Config> Pallet<T> {
                 .unwrap_or(I96F32::from_num(0));
             let root_divs_to_pay: u64 = proportion
                 .saturating_mul(I96F32::from_num(pending_root_divs))
-                .to_num::<u64>();
+                .saturating_to_num::<u64>();
             log::debug!(
                 "Proportion for hotkey {:?}: {:?}, root_divs_to_pay: {:?}",
                 hotkey_j,
@@ -581,7 +586,7 @@ impl<T: Config> Pallet<T> {
         let combined_contribution: I96F32 = alpha_contribution.saturating_add(root_contribution);
 
         // Return the combined contribution as a u64
-        combined_contribution.to_num::<u64>()
+        combined_contribution.saturating_to_num::<u64>()
     }
 
     /// Returns a list of tuples for each parent associated with this hotkey including self
@@ -695,7 +700,7 @@ impl<T: Config> Pallet<T> {
                 .checked_div(total_contribution)
                 .unwrap_or(I96F32::from_num(0));
             let parent_emission: u64 =
-                (remaining_emission.saturating_mul(emission_factor)).to_num::<u64>();
+                (remaining_emission.saturating_mul(emission_factor)).saturating_to_num::<u64>();
 
             // Add the parent's emission to the distribution list
             dividend_tuples.push((parent, parent_emission));
@@ -707,7 +712,7 @@ impl<T: Config> Pallet<T> {
         // This includes the take left from the parents and the self contribution.
         let child_emission = remaining_emission
             .saturating_add(child_emission_take)
-            .to_num::<u64>()
+            .saturating_to_num::<u64>()
             .saturating_sub(to_parents);
 
         // Add the hotkey's own emission to the distribution list

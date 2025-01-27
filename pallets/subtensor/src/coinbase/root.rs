@@ -16,10 +16,10 @@
 // DEALINGS IN THE SOFTWARE.
 
 use super::*;
-use crate::epoch::math::*;
 use frame_support::dispatch::Pays;
 use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::weights::Weight;
+use safe_math::*;
 use sp_core::Get;
 use sp_std::vec;
 use substrate_fixed::types::I64F64;

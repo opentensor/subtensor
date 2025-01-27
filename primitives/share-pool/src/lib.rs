@@ -54,7 +54,7 @@ where
             .checked_div(denominator)
             .unwrap_or(U64F64::from_num(0))
             .saturating_mul(current_share)
-            .to_num::<u64>()
+            .saturating_to_num::<u64>()
     }
 
     pub fn try_get_value(&self, key: &K) -> Result<u64, ()> {

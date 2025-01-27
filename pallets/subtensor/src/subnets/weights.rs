@@ -1,6 +1,7 @@
 use super::*;
 use crate::epoch::math::*;
 use codec::Compact;
+use safe_math::*;
 use sp_core::{ConstU32, H256};
 use sp_runtime::{
     traits::{BlakeTwo256, Hash},

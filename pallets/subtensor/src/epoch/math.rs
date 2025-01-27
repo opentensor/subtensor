@@ -3,12 +3,13 @@
 use crate::alloc::borrow::ToOwned;
 #[allow(unused)]
 use num_traits::float::Float;
+use safe_math::*;
 use sp_runtime::traits::{CheckedAdd, Saturating};
 use sp_std::cmp::Ordering;
 
 use sp_std::vec;
 use substrate_fixed::transcendental::{exp, ln};
-use substrate_fixed::types::{I110F18, I32F32, I64F64, I96F32, U64F64};
+use substrate_fixed::types::{I32F32, I64F64};
 
 // TODO: figure out what cfg gate this needs to not be a warning in rustc
 #[allow(unused)]
@@ -21,17 +22,17 @@ pub fn fixed(val: f32) -> I32F32 {
 
 #[allow(dead_code)]
 pub fn fixed_to_u16(x: I32F32) -> u16 {
-    x.to_num::<u16>()
+    x.saturating_to_num::<u16>()
 }
 
 #[allow(dead_code)]
 pub fn fixed_to_u64(x: I32F32) -> u64 {
-    x.to_num::<u64>()
+    x.saturating_to_num::<u64>()
 }
 
 #[allow(dead_code)]
 pub fn fixed64_to_u64(x: I64F64) -> u64 {
-    x.to_num::<u64>()
+    x.saturating_to_num::<u64>()
 }
 
 #[allow(dead_code)]
@@ -100,7 +101,7 @@ pub fn vec_max_upscale_to_u16(vec: &[I32F32]) -> Vec<u16> {
             if *val == I32F32::from_num(0) {
                 return vec
                     .iter()
-                    .map(|e: &I32F32| e.saturating_mul(u16_max).to_num::<u16>())
+                    .map(|e: &I32F32| e.saturating_mul(u16_max).saturating_to_num::<u16>())
                     .collect();
             }
             if *val > threshold {
@@ -109,7 +110,7 @@ pub fn vec_max_upscale_to_u16(vec: &[I32F32]) -> Vec<u16> {
                     .map(|e: &I32F32| {
                         e.saturating_mul(u16_max.safe_div(*val))
                             .round()
-                            .to_num::<u16>()
+                            .saturating_to_num::<u16>()
                     })
                     .collect();
             }
@@ -118,14 +119,18 @@ pub fn vec_max_upscale_to_u16(vec: &[I32F32]) -> Vec<u16> {
                     e.saturating_mul(u16_max)
                         .safe_div(*val)
                         .round()
-                        .to_num::<u16>()
+                        .saturating_to_num::<u16>()
                 })
                 .collect()
         }
         None => {
             let sum: I32F32 = vec.iter().sum();
             vec.iter()
-                .map(|e: &I32F32| e.saturating_mul(u16_max).safe_div(sum).to_num::<u16>())
+                .map(|e: &I32F32| {
+                    e.saturating_mul(u16_max)
+                        .safe_div(sum)
+                        .saturating_to_num::<u16>()
+                })
                 .collect()
         }
     }
@@ -1406,48 +1411,3 @@ pub fn safe_ln(value: I32F32) -> I32F32 {
 pub fn safe_exp(value: I32F32) -> I32F32 {
     exp(value).unwrap_or(I32F32::from_num(0.0))
 }
-
-/// Safe division trait
-pub trait SafeDiv {
-    /// Safe division that returns supplied default value for division by zero
-    fn safe_div_or(self, rhs: Self, def: Self) -> Self;
-    /// Safe division that returns default value for division by zero
-    fn safe_div(self, rhs: Self) -> Self;
-}
-
-/// Implementation of safe division trait for primitive types
-macro_rules! impl_safe_div_for_primitive {
-    ($($t:ty),*) => {
-        $(
-            impl SafeDiv for $t {
-                fn safe_div_or(self, rhs: Self, def: Self) -> Self {
-                    self.checked_div(rhs).unwrap_or(def)
-                }
-
-                fn safe_div(self, rhs: Self) -> Self {
-                    self.checked_div(rhs).unwrap_or_default()
-                }
-            }
-        )*
-    };
-}
-impl_safe_div_for_primitive!(u8, u16, u32, u64, i8, i16, i32, i64, usize);
-
-/// Implementation of safe division trait for substrate fixed types
-macro_rules! impl_safe_div_for_fixed {
-    ($($t:ty),*) => {
-        $(
-            impl SafeDiv for $t {
-                fn safe_div_or(self, rhs: Self, def: Self) -> Self {
-                    self.checked_div(rhs).unwrap_or(def)
-                }
-
-                fn safe_div(self, rhs: Self) -> Self {
-                    self.checked_div(rhs).unwrap_or_default()
-                }
-            }
-        )*
-    };
-}
-
-impl_safe_div_for_fixed!(I96F32, I32F32, I64F64, I110F18, U64F64);

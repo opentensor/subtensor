@@ -1,6 +1,7 @@
 use super::*;
 use crate::epoch::math::*;
 use frame_support::IterableStorageDoubleMap;
+use safe_math::*;
 use sp_std::vec;
 use substrate_fixed::types::{I32F32, I64F64, I96F32};
 
@@ -238,7 +239,7 @@ impl<T: Config> Pallet<T> {
             .collect();
         let server_emission: Vec<u64> = server_emission
             .iter()
-            .map(|e: &I96F32| e.to_num::<u64>())
+            .map(|e: &I96F32| e.saturating_to_num::<u64>())
             .collect();
 
         let validator_emission: Vec<I96F32> = normalized_validator_emission
@@ -247,7 +248,7 @@ impl<T: Config> Pallet<T> {
             .collect();
         let validator_emission: Vec<u64> = validator_emission
             .iter()
-            .map(|e: &I96F32| e.to_num::<u64>())
+            .map(|e: &I96F32| e.saturating_to_num::<u64>())
             .collect();
 
         // Used only to track combined emission in the storage.
@@ -257,7 +258,7 @@ impl<T: Config> Pallet<T> {
             .collect();
         let combined_emission: Vec<u64> = combined_emission
             .iter()
-            .map(|e: &I96F32| e.to_num::<u64>())
+            .map(|e: &I96F32| e.saturating_to_num::<u64>())
             .collect();
 
         log::trace!("nSE: {:?}", &normalized_server_emission);
@@ -609,7 +610,7 @@ impl<T: Config> Pallet<T> {
             .collect();
         let server_emission: Vec<u64> = server_emission
             .iter()
-            .map(|e: &I96F32| e.to_num::<u64>())
+            .map(|e: &I96F32| e.saturating_to_num::<u64>())
             .collect();
 
         let validator_emission: Vec<I96F32> = normalized_validator_emission
@@ -618,7 +619,7 @@ impl<T: Config> Pallet<T> {
             .collect();
         let validator_emission: Vec<u64> = validator_emission
             .iter()
-            .map(|e: &I96F32| e.to_num::<u64>())
+            .map(|e: &I96F32| e.saturating_to_num::<u64>())
             .collect();
 
         // Only used to track emission in storage.
@@ -628,7 +629,7 @@ impl<T: Config> Pallet<T> {
             .collect();
         let combined_emission: Vec<u64> = combined_emission
             .iter()
-            .map(|e: &I96F32| e.to_num::<u64>())
+            .map(|e: &I96F32| e.saturating_to_num::<u64>())
             .collect();
 
         log::trace!(

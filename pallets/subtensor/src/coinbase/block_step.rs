@@ -1,6 +1,6 @@
 use super::*;
-use crate::epoch::math::*;
 use frame_support::storage::IterableStorageMap;
+use safe_math::*;
 use substrate_fixed::types::{I110F18, I96F32};
 
 impl<T: Config + pallet_drand::Config> Pallet<T> {
@@ -220,7 +220,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         } else if next_value <= I110F18::from_num(Self::get_min_difficulty(netuid)) {
             return Self::get_min_difficulty(netuid);
         } else {
-            return next_value.to_num::<u64>();
+            return next_value.saturating_to_num::<u64>();
         }
     }
 
@@ -254,7 +254,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         } else if next_value <= I110F18::from_num(Self::get_min_burn_as_u64(netuid)) {
             return Self::get_min_burn_as_u64(netuid);
         } else {
-            return next_value.to_num::<u64>();
+            return next_value.saturating_to_num::<u64>();
         }
     }
 }

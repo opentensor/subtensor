@@ -1,5 +1,5 @@
 use super::*;
-use crate::epoch::math::*;
+use safe_math::*;
 use sp_core::Get;
 
 impl<T: Config> Pallet<T> {

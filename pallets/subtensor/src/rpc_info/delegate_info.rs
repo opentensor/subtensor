@@ -1,8 +1,8 @@
 use super::*;
-use crate::epoch::math::*;
 use frame_support::pallet_prelude::{Decode, Encode};
 use frame_support::storage::IterableStorageMap;
 use frame_support::IterableStorageDoubleMap;
+use safe_math::*;
 use substrate_fixed::types::U64F64;
 extern crate alloc;
 use codec::Compact;
@@ -102,8 +102,8 @@ impl<T: Config> Pallet<T> {
             owner_ss58: owner.clone(),
             registrations: registrations.iter().map(|x| x.into()).collect(),
             validator_permits,
-            return_per_1000: U64F64::to_num::<u64>(return_per_1000).into(),
-            total_daily_return: U64F64::to_num::<u64>(emissions_per_day).into(),
+            return_per_1000: return_per_1000.saturating_to_num::<u64>().into(),
+            total_daily_return: emissions_per_day.saturating_to_num::<u64>().into(),
         }
     }
 

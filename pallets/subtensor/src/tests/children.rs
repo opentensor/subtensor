@@ -3357,7 +3357,7 @@ fn test_parent_child_chain_emission() {
         let total_tao: I96F32 = I96F32::from_num(300_000 + 100_000 + 50_000);
         let total_alpha: I96F32 = I96F32::from_num(SubtensorModule::swap_tao_for_alpha(
             netuid,
-            total_tao.saturating_to_num::<u64>(),
+            total_tao.to_num::<u64>(),
         ));
 
         // Set the stakes directly

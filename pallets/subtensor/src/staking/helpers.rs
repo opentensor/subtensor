@@ -49,7 +49,7 @@ impl<T: Config> Pallet<T> {
                 let alpha: I96F32 =
                     I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, *netuid));
                 let tao_price: I96F32 = Self::get_alpha_price(*netuid);
-                alpha.saturating_mul(tao_price).to_num::<u64>()
+                alpha.saturating_mul(tao_price).saturating_to_num::<u64>()
             })
             .sum()
     }
@@ -67,7 +67,7 @@ impl<T: Config> Pallet<T> {
                     total_stake = total_stake.saturating_add(
                         I96F32::from_num(alpha)
                             .saturating_mul(tao_price)
-                            .to_num::<u64>(),
+                            .saturating_to_num::<u64>(),
                     );
                 }
                 total_stake

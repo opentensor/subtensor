@@ -1,6 +1,6 @@
 use super::*;
-use crate::epoch::math::*;
 use frame_support::traits::Get;
+use safe_math::*;
 use substrate_fixed::{transcendental::log2, types::I96F32};
 
 impl<T: Config> Pallet<T> {
@@ -81,9 +81,9 @@ impl<T: Config> Pallet<T> {
 
         // Return result.
         (
-            tao_in_emission.to_num::<u64>(),
-            alpha_in_emission.to_num::<u64>(),
-            alpha_out_emission.to_num::<u64>(),
+            tao_in_emission.saturating_to_num::<u64>(),
+            alpha_in_emission.saturating_to_num::<u64>(),
+            alpha_out_emission.saturating_to_num::<u64>(),
         )
     }
 
@@ -134,7 +134,7 @@ impl<T: Config> Pallet<T> {
         let floored_residual: I96F32 = residual.floor();
         // Calculate the final emission rate using the floored residual.
         // Convert floored_residual to an integer
-        let floored_residual_int: u64 = floored_residual.to_num::<u64>();
+        let floored_residual_int: u64 = floored_residual.saturating_to_num::<u64>();
         // Multiply 2.0 by itself floored_residual times to calculate the power of 2.
         let mut multiplier: I96F32 = I96F32::from_num(1.0);
         for _ in 0..floored_residual_int {
@@ -145,7 +145,7 @@ impl<T: Config> Pallet<T> {
         let block_emission: I96F32 = block_emission_percentage
             .saturating_mul(I96F32::from_num(DefaultBlockEmission::<T>::get()));
         // Convert to u64
-        let block_emission_u64: u64 = block_emission.to_num::<u64>();
+        let block_emission_u64: u64 = block_emission.saturating_to_num::<u64>();
         if BlockEmission::<T>::get() != block_emission_u64 {
             BlockEmission::<T>::put(block_emission_u64);
         }

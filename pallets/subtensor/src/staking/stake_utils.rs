@@ -1,5 +1,5 @@
 use super::*;
-use crate::epoch::math::*;
+use safe_math::*;
 use share_pool::{SharePool, SharePoolDataOperations};
 use sp_std::ops::Neg;
 use substrate_fixed::types::{I64F64, I96F32, U64F64};
@@ -208,7 +208,7 @@ impl<T: Config> Pallet<T> {
             initial_alpha
         );
         if netuid == 0 {
-            return initial_alpha.to_num::<u64>();
+            return initial_alpha.saturating_to_num::<u64>();
         }
 
         // Initialize variables to track alpha allocated to children and inherited from parents.
@@ -299,7 +299,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Step 6: Return the final inherited alpha value.
-        finalized_alpha.to_num::<u64>()
+        finalized_alpha.saturating_to_num::<u64>()
     }
 
     /// Checks if a specific hotkey-coldkey pair has enough stake on a subnet to fulfill a given decrement.
@@ -476,7 +476,7 @@ impl<T: Config> Pallet<T> {
             I96F32::from_num(tao)
         };
         // Return simulated amount.
-        alpha.to_num::<u64>()
+        alpha.saturating_to_num::<u64>()
     }
 
     /// Swaps a subnet's Alpba token for TAO.
@@ -502,7 +502,7 @@ impl<T: Config> Pallet<T> {
             // Step 3.b.1: Stable mechanism, just return the value 1:1
             I96F32::from_num(alpha)
         };
-        tao.to_num::<u64>()
+        tao.saturating_to_num::<u64>()
     }
 
     /// Swaps TAO for the alpha token on the subnet.
@@ -530,11 +530,11 @@ impl<T: Config> Pallet<T> {
         };
         // Step 4. Decrease Alpha reserves.
         SubnetAlphaIn::<T>::mutate(netuid, |total| {
-            *total = total.saturating_sub(alpha.to_num::<u64>());
+            *total = total.saturating_sub(alpha.saturating_to_num::<u64>());
         });
         // Step 5: Increase Alpha outstanding.
         SubnetAlphaOut::<T>::mutate(netuid, |total| {
-            *total = total.saturating_add(alpha.to_num::<u64>());
+            *total = total.saturating_add(alpha.saturating_to_num::<u64>());
         });
         // Step 6: Increase Tao reserves.
         SubnetTAO::<T>::mutate(netuid, |total| {
@@ -549,7 +549,7 @@ impl<T: Config> Pallet<T> {
             *total = total.saturating_sub(tao);
         });
         // Step 9. Return the alpha received.
-        alpha.to_num::<u64>()
+        alpha.saturating_to_num::<u64>()
     }
 
     /// Swaps a subnet's Alpba token for TAO.
@@ -585,18 +585,18 @@ impl<T: Config> Pallet<T> {
         });
         // Step 6: Decrease tao reserves.
         SubnetTAO::<T>::mutate(netuid, |total| {
-            *total = total.saturating_sub(tao.to_num::<u64>());
+            *total = total.saturating_sub(tao.saturating_to_num::<u64>());
         });
         // Step 7: Reduce total TAO reserves.
         TotalStake::<T>::mutate(|total| {
-            *total = total.saturating_sub(tao.to_num::<u64>());
+            *total = total.saturating_sub(tao.saturating_to_num::<u64>());
         });
         // Step 8. Decrease Alpha reserves.
         SubnetVolume::<T>::mutate(netuid, |total| {
-            *total = total.saturating_sub(tao.to_num::<u64>());
+            *total = total.saturating_sub(tao.saturating_to_num::<u64>());
         });
         // Step 9. Return the tao received.
-        tao.to_num::<u64>()
+        tao.saturating_to_num::<u64>()
     }
 
     /// Unstakes alpha from a subnet for a given hotkey and coldkey pair.
@@ -891,7 +891,7 @@ impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>>
             crate::TotalHotkeyAlpha::<T>::insert(
                 &(self.hotkey),
                 self.netuid,
-                value.to_num::<u64>(),
+                value.saturating_to_num::<u64>(),
             );
         } else {
             crate::TotalHotkeyAlpha::<T>::remove(&(self.hotkey), self.netuid);

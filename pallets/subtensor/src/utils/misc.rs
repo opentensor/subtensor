@@ -1,9 +1,9 @@
 use super::*;
 use crate::{
-    epoch::math::*,
     system::{ensure_root, ensure_signed_or_root, pallet_prelude::BlockNumberFor},
     Error,
 };
+use safe_math::*;
 use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::Saturating;
