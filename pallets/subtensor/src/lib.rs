@@ -669,6 +669,11 @@ pub mod pallet {
         false
     }
     #[pallet::type_value]
+    /// Default value for alpha transfer enabled.
+    pub fn DefaultAlphaTransferEnabled<T: Config>() -> bool {
+        false
+    }
+    #[pallet::type_value]
     /// Senate requirements
     pub fn DefaultSenateRequiredStakePercentage<T: Config>() -> u64 {
         T::InitialSenateRequiredStakePercentage::get()
@@ -1221,6 +1226,10 @@ pub mod pallet {
     pub type CommitRevealWeightsEnabled<T> =
         StorageMap<_, Identity, u16, bool, ValueQuery, DefaultCommitRevealWeightsEnabled<T>>;
     #[pallet::storage]
+    /// --- MAP ( netuid ) --> alpha transfer enabled if true
+    pub type AlphaTransferEnabled<T> =
+        StorageMap<_, Identity, u16, bool, ValueQuery, DefaultAlphaTransferEnabled<T>>;
+    #[pallet::storage]
     /// --- MAP ( netuid ) --> Burn
     pub type Burn<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBurn<T>>;
     #[pallet::storage]
@@ -1563,6 +1572,7 @@ pub enum CustomTransactionError {
     NotEnoughStakeToWithdraw,
     RateLimitExceeded,
     BadRequest,
+    AlphaTransferNotEnabled,
 }
 
 impl From<CustomTransactionError> for u8 {
@@ -1575,6 +1585,7 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::HotkeyAccountDoesntExist => 4,
             CustomTransactionError::NotEnoughStakeToWithdraw => 5,
             CustomTransactionError::RateLimitExceeded => 6,
+            CustomTransactionError::AlphaTransferNotEnabled => 7,
             CustomTransactionError::BadRequest => 255,
         }
     }
@@ -1640,6 +1651,10 @@ where
                 .into()),
                 Error::<T>::NotEnoughStakeToWithdraw => Err(InvalidTransaction::Custom(
                     CustomTransactionError::NotEnoughStakeToWithdraw.into(),
+                )
+                .into()),
+                Error::<T>::AlphaTransferNotEnabled => Err(InvalidTransaction::Custom(
+                    CustomTransactionError::AlphaTransferNotEnabled.into(),
                 )
                 .into()),
                 _ => Err(
@@ -1830,7 +1845,7 @@ where
                 alpha_amount,
             }) => {
                 // Fully validate the user input
-                Self::result_to_validity(Pallet::<T>::validate_stake_transition(
+                Self::result_to_validity(Pallet::<T>::validate_alpha_transfer(
                     who,
                     destination_coldkey,
                     hotkey,

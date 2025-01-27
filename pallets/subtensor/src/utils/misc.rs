@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    system::{ensure_root, ensure_signed_or_root, pallet_prelude::BlockNumberFor},
+    system::{ensure_root, ensure_signed, ensure_signed_or_root, pallet_prelude::BlockNumberFor},
     Error,
 };
 use sp_core::Get;
@@ -18,6 +18,17 @@ impl<T: Config> Pallet<T> {
             Ok(Some(who)) if SubnetOwner::<T>::get(netuid) == who => Ok(()),
             Ok(Some(_)) => Err(DispatchError::BadOrigin),
             Ok(None) => Ok(()),
+            Err(x) => Err(x.into()),
+        }
+    }
+
+    /// Ensure that the caller is the owner of the subnet.
+    /// Note: this is *not* true for the root account.
+    pub fn ensure_subnet_owner(o: T::RuntimeOrigin, netuid: u16) -> Result<(), DispatchError> {
+        let coldkey = ensure_signed(o);
+        match coldkey {
+            Ok(who) if SubnetOwner::<T>::get(netuid) == who => Ok(()),
+            Ok(_) => Err(DispatchError::BadOrigin),
             Err(x) => Err(x.into()),
         }
     }
@@ -468,6 +479,13 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
         CommitRevealWeightsEnabled::<T>::set(netuid, enabled);
+    }
+
+    pub fn get_alpha_transfer_enabled(netuid: u16) -> bool {
+        AlphaTransferEnabled::<T>::get(netuid)
+    }
+    pub fn set_alpha_transfer_enabled(netuid: u16, enabled: bool) {
+        AlphaTransferEnabled::<T>::set(netuid, enabled);
     }
 
     pub fn get_rho(netuid: u16) -> u16 {

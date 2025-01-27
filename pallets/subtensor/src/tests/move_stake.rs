@@ -824,6 +824,9 @@ fn test_do_transfer_success() {
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         let fee = DefaultStakingFee::<Test>::get();
 
+        // Enable alpha transfer on this subnet
+        SubtensorModule::set_alpha_transfer_enabled(netuid, true);
+
         // 2. Define the origin coldkey, destination coldkey, and hotkey to be used.
         let origin_coldkey = U256::from(1);
         let destination_coldkey = U256::from(2);
@@ -901,6 +904,9 @@ fn test_do_transfer_nonexistent_hotkey() {
         let subnet_owner_hotkey = U256::from(1002);
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
+        // Enable alpha transfer on this subnet
+        SubtensorModule::set_alpha_transfer_enabled(netuid, true);
+
         let origin_coldkey = U256::from(1);
         let destination_coldkey = U256::from(2);
         let nonexistent_hotkey = U256::from(999);
@@ -925,6 +931,9 @@ fn test_do_transfer_insufficient_stake() {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        // Enable alpha transfer on this subnet
+        SubtensorModule::set_alpha_transfer_enabled(netuid, true);
 
         let origin_coldkey = U256::from(1);
         let destination_coldkey = U256::from(2);
@@ -955,6 +964,9 @@ fn test_do_transfer_wrong_origin() {
         let subnet_owner_coldkey = U256::from(1010);
         let subnet_owner_hotkey = U256::from(1011);
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        // Enable alpha transfer on this subnet
+        SubtensorModule::set_alpha_transfer_enabled(netuid, true);
 
         let origin_coldkey = U256::from(1);
         let wrong_coldkey = U256::from(9999);
@@ -988,6 +1000,9 @@ fn test_do_transfer_minimum_stake_check() {
         let subnet_owner_hotkey = U256::from(1002);
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
+        // Enable alpha transfer on this subnet
+        SubtensorModule::set_alpha_transfer_enabled(netuid, true);
+
         let origin_coldkey = U256::from(1);
         let destination_coldkey = U256::from(2);
         let hotkey = U256::from(3);
@@ -1018,6 +1033,9 @@ fn test_do_transfer_different_subnets() {
         let subnet_owner_hotkey = U256::from(1002);
         let origin_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         let destination_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        // Enable alpha transfer on origin subnet
+        SubtensorModule::set_alpha_transfer_enabled(origin_netuid, true);
 
         // 2. Define origin/destination coldkeys and hotkey.
         let origin_coldkey = U256::from(1);
@@ -1079,6 +1097,40 @@ fn test_do_transfer_different_subnets() {
             dest_stake,
             expected_value.to_num::<u64>(),
             epsilon = (expected_value / 1000).to_num::<u64>()
+        );
+    });
+}
+
+/// RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::move_stake::test_do_transfer_alpha_transfer_not_enabled --show-output
+#[test]
+fn test_do_transfer_alpha_transfer_not_enabled() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let origin_coldkey = U256::from(1);
+        let destination_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+        let stake_amount = DefaultMinStake::<Test>::get() * 10;
+
+        SubtensorModule::create_account_if_non_existent(&origin_coldkey, &hotkey);
+        SubtensorModule::stake_into_subnet(&hotkey, &origin_coldkey, netuid, stake_amount, 0);
+
+        // Verify alpha transfer is not enabled
+        assert!(!SubtensorModule::get_alpha_transfer_enabled(netuid));
+
+        let alpha = stake_amount - 10_000;
+        assert_err!(
+            SubtensorModule::do_transfer_stake(
+                RuntimeOrigin::signed(origin_coldkey),
+                destination_coldkey,
+                hotkey,
+                netuid,
+                netuid,
+                alpha
+            ),
+            Error::<Test>::AlphaTransferNotEnabled
         );
     });
 }

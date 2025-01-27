@@ -841,6 +841,31 @@ impl<T: Config> Pallet<T> {
 
         Ok(())
     }
+
+    pub fn validate_alpha_transfer(
+        origin_coldkey: &T::AccountId,
+        destination_coldkey: &T::AccountId,
+        origin_hotkey: &T::AccountId,
+        destination_hotkey: &T::AccountId,
+        origin_netuid: u16,
+        destination_netuid: u16,
+        alpha_amount: u64,
+    ) -> Result<(), Error<T>> {
+        ensure!(
+            Self::get_alpha_transfer_enabled(origin_netuid),
+            Error::<T>::AlphaTransferNotEnabled
+        );
+
+        Self::validate_stake_transition(
+            origin_coldkey,
+            destination_coldkey,
+            origin_hotkey,
+            destination_hotkey,
+            origin_netuid,
+            destination_netuid,
+            alpha_amount,
+        )
+    }
 }
 
 ///////////////////////////////////////////

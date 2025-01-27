@@ -185,5 +185,7 @@ mod errors {
         CommittingWeightsTooFast,
         /// Stake amount is too low.
         AmountTooLow,
+        /// Alpha transfer is not enabled on this subnet.
+        AlphaTransferNotEnabled,
     }
 }

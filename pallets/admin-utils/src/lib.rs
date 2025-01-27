@@ -69,7 +69,10 @@ pub mod pallet {
     }
 
     #[pallet::event]
-    pub enum Event<T: Config> {}
+    pub enum Event<T: Config> {
+        /// Alpha transfer was enabled on a subnet.
+        AlphaTransferEnabled(u16, bool),
+    }
 
     // Errors inform users that something went wrong.
     #[pallet::error]
@@ -1286,6 +1289,42 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
             T::Grandpa::schedule_change(next_authorities, in_blocks, forced)
+        }
+
+        /// Enables alpha transfer for a specific subnet.
+        ///
+        /// This extrinsic allows the subnet owner to enable alpha transfer for a specific subnet.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the subnet owner.
+        /// * `netuid` - The unique identifier of the subnet for which the periods are being set.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the caller is neither the subnet owner nor the root account.
+        /// * `SubnetDoesNotExist` - If the specified subnet does not exist.
+        ///
+        /// # Weight
+        /// Weight is handled by the `#[pallet::weight]` attribute.
+        #[pallet::call_index(61)]
+        #[pallet::weight(<T as Config>::WeightInfo::sudo_enable_alpha_transfer())]
+        pub fn sudo_enable_alpha_transfer(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner(origin, netuid)?;
+
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+
+            if pallet_subtensor::Pallet::<T>::get_alpha_transfer_enabled(netuid) {
+                return Ok(()); // exit early if already enabled
+            }
+
+            pallet_subtensor::Pallet::<T>::set_alpha_transfer_enabled(netuid, true);
+            // Log and emit event
+            log::debug!("AlphaTransferEnabled( netuid: {:?} ) ", netuid);
+            Self::deposit_event(Event::AlphaTransferEnabled(netuid, true));
+
+            Ok(())
         }
     }
 }

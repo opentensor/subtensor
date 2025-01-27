@@ -114,6 +114,12 @@ impl<T: Config> Pallet<T> {
             alpha_amount,
         )?;
 
+        // Ensure alpha transfer is enabled on the origin subnet
+        ensure!(
+            Pallet::<T>::get_alpha_transfer_enabled(origin_netuid),
+            Error::<T>::AlphaTransferNotEnabled
+        );
+
         // 9. Emit an event for logging/monitoring.
         log::info!(
             "StakeTransferred(origin_coldkey: {:?}, destination_coldkey: {:?}, hotkey: {:?}, origin_netuid: {:?}, destination_netuid: {:?}, amount: {:?})",

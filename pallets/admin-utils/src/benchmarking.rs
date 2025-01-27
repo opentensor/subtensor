@@ -280,5 +280,18 @@ mod benchmarks {
         _(RawOrigin::Root, 1u16/*netuid*/, 1_000_000_000_000_000u64/*max_stake*/)/*sudo_set_network_max_stake*/;
     }
 
+    #[benchmark]
+    fn sudo_enable_alpha_transfer() {
+        pallet_subtensor::Pallet::<T>::init_new_network(
+            1u16, /*netuid*/
+            1u16, /*sudo_tempo*/
+        );
+        let owner: T::AccountId = account("Alice", 0, 1);
+        SubnetOwner::<T>::insert(1u16, owner.clone());
+
+        #[extrinsic_call]
+		_(RawOrigin::Signed(owner.clone()), 1u16/*netuid*/)/*sudo_enable_alpha_transfer*/;
+    }
+
     //impl_benchmark_test_suite!(AdminUtils, crate::mock::new_test_ext(), crate::mock::Test);
 }
