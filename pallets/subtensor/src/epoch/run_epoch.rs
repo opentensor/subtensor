@@ -231,11 +231,11 @@ impl<T: Config> Pallet<T> {
         }
 
         // Compute rao based emission scores. range: I96F32(0, rao_emission)
-        let float_rao_emission: I96F32 = I96F32::from_num(rao_emission);
+        let float_rao_emission: I96F32 = I96F32::saturating_from_num(rao_emission);
 
         let server_emission: Vec<I96F32> = normalized_server_emission
             .iter()
-            .map(|se: &I32F32| I96F32::from_num(*se).saturating_mul(float_rao_emission))
+            .map(|se: &I32F32| I96F32::saturating_from_num(*se).saturating_mul(float_rao_emission))
             .collect();
         let server_emission: Vec<u64> = server_emission
             .iter()
@@ -244,7 +244,7 @@ impl<T: Config> Pallet<T> {
 
         let validator_emission: Vec<I96F32> = normalized_validator_emission
             .iter()
-            .map(|ve: &I32F32| I96F32::from_num(*ve).saturating_mul(float_rao_emission))
+            .map(|ve: &I32F32| I96F32::saturating_from_num(*ve).saturating_mul(float_rao_emission))
             .collect();
         let validator_emission: Vec<u64> = validator_emission
             .iter()
@@ -254,7 +254,7 @@ impl<T: Config> Pallet<T> {
         // Used only to track combined emission in the storage.
         let combined_emission: Vec<I96F32> = normalized_combined_emission
             .iter()
-            .map(|ce: &I32F32| I96F32::from_num(*ce).saturating_mul(float_rao_emission))
+            .map(|ce: &I32F32| I96F32::saturating_from_num(*ce).saturating_mul(float_rao_emission))
             .collect();
         let combined_emission: Vec<u64> = combined_emission
             .iter()
@@ -602,11 +602,11 @@ impl<T: Config> Pallet<T> {
         }
 
         // Compute rao based emission scores. range: I96F32(0, rao_emission)
-        let float_rao_emission: I96F32 = I96F32::from_num(rao_emission);
+        let float_rao_emission: I96F32 = I96F32::saturating_from_num(rao_emission);
 
         let server_emission: Vec<I96F32> = normalized_server_emission
             .iter()
-            .map(|se: &I32F32| I96F32::from_num(*se).saturating_mul(float_rao_emission))
+            .map(|se: &I32F32| I96F32::saturating_from_num(*se).saturating_mul(float_rao_emission))
             .collect();
         let server_emission: Vec<u64> = server_emission
             .iter()
@@ -615,7 +615,7 @@ impl<T: Config> Pallet<T> {
 
         let validator_emission: Vec<I96F32> = normalized_validator_emission
             .iter()
-            .map(|ve: &I32F32| I96F32::from_num(*ve).saturating_mul(float_rao_emission))
+            .map(|ve: &I32F32| I96F32::saturating_from_num(*ve).saturating_mul(float_rao_emission))
             .collect();
         let validator_emission: Vec<u64> = validator_emission
             .iter()
@@ -625,7 +625,7 @@ impl<T: Config> Pallet<T> {
         // Only used to track emission in storage.
         let combined_emission: Vec<I96F32> = normalized_combined_emission
             .iter()
-            .map(|ce: &I32F32| I96F32::from_num(*ce).saturating_mul(float_rao_emission))
+            .map(|ce: &I32F32| I96F32::saturating_from_num(*ce).saturating_mul(float_rao_emission))
             .collect();
         let combined_emission: Vec<u64> = combined_emission
             .iter()
@@ -733,13 +733,15 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_float_rho(netuid: u16) -> I32F32 {
-        I32F32::from_num(Self::get_rho(netuid))
+        I32F32::saturating_from_num(Self::get_rho(netuid))
     }
     pub fn get_float_kappa(netuid: u16) -> I32F32 {
-        I32F32::from_num(Self::get_kappa(netuid)).safe_div(I32F32::from_num(u16::MAX))
+        I32F32::saturating_from_num(Self::get_kappa(netuid))
+            .safe_div(I32F32::saturating_from_num(u16::MAX))
     }
     pub fn get_float_bonds_penalty(netuid: u16) -> I32F32 {
-        I32F32::from_num(Self::get_bonds_penalty(netuid)).safe_div(I32F32::from_num(u16::MAX))
+        I32F32::saturating_from_num(Self::get_bonds_penalty(netuid))
+            .safe_div(I32F32::saturating_from_num(u16::MAX))
     }
 
     pub fn get_block_at_registration(netuid: u16) -> Vec<u64> {
@@ -768,7 +770,7 @@ impl<T: Config> Pallet<T> {
                 weights
                     .get_mut(uid_i as usize)
                     .expect("uid_i is filtered to be less than n; qed")
-                    .push((*uid_j, I32F32::from_num(*weight_ij)));
+                    .push((*uid_j, I32F32::saturating_from_num(*weight_ij)));
             }
         }
         weights
@@ -777,7 +779,7 @@ impl<T: Config> Pallet<T> {
     /// Output unnormalized weights in [n, n] matrix, input weights are assumed to be row max-upscaled in u16.
     pub fn get_weights(netuid: u16) -> Vec<Vec<I32F32>> {
         let n: usize = Self::get_subnetwork_n(netuid) as usize;
-        let mut weights: Vec<Vec<I32F32>> = vec![vec![I32F32::from_num(0.0); n]; n];
+        let mut weights: Vec<Vec<I32F32>> = vec![vec![I32F32::saturating_from_num(0.0); n]; n];
         for (uid_i, weights_vec) in
             <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid)
                 .filter(|(uid_i, _)| *uid_i < n as u16)
@@ -791,7 +793,7 @@ impl<T: Config> Pallet<T> {
                     .expect("uid_i is filtered to be less than n; qed")
                     .get_mut(uid_j as usize)
                     .expect("uid_j is filtered to be less than n; qed") =
-                    I32F32::from_num(weight_ij);
+                    I32F32::saturating_from_num(weight_ij);
             }
         }
         weights
@@ -809,7 +811,7 @@ impl<T: Config> Pallet<T> {
                 bonds
                     .get_mut(uid_i as usize)
                     .expect("uid_i is filtered to be less than n; qed")
-                    .push((uid_j, I32F32::from_num(bonds_ij)));
+                    .push((uid_j, I32F32::saturating_from_num(bonds_ij)));
             }
         }
         bonds
@@ -818,7 +820,7 @@ impl<T: Config> Pallet<T> {
     /// Output unnormalized bonds in [n, n] matrix, input bonds are assumed to be column max-upscaled in u16.
     pub fn get_bonds(netuid: u16) -> Vec<Vec<I32F32>> {
         let n: usize = Self::get_subnetwork_n(netuid) as usize;
-        let mut bonds: Vec<Vec<I32F32>> = vec![vec![I32F32::from_num(0.0); n]; n];
+        let mut bonds: Vec<Vec<I32F32>> = vec![vec![I32F32::saturating_from_num(0.0); n]; n];
         for (uid_i, bonds_vec) in
             <Bonds<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid)
                 .filter(|(uid_i, _)| *uid_i < n as u16)
@@ -829,7 +831,7 @@ impl<T: Config> Pallet<T> {
                     .expect("uid_i has been filtered to be less than n; qed")
                     .get_mut(uid_j as usize)
                     .expect("uid_j has been filtered to be less than n; qed") =
-                    I32F32::from_num(bonds_ij);
+                    I32F32::saturating_from_num(bonds_ij);
             }
         }
         bonds
@@ -859,16 +861,21 @@ impl<T: Config> Pallet<T> {
         // extra caution to ensure we never divide by zero
         if consensus_high <= consensus_low || alpha_low == 0 || alpha_high == 0 {
             // Return 0 for both 'a' and 'b' when consensus values are equal
-            return (I32F32::from_num(0.0), I32F32::from_num(0.0));
+            return (
+                I32F32::saturating_from_num(0.0),
+                I32F32::saturating_from_num(0.0),
+            );
         }
 
         // Calculate the slope 'a' of the logistic function.
         // a = (ln((1 / alpha_high - 1)) - ln((1 / alpha_low - 1))) / (consensus_low - consensus_high)
         let a = (safe_ln(
-            (I32F32::from_num(1.0).safe_div(alpha_high)).saturating_sub(I32F32::from_num(1.0)),
+            (I32F32::saturating_from_num(1.0).safe_div(alpha_high))
+                .saturating_sub(I32F32::saturating_from_num(1.0)),
         )
         .saturating_sub(safe_ln(
-            (I32F32::from_num(1.0).safe_div(alpha_low)).saturating_sub(I32F32::from_num(1.0)),
+            (I32F32::saturating_from_num(1.0).safe_div(alpha_low))
+                .saturating_sub(I32F32::saturating_from_num(1.0)),
         )))
         .safe_div(consensus_low.saturating_sub(consensus_high));
         log::trace!("a: {:?}", a);
@@ -876,7 +883,8 @@ impl<T: Config> Pallet<T> {
         // Calculate the intercept 'b' of the logistic function.
         // b = ln((1 / alpha_low - 1)) + a * consensus_low
         let b = safe_ln(
-            (I32F32::from_num(1.0).safe_div(alpha_low)).saturating_sub(I32F32::from_num(1.0)),
+            (I32F32::saturating_from_num(1.0).safe_div(alpha_low))
+                .saturating_sub(I32F32::saturating_from_num(1.0)),
         )
         .saturating_add(a.saturating_mul(consensus_low));
         log::trace!("b: {:?}", b);
@@ -905,7 +913,8 @@ impl<T: Config> Pallet<T> {
 
                 // Compute the alpha value using the logistic function formula.
                 // alpha = 1 / (1 + exp_val)
-                I32F32::from_num(1.0).safe_div(I32F32::from_num(1.0).saturating_add(exp_val))
+                I32F32::saturating_from_num(1.0)
+                    .safe_div(I32F32::saturating_from_num(1.0).saturating_add(exp_val))
             })
             .collect();
 
@@ -1019,13 +1028,14 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
     ) -> Vec<Vec<(u16, I32F32)>> {
         // Retrieve the bonds moving average for the given network ID and scale it down.
-        let bonds_moving_average: I64F64 = I64F64::from_num(Self::get_bonds_moving_average(netuid))
-            .safe_div(I64F64::from_num(1_000_000));
+        let bonds_moving_average: I64F64 =
+            I64F64::saturating_from_num(Self::get_bonds_moving_average(netuid))
+                .safe_div(I64F64::saturating_from_num(1_000_000));
 
         // Calculate the alpha value for the EMA calculation.
         // Alpha is derived by subtracting the scaled bonds moving average from 1.
-        let alpha: I32F32 =
-            I32F32::from_num(1).saturating_sub(I32F32::from_num(bonds_moving_average));
+        let alpha: I32F32 = I32F32::saturating_from_num(1)
+            .saturating_sub(I32F32::saturating_from_num(bonds_moving_average));
 
         // Compute the Exponential Moving Average (EMA) of bonds using the calculated alpha value.
         let ema_bonds = mat_ema_sparse(bonds_delta, bonds, alpha);
@@ -1052,13 +1062,14 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
     ) -> Vec<Vec<I32F32>> {
         // Retrieve the bonds moving average for the given network ID and scale it down.
-        let bonds_moving_average: I64F64 = I64F64::from_num(Self::get_bonds_moving_average(netuid))
-            .safe_div(I64F64::from_num(1_000_000));
+        let bonds_moving_average: I64F64 =
+            I64F64::saturating_from_num(Self::get_bonds_moving_average(netuid))
+                .safe_div(I64F64::saturating_from_num(1_000_000));
 
         // Calculate the alpha value for the EMA calculation.
         // Alpha is derived by subtracting the scaled bonds moving average from 1.
-        let alpha: I32F32 =
-            I32F32::from_num(1).saturating_sub(I32F32::from_num(bonds_moving_average));
+        let alpha: I32F32 = I32F32::saturating_from_num(1)
+            .saturating_sub(I32F32::saturating_from_num(bonds_moving_average));
 
         // Compute the Exponential Moving Average (EMA) of bonds using the calculated alpha value.
         let ema_bonds = mat_ema(bonds_delta, bonds, alpha);
@@ -1090,7 +1101,9 @@ impl<T: Config> Pallet<T> {
         // This way we avoid the quantil function panic.
         if LiquidAlphaOn::<T>::get(netuid)
             && !consensus.is_empty()
-            && consensus.iter().any(|&c| c != I32F32::from_num(0))
+            && consensus
+                .iter()
+                .any(|&c| c != I32F32::saturating_from_num(0))
         {
             // Calculate the 75th percentile (high) and 25th percentile (low) of the consensus values.
             let consensus_high = quantile(&consensus, 0.75);
@@ -1158,7 +1171,9 @@ impl<T: Config> Pallet<T> {
         // Check if Liquid Alpha is enabled, consensus is not empty, and contains non-zero values.
         if LiquidAlphaOn::<T>::get(netuid)
             && !consensus.is_empty()
-            && consensus.iter().any(|&c| c != I32F32::from_num(0))
+            && consensus
+                .iter()
+                .any(|&c| c != I32F32::saturating_from_num(0))
         {
             // Calculate the 75th percentile (high) and 25th percentile (low) of the consensus values.
             let consensus_high = quantile(&consensus, 0.75);

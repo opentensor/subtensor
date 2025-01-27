@@ -31,15 +31,15 @@ impl<T: Config> Pallet<T> {
         alpha_block_emission: u64,
     ) -> (u64, u64, u64) {
         // Init terms.
-        let mut tao_in_emission: I96F32 = I96F32::from_num(tao_emission);
-        let float_alpha_block_emission: I96F32 = I96F32::from_num(alpha_block_emission);
+        let mut tao_in_emission: I96F32 = I96F32::saturating_from_num(tao_emission);
+        let float_alpha_block_emission: I96F32 = I96F32::saturating_from_num(alpha_block_emission);
 
         // Get alpha price for subnet.
         let alpha_price: I96F32 = Self::get_alpha_price(netuid);
         log::debug!("{:?} - alpha_price: {:?}", netuid, alpha_price);
 
         // Get initial alpha_in
-        let mut alpha_in_emission: I96F32 = I96F32::from_num(tao_emission)
+        let mut alpha_in_emission: I96F32 = I96F32::saturating_from_num(tao_emission)
             .checked_div(alpha_price)
             .unwrap_or(float_alpha_block_emission);
 
@@ -60,13 +60,15 @@ impl<T: Config> Pallet<T> {
         }
 
         // Avoid rounding errors.
-        if tao_in_emission < I96F32::from_num(1) || alpha_in_emission < I96F32::from_num(1) {
-            alpha_in_emission = I96F32::from_num(0);
-            tao_in_emission = I96F32::from_num(0);
+        if tao_in_emission < I96F32::saturating_from_num(1)
+            || alpha_in_emission < I96F32::saturating_from_num(1)
+        {
+            alpha_in_emission = I96F32::saturating_from_num(0);
+            tao_in_emission = I96F32::saturating_from_num(0);
         }
 
         // Set Alpha in emission.
-        let alpha_out_emission = I96F32::from_num(2)
+        let alpha_out_emission = I96F32::saturating_from_num(2)
             .saturating_mul(float_alpha_block_emission)
             .saturating_sub(alpha_in_emission);
 
@@ -106,23 +108,22 @@ impl<T: Config> Pallet<T> {
     /// Returns the block emission for an issuance value.
     pub fn get_block_emission_for_issuance(issuance: u64) -> Result<u64, &'static str> {
         // Convert issuance to a float for calculations below.
-        let total_issuance: I96F32 = I96F32::from_num(issuance);
+        let total_issuance: I96F32 = I96F32::saturating_from_num(issuance);
         // Check to prevent division by zero when the total supply is reached
         // and creating an issuance greater than the total supply.
-        if total_issuance >= I96F32::from_num(TotalSupply::<T>::get()) {
+        if total_issuance >= I96F32::saturating_from_num(TotalSupply::<T>::get()) {
             return Ok(0);
         }
         // Calculate the logarithmic residual of the issuance against half the total supply.
         let residual: I96F32 = log2(
-            I96F32::from_num(1.0)
+            I96F32::saturating_from_num(1.0)
                 .checked_div(
-                    I96F32::from_num(1.0)
+                    I96F32::saturating_from_num(1.0)
                         .checked_sub(
                             total_issuance
-                                .checked_div(
-                                    I96F32::from_num(2.0)
-                                        .saturating_mul(I96F32::from_num(10_500_000_000_000_000.0)),
-                                )
+                                .checked_div(I96F32::saturating_from_num(2.0).saturating_mul(
+                                    I96F32::saturating_from_num(10_500_000_000_000_000.0),
+                                ))
                                 .ok_or("Logarithm calculation failed")?,
                         )
                         .ok_or("Logarithm calculation failed")?,
@@ -136,14 +137,15 @@ impl<T: Config> Pallet<T> {
         // Convert floored_residual to an integer
         let floored_residual_int: u64 = floored_residual.saturating_to_num::<u64>();
         // Multiply 2.0 by itself floored_residual times to calculate the power of 2.
-        let mut multiplier: I96F32 = I96F32::from_num(1.0);
+        let mut multiplier: I96F32 = I96F32::saturating_from_num(1.0);
         for _ in 0..floored_residual_int {
-            multiplier = multiplier.saturating_mul(I96F32::from_num(2.0));
+            multiplier = multiplier.saturating_mul(I96F32::saturating_from_num(2.0));
         }
-        let block_emission_percentage: I96F32 = I96F32::from_num(1.0).safe_div(multiplier);
+        let block_emission_percentage: I96F32 =
+            I96F32::saturating_from_num(1.0).safe_div(multiplier);
         // Calculate the actual emission based on the emission rate
         let block_emission: I96F32 = block_emission_percentage
-            .saturating_mul(I96F32::from_num(DefaultBlockEmission::<T>::get()));
+            .saturating_mul(I96F32::saturating_from_num(DefaultBlockEmission::<T>::get()));
         // Convert to u64
         let block_emission_u64: u64 = block_emission.saturating_to_num::<u64>();
         if BlockEmission::<T>::get() != block_emission_u64 {

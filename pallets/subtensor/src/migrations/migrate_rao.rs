@@ -45,10 +45,10 @@ pub fn migrate_rao<T: Config>() -> Weight {
         });
         // Set all the stake on root 0 subnet.
         Alpha::<T>::mutate((hotkey.clone(), coldkey.clone(), 0), |total| {
-            *total = total.saturating_add(U64F64::from_num(stake))
+            *total = total.saturating_add(U64F64::saturating_from_num(stake))
         });
         TotalHotkeyShares::<T>::mutate(hotkey.clone(), 0, |total| {
-            *total = total.saturating_add(U64F64::from_num(stake))
+            *total = total.saturating_add(U64F64::saturating_from_num(stake))
         });
         // Set the total stake on the hotkey
         TotalHotkeyAlpha::<T>::mutate(hotkey.clone(), 0, |total| {
