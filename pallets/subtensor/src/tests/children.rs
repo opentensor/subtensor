@@ -3357,7 +3357,7 @@ fn test_parent_child_chain_emission() {
         let total_tao: I96F32 = I96F32::from_num(300_000 + 100_000 + 50_000);
         let total_alpha: I96F32 = I96F32::from_num(SubtensorModule::swap_tao_for_alpha(
             netuid,
-            total_tao.saturating_to_num::<u64>(),
+            total_tao.to_num::<u64>(),
         ));
 
         // Set the stakes directly
@@ -4046,7 +4046,7 @@ fn test_dynamic_parent_child_relationships() {
         let expected_parent_stake = ((I96F32::from_num(stake_parent_0)
             + total_emission * rel_stake_parent_0)
             * I96F32::from_num(5))
-        .saturating_div(I96F32::from_num(12));
+            / I96F32::from_num(12);
         assert!(
             (I96F32::from_num(stake_parent_2) - expected_parent_stake).abs()
                 / expected_parent_stake
