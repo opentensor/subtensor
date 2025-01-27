@@ -16,4 +16,5 @@ default = ["std"]
 std = [
 	"substrate-fixed/std",
 	"sp-std/std",
+	"safe-math/std",
 ]
