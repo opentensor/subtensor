@@ -82,7 +82,7 @@ pub mod pallet {
     use sp_std::collections::vec_deque::VecDeque;
     use sp_std::vec;
     use sp_std::vec::Vec;
-    use substrate_fixed::types::U64F64;
+    use substrate_fixed::types::{I96F32, U64F64};
     use subtensor_macros::freeze_struct;
 
     #[cfg(not(feature = "std"))]
@@ -731,6 +731,13 @@ pub mod pallet {
     /// Default value for Share Pool variables
     pub fn DefaultSharePoolZero<T: Config>() -> U64F64 {
         U64F64::saturating_from_num(0)
+    }
+
+    #[pallet::type_value]
+    /// Default value for minimum liquidity in pool
+    pub fn DefaultMinimumPoolLiquidity<T: Config>() -> I96F32 {
+        // I96F32::saturating_from_num(1_000_000)
+        I96F32::saturating_from_num(0)
     }
 
     #[pallet::storage]
@@ -1562,6 +1569,7 @@ pub enum CustomTransactionError {
     HotkeyAccountDoesntExist,
     NotEnoughStakeToWithdraw,
     RateLimitExceeded,
+    InsufficientLiquidity,
     BadRequest,
 }
 
@@ -1575,6 +1583,7 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::HotkeyAccountDoesntExist => 4,
             CustomTransactionError::NotEnoughStakeToWithdraw => 5,
             CustomTransactionError::RateLimitExceeded => 6,
+            CustomTransactionError::InsufficientLiquidity => 7,
             CustomTransactionError::BadRequest => 255,
         }
     }
@@ -1640,6 +1649,10 @@ where
                 .into()),
                 Error::<T>::NotEnoughStakeToWithdraw => Err(InvalidTransaction::Custom(
                     CustomTransactionError::NotEnoughStakeToWithdraw.into(),
+                )
+                .into()),
+                Error::<T>::InsufficientLiquidity => Err(InvalidTransaction::Custom(
+                    CustomTransactionError::InsufficientLiquidity.into(),
                 )
                 .into()),
                 _ => Err(
