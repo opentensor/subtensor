@@ -65,7 +65,7 @@ pub trait WeightInfo {
 	fn sudo_set_commit_reveal_weights_enabled() -> Weight;
 	fn sudo_set_evm_chain_id() -> Weight;
 	fn schedule_grandpa_change(a: u32) -> Weight;
-	fn sudo_set_alpha_transfer_enabled() -> Weight;
+	fn sudo_enable_alpha_transfer() -> Weight;
 }
 
 /// Weights for `pallet_admin_utils` using the Substrate node and recommended hardware.
@@ -458,7 +458,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::default()
 	}
 
-	fn sudo_set_alpha_transfer_enabled() -> Weight {
+	fn sudo_enable_alpha_transfer() -> Weight {
 		// TODO benchmark
 		// 1 read for check subnet owner
 		// 1 read for check alpha transfer enabled
@@ -860,7 +860,7 @@ impl WeightInfo for () {
 		// TODO should be replaced by benchmarked weights
 		Weight::default()
 	}
-	fn sudo_set_alpha_transfer_enabled() -> Weight {
+	fn sudo_enable_alpha_transfer() -> Weight {
 		// TODO benchmark
 		// 1 read for check subnet owner
 		// 1 read for check alpha transfer enabled
