@@ -69,6 +69,7 @@ pub mod pallet {
     }
 
     #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// Alpha transfer was enabled on a subnet.
         AlphaTransferEnabled(u16, bool),
