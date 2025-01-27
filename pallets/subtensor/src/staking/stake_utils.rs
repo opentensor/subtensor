@@ -573,7 +573,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// Updates TaoIn, AlphaIn, and AlphaOut
     pub fn swap_alpha_for_tao(netuid: u16, alpha: u64) -> u64 {
-        if let Some(tao) = Self::sim_swap_tao_for_alpha(netuid, alpha) {
+        if let Some(tao) = Self::sim_swap_alpha_for_tao(netuid, alpha) {
             // Step 4: Increase Alpha reserves.
             SubnetAlphaIn::<T>::mutate(netuid, |total| {
                 *total = total.saturating_add(alpha);
