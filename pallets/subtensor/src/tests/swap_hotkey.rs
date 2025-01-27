@@ -1257,12 +1257,16 @@ fn test_swap_parent_hotkey_childkey_maps() {
         let parent_old = U256::from(1);
         let coldkey = U256::from(2);
         let child = U256::from(3);
+        let child_other = U256::from(4);
         let parent_new = U256::from(4);
         add_network(netuid, 1, 0);
         SubtensorModule::create_account_if_non_existent(&coldkey, &parent_old);
 
         // Set child and verify state maps
         mock_set_children(&coldkey, &parent_old, netuid, &[(u64::MAX, child)]);
+        // Schedule some pending child keys.
+        mock_schedule_children(&coldkey, &parent_old, netuid, &[(u64::MAX, child_other)]);
+
         assert_eq!(
             ParentKeys::<Test>::get(child, netuid),
             vec![(u64::MAX, parent_old)]
@@ -1271,6 +1275,8 @@ fn test_swap_parent_hotkey_childkey_maps() {
             ChildKeys::<Test>::get(parent_old, netuid),
             vec![(u64::MAX, child)]
         );
+        let existing_pending_child_keys = PendingChildKeys::<Test>::get(netuid, parent_old);
+        assert_eq!(existing_pending_child_keys.0, vec![(u64::MAX, child_other)]);
 
         // Swap
         let mut weight = Weight::zero();
@@ -1290,6 +1296,10 @@ fn test_swap_parent_hotkey_childkey_maps() {
             ChildKeys::<Test>::get(parent_new, netuid),
             vec![(u64::MAX, child)]
         );
+        assert_eq!(
+            PendingChildKeys::<Test>::get(netuid, parent_new),
+            existing_pending_child_keys // Entry under new hotkey.
+        );
     })
 }
 
@@ -1307,6 +1317,8 @@ fn test_swap_child_hotkey_childkey_maps() {
 
         // Set child and verify state maps
         mock_set_children(&coldkey, &parent, netuid, &[(u64::MAX, child_old)]);
+        // Schedule some pending child keys.
+        mock_schedule_children(&coldkey, &parent, netuid, &[(u64::MAX, child_old)]);
 
         assert_eq!(
             ParentKeys::<Test>::get(child_old, netuid),
@@ -1316,6 +1328,8 @@ fn test_swap_child_hotkey_childkey_maps() {
             ChildKeys::<Test>::get(parent, netuid),
             vec![(u64::MAX, child_old)]
         );
+        let existing_pending_child_keys = PendingChildKeys::<Test>::get(netuid, parent);
+        assert_eq!(existing_pending_child_keys.0, vec![(u64::MAX, child_old)]);
 
         // Swap
         let mut weight = Weight::zero();
@@ -1334,6 +1348,10 @@ fn test_swap_child_hotkey_childkey_maps() {
         assert_eq!(
             ChildKeys::<Test>::get(parent, netuid),
             vec![(u64::MAX, child_new)]
+        );
+        assert_eq!(
+            PendingChildKeys::<Test>::get(netuid, parent),
+            (vec![(u64::MAX, child_new)], existing_pending_child_keys.1) // Same cooldown block.
         );
     })
 }
