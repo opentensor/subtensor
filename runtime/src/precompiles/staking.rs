@@ -33,13 +33,13 @@ use pallet_evm::{
 use precompile_utils::prelude::RuntimeHelper;
 use sp_core::crypto::Ss58Codec;
 use sp_core::U256;
-use sp_runtime::traits::{BlakeTwo256, Dispatchable, StaticLookup, UniqueSaturatedInto};
+use sp_runtime::traits::{BlakeTwo256, Dispatchable, UniqueSaturatedInto};
 use sp_runtime::AccountId32;
 use sp_std::vec;
 
 use crate::{
     precompiles::{get_method_id, get_slice},
-    ProxyType, Runtime, RuntimeCall,
+    Runtime, RuntimeCall,
 };
 
 pub const STAKING_PRECOMPILE_INDEX: u64 = 2049;
