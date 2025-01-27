@@ -25,8 +25,8 @@ mod errors {
         /// Request to stake, unstake or subscribe is made by a coldkey that is not associated with
         /// the hotkey account.
         NonAssociatedColdKey,
-        /// Stake amount to withdraw is zero.
-        StakeToWithdrawIsZero,
+        /// DEPRECATED: Stake amount to withdraw is zero.
+        // StakeToWithdrawIsZero,
         /// The caller does not have enought stake to perform this action.
         NotEnoughStake,
         /// The caller is requesting removing more stake than there exists in the staking account.
