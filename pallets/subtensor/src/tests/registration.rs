@@ -526,10 +526,7 @@ fn test_burn_registration_doesnt_write_on_failure() {
         // Make sure the neuron is not registered.
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 0);
         // Make sure the hotkey is not registered.
-        assert_eq!(
-            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).is_err(),
-            true
-        );
+        assert!(SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).is_err());
     });
 }
 
