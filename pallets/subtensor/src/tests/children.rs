@@ -3425,6 +3425,8 @@ fn test_parent_child_chain_emission() {
         SubtensorModule::set_tao_weight(0);
 
         let hardcoded_emission: I96F32 = I96F32::from_num(1_000_000); // 1 million (adjust as needed)
+        let emission_as_alpha =
+            I96F32::from_num(hardcoded_emission) / SubtensorModule::get_alpha_price(netuid);
 
         // Set pending emission to 0
         PendingEmission::<Test>::insert(netuid, 0);
@@ -3489,22 +3491,31 @@ fn test_parent_child_chain_emission() {
             rel_stake_inc_c
         );
 
-		let hotkeys = [hotkey_a, hotkey_b, hotkey_c];
-		let mut total_stake_now = 0;
-		for (hotkey, netuid,stake) in TotalHotkeyAlpha::<Test>::iter() {
-			if hotkeys.contains(&hotkey) {
-				total_stake_now += stake;
-			} else {
-				log::info!("hotkey: {:?}, netuid: {:?}, stake: {:?}", hotkey, netuid, stake);
-			}
-		}
-		log::info!("total_stake_now: {:?}, total_stake_new: {:?}", total_stake_now, total_stake_new);
+        let hotkeys = [hotkey_a, hotkey_b, hotkey_c];
+        let mut total_stake_now = 0;
+        for (hotkey, netuid, stake) in TotalHotkeyAlpha::<Test>::iter() {
+            if hotkeys.contains(&hotkey) {
+                total_stake_now += stake;
+            } else {
+                log::info!(
+                    "hotkey: {:?}, netuid: {:?}, stake: {:?}",
+                    hotkey,
+                    netuid,
+                    stake
+                );
+            }
+        }
+        log::info!(
+            "total_stake_now: {:?}, total_stake_new: {:?}",
+            total_stake_now,
+            total_stake_new
+        );
 
         let eps: I96F32 = I96F32::from_num(10_000);
         assert!(
-            (total_stake_new - (total_stake_old + hardcoded_emission)).abs() <= eps,
+            (total_stake_new - (total_stake_old + emission_as_alpha)).abs() <= eps,
             "Total stake should have increased by the hardcoded emission amount {:?}",
-            total_stake_new - (total_stake_old + hardcoded_emission)
+            total_stake_new - (total_stake_old + emission_as_alpha)
         );
     });
 }
