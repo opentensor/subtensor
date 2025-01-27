@@ -3,6 +3,7 @@ use crate::*;
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_core::{Get, U256};
+use substrate_fixed::types::I96F32;
 
 // 1. test_do_move_success
 // Description: Test a successful move of stake between two hotkeys in the same subnet
@@ -111,14 +112,19 @@ fn test_do_move_different_subnets() {
             ),
             0
         );
+        let alpha_fee: I96F32 =
+            I96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
+        let expected_value = I96F32::from_num(alpha)
+            * SubtensorModule::get_alpha_price(origin_netuid)
+            / SubtensorModule::get_alpha_price(destination_netuid);
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &destination_hotkey,
                 &coldkey,
                 destination_netuid
             ),
-            stake_amount - 2 * fee,
-            epsilon = stake_amount / 1000
+            (expected_value - alpha_fee).to_num::<u64>(),
+            epsilon = (expected_value / 1000).to_num::<u64>()
         );
     });
 }
@@ -700,13 +706,17 @@ fn test_do_move_storage_updates() {
             ),
             0
         );
+        let alpha_fee =
+            I96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
+        let alpha2 = I96F32::from_num(alpha) * SubtensorModule::get_alpha_price(origin_netuid)
+            / SubtensorModule::get_alpha_price(destination_netuid);
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &destination_hotkey,
                 &coldkey,
                 destination_netuid
             ),
-            alpha - fee,
+            (alpha2 - alpha_fee).to_num::<u64>(),
             epsilon = alpha / 1000
         );
     });
@@ -1063,10 +1073,12 @@ fn test_do_transfer_different_subnets() {
             &destination_coldkey,
             destination_netuid,
         );
+        let expected_value = I96F32::from_num(stake_amount - fee)
+            / SubtensorModule::get_alpha_price(destination_netuid);
         assert_abs_diff_eq!(
             dest_stake,
-            stake_amount - fee,
-            epsilon = stake_amount / 1000
+            expected_value.to_num::<u64>(),
+            epsilon = (expected_value / 1000).to_num::<u64>()
         );
     });
 }
@@ -1114,10 +1126,15 @@ fn test_do_swap_success() {
             &coldkey,
             destination_netuid,
         );
+        let alpha_fee =
+            I96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
+        let expected_value = I96F32::from_num(alpha_before)
+            * SubtensorModule::get_alpha_price(origin_netuid)
+            / SubtensorModule::get_alpha_price(destination_netuid);
         assert_abs_diff_eq!(
             alpha_after,
-            stake_amount - fee,
-            epsilon = stake_amount / 1000
+            (expected_value - alpha_fee).to_num::<u64>(),
+            epsilon = (expected_value / 1000).to_num::<u64>()
         );
     });
 }
@@ -1309,7 +1326,6 @@ fn test_do_swap_partial_stake() {
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
         SubtensorModule::stake_into_subnet(&hotkey, &coldkey, origin_netuid, total_stake, 0);
 
-        let fee_as_alpha2 = SubtensorModule::swap_tao_for_alpha(destination_netuid, fee);
         let swap_amount = total_stake / 2;
         assert_ok!(SubtensorModule::do_swap_stake(
             RuntimeOrigin::signed(coldkey),
@@ -1328,14 +1344,20 @@ fn test_do_swap_partial_stake() {
             total_stake - swap_amount,
             epsilon = total_stake / 1000
         );
+
+        let alpha_fee =
+            I96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
+        let expected_value = I96F32::from_num(swap_amount)
+            * SubtensorModule::get_alpha_price(origin_netuid)
+            / SubtensorModule::get_alpha_price(destination_netuid);
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey,
                 &coldkey,
                 destination_netuid
             ),
-            swap_amount - fee_as_alpha2,
-            epsilon = total_stake / 1000
+            (expected_value - alpha_fee).to_num::<u64>(),
+            epsilon = (expected_value / 1000).to_num::<u64>()
         );
     });
 }
@@ -1378,16 +1400,19 @@ fn test_do_swap_storage_updates() {
             0
         );
 
-        let fee_as_alpha = SubtensorModule::swap_tao_for_alpha(destination_netuid, fee);
-
+        let alpha_fee =
+            I96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
+        let expected_value = I96F32::from_num(alpha)
+            * SubtensorModule::get_alpha_price(origin_netuid)
+            / SubtensorModule::get_alpha_price(destination_netuid);
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey,
                 &coldkey,
                 destination_netuid
             ),
-            alpha - fee_as_alpha,
-            epsilon = 5
+            (expected_value - alpha_fee).to_num::<u64>(),
+            epsilon = (expected_value / 1000).to_num::<u64>()
         );
     });
 }
