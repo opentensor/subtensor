@@ -105,6 +105,7 @@ std = [
 	"ark-serialize/std",
 	"w3f-bls/std",
 	"rand_chacha/std",
+	"safe-math/std",
 	"sha2/std",
 	"share-pool/std"
 ]
