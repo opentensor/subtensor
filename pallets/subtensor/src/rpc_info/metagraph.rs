@@ -6,7 +6,7 @@ use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I64F64;
 use subtensor_macros::freeze_struct;
 
-#[freeze_struct("4b65aed880c83b01")]
+#[freeze_struct("6d9ba952fe7919a9")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     // Subnet index
@@ -82,7 +82,7 @@ pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     // Metagraph info.
     hotkeys: Vec<AccountId>,                  // hotkey per UID
     coldkeys: Vec<AccountId>,                 // coldkey per UID
-    identities: Vec<ChainIdentityOf>,         // coldkeys identities
+    identities: Vec<Option<ChainIdentityOf>>, // coldkeys identities
     axons: Vec<AxonInfo>,                     // UID axons.
     active: Vec<bool>,                        // Avtive per UID
     validator_permit: Vec<bool>,              // Val permit per UID
@@ -114,7 +114,7 @@ impl<T: Config> Pallet<T> {
         let mut hotkeys: Vec<T::AccountId> = vec![];
         let mut coldkeys: Vec<T::AccountId> = vec![];
         let mut block_at_registration: Vec<Compact<u64>> = vec![];
-        let mut identities: Vec<ChainIdentityOf> = vec![];
+        let mut identities: Vec<Option<ChainIdentityOf>> = vec![];
         let mut axons: Vec<AxonInfo> = vec![];
         for uid in 0..n {
             let hotkey = Keys::<T>::get(netuid, uid);
@@ -122,7 +122,7 @@ impl<T: Config> Pallet<T> {
             hotkeys.push(hotkey.clone());
             coldkeys.push(coldkey.clone());
             block_at_registration.push(BlockAtRegistration::<T>::get(netuid, uid).into());
-            identities.push(Identities::<T>::get(coldkey.clone())?);
+            identities.push(Identities::<T>::get(coldkey.clone()));
             axons.push(Self::get_axon_info(netuid, &hotkey));
         }
         let mut tao_dividends_per_hotkey: Vec<(T::AccountId, Compact<u64>)> = vec![];

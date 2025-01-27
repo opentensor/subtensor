@@ -21,6 +21,7 @@ use frame_support::sp_runtime::transaction_validity::ValidTransaction;
 use pallet_balances::Call as BalancesCall;
 // use pallet_scheduler as Scheduler;
 use scale_info::TypeInfo;
+use sp_core::Get;
 use sp_runtime::{
     traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
     transaction_validity::{TransactionValidity, TransactionValidityError},
@@ -568,6 +569,11 @@ pub mod pallet {
     pub fn DefaultBondsMovingAverage<T: Config>() -> u64 {
         T::InitialBondsMovingAverage::get()
     }
+    /// Default bonds penalty.
+    #[pallet::type_value]
+    pub fn DefaultBondsPenalty<T: Config>() -> u16 {
+        T::InitialBondsPenalty::get()
+    }
     #[pallet::type_value]
     /// Default validator prune length.
     pub fn DefaultValidatorPruneLen<T: Config>() -> u64 {
@@ -697,9 +703,16 @@ pub mod pallet {
 
     #[pallet::type_value]
     /// Default minimum stake.
-    /// 2M rao matches $1 at $500/TAO
+    /// 500k rao matches $0.25 at $500/TAO
     pub fn DefaultMinStake<T: Config>() -> u64 {
-        2_000_000
+        500_000
+    }
+
+    #[pallet::type_value]
+    /// Default staking fee.
+    /// 500k rao matches $0.25 at $500/TAO
+    pub fn DefaultStakingFee<T: Config>() -> u64 {
+        500_000
     }
 
     #[pallet::type_value]
@@ -886,34 +899,34 @@ pub mod pallet {
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
     #[pallet::storage] // --- ITEM ( dynamic_block ) -- block when dynamic was turned on.
     pub type DynamicBlock<T> = StorageValue<_, u64, ValueQuery>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> total_volume | The total amount of TAO bought and sold since the start of the network.
+    #[pallet::storage] // --- MAP ( netuid ) --> total_volume | The total amount of TAO bought and sold since the start of the network.
     pub type SubnetVolume<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> tao_in_subnet | Returns the amount of TAO in the subnet.
+    #[pallet::storage] // --- MAP ( netuid ) --> tao_in_subnet | Returns the amount of TAO in the subnet.
     pub type SubnetTAO<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> alpha_in_emission | Returns the amount of alph in  emission into the pool per block.
+    #[pallet::storage] // --- MAP ( netuid ) --> alpha_in_emission | Returns the amount of alph in  emission into the pool per block.
     pub type SubnetAlphaInEmission<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> alpha_out_emission | Returns the amount of alpha out emission into the network per block.
+    #[pallet::storage] // --- MAP ( netuid ) --> alpha_out_emission | Returns the amount of alpha out emission into the network per block.
     pub type SubnetAlphaOutEmission<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> tao_in_emission | Returns the amount of tao emitted into this subent on the last block.
+    #[pallet::storage] // --- MAP ( netuid ) --> tao_in_emission | Returns the amount of tao emitted into this subent on the last block.
     pub type SubnetTaoInEmission<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> alpha_sell_per_block | Alpha sold per block.
+    #[pallet::storage] // --- MAP ( netuid ) --> alpha_sell_per_block | Alpha sold per block.
     pub type SubnetAlphaEmissionSell<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> total_stake_at_moment_of_subnet_registration
+    #[pallet::storage] // --- MAP ( netuid ) --> total_stake_at_moment_of_subnet_registration
     pub type TotalStakeAtDynamic<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the subnet.
+    #[pallet::storage] // --- MAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the pool.
     pub type SubnetAlphaIn<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
+    #[pallet::storage] // --- MAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
     pub type SubnetAlphaOut<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- DMAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
+    #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
     pub type StakingHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
     #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Returns the vector of hotkeys controlled by this coldkey.
@@ -970,10 +983,10 @@ pub mod pallet {
         U64F64, // Shares
         ValueQuery,
     >;
-    #[pallet::storage] // --- DMAP ( netuid ) --> token_symbol | Returns the token symbol for a subnet.
+    #[pallet::storage] // --- MAP ( netuid ) --> token_symbol | Returns the token symbol for a subnet.
     pub type TokenSymbol<T: Config> =
         StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> subnet_name | Returns the name of the subnet.
+    #[pallet::storage] // --- MAP ( netuid ) --> subnet_name | Returns the name of the subnet.
     pub type SubnetName<T: Config> =
         StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
 
@@ -1097,6 +1110,13 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> pending_root_emission
     pub type PendingRootDivs<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage]
+    /// --- MAP ( netuid ) --> pending_alpha_swapped
+    pub type PendingAlphaSwapped<T> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> pending_owner_cut
+    pub type PendingOwnerCut<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage]
     /// --- MAP ( netuid ) --> blocks_since_last_step
     pub type BlocksSinceLastStep<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBlocksSinceLastStep<T>>;
@@ -1172,6 +1192,10 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> bonds_moving_average
     pub type BondsMovingAverage<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBondsMovingAverage<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> bonds_penalty
+    pub type BondsPenalty<T> =
+        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultBondsPenalty<T>>;
     /// --- MAP ( netuid ) --> weights_set_rate_limit
     #[pallet::storage]
     pub type WeightsSetRateLimit<T> =
@@ -1267,49 +1291,49 @@ pub mod pallet {
     pub type Keys<T: Config> =
         StorageDoubleMap<_, Identity, u16, Identity, u16, T::AccountId, ValueQuery, DefaultKey<T>>;
     #[pallet::storage]
-    /// --- DMAP ( netuid ) --> (hotkey, se, ve)
+    /// --- MAP ( netuid ) --> (hotkey, se, ve)
     pub type LoadedEmission<T: Config> =
         StorageMap<_, Identity, u16, Vec<(T::AccountId, u64, u64)>, OptionQuery>;
     #[pallet::storage]
-    /// --- DMAP ( netuid ) --> active
+    /// --- MAP ( netuid ) --> active
     pub type Active<T: Config> =
         StorageMap<_, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T>>;
     #[pallet::storage]
-    /// --- DMAP ( netuid ) --> rank
+    /// --- MAP ( netuid ) --> rank
     pub type Rank<T: Config> = StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
-    /// --- DMAP ( netuid ) --> trust
+    /// --- MAP ( netuid ) --> trust
     pub type Trust<T: Config> = StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
-    /// --- DMAP ( netuid ) --> consensus
+    /// --- MAP ( netuid ) --> consensus
     pub type Consensus<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
-    /// --- DMAP ( netuid ) --> incentive
+    /// --- MAP ( netuid ) --> incentive
     pub type Incentive<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
-    /// --- DMAP ( netuid ) --> dividends
+    /// --- MAP ( netuid ) --> dividends
     pub type Dividends<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
-    /// --- DMAP ( netuid ) --> emission
+    /// --- MAP ( netuid ) --> emission
     pub type Emission<T: Config> =
         StorageMap<_, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
     #[pallet::storage]
-    /// --- DMAP ( netuid ) --> last_update
+    /// --- MAP ( netuid ) --> last_update
     pub type LastUpdate<T: Config> =
         StorageMap<_, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
     #[pallet::storage]
-    /// --- DMAP ( netuid ) --> validator_trust
+    /// --- MAP ( netuid ) --> validator_trust
     pub type ValidatorTrust<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
-    /// --- DMAP ( netuid ) --> pruning_scores
+    /// --- MAP ( netuid ) --> pruning_scores
     pub type PruningScores<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
-    /// --- DMAP ( netuid ) --> validator_permit
+    /// --- MAP ( netuid ) --> validator_permit
     pub type ValidatorPermit<T: Config> =
         StorageMap<_, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T>>;
     #[pallet::storage]
@@ -1532,12 +1556,26 @@ pub enum CallType {
 #[derive(Debug, PartialEq)]
 pub enum CustomTransactionError {
     ColdkeyInSwapSchedule,
+    StakeAmountTooLow,
+    BalanceTooLow,
+    SubnetDoesntExist,
+    HotkeyAccountDoesntExist,
+    NotEnoughStakeToWithdraw,
+    RateLimitExceeded,
+    BadRequest,
 }
 
 impl From<CustomTransactionError> for u8 {
     fn from(variant: CustomTransactionError) -> u8 {
         match variant {
             CustomTransactionError::ColdkeyInSwapSchedule => 0,
+            CustomTransactionError::StakeAmountTooLow => 1,
+            CustomTransactionError::BalanceTooLow => 2,
+            CustomTransactionError::SubnetDoesntExist => 3,
+            CustomTransactionError::HotkeyAccountDoesntExist => 4,
+            CustomTransactionError::NotEnoughStakeToWithdraw => 5,
+            CustomTransactionError::RateLimitExceeded => 6,
+            CustomTransactionError::BadRequest => 255,
         }
     }
 }
@@ -1579,6 +1617,41 @@ where
 
     pub fn check_weights_min_stake(who: &T::AccountId, netuid: u16) -> bool {
         Pallet::<T>::check_weights_min_stake(who, netuid)
+    }
+
+    pub fn result_to_validity(result: Result<(), Error<T>>) -> TransactionValidity {
+        if let Err(err) = result {
+            match err {
+                Error::<T>::AmountTooLow => Err(InvalidTransaction::Custom(
+                    CustomTransactionError::StakeAmountTooLow.into(),
+                )
+                .into()),
+                Error::<T>::SubnetNotExists => Err(InvalidTransaction::Custom(
+                    CustomTransactionError::SubnetDoesntExist.into(),
+                )
+                .into()),
+                Error::<T>::NotEnoughBalanceToStake => Err(InvalidTransaction::Custom(
+                    CustomTransactionError::BalanceTooLow.into(),
+                )
+                .into()),
+                Error::<T>::HotKeyAccountNotExists => Err(InvalidTransaction::Custom(
+                    CustomTransactionError::HotkeyAccountDoesntExist.into(),
+                )
+                .into()),
+                Error::<T>::NotEnoughStakeToWithdraw => Err(InvalidTransaction::Custom(
+                    CustomTransactionError::NotEnoughStakeToWithdraw.into(),
+                )
+                .into()),
+                _ => Err(
+                    InvalidTransaction::Custom(CustomTransactionError::BadRequest.into()).into(),
+                ),
+            }
+        } else {
+            Ok(ValidTransaction {
+                priority: Self::get_priority_vanilla(),
+                ..Default::default()
+            })
+        }
     }
 }
 
@@ -1624,7 +1697,10 @@ where
                         ..Default::default()
                     })
                 } else {
-                    Err(InvalidTransaction::Custom(1).into())
+                    Err(InvalidTransaction::Custom(
+                        CustomTransactionError::StakeAmountTooLow.into(),
+                    )
+                    .into())
                 }
             }
             Some(Call::reveal_weights { netuid, .. }) => {
@@ -1636,7 +1712,10 @@ where
                         ..Default::default()
                     })
                 } else {
-                    Err(InvalidTransaction::Custom(2).into())
+                    Err(InvalidTransaction::Custom(
+                        CustomTransactionError::StakeAmountTooLow.into(),
+                    )
+                    .into())
                 }
             }
             Some(Call::batch_reveal_weights { netuid, .. }) => {
@@ -1648,7 +1727,10 @@ where
                         ..Default::default()
                     })
                 } else {
-                    Err(InvalidTransaction::Custom(6).into())
+                    Err(InvalidTransaction::Custom(
+                        CustomTransactionError::StakeAmountTooLow.into(),
+                    )
+                    .into())
                 }
             }
             Some(Call::set_weights { netuid, .. }) => {
@@ -1660,7 +1742,10 @@ where
                         ..Default::default()
                     })
                 } else {
-                    Err(InvalidTransaction::Custom(3).into())
+                    Err(InvalidTransaction::Custom(
+                        CustomTransactionError::StakeAmountTooLow.into(),
+                    )
+                    .into())
                 }
             }
             Some(Call::set_tao_weights { netuid, hotkey, .. }) => {
@@ -1672,7 +1757,10 @@ where
                         ..Default::default()
                     })
                 } else {
-                    Err(InvalidTransaction::Custom(4).into())
+                    Err(InvalidTransaction::Custom(
+                        CustomTransactionError::StakeAmountTooLow.into(),
+                    )
+                    .into())
                 }
             }
             Some(Call::commit_crv3_weights { netuid, .. }) => {
@@ -1684,17 +1772,91 @@ where
                         ..Default::default()
                     })
                 } else {
-                    Err(InvalidTransaction::Custom(7).into())
+                    Err(InvalidTransaction::Custom(
+                        CustomTransactionError::StakeAmountTooLow.into(),
+                    )
+                    .into())
                 }
             }
-            Some(Call::add_stake { .. }) => Ok(ValidTransaction {
-                priority: Self::get_priority_vanilla(),
-                ..Default::default()
-            }),
-            Some(Call::remove_stake { .. }) => Ok(ValidTransaction {
-                priority: Self::get_priority_vanilla(),
-                ..Default::default()
-            }),
+            Some(Call::add_stake {
+                hotkey,
+                netuid,
+                amount_staked,
+            }) => {
+                // Fully validate the user input
+                Self::result_to_validity(Pallet::<T>::validate_add_stake(
+                    who,
+                    hotkey,
+                    *netuid,
+                    *amount_staked,
+                ))
+            }
+            Some(Call::remove_stake {
+                hotkey,
+                netuid,
+                amount_unstaked,
+            }) => {
+                // Fully validate the user input
+                Self::result_to_validity(Pallet::<T>::validate_remove_stake(
+                    who,
+                    hotkey,
+                    *netuid,
+                    *amount_unstaked,
+                ))
+            }
+            Some(Call::move_stake {
+                origin_hotkey,
+                destination_hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            }) => {
+                // Fully validate the user input
+                Self::result_to_validity(Pallet::<T>::validate_stake_transition(
+                    who,
+                    who,
+                    origin_hotkey,
+                    destination_hotkey,
+                    *origin_netuid,
+                    *destination_netuid,
+                    *alpha_amount,
+                ))
+            }
+            Some(Call::transfer_stake {
+                destination_coldkey,
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            }) => {
+                // Fully validate the user input
+                Self::result_to_validity(Pallet::<T>::validate_stake_transition(
+                    who,
+                    destination_coldkey,
+                    hotkey,
+                    hotkey,
+                    *origin_netuid,
+                    *destination_netuid,
+                    *alpha_amount,
+                ))
+            }
+            Some(Call::swap_stake {
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            }) => {
+                // Fully validate the user input
+                Self::result_to_validity(Pallet::<T>::validate_stake_transition(
+                    who,
+                    who,
+                    hotkey,
+                    hotkey,
+                    *origin_netuid,
+                    *destination_netuid,
+                    *alpha_amount,
+                ))
+            }
             Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {
                 let registrations_this_interval =
                     Pallet::<T>::get_registrations_this_interval(*netuid);
@@ -1703,7 +1865,10 @@ where
                 if registrations_this_interval >= (max_registrations_per_interval.saturating_mul(3))
                 {
                     // If the registration limit for the interval is exceeded, reject the transaction
-                    return Err(InvalidTransaction::Custom(5).into());
+                    return Err(InvalidTransaction::Custom(
+                        CustomTransactionError::RateLimitExceeded.into(),
+                    )
+                    .into());
                 }
                 Ok(ValidTransaction {
                     priority: Self::get_priority_vanilla(),

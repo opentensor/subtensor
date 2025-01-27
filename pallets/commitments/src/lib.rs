@@ -58,7 +58,7 @@ pub mod pallet {
 
         /// The rate limit for commitments
         #[pallet::constant]
-        type RateLimit: Get<BlockNumberFor<Self>>;
+        type DefaultRateLimit: Get<BlockNumberFor<Self>>;
     }
 
     #[pallet::event]
@@ -82,6 +82,16 @@ pub mod pallet {
         /// Account is trying to commit data too fast, rate limit exceeded
         CommitmentSetRateLimitExceeded,
     }
+
+    #[pallet::type_value]
+    /// Default value for commitment rate limit.
+    pub fn DefaultRateLimit<T: Config>() -> BlockNumberFor<T> {
+        T::DefaultRateLimit::get()
+    }
+
+    /// The rate limit for commitments
+    #[pallet::storage]
+    pub type RateLimit<T> = StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultRateLimit<T>>;
 
     /// Identity data by account
     #[pallet::storage]
@@ -137,7 +147,7 @@ pub mod pallet {
             let cur_block = <frame_system::Pallet<T>>::block_number();
             if let Some(last_commit) = <LastCommitment<T>>::get(netuid, &who) {
                 ensure!(
-                    cur_block >= last_commit.saturating_add(T::RateLimit::get()),
+                    cur_block >= last_commit.saturating_add(RateLimit::<T>::get()),
                     Error::<T>::CommitmentSetRateLimitExceeded
                 );
             }
@@ -171,6 +181,19 @@ pub mod pallet {
             <LastCommitment<T>>::insert(netuid, &who, cur_block);
             Self::deposit_event(Event::Commitment { netuid, who });
 
+            Ok(())
+        }
+
+        /// Sudo-set the commitment rate limit
+        #[pallet::call_index(1)]
+        #[pallet::weight((
+			T::WeightInfo::set_rate_limit(),
+			DispatchClass::Operational,
+			Pays::No
+		))]
+        pub fn set_rate_limit(origin: OriginFor<T>, rate_limit_blocks: u32) -> DispatchResult {
+            ensure_root(origin)?;
+            RateLimit::<T>::set(rate_limit_blocks.into());
             Ok(())
         }
     }

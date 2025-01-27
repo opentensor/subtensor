@@ -57,6 +57,8 @@ mod events {
         ImmunityPeriodSet(u16, u16),
         /// bonds moving average is set for a subnet.
         BondsMovingAverageSet(u16, u64),
+        /// bonds penalty is set for a subnet.
+        BondsPenaltySet(u16, u16),
         /// setting the max number of allowed validators on a subnet.
         MaxAllowedValidatorsSet(u16, u16),
         /// the axon server information is added to the network.
@@ -257,5 +259,11 @@ mod events {
         /// Parameters:
         /// (origin_coldkey, destination_coldkey, hotkey, origin_netuid, destination_netuid, amount)
         StakeTransferred(T::AccountId, T::AccountId, T::AccountId, u16, u16, u64),
+
+        /// Stake has been swapped from one subnet to another for the same coldkey-hotkey pair.
+        ///
+        /// Parameters:
+        /// (coldkey, hotkey, origin_netuid, destination_netuid, amount)
+        StakeSwapped(T::AccountId, T::AccountId, u16, u16, u64),
     }
 }
