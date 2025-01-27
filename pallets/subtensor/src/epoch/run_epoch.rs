@@ -735,10 +735,10 @@ impl<T: Config> Pallet<T> {
         I32F32::from_num(Self::get_rho(netuid))
     }
     pub fn get_float_kappa(netuid: u16) -> I32F32 {
-        I32F32::from_num(Self::get_kappa(netuid)).saturating_div(I32F32::from_num(u16::MAX))
+        I32F32::from_num(Self::get_kappa(netuid)).safe_div(I32F32::from_num(u16::MAX))
     }
     pub fn get_float_bonds_penalty(netuid: u16) -> I32F32 {
-        I32F32::from_num(Self::get_bonds_penalty(netuid)).saturating_div(I32F32::from_num(u16::MAX))
+        I32F32::from_num(Self::get_bonds_penalty(netuid)).safe_div(I32F32::from_num(u16::MAX))
     }
 
     pub fn get_block_at_registration(netuid: u16) -> Vec<u64> {
@@ -864,19 +864,18 @@ impl<T: Config> Pallet<T> {
         // Calculate the slope 'a' of the logistic function.
         // a = (ln((1 / alpha_high - 1)) - ln((1 / alpha_low - 1))) / (consensus_low - consensus_high)
         let a = (safe_ln(
-            (I32F32::from_num(1.0).saturating_div(alpha_high))
-                .saturating_sub(I32F32::from_num(1.0)),
+            (I32F32::from_num(1.0).safe_div(alpha_high)).saturating_sub(I32F32::from_num(1.0)),
         )
         .saturating_sub(safe_ln(
-            (I32F32::from_num(1.0).saturating_div(alpha_low)).saturating_sub(I32F32::from_num(1.0)),
+            (I32F32::from_num(1.0).safe_div(alpha_low)).saturating_sub(I32F32::from_num(1.0)),
         )))
-        .saturating_div(consensus_low.saturating_sub(consensus_high));
+        .safe_div(consensus_low.saturating_sub(consensus_high));
         log::trace!("a: {:?}", a);
 
         // Calculate the intercept 'b' of the logistic function.
         // b = ln((1 / alpha_low - 1)) + a * consensus_low
         let b = safe_ln(
-            (I32F32::from_num(1.0).saturating_div(alpha_low)).saturating_sub(I32F32::from_num(1.0)),
+            (I32F32::from_num(1.0).safe_div(alpha_low)).saturating_sub(I32F32::from_num(1.0)),
         )
         .saturating_add(a.saturating_mul(consensus_low));
         log::trace!("b: {:?}", b);
@@ -905,7 +904,7 @@ impl<T: Config> Pallet<T> {
 
                 // Compute the alpha value using the logistic function formula.
                 // alpha = 1 / (1 + exp_val)
-                I32F32::from_num(1.0).saturating_div(I32F32::from_num(1.0).saturating_add(exp_val))
+                I32F32::from_num(1.0).safe_div(I32F32::from_num(1.0).saturating_add(exp_val))
             })
             .collect();
 
@@ -1020,7 +1019,7 @@ impl<T: Config> Pallet<T> {
     ) -> Vec<Vec<(u16, I32F32)>> {
         // Retrieve the bonds moving average for the given network ID and scale it down.
         let bonds_moving_average: I64F64 = I64F64::from_num(Self::get_bonds_moving_average(netuid))
-            .saturating_div(I64F64::from_num(1_000_000));
+            .safe_div(I64F64::from_num(1_000_000));
 
         // Calculate the alpha value for the EMA calculation.
         // Alpha is derived by subtracting the scaled bonds moving average from 1.
@@ -1053,7 +1052,7 @@ impl<T: Config> Pallet<T> {
     ) -> Vec<Vec<I32F32>> {
         // Retrieve the bonds moving average for the given network ID and scale it down.
         let bonds_moving_average: I64F64 = I64F64::from_num(Self::get_bonds_moving_average(netuid))
-            .saturating_div(I64F64::from_num(1_000_000));
+            .safe_div(I64F64::from_num(1_000_000));
 
         // Calculate the alpha value for the EMA calculation.
         // Alpha is derived by subtracting the scaled bonds moving average from 1.
@@ -1221,7 +1220,7 @@ impl<T: Config> Pallet<T> {
         );
 
         let max_u16: u32 = u16::MAX as u32; // 65535
-        let min_alpha_high: u16 = (max_u16.saturating_mul(4).saturating_div(5)) as u16; // 52428
+        let min_alpha_high: u16 = (max_u16.saturating_mul(4).safe_div(5)) as u16; // 52428
 
         // --- 4. Ensure alpha high is greater than the minimum
         ensure!(alpha_high >= min_alpha_high, Error::<T>::AlphaHighTooLow);

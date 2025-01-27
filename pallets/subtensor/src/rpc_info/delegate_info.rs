@@ -1,4 +1,5 @@
 use super::*;
+use crate::epoch::math::*;
 use frame_support::pallet_prelude::{Decode, Encode};
 use frame_support::storage::IterableStorageMap;
 use frame_support::IterableStorageDoubleMap;
@@ -27,14 +28,14 @@ impl<T: Config> Pallet<T> {
         emissions_per_day: U64F64,
     ) -> U64F64 {
         // Get the take as a percentage and subtract it from 1 for remainder.
-        let without_take: U64F64 = U64F64::from_num(1)
-            .saturating_sub(U64F64::from_num(take.0).saturating_div(u16::MAX.into()));
+        let without_take: U64F64 =
+            U64F64::from_num(1).saturating_sub(U64F64::from_num(take.0).safe_div(u16::MAX.into()));
 
         if total_stake > U64F64::from_num(0) {
             emissions_per_day
                 .saturating_mul(without_take)
                 // Divide by 1000 TAO for return per 1k
-                .saturating_div(total_stake.saturating_div(U64F64::from_num(1000.0 * 1e9)))
+                .safe_div(total_stake.safe_div(U64F64::from_num(1000.0 * 1e9)))
         } else {
             U64F64::from_num(0)
         }
@@ -78,7 +79,7 @@ impl<T: Config> Pallet<T> {
                 let emission: U64F64 = Self::get_emission_for_uid(*netuid, uid).into();
                 let tempo: U64F64 = Self::get_tempo(*netuid).into();
                 if tempo > U64F64::from_num(0) {
-                    let epochs_per_day: U64F64 = U64F64::from_num(7200).saturating_div(tempo);
+                    let epochs_per_day: U64F64 = U64F64::from_num(7200).safe_div(tempo);
                     emissions_per_day =
                         emissions_per_day.saturating_add(emission.saturating_mul(epochs_per_day));
                 }

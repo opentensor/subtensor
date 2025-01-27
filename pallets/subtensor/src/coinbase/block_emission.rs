@@ -1,4 +1,5 @@
 use super::*;
+use crate::epoch::math::*;
 use frame_support::traits::Get;
 use substrate_fixed::{transcendental::log2, types::I96F32};
 
@@ -139,7 +140,7 @@ impl<T: Config> Pallet<T> {
         for _ in 0..floored_residual_int {
             multiplier = multiplier.saturating_mul(I96F32::from_num(2.0));
         }
-        let block_emission_percentage: I96F32 = I96F32::from_num(1.0).saturating_div(multiplier);
+        let block_emission_percentage: I96F32 = I96F32::from_num(1.0).safe_div(multiplier);
         // Calculate the actual emission based on the emission rate
         let block_emission: I96F32 = block_emission_percentage
             .saturating_mul(I96F32::from_num(DefaultBlockEmission::<T>::get()));

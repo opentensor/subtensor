@@ -1,4 +1,5 @@
 use super::*;
+use crate::epoch::math::*;
 use alloc::collections::BTreeMap;
 use substrate_fixed::types::I96F32;
 use tle::stream_ciphers::AESGCMStreamCipherProvider;
@@ -557,7 +558,7 @@ impl<T: Config> Pallet<T> {
         for (proportion, _) in childkeys {
             remaining_proportion = remaining_proportion.saturating_sub(
                 I96F32::from_num(proportion) // Normalize
-                    .saturating_div(I96F32::from_num(u64::MAX)),
+                    .safe_div(I96F32::from_num(u64::MAX)),
             );
         }
 
@@ -608,7 +609,7 @@ impl<T: Config> Pallet<T> {
         let validating_emission: I96F32 = I96F32::from_num(dividends);
         let childkey_take_proportion: I96F32 =
             I96F32::from_num(Self::get_childkey_take(hotkey, netuid))
-                .saturating_div(I96F32::from_num(u16::MAX));
+                .safe_div(I96F32::from_num(u16::MAX));
         log::debug!(
             "Childkey take proportion: {:?} for hotkey {:?}",
             childkey_take_proportion,
@@ -656,7 +657,7 @@ impl<T: Config> Pallet<T> {
         for (proportion, parent) in Self::get_parents(hotkey, netuid) {
             // Convert the parent's stake proportion to a fractional value
             let parent_proportion: I96F32 =
-                I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
+                I96F32::from_num(proportion).safe_div(I96F32::from_num(u64::MAX));
 
             // Get the parent's root and subnet-specific (alpha) stakes
             let parent_root: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(

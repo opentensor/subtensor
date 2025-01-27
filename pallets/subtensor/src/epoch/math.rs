@@ -8,7 +8,7 @@ use sp_std::cmp::Ordering;
 
 use sp_std::vec;
 use substrate_fixed::transcendental::{exp, ln};
-use substrate_fixed::types::{I32F32, I64F64};
+use substrate_fixed::types::{I110F18, I32F32, I64F64, I96F32, U64F64};
 
 // TODO: figure out what cfg gate this needs to not be a warning in rustc
 #[allow(unused)]
@@ -51,7 +51,7 @@ pub fn u16_to_fixed(x: u16) -> I32F32 {
 
 #[allow(dead_code)]
 pub fn u16_proportion_to_fixed(x: u16) -> I32F32 {
-    I32F32::from_num(x).saturating_div(I32F32::from_num(u16::MAX))
+    I32F32::from_num(x).safe_div(I32F32::from_num(u16::MAX))
 }
 
 #[allow(dead_code)]
@@ -107,7 +107,7 @@ pub fn vec_max_upscale_to_u16(vec: &[I32F32]) -> Vec<u16> {
                 return vec
                     .iter()
                     .map(|e: &I32F32| {
-                        e.saturating_mul(u16_max.saturating_div(*val))
+                        e.saturating_mul(u16_max.safe_div(*val))
                             .round()
                             .to_num::<u16>()
                     })
@@ -116,7 +116,7 @@ pub fn vec_max_upscale_to_u16(vec: &[I32F32]) -> Vec<u16> {
             vec.iter()
                 .map(|e: &I32F32| {
                     e.saturating_mul(u16_max)
-                        .saturating_div(*val)
+                        .safe_div(*val)
                         .round()
                         .to_num::<u16>()
                 })
@@ -125,11 +125,7 @@ pub fn vec_max_upscale_to_u16(vec: &[I32F32]) -> Vec<u16> {
         None => {
             let sum: I32F32 = vec.iter().sum();
             vec.iter()
-                .map(|e: &I32F32| {
-                    e.saturating_mul(u16_max)
-                        .saturating_div(sum)
-                        .to_num::<u16>()
-                })
+                .map(|e: &I32F32| e.saturating_mul(u16_max).safe_div(sum).to_num::<u16>())
                 .collect()
         }
     }
@@ -145,8 +141,7 @@ pub fn vec_u16_max_upscale_to_u16(vec: &[u16]) -> Vec<u16> {
 #[allow(dead_code)]
 // Checks if u16 vector, when normalized, has a max value not greater than a u16 ratio max_limit.
 pub fn check_vec_max_limited(vec: &[u16], max_limit: u16) -> bool {
-    let max_limit_fixed: I32F32 =
-        I32F32::from_num(max_limit).saturating_div(I32F32::from_num(u16::MAX));
+    let max_limit_fixed: I32F32 = I32F32::from_num(max_limit).safe_div(I32F32::from_num(u16::MAX));
     let mut vec_fixed: Vec<I32F32> = vec.iter().map(|e: &u16| I32F32::from_num(*e)).collect();
     inplace_normalize(&mut vec_fixed);
     let max_value: Option<&I32F32> = vec_fixed.iter().max();
@@ -219,7 +214,7 @@ pub fn sigmoid_safe(input: I32F32, rho: I32F32, kappa: I32F32) -> I32F32 {
     let exp_input: I32F32 = neg_rho.saturating_mul(offset); // -rho*(input-kappa)
     let exp_output: I32F32 = exp_safe(exp_input); // exp(-rho*(input-kappa))
     let denominator: I32F32 = exp_output.saturating_add(one); // 1 + exp(-rho*(input-kappa))
-    let sigmoid_output: I32F32 = one.saturating_div(denominator); // 1 / (1 + exp(-rho*(input-kappa)))
+    let sigmoid_output: I32F32 = one.safe_div(denominator); // 1 / (1 + exp(-rho*(input-kappa)))
     sigmoid_output
 }
 
@@ -244,7 +239,7 @@ pub fn is_topk(vector: &[I32F32], k: usize) -> Vec<bool> {
 pub fn normalize(x: &[I32F32]) -> Vec<I32F32> {
     let x_sum: I32F32 = sum(x);
     if x_sum != I32F32::from_num(0.0_f32) {
-        x.iter().map(|xi| xi.saturating_div(x_sum)).collect()
+        x.iter().map(|xi| xi.safe_div(x_sum)).collect()
     } else {
         x.to_vec()
     }
@@ -258,7 +253,7 @@ pub fn inplace_normalize(x: &mut [I32F32]) {
         return;
     }
     x.iter_mut()
-        .for_each(|value| *value = value.saturating_div(x_sum));
+        .for_each(|value| *value = value.safe_div(x_sum));
 }
 
 // Normalizes (sum to 1 except 0) the input vector directly in-place, using the sum arg.
@@ -268,7 +263,7 @@ pub fn inplace_normalize_using_sum(x: &mut [I32F32], x_sum: I32F32) {
         return;
     }
     x.iter_mut()
-        .for_each(|value| *value = value.saturating_div(x_sum));
+        .for_each(|value| *value = value.safe_div(x_sum));
 }
 
 // Normalizes (sum to 1 except 0) the I64F64 input vector directly in-place.
@@ -279,7 +274,7 @@ pub fn inplace_normalize_64(x: &mut [I64F64]) {
         return;
     }
     x.iter_mut()
-        .for_each(|value| *value = value.saturating_div(x_sum));
+        .for_each(|value| *value = value.safe_div(x_sum));
 }
 
 /// Normalizes (sum to 1 except 0) each row (dim=0) of a I64F64 matrix in-place.
@@ -289,7 +284,7 @@ pub fn inplace_row_normalize_64(x: &mut [Vec<I64F64>]) {
         let row_sum: I64F64 = row.iter().sum();
         if row_sum > I64F64::from_num(0.0_f64) {
             row.iter_mut()
-                .for_each(|x_ij: &mut I64F64| *x_ij = x_ij.saturating_div(row_sum));
+                .for_each(|x_ij: &mut I64F64| *x_ij = x_ij.safe_div(row_sum));
         }
     }
 }
@@ -302,7 +297,7 @@ pub fn vecdiv(x: &[I32F32], y: &[I32F32]) -> Vec<I32F32> {
         .zip(y)
         .map(|(x_i, y_i)| {
             if *y_i != 0 {
-                x_i.saturating_div(*y_i)
+                x_i.safe_div(*y_i)
             } else {
                 I32F32::from_num(0)
             }
@@ -317,7 +312,7 @@ pub fn inplace_row_normalize(x: &mut [Vec<I32F32>]) {
         let row_sum: I32F32 = row.iter().sum();
         if row_sum > I32F32::from_num(0.0_f32) {
             row.iter_mut()
-                .for_each(|x_ij: &mut I32F32| *x_ij = x_ij.saturating_div(row_sum));
+                .for_each(|x_ij: &mut I32F32| *x_ij = x_ij.safe_div(row_sum));
         }
     }
 }
@@ -330,7 +325,7 @@ pub fn inplace_row_normalize_sparse(sparse_matrix: &mut [Vec<(u16, I32F32)>]) {
         if row_sum > I32F32::from_num(0.0) {
             sparse_row
                 .iter_mut()
-                .for_each(|(_j, value)| *value = value.saturating_div(row_sum));
+                .for_each(|(_j, value)| *value = value.safe_div(row_sum));
         }
     }
 }
@@ -400,7 +395,7 @@ pub fn inplace_col_normalize_sparse(sparse_matrix: &mut [Vec<(u16, I32F32)>], co
             if col_sum[*j as usize] == I32F32::from_num(0.0_f32) {
                 continue;
             }
-            *value = value.saturating_div(col_sum[*j as usize]);
+            *value = value.safe_div(col_sum[*j as usize]);
         }
     }
 }
@@ -428,7 +423,7 @@ pub fn inplace_col_normalize(x: &mut [Vec<I32F32>]) {
             .zip(&col_sums)
             .filter(|(_, col_sum)| **col_sum != I32F32::from_num(0_f32))
             .for_each(|(m_val, col_sum)| {
-                *m_val = m_val.saturating_div(*col_sum);
+                *m_val = m_val.safe_div(*col_sum);
             });
     });
 }
@@ -449,7 +444,7 @@ pub fn inplace_col_max_upscale_sparse(sparse_matrix: &mut [Vec<(u16, I32F32)>], 
             if col_max[*j as usize] == I32F32::from_num(0.0_f32) {
                 continue;
             }
-            *value = value.saturating_div(col_max[*j as usize]);
+            *value = value.safe_div(col_max[*j as usize]);
         }
     }
 }
@@ -477,7 +472,7 @@ pub fn inplace_col_max_upscale(x: &mut [Vec<I32F32>]) {
             .zip(&col_maxes)
             .filter(|(_, col_max)| **col_max != I32F32::from_num(0))
             .for_each(|(m_val, col_max)| {
-                *m_val = m_val.saturating_div(*col_max);
+                *m_val = m_val.safe_div(*col_max);
             });
     });
 }
@@ -898,7 +893,7 @@ pub fn weighted_median(
         return score[partition_idx[0]];
     }
     assert!(stake.len() == score.len());
-    let mid_idx: usize = n.saturating_div(2);
+    let mid_idx: usize = n.safe_div(2);
     let pivot: I32F32 = score[partition_idx[mid_idx]];
     let mut lo_stake: I32F32 = I32F32::from_num(0);
     let mut hi_stake: I32F32 = I32F32::from_num(0);
@@ -1411,3 +1406,48 @@ pub fn safe_ln(value: I32F32) -> I32F32 {
 pub fn safe_exp(value: I32F32) -> I32F32 {
     exp(value).unwrap_or(I32F32::from_num(0.0))
 }
+
+/// Safe division trait
+pub trait SafeDiv {
+    /// Safe division that returns supplied default value for division by zero
+    fn safe_div_or(self, rhs: Self, def: Self) -> Self;
+    /// Safe division that returns default value for division by zero
+    fn safe_div(self, rhs: Self) -> Self;
+}
+
+/// Implementation of safe division trait for primitive types
+macro_rules! impl_safe_div_for_primitive {
+    ($($t:ty),*) => {
+        $(
+            impl SafeDiv for $t {
+                fn safe_div_or(self, rhs: Self, def: Self) -> Self {
+                    self.checked_div(rhs).unwrap_or(def)
+                }
+
+                fn safe_div(self, rhs: Self) -> Self {
+                    self.checked_div(rhs).unwrap_or_default()
+                }
+            }
+        )*
+    };
+}
+impl_safe_div_for_primitive!(u8, u16, u32, u64, i8, i16, i32, i64, usize);
+
+/// Implementation of safe division trait for substrate fixed types
+macro_rules! impl_safe_div_for_fixed {
+    ($($t:ty),*) => {
+        $(
+            impl SafeDiv for $t {
+                fn safe_div_or(self, rhs: Self, def: Self) -> Self {
+                    self.checked_div(rhs).unwrap_or(def)
+                }
+
+                fn safe_div(self, rhs: Self) -> Self {
+                    self.checked_div(rhs).unwrap_or_default()
+                }
+            }
+        )*
+    };
+}
+
+impl_safe_div_for_fixed!(I96F32, I32F32, I64F64, I110F18, U64F64);

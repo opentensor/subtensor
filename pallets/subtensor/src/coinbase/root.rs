@@ -16,6 +16,7 @@
 // DEALINGS IN THE SOFTWARE.
 
 use super::*;
+use crate::epoch::math::*;
 use frame_support::dispatch::Pays;
 use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::weights::Weight;
@@ -624,7 +625,7 @@ impl<T: Config> Pallet<T> {
 
         let mut lock_cost = last_lock.saturating_mul(mult).saturating_sub(
             last_lock
-                .saturating_div(lock_reduction_interval)
+                .safe_div(lock_reduction_interval)
                 .saturating_mul(current_block.saturating_sub(last_lock_block)),
         );
 

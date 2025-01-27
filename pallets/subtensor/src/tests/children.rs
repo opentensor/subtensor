@@ -3702,7 +3702,7 @@ fn test_dynamic_parent_child_relationships() {
         let expected_parent_stake = ((I96F32::from_num(stake_parent_0)
             + total_emission * rel_stake_parent_0)
             * I96F32::from_num(5))
-        .saturating_div(I96F32::from_num(12));
+            / I96F32::from_num(12);
         assert!(
             (I96F32::from_num(stake_parent_2) - expected_parent_stake).abs()
                 / expected_parent_stake

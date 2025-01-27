@@ -1,4 +1,5 @@
 use super::*;
+use crate::epoch::math::*;
 use share_pool::{SharePool, SharePoolDataOperations};
 use sp_std::ops::Neg;
 use substrate_fixed::types::{I64F64, I96F32, U64F64};
@@ -70,7 +71,7 @@ impl<T: Config> Pallet<T> {
 
         // Step 3: Normalize the weight by dividing by u64::MAX
         // This ensures the result is always between 0 and 1
-        weight_fixed.saturating_div(I96F32::from_num(u64::MAX))
+        weight_fixed.safe_div(I96F32::from_num(u64::MAX))
     }
 
     /// Sets the global global weight in storage.
@@ -234,7 +235,7 @@ impl<T: Config> Pallet<T> {
         for (proportion, _) in children {
             // Convert the proportion to a normalized value between 0 and 1.
             let normalized_proportion: I96F32 =
-                I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
+                I96F32::from_num(proportion).safe_div(I96F32::from_num(u64::MAX));
             log::trace!(
                 "Normalized proportion for child: {:?}",
                 normalized_proportion
@@ -264,7 +265,7 @@ impl<T: Config> Pallet<T> {
 
             // Convert the proportion to a normalized value between 0 and 1.
             let normalized_proportion: I96F32 =
-                I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
+                I96F32::from_num(proportion).safe_div(I96F32::from_num(u64::MAX));
             log::trace!(
                 "Normalized proportion from parent: {:?}",
                 normalized_proportion
