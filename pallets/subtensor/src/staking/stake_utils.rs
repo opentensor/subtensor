@@ -379,6 +379,69 @@ impl<T: Config> Pallet<T> {
         TotalHotkeyAlpha::<T>::get(hotkey, netuid)
     }
 
+    /// Retrieves the total stake (alpha) for a given coldkey on a specific sunbet.
+    ///
+    /// This function performs the following steps:
+    /// 1. Retrieves the list of hotkeys associated with the coldkey on the subnet.
+    /// 2. Iterates through the list of hotkeys and retrieves the alpha stake for each hotkey.
+    /// 3. Sums the alpha stakes for all hotkeys to calculate the total stake for the coldkey.
+    /// 4. Returns the total alpha stake for the coldkey on the subnet.
+    ///
+    /// # Arguments
+    /// * `coldkey` - The account ID of the coldkey.
+    /// * `netuid` - The unique identifier of the subnet.
+    ///
+    /// # Returns
+    /// * `u64` - The total alpha value for the coldkey on the specified subnet.
+    ///
+    /// # Note
+    /// This function returns the cumulative stake across all hotkeys associated with this coldkey on the subnet.
+    /// This value represents the sum of stakes from all hotkeys associated with this coldkey.
+    pub fn get_stake_for_coldkey_on_subnet(coldkey: &T::AccountId, netuid: u16) -> u64 {
+        // Retrieve the list of hotkeys associated with the coldkey on the subnet.
+        let hotkeys: Vec<T::AccountId> = StakingHotkeys::<T>::get(coldkey);
+
+        // Calculate the total alpha stake for the coldkey on the subnet.
+        let total_stake: u64 = hotkeys
+            .iter()
+            .map(|hotkey| Self::get_stake_for_hotkey_on_subnet(hotkey, netuid))
+            .sum();
+
+        // Return the total alpha stake for the coldkey on the subnet.
+        total_stake
+    }
+
+    /// Retrieves the total stake (alpha) for a given coldkey across all subnets
+    ///
+    /// This function performs the following steps:
+    /// 1. Retrieves the list of subnets associated with the coldkey.
+    /// 2. Iterates through the list of subnets and retrieves the alpha stake for each subnet.
+    /// 3. Sums the alpha stakes for all subnets to calculate the total stake for the coldkey.
+    /// 4. Returns the total alpha stake for the coldkey across all subnets.
+    ///
+    /// # Arguments
+    /// * `coldkey` - The account ID of the coldkey.
+    ///
+    /// # Returns
+    /// * `u64` - The total alpha value for the coldkey across all subnets.
+    ///
+    /// # Note
+    /// This function returns the cumulative stake across all subnets for the coldkey.
+    /// This value represents the sum of stakes from all subnets associated with this coldkey.
+    /// This function is useful for calculating the total stake for a coldkey across all subnets.
+    pub fn get_stake_for_coldkey(coldkey: &T::AccountId) -> u64 {
+        // get number of subnets
+        let netuids = Self::get_all_subnet_netuids();
+
+        // Calculate the total alpha stake for the coldkey across all subnets.
+        let total_stake: u64 = netuids
+            .iter()
+            .map(|netuid| Self::get_stake_for_coldkey_on_subnet(coldkey, *netuid))
+            .sum();
+        // Return the total alpha stake for the coldkey across all subnets.
+        total_stake
+    }
+
     /// Increase hotkey stake on a subnet.
     ///
     /// The function updates share totals given current prices.
