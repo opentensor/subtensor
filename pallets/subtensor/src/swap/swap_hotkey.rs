@@ -364,6 +364,7 @@ impl<T: Config> Pallet<T> {
             ChildKeys::<T>::remove(old_hotkey, netuid);
             // Insert the same child entries for the new hotkey
             ChildKeys::<T>::insert(new_hotkey, netuid, my_children.clone());
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
             for (_, child_key_i) in my_children {
                 // For each child, update their parent list
                 let mut child_parents: Vec<(u64, T::AccountId)> =
@@ -376,6 +377,7 @@ impl<T: Config> Pallet<T> {
                 }
                 // Update the child's parent list
                 ParentKeys::<T>::insert(child_key_i, netuid, child_parents);
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
             }
         }
 
@@ -388,6 +390,7 @@ impl<T: Config> Pallet<T> {
             ParentKeys::<T>::remove(old_hotkey, netuid);
             // Insert the same parent entries for the new hotkey
             ParentKeys::<T>::insert(new_hotkey, netuid, parents.clone());
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
             for (_, parent_key_i) in parents {
                 // For each parent, update their children list
                 let mut parent_children: Vec<(u64, T::AccountId)> =
@@ -400,16 +403,37 @@ impl<T: Config> Pallet<T> {
                 }
                 // Update the parent's children list
                 ChildKeys::<T>::insert(parent_key_i, netuid, parent_children);
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
             }
         }
 
         // 14. Swap PendingChildKeys.
         // PendingChildKeys( netuid, parent ) --> Vec<(proportion,child), cool_down_block>
         for netuid in Self::get_all_subnet_netuids() {
+            weight.saturating_accrue(T::DbWeight::get().reads(1));
             if PendingChildKeys::<T>::contains_key(netuid, old_hotkey) {
                 let (children, cool_down_block) = PendingChildKeys::<T>::get(netuid, old_hotkey);
                 PendingChildKeys::<T>::remove(netuid, old_hotkey);
                 PendingChildKeys::<T>::insert(netuid, new_hotkey, (children, cool_down_block));
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+            }
+
+            // Also check for others with our hotkey as a child
+            for (hotkey, (children, cool_down_block)) in PendingChildKeys::<T>::iter_prefix(netuid)
+            {
+                weight.saturating_accrue(T::DbWeight::get().reads(1));
+
+                if let Some(potential_idx) =
+                    children.iter().position(|(_, child)| *child == *old_hotkey)
+                {
+                    let mut new_children = children.clone();
+                    let entry_to_remove = new_children.remove(potential_idx);
+                    new_children.push((entry_to_remove.0, new_hotkey.clone())); // Keep the proportion.
+
+                    PendingChildKeys::<T>::remove(netuid, hotkey.clone());
+                    PendingChildKeys::<T>::insert(netuid, hotkey, (new_children, cool_down_block));
+                    weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+                }
             }
         }
 
