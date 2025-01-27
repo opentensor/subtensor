@@ -39,7 +39,7 @@ fn test_dynamic_function_various_values() {
                     assert!(alpha_in_emission <= alpha_emission, "alpha_in_emission is greater than alpha_emission");
                     assert!(alpha_out_emission <= 2 * alpha_emission, "alpha_out_emission is greater than 2 * alpha_emission");
                     assert!((alpha_in_emission + alpha_out_emission) <= 2 * alpha_emission, "Sum of alpha_in_emission and alpha_out_emission is less than or equal to. 2 * alpha_emission");
-                    close( alpha_in_emission + alpha_out_emission, 2 * alpha_emission, 10 );
+                    close( alpha_in_emission + alpha_out_emission, alpha_in_emission + alpha_emission, 10 );
                     if alpha_in_emission > 0 || tao_in_emission > 0 {
                         assert!((tao_in_emission as f64 / alpha_in_emission as f64 - price).abs() < 1e-1, "Ratio of tao_in_emission to alpha_in_emission is not equal to price");
                     }
@@ -70,7 +70,7 @@ fn test_dynamic_function_price_equal_emission() {
         let expected_alpha_in: u64 =
             (alpha_block_emission * tao_subnet_emission) / tao_block_emission;
         close(alpha_in, expected_alpha_in, 10);
-        close(alpha_out, 2 * alpha_block_emission - expected_alpha_in, 10);
+        close(alpha_out, alpha_block_emission, 10);
     });
 }
 
