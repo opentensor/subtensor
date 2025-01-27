@@ -403,8 +403,15 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // 14. Swap Stake Delta for all coldkeys.
-        // DEPRECATED
+        // 14. Swap PendingChildKeys.
+        // PendingChildKeys( netuid, parent ) --> Vec<(proportion,child), cool_down_block>
+        for netuid in Self::get_all_subnet_netuids() {
+            if PendingChildKeys::<T>::contains_key(netuid, old_hotkey) {
+                let (children, cool_down_block) = PendingChildKeys::<T>::get(netuid, old_hotkey);
+                PendingChildKeys::<T>::remove(netuid, old_hotkey);
+                PendingChildKeys::<T>::insert(netuid, new_hotkey, (children, cool_down_block));
+            }
+        }
 
         // Return successful after swapping all the relevant terms.
         Ok(())
