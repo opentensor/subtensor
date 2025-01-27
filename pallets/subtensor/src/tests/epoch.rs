@@ -493,7 +493,7 @@ fn init_run_epochs(
 //     new_test_ext(1).execute_with(|| {
 //         log::info!("test_overflow:");
 //         let netuid: u16 = 1;
-//         add_network(netuid, 0, 0);
+//         add_network(netuid, 1,  0);
 //         SubtensorModule::set_max_allowed_uids(netuid, 3);
 //         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
 //             &U256::from(0),
@@ -1522,7 +1522,7 @@ fn test_set_alpha_disabled() {
             signer.clone(),
             hotkey,
             netuid,
-            DefaultMinStake::<Test>::get()
+            DefaultMinStake::<Test>::get() + DefaultStakingFee::<Test>::get()
         ));
         // Only owner can set alpha values
         assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey));
@@ -2285,22 +2285,19 @@ fn test_compute_alpha_values() {
     // exp_val = exp(0.0 - 1.0 * 0.1) = exp(-0.1)
     // alpha[0] = 1 / (1 + exp(-0.1)) ~ 0.9048374180359595
     let exp_val_0 = I32F32::from_num(0.9048374180359595);
-    let expected_alpha_0 =
-        I32F32::from_num(1.0).saturating_div(I32F32::from_num(1.0).saturating_add(exp_val_0));
+    let expected_alpha_0 = I32F32::from_num(1.0) / I32F32::from_num(1.0).saturating_add(exp_val_0);
 
     // For consensus[1] = 0.5:
     // exp_val = exp(0.0 - 1.0 * 0.5) = exp(-0.5)
     // alpha[1] = 1 / (1 + exp(-0.5)) ~ 0.6065306597126334
     let exp_val_1 = I32F32::from_num(0.6065306597126334);
-    let expected_alpha_1 =
-        I32F32::from_num(1.0).saturating_div(I32F32::from_num(1.0).saturating_add(exp_val_1));
+    let expected_alpha_1 = I32F32::from_num(1.0) / I32F32::from_num(1.0).saturating_add(exp_val_1);
 
     // For consensus[2] = 0.9:
     // exp_val = exp(0.0 - 1.0 * 0.9) = exp(-0.9)
     // alpha[2] = 1 / (1 + exp(-0.9)) ~ 0.4065696597405991
     let exp_val_2 = I32F32::from_num(0.4065696597405991);
-    let expected_alpha_2 =
-        I32F32::from_num(1.0).saturating_div(I32F32::from_num(1.0).saturating_add(exp_val_2));
+    let expected_alpha_2 = I32F32::from_num(1.0) / I32F32::from_num(1.0).saturating_add(exp_val_2);
 
     // Define an epsilon for approximate equality checks.
     let epsilon = I32F32::from_num(1e-6);
@@ -2338,8 +2335,7 @@ fn test_compute_alpha_values_256_miners() {
         let exp_val = safe_exp(exponent);
 
         // Use saturating addition and division
-        let expected_alpha =
-            I32F32::from_num(1.0).saturating_div(I32F32::from_num(1.0).saturating_add(exp_val));
+        let expected_alpha = I32F32::from_num(1.0) / I32F32::from_num(1.0).saturating_add(exp_val);
 
         // Assert that the computed alpha values match the expected values within the epsilon.
         assert_approx_eq(alpha[i], expected_alpha, epsilon);
@@ -2618,7 +2614,7 @@ fn test_get_set_alpha() {
             signer.clone(),
             hotkey,
             netuid,
-            DefaultMinStake::<Test>::get()
+            DefaultMinStake::<Test>::get() + DefaultStakingFee::<Test>::get()
         ));
 
         assert_ok!(SubtensorModule::do_set_alpha_values(

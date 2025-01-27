@@ -233,18 +233,18 @@ impl<T: Config> Pallet<T> {
             Self::get_symbol_for_subnet(netuid_to_register),
         ); // Set subnet token symbol.
 
-        // Put 100 TAO from lock into subnet TAO and produce numerically equal amount of Alpha
-        let mut pool_initial_tao = 100_000_000_000;
-        if pool_initial_tao > actual_tao_lock_amount {
-            pool_initial_tao = actual_tao_lock_amount;
-        }
-        if pool_initial_tao < 1 {
-            pool_initial_tao = 1;
-        }
+        // Put initial TAO from lock into subnet TAO and produce numerically equal amount of Alpha
+        // The initial TAO is the locked amount, with a minimum of 1 RAO and a cap of 100 TAO.
+        let pool_initial_tao = 100_000_000_000.min(actual_tao_lock_amount.max(1));
+
         let actual_tao_lock_amount_less_pool_tao =
             actual_tao_lock_amount.saturating_sub(pool_initial_tao);
         SubnetTAO::<T>::insert(netuid_to_register, pool_initial_tao);
-        SubnetAlphaIn::<T>::insert(netuid_to_register, pool_initial_tao);
+        SubnetAlphaIn::<T>::insert(
+            netuid_to_register,
+            pool_initial_tao.saturating_mul(Self::get_all_subnet_netuids().len() as u64),
+        ); // Set AlphaIn to the initial alpha distribution.
+
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
         SubnetOwnerHotkey::<T>::insert(netuid_to_register, hotkey.clone());
         TotalStakeAtDynamic::<T>::insert(netuid_to_register, TotalStake::<T>::get());

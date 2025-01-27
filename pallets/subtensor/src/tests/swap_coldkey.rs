@@ -366,7 +366,7 @@ fn test_swap_with_max_values() {
         let netuid2 = 2u16;
         let stake = 10_000;
         let max_stake = 21_000_000_000_000_000; // 21 Million TAO; max possible balance.
-        let fee = DefaultMinStake::<Test>::get();
+        let fee = DefaultStakingFee::<Test>::get();
 
         // Add a network
         add_network(netuid, 1, 0);
@@ -435,7 +435,7 @@ fn test_swap_with_non_existent_new_coldkey() {
         let hotkey = U256::from(3);
         let stake = DefaultMinStake::<Test>::get() * 10;
         let netuid = 1u16;
-        let fee = DefaultMinStake::<Test>::get();
+        let fee = DefaultStakingFee::<Test>::get();
 
         add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey, old_coldkey, 1001000);
@@ -528,7 +528,7 @@ fn test_swap_concurrent_modifications() {
         let netuid: u16 = 1;
         let initial_stake = 1_000_000_000_000;
         let additional_stake = 500_000_000_000;
-        let fee = DefaultMinStake::<Test>::get();
+        let fee = DefaultStakingFee::<Test>::get();
 
         // Setup initial state
         add_network(netuid, 1, 1);
@@ -806,7 +806,7 @@ fn test_swap_stake_for_coldkey() {
         let stake_amount3 = DefaultMinStake::<Test>::get() * 30;
         let total_stake = stake_amount1 + stake_amount2;
         let mut weight = Weight::zero();
-        let fee = DefaultMinStake::<Test>::get();
+        let fee = DefaultStakingFee::<Test>::get();
 
         // Setup initial state
         // Add a network
@@ -962,7 +962,7 @@ fn test_swap_staking_hotkeys_for_coldkey() {
         let stake_amount2 = DefaultMinStake::<Test>::get() * 20;
         let total_stake = stake_amount1 + stake_amount2;
         let mut weight = Weight::zero();
-        let fee = DefaultMinStake::<Test>::get();
+        let fee = DefaultStakingFee::<Test>::get();
 
         // Setup initial state
         // Add a network
@@ -1034,7 +1034,7 @@ fn test_swap_delegated_stake_for_coldkey() {
         let stake_amount2 = DefaultMinStake::<Test>::get() * 20;
         let mut weight = Weight::zero();
         let netuid = 1u16;
-        let fee = DefaultMinStake::<Test>::get();
+        let fee = DefaultStakingFee::<Test>::get();
 
         // Setup initial state
         add_network(netuid, 1, 0);
@@ -1595,7 +1595,7 @@ fn test_coldkey_delegations() {
         let netuid = 0u16; // Stake to 0
         let netuid2 = 1u16; // Stake to 1
         let stake = DefaultMinStake::<Test>::get() * 10;
-        let fee = DefaultMinStake::<Test>::get();
+        let fee = DefaultStakingFee::<Test>::get();
 
         add_network(netuid, 13, 0); // root
         add_network(netuid2, 13, 0);
