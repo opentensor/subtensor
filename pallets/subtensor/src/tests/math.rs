@@ -2264,16 +2264,17 @@ fn test_math_fixed_to_u64() {
 }
 
 #[test]
-#[should_panic(expected = "-1 overflows")]
-fn test_math_fixed_to_u64_panics() {
+fn test_math_fixed_to_u64_saturates() {
     let bad_input = I32F32::from_num(-1);
-    fixed_to_u64(bad_input);
+    let expected = 0;
+    assert_eq!(fixed_to_u64(bad_input), expected);
 }
 
 #[test]
 fn test_math_fixed64_to_u64() {
     let expected = u64::MIN;
-    assert_eq!(fixed64_to_u64(I64F64::from_num(expected)), expected);
+    let input = I64F64::from_num(expected);
+    assert_eq!(fixed64_to_u64(input), expected);
 
     let input = i64::MAX / 2;
     let expected = u64::try_from(input).unwrap();
@@ -2285,10 +2286,10 @@ fn test_math_fixed64_to_u64() {
 }
 
 #[test]
-#[should_panic(expected = "-1 overflows")]
-fn test_math_fixed64_to_u64_panics() {
+fn test_math_fixed64_to_u64_saturates() {
     let bad_input = I64F64::from_num(-1);
-    fixed64_to_u64(bad_input);
+    let expected = 0;
+    assert_eq!(fixed64_to_u64(bad_input), expected);
 }
 
 /* @TODO: find the _true_ max, and half, input values */
@@ -2304,10 +2305,9 @@ fn test_math_fixed64_to_fixed32() {
 }
 
 #[test]
-#[should_panic(expected = "overflow")]
-fn test_math_fixed64_to_fixed32_panics() {
+fn test_math_fixed64_to_fixed32_saturates() {
     let bad_input = I64F64::from_num(u32::MAX);
-    fixed64_to_fixed32(bad_input);
+    assert_eq!(fixed64_to_fixed32(bad_input), I32F32::max_value());
 }
 
 #[test]
@@ -2340,14 +2340,15 @@ fn test_fixed_proportion_to_u16() {
 }
 
 #[test]
-#[should_panic(expected = "overflow")]
-fn test_fixed_proportion_to_u16_panics() {
+fn test_fixed_proportion_to_u16_saturates() {
     let expected = u16::MAX;
     let input = I32F32::from_num(expected);
     log::trace!("Testing with input: {:?}", input); // Debug output
     let result = fixed_proportion_to_u16(input);
     log::trace!("Testing with result: {:?}", result); // Debug output
+    assert_eq!(result, expected);
 }
+
 #[test]
 fn test_vec_fixed64_to_fixed32() {
     let input = vec![I64F64::from_num(i32::MIN)];
@@ -2360,10 +2361,9 @@ fn test_vec_fixed64_to_fixed32() {
 }
 
 #[test]
-#[should_panic(expected = "overflow")]
-fn test_vec_fixed64_to_fixed32_panics() {
+fn test_vec_fixed64_to_fixed32_saturates() {
     let bad_input = vec![I64F64::from_num(i64::MAX)];
-    vec_fixed64_to_fixed32(bad_input);
+    assert_eq!(vec_fixed64_to_fixed32(bad_input), [I32F32::max_value()]);
 }
 
 #[test]

@@ -1179,7 +1179,9 @@ const BLOCK_GAS_LIMIT: u64 = 75_000_000;
 /// `WeightPerGas` is an approximate ratio of the amount of Weight per Gas.
 ///
 fn weight_per_gas() -> Weight {
-    (NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT).saturating_div(BLOCK_GAS_LIMIT)
+    (NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT)
+        .checked_div(BLOCK_GAS_LIMIT)
+        .unwrap_or_default()
 }
 
 parameter_types! {
