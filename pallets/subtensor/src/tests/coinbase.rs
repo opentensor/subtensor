@@ -2,6 +2,7 @@
 use super::mock::*;
 
 use crate::*;
+use approx::assert_abs_diff_eq;
 use frame_support::assert_ok;
 use sp_core::U256;
 use substrate_fixed::types::I64F64;
@@ -70,5 +71,321 @@ fn test_dynamic_function_price_equal_emission() {
             (alpha_block_emission * tao_subnet_emission) / tao_block_emission;
         close(alpha_in, expected_alpha_in, 10);
         close(alpha_out, 2 * alpha_block_emission - expected_alpha_in, 10);
+    });
+}
+
+// Verifies that the total stake after the coinbase is only increased by the coinbase emission.
+// Avoids TAO weight.
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_total_stake_after_coinbase_no_tao_weight --exact --show-output --nocapture
+#[test]
+fn test_total_stake_after_coinbase_no_tao_weight() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+        // Set TAO weight to 0
+        SubtensorModule::set_tao_weight(0);
+        // Set owner cut to ~11.11%
+        SubtensorModule::set_subnet_owner_cut(u16::MAX / 9);
+        let total_coinbase_emission: I96F32 = I96F32::from_num(1_123_456_789);
+        let epsilon: u64 = 100;
+
+        // Define hotkeys and coldkeys
+        let hotkey_a: U256 = U256::from(1);
+        let hotkey_b: U256 = U256::from(2);
+        let hotkey_c: U256 = U256::from(3);
+        let coldkey_a: U256 = U256::from(100);
+        let coldkey_b: U256 = U256::from(101);
+        let coldkey_c: U256 = U256::from(102);
+
+        // Register neurons with decreasing stakes
+        register_ok_neuron(netuid, hotkey_a, coldkey_a, 0);
+        register_ok_neuron(netuid, hotkey_b, coldkey_b, 0);
+        register_ok_neuron(netuid, hotkey_c, coldkey_c, 0);
+
+        // Add initial stakes
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 1_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_b, 1_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_c, 1_000);
+
+        // Swap to alpha
+        let total_tao: I96F32 = I96F32::from_num(300_000 + 100_000 + 50_000);
+        let total_alpha: I96F32 = I96F32::from_num(SubtensorModule::swap_tao_for_alpha(
+            netuid,
+            total_tao.saturating_to_num::<u64>(),
+        ));
+
+        // Set the stakes directly
+        // This avoids needing to swap tao to alpha, impacting the initial stake distribution.
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_a,
+            &coldkey_a,
+            netuid,
+            (total_alpha * I96F32::from_num(300_000) / total_tao).saturating_to_num::<u64>(),
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_b,
+            &coldkey_b,
+            netuid,
+            (total_alpha * I96F32::from_num(100_000) / total_tao).saturating_to_num::<u64>(),
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_c,
+            &coldkey_c,
+            netuid,
+            (total_alpha * I96F32::from_num(50_000) / total_tao).saturating_to_num::<u64>(),
+        );
+
+        // Get the total stake on the network
+        let mut total_stake_before = 0;
+        for (hotkey, netuid_i, alpha) in TotalHotkeyAlpha::<Test>::iter() {
+            if netuid_i == netuid {
+                total_stake_before += alpha;
+            } else {
+                assert!(
+                    alpha == 0,
+                    "Alpha should be 0 for non-subnet hotkeys, but is {:?} on netuid {:?}",
+                    alpha,
+                    netuid_i
+                );
+            }
+        }
+
+        log::info!("total_stake_before: {:?}", total_stake_before);
+
+        // Run the coinbase
+        SubtensorModule::run_coinbase(total_coinbase_emission);
+
+        // Get the total stake on the network
+        let mut total_stake_after = 0;
+        for (hotkey, netuid_i, alpha) in TotalHotkeyAlpha::<Test>::iter() {
+            if netuid_i == netuid {
+                total_stake_after += alpha;
+            } else {
+                assert!(
+                    alpha == 0,
+                    "Alpha should be 0 for non-subnet hotkeys, but is {:?} on netuid {:?}",
+                    alpha,
+                    netuid_i
+                );
+            }
+        }
+        assert_abs_diff_eq!(
+            total_stake_after,
+            total_stake_before + total_coinbase_emission.saturating_to_num::<u64>(),
+            epsilon = epsilon
+        );
+    });
+}
+
+// Verifies that the total stake after the coinbase is only increased by the coinbase emission.
+// Includes TAO weight.
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_total_stake_after_coinbase --exact --show-output --nocapture
+#[test]
+fn test_total_stake_after_coinbase() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+        // Set TAO weight to 18%
+        SubtensorModule::set_tao_weight(I96F32::from_num(0.18).saturating_to_num::<u64>());
+        // Set owner cut to ~11.11%
+        SubtensorModule::set_subnet_owner_cut(u16::MAX / 9);
+        let total_coinbase_emission: I96F32 = I96F32::from_num(1_123_456_789);
+        let epsilon: u64 = 100;
+
+        // Define hotkeys and coldkeys
+        let hotkey_a: U256 = U256::from(1);
+        let hotkey_b: U256 = U256::from(2);
+        let hotkey_c: U256 = U256::from(3);
+        let coldkey_a: U256 = U256::from(100);
+        let coldkey_b: U256 = U256::from(101);
+        let coldkey_c: U256 = U256::from(102);
+
+        // Register neurons with decreasing stakes
+        register_ok_neuron(netuid, hotkey_a, coldkey_a, 0);
+        register_ok_neuron(netuid, hotkey_b, coldkey_b, 0);
+        register_ok_neuron(netuid, hotkey_c, coldkey_c, 0);
+
+        // Add initial stakes
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 1_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_b, 1_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_c, 1_000);
+
+        // Swap to alpha
+        let total_tao: I96F32 = I96F32::from_num(300_000 + 100_000 + 50_000);
+        let total_alpha: I96F32 = I96F32::from_num(SubtensorModule::swap_tao_for_alpha(
+            netuid,
+            total_tao.saturating_to_num::<u64>(),
+        ));
+
+        // Set the stakes directly
+        // This avoids needing to swap tao to alpha, impacting the initial stake distribution.
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_a,
+            &coldkey_a,
+            netuid,
+            (total_alpha * I96F32::from_num(300_000) / total_tao).saturating_to_num::<u64>(),
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_b,
+            &coldkey_b,
+            netuid,
+            (total_alpha * I96F32::from_num(100_000) / total_tao).saturating_to_num::<u64>(),
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_c,
+            &coldkey_c,
+            netuid,
+            (total_alpha * I96F32::from_num(50_000) / total_tao).saturating_to_num::<u64>(),
+        );
+
+        // Stake some to root
+        let stake_to_root: u64 = 10_000_000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, stake_to_root);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_a,
+            &coldkey_a,
+            netuid,
+            stake_to_root,
+        );
+
+        let alpha_price = SubtensorModule::get_alpha_price(netuid);
+        log::info!("alpha_price: {:?}", alpha_price);
+
+        // Get the total stake on the network
+        let mut total_stake_before = 0;
+        for (hotkey, netuid_i, alpha) in TotalHotkeyAlpha::<Test>::iter() {
+            if netuid_i == netuid {
+                total_stake_before += alpha;
+            } else if netuid == SubtensorModule::get_root_netuid() {
+                let as_alpha: I96F32 = I96F32::from_num(alpha) / alpha_price;
+                total_stake_before += as_alpha.saturating_to_num::<u64>();
+            } else {
+                assert!(
+                    alpha == 0,
+                    "Alpha should be 0 for non-subnet hotkeys, but is {:?} on netuid {:?}",
+                    alpha,
+                    netuid_i
+                );
+            }
+        }
+
+        log::info!("total_stake_before: {:?}", total_stake_before);
+
+        // Run the coinbase
+        SubtensorModule::run_coinbase(total_coinbase_emission);
+
+        // Get the total stake on the network
+        let mut total_stake_after = 0;
+        for (hotkey, netuid_i, alpha) in TotalHotkeyAlpha::<Test>::iter() {
+            if netuid_i == netuid {
+                total_stake_after += alpha;
+            } else if netuid == SubtensorModule::get_root_netuid() {
+                let as_alpha: I96F32 = I96F32::from_num(alpha) / alpha_price;
+                total_stake_after += as_alpha.saturating_to_num::<u64>();
+            } else {
+                assert!(
+                    alpha == 0,
+                    "Alpha should be 0 for non-subnet hotkeys, but is {:?} on netuid {:?}",
+                    alpha,
+                    netuid_i
+                );
+            }
+        }
+        assert_abs_diff_eq!(
+            total_stake_after,
+            total_stake_before + total_coinbase_emission.saturating_to_num::<u64>(),
+            epsilon = epsilon
+        );
+    });
+}
+
+// Verifies that the total issuance after the coinbase is only increased by the coinbase emission.
+// Includes TAO weight.
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_total_issuance_after_coinbase --exact --show-output --nocapture
+#[test]
+fn test_total_issuance_after_coinbase() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+        // Set TAO weight to 18%
+        SubtensorModule::set_tao_weight(I96F32::from_num(0.18).saturating_to_num::<u64>());
+        // Set owner cut to ~11.11%
+        SubtensorModule::set_subnet_owner_cut(u16::MAX / 9);
+        let total_coinbase_emission: I96F32 = I96F32::from_num(1_123_456_789);
+        let epsilon: u64 = 100;
+
+        // Define hotkeys and coldkeys
+        let hotkey_a: U256 = U256::from(1);
+        let hotkey_b: U256 = U256::from(2);
+        let hotkey_c: U256 = U256::from(3);
+        let coldkey_a: U256 = U256::from(100);
+        let coldkey_b: U256 = U256::from(101);
+        let coldkey_c: U256 = U256::from(102);
+
+        // Register neurons with decreasing stakes
+        register_ok_neuron(netuid, hotkey_a, coldkey_a, 0);
+        register_ok_neuron(netuid, hotkey_b, coldkey_b, 0);
+        register_ok_neuron(netuid, hotkey_c, coldkey_c, 0);
+
+        // Add initial stakes
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 1_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_b, 1_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_c, 1_000);
+
+        // Swap to alpha
+        let total_tao: I96F32 = I96F32::from_num(300_000 + 100_000 + 50_000);
+        let total_alpha: I96F32 = I96F32::from_num(SubtensorModule::swap_tao_for_alpha(
+            netuid,
+            total_tao.saturating_to_num::<u64>(),
+        ));
+
+        // Set the stakes directly
+        // This avoids needing to swap tao to alpha, impacting the initial stake distribution.
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_a,
+            &coldkey_a,
+            netuid,
+            (total_alpha * I96F32::from_num(300_000) / total_tao).saturating_to_num::<u64>(),
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_b,
+            &coldkey_b,
+            netuid,
+            (total_alpha * I96F32::from_num(100_000) / total_tao).saturating_to_num::<u64>(),
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_c,
+            &coldkey_c,
+            netuid,
+            (total_alpha * I96F32::from_num(50_000) / total_tao).saturating_to_num::<u64>(),
+        );
+
+        // Stake some to root
+        let stake_to_root: u64 = 10_000_000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, stake_to_root);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_a,
+            &coldkey_a,
+            netuid,
+            stake_to_root,
+        );
+
+        let alpha_price = SubtensorModule::get_alpha_price(netuid);
+        log::info!("alpha_price: {:?}", alpha_price);
+
+        // Get the total issuance
+        let mut total_issuance_before = TotalIssuance::<Test>::get();
+        log::info!("total_issuance_before: {:?}", total_issuance_before);
+
+        // Run the coinbase
+        SubtensorModule::run_coinbase(total_coinbase_emission);
+
+        // Compare
+        let total_issuance_after = TotalIssuance::<Test>::get();
+        assert_abs_diff_eq!(
+            total_issuance_after,
+            total_issuance_before + total_coinbase_emission.saturating_to_num::<u64>(),
+            epsilon = epsilon
+        );
     });
 }
