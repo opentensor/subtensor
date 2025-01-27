@@ -208,7 +208,7 @@ impl<T: Config> Pallet<T> {
         let alpha = Self::compute_liquid_alpha(netuid, consensus.clone());
 
         // Compute the Exponential Moving Average (EMA) of bonds.
-        let mut ema_bonds = Self::compute_ema_bonds(&weights.clone(), &bonds, alpha);
+        let mut ema_bonds = Self::compute_ema_bonds(&weights_for_bonds.clone(), &bonds, alpha);
         // Normalize EMA bonds.
         inplace_col_normalize(&mut ema_bonds); // sum_i b_ij = 1
         log::trace!("emaB:\n{:?}\n", &ema_bonds);
@@ -588,7 +588,8 @@ impl<T: Config> Pallet<T> {
         let alpha = Self::compute_liquid_alpha(netuid, consensus.clone());
 
         // Compute the Exponential Moving Average (EMA) of bonds.
-        let mut ema_bonds = Self::compute_ema_bonds_sparse(&weights.clone(), &bonds, alpha);
+        let mut ema_bonds =
+            Self::compute_ema_bonds_sparse(&weights_for_bonds.clone(), &bonds, alpha);
         // Normalize EMA bonds.
         inplace_col_normalize_sparse(&mut ema_bonds, n); // sum_i b_ij = 1
         log::trace!("Exponential Moving Average Bonds: {:?}", &ema_bonds);
