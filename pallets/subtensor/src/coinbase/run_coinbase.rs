@@ -122,20 +122,26 @@ impl<T: Config> Pallet<T> {
                 netuid,
                 subnet_proportion
             );
-            // 3.7: Calculate subnet's TAO emission: E_s = P_s * E_m
-            let tao_in: u64 = mech_emission
-                .checked_mul(subnet_proportion)
-                .unwrap_or(I96F32::saturating_from_num(0))
-                .saturating_to_num::<u64>();
-            log::debug!(
-                "Subnet TAO emission (E_s) for netuid {:?}: {:?}",
-                netuid,
-                tao_in
-            );
-            // 3.8: Store the subnet TAO emission.
-            *tao_in_map.entry(*netuid).or_insert(0) = tao_in;
-            // 3.9: Store the block emission for this subnet for chain storage.
-            EmissionValues::<T>::insert(*netuid, tao_in);
+
+            // Only emit TAO if the subnetwork allows registration.
+            if Self::get_network_registration_allowed(*netuid)
+                || Self::get_network_pow_registration_allowed(*netuid)
+            {
+                // 3.7: Calculate subnet's TAO emission: E_s = P_s * E_m
+                let tao_in: u64 = mech_emission
+                    .checked_mul(subnet_proportion)
+                    .unwrap_or(I96F32::saturating_from_num(0))
+                    .saturating_to_num::<u64>();
+                log::debug!(
+                    "Subnet TAO emission (E_s) for netuid {:?}: {:?}",
+                    netuid,
+                    tao_in
+                );
+                // 3.8: Store the subnet TAO emission.
+                *tao_in_map.entry(*netuid).or_insert(0) = tao_in;
+                // 3.9: Store the block emission for this subnet for chain storage.
+                EmissionValues::<T>::insert(*netuid, tao_in);
+            }
         }
 
         // == We'll save the owner cuts for each subnet.

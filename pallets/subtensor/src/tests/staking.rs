@@ -558,6 +558,78 @@ fn test_remove_stake_total_balance_no_change() {
 }
 
 #[test]
+fn test_add_stake_insufficient_liquidity() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let amount_staked = DefaultMinStake::<Test>::get() * 10 + DefaultStakingFee::<Test>::get();
+
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount_staked);
+
+        // Set the liquidity at lowest possible value so that all staking requests fail
+        SubnetTAO::<Test>::insert(
+            netuid,
+            DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>(),
+        );
+        SubnetAlphaIn::<Test>::insert(
+            netuid,
+            DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>(),
+        );
+
+        // Check the error
+        assert_noop!(
+            SubtensorModule::add_stake(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                amount_staked
+            ),
+            Error::<Test>::InsufficientLiquidity
+        );
+    });
+}
+
+#[test]
+fn test_remove_stake_insufficient_liquidity() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let amount_staked = DefaultMinStake::<Test>::get() * 10 + DefaultStakingFee::<Test>::get();
+
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount_staked);
+
+        // Simulate stake for hotkey
+        SubnetTAO::<Test>::insert(netuid, u64::MAX / 1000);
+        SubnetAlphaIn::<Test>::insert(netuid, u64::MAX / 1000);
+        let alpha = SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, amount_staked, 0);
+
+        // Set the liquidity at lowest possible value so that all staking requests fail
+        SubnetTAO::<Test>::insert(
+            netuid,
+            DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>(),
+        );
+        SubnetAlphaIn::<Test>::insert(
+            netuid,
+            DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>(),
+        );
+
+        // Check the error
+        assert_noop!(
+            SubtensorModule::remove_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, alpha),
+            Error::<Test>::InsufficientLiquidity
+        );
+    });
+}
+
+#[test]
 fn test_remove_stake_total_issuance_no_change() {
     // When we remove stake, the total issuance of the balances pallet should not change
     //    this is because the stake should be part of the coldkey account balance (reserved/locked)
@@ -2136,39 +2208,145 @@ fn test_stake_below_min_validate() {
 
 #[test]
 fn test_stake_overflow() {
-    new_test_ext(0).execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
+        let coldkey_account_id = U256::from(435445);
+        let hotkey_account_id = U256::from(54544);
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        let amount = 100_000_000_000_000;
-
-        let tao_reserve: U96F32 = U96F32::from_num(100_u64);
-        let alpha_in: U96F32 = U96F32::from_num(100_u64);
-        SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
-        SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
-
-        // println!("Price = {:?}", SubtensorModule::get_alpha_price(netuid));
-        // println!("SubnetAlphaIn = {:?}", SubnetAlphaIn::<Test>::get(netuid));
-        // println!("SubnetTAO = {:?}", SubnetTAO::<Test>::get(netuid));
+        let amount = 21_000_000_000_000_000; // Max TAO supply
+        let fee = DefaultStakingFee::<Test>::get();
+        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
         // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&subnet_owner_coldkey, amount);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
 
-        // Transfer to hotkey account, and check if the result is ok
+        // Setup liquidity with 21M TAO values
+        SubnetTAO::<Test>::insert(netuid, amount);
+        SubnetAlphaIn::<Test>::insert(netuid, amount);
+
+        // Stake and check if the result is ok
         assert_ok!(SubtensorModule::add_stake(
-            RuntimeOrigin::signed(subnet_owner_coldkey),
-            subnet_owner_hotkey,
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
             netuid,
             amount
         ));
 
-        // println!("Price = {:?}", SubtensorModule::get_alpha_price(netuid));
-        // println!("SubnetAlphaIn = {:?}", SubnetAlphaIn::<Test>::get(netuid));
-        // println!("SubnetTAO = {:?}", SubnetTAO::<Test>::get(netuid));
+        // Check if stake has increased properly (staking 1:1 to SubnetTAO results in SubnetTAO/2 alpha)
+        assert_abs_diff_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
+            (amount - fee) / 2,
+            epsilon = amount / 1_000_000,
+        );
 
-        // Let it live for a few epochs to make sure there are no panics
-        Tempo::<Test>::insert(netuid, 10);
-        step_epochs(100, netuid);
+        // Check if total stake has increased accordingly.
+        assert_abs_diff_eq!(SubtensorModule::get_total_stake(), amount, epsilon = 10,);
+    });
+}
+
+#[test]
+fn test_stake_low_liquidity_validate() {
+    // Testing the signed extension validate function
+    // correctly filters the `add_stake` transaction.
+
+    new_test_ext(0).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let amount_staked = DefaultMinStake::<Test>::get() * 10 + DefaultStakingFee::<Test>::get();
+
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount_staked);
+
+        // Set the liquidity at lowest possible value so that all staking requests fail
+        SubnetTAO::<Test>::insert(
+            netuid,
+            DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>(),
+        );
+        SubnetAlphaIn::<Test>::insert(
+            netuid,
+            DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>(),
+        );
+
+        // Add stake call
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::add_stake {
+            hotkey,
+            netuid,
+            amount_staked,
+        });
+
+        let info: crate::DispatchInfo =
+            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+
+        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        // Submit to the signed extension validate function
+        let result_no_stake = extension.validate(&coldkey, &call.clone(), &info, 10);
+
+        // Should fail due to insufficient stake
+        assert_err!(
+            result_no_stake,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::InsufficientLiquidity.into()
+            ))
+        );
+    });
+}
+
+#[test]
+fn test_unstake_low_liquidity_validate() {
+    // Testing the signed extension validate function
+    // correctly filters the `add_stake` transaction.
+
+    new_test_ext(0).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let amount_staked = DefaultMinStake::<Test>::get() * 10 + DefaultStakingFee::<Test>::get();
+
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount_staked);
+
+        // Simulate stake for hotkey
+        SubnetTAO::<Test>::insert(netuid, u64::MAX / 1000);
+        SubnetAlphaIn::<Test>::insert(netuid, u64::MAX / 1000);
+        let alpha = SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, amount_staked, 0);
+
+        // Set the liquidity at lowest possible value so that all staking requests fail
+        SubnetTAO::<Test>::insert(
+            netuid,
+            DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>(),
+        );
+        SubnetAlphaIn::<Test>::insert(
+            netuid,
+            DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>(),
+        );
+
+        // Remove stake call
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::remove_stake {
+            hotkey,
+            netuid,
+            amount_unstaked: alpha,
+        });
+
+        let info: crate::DispatchInfo =
+            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+
+        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        // Submit to the signed extension validate function
+        let result_no_stake = extension.validate(&coldkey, &call.clone(), &info, 10);
+
+        // Should fail due to insufficient stake
+        assert_err!(
+            result_no_stake,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::InsufficientLiquidity.into()
+            ))
+        );
     });
 }
 

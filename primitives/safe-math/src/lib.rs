@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::result_unit_err)]
 
-use substrate_fixed::types::{I110F18, I32F32, I64F64, I96F32, U64F64, U110F18};
+use substrate_fixed::{traits::Fixed, types::{I110F18, I32F32, I64F64, I96F32, U110F18, U64F64, U96F32}};
 
 /// Safe division trait
 pub trait SafeDiv {
@@ -45,9 +45,9 @@ macro_rules! impl_safe_div_for_fixed {
         )*
     };
 }
-impl_safe_div_for_fixed!(I96F32, I32F32, I64F64, I110F18, U64F64, U110F18);
+impl_safe_div_for_fixed!(I96F32, I32F32, I64F64, I110F18, U110F18, U64F64, U96F32);
 
-fn abs_diff(a: U110F18, b: U110F18) -> U110F18 {
+fn abs_diff<T: Fixed>(a: T, b: T) -> T {
     if a < b {
         b.saturating_sub(a)
     } else {
@@ -56,21 +56,21 @@ fn abs_diff(a: U110F18, b: U110F18) -> U110F18 {
 }
 
 /// Safe sqrt with good precision
-pub fn checked_sqrt(value: U110F18, epsilon: U110F18) -> Option<U110F18> {
-    let zero: U110F18 = U110F18::from_num(0);
-    let two: U110F18 = U110F18::from_num(2);
+pub fn checked_sqrt<T: SafeDiv + Fixed>(value: T, epsilon: T) -> Option<T> {
+    let zero: T = T::saturating_from_num(0);
+    let two: T = T::saturating_from_num(2);
 
     if value < zero {
         return None;
     }
 
-    let mut high: U110F18 = value;
-    let mut low: U110F18 = zero;
-    let mut middle: U110F18 = (high + low) / two;
+    let mut high: T = value;
+    let mut low: T = zero;
+    let mut middle: T = (high + low) / two;
 
     let mut iteration = 0;
     let max_iterations = 128;
-    let mut check_val: U110F18 = value.safe_div(middle);
+    let mut check_val: T = value.safe_div(middle);
 
     // Iterative approximation using bisection
     while abs_diff(check_val, middle) > epsilon {
