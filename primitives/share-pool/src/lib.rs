@@ -52,9 +52,9 @@ where
 
         shared_value
             .checked_div(denominator)
-            .unwrap_or(U64F64::from_num(0))
+            .unwrap_or(U64F64::saturating_from_num(0))
             .saturating_mul(current_share)
-            .to_num::<u64>()
+            .saturating_to_num::<u64>()
     }
 
     pub fn try_get_value(&self, key: &K) -> Result<u64, ()> {
@@ -69,9 +69,9 @@ where
     pub fn update_value_for_all(&mut self, update: i64) {
         let shared_value: U64F64 = self.state_ops.get_shared_value();
         self.state_ops.set_shared_value(if update >= 0 {
-            shared_value.saturating_add(U64F64::from_num(update))
+            shared_value.saturating_add(U64F64::saturating_from_num(update))
         } else {
-            shared_value.saturating_sub(U64F64::from_num(update.neg()))
+            shared_value.saturating_sub(U64F64::saturating_from_num(update.neg()))
         });
     }
 
@@ -92,31 +92,33 @@ where
             self.state_ops.set_share(key, new_shared_value);
         } else {
             // There are already keys in the pool, set or update this key
-            let value_per_share: I64F64 = I64F64::from_num(
+            let value_per_share: I64F64 = I64F64::saturating_from_num(
                 shared_value
                     .checked_div(denominator) // denominator is never 0 here
-                    .unwrap_or(U64F64::from_num(0)),
+                    .unwrap_or(U64F64::saturating_from_num(0)),
             );
 
-            let shares_per_update: I64F64 = I64F64::from_num(update)
+            let shares_per_update: I64F64 = I64F64::saturating_from_num(update)
                 .checked_div(value_per_share)
-                .unwrap_or(I64F64::from_num(0));
+                .unwrap_or(I64F64::saturating_from_num(0));
 
             if shares_per_update >= 0 {
                 self.state_ops.set_denominator(
-                    denominator.saturating_add(U64F64::from_num(shares_per_update)),
+                    denominator.saturating_add(U64F64::saturating_from_num(shares_per_update)),
                 );
                 self.state_ops.set_share(
                     key,
-                    current_share.saturating_add(U64F64::from_num(shares_per_update)),
+                    current_share.saturating_add(U64F64::saturating_from_num(shares_per_update)),
                 );
             } else {
                 self.state_ops.set_denominator(
-                    denominator.saturating_sub(U64F64::from_num(shares_per_update.neg())),
+                    denominator
+                        .saturating_sub(U64F64::saturating_from_num(shares_per_update.neg())),
                 );
                 self.state_ops.set_share(
                     key,
-                    current_share.saturating_sub(U64F64::from_num(shares_per_update.neg())),
+                    current_share
+                        .saturating_sub(U64F64::saturating_from_num(shares_per_update.neg())),
                 );
             }
         }
@@ -137,9 +139,9 @@ mod tests {
     impl MockSharePoolDataOperations {
         fn new() -> Self {
             MockSharePoolDataOperations {
-                shared_value: U64F64::from_num(0),
+                shared_value: U64F64::saturating_from_num(0),
                 share: BTreeMap::new(),
-                denominator: U64F64::from_num(0),
+                denominator: U64F64::saturating_from_num(0),
             }
         }
     }
@@ -150,7 +152,10 @@ mod tests {
         }
 
         fn get_share(&self, key: &u16) -> U64F64 {
-            *self.share.get(key).unwrap_or(&U64F64::from_num(0))
+            *self
+                .share
+                .get(key)
+                .unwrap_or(&U64F64::saturating_from_num(0))
         }
 
         fn try_get_share(&self, key: &u16) -> Result<U64F64, ()> {
@@ -180,10 +185,10 @@ mod tests {
     #[test]
     fn test_get_value() {
         let mut mock_ops = MockSharePoolDataOperations::new();
-        mock_ops.set_denominator(U64F64::from_num(10));
-        mock_ops.set_share(&1_u16, U64F64::from_num(3));
-        mock_ops.set_share(&2_u16, U64F64::from_num(7));
-        mock_ops.set_shared_value(U64F64::from_num(100));
+        mock_ops.set_denominator(U64F64::saturating_from_num(10));
+        mock_ops.set_share(&1_u16, U64F64::saturating_from_num(3));
+        mock_ops.set_share(&2_u16, U64F64::saturating_from_num(7));
+        mock_ops.set_shared_value(U64F64::saturating_from_num(100));
         let share_pool = SharePool::new(mock_ops);
         let result1 = share_pool.get_value(&1);
         let result2 = share_pool.get_value(&2);
@@ -194,7 +199,7 @@ mod tests {
     #[test]
     fn test_division_by_zero() {
         let mut mock_ops = MockSharePoolDataOperations::new();
-        mock_ops.set_denominator(U64F64::from_num(0)); // Zero denominator
+        mock_ops.set_denominator(U64F64::saturating_from_num(0)); // Zero denominator
         let pool = SharePool::<u16, MockSharePoolDataOperations>::new(mock_ops);
 
         let value = pool.get_value(&1);
@@ -204,10 +209,10 @@ mod tests {
     #[test]
     fn test_max_shared_value() {
         let mut mock_ops = MockSharePoolDataOperations::new();
-        mock_ops.set_shared_value(U64F64::from_num(u64::MAX));
-        mock_ops.set_share(&1, U64F64::from_num(3)); // Use a neutral value for share
-        mock_ops.set_share(&2, U64F64::from_num(7)); // Use a neutral value for share
-        mock_ops.set_denominator(U64F64::from_num(10)); // Neutral value to see max effect
+        mock_ops.set_shared_value(U64F64::saturating_from_num(u64::MAX));
+        mock_ops.set_share(&1, U64F64::saturating_from_num(3)); // Use a neutral value for share
+        mock_ops.set_share(&2, U64F64::saturating_from_num(7)); // Use a neutral value for share
+        mock_ops.set_denominator(U64F64::saturating_from_num(10)); // Neutral value to see max effect
         let pool = SharePool::<u16, MockSharePoolDataOperations>::new(mock_ops);
 
         let max_value = pool.get_value(&1) + pool.get_value(&2);
@@ -217,10 +222,10 @@ mod tests {
     #[test]
     fn test_max_share_value() {
         let mut mock_ops = MockSharePoolDataOperations::new();
-        mock_ops.set_shared_value(U64F64::from_num(1_000_000_000)); // Use a neutral value for shared value
-        mock_ops.set_share(&1, U64F64::from_num(u64::MAX / 2));
-        mock_ops.set_share(&2, U64F64::from_num(u64::MAX / 2));
-        mock_ops.set_denominator(U64F64::from_num(u64::MAX));
+        mock_ops.set_shared_value(U64F64::saturating_from_num(1_000_000_000)); // Use a neutral value for shared value
+        mock_ops.set_share(&1, U64F64::saturating_from_num(u64::MAX / 2));
+        mock_ops.set_share(&2, U64F64::saturating_from_num(u64::MAX / 2));
+        mock_ops.set_denominator(U64F64::saturating_from_num(u64::MAX));
         let pool = SharePool::<u16, MockSharePoolDataOperations>::new(mock_ops);
 
         let value1 = pool.get_value(&1) as i128;
@@ -268,6 +273,9 @@ mod tests {
         let mut pool = SharePool::<u16, MockSharePoolDataOperations>::new(mock_ops);
 
         pool.update_value_for_all(1000);
-        assert_eq!(pool.state_ops.shared_value, U64F64::from_num(1000));
+        assert_eq!(
+            pool.state_ops.shared_value,
+            U64F64::saturating_from_num(1000)
+        );
     }
 }

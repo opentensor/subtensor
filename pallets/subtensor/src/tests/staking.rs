@@ -42,7 +42,7 @@ fn test_add_stake_ok_no_emission() {
         let hotkey_account_id = U256::from(533453);
         let coldkey_account_id = U256::from(55453);
         let amount = DefaultMinStake::<Test>::get() * 10;
-        let fee = DefaultMinStake::<Test>::get();
+        let fee = DefaultStakingFee::<Test>::get();
 
         //add network
         let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
@@ -158,8 +158,9 @@ fn test_add_stake_not_registered_key_pair() {
         let coldkey_account_id = U256::from(435445);
         let hotkey_account_id = U256::from(54544);
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        let amount = 1337;
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1800);
+        let amount = DefaultMinStake::<Test>::get() * 10;
+        let fee = DefaultStakingFee::<Test>::get();
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount + fee);
         assert_err!(
             SubtensorModule::add_stake(
                 RuntimeOrigin::signed(coldkey_account_id),
@@ -351,7 +352,7 @@ fn test_remove_stake_ok_no_emission() {
         let coldkey_account_id = U256::from(4343);
         let hotkey_account_id = U256::from(4968585);
         let amount = DefaultMinStake::<Test>::get() * 10;
-        let fee = DefaultMinStake::<Test>::get();
+        let fee = DefaultStakingFee::<Test>::get();
         let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
@@ -390,7 +391,7 @@ fn test_remove_stake_ok_no_emission() {
 }
 
 #[test]
-fn test_remove_stake_amount_zero() {
+fn test_remove_stake_amount_too_low() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1);
         let subnet_owner_hotkey = U256::from(2);
@@ -424,7 +425,7 @@ fn test_remove_stake_amount_zero() {
                 netuid,
                 0
             ),
-            Error::<Test>::StakeToWithdrawIsZero
+            Error::<Test>::AmountTooLow
         );
     });
 }
@@ -454,7 +455,7 @@ fn test_remove_stake_ok_hotkey_does_not_belong_to_coldkey() {
         let coldkey_id = U256::from(544);
         let hotkey_id = U256::from(54544);
         let other_cold_key = U256::from(99498);
-        let amount = 1000;
+        let amount = DefaultMinStake::<Test>::get() * 10;
         let netuid: u16 = add_dynamic_network(&hotkey_id, &coldkey_id);
 
         // Give the neuron some stake to remove
@@ -479,7 +480,7 @@ fn test_remove_stake_no_enough_stake() {
     new_test_ext(1).execute_with(|| {
         let coldkey_id = U256::from(544);
         let hotkey_id = U256::from(54544);
-        let amount = 10000;
+        let amount = DefaultMinStake::<Test>::get() * 10;
         let netuid = add_dynamic_network(&hotkey_id, &coldkey_id);
 
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
@@ -508,7 +509,7 @@ fn test_remove_stake_total_balance_no_change() {
         let hotkey_account_id = U256::from(571337);
         let coldkey_account_id = U256::from(71337);
         let amount = DefaultMinStake::<Test>::get() * 10;
-        let fee = DefaultMinStake::<Test>::get();
+        let fee = DefaultStakingFee::<Test>::get();
         let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
@@ -567,7 +568,7 @@ fn test_remove_stake_total_issuance_no_change() {
         let coldkey_account_id = U256::from(81337);
         let amount = DefaultMinStake::<Test>::get() * 10;
         let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        let fee = DefaultMinStake::<Test>::get();
+        let fee = DefaultStakingFee::<Test>::get();
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
         // Give it some $$$ in his coldkey balance
@@ -1295,7 +1296,7 @@ fn test_delegate_take_can_be_decreased() {
 
         // Register the neuron to a new network
         let netuid = 1;
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
@@ -1330,7 +1331,7 @@ fn test_can_set_min_take_ok() {
 
         // Register the neuron to a new network
         let netuid = 1;
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates
@@ -1362,7 +1363,7 @@ fn test_delegate_take_can_not_be_increased_with_decrease_take() {
 
         // Register the neuron to a new network
         let netuid = 1;
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Set min take
@@ -1397,7 +1398,7 @@ fn test_delegate_take_can_be_increased() {
 
         // Register the neuron to a new network
         let netuid = 1;
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
@@ -1432,7 +1433,7 @@ fn test_delegate_take_can_not_be_decreased_with_increase_take() {
 
         // Register the neuron to a new network
         let netuid = 1;
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
@@ -1471,7 +1472,7 @@ fn test_delegate_take_can_be_increased_to_limit() {
 
         // Register the neuron to a new network
         let netuid = 1;
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
@@ -1509,7 +1510,7 @@ fn test_delegate_take_can_not_be_increased_beyond_limit() {
 
         // Register the neuron to a new network
         let netuid = 1;
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
@@ -1551,7 +1552,7 @@ fn test_rate_limits_enforced_on_increase_take() {
 
         // Register the neuron to a new network
         let netuid = 1;
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
         // Coldkey / hotkey 0 become delegates with 9% take
@@ -1609,7 +1610,7 @@ fn test_get_total_delegated_stake_after_unstaking() {
         let unstake_amount = DefaultMinStake::<Test>::get() * 5;
         let existential_deposit = ExistentialDeposit::get();
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        let fee = DefaultMinStake::<Test>::get();
+        let fee = DefaultStakingFee::<Test>::get();
 
         register_ok_neuron(netuid, delegate_hotkey, delegate_coldkey, 0);
 
@@ -1678,7 +1679,7 @@ fn test_get_total_delegated_stake_no_delegations() {
         let coldkey = U256::from(2);
         let netuid = 1u16;
 
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, delegate, coldkey, 0);
 
         // Check that there's no delegated stake
@@ -1697,7 +1698,7 @@ fn test_get_total_delegated_stake_single_delegator() {
         let stake_amount = DefaultMinStake::<Test>::get() * 10 - 1;
         let existential_deposit = ExistentialDeposit::get();
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        let fee = DefaultMinStake::<Test>::get();
+        let fee = DefaultStakingFee::<Test>::get();
 
         register_ok_neuron(netuid, delegate_hotkey, delegate_coldkey, 0);
 
@@ -1755,7 +1756,7 @@ fn test_get_alpha_share_stake_multiple_delegators() {
         let existential_deposit = 2;
         let stake1 = DefaultMinStake::<Test>::get() * 10;
         let stake2 = DefaultMinStake::<Test>::get() * 10 - 1;
-        let fee = DefaultMinStake::<Test>::get();
+        let fee = DefaultStakingFee::<Test>::get();
 
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, hotkey1, coldkey1, 0);
@@ -1814,7 +1815,7 @@ fn test_get_total_delegated_stake_exclude_owner_stake() {
         let delegator = U256::from(3);
         let owner_stake = DefaultMinStake::<Test>::get() * 10;
         let delegator_stake = DefaultMinStake::<Test>::get() * 10 - 1;
-        let fee = DefaultMinStake::<Test>::get();
+        let fee = DefaultStakingFee::<Test>::get();
 
         let netuid = add_dynamic_network(&delegate_hotkey, &delegate_coldkey);
 
@@ -1975,7 +1976,7 @@ fn test_add_stake_fee_goes_to_subnet_tao() {
         let coldkey = U256::from(3);
         let existential_deposit = ExistentialDeposit::get();
         let tao_to_stake = DefaultMinStake::<Test>::get() * 10;
-        let fee = DefaultMinStake::<Test>::get();
+        let fee = DefaultStakingFee::<Test>::get();
 
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
@@ -2021,7 +2022,7 @@ fn test_remove_stake_fee_goes_to_subnet_tao() {
         let hotkey = U256::from(2);
         let coldkey = U256::from(3);
         let tao_to_stake = DefaultMinStake::<Test>::get() * 10;
-        let fee = DefaultMinStake::<Test>::get();
+        let fee = DefaultStakingFee::<Test>::get();
 
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
@@ -2074,7 +2075,7 @@ fn test_stake_below_min_validate() {
         let subnet_owner_hotkey = U256::from(1002);
         let hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let amount_staked = DefaultMinStake::<Test>::get() - 1;
+        let amount_staked = DefaultMinStake::<Test>::get() + DefaultStakingFee::<Test>::get() - 1;
 
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
@@ -2097,11 +2098,13 @@ fn test_stake_below_min_validate() {
         // Should fail due to insufficient stake
         assert_err!(
             result_no_stake,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(1))
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::StakeAmountTooLow.into()
+            ))
         );
 
         // Increase the stake to be equal to the minimum, but leave the balance low
-        let amount_staked = DefaultMinStake::<Test>::get();
+        let amount_staked = DefaultMinStake::<Test>::get() + DefaultStakingFee::<Test>::get();
         let call_2 = RuntimeCall::SubtensorModule(SubtensorCall::add_stake {
             hotkey,
             netuid,
@@ -2111,10 +2114,12 @@ fn test_stake_below_min_validate() {
         // Submit to the signed extension validate function
         let result_low_balance = extension.validate(&coldkey, &call_2.clone(), &info, 10);
 
-        // Still doesn't pass
+        // Still doesn't pass, but with a different reason (balance too low)
         assert_err!(
             result_low_balance,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(1))
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::BalanceTooLow.into()
+            ))
         );
 
         // Increase the coldkey balance to match the minimum
