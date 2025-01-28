@@ -899,6 +899,118 @@ fn test_migrate_set_hotkey_identities() {
     });
 }
 
+#[test]
+fn test_migrate_identities_to_v2() {
+    new_test_ext(1).execute_with(|| {
+        let account_id_1 = U256::from(1);
+        let account_id_2 = U256::from(2);
+
+        let chainone_name = b"ChainOne".to_vec();
+        let chainone_url = b"https://chainone.example".to_vec();
+        let chainone_image = b"some_image_data".to_vec();
+        let chainone_discord = b"discord#1".to_vec();
+        let chainone_description = b"Old chain identity".to_vec();
+        let chainone_additional = b"extra-info".to_vec();
+
+        let chaintwo_name = b"ChainTwo".to_vec();
+        let chaintwo_url = b"https://chaintwo.example".to_vec();
+        let chaintwo_description = b"Another chain identity".to_vec();
+
+        Identities::<Test>::insert(
+            account_id_1,
+            ChainIdentity {
+                name: chainone_name.clone(),
+                url: chainone_url.clone(),
+                image: chainone_image.clone(),
+                discord: chainone_discord.clone(),
+                description: chainone_description.clone(),
+                additional: chainone_additional.clone(),
+            },
+        );
+
+        Identities::<Test>::insert(
+            account_id_2,
+            ChainIdentity {
+                name: chaintwo_name.clone(),
+                url: chaintwo_url.clone(),
+                image: b"".to_vec(),
+                discord: b"".to_vec(),
+                description: chaintwo_description.clone(),
+                additional: b"".to_vec(),
+            },
+        );
+
+        let old_subnet_name = b"SubnetExample".to_vec();
+        let old_github_repo = b"https://github.com/org/repo".to_vec();
+        let old_subnet_contact = b"subnet@example".to_vec();
+
+        SubnetIdentities::<Test>::insert(
+            42u16,
+            SubnetIdentity {
+                subnet_name: old_subnet_name.clone(),
+                github_repo: old_github_repo.clone(),
+                subnet_contact: old_subnet_contact.clone(),
+            },
+        );
+
+        assert!(Identities::<Test>::get(account_id_1).is_some());
+        assert!(Identities::<Test>::get(account_id_2).is_some());
+        assert!(SubnetIdentities::<Test>::get(42u16).is_some());
+        assert!(!HasMigrationRun::<Test>::get(
+            b"migrate_identities_to_v2".to_vec()
+        ));
+
+        let weight = crate::migrations::migrate_identities_v2::migrate_identities_to_v2::<Test>();
+
+        assert!(
+            HasMigrationRun::<Test>::get(b"migrate_identities_to_v2".to_vec()),
+            "Expected HasMigrationRun to be true after migration"
+        );
+        assert!(Identities::<Test>::get(account_id_1).is_none());
+        assert!(Identities::<Test>::get(account_id_2).is_none());
+        assert!(SubnetIdentities::<Test>::get(42u16).is_none());
+
+        let new_identity_1 = IdentitiesV2::<Test>::get(account_id_1)
+            .expect("ChainOne should be migrated to IdentitiesV2");
+        let expected_github_repo = b"".to_vec();
+
+        assert_eq!(new_identity_1.name, chainone_name);
+        assert_eq!(new_identity_1.url, chainone_url);
+        assert_eq!(new_identity_1.github_repo, expected_github_repo);
+        assert_eq!(new_identity_1.image, chainone_image);
+        assert_eq!(new_identity_1.discord, chainone_discord);
+        assert_eq!(new_identity_1.description, chainone_description);
+        assert_eq!(new_identity_1.additional, chainone_additional);
+
+        let new_identity_2 = IdentitiesV2::<Test>::get(account_id_2)
+            .expect("ChainTwo should be migrated to IdentitiesV2");
+        assert_eq!(new_identity_2.name, chaintwo_name);
+        assert_eq!(new_identity_2.url, chaintwo_url);
+        assert_eq!(new_identity_2.github_repo, b"".to_vec());
+
+        let new_subnet_identity = SubnetIdentitiesV2::<Test>::get(42u16)
+            .expect("SubnetExample should be migrated to SubnetIdentitiesV2");
+
+        let expected_subnet_url = b"".to_vec();
+        let expected_discord = b"".to_vec();
+        let expected_description = b"".to_vec();
+        let expected_additional = b"".to_vec();
+
+        assert_eq!(new_subnet_identity.subnet_name, old_subnet_name);
+        assert_eq!(new_subnet_identity.github_repo, old_github_repo);
+        assert_eq!(new_subnet_identity.subnet_contact, old_subnet_contact);
+        assert_eq!(new_subnet_identity.subnet_url, expected_subnet_url);
+        assert_eq!(new_subnet_identity.discord, expected_discord);
+        assert_eq!(new_subnet_identity.description, expected_description);
+        assert_eq!(new_subnet_identity.additional, expected_additional);
+
+        assert!(
+            weight != Weight::zero(),
+            "Migration weight should be non-zero"
+        );
+    });
+}
+
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test serving -- test_do_set_subnet_identity --exact --nocapture
 #[test]
 fn test_do_set_subnet_identity() {
