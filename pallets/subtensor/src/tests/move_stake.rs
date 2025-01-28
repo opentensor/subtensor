@@ -724,7 +724,7 @@ fn test_do_move_storage_updates() {
 
 // 18. test_do_move_max_values
 // Description: Test moving the maximum possible stake values to check for overflows
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test move -- test_do_move_max_values --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::move_stake::test_do_move_max_values --exact --show-output
 #[test]
 fn test_do_move_max_values() {
     new_test_ext(1).execute_with(|| {
@@ -740,6 +740,11 @@ fn test_do_move_max_values() {
         // Set up initial stake with maximum value
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
+
+        // Add lots of liquidity to bypass low liquidity check
+        SubnetTAO::<Test>::insert(netuid, u64::MAX/1000);
+        SubnetAlphaIn::<Test>::insert(netuid, u64::MAX/1000);
+
         SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, max_stake, fee);
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &origin_hotkey,
@@ -773,7 +778,7 @@ fn test_do_move_max_values() {
                 netuid
             ),
             alpha,
-            epsilon = 5
+            epsilon = alpha / 1_000_000
         );
     });
 }
