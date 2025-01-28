@@ -2145,7 +2145,7 @@ fn test_math_mat_ema() {
     let old = vec_to_mat_fixed(&old, 4, false);
     let new = vec_to_mat_fixed(&new, 4, false);
     let target = vec_to_mat_fixed(&target, 4, false);
-    let result = mat_ema_alpha_vec(&new, &old, &vec![I32F32::from_num(0.1); 3]);
+    let result = mat_ema_alpha_vec(&new, &old, &[I32F32::from_num(0.1); 3]);
     assert_mat_compare(&result, &target, I32F32::from_num(1e-4));
     let old: Vec<f32> = vec![
         0.1, 0.2, 3., 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.10, 0.11, 0.12,
@@ -2159,7 +2159,7 @@ fn test_math_mat_ema() {
     let old = vec_to_mat_fixed(&old, 4, false);
     let new = vec_to_mat_fixed(&new, 4, false);
     let target = vec_to_mat_fixed(&target, 4, false);
-    let result = mat_ema_alpha_vec(&new, &old, &vec![I32F32::from_num(0); 3]);
+    let result = mat_ema_alpha_vec(&new, &old, &[I32F32::from_num(0); 3]);
     assert_mat_compare(&result, &target, I32F32::from_num(1e-4));
     let old: Vec<f32> = vec![
         0.001, 0.002, 0.003, 0.004, 0.05, 0.006, 0.007, 0.008, 0.009, 0.010, 0.011, 0.012,
@@ -2174,7 +2174,7 @@ fn test_math_mat_ema() {
     let old = vec_to_mat_fixed(&old, 4, false);
     let new = vec_to_mat_fixed(&new, 4, false);
     let target = vec_to_mat_fixed(&target, 4, false);
-    let result = mat_ema_alpha_vec(&new, &old, &vec![I32F32::from_num(1); 3]);
+    let result = mat_ema_alpha_vec(&new, &old, &[I32F32::from_num(1); 3]);
     assert_mat_compare(&result, &target, I32F32::from_num(1e-4));
 }
 
