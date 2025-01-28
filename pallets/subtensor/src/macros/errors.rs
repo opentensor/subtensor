@@ -187,5 +187,7 @@ mod errors {
         AmountTooLow,
         /// Alpha transfer is not enabled on this subnet.
         AlphaTransferNotEnabled,
+        /// Not enough liquidity.
+        InsufficientLiquidity,
     }
 }

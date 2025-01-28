@@ -3,6 +3,7 @@ use crate::{
     system::{ensure_root, ensure_signed, ensure_signed_or_root, pallet_prelude::BlockNumberFor},
     Error,
 };
+use safe_math::*;
 use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::Saturating;
@@ -610,7 +611,8 @@ impl<T: Config> Pallet<T> {
         SubnetOwnerCut::<T>::get()
     }
     pub fn get_float_subnet_owner_cut() -> I96F32 {
-        I96F32::from_num(SubnetOwnerCut::<T>::get()).saturating_div(I96F32::from_num(u16::MAX))
+        I96F32::saturating_from_num(SubnetOwnerCut::<T>::get())
+            .safe_div(I96F32::saturating_from_num(u16::MAX))
     }
     pub fn set_subnet_owner_cut(subnet_owner_cut: u16) {
         SubnetOwnerCut::<T>::set(subnet_owner_cut);
@@ -682,9 +684,10 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_alpha_values_32(netuid: u16) -> (I32F32, I32F32) {
         let (alpha_low, alpha_high): (u16, u16) = AlphaValues::<T>::get(netuid);
-        let converted_low = I32F32::from_num(alpha_low).saturating_div(I32F32::from_num(u16::MAX));
+        let converted_low =
+            I32F32::saturating_from_num(alpha_low).safe_div(I32F32::saturating_from_num(u16::MAX));
         let converted_high =
-            I32F32::from_num(alpha_high).saturating_div(I32F32::from_num(u16::MAX));
+            I32F32::saturating_from_num(alpha_high).safe_div(I32F32::saturating_from_num(u16::MAX));
 
         (converted_low, converted_high)
     }

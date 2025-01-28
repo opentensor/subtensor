@@ -1,14 +1,21 @@
-use core::marker::PhantomData;
-use sp_core::{hashing::keccak_256, H160};
-use sp_runtime::AccountId32;
+extern crate alloc;
 
+use alloc::format;
+use core::marker::PhantomData;
+
+use frame_support::dispatch::{GetDispatchInfo, Pays};
+use frame_system::RawOrigin;
 use pallet_evm::{
-    ExitError, IsPrecompileResult, Precompile, PrecompileFailure, PrecompileHandle,
-    PrecompileResult, PrecompileSet,
+    ExitError, ExitSucceed, GasWeightMapping, IsPrecompileResult, Precompile, PrecompileFailure,
+    PrecompileHandle, PrecompileOutput, PrecompileResult, PrecompileSet,
 };
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;
 use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripemd160, Sha256};
+use sp_core::{hashing::keccak_256, H160};
+use sp_runtime::{traits::Dispatchable, AccountId32};
+
+use crate::{Runtime, RuntimeCall};
 
 // Include custom precompiles
 mod balance_transfer;
@@ -128,5 +135,72 @@ pub fn get_slice(data: &[u8], from: usize, to: usize) -> Result<&[u8], Precompil
         Err(PrecompileFailure::Error {
             exit_status: ExitError::InvalidRange,
         })
+    }
+}
+
+/// Dispatches a runtime call, but also checks and records the gas costs.
+fn try_dispatch_runtime_call(
+    handle: &mut impl PrecompileHandle,
+    call: impl Into<RuntimeCall>,
+    origin: RawOrigin<AccountId32>,
+) -> PrecompileResult {
+    let call = Into::<RuntimeCall>::into(call);
+    let info = call.get_dispatch_info();
+
+    let target_gas = handle.gas_limit();
+    if let Some(gas) = target_gas {
+        let valid_weight =
+            <Runtime as pallet_evm::Config>::GasWeightMapping::gas_to_weight(gas, false).ref_time();
+        if info.weight.ref_time() > valid_weight {
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::OutOfGas,
+            });
+        }
+    }
+
+    handle.record_external_cost(
+        Some(info.weight.ref_time()),
+        Some(info.weight.proof_size()),
+        None,
+    )?;
+
+    match call.dispatch(origin.into()) {
+        Ok(post_info) => {
+            if post_info.pays_fee(&info) == Pays::Yes {
+                let actual_weight = post_info.actual_weight.unwrap_or(info.weight);
+                let cost =
+                    <Runtime as pallet_evm::Config>::GasWeightMapping::weight_to_gas(actual_weight);
+                handle.record_cost(cost)?;
+
+                handle.refund_external_cost(
+                    Some(
+                        info.weight
+                            .ref_time()
+                            .saturating_sub(actual_weight.ref_time()),
+                    ),
+                    Some(
+                        info.weight
+                            .proof_size()
+                            .saturating_sub(actual_weight.proof_size()),
+                    ),
+                );
+            }
+
+            log::info!("Dispatch succeeded. Post info: {:?}", post_info);
+
+            Ok(PrecompileOutput {
+                exit_status: ExitSucceed::Returned,
+                output: Default::default(),
+            })
+        }
+        Err(e) => {
+            log::error!("Dispatch failed. Error: {:?}", e);
+            log::warn!("Returning error PrecompileFailure::Error");
+            Err(PrecompileFailure::Error {
+                exit_status: ExitError::Other(
+                    format!("dispatch execution failed: {}", <&'static str>::from(e)).into(),
+                ),
+            })
+        }
     }
 }
