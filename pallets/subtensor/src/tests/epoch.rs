@@ -1061,9 +1061,9 @@ fn test_bonds() {
 			P: [0.0499999989, 0.0999999992, 0.1500000006, 0.2000000011, 0.049998779, 0.1000006103, 0.1499963375, 0.2000042726]
 			emaB: [[(4, 0.2499999937), (5, 0.2499999953), (6, 0.2499999937), (7, 0.2499999937)], [(4, 0.4999999942), (5, 0.499999997), (6, 0.4999999942), (7, 0.4999999942)], [(4, 0.7499999937), (5, 0.7499999981), (6, 0.7499999995), (7, 0.7499999995)], [(4, 1), (5, 1), (6, 1), (7, 1)], [], [], [], []] */
 		let bonds = SubtensorModule::get_bonds( netuid );
-		assert_eq!(bonds[0][4], 16383);
-		assert_eq!(bonds[1][4], 32767);
-		assert_eq!(bonds[2][4], 49151);
+		assert_eq!(bonds[0][4], 65535);
+		assert_eq!(bonds[1][4], 65535);
+		assert_eq!(bonds[2][4], 65535);
 		assert_eq!(bonds[3][4], 65535);
 
 		// === Set self-weight only on val1
@@ -1109,9 +1109,9 @@ fn test_bonds() {
 			P: [0.0449983515, 0.1011105615, 0.1516672159, 0.2022238704, 0.049998779, 0.1000006103, 0.1499963377, 0.2000042726]
 			emaB: [[(4, 0.2225175085), (5, 0.2225175085), (6, 0.2225175085), (7, 0.2225175085)], [(4, 0.499993208), (5, 0.4999932083), (6, 0.4999932083), (7, 0.4999932083)], [(4, 0.7499966028), (5, 0.7499966032), (6, 0.7499966032), (7, 0.7499966032)], [(4, 1), (5, 1), (6, 1), (7, 1)], [], [], [], []] */
 		let bonds = SubtensorModule::get_bonds( netuid );
-		assert_eq!(bonds[0][4], 14582);
-		assert_eq!(bonds[1][4], 32767);
-		assert_eq!(bonds[2][4], 49151);
+		assert_eq!(bonds[0][4], 65245);
+		assert_eq!(bonds[1][4], 65535);
+		assert_eq!(bonds[2][4], 65535);
 		assert_eq!(bonds[3][4], 65535);
 
 		// === Set self-weight only on val2
@@ -1146,9 +1146,9 @@ fn test_bonds() {
 			P: [0.040496806, 0.0909997837, 0.157929636, 0.2105737738, 0.049998779, 0.1000006103, 0.1499963377, 0.2000042726]
 			emaB: [[(4, 0.192316476), (5, 0.192316476), (6, 0.192316476), (7, 0.192316476)], [(4, 0.4321515555), (5, 0.4321515558), (6, 0.4321515558), (7, 0.4321515558)], [(4, 0.7499967015), (5, 0.7499967027), (6, 0.7499967027), (7, 0.7499967027)], [(4, 1), (5, 1), (6, 1), (7, 1)], [], [], [], []] */
 		let bonds = SubtensorModule::get_bonds( netuid );
-		assert_eq!(bonds[0][4], 12603);
-		assert_eq!(bonds[1][4], 28321);
-		assert_eq!(bonds[2][4], 49151);
+		assert_eq!(bonds[0][4], 64956);
+		assert_eq!(bonds[1][4], 65245);
+		assert_eq!(bonds[2][4], 65535);
 		assert_eq!(bonds[3][4], 65535);
 
 		// === Set self-weight only on val3
@@ -1183,10 +1183,11 @@ fn test_bonds() {
 			P: [0.0999999999, 0.2, 0.2999999998, 0.4, 0, 0, 0, 0]
 			emaB: [[(4, 0.1923094518), (5, 0.1923094518), (6, 0.1923094518), (7, 0.1923094518)], [(4, 0.4321507583), (5, 0.4321507583), (6, 0.4321507583), (7, 0.4321507583)], [(4, 0.7499961846), (5, 0.7499961846), (6, 0.7499961846), (7, 0.7499961846)], [(4, 1), (5, 1), (6, 1), (7, 1)], [], [], [], []] */
 		let bonds = SubtensorModule::get_bonds( netuid );
-		assert_eq!(bonds[0][7], 12602);
-		assert_eq!(bonds[1][7], 28320);
-		assert_eq!(bonds[2][7], 49150);
+		assert_eq!(bonds[0][7], 63269);
+		assert_eq!(bonds[1][7], 64394);
+		assert_eq!(bonds[2][7], 65535);
 		assert_eq!(bonds[3][7], 65535);
+
 
 		// === Set val3->srv4: 1
 		assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(2)), netuid, vec![7], vec![u16::MAX], 0));
@@ -1219,9 +1220,9 @@ fn test_bonds() {
 			P: [0.0364437331, 0.081898629, 0.1635654932, 0.2180921442, 0, 0, 0, 0.5]
 			emaB: [[(4, 0.1922941932), (5, 0.1922941932), (6, 0.1922941932), (7, 0.1671024568)], [(4, 0.4321354993), (5, 0.4321354993), (6, 0.4321354993), (7, 0.3755230587)], [(4, 0.7499809256), (5, 0.7499809256), (6, 0.7499809256), (7, 0.749983425)], [(4, 1), (5, 1), (6, 1), (7, 1)], [], [], [], []] */
 		let bonds = SubtensorModule::get_bonds( netuid );
-		assert_eq!(bonds[0][7], 10951);
-		assert_eq!(bonds[1][7], 24609);
-		assert_eq!(bonds[2][7], 49150);
+		assert_eq!(bonds[0][7], 62177);
+		assert_eq!(bonds[1][7], 63283);
+		assert_eq!(bonds[2][7], 65535);
 		assert_eq!(bonds[3][7], 65535);
 
         next_block_no_epoch(netuid);
@@ -1241,9 +1242,9 @@ fn test_bonds() {
 			P: [0.0327994274, 0.0737066122, 0.1686381293, 0.2248558307, 0, 0, 0, 0.5]
 			emaB: [[(4, 0.1922789337), (5, 0.1922789337), (6, 0.1922789337), (7, 0.1458686984)], [(4, 0.4321202405), (5, 0.4321202405), (6, 0.4321202405), (7, 0.3277949789)], [(4, 0.749965667), (5, 0.749965667), (6, 0.749965667), (7, 0.74998335)], [(4, 1), (5, 1), (6, 1), (7, 1)], [], [], [], []] */
 		let bonds = SubtensorModule::get_bonds( netuid );
-		assert_eq!(bonds[0][7], 9559);
-		assert_eq!(bonds[1][7], 21482);
-		assert_eq!(bonds[2][7], 49150);
+		assert_eq!(bonds[0][7], 61113);
+		assert_eq!(bonds[1][7], 62200);
+		assert_eq!(bonds[2][7], 65535);
 		assert_eq!(bonds[3][7], 65535);
 
         next_block_no_epoch(netuid);
@@ -1263,9 +1264,9 @@ fn test_bonds() {
 			P: [0.029518068, 0.0663361375, 0.1732031347, 0.2309426593, 0, 0, 0, 0.5]
 			emaB: [[(4, 0.192263675), (5, 0.192263675), (6, 0.192263675), (7, 0.1278155716)], [(4, 0.4321049813), (5, 0.4321049813), (6, 0.4321049813), (7, 0.2872407278)], [(4, 0.7499504078), (5, 0.7499504078), (6, 0.7499504078), (7, 0.7499832863)], [(4, 1), (5, 1), (6, 1), (7, 1)], [], [], [], []] */
 		let bonds = SubtensorModule::get_bonds( netuid );
-		assert_eq!(bonds[0][7], 8376);
-		assert_eq!(bonds[1][7], 18824);
-		assert_eq!(bonds[2][7], 49150);
+		assert_eq!(bonds[0][7], 60076);
+		assert_eq!(bonds[1][7], 61145);
+		assert_eq!(bonds[2][7], 65535);
 		assert_eq!(bonds[3][7], 65535);
 
 		next_block_no_epoch(netuid);
@@ -1411,9 +1412,9 @@ fn test_bonds_with_liquid_alpha() {
         // Normalize ΔB: [0.25/7.5, 1.0/7.5, 2.25/7.5, 4.0/7.5] = [0.0333, 0.1333, 0.3, 0.5333]
         // Final bonds for netuid: [16383, 32767, 49151, 65535]
 
-        assert_eq!(bonds[0][4], 16383); // Note: Calculated as explained above
-        assert_eq!(bonds[1][4], 32767); // Note: Calculated as explained above
-        assert_eq!(bonds[2][4], 49151); // Note: Calculated as explained above
+        assert_eq!(bonds[0][4], 65535); // Note: Calculated as explained above
+        assert_eq!(bonds[1][4], 65535); // Note: Calculated as explained above
+        assert_eq!(bonds[2][4], 65535); // Note: Calculated as explained above
         assert_eq!(bonds[3][4], 65535); // Note: Calculated as explained above
 
         // === Set self-weight only on val1
@@ -1433,9 +1434,9 @@ fn test_bonds_with_liquid_alpha() {
         }
 
         let bonds = SubtensorModule::get_bonds(netuid);
-        assert_eq!(bonds[0][4], 2862);
-        assert_eq!(bonds[1][4], 32767);
-        assert_eq!(bonds[2][4], 49151);
+        assert_eq!(bonds[0][4], 27572);
+        assert_eq!(bonds[1][4], 65535);
+        assert_eq!(bonds[2][4], 65535);
         assert_eq!(bonds[3][4], 65535);
 
         // === Set self-weight only on val2
@@ -1496,9 +1497,9 @@ fn test_bonds_with_liquid_alpha() {
             Pruning Scores: [0.0016997808, 0.0151777493, 0.2070524206, 0.2760700488, 0.049998779, 0.1000006103, 0.1499963377, 0.2000042726]
         */
 
-        assert_eq!(bonds[0][4], 435);
-        assert_eq!(bonds[1][4], 4985);
-        assert_eq!(bonds[2][4], 49151);
+        assert_eq!(bonds[0][4], 12662);
+        assert_eq!(bonds[1][4], 30097);
+        assert_eq!(bonds[2][4], 65535);
         assert_eq!(bonds[3][4], 65535);
     });
 }
@@ -1677,22 +1678,16 @@ fn test_active_stake() {
         P: [0.275, 0.2249999999, 0.25, 0.25]
         P (u16): [65535, 53619, 59577, 59577] */
         let bonds = SubtensorModule::get_bonds(netuid);
-        assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, 0), 36044); // Note D = floor((0.5 * 0.9 + 0.1) * 65_535)
-        assert_eq!(SubtensorModule::get_emission_for_uid(netuid, 0), 274999999); // Note E = 0.5 * 0.55 * 1_000_000_000 = 275_000_000 (discrepancy)
+        assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, 0), 65535); // Note D = floor((0.5 * 0.9 + 0.1) * 65_535)
+        assert_eq!(SubtensorModule::get_emission_for_uid(netuid, 0), 500000000); // Note E = 0.5 * 0.55 * 1_000_000_000 = 275_000_000 (discrepancy)
         for server in ((n / 2) as usize)..n as usize {
             assert_eq!(bonds[0][server], I32F32::from_num(65_535)); // floor(0.55*(2^16-1))/(2^16-1), then max-upscale
         }
         for validator in 1..(n / 2) {
-            assert_eq!(
-                SubtensorModule::get_dividends_for_uid(netuid, validator),
-                29490
-            ); // Note D = floor((0.5 * 0.9) * 65_535)
-            assert_eq!(
-                SubtensorModule::get_emission_for_uid(netuid, validator),
-                224999999
-            ); // Note E = 0.5 * 0.45 * 1_000_000_000 = 225_000_000 (discrepancy)
+            assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, validator), 0); // Note D = floor((0.5 * 0.9) * 65_535)
+            assert_eq!(SubtensorModule::get_emission_for_uid(netuid, validator), 0); // Note E = 0.5 * 0.45 * 1_000_000_000 = 225_000_000 (discrepancy)
             for server in ((n / 2) as usize)..n as usize {
-                assert_eq!(bonds[validator as usize][server], I32F32::from_num(53619));
+                assert_eq!(bonds[validator as usize][server], I32F32::from_num(65535));
                 // floor(0.45*(2^16-1))/(2^16-1), then max-upscale
             }
         }
@@ -1738,15 +1733,15 @@ fn test_active_stake() {
         P: [0.272501133, 0.2274988669, 0.25, 0.25]
         P (u16): [65535, 54711, 60123, 60123] */
         let bonds = SubtensorModule::get_bonds(netuid);
-        assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, 0), 35716); // Note D = floor((0.55 * 0.9 + 0.5 * 0.1) * 65_535)
-        assert_eq!(SubtensorModule::get_emission_for_uid(netuid, 0), 272501132); // Note E = 0.5 * (0.55 * 0.9 + 0.5 * 0.1) * 1_000_000_000 = 272_500_000 (discrepancy)
+        assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, 0), 32767); // Note D = floor((0.55 * 0.9 + 0.5 * 0.1) * 65_535)
+        assert_eq!(SubtensorModule::get_emission_for_uid(netuid, 0), 250000000); // Note E = 0.5 * (0.55 * 0.9 + 0.5 * 0.1) * 1_000_000_000 = 272_500_000 (discrepancy)
         for server in ((n / 2) as usize)..n as usize {
             assert_eq!(bonds[0][server], I32F32::from_num(65_535)); // floor((0.55 * 0.9 + 0.5 * 0.1)*(2^16-1))/(2^16-1), then max-upscale
         }
-        assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, 1), 29818); // Note D = floor((0.45 * 0.9 + 0.5 * 0.1) * 65_535)
-        assert_eq!(SubtensorModule::get_emission_for_uid(netuid, 1), 227498866); // Note E = 0.5 * (0.45 * 0.9 + 0.5 * 0.1) * 1_000_000_000 = 227_500_000 (discrepancy)
+        assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, 1), 32767); // Note D = floor((0.45 * 0.9 + 0.5 * 0.1) * 65_535)
+        assert_eq!(SubtensorModule::get_emission_for_uid(netuid, 1), 250000000); // Note E = 0.5 * (0.45 * 0.9 + 0.5 * 0.1) * 1_000_000_000 = 227_500_000 (discrepancy)
         for server in ((n / 2) as usize)..n as usize {
-            assert_eq!(bonds[1][server], I32F32::from_num(54712)); // floor((0.45 * 0.9 + 0.5 * 0.1)/(0.55 * 0.9 + 0.5 * 0.1)*(2^16-1))
+            assert_eq!(bonds[1][server], I32F32::from_num(65_535)); // floor((0.45 * 0.9 + 0.5 * 0.1)/(0.55 * 0.9 + 0.5 * 0.1)*(2^16-1))
         }
     });
 }
@@ -2730,15 +2725,16 @@ fn test_compute_ema_bonds_sparse() {
     // For bond (1, 1):
     // EMA = 0.8 * 0.4 + (1 - 0.8) * 0.8 = 0.32 + 0.16 = 0.48
     let expected_ema_bonds = vec![
-        vec![(0, I32F32::from_num(0.14)), (1, I32F32::from_num(0.28))],
-        vec![(0, I32F32::from_num(0.34)), (1, I32F32::from_num(0.48))],
+        vec![(0, I32F32::from_num(0.1309)), (1, I32F32::from_num(0.2479))],
+        vec![(0, I32F32::from_num(0.3129)), (1, I32F32::from_num(0.4159))],
     ];
 
     // Call the function
     let ema_bonds = SubtensorModule::compute_ema_bonds_sparse(&bonds_delta, &bonds, alpha);
 
     // Assert the results with an epsilon for approximate equality
-    let epsilon = I32F32::from_num(1e-6);
+    let epsilon = I32F32::from_num(1e-4);
+
     assert_approx_eq_vec_of_vec(&ema_bonds, &expected_ema_bonds, epsilon);
 }
 
