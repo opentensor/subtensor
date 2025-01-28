@@ -155,19 +155,19 @@ impl<T: Config> Pallet<T> {
         if alpha_in == 0 {
             return 0;
         }
-        let alpha_in_float: U96F32 = U96F32::from_num(alpha_in);
+        let alpha_in_float: U96F32 = U96F32::saturating_from_num(alpha_in);
 
         // Corner case: SubnetTAO is zero. Staking can't happen, so max amount is zero.
         let tao_reserve = SubnetTAO::<T>::get(netuid);
         if tao_reserve == 0 {
             return 0;
         }
-        let tao_reserve_float: U96F32 = U96F32::from_num(tao_reserve);
+        let tao_reserve_float: U96F32 = U96F32::saturating_from_num(tao_reserve);
 
         // Corner case: limit_price < current_price (price cannot decrease with staking)
-        let limit_price_float: U96F32 = U96F32::from_num(limit_price)
-            .checked_div(U96F32::from_num(1_000_000_000))
-            .unwrap_or(U96F32::from_num(0));
+        let limit_price_float: U96F32 = U96F32::saturating_from_num(limit_price)
+            .checked_div(U96F32::saturating_from_num(1_000_000_000))
+            .unwrap_or(U96F32::saturating_from_num(0));
         if limit_price_float < Self::get_alpha_price(netuid) {
             return 0;
         }
@@ -175,16 +175,16 @@ impl<T: Config> Pallet<T> {
         // Main case: return SQRT(limit_price * SubnetTAO * SubnetAlphaIn) - SubnetTAO
         // This is the positive solution of quare equation for finding additional TAO from
         // limit_price.
-        let zero: U96F32 = U96F32::from_num(0.0);
+        let zero: U96F32 = U96F32::saturating_from_num(0.0);
         let sqrt: U96F32 = checked_sqrt(
             limit_price_float
                 .saturating_mul(tao_reserve_float)
                 .saturating_mul(alpha_in_float),
-            U96F32::from_num(0.1),
+            U96F32::saturating_from_num(0.1),
         )
         .unwrap_or(zero);
 
-        U96F32::from_num(sqrt)
+        U96F32::saturating_from_num(sqrt)
             .saturating_sub(U96F32::saturating_from_num(tao_reserve_float))
             .saturating_to_num::<u64>()
     }
