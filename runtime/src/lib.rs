@@ -220,7 +220,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 223,
+    spec_version: 224,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1179,7 +1179,9 @@ const BLOCK_GAS_LIMIT: u64 = 75_000_000;
 /// `WeightPerGas` is an approximate ratio of the amount of Weight per Gas.
 ///
 fn weight_per_gas() -> Weight {
-    (NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT).saturating_div(BLOCK_GAS_LIMIT)
+    (NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT)
+        .checked_div(BLOCK_GAS_LIMIT)
+        .unwrap_or_default()
 }
 
 parameter_types! {
