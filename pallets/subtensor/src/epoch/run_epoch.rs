@@ -995,19 +995,19 @@ impl<T: Config> Pallet<T> {
     /// Compute the Exponential Moving Average (EMA) of bonds using the alpha values for a sparse matrix.
     ///
     /// # Args:
-    /// * `bonds_delta` - A vector of bond deltas.
+    /// * `weights` - A vector of weights.
     /// * `bonds` - A vector of bonds.
     /// * `alpha` - A vector of clamped alpha values (for liquid alpha) or constant alpha values.
     ///
     /// # Returns:
     /// A vector of EMA bonds.
     pub fn compute_ema_bonds_sparse(
-        bonds_delta: &[Vec<(u16, I32F32)>],
+        weights: &[Vec<(u16, I32F32)>],
         bonds: &[Vec<(u16, I32F32)>],
         alpha: Vec<I32F32>,
     ) -> Vec<Vec<(u16, I32F32)>> {
         // Compute the Exponential Moving Average (EMA) of bonds using the provided clamped alpha values.
-        let ema_bonds = mat_ema_alpha_vec_sparse(bonds_delta, bonds, &alpha);
+        let ema_bonds = mat_ema_alpha_vec_sparse(weights, bonds, &alpha);
 
         // Log the computed EMA bonds for debugging purposes.
         log::trace!("Exponential Moving Average Bonds: {:?}", ema_bonds);
@@ -1019,19 +1019,19 @@ impl<T: Config> Pallet<T> {
     /// Compute the Exponential Moving Average (EMA) of bonds using the alpha values.
     ///
     /// # Args:
-    /// * `bonds_delta` - A vector of bond deltas.
+    /// * `weights` - A vector of weights.
     /// * `bonds` - A vector of bonds.
     /// * `alpha` - A vector of clamped alpha values (for liquid alpha) or constant alpha values.
     ///
     /// # Returns:
     /// A vector of EMA bonds.
     pub fn compute_ema_bonds(
-        bonds_delta: &[Vec<I32F32>],
+        weights: &[Vec<I32F32>],
         bonds: &[Vec<I32F32>],
         alpha: Vec<I32F32>,
     ) -> Vec<Vec<I32F32>> {
         // Compute the Exponential Moving Average (EMA) of bonds using the provided clamped alpha values.
-        let ema_bonds = mat_ema_alpha_vec(bonds_delta, bonds, &alpha);
+        let ema_bonds = mat_ema_alpha_vec(weights, bonds, &alpha);
 
         // Log the computed EMA bonds for debugging purposes.
         log::trace!("Exponential Moving Average Bonds: {:?}", ema_bonds);
