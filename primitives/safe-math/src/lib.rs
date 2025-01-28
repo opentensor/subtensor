@@ -1,7 +1,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::result_unit_err)]
 
-use substrate_fixed::{traits::Fixed, types::{I110F18, I32F32, I64F64, I96F32, U110F18, U64F64, U96F32}};
+use substrate_fixed::{
+    traits::Fixed,
+    types::{I110F18, I32F32, I64F64, I96F32, U110F18, U64F64, U96F32},
+};
 
 /// Safe division trait
 pub trait SafeDiv {
@@ -138,7 +141,8 @@ mod tests {
         let result: Option<U110F18> = checked_sqrt(value, epsilon);
         assert!(result.is_some());
         let sqrt_result: U110F18 = result.unwrap();
-        let precise_sqrt: U110F18 = U110F18::from_num(441_000_000_000_000_000_000_000_000_000_000.0_f64.sqrt());
+        let precise_sqrt: U110F18 =
+            U110F18::from_num(441_000_000_000_000_000_000_000_000_000_000.0_f64.sqrt());
         assert!(abs_diff(sqrt_result, precise_sqrt) <= epsilon);
     }
 

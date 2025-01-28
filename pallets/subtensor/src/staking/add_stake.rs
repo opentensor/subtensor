@@ -180,7 +180,7 @@ impl<T: Config> Pallet<T> {
             limit_price_float
                 .saturating_mul(tao_reserve_float)
                 .saturating_mul(alpha_in_float),
-                U96F32::saturating_from_num(0.1),
+            U96F32::saturating_from_num(0.1),
         )
         .unwrap_or(zero);
 
