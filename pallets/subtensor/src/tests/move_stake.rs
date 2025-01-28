@@ -742,8 +742,8 @@ fn test_do_move_max_values() {
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
 
         // Add lots of liquidity to bypass low liquidity check
-        SubnetTAO::<Test>::insert(netuid, u64::MAX/1000);
-        SubnetAlphaIn::<Test>::insert(netuid, u64::MAX/1000);
+        SubnetTAO::<Test>::insert(netuid, u64::MAX / 1000);
+        SubnetAlphaIn::<Test>::insert(netuid, u64::MAX / 1000);
 
         SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, max_stake, fee);
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
