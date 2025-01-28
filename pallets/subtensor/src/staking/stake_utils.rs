@@ -2,7 +2,7 @@ use super::*;
 use safe_math::*;
 use share_pool::{SharePool, SharePoolDataOperations};
 use sp_std::ops::Neg;
-use substrate_fixed::types::{I64F64, I96F32, U64F64};
+use substrate_fixed::types::{I110F18, I64F64, I96F32, U64F64};
 
 impl<T: Config> Pallet<T> {
     /// Retrieves the total alpha issuance for a given subnet.
@@ -469,16 +469,15 @@ impl<T: Config> Pallet<T> {
         // Step 2: Initialized vars.
         if mechanism_id == 1 {
             // Step 3.a.1: Dynamic mechanism calculations
-            let tao_reserves: I96F32 = I96F32::saturating_from_num(SubnetTAO::<T>::get(netuid));
-            let alpha_reserves: I96F32 =
-                I96F32::saturating_from_num(SubnetAlphaIn::<T>::get(netuid));
+            let tao_reserves: I110F18 = I110F18::saturating_from_num(SubnetTAO::<T>::get(netuid));
+            let alpha_reserves: I110F18 =
+                I110F18::saturating_from_num(SubnetAlphaIn::<T>::get(netuid));
             // Step 3.a.2: Compute constant product k = alpha * tao
-            let k: I96F32 = alpha_reserves.saturating_mul(tao_reserves);
+            let k: I110F18 = alpha_reserves.saturating_mul(tao_reserves);
 
             // Calculate new alpha reserve
-            let new_alpha_reserves: I96F32 = k
-                .checked_div(tao_reserves.saturating_add(I96F32::saturating_from_num(tao)))
-                .unwrap_or(I96F32::saturating_from_num(0));
+            let new_alpha_reserves: I110F18 =
+                k.safe_div(tao_reserves.saturating_add(I110F18::saturating_from_num(tao)));
 
             // Step 3.a.3: Calculate alpha staked using the constant product formula
             // alpha_stake_recieved = current_alpha - (k / (current_tao + new_tao))
@@ -509,16 +508,16 @@ impl<T: Config> Pallet<T> {
         // Step 2: Swap alpha and attain tao
         if mechanism_id == 1 {
             // Step 3.a.1: Dynamic mechanism calculations
-            let tao_reserves: I96F32 = I96F32::saturating_from_num(SubnetTAO::<T>::get(netuid));
-            let alpha_reserves: I96F32 =
-                I96F32::saturating_from_num(SubnetAlphaIn::<T>::get(netuid));
+            let tao_reserves: I110F18 = I110F18::saturating_from_num(SubnetTAO::<T>::get(netuid));
+            let alpha_reserves: I110F18 =
+                I110F18::saturating_from_num(SubnetAlphaIn::<T>::get(netuid));
             // Step 3.a.2: Compute constant product k = alpha * tao
-            let k: I96F32 = alpha_reserves.saturating_mul(tao_reserves);
+            let k: I110F18 = alpha_reserves.saturating_mul(tao_reserves);
 
             // Calculate new tao reserve
-            let new_tao_reserves: I96F32 = k
-                .checked_div(alpha_reserves.saturating_add(I96F32::saturating_from_num(alpha)))
-                .unwrap_or(I96F32::saturating_from_num(0));
+            let new_tao_reserves: I110F18 = k
+                .checked_div(alpha_reserves.saturating_add(I110F18::saturating_from_num(alpha)))
+                .unwrap_or(I110F18::saturating_from_num(0));
 
             // Step 3.a.3: Calculate alpha staked using the constant product formula
             // tao_recieved = tao_reserves - (k / (alpha_reserves + new_tao))
