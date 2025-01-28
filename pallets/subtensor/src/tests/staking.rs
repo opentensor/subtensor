@@ -2309,3 +2309,42 @@ fn test_unstake_low_liquidity_validate() {
         );
     });
 }
+
+#[test]
+fn test_stake_oveflow() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let coldkey_account_id = U256::from(435445);
+        let hotkey_account_id = U256::from(54544);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let amount = 21_000_000_000_000_000; // Max TAO supply
+        let fee = DefaultStakingFee::<Test>::get();
+        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
+
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
+
+        // Setup liquidity with 21M TAO values
+        SubnetTAO::<Test>::insert(netuid, amount);
+        SubnetAlphaIn::<Test>::insert(netuid, amount);
+
+        // Stake and check if the result is ok
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            amount
+        ));
+
+        // Check if stake has increased properly (staking 1:1 to SubnetTAO results in SubnetTAO/2 alpha)
+        assert_abs_diff_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
+            (amount - fee) / 2,
+            epsilon = amount / 1_000_000,
+        );
+
+        // Check if total stake has increased accordingly.
+        assert_abs_diff_eq!(SubtensorModule::get_total_stake(), amount, epsilon = 10,);
+    });
+}
