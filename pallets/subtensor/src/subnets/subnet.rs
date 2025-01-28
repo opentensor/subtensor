@@ -235,23 +235,23 @@ impl<T: Config> Pallet<T> {
 
         // Put initial TAO from lock into subnet TAO and produce numerically equal amount of Alpha
         // The initial TAO is the locked amount, with a minimum of 1 RAO and a cap of 1 TAO.
-        let pool_initial_tao = 1_000_000_000.min(actual_tao_lock_amount.max(1));
+        let pool_initial_tao = actual_tao_lock_amount;
 
-        let actual_tao_lock_amount_less_pool_tao =
-            actual_tao_lock_amount.saturating_sub(pool_initial_tao);
         SubnetTAO::<T>::insert(netuid_to_register, pool_initial_tao);
-        SubnetAlphaIn::<T>::insert(
-            netuid_to_register,
-            pool_initial_tao.saturating_mul(Self::get_all_subnet_netuids().len() as u64),
-        ); // Set AlphaIn to the initial alpha distribution.
+        SubnetAlphaIn::<T>::insert(netuid_to_register, pool_initial_tao); // Set AlphaIn to the initial alpha distribution.
+        SubnetAlphaOut::<T>::insert(netuid_to_register, pool_initial_tao);
 
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
         SubnetOwnerHotkey::<T>::insert(netuid_to_register, hotkey.clone());
         TotalStakeAtDynamic::<T>::insert(netuid_to_register, TotalStake::<T>::get());
 
-        if actual_tao_lock_amount_less_pool_tao > 0 {
-            Self::burn_tokens(actual_tao_lock_amount_less_pool_tao);
-        }
+        // Give Owner initial alpha as well.
+        Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            hotkey,
+            &coldkey,
+            netuid_to_register,
+            pool_initial_tao,
+        );
 
         // --- 15. Add the identity if it exists
         if let Some(identity_value) = identity {

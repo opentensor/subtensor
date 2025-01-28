@@ -81,12 +81,17 @@ pub fn migrate_rao<T: Config>() -> Weight {
         Pallet::<T>::add_balance_to_coldkey_account(&owner, remaining_lock);
         SubnetTAO::<T>::insert(netuid, pool_initial_tao); // Set TAO to the lock.
 
-        SubnetAlphaIn::<T>::insert(
-            netuid,
-            pool_initial_tao.saturating_mul(netuids.len() as u64),
-        ); // Set AlphaIn to the initial alpha distribution.
+        SubnetAlphaIn::<T>::insert(netuid, pool_initial_tao); // Set AlphaIn to the initial alpha distribution.
 
-        SubnetAlphaOut::<T>::insert(netuid, 0); // Set zero subnet alpha out.
+        SubnetAlphaOut::<T>::insert(netuid, pool_initial_tao); // Set zero subnet alpha out.
+                                                               // Give Owner initial alpha as well.
+        Pallet::<T>::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &owner,
+            &owner,
+            *netuid,
+            pool_initial_tao,
+        );
+
         SubnetMechanism::<T>::insert(netuid, 1); // Convert to dynamic immediately with initialization.
         Tempo::<T>::insert(netuid, DefaultTempo::<T>::get());
         // Set the token symbol for this subnet using Self instead of Pallet::<T>
