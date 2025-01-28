@@ -185,7 +185,7 @@ impl<T: Config> Pallet<T> {
         .unwrap_or(zero);
 
         U96F32::from_num(sqrt)
-            .saturating_sub(U96F32::from_num(tao_reserve_float))
-            .to_num::<u64>()
+            .saturating_sub(U96F32::saturating_from_num(tao_reserve_float))
+            .saturating_to_num::<u64>()
     }
 }
