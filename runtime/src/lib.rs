@@ -2157,6 +2157,11 @@ impl_runtime_apis! {
             let result = SubtensorModule::get_stake_info_for_coldkeys( coldkey_account_vecs );
             result.encode()
         }
+
+        fn get_stake_for_hotkey_coldkey_netuid( hotkey_account_vec: Vec<u8>, coldkey_account_vec: Vec<u8>, netuid: u16 ) -> Vec<u8> {
+            let result = SubtensorModule::get_stake_info_for_hotkey_coldkey_netuid( hotkey_account_vec, coldkey_account_vec, netuid );
+            result.encode()
+        }
     }
 
     impl subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block> for Runtime {
