@@ -185,5 +185,7 @@ mod errors {
         CommittingWeightsTooFast,
         /// Stake amount is too low.
         AmountTooLow,
+        /// Not enough liquidity.
+        InsufficientLiquidity,
     }
 }
