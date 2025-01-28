@@ -592,7 +592,7 @@ impl<T: Config> Pallet<T> {
             });
             // Step 8. Decrease Alpha reserves.
             SubnetVolume::<T>::mutate(netuid, |total| {
-                *total = total.saturating_sub(tao);
+                *total = total.saturating_add(tao);
             });
             // Step 9. Return the tao received.
             tao
