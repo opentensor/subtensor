@@ -287,7 +287,7 @@ mod benchmarks {
             1u16, /*sudo_tempo*/
         );
         let owner: T::AccountId = account("Alice", 0, 1);
-        SubnetOwner::<T>::insert(1u16, owner.clone());
+        pallet_subtensor::SubnetOwner::<T>::insert(1u16, owner.clone());
 
         #[extrinsic_call]
 		_(RawOrigin::Signed(owner.clone()), 1u16/*netuid*/)/*sudo_enable_alpha_transfer*/;
