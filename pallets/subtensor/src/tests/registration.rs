@@ -491,6 +491,46 @@ fn test_burn_registration_without_neuron_slot() {
 }
 
 #[test]
+fn test_burn_registration_doesnt_write_on_failure() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+        let hotkey_account_id = U256::from(1);
+        let burn_cost = 1000;
+        let initial_balance = burn_cost * 10;
+        let coldkey_account_id = U256::from(987);
+
+        // Add network and set burn cost
+        add_network(netuid, tempo, 0);
+        SubtensorModule::set_burn(netuid, burn_cost);
+        // Give coldkey balance to pay for registration
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, initial_balance);
+        // Set max allowed uids to 0 so registration will fail, but only on last check.
+        SubtensorModule::set_max_allowed_uids(netuid, 0);
+
+        // We expect this to fail at the last ensure check.
+        assert_err!(
+            SubtensorModule::burned_register(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                netuid,
+                hotkey_account_id
+            ),
+            Error::<Test>::NoNeuronIdAvailable
+        );
+
+        // Make sure the coldkey balance is unchanged.
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id),
+            initial_balance
+        );
+        // Make sure the neuron is not registered.
+        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 0);
+        // Make sure the hotkey is not registered.
+        assert!(SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).is_err());
+    });
+}
+
+#[test]
 fn test_burn_adjustment() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;

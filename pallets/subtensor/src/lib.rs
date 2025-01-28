@@ -730,7 +730,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for Share Pool variables
     pub fn DefaultSharePoolZero<T: Config>() -> U64F64 {
-        U64F64::from_num(0)
+        U64F64::saturating_from_num(0)
     }
 
     #[pallet::storage]

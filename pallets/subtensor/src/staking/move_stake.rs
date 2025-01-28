@@ -1,4 +1,5 @@
 use super::*;
+use safe_math::*;
 use sp_core::Get;
 
 impl<T: Config> Pallet<T> {
@@ -223,7 +224,7 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // Unstake from the origin subnet, returning TAO (or a 1:1 equivalent).
-        let fee = DefaultStakingFee::<T>::get().saturating_div(2);
+        let fee = DefaultStakingFee::<T>::get().safe_div(2);
         let tao_unstaked = Self::unstake_from_subnet(
             origin_hotkey,
             origin_coldkey,
