@@ -73,8 +73,8 @@ pub fn migrate_rao<T: Config>() -> Weight {
         let lock: u64 = SubnetLocked::<T>::get(netuid);
 
         // Put initial TAO from lock into subnet TAO and produce numerically equal amount of Alpha
-        // The initial TAO is the locked amount, with a minimum of 1 RAO and a cap of 100 TAO.
-        let pool_initial_tao = 100_000_000_000.min(lock.max(1));
+        // The initial TAO is the locked amount, with a minimum of 1 RAO and a cap of 1 TAO.
+        let pool_initial_tao = 1_000_000_000.min(lock.max(1));
 
         let remaining_lock = lock.saturating_sub(pool_initial_tao);
         // Refund the owner for the remaining lock.
