@@ -189,10 +189,10 @@ pub mod pallet {
         pub ip_type: u8,
     }
 
-    ///  Struct for ChainIdentities.
+    ///  Struct for ChainIdentities. (DEPRECATED for V2)
     pub type ChainIdentityOf = ChainIdentity;
 
-    /// Data structure for Chain Identities.
+    /// Data structure for Chain Identities. (DEPRECATED for V2)
     #[crate::freeze_struct("bbfd00438dbe2b58")]
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct ChainIdentity {
@@ -210,9 +210,32 @@ pub mod pallet {
         pub additional: Vec<u8>,
     }
 
-    ///  Struct for SubnetIdentities.
+    ///  Struct for ChainIdentities.
+    pub type ChainIdentityOfV2 = ChainIdentityV2;
+
+    /// Data structure for Chain Identities.
+    #[crate::freeze_struct("ad72a270be7b59d7")]
+    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    pub struct ChainIdentityV2 {
+        /// The name of the chain identity
+        pub name: Vec<u8>,
+        /// The URL associated with the chain identity
+        pub url: Vec<u8>,
+        /// The github repository associated with the identity
+        pub github_repo: Vec<u8>,
+        /// The image representation of the chain identity
+        pub image: Vec<u8>,
+        /// The Discord information for the chain identity
+        pub discord: Vec<u8>,
+        /// A description of the chain identity
+        pub description: Vec<u8>,
+        /// Additional information about the chain identity
+        pub additional: Vec<u8>,
+    }
+
+    ///  Struct for SubnetIdentities. (DEPRECATED for V2)
     pub type SubnetIdentityOf = SubnetIdentity;
-    /// Data structure for Subnet Identities
+    /// Data structure for Subnet Identities. (DEPRECATED for V2)
     #[crate::freeze_struct("f448dc3dad763108")]
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct SubnetIdentity {
@@ -222,6 +245,28 @@ pub mod pallet {
         pub github_repo: Vec<u8>,
         /// The subnet's contact
         pub subnet_contact: Vec<u8>,
+    }
+
+    ///  Struct for SubnetIdentitiesV2.
+    pub type SubnetIdentityOfV2 = SubnetIdentityV2;
+    /// Data structure for Subnet Identities
+    #[crate::freeze_struct("e002be4cd05d7b3e")]
+    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    pub struct SubnetIdentityV2 {
+        /// The name of the subnet
+        pub subnet_name: Vec<u8>,
+        /// The github repository associated with the subnet
+        pub github_repo: Vec<u8>,
+        /// The subnet's contact
+        pub subnet_contact: Vec<u8>,
+        /// The subnet's website
+        pub subnet_url: Vec<u8>,
+        /// The subnet's discord
+        pub discord: Vec<u8>,
+        /// The subnet's description
+        pub description: Vec<u8>,
+        /// Additional information about the subnet
+        pub additional: Vec<u8>,
     }
     /// ============================
     /// ==== Staking + Accounts ====
@@ -1398,13 +1443,21 @@ pub mod pallet {
         PrometheusInfoOf,
         OptionQuery,
     >;
-    #[pallet::storage] // --- MAP ( coldkey ) --> identity
+    #[pallet::storage] // --- MAP ( coldkey ) --> identity. (DEPRECATED for V2)
     pub type Identities<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, ChainIdentityOf, OptionQuery>;
 
-    #[pallet::storage] // --- MAP ( netuid ) --> identity
+    #[pallet::storage] // --- MAP ( coldkey ) --> identity
+    pub type IdentitiesV2<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, ChainIdentityOfV2, OptionQuery>;
+
+    #[pallet::storage] // --- MAP ( netuid ) --> identity. (DEPRECATED for V2)
     pub type SubnetIdentities<T: Config> =
         StorageMap<_, Blake2_128Concat, u16, SubnetIdentityOf, OptionQuery>;
+
+    #[pallet::storage] // --- MAP ( netuid ) --> identityV2
+    pub type SubnetIdentitiesV2<T: Config> =
+        StorageMap<_, Blake2_128Concat, u16, SubnetIdentityOfV2, OptionQuery>;
 
     /// =================================
     /// ==== Axon / Promo Endpoints =====

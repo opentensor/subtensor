@@ -160,7 +160,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: &T::AccountId,
         mechid: u16,
-        identity: Option<SubnetIdentityOf>,
+        identity: Option<SubnetIdentityOfV2>,
     ) -> DispatchResult {
         // --- 1. Ensure the caller is a signed user.
         let coldkey = ensure_signed(origin)?;
@@ -260,7 +260,7 @@ impl<T: Config> Pallet<T> {
                 Error::<T>::InvalidIdentity
             );
 
-            SubnetIdentities::<T>::insert(netuid_to_register, identity_value);
+            SubnetIdentitiesV2::<T>::insert(netuid_to_register, identity_value);
             Self::deposit_event(Event::SubnetIdentitySet(netuid_to_register));
         }
 

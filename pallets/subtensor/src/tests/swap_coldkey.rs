@@ -673,19 +673,20 @@ fn test_do_swap_coldkey_success() {
 
         // Insert an Identity
         let name: Vec<u8> = b"The fourth Coolest Identity".to_vec();
-        let identity: ChainIdentity = ChainIdentity {
+        let identity: ChainIdentityV2 = ChainIdentityV2 {
             name: name.clone(),
             url: vec![],
+            github_repo: vec![],
             image: vec![],
             discord: vec![],
             description: vec![],
             additional: vec![],
         };
 
-        Identities::<Test>::insert(old_coldkey, identity.clone());
+        IdentitiesV2::<Test>::insert(old_coldkey, identity.clone());
 
-        assert!(Identities::<Test>::get(old_coldkey).is_some());
-        assert!(Identities::<Test>::get(new_coldkey).is_none());
+        assert!(IdentitiesV2::<Test>::get(old_coldkey).is_some());
+        assert!(IdentitiesV2::<Test>::get(new_coldkey).is_none());
 
         // Log state after adding stake
         log::info!(
@@ -774,10 +775,10 @@ fn test_do_swap_coldkey_success() {
         );
 
         // Verify identities were swapped
-        assert!(Identities::<Test>::get(old_coldkey).is_none());
-        assert!(Identities::<Test>::get(new_coldkey).is_some());
+        assert!(IdentitiesV2::<Test>::get(old_coldkey).is_none());
+        assert!(IdentitiesV2::<Test>::get(new_coldkey).is_some());
         assert_eq!(
-            Identities::<Test>::get(new_coldkey).expect("Expected an Identity"),
+            IdentitiesV2::<Test>::get(new_coldkey).expect("Expected an Identity"),
             identity
         );
 
@@ -1887,19 +1888,20 @@ fn test_coldkey_swap_delegate_identity_updated() {
         ));
 
         let name: Vec<u8> = b"The Third Coolest Identity".to_vec();
-        let identity: ChainIdentity = ChainIdentity {
+        let identity: ChainIdentityV2 = ChainIdentityV2 {
             name: name.clone(),
             url: vec![],
             image: vec![],
+            github_repo: vec![],
             discord: vec![],
             description: vec![],
             additional: vec![],
         };
 
-        Identities::<Test>::insert(old_coldkey, identity.clone());
+        IdentitiesV2::<Test>::insert(old_coldkey, identity.clone());
 
-        assert!(Identities::<Test>::get(old_coldkey).is_some());
-        assert!(Identities::<Test>::get(new_coldkey).is_none());
+        assert!(IdentitiesV2::<Test>::get(old_coldkey).is_some());
+        assert!(IdentitiesV2::<Test>::get(new_coldkey).is_none());
 
         assert_ok!(SubtensorModule::do_swap_coldkey(
             &old_coldkey,
@@ -1907,10 +1909,10 @@ fn test_coldkey_swap_delegate_identity_updated() {
             burn_cost
         ));
 
-        assert!(Identities::<Test>::get(old_coldkey).is_none());
-        assert!(Identities::<Test>::get(new_coldkey).is_some());
+        assert!(IdentitiesV2::<Test>::get(old_coldkey).is_none());
+        assert!(IdentitiesV2::<Test>::get(new_coldkey).is_some());
         assert_eq!(
-            Identities::<Test>::get(new_coldkey).expect("Expected an Identity"),
+            IdentitiesV2::<Test>::get(new_coldkey).expect("Expected an Identity"),
             identity
         );
     });
@@ -1938,7 +1940,7 @@ fn test_coldkey_swap_no_identity_no_changes() {
         ));
 
         // Ensure the old coldkey does not have an identity before the swap
-        assert!(Identities::<Test>::get(old_coldkey).is_none());
+        assert!(IdentitiesV2::<Test>::get(old_coldkey).is_none());
 
         // Perform the coldkey swap
         assert_ok!(SubtensorModule::do_swap_coldkey(
@@ -1948,8 +1950,8 @@ fn test_coldkey_swap_no_identity_no_changes() {
         ));
 
         // Ensure no identities have been changed
-        assert!(Identities::<Test>::get(old_coldkey).is_none());
-        assert!(Identities::<Test>::get(new_coldkey).is_none());
+        assert!(IdentitiesV2::<Test>::get(old_coldkey).is_none());
+        assert!(IdentitiesV2::<Test>::get(new_coldkey).is_none());
     });
 }
 
@@ -1974,19 +1976,20 @@ fn test_coldkey_swap_no_identity_no_changes_newcoldkey_exists() {
         ));
 
         let name: Vec<u8> = b"The Coolest Identity".to_vec();
-        let identity: ChainIdentity = ChainIdentity {
+        let identity: ChainIdentityV2 = ChainIdentityV2 {
             name: name.clone(),
             url: vec![],
+            github_repo: vec![],
             image: vec![],
             discord: vec![],
             description: vec![],
             additional: vec![],
         };
 
-        Identities::<Test>::insert(new_coldkey, identity.clone());
+        IdentitiesV2::<Test>::insert(new_coldkey, identity.clone());
         // Ensure the new coldkey does have an identity before the swap
-        assert!(Identities::<Test>::get(new_coldkey).is_some());
-        assert!(Identities::<Test>::get(old_coldkey).is_none());
+        assert!(IdentitiesV2::<Test>::get(new_coldkey).is_some());
+        assert!(IdentitiesV2::<Test>::get(old_coldkey).is_none());
 
         // Perform the coldkey swap
         assert_ok!(SubtensorModule::do_swap_coldkey(
@@ -1996,8 +1999,8 @@ fn test_coldkey_swap_no_identity_no_changes_newcoldkey_exists() {
         ));
 
         // Ensure no identities have been changed
-        assert!(Identities::<Test>::get(old_coldkey).is_none());
-        assert!(Identities::<Test>::get(new_coldkey).is_some());
+        assert!(IdentitiesV2::<Test>::get(old_coldkey).is_none());
+        assert!(IdentitiesV2::<Test>::get(new_coldkey).is_some());
     });
 }
 

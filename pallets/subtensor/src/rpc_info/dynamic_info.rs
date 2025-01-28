@@ -4,7 +4,7 @@ use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
 use subtensor_macros::freeze_struct;
 
-#[freeze_struct("44fd17b240416875")]
+#[freeze_struct("e425055e357d7a13")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct DynamicInfo<T: Config> {
     netuid: Compact<u16>,
@@ -25,7 +25,7 @@ pub struct DynamicInfo<T: Config> {
     pending_alpha_emission: Compact<u64>,
     pending_root_emission: Compact<u64>,
     network_registered_at: Compact<u64>,
-    subnet_identity: Option<SubnetIdentity>,
+    subnet_identity: Option<SubnetIdentityV2>,
 }
 
 impl<T: Config> Pallet<T> {
@@ -61,7 +61,7 @@ impl<T: Config> Pallet<T> {
             pending_alpha_emission: PendingEmission::<T>::get(netuid).into(),
             pending_root_emission: PendingRootDivs::<T>::get(netuid).into(),
             network_registered_at: NetworkRegisteredAt::<T>::get(netuid).into(),
-            subnet_identity: SubnetIdentities::<T>::get(netuid),
+            subnet_identity: SubnetIdentitiesV2::<T>::get(netuid),
         })
     }
     pub fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<T>>> {
