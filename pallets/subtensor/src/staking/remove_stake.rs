@@ -1,5 +1,7 @@
 use super::*;
+use safe_math::*;
 use sp_core::Get;
+use substrate_fixed::types::U96F32;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
@@ -222,23 +224,107 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_remove_stake_limit(
-        _origin: T::RuntimeOrigin,
-        _hotkey: T::AccountId,
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
         netuid: u16,
-        _stake_to_be_added: u64,
+        alpha_unstaked: u64,
         limit_price: u64,
     ) -> dispatch::DispatchResult {
-        // TODO: Do all checks
+        // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
+        let coldkey = ensure_signed(origin)?;
+        log::info!(
+            "do_remove_stake( origin:{:?} hotkey:{:?}, netuid: {:?}, alpha_unstaked:{:?} )",
+            coldkey,
+            hotkey,
+            netuid,
+            alpha_unstaked
+        );
 
-        // Calcaulate the maximum amount that can be executed with price limit
-        let _max_amount = Self::get_max_amount_remove(netuid, limit_price);
+        // 2. Validate the user input
+        Self::validate_remove_stake(&coldkey, &hotkey, netuid, alpha_unstaked)?;
 
-        // Ok and return.
+        // 3. Calcaulate the maximum amount that can be executed with price limit
+        let max_amount = Self::get_max_amount_remove(netuid, limit_price);
+        let mut possible_alpha = alpha_unstaked;
+        if possible_alpha > max_amount {
+            possible_alpha = max_amount;
+        }
+
+        // 4. Swap the alpba to tao and update counters for this subnet.
+        let fee = DefaultStakingFee::<T>::get();
+        let tao_unstaked: u64 =
+            Self::unstake_from_subnet(&hotkey, &coldkey, netuid, possible_alpha, fee);
+
+        // 5. We add the balance to the coldkey. If the above fails we will not credit this coldkey.
+        Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
+
+        // 6. If the stake is below the minimum, we clear the nomination from storage.
+        Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
+
+        // 7. Check if stake lowered below MinStake and remove Pending children if it did
+        if Self::get_total_stake_for_hotkey(&hotkey) < StakeThreshold::<T>::get() {
+            Self::get_all_subnet_netuids().iter().for_each(|netuid| {
+                PendingChildKeys::<T>::remove(netuid, &hotkey);
+            })
+        }
+
+        // Done and ok.
         Ok(())
     }
 
     // Returns the maximum amount of RAO that can be executed with price limit
-    pub fn get_max_amount_remove(_netuid: u16, _limit_price: u64) -> u64 {
-        0
+    pub fn get_max_amount_remove(netuid: u16, limit_price: u64) -> u64 {
+        // Corner case: root and stao
+        // There's no slippage for root or stable subnets, so if limit price is 1e9 rao or
+        // higher, then max_amount equals u64::MAX, otherwise it is 0.
+        if (netuid == Self::get_root_netuid()) || (SubnetMechanism::<T>::get(netuid)) == 0 {
+            if limit_price <= 1_000_000_000 {
+                return u64::MAX;
+            } else {
+                return 0;
+            }
+        }
+
+        // Corner case: SubnetAlphaIn is zero. Staking can't happen, so max amount is zero.
+        let alpha_in = SubnetAlphaIn::<T>::get(netuid);
+        if alpha_in == 0 {
+            return 0;
+        }
+        let alpha_in_float: U96F32 = U96F32::saturating_from_num(alpha_in);
+
+        // Corner case: SubnetTAO is zero. Staking can't happen, so max amount is zero.
+        let tao_reserve = SubnetTAO::<T>::get(netuid);
+        if tao_reserve == 0 {
+            return 0;
+        }
+        let tao_reserve_float: U96F32 = U96F32::saturating_from_num(tao_reserve);
+
+        // Corner case: limit_price == 0 (because there's division by limit price)
+        // => can sell all
+        if limit_price == 0 {
+            return u64::MAX;
+        }
+
+        // Corner case: limit_price > current_price (price cannot increase with unstaking)
+        let limit_price_float: U96F32 = U96F32::saturating_from_num(limit_price)
+            .checked_div(U96F32::saturating_from_num(1_000_000_000))
+            .unwrap_or(U96F32::saturating_from_num(0));
+        if limit_price_float > Self::get_alpha_price(netuid) {
+            return 0;
+        }
+
+        // Main case: return SQRT(SubnetTAO * SubnetAlphaIn / limit_price) - SubnetAlphaIn
+        // This is the positive solution of quare equation for finding Alpha amount from
+        // limit_price.
+        let zero: U96F32 = U96F32::saturating_from_num(0.0);
+        let epsilon: U96F32 = U96F32::saturating_from_num(0.1);
+        let sqrt: U96F32 = checked_sqrt(tao_reserve_float, epsilon)
+            .unwrap_or(zero)
+            .saturating_mul(
+                checked_sqrt(alpha_in_float.safe_div(limit_price_float), epsilon).unwrap_or(zero),
+            );
+
+        sqrt.saturating_sub(U96F32::saturating_from_num(alpha_in_float))
+            .saturating_to_num::<u64>()
     }
 }

@@ -69,9 +69,9 @@ pub fn checked_sqrt<T: SafeDiv + Fixed>(value: T, epsilon: T) -> Option<T> {
 
     let mut high: T = value;
     let mut low: T = zero;
-    let mut middle: T = (high + low) / two;
+    let mut middle: T = high.saturating_add(low).safe_div(two);
 
-    let mut iteration = 0;
+    let mut iteration: i32 = 0;
     let max_iterations = 128;
     let mut check_val: T = value.safe_div(middle);
 
@@ -83,10 +83,10 @@ pub fn checked_sqrt<T: SafeDiv + Fixed>(value: T, epsilon: T) -> Option<T> {
             low = middle;
         }
 
-        middle = (high + low) / two;
+        middle = high.saturating_add(low).safe_div(two);
         check_val = value.safe_div(middle);
 
-        iteration += 1;
+        iteration = iteration.saturating_add(1);
         if iteration > max_iterations {
             break;
         }

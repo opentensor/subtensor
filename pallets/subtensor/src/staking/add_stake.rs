@@ -79,7 +79,7 @@ impl<T: Config> Pallet<T> {
     ///     -  The amount of stake to be added to the hotkey staking account.
     ///
     ///  * 'limit_price' (u64):
-    /// 	- The limit price expressed in units of RAO per one Alpha.
+    ///     - The limit price expressed in units of RAO per one Alpha.
     ///
     /// # Event:
     /// * StakeAdded;
@@ -176,16 +176,13 @@ impl<T: Config> Pallet<T> {
         // This is the positive solution of quare equation for finding additional TAO from
         // limit_price.
         let zero: U96F32 = U96F32::saturating_from_num(0.0);
-        let sqrt: U96F32 = checked_sqrt(
-            limit_price_float
-                .saturating_mul(tao_reserve_float)
-                .saturating_mul(alpha_in_float),
-            U96F32::saturating_from_num(0.1),
-        )
-        .unwrap_or(zero);
+        let epsilon: U96F32 = U96F32::saturating_from_num(0.1);
+        let sqrt: U96F32 =
+            checked_sqrt(limit_price_float.saturating_mul(tao_reserve_float), epsilon)
+                .unwrap_or(zero)
+                .saturating_mul(checked_sqrt(alpha_in_float, epsilon).unwrap_or(zero));
 
-        U96F32::saturating_from_num(sqrt)
-            .saturating_sub(U96F32::saturating_from_num(tao_reserve_float))
+        sqrt.saturating_sub(U96F32::saturating_from_num(tao_reserve_float))
             .saturating_to_num::<u64>()
     }
 }
