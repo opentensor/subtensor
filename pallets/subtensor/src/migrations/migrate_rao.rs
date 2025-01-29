@@ -45,10 +45,10 @@ pub fn migrate_rao<T: Config>() -> Weight {
         });
         // Set all the stake on root 0 subnet.
         Alpha::<T>::mutate((hotkey.clone(), coldkey.clone(), 0), |total| {
-            *total = total.saturating_add(U64F64::from_num(stake))
+            *total = total.saturating_add(U64F64::saturating_from_num(stake))
         });
         TotalHotkeyShares::<T>::mutate(hotkey.clone(), 0, |total| {
-            *total = total.saturating_add(U64F64::from_num(stake))
+            *total = total.saturating_add(U64F64::saturating_from_num(stake))
         });
         // Set the total stake on the hotkey
         TotalHotkeyAlpha::<T>::mutate(hotkey.clone(), 0, |total| {
@@ -71,17 +71,26 @@ pub fn migrate_rao<T: Config>() -> Weight {
         }
         let owner: T::AccountId = SubnetOwner::<T>::get(netuid);
         let lock: u64 = SubnetLocked::<T>::get(netuid);
-        let initial_liquidity: u64 = 100_000_000_000; // 100 TAO.
-        let remaining_lock: u64 = lock.saturating_sub(initial_liquidity);
+
+        // Put initial TAO from lock into subnet TAO and produce numerically equal amount of Alpha
+        // The initial TAO is the locked amount, with a minimum of 1 RAO and a cap of 100 TAO.
+        let pool_initial_tao = 100_000_000_000.min(lock.max(1));
+
+        let remaining_lock = lock.saturating_sub(pool_initial_tao);
+        // Refund the owner for the remaining lock.
         Pallet::<T>::add_balance_to_coldkey_account(&owner, remaining_lock);
-        SubnetTAO::<T>::insert(netuid, initial_liquidity); // Set TAO to the lock.
-        SubnetAlphaIn::<T>::insert(netuid, initial_liquidity); // Set AlphaIn to the initial alpha distribution.
+        SubnetTAO::<T>::insert(netuid, pool_initial_tao); // Set TAO to the lock.
+
+        SubnetAlphaIn::<T>::insert(
+            netuid,
+            pool_initial_tao.saturating_mul(netuids.len() as u64),
+        ); // Set AlphaIn to the initial alpha distribution.
+
         SubnetAlphaOut::<T>::insert(netuid, 0); // Set zero subnet alpha out.
         SubnetMechanism::<T>::insert(netuid, 1); // Convert to dynamic immediately with initialization.
         Tempo::<T>::insert(netuid, DefaultTempo::<T>::get());
         // Set the token symbol for this subnet using Self instead of Pallet::<T>
         TokenSymbol::<T>::insert(netuid, Pallet::<T>::get_symbol_for_subnet(*netuid));
-        SubnetTAO::<T>::insert(netuid, initial_liquidity); // Set TAO to the lock.
         TotalStakeAtDynamic::<T>::insert(netuid, 0);
 
         if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
@@ -89,8 +98,12 @@ pub fn migrate_rao<T: Config>() -> Weight {
             SubnetOwnerHotkey::<T>::insert(netuid, owner_coldkey.clone());
             // Associate the coldkey to coldkey.
             Pallet::<T>::create_account_if_non_existent(&owner_coldkey, &owner_coldkey);
-            // Register the owner_coldkey as neuron to the network.
-            let _neuron_uid: u16 = Pallet::<T>::register_neuron(*netuid, &owner_coldkey);
+
+            // Only register the owner coldkey if it's not already a hotkey on the subnet.
+            if !Uids::<T>::contains_key(*netuid, &owner_coldkey) {
+                // Register the owner_coldkey as neuron to the network.
+                let _neuron_uid: u16 = Pallet::<T>::register_neuron(*netuid, &owner_coldkey);
+            }
             // Register the neuron immediately.
             if !Identities::<T>::contains_key(owner_coldkey.clone()) {
                 // Set the identitiy for the Owner coldkey if non existent.
