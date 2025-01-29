@@ -995,6 +995,28 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> subnet_name | Returns the name of the subnet.
     pub type SubnetName<T: Config> =
         StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;
+    #[pallet::storage] // --- DMAP ( hot, netuid ) --> claimable_dividends | Root claimable dividends.
+    pub type RootClaimable<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        u16,
+        u64,
+        ValueQuery,
+        DefaultZeroU64<T>,
+    >;
+    #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> claimable_debt | Returns a keys debt for claimable divs.
+    pub type RootDebt<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+            NMapKey<Identity, u16>,                  // subnet
+        ),
+        I96F32, // Shares
+        ValueQuery,
+    >;
 
     /// ============================
     /// ==== Global Parameters =====
