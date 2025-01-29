@@ -2620,7 +2620,8 @@ fn test_add_stake_limit_ok() {
             hotkey_account_id,
             netuid,
             amount,
-            limit_price
+            limit_price,
+            true
         ));
 
         // Check if stake has increased only by 50 Alpha
@@ -2646,6 +2647,57 @@ fn test_add_stake_limit_ok() {
         let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
         assert!(exp_price.saturating_sub(current_price) < 0.0001);
         assert!(current_price.saturating_sub(exp_price) < 0.0001);
+    });
+}
+
+#[test]
+fn test_add_stake_limit_fill_or_kill() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
+        let amount = 300_000_000_000;
+
+        // add network
+        let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+
+        // Forse-set alpha in and tao reserve to make price equal 1.5
+        let tao_reserve: U96F32 = U96F32::from_num(150_000_000_000_u64);
+        let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
+        let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
+        assert_eq!(current_price, U96F32::from_num(1.5));
+
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
+
+        // Setup limit price so that it doesn't peak above 4x of current price
+        // The amount that can be executed at this price is 150 TAO only
+        // Alpha produced will be equal to 50 = 100 - 150*100/300
+        let limit_price = 6_000_000_000;
+
+        // Add stake with slippage safety and check if it fails
+        assert_noop!(
+            SubtensorModule::add_stake_limit(
+                RuntimeOrigin::signed(coldkey_account_id),
+                hotkey_account_id,
+                netuid,
+                amount,
+                limit_price,
+                false
+            ),
+            Error::<Test>::SlippageTooHigh
+        );
+
+        // Lower the amount and it should succeed now
+        assert_ok!(SubtensorModule::add_stake_limit(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            amount / 100,
+            limit_price,
+            false
+        ));
     });
 }
 
@@ -2694,7 +2746,8 @@ fn test_remove_stake_limit_ok() {
             hotkey_account_id,
             netuid,
             unstake_amount,
-            limit_price
+            limit_price,
+            true
         ));
 
         // Check if stake has decreased only by
@@ -2707,5 +2760,60 @@ fn test_remove_stake_limit_ok() {
             alpha_before - expected_alpha_reduction - fee,
             epsilon = expected_alpha_reduction / 1_000,
         );
+    });
+}
+
+#[test]
+fn test_remove_stake_limit_fill_or_kill() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
+        let stake_amount = 300_000_000_000;
+        let unstake_amount = 150_000_000_000;
+
+        // add network
+        let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+            stake_amount,
+        );
+
+        // Forse-set alpha in and tao reserve to make price equal 1.5
+        let tao_reserve: U96F32 = U96F32::from_num(150_000_000_000_u64);
+        let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
+        let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
+        assert_eq!(current_price, U96F32::from_num(1.5));
+
+        // Setup limit price so that it doesn't drop by more than 10% from current price
+        let limit_price = 1_350_000_000;
+
+        // Remove stake with slippage safety - fails
+        assert_noop!(
+            SubtensorModule::remove_stake_limit(
+                RuntimeOrigin::signed(coldkey_account_id),
+                hotkey_account_id,
+                netuid,
+                unstake_amount,
+                limit_price,
+                false
+            ),
+            Error::<Test>::SlippageTooHigh
+        );
+
+        // Lower the amount: Should succeed
+        assert_ok!(SubtensorModule::remove_stake_limit(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            unstake_amount / 100,
+            limit_price,
+            false
+        ),);
     });
 }

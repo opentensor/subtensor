@@ -1710,6 +1710,10 @@ mod dispatches {
         ///  * 'limit_price' (u64):
         /// 	- The limit price expressed in units of RAO per one Alpha.
         ///
+        ///  * 'allow_partial' (bool):
+        /// 	- Allows partial execution of the amount. If set to false, this becomes
+        ///       fill or kill type or order.
+        ///
         /// # Event:
         ///  * StakeAdded;
         /// 	- On the successfully adding stake to a global account.
@@ -1734,8 +1738,16 @@ mod dispatches {
             netuid: u16,
             amount_staked: u64,
             limit_price: u64,
+            allow_partial: bool,
         ) -> DispatchResult {
-            Self::do_add_stake_limit(origin, hotkey, netuid, amount_staked, limit_price)
+            Self::do_add_stake_limit(
+                origin,
+                hotkey,
+                netuid,
+                amount_staked,
+                limit_price,
+                allow_partial,
+            )
         }
 
         /// --- Removes stake from a hotkey on a subnet with a price limit.
@@ -1758,6 +1770,10 @@ mod dispatches {
         ///
         ///  * 'limit_price' (u64):
         /// 	- The limit price expressed in units of RAO per one Alpha.
+        ///
+        ///  * 'allow_partial' (bool):
+        /// 	- Allows partial execution of the amount. If set to false, this becomes
+        ///       fill or kill type or order.
         ///
         /// # Event:
         /// * StakeRemoved;
@@ -1784,8 +1800,16 @@ mod dispatches {
             netuid: u16,
             amount_unstaked: u64,
             limit_price: u64,
+            allow_partial: bool,
         ) -> DispatchResult {
-            Self::do_remove_stake_limit(origin, hotkey, netuid, amount_unstaked, limit_price)
+            Self::do_remove_stake_limit(
+                origin,
+                hotkey,
+                netuid,
+                amount_unstaked,
+                limit_price,
+                allow_partial,
+            )
         }
     }
 }

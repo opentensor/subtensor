@@ -729,6 +729,8 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         netuid: u16,
         stake_to_be_added: u64,
+        max_amount: u64,
+        allow_partial: bool,
     ) -> Result<(), Error<T>> {
         // Ensure that the subnet exists.
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
@@ -738,6 +740,12 @@ impl<T: Config> Pallet<T> {
 
         // Ensure that the stake_to_be_added is at least the min_amount
         ensure!(stake_to_be_added >= min_amount, Error::<T>::AmountTooLow);
+
+        // Ensure that if partial execution is not allowed, the amount will not cause
+        // slippage over desired
+        if !allow_partial {
+            ensure!(stake_to_be_added <= max_amount, Error::<T>::SlippageTooHigh);
+        }
 
         // Ensure the callers coldkey has enough stake to perform the transaction.
         ensure!(
@@ -767,6 +775,8 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         netuid: u16,
         alpha_unstaked: u64,
+        max_amount: u64,
+        allow_partial: bool,
     ) -> Result<(), Error<T>> {
         // Ensure that the subnet exists.
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
@@ -780,6 +790,12 @@ impl<T: Config> Pallet<T> {
         } else {
             return Err(Error::<T>::InsufficientLiquidity);
         };
+
+        // Ensure that if partial execution is not allowed, the amount will not cause
+        // slippage over desired
+        if !allow_partial {
+            ensure!(alpha_unstaked <= max_amount, Error::<T>::SlippageTooHigh);
+        }
 
         // Ensure that the hotkey account exists this is only possible through registration.
         ensure!(

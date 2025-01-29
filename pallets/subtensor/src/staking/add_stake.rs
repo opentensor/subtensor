@@ -50,7 +50,14 @@ impl<T: Config> Pallet<T> {
         );
 
         // 2. Validate user input
-        Self::validate_add_stake(&coldkey, &hotkey, netuid, stake_to_be_added)?;
+        Self::validate_add_stake(
+            &coldkey,
+            &hotkey,
+            netuid,
+            stake_to_be_added,
+            stake_to_be_added,
+            false,
+        )?;
 
         // 3. Ensure the remove operation from the coldkey is a success.
         let tao_staked: u64 =
@@ -81,6 +88,10 @@ impl<T: Config> Pallet<T> {
     ///  * 'limit_price' (u64):
     ///     - The limit price expressed in units of RAO per one Alpha.
     ///
+    ///  * 'allow_partial' (bool):
+    ///     - Allows partial execution of the amount. If set to false, this becomes
+    ///       fill or kill type or order.
+    ///
     /// # Event:
     /// * StakeAdded;
     ///     -  On the successfully adding stake to a global account.
@@ -104,6 +115,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         stake_to_be_added: u64,
         limit_price: u64,
+        allow_partial: bool,
     ) -> dispatch::DispatchResult {
         // 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
@@ -115,15 +127,22 @@ impl<T: Config> Pallet<T> {
             stake_to_be_added
         );
 
-        // 2. Validate user input
-        Self::validate_add_stake(&coldkey, &hotkey, netuid, stake_to_be_added)?;
-
-        // 3. Calcaulate the maximum amount that can be executed with price limit
+        // 2. Calcaulate the maximum amount that can be executed with price limit
         let max_amount = Self::get_max_amount_add(netuid, limit_price);
         let mut possible_stake = stake_to_be_added;
         if possible_stake > max_amount {
             possible_stake = max_amount;
         }
+
+        // 3. Validate user input
+        Self::validate_add_stake(
+            &coldkey,
+            &hotkey,
+            netuid,
+            stake_to_be_added,
+            max_amount,
+            allow_partial,
+        )?;
 
         // 4. Ensure the remove operation from the coldkey is a success.
         let tao_staked: u64 = Self::remove_balance_from_coldkey_account(&coldkey, possible_stake)?;

@@ -187,5 +187,7 @@ mod errors {
         AmountTooLow,
         /// Not enough liquidity.
         InsufficientLiquidity,
+        /// Slippage is too high for the transaction.
+        SlippageTooHigh,
     }
 }

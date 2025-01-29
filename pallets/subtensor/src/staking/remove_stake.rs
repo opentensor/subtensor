@@ -50,7 +50,14 @@ impl<T: Config> Pallet<T> {
         );
 
         // 2. Validate the user input
-        Self::validate_remove_stake(&coldkey, &hotkey, netuid, alpha_unstaked)?;
+        Self::validate_remove_stake(
+            &coldkey,
+            &hotkey,
+            netuid,
+            alpha_unstaked,
+            alpha_unstaked,
+            false,
+        )?;
 
         // 3. Swap the alpba to tao and update counters for this subnet.
         let fee = DefaultStakingFee::<T>::get();
@@ -223,12 +230,51 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// ---- The implementation for the extrinsic remove_stake_limit: Removes stake from
+    /// a hotkey on a subnet with a price limit.
+    ///
+    /// In case if slippage occurs and the price shall move beyond the limit
+    /// price, the staking order may execute only partially or not execute
+    /// at all.
+    ///
+    /// # Args:
+    /// * 'origin': (<T as frame_system::Config>Origin):
+    ///     - The signature of the caller's coldkey.
+    ///
+    /// * 'hotkey' (T::AccountId):
+    ///     - The associated hotkey account.
+    ///
+    /// * 'amount_unstaked' (u64):
+    ///     - The amount of stake to be added to the hotkey staking account.
+    ///
+    ///  * 'limit_price' (u64):
+    ///     - The limit price expressed in units of RAO per one Alpha.
+    ///
+    ///  * 'allow_partial' (bool):
+    ///     - Allows partial execution of the amount. If set to false, this becomes
+    ///       fill or kill type or order.
+    ///
+    /// # Event:
+    /// * StakeRemoved;
+    ///     - On the successfully removing stake from the hotkey account.
+    ///
+    /// # Raises:
+    /// * 'NotRegistered':
+    ///     - Thrown if the account we are attempting to unstake from is non existent.
+    ///
+    /// * 'NonAssociatedColdKey':
+    ///     - Thrown if the coldkey does not own the hotkey we are unstaking from.
+    ///
+    /// * 'NotEnoughStakeToWithdraw':
+    ///     - Thrown if there is not enough stake on the hotkey to withdwraw this amount.
+    ///
     pub fn do_remove_stake_limit(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
         netuid: u16,
         alpha_unstaked: u64,
         limit_price: u64,
+        allow_partial: bool,
     ) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
@@ -240,15 +286,22 @@ impl<T: Config> Pallet<T> {
             alpha_unstaked
         );
 
-        // 2. Validate the user input
-        Self::validate_remove_stake(&coldkey, &hotkey, netuid, alpha_unstaked)?;
-
-        // 3. Calcaulate the maximum amount that can be executed with price limit
+        // 2. Calcaulate the maximum amount that can be executed with price limit
         let max_amount = Self::get_max_amount_remove(netuid, limit_price);
         let mut possible_alpha = alpha_unstaked;
         if possible_alpha > max_amount {
             possible_alpha = max_amount;
         }
+
+        // 3. Validate the user input
+        Self::validate_remove_stake(
+            &coldkey,
+            &hotkey,
+            netuid,
+            alpha_unstaked,
+            max_amount,
+            allow_partial,
+        )?;
 
         // 4. Swap the alpba to tao and update counters for this subnet.
         let fee = DefaultStakingFee::<T>::get();
