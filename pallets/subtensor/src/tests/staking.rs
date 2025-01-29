@@ -2660,7 +2660,7 @@ fn test_add_stake_limit_fill_or_kill() {
         // add network
         let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
 
-        // Forse-set alpha in and tao reserve to make price equal 1.5
+        // Force-set alpha in and tao reserve to make price equal 1.5
         let tao_reserve: U96F32 = U96F32::from_num(150_000_000_000_u64);
         let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
         SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
