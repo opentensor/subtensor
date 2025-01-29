@@ -144,9 +144,6 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // == We'll save the owner cuts for each subnet.
-        let mut owner_cuts: BTreeMap<u16, u64> = BTreeMap::new();
-
         // --- 4. Distribute subnet emission into subnets based on mechanism type.
         for netuid in subnets.iter() {
             // Do not emit into root network.
@@ -217,8 +214,6 @@ impl<T: Config> Pallet<T> {
                 .saturating_mul(Self::get_float_subnet_owner_cut())
                 .saturating_to_num::<u64>();
             log::debug!("Owner cut for netuid {:?}: {:?}", netuid, owner_cut);
-            // Store the owner cut for this subnet.
-            *owner_cuts.entry(*netuid).or_insert(0) = owner_cut;
 
             let remaining_emission: u64 = alpha_out_emission.saturating_sub(owner_cut);
             log::debug!(
@@ -642,14 +637,14 @@ impl<T: Config> Pallet<T> {
                 root_divs_to_pay
             );
 
-            // 3.5.3 --- Distribute the root divs to the hotkey on the root subnet.
-            Self::increase_stake_for_hotkey_on_subnet(
-                hotkey_j,
-                Self::get_root_netuid(),
+            // 3.5.3 --- Increase the root claimable for this hotkey.
+            Self::increase_root_claimable_for_hotkey_and_subnet(
+                &hotkey_j.clone(),
+                netuid,
                 root_divs_to_pay,
             );
             log::debug!(
-                "Paid tao to hotkey {:?} on root netuid from netuid {:?}: {:?}",
+                "Paid tao to hotkey claimable {:?} on root netuid from netuid {:?}: {:?}",
                 hotkey_j,
                 netuid,
                 root_divs_to_pay
