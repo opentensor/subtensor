@@ -1569,6 +1569,7 @@ pub enum CustomTransactionError {
     NotEnoughStakeToWithdraw,
     RateLimitExceeded,
     InsufficientLiquidity,
+    SlippageTooHigh,
     BadRequest,
 }
 
@@ -1583,6 +1584,7 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::NotEnoughStakeToWithdraw => 5,
             CustomTransactionError::RateLimitExceeded => 6,
             CustomTransactionError::InsufficientLiquidity => 7,
+            CustomTransactionError::SlippageTooHigh => 8,
             CustomTransactionError::BadRequest => 255,
         }
     }
@@ -1652,6 +1654,10 @@ where
                 .into()),
                 Error::<T>::InsufficientLiquidity => Err(InvalidTransaction::Custom(
                     CustomTransactionError::InsufficientLiquidity.into(),
+                )
+                .into()),
+                Error::<T>::SlippageTooHigh => Err(InvalidTransaction::Custom(
+                    CustomTransactionError::SlippageTooHigh.into(),
                 )
                 .into()),
                 _ => Err(
@@ -1801,6 +1807,8 @@ where
                     hotkey,
                     *netuid,
                     *amount_staked,
+                    *amount_staked,
+                    false,
                 ))
             }
             Some(Call::remove_stake {
@@ -1814,6 +1822,8 @@ where
                     hotkey,
                     *netuid,
                     *amount_unstaked,
+                    *amount_unstaked,
+                    false,
                 ))
             }
             Some(Call::move_stake {
