@@ -426,10 +426,7 @@ impl<T: Config> Pallet<T> {
                 );
 
                 // 2.4.1 --- Remove the hotkey take from both alpha and root divs.
-                let take_prop: I96F32 =
-                    I96F32::saturating_from_num(Self::get_hotkey_take(hotkey_j))
-                        .checked_div(I96F32::saturating_from_num(u16::MAX))
-                        .unwrap_or(I96F32::saturating_from_num(0.0));
+                let take_prop: I96F32 = Self::get_hotkey_take_float(hotkey_j);
 
                 let validator_alpha_take: I96F32 = take_prop.saturating_mul(alpha_divs_j);
                 let validator_root_alpha_take: I96F32 = take_prop.saturating_mul(root_alpha_divs_j);
