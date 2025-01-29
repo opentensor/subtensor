@@ -2463,11 +2463,20 @@ fn test_max_amount_add_dynamic() {
 #[test]
 fn test_max_amount_remove_root() {
     new_test_ext(0).execute_with(|| {
-        // 0 price on root => max is 0
-        assert_eq!(SubtensorModule::get_max_amount_remove(0, 0), 0);
+        // 0 price on root => max is u64::MAX
+        assert_eq!(SubtensorModule::get_max_amount_remove(0, 0), u64::MAX);
 
-        // 0.999999... price on root => max is 0
-        assert_eq!(SubtensorModule::get_max_amount_remove(0, 999_999_999), 0);
+        // 0.5 price on root => max is u64::MAX
+        assert_eq!(
+            SubtensorModule::get_max_amount_remove(0, 500_000_000),
+            u64::MAX
+        );
+
+        // 0.999999... price on root => max is u64::MAX
+        assert_eq!(
+            SubtensorModule::get_max_amount_remove(0, 999_999_999),
+            u64::MAX
+        );
 
         // 1.0 price on root => max is u64::MAX
         assert_eq!(
@@ -2475,17 +2484,11 @@ fn test_max_amount_remove_root() {
             u64::MAX
         );
 
-        // 1.000...001 price on root => max is u64::MAX
-        assert_eq!(
-            SubtensorModule::get_max_amount_remove(0, 1_000_000_001),
-            u64::MAX
-        );
+        // 1.000...001 price on root => max is 0
+        assert_eq!(SubtensorModule::get_max_amount_remove(0, 1_000_000_001), 0);
 
-        // 2.0 price on root => max is u64::MAX
-        assert_eq!(
-            SubtensorModule::get_max_amount_remove(0, 2_000_000_000),
-            u64::MAX
-        );
+        // 2.0 price on root => max is 0
+        assert_eq!(SubtensorModule::get_max_amount_remove(0, 2_000_000_000), 0);
     });
 }
 
@@ -2495,13 +2498,13 @@ fn test_max_amount_remove_stable() {
         let netuid: u16 = 1;
         add_network(netuid, 1, 0);
 
-        // 0 price => max is 0
-        assert_eq!(SubtensorModule::get_max_amount_remove(netuid, 0), 0);
+        // 0 price => max is u64::MAX
+        assert_eq!(SubtensorModule::get_max_amount_remove(netuid, 0), u64::MAX);
 
-        // 0.999999... price => max is 0
+        // 0.999999... price => max is u64::MAX
         assert_eq!(
             SubtensorModule::get_max_amount_remove(netuid, 999_999_999),
-            0
+            u64::MAX
         );
 
         // 1.0 price => max is u64::MAX
@@ -2510,16 +2513,16 @@ fn test_max_amount_remove_stable() {
             u64::MAX
         );
 
-        // 1.000...001 price => max is u64::MAX
+        // 1.000...001 price => max is 0
         assert_eq!(
             SubtensorModule::get_max_amount_remove(netuid, 1_000_000_001),
-            u64::MAX
+            0
         );
 
-        // 2.0 price => max is u64::MAX
+        // 2.0 price => max is 0
         assert_eq!(
             SubtensorModule::get_max_amount_remove(netuid, 2_000_000_000),
-            u64::MAX
+            0
         );
     });
 }
