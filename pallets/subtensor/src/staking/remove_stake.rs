@@ -303,7 +303,7 @@ impl<T: Config> Pallet<T> {
             allow_partial,
         )?;
 
-        // 4. Swap the alpba to tao and update counters for this subnet.
+        // 4. Swap the alpha to tao and update counters for this subnet.
         let fee = DefaultStakingFee::<T>::get();
         let tao_unstaked: u64 =
             Self::unstake_from_subnet(&hotkey, &coldkey, netuid, possible_alpha, fee);
