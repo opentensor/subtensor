@@ -1,11 +1,13 @@
-use crate::precompiles::{
-    contract_to_origin, get_method_id, get_pubkey, get_slice, try_dispatch_runtime_call,
-};
+use crate::precompiles::{get_method_id, get_pubkey, get_slice, try_dispatch_runtime_call};
 use crate::{Runtime, RuntimeCall};
-use pallet_evm::{ExitError, PrecompileFailure, PrecompileHandle, PrecompileResult};
+use frame_system::RawOrigin;
+use pallet_evm::{
+    AddressMapping, ExitError, HashedAddressMapping, PrecompileFailure, PrecompileHandle,
+    PrecompileResult,
+};
+use sp_runtime::traits::BlakeTwo256;
 use sp_runtime::AccountId32;
 use sp_std::vec;
-
 pub const SUBNET_PRECOMPILE_INDEX: u64 = 2051;
 // bytes with max lenght 1K
 pub const MAX_SINGLE_PARAMETER_SIZE: usize = 1024;
@@ -51,7 +53,6 @@ impl SubnetPrecompile {
         let call = match data.len() {
             32 => {
                 let (hotkey, _) = get_pubkey(data)?;
-
                 RuntimeCall::SubtensorModule(
                     pallet_subtensor::Call::<Runtime>::register_network_with_identity {
                         hotkey,
@@ -85,8 +86,13 @@ impl SubnetPrecompile {
             }
         };
 
+        let account_id =
+            <HashedAddressMapping<BlakeTwo256> as AddressMapping<AccountId32>>::into_account_id(
+                handle.context().caller,
+            );
+
         // Dispatch the register_network call
-        try_dispatch_runtime_call(handle, call, contract_to_origin(&CONTRACT_ADDRESS_SS58)?)
+        try_dispatch_runtime_call(handle, call, RawOrigin::Signed(account_id))
     }
 
     fn parse_register_network_parameters(
