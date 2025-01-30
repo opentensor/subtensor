@@ -10,6 +10,9 @@ pub const NEURON_PRECOMPILE_INDEX: u64 = 2052;
 // this is subnets smart contract's(0x0000000000000000000000000000000000000802) sr25519 address
 pub const NEURON_CONTRACT_ADDRESS: &str = "5GKZiUUgTnWSz3BgiVBMehEKkLszsG4ZXnvgWpWFUFKqrqyn";
 
+// max paramter lenght 4K
+pub const MAX_PARAMETER_SIZE: usize = 4 * 1024;
+
 pub struct NeuronPrecompile;
 
 impl NeuronPrecompile {
@@ -19,6 +22,16 @@ impl NeuronPrecompile {
         let method_input = txdata
             .get(4..)
             .map_or_else(vec::Vec::new, |slice| slice.to_vec()); // Avoiding borrowing conflicts
+
+        if method_input.len() > MAX_PARAMETER_SIZE {
+            log::error!(
+                "method parameter data length as {} is too long",
+                method_input.len()
+            );
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
 
         match method_id {
             id if id == get_method_id("setWeights(uint16,uint16[],uint16[],uint64)") => {
@@ -79,7 +92,8 @@ impl NeuronPrecompile {
     fn parse_netuid_dests_weights(
         data: &[u8],
     ) -> Result<(u16, Vec<u16>, Vec<u16>, u64), PrecompileFailure> {
-        if data.len() < 4 * 32 {
+        let data_len = data.len();
+        if data_len < 4 * 32 {
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
             });
@@ -89,13 +103,30 @@ impl NeuronPrecompile {
         netuid_vec.copy_from_slice(get_slice(data, 30, 32)?);
         let netuid = u16::from_be_bytes(netuid_vec);
 
+        // get the neuron amount in sebnet
+        let subnet_size = pallet_subtensor::Pallet::<Runtime>::get_subnetwork_n(netuid) as usize;
+
         let mut first_position_vec = [0u8; 2];
         first_position_vec.copy_from_slice(get_slice(data, 62, 64)?);
         let first_position = u16::from_be_bytes(first_position_vec) as usize;
 
+        if first_position > data_len {
+            log::error!("position for uids data as {} is too large", first_position);
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+
         let mut second_position_vec = [0u8; 2];
         second_position_vec.copy_from_slice(get_slice(data, 94, 96)?);
         let second_position = u16::from_be_bytes(second_position_vec) as usize;
+
+        if second_position > data_len {
+            log::error!("position for uids data as {} is too large", first_position);
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
 
         let mut version_key_vec = [0u8; 8];
         version_key_vec.copy_from_slice(get_slice(data, 120, 128)?);
@@ -107,6 +138,18 @@ impl NeuronPrecompile {
         let mut dests_len_vec = [0u8; 2];
         dests_len_vec.copy_from_slice(get_slice(data, first_position + 30, first_position + 32)?);
         let dests_len = u16::from_be_bytes(dests_len_vec) as usize;
+
+        if dests_len > subnet_size {
+            log::error!(
+                "uids len as {} in reveal weight is more than neurons {} in subnet {}",
+                dests_len,
+                subnet_size,
+                netuid
+            );
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
 
         for i in 0..dests_len {
             let mut tmp_vec = [0u8; 2];
@@ -126,6 +169,18 @@ impl NeuronPrecompile {
             second_position + 32,
         )?);
         let weights_len = u16::from_be_bytes(weights_len_vec) as usize;
+
+        if weights_len > subnet_size {
+            log::error!(
+                "weights len as {} in reveal weight is more than neurons {} in subnet {}",
+                weights_len,
+                subnet_size,
+                netuid
+            );
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
 
         for i in 0..weights_len {
             let mut tmp_vec = [0u8; 2];
