@@ -878,7 +878,7 @@ impl<T: Config> Pallet<T> {
                 ensure!(alpha_amount <= max_amount, Error::<T>::SlippageTooHigh);
             }
         }
-        
+
         Ok(())
     }
 }

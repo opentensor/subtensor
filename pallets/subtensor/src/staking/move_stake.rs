@@ -280,7 +280,7 @@ impl<T: Config> Pallet<T> {
         // 6. Return success.
         Ok(())
     }
-    
+
     // If limit_price is None, this is a regular operation, otherwise, it is slippage-protected
     // by setting limit price between origin_netuid and destination_netuid token
     fn transition_stake_internal(
@@ -366,14 +366,21 @@ impl<T: Config> Pallet<T> {
         destination_netuid: u16,
         limit_price: u64,
     ) -> u64 {
+        let tao: U96F32 = U96F32::saturating_from_num(1_000_000_000);
+
         // Corner case: both subnet IDs are root or stao
         // There's no slippage for root or stable subnets, so slippage is always 0.
+        // The price always stays at 1.0, return 0 if price is expected to raise.
         if ((origin_netuid == Self::get_root_netuid())
             || (SubnetMechanism::<T>::get(origin_netuid)) == 0)
             && ((destination_netuid == Self::get_root_netuid())
                 || (SubnetMechanism::<T>::get(destination_netuid)) == 0)
         {
-            return u64::MAX;
+            if limit_price > tao.saturating_to_num::<u64>() {
+                return 0;
+            } else {
+                return u64::MAX;
+            }
         }
 
         // Corner case: Origin is root or stable, destination is dynamic
@@ -382,7 +389,16 @@ impl<T: Config> Pallet<T> {
             || (SubnetMechanism::<T>::get(origin_netuid)) == 0)
             && ((SubnetMechanism::<T>::get(destination_netuid)) == 1)
         {
-            return Self::get_max_amount_add(destination_netuid, limit_price);
+            if limit_price == 0 {
+                return u64::MAX;
+            } else {
+                // The destination price is reverted because the limit_price is origin_price / destination_price
+                let destination_subnet_price = tao
+                    .safe_div(U96F32::saturating_from_num(limit_price))
+                    .saturating_mul(tao)
+                    .saturating_to_num::<u64>();
+                return Self::get_max_amount_add(destination_netuid, destination_subnet_price);
+            }
         }
 
         // Corner case: Origin is dynamic, destination is root or stable

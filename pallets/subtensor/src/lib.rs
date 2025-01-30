@@ -1888,7 +1888,7 @@ where
                     *destination_netuid,
                     *alpha_amount,
                     *alpha_amount,
-                    None
+                    None,
                 ))
             }
             Some(Call::transfer_stake {
@@ -1908,7 +1908,7 @@ where
                     *destination_netuid,
                     *alpha_amount,
                     *alpha_amount,
-                    None
+                    None,
                 ))
             }
             Some(Call::swap_stake {
@@ -1927,7 +1927,7 @@ where
                     *destination_netuid,
                     *alpha_amount,
                     *alpha_amount,
-                    None
+                    None,
                 ))
             }
             Some(Call::swap_stake_limit {
@@ -1939,7 +1939,11 @@ where
                 allow_partial,
             }) => {
                 // Get the max amount possible to exchange
-                let max_amount = Pallet::<T>::get_max_amount_move(*origin_netuid, *destination_netuid, *limit_price);
+                let max_amount = Pallet::<T>::get_max_amount_move(
+                    *origin_netuid,
+                    *destination_netuid,
+                    *limit_price,
+                );
 
                 // Fully validate the user input
                 Self::result_to_validity(Pallet::<T>::validate_stake_transition(

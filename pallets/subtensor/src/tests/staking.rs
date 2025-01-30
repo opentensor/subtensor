@@ -2702,6 +2702,300 @@ fn test_max_amount_remove_dynamic() {
     });
 }
 
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_max_amount_move_root_root --exact --show-output
+#[test]
+fn test_max_amount_move_root_root() {
+    new_test_ext(0).execute_with(|| {
+        // 0 price on (root, root) exchange => max is u64::MAX
+        assert_eq!(SubtensorModule::get_max_amount_move(0, 0, 0), u64::MAX);
+
+        // 0.5 price on (root, root) => max is u64::MAX
+        assert_eq!(
+            SubtensorModule::get_max_amount_move(0, 0, 500_000_000),
+            u64::MAX
+        );
+
+        // 0.999999... price on (root, root) => max is u64::MAX
+        assert_eq!(
+            SubtensorModule::get_max_amount_move(0, 0, 999_999_999),
+            u64::MAX
+        );
+
+        // 1.0 price on (root, root) => max is u64::MAX
+        assert_eq!(
+            SubtensorModule::get_max_amount_move(0, 0, 1_000_000_000),
+            u64::MAX
+        );
+
+        // 1.000...001 price on (root, root) => max is 0
+        assert_eq!(SubtensorModule::get_max_amount_move(0, 0, 1_000_000_001), 0);
+
+        // 2.0 price on (root, root) => max is 0
+        assert_eq!(SubtensorModule::get_max_amount_move(0, 0, 2_000_000_000), 0);
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_max_amount_move_root_stable --exact --show-output
+#[test]
+fn test_max_amount_move_root_stable() {
+    new_test_ext(0).execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+
+        // 0 price on (root, stable) exchange => max is u64::MAX
+        assert_eq!(SubtensorModule::get_max_amount_move(0, netuid, 0), u64::MAX);
+
+        // 0.5 price on (root, stable) => max is u64::MAX
+        assert_eq!(
+            SubtensorModule::get_max_amount_move(0, netuid, 500_000_000),
+            u64::MAX
+        );
+
+        // 0.999999... price on (root, stable) => max is u64::MAX
+        assert_eq!(
+            SubtensorModule::get_max_amount_move(0, netuid, 999_999_999),
+            u64::MAX
+        );
+
+        // 1.0 price on (root, stable) => max is u64::MAX
+        assert_eq!(
+            SubtensorModule::get_max_amount_move(0, netuid, 1_000_000_000),
+            u64::MAX
+        );
+
+        // 1.000...001 price on (root, stable) => max is 0
+        assert_eq!(
+            SubtensorModule::get_max_amount_move(0, netuid, 1_000_000_001),
+            0
+        );
+
+        // 2.0 price on (root, stable) => max is 0
+        assert_eq!(
+            SubtensorModule::get_max_amount_move(0, netuid, 2_000_000_000),
+            0
+        );
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_max_amount_move_stable_dynamic --exact --show-output
+#[test]
+fn test_max_amount_move_stable_dynamic() {
+    new_test_ext(0).execute_with(|| {
+        // Add stable subnet
+        let stable_netuid: u16 = 1;
+        add_network(stable_netuid, 1, 0);
+
+        // Add dynamic subnet
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let dynamic_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        // Forse-set alpha in and tao reserve to make price equal 0.5
+        let tao_reserve: U96F32 = U96F32::from_num(50_000_000_000_u64);
+        let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(dynamic_netuid, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(dynamic_netuid, alpha_in.to_num::<u64>());
+        let current_price: U96F32 =
+            U96F32::from_num(SubtensorModule::get_alpha_price(dynamic_netuid));
+        assert_eq!(current_price, U96F32::from_num(0.5));
+
+        // The tests below just mimic the add_stake_limit tests for reverted price
+
+        // 0 price => max is u64::MAX
+        assert_eq!(
+            SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 0),
+            u64::MAX
+        );
+
+        // 2.0 price => max is 0
+        assert_eq!(
+            SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 2_000_000_000),
+            0
+        );
+
+        // 3.0 price => max is 0
+        assert_eq!(
+            SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 3_000_000_000),
+            0
+        );
+
+        // 0.5x price => max is 1x TAO
+        assert_abs_diff_eq!(
+            SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 500_000_000),
+            50_000_000_000,
+            epsilon = 10_000,
+        );
+
+        // Precision test:
+        // 1.99999..9000 price => max > 0
+        assert!(
+            SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 1_999_999_000) > 0
+        );
+
+        // Max price doesn't panic and returns something meaningful
+        assert_eq!(
+            SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, u64::MAX),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, u64::MAX - 1),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, u64::MAX / 2),
+            0
+        );
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_max_amount_move_dynamic_stable --exact --show-output
+#[test]
+fn test_max_amount_move_dynamic_stable() {
+    new_test_ext(0).execute_with(|| {
+
+        // TODO
+
+        // // Add stable subnet
+        // let stable_netuid: u16 = 1;
+        // add_network(stable_netuid, 1, 0);
+
+        // // Add dynamic subnet
+        // let subnet_owner_coldkey = U256::from(1001);
+        // let subnet_owner_hotkey = U256::from(1002);
+        // let dynamic_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        // // Forse-set alpha in and tao reserve to make price equal 0.5
+        // let tao_reserve: U96F32 = U96F32::from_num(50_000_000_000_u64);
+        // let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        // SubnetTAO::<Test>::insert(dynamic_netuid, tao_reserve.to_num::<u64>());
+        // SubnetAlphaIn::<Test>::insert(dynamic_netuid, alpha_in.to_num::<u64>());
+        // let current_price: U96F32 =
+        //     U96F32::from_num(SubtensorModule::get_alpha_price(dynamic_netuid));
+        // assert_eq!(current_price, U96F32::from_num(0.5));
+
+        // // The tests below just mimic the add_stake_limit tests for reverted price
+
+        // // 0 price => max is u64::MAX
+        // assert_eq!(
+        //     SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 0),
+        //     u64::MAX
+        // );
+
+        // // 2.0 price => max is 0
+        // assert_eq!(
+        //     SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 2_000_000_000),
+        //     0
+        // );
+
+        // // 3.0 price => max is 0
+        // assert_eq!(
+        //     SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 3_000_000_000),
+        //     0
+        // );
+
+        // // 0.5x price => max is 1x TAO
+        // assert_abs_diff_eq!(
+        //     SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 500_000_000),
+        //     50_000_000_000,
+        //     epsilon = 10_000,
+        // );
+
+        // // Precision test:
+        // // 1.99999..9000 price => max > 0
+        // assert!(
+        //     SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 1_999_999_000) > 0
+        // );
+
+        // // Max price doesn't panic and returns something meaningful
+        // assert_eq!(
+        //     SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, u64::MAX),
+        //     0
+        // );
+        // assert_eq!(
+        //     SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, u64::MAX - 1),
+        //     0
+        // );
+        // assert_eq!(
+        //     SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, u64::MAX / 2),
+        //     0
+        // );
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_max_amount_move_dynamic_dynamic --exact --show-output
+#[test]
+fn test_max_amount_move_dynamic_dynamic() {
+    new_test_ext(0).execute_with(|| {
+
+        // TODO
+
+        // // Add stable subnet
+        // let stable_netuid: u16 = 1;
+        // add_network(stable_netuid, 1, 0);
+
+        // // Add dynamic subnet
+        // let subnet_owner_coldkey = U256::from(1001);
+        // let subnet_owner_hotkey = U256::from(1002);
+        // let dynamic_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        // // Forse-set alpha in and tao reserve to make price equal 0.5
+        // let tao_reserve: U96F32 = U96F32::from_num(50_000_000_000_u64);
+        // let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        // SubnetTAO::<Test>::insert(dynamic_netuid, tao_reserve.to_num::<u64>());
+        // SubnetAlphaIn::<Test>::insert(dynamic_netuid, alpha_in.to_num::<u64>());
+        // let current_price: U96F32 =
+        //     U96F32::from_num(SubtensorModule::get_alpha_price(dynamic_netuid));
+        // assert_eq!(current_price, U96F32::from_num(0.5));
+
+        // // The tests below just mimic the add_stake_limit tests for reverted price
+
+        // // 0 price => max is u64::MAX
+        // assert_eq!(
+        //     SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 0),
+        //     u64::MAX
+        // );
+
+        // // 2.0 price => max is 0
+        // assert_eq!(
+        //     SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 2_000_000_000),
+        //     0
+        // );
+
+        // // 3.0 price => max is 0
+        // assert_eq!(
+        //     SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 3_000_000_000),
+        //     0
+        // );
+
+        // // 0.5x price => max is 1x TAO
+        // assert_abs_diff_eq!(
+        //     SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 500_000_000),
+        //     50_000_000_000,
+        //     epsilon = 10_000,
+        // );
+
+        // // Precision test:
+        // // 1.99999..9000 price => max > 0
+        // assert!(
+        //     SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 1_999_999_000) > 0
+        // );
+
+        // // Max price doesn't panic and returns something meaningful
+        // assert_eq!(
+        //     SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, u64::MAX),
+        //     0
+        // );
+        // assert_eq!(
+        //     SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, u64::MAX - 1),
+        //     0
+        // );
+        // assert_eq!(
+        //     SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, u64::MAX / 2),
+        //     0
+        // );
+    });
+}
+
 #[test]
 fn test_add_stake_limit_ok() {
     new_test_ext(1).execute_with(|| {
