@@ -1769,10 +1769,10 @@ mod dispatches {
         /// 	- The amount of stake to be added to the hotkey staking account.
         ///
         ///  * 'limit_price' (u64):
-        /// 	- The limit price expressed in units of RAO per one Alpha.
+        ///     - The limit price expressed in units of RAO per one Alpha.
         ///
         ///  * 'allow_partial' (bool):
-        /// 	- Allows partial execution of the amount. If set to false, this becomes
+        ///     - Allows partial execution of the amount. If set to false, this becomes
         ///       fill or kill type or order.
         ///
         /// # Event:
@@ -1812,61 +1812,45 @@ mod dispatches {
             )
         }
 
-        /// Moves specified amount of stake from a hotkey to another across subnets with Alpha<>Beta
-        /// price limit.
+        /// Swaps a specified amount of stake from one subnet to another, while keeping the same coldkey and hotkey.
         ///
-        /// The limit price is expressed is expressed in rao units of origin_netuid Alpha per one tao
-        /// unit of destination_netuid Alpha.
+        /// # Arguments
+        /// * `origin` - The origin of the transaction, which must be signed by the coldkey that owns the `hotkey`.
+        /// * `hotkey` - The hotkey whose stake is being swapped.
+        /// * `origin_netuid` - The network/subnet ID from which stake is removed.
+        /// * `destination_netuid` - The network/subnet ID to which stake is added.
+        /// * `alpha_amount` - The amount of stake to swap.
+        /// * `limit_price` - The limit price expressed in units of RAO per one Alpha.
+        /// * `allow_partial` - Allows partial execution of the amount. If set to false, this becomes fill or kill type or order.
         ///
-        /// Example 1: Exchanging Alpha for Beta. 1_000_000_000 limit_price value for would mean that
-        /// limit price euqals 1.0 Alpha per 1 Beta. Exchanging 100 Alpha will result in receiving at
-        /// least 100 Beta.
+        /// # Errors
+        /// Returns an error if:
+        /// * The transaction is not signed by the correct coldkey (i.e., `coldkey_owns_hotkey` fails).
+        /// * Either `origin_netuid` or `destination_netuid` does not exist.
+        /// * The hotkey does not exist.
+        /// * There is insufficient stake on `(coldkey, hotkey, origin_netuid)`.
+        /// * The swap amount is below the minimum stake requirement.
         ///
-        /// Example 2: Exchanging Alpha for Beta. 500_000_000 for would mean that limit price euqals 0.5
-        /// Alpha per 1 Beta. Exchanging 100 Alpha will result in receiving at least 50 Beta.
-        ///
-        /// # Args:
-        /// * `origin` - (<T as frame_system::Config>::Origin):
-        ///     - The signature of the caller's coldkey.
-        ///
-        /// * `origin_hotkey` (T::AccountId):
-        ///     - The hotkey account to move stake from.
-        ///
-        /// * `destination_hotkey` (T::AccountId):
-        ///     - The hotkey account to move stake to.
-        ///
-        /// * `origin_netuid` (T::AccountId):
-        ///     - The subnet ID to move stake from.
-        ///
-        /// * `destination_netuid` (T::AccountId):
-        ///     - The subnet ID to move stake to.
-        ///
-        /// * `alpha_amount` (T::AccountId):
-        ///     - The alpha stake amount to move.
-        ///
-        ///  * 'limit_price' (u64):
-        ///     - The limit price
-        ///
-        ///  * 'allow_partial' (bool):
-        /// 	- Allows partial execution of the amount. If set to false, this becomes
-        ///       fill or kill type or order.
-        ///
+        /// # Events
+        /// May emit a `StakeSwapped` event on success.
         #[pallet::call_index(90)]
-        #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        pub fn move_stake_limit(
+        #[pallet::weight((
+            Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
+        pub fn swap_stake_limit(
             origin: T::RuntimeOrigin,
-            origin_hotkey: T::AccountId,
-            destination_hotkey: T::AccountId,
+            hotkey: T::AccountId,
             origin_netuid: u16,
             destination_netuid: u16,
             alpha_amount: u64,
             limit_price: u64,
             allow_partial: bool,
         ) -> DispatchResult {
-            Self::do_move_stake_limit(
+            Self::do_swap_stake_limit(
                 origin,
-                origin_hotkey,
-                destination_hotkey,
+                hotkey,
                 origin_netuid,
                 destination_netuid,
                 alpha_amount,
