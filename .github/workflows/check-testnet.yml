@@ -3,7 +3,7 @@ name: Testnet Deploy Check
 on:
   pull_request:
     branches: [testnet, testnet-ready]
-    types: [labeled, unlabeled, synchronize]
+    types: [labeled, unlabeled, synchronize, opened]
 
 env:
   CARGO_TERM_COLOR: always
