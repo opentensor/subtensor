@@ -7,8 +7,10 @@ use sp_runtime::AccountId32;
 use sp_std::vec;
 
 pub const SUBNET_PRECOMPILE_INDEX: u64 = 2051;
+// bytes with max lenght 1K
+pub const MAX_SINGLE_PARAMETER_SIZE: usize = 1024;
 // three bytes with max lenght 1K
-pub const MAX_PARAMETER_SIZE: usize = 3 * 1024;
+pub const MAX_PARAMETER_SIZE: usize = 3 * MAX_SINGLE_PARAMETER_SIZE;
 
 // ss58 public key i.e., the contract sends funds it received to the destination address from the
 // method parameter.
@@ -90,18 +92,46 @@ impl SubnetPrecompile {
     fn parse_register_network_parameters(
         data: &[u8],
     ) -> Result<(AccountId32, vec::Vec<u8>, vec::Vec<u8>, vec::Vec<u8>), PrecompileFailure> {
-        let (pubkey, _) = get_pubkey(data)?;
+        let (pubkey, dynamic_params) = get_pubkey(data)?;
+        let dynamic_data_len = dynamic_params.len();
 
         let mut buf = [0_u8; 4];
         // get all start point for three data items: name, repo and contact
         buf.copy_from_slice(get_slice(data, 60, 64)?);
         let subnet_name_start: usize = u32::from_be_bytes(buf) as usize;
+        if subnet_name_start > dynamic_data_len {
+            log::error!(
+                "the start position of subnet name as {} is too big ",
+                subnet_name_start
+            );
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
 
         buf.copy_from_slice(get_slice(data, 92, 96)?);
         let github_repo_start: usize = u32::from_be_bytes(buf) as usize;
+        if github_repo_start > dynamic_data_len {
+            log::error!(
+                "the start position of github repo as {} is too big ",
+                github_repo_start
+            );
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
 
         buf.copy_from_slice(get_slice(data, 124, 128)?);
         let subnet_contact_start: usize = u32::from_be_bytes(buf) as usize;
+        if subnet_contact_start > dynamic_data_len {
+            log::error!(
+                "the start position of subnet contact as {} is too big ",
+                subnet_contact_start
+            );
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
 
         // get name
         buf.copy_from_slice(get_slice(
@@ -110,6 +140,13 @@ impl SubnetPrecompile {
             subnet_name_start + 32,
         )?);
         let subnet_name_len: usize = u32::from_be_bytes(buf) as usize;
+
+        if subnet_name_len > MAX_SINGLE_PARAMETER_SIZE {
+            log::error!("the length of subnet nae as {} is too big", subnet_name_len);
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
 
         let mut name_vec = vec![0; subnet_name_len];
         name_vec.copy_from_slice(get_slice(
@@ -125,6 +162,15 @@ impl SubnetPrecompile {
             github_repo_start + 32,
         )?);
         let github_repo_len: usize = u32::from_be_bytes(buf) as usize;
+        if github_repo_len > MAX_SINGLE_PARAMETER_SIZE {
+            log::error!(
+                "the length of github repo as {} is too big",
+                github_repo_len
+            );
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
 
         let mut repo_vec = vec![0; github_repo_len];
         repo_vec.copy_from_slice(get_slice(
@@ -140,6 +186,15 @@ impl SubnetPrecompile {
             subnet_contact_start + 32,
         )?);
         let subnet_contact_len: usize = u32::from_be_bytes(buf) as usize;
+        if subnet_contact_len > MAX_SINGLE_PARAMETER_SIZE {
+            log::error!(
+                "the length of subnet contact as {} is too big",
+                subnet_contact_len
+            );
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
 
         let mut contact_vec = vec![0; subnet_contact_len];
         contact_vec.copy_from_slice(get_slice(
