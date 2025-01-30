@@ -755,6 +755,12 @@ impl<T: Config> Pallet<T> {
             *total = total.saturating_add(actual_fee);
         });
 
+        // If this is a root-stake
+        if netuid == Self::get_root_netuid() {
+            // 5. Adjust root debt for this hotkey and coldkey.
+            Self::remove_stake_adjust_debt_for_hotkey_and_coldkey(&hotkey, &coldkey, alpha);
+        }
+
         // Step 5. Deposit and log the unstaking event.
         Self::deposit_event(Event::StakeRemoved(
             coldkey.clone(),
@@ -813,6 +819,12 @@ impl<T: Config> Pallet<T> {
         TotalStake::<T>::mutate(|total| {
             *total = total.saturating_add(actual_fee);
         });
+
+        // If this is a root-stake
+        if netuid == Self::get_root_netuid() {
+            // 5. Adjust root debt for this hotkey and coldkey.
+            Self::add_stake_adjust_debt_for_hotkey_and_coldkey(&hotkey, &coldkey, alpha);
+        }
 
         // Step 6. Deposit and log the staking event.
         Self::deposit_event(Event::StakeAdded(
