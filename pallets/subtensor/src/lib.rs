@@ -1783,7 +1783,7 @@ where
             }
             Some(Call::commit_crv3_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who, *netuid) {
-                    let priority: u64 = Self::get_priority_set_weights(who, *netuid);
+                    let priority: u64 = Pallet::<T>::get_priority_set_weights(who, *netuid);
                     Ok(ValidTransaction {
                         priority,
                         longevity: 1,
@@ -1811,6 +1811,26 @@ where
                     false,
                 ))
             }
+            Some(Call::add_stake_limit {
+                hotkey,
+                netuid,
+                amount_staked,
+                limit_price,
+                allow_partial,
+            }) => {
+                // Calcaulate the maximum amount that can be executed with price limit
+                let max_amount = Pallet::<T>::get_max_amount_add(*netuid, *limit_price);
+
+                // Fully validate the user input
+                Self::result_to_validity(Pallet::<T>::validate_add_stake(
+                    who,
+                    hotkey,
+                    *netuid,
+                    *amount_staked,
+                    max_amount,
+                    *allow_partial,
+                ))
+            }
             Some(Call::remove_stake {
                 hotkey,
                 netuid,
@@ -1824,6 +1844,26 @@ where
                     *amount_unstaked,
                     *amount_unstaked,
                     false,
+                ))
+            }
+            Some(Call::remove_stake_limit {
+                hotkey,
+                netuid,
+                amount_unstaked,
+                limit_price,
+                allow_partial,
+            }) => {
+                // Calcaulate the maximum amount that can be executed with price limit
+                let max_amount = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price);
+
+                // Fully validate the user input
+                Self::result_to_validity(Pallet::<T>::validate_remove_stake(
+                    who,
+                    hotkey,
+                    *netuid,
+                    *amount_unstaked,
+                    max_amount,
+                    *allow_partial,
                 ))
             }
             Some(Call::move_stake {
