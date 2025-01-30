@@ -1,17 +1,14 @@
-use core::marker::PhantomData;
-        use frame_support::traits::fungible::Inspect;
+use frame_support::traits::fungible::Inspect;
 
-use crate::subnets::subnet::POOL_INITIAL_TAO;
 use super::*;
+use crate::subnets::subnet::POOL_INITIAL_TAO;
 
-pub(crate) struct TryState<T: Config>(PhantomData<T>);
-
-impl<T: Config> TryState<T> {
-	/// Checks [`TotalIssuance`] equals the sum of currency issuance, total stake, and total subnet
-	/// locked.
+impl<T: Config> Pallet<T> {
+    /// Checks [`TotalIssuance`] equals the sum of currency issuance, total stake, and total subnet
+    /// locked.
     pub(crate) fn check_total_issuance() -> Result<(), sp_runtime::TryRuntimeError> {
         // Get the total subnet locked amount
-        let total_subnet_locked = Pallet::<T>::get_total_subnet_locked();
+        let total_subnet_locked = Self::get_total_subnet_locked();
 
         // Get the total currency issuance
         let currency_issuance = T::Currency::total_issuance();
@@ -40,16 +37,17 @@ impl<T: Config> TryState<T> {
             "TotalIssuance diff greater than allowable delta",
         );
 
-		Ok(())
+        Ok(())
     }
 
-	/// Checks the sum of all stakes matches the [`TotalStake`].
+    /// Checks the sum of all stakes matches the [`TotalStake`].
+    #[allow(dead_code)]
     pub(crate) fn check_total_stake() -> Result<(), sp_runtime::TryRuntimeError> {
         // Calculate the total staked amount
         let total_staked = SubnetTAO::<T>::iter().fold(0u64, |acc, (netuid, stake)| {
             let acc = acc.saturating_add(stake);
 
-            if netuid == Pallet::<T>::get_root_netuid() {
+            if netuid == Self::get_root_netuid() {
                 // root network doesn't have initial pool TAO
                 acc
             } else {
@@ -57,7 +55,11 @@ impl<T: Config> TryState<T> {
             }
         });
 
-		log::warn!("total_staked: {}, TotalStake: {}", total_staked, TotalStake::<T>::get());
+        log::warn!(
+            "total_staked: {}, TotalStake: {}",
+            total_staked,
+            TotalStake::<T>::get()
+        );
 
         // Verify that the calculated total stake matches the stored TotalStake
         ensure!(
@@ -65,6 +67,6 @@ impl<T: Config> TryState<T> {
             "TotalStake does not match total staked",
         );
 
-		Ok(())
-	}
+        Ok(())
+    }
 }

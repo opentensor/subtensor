@@ -49,7 +49,7 @@ do_try_runtime() {
   fi
 
   eval "try-runtime --runtime $runtime_wasm_path on-runtime-upgrade \
-    --disable-spec-version-check --disable-idempotency-checks --checks=all \
+    --no-weight-warnings --disable-spec-version-check --disable-idempotency-checks --checks=all \
     $chain_state"
 }
 
