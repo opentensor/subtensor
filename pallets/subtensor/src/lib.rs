@@ -234,6 +234,11 @@ pub mod pallet {
     }
     #[pallet::type_value]
     /// Default value for zero.
+    pub fn DefaultZeroU128<T: Config>() -> u128 {
+        0
+    }
+    #[pallet::type_value]
+    /// Default value for zero.
     pub fn DefaultZeroU16<T: Config>() -> u16 {
         0
     }
@@ -907,7 +912,7 @@ pub mod pallet {
     pub type DynamicBlock<T> = StorageValue<_, u64, ValueQuery>;
     #[pallet::storage] // --- MAP ( netuid ) --> total_volume | The total amount of TAO bought and sold since the start of the network.
     pub type SubnetVolume<T: Config> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+        StorageMap<_, Identity, u16, u128, ValueQuery, DefaultZeroU128<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> tao_in_subnet | Returns the amount of TAO in the subnet.
     pub type SubnetTAO<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;

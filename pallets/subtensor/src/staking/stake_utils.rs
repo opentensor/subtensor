@@ -557,9 +557,9 @@ impl<T: Config> Pallet<T> {
             TotalStake::<T>::mutate(|total| {
                 *total = total.saturating_add(tao);
             });
-            // Step 8. Decrease Alpha reserves.
+            // Step 8. Increase total subnet TAO volume.
             SubnetVolume::<T>::mutate(netuid, |total| {
-                *total = total.saturating_add(tao);
+                *total = total.saturating_add(tao.into());
             });
             // Step 9. Return the alpha received.
             alpha
@@ -589,9 +589,9 @@ impl<T: Config> Pallet<T> {
             TotalStake::<T>::mutate(|total| {
                 *total = total.saturating_sub(tao);
             });
-            // Step 8. Decrease Alpha reserves.
+            // Step 8. Increase total subnet TAO volume.
             SubnetVolume::<T>::mutate(netuid, |total| {
-                *total = total.saturating_add(tao);
+                *total = total.saturating_add(tao.into());
             });
             // Step 9. Return the tao received.
             tao
