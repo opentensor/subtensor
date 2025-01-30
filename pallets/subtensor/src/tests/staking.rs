@@ -2206,6 +2206,122 @@ fn test_stake_below_min_validate() {
     });
 }
 
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_add_stake_limit_validate --exact --show-output
+#[test]
+fn test_add_stake_limit_validate() {
+    // Testing the signed extension validate function
+    // correctly filters the `add_stake` transaction.
+
+    new_test_ext(0).execute_with(|| {
+        let hotkey = U256::from(533453);
+        let coldkey = U256::from(55453);
+        let amount = 300_000_000_000;
+
+        // add network
+        let netuid: u16 = add_dynamic_network(&hotkey, &coldkey);
+
+        // Force-set alpha in and tao reserve to make price equal 1.5
+        let tao_reserve: U96F32 = U96F32::from_num(150_000_000_000_u64);
+        let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
+        let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
+        assert_eq!(current_price, U96F32::from_num(1.5));
+
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount);
+
+        // Setup limit price so that it doesn't peak above 4x of current price
+        // The amount that can be executed at this price is 150 TAO only
+        // Alpha produced will be equal to 50 = 100 - 150*100/300
+        let limit_price = 6_000_000_000;
+
+        // Add stake limit call
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::add_stake_limit {
+            hotkey,
+            netuid,
+            amount_staked: amount,
+            limit_price,
+            allow_partial: false,
+        });
+
+        let info: crate::DispatchInfo =
+            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+
+        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        // Submit to the signed extension validate function
+        let result_no_stake = extension.validate(&coldkey, &call.clone(), &info, 10);
+
+        // Should fail due to slippage
+        assert_err!(
+            result_no_stake,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::SlippageTooHigh.into()
+            ))
+        );
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_remove_stake_limit_validate --exact --show-output
+#[test]
+fn test_remove_stake_limit_validate() {
+    // Testing the signed extension validate function
+    // correctly filters the `add_stake` transaction.
+
+    new_test_ext(0).execute_with(|| {
+        let hotkey = U256::from(533453);
+        let coldkey = U256::from(55453);
+        let stake_amount = 300_000_000_000;
+        let unstake_amount = 150_000_000_000;
+
+        // add network
+        let netuid: u16 = add_dynamic_network(&hotkey, &coldkey);
+
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            stake_amount,
+        );
+
+        // Forse-set alpha in and tao reserve to make price equal 1.5
+        let tao_reserve: U96F32 = U96F32::from_num(150_000_000_000_u64);
+        let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
+        let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
+        assert_eq!(current_price, U96F32::from_num(1.5));
+
+        // Setup limit price so that it doesn't drop by more than 10% from current price
+        let limit_price = 1_350_000_000;
+
+        // Remove stake limit call
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::remove_stake_limit {
+            hotkey,
+            netuid,
+            amount_unstaked: unstake_amount,
+            limit_price,
+            allow_partial: false,
+        });
+
+        let info: crate::DispatchInfo =
+            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+
+        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        // Submit to the signed extension validate function
+        let result_no_stake = extension.validate(&coldkey, &call.clone(), &info, 10);
+
+        // Should fail due to slippage
+        assert_err!(
+            result_no_stake,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::SlippageTooHigh.into()
+            ))
+        );
+    });
+}
+
 #[test]
 fn test_stake_overflow() {
     new_test_ext(1).execute_with(|| {
