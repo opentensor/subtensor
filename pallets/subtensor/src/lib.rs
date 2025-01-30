@@ -736,7 +736,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for minimum liquidity in pool
     pub fn DefaultMinimumPoolLiquidity<T: Config>() -> I96F32 {
-        I96F32::saturating_from_num(1_000_000)
+        I96F32::saturating_from_num(1_000_000_000)
     }
 
     #[pallet::storage]
