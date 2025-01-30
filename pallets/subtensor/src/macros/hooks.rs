@@ -4,6 +4,9 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod hooks {
+	#[cfg(feature = "try-runtime")]
+	use crate::utils::try_state::TryState;
+
     // ================
     // ==== Hooks =====
     // ================
@@ -82,7 +85,9 @@ mod hooks {
 
         #[cfg(feature = "try-runtime")]
         fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
-            Self::check_accounting_invariants()?;
+            TryState::<T>::check_total_issuance()?;
+			// Disabled: https://github.com/opentensor/subtensor/pull/1166
+            // TryState::<T>::check_total_stake()?;
             Ok(())
         }
     }

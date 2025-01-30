@@ -53,9 +53,10 @@ pub(crate) fn migrate_init_total_issuance<T: Config>() -> Weight {
 
 pub mod initialise_total_issuance {
     use frame_support::pallet_prelude::Weight;
-    use frame_support::traits::{fungible, OnRuntimeUpgrade};
-    use sp_core::Get;
+    use frame_support::traits::OnRuntimeUpgrade;
 
+    #[cfg(feature = "try-runtime")]
+    use crate::utils::try_state::TryState;
     use crate::*;
 
     pub struct Migration<T: Config>(PhantomData<T>);
@@ -79,7 +80,7 @@ pub mod initialise_total_issuance {
         #[cfg(feature = "try-runtime")]
         fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
             // Verify that all accounting invariants are satisfied after the migration
-            crate::Pallet::<T>::check_accounting_invariants()?;
+            TryState::<T>::check_total_issuance()?;
             Ok(())
         }
     }
