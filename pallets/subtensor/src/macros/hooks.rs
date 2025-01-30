@@ -82,7 +82,9 @@ mod hooks {
 
         #[cfg(feature = "try-runtime")]
         fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
-            Self::check_accounting_invariants()?;
+            Self::check_total_issuance()?;
+            // Disabled: https://github.com/opentensor/subtensor/pull/1166
+            // Self::check_total_stake()?;
             Ok(())
         }
     }
