@@ -4,7 +4,7 @@ use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
 use subtensor_macros::freeze_struct;
 
-#[freeze_struct("1be5a1e26a82082f")]
+#[freeze_struct("a5cdc80d655398e9")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct DynamicInfo<T: Config> {
     netuid: Compact<u16>,
@@ -24,7 +24,7 @@ pub struct DynamicInfo<T: Config> {
     tao_in_emission: Compact<u64>,
     pending_alpha_emission: Compact<u64>,
     pending_root_emission: Compact<u64>,
-    subnet_volume: Compact<u64>,
+    subnet_volume: Compact<u128>,
     network_registered_at: Compact<u64>,
     subnet_identity: Option<SubnetIdentity>,
 }

@@ -6,7 +6,7 @@ use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I64F64;
 use subtensor_macros::freeze_struct;
 
-#[freeze_struct("fa24d156067e5eb9")]
+#[freeze_struct("7c5fe907490c5d5e")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct Metagraph<T: Config> {
     // Subnet index
@@ -38,7 +38,7 @@ pub struct Metagraph<T: Config> {
     tao_in_emission: Compact<u64>,        // amount of tao injected per block
     pending_alpha_emission: Compact<u64>, // pending alpha to be distributed
     pending_root_emission: Compact<u64>,  // panding tao for root divs to be distributed
-    subnet_volume: Compact<u64>,          // volume of the subnet in TAO
+    subnet_volume: Compact<u128>,         // volume of the subnet in TAO
 
     // Hparams for epoch
     rho: Compact<u16>,   // subnet rho param
