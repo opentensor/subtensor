@@ -6,9 +6,8 @@ use core::marker::PhantomData;
 use frame_support::dispatch::{GetDispatchInfo, Pays};
 
 use pallet_evm::{
-    AddressMapping, BalanceConverter, ExitError, ExitSucceed, GasWeightMapping,
-    HashedAddressMapping, IsPrecompileResult, Precompile, PrecompileFailure, PrecompileHandle,
-    PrecompileOutput, PrecompileResult, PrecompileSet,
+    ExitError, ExitSucceed, GasWeightMapping, IsPrecompileResult, Precompile, PrecompileFailure,
+    PrecompileHandle, PrecompileOutput, PrecompileResult, PrecompileSet,
 };
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;
@@ -19,10 +18,6 @@ use sp_runtime::{traits::Dispatchable, AccountId32};
 use crate::{Runtime, RuntimeCall};
 
 use frame_system::RawOrigin;
-
-use sp_core::crypto::Ss58Codec;
-use sp_core::U256;
-use sp_runtime::traits::{BlakeTwo256, UniqueSaturatedInto};
 
 use sp_std::vec;
 
@@ -147,84 +142,6 @@ pub fn get_slice(data: &[u8], from: usize, to: usize) -> Result<&[u8], Precompil
     }
 }
 
-/// The function return the token to smart contract
-fn transfer_back_to_caller(
-    smart_contract_address: &str,
-    account_id: &AccountId32,
-    amount: U256,
-) -> Result<(), PrecompileFailure> {
-    // this is staking smart contract's(0x0000000000000000000000000000000000000801) sr25519 address
-    let smart_contract_account_id = match AccountId32::from_ss58check(smart_contract_address) {
-        // match AccountId32::from_ss58check("5CwnBK9Ack1mhznmCnwiibCNQc174pYQVktYW3ayRpLm4K2X") {
-        Ok(addr) => addr,
-        Err(_) => {
-            return Err(PrecompileFailure::Error {
-                exit_status: ExitError::Other("Invalid SS58 address".into()),
-            });
-        }
-    };
-    let amount_sub =
-        <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
-            .ok_or(ExitError::OutOfFund)?;
-
-    // Create a transfer call from the smart contract to the caller
-    let transfer_call =
-        RuntimeCall::Balances(pallet_balances::Call::<Runtime>::transfer_allow_death {
-            dest: account_id.clone().into(),
-            value: amount_sub.unique_saturated_into(),
-        });
-
-    // Execute the transfer
-    let transfer_result =
-        transfer_call.dispatch(RawOrigin::Signed(smart_contract_account_id).into());
-
-    if let Err(dispatch_error) = transfer_result {
-        log::error!(
-            "Transfer back to caller failed. Error: {:?}",
-            dispatch_error
-        );
-        return Err(PrecompileFailure::Error {
-            exit_status: ExitError::Other("Transfer back to caller failed".into()),
-        });
-    }
-
-    Ok(())
-}
-
-fn dispatch(
-    handle: &mut impl PrecompileHandle,
-    call: RuntimeCall,
-    smart_contract_address: &str,
-) -> PrecompileResult {
-    let account_id =
-        <HashedAddressMapping<BlakeTwo256> as AddressMapping<AccountId32>>::into_account_id(
-            handle.context().caller,
-        );
-
-    // Transfer the amount back to the caller before executing the staking operation
-    // let caller = handle.context().caller;
-    let amount = handle.context().apparent_value;
-
-    if !amount.is_zero() {
-        transfer_back_to_caller(smart_contract_address, &account_id, amount)?;
-    }
-
-    let result = call.dispatch(RawOrigin::Signed(account_id.clone()).into());
-    match &result {
-        Ok(post_info) => log::info!("Dispatch succeeded. Post info: {:?}", post_info),
-        Err(dispatch_error) => log::error!("Dispatch failed. Error: {:?}", dispatch_error),
-    }
-    match result {
-        Ok(_) => Ok(PrecompileOutput {
-            exit_status: ExitSucceed::Returned,
-            output: vec![],
-        }),
-        Err(_) => Err(PrecompileFailure::Error {
-            exit_status: ExitError::Other("Subtensor call failed".into()),
-        }),
-    }
-}
-
 pub fn get_pubkey(data: &[u8]) -> Result<(AccountId32, vec::Vec<u8>), PrecompileFailure> {
     let mut pubkey = [0u8; 32];
     pubkey.copy_from_slice(get_slice(data, 0, 32)?);
@@ -235,6 +152,26 @@ pub fn get_pubkey(data: &[u8]) -> Result<(AccountId32, vec::Vec<u8>), Precompile
             .map_or_else(vec::Vec::new, |slice| slice.to_vec()),
     ))
 }
+
+fn parse_netuid(data: &[u8], offset: usize) -> Result<u16, PrecompileFailure> {
+    if data.len() < offset + 2 {
+        return Err(PrecompileFailure::Error {
+            exit_status: ExitError::InvalidRange,
+        });
+    }
+
+    let mut netuid_bytes = [0u8; 2];
+    netuid_bytes.copy_from_slice(get_slice(data, offset, offset + 2)?);
+    let netuid: u16 = netuid_bytes[1] as u16 | ((netuid_bytes[0] as u16) << 8u16);
+
+    Ok(netuid)
+}
+
+fn contract_to_origin(contract: &[u8; 32]) -> Result<RawOrigin<AccountId32>, PrecompileFailure> {
+    let (account_id, _) = get_pubkey(contract)?;
+    Ok(RawOrigin::Signed(account_id))
+}
+
 /// Dispatches a runtime call, but also checks and records the gas costs.
 fn try_dispatch_runtime_call(
     handle: &mut impl PrecompileHandle,

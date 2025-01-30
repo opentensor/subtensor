@@ -1,15 +1,21 @@
 use pallet_evm::{ExitError, PrecompileFailure, PrecompileHandle, PrecompileResult};
 
-use crate::precompiles::{dispatch, get_method_id, get_pubkey, get_slice};
+use crate::precompiles::{
+    contract_to_origin, get_method_id, get_pubkey, get_slice, parse_netuid,
+    try_dispatch_runtime_call,
+};
 use sp_runtime::AccountId32;
 use sp_std::vec;
 
 use crate::{Runtime, RuntimeCall};
 pub const NEURON_PRECOMPILE_INDEX: u64 = 2052;
 
-// this is neuron smart contract's(0x0000000000000000000000000000000000000804) sr25519 address
-pub const NEURON_CONTRACT_ADDRESS: &str = "5GKZiUUgTnWSz3BgiVBMehEKkLszsG4ZXnvgWpWFUFKqrqyn";
-
+// ss58 public key i.e., the contract sends funds it received to the destination address from the
+// method parameter.
+const CONTRACT_ADDRESS_SS58: [u8; 32] = [
+    0xbc, 0x46, 0x35, 0x79, 0xbc, 0x99, 0xf9, 0xee, 0x7c, 0x59, 0xed, 0xee, 0x20, 0x61, 0xa3, 0x09,
+    0xd2, 0x1e, 0x68, 0xd5, 0x39, 0xb6, 0x40, 0xec, 0x66, 0x46, 0x90, 0x30, 0xab, 0x74, 0xc1, 0xdb,
+];
 pub struct NeuronPrecompile;
 
 impl NeuronPrecompile {
@@ -38,7 +44,7 @@ impl NeuronPrecompile {
                 netuid,
                 hotkey,
             });
-        dispatch(handle, call, NEURON_CONTRACT_ADDRESS)
+        try_dispatch_runtime_call(handle, call, contract_to_origin(&CONTRACT_ADDRESS_SS58)?)
     }
 
     fn parse_netuid_hotkey_parameter(data: &[u8]) -> Result<(u16, AccountId32), PrecompileFailure> {
@@ -47,9 +53,7 @@ impl NeuronPrecompile {
                 exit_status: ExitError::InvalidRange,
             });
         }
-        let mut netuid_vec = [0u8; 2];
-        netuid_vec.copy_from_slice(get_slice(data, 30, 32)?);
-        let netuid = u16::from_be_bytes(netuid_vec);
+        let netuid = parse_netuid(data, 30)?;
 
         let (hotkey, _) = get_pubkey(get_slice(data, 32, 64)?)?;
 

@@ -1,4 +1,6 @@
-use crate::precompiles::{dispatch, get_method_id, get_pubkey, get_slice};
+use crate::precompiles::{
+    contract_to_origin, get_method_id, get_pubkey, get_slice, try_dispatch_runtime_call,
+};
 use crate::{Runtime, RuntimeCall};
 use pallet_evm::{ExitError, PrecompileFailure, PrecompileHandle, PrecompileResult};
 use sp_runtime::AccountId32;
@@ -8,9 +10,12 @@ pub const SUBNET_PRECOMPILE_INDEX: u64 = 2051;
 // three bytes with max lenght 1K
 pub const MAX_PARAMETER_SIZE: usize = 3 * 1024;
 
-// this is staking smart contract's(0x0000000000000000000000000000000000000803) sr25519 address
-pub const STAKING_CONTRACT_ADDRESS: &str = "5DPSUCb5mZFfizvBDSnRoAqmxV5Bmov2CS3xV773qU6VP1w2";
-
+// ss58 public key i.e., the contract sends funds it received to the destination address from the
+// method parameter.
+const CONTRACT_ADDRESS_SS58: [u8; 32] = [
+    0x3a, 0x86, 0x18, 0xfb, 0xbb, 0x1b, 0xbc, 0x47, 0x86, 0x64, 0xff, 0x53, 0x46, 0x18, 0x0c, 0x35,
+    0xd0, 0x9f, 0xac, 0x26, 0xf2, 0x02, 0x70, 0x85, 0xb3, 0x1c, 0x56, 0xc1, 0x06, 0x3c, 0x1c, 0xd3,
+];
 pub struct SubnetPrecompile;
 
 impl SubnetPrecompile {
@@ -79,7 +84,7 @@ impl SubnetPrecompile {
         };
 
         // Dispatch the register_network call
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        try_dispatch_runtime_call(handle, call, contract_to_origin(&CONTRACT_ADDRESS_SS58)?)
     }
 
     fn parse_register_network_parameters(

@@ -1,11 +1,12 @@
-use frame_system::RawOrigin;
 use pallet_evm::{
     BalanceConverter, ExitError, ExitSucceed, PrecompileHandle, PrecompileOutput, PrecompileResult,
 };
 use sp_runtime::traits::UniqueSaturatedInto;
 use sp_std::vec;
 
-use crate::precompiles::{get_method_id, get_pubkey, get_slice, try_dispatch_runtime_call};
+use crate::precompiles::{
+    contract_to_origin, get_method_id, get_pubkey, get_slice, try_dispatch_runtime_call,
+};
 use crate::Runtime;
 
 pub const BALANCE_TRANSFER_INDEX: u64 = 2048;
@@ -47,15 +48,13 @@ impl BalanceTransferPrecompile {
         }
 
         let address_bytes_dst = get_slice(txdata, 4, 36)?;
-        let (account_id_src, _) = get_pubkey(&CONTRACT_ADDRESS_SS58)?;
         let (account_id_dst, _) = get_pubkey(address_bytes_dst)?;
 
         let call = pallet_balances::Call::<Runtime>::transfer_allow_death {
             dest: account_id_dst.into(),
             value: amount_sub.unique_saturated_into(),
         };
-        let origin = RawOrigin::Signed(account_id_src);
 
-        try_dispatch_runtime_call(handle, call, origin)
+        try_dispatch_runtime_call(handle, call, contract_to_origin(&CONTRACT_ADDRESS_SS58)?)
     }
 }

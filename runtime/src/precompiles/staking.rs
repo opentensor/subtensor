@@ -25,7 +25,10 @@
 //   - Precompile checks the result of do_remove_stake and, in case of a failure, reverts the transaction.
 //
 
-use crate::precompiles::{dispatch, get_method_id, get_pubkey, get_slice};
+use crate::precompiles::{
+    contract_to_origin, get_method_id, get_pubkey, get_slice, parse_netuid,
+    try_dispatch_runtime_call,
+};
 use crate::{ProxyType, Runtime, RuntimeCall};
 use pallet_evm::{
     BalanceConverter, ExitError, ExitSucceed, PrecompileFailure, PrecompileHandle,
@@ -36,8 +39,14 @@ use sp_runtime::traits::{StaticLookup, UniqueSaturatedInto};
 use sp_std::vec;
 
 pub const STAKING_PRECOMPILE_INDEX: u64 = 2049;
-// this is staking smart contract's(0x0000000000000000000000000000000000000801) sr25519 address
-pub const STAKING_CONTRACT_ADDRESS: &str = "5CwnBK9Ack1mhznmCnwiibCNQc174pYQVktYW3ayRpLm4K2X";
+
+// ss58 public key i.e., the contract sends funds it received to the destination address from the
+// method parameter.
+const CONTRACT_ADDRESS_SS58: [u8; 32] = [
+    0x26, 0xf4, 0x10, 0x1e, 0x52, 0xb7, 0x57, 0x34, 0x33, 0x24, 0x5b, 0xc3, 0x0a, 0xe1, 0x8b, 0x63,
+    0x99, 0x53, 0xd8, 0x41, 0x79, 0x33, 0x03, 0x61, 0x4d, 0xfa, 0xcf, 0xf0, 0x37, 0xf7, 0x12, 0x94,
+];
+
 pub struct StakingPrecompile;
 
 impl StakingPrecompile {
@@ -74,14 +83,16 @@ impl StakingPrecompile {
             <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
                 .ok_or(ExitError::OutOfFund)?;
 
+        // let (account_id_src, _) = get_pubkey(&CONTRACT_ADDRESS_SS58)?;
         // Create the add_stake call
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::<Runtime>::add_stake {
             hotkey,
             netuid,
             amount_staked: amount_sub.unique_saturated_into(),
         });
+        // let origin = RawOrigin::Signed(account_id_src);
         // Dispatch the add_stake call
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        try_dispatch_runtime_call(handle, call, contract_to_origin(&CONTRACT_ADDRESS_SS58)?)
     }
 
     fn remove_stake(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
@@ -104,7 +115,7 @@ impl StakingPrecompile {
             netuid,
             amount_unstaked: amount_sub.unique_saturated_into(),
         });
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        try_dispatch_runtime_call(handle, call, contract_to_origin(&CONTRACT_ADDRESS_SS58)?)
     }
 
     fn add_proxy(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
@@ -116,7 +127,7 @@ impl StakingPrecompile {
             delay: 0,
         });
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        try_dispatch_runtime_call(handle, call, contract_to_origin(&CONTRACT_ADDRESS_SS58)?)
     }
 
     fn remove_proxy(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
@@ -128,13 +139,13 @@ impl StakingPrecompile {
             delay: 0,
         });
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        try_dispatch_runtime_call(handle, call, contract_to_origin(&CONTRACT_ADDRESS_SS58)?)
     }
 
     fn get_stake(data: &[u8]) -> PrecompileResult {
         let (hotkey, left_data) = get_pubkey(data)?;
         let (coldkey, _) = get_pubkey(&left_data)?;
-        let netuid = Self::parse_netuid(data, 0x5E)?;
+        let netuid = parse_netuid(data, 0x5E)?;
 
         let stake = pallet_subtensor::Pallet::<Runtime>::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey, &coldkey, netuid,
