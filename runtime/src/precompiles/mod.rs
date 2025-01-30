@@ -4,7 +4,7 @@ use alloc::format;
 use core::marker::PhantomData;
 
 use frame_support::dispatch::{GetDispatchInfo, Pays};
-use frame_system::RawOrigin;
+
 use pallet_evm::{
     ExitError, ExitSucceed, GasWeightMapping, IsPrecompileResult, Precompile, PrecompileFailure,
     PrecompileHandle, PrecompileOutput, PrecompileResult, PrecompileSet,
@@ -17,19 +17,25 @@ use sp_runtime::{traits::Dispatchable, AccountId32};
 
 use crate::{Runtime, RuntimeCall};
 
+use frame_system::RawOrigin;
+
+use sp_std::vec;
+
 // Include custom precompiles
 mod balance_transfer;
 mod ed25519;
 mod metagraph;
+mod neuron;
 mod staking;
+mod subnet;
 
 use balance_transfer::*;
 use ed25519::*;
 use metagraph::*;
+use neuron::*;
 use staking::*;
-
+use subnet::*;
 pub struct FrontierPrecompiles<R>(PhantomData<R>);
-
 impl<R> Default for FrontierPrecompiles<R>
 where
     R: pallet_evm::Config,
@@ -46,7 +52,7 @@ where
     pub fn new() -> Self {
         Self(Default::default())
     }
-    pub fn used_addresses() -> [H160; 11] {
+    pub fn used_addresses() -> [H160; 13] {
         [
             hash(1),
             hash(2),
@@ -58,7 +64,9 @@ where
             hash(EDVERIFY_PRECOMPILE_INDEX),
             hash(BALANCE_TRANSFER_INDEX),
             hash(STAKING_PRECOMPILE_INDEX),
+            hash(SUBNET_PRECOMPILE_INDEX),
             hash(METAGRAPH_PRECOMPILE_INDEX),
+            hash(NEURON_PRECOMPILE_INDEX),
         ]
     }
 }
@@ -83,9 +91,11 @@ where
                 Some(BalanceTransferPrecompile::execute(handle))
             }
             a if a == hash(STAKING_PRECOMPILE_INDEX) => Some(StakingPrecompile::execute(handle)),
+            a if a == hash(SUBNET_PRECOMPILE_INDEX) => Some(SubnetPrecompile::execute(handle)),
             a if a == hash(METAGRAPH_PRECOMPILE_INDEX) => {
                 Some(MetagraphPrecompile::execute(handle))
             }
+            a if a == hash(NEURON_PRECOMPILE_INDEX) => Some(NeuronPrecompile::execute(handle)),
 
             _ => None,
         }
@@ -113,18 +123,6 @@ pub fn get_method_id(method_signature: &str) -> [u8; 4] {
     [hash[0], hash[1], hash[2], hash[3]]
 }
 
-/// Convert bytes to AccountId32 with PrecompileFailure as Error
-/// which consumes all gas
-///
-pub fn bytes_to_account_id(account_id_bytes: &[u8]) -> Result<AccountId32, PrecompileFailure> {
-    AccountId32::try_from(account_id_bytes).map_err(|_| {
-        log::info!("Error parsing account id bytes {:?}", account_id_bytes);
-        PrecompileFailure::Error {
-            exit_status: ExitError::InvalidRange,
-        }
-    })
-}
-
 /// Takes a slice from bytes with PrecompileFailure as Error
 ///
 pub fn get_slice(data: &[u8], from: usize, to: usize) -> Result<&[u8], PrecompileFailure> {
@@ -132,10 +130,46 @@ pub fn get_slice(data: &[u8], from: usize, to: usize) -> Result<&[u8], Precompil
     if let Some(slice) = maybe_slice {
         Ok(slice)
     } else {
+        log::error!(
+            "fail to get slice from data, {:?}, from {}, to {}",
+            &data,
+            from,
+            to
+        );
         Err(PrecompileFailure::Error {
             exit_status: ExitError::InvalidRange,
         })
     }
+}
+
+pub fn get_pubkey(data: &[u8]) -> Result<(AccountId32, vec::Vec<u8>), PrecompileFailure> {
+    let mut pubkey = [0u8; 32];
+    pubkey.copy_from_slice(get_slice(data, 0, 32)?);
+
+    Ok((
+        pubkey.into(),
+        data.get(4..)
+            .map_or_else(vec::Vec::new, |slice| slice.to_vec()),
+    ))
+}
+
+fn parse_netuid(data: &[u8], offset: usize) -> Result<u16, PrecompileFailure> {
+    if data.len() < offset + 2 {
+        return Err(PrecompileFailure::Error {
+            exit_status: ExitError::InvalidRange,
+        });
+    }
+
+    let mut netuid_bytes = [0u8; 2];
+    netuid_bytes.copy_from_slice(get_slice(data, offset, offset + 2)?);
+    let netuid: u16 = netuid_bytes[1] as u16 | ((netuid_bytes[0] as u16) << 8u16);
+
+    Ok(netuid)
+}
+
+fn contract_to_origin(contract: &[u8; 32]) -> Result<RawOrigin<AccountId32>, PrecompileFailure> {
+    let (account_id, _) = get_pubkey(contract)?;
+    Ok(RawOrigin::Signed(account_id))
 }
 
 /// Dispatches a runtime call, but also checks and records the gas costs.
