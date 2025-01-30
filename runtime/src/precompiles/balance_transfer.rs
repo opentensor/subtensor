@@ -1,15 +1,12 @@
 use frame_system::RawOrigin;
 use pallet_evm::{
-    BalanceConverter, ExitError, ExitSucceed, PrecompileFailure, PrecompileHandle,
-    PrecompileOutput, PrecompileResult,
+    BalanceConverter, ExitError, ExitSucceed, PrecompileHandle, PrecompileOutput, PrecompileResult,
 };
-use precompile_utils::prelude::RuntimeHelper;
-use sp_core::U256;
 use sp_runtime::traits::UniqueSaturatedInto;
 use sp_std::vec;
 
-use crate::precompiles::{get_method_id, get_pubkey, get_slice};
-use crate::{Runtime, RuntimeCall};
+use crate::precompiles::{get_method_id, get_pubkey, get_slice, try_dispatch_runtime_call};
+use crate::Runtime;
 
 pub const BALANCE_TRANSFER_INDEX: u64 = 2048;
 // ss58 public key i.e., the contract sends funds it received to the destination address from the
@@ -35,7 +32,7 @@ impl BalanceTransferPrecompile {
         }
 
         // Forward all received value to the destination address
-        let amount: U256 = handle.context().apparent_value;
+        let amount = handle.context().apparent_value;
 
         // Use BalanceConverter to convert EVM amount to Substrate balance
         let amount_sub =
@@ -53,23 +50,12 @@ impl BalanceTransferPrecompile {
         let (account_id_src, _) = get_pubkey(&CONTRACT_ADDRESS_SS58)?;
         let (account_id_dst, _) = get_pubkey(address_bytes_dst)?;
 
-        let call = RuntimeCall::Balances(pallet_balances::Call::<Runtime>::transfer_allow_death {
+        let call = pallet_balances::Call::<Runtime>::transfer_allow_death {
             dest: account_id_dst.into(),
             value: amount_sub.unique_saturated_into(),
-        });
+        };
+        let origin = RawOrigin::Signed(account_id_src);
 
-        // Dispatch the call
-        RuntimeHelper::<Runtime>::try_dispatch(
-            handle,
-            RawOrigin::Signed(account_id_src).into(),
-            call,
-        )
-        .map(|_| PrecompileOutput {
-            exit_status: ExitSucceed::Returned,
-            output: vec![],
-        })
-        .map_err(|_| PrecompileFailure::Error {
-            exit_status: ExitError::OutOfFund,
-        })
+        try_dispatch_runtime_call(handle, call, origin)
     }
 }

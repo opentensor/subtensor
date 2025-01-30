@@ -25,17 +25,14 @@
 //   - Precompile checks the result of do_remove_stake and, in case of a failure, reverts the transaction.
 //
 
+use crate::precompiles::{dispatch, get_method_id, get_pubkey, get_slice};
+use crate::{ProxyType, Runtime, RuntimeCall};
 use pallet_evm::{
     BalanceConverter, ExitError, ExitSucceed, PrecompileFailure, PrecompileHandle,
     PrecompileOutput, PrecompileResult,
 };
 use sp_core::U256;
 use sp_runtime::traits::{StaticLookup, UniqueSaturatedInto};
-
-use crate::{
-    precompiles::{dispatch, get_method_id, get_pubkey, get_slice},
-    ProxyType, Runtime, RuntimeCall,
-};
 use sp_std::vec;
 
 pub const STAKING_PRECOMPILE_INDEX: u64 = 2049;
