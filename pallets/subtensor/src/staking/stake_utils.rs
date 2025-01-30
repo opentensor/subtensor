@@ -823,6 +823,8 @@ impl<T: Config> Pallet<T> {
         origin_netuid: u16,
         destination_netuid: u16,
         alpha_amount: u64,
+        max_amount: u64,
+        maybe_allow_partial: Option<bool>,
     ) -> Result<(), Error<T>> {
         // Ensure that both subnets exist.
         ensure!(
@@ -869,6 +871,14 @@ impl<T: Config> Pallet<T> {
             return Err(Error::<T>::InsufficientLiquidity);
         }
 
+        // Ensure that if partial execution is not allowed, the amount will not cause
+        // slippage over desired
+        if let Some(allow_partial) = maybe_allow_partial {
+            if !allow_partial {
+                ensure!(alpha_amount <= max_amount, Error::<T>::SlippageTooHigh);
+            }
+        }
+        
         Ok(())
     }
 }

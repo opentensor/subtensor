@@ -1811,5 +1811,68 @@ mod dispatches {
                 allow_partial,
             )
         }
+
+        /// Moves specified amount of stake from a hotkey to another across subnets with Alpha<>Beta
+        /// price limit.
+        ///
+        /// The limit price is expressed is expressed in rao units of origin_netuid Alpha per one tao
+        /// unit of destination_netuid Alpha.
+        ///
+        /// Example 1: Exchanging Alpha for Beta. 1_000_000_000 limit_price value for would mean that
+        /// limit price euqals 1.0 Alpha per 1 Beta. Exchanging 100 Alpha will result in receiving at
+        /// least 100 Beta.
+        ///
+        /// Example 2: Exchanging Alpha for Beta. 500_000_000 for would mean that limit price euqals 0.5
+        /// Alpha per 1 Beta. Exchanging 100 Alpha will result in receiving at least 50 Beta.
+        ///
+        /// # Args:
+        /// * `origin` - (<T as frame_system::Config>::Origin):
+        ///     - The signature of the caller's coldkey.
+        ///
+        /// * `origin_hotkey` (T::AccountId):
+        ///     - The hotkey account to move stake from.
+        ///
+        /// * `destination_hotkey` (T::AccountId):
+        ///     - The hotkey account to move stake to.
+        ///
+        /// * `origin_netuid` (T::AccountId):
+        ///     - The subnet ID to move stake from.
+        ///
+        /// * `destination_netuid` (T::AccountId):
+        ///     - The subnet ID to move stake to.
+        ///
+        /// * `alpha_amount` (T::AccountId):
+        ///     - The alpha stake amount to move.
+        ///
+        ///  * 'limit_price' (u64):
+        ///     - The limit price
+        ///
+        ///  * 'allow_partial' (bool):
+        /// 	- Allows partial execution of the amount. If set to false, this becomes
+        ///       fill or kill type or order.
+        ///
+        #[pallet::call_index(90)]
+        #[pallet::weight((Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn move_stake_limit(
+            origin: T::RuntimeOrigin,
+            origin_hotkey: T::AccountId,
+            destination_hotkey: T::AccountId,
+            origin_netuid: u16,
+            destination_netuid: u16,
+            alpha_amount: u64,
+            limit_price: u64,
+            allow_partial: bool,
+        ) -> DispatchResult {
+            Self::do_move_stake_limit(
+                origin,
+                origin_hotkey,
+                destination_hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+                limit_price,
+                allow_partial,
+            )
+        }
     }
 }

@@ -1842,6 +1842,30 @@ where
                     *origin_netuid,
                     *destination_netuid,
                     *alpha_amount,
+                    *alpha_amount,
+                    None
+                ))
+            }
+            Some(Call::move_stake_limit {
+                origin_hotkey,
+                destination_hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+                limit_price,
+                allow_partial,
+            }) => {
+                // Fully validate the user input
+                Self::result_to_validity(Pallet::<T>::validate_stake_transition(
+                    who,
+                    who,
+                    origin_hotkey,
+                    destination_hotkey,
+                    *origin_netuid,
+                    *destination_netuid,
+                    *alpha_amount,
+                    *limit_price,
+                    Some(*allow_partial),
                 ))
             }
             Some(Call::transfer_stake {
@@ -1860,6 +1884,8 @@ where
                     *origin_netuid,
                     *destination_netuid,
                     *alpha_amount,
+                    *alpha_amount,
+                    None
                 ))
             }
             Some(Call::swap_stake {
@@ -1877,6 +1903,8 @@ where
                     *origin_netuid,
                     *destination_netuid,
                     *alpha_amount,
+                    *alpha_amount,
+                    None
                 ))
             }
             Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {
