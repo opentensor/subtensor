@@ -83,7 +83,7 @@ impl StakingPrecompile {
 
         let (hotkey, _) = get_pubkey(data)?;
         let amount: U256 = handle.context().apparent_value;
-        let netuid = Self::parse_netuid(data, 0x3E)?;
+        let netuid = parse_netuid(data, 0x3E)?;
 
         if !amount.is_zero() {
             Self::transfer_back_to_caller(&account_id, amount)?;
@@ -108,7 +108,7 @@ impl StakingPrecompile {
                 handle.context().caller,
             );
         let (hotkey, _) = get_pubkey(data)?;
-        let netuid = Self::parse_netuid(data, 0x5E)?;
+        let netuid = parse_netuid(data, 0x5E)?;
 
         // We have to treat this as uint256 (because of Solidity ABI encoding rules, it pads uint64),
         // but this will never exceed 8 bytes, se we will ignore higher bytes and will only use lower
