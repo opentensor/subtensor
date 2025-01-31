@@ -2744,44 +2744,6 @@ fn test_max_amount_remove_stable() {
 #[test]
 fn test_max_amount_remove_dynamic() {
     new_test_ext(0).execute_with(|| {
-        // // Low price values don't blow things up
-        // assert!(SubtensorModule::get_max_amount_remove(netuid, 1) > 0);
-        // assert!(SubtensorModule::get_max_amount_remove(netuid, 2) > 0);
-        // assert!(SubtensorModule::get_max_amount_remove(netuid, 3) > 0);
-
-        // // 1.5000...1 price => max is 0
-        // assert_eq!(
-        //     SubtensorModule::get_max_amount_remove(netuid, 1_500_000_001),
-        //     0
-        // );
-
-        // // 1.5 price => max is 0 because of non-zero slippage
-        // assert_abs_diff_eq!(
-        //     SubtensorModule::get_max_amount_remove(netuid, 1_500_000_000),
-        //     0,
-        //     epsilon = 10_000
-        // );
-
-        // // 1/4 price => max is 2x Alpha
-        // assert_abs_diff_eq!(
-        //     SubtensorModule::get_max_amount_remove(netuid, 375_000_000),
-        //     100_000_000_000,
-        //     epsilon = 10_000,
-        // );
-
-        // // Precision test:
-        // // 1.499999.. price => max > 0
-        // assert!(SubtensorModule::get_max_amount_remove(netuid, 1_499_999_999) > 0);
-
-        // // Max price doesn't panic and returns something meaningful
-        // assert!(SubtensorModule::get_max_amount_remove(netuid, u64::MAX) < 21_000_000_000_000_000);
-        // assert!(
-        //     SubtensorModule::get_max_amount_remove(netuid, u64::MAX - 1) < 21_000_000_000_000_000
-        // );
-        // assert!(
-        //     SubtensorModule::get_max_amount_remove(netuid, u64::MAX / 2) < 21_000_000_000_000_000
-        // );
-
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
