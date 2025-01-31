@@ -1,18 +1,28 @@
-use pallet_evm::{ExitError, PrecompileFailure, PrecompileHandle, PrecompileResult};
-use sp_core::H256;
+use pallet_evm::{
+    AddressMapping, ExitError, HashedAddressMapping, PrecompileFailure, PrecompileHandle,
+    PrecompileResult,
+};
 
-use crate::precompiles::{dispatch, get_method_id, get_slice};
-use sp_std::{vec, vec::Vec};
-
+use crate::precompiles::{
+    contract_to_origin, get_method_id, get_pubkey, get_slice, parse_netuid,
+    try_dispatch_runtime_call,
+};
 use crate::{Runtime, RuntimeCall};
+use frame_system::RawOrigin;
+use sp_core::H256;
+use sp_runtime::traits::BlakeTwo256;
+use sp_runtime::AccountId32;
+use sp_std::vec;
+use sp_std::vec::Vec;
 pub const NEURON_PRECOMPILE_INDEX: u64 = 2052;
-
-// this is subnets smart contract's(0x0000000000000000000000000000000000000802) sr25519 address
-pub const NEURON_CONTRACT_ADDRESS: &str = "5GKZiUUgTnWSz3BgiVBMehEKkLszsG4ZXnvgWpWFUFKqrqyn";
-
 // max paramter lenght 4K
 pub const MAX_PARAMETER_SIZE: usize = 4 * 1024;
-
+// ss58 public key i.e., the contract sends funds it received to the destination address from the
+// method parameter.
+const CONTRACT_ADDRESS_SS58: [u8; 32] = [
+    0xbc, 0x46, 0x35, 0x79, 0xbc, 0x99, 0xf9, 0xee, 0x7c, 0x59, 0xed, 0xee, 0x20, 0x61, 0xa3, 0x09,
+    0xd2, 0x1e, 0x68, 0xd5, 0x39, 0xb6, 0x40, 0xec, 0x66, 0x46, 0x90, 0x30, 0xab, 0x74, 0xc1, 0xdb,
+];
 pub struct NeuronPrecompile;
 
 impl NeuronPrecompile {
@@ -46,6 +56,10 @@ impl NeuronPrecompile {
                 Self::reveal_weights(handle, &method_input)
             }
 
+            id if id == get_method_id("burnedRegister(uint16,bytes32)") => {
+                Self::burned_register(handle, &method_input)
+            }
+
             _ => Err(PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
             }),
@@ -60,8 +74,12 @@ impl NeuronPrecompile {
             weights,
             version_key,
         });
+        let account_id =
+            <HashedAddressMapping<BlakeTwo256> as AddressMapping<AccountId32>>::into_account_id(
+                handle.context().caller,
+            );
 
-        dispatch(handle, call, NEURON_CONTRACT_ADDRESS)
+        try_dispatch_runtime_call(handle, call, RawOrigin::Signed(account_id))
     }
 
     pub fn commit_weights(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
@@ -72,7 +90,11 @@ impl NeuronPrecompile {
                 netuid,
                 commit_hash,
             });
-        dispatch(handle, call, NEURON_CONTRACT_ADDRESS)
+        let account_id =
+            <HashedAddressMapping<BlakeTwo256> as AddressMapping<AccountId32>>::into_account_id(
+                handle.context().caller,
+            );
+        try_dispatch_runtime_call(handle, call, RawOrigin::Signed(account_id))
     }
 
     pub fn reveal_weights(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
@@ -86,7 +108,35 @@ impl NeuronPrecompile {
                 salt,
                 version_key,
             });
-        dispatch(handle, call, NEURON_CONTRACT_ADDRESS)
+        let account_id =
+            <HashedAddressMapping<BlakeTwo256> as AddressMapping<AccountId32>>::into_account_id(
+                handle.context().caller,
+            );
+        try_dispatch_runtime_call(handle, call, RawOrigin::Signed(account_id))
+    }
+
+    pub fn burned_register(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
+        let (netuid, hotkey) = Self::parse_netuid_hotkey_parameter(data)?;
+        let call =
+            RuntimeCall::SubtensorModule(pallet_subtensor::Call::<Runtime>::burned_register {
+                netuid,
+                hotkey,
+            });
+        try_dispatch_runtime_call(handle, call, contract_to_origin(&CONTRACT_ADDRESS_SS58)?)
+    }
+
+    fn parse_netuid_hotkey_parameter(data: &[u8]) -> Result<(u16, AccountId32), PrecompileFailure> {
+        if data.len() < 64 {
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+
+        let netuid = parse_netuid(data, 30)?;
+
+        let (hotkey, _) = get_pubkey(get_slice(data, 32, 64)?)?;
+
+        Ok((netuid, hotkey))
     }
 
     fn parse_netuid_dests_weights(
@@ -98,7 +148,6 @@ impl NeuronPrecompile {
                 exit_status: ExitError::InvalidRange,
             });
         }
-
         let mut netuid_vec = [0u8; 2];
         netuid_vec.copy_from_slice(get_slice(data, 30, 32)?);
         let netuid = u16::from_be_bytes(netuid_vec);

@@ -2,7 +2,7 @@ use super::*;
 use safe_math::*;
 use share_pool::{SharePool, SharePoolDataOperations};
 use sp_std::ops::Neg;
-use substrate_fixed::types::{I64F64, I96F32, U64F64};
+use substrate_fixed::types::{I110F18, I64F64, I96F32, U64F64};
 
 impl<T: Config> Pallet<T> {
     /// Retrieves the total alpha issuance for a given subnet.
@@ -457,155 +457,147 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Swaps TAO for the alpha token on the subnet.
+    /// Calculates Some(Alpha) returned from pool by staking operation
+    /// if liquidity allows that. If not, returns None.
     ///
-    /// Updates TaoIn, AlphaIn, and AlphaOut
-    pub fn sim_swap_tao_for_alpha(netuid: u16, tao: u64) -> u64 {
+    /// If new alpha_reserve is about to drop below DefaultMinimumPoolLiquidity,
+    /// then don't do it.
+    ///
+    pub fn sim_swap_tao_for_alpha(netuid: u16, tao: u64) -> Option<u64> {
         // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
         let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
         // Step 2: Initialized vars.
-        let alpha: I96F32 = if mechanism_id == 1 {
+        if mechanism_id == 1 {
             // Step 3.a.1: Dynamic mechanism calculations
-            let tao_reserves: I96F32 = I96F32::saturating_from_num(SubnetTAO::<T>::get(netuid));
-            let alpha_reserves: I96F32 =
-                I96F32::saturating_from_num(SubnetAlphaIn::<T>::get(netuid));
+            let tao_reserves: I110F18 = I110F18::saturating_from_num(SubnetTAO::<T>::get(netuid));
+            let alpha_reserves: I110F18 =
+                I110F18::saturating_from_num(SubnetAlphaIn::<T>::get(netuid));
             // Step 3.a.2: Compute constant product k = alpha * tao
-            let k: I96F32 = alpha_reserves.saturating_mul(tao_reserves);
+            let k: I110F18 = alpha_reserves.saturating_mul(tao_reserves);
+
+            // Calculate new alpha reserve
+            let new_alpha_reserves: I110F18 =
+                k.safe_div(tao_reserves.saturating_add(I110F18::saturating_from_num(tao)));
+
             // Step 3.a.3: Calculate alpha staked using the constant product formula
             // alpha_stake_recieved = current_alpha - (k / (current_tao + new_tao))
-            alpha_reserves.saturating_sub(
-                k.checked_div(tao_reserves.saturating_add(I96F32::saturating_from_num(tao)))
-                    .unwrap_or(I96F32::saturating_from_num(0)),
-            )
+            if new_alpha_reserves >= DefaultMinimumPoolLiquidity::<T>::get() {
+                Some(
+                    alpha_reserves
+                        .saturating_sub(new_alpha_reserves)
+                        .saturating_to_num::<u64>(),
+                )
+            } else {
+                None
+            }
         } else {
             // Step 3.b.1: Stable mechanism, just return the value 1:1
-            I96F32::saturating_from_num(tao)
-        };
-        // Return simulated amount.
-        alpha.saturating_to_num::<u64>()
+            Some(tao)
+        }
     }
 
-    /// Swaps a subnet's Alpba token for TAO.
+    /// Calculates Some(Tao) returned from pool by unstaking operation
+    /// if liquidity allows that. If not, returns None.
     ///
-    /// Updates TaoIn, AlphaIn, and AlphaOut
-    pub fn sim_swap_alpha_for_tao(netuid: u16, alpha: u64) -> u64 {
+    /// If new tao_reserve is about to drop below DefaultMinimumPoolLiquidity,
+    /// then don't do it.
+    ///
+    pub fn sim_swap_alpha_for_tao(netuid: u16, alpha: u64) -> Option<u64> {
         // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
         let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
         // Step 2: Swap alpha and attain tao
-        let tao: I96F32 = if mechanism_id == 1 {
+        if mechanism_id == 1 {
             // Step 3.a.1: Dynamic mechanism calculations
-            let tao_reserves: I96F32 = I96F32::saturating_from_num(SubnetTAO::<T>::get(netuid));
-            let alpha_reserves: I96F32 =
-                I96F32::saturating_from_num(SubnetAlphaIn::<T>::get(netuid));
+            let tao_reserves: I110F18 = I110F18::saturating_from_num(SubnetTAO::<T>::get(netuid));
+            let alpha_reserves: I110F18 =
+                I110F18::saturating_from_num(SubnetAlphaIn::<T>::get(netuid));
             // Step 3.a.2: Compute constant product k = alpha * tao
-            let k: I96F32 = alpha_reserves.saturating_mul(tao_reserves);
+            let k: I110F18 = alpha_reserves.saturating_mul(tao_reserves);
+
+            // Calculate new tao reserve
+            let new_tao_reserves: I110F18 = k
+                .checked_div(alpha_reserves.saturating_add(I110F18::saturating_from_num(alpha)))
+                .unwrap_or(I110F18::saturating_from_num(0));
+
             // Step 3.a.3: Calculate alpha staked using the constant product formula
             // tao_recieved = tao_reserves - (k / (alpha_reserves + new_tao))
-            tao_reserves.saturating_sub(
-                k.checked_div(alpha_reserves.saturating_add(I96F32::saturating_from_num(alpha)))
-                    .unwrap_or(I96F32::saturating_from_num(0)),
-            )
+            if new_tao_reserves >= DefaultMinimumPoolLiquidity::<T>::get() {
+                Some(
+                    tao_reserves
+                        .saturating_sub(new_tao_reserves)
+                        .saturating_to_num::<u64>(),
+                )
+            } else {
+                None
+            }
         } else {
             // Step 3.b.1: Stable mechanism, just return the value 1:1
-            I96F32::saturating_from_num(alpha)
-        };
-        tao.saturating_to_num::<u64>()
+            Some(alpha)
+        }
     }
 
     /// Swaps TAO for the alpha token on the subnet.
     ///
     /// Updates TaoIn, AlphaIn, and AlphaOut
     pub fn swap_tao_for_alpha(netuid: u16, tao: u64) -> u64 {
-        // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
-        let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
-        // Step 2: Initialized vars.
-        let alpha: I96F32 = if mechanism_id == 1 {
-            // Step 3.a.1: Dynamic mechanism calculations
-            let tao_reserves: I96F32 = I96F32::saturating_from_num(SubnetTAO::<T>::get(netuid));
-            let alpha_reserves: I96F32 =
-                I96F32::saturating_from_num(SubnetAlphaIn::<T>::get(netuid));
-            // Step 3.a.2: Compute constant product k = alpha * tao
-            let k: I96F32 = alpha_reserves.saturating_mul(tao_reserves);
-            // Step 3.a.3: Calculate alpha staked using the constant product formula
-            // alpha_stake_recieved = current_alpha - (k / (current_tao + new_tao))
-            alpha_reserves.saturating_sub(
-                k.checked_div(tao_reserves.saturating_add(I96F32::saturating_from_num(tao)))
-                    .unwrap_or(I96F32::saturating_from_num(0)),
-            )
+        if let Some(alpha) = Self::sim_swap_tao_for_alpha(netuid, tao) {
+            // Step 4. Decrease Alpha reserves.
+            SubnetAlphaIn::<T>::mutate(netuid, |total| {
+                *total = total.saturating_sub(alpha);
+            });
+            // Step 5: Increase Alpha outstanding.
+            SubnetAlphaOut::<T>::mutate(netuid, |total| {
+                *total = total.saturating_add(alpha);
+            });
+            // Step 6: Increase Tao reserves.
+            SubnetTAO::<T>::mutate(netuid, |total| {
+                *total = total.saturating_add(tao);
+            });
+            // Step 7: Increase Total Tao reserves.
+            TotalStake::<T>::mutate(|total| {
+                *total = total.saturating_add(tao);
+            });
+            // Step 8. Increase total subnet TAO volume.
+            SubnetVolume::<T>::mutate(netuid, |total| {
+                *total = total.saturating_add(tao.into());
+            });
+            // Step 9. Return the alpha received.
+            alpha
         } else {
-            // Step 3.b.1: Stable mechanism, just return the value 1:1
-            I96F32::saturating_from_num(tao)
-        };
-        // Step 4. Decrease Alpha reserves.
-        SubnetAlphaIn::<T>::mutate(netuid, |total| {
-            *total = total.saturating_sub(alpha.saturating_to_num::<u64>());
-        });
-        // Step 5: Increase Alpha outstanding.
-        SubnetAlphaOut::<T>::mutate(netuid, |total| {
-            *total = total.saturating_add(alpha.saturating_to_num::<u64>());
-        });
-        // Step 6: Increase Tao reserves.
-        SubnetTAO::<T>::mutate(netuid, |total| {
-            *total = total.saturating_add(tao);
-        });
-        // Step 7: Increase Total Tao reserves.
-        TotalStake::<T>::mutate(|total| {
-            *total = total.saturating_add(tao);
-        });
-        // Step 8. Decrease Alpha reserves.
-        SubnetVolume::<T>::mutate(netuid, |total| {
-            *total = total.saturating_sub(tao);
-        });
-        // Step 9. Return the alpha received.
-        alpha.saturating_to_num::<u64>()
+            0
+        }
     }
 
     /// Swaps a subnet's Alpba token for TAO.
     ///
     /// Updates TaoIn, AlphaIn, and AlphaOut
     pub fn swap_alpha_for_tao(netuid: u16, alpha: u64) -> u64 {
-        // Step 1: Get the mechanism type for the subnet (0 for Stable, 1 for Dynamic)
-        let mechanism_id: u16 = SubnetMechanism::<T>::get(netuid);
-        // Step 2: Swap alpha and attain tao
-        let tao: I96F32 = if mechanism_id == 1 {
-            // Step 3.a.1: Dynamic mechanism calculations
-            let tao_reserves: I96F32 = I96F32::saturating_from_num(SubnetTAO::<T>::get(netuid));
-            let alpha_reserves: I96F32 =
-                I96F32::saturating_from_num(SubnetAlphaIn::<T>::get(netuid));
-            // Step 3.a.2: Compute constant product k = alpha * tao
-            let k: I96F32 = alpha_reserves.saturating_mul(tao_reserves);
-            // Step 3.a.3: Calculate alpha staked using the constant product formula
-            // tao_recieved = tao_reserves - (k / (alpha_reserves + new_tao))
-            tao_reserves.saturating_sub(
-                k.checked_div(alpha_reserves.saturating_add(I96F32::saturating_from_num(alpha)))
-                    .unwrap_or(I96F32::saturating_from_num(0)),
-            )
+        if let Some(tao) = Self::sim_swap_alpha_for_tao(netuid, alpha) {
+            // Step 4: Increase Alpha reserves.
+            SubnetAlphaIn::<T>::mutate(netuid, |total| {
+                *total = total.saturating_add(alpha);
+            });
+            // Step 5: Decrease Alpha outstanding.
+            SubnetAlphaOut::<T>::mutate(netuid, |total| {
+                *total = total.saturating_sub(alpha);
+            });
+            // Step 6: Decrease tao reserves.
+            SubnetTAO::<T>::mutate(netuid, |total| {
+                *total = total.saturating_sub(tao);
+            });
+            // Step 7: Reduce total TAO reserves.
+            TotalStake::<T>::mutate(|total| {
+                *total = total.saturating_sub(tao);
+            });
+            // Step 8. Increase total subnet TAO volume.
+            SubnetVolume::<T>::mutate(netuid, |total| {
+                *total = total.saturating_add(tao.into());
+            });
+            // Step 9. Return the tao received.
+            tao
         } else {
-            // Step 3.b.1: Stable mechanism, just return the value 1:1
-            I96F32::saturating_from_num(alpha)
-        };
-        // Step 4: Increase Alpha reserves.
-        SubnetAlphaIn::<T>::mutate(netuid, |total| {
-            *total = total.saturating_add(alpha);
-        });
-        // Step 5: Decrease Alpha outstanding.
-        SubnetAlphaOut::<T>::mutate(netuid, |total| {
-            *total = total.saturating_sub(alpha);
-        });
-        // Step 6: Decrease tao reserves.
-        SubnetTAO::<T>::mutate(netuid, |total| {
-            *total = total.saturating_sub(tao.saturating_to_num::<u64>());
-        });
-        // Step 7: Reduce total TAO reserves.
-        TotalStake::<T>::mutate(|total| {
-            *total = total.saturating_sub(tao.saturating_to_num::<u64>());
-        });
-        // Step 8. Decrease Alpha reserves.
-        SubnetVolume::<T>::mutate(netuid, |total| {
-            *total = total.saturating_sub(tao.saturating_to_num::<u64>());
-        });
-        // Step 9. Return the tao received.
-        tao.saturating_to_num::<u64>()
+            0
+        }
     }
 
     /// Unstakes alpha from a subnet for a given hotkey and coldkey pair.
@@ -737,6 +729,8 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         netuid: u16,
         stake_to_be_added: u64,
+        max_amount: u64,
+        allow_partial: bool,
     ) -> Result<(), Error<T>> {
         // Ensure that the subnet exists.
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
@@ -746,6 +740,12 @@ impl<T: Config> Pallet<T> {
 
         // Ensure that the stake_to_be_added is at least the min_amount
         ensure!(stake_to_be_added >= min_amount, Error::<T>::AmountTooLow);
+
+        // Ensure that if partial execution is not allowed, the amount will not cause
+        // slippage over desired
+        if !allow_partial {
+            ensure!(stake_to_be_added <= max_amount, Error::<T>::SlippageTooHigh);
+        }
 
         // Ensure the callers coldkey has enough stake to perform the transaction.
         ensure!(
@@ -759,6 +759,12 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyAccountNotExists
         );
 
+        // Ensure that we have adequate liquidity
+        ensure!(
+            Self::sim_swap_tao_for_alpha(netuid, stake_to_be_added).is_some(),
+            Error::<T>::InsufficientLiquidity
+        );
+
         Ok(())
     }
 
@@ -769,16 +775,27 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         netuid: u16,
         alpha_unstaked: u64,
+        max_amount: u64,
+        allow_partial: bool,
     ) -> Result<(), Error<T>> {
         // Ensure that the subnet exists.
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
         // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
-        let tao_equivalent = Self::sim_swap_alpha_for_tao(netuid, alpha_unstaked);
-        ensure!(
-            tao_equivalent > DefaultMinStake::<T>::get(),
-            Error::<T>::AmountTooLow
-        );
+        if let Some(tao_equivalent) = Self::sim_swap_alpha_for_tao(netuid, alpha_unstaked) {
+            ensure!(
+                tao_equivalent > DefaultMinStake::<T>::get(),
+                Error::<T>::AmountTooLow
+            );
+        } else {
+            return Err(Error::<T>::InsufficientLiquidity);
+        };
+
+        // Ensure that if partial execution is not allowed, the amount will not cause
+        // slippage over desired
+        if !allow_partial {
+            ensure!(alpha_unstaked <= max_amount, Error::<T>::SlippageTooHigh);
+        }
 
         // Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
@@ -843,11 +860,14 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
-        let tao_equivalent = Self::sim_swap_alpha_for_tao(origin_netuid, alpha_amount);
-        ensure!(
-            tao_equivalent > DefaultMinStake::<T>::get(),
-            Error::<T>::AmountTooLow
-        );
+        if let Some(tao_equivalent) = Self::sim_swap_alpha_for_tao(origin_netuid, alpha_amount) {
+            ensure!(
+                tao_equivalent > DefaultMinStake::<T>::get(),
+                Error::<T>::AmountTooLow
+            );
+        } else {
+            return Err(Error::<T>::InsufficientLiquidity);
+        }
 
         Ok(())
     }

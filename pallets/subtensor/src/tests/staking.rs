@@ -10,6 +10,7 @@ use approx::assert_abs_diff_eq;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
 use frame_support::sp_runtime::DispatchError;
 use sp_core::{Get, H256, U256};
+use substrate_fixed::types::U96F32;
 
 /***********************************************************
     staking::add_stake() tests
@@ -144,7 +145,7 @@ fn test_add_stake_err_signature() {
         let netuid = 1;
 
         assert_err!(
-            SubtensorModule::add_stake(RawOrigin::None.into(), hotkey_account_id, netuid, amount,),
+            SubtensorModule::add_stake(RawOrigin::None.into(), hotkey_account_id, netuid, amount),
             DispatchError::BadOrigin
         );
     });
@@ -553,6 +554,78 @@ fn test_remove_stake_total_balance_no_change() {
         // Check total balance is equal to the added stake. Even after remove stake (no fee, includes reserved/locked balance)
         let total_balance = Balances::total_balance(&coldkey_account_id);
         assert_abs_diff_eq!(total_balance, amount - fee, epsilon = amount / 1000);
+    });
+}
+
+#[test]
+fn test_add_stake_insufficient_liquidity() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let amount_staked = DefaultMinStake::<Test>::get() * 10 + DefaultStakingFee::<Test>::get();
+
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount_staked);
+
+        // Set the liquidity at lowest possible value so that all staking requests fail
+        SubnetTAO::<Test>::insert(
+            netuid,
+            DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>(),
+        );
+        SubnetAlphaIn::<Test>::insert(
+            netuid,
+            DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>(),
+        );
+
+        // Check the error
+        assert_noop!(
+            SubtensorModule::add_stake(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                amount_staked
+            ),
+            Error::<Test>::InsufficientLiquidity
+        );
+    });
+}
+
+#[test]
+fn test_remove_stake_insufficient_liquidity() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let amount_staked = DefaultMinStake::<Test>::get() * 10 + DefaultStakingFee::<Test>::get();
+
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount_staked);
+
+        // Simulate stake for hotkey
+        SubnetTAO::<Test>::insert(netuid, u64::MAX / 1000);
+        SubnetAlphaIn::<Test>::insert(netuid, u64::MAX / 1000);
+        let alpha = SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, amount_staked, 0);
+
+        // Set the liquidity at lowest possible value so that all staking requests fail
+        SubnetTAO::<Test>::insert(
+            netuid,
+            DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>(),
+        );
+        SubnetAlphaIn::<Test>::insert(
+            netuid,
+            DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>(),
+        );
+
+        // Check the error
+        assert_noop!(
+            SubtensorModule::remove_stake(RuntimeOrigin::signed(coldkey), hotkey, netuid, alpha),
+            Error::<Test>::InsufficientLiquidity
+        );
     });
 }
 
@@ -2130,5 +2203,733 @@ fn test_stake_below_min_validate() {
 
         // Now the call passes
         assert_ok!(result_min_stake);
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_add_stake_limit_validate --exact --show-output
+#[test]
+fn test_add_stake_limit_validate() {
+    // Testing the signed extension validate function
+    // correctly filters the `add_stake` transaction.
+
+    new_test_ext(0).execute_with(|| {
+        let hotkey = U256::from(533453);
+        let coldkey = U256::from(55453);
+        let amount = 300_000_000_000;
+
+        // add network
+        let netuid: u16 = add_dynamic_network(&hotkey, &coldkey);
+
+        // Force-set alpha in and tao reserve to make price equal 1.5
+        let tao_reserve: U96F32 = U96F32::from_num(150_000_000_000_u64);
+        let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
+        let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
+        assert_eq!(current_price, U96F32::from_num(1.5));
+
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount);
+
+        // Setup limit price so that it doesn't peak above 4x of current price
+        // The amount that can be executed at this price is 150 TAO only
+        // Alpha produced will be equal to 50 = 100 - 150*100/300
+        let limit_price = 6_000_000_000;
+
+        // Add stake limit call
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::add_stake_limit {
+            hotkey,
+            netuid,
+            amount_staked: amount,
+            limit_price,
+            allow_partial: false,
+        });
+
+        let info: crate::DispatchInfo =
+            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+
+        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        // Submit to the signed extension validate function
+        let result_no_stake = extension.validate(&coldkey, &call.clone(), &info, 10);
+
+        // Should fail due to slippage
+        assert_err!(
+            result_no_stake,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::SlippageTooHigh.into()
+            ))
+        );
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_remove_stake_limit_validate --exact --show-output
+#[test]
+fn test_remove_stake_limit_validate() {
+    // Testing the signed extension validate function
+    // correctly filters the `add_stake` transaction.
+
+    new_test_ext(0).execute_with(|| {
+        let hotkey = U256::from(533453);
+        let coldkey = U256::from(55453);
+        let stake_amount = 300_000_000_000;
+        let unstake_amount = 150_000_000_000;
+
+        // add network
+        let netuid: u16 = add_dynamic_network(&hotkey, &coldkey);
+
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            stake_amount,
+        );
+
+        // Forse-set alpha in and tao reserve to make price equal 1.5
+        let tao_reserve: U96F32 = U96F32::from_num(150_000_000_000_u64);
+        let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
+        let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
+        assert_eq!(current_price, U96F32::from_num(1.5));
+
+        // Setup limit price so that it doesn't drop by more than 10% from current price
+        let limit_price = 1_350_000_000;
+
+        // Remove stake limit call
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::remove_stake_limit {
+            hotkey,
+            netuid,
+            amount_unstaked: unstake_amount,
+            limit_price,
+            allow_partial: false,
+        });
+
+        let info: crate::DispatchInfo =
+            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+
+        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        // Submit to the signed extension validate function
+        let result_no_stake = extension.validate(&coldkey, &call.clone(), &info, 10);
+
+        // Should fail due to slippage
+        assert_err!(
+            result_no_stake,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::SlippageTooHigh.into()
+            ))
+        );
+    });
+}
+
+#[test]
+fn test_stake_overflow() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let coldkey_account_id = U256::from(435445);
+        let hotkey_account_id = U256::from(54544);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let amount = 21_000_000_000_000_000; // Max TAO supply
+        let fee = DefaultStakingFee::<Test>::get();
+        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
+
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
+
+        // Setup liquidity with 21M TAO values
+        SubnetTAO::<Test>::insert(netuid, amount);
+        SubnetAlphaIn::<Test>::insert(netuid, amount);
+
+        // Stake and check if the result is ok
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            amount
+        ));
+
+        // Check if stake has increased properly (staking 1:1 to SubnetTAO results in SubnetTAO/2 alpha)
+        assert_abs_diff_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
+            (amount - fee) / 2,
+            epsilon = amount / 1_000_000,
+        );
+
+        // Check if total stake has increased accordingly.
+        assert_abs_diff_eq!(SubtensorModule::get_total_stake(), amount, epsilon = 10);
+    });
+}
+
+#[test]
+fn test_stake_low_liquidity_validate() {
+    // Testing the signed extension validate function
+    // correctly filters the `add_stake` transaction.
+
+    new_test_ext(0).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let amount_staked = DefaultMinStake::<Test>::get() * 10 + DefaultStakingFee::<Test>::get();
+
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount_staked);
+
+        // Set the liquidity at lowest possible value so that all staking requests fail
+        SubnetTAO::<Test>::insert(
+            netuid,
+            DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>(),
+        );
+        SubnetAlphaIn::<Test>::insert(
+            netuid,
+            DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>(),
+        );
+
+        // Add stake call
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::add_stake {
+            hotkey,
+            netuid,
+            amount_staked,
+        });
+
+        let info: crate::DispatchInfo =
+            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+
+        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        // Submit to the signed extension validate function
+        let result_no_stake = extension.validate(&coldkey, &call.clone(), &info, 10);
+
+        // Should fail due to insufficient stake
+        assert_err!(
+            result_no_stake,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::InsufficientLiquidity.into()
+            ))
+        );
+    });
+}
+
+#[test]
+fn test_unstake_low_liquidity_validate() {
+    // Testing the signed extension validate function
+    // correctly filters the `add_stake` transaction.
+
+    new_test_ext(0).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let amount_staked = DefaultMinStake::<Test>::get() * 10 + DefaultStakingFee::<Test>::get();
+
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount_staked);
+
+        // Simulate stake for hotkey
+        SubnetTAO::<Test>::insert(netuid, u64::MAX / 1000);
+        SubnetAlphaIn::<Test>::insert(netuid, u64::MAX / 1000);
+        let alpha = SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, amount_staked, 0);
+
+        // Set the liquidity at lowest possible value so that all staking requests fail
+        SubnetTAO::<Test>::insert(
+            netuid,
+            DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>(),
+        );
+        SubnetAlphaIn::<Test>::insert(
+            netuid,
+            DefaultMinimumPoolLiquidity::<Test>::get().to_num::<u64>(),
+        );
+
+        // Remove stake call
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::remove_stake {
+            hotkey,
+            netuid,
+            amount_unstaked: alpha,
+        });
+
+        let info: crate::DispatchInfo =
+            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+
+        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        // Submit to the signed extension validate function
+        let result_no_stake = extension.validate(&coldkey, &call.clone(), &info, 10);
+
+        // Should fail due to insufficient stake
+        assert_err!(
+            result_no_stake,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::InsufficientLiquidity.into()
+            ))
+        );
+    });
+}
+
+#[test]
+fn test_max_amount_add_root() {
+    new_test_ext(0).execute_with(|| {
+        // 0 price on root => max is 0
+        assert_eq!(SubtensorModule::get_max_amount_add(0, 0), 0);
+
+        // 0.999999... price on root => max is 0
+        assert_eq!(SubtensorModule::get_max_amount_add(0, 999_999_999), 0);
+
+        // 1.0 price on root => max is u64::MAX
+        assert_eq!(
+            SubtensorModule::get_max_amount_add(0, 1_000_000_000),
+            u64::MAX
+        );
+
+        // 1.000...001 price on root => max is u64::MAX
+        assert_eq!(
+            SubtensorModule::get_max_amount_add(0, 1_000_000_001),
+            u64::MAX
+        );
+
+        // 2.0 price on root => max is u64::MAX
+        assert_eq!(
+            SubtensorModule::get_max_amount_add(0, 2_000_000_000),
+            u64::MAX
+        );
+    });
+}
+
+#[test]
+fn test_max_amount_add_stable() {
+    new_test_ext(0).execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+
+        // 0 price => max is 0
+        assert_eq!(SubtensorModule::get_max_amount_add(netuid, 0), 0);
+
+        // 0.999999... price => max is 0
+        assert_eq!(SubtensorModule::get_max_amount_add(netuid, 999_999_999), 0);
+
+        // 1.0 price => max is u64::MAX
+        assert_eq!(
+            SubtensorModule::get_max_amount_add(netuid, 1_000_000_000),
+            u64::MAX
+        );
+
+        // 1.000...001 price => max is u64::MAX
+        assert_eq!(
+            SubtensorModule::get_max_amount_add(netuid, 1_000_000_001),
+            u64::MAX
+        );
+
+        // 2.0 price => max is u64::MAX
+        assert_eq!(
+            SubtensorModule::get_max_amount_add(netuid, 2_000_000_000),
+            u64::MAX
+        );
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_max_amount_add_dynamic --exact --show-output
+#[test]
+fn test_max_amount_add_dynamic() {
+    new_test_ext(0).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        // Forse-set alpha in and tao reserve to make price equal 1.5
+        let tao_reserve: U96F32 = U96F32::from_num(150_000_000_000_u64);
+        let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
+        let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
+        assert_eq!(current_price, U96F32::from_num(1.5));
+
+        // 0 price => max is 0
+        assert_eq!(SubtensorModule::get_max_amount_add(netuid, 0), 0);
+
+        // 1.499999... price => max is 0
+        assert_eq!(
+            SubtensorModule::get_max_amount_add(netuid, 1_499_999_999),
+            0
+        );
+
+        // 1.5 price => max is 0 because of non-zero slippage
+        assert_eq!(
+            SubtensorModule::get_max_amount_add(netuid, 1_500_000_000),
+            0
+        );
+
+        // 4x price => max is 1x TAO
+        assert_abs_diff_eq!(
+            SubtensorModule::get_max_amount_add(netuid, 6_000_000_000),
+            150_000_000_000,
+            epsilon = 10_000,
+        );
+
+        // Precision test:
+        // 1.50000..100 price => max > 0
+        assert!(SubtensorModule::get_max_amount_add(netuid, 1_500_000_100) > 0);
+
+        // Max price doesn't panic and returns something meaningful
+        assert!(SubtensorModule::get_max_amount_add(netuid, u64::MAX) < 21_000_000_000_000_000);
+        assert!(SubtensorModule::get_max_amount_add(netuid, u64::MAX - 1) < 21_000_000_000_000_000);
+        assert!(SubtensorModule::get_max_amount_add(netuid, u64::MAX / 2) < 21_000_000_000_000_000);
+    });
+}
+
+#[test]
+fn test_max_amount_remove_root() {
+    new_test_ext(0).execute_with(|| {
+        // 0 price on root => max is u64::MAX
+        assert_eq!(SubtensorModule::get_max_amount_remove(0, 0), u64::MAX);
+
+        // 0.5 price on root => max is u64::MAX
+        assert_eq!(
+            SubtensorModule::get_max_amount_remove(0, 500_000_000),
+            u64::MAX
+        );
+
+        // 0.999999... price on root => max is u64::MAX
+        assert_eq!(
+            SubtensorModule::get_max_amount_remove(0, 999_999_999),
+            u64::MAX
+        );
+
+        // 1.0 price on root => max is u64::MAX
+        assert_eq!(
+            SubtensorModule::get_max_amount_remove(0, 1_000_000_000),
+            u64::MAX
+        );
+
+        // 1.000...001 price on root => max is 0
+        assert_eq!(SubtensorModule::get_max_amount_remove(0, 1_000_000_001), 0);
+
+        // 2.0 price on root => max is 0
+        assert_eq!(SubtensorModule::get_max_amount_remove(0, 2_000_000_000), 0);
+    });
+}
+
+#[test]
+fn test_max_amount_remove_stable() {
+    new_test_ext(0).execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+
+        // 0 price => max is u64::MAX
+        assert_eq!(SubtensorModule::get_max_amount_remove(netuid, 0), u64::MAX);
+
+        // 0.999999... price => max is u64::MAX
+        assert_eq!(
+            SubtensorModule::get_max_amount_remove(netuid, 999_999_999),
+            u64::MAX
+        );
+
+        // 1.0 price => max is u64::MAX
+        assert_eq!(
+            SubtensorModule::get_max_amount_remove(netuid, 1_000_000_000),
+            u64::MAX
+        );
+
+        // 1.000...001 price => max is 0
+        assert_eq!(
+            SubtensorModule::get_max_amount_remove(netuid, 1_000_000_001),
+            0
+        );
+
+        // 2.0 price => max is 0
+        assert_eq!(
+            SubtensorModule::get_max_amount_remove(netuid, 2_000_000_000),
+            0
+        );
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_max_amount_remove_dynamic --exact --show-output
+#[test]
+fn test_max_amount_remove_dynamic() {
+    new_test_ext(0).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        // Forse-set alpha in and tao reserve to make price equal 1.5
+        let tao_reserve: U96F32 = U96F32::from_num(150_000_000_000_u64);
+        let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
+        let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
+        assert_eq!(current_price, U96F32::from_num(1.5));
+
+        // 0 price => max is u64::MAX
+        assert_eq!(SubtensorModule::get_max_amount_remove(netuid, 0), u64::MAX);
+
+        // Low price values don't blow things up
+        assert!(SubtensorModule::get_max_amount_remove(netuid, 1) > 0);
+        assert!(SubtensorModule::get_max_amount_remove(netuid, 2) > 0);
+        assert!(SubtensorModule::get_max_amount_remove(netuid, 3) > 0);
+
+        // 1.5000...1 price => max is 0
+        assert_eq!(
+            SubtensorModule::get_max_amount_remove(netuid, 1_500_000_001),
+            0
+        );
+
+        // 1.5 price => max is 0 because of non-zero slippage
+        assert_abs_diff_eq!(
+            SubtensorModule::get_max_amount_remove(netuid, 1_500_000_000),
+            0,
+            epsilon = 10_000
+        );
+
+        // 1/4 price => max is 2x Alpha
+        assert_abs_diff_eq!(
+            SubtensorModule::get_max_amount_remove(netuid, 375_000_000),
+            100_000_000_000,
+            epsilon = 10_000,
+        );
+
+        // Precision test:
+        // 1.499999.. price => max > 0
+        assert!(SubtensorModule::get_max_amount_remove(netuid, 1_499_999_999) > 0);
+
+        // Max price doesn't panic and returns something meaningful
+        assert!(SubtensorModule::get_max_amount_remove(netuid, u64::MAX) < 21_000_000_000_000_000);
+        assert!(
+            SubtensorModule::get_max_amount_remove(netuid, u64::MAX - 1) < 21_000_000_000_000_000
+        );
+        assert!(
+            SubtensorModule::get_max_amount_remove(netuid, u64::MAX / 2) < 21_000_000_000_000_000
+        );
+    });
+}
+
+#[test]
+fn test_add_stake_limit_ok() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
+        let amount = 300_000_000_000;
+        let fee = DefaultStakingFee::<Test>::get();
+
+        // add network
+        let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+
+        // Forse-set alpha in and tao reserve to make price equal 1.5
+        let tao_reserve: U96F32 = U96F32::from_num(150_000_000_000_u64);
+        let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
+        let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
+        assert_eq!(current_price, U96F32::from_num(1.5));
+
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
+
+        // Setup limit price so that it doesn't peak above 4x of current price
+        // The amount that can be executed at this price is 150 TAO only
+        // Alpha produced will be equal to 50 = 100 - 150*100/300
+        let limit_price = 6_000_000_000;
+        let expected_executed_stake = 50_000_000_000;
+
+        // Add stake with slippage safety and check if the result is ok
+        assert_ok!(SubtensorModule::add_stake_limit(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            amount,
+            limit_price,
+            true
+        ));
+
+        // Check if stake has increased only by 50 Alpha
+        assert_abs_diff_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey_account_id,
+                &coldkey_account_id,
+                netuid
+            ),
+            expected_executed_stake - fee,
+            epsilon = expected_executed_stake / 1000,
+        );
+
+        // Check that 150 TAO balance still remains free on coldkey
+        assert_abs_diff_eq!(
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id),
+            150_000_000_000,
+            epsilon = 10_000
+        );
+
+        // Check that price has updated to ~6
+        let exp_price = U96F32::from_num(6.0);
+        let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
+        assert!(exp_price.saturating_sub(current_price) < 0.0001);
+        assert!(current_price.saturating_sub(exp_price) < 0.0001);
+    });
+}
+
+#[test]
+fn test_add_stake_limit_fill_or_kill() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
+        let amount = 300_000_000_000;
+
+        // add network
+        let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+
+        // Force-set alpha in and tao reserve to make price equal 1.5
+        let tao_reserve: U96F32 = U96F32::from_num(150_000_000_000_u64);
+        let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
+        let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
+        assert_eq!(current_price, U96F32::from_num(1.5));
+
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
+
+        // Setup limit price so that it doesn't peak above 4x of current price
+        // The amount that can be executed at this price is 150 TAO only
+        // Alpha produced will be equal to 50 = 100 - 150*100/300
+        let limit_price = 6_000_000_000;
+
+        // Add stake with slippage safety and check if it fails
+        assert_noop!(
+            SubtensorModule::add_stake_limit(
+                RuntimeOrigin::signed(coldkey_account_id),
+                hotkey_account_id,
+                netuid,
+                amount,
+                limit_price,
+                false
+            ),
+            Error::<Test>::SlippageTooHigh
+        );
+
+        // Lower the amount and it should succeed now
+        assert_ok!(SubtensorModule::add_stake_limit(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            amount / 100,
+            limit_price,
+            false
+        ));
+    });
+}
+
+#[test]
+fn test_remove_stake_limit_ok() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
+        let stake_amount = 300_000_000_000;
+        let unstake_amount = 150_000_000_000;
+        let fee = DefaultStakingFee::<Test>::get();
+
+        // add network
+        let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+            stake_amount,
+        );
+        let alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+        );
+
+        // Forse-set alpha in and tao reserve to make price equal 1.5
+        let tao_reserve: U96F32 = U96F32::from_num(150_000_000_000_u64);
+        let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
+        let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
+        assert_eq!(current_price, U96F32::from_num(1.5));
+
+        // Setup limit price so that it doesn't drop by more than 10% from current price
+        let limit_price = 1_350_000_000;
+
+        // Alpha unstaked = sqrt(150 * 100 / 1.35) - 100 ~ 5.409
+        let expected_alpha_reduction = 5_409_000_000;
+
+        // Remove stake with slippage safety
+        assert_ok!(SubtensorModule::remove_stake_limit(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            unstake_amount,
+            limit_price,
+            true
+        ));
+
+        // Check if stake has decreased only by
+        assert_abs_diff_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey_account_id,
+                &coldkey_account_id,
+                netuid
+            ),
+            alpha_before - expected_alpha_reduction - fee,
+            epsilon = expected_alpha_reduction / 1_000,
+        );
+    });
+}
+
+#[test]
+fn test_remove_stake_limit_fill_or_kill() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
+        let stake_amount = 300_000_000_000;
+        let unstake_amount = 150_000_000_000;
+
+        // add network
+        let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+            stake_amount,
+        );
+
+        // Forse-set alpha in and tao reserve to make price equal 1.5
+        let tao_reserve: U96F32 = U96F32::from_num(150_000_000_000_u64);
+        let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
+        let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
+        assert_eq!(current_price, U96F32::from_num(1.5));
+
+        // Setup limit price so that it doesn't drop by more than 10% from current price
+        let limit_price = 1_350_000_000;
+
+        // Remove stake with slippage safety - fails
+        assert_noop!(
+            SubtensorModule::remove_stake_limit(
+                RuntimeOrigin::signed(coldkey_account_id),
+                hotkey_account_id,
+                netuid,
+                unstake_amount,
+                limit_price,
+                false
+            ),
+            Error::<Test>::SlippageTooHigh
+        );
+
+        // Lower the amount: Should succeed
+        assert_ok!(SubtensorModule::remove_stake_limit(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            unstake_amount / 100,
+            limit_price,
+            false
+        ),);
     });
 }
