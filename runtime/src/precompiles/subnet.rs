@@ -10,6 +10,8 @@ use sp_core::U256;
 use sp_runtime::traits::BlakeTwo256;
 use sp_runtime::AccountId32;
 use sp_std::vec;
+
+use super::parse_netuid;
 pub const SUBNET_PRECOMPILE_INDEX: u64 = 2051;
 // bytes with max lenght 1K
 pub const MAX_SINGLE_PARAMETER_SIZE: usize = 1024;
@@ -242,7 +244,7 @@ impl SubnetPrecompile {
     }
 
     fn get_serving_rate_limit(data: &[u8]) -> PrecompileResult {
-        let netuid = Self::parse_netuid(data)?;
+        let netuid = parse_netuid(data, 30)?;
 
         let value = pallet_subtensor::ServingRateLimit::<Runtime>::get(netuid);
 
@@ -274,7 +276,7 @@ impl SubnetPrecompile {
     }
 
     fn get_min_difficulty(data: &[u8]) -> PrecompileResult {
-        let netuid = Self::parse_netuid(data)?;
+        let netuid = parse_netuid(data, 30)?;
 
         let value = pallet_subtensor::MinDifficulty::<Runtime>::get(netuid);
 
@@ -306,7 +308,7 @@ impl SubnetPrecompile {
     }
 
     fn get_max_difficulty(data: &[u8]) -> PrecompileResult {
-        let netuid = Self::parse_netuid(data)?;
+        let netuid = parse_netuid(data, 30)?;
 
         let value = pallet_subtensor::MaxDifficulty::<Runtime>::get(netuid);
 
@@ -338,7 +340,7 @@ impl SubnetPrecompile {
     }
 
     fn get_weights_version_key(data: &[u8]) -> PrecompileResult {
-        let netuid = Self::parse_netuid(data)?;
+        let netuid = parse_netuid(data, 30)?;
 
         let value = pallet_subtensor::WeightsVersionKey::<Runtime>::get(netuid);
 
@@ -373,7 +375,7 @@ impl SubnetPrecompile {
     }
 
     fn get_weights_set_rate_limit(data: &[u8]) -> PrecompileResult {
-        let netuid = Self::parse_netuid(data)?;
+        let netuid = parse_netuid(data, 30)?;
 
         let value = pallet_subtensor::WeightsSetRateLimit::<Runtime>::get(netuid);
 
@@ -409,7 +411,7 @@ impl SubnetPrecompile {
     }
 
     fn get_adjustment_alpha(data: &[u8]) -> PrecompileResult {
-        let netuid = Self::parse_netuid(data)?;
+        let netuid = parse_netuid(data, 30)?;
 
         let value = pallet_subtensor::AdjustmentAlpha::<Runtime>::get(netuid);
 
@@ -441,7 +443,7 @@ impl SubnetPrecompile {
     }
 
     fn get_max_weight_limit(data: &[u8]) -> PrecompileResult {
-        let netuid = Self::parse_netuid(data)?;
+        let netuid = parse_netuid(data, 30)?;
 
         let value = pallet_subtensor::MaxWeightsLimit::<Runtime>::get(netuid);
 
@@ -473,7 +475,7 @@ impl SubnetPrecompile {
     }
 
     fn get_immunity_period(data: &[u8]) -> PrecompileResult {
-        let netuid = Self::parse_netuid(data)?;
+        let netuid = parse_netuid(data, 30)?;
 
         let value = pallet_subtensor::ImmunityPeriod::<Runtime>::get(netuid);
 
@@ -505,7 +507,7 @@ impl SubnetPrecompile {
     }
 
     fn get_min_allowed_weights(data: &[u8]) -> PrecompileResult {
-        let netuid = Self::parse_netuid(data)?;
+        let netuid = parse_netuid(data, 30)?;
 
         let value = pallet_subtensor::MinAllowedWeights::<Runtime>::get(netuid);
 
@@ -540,7 +542,7 @@ impl SubnetPrecompile {
     }
 
     fn get_kappa(data: &[u8]) -> PrecompileResult {
-        let netuid = Self::parse_netuid(data)?;
+        let netuid = parse_netuid(data, 30)?;
 
         let value = pallet_subtensor::Kappa::<Runtime>::get(netuid);
 
@@ -570,7 +572,7 @@ impl SubnetPrecompile {
     }
 
     fn get_rho(data: &[u8]) -> PrecompileResult {
-        let netuid = Self::parse_netuid(data)?;
+        let netuid = parse_netuid(data, 30)?;
 
         let value = pallet_subtensor::Rho::<Runtime>::get(netuid);
 
@@ -600,7 +602,7 @@ impl SubnetPrecompile {
     }
 
     fn get_activity_cutoff(data: &[u8]) -> PrecompileResult {
-        let netuid = Self::parse_netuid(data)?;
+        let netuid = parse_netuid(data, 30)?;
 
         let value = pallet_subtensor::ActivityCutoff::<Runtime>::get(netuid);
 
@@ -632,7 +634,7 @@ impl SubnetPrecompile {
     }
 
     fn get_network_registration_allowed(data: &[u8]) -> PrecompileResult {
-        let netuid = Self::parse_netuid(data)?;
+        let netuid = parse_netuid(data, 30)?;
 
         let value = pallet_subtensor::NetworkRegistrationAllowed::<Runtime>::get(netuid);
 
@@ -667,7 +669,7 @@ impl SubnetPrecompile {
     }
 
     fn get_network_pow_registration_allowed(data: &[u8]) -> PrecompileResult {
-        let netuid = Self::parse_netuid(data)?;
+        let netuid = parse_netuid(data, 30)?;
 
         let value = pallet_subtensor::NetworkPowRegistrationAllowed::<Runtime>::get(netuid);
 
@@ -702,7 +704,7 @@ impl SubnetPrecompile {
     }
 
     fn get_min_burn(data: &[u8]) -> PrecompileResult {
-        let netuid = Self::parse_netuid(data)?;
+        let netuid = parse_netuid(data, 30)?;
 
         let value = pallet_subtensor::MinBurn::<Runtime>::get(netuid);
 
@@ -733,7 +735,7 @@ impl SubnetPrecompile {
     }
 
     fn get_max_burn(data: &[u8]) -> PrecompileResult {
-        let netuid = Self::parse_netuid(data)?;
+        let netuid = parse_netuid(data, 30)?;
 
         let value = pallet_subtensor::MaxBurn::<Runtime>::get(netuid);
 
@@ -764,7 +766,7 @@ impl SubnetPrecompile {
     }
 
     fn get_difficulty(data: &[u8]) -> PrecompileResult {
-        let netuid = Self::parse_netuid(data)?;
+        let netuid = parse_netuid(data, 30)?;
 
         let value = pallet_subtensor::Difficulty::<Runtime>::get(netuid);
 
@@ -795,7 +797,7 @@ impl SubnetPrecompile {
     }
 
     fn get_bonds_moving_average(data: &[u8]) -> PrecompileResult {
-        let netuid = Self::parse_netuid(data)?;
+        let netuid = parse_netuid(data, 30)?;
 
         let value = pallet_subtensor::BondsMovingAverage::<Runtime>::get(netuid);
 
@@ -830,7 +832,7 @@ impl SubnetPrecompile {
     }
 
     fn get_commit_reveal_weights_enabled(data: &[u8]) -> PrecompileResult {
-        let netuid = Self::parse_netuid(data)?;
+        let netuid = parse_netuid(data, 30)?;
 
         let value = pallet_subtensor::CommitRevealWeightsEnabled::<Runtime>::get(netuid);
 
@@ -865,7 +867,7 @@ impl SubnetPrecompile {
     }
 
     fn get_liquid_alpha_enabled(data: &[u8]) -> PrecompileResult {
-        let netuid = Self::parse_netuid(data)?;
+        let netuid = parse_netuid(data, 30)?;
 
         let value = pallet_subtensor::LiquidAlphaOn::<Runtime>::get(netuid);
 
@@ -897,7 +899,7 @@ impl SubnetPrecompile {
     }
 
     fn get_alpha_values(data: &[u8]) -> PrecompileResult {
-        let netuid = Self::parse_netuid(data)?;
+        let netuid = parse_netuid(data, 30)?;
 
         let (alpha_low, alpha_high) = pallet_subtensor::AlphaValues::<Runtime>::get(netuid);
 
@@ -932,7 +934,7 @@ impl SubnetPrecompile {
     }
 
     fn get_commit_reveal_weights_interval(data: &[u8]) -> PrecompileResult {
-        let netuid = Self::parse_netuid(data)?;
+        let netuid = parse_netuid(data, 30)?;
 
         let value = pallet_subtensor::RevealPeriodEpochs::<Runtime>::get(netuid);
 
@@ -1083,28 +1085,13 @@ impl SubnetPrecompile {
         Ok((pubkey, name_vec, repo_vec, contact_vec))
     }
 
-    fn parse_netuid(data: &[u8]) -> Result<u16, PrecompileFailure> {
-        if data.len() < 32 {
-            return Err(PrecompileFailure::Error {
-                exit_status: ExitError::InvalidRange,
-            });
-        }
-        let mut netuid_vec = [0u8; 2];
-        netuid_vec.copy_from_slice(get_slice(data, 30, 32)?);
-        let netuid = u16::from_be_bytes(netuid_vec);
-
-        Ok(netuid)
-    }
-
     fn parse_netuid_u64_parameter(data: &[u8]) -> Result<(u16, u64), PrecompileFailure> {
         if data.len() < 64 {
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
             });
         }
-        let mut netuid_vec = [0u8; 2];
-        netuid_vec.copy_from_slice(get_slice(data, 30, 32)?);
-        let netuid = u16::from_be_bytes(netuid_vec);
+        let netuid = parse_netuid(data, 30)?;
 
         let mut parameter_vec = [0u8; 8];
         parameter_vec.copy_from_slice(get_slice(data, 56, 64)?);
@@ -1119,9 +1106,7 @@ impl SubnetPrecompile {
                 exit_status: ExitError::InvalidRange,
             });
         }
-        let mut netuid_vec = [0u8; 2];
-        netuid_vec.copy_from_slice(get_slice(data, 30, 32)?);
-        let netuid = u16::from_be_bytes(netuid_vec);
+        let netuid = parse_netuid(data, 30)?;
 
         let mut parameter_vec = [0u8; 2];
         parameter_vec.copy_from_slice(get_slice(data, 62, 64)?);
@@ -1136,9 +1121,7 @@ impl SubnetPrecompile {
                 exit_status: ExitError::InvalidRange,
             });
         }
-        let mut netuid_vec = [0u8; 2];
-        netuid_vec.copy_from_slice(get_slice(data, 30, 32)?);
-        let netuid = u16::from_be_bytes(netuid_vec);
+        let netuid = parse_netuid(data, 30)?;
 
         let mut parameter_1_vec = [0u8; 2];
         parameter_1_vec.copy_from_slice(get_slice(data, 62, 64)?);
@@ -1157,9 +1140,7 @@ impl SubnetPrecompile {
                 exit_status: ExitError::InvalidRange,
             });
         }
-        let mut netuid_vec = [0u8; 2];
-        netuid_vec.copy_from_slice(get_slice(data, 30, 32)?);
-        let netuid = u16::from_be_bytes(netuid_vec);
+        let netuid = parse_netuid(data, 30)?;
 
         let mut parameter_vec = [0_u8];
         parameter_vec.copy_from_slice(get_slice(data, 63, 64)?);
