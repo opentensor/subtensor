@@ -4,8 +4,7 @@ use pallet_evm::{
 };
 
 use crate::precompiles::{
-    contract_to_origin, get_method_id, get_pubkey, get_slice, parse_netuid,
-    try_dispatch_runtime_call,
+    get_method_id, get_pubkey, get_slice, parse_netuid, try_dispatch_runtime_call,
 };
 use crate::{Runtime, RuntimeCall};
 use frame_system::RawOrigin;
@@ -19,6 +18,7 @@ pub const NEURON_PRECOMPILE_INDEX: u64 = 2052;
 pub const MAX_PARAMETER_SIZE: usize = 4 * 1024;
 // ss58 public key i.e., the contract sends funds it received to the destination address from the
 // method parameter.
+#[allow(dead_code)]
 const CONTRACT_ADDRESS_SS58: [u8; 32] = [
     0xbc, 0x46, 0x35, 0x79, 0xbc, 0x99, 0xf9, 0xee, 0x7c, 0x59, 0xed, 0xee, 0x20, 0x61, 0xa3, 0x09,
     0xd2, 0x1e, 0x68, 0xd5, 0x39, 0xb6, 0x40, 0xec, 0x66, 0x46, 0x90, 0x30, 0xab, 0x74, 0xc1, 0xdb,
