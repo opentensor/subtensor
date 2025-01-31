@@ -358,11 +358,11 @@ impl<T: Config> Pallet<T> {
             return u64::MAX;
         }
 
-        // Corner case: limit_price > current_price (price cannot increase with unstaking)
+        // Corner case: limit_price >= current_price (price cannot increase with unstaking)
         let limit_price_float: U96F32 = U96F32::saturating_from_num(limit_price)
             .checked_div(U96F32::saturating_from_num(1_000_000_000))
             .unwrap_or(U96F32::saturating_from_num(0));
-        if limit_price_float > Self::get_alpha_price(netuid) {
+        if limit_price_float >= Self::get_alpha_price(netuid) {
             return 0;
         }
 

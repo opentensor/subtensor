@@ -1,7 +1,7 @@
 use super::*;
 use safe_math::*;
 use sp_core::Get;
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::U64F64;
 
 impl<T: Config> Pallet<T> {
     /// Moves stake from one hotkey to another across subnets.
@@ -366,7 +366,7 @@ impl<T: Config> Pallet<T> {
         destination_netuid: u16,
         limit_price: u64,
     ) -> u64 {
-        let tao: U96F32 = U96F32::saturating_from_num(1_000_000_000);
+        let tao: U64F64 = U64F64::saturating_from_num(1_000_000_000);
 
         // Corner case: both subnet IDs are root or stao
         // There's no slippage for root or stable subnets, so slippage is always 0.
@@ -394,7 +394,7 @@ impl<T: Config> Pallet<T> {
             } else {
                 // The destination price is reverted because the limit_price is origin_price / destination_price
                 let destination_subnet_price = tao
-                    .safe_div(U96F32::saturating_from_num(limit_price))
+                    .safe_div(U64F64::saturating_from_num(limit_price))
                     .saturating_mul(tao)
                     .saturating_to_num::<u64>();
                 return Self::get_max_amount_add(destination_netuid, destination_subnet_price);
@@ -416,8 +416,8 @@ impl<T: Config> Pallet<T> {
         if (subnet_tao_1 == 0) || (subnet_tao_2 == 0) {
             return 0;
         }
-        let subnet_tao_1_float: U96F32 = U96F32::saturating_from_num(subnet_tao_1);
-        let subnet_tao_2_float: U96F32 = U96F32::saturating_from_num(subnet_tao_2);
+        let subnet_tao_1_float: U64F64 = U64F64::saturating_from_num(subnet_tao_1);
+        let subnet_tao_2_float: U64F64 = U64F64::saturating_from_num(subnet_tao_2);
 
         // Corner case: SubnetAlphaIn for any of two subnets is zero
         let alpha_in_1 = SubnetAlphaIn::<T>::get(origin_netuid);
@@ -425,16 +425,16 @@ impl<T: Config> Pallet<T> {
         if (alpha_in_1 == 0) || (alpha_in_2 == 0) {
             return 0;
         }
-        let alpha_in_1_float: U96F32 = U96F32::saturating_from_num(alpha_in_1);
-        let alpha_in_2_float: U96F32 = U96F32::saturating_from_num(alpha_in_2);
+        let alpha_in_1_float: U64F64 = U64F64::saturating_from_num(alpha_in_1);
+        let alpha_in_2_float: U64F64 = U64F64::saturating_from_num(alpha_in_2);
 
         // Corner case: limit_price > current_price (price of origin (as a base) relative
         // to destination (as a quote) cannot increase with moving)
         // The alpha price is never zero at this point because of the checks above.
         // Excluding this corner case guarantees that main case nominator is non-negative
-        let limit_price_float: U96F32 = U96F32::saturating_from_num(limit_price)
-            .checked_div(U96F32::saturating_from_num(1_000_000_000))
-            .unwrap_or(U96F32::saturating_from_num(0));
+        let limit_price_float: U64F64 = U64F64::saturating_from_num(limit_price)
+            .checked_div(U64F64::saturating_from_num(1_000_000_000))
+            .unwrap_or(U64F64::saturating_from_num(0));
         let current_price = Self::get_alpha_price(origin_netuid)
             .safe_div(Self::get_alpha_price(destination_netuid));
         if limit_price_float > current_price {
@@ -450,17 +450,15 @@ impl<T: Config> Pallet<T> {
         // Nominator is positive
         // Denominator is positive
         // Perform calculation in a non-overflowing order
-        let tao_sum: U96F32 =
-            U96F32::saturating_from_num(subnet_tao_2_float.saturating_add(subnet_tao_1_float));
-        let a1_over_sum: U96F32 = alpha_in_1_float.safe_div(tao_sum);
-        let a2_over_sum: U96F32 = alpha_in_2_float.safe_div(tao_sum);
-        let t1_over_sum: U96F32 = subnet_tao_1_float.safe_div(tao_sum);
-        let t2_over_sum: U96F32 = subnet_tao_2_float.safe_div(tao_sum);
+        let tao_sum: U64F64 =
+            U64F64::saturating_from_num(subnet_tao_2_float.saturating_add(subnet_tao_1_float));
+        let t1_over_sum: U64F64 = subnet_tao_1_float.safe_div(tao_sum);
+        let t2_over_sum: U64F64 = subnet_tao_2_float.safe_div(tao_sum);
 
-        a2_over_sum
+        alpha_in_2_float
             .saturating_mul(t1_over_sum)
             .safe_div(limit_price_float)
-            .saturating_sub(a1_over_sum.saturating_mul(t2_over_sum))
+            .saturating_sub(alpha_in_1_float.saturating_mul(t2_over_sum))
             .saturating_to_num::<u64>()
     }
 }
