@@ -1,98 +1,178 @@
 pragma solidity ^0.8.0;
 
-address constant ISTAKING_ADDRESS = 0x0000000000000000000000000000000000000803;
+address constant ISUBNET_ADDRESS = 0x0000000000000000000000000000000000000803;
 
 interface ISubnet {
-  /// Registers a new network without specifying details.
-  function registerNetwork() external payable;
-  /// Registers a new network with specified subnet name, GitHub repository, and contact information.
-  function registerNetwork(bytes memory subnetName, bytes memory githubRepo, bytes memory subnetContact) external payable;
+    /// Registers a new network without specifying details.
+    function registerNetwork() external payable;
+    /// Registers a new network with specified subnet name, GitHub repository, and contact information.
+    function registerNetwork(
+        bytes memory subnetName,
+        bytes memory githubRepo,
+        bytes memory subnetContact
+    ) external payable;
 
-  function getServingRateLimit(uint16 netuid) external view returns (uint64);
+    function getServingRateLimit(uint16 netuid) external view returns (uint64);
 
-  function setServingRateLimit(uint16 netuid, uint64 servingRateLimit) external payable;
+    function setServingRateLimit(
+        uint16 netuid,
+        uint64 servingRateLimit
+    ) external payable;
 
-  function getMinDifficulty(uint16 netuid) external view returns (uint64);
+    function getMinDifficulty(uint16 netuid) external view returns (uint64);
 
-  function setMinDifficulty(uint16 netuid, uint64 minDifficulty) external payable;
+    function setMinDifficulty(
+        uint16 netuid,
+        uint64 minDifficulty
+    ) external payable;
 
-  function getMaxDifficulty(uint16 netuid) external view returns (uint64);
+    function getMaxDifficulty(uint16 netuid) external view returns (uint64);
 
-  function setMaxDifficulty(uint16 netuid,uint64 maxDifficulty) external payable;
+    function setMaxDifficulty(
+        uint16 netuid,
+        uint64 maxDifficulty
+    ) external payable;
 
-  function getWeightsVersionKey(uint16 netuid) external view returns (uint64);
+    function getWeightsVersionKey(uint16 netuid) external view returns (uint64);
 
-  function setWeightsVersionKey(uint16 netuid, uint64 weightsVersionKey) external payable;
+    function setWeightsVersionKey(
+        uint16 netuid,
+        uint64 weightsVersionKey
+    ) external payable;
 
-  function getWeightsSetRateLimit(uint16 netuid) external view returns (uint64);
+    function getWeightsSetRateLimit(
+        uint16 netuid
+    ) external view returns (uint64);
 
-  function setWeightsSetRateLimit(uint16 netuid, uint64 weightsSetRateLimit) external payable;
+    function setWeightsSetRateLimit(
+        uint16 netuid,
+        uint64 weightsSetRateLimit
+    ) external payable;
 
-  function getAdjustmentAlpha(uint16 netuid) external view returns (uint64);
+    function getAdjustmentAlpha(uint16 netuid) external view returns (uint64);
 
-  function setAdjustmentAlpha(uint16 netuid, uint64 adjustmentAlpha) external payable;
+    function setAdjustmentAlpha(
+        uint16 netuid,
+        uint64 adjustmentAlpha
+    ) external payable;
 
-  function getMaxWeightLimit(uint16 netuid) external view returns (uint64);
+    function getMaxWeightLimit(uint16 netuid) external view returns (uint64);
 
-  function setMaxWeightLimit(uint16 netuid, uint64 maxWeightLimit) external payable;
+    function setMaxWeightLimit(
+        uint16 netuid,
+        uint64 maxWeightLimit
+    ) external payable;
 
-  function getImmunityPeriod(uint16) external view returns (uint64);
+    function getImmunityPeriod(uint16) external view returns (uint64);
 
-  function setImmunityPeriod(uint16 netuid, uint64 immunityPeriod) external payable;
+    function setImmunityPeriod(
+        uint16 netuid,
+        uint64 immunityPeriod
+    ) external payable;
 
-  function getMinAllowedWeights(uint16 netuid)external view returns (uint16);
+    function getMinAllowedWeights(uint16 netuid) external view returns (uint16);
 
-  function setMinAllowedWeights(uint16 netuid, uint16 minAllowedWeights) external payable;
+    function setMinAllowedWeights(
+        uint16 netuid,
+        uint16 minAllowedWeights
+    ) external payable;
 
-  function getKappa(uint16) external view returns (uint16);
+    function getKappa(uint16) external view returns (uint16);
 
-  function setKappa(uint16 netuid, uint16 kappa) external payable;
+    function setKappa(uint16 netuid, uint16 kappa) external payable;
 
-  function getRho(uint16) external view returns (uint16);
+    function getRho(uint16) external view returns (uint16);
 
-  function setRho(uint16 netuid, uint16 rho) external payable;
+    function setRho(uint16 netuid, uint16 rho) external payable;
 
-  function getActivityCutoff(uint16 netuid) external view returns (uint16);
+    function getActivityCutoff(uint16 netuid) external view returns (uint16);
 
-  function setActivityCutoff(uint16 netuid, uint16 activityCutoff) external payable;
+    function setActivityCutoff(
+        uint16 netuid,
+        uint16 activityCutoff
+    ) external payable;
 
-  function getNetworkRegistrationAllowed(uint16 netuid) external view returns (bool);
+    function getNetworkRegistrationAllowed(
+        uint16 netuid
+    ) external view returns (bool);
 
-  function setNetworkRegistrationAllowed(uint16 netuid, bool networkRegistrationAllowed) external payable;
+    function setNetworkRegistrationAllowed(
+        uint16 netuid,
+        bool networkRegistrationAllowed
+    ) external payable;
 
-  function getNetworkPowRegistrationAllowed(uint16 netuid) external view returns (bool);
+    function getNetworkPowRegistrationAllowed(
+        uint16 netuid
+    ) external view returns (bool);
 
-  function setNetworkPowRegistrationAllowed(uint16 netuid, bool networkPowRegistrationAllowed) external payable;
+    function setNetworkPowRegistrationAllowed(
+        uint16 netuid,
+        bool networkPowRegistrationAllowed
+    ) external payable;
 
-  function getMinBurn(uint16 netuid) external view returns (uint64);
+    function getMinBurn(uint16 netuid) external view returns (uint64);
 
-  function setMinBurn(uint16 netuid, uint64 minBurn) external payable;
+    function setMinBurn(uint16 netuid, uint64 minBurn) external payable;
 
-  function getMaxBurn(uint16 netuid) external view returns (uint64);
+    function getMaxBurn(uint16 netuid) external view returns (uint64);
 
-  function setMaxBurn(uint16 netuid, uint64 maxBurn) external payable;
+    function setMaxBurn(uint16 netuid, uint64 maxBurn) external payable;
 
-  function getDifficulty(uint16 netuid) external view returns (uint64);
+    function getDifficulty(uint16 netuid) external view returns (uint64);
 
-  function setDifficulty(uint16 netuid, uint64 difficulty) external payable;
+    function setDifficulty(uint16 netuid, uint64 difficulty) external payable;
 
-  function getBondsMovingAverage(uint16 netuid) external view returns (uint64);
+    function getBondsMovingAverage(
+        uint16 netuid
+    ) external view returns (uint64);
 
-  function setBondsMovingAverage(uint16 netuid, uint64 bondsMovingAverage) external payable;
+    function setBondsMovingAverage(
+        uint16 netuid,
+        uint64 bondsMovingAverage
+    ) external payable;
 
-  function getCommitRevealWeightsEnabled(uint16 netuid) external view returns (bool);
+    function getCommitRevealWeightsEnabled(
+        uint16 netuid
+    ) external view returns (bool);
 
-  function setCommitRevealWeightsEnabled(uint16 netuid, bool commitRevealWeightsEnabled) external payable;
+    function setCommitRevealWeightsEnabled(
+        uint16 netuid,
+        bool commitRevealWeightsEnabled
+    ) external payable;
 
-  function getLiquidAlphaEnabled(uint16 netuid) external view returns (bool);
+    function getLiquidAlphaEnabled(uint16 netuid) external view returns (bool);
 
-  function setLiquidAlphaEnabled(uint16 netuid, bool liquidAlphaEnabled) external payable;
+    function setLiquidAlphaEnabled(
+        uint16 netuid,
+        bool liquidAlphaEnabled
+    ) external payable;
 
-  function getAlphaValues(uint16 netuid) external view returns (uint16, uint16);
+    function getAlphaValues(
+        uint16 netuid
+    ) external view returns (uint16, uint16);
 
-  function setAlphaValues(uint16 netuid, uint16 alphaLow, uint16 alphaHigh) external payable;
+    function setAlphaValues(
+        uint16 netuid,
+        uint16 alphaLow,
+        uint16 alphaHigh
+    ) external payable;
 
-  function getCommitRevealWeightsInterval(uint16 netuid) external view returns (uint64);
+    function getCommitRevealWeightsInterval(
+        uint16 netuid
+    ) external view returns (uint64);
 
-  function setCommitRevealWeightsInterval(uint16 netuid, uint64 commitRevealWeightsInterval) external payable;
+    function setCommitRevealWeightsInterval(
+        uint16 netuid,
+        uint64 commitRevealWeightsInterval
+    ) external payable;
+
+    /// Registers a new network without specifying details.
+    function registerNetwork(bytes32 hotkey) external payable;
+    /// Registers a new network with specified subnet name, GitHub repository, and contact information.
+    function registerNetwork(
+        bytes32 hotkey,
+        bytes memory subnetName,
+        bytes memory githubRepo,
+        bytes memory subnetContact
+    ) external payable;
 }
