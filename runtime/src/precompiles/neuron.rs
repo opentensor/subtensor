@@ -227,7 +227,7 @@ impl NeuronPrecompile {
         if len_position > data_len {
             log::error!(
                 "the start position of certificate as {} is bigger than whole data len {}",
-                subnet_contact_start,
+                len_position,
                 data_len
             );
             return Err(PrecompileFailure::Error {
