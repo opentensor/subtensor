@@ -24,11 +24,17 @@ sp_api::decl_runtime_apis! {
         fn get_subnet_info_v2(netuid: u16) -> Vec<u8>;
         fn get_subnets_info_v2() -> Vec<u8>;
         fn get_subnet_hyperparams(netuid: u16) -> Vec<u8>;
+        fn get_all_dynamic_info() -> Vec<u8>;
+        fn get_all_metagraphs() -> Vec<u8>;
+        fn get_metagraph(netuid: u16) -> Vec<u8>;
+        fn get_dynamic_info(netuid: u16) -> Vec<u8>;
+        fn get_subnet_state(netuid: u16) -> Vec<u8>;
     }
 
     pub trait StakeInfoRuntimeApi {
         fn get_stake_info_for_coldkey( coldkey_account_vec: Vec<u8> ) -> Vec<u8>;
         fn get_stake_info_for_coldkeys( coldkey_account_vecs: Vec<Vec<u8>> ) -> Vec<u8>;
+        fn get_stake_info_for_hotkey_coldkey_netuid( hotkey_account_vec: Vec<u8>, coldkey_account_vec: Vec<u8>, netuid: u16 ) -> Vec<u8>;
     }
 
     pub trait SubnetRegistrationRuntimeApi {

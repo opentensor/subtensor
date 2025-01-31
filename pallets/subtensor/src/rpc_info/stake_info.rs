@@ -4,12 +4,17 @@ extern crate alloc;
 use codec::Compact;
 use sp_core::hexdisplay::AsBytesRef;
 
-#[freeze_struct("86d64c14d71d44b9")]
+#[freeze_struct("c5e3871b39062f8e")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct StakeInfo<T: Config> {
     hotkey: T::AccountId,
     coldkey: T::AccountId,
+    netuid: Compact<u16>,
     stake: Compact<u64>,
+    locked: Compact<u64>,
+    emission: Compact<u64>,
+    drain: Compact<u64>,
+    is_registered: bool,
 }
 
 impl<T: Config> Pallet<T> {
@@ -19,24 +24,37 @@ impl<T: Config> Pallet<T> {
         if coldkeys.is_empty() {
             return Vec::new(); // No coldkeys to check
         }
-
+        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
         let mut stake_info: Vec<(T::AccountId, Vec<StakeInfo<T>>)> = Vec::new();
-        for coldkey_ in coldkeys {
+        for coldkey_i in coldkeys.clone().iter() {
+            // Get all hotkeys associated with this coldkey.
+            let staking_hotkeys = StakingHotkeys::<T>::get(coldkey_i.clone());
             let mut stake_info_for_coldkey: Vec<StakeInfo<T>> = Vec::new();
-
-            for (hotkey, coldkey, stake) in <Stake<T>>::iter() {
-                if coldkey == coldkey_ {
+            for netuid_i in netuids.clone().iter() {
+                for hotkey_i in staking_hotkeys.clone().iter() {
+                    let alpha: u64 = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
+                        hotkey_i, coldkey_i, *netuid_i,
+                    );
+                    if alpha == 0 {
+                        continue;
+                    }
+                    let emission: u64 = AlphaDividendsPerSubnet::<T>::get(*netuid_i, &hotkey_i);
+                    let is_registered: bool =
+                        Self::is_hotkey_registered_on_network(*netuid_i, hotkey_i);
                     stake_info_for_coldkey.push(StakeInfo {
-                        hotkey,
-                        coldkey,
-                        stake: stake.into(),
+                        hotkey: hotkey_i.clone(),
+                        coldkey: coldkey_i.clone(),
+                        netuid: (*netuid_i).into(),
+                        stake: alpha.into(),
+                        locked: 0.into(),
+                        emission: emission.into(),
+                        drain: 0.into(),
+                        is_registered,
                     });
                 }
             }
-
-            stake_info.push((coldkey_, stake_info_for_coldkey));
+            stake_info.push((coldkey_i.clone(), stake_info_for_coldkey));
         }
-
         stake_info
     }
 
@@ -80,5 +98,43 @@ impl<T: Config> Pallet<T> {
 
             first.1.clone()
         }
+    }
+
+    pub fn get_stake_info_for_hotkey_coldkey_netuid(
+        hotkey_account_vec: Vec<u8>,
+        coldkey_account_vec: Vec<u8>,
+        netuid: u16,
+    ) -> Option<StakeInfo<T>> {
+        if coldkey_account_vec.len() != 32 {
+            return None; // Invalid coldkey
+        }
+
+        let Ok(coldkey) = T::AccountId::decode(&mut coldkey_account_vec.as_bytes_ref()) else {
+            return None;
+        };
+
+        if hotkey_account_vec.len() != 32 {
+            return None; // Invalid hotkey
+        }
+
+        let Ok(hotkey) = T::AccountId::decode(&mut hotkey_account_vec.as_bytes_ref()) else {
+            return None;
+        };
+
+        let alpha: u64 =
+            Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        let emission: u64 = AlphaDividendsPerSubnet::<T>::get(netuid, &hotkey);
+        let is_registered: bool = Self::is_hotkey_registered_on_network(netuid, &hotkey);
+
+        Some(StakeInfo {
+            hotkey: hotkey.clone(),
+            coldkey: coldkey.clone(),
+            netuid: (netuid).into(),
+            stake: alpha.into(),
+            locked: 0.into(),
+            emission: emission.into(),
+            drain: 0.into(),
+            is_registered,
+        })
     }
 }
