@@ -12,6 +12,14 @@ interface INeuron {
      */
     function burnedRegister(uint16 netuid, bytes32 hotkey) external payable;
 
+    /**
+     * @dev Sets the weights for a neuron.
+     *
+     * @param netuid The subnet to set the weights for (uint16).
+     * @param dests The destinations of the weights (uint16[]).
+     * @param weights The weights to set (uint16[]).
+     * @param versionKey The version key for the weights (uint64).
+     */
     function setWeights(
         uint16 netuid,
         uint16[] memory dests,
@@ -19,8 +27,23 @@ interface INeuron {
         uint64 versionKey
     ) external payable;
 
+    /**
+     * @dev Commits the weights for a neuron.
+     *
+     * @param netuid The subnet to commit the weights for (uint16).
+     * @param commitHash The commit hash for the weights (uint256).
+     */
     function commitWeights(uint16 netuid, uint256 commitHash) external payable;
 
+    /**
+     * @dev Reveals the weights for a neuron.
+     *
+     * @param netuid The subnet to reveal the weights for (uint16).
+     * @param uids The unique identifiers for the weights (uint16[]).
+     * @param values The values of the weights (uint16[]).
+     * @param salt The salt values for the weights (uint16[]).
+     * @param versionKey The version key for the weights (uint64).
+     */
     function revealWeights(
         uint16 netuid,
         uint16[] memory uids,
