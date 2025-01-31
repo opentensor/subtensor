@@ -122,7 +122,12 @@ impl NeuronPrecompile {
                 netuid,
                 hotkey,
             });
-        try_dispatch_runtime_call(handle, call, contract_to_origin(&CONTRACT_ADDRESS_SS58)?)
+
+        let account_id =
+            <HashedAddressMapping<BlakeTwo256> as AddressMapping<AccountId32>>::into_account_id(
+                handle.context().caller,
+            );
+        try_dispatch_runtime_call(handle, call, RawOrigin::Signed(account_id))
     }
 
     fn parse_netuid_hotkey_parameter(data: &[u8]) -> Result<(u16, AccountId32), PrecompileFailure> {
