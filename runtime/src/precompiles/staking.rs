@@ -25,24 +25,29 @@
 //   - Precompile checks the result of do_remove_stake and, in case of a failure, reverts the transaction.
 //
 
-use pallet_evm::BalanceConverter;
+use crate::precompiles::{
+    get_method_id, get_pubkey, get_slice, parse_netuid, try_dispatch_runtime_call,
+};
+use crate::{ProxyType, Runtime, RuntimeCall};
+use frame_system::RawOrigin;
 use pallet_evm::{
-    ExitError, ExitSucceed, PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult,
+    AddressMapping, BalanceConverter, ExitError, ExitSucceed, HashedAddressMapping,
+    PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult,
 };
 use sp_core::U256;
-use sp_runtime::traits::{StaticLookup, UniqueSaturatedInto};
+use sp_runtime::traits::{BlakeTwo256, Dispatchable, StaticLookup, UniqueSaturatedInto};
 use sp_runtime::AccountId32;
-
-use crate::{
-    precompiles::{dispatch, get_method_id, get_slice},
-    ProxyType,
-};
 use sp_std::vec;
 
-use crate::{Runtime, RuntimeCall};
 pub const STAKING_PRECOMPILE_INDEX: u64 = 2049;
-// this is staking smart contract's(0x0000000000000000000000000000000000000801) sr25519 address
-pub const STAKING_CONTRACT_ADDRESS: &str = "5CwnBK9Ack1mhznmCnwiibCNQc174pYQVktYW3ayRpLm4K2X";
+
+// ss58 public key i.e., the contract sends funds it received to the destination address from the
+// method parameter.
+const CONTRACT_ADDRESS_SS58: [u8; 32] = [
+    0x26, 0xf4, 0x10, 0x1e, 0x52, 0xb7, 0x57, 0x34, 0x33, 0x24, 0x5b, 0xc3, 0x0a, 0xe1, 0x8b, 0x63,
+    0x99, 0x53, 0xd8, 0x41, 0x79, 0x33, 0x03, 0x61, 0x4d, 0xfa, 0xcf, 0xf0, 0x37, 0xf7, 0x12, 0x94,
+];
+
 pub struct StakingPrecompile;
 
 impl StakingPrecompile {
@@ -71,27 +76,39 @@ impl StakingPrecompile {
     }
 
     fn add_stake(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
-        let hotkey = Self::parse_pub_key(data)?.into();
+        let account_id =
+            <HashedAddressMapping<BlakeTwo256> as AddressMapping<AccountId32>>::into_account_id(
+                handle.context().caller,
+            );
+
+        let (hotkey, _) = get_pubkey(data)?;
         let amount: U256 = handle.context().apparent_value;
-        let netuid = Self::parse_netuid(data, 0x3E)?;
+        let netuid = parse_netuid(data, 0x3E)?;
+
+        if !amount.is_zero() {
+            Self::transfer_back_to_caller(&account_id, amount)?;
+        }
 
         let amount_sub =
             <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
                 .ok_or(ExitError::OutOfFund)?;
 
-        // Create the add_stake call
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::<Runtime>::add_stake {
             hotkey,
             netuid,
             amount_staked: amount_sub.unique_saturated_into(),
         });
-        // Dispatch the add_stake call
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+
+        try_dispatch_runtime_call(handle, call, RawOrigin::Signed(account_id))
     }
 
     fn remove_stake(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
-        let hotkey = Self::parse_pub_key(data)?.into();
-        let netuid = Self::parse_netuid(data, 0x5E)?;
+        let account_id =
+            <HashedAddressMapping<BlakeTwo256> as AddressMapping<AccountId32>>::into_account_id(
+                handle.context().caller,
+            );
+        let (hotkey, _) = get_pubkey(data)?;
+        let netuid = parse_netuid(data, 0x5E)?;
 
         // We have to treat this as uint256 (because of Solidity ABI encoding rules, it pads uint64),
         // but this will never exceed 8 bytes, se we will ignore higher bytes and will only use lower
@@ -109,11 +126,15 @@ impl StakingPrecompile {
             netuid,
             amount_unstaked: amount_sub.unique_saturated_into(),
         });
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        try_dispatch_runtime_call(handle, call, RawOrigin::Signed(account_id))
     }
 
     fn add_proxy(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
-        let delegate = AccountId32::from(Self::parse_pub_key(data)?);
+        let account_id =
+            <HashedAddressMapping<BlakeTwo256> as AddressMapping<AccountId32>>::into_account_id(
+                handle.context().caller,
+            );
+        let (delegate, _) = get_pubkey(data)?;
         let delegate = <Runtime as frame_system::Config>::Lookup::unlookup(delegate);
         let call = RuntimeCall::Proxy(pallet_proxy::Call::<Runtime>::add_proxy {
             delegate,
@@ -121,11 +142,15 @@ impl StakingPrecompile {
             delay: 0,
         });
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        try_dispatch_runtime_call(handle, call, RawOrigin::Signed(account_id))
     }
 
     fn remove_proxy(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
-        let delegate = AccountId32::from(Self::parse_pub_key(data)?);
+        let account_id =
+            <HashedAddressMapping<BlakeTwo256> as AddressMapping<AccountId32>>::into_account_id(
+                handle.context().caller,
+            );
+        let (delegate, _) = get_pubkey(data)?;
         let delegate = <Runtime as frame_system::Config>::Lookup::unlookup(delegate);
         let call = RuntimeCall::Proxy(pallet_proxy::Call::<Runtime>::remove_proxy {
             delegate,
@@ -133,17 +158,16 @@ impl StakingPrecompile {
             delay: 0,
         });
 
-        dispatch(handle, call, STAKING_CONTRACT_ADDRESS)
+        try_dispatch_runtime_call(handle, call, RawOrigin::Signed(account_id))
     }
 
     fn get_stake(data: &[u8]) -> PrecompileResult {
-        let (hotkey, coldkey) = Self::parse_hotkey_coldkey(data)?;
-        let netuid = Self::parse_netuid(data, 0x5E)?;
+        let (hotkey, left_data) = get_pubkey(data)?;
+        let (coldkey, _) = get_pubkey(&left_data)?;
+        let netuid = parse_netuid(data, 0x5E)?;
 
         let stake = pallet_subtensor::Pallet::<Runtime>::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey.into(),
-            &coldkey.into(),
-            netuid,
+            &hotkey, &coldkey, netuid,
         );
 
         // Convert to EVM decimals
@@ -162,41 +186,37 @@ impl StakingPrecompile {
         })
     }
 
-    fn parse_hotkey_coldkey(data: &[u8]) -> Result<([u8; 32], [u8; 32]), PrecompileFailure> {
-        if data.len() < 64 {
+    fn transfer_back_to_caller(
+        account_id: &AccountId32,
+        amount: U256,
+    ) -> Result<(), PrecompileFailure> {
+        let smart_contract_account_id: AccountId32 = CONTRACT_ADDRESS_SS58.into();
+
+        let amount_sub =
+            <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
+                .ok_or(ExitError::OutOfFund)?;
+
+        // Create a transfer call from the smart contract to the caller
+        let transfer_call =
+            RuntimeCall::Balances(pallet_balances::Call::<Runtime>::transfer_allow_death {
+                dest: account_id.clone().into(),
+                value: amount_sub.unique_saturated_into(),
+            });
+
+        // Execute the transfer
+        let transfer_result =
+            transfer_call.dispatch(RawOrigin::Signed(smart_contract_account_id).into());
+
+        if let Err(dispatch_error) = transfer_result {
+            log::error!(
+                "Transfer back to caller failed. Error: {:?}",
+                dispatch_error
+            );
             return Err(PrecompileFailure::Error {
-                exit_status: ExitError::InvalidRange,
+                exit_status: ExitError::Other("Transfer back to caller failed".into()),
             });
         }
-        let mut hotkey = [0u8; 32];
-        hotkey.copy_from_slice(get_slice(data, 0, 32)?);
-        let mut coldkey = [0u8; 32];
-        coldkey.copy_from_slice(get_slice(data, 32, 64)?);
-        Ok((hotkey, coldkey))
-    }
 
-    fn parse_pub_key(data: &[u8]) -> Result<[u8; 32], PrecompileFailure> {
-        if data.len() < 32 {
-            return Err(PrecompileFailure::Error {
-                exit_status: ExitError::InvalidRange,
-            });
-        }
-        let mut pubkey = [0u8; 32];
-        pubkey.copy_from_slice(get_slice(data, 0, 32)?);
-        Ok(pubkey)
-    }
-
-    fn parse_netuid(data: &[u8], offset: usize) -> Result<u16, PrecompileFailure> {
-        if data.len() < offset + 2 {
-            return Err(PrecompileFailure::Error {
-                exit_status: ExitError::InvalidRange,
-            });
-        }
-
-        let mut netuid_bytes = [0u8; 2];
-        netuid_bytes.copy_from_slice(get_slice(data, offset, offset + 2)?);
-        let netuid: u16 = netuid_bytes[1] as u16 | ((netuid_bytes[0] as u16) << 8u16);
-
-        Ok(netuid)
+        Ok(())
     }
 }

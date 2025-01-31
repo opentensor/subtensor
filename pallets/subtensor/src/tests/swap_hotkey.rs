@@ -66,6 +66,7 @@ fn test_swap_total_hotkey_stake() {
         let coldkey = U256::from(3);
         let amount = DefaultMinStake::<Test>::get() * 10;
         let mut weight = Weight::zero();
+        let fee = DefaultStakingFee::<Test>::get();
 
         //add network
         let netuid: u16 = add_dynamic_network(&old_hotkey, &coldkey);
@@ -84,7 +85,7 @@ fn test_swap_total_hotkey_stake() {
         // Check if stake has increased
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&old_hotkey),
-            amount,
+            amount - fee,
             epsilon = amount / 1000,
         );
         assert_abs_diff_eq!(
@@ -109,7 +110,7 @@ fn test_swap_total_hotkey_stake() {
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&new_hotkey),
-            amount,
+            amount - fee,
             epsilon = amount / 1000,
         );
     });
@@ -221,7 +222,7 @@ fn test_swap_subnet_membership() {
         let netuid = 0u16;
         let mut weight = Weight::zero();
 
-        add_network(netuid, 0, 1);
+        add_network(netuid, 1, 1);
         IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
         assert_ok!(SubtensorModule::perform_hotkey_swap(
             &old_hotkey,
@@ -246,7 +247,7 @@ fn test_swap_uids_and_keys() {
         let uid = 5u16;
         let mut weight = Weight::zero();
 
-        add_network(netuid, 0, 1);
+        add_network(netuid, 1, 1);
         IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
         Uids::<Test>::insert(netuid, old_hotkey, uid);
         Keys::<Test>::insert(netuid, uid, old_hotkey);
@@ -275,7 +276,7 @@ fn test_swap_prometheus() {
         let prometheus_info = PrometheusInfo::default();
         let mut weight = Weight::zero();
 
-        add_network(netuid, 0, 1);
+        add_network(netuid, 1, 1);
         IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
         Prometheus::<Test>::insert(netuid, old_hotkey, prometheus_info.clone());
 
@@ -305,7 +306,7 @@ fn test_swap_axons() {
         let axon_info = AxonInfo::default();
         let mut weight = Weight::zero();
 
-        add_network(netuid, 0, 1);
+        add_network(netuid, 1, 1);
         IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
         Axons::<Test>::insert(netuid, old_hotkey, axon_info.clone());
 
@@ -332,7 +333,7 @@ fn test_swap_certificates() {
         let certificate = NeuronCertificate::try_from(vec![1, 2, 3]).unwrap();
         let mut weight = Weight::zero();
 
-        add_network(netuid, 0, 1);
+        add_network(netuid, 1, 1);
         IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
         NeuronCertificates::<Test>::insert(netuid, old_hotkey, certificate.clone());
 
@@ -365,7 +366,7 @@ fn test_swap_weight_commits() {
         weight_commits.push_back((H256::from_low_u64_be(100), 200, 1, 1));
         let mut weight = Weight::zero();
 
-        add_network(netuid, 0, 1);
+        add_network(netuid, 1, 1);
         IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
         WeightCommits::<Test>::insert(netuid, old_hotkey, weight_commits.clone());
 
@@ -396,7 +397,7 @@ fn test_swap_loaded_emission() {
         let validator_emission = 1000u64;
         let mut weight = Weight::zero();
 
-        add_network(netuid, 0, 1);
+        add_network(netuid, 1, 1);
         IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
         LoadedEmission::<Test>::insert(
             netuid,
@@ -536,8 +537,8 @@ fn test_swap_hotkey_with_multiple_subnets() {
         let netuid2 = 1;
         let mut weight = Weight::zero();
 
-        add_network(netuid1, 0, 1);
-        add_network(netuid2, 0, 1);
+        add_network(netuid1, 1, 1);
+        add_network(netuid2, 1, 1);
         IsNetworkMember::<Test>::insert(old_hotkey, netuid1, true);
         IsNetworkMember::<Test>::insert(old_hotkey, netuid2, true);
 
@@ -638,8 +639,8 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
         let mut weight = Weight::zero();
 
         // Set up initial state
-        add_network(netuid1, 0, 1);
-        add_network(netuid2, 0, 1);
+        add_network(netuid1, 1, 1);
+        add_network(netuid2, 1, 1);
         register_ok_neuron(netuid1, old_hotkey, coldkey1, 1234);
         register_ok_neuron(netuid2, old_hotkey, coldkey1, 1234);
 
@@ -1256,12 +1257,18 @@ fn test_swap_parent_hotkey_childkey_maps() {
         let parent_old = U256::from(1);
         let coldkey = U256::from(2);
         let child = U256::from(3);
+        let child_other = U256::from(4);
         let parent_new = U256::from(4);
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         SubtensorModule::create_account_if_non_existent(&coldkey, &parent_old);
 
         // Set child and verify state maps
         mock_set_children(&coldkey, &parent_old, netuid, &[(u64::MAX, child)]);
+        // Wait rate limit
+        step_rate_limit(&TransactionType::SetChildren, netuid);
+        // Schedule some pending child keys.
+        mock_schedule_children(&coldkey, &parent_old, netuid, &[(u64::MAX, child_other)]);
+
         assert_eq!(
             ParentKeys::<Test>::get(child, netuid),
             vec![(u64::MAX, parent_old)]
@@ -1270,6 +1277,8 @@ fn test_swap_parent_hotkey_childkey_maps() {
             ChildKeys::<Test>::get(parent_old, netuid),
             vec![(u64::MAX, child)]
         );
+        let existing_pending_child_keys = PendingChildKeys::<Test>::get(netuid, parent_old);
+        assert_eq!(existing_pending_child_keys.0, vec![(u64::MAX, child_other)]);
 
         // Swap
         let mut weight = Weight::zero();
@@ -1289,6 +1298,10 @@ fn test_swap_parent_hotkey_childkey_maps() {
             ChildKeys::<Test>::get(parent_new, netuid),
             vec![(u64::MAX, child)]
         );
+        assert_eq!(
+            PendingChildKeys::<Test>::get(netuid, parent_new),
+            existing_pending_child_keys // Entry under new hotkey.
+        );
     })
 }
 
@@ -1300,12 +1313,16 @@ fn test_swap_child_hotkey_childkey_maps() {
         let coldkey = U256::from(2);
         let child_old = U256::from(3);
         let child_new = U256::from(4);
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         SubtensorModule::create_account_if_non_existent(&coldkey, &child_old);
         SubtensorModule::create_account_if_non_existent(&coldkey, &parent);
 
         // Set child and verify state maps
         mock_set_children(&coldkey, &parent, netuid, &[(u64::MAX, child_old)]);
+        // Wait rate limit
+        step_rate_limit(&TransactionType::SetChildren, netuid);
+        // Schedule some pending child keys.
+        mock_schedule_children(&coldkey, &parent, netuid, &[(u64::MAX, child_old)]);
 
         assert_eq!(
             ParentKeys::<Test>::get(child_old, netuid),
@@ -1315,6 +1332,8 @@ fn test_swap_child_hotkey_childkey_maps() {
             ChildKeys::<Test>::get(parent, netuid),
             vec![(u64::MAX, child_old)]
         );
+        let existing_pending_child_keys = PendingChildKeys::<Test>::get(netuid, parent);
+        assert_eq!(existing_pending_child_keys.0, vec![(u64::MAX, child_old)]);
 
         // Swap
         let mut weight = Weight::zero();
@@ -1333,6 +1352,10 @@ fn test_swap_child_hotkey_childkey_maps() {
         assert_eq!(
             ChildKeys::<Test>::get(parent, netuid),
             vec![(u64::MAX, child_new)]
+        );
+        assert_eq!(
+            PendingChildKeys::<Test>::get(netuid, parent),
+            (vec![(u64::MAX, child_new)], existing_pending_child_keys.1) // Same cooldown block.
         );
     })
 }

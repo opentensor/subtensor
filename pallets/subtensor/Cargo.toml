@@ -41,6 +41,7 @@ pallet-utility = { workspace = true }
 ndarray = { workspace = true }
 hex = { workspace = true }
 share-pool = { default-features = false, path = "../../primitives/share-pool" }
+safe-math = { default-features = false, path = "../../primitives/safe-math" }
 approx = { workspace = true }
 
 pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../collective" }
@@ -104,6 +105,7 @@ std = [
 	"ark-serialize/std",
 	"w3f-bls/std",
 	"rand_chacha/std",
+	"safe-math/std",
 	"sha2/std",
 	"share-pool/std"
 ]

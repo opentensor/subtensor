@@ -598,9 +598,9 @@ fn test_migrate_rao() {
 
         // Verify root subnet (netuid 0) state after migration
         assert_eq!(SubnetTAO::<Test>::get(netuid_0), 4 * stake_amount); // Root has everything
-        assert_eq!(SubnetTAO::<Test>::get(netuid_1), 100_000_000_000); // Initial Rao amount.
+        assert_eq!(SubnetTAO::<Test>::get(netuid_1), lock_amount); // Initial Rao amount.
         assert_eq!(SubnetAlphaIn::<Test>::get(netuid_0), 1); // No Alpha in pool on root.
-        assert_eq!(SubnetAlphaIn::<Test>::get(netuid_1), 100_000_000_000); // Initial Rao amount.
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid_1), 2 * lock_amount); // Initial Rao amount == num_subnets * lock_amount
         assert_eq!(SubnetAlphaOut::<Test>::get(netuid_0), 4 * stake_amount); // All stake is outstanding.
         assert_eq!(SubnetAlphaOut::<Test>::get(netuid_1), 0); // No stake outstanding.
 
