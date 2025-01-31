@@ -19,6 +19,7 @@ use super::*;
 use frame_support::dispatch::Pays;
 use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::weights::Weight;
+use safe_math::*;
 use sp_core::Get;
 use sp_std::vec;
 use substrate_fixed::types::I64F64;
@@ -112,7 +113,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Initialize a 2D vector with zeros to store the weights. The dimensions are determined
         // by `n` (number of validators) and `k` (total number of subnets).
-        let mut weights: Vec<Vec<I64F64>> = vec![vec![I64F64::from_num(0.0); k]; n];
+        let mut weights: Vec<Vec<I64F64>> = vec![vec![I64F64::saturating_from_num(0.0); k]; n];
         log::debug!("weights:\n{:?}\n", weights);
 
         let subnet_list = Self::get_all_subnet_netuids();
@@ -134,7 +135,7 @@ impl<T: Config> Pallet<T> {
                         .zip(&subnet_list)
                         .find(|(_, subnet)| *subnet == netuid)
                     {
-                        *w = I64F64::from_num(*weight_ij);
+                        *w = I64F64::saturating_from_num(*weight_ij);
                     }
                 }
             }
@@ -624,7 +625,7 @@ impl<T: Config> Pallet<T> {
 
         let mut lock_cost = last_lock.saturating_mul(mult).saturating_sub(
             last_lock
-                .saturating_div(lock_reduction_interval)
+                .safe_div(lock_reduction_interval)
                 .saturating_mul(current_block.saturating_sub(last_lock_block)),
         );
 
