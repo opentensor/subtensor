@@ -194,14 +194,14 @@ impl NeuronPrecompile {
     fn parse_serve_axon_tls_parameters(
         data: &[u8],
     ) -> Result<(u16, u32, u128, u16, u8, u8, u8, u8, vec::Vec<u8>), PrecompileFailure> {
-        if data.len() < 288 {
+        let data_len = data.len();
+        if data_len < 288 {
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
             });
         }
-        let mut netuid_vec = [0u8; 2];
-        netuid_vec.copy_from_slice(get_slice(data, 30, 32)?);
-        let netuid = u16::from_be_bytes(netuid_vec);
+
+        let netuid = parse_netuid(data, 30)?;
 
         let mut version_vec = [0u8; 4];
         version_vec.copy_from_slice(get_slice(data, 60, 64)?);
@@ -223,6 +223,17 @@ impl NeuronPrecompile {
         let mut len_position_vec = [0u8; 2];
         len_position_vec.copy_from_slice(get_slice(data, 286, 288)?);
         let len_position = u16::from_be_bytes(len_position_vec) as usize;
+
+        if len_position > data_len {
+            log::error!(
+                "the start position of certificate as {} is bigger than whole data len {}",
+                subnet_contact_start,
+                data_len
+            );
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
 
         let mut len_vec = [0u8; 2];
         len_vec.copy_from_slice(get_slice(data, len_position + 30, len_position + 32)?);
