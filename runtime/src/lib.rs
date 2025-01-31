@@ -220,7 +220,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 222,
+    spec_version: 225,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -974,7 +974,7 @@ impl pallet_commitments::Config for Runtime {
     type MaxFields = MaxCommitFields;
     type InitialDeposit = CommitmentInitialDeposit;
     type FieldDeposit = CommitmentFieldDeposit;
-    type RateLimit = CommitmentRateLimit;
+    type DefaultRateLimit = CommitmentRateLimit;
 }
 
 #[cfg(not(feature = "fast-blocks"))]
@@ -1011,6 +1011,7 @@ parameter_types! {
     pub const SubtensorInitialMaxRegistrationsPerBlock: u16 = 1;
     pub const SubtensorInitialPruningScore : u16 = u16::MAX;
     pub const SubtensorInitialBondsMovingAverage: u64 = 900_000;
+    pub const SubtensorInitialBondsPenalty: u16 = 0;
     pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
     pub const SubtensorInitialMinDelegateTake: u16 = 0; // Allow 0% delegate take
     pub const SubtensorInitialDefaultChildKeyTake: u16 = 0; // Allow 0% childkey take
@@ -1058,6 +1059,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialKappa = SubtensorInitialKappa;
     type InitialMaxAllowedUids = SubtensorInitialMaxAllowedUids;
     type InitialBondsMovingAverage = SubtensorInitialBondsMovingAverage;
+    type InitialBondsPenalty = SubtensorInitialBondsPenalty;
     type InitialIssuance = SubtensorInitialIssuance;
     type InitialMinAllowedWeights = SubtensorInitialMinAllowedWeights;
     type InitialEmissionValue = SubtensorInitialEmissionValue;
@@ -1177,7 +1179,9 @@ const BLOCK_GAS_LIMIT: u64 = 75_000_000;
 /// `WeightPerGas` is an approximate ratio of the amount of Weight per Gas.
 ///
 fn weight_per_gas() -> Weight {
-    (NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT).saturating_div(BLOCK_GAS_LIMIT)
+    (NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT)
+        .checked_div(BLOCK_GAS_LIMIT)
+        .unwrap_or_default()
 }
 
 parameter_types! {
@@ -2112,6 +2116,16 @@ impl_runtime_apis! {
             }
         }
 
+        fn get_metagraph(netuid: u16) -> Vec<u8> {
+            let _result = SubtensorModule::get_metagraph(netuid);
+            if _result.is_some() {
+                let result = _result.expect("Could not get Metagraph.");
+                result.encode()
+            } else {
+                vec![]
+            }
+        }
+
         fn get_subnet_state(netuid: u16) -> Vec<u8> {
             let _result = SubtensorModule::get_subnet_state(netuid);
             if _result.is_some() {
@@ -2120,6 +2134,11 @@ impl_runtime_apis! {
             } else {
                 vec![]
             }
+        }
+
+        fn get_all_metagraphs() -> Vec<u8> {
+            let result = SubtensorModule::get_all_metagraphs();
+            result.encode()
         }
 
         fn get_all_dynamic_info() -> Vec<u8> {
@@ -2136,6 +2155,11 @@ impl_runtime_apis! {
 
         fn get_stake_info_for_coldkeys( coldkey_account_vecs: Vec<Vec<u8>> ) -> Vec<u8> {
             let result = SubtensorModule::get_stake_info_for_coldkeys( coldkey_account_vecs );
+            result.encode()
+        }
+
+        fn get_stake_info_for_hotkey_coldkey_netuid( hotkey_account_vec: Vec<u8>, coldkey_account_vec: Vec<u8>, netuid: u16 ) -> Vec<u8> {
+            let result = SubtensorModule::get_stake_info_for_hotkey_coldkey_netuid( hotkey_account_vec, coldkey_account_vec, netuid );
             result.encode()
         }
     }

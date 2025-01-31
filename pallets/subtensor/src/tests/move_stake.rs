@@ -3,6 +3,7 @@ use crate::*;
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_core::{Get, U256};
+use substrate_fixed::types::I96F32;
 
 // 1. test_do_move_success
 // Description: Test a successful move of stake between two hotkeys in the same subnet
@@ -17,11 +18,12 @@ fn test_do_move_success() {
         let origin_hotkey = U256::from(2);
         let destination_hotkey = U256::from(3);
         let stake_amount = DefaultMinStake::<Test>::get() * 10;
+        let fee = DefaultStakingFee::<Test>::get();
 
         // Set up initial stake
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
-        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount);
+        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount, fee);
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &origin_hotkey,
             &coldkey,
@@ -53,7 +55,7 @@ fn test_do_move_success() {
                 &coldkey,
                 netuid
             ),
-            stake_amount,
+            stake_amount - 2 * fee,
             epsilon = stake_amount / 1000
         );
     });
@@ -73,11 +75,18 @@ fn test_do_move_different_subnets() {
         let origin_hotkey = U256::from(2);
         let destination_hotkey = U256::from(3);
         let stake_amount = DefaultMinStake::<Test>::get() * 10;
+        let fee = DefaultStakingFee::<Test>::get();
 
         // Set up initial stake and subnets
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
-        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, origin_netuid, stake_amount);
+        SubtensorModule::stake_into_subnet(
+            &origin_hotkey,
+            &coldkey,
+            origin_netuid,
+            stake_amount,
+            fee,
+        );
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &origin_hotkey,
             &coldkey,
@@ -103,14 +112,19 @@ fn test_do_move_different_subnets() {
             ),
             0
         );
+        let alpha_fee: I96F32 =
+            I96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
+        let expected_value = I96F32::from_num(alpha)
+            * SubtensorModule::get_alpha_price(origin_netuid)
+            / SubtensorModule::get_alpha_price(destination_netuid);
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &destination_hotkey,
                 &coldkey,
                 destination_netuid
             ),
-            stake_amount,
-            epsilon = stake_amount / 1000
+            (expected_value - alpha_fee).to_num::<u64>(),
+            epsilon = (expected_value / 1000).to_num::<u64>()
         );
     });
 }
@@ -129,9 +143,16 @@ fn test_do_move_nonexistent_subnet() {
         let destination_hotkey = U256::from(3);
         let nonexistent_netuid = 99; // Assuming this subnet doesn't exist
         let stake_amount = 1_000_000;
+        let fee = 0;
 
         // Set up initial stake
-        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, origin_netuid, stake_amount);
+        SubtensorModule::stake_into_subnet(
+            &origin_hotkey,
+            &coldkey,
+            origin_netuid,
+            stake_amount,
+            fee,
+        );
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &origin_hotkey,
             &coldkey,
@@ -221,12 +242,13 @@ fn test_do_move_nonexistent_destination_hotkey() {
         let nonexistent_destination_hotkey = U256::from(99); // Assuming this hotkey doesn't exist
         let netuid = 1;
         let stake_amount = 1_000_000;
+        let fee = 0;
 
         // Set up initial stake
-        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount);
+        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount, fee);
 
         // Attempt to move stake from a non-existent origin hotkey
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         assert_noop!(
             SubtensorModule::do_move_stake(
                 RuntimeOrigin::signed(coldkey),
@@ -272,9 +294,10 @@ fn test_do_move_all_stake() {
         let origin_hotkey = U256::from(2);
         let destination_hotkey = U256::from(3);
         let stake_amount = DefaultMinStake::<Test>::get() * 10;
+        let fee = DefaultStakingFee::<Test>::get();
 
         // Set up initial stake
-        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount);
+        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount, fee);
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &origin_hotkey,
             &coldkey,
@@ -308,7 +331,7 @@ fn test_do_move_all_stake() {
                 &coldkey,
                 netuid
             ),
-            stake_amount,
+            stake_amount - 2 * fee,
             epsilon = stake_amount / 1000
         );
     });
@@ -324,9 +347,10 @@ fn test_do_move_half_stake() {
         let origin_hotkey = U256::from(2);
         let destination_hotkey = U256::from(3);
         let stake_amount = DefaultMinStake::<Test>::get() * 10;
+        let fee = DefaultStakingFee::<Test>::get();
 
         // Set up initial stake
-        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount);
+        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount, fee);
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &origin_hotkey,
             &coldkey,
@@ -352,8 +376,8 @@ fn test_do_move_half_stake() {
                 &coldkey,
                 netuid
             ),
-            stake_amount / 2,
-            epsilon = stake_amount / 1000
+            alpha / 2,
+            epsilon = alpha / 1000
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -361,8 +385,8 @@ fn test_do_move_half_stake() {
                 &coldkey,
                 netuid
             ),
-            stake_amount / 2,
-            epsilon = stake_amount / 1000
+            alpha / 2 - fee,
+            epsilon = alpha / 1000
         );
     });
 }
@@ -380,9 +404,10 @@ fn test_do_move_partial_stake() {
         let origin_hotkey = U256::from(2);
         let destination_hotkey = U256::from(3);
         let total_stake = DefaultMinStake::<Test>::get() * 10;
+        let fee = DefaultStakingFee::<Test>::get();
 
         // Set up initial stake
-        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, total_stake);
+        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, total_stake, fee);
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &origin_hotkey,
             &coldkey,
@@ -416,7 +441,7 @@ fn test_do_move_partial_stake() {
                 &coldkey,
                 netuid
             ),
-            total_stake,
+            total_stake - 2 * fee,
             epsilon = total_stake / 1000
         );
     });
@@ -435,11 +460,12 @@ fn test_do_move_multiple_times() {
         let hotkey1 = U256::from(2);
         let hotkey2 = U256::from(3);
         let initial_stake = DefaultMinStake::<Test>::get() * 10;
+        let fee = DefaultStakingFee::<Test>::get();
 
         // Set up initial stake
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey1);
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey2);
-        SubtensorModule::stake_into_subnet(&hotkey1, &coldkey, netuid, initial_stake);
+        SubtensorModule::stake_into_subnet(&hotkey1, &coldkey, netuid, initial_stake, fee);
 
         // Move stake multiple times
         for _ in 0..3 {
@@ -470,7 +496,7 @@ fn test_do_move_multiple_times() {
         // Check final stake distribution
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &coldkey, netuid),
-            initial_stake,
+            initial_stake - 7 * fee,
             epsilon = initial_stake / 1000
         );
         assert_eq!(
@@ -491,10 +517,11 @@ fn test_do_move_wrong_origin() {
         let origin_hotkey = U256::from(2);
         let destination_hotkey = U256::from(3);
         let netuid = 1;
-        let stake_amount = 1000;
+        let stake_amount = DefaultMinStake::<Test>::get() * 10;
+        let fee = 0;
 
         // Set up initial stake
-        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount);
+        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount, fee);
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &origin_hotkey,
             &coldkey,
@@ -502,7 +529,7 @@ fn test_do_move_wrong_origin() {
         );
 
         // Attempt to move stake with wrong origin
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
         assert_err!(
@@ -514,7 +541,7 @@ fn test_do_move_wrong_origin() {
                 netuid,
                 alpha,
             ),
-            Error::<Test>::NotEnoughStakeToWithdraw
+            Error::<Test>::NonAssociatedColdKey
         );
 
         // Check that no stake was moved
@@ -549,10 +576,11 @@ fn test_do_move_same_hotkey() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let stake_amount = DefaultMinStake::<Test>::get() * 10;
+        let fee = DefaultStakingFee::<Test>::get();
 
         // Set up initial stake
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
-        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, stake_amount);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, stake_amount, fee);
         let alpha =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
 
@@ -569,8 +597,8 @@ fn test_do_move_same_hotkey() {
         // Check that stake remains unchanged
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid),
-            alpha,
-            epsilon = 5
+            alpha - fee,
+            epsilon = alpha / 1000
         );
     });
 }
@@ -588,11 +616,12 @@ fn test_do_move_event_emission() {
         let origin_hotkey = U256::from(2);
         let destination_hotkey = U256::from(3);
         let stake_amount = DefaultMinStake::<Test>::get() * 10;
+        let fee = DefaultStakingFee::<Test>::get();
 
         // Set up initial stake
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
-        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount);
+        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount, 0); // use 0 fee for precision
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &origin_hotkey,
             &coldkey,
@@ -618,7 +647,7 @@ fn test_do_move_event_emission() {
                 netuid,
                 destination_hotkey,
                 netuid,
-                19999999, // Should be TAO equivalent
+                stake_amount - fee - 1, // Should be TAO equivalent
             )
             .into(),
         );
@@ -639,9 +668,16 @@ fn test_do_move_storage_updates() {
         let origin_hotkey = U256::from(2);
         let destination_hotkey = U256::from(3);
         let stake_amount = DefaultMinStake::<Test>::get() * 10;
+        let fee = DefaultStakingFee::<Test>::get();
 
         // Set up initial stake
-        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, origin_netuid, stake_amount);
+        SubtensorModule::stake_into_subnet(
+            &origin_hotkey,
+            &coldkey,
+            origin_netuid,
+            stake_amount,
+            fee,
+        );
 
         // Move stake
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
@@ -670,21 +706,25 @@ fn test_do_move_storage_updates() {
             ),
             0
         );
+        let alpha_fee =
+            I96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
+        let alpha2 = I96F32::from_num(alpha) * SubtensorModule::get_alpha_price(origin_netuid)
+            / SubtensorModule::get_alpha_price(destination_netuid);
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &destination_hotkey,
                 &coldkey,
                 destination_netuid
             ),
-            alpha,
-            epsilon = 5
+            (alpha2 - alpha_fee).to_num::<u64>(),
+            epsilon = alpha / 1000
         );
     });
 }
 
 // 18. test_do_move_max_values
 // Description: Test moving the maximum possible stake values to check for overflows
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test move -- test_do_move_max_values --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::move_stake::test_do_move_max_values --exact --show-output
 #[test]
 fn test_do_move_max_values() {
     new_test_ext(1).execute_with(|| {
@@ -695,11 +735,17 @@ fn test_do_move_max_values() {
         let destination_hotkey = U256::from(3);
         let max_stake = u64::MAX;
         let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let fee = 0;
 
         // Set up initial stake with maximum value
         SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
         SubtensorModule::create_account_if_non_existent(&coldkey, &destination_hotkey);
-        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, max_stake);
+
+        // Add lots of liquidity to bypass low liquidity check
+        SubnetTAO::<Test>::insert(netuid, u64::MAX / 1000);
+        SubnetAlphaIn::<Test>::insert(netuid, u64::MAX / 1000);
+
+        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, max_stake, fee);
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &origin_hotkey,
             &coldkey,
@@ -732,34 +778,34 @@ fn test_do_move_max_values() {
                 netuid
             ),
             alpha,
-            epsilon = 5
+            epsilon = alpha / 1_000_000
         );
     });
 }
 
 // Verify moving too low amount is impossible
 #[test]
-fn test_moving_too_little_fails() {
+fn test_moving_too_little_unstakes() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(533453);
         let coldkey_account_id = U256::from(55453);
         let amount = DefaultMinStake::<Test>::get();
+        let fee = DefaultStakingFee::<Test>::get();
 
         //add network
         let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
         let netuid2: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
 
         // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount + fee);
 
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
             netuid,
-            amount
+            amount + fee
         ));
 
-        // Coldkey / hotkey 0 decreases take to 5%. This should fail as the minimum take is 9%
         assert_err!(
             SubtensorModule::move_stake(
                 RuntimeOrigin::signed(coldkey_account_id),
@@ -771,5 +817,671 @@ fn test_moving_too_little_fails() {
             ),
             Error::<Test>::AmountTooLow
         );
+    });
+}
+
+#[test]
+fn test_do_transfer_success() {
+    new_test_ext(1).execute_with(|| {
+        // 1. Create a new dynamic network and IDs.
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let fee = DefaultStakingFee::<Test>::get();
+
+        // 2. Define the origin coldkey, destination coldkey, and hotkey to be used.
+        let origin_coldkey = U256::from(1);
+        let destination_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+        let stake_amount = DefaultMinStake::<Test>::get() * 10;
+
+        // 3. Set up initial stake: (origin_coldkey, hotkey) on netuid.
+        SubtensorModule::create_account_if_non_existent(&origin_coldkey, &hotkey);
+        SubtensorModule::create_account_if_non_existent(&destination_coldkey, &hotkey);
+        SubtensorModule::stake_into_subnet(&hotkey, &origin_coldkey, netuid, stake_amount, 0);
+        let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &origin_coldkey,
+            netuid,
+        );
+
+        // 4. Transfer the entire stake to the destination coldkey on the same subnet (netuid, netuid).
+        assert_ok!(SubtensorModule::do_transfer_stake(
+            RuntimeOrigin::signed(origin_coldkey),
+            destination_coldkey,
+            hotkey,
+            netuid,
+            netuid,
+            alpha
+        ));
+
+        // 5. Check that the stake has moved.
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &origin_coldkey,
+                netuid
+            ),
+            0
+        );
+        assert_abs_diff_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &destination_coldkey,
+                netuid
+            ),
+            stake_amount - fee,
+            epsilon = stake_amount / 1000
+        );
+    });
+}
+
+#[test]
+fn test_do_transfer_nonexistent_subnet() {
+    new_test_ext(1).execute_with(|| {
+        let origin_coldkey = U256::from(1);
+        let destination_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+        let nonexistent_netuid = 9999;
+        let stake_amount = DefaultMinStake::<Test>::get() * 5;
+
+        assert_noop!(
+            SubtensorModule::do_transfer_stake(
+                RuntimeOrigin::signed(origin_coldkey),
+                destination_coldkey,
+                hotkey,
+                nonexistent_netuid,
+                nonexistent_netuid,
+                stake_amount
+            ),
+            Error::<Test>::SubnetNotExists
+        );
+    });
+}
+
+#[test]
+fn test_do_transfer_nonexistent_hotkey() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let origin_coldkey = U256::from(1);
+        let destination_coldkey = U256::from(2);
+        let nonexistent_hotkey = U256::from(999);
+
+        assert_noop!(
+            SubtensorModule::do_transfer_stake(
+                RuntimeOrigin::signed(origin_coldkey),
+                destination_coldkey,
+                nonexistent_hotkey,
+                netuid,
+                netuid,
+                100
+            ),
+            Error::<Test>::HotKeyAccountNotExists
+        );
+    });
+}
+
+#[test]
+fn test_do_transfer_insufficient_stake() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let origin_coldkey = U256::from(1);
+        let destination_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+        let stake_amount = DefaultMinStake::<Test>::get() * 10;
+
+        SubtensorModule::create_account_if_non_existent(&origin_coldkey, &hotkey);
+        SubtensorModule::stake_into_subnet(&hotkey, &origin_coldkey, netuid, stake_amount, 0);
+
+        let alpha = stake_amount * 2;
+        assert_noop!(
+            SubtensorModule::do_transfer_stake(
+                RuntimeOrigin::signed(origin_coldkey),
+                destination_coldkey,
+                hotkey,
+                netuid,
+                netuid,
+                alpha
+            ),
+            Error::<Test>::NotEnoughStakeToWithdraw
+        );
+    });
+}
+
+#[test]
+fn test_do_transfer_wrong_origin() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1010);
+        let subnet_owner_hotkey = U256::from(1011);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let origin_coldkey = U256::from(1);
+        let wrong_coldkey = U256::from(9999);
+        let destination_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+        let stake_amount = DefaultMinStake::<Test>::get() * 10;
+        let fee = DefaultStakingFee::<Test>::get();
+
+        SubtensorModule::create_account_if_non_existent(&origin_coldkey, &hotkey);
+        SubtensorModule::add_balance_to_coldkey_account(&origin_coldkey, stake_amount + fee);
+        SubtensorModule::stake_into_subnet(&hotkey, &origin_coldkey, netuid, stake_amount, fee);
+
+        assert_noop!(
+            SubtensorModule::do_transfer_stake(
+                RuntimeOrigin::signed(wrong_coldkey),
+                destination_coldkey,
+                hotkey,
+                netuid,
+                netuid,
+                stake_amount
+            ),
+            Error::<Test>::NonAssociatedColdKey
+        );
+    });
+}
+
+#[test]
+fn test_do_transfer_minimum_stake_check() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let origin_coldkey = U256::from(1);
+        let destination_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+
+        let stake_amount = DefaultMinStake::<Test>::get();
+        SubtensorModule::create_account_if_non_existent(&origin_coldkey, &hotkey);
+        SubtensorModule::stake_into_subnet(&hotkey, &origin_coldkey, netuid, stake_amount, 0);
+
+        assert_err!(
+            SubtensorModule::do_transfer_stake(
+                RuntimeOrigin::signed(origin_coldkey),
+                destination_coldkey,
+                hotkey,
+                netuid,
+                netuid,
+                1
+            ),
+            Error::<Test>::AmountTooLow
+        );
+    });
+}
+
+#[test]
+fn test_do_transfer_different_subnets() {
+    new_test_ext(1).execute_with(|| {
+        // 1. Create two distinct subnets.
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let origin_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let destination_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        // 2. Define origin/destination coldkeys and hotkey.
+        let origin_coldkey = U256::from(1);
+        let destination_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+        let stake_amount = DefaultMinStake::<Test>::get() * 10;
+        let fee = DefaultStakingFee::<Test>::get();
+
+        // 3. Create accounts if needed.
+        SubtensorModule::create_account_if_non_existent(&origin_coldkey, &hotkey);
+        SubtensorModule::create_account_if_non_existent(&destination_coldkey, &hotkey);
+
+        // 4. Deposit free balance so transaction fees do not reduce staked funds.
+        SubtensorModule::add_balance_to_coldkey_account(&origin_coldkey, 1_000_000_000);
+
+        // 5. Stake into the origin subnet.
+        SubtensorModule::stake_into_subnet(
+            &hotkey,
+            &origin_coldkey,
+            origin_netuid,
+            stake_amount,
+            0,
+        );
+
+        // 6. Transfer entire stake from origin_netuid -> destination_netuid.
+        let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &origin_coldkey,
+            origin_netuid,
+        );
+        assert_ok!(SubtensorModule::do_transfer_stake(
+            RuntimeOrigin::signed(origin_coldkey),
+            destination_coldkey,
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            alpha
+        ));
+
+        // 7. Verify origin now has 0 in origin_netuid.
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &origin_coldkey,
+                origin_netuid
+            ),
+            0
+        );
+
+        // 8. Verify stake ended up in destination subnet for destination coldkey.
+        let dest_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &destination_coldkey,
+            destination_netuid,
+        );
+        let expected_value = I96F32::from_num(stake_amount - fee)
+            / SubtensorModule::get_alpha_price(destination_netuid);
+        assert_abs_diff_eq!(
+            dest_stake,
+            expected_value.to_num::<u64>(),
+            epsilon = (expected_value / 1000).to_num::<u64>()
+        );
+    });
+}
+
+#[test]
+fn test_do_swap_success() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let origin_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let destination_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let stake_amount = DefaultMinStake::<Test>::get() * 10;
+        let fee = DefaultStakingFee::<Test>::get();
+
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, origin_netuid, stake_amount, 0);
+        let alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            origin_netuid,
+        );
+
+        assert_ok!(SubtensorModule::do_swap_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            alpha_before,
+        ));
+
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &coldkey,
+                origin_netuid
+            ),
+            0
+        );
+
+        let alpha_after = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            destination_netuid,
+        );
+        let alpha_fee =
+            I96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
+        let expected_value = I96F32::from_num(alpha_before)
+            * SubtensorModule::get_alpha_price(origin_netuid)
+            / SubtensorModule::get_alpha_price(destination_netuid);
+        assert_abs_diff_eq!(
+            alpha_after,
+            (expected_value - alpha_fee).to_num::<u64>(),
+            epsilon = (expected_value / 1000).to_num::<u64>()
+        );
+    });
+}
+
+#[test]
+fn test_do_swap_nonexistent_subnet() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let nonexistent_netuid: u16 = 9999;
+        let stake_amount = 1_000_000;
+
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+
+        assert_noop!(
+            SubtensorModule::do_swap_stake(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                nonexistent_netuid,
+                nonexistent_netuid,
+                stake_amount
+            ),
+            Error::<Test>::SubnetNotExists
+        );
+    });
+}
+
+#[test]
+fn test_do_swap_nonexistent_hotkey() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let netuid1 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid2 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let coldkey = U256::from(1);
+        let nonexistent_hotkey = U256::from(999);
+        let stake_amount = 10_000;
+
+        assert_noop!(
+            SubtensorModule::do_swap_stake(
+                RuntimeOrigin::signed(coldkey),
+                nonexistent_hotkey,
+                netuid1,
+                netuid2,
+                stake_amount
+            ),
+            Error::<Test>::HotKeyAccountNotExists
+        );
+    });
+}
+
+#[test]
+fn test_do_swap_insufficient_stake() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let netuid1 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid2 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let stake_amount = DefaultMinStake::<Test>::get() * 5;
+        let attempted_swap = stake_amount * 2;
+
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid1, stake_amount, 0);
+
+        assert_noop!(
+            SubtensorModule::do_swap_stake(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid1,
+                netuid2,
+                attempted_swap
+            ),
+            Error::<Test>::NotEnoughStakeToWithdraw
+        );
+    });
+}
+
+#[test]
+fn test_do_swap_wrong_origin() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1010);
+        let subnet_owner_hotkey = U256::from(1011);
+        let netuid1 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid2 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let real_coldkey = U256::from(1);
+        let wrong_coldkey = U256::from(9999);
+        let hotkey = U256::from(3);
+        let stake_amount = 100_000;
+
+        SubtensorModule::create_account_if_non_existent(&real_coldkey, &hotkey);
+        SubtensorModule::stake_into_subnet(&hotkey, &real_coldkey, netuid1, stake_amount, 0);
+
+        assert_noop!(
+            SubtensorModule::do_swap_stake(
+                RuntimeOrigin::signed(wrong_coldkey),
+                hotkey,
+                netuid1,
+                netuid2,
+                stake_amount
+            ),
+            Error::<Test>::NonAssociatedColdKey
+        );
+    });
+}
+
+#[test]
+fn test_do_swap_minimum_stake_check() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(3);
+        let total_stake = DefaultMinStake::<Test>::get();
+        let swap_amount = 1;
+
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, total_stake, 0);
+
+        assert_err!(
+            SubtensorModule::do_swap_stake(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                netuid,
+                swap_amount
+            ),
+            Error::<Test>::AmountTooLow
+        );
+    });
+}
+
+#[test]
+fn test_do_swap_same_subnet() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1100);
+        let subnet_owner_hotkey = U256::from(1101);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let stake_amount = DefaultMinStake::<Test>::get() * 10;
+        let fee = DefaultStakingFee::<Test>::get();
+
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid, stake_amount, 0);
+
+        let alpha_before =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        let fee_as_alpha = SubtensorModule::swap_tao_for_alpha(netuid, fee);
+
+        assert_ok!(SubtensorModule::do_swap_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            netuid,
+            alpha_before
+        ));
+
+        let alpha_after =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        assert_abs_diff_eq!(
+            alpha_after,
+            alpha_before - fee_as_alpha,
+            epsilon = alpha_after / 10000
+        );
+    });
+}
+
+#[test]
+fn test_do_swap_partial_stake() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1100);
+        let subnet_owner_hotkey = U256::from(1101);
+        let origin_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let destination_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let total_stake = DefaultMinStake::<Test>::get() * 10;
+        let fee = DefaultStakingFee::<Test>::get();
+
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, origin_netuid, total_stake, 0);
+
+        let swap_amount = total_stake / 2;
+        assert_ok!(SubtensorModule::do_swap_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            swap_amount,
+        ));
+
+        assert_abs_diff_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &coldkey,
+                origin_netuid
+            ),
+            total_stake - swap_amount,
+            epsilon = total_stake / 1000
+        );
+
+        let alpha_fee =
+            I96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
+        let expected_value = I96F32::from_num(swap_amount)
+            * SubtensorModule::get_alpha_price(origin_netuid)
+            / SubtensorModule::get_alpha_price(destination_netuid);
+        assert_abs_diff_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &coldkey,
+                destination_netuid
+            ),
+            (expected_value - alpha_fee).to_num::<u64>(),
+            epsilon = (expected_value / 1000).to_num::<u64>()
+        );
+    });
+}
+
+#[test]
+fn test_do_swap_storage_updates() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1300);
+        let subnet_owner_hotkey = U256::from(1301);
+        let origin_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let destination_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let stake_amount = DefaultMinStake::<Test>::get() * 10;
+        let fee = DefaultStakingFee::<Test>::get();
+
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, origin_netuid, stake_amount, 0);
+
+        let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            origin_netuid,
+        );
+        assert_ok!(SubtensorModule::do_swap_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            alpha
+        ));
+
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &coldkey,
+                origin_netuid
+            ),
+            0
+        );
+
+        let alpha_fee =
+            I96F32::from_num(fee) / SubtensorModule::get_alpha_price(destination_netuid);
+        let expected_value = I96F32::from_num(alpha)
+            * SubtensorModule::get_alpha_price(origin_netuid)
+            / SubtensorModule::get_alpha_price(destination_netuid);
+        assert_abs_diff_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &coldkey,
+                destination_netuid
+            ),
+            (expected_value - alpha_fee).to_num::<u64>(),
+            epsilon = (expected_value / 1000).to_num::<u64>()
+        );
+    });
+}
+
+#[test]
+fn test_do_swap_multiple_times() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1500);
+        let subnet_owner_hotkey = U256::from(1501);
+        let netuid1 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid2 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let initial_stake = DefaultMinStake::<Test>::get() * 10;
+        let fee = DefaultStakingFee::<Test>::get();
+
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, netuid1, initial_stake, 0);
+
+        let mut total_alpha1_fee = 0;
+        for _ in 0..3 {
+            let alpha1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey, &coldkey, netuid1,
+            );
+            if alpha1 > 0 {
+                assert_ok!(SubtensorModule::do_swap_stake(
+                    RuntimeOrigin::signed(coldkey),
+                    hotkey,
+                    netuid1,
+                    netuid2,
+                    alpha1
+                ));
+
+                let fee_as_alpha = SubtensorModule::swap_tao_for_alpha(netuid1, fee);
+                total_alpha1_fee += fee_as_alpha;
+            }
+            let alpha2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey, &coldkey, netuid2,
+            );
+            if alpha2 > 0 {
+                assert_ok!(SubtensorModule::do_swap_stake(
+                    RuntimeOrigin::signed(coldkey),
+                    hotkey,
+                    netuid2,
+                    netuid1,
+                    alpha2
+                ));
+
+                let fee_as_alpha = SubtensorModule::swap_tao_for_alpha(netuid1, fee);
+                total_alpha1_fee += fee_as_alpha;
+            }
+        }
+
+        let final_stake_netuid1: u64 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid1);
+        let final_stake_netuid2 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid2);
+        let expected_stake = initial_stake - total_alpha1_fee;
+        assert_abs_diff_eq!(
+            final_stake_netuid1,
+            expected_stake,
+            epsilon = initial_stake / 10000
+        );
+        assert_eq!(final_stake_netuid2, 0);
     });
 }
