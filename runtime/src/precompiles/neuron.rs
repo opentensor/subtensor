@@ -190,7 +190,7 @@ impl NeuronPrecompile {
 
         if dests_len > subnet_size {
             log::error!(
-                "uids len as {} in reveal weight is more than neurons {} in subnet {}",
+                "uids len as {} in set weight is more than neurons {} in subnet {}",
                 dests_len,
                 subnet_size,
                 netuid
@@ -221,7 +221,7 @@ impl NeuronPrecompile {
 
         if weights_len > subnet_size {
             log::error!(
-                "weights len as {} in reveal weight is more than neurons {} in subnet {}",
+                "weights len as {} in set weight is more than neurons {} in subnet {}",
                 weights_len,
                 subnet_size,
                 netuid
@@ -266,27 +266,53 @@ impl NeuronPrecompile {
     fn parse_netuid_dests_weights_salt(
         data: &[u8],
     ) -> Result<(u16, Vec<u16>, Vec<u16>, Vec<u16>, u64), PrecompileFailure> {
-        if data.len() < 5 * 32 {
+        let data_len = data.len();
+        if data_len < 5 * 32 {
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
             });
         }
 
-        let mut netuid_vec = [0u8; 2];
-        netuid_vec.copy_from_slice(get_slice(data, 30, 32)?);
-        let netuid = u16::from_be_bytes(netuid_vec);
+        let netuid = parse_netuid(data, 30)?;
+
+        // get the neuron amount in sebnet
+        let subnet_size = pallet_subtensor::Pallet::<Runtime>::get_subnetwork_n(netuid) as usize;
 
         let mut first_position_vec = [0u8; 2];
         first_position_vec.copy_from_slice(get_slice(data, 62, 64)?);
         let first_position = u16::from_be_bytes(first_position_vec) as usize;
 
+        if first_position > data_len {
+            log::error!("position for uids data as {} is too large", first_position);
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+
         let mut second_position_vec = [0u8; 2];
         second_position_vec.copy_from_slice(get_slice(data, 94, 96)?);
         let second_position = u16::from_be_bytes(second_position_vec) as usize;
 
+        if second_position > data_len {
+            log::error!(
+                "position for values data as {} is too large",
+                first_position
+            );
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+
         let mut third_position_vec = [0u8; 2];
         third_position_vec.copy_from_slice(get_slice(data, 126, 128)?);
         let third_position = u16::from_be_bytes(third_position_vec) as usize;
+
+        if third_position > data_len {
+            log::error!("position for salt data as {} is too large", first_position);
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
 
         let mut version_key_vec = [0u8; 8];
         version_key_vec.copy_from_slice(get_slice(data, 152, 160)?);
@@ -299,6 +325,18 @@ impl NeuronPrecompile {
         let mut uids_len_vec = [0u8; 2];
         uids_len_vec.copy_from_slice(get_slice(data, first_position + 30, first_position + 32)?);
         let uids_len = u16::from_be_bytes(uids_len_vec) as usize;
+
+        if uids_len > subnet_size {
+            log::error!(
+                "uids len as {} in reveal weight is more than neurons {} in subnet {}",
+                uids_len,
+                subnet_size,
+                netuid
+            );
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
 
         for i in 0..uids_len {
             let mut tmp_vec = [0u8; 2];
@@ -319,6 +357,18 @@ impl NeuronPrecompile {
         )?);
         let values_len = u16::from_be_bytes(values_len_vec) as usize;
 
+        if values_len > subnet_size {
+            log::error!(
+                "values len as {} in reveal weight is more than neurons {} in subnet {}",
+                values_len,
+                subnet_size,
+                netuid
+            );
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+
         for i in 0..values_len {
             let mut tmp_vec = [0u8; 2];
             tmp_vec.copy_from_slice(get_slice(
@@ -333,6 +383,18 @@ impl NeuronPrecompile {
         let mut salt_len_vec = [0u8; 2];
         salt_len_vec.copy_from_slice(get_slice(data, third_position + 30, third_position + 32)?);
         let salt_len = u16::from_be_bytes(salt_len_vec) as usize;
+
+        if salt_len > subnet_size {
+            log::error!(
+                "salt len as {} in reveal weight is more than neurons {} in subnet {}",
+                salt_len,
+                subnet_size,
+                netuid
+            );
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
 
         for i in 0..salt_len {
             let mut tmp_vec = [0u8; 2];
