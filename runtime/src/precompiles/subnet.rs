@@ -1,4 +1,6 @@
-use crate::precompiles::{get_method_id, get_pubkey, get_slice, try_dispatch_runtime_call};
+use crate::precompiles::{
+    get_method_id, get_pubkey, get_slice, parse_netuid, try_dispatch_runtime_call,
+};
 use crate::{Runtime, RuntimeCall};
 use frame_system::RawOrigin;
 use pallet_evm::{
@@ -7,11 +9,9 @@ use pallet_evm::{
 };
 
 use sp_core::U256;
-use sp_runtime::traits::BlakeTwo256;
-use sp_runtime::AccountId32;
+use sp_runtime::{traits::BlakeTwo256, AccountId32};
 use sp_std::vec;
 
-use super::parse_netuid;
 pub const SUBNET_PRECOMPILE_INDEX: u64 = 2051;
 // bytes with max lenght 1K
 pub const MAX_SINGLE_PARAMETER_SIZE: usize = 1024;
@@ -1116,7 +1116,7 @@ impl SubnetPrecompile {
     }
 
     fn parse_netuid_u16_u16_parameter(data: &[u8]) -> Result<(u16, u16, u16), PrecompileFailure> {
-        if data.len() < 64 {
+        if data.len() < 96 {
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
             });
