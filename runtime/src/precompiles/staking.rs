@@ -122,8 +122,8 @@ impl StakingPrecompile {
         let coldkey: AccountId32 = Self::parse_pub_key(data)?.into();
 
         // get total stake of coldkey
-        // TODO: is using the function that was written for this purpose in the pallet the right way to go about this?
-        let total_stake = pallet_subtensor::Pallet::<Runtime>::get_stake_for_coldkey(&coldkey);
+        let total_stake =
+            pallet_subtensor::Pallet::<Runtime>::get_total_stake_for_coldkey(&coldkey);
         // Convert to EVM decimals
         let stake_u256 = U256::from(total_stake);
         let stake_eth =
