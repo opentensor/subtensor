@@ -12,7 +12,7 @@
 set -eou pipefail
 
 runtime_wasm_path="./target/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.wasm"
-live_chain_url="wss://test.finney.opentensor.ai"
+live_chain_url="wss://dev.chain.opentensor.ai"
 snapshot_path=""
 
 parse_args() {
