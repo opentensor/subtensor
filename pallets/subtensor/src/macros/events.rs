@@ -265,5 +265,10 @@ mod events {
         /// Parameters:
         /// (coldkey, hotkey, origin_netuid, destination_netuid, amount)
         StakeSwapped(T::AccountId, T::AccountId, u16, u16, u64),
+
+        /// Root emissions have been claimed for a coldkey on all subnets and hotkeys.
+        /// Parameters:
+        /// (coldkey, u8)
+        RootClaimed(T::AccountId, RootClaimType),
     }
 }

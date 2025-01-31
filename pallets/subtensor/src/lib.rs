@@ -34,6 +34,9 @@ use sp_std::marker::PhantomData;
 // ============================
 mod benchmarks;
 
+pub mod weights;
+pub use weights::WeightInfo;
+
 // =========================
 //	==== Pallet Imports =====
 // =========================
@@ -226,6 +229,14 @@ pub mod pallet {
     /// ============================
     /// ==== Staking + Accounts ====
     /// ============================
+
+    /// Enum for the per-coldkey root claim setting.
+    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    pub enum RootClaimTypeEnum {
+        #[default]
+        Swap, // Swap any alpha emission for TAO.
+        Keep, // Keep all alpha emission.
+    }
 
     #[pallet::type_value]
     /// Default value for zero.
@@ -716,6 +727,16 @@ pub mod pallet {
     }
 
     #[pallet::type_value]
+    pub fn DefaultMinRootClaimAmount<T: Config>() -> u64 {
+        500_000
+    }
+
+    #[pallet::type_value]
+    pub fn DefaultRootClaimType<T: Config>() -> RootClaimTypeEnum {
+        RootClaimTypeEnum::Swap
+    }
+
+    #[pallet::type_value]
     /// Default unicode vector for tau symbol.
     pub fn DefaultUnicodeVecU8<T: Config>() -> Vec<u8> {
         b"\xF0\x9D\x9C\x8F".to_vec() // Unicode for tau (𝜏)
@@ -1017,6 +1038,18 @@ pub mod pallet {
         I96F32, // Shares
         ValueQuery,
     >;
+    #[pallet::storage] // -- MAP ( cold ) --> root_claim_type enum
+    pub type RootClaimType<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        RootClaimTypeEnum,
+        ValueQuery,
+        DefaultRootClaimType<T>,
+    >;
+    #[pallet::storage] // -- MAP ( hot ) --> root_swap_portion | Returns the amount of the root stake that wants to swap their alpha for TAO.
+    pub type RootSwapPortion<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
 
     /// ============================
     /// ==== Global Parameters =====

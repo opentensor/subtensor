@@ -1811,5 +1811,33 @@ mod dispatches {
                 allow_partial,
             )
         }
+
+        /// --- Claims the root emissions for a coldkey.
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the caller's coldkey.
+        ///
+        /// # Event:
+        /// * RootClaimed;
+        /// 	- On the successfully claiming the root emissions for a coldkey.
+        ///
+        /// # Raises:
+        /// * 'NotRegistered':
+        /// 	- Thrown if the account we are attempting to unstake from is non existent.
+        ///
+        /// * 'NonAssociatedColdKey':
+        /// 	- Thrown if the coldkey does not own the hotkey we are unstaking from.
+        ///
+        /// * 'NotEnoughStakeToWithdraw':
+        /// 	- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
+        ///
+        #[pallet::call_index(90)]
+        #[pallet::weight((T::DbWeight::get().reads_writes(1, 2) + 200_000, DispatchClass::Normal, Pays::Yes))]
+        pub fn claim_root(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            let coldkey: T::AccountId = ensure_signed(origin)?;
+
+            let weight = Self::do_root_claim(coldkey);
+            Ok((Some(weight), Pays::Yes).into())
+        }
     }
 }

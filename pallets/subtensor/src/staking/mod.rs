@@ -1,5 +1,6 @@
 use super::*;
 pub mod add_stake;
+pub mod claim_root;
 pub mod decrease_take;
 pub mod helpers;
 pub mod increase_take;
