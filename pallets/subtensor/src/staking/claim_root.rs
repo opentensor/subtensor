@@ -128,6 +128,10 @@ impl<T: Config> Pallet<T> {
         // Substract the debt.
         let owed: I110F18 = Self::get_root_owed_for_hotkey_coldkey_float(hotkey, coldkey, netuid);
 
+        if owed == 0 || owed < I110F18::saturating_from_num(DefaultMinRootClaimAmount::<T>::get()) {
+            return; // no-op
+        }
+
         // Increase root debt by owed amount.
         RootDebt::<T>::mutate((hotkey, coldkey, netuid), |debt| {
             *debt = debt.saturating_add(owed.saturating_to_num::<I96F32>());
