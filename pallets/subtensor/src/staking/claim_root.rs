@@ -25,7 +25,10 @@ impl<T: Config> Pallet<T> {
                     .try_into()
                     .unwrap_or([0; 8]),
             );
-            let idx = last_idx.saturating_add(idx_step).wrapping_rem(n);
+            let idx = last_idx
+                .saturating_add(idx_step)
+                .checked_rem(n)
+                .unwrap_or(0);
             indices.push(idx);
             last_idx = idx;
         }
