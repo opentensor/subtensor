@@ -2215,7 +2215,7 @@ fn test_add_stake_limit_validate() {
     new_test_ext(0).execute_with(|| {
         let hotkey = U256::from(533453);
         let coldkey = U256::from(55453);
-        let amount = 300_000_000_000;
+        let amount = 900_000_000_000;
 
         // add network
         let netuid: u16 = add_dynamic_network(&hotkey, &coldkey);
@@ -2232,8 +2232,7 @@ fn test_add_stake_limit_validate() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount);
 
         // Setup limit price so that it doesn't peak above 4x of current price
-        // The amount that can be executed at this price is 150 TAO only
-        // Alpha produced will be equal to 50 = 100 - 150*100/300
+        // The amount that can be executed at this price is 450 TAO only
         let limit_price = 6_000_000_000;
 
         // Add stake limit call
@@ -2542,134 +2541,106 @@ fn test_max_amount_add_dynamic() {
         // CSV backup for this spreadhsheet:
         //
         // SubnetTAO,AlphaIn,initial price,limit price,max swappable
-        // 100,100,=A2/B2,4,=SQRT(D2*A2*B2)-A2
+        // 100,100,=A2/B2,4,=B8*D8-A8
         //
-        // tao_in, alpha_in, limit_price, expected_max_swappable, precision
+        // tao_in, alpha_in, limit_price, expected_max_swappable
         [
             // Zero handling (no panics)
-            (0, 1_000_000_000, 100, 0, 1),
-            (1_000_000_000, 0, 100, 0, 1),
-            (1_000_000_000, 1_000_000_000, 0, 0, 1),
+            (0, 1_000_000_000, 100, 0),
+            (1_000_000_000, 0, 100, 0),
+            (1_000_000_000, 1_000_000_000, 0, 0),
             // Low bounds
-            (1, 1, 0, 0, 1),
-            (1, 1, 1, 0, 1),
-            (1, 1, 2, 0, 1),
-            (1, 1, 50_000_000_000, 6, 1),
+            (1, 1, 0, 0),
+            (1, 1, 1, 0),
+            (1, 1, 2, 0),
+            (1, 1, 50_000_000_000, 49),
             // Basic math
-            (1_000, 1_000, 4_000_000_000, 1_000, 1),
-            (1_000, 1_000, 16_000_000_000, 3_000, 5),
+            (1_000, 1_000, 2_000_000_000, 1_000),
+            (1_000, 1_000, 4_000_000_000, 3_000),
+            (1_000, 1_000, 16_000_000_000, 15_000),
             (
                 1_000_000_000_000,
                 1_000_000_000_000,
                 16_000_000_000,
-                3_000_000_000_000,
-                1_000_000,
+                15_000_000_000_000,
             ),
             // Normal range values with edge cases
-            (150_000_000_000, 100_000_000_000, 0, 0, 1),
-            (150_000_000_000, 100_000_000_000, 100_000_000, 0, 1),
-            (150_000_000_000, 100_000_000_000, 500_000_000, 0, 1),
-            (150_000_000_000, 100_000_000_000, 1_499_999_999, 0, 1),
-            (150_000_000_000, 100_000_000_000, 1_500_000_000, 0, 1),
-            (150_000_000_000, 100_000_000_000, 1_500_000_100, 5000, 1000),
+            (150_000_000_000, 100_000_000_000, 0, 0),
+            (150_000_000_000, 100_000_000_000, 100_000_000, 0),
+            (150_000_000_000, 100_000_000_000, 500_000_000, 0),
+            (150_000_000_000, 100_000_000_000, 1_499_999_999, 0),
+            (150_000_000_000, 100_000_000_000, 1_500_000_000, 0),
+            (150_000_000_000, 100_000_000_000, 1_500_000_001, 100),
             (
                 150_000_000_000,
                 100_000_000_000,
-                6_000_000_000,
+                3_000_000_000,
                 150_000_000_000,
-                10_000,
             ),
             // Miscellaneous overflows and underflows
-            (
-                150_000_000_000,
-                100_000_000_000,
-                u64::MAX,
-                16_634_186_809_913_500,
-                1_000_000_000,
-            ),
-            (
-                150_000_000_000,
-                100_000_000_000,
-                u64::MAX / 2,
-                11_762_102_358_830_800,
-                1_000_000_000,
-            ),
-            (
-                1_000_000,
-                1_000_000_000_000_000_000_u64,
-                3,
-                1_731_051,
-                100_000,
-            ),
+            (150_000_000_000, 100_000_000_000, u64::MAX, u64::MAX),
+            (150_000_000_000, 100_000_000_000, u64::MAX / 2, u64::MAX),
+            (1_000_000, 1_000_000_000_000_000_000_u64, 1, 999_000_000),
+            (1_000_000, 1_000_000_000_000_000_000_u64, 2, 1_999_000_000),
             (
                 1_000_000,
                 1_000_000_000_000_000_000_u64,
                 10_000,
-                3_100_000_000,
-                50_000_000,
+                9_999_999_000_000,
             ),
             (
                 1_000_000,
                 1_000_000_000_000_000_000_u64,
                 100_000,
-                9_999_000_000,
-                50_000_000,
+                99_999_999_000_000,
             ),
             (
                 1_000_000,
                 1_000_000_000_000_000_000_u64,
                 1_000_000,
-                31_621_776_602,
-                50_000_000,
+                999_999_999_000_000,
             ),
             (
                 1_000_000,
                 1_000_000_000_000_000_000_u64,
                 1_000_000_000,
-                999_999_000_000,
-                50_000_000,
+                999_999_999_999_000_000,
             ),
             (
                 21_000_000_000_000_000,
                 10_000_000,
-                8_400_000_000_000_000_000,
+                4_200_000_000_000_000_000,
                 21_000_000_000_000_000,
-                1_000_000_000_000,
             ),
             (
                 21_000_000_000_000_000,
                 1_000_000_000_000_000_000_u64,
                 u64::MAX,
                 u64::MAX,
-                1_000_000_000,
             ),
             (
                 21_000_000_000_000_000,
                 1_000_000_000_000_000_000_u64,
-                84_000_000,
+                42_000_000,
                 21_000_000_000_000_000,
-                1_000_000_000,
             ),
         ]
         .iter()
-        .for_each(
-            |&(tao_in, alpha_in, limit_price, expected_max_swappable, precision)| {
-                // Forse-set alpha in and tao reserve to achieve relative price of subnets
-                SubnetTAO::<Test>::insert(netuid, tao_in);
-                SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
+        .for_each(|&(tao_in, alpha_in, limit_price, expected_max_swappable)| {
+            // Forse-set alpha in and tao reserve to achieve relative price of subnets
+            SubnetTAO::<Test>::insert(netuid, tao_in);
+            SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
 
-                if alpha_in != 0 {
-                    let expected_price = I96F32::from_num(tao_in) / I96F32::from_num(alpha_in);
-                    assert_eq!(SubtensorModule::get_alpha_price(netuid), expected_price);
-                }
+            if alpha_in != 0 {
+                let expected_price = I96F32::from_num(tao_in) / I96F32::from_num(alpha_in);
+                assert_eq!(SubtensorModule::get_alpha_price(netuid), expected_price);
+            }
 
-                assert_abs_diff_eq!(
-                    SubtensorModule::get_max_amount_add(netuid, limit_price),
-                    expected_max_swappable,
-                    epsilon = precision
-                );
-            },
-        );
+            assert_eq!(
+                SubtensorModule::get_max_amount_add(netuid, limit_price),
+                expected_max_swappable,
+            );
+        });
     });
 }
 
@@ -2755,110 +2726,90 @@ fn test_max_amount_remove_dynamic() {
         // CSV backup for this spreadhsheet:
         //
         // SubnetTAO,AlphaIn,initial price,limit price,max swappable
-        // 100,100,=A2/B2,4,=SQRT(D2*A2*B2)-A2
+        // 100,100,=A2/B2,4,=A2/D2-B2
         //
-        // tao_in, alpha_in, limit_price, expected_max_swappable, precision
+        // tao_in, alpha_in, limit_price, expected_max_swappable
         [
             // Zero handling (no panics)
-            (0, 1_000_000_000, 100, 0, 1),
-            (1_000_000_000, 0, 100, 0, 1),
-            (1_000_000_000, 1_000_000_000, 0, u64::MAX, 1),
+            (0, 1_000_000_000, 100, 0),
+            (1_000_000_000, 0, 100, 0),
+            (1_000_000_000, 1_000_000_000, 0, u64::MAX),
             // Low bounds
-            (1, 1, 0, u64::MAX, 1),
-            (1, 1, 1, 31_622, 1_000),
-            (1, 1, 2, 22_360, 1_000),
-            (1, 1, 250_000_000, 1, 1),
+            (1, 1, 0, u64::MAX),
+            (1, 1, 1, 999_999_999),
+            (1, 1, 2, 499_999_999),
+            (1, 1, 250_000_000, 3),
             // Basic math
-            (1_000, 1_000, 250_000_000, 1_000, 1),
-            (1_000, 1_000, 62_500_000, 3_000, 5),
+            (1_000, 1_000, 250_000_000, 3_000),
+            (1_000, 1_000, 62_500_000, 15_000),
             (
                 1_000_000_000_000,
                 1_000_000_000_000,
                 62_500_000,
-                3_000_000_000_000,
-                1_000_000,
+                15_000_000_000_000,
             ),
             // Normal range values with edge cases
-            (200_000_000_000, 100_000_000_000, 0, u64::MAX, 1),
+            (200_000_000_000, 100_000_000_000, 0, u64::MAX),
             (
                 200_000_000_000,
                 100_000_000_000,
                 1_000_000_000,
-                41_421_356_237,
-                1_000_000,
+                100_000_000_000,
             ),
             (
                 200_000_000_000,
                 100_000_000_000,
                 500_000_000,
-                100_000_000_000,
-                1_000_000,
+                300_000_000_000,
             ),
-            (200_000_000_000, 100_000_000_000, 2_000_000_000, 0, 1),
-            (200_000_000_000, 100_000_000_000, 2_000_000_001, 0, 1),
-            (
-                200_000_000_000,
-                100_000_000_000,
-                1_999_999_000,
-                25_000,
-                10_000,
-            ),
-            (
-                200_000_000_000,
-                100_000_000_000,
-                1_999_000_000,
-                25_009_379,
-                10_000,
-            ),
+            (200_000_000_000, 100_000_000_000, 2_000_000_000, 0),
+            (200_000_000_000, 100_000_000_000, 2_000_000_001, 0),
+            (200_000_000_000, 100_000_000_000, 1_999_999_999, 50),
+            (200_000_000_000, 100_000_000_000, 1_999_999_990, 500),
             // Miscellaneous overflows and underflows
-            (2_000_000_000_000, 100_000_000_000, u64::MAX, 0, 1),
-            (200_000_000_000, 100_000_000_000, u64::MAX / 2, 0, 1),
-            (1_000_000, 1_000_000_000_000_000_000_u64, 1, 0, 1),
-            (1_000_000, 1_000_000_000_000_000_000_u64, 10, 0, 1),
-            (1_000_000, 1_000_000_000_000_000_000_u64, 100, 0, 1),
-            (1_000_000, 1_000_000_000_000_000_000_u64, 1_000, 0, 1),
-            (1_000_000, 1_000_000_000_000_000_000_u64, u64::MAX, 0, 1),
+            (2_000_000_000_000, 100_000_000_000, u64::MAX, 0),
+            (200_000_000_000, 100_000_000_000, u64::MAX / 2, 0),
+            (1_000_000, 1_000_000_000_000_000_000_u64, 1, 0),
+            (1_000_000, 1_000_000_000_000_000_000_u64, 10, 0),
+            (1_000_000, 1_000_000_000_000_000_000_u64, 100, 0),
+            (1_000_000, 1_000_000_000_000_000_000_u64, 1_000, 0),
+            (1_000_000, 1_000_000_000_000_000_000_u64, u64::MAX, 0),
             (
                 21_000_000_000_000_000,
-                1_000_000_000,
-                5_250_000_000_000_000,
-                1_000_000_000,
-                10_000_000,
+                1_000_000,
+                21_000_000_000_000_000,
+                999_000_000,
             ),
+            (21_000_000_000_000_000, 1_000_000, u64::MAX, 138_412),
             (
                 21_000_000_000_000_000,
                 1_000_000_000_000_000_000_u64,
                 u64::MAX,
                 0,
-                1,
             ),
             (
                 21_000_000_000_000_000,
                 1_000_000_000_000_000_000_u64,
-                5_250_000,
-                1_000_000_000_000_000_000_u64,
-                100_000_000_000,
+                20_000_000,
+                50_000_000_000_000_000,
             ),
         ]
         .iter()
-        .for_each(
-            |&(tao_in, alpha_in, limit_price, expected_max_swappable, precision)| {
-                // Forse-set alpha in and tao reserve to achieve relative price of subnets
-                SubnetTAO::<Test>::insert(netuid, tao_in);
-                SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
+        .for_each(|&(tao_in, alpha_in, limit_price, expected_max_swappable)| {
+            // Forse-set alpha in and tao reserve to achieve relative price of subnets
+            SubnetTAO::<Test>::insert(netuid, tao_in);
+            SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
 
-                if alpha_in != 0 {
-                    let expected_price = I96F32::from_num(tao_in) / I96F32::from_num(alpha_in);
-                    assert_eq!(SubtensorModule::get_alpha_price(netuid), expected_price);
-                }
+            if alpha_in != 0 {
+                let expected_price = I96F32::from_num(tao_in) / I96F32::from_num(alpha_in);
+                assert_eq!(SubtensorModule::get_alpha_price(netuid), expected_price);
+            }
 
-                assert_abs_diff_eq!(
-                    SubtensorModule::get_max_amount_remove(netuid, limit_price),
-                    expected_max_swappable,
-                    epsilon = precision
-                );
-            },
-        );
+            assert_eq!(
+                SubtensorModule::get_max_amount_remove(netuid, limit_price),
+                expected_max_swappable,
+            );
+        });
     });
 }
 
@@ -2979,9 +2930,9 @@ fn test_max_amount_move_stable_dynamic() {
             0
         );
 
-        // 0.5x price => max is 1x TAO
+        // 2x price => max is 1x TAO
         assert_abs_diff_eq!(
-            SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 500_000_000),
+            SubtensorModule::get_max_amount_move(stable_netuid, dynamic_netuid, 1_000_000_000),
             50_000_000_000,
             epsilon = 10_000,
         );
@@ -3056,9 +3007,9 @@ fn test_max_amount_move_dynamic_stable() {
             epsilon = 10_000
         );
 
-        // 1/4 price => max is 2x Alpha
+        // 1/2 price => max is 1x Alpha
         assert_abs_diff_eq!(
-            SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, 375_000_000),
+            SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, 750_000_000),
             100_000_000_000,
             epsilon = 10_000,
         );
@@ -3317,7 +3268,7 @@ fn test_add_stake_limit_ok() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(533453);
         let coldkey_account_id = U256::from(55453);
-        let amount = 300_000_000_000;
+        let amount = 900_000_000_000; // over the maximum
         let fee = DefaultStakingFee::<Test>::get();
 
         // add network
@@ -3335,10 +3286,10 @@ fn test_add_stake_limit_ok() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
 
         // Setup limit price so that it doesn't peak above 4x of current price
-        // The amount that can be executed at this price is 150 TAO only
-        // Alpha produced will be equal to 50 = 100 - 150*100/300
+        // The amount that can be executed at this price is 450 TAO only
+        // Alpha produced will be equal to 75 = 450*100/(450+150)
         let limit_price = 6_000_000_000;
-        let expected_executed_stake = 50_000_000_000;
+        let expected_executed_stake = 75_000_000_000;
 
         // Add stake with slippage safety and check if the result is ok
         assert_ok!(SubtensorModule::add_stake_limit(
@@ -3350,7 +3301,7 @@ fn test_add_stake_limit_ok() {
             true
         ));
 
-        // Check if stake has increased only by 50 Alpha
+        // Check if stake has increased only by 75 Alpha
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey_account_id,
@@ -3361,15 +3312,15 @@ fn test_add_stake_limit_ok() {
             epsilon = expected_executed_stake / 1000,
         );
 
-        // Check that 150 TAO balance still remains free on coldkey
+        // Check that 450 TAO balance still remains free on coldkey
         assert_abs_diff_eq!(
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
-            150_000_000_000,
+            450_000_000_000,
             epsilon = 10_000
         );
 
-        // Check that price has updated to ~6
-        let exp_price = U96F32::from_num(6.0);
+        // Check that price has updated to ~24 = (150+450) / (100 - 75)
+        let exp_price = U96F32::from_num(24.0);
         let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
         assert!(exp_price.saturating_sub(current_price) < 0.0001);
         assert!(current_price.saturating_sub(exp_price) < 0.0001);
@@ -3381,7 +3332,7 @@ fn test_add_stake_limit_fill_or_kill() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(533453);
         let coldkey_account_id = U256::from(55453);
-        let amount = 300_000_000_000;
+        let amount = 900_000_000_000; // over the maximum
 
         // add network
         let netuid: u16 = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
@@ -3398,8 +3349,8 @@ fn test_add_stake_limit_fill_or_kill() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
 
         // Setup limit price so that it doesn't peak above 4x of current price
-        // The amount that can be executed at this price is 150 TAO only
-        // Alpha produced will be equal to 50 = 100 - 150*100/300
+        // The amount that can be executed at this price is 450 TAO only
+        // Alpha produced will be equal to 25 = 100 - 450*100/(150+450)
         let limit_price = 6_000_000_000;
 
         // Add stake with slippage safety and check if it fails
@@ -3416,11 +3367,12 @@ fn test_add_stake_limit_fill_or_kill() {
         );
 
         // Lower the amount and it should succeed now
+        let amount_ok = 450_000_000_000; // fits the maximum
         assert_ok!(SubtensorModule::add_stake_limit(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
             netuid,
-            amount / 100,
+            amount_ok,
             limit_price,
             false
         ));
@@ -3460,11 +3412,11 @@ fn test_remove_stake_limit_ok() {
         let current_price: U96F32 = U96F32::from_num(SubtensorModule::get_alpha_price(netuid));
         assert_eq!(current_price, U96F32::from_num(1.5));
 
-        // Setup limit price so that it doesn't drop by more than 10% from current price
+        // Setup limit price so resulting average price doesn't drop by more than 10% from current price
         let limit_price = 1_350_000_000;
 
-        // Alpha unstaked = sqrt(150 * 100 / 1.35) - 100 ~ 5.409
-        let expected_alpha_reduction = 5_409_000_000;
+        // Alpha unstaked = 150 / 1.35 - 100 ~ 11.1
+        let expected_alpha_reduction = 11_111_111_111;
 
         // Remove stake with slippage safety
         assert_ok!(SubtensorModule::remove_stake_limit(
