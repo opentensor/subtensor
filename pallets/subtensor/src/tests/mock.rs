@@ -409,6 +409,7 @@ impl crate::Config for Test {
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialTaoWeight = InitialTaoWeight;
+    type WeightInfo = crate::WeightInfo;
 }
 
 pub struct OriginPrivilegeCmp;

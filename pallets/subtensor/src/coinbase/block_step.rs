@@ -9,8 +9,8 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         let block_number: u64 = Self::get_current_block_as_u64();
         log::debug!("block_step for block: {:?} ", block_number);
 
-		let last_block_hash: T::Hash = Self::get_last_block_hash();
-		log::debug!("last_block_hash: {:?}", last_block_hash);
+        let last_block_hash: T::Hash = Self::get_last_block_hash();
+        log::debug!("last_block_hash: {:?}", last_block_hash);
 
         // --- 1. Adjust difficulties.
         Self::adjust_registration_terms_for_networks();
@@ -24,8 +24,8 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         // --- 4. Set pending children on the epoch; but only after the coinbase has been run.
         Self::try_set_pending_children(block_number);
 
-		// --- 5. Run auto-claim root divs.
-		Self::run_auto_claim_root_divs(last_block_hash);
+        // --- 5. Run auto-claim root divs.
+        Self::run_auto_claim_root_divs(last_block_hash);
 
         // Return ok.
         Ok(())

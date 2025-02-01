@@ -1822,22 +1822,35 @@ mod dispatches {
         /// 	- On the successfully claiming the root emissions for a coldkey.
         ///
         /// # Raises:
-        /// * 'NotRegistered':
-        /// 	- Thrown if the account we are attempting to unstake from is non existent.
-        ///
-        /// * 'NonAssociatedColdKey':
-        /// 	- Thrown if the coldkey does not own the hotkey we are unstaking from.
-        ///
-        /// * 'NotEnoughStakeToWithdraw':
-        /// 	- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
         ///
         #[pallet::call_index(90)]
-        #[pallet::weight((T::DbWeight::get().reads_writes(1, 2) + 200_000, DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight((Weight::from_parts(200_000, 0).saturating_add(T::DbWeight::get().reads_writes(1, 2)), DispatchClass::Normal, Pays::Yes))]
         pub fn claim_root(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let coldkey: T::AccountId = ensure_signed(origin)?;
 
             let weight = Self::do_root_claim(coldkey);
             Ok((Some(weight), Pays::Yes).into())
+        }
+
+        /// --- Sets the root claim type for the coldkey.
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the caller's coldkey.
+        ///
+        /// # Event:
+        /// * RootClaimTypeSet;
+        /// 	- On the successfully setting the root claim type for the coldkey.
+        ///
+        #[pallet::call_index(91)]
+        #[pallet::weight((Weight::from_parts(45_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::Yes))]
+        pub fn set_root_claim_type(
+            origin: OriginFor<T>,
+            new_root_claim_type: RootClaimTypeEnum,
+        ) -> DispatchResult {
+            let coldkey: T::AccountId = ensure_signed(origin)?;
+
+            Self::change_root_claim_type(&coldkey, new_root_claim_type);
+            Ok(())
         }
     }
 }

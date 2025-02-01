@@ -226,16 +226,28 @@ pub mod pallet {
         /// The subnet's contact
         pub subnet_contact: Vec<u8>,
     }
-    /// ============================
-    /// ==== Staking + Accounts ====
-    /// ============================
+    // ============================
+    // ==== Staking + Accounts ====
+    // ============================
 
     /// Enum for the per-coldkey root claim setting.
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub enum RootClaimTypeEnum {
+        /// Swap any alpha emission for TAO.
         #[default]
-        Swap, // Swap any alpha emission for TAO.
-        Keep, // Keep all alpha emission.
+        Swap,
+        /// Keep all alpha emission.
+        Keep,
+    }
+
+    /// Enum for the per-coldkey root claim frequency setting.
+    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    pub enum RootClaimFrequencyEnum {
+        /// Claim automatically.
+        #[default]
+        Auto,
+        /// Only claim manually; Never automatically.
+        Manual,
     }
 
     #[pallet::type_value]
@@ -727,13 +739,37 @@ pub mod pallet {
     }
 
     #[pallet::type_value]
+    /// Default minimum root claim amount.
+    /// This is the minimum amount of root claim that can be made.
+    /// Any amount less than this will not be claimed.
     pub fn DefaultMinRootClaimAmount<T: Config>() -> u64 {
         500_000
     }
 
     #[pallet::type_value]
+    /// Default root claim type.
+    /// This is the type of root claim that will be made.
+    /// This is set by the user. Either swap to TAO or keep as alpha.
     pub fn DefaultRootClaimType<T: Config>() -> RootClaimTypeEnum {
-        RootClaimTypeEnum::Swap
+        RootClaimTypeEnum::default()
+    }
+
+    #[pallet::type_value]
+    /// Default root claim frequency.
+    /// This is the frequency of root claims for a coldkey.
+    /// This is set by the user. Either auto or manual.
+    pub fn DefaultRootClaimFrequency<T: Config>() -> RootClaimFrequencyEnum {
+        RootClaimFrequencyEnum::default()
+    }
+
+    #[pallet::type_value]
+    /// Default number of root claims per claim call.
+    /// Ideally this is calculated using the number of staking coldkey
+    /// and the block time.
+    pub fn DefaultNumRootClaim<T: Config>() -> u64 {
+        // TODO: replace with size of staking coldkeys / 7200
+        // i.e. once per day
+        15
     }
 
     #[pallet::type_value]
@@ -1047,9 +1083,22 @@ pub mod pallet {
         ValueQuery,
         DefaultRootClaimType<T>,
     >;
-    #[pallet::storage] // -- MAP ( hot ) --> root_swap_portion | Returns the amount of the root stake that wants to swap their alpha for TAO.
-    pub type RootSwapPortion<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage] // -- MAP ( cold ) --> root_claim_frequency enum
+    pub type RootClaimFrequency<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        RootClaimFrequencyEnum,
+        ValueQuery,
+        DefaultRootClaimFrequency<T>,
+    >;
+
+    #[pallet::storage] // --- MAP ( u64 ) --> coldkey | Maps coldkeys that have stake to an index
+    pub type StakingColdkeys<T: Config> = StorageMap<_, Identity, u64, T::AccountId, OptionQuery>;
+    #[pallet::storage] // --- Value --> num_staking_coldkeys
+    pub type NumStakingColdkeys<T: Config> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage] // --- Value --> num_root_claim | Number of coldkeys to claim each auto-claim.
+    pub type NumRootClaim<T: Config> = StorageValue<_, u64, ValueQuery, DefaultNumRootClaim<T>>;
 
     /// ============================
     /// ==== Global Parameters =====

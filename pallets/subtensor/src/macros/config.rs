@@ -213,5 +213,8 @@ mod config {
         /// Initial TAO weight.
         #[pallet::constant]
         type InitialTaoWeight: Get<u64>;
+
+        /// Weight information for extrinsics in this pallet.
+        type WeightInfo: crate::WeightInfo;
     }
 }

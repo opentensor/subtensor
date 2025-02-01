@@ -200,6 +200,7 @@ impl pallet_subtensor::Config for Test {
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialTaoWeight = InitialTaoWeight;
+    type WeightInfo = pallet_subtensor::weights::SubstrateWeight<Test>;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]

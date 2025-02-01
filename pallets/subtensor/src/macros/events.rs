@@ -268,7 +268,17 @@ mod events {
 
         /// Root emissions have been claimed for a coldkey on all subnets and hotkeys.
         /// Parameters:
+        /// (coldkey)
+        RootClaimed(T::AccountId),
+
+        /// Root claim type for a coldkey has been set.
+        /// Parameters:
         /// (coldkey, u8)
-        RootClaimed(T::AccountId, RootClaimType),
+        RootClaimTypeSet(T::AccountId, RootClaimTypeEnum),
+
+        /// Root claim frequency for a coldkey has been set.
+        /// Parameters:
+        /// (coldkey, u8)
+        RootClaimFrequencySet(T::AccountId, RootClaimTypeEnum),
     }
 }

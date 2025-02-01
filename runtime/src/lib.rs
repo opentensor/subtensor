@@ -1109,6 +1109,7 @@ impl pallet_subtensor::Config for Runtime {
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
+	type WeightInfo = pallet_subtensor::weights::SubstrateWeight<Runtime>;
 }
 
 use sp_runtime::BoundedVec;

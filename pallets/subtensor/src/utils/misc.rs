@@ -1,5 +1,3 @@
-use core::hash::Hash;
-
 use super::*;
 use crate::{
     system::{ensure_root, ensure_signed_or_root, pallet_prelude::BlockNumberFor},
@@ -68,14 +66,9 @@ impl<T: Config> Pallet<T> {
             .ok()
             .expect("blockchain will not exceed 2^64 blocks; QED.")
     }
-	pub fn get_last_block_hash() -> T::Hash {
-		let curr_block = <frame_system::Pallet<T>>::block_number();
-		if curr_block == 0 {
-			T::Hash::default() // does not exist, so just return default hash
-		} else {
-			<frame_system::Pallet<T>>::block_hash(curr_block.saturating_sub(1))
-		}
-	}
+    pub fn get_last_block_hash() -> T::Hash {
+        <frame_system::Pallet<T>>::parent_hash()
+    }
 
     // ==============================
     // ==== YumaConsensus params ====
