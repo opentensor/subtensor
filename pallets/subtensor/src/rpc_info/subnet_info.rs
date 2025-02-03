@@ -51,30 +51,6 @@ pub struct SubnetInfov2<T: Config> {
     identity: Option<SubnetIdentityV2>,
 }
 
-#[freeze_struct("dd91200554b75bc4")]
-#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
-pub struct SubnetInfov3<T: Config> {
-    netuid: Compact<u16>,
-    rho: Compact<u16>,
-    kappa: Compact<u16>,
-    difficulty: Compact<u64>,
-    immunity_period: Compact<u16>,
-    max_allowed_validators: Compact<u16>,
-    min_allowed_weights: Compact<u16>,
-    max_weights_limit: Compact<u16>,
-    scaling_law_power: Compact<u16>,
-    subnetwork_n: Compact<u16>,
-    max_allowed_uids: Compact<u16>,
-    blocks_since_last_step: Compact<u64>,
-    tempo: Compact<u16>,
-    network_modality: Compact<u16>,
-    network_connect: Vec<[u16; 2]>,
-    emission_values: Compact<u64>,
-    burn: Compact<u64>,
-    owner: T::AccountId,
-    identity: Option<SubnetIdentityV2>,
-}
-
 #[freeze_struct("a2dd2fcd6f4d4ff8")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetHyperparams {
