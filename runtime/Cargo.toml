@@ -77,8 +77,10 @@ pallet-scheduler = { workspace = true }
 pallet-preimage = { workspace = true }
 
 # Safe mode pallet
-
 pallet-safe-mode = { workspace = true }
+
+# Multiblock migrations pallet
+pallet-migrations ={ workspace = true }
 
 # Used for the node subtensor's RPCs
 frame-system-rpc-runtime-api = { workspace = true }

@@ -4,6 +4,7 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod hooks {
+    use frame_support::weights::WeightMeter;
     // ================
     // ==== Hooks =====
     // ================
@@ -14,9 +15,11 @@ mod hooks {
         // # Args:
         // 	* 'n': (BlockNumberFor<T>):
         // 		- The number of the block we are initializing.
-        fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
+        //  * 'weight': (&mut WeightMeter):
+        //      - Counter for the amount of total weight available and weight consumed.
+        fn on_poll(_block_number: BlockNumberFor<T>, weight: &mut WeightMeter) {
             let block_step_result = Self::block_step();
-            match block_step_result {
+            let w = match block_step_result {
                 Ok(_) => {
                     // --- If the block step was successful, return the weight.
                     log::debug!("Successfully ran block step.");
@@ -31,7 +34,8 @@ mod hooks {
                         .saturating_add(T::DbWeight::get().reads(8304_u64))
                         .saturating_add(T::DbWeight::get().writes(110_u64))
                 }
-            }
+            };
+            weight.consume(w);
         }
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {

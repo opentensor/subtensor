@@ -5645,6 +5645,7 @@ dependencies = [
  "pallet-hotfix-sufficients",
  "pallet-insecure-randomness-collective-flip",
  "pallet-membership",
+ "pallet-migrations",
  "pallet-multisig",
  "pallet-preimage",
  "pallet-proxy",
@@ -6301,6 +6302,22 @@ dependencies = [
  "scale-info",
  "sp-core",
  "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-migrations"
+version = "8.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409#87971b3e92721bdf10bf40b410eaae779d494ca0"
+dependencies = [
+ "docify",
+ "frame-support",
+ "frame-system",
+ "impl-trait-for-tuples",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
  "sp-runtime",
 ]
 
