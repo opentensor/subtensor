@@ -193,6 +193,15 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         amount: u64,
     ) {
+        // Add to StakingColdkeys if not already present
+        if !StakingColdkeys::<T>::contains_key(coldkey) {
+            StakingColdkeys::<T>::insert(coldkey, Vec::new());
+            NumStakingColdkeys::<T>::mutate(|n| {
+                // Increment the number of coldkeys
+                *n = n.saturating_add(1);
+            });
+        }
+
         // Iterate over all the subnets this hotkey is staked on for root.
         for (netuid, claimable_rate) in RootClaimable::<T>::iter_prefix(hotkey) {
             // Get the total claimable_rate for this hotkey and this network
