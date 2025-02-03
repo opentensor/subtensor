@@ -254,74 +254,75 @@ impl<T: Config> Pallet<T> {
             hotkey_emission
         );
 
-        // Clear dividend payout accumulators..
-        let _ = AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
-        for (hotkey, incentive, dividends) in hotkey_emission {
+        // Precompute all parent dividends.
+        let mut all_parent_dividends: Vec<(T::AccountId, u64)> = vec![];
+        for (hotkey, _, dividends) in &hotkey_emission {
+            all_parent_dividends.extend( Self::get_dividends_distribution( hotkey, netuid, *dividends) );
+        }
 
+        // Pay out all mining incentives.
+        for (hotkey, incentive, _) in &hotkey_emission {
             // First automatically distribute mining emission.
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey.clone(),
-                &Owner::<T>::get(hotkey.clone()),
+                hotkey,
+                &Owner::<T>::get( hotkey ),
                 netuid,
-                incentive,
+                *incentive,
+            );
+        }
+
+        // Actually perform the distribution to parents.
+        let _ = AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
+        for (parent, divs) in all_parent_dividends.iter() {
+            // Set of values.
+            let mut rem_divs: I96F32 = I96F32::from_num( *divs );
+            let owner: T::AccountId = Owner::<T>::get(parent.clone()); 
+            
+            // Remove the hotkey take straight off the top.
+            let take: I96F32 = Self::get_hotkey_take_float( parent ).saturating_mul( rem_divs );
+            rem_divs = rem_divs.saturating_sub( take );
+            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                parent,
+                &owner,
+                netuid,
+                take.to_num::<u64>(),
             );
 
-            // Second distribute the dividends through to parents via parent/children relationships.
-            let parent_dividends: Vec<(T::AccountId, u64)> = Self::get_dividends_distribution(&hotkey, netuid, dividends);
+            // Get the hotkey root TAO.
+            let root_tao: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(
+                parent,
+                Self::get_root_netuid(),
+            ));
+            let root_alpha: I96F32 = root_tao.saturating_mul(Self::get_tao_weight());
+            let local_alpha: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet( parent, netuid ));
+            let total_alpha: I96F32 = root_alpha.saturating_add( local_alpha );
 
-            // Actually perform the distribution
-            for (parent, divs) in parent_dividends.iter() {
+            // Compute alpha and root proportions.
+            let local_prop: I96F32 = local_alpha.checked_div( total_alpha ).unwrap_or( zero );
+            let root_prop: I96F32 = root_alpha.checked_div( total_alpha ).unwrap_or( zero );
 
-                // Set of values.
-                let mut rem_divs: I96F32 = I96F32::from_num( *divs );
-                let owner: T::AccountId = Owner::<T>::get(parent.clone()); 
-                
-                // Remove the hotkey take straight off the top.
-                let take: I96F32 = Self::get_hotkey_take_float( parent ).saturating_mul( rem_divs );
-                rem_divs = rem_divs.saturating_sub( take );
-                Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                    parent,
-                    &owner,
-                    netuid,
-                    take.to_num::<u64>(),
-                );
+            // Compute alpha divs
+            let local_divs: I96F32 = rem_divs.saturating_mul( local_prop ); 
+            let root_divs: I96F32 = rem_divs.saturating_mul( root_prop ); 
 
-                // Get the hotkey root TAO.
-                let root_tao: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(
-                    parent,
-                    Self::get_root_netuid(),
-                ));
-                let root_alpha: I96F32 = root_tao.saturating_mul(Self::get_tao_weight());
-                let local_alpha: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet( parent, netuid ));
-                let total_alpha: I96F32 = root_alpha.saturating_add( local_alpha );
+            // Pay out alpha divs.
+            Self::increase_stake_for_hotkey_on_subnet(
+                parent,
+                netuid,
+                local_divs.to_num::<u64>(),
+            );
+            // Add claimable
+            Self::increase_root_claimable_for_hotkey_and_subnet(
+                parent,
+                netuid,
+                root_divs.to_num::<u64>(),
+            );
 
-                // Compute alpha and root proportions.
-                let local_prop: I96F32 = local_alpha.checked_div( total_alpha ).unwrap_or( zero );
-                let root_prop: I96F32 = root_alpha.checked_div( total_alpha ).unwrap_or( zero );
-
-                // Compute alpha divs
-                let local_divs: I96F32 = rem_divs.saturating_mul( local_prop ); 
-                let root_divs: I96F32 = rem_divs.saturating_mul( root_prop ); 
-
-                // Pay out alpha divs.
-                Self::increase_stake_for_hotkey_on_subnet(
-                    parent,
-                    netuid,
-                    local_divs.to_num::<u64>(),
-                );
-                // Add claimable
-                Self::increase_root_claimable_for_hotkey_and_subnet(
-                    parent,
-                    netuid,
-                    root_divs.to_num::<u64>(),
-                );
-
-                AlphaDividendsPerSubnet::<T>::mutate( netuid, parent.clone(), |total| {
-                    *total = total.saturating_add( rem_divs.to_num::<u64>() );
-                });
-            }  
-
+            AlphaDividendsPerSubnet::<T>::mutate( netuid, parent.clone(), |total| {
+                *total = total.saturating_add( rem_divs.to_num::<u64>() );
+            });
         }
+
     }
 
     /// Returns the self contribution of a hotkey on a subnet.
