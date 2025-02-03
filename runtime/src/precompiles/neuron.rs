@@ -261,9 +261,6 @@ impl NeuronPrecompile {
         let mut netuid_vec = [0u8; 2];
         netuid_vec.copy_from_slice(get_slice(data, 30, 32)?);
         let netuid = u16::from_be_bytes(netuid_vec);
-
-        // let mut commit_hash_vec = [0u8; 2];
-        // commit_hash_vec.copy_from_slice(get_slice(data, 32, 64)?);
         let commit_hash = H256::from_slice(get_slice(data, 32, 64)?);
 
         Ok((netuid, commit_hash))
