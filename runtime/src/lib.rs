@@ -220,7 +220,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 224,
+    spec_version: 225,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1289,10 +1289,6 @@ parameter_types! {
     pub BoundDivision: U256 = U256::from(1024);
 }
 
-impl pallet_dynamic_fee::Config for Runtime {
-    type MinGasPriceBoundDivisor = BoundDivision;
-}
-
 parameter_types! {
     pub DefaultBaseFeePerGas: U256 = U256::from(20_000_000_000_u128);
     pub DefaultElasticity: Permill = Permill::from_parts(125_000);
@@ -1427,7 +1423,7 @@ construct_runtime!(
         Ethereum: pallet_ethereum = 21,
         EVM: pallet_evm = 22,
         EVMChainId: pallet_evm_chain_id = 23,
-        DynamicFee: pallet_dynamic_fee = 24,
+        // pallet_dynamic_fee was 24
         BaseFee: pallet_base_fee = 25,
 
         Drand: pallet_drand = 26,
@@ -2155,6 +2151,11 @@ impl_runtime_apis! {
 
         fn get_stake_info_for_coldkeys( coldkey_account_vecs: Vec<Vec<u8>> ) -> Vec<u8> {
             let result = SubtensorModule::get_stake_info_for_coldkeys( coldkey_account_vecs );
+            result.encode()
+        }
+
+        fn get_stake_info_for_hotkey_coldkey_netuid( hotkey_account_vec: Vec<u8>, coldkey_account_vec: Vec<u8>, netuid: u16 ) -> Vec<u8> {
+            let result = SubtensorModule::get_stake_info_for_hotkey_coldkey_netuid( hotkey_account_vec, coldkey_account_vec, netuid );
             result.encode()
         }
     }

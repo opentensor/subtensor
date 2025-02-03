@@ -6,7 +6,7 @@ use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I64F64;
 use subtensor_macros::freeze_struct;
 
-#[freeze_struct("bce2310daa502e48")]
+#[freeze_struct("7c5fe907490c5d5e")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct Metagraph<T: Config> {
     // Subnet index
@@ -38,6 +38,7 @@ pub struct Metagraph<T: Config> {
     tao_in_emission: Compact<u64>,        // amount of tao injected per block
     pending_alpha_emission: Compact<u64>, // pending alpha to be distributed
     pending_root_emission: Compact<u64>,  // panding tao for root divs to be distributed
+    subnet_volume: Compact<u128>,         // volume of the subnet in TAO
 
     // Hparams for epoch
     rho: Compact<u16>,   // subnet rho param
@@ -141,6 +142,8 @@ impl<T: Config> Pallet<T> {
             Vec<I64F64>,
             Vec<I64F64>,
         ) = Self::get_stake_weights_for_network(netuid);
+
+        let subnet_volume = SubnetVolume::<T>::get(netuid);
         Some(Metagraph {
             // Subnet index
             netuid: netuid.into(), // subnet index.
@@ -177,6 +180,7 @@ impl<T: Config> Pallet<T> {
             tao_in_emission: SubnetTaoInEmission::<T>::get(netuid).into(), // amount of tao injected per block
             pending_alpha_emission: PendingEmission::<T>::get(netuid).into(), // pending alpha to be distributed
             pending_root_emission: PendingRootDivs::<T>::get(netuid).into(), // panding tao for root divs to be distributed
+            subnet_volume: subnet_volume.into(),
 
             // Hparams for epoch
             rho: Self::get_rho(netuid).into(), // subnet rho param
