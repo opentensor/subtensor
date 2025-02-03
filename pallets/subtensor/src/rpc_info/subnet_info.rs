@@ -27,7 +27,7 @@ pub struct SubnetInfo<T: Config> {
     owner: T::AccountId,
 }
 
-#[freeze_struct("c46dc4e2d4d9f8a3")]
+#[freeze_struct("da372105ad6aacb0")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetInfov2<T: Config> {
     netuid: Compact<u16>,
@@ -45,7 +45,7 @@ pub struct SubnetInfov2<T: Config> {
     tempo: Compact<u16>,
     network_modality: Compact<u16>,
     network_connect: Vec<[u16; 2]>,
-    emission_values: Compact<u64>,
+    emission_value: Compact<u64>,
     burn: Compact<u64>,
     owner: T::AccountId,
     identity: Option<SubnetIdentityV2>,
@@ -172,7 +172,7 @@ impl<T: Config> Pallet<T> {
         let blocks_since_last_step = Self::get_blocks_since_last_step(netuid);
         let tempo = Self::get_tempo(netuid);
         let network_modality = <NetworkModality<T>>::get(netuid);
-        let emission_values = Self::get_emission_value(netuid);
+        let emission_value = Self::get_emission_value(netuid);
         let burn: Compact<u64> = Self::get_burn_as_u64(netuid).into();
         let identity: Option<SubnetIdentityV2> = SubnetIdentitiesV2::<T>::get(netuid);
 
@@ -198,7 +198,7 @@ impl<T: Config> Pallet<T> {
             tempo: tempo.into(),
             network_modality: network_modality.into(),
             network_connect,
-            emission_values: emission_values.into(),
+            emission_value: emission_value.into(),
             burn,
             owner: Self::get_subnet_owner(netuid),
             identity,
