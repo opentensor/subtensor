@@ -1,4 +1,5 @@
 use super::*;
+use safe_math::*;
 use substrate_fixed::types::I96F32;
 
 use frame_support::traits::{
@@ -122,9 +123,8 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_hotkey_take_float(hotkey: &T::AccountId) -> I96F32 {
-        I96F32::from_num(Self::get_hotkey_take(hotkey))
-            .checked_div(I96F32::from_num(u16::MAX))
-            .unwrap_or(I96F32::from_num(0.0))
+        I96F32::saturating_from_num(Self::get_hotkey_take(hotkey))
+            .safe_div(I96F32::saturating_from_num(u16::MAX))
     }
 
     /// Returns true if the hotkey account has been created.

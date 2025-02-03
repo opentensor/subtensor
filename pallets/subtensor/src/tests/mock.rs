@@ -670,7 +670,7 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
 pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> u16 {
     let netuid = SubtensorModule::get_next_netuid();
     let lock_cost = SubtensorModule::get_network_lock_cost();
-    SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost);
+    SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost + ExistentialDeposit::get());
 
     assert_ok!(SubtensorModule::register_network(
         RawOrigin::Signed(*coldkey).into(),

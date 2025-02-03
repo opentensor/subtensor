@@ -324,8 +324,8 @@ fn test_register_subnet_high_lock_cost() {
         let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         assert!(SubtensorModule::if_subnet_exist(netuid));
 
-        // Ensure that both Subnet TAO and Subnet Alpha In equal to 100 TAO
-        assert_eq!(SubnetTAO::<Test>::get(netuid), 100_000_000_000,);
-        assert_eq!(SubnetAlphaIn::<Test>::get(netuid), 100_000_000_000,);
+        // Ensure that both Subnet TAO and Subnet Alpha In equal to lock cost
+        assert_eq!(SubnetTAO::<Test>::get(netuid), lock_cost);
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid), lock_cost);
     })
 }

@@ -3104,7 +3104,7 @@ fn test_childkey_take_drain_validator_take() {
 // - Runs an epoch
 // - Checks the emission distribution among parents, child, and weight setter
 // - Verifies that all parties received emissions and the total stake increased correctly
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_childkey_multiple_parents_emission --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_childkey_multiple_parents_emission --exact --show-output
 #[test]
 fn test_childkey_multiple_parents_emission() {
     new_test_ext(1).execute_with(|| {
@@ -3112,7 +3112,8 @@ fn test_childkey_multiple_parents_emission() {
         let subnet_owner_hotkey: U256 = U256::from(1002);
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         Tempo::<Test>::insert(netuid, 10); // run epoch every 10 blocks
-                                           // Set subnet owner cut to 0
+
+        // Set subnet owner cut to 0
         SubtensorModule::set_subnet_owner_cut(0);
         SubtensorModule::set_tao_weight(0); // No TAO weight
 
@@ -3310,9 +3311,10 @@ fn test_childkey_multiple_parents_emission() {
         // Allow 1% slippage
         let total_stake = parent1_stake + parent2_stake + child_stake + weight_setter_stake;
         let initial_total_stake: u64 = initial_actual_stakes.iter().sum::<u64>();
+        let owner_cut: u64 = (I96F32::from_num(total_emission) * (I96F32::from_num(1) - SubtensorModule::get_float_subnet_owner_cut())).to_num::<u64>();
         assert_abs_diff_eq!(
             total_stake,
-            initial_total_stake + total_emission,
+            initial_total_stake + total_emission - owner_cut,
             epsilon = total_emission / 100,
         );
     });

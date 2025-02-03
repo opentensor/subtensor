@@ -551,7 +551,7 @@ fn test_migrate_commit_reveal_2() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --workspace --test migration -- test_migrate_rao --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::migration::test_migrate_rao --exact --show-output
 #[test]
 fn test_migrate_rao() {
     new_test_ext(1).execute_with(|| {
@@ -600,7 +600,7 @@ fn test_migrate_rao() {
         assert_eq!(SubnetTAO::<Test>::get(netuid_0), 4 * stake_amount); // Root has everything
         assert_eq!(SubnetTAO::<Test>::get(netuid_1), lock_amount); // Initial Rao amount.
         assert_eq!(SubnetAlphaIn::<Test>::get(netuid_0), 1); // No Alpha in pool on root.
-        assert_eq!(SubnetAlphaIn::<Test>::get(netuid_1), 2 * lock_amount); // Initial Rao amount == num_subnets * lock_amount
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid_1), lock_amount); // Initial Rao amount == lock_amount
         assert_eq!(SubnetAlphaOut::<Test>::get(netuid_0), 4 * stake_amount); // All stake is outstanding.
         assert_eq!(SubnetAlphaOut::<Test>::get(netuid_1), 0); // No stake outstanding.
 

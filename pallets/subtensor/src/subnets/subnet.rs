@@ -238,17 +238,13 @@ impl<T: Config> Pallet<T> {
         SubnetAlphaOut::<T>::insert( netuid_to_register, actual_tao_lock_amount );
         Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
             hotkey,
-            coldkey,
+            &coldkey,
             netuid_to_register,
             actual_tao_lock_amount
-        )
+        );
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
         SubnetOwnerHotkey::<T>::insert(netuid_to_register, hotkey.clone());
         TotalStakeAtDynamic::<T>::insert(netuid_to_register, TotalStake::<T>::get());
-
-        if actual_tao_lock_amount_less_pool_tao > 0 {
-            Self::burn_tokens(actual_tao_lock_amount_less_pool_tao);
-        }
 
         // --- 15. Add the identity if it exists
         if let Some(identity_value) = identity {

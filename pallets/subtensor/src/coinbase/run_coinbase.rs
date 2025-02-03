@@ -31,17 +31,17 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Sum all the SubnetTAO associated with the same mechanism.
         // Mechanisms get emission based on the proportion of TAO across all their subnets
-        let mut total_active_tao: I96F32 = I96F32::from_num(0);
+        let mut total_active_tao: I96F32 = I96F32::saturating_from_num(0);
         let mut mechanism_tao: BTreeMap<u16, I96F32> = BTreeMap::new();
         for netuid in subnets.iter() {
             if *netuid == 0 {
                 continue;
             } // Skip root network
             let mechid = SubnetMechanism::<T>::get(*netuid);
-            let subnet_tao = I96F32::from_num(SubnetTAO::<T>::get(*netuid));
+            let subnet_tao = I96F32::saturating_from_num(SubnetTAO::<T>::get(*netuid));
             let new_subnet_tao = subnet_tao
-                .saturating_add(*mechanism_tao.entry(mechid).or_insert(I96F32::from_num(0)));
-            *mechanism_tao.entry(mechid).or_insert(I96F32::from_num(0)) = new_subnet_tao;
+                .saturating_add(*mechanism_tao.entry(mechid).or_insert(I96F32::saturating_from_num(0)));
+            *mechanism_tao.entry(mechid).or_insert(I96F32::saturating_from_num(0)) = new_subnet_tao;
             total_active_tao = total_active_tao.saturating_add(subnet_tao);
         }
         log::debug!("Mechanism TAO sums: {:?}", mechanism_tao);
@@ -57,10 +57,10 @@ impl<T: Config> Pallet<T> {
             let mechid: u16 = SubnetMechanism::<T>::get(*netuid);
             log::debug!("Netuid: {:?}, Mechanism ID: {:?}", netuid, mechid);
             // 3.2: Get subnet TAO (T_s)
-            let subnet_tao: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(*netuid));
+            let subnet_tao: I96F32 = I96F32::saturating_from_num(SubnetTAO::<T>::get(*netuid));
             log::debug!("Subnet TAO (T_s) for netuid {:?}: {:?}", netuid, subnet_tao);
             // 3.3: Get the denominator as the sum of all TAO associated with a specific mechanism (T_m)
-            let mech_tao: I96F32 = *mechanism_tao.get(&mechid).unwrap_or(&I96F32::from_num(0));
+            let mech_tao: I96F32 = *mechanism_tao.get(&mechid).unwrap_or(&I96F32::saturating_from_num(0));
             log::debug!(
                 "Mechanism TAO (T_m) for mechanism ID {:?}: {:?}",
                 mechid,
@@ -69,7 +69,7 @@ impl<T: Config> Pallet<T> {
             // 3.4: Compute the mechanism emission proportion: P_m = T_m / T_total
             let mech_proportion: I96F32 = mech_tao
                 .checked_div(total_active_tao)
-                .unwrap_or(I96F32::from_num(0));
+                .unwrap_or(I96F32::saturating_from_num(0));
             log::debug!(
                 "Mechanism proportion (P_m) for mechanism ID {:?}: {:?}",
                 mechid,
@@ -85,26 +85,32 @@ impl<T: Config> Pallet<T> {
             // 3.6: Calculate subnet's proportion of mechanism TAO: P_s = T_s / T_m
             let subnet_proportion: I96F32 = subnet_tao
                 .checked_div(mech_tao)
-                .unwrap_or(I96F32::from_num(0));
+                .unwrap_or(I96F32::saturating_from_num(0));
             log::debug!(
                 "Subnet proportion (P_s) for netuid {:?}: {:?}",
                 netuid,
                 subnet_proportion
             );
-            // 3.7: Calculate subnet's TAO emission: E_s = P_s * E_m
-            let tao_in: u64 = mech_emission
-                .checked_mul(subnet_proportion)
-                .unwrap_or(I96F32::from_num(0))
-                .to_num::<u64>();
-            log::debug!(
-                "Subnet TAO emission (E_s) for netuid {:?}: {:?}",
-                netuid,
-                tao_in
-            );
-            // 3.8: Store the subnet TAO emission.
-            *tao_in_map.entry(*netuid).or_insert(0) = tao_in;
-            // 3.9: Store the block emission for this subnet for chain storage.
-            EmissionValues::<T>::insert(*netuid, tao_in);
+
+            // Only emit TAO if the subnetwork allows registration.
+            if Self::get_network_registration_allowed(*netuid)
+                || Self::get_network_pow_registration_allowed(*netuid)
+            {
+                // 3.7: Calculate subnet's TAO emission: E_s = P_s * E_m
+                let tao_in: u64 = mech_emission
+                    .checked_mul(subnet_proportion)
+                    .unwrap_or(I96F32::saturating_from_num(0))
+                    .saturating_to_num::<u64>();
+                log::debug!(
+                    "Subnet TAO emission (E_s) for netuid {:?}: {:?}",
+                    netuid,
+                    tao_in
+                );
+                // 3.8: Store the subnet TAO emission.
+                *tao_in_map.entry(*netuid).or_insert(0) = tao_in;
+                // 3.9: Store the block emission for this subnet for chain storage.
+                EmissionValues::<T>::insert(*netuid, tao_in);
+            }
         }
 
         // --- 4. Distribute subnet emission into subnets based on mechanism type.
@@ -218,13 +224,13 @@ impl<T: Config> Pallet<T> {
             netuid,
             emission,
         );
-        let zero: I96F32 = I96F32::from_num(0.0);
+        let zero: I96F32 = I96F32::saturating_from_num(0.0);
 
         // Check for existence of owner cold/hot pair and distribute emission directly to them.
         if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
             if let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
                 // Calculate the owner cut.
-                let owner_cut: u64 = I96F32::from_num(emission).saturating_mul(Self::get_float_subnet_owner_cut()).to_num::<u64>();
+                let owner_cut: u64 = I96F32::saturating_from_num(emission).saturating_mul(Self::get_float_subnet_owner_cut()).saturating_to_num::<u64>();
                 log::debug!("Owner cut for netuid {:?}: {:?}", netuid, owner_cut);
 
                 // Subtract the owner cut from the emission
@@ -275,7 +281,7 @@ impl<T: Config> Pallet<T> {
         let _ = AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
         for (parent, divs) in all_parent_dividends.iter() {
             // Set of values.
-            let mut rem_divs: I96F32 = I96F32::from_num( *divs );
+            let mut rem_divs: I96F32 = I96F32::saturating_from_num( *divs );
             let owner: T::AccountId = Owner::<T>::get(parent.clone()); 
             
             // Remove the hotkey take straight off the top.
@@ -285,16 +291,16 @@ impl<T: Config> Pallet<T> {
                 parent,
                 &owner,
                 netuid,
-                take.to_num::<u64>(),
+                take.saturating_to_num::<u64>(),
             );
 
             // Get the hotkey root TAO.
-            let root_tao: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(
+            let root_tao: I96F32 = I96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(
                 parent,
                 Self::get_root_netuid(),
             ));
             let root_alpha: I96F32 = root_tao.saturating_mul(Self::get_tao_weight());
-            let local_alpha: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet( parent, netuid ));
+            let local_alpha: I96F32 = I96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet( parent, netuid ));
             let total_alpha: I96F32 = root_alpha.saturating_add( local_alpha );
 
             // Compute alpha and root proportions.
@@ -309,17 +315,17 @@ impl<T: Config> Pallet<T> {
             Self::increase_stake_for_hotkey_on_subnet(
                 parent,
                 netuid,
-                local_divs.to_num::<u64>(),
+                local_divs.saturating_to_num::<u64>(),
             );
             // Add claimable
             Self::increase_root_claimable_for_hotkey_and_subnet(
                 parent,
                 netuid,
-                root_divs.to_num::<u64>(),
+                root_divs.saturating_to_num::<u64>(),
             );
 
             AlphaDividendsPerSubnet::<T>::mutate( netuid, parent.clone(), |total| {
-                *total = total.saturating_add( rem_divs.to_num::<u64>() );
+                *total = total.saturating_add( rem_divs.saturating_to_num::<u64>() );
             });
         }
 
