@@ -24,6 +24,7 @@ pub struct DynamicInfo<T: Config> {
     tao_in_emission: Compact<u64>,
     pending_alpha_emission: Compact<u64>,
     pending_root_emission: Compact<u64>,
+    subnet_volume: Compact<u128>,
     network_registered_at: Compact<u64>,
     subnet_identity: Option<SubnetIdentityV2>,
 }
@@ -60,6 +61,7 @@ impl<T: Config> Pallet<T> {
             tao_in_emission: SubnetTaoInEmission::<T>::get(netuid).into(),
             pending_alpha_emission: PendingEmission::<T>::get(netuid).into(),
             pending_root_emission: PendingRootDivs::<T>::get(netuid).into(),
+            subnet_volume: SubnetVolume::<T>::get(netuid).into(),
             network_registered_at: NetworkRegisteredAt::<T>::get(netuid).into(),
             subnet_identity: SubnetIdentitiesV2::<T>::get(netuid),
         })

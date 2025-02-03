@@ -82,7 +82,7 @@ pub mod pallet {
     use sp_std::collections::vec_deque::VecDeque;
     use sp_std::vec;
     use sp_std::vec::Vec;
-    use substrate_fixed::types::U64F64;
+    use substrate_fixed::types::{I96F32, U64F64};
     use subtensor_macros::freeze_struct;
 
     #[cfg(not(feature = "std"))]
@@ -275,6 +275,11 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for zero.
     pub fn DefaultZeroU64<T: Config>() -> u64 {
+        0
+    }
+    #[pallet::type_value]
+    /// Default value for zero.
+    pub fn DefaultZeroU128<T: Config>() -> u128 {
         0
     }
     #[pallet::type_value]
@@ -778,6 +783,12 @@ pub mod pallet {
         U64F64::saturating_from_num(0)
     }
 
+    #[pallet::type_value]
+    /// Default value for minimum liquidity in pool
+    pub fn DefaultMinimumPoolLiquidity<T: Config>() -> I96F32 {
+        I96F32::saturating_from_num(1_000_000_000)
+    }
+
     #[pallet::storage]
     pub type ColdkeySwapScheduleDuration<T: Config> =
         StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapScheduleDuration<T>>;
@@ -946,7 +957,7 @@ pub mod pallet {
     pub type DynamicBlock<T> = StorageValue<_, u64, ValueQuery>;
     #[pallet::storage] // --- MAP ( netuid ) --> total_volume | The total amount of TAO bought and sold since the start of the network.
     pub type SubnetVolume<T: Config> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+        StorageMap<_, Identity, u16, u128, ValueQuery, DefaultZeroU128<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> tao_in_subnet | Returns the amount of TAO in the subnet.
     pub type SubnetTAO<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
@@ -1615,6 +1626,8 @@ pub enum CustomTransactionError {
     HotkeyAccountDoesntExist,
     NotEnoughStakeToWithdraw,
     RateLimitExceeded,
+    InsufficientLiquidity,
+    SlippageTooHigh,
     BadRequest,
 }
 
@@ -1628,6 +1641,8 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::HotkeyAccountDoesntExist => 4,
             CustomTransactionError::NotEnoughStakeToWithdraw => 5,
             CustomTransactionError::RateLimitExceeded => 6,
+            CustomTransactionError::InsufficientLiquidity => 7,
+            CustomTransactionError::SlippageTooHigh => 8,
             CustomTransactionError::BadRequest => 255,
         }
     }
@@ -1693,6 +1708,14 @@ where
                 .into()),
                 Error::<T>::NotEnoughStakeToWithdraw => Err(InvalidTransaction::Custom(
                     CustomTransactionError::NotEnoughStakeToWithdraw.into(),
+                )
+                .into()),
+                Error::<T>::InsufficientLiquidity => Err(InvalidTransaction::Custom(
+                    CustomTransactionError::InsufficientLiquidity.into(),
+                )
+                .into()),
+                Error::<T>::SlippageTooHigh => Err(InvalidTransaction::Custom(
+                    CustomTransactionError::SlippageTooHigh.into(),
                 )
                 .into()),
                 _ => Err(
@@ -1818,7 +1841,7 @@ where
             }
             Some(Call::commit_crv3_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who, *netuid) {
-                    let priority: u64 = Self::get_priority_set_weights(who, *netuid);
+                    let priority: u64 = Pallet::<T>::get_priority_set_weights(who, *netuid);
                     Ok(ValidTransaction {
                         priority,
                         longevity: 1,
@@ -1842,6 +1865,28 @@ where
                     hotkey,
                     *netuid,
                     *amount_staked,
+                    *amount_staked,
+                    false,
+                ))
+            }
+            Some(Call::add_stake_limit {
+                hotkey,
+                netuid,
+                amount_staked,
+                limit_price,
+                allow_partial,
+            }) => {
+                // Calcaulate the maximum amount that can be executed with price limit
+                let max_amount = Pallet::<T>::get_max_amount_add(*netuid, *limit_price);
+
+                // Fully validate the user input
+                Self::result_to_validity(Pallet::<T>::validate_add_stake(
+                    who,
+                    hotkey,
+                    *netuid,
+                    *amount_staked,
+                    max_amount,
+                    *allow_partial,
                 ))
             }
             Some(Call::remove_stake {
@@ -1855,6 +1900,28 @@ where
                     hotkey,
                     *netuid,
                     *amount_unstaked,
+                    *amount_unstaked,
+                    false,
+                ))
+            }
+            Some(Call::remove_stake_limit {
+                hotkey,
+                netuid,
+                amount_unstaked,
+                limit_price,
+                allow_partial,
+            }) => {
+                // Calcaulate the maximum amount that can be executed with price limit
+                let max_amount = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price);
+
+                // Fully validate the user input
+                Self::result_to_validity(Pallet::<T>::validate_remove_stake(
+                    who,
+                    hotkey,
+                    *netuid,
+                    *amount_unstaked,
+                    max_amount,
+                    *allow_partial,
                 ))
             }
             Some(Call::move_stake {
@@ -1873,6 +1940,8 @@ where
                     *origin_netuid,
                     *destination_netuid,
                     *alpha_amount,
+                    *alpha_amount,
+                    None,
                 ))
             }
             Some(Call::transfer_stake {
@@ -1891,6 +1960,8 @@ where
                     *origin_netuid,
                     *destination_netuid,
                     *alpha_amount,
+                    *alpha_amount,
+                    None,
                 ))
             }
             Some(Call::swap_stake {
@@ -1908,6 +1979,36 @@ where
                     *origin_netuid,
                     *destination_netuid,
                     *alpha_amount,
+                    *alpha_amount,
+                    None,
+                ))
+            }
+            Some(Call::swap_stake_limit {
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+                limit_price,
+                allow_partial,
+            }) => {
+                // Get the max amount possible to exchange
+                let max_amount = Pallet::<T>::get_max_amount_move(
+                    *origin_netuid,
+                    *destination_netuid,
+                    *limit_price,
+                );
+
+                // Fully validate the user input
+                Self::result_to_validity(Pallet::<T>::validate_stake_transition(
+                    who,
+                    who,
+                    hotkey,
+                    hotkey,
+                    *origin_netuid,
+                    *destination_netuid,
+                    *alpha_amount,
+                    max_amount,
+                    Some(*allow_partial),
                 ))
             }
             Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {

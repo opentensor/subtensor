@@ -5,7 +5,7 @@ use crate::*;
 use codec::{Decode, Encode};
 use frame_support::{
     assert_ok,
-    storage::unhashed::{get_raw, put_raw},
+    storage::unhashed::{get, get_raw, put, put_raw},
     traits::{StorageInstance, StoredMap},
     weights::Weight,
     StorageHasher, Twox64Concat,
@@ -709,5 +709,44 @@ fn test_migrate_rao() {
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey1, netuid_1),
             stake_amount
         );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::migration::test_migrate_subnet_volume --exact --show-output
+#[test]
+fn test_migrate_subnet_volume() {
+    new_test_ext(1).execute_with(|| {
+        // Setup initial state
+        let netuid_1: u16 = 1;
+        add_network(netuid_1, 1, 0);
+
+        // SubnetValue for netuid 1 key
+        let old_key: [u8; 34] = hex_literal::hex!(
+            "658faa385070e074c85bf6b568cf05553c3226e141696000b4b239c65bc2b2b40100"
+        );
+
+        // Old value in u64 format
+        let old_value: u64 = 123_456_789_000_u64;
+        put::<u64>(&old_key, &old_value); // Store as u64
+
+        // Ensure it is stored as `u64`
+        assert_eq!(get::<u64>(&old_key), Some(old_value));
+
+        // Run migration
+        crate::migrations::migrate_subnet_volume::migrate_subnet_volume::<Test>();
+
+        // Verify the value is now stored as `u128`
+        let new_value: Option<u128> = get(&old_key);
+        let new_value_as_subnet_volume = SubnetVolume::<Test>::get(netuid_1);
+        assert_eq!(new_value, Some(old_value as u128));
+        assert_eq!(new_value_as_subnet_volume, old_value as u128);
+
+        // Ensure migration does not break when running twice
+        let weight_second_run =
+            crate::migrations::migrate_subnet_volume::migrate_subnet_volume::<Test>();
+
+        // Verify the value is still stored as `u128`
+        let new_value: Option<u128> = get(&old_key);
+        assert_eq!(new_value, Some(old_value as u128));
     });
 }
