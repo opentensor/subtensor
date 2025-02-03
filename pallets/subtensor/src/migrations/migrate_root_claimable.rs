@@ -20,7 +20,7 @@ fn do_migration_<T: Config>() -> Weight {
     for (coldkey, _hotkeys) in StakingHotkeys::<T>::iter() {
         let mut has_root_stake = false;
         for hotkey in _hotkeys {
-            let root_stake = Alpha::<T>::get((hotkey, coldkey, root_netuid));
+            let root_stake = Alpha::<T>::get((hotkey, coldkey.clone(), root_netuid));
             weight = weight.saturating_add(T::DbWeight::get().reads(1));
 
             if root_stake > 0 {
