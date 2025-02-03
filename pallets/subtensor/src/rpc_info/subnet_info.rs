@@ -51,7 +51,7 @@ pub struct SubnetInfov2<AccountId: TypeInfo + Encode + Decode> {
     identity: Option<SubnetIdentity>,
 }
 
-#[freeze_struct("4714b5e2336f7b19")]
+#[freeze_struct("7b506df55bd44646")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetHyperparams {
     rho: Compact<u16>,
@@ -76,7 +76,7 @@ pub struct SubnetHyperparams {
     max_validators: Compact<u16>,
     adjustment_alpha: Compact<u64>,
     difficulty: Compact<u64>,
-    commit_reveal_weights_interval: Compact<u64>,
+    commit_reveal_period: Compact<u64>,
     commit_reveal_weights_enabled: bool,
     alpha_high: Compact<u16>,
     alpha_low: Compact<u16>,
@@ -282,7 +282,7 @@ impl<T: Config> Pallet<T> {
             max_validators: max_validators.into(),
             adjustment_alpha: adjustment_alpha.into(),
             difficulty: difficulty.into(),
-            commit_reveal_weights_interval: commit_reveal_periods.into(),
+            commit_reveal_period: commit_reveal_periods.into(),
             commit_reveal_weights_enabled,
             alpha_high: alpha_high.into(),
             alpha_low: alpha_low.into(),
