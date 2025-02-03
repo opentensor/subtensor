@@ -4,7 +4,7 @@ use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
 use subtensor_macros::freeze_struct;
 
-#[freeze_struct("66f29110b41779af")]
+#[freeze_struct("6f2a966922016f51")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct DynamicInfo<T: Config> {
     netuid: Compact<u16>,
