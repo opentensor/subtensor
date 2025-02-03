@@ -2,6 +2,8 @@ use super::*;
 use frame_support::IterableStorageMap;
 use sp_core::Get;
 
+pub(crate) const POOL_INITIAL_TAO: u64 = 100_000_000_000;
+
 impl<T: Config> Pallet<T> {
     /// Retrieves the unique identifier (UID) for the root network.
     ///

@@ -557,9 +557,9 @@ impl<T: Config> Pallet<T> {
             TotalStake::<T>::mutate(|total| {
                 *total = total.saturating_add(tao);
             });
-            // Step 8. Decrease Alpha reserves.
+            // Step 8. Increase total subnet TAO volume.
             SubnetVolume::<T>::mutate(netuid, |total| {
-                *total = total.saturating_add(tao);
+                *total = total.saturating_add(tao.into());
             });
             // Step 9. Return the alpha received.
             alpha
@@ -589,9 +589,9 @@ impl<T: Config> Pallet<T> {
             TotalStake::<T>::mutate(|total| {
                 *total = total.saturating_sub(tao);
             });
-            // Step 8. Decrease Alpha reserves.
+            // Step 8. Increase total subnet TAO volume.
             SubnetVolume::<T>::mutate(netuid, |total| {
-                *total = total.saturating_add(tao);
+                *total = total.saturating_add(tao.into());
             });
             // Step 9. Return the tao received.
             tao
@@ -835,6 +835,8 @@ impl<T: Config> Pallet<T> {
         origin_netuid: u16,
         destination_netuid: u16,
         alpha_amount: u64,
+        max_amount: u64,
+        maybe_allow_partial: Option<bool>,
     ) -> Result<(), Error<T>> {
         // Ensure that both subnets exist.
         ensure!(
@@ -879,6 +881,14 @@ impl<T: Config> Pallet<T> {
             );
         } else {
             return Err(Error::<T>::InsufficientLiquidity);
+        }
+
+        // Ensure that if partial execution is not allowed, the amount will not cause
+        // slippage over desired
+        if let Some(allow_partial) = maybe_allow_partial {
+            if !allow_partial {
+                ensure!(alpha_amount <= max_amount, Error::<T>::SlippageTooHigh);
+            }
         }
 
         Ok(())

@@ -15,7 +15,7 @@ fn test_stake_base_case() {
 
         // Initialize subnet with some existing TAO and Alpha
         let initial_subnet_tao = 10_000_000_000; // 10 TAO
-        let initial_subnet_alpha = 5_000_000; // 5 Alpha
+        let initial_subnet_alpha = 5_000_000_000; // 5 Alpha
         SubnetTAO::<Test>::insert(netuid, initial_subnet_tao);
         SubnetAlphaIn::<Test>::insert(netuid, initial_subnet_alpha);
         SubnetAlphaOut::<Test>::insert(netuid, initial_subnet_alpha);
