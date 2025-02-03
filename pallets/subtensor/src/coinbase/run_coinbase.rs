@@ -19,7 +19,6 @@ pub struct WeightsTlockPayload {
 }
 
 impl<T: Config> Pallet<T> {
-
     pub fn run_coinbase(block_emission: I96F32) {
         // --- 0. Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
@@ -173,7 +172,7 @@ impl<T: Config> Pallet<T> {
             });
             // Accumulate alpha emission in pending.
             PendingEmission::<T>::mutate(*netuid, |total| {
-                *total = total.saturating_add( alpha_out_emission );
+                *total = total.saturating_add(alpha_out_emission);
             });
         }
 
@@ -198,10 +197,7 @@ impl<T: Config> Pallet<T> {
                 PendingEmission::<T>::insert(netuid, 0);
 
                 // 5.2.4 Drain pending root divs, alpha emission, and owner cut.
-                Self::drain_pending_emission(
-                    netuid,
-                    pending_emission,
-                );
+                Self::drain_pending_emission(netuid, pending_emission);
             } else {
                 // Increment
                 BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));
@@ -209,10 +205,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn drain_pending_emission(
-        netuid: u16,
-        mut emission: u64,
-    ) {
+    pub fn drain_pending_emission(netuid: u16, mut emission: u64) {
         log::debug!(
             "Draining pending alpha emission for netuid {:?} emission {:?}",
             netuid,
@@ -224,11 +217,13 @@ impl<T: Config> Pallet<T> {
         if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
             if let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
                 // Calculate the owner cut.
-                let owner_cut: u64 = I96F32::from_num(emission).saturating_mul(Self::get_float_subnet_owner_cut()).to_num::<u64>();
+                let owner_cut: u64 = I96F32::from_num(emission)
+                    .saturating_mul(Self::get_float_subnet_owner_cut())
+                    .to_num::<u64>();
                 log::debug!("Owner cut for netuid {:?}: {:?}", netuid, owner_cut);
 
                 // Subtract the owner cut from the emission
-                emission = emission.saturating_sub( owner_cut );
+                emission = emission.saturating_sub(owner_cut);
 
                 // Compute and remove the owner cut.
                 // Increase stake for both coldkey and hotkey on the subnet
@@ -244,10 +239,7 @@ impl<T: Config> Pallet<T> {
 
         // Run the epoch() --> hotkey emission.
         // Needs to run on the full emission to the subnet.
-        let hotkey_emission: Vec<(T::AccountId, u64, u64)> = Self::epoch(
-            netuid,
-            emission,
-        );
+        let hotkey_emission: Vec<(T::AccountId, u64, u64)> = Self::epoch(netuid, emission);
         log::debug!(
             "Hotkey emission for netuid {:?}: {:?}",
             netuid,
@@ -257,7 +249,8 @@ impl<T: Config> Pallet<T> {
         // Precompute all parent dividends.
         let mut all_parent_dividends: Vec<(T::AccountId, u64)> = vec![];
         for (hotkey, _, dividends) in &hotkey_emission {
-            all_parent_dividends.extend( Self::get_dividends_distribution( hotkey, netuid, *dividends) );
+            all_parent_dividends
+                .extend(Self::get_dividends_distribution(hotkey, netuid, *dividends));
         }
 
         // Pay out all mining incentives.
@@ -265,7 +258,7 @@ impl<T: Config> Pallet<T> {
             // First automatically distribute mining emission.
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 hotkey,
-                &Owner::<T>::get( hotkey ),
+                &Owner::<T>::get(hotkey),
                 netuid,
                 *incentive,
             );
@@ -275,12 +268,12 @@ impl<T: Config> Pallet<T> {
         let _ = AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
         for (parent, divs) in all_parent_dividends.iter() {
             // Set of values.
-            let mut rem_divs: I96F32 = I96F32::from_num( *divs );
-            let owner: T::AccountId = Owner::<T>::get(parent.clone()); 
-            
+            let mut rem_divs: I96F32 = I96F32::from_num(*divs);
+            let owner: T::AccountId = Owner::<T>::get(parent.clone());
+
             // Remove the hotkey take straight off the top.
-            let take: I96F32 = Self::get_hotkey_take_float( parent ).saturating_mul( rem_divs );
-            rem_divs = rem_divs.saturating_sub( take );
+            let take: I96F32 = Self::get_hotkey_take_float(parent).saturating_mul(rem_divs);
+            rem_divs = rem_divs.saturating_sub(take);
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 parent,
                 &owner,
@@ -294,23 +287,20 @@ impl<T: Config> Pallet<T> {
                 Self::get_root_netuid(),
             ));
             let root_alpha: I96F32 = root_tao.saturating_mul(Self::get_tao_weight());
-            let local_alpha: I96F32 = I96F32::from_num(Self::get_stake_for_hotkey_on_subnet( parent, netuid ));
-            let total_alpha: I96F32 = root_alpha.saturating_add( local_alpha );
+            let local_alpha: I96F32 =
+                I96F32::from_num(Self::get_stake_for_hotkey_on_subnet(parent, netuid));
+            let total_alpha: I96F32 = root_alpha.saturating_add(local_alpha);
 
             // Compute alpha and root proportions.
-            let local_prop: I96F32 = local_alpha.checked_div( total_alpha ).unwrap_or( zero );
-            let root_prop: I96F32 = root_alpha.checked_div( total_alpha ).unwrap_or( zero );
+            let local_prop: I96F32 = local_alpha.checked_div(total_alpha).unwrap_or(zero);
+            let root_prop: I96F32 = root_alpha.checked_div(total_alpha).unwrap_or(zero);
 
             // Compute alpha divs
-            let local_divs: I96F32 = rem_divs.saturating_mul( local_prop ); 
-            let root_divs: I96F32 = rem_divs.saturating_mul( root_prop ); 
+            let local_divs: I96F32 = rem_divs.saturating_mul(local_prop);
+            let root_divs: I96F32 = rem_divs.saturating_mul(root_prop);
 
             // Pay out alpha divs.
-            Self::increase_stake_for_hotkey_on_subnet(
-                parent,
-                netuid,
-                local_divs.to_num::<u64>(),
-            );
+            Self::increase_stake_for_hotkey_on_subnet(parent, netuid, local_divs.to_num::<u64>());
             // Add claimable
             Self::increase_root_claimable_for_hotkey_and_subnet(
                 parent,
@@ -318,11 +308,10 @@ impl<T: Config> Pallet<T> {
                 root_divs.to_num::<u64>(),
             );
 
-            AlphaDividendsPerSubnet::<T>::mutate( netuid, parent.clone(), |total| {
-                *total = total.saturating_add( rem_divs.to_num::<u64>() );
+            AlphaDividendsPerSubnet::<T>::mutate(netuid, parent.clone(), |total| {
+                *total = total.saturating_add(rem_divs.to_num::<u64>());
             });
         }
-
     }
 
     /// Returns the self contribution of a hotkey on a subnet.

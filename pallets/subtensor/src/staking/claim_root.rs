@@ -193,10 +193,13 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         amount: u64,
     ) {
-        // Add to StakingColdkeys if not already present
+        // Add to ColdkeysIndex if not already present
         if !StakingColdkeys::<T>::contains_key(coldkey) {
-            StakingColdkeys::<T>::insert(coldkey, Vec::new());
-            NumStakingColdkeys::<T>::mutate(|n| {
+            let index = NumColdkeys::<T>::get();
+            ColdkeysIndex::<T>::insert(index, coldkey);
+            StakingColdkeys::<T>::insert(coldkey, index);
+
+            NumColdkeys::<T>::mutate(|n| {
                 // Increment the number of coldkeys
                 *n = n.saturating_add(1);
             });
