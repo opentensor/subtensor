@@ -241,7 +241,7 @@ impl<T: Config> Pallet<T> {
             coldkey,
             netuid_to_register,
             actual_tao_lock_amount
-        )
+        );
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
         SubnetOwnerHotkey::<T>::insert(netuid_to_register, hotkey.clone());
         TotalStakeAtDynamic::<T>::insert(netuid_to_register, TotalStake::<T>::get());
