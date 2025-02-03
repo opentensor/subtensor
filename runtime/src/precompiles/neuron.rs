@@ -13,6 +13,7 @@ use sp_runtime::traits::BlakeTwo256;
 use sp_runtime::AccountId32;
 use sp_std::vec;
 use sp_std::vec::Vec;
+
 pub const NEURON_PRECOMPILE_INDEX: u64 = 2052;
 // max paramter lenght 4K
 pub const MAX_PARAMETER_SIZE: usize = 4 * 1024;
@@ -207,11 +208,11 @@ impl NeuronPrecompile {
 
         for i in 0..dests_len {
             let mut tmp_vec = [0u8; 2];
-            tmp_vec.copy_from_slice(get_slice(
-                data,
-                first_position + 62 + i * 32,
-                first_position + 64 + i * 32,
-            )?);
+            let from = first_position
+                .saturating_add(62)
+                .saturating_add(i.saturating_mul(32));
+            let to = from.saturating_add(2);
+            tmp_vec.copy_from_slice(get_slice(data, from, to)?);
             let dest = u16::from_be_bytes(tmp_vec);
             dests.push(dest);
         }
@@ -238,11 +239,11 @@ impl NeuronPrecompile {
 
         for i in 0..weights_len {
             let mut tmp_vec = [0u8; 2];
-            tmp_vec.copy_from_slice(get_slice(
-                data,
-                second_position + 62 + i * 32,
-                second_position + 64 + i * 32,
-            )?);
+            let from = second_position
+                .saturating_add(62)
+                .saturating_add(i.saturating_mul(32));
+            let to = from.saturating_add(2);
+            tmp_vec.copy_from_slice(get_slice(data, from, to)?);
             let weight = u16::from_be_bytes(tmp_vec);
             weights.push(weight);
         }
