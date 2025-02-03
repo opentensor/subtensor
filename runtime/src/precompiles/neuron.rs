@@ -343,6 +343,10 @@ impl NeuronPrecompile {
 
         for i in 0..uids_len {
             let mut tmp_vec = [0u8; 2];
+            let from = first_position
+                .saturating_add(62)
+                .saturating_add(i.saturating_mul(32));
+            let to = from.saturating_add(2);
             tmp_vec.copy_from_slice(get_slice(
                 data,
                 first_position + 62 + i * 32,
