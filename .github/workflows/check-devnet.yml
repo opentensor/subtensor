@@ -3,7 +3,7 @@ name: Devnet Deploy Check
 on:
   pull_request:
     branches: [devnet, devnet-ready]
-    types: [labeled, unlabeled, synchronize]
+    types: [labeled, unlabeled, synchronize, opened]
 
 env:
   CARGO_TERM_COLOR: always
