@@ -27,14 +27,16 @@ pub mod migrate_rao {
     };
 
     #[derive(Decode, Encode, MaxEncodedLen, Eq, PartialEq)]
-    pub enum MigrationState {
-        
+    pub enum MigrationState<S, C> {
+        DynamicBlockSet,
+        Stake(S),
+        ConvertSubnets(C),
     }
 
     pub struct Migration<T: Config>(PhantomData<T>);
 
     impl<T: Config> SteppedMigration for Migration<T> {
-        type Cursor = MigrationState;
+        type Cursor = MigrationState<(T::AccountId, T::AccountId), u16>;
         type Identifier = MigrationId<16>;
 
         fn id() -> Self::Identifier {
@@ -42,7 +44,7 @@ pub mod migrate_rao {
         }
 
         fn max_steps() -> Option<u32> {
-            Some(10)
+            Some(10) // TODO: Make sure to change this to something that makes sense
         }
 
         fn step(
@@ -53,7 +55,20 @@ pub mod migrate_rao {
                 return Ok(None);
             }
 
+            let next = match cursor {
+                None => Self::dynamic_block_step(),
+                Some(MigrationState::DynamicBlockSet) => todo!(),
+                _ => todo!(),
+            };
+
             Ok(cursor)
+        }
+    }
+
+    impl<T: Config> Migration<T> {
+        fn dynamic_block_step() -> MigrationState<(T::AccountId, T::AccountId), u16> {
+            DynamicBlock::<T>::set(Pallet::<T>::get_current_block_as_u64());
+            MigrationState::DynamicBlockSet
         }
     }
 }
