@@ -636,7 +636,9 @@ impl<T: Config> Pallet<T> {
 
         // If this is a root-stake
         if netuid == Self::get_root_netuid() {
-            // 5. Adjust root debt for this hotkey and coldkey.
+            // 5.1 Do a root claim
+            Self::do_root_claim(hotkey, coldkey);
+            // 5.2. Adjust root debt for this hotkey and coldkey.
             Self::remove_stake_adjust_debt_for_hotkey_and_coldkey(hotkey, coldkey, alpha);
         }
 
