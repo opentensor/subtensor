@@ -84,34 +84,21 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_stake_info_for_hotkey_coldkey_netuid(
-        hotkey_account_vec: Vec<u8>,
-        coldkey_account_vec: Vec<u8>,
+        hotkey_account: T::AccountId,
+        coldkey_account: T::AccountId,
         netuid: u16,
-    ) -> Option<StakeInfo<T>> {
-        if coldkey_account_vec.len() != 32 {
-            return None; // Invalid coldkey
-        }
-
-        let Ok(coldkey) = T::AccountId::decode(&mut coldkey_account_vec.as_bytes_ref()) else {
-            return None;
-        };
-
-        if hotkey_account_vec.len() != 32 {
-            return None; // Invalid hotkey
-        }
-
-        let Ok(hotkey) = T::AccountId::decode(&mut hotkey_account_vec.as_bytes_ref()) else {
-            return None;
-        };
-
-        let alpha: u64 =
-            Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
-        let emission: u64 = AlphaDividendsPerSubnet::<T>::get(netuid, &hotkey);
-        let is_registered: bool = Self::is_hotkey_registered_on_network(netuid, &hotkey);
+    ) -> Option<StakeInfo<T::AccountId>> {
+        let alpha: u64 = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account,
+            &coldkey_account,
+            netuid,
+        );
+        let emission: u64 = AlphaDividendsPerSubnet::<T>::get(netuid, &hotkey_account);
+        let is_registered: bool = Self::is_hotkey_registered_on_network(netuid, &hotkey_account);
 
         Some(StakeInfo {
-            hotkey: hotkey.clone(),
-            coldkey: coldkey.clone(),
+            hotkey: hotkey_account,
+            coldkey: coldkey_account,
             netuid: (netuid).into(),
             stake: alpha.into(),
             locked: 0.into(),

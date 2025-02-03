@@ -2103,9 +2103,8 @@ impl_runtime_apis! {
             SubtensorModule::get_stake_info_for_coldkeys( coldkey_accounts )
         }
 
-        fn get_stake_info_for_hotkey_coldkey_netuid( hotkey_account_vec: Vec<u8>, coldkey_account_vec: Vec<u8>, netuid: u16 ) -> Vec<u8> {
-            let result = SubtensorModule::get_stake_info_for_hotkey_coldkey_netuid( hotkey_account_vec, coldkey_account_vec, netuid );
-            result.encode()
+        fn get_stake_info_for_hotkey_coldkey_netuid( hotkey_account: AccountId32, coldkey_account: AccountId32, netuid: u16 ) -> Option<StakeInfo<AccountId32>> {
+            SubtensorModule::get_stake_info_for_hotkey_coldkey_netuid( hotkey_account, coldkey_account, netuid )
         }
     }
 

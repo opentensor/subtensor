@@ -6,7 +6,7 @@ use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I64F64;
 use subtensor_macros::freeze_struct;
 
-#[freeze_struct("7c5fe907490c5d5e")]
+#[freeze_struct("a92e51d2046f4be8")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     // Subnet index
