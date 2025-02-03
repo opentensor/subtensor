@@ -12,7 +12,7 @@
 set -eou pipefail
 
 runtime_wasm_path="./target/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.wasm"
-live_chain_url="wss://dev.chain.opentensor.ai:443"
+live_chain_url="wss://dev.chain.opentensor.ai"
 snapshot_path=""
 
 parse_args() {
@@ -50,6 +50,7 @@ do_try_runtime() {
 
   eval "try-runtime --runtime $runtime_wasm_path on-runtime-upgrade \
     --no-weight-warnings --disable-spec-version-check --disable-idempotency-checks --checks=all \
+    --blocktime 12000 \
     $chain_state"
 }
 

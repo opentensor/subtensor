@@ -1485,3 +1485,57 @@ fn test_do_swap_multiple_times() {
         assert_eq!(final_stake_netuid2, 0);
     });
 }
+
+// cargo test --package pallet-subtensor --lib -- tests::move_stake::test_swap_stake_limit_validate --exact --show-output
+#[test]
+fn test_swap_stake_limit_validate() {
+    // Testing the signed extension validate function
+    // correctly filters the `add_stake` transaction.
+
+    new_test_ext(0).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let origin_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let destination_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let stake_amount = 100_000_000_000;
+
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        let unstake_amount =
+            SubtensorModule::stake_into_subnet(&hotkey, &coldkey, origin_netuid, stake_amount, 0);
+
+        // Setup limit price so that it doesn't allow much slippage at all
+        let limit_price = ((SubtensorModule::get_alpha_price(origin_netuid)
+            / SubtensorModule::get_alpha_price(destination_netuid))
+            * I96F32::from_num(1_000_000_000))
+        .to_num::<u64>()
+            - 1_u64;
+
+        // Swap stake limit call
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::swap_stake_limit {
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            alpha_amount: unstake_amount,
+            limit_price,
+            allow_partial: false,
+        });
+
+        let info: crate::DispatchInfo =
+            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+
+        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        // Submit to the signed extension validate function
+        let result_no_stake = extension.validate(&coldkey, &call.clone(), &info, 10);
+
+        // Should fail due to slippage
+        assert_err!(
+            result_no_stake,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::SlippageTooHigh.into()
+            ))
+        );
+    });
+}
