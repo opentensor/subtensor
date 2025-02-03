@@ -347,11 +347,7 @@ impl NeuronPrecompile {
                 .saturating_add(62)
                 .saturating_add(i.saturating_mul(32));
             let to = from.saturating_add(2);
-            tmp_vec.copy_from_slice(get_slice(
-                data,
-                first_position + 62 + i * 32,
-                first_position + 64 + i * 32,
-            )?);
+            tmp_vec.copy_from_slice(get_slice(data, from, to)?);
             let uid = u16::from_be_bytes(tmp_vec);
             uids.push(uid);
         }
@@ -378,11 +374,11 @@ impl NeuronPrecompile {
 
         for i in 0..values_len {
             let mut tmp_vec = [0u8; 2];
-            tmp_vec.copy_from_slice(get_slice(
-                data,
-                second_position + 62 + i * 32,
-                second_position + 64 + i * 32,
-            )?);
+            let from = second_position
+                .saturating_add(62)
+                .saturating_add(i.saturating_mul(32));
+            let to = from.saturating_add(2);
+            tmp_vec.copy_from_slice(get_slice(data, from, to)?);
             let value = u16::from_be_bytes(tmp_vec);
             values.push(value);
         }
@@ -405,11 +401,11 @@ impl NeuronPrecompile {
 
         for i in 0..salt_len {
             let mut tmp_vec = [0u8; 2];
-            tmp_vec.copy_from_slice(get_slice(
-                data,
-                third_position + 62 + i * 32,
-                third_position + 64 + i * 32,
-            )?);
+            let from = third_position
+                .saturating_add(62)
+                .saturating_add(i.saturating_mul(32));
+            let to = from.saturating_add(2);
+            tmp_vec.copy_from_slice(get_slice(data, from, to)?);
             let value = u16::from_be_bytes(tmp_vec);
             salt.push(value);
         }
