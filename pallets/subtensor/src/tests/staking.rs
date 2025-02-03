@@ -3263,6 +3263,7 @@ fn test_max_amount_move_dynamic_dynamic() {
     });
 }
 
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_add_stake_limit_ok --exact --show-output
 #[test]
 fn test_add_stake_limit_ok() {
     new_test_ext(1).execute_with(|| {

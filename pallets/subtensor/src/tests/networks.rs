@@ -294,18 +294,20 @@ fn test_register_subnet_low_lock_cost() {
 
         let subnet_owner_coldkey = U256::from(1);
         let subnet_owner_hotkey = U256::from(2);
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid = SubtensorModule::get_next_netuid();
+        SubtensorModule::add_balance_to_coldkey_account(
+            &subnet_owner_coldkey,
+            lock_cost + ExistentialDeposit::get(),
+        );
+        assert_ok!(SubtensorModule::register_network(
+            frame_system::RawOrigin::Signed(subnet_owner_coldkey).into(),
+            subnet_owner_hotkey
+        ));
         assert!(SubtensorModule::if_subnet_exist(netuid));
 
         // Ensure that both Subnet TAO and Subnet Alpha In equal to (actual) lock_cost
-        assert_eq!(
-            SubnetTAO::<Test>::get(netuid),
-            lock_cost - ExistentialDeposit::get(),
-        );
-        assert_eq!(
-            SubnetAlphaIn::<Test>::get(netuid),
-            lock_cost - ExistentialDeposit::get(),
-        );
+        assert_eq!(SubnetTAO::<Test>::get(netuid), lock_cost,);
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid), lock_cost,);
     })
 }
 
@@ -321,7 +323,16 @@ fn test_register_subnet_high_lock_cost() {
 
         let subnet_owner_coldkey = U256::from(1);
         let subnet_owner_hotkey = U256::from(2);
-        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let netuid = SubtensorModule::get_next_netuid();
+        SubtensorModule::add_balance_to_coldkey_account(
+            &subnet_owner_coldkey,
+            lock_cost + ExistentialDeposit::get(),
+        );
+        assert_ok!(SubtensorModule::register_network(
+            frame_system::RawOrigin::Signed(subnet_owner_coldkey).into(),
+            subnet_owner_hotkey
+        ));
+
         assert!(SubtensorModule::if_subnet_exist(netuid));
 
         // Ensure that both Subnet TAO and Subnet Alpha In equal to lock cost

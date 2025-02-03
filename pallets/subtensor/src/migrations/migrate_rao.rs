@@ -72,7 +72,13 @@ pub fn migrate_rao<T: Config>() -> Weight {
             continue;
         }
         let owner = SubnetOwner::<T>::get(netuid);
-        let lock = SubnetLocked::<T>::get(netuid);
+        let mut lock = SubnetLocked::<T>::get(netuid);
+
+        // Subnet 1 doesn't have any lock, so we'll mint 1 TAO for them
+        if lock == 0 {
+            lock = 1_000_000_000;
+            // TODO: Update TotalIssuance properly
+        }
 
         // Put initial TAO from lock into subnet TAO and produce numerically equal amount of Alpha
         // The initial TAO is the locked amount, with a minimum of 1 RAO and a cap of 100 TAO.
@@ -81,8 +87,8 @@ pub fn migrate_rao<T: Config>() -> Weight {
         let remaining_lock = lock.saturating_sub(pool_initial_tao);
         // Refund the owner for the remaining lock.
         Pallet::<T>::add_balance_to_coldkey_account(&owner, remaining_lock);
-        SubnetTAO::<T>::insert(netuid, pool_initial_tao );
-        SubnetAlphaIn::<T>::insert( netuid, pool_initial_tao );
+        SubnetTAO::<T>::insert(netuid, pool_initial_tao);
+        SubnetAlphaIn::<T>::insert(netuid, pool_initial_tao);
         SubnetMechanism::<T>::insert(netuid, 1); // Convert to dynamic immediately with initialization.
         Tempo::<T>::insert(netuid, DefaultTempo::<T>::get());
         // Set the token symbol for this subnet using Self instead of Pallet::<T>

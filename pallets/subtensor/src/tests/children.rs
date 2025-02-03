@@ -3308,14 +3308,16 @@ fn test_childkey_multiple_parents_emission() {
         log::info!("total_stake: {:?}", TotalStake::<Test>::get());
         log::info!("total_emission: {:?}", total_emission);
         // Check that the total stake has increased by the emission amount
-        // Allow 1% slippage
+        // Allow 0.1% for slippage, etc.
         let total_stake = parent1_stake + parent2_stake + child_stake + weight_setter_stake;
         let initial_total_stake: u64 = initial_actual_stakes.iter().sum::<u64>();
-        let owner_cut: u64 = (I96F32::from_num(total_emission) * (I96F32::from_num(1) - SubtensorModule::get_float_subnet_owner_cut())).to_num::<u64>();
+        let owner_cut: u64 = (I96F32::from_num(total_emission)
+            * (I96F32::from_num(1) - SubtensorModule::get_float_subnet_owner_cut()))
+        .to_num::<u64>();
         assert_abs_diff_eq!(
             total_stake,
             initial_total_stake + total_emission - owner_cut,
-            epsilon = total_emission / 100,
+            epsilon = (initial_total_stake + total_emission - owner_cut) / 1000,
         );
     });
 }

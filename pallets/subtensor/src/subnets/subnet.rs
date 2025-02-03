@@ -235,14 +235,14 @@ impl<T: Config> Pallet<T> {
             Self::get_symbol_for_subnet(netuid_to_register),
         ); // Set subnet token symbol.
 
-        SubnetTAO::<T>::insert( netuid_to_register, actual_tao_lock_amount);
-        SubnetAlphaIn::<T>::insert( netuid_to_register, actual_tao_lock_amount );
-        SubnetAlphaOut::<T>::insert( netuid_to_register, actual_tao_lock_amount );
+        SubnetTAO::<T>::insert(netuid_to_register, actual_tao_lock_amount);
+        SubnetAlphaIn::<T>::insert(netuid_to_register, actual_tao_lock_amount);
+        SubnetAlphaOut::<T>::insert(netuid_to_register, actual_tao_lock_amount);
         Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
             hotkey,
             &coldkey,
             netuid_to_register,
-            actual_tao_lock_amount
+            actual_tao_lock_amount,
         );
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
         SubnetOwnerHotkey::<T>::insert(netuid_to_register, hotkey.clone());

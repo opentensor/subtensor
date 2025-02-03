@@ -669,6 +669,10 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
 #[allow(dead_code)]
 pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> u16 {
     let netuid = SubtensorModule::get_next_netuid();
+
+    // Make lock cost to be zero
+    SubtensorModule::set_network_last_lock(0);
+    SubtensorModule::set_network_min_lock(0);
     let lock_cost = SubtensorModule::get_network_lock_cost();
     SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost + ExistentialDeposit::get());
 
@@ -678,6 +682,11 @@ pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> u16 {
     ));
     NetworkRegistrationAllowed::<Test>::insert(netuid, true);
     NetworkPowRegistrationAllowed::<Test>::insert(netuid, true);
+
+    // Add some liquidity
+    SubnetTAO::<Test>::insert(netuid, 100_000_000_000);
+    SubnetAlphaIn::<Test>::insert(netuid, 100_000_000_000);
+
     netuid
 }
 
