@@ -1094,9 +1094,9 @@ pub mod pallet {
     >;
 
     #[pallet::storage] // --- MAP ( u64 ) --> coldkey | Maps coldkeys that have stake to an index
-    pub type StakingColdkeys<T: Config> = StorageMap<_, Identity, u64, T::AccountId, OptionQuery>;
+    pub type ColdkeysIndex<T: Config> = StorageMap<_, Identity, u64, T::AccountId, OptionQuery>;
     #[pallet::storage] // --- Value --> num_staking_coldkeys
-    pub type NumStakingColdkeys<T: Config> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
+    pub type NumColdkeys<T: Config> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- Value --> num_root_claim | Number of coldkeys to claim each auto-claim.
     pub type NumRootClaim<T: Config> = StorageValue<_, u64, ValueQuery, DefaultNumRootClaim<T>>;
 
