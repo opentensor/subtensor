@@ -95,7 +95,6 @@ substrate-prometheus-endpoint = { workspace = true }
 fc-storage = { workspace = true }
 fc-db = { workspace = true }
 fc-consensus = { workspace = true }
-fp-dynamic-fee = { workspace = true }
 fc-api = { workspace = true }
 fc-rpc = { workspace = true }
 fc-rpc-core = { workspace = true }

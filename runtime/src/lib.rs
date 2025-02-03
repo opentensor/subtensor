@@ -1289,10 +1289,6 @@ parameter_types! {
     pub BoundDivision: U256 = U256::from(1024);
 }
 
-impl pallet_dynamic_fee::Config for Runtime {
-    type MinGasPriceBoundDivisor = BoundDivision;
-}
-
 parameter_types! {
     pub DefaultBaseFeePerGas: U256 = U256::from(20_000_000_000_u128);
     pub DefaultElasticity: Permill = Permill::from_parts(125_000);
@@ -1427,7 +1423,7 @@ construct_runtime!(
         Ethereum: pallet_ethereum = 21,
         EVM: pallet_evm = 22,
         EVMChainId: pallet_evm_chain_id = 23,
-        DynamicFee: pallet_dynamic_fee = 24,
+        // pallet_dynamic_fee was 24
         BaseFee: pallet_base_fee = 25,
 
         Drand: pallet_drand = 26,
