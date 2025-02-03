@@ -274,7 +274,7 @@ impl<T: Config> Pallet<T> {
     pub fn run_auto_claim_root_divs(last_block_hash: T::Hash) -> Weight {
         let mut weight: Weight = Weight::default();
 
-        let n = NumStakingColdkeys::<T>::get();
+        let n = NumColdkeys::<T>::get();
         let k = NumRootClaim::<T>::get();
         weight.saturating_accrue(T::DbWeight::get().reads(2));
 
@@ -283,7 +283,7 @@ impl<T: Config> Pallet<T> {
 
         for i in coldkeys_to_claim.iter() {
             weight.saturating_accrue(T::DbWeight::get().reads(1));
-            if let Ok(coldkey) = StakingColdkeys::<T>::try_get(i) {
+            if let Ok(coldkey) = ColdkeysIndex::<T>::try_get(i) {
                 weight.saturating_accrue(Self::do_root_claim(coldkey.clone()));
             }
 
