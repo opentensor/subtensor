@@ -48,6 +48,7 @@ unwrap-used = "deny"
 manual_inspect = "allow"
 
 [workspace.dependencies]
+no-panic = "0"
 async-trait = "0.1"
 cargo-husky = { version = "1", default-features = false }
 clap = "4.5.4"

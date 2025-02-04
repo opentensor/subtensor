@@ -44,7 +44,9 @@ impl<T: Config> Pallet<T> {
         root_divs_in_alpha
     }
 
+    #[no_panic::no_panic]
     pub fn run_coinbase(block_emission: I96F32) {
+        panic!("test");
         // --- 0. Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
         log::debug!("Current block: {:?}", current_block);
