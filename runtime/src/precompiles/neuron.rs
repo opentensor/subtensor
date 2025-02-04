@@ -145,7 +145,6 @@ impl NeuronPrecompile {
                 handle.context().caller,
             );
 
-        // Dispatch the register_network call
         try_dispatch_runtime_call(handle, call, RawOrigin::Signed(account_id))
     }
 
@@ -167,7 +166,6 @@ impl NeuronPrecompile {
                 handle.context().caller,
             );
 
-        // Dispatch the register_network call
         try_dispatch_runtime_call(handle, call, RawOrigin::Signed(account_id))
     }
 
@@ -191,7 +189,6 @@ impl NeuronPrecompile {
                 handle.context().caller,
             );
 
-        // Dispatch the register_network call
         try_dispatch_runtime_call(handle, call, RawOrigin::Signed(account_id))
     }
 
@@ -504,9 +501,8 @@ impl NeuronPrecompile {
                 exit_status: ExitError::InvalidRange,
             });
         }
-        let mut netuid_vec = [0u8; 2];
-        netuid_vec.copy_from_slice(get_slice(data, 30, 32)?);
-        let netuid = u16::from_be_bytes(netuid_vec);
+
+        let netuid = parse_netuid(data, 30)?;
 
         let mut version_vec = [0u8; 4];
         version_vec.copy_from_slice(get_slice(data, 60, 64)?);
@@ -584,7 +580,12 @@ impl NeuronPrecompile {
         len_vec.copy_from_slice(get_slice(data, len_position + 30, len_position + 32)?);
         let vec_len = u16::from_be_bytes(len_vec) as usize;
 
-        let vec_result = get_slice(data, len_position + 32, len_position + 32 + vec_len)?.to_vec();
+        let vec_result = get_slice(
+            data,
+            len_position + 32,
+            len_position.saturating_add(32).saturating_add(vec_len),
+        )?
+        .to_vec();
 
         Ok((
             netuid,
@@ -607,9 +608,8 @@ impl NeuronPrecompile {
                 exit_status: ExitError::InvalidRange,
             });
         }
-        let mut netuid_vec = [0u8; 2];
-        netuid_vec.copy_from_slice(get_slice(data, 30, 32)?);
-        let netuid = u16::from_be_bytes(netuid_vec);
+
+        let netuid = parse_netuid(data, 30)?;
 
         let mut version_vec = [0u8; 4];
         version_vec.copy_from_slice(get_slice(data, 60, 64)?);
