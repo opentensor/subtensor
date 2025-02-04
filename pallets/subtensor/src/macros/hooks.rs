@@ -76,7 +76,8 @@ mod hooks {
                 // Migrate to RAO
                 .saturating_add(migrations::migrate_rao::migrate_rao::<T>())
 				// Fix the IsNetworkMember map to be consistent with other storage maps
-				.saturating_add(migrations::migrate_fix_is_network_member::migrate_fix_is_network_member::<T>());
+				.saturating_add(migrations::migrate_fix_is_network_member::migrate_fix_is_network_member::<T>())
+				.saturating_add(migrations::migrate_subnet_volume::migrate_subnet_volume::<T>());
             weight
         }
 

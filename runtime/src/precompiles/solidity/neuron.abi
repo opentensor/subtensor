@@ -25,6 +25,57 @@
                 "type": "uint16"
             },
             {
+                "internalType": "uint256",
+                "name": "commitHash",
+                "type": "uint256"
+            }
+        ],
+        "name": "commitWeights",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint16",
+                "name": "netuid",
+                "type": "uint16"
+            },
+            {
+                "internalType": "uint16[]",
+                "name": "uids",
+                "type": "uint16[]"
+            },
+            {
+                "internalType": "uint16[]",
+                "name": "values",
+                "type": "uint16[]"
+            },
+            {
+                "internalType": "uint16[]",
+                "name": "salt",
+                "type": "uint16[]"
+            },
+            {
+                "internalType": "uint64",
+                "name": "versionKey",
+                "type": "uint64"
+            }
+        ],
+        "name": "revealWeights",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint16",
+                "name": "netuid",
+                "type": "uint16"
+            },
+            {
                 "internalType": "uint32",
                 "name": "version",
                 "type": "uint32"
@@ -147,6 +198,34 @@
             }
         ],
         "name": "servePrometheus",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint16",
+                "name": "netuid",
+                "type": "uint16"
+            },
+            {
+                "internalType": "uint16[]",
+                "name": "dests",
+                "type": "uint16[]"
+            },
+            {
+                "internalType": "uint16[]",
+                "name": "weights",
+                "type": "uint16[]"
+            },
+            {
+                "internalType": "uint64",
+                "name": "versionKey",
+                "type": "uint64"
+            }
+        ],
+        "name": "setWeights",
         "outputs": [],
         "stateMutability": "payable",
         "type": "function"

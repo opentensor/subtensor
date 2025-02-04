@@ -1779,7 +1779,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1145d32e826a7748b69ee8fc62d3e6355ff7f1051df53141e7048162fc90481b"
 dependencies = [
  "data-encoding",
- "syn 2.0.96",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -2752,16 +2752,6 @@ dependencies = [
  "parity-scale-codec",
  "sp-core",
  "sp-runtime",
-]
-
-[[package]]
-name = "fp-dynamic-fee"
-version = "1.0.0"
-source = "git+https://github.com/opentensor/frontier?rev=635bdac882#635bdac882333afed827053f31ef56ab739f7a2e"
-dependencies = [
- "async-trait",
- "sp-core",
- "sp-inherents",
 ]
 
 [[package]]
@@ -5745,7 +5735,6 @@ dependencies = [
  "fc-rpc-core",
  "fc-storage",
  "fp-consensus",
- "fp-dynamic-fee",
  "fp-rpc",
  "frame-benchmarking",
  "frame-benchmarking-cli",
@@ -5842,7 +5831,6 @@ dependencies = [
  "pallet-collective",
  "pallet-commitments",
  "pallet-drand",
- "pallet-dynamic-fee",
  "pallet-ethereum",
  "pallet-evm",
  "pallet-evm-chain-id",
@@ -6126,9 +6114,9 @@ checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
 
 [[package]]
 name = "openssl"
-version = "0.10.69"
+version = "0.10.70"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5e534d133a060a3c19daec1eb3e98ec6f4685978834f2dbadfe2ec215bab64e"
+checksum = "61cfb4e166a8bb8c9b55c500bc2308550148ece889be90f609377e58140f42c6"
 dependencies = [
  "bitflags 2.8.0",
  "cfg-if",
@@ -6167,9 +6155,9 @@ dependencies = [
 
 [[package]]
 name = "openssl-sys"
-version = "0.9.104"
+version = "0.9.105"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45abf306cbf99debc8195b66b7346498d7b10c210de50418b5ccd7ceba08c741"
+checksum = "8b22d5b84be05a8d6947c7cb71f7c849aa0f112acd4bf51c2a7c1c988ac0a9dc"
 dependencies = [
  "cc",
  "libc",
@@ -6342,21 +6330,6 @@ dependencies = [
  "subtensor-macros",
  "tle",
  "w3f-bls",
-]
-
-[[package]]
-name = "pallet-dynamic-fee"
-version = "4.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=635bdac882#635bdac882333afed827053f31ef56ab739f7a2e"
-dependencies = [
- "fp-dynamic-fee",
- "fp-evm",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "sp-core",
- "sp-inherents",
 ]
 
 [[package]]
