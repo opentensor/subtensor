@@ -1,10 +1,12 @@
-use super::*;
 use alloc::string::String;
+
 use frame_support::IterableStorageMap;
 use frame_support::{traits::Get, weights::Weight};
-use log;
 use sp_runtime::format;
 use substrate_fixed::types::U64F64;
+
+use super::*;
+use crate::subnets::subnet::POOL_INITIAL_TAO;
 
 pub fn migrate_rao<T: Config>() -> Weight {
     let migration_name = b"migrate_rao".to_vec();
@@ -69,24 +71,24 @@ pub fn migrate_rao<T: Config>() -> Weight {
             TokenSymbol::<T>::insert(netuid, Pallet::<T>::get_symbol_for_subnet(0));
             continue;
         }
-        let owner: T::AccountId = SubnetOwner::<T>::get(netuid);
-        let lock: u64 = SubnetLocked::<T>::get(netuid);
+        let owner = SubnetOwner::<T>::get(netuid);
+        let mut lock = SubnetLocked::<T>::get(netuid);
+
+        // Subnet 1 doesn't have any lock, so we'll mint 1 TAO for them
+        if lock == 0 {
+            lock = 1_000_000_000;
+            // TODO: Update TotalIssuance properly
+        }
 
         // Put initial TAO from lock into subnet TAO and produce numerically equal amount of Alpha
         // The initial TAO is the locked amount, with a minimum of 1 RAO and a cap of 100 TAO.
-        let pool_initial_tao = 100_000_000_000.min(lock.max(1));
+        let pool_initial_tao = POOL_INITIAL_TAO.min(lock.max(1));
 
         let remaining_lock = lock.saturating_sub(pool_initial_tao);
         // Refund the owner for the remaining lock.
         Pallet::<T>::add_balance_to_coldkey_account(&owner, remaining_lock);
-        SubnetTAO::<T>::insert(netuid, pool_initial_tao); // Set TAO to the lock.
-
-        SubnetAlphaIn::<T>::insert(
-            netuid,
-            pool_initial_tao.saturating_mul(netuids.len() as u64),
-        ); // Set AlphaIn to the initial alpha distribution.
-
-        SubnetAlphaOut::<T>::insert(netuid, 0); // Set zero subnet alpha out.
+        SubnetTAO::<T>::insert(netuid, pool_initial_tao);
+        SubnetAlphaIn::<T>::insert(netuid, pool_initial_tao);
         SubnetMechanism::<T>::insert(netuid, 1); // Convert to dynamic immediately with initialization.
         Tempo::<T>::insert(netuid, DefaultTempo::<T>::get());
         // Set the token symbol for this subnet using Self instead of Pallet::<T>
@@ -126,6 +128,10 @@ pub fn migrate_rao<T: Config>() -> Weight {
         // Set the target stakes per interval to 10.
         // TargetStakesPerInterval::<T>::put(10); (DEPRECATED)
     }
+
+    // update `TotalIssuance`, because currency issuance (`T::Currency`) has changed due to lock
+    // refunds above
+    weight = weight.saturating_add(migrate_init_total_issuance::migrate_init_total_issuance::<T>());
 
     // Mark the migration as completed
     HasMigrationRun::<T>::insert(&migration_name, true);

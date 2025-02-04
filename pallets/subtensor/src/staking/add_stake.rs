@@ -1,7 +1,5 @@
 use super::*;
-use safe_math::*;
 use sp_core::Get;
-use substrate_fixed::types::U96F32;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic add_stake: Adds stake to a hotkey account.
@@ -174,34 +172,39 @@ impl<T: Config> Pallet<T> {
         if alpha_in == 0 {
             return 0;
         }
-        let alpha_in_float: U96F32 = U96F32::saturating_from_num(alpha_in);
+        let alpha_in_u128 = alpha_in as u128;
 
         // Corner case: SubnetTAO is zero. Staking can't happen, so max amount is zero.
         let tao_reserve = SubnetTAO::<T>::get(netuid);
         if tao_reserve == 0 {
             return 0;
         }
-        let tao_reserve_float: U96F32 = U96F32::saturating_from_num(tao_reserve);
+        let tao_reserve_u128 = tao_reserve as u128;
 
         // Corner case: limit_price < current_price (price cannot decrease with staking)
-        let limit_price_float: U96F32 = U96F32::saturating_from_num(limit_price)
-            .checked_div(U96F32::saturating_from_num(1_000_000_000))
-            .unwrap_or(U96F32::saturating_from_num(0));
-        if limit_price_float < Self::get_alpha_price(netuid) {
+        let tao = 1_000_000_000_u128;
+        let limit_price_u128 = limit_price as u128;
+        if (limit_price_u128
+            < Self::get_alpha_price(netuid)
+                .saturating_to_num::<u128>()
+                .saturating_mul(tao))
+            || (limit_price == 0u64)
+        {
             return 0;
         }
 
-        // Main case: return SQRT(limit_price * SubnetTAO * SubnetAlphaIn) - SubnetTAO
-        // This is the positive solution of quare equation for finding additional TAO from
-        // limit_price.
-        let zero: U96F32 = U96F32::saturating_from_num(0.0);
-        let epsilon: U96F32 = U96F32::saturating_from_num(0.1);
-        let sqrt: U96F32 =
-            checked_sqrt(limit_price_float.saturating_mul(tao_reserve_float), epsilon)
-                .unwrap_or(zero)
-                .saturating_mul(checked_sqrt(alpha_in_float, epsilon).unwrap_or(zero));
-
-        sqrt.saturating_sub(U96F32::saturating_from_num(tao_reserve_float))
-            .saturating_to_num::<u64>()
+        // Main case: return limit_price * SubnetAlphaIn - SubnetTAO
+        // Non overflowing calculation: limit_price * alpha_in <= u64::MAX * u64::MAX <= u128::MAX
+        // May overflow result, then it will be capped at u64::MAX, which is OK because that matches balance u64 size.
+        let result = limit_price_u128
+            .saturating_mul(alpha_in_u128)
+            .checked_div(tao)
+            .unwrap_or(0)
+            .saturating_sub(tao_reserve_u128);
+        if result < u64::MAX as u128 {
+            result as u64
+        } else {
+            u64::MAX
+        }
     }
 }

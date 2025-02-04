@@ -1769,10 +1769,10 @@ mod dispatches {
         /// 	- The amount of stake to be added to the hotkey staking account.
         ///
         ///  * 'limit_price' (u64):
-        /// 	- The limit price expressed in units of RAO per one Alpha.
+        ///     - The limit price expressed in units of RAO per one Alpha.
         ///
         ///  * 'allow_partial' (bool):
-        /// 	- Allows partial execution of the amount. If set to false, this becomes
+        ///     - Allows partial execution of the amount. If set to false, this becomes
         ///       fill or kill type or order.
         ///
         /// # Event:
@@ -1851,6 +1851,53 @@ mod dispatches {
 
             Self::change_root_claim_type(&coldkey, new_root_claim_type);
             Ok(())
+        }
+
+        /// Swaps a specified amount of stake from one subnet to another, while keeping the same coldkey and hotkey.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the transaction, which must be signed by the coldkey that owns the `hotkey`.
+        /// * `hotkey` - The hotkey whose stake is being swapped.
+        /// * `origin_netuid` - The network/subnet ID from which stake is removed.
+        /// * `destination_netuid` - The network/subnet ID to which stake is added.
+        /// * `alpha_amount` - The amount of stake to swap.
+        /// * `limit_price` - The limit price expressed in units of RAO per one Alpha.
+        /// * `allow_partial` - Allows partial execution of the amount. If set to false, this becomes fill or kill type or order.
+        ///
+        /// # Errors
+        /// Returns an error if:
+        /// * The transaction is not signed by the correct coldkey (i.e., `coldkey_owns_hotkey` fails).
+        /// * Either `origin_netuid` or `destination_netuid` does not exist.
+        /// * The hotkey does not exist.
+        /// * There is insufficient stake on `(coldkey, hotkey, origin_netuid)`.
+        /// * The swap amount is below the minimum stake requirement.
+        ///
+        /// # Events
+        /// May emit a `StakeSwapped` event on success.
+        #[pallet::call_index(92)]
+        #[pallet::weight((
+            Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
+        pub fn swap_stake_limit(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+            origin_netuid: u16,
+            destination_netuid: u16,
+            alpha_amount: u64,
+            limit_price: u64,
+            allow_partial: bool,
+        ) -> DispatchResult {
+            Self::do_swap_stake_limit(
+                origin,
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+                limit_price,
+                allow_partial,
+            )
         }
     }
 }
