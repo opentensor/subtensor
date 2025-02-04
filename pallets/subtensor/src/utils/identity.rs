@@ -167,7 +167,15 @@ impl<T: Config> Pallet<T> {
             .saturating_add(identity.description.len())
             .saturating_add(identity.additional.len());
 
-        total_length <= 256 + 256 + 256 + 1024 + 256 + 1024 + 1024
+        let max_length: usize = 256_usize
+            .saturating_add(256)
+            .saturating_add(256)
+            .saturating_add(1024)
+            .saturating_add(256)
+            .saturating_add(1024)
+            .saturating_add(1024);
+
+        total_length <= max_length
             && identity.name.len() <= 256
             && identity.url.len() <= 256
             && identity.github_repo.len() <= 256
@@ -197,7 +205,15 @@ impl<T: Config> Pallet<T> {
             .saturating_add(identity.github_repo.len())
             .saturating_add(identity.subnet_contact.len());
 
-        total_length <= 256 + 1024 + 1024 + 1024 + 256 + 1024 + 1024
+        let max_length: usize = 256_usize
+            .saturating_add(1024)
+            .saturating_add(1024)
+            .saturating_add(1024)
+            .saturating_add(256)
+            .saturating_add(1024)
+            .saturating_add(1024);
+
+        total_length <= max_length
             && identity.subnet_name.len() <= 256
             && identity.github_repo.len() <= 1024
             && identity.subnet_contact.len() <= 1024
