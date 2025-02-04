@@ -1,7 +1,8 @@
 use super::*;
 use frame_support::weights::Weight;
+use safe_math::*;
 use sp_core::Get;
-use substrate_fixed::types::{I110F18, I96F32};
+use substrate_fixed::types::{I110F18, I96F32, U64F64};
 
 impl<T: Config> Pallet<T> {
     pub fn block_hash_to_indices(block_hash: T::Hash, k: u64, n: u64) -> Vec<u64> {
@@ -41,24 +42,15 @@ impl<T: Config> Pallet<T> {
         amount: u64,
     ) {
         // Get total stake on this hotkey on root.
-        let total: I96F32 =
-            I96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
+        let total: U64F64 =
+            U64F64::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
 
         // Get increment
-        let increment: I96F32 = I96F32::saturating_from_num(amount)
-            .checked_div(total)
-            .unwrap_or(I96F32::saturating_from_num(0.0));
-
-        // Convert increment to u64, mapping negative values to 0
-        let increment_u64: u64 = if increment.is_negative() {
-            0
-        } else {
-            increment.saturating_to_num::<u64>()
-        };
+        let increment: U64F64 = U64F64::saturating_from_num(amount).safe_div(total);
 
         // Increment claimable for this subnet.
         RootClaimable::<T>::mutate(hotkey, netuid, |total| {
-            *total = total.saturating_add(increment_u64);
+            *total = total.saturating_add(increment);
         });
     }
 
@@ -66,57 +58,40 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: u16,
-    ) -> I110F18 {
+    ) -> u128 {
         // Get this keys stake balance on root.
-        let root_stake: I110F18 =
-            I110F18::saturating_from_num(Self::get_stake_for_hotkey_and_coldkey_on_subnet(
-                hotkey,
-                coldkey,
-                Self::get_root_netuid(),
-            ));
+        let root_stake: u128 = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
+            hotkey,
+            coldkey,
+            Self::get_root_netuid(),
+        ) as u128;
 
         // Get the total claimable_rate for this hotkey and this network
-        let claimable_rate: I110F18 =
-            I110F18::saturating_from_num(RootClaimable::<T>::get(hotkey, netuid));
+        let claimable_rate: u128 =
+            (RootClaimable::<T>::get(hotkey, netuid)).saturating_to_num::<u128>();
 
         // Compute the proportion owed to this coldkey via balance.
-        let claimable: I110F18 = claimable_rate.saturating_mul(root_stake);
-
-        claimable
-    }
-
-    pub fn get_root_owed_for_hotkey_coldkey_float(
-        hotkey: &T::AccountId,
-        coldkey: &T::AccountId,
-        netuid: u16,
-    ) -> I110F18 {
-        let claimable = Self::get_root_claimable_for_hotkey_coldkey(hotkey, coldkey, netuid);
-
-        // Attain the claimable debt to avoid overclaiming.
-        let debt: I110F18 =
-            I110F18::saturating_from_num(RootDebt::<T>::get((hotkey, coldkey, netuid)));
-
-        // Substract the debt.
-        let owed: I110F18 = claimable.saturating_sub(debt);
-
-        owed
+        // claimable_rate comes from dividing u64 dividends (never exceeeds 1TAO)
+        // by total hotkey stake (never exceeds 21M TAO and is never below 500_000
+        // MinStake), which is in the worst case 4.2 * 10^13. Root stake never
+        // exceeds 21M TAO, so the worst case result fits in 8.82 * 10^32 < 113 bits
+        // hence return type is u128
+        claimable_rate.saturating_mul(root_stake)
     }
 
     pub fn get_root_owed_for_hotkey_coldkey(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: u16,
-    ) -> u64 {
-        let owed = Self::get_root_owed_for_hotkey_coldkey_float(hotkey, coldkey, netuid);
+    ) -> u128 {
+        let claimable = Self::get_root_claimable_for_hotkey_coldkey(hotkey, coldkey, netuid);
 
-        // Convert owed to u64, mapping negative values to 0
-        let owed_u64: u64 = if owed.is_negative() {
-            0
-        } else {
-            owed.saturating_to_num::<u64>()
-        };
+        // Attain the claimable debt to avoid overclaiming.
+        let debt: u128 =
+            (RootDebt::<T>::get((hotkey, coldkey, netuid))).saturating_to_num::<u128>();
 
-        owed_u64
+        // Substract the debt to get owed.
+        claimable.saturating_sub(debt)
     }
 
     pub fn root_claim_on_subnet(
@@ -126,22 +101,22 @@ impl<T: Config> Pallet<T> {
         root_claim_type: RootClaimTypeEnum,
     ) {
         // Substract the debt.
-        let owed: I110F18 = Self::get_root_owed_for_hotkey_coldkey_float(hotkey, coldkey, netuid);
+        let owed: u128 = Self::get_root_owed_for_hotkey_coldkey(hotkey, coldkey, netuid);
 
-        if owed == 0 || owed < I110F18::saturating_from_num(DefaultMinRootClaimAmount::<T>::get()) {
+        if owed == 0 || owed < DefaultMinRootClaimAmount::<T>::get() as u128 {
             return; // no-op
         }
 
         // Increase root debt by owed amount.
         RootDebt::<T>::mutate((hotkey, coldkey, netuid), |debt| {
-            *debt = debt.saturating_add(owed.saturating_to_num::<I96F32>());
+            *debt = debt.saturating_add(I96F32::saturating_from_num(owed));
         });
 
         // Convert owed to u64, mapping negative values to 0
-        let owed_u64: u64 = if owed.is_negative() {
-            0
+        let owed_u64: u64 = if owed < u64::MAX as u128 {
+            owed as u64
         } else {
-            owed.saturating_to_num::<u64>()
+            u64::MAX
         };
 
         if owed_u64 == 0 {
