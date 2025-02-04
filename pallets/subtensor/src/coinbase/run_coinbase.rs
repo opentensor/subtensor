@@ -58,10 +58,6 @@ impl<T: Config> Pallet<T> {
 
     pub fn run_coinbase(block_emission: I96F32) {
 
-        // Increment emission by pending/
-        let real_block_emission: I96F32 = block_emission + asfloat!( PendingBlockEmission::<T>::get() );
-        PendingBlockEmission::<T>::set( 0 );
-
         // --- 0. Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
         log::debug!("Current block: {:?}", current_block);
@@ -91,23 +87,14 @@ impl<T: Config> Pallet<T> {
             let subnet_tao_i: I96F32 = asfloat!( SubnetTAO::<T>::get(netuid_i) );
             log::debug!("subnet_tao_i: {:?}", subnet_tao_i);
             // Emission is price over total.
-            let mut tao_in_i: I96F32 = real_block_emission.saturating_mul(subnet_tao_i).checked_div(tao_sum).unwrap_or(asfloat!(0.0));
+            let tao_in_i: I96F32 = block_emission.saturating_mul(subnet_tao_i).checked_div(tao_sum).unwrap_or(asfloat!(0.0));
             log::debug!("tao_in_i: {:?}", tao_in_i);
             // Get alpha_emission total
             let alpha_emission_i: I96F32 = asfloat!(Self::get_block_emission_for_issuance(Self::get_alpha_issuance(*netuid_i)).unwrap_or(0));
             log::debug!("alpha_emission_i: {:?}", alpha_emission_i);
             // Get initial alpha_in
-            let mut alpha_in_i: I96F32 = tao_in_i.checked_div(price_i).unwrap_or(alpha_emission_i);
+            let alpha_in_i: I96F32 = tao_in_i.checked_div(price_i).unwrap_or(alpha_emission_i).min(alpha_emission_i);
             log::debug!("alpha_in_i: {:?}", alpha_in_i);
-            // Check if we are emitting too much alpha_in
-            if alpha_in_i >= alpha_emission_i {
-                // Scale down tao_in
-                tao_in_i = price_i.saturating_mul(alpha_emission_i);
-                log::debug!("change tao_in_i: {:?}", tao_in_i);
-                // Set to max alpha_block_emission
-                alpha_in_i = alpha_emission_i;
-                log::debug!("change alpha_in_i: {:?}", alpha_in_i);
-            }
             // Get alpha_out.
             let alpha_out_i = alpha_emission_i;
             // Insert values into maps
@@ -119,10 +106,6 @@ impl<T: Config> Pallet<T> {
         log::debug!("tao_in: {:?}", tao_in);
         log::debug!("alpha_in: {:?}", alpha_in);
         log::debug!("alpha_out: {:?}", alpha_out);
-
-        // Add missed emission into pending.
-        let missing_emission: I96F32 = real_block_emission.saturating_sub( sum_tao_in );
-        PendingBlockEmission::<T>::set( tou64!( missing_emission ) );
 
         // --- 4. Injection.
         for netuid_i in subnets.iter() {
