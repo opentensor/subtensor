@@ -1,5 +1,6 @@
 mod batch_tx;
 mod children;
+mod claim;
 mod coinbase;
 mod delegate_info;
 mod difficulty;
