@@ -4,7 +4,7 @@ use alloc::format;
 use core::marker::PhantomData;
 
 use frame_support::dispatch::{GetDispatchInfo, Pays};
-
+use frame_system::RawOrigin;
 use pallet_evm::{
     ExitError, ExitSucceed, GasWeightMapping, IsPrecompileResult, Precompile, PrecompileFailure,
     PrecompileHandle, PrecompileOutput, PrecompileResult, PrecompileSet,
@@ -14,12 +14,9 @@ use pallet_evm_precompile_sha3fips::Sha3FIPS256;
 use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripemd160, Sha256};
 use sp_core::{hashing::keccak_256, H160};
 use sp_runtime::{traits::Dispatchable, AccountId32};
+use sp_std::vec;
 
 use crate::{Runtime, RuntimeCall};
-
-use frame_system::RawOrigin;
-
-use sp_std::vec;
 
 // Include custom precompiles
 mod balance_transfer;
@@ -35,6 +32,7 @@ use metagraph::*;
 use neuron::*;
 use staking::*;
 use subnet::*;
+
 pub struct FrontierPrecompiles<R>(PhantomData<R>);
 impl<R> Default for FrontierPrecompiles<R>
 where

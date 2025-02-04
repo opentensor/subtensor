@@ -1,8 +1,14 @@
+use core::marker::PhantomData;
+
 use pallet_evm::{
-    BalanceConverter, ExitError, ExitSucceed, PrecompileHandle, PrecompileOutput, PrecompileResult,
+    BalanceConverter, ExitError, ExitSucceed, PrecompileFailure, PrecompileHandle,
+    PrecompileOutput, PrecompileResult,
 };
+use precompile_utils::EvmResult;
+use sp_core::H256;
 use sp_runtime::traits::UniqueSaturatedInto;
-use sp_std::vec;
+use sp_runtime::AccountId32;
+use sp_std::vec::Vec;
 
 use crate::precompiles::{
     contract_to_origin, get_method_id, get_pubkey, get_slice, try_dispatch_runtime_call,
@@ -19,20 +25,11 @@ const CONTRACT_ADDRESS_SS58: [u8; 32] = [
 
 pub struct BalanceTransferPrecompile;
 
+#[precompile_utils::precompile]
 impl BalanceTransferPrecompile {
-    pub fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
-        let txdata = handle.input();
-
-        // Match method ID: keccak256("transfer(bytes32)")
-        let method = get_slice(txdata, 0, 4)?;
-        if get_method_id("transfer(bytes32)") != method {
-            return Ok(PrecompileOutput {
-                exit_status: ExitSucceed::Returned,
-                output: vec![],
-            });
-        }
-
-        // Forward all received value to the destination address
+    #[precompile::public("transfer(bytes32)")]
+    #[precompile::payable]
+    fn transfer(handle: &mut impl PrecompileHandle, address: H256) -> EvmResult<()> {
         let amount = handle.context().apparent_value;
 
         // Use BalanceConverter to convert EVM amount to Substrate balance
@@ -41,20 +38,18 @@ impl BalanceTransferPrecompile {
                 .ok_or(ExitError::OutOfFund)?;
 
         if amount_sub.is_zero() {
-            return Ok(PrecompileOutput {
-                exit_status: ExitSucceed::Returned,
-                output: vec![],
-            });
+            return Ok(());
         }
 
-        let address_bytes_dst = get_slice(txdata, 4, 36)?;
-        let (account_id_dst, _) = get_pubkey(address_bytes_dst)?;
+        let dest = get_pubkey(address.as_bytes())?.0.into();
 
         let call = pallet_balances::Call::<Runtime>::transfer_allow_death {
-            dest: account_id_dst.into(),
+            dest,
             value: amount_sub.unique_saturated_into(),
         };
 
-        try_dispatch_runtime_call(handle, call, contract_to_origin(&CONTRACT_ADDRESS_SS58)?)
+        try_dispatch_runtime_call(handle, call, contract_to_origin(&CONTRACT_ADDRESS_SS58)?)?;
+
+        Ok(())
     }
 }
