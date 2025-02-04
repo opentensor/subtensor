@@ -58,6 +58,10 @@ impl<T: Config> Pallet<T> {
 
     pub fn run_coinbase(block_emission: I96F32) {
 
+        // Increment emission by pending/
+        let real_block_emission: I96F32 = block_emission + asfloat!( PendingBlockEmission::<T>::get() );
+        PendingBlockEmission::<T>::set( 0 );
+
         // --- 0. Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
         log::debug!("Current block: {:?}", current_block);
@@ -75,6 +79,7 @@ impl<T: Config> Pallet<T> {
         log::debug!("tao_sum: {:?}", tao_sum);
 
         // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
+        let mut sum_tao_in: I96F32 = asfloat!( 0 );
         let mut tao_in: BTreeMap<u16, I96F32> = BTreeMap::new();
         let mut alpha_in: BTreeMap<u16, I96F32> = BTreeMap::new();
         let mut alpha_out: BTreeMap<u16, I96F32> = BTreeMap::new();
@@ -86,7 +91,7 @@ impl<T: Config> Pallet<T> {
             let subnet_tao_i: I96F32 = asfloat!( SubnetTAO::<T>::get(netuid_i) );
             log::debug!("subnet_tao_i: {:?}", subnet_tao_i);
             // Emission is price over total.
-            let mut tao_in_i: I96F32 = block_emission.saturating_mul(subnet_tao_i).checked_div(tao_sum).unwrap_or(asfloat!(0.0));
+            let mut tao_in_i: I96F32 = real_block_emission.saturating_mul(subnet_tao_i).checked_div(tao_sum).unwrap_or(asfloat!(0.0));
             log::debug!("tao_in_i: {:?}", tao_in_i);
             // Get alpha_emission total
             let alpha_emission_i: I96F32 = asfloat!(Self::get_block_emission_for_issuance(Self::get_alpha_issuance(*netuid_i)).unwrap_or(0));
@@ -109,10 +114,15 @@ impl<T: Config> Pallet<T> {
             tao_in.insert(*netuid_i, tao_in_i);
             alpha_in.insert(*netuid_i, alpha_in_i);
             alpha_out.insert(*netuid_i, alpha_out_i);
+            sum_tao_in = sum_tao_in.saturating_add(tao_in_i);
         }
         log::debug!("tao_in: {:?}", tao_in);
         log::debug!("alpha_in: {:?}", alpha_in);
         log::debug!("alpha_out: {:?}", alpha_out);
+
+        // Add missed emission into pending.
+        let missing_emission: I96F32 = real_block_emission.saturating_sub( sum_tao_in );
+        PendingBlockEmission::<T>::set( tou64!( missing_emission ) );
 
         // --- 4. Injection.
         for netuid_i in subnets.iter() {
