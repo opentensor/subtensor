@@ -2,7 +2,7 @@ use super::*;
 use frame_support::weights::Weight;
 use safe_math::*;
 use sp_core::Get;
-use substrate_fixed::types::{I110F18, I114F14, I96F32, U64F64};
+use substrate_fixed::types::{I110F18, I96F32, U64F64, U96F32};
 
 impl<T: Config> Pallet<T> {
     pub fn block_hash_to_indices(block_hash: T::Hash, k: u64, n: u64) -> Vec<u64> {
@@ -54,29 +54,36 @@ impl<T: Config> Pallet<T> {
         });
     }
 
+    /// Returns claimable Alpha amount for a hotkey-coldkey pair
+    ///
+    /// claimable_rate comes from dividing u64 dividends (never exceeeds 1TAO)
+    /// by total hotkey stake (never exceeds 21M TAO and is never below 500_000
+    /// MinStake), so the fractional part of it needs 55 bits at most, and the
+    /// integer part needs 30 bits at most.
+    ///
+    /// Root stake is capped at 21M TAO, which is 55 bits, so the product of
+    /// claimable_rate * root_stake has 30+55 = 85 bits in the integer part
+    /// and 55 bits in the fractional = 140 bits. Let's neglect the 13 least
+    /// significant bits and use U96F32
+    ///
     pub fn get_root_claimable_for_hotkey_coldkey(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: u16,
-    ) -> I114F14 {
+    ) -> U96F32 {
         // Get this keys stake balance on root.
-        let root_stake: I114F14 =
-            I114F14::saturating_from_num(Self::get_stake_for_hotkey_and_coldkey_on_subnet(
+        let root_stake: U96F32 =
+            U96F32::saturating_from_num(Self::get_stake_for_hotkey_and_coldkey_on_subnet(
                 hotkey,
                 coldkey,
                 Self::get_root_netuid(),
             ));
 
         // Get the total claimable_rate for this hotkey and this network
-        let claimable_rate: I114F14 =
-            (RootClaimable::<T>::get(hotkey, netuid)).saturating_to_num::<I114F14>();
+        let claimable_rate: U96F32 =
+            (RootClaimable::<T>::get(hotkey, netuid)).saturating_to_num::<U96F32>();
 
         // Compute the proportion owed to this coldkey via balance.
-        // claimable_rate comes from dividing u64 dividends (never exceeeds 1TAO)
-        // by total hotkey stake (never exceeds 21M TAO and is never below 500_000
-        // MinStake), which is in the worst case 4.2 * 10^13. Root stake never
-        // exceeds 21M TAO, so the worst case result fits in 8.82 * 10^32 < 113 bits
-        // hence return type is I114F14
         claimable_rate.saturating_mul(root_stake)
     }
 
@@ -84,15 +91,17 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: u16,
-    ) -> I114F14 {
-        let claimable = Self::get_root_claimable_for_hotkey_coldkey(hotkey, coldkey, netuid);
+    ) -> U96F32 {
+        let claimable: I96F32 = I96F32::saturating_from_num(
+            Self::get_root_claimable_for_hotkey_coldkey(hotkey, coldkey, netuid),
+        );
 
         // Attain the claimable debt to avoid overclaiming.
-        let debt: I114F14 =
-            I114F14::saturating_from_num(RootDebt::<T>::get((hotkey, coldkey, netuid)));
+        let debt: I96F32 =
+            I96F32::saturating_from_num(RootDebt::<T>::get((hotkey, coldkey, netuid)));
 
         // Substract the debt to get owed.
-        claimable.saturating_sub(debt)
+        claimable.saturating_sub(debt).saturating_to_num::<U96F32>()
     }
 
     pub fn root_claim_on_subnet(
@@ -102,9 +111,9 @@ impl<T: Config> Pallet<T> {
         root_claim_type: RootClaimTypeEnum,
     ) {
         // Substract the debt.
-        let owed: I114F14 = Self::get_root_owed_for_hotkey_coldkey(hotkey, coldkey, netuid);
+        let owed: U96F32 = Self::get_root_owed_for_hotkey_coldkey(hotkey, coldkey, netuid);
 
-        if owed == 0 || owed < I114F14::saturating_from_num(DefaultMinRootClaimAmount::<T>::get()) {
+        if owed == 0 || owed < U96F32::saturating_from_num(DefaultMinRootClaimAmount::<T>::get()) {
             return; // no-op
         }
 
