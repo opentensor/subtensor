@@ -703,7 +703,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for applying pending items (e.g. childkeys).
     pub fn DefaultPendingCooldown<T: Config>() -> u64 {
-        7200
+        1
     }
 
     #[pallet::type_value]
@@ -904,6 +904,8 @@ pub mod pallet {
     ///
     /// Eventually, Bittensor should migrate to using Holds afterwhich time we will not require this
     /// separate accounting.
+    #[pallet::storage] // --- ITEM ( paused_coinbase )
+    pub type PauseCoinbase<T> = StorageValue<_, bool, ValueQuery, DefaultFalse<T>>;
     #[pallet::storage] // --- ITEM ( total_issuance )
     pub type TotalIssuance<T> = StorageValue<_, u64, ValueQuery, DefaultTotalIssuance<T>>;
     #[pallet::storage] // --- ITEM ( total_stake )

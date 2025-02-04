@@ -2062,6 +2062,7 @@ fn test_get_stake_for_hotkey_on_subnet_complex_hierarchy() {
         let coldkey_grandchild = U256::from(8);
 
         add_network(netuid, 1, 0);
+        PauseCoinbase::<Test>::set(true);
         SubtensorModule::set_max_registrations_per_block(netuid, 1000);
         SubtensorModule::set_target_registrations_per_interval(netuid, 1000);
         register_ok_neuron(netuid, parent, coldkey_parent, 0);
@@ -2699,7 +2700,7 @@ fn test_set_children_rate_limit_fail_then_succeed() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --test children -- test_childkey_set_weights_single_parent --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_childkey_set_weights_single_parent --exact --show-output --nocapture
 #[test]
 fn test_childkey_set_weights_single_parent() {
     new_test_ext(1).execute_with(|| {

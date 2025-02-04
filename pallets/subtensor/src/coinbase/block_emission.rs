@@ -30,6 +30,10 @@ impl<T: Config> Pallet<T> {
         tao_emission: u64,
         alpha_block_emission: u64,
     ) -> (u64, u64, u64) {
+
+        // Get the total_alpha_emission for the block
+        let alpha_block_emission: u64 = Self::get_block_emission_for_issuance(Self::get_alpha_issuance(netuid)).unwrap_or(0);
+    
         // Init terms.
         let mut tao_in_emission: I96F32 = I96F32::saturating_from_num(tao_emission);
         let float_alpha_block_emission: I96F32 = I96F32::saturating_from_num(alpha_block_emission);
