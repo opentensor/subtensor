@@ -11133,8 +11133,10 @@ version = "0.0.2"
 dependencies = [
  "frame-support",
  "pallet-subtensor",
+ "parity-scale-codec",
  "serde",
  "sp-api",
+ "sp-runtime",
 ]
 
 [[package]]
