@@ -671,6 +671,12 @@ impl<T: Config> Pallet<T> {
         AlphaValues::<T>::get(netuid)
     }
 
+    pub fn set_alpha_values_32(netuid: u16, low: I32F32, high: I32F32) {
+        let low = (low.saturating_mul(I32F32::saturating_from_num(u16::MAX))).to_num::<u16>();
+        let high = (high.saturating_mul(I32F32::saturating_from_num(u16::MAX))).to_num::<u16>();
+        AlphaValues::<T>::insert(netuid, (low, high));
+    }
+
     pub fn get_alpha_values_32(netuid: u16) -> (I32F32, I32F32) {
         let (alpha_low, alpha_high): (u16, u16) = AlphaValues::<T>::get(netuid);
         let converted_low =

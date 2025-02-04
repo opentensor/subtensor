@@ -3286,3 +3286,158 @@ fn assert_approx_eq_vec_of_vec(
         }
     }
 }
+
+// test Yuma 4 scenarios over a sequence of epochs.
+fn setup_yuma_4_scenario(netuid: u16, n: u16, max_stake: u64, stakes: Vec<u64>) {
+    let block_number = System::block_number();
+    let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
+    add_network(netuid, tempo, 0);
+
+    SubtensorModule::set_max_allowed_uids(netuid, n);
+    assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
+    SubtensorModule::set_max_registrations_per_block(netuid, n);
+    SubtensorModule::set_target_registrations_per_interval(netuid, n);
+    SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+    SubtensorModule::set_min_allowed_weights(netuid, 1);
+    SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
+    SubtensorModule::set_bonds_penalty(netuid, 0);
+
+    // === Register
+    for key in 0..n as u64 {
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(key), max_stake);
+        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+            netuid,
+            block_number,
+            key * 1_000_000,
+            &U256::from(key),
+        );
+        assert_ok!(SubtensorModule::register(
+            <<Test as frame_system::Config>::RuntimeOrigin>::signed(U256::from(key)),
+            netuid,
+            block_number,
+            nonce,
+            work,
+            U256::from(key),
+            U256::from(key)
+        ));
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &U256::from(key),
+            &U256::from(key),
+            netuid,
+            stakes[key as usize],
+        );
+    }
+    assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
+    assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
+
+    // Enable Liquid Alpha
+    SubtensorModule::set_kappa(netuid, 0);
+    SubtensorModule::set_liquid_alpha_enabled(netuid, true);
+
+    SubtensorModule::set_alpha_values_32(netuid, I32F32::from_num(0.9), I32F32::from_num(0.99));
+
+    // === Issue validator permits
+    SubtensorModule::set_max_allowed_validators(netuid, 3);
+    assert_eq!(SubtensorModule::get_max_allowed_validators(netuid), 3);
+    SubtensorModule::epoch(netuid, 1_000_000_000); // run first epoch to set allowed validators
+    next_block(); // run to next block to ensure weights are set on nodes after their registration block
+}
+
+fn run_epoch_check_bonds(netuid: u16, sparse: bool, target_bonds: Vec<Vec<u64>>) {
+    next_block();
+    if sparse {
+        SubtensorModule::epoch(netuid, 1_000_000_000);
+    } else {
+        SubtensorModule::epoch_dense(netuid, 1_000_000_000);
+    }
+    let bonds = SubtensorModule::get_bonds(netuid);
+
+    // server 1
+    assert_eq!(bonds[0][3], target_bonds[0][0]);
+    assert_eq!(bonds[1][3], target_bonds[1][0]);
+    assert_eq!(bonds[2][3], target_bonds[2][0]);
+
+    // server 2
+    assert_eq!(bonds[0][4], target_bonds[0][1]);
+    assert_eq!(bonds[1][4], target_bonds[1][1]);
+    assert_eq!(bonds[2][4], target_bonds[2][1]);
+}
+
+#[test]
+fn test_yuma_4_kappa_moves_last() {
+    new_test_ext(1).execute_with(|| {
+        let sparse: bool = false;
+        let n: u16 = 5; // 3 validators, 2 servers
+        let netuid: u16 = 1;
+        let max_stake: u64 = 8;
+
+        // Validator A: kappa / Big validator (0.8) - moves last
+        // Validator B: Small eager validator (0.1) - moves first
+        // Validator C: Small lazy validator (0.1) - moves second
+        let stakes: Vec<u64> = vec![8, 1, 1, 0, 0];
+
+        setup_yuma_4_scenario(netuid, n, max_stake, stakes);
+
+        // Initially, consensus is achieved by all Validators
+        for uid in [0, 1, 2] {
+            assert_ok!(SubtensorModule::set_weights(
+                RuntimeOrigin::signed(U256::from(uid)),
+                netuid,
+                vec![3, 4],
+                vec![u16::MAX, 0],
+                0
+            ));
+        }
+        let target = vec![vec![65535, 0], vec![65535, 0], vec![65535, 0]];
+        run_epoch_check_bonds(netuid, sparse, target);
+
+        // Validator A -> Server 1
+        // Validator B -> Server 2
+        // Validator C -> Server 1
+        for (uid, weights) in [vec![u16::MAX, 0], vec![0, u16::MAX], vec![u16::MAX, 0]]
+            .iter()
+            .enumerate()
+        {
+            assert_ok!(SubtensorModule::set_weights(
+                RuntimeOrigin::signed(U256::from(uid)),
+                netuid,
+                vec![3, 4],
+                weights.to_vec(),
+                0
+            ));
+        }
+        let target = vec![vec![65535, 0], vec![220, 65535], vec![65535, 0]];
+        run_epoch_check_bonds(netuid, sparse, target);
+
+        // Validator A -> Server 1
+        // Validator B -> Server 2
+        // Validator C -> Server 2
+        for (uid, weights) in [vec![u16::MAX, 0], vec![0, u16::MAX], vec![0, u16::MAX]]
+            .iter()
+            .enumerate()
+        {
+            assert_ok!(SubtensorModule::set_weights(
+                RuntimeOrigin::signed(U256::from(uid)),
+                netuid,
+                vec![3, 4],
+                weights.to_vec(),
+                0
+            ));
+        }
+        let target = vec![vec![65535, 0], vec![1, 65535], vec![329, 64878]];
+        run_epoch_check_bonds(netuid, sparse, target);
+
+        // Subsequent epochs All validators -> Server 2
+        for uid in [0, 1, 2] {
+            assert_ok!(SubtensorModule::set_weights(
+                RuntimeOrigin::signed(U256::from(uid)),
+                netuid,
+                vec![3, 4],
+                vec![0, u16::MAX],
+                0
+            ));
+        }
+        let target = vec![vec![65535, 11866], vec![0, 65535], vec![328, 64996]];
+        run_epoch_check_bonds(netuid, sparse, target);
+    })
+}
