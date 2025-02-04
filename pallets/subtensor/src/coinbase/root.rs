@@ -194,8 +194,20 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyAlreadyRegisteredInSubNet
         );
 
-        // --- 6. Create a network account for the user if it doesn't exist.
+        // --- 6.1. Create a network account for the user if it doesn't exist.
         Self::create_account_if_non_existent(&coldkey, &hotkey);
+
+        // --- 6.2. Add to coldkey indices if not already present
+        if !StakingColdkeys::<T>::contains_key(&coldkey) {
+            let index = NumColdkeys::<T>::get();
+            ColdkeysIndex::<T>::insert(index, coldkey);
+            StakingColdkeys::<T>::insert(coldkey, index);
+
+            NumColdkeys::<T>::mutate(|n| {
+                // Increment the number of coldkeys
+                *n = n.saturating_add(1);
+            });
+        }
 
         // --- 7. Fetch the current size of the subnetwork.
         let current_num_root_validators: u16 = Self::get_num_root_validators();
