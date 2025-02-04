@@ -1,6 +1,6 @@
 use super::mock::*;
 use crate::*;
-use sp_core::U256;
+use sp_core::{H256, U256};
 use substrate_fixed::types::I96F32;
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --workspace --test staking2 -- test_swap_tao_for_alpha_dynamic_mechanism --exact --nocapture
@@ -548,5 +548,31 @@ fn test_share_based_staking_stake_inject_stake_new() {
             assert!((stake1 as i64 - (stake_amount + inject_amount) as i64).abs() <= tolerance);
             assert!((stake2 as i64 - stake_amount_2 as i64).abs() <= tolerance);
         });
+    });
+}
+
+#[test]
+fn test_block_hash_to_indices() {
+    let block_hash = H256::from_low_u64_be(12345);
+    let indices = SubtensorModule::block_hash_to_indices(block_hash, 3, 10);
+
+    assert_eq!(indices.len(), 3);
+    assert!(indices.iter().all(|&idx| idx < 10));
+}
+
+#[test]
+fn test_increase_root_claimable_for_hotkey_and_subnet() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey = U256::from(1);
+        let netuid = 1;
+        let initial_claimable = 100;
+        let amount = 50;
+
+        RootClaimable::<Test>::insert(&hotkey, netuid, initial_claimable);
+
+        Pallet::<Test>::increase_root_claimable_for_hotkey_and_subnet(&hotkey, netuid, amount);
+
+        let new_claimable = RootClaimable::<Test>::get(&hotkey, netuid);
+        assert!(new_claimable >= initial_claimable); // Ensure it's increasing
     });
 }
