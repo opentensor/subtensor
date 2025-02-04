@@ -165,14 +165,4 @@ interface ISubnet {
         uint16 netuid,
         uint64 commitRevealWeightsInterval
     ) external payable;
-
-    /// Registers a new network without specifying details.
-    function registerNetwork(bytes32 hotkey) external payable;
-    /// Registers a new network with specified subnet name, GitHub repository, and contact information.
-    function registerNetwork(
-        bytes32 hotkey,
-        bytes memory subnetName,
-        bytes memory githubRepo,
-        bytes memory subnetContact
-    ) external payable;
 }
