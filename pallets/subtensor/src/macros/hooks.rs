@@ -78,7 +78,7 @@ mod hooks {
 				// Fix the IsNetworkMember map to be consistent with other storage maps
 				.saturating_add(migrations::migrate_fix_is_network_member::migrate_fix_is_network_member::<T>())
 				// Migrate RootClaimable
-				.saturating_add(migrations::migrate_root_claimable::migrate_root_claimable::<T>()),
+				.saturating_add(migrations::migrate_root_claimable::migrate_root_claimable::<T>())
 				// Migrate SubnetVolume u64 -> u128
 				.saturating_add(migrations::migrate_subnet_volume::migrate_subnet_volume::<T>());
             weight
