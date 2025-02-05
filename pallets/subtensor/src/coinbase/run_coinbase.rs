@@ -141,7 +141,7 @@ impl<T: Config> Pallet<T> {
             // Get total TAO on root.
             let root_tao: I96F32 = asfloat!( SubnetTAO::<T>::get(0) );
             // Get total ALPHA on subnet.
-            let alpha_issuance: I96F32 = asfloat!( Self::get_alpha_issuance(netuid)) ;
+            let alpha_issuance: I96F32 = asfloat!( Self::get_alpha_issuance( *netuid_i )) ;
             // Get tao_weight
             let tao_weight: I96F32 = root_tao.saturating_mul(Self::get_tao_weight());
             // Get root proportional dividends.
