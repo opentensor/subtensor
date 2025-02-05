@@ -717,7 +717,7 @@ pub mod pallet {
     /// Default staking fee.
     /// 500k rao matches $0.25 at $500/TAO
     pub fn DefaultStakingFee<T: Config>() -> u64 {
-        500_000
+        50_000
     }
 
     #[pallet::type_value]
