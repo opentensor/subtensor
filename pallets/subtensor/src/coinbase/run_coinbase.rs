@@ -45,7 +45,7 @@ impl<T: Config> Pallet<T> {
         log::debug!("All subnet netuids: {:?}", subnets);
 
         // --- 2. Get sum of tao reserves ( in a later version we will switch to prices. )
-        let mut total_moving_prices: I96F32 = I96F32::from_num(0.0);
+        let mut total_moving_prices: I96F32 = I96F32::saturating_from_num(0.0);
         for netuid_i in subnets.iter() {
             // Get and update the moving price of each subnet adding the total together.
             total_moving_prices =
