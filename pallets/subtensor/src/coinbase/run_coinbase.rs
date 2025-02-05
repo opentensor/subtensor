@@ -74,6 +74,12 @@ impl<T: Config> Pallet<T> {
             log::debug!("alpha_in_i: {:?}", alpha_in_i);
             // Get alpha_out.
             let alpha_out_i = alpha_emission_i;
+            // Only emit TAO if the subnetwork allows registration.
+            if !Self::get_network_registration_allowed(*netuid)
+                && Self::get_network_pow_registration_allowed(*netuid)
+            {
+                tao_in_i = asfloat!( 0.0 );
+            }
             // Insert values into maps
             tao_in.insert(*netuid_i, tao_in_i);
             alpha_in.insert(*netuid_i, alpha_in_i);
