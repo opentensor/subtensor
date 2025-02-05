@@ -22,8 +22,8 @@ pub mod migrate_rao {
     use codec::MaxEncodedLen;
     use frame_support::{
         migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-        traits::GetStorageVersion,
-        weights::WeightMeter,
+        traits::{Get, GetStorageVersion},
+        weights::{Weight, WeightMeter},
     };
     use substrate_fixed::types::U64F64;
 
@@ -58,18 +58,33 @@ pub mod migrate_rao {
                 return Ok(None);
             }
 
-            let next = match &cursor {
-                None => Self::dynamic_block_step(),
-                Some(MigrationState::DynamicBlockSet) => Self::stake_step(None),
-                Some(MigrationState::Stake(key)) => Self::stake_step(Some(key)),
-                _ => todo!(),
-            };
+            let mut required_weight = Self::required_weight(cursor.as_ref());
+
+            while meter.try_consume(required_weight).is_ok() {
+                let next = match &cursor {
+                    None => Self::dynamic_block_step(),
+                    Some(MigrationState::DynamicBlockSet) => Self::stake_step(None),
+                    Some(MigrationState::Stake(key)) => Self::stake_step(Some(key)),
+                    _ => todo!(),
+                };
+
+                cursor = Some(next);
+                required_weight = Self::required_weight(cursor.as_ref());
+            }
 
             Ok(cursor)
         }
     }
 
     impl<T: Config> Migration<T> {
+        fn required_weight(step: Option<&MigrationState<(T::AccountId, T::AccountId), u16>>) -> Weight {
+            match step {
+                None => T::DbWeight::get().writes(1),
+                Some(MigrationState::DynamicBlockSet | MigrationState::Stake(_)) => T::DbWeight::get().reads_writes(6, 6),
+                _ => todo!(),
+            }
+        }
+
         fn dynamic_block_step() -> MigrationState<(T::AccountId, T::AccountId), u16> {
             DynamicBlock::<T>::set(Pallet::<T>::get_current_block_as_u64());
             MigrationState::DynamicBlockSet
