@@ -703,7 +703,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for applying pending items (e.g. childkeys).
     pub fn DefaultPendingCooldown<T: Config>() -> u64 {
-        7200
+        1
     }
 
     #[pallet::type_value]
@@ -717,7 +717,7 @@ pub mod pallet {
     /// Default staking fee.
     /// 500k rao matches $0.25 at $500/TAO
     pub fn DefaultStakingFee<T: Config>() -> u64 {
-        500_000
+        50_000
     }
 
     #[pallet::type_value]
@@ -732,6 +732,18 @@ pub mod pallet {
         T::InitialDissolveNetworkScheduleDuration::get()
     }
 
+    #[pallet::type_value]
+    /// Default moving alpha for the moving price.
+    pub fn DefaultMovingAlpha<T: Config>() -> I96F32 {
+        // Moving average take 30 days to reach 50% of the price
+        // and 3.5 months to reach 90%.
+        I96F32::saturating_from_num(0.000003)
+    }
+    #[pallet::type_value]
+    /// Default subnet moving price.
+    pub fn DefaultMovingPrice<T: Config>() -> I96F32 {
+        I96F32::saturating_from_num(0.0)
+    }
     #[pallet::type_value]
     /// Default value for Share Pool variables
     pub fn DefaultSharePoolZero<T: Config>() -> U64F64 {
@@ -910,6 +922,11 @@ pub mod pallet {
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
     #[pallet::storage] // --- ITEM ( dynamic_block ) -- block when dynamic was turned on.
     pub type DynamicBlock<T> = StorageValue<_, u64, ValueQuery>;
+    #[pallet::storage] // --- ITEM ( moving_alpha ) -- subnet moving alpha.
+    pub type SubnetMovingAlpha<T> = StorageValue<_, I96F32, ValueQuery, DefaultMovingAlpha<T>>;
+    #[pallet::storage] // --- MAP ( netuid ) --> moving_price | The subnet moving price.
+    pub type SubnetMovingPrice<T: Config> =
+        StorageMap<_, Identity, u16, I96F32, ValueQuery, DefaultMovingPrice<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> total_volume | The total amount of TAO bought and sold since the start of the network.
     pub type SubnetVolume<T: Config> =
         StorageMap<_, Identity, u16, u128, ValueQuery, DefaultZeroU128<T>>;
