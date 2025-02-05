@@ -6,6 +6,7 @@ pub mod migrate_delete_subnet_21;
 pub mod migrate_delete_subnet_3;
 pub mod migrate_fix_is_network_member;
 pub mod migrate_fix_total_coldkey_stake;
+pub mod migrate_identities_v2;
 pub mod migrate_init_total_issuance;
 pub mod migrate_populate_owned_hotkeys;
 pub mod migrate_populate_staking_hotkeys;

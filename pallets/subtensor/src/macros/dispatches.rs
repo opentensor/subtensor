@@ -1453,12 +1453,22 @@ mod dispatches {
             origin: OriginFor<T>,
             name: Vec<u8>,
             url: Vec<u8>,
+            github_repo: Vec<u8>,
             image: Vec<u8>,
             discord: Vec<u8>,
             description: Vec<u8>,
             additional: Vec<u8>,
         ) -> DispatchResult {
-            Self::do_set_identity(origin, name, url, image, discord, description, additional)
+            Self::do_set_identity(
+                origin,
+                name,
+                url,
+                github_repo,
+                image,
+                discord,
+                description,
+                additional,
+            )
         }
 
         /// ---- Set the identity information for a subnet.
@@ -1487,8 +1497,22 @@ mod dispatches {
             subnet_name: Vec<u8>,
             github_repo: Vec<u8>,
             subnet_contact: Vec<u8>,
+            subnet_url: Vec<u8>,
+            discord: Vec<u8>,
+            description: Vec<u8>,
+            additional: Vec<u8>,
         ) -> DispatchResult {
-            Self::do_set_subnet_identity(origin, netuid, subnet_name, github_repo, subnet_contact)
+            Self::do_set_subnet_identity(
+                origin,
+                netuid,
+                subnet_name,
+                github_repo,
+                subnet_contact,
+                subnet_url,
+                discord,
+                description,
+                additional,
+            )
         }
 
         /// User register a new subnetwork
@@ -1499,7 +1523,7 @@ mod dispatches {
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
-            identity: Option<SubnetIdentityOf>,
+            identity: Option<SubnetIdentityOfV2>,
         ) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, identity)
         }

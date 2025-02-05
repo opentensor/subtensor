@@ -107,19 +107,20 @@ pub fn migrate_rao<T: Config>() -> Weight {
                 let _neuron_uid: u16 = Pallet::<T>::register_neuron(*netuid, &owner_coldkey);
             }
             // Register the neuron immediately.
-            if !Identities::<T>::contains_key(owner_coldkey.clone()) {
+            if !IdentitiesV2::<T>::contains_key(owner_coldkey.clone()) {
                 // Set the identitiy for the Owner coldkey if non existent.
-                let identity = ChainIdentityOf {
+                let identity = ChainIdentityOfV2 {
                     name: format!("Owner{}", netuid).as_bytes().to_vec(),
                     url: Vec::new(),
                     image: Vec::new(),
+                    github_repo: Vec::new(),
                     discord: Vec::new(),
                     description: Vec::new(),
                     additional: Vec::new(),
                 };
                 // Validate the created identity and set it.
                 if Pallet::<T>::is_valid_identity(&identity) {
-                    Identities::<T>::insert(owner_coldkey.clone(), identity.clone());
+                    IdentitiesV2::<T>::insert(owner_coldkey.clone(), identity.clone());
                 }
             }
         }

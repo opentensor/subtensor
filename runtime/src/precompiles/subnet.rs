@@ -5,8 +5,8 @@ use pallet_evm::{
     AddressMapping, ExitError, HashedAddressMapping, PrecompileFailure, PrecompileHandle,
     PrecompileResult,
 };
-use sp_runtime::traits::BlakeTwo256;
 use sp_runtime::AccountId32;
+use sp_runtime::{traits::BlakeTwo256, Vec};
 use sp_std::vec;
 pub const SUBNET_PRECOMPILE_INDEX: u64 = 2051;
 // bytes with max lenght 1K
@@ -62,14 +62,26 @@ impl SubnetPrecompile {
                 )
             }
             33.. => {
-                let (hotkey, subnet_name, github_repo, subnet_contact) =
-                    Self::parse_register_network_parameters(data)?;
+                let (
+                    hotkey,
+                    subnet_name,
+                    github_repo,
+                    subnet_contact,
+                    subnet_url,
+                    discord,
+                    description,
+                    additional,
+                ) = Self::parse_register_network_parameters(data)?;
 
-                let identity: pallet_subtensor::SubnetIdentityOf =
-                    pallet_subtensor::SubnetIdentityOf {
+                let identity: pallet_subtensor::SubnetIdentityOfV2 =
+                    pallet_subtensor::SubnetIdentityOfV2 {
                         subnet_name,
                         github_repo,
                         subnet_contact,
+                        subnet_url,
+                        discord,
+                        description,
+                        additional,
                     };
 
                 // Create the register_network callcle
@@ -98,12 +110,24 @@ impl SubnetPrecompile {
 
     fn parse_register_network_parameters(
         data: &[u8],
-    ) -> Result<(AccountId32, vec::Vec<u8>, vec::Vec<u8>, vec::Vec<u8>), PrecompileFailure> {
+    ) -> Result<
+        (
+            AccountId32,
+            Vec<u8>,
+            Vec<u8>,
+            Vec<u8>,
+            Vec<u8>,
+            Vec<u8>,
+            Vec<u8>,
+            Vec<u8>,
+        ),
+        PrecompileFailure,
+    > {
         let (pubkey, dynamic_params) = get_pubkey(data)?;
         let dynamic_data_len = dynamic_params.len();
 
         let mut buf = [0_u8; 4];
-        // get all start point for three data items: name, repo and contact
+        // get all start points for the data items: name, repo, contact, url, discord, description, additional
         buf.copy_from_slice(get_slice(data, 60, 64)?);
         let subnet_name_start: usize = u32::from_be_bytes(buf) as usize;
         if subnet_name_start > dynamic_data_len {
@@ -140,6 +164,54 @@ impl SubnetPrecompile {
             });
         }
 
+        buf.copy_from_slice(get_slice(data, 156, 160)?);
+        let subnet_url_start: usize = u32::from_be_bytes(buf) as usize;
+        if subnet_url_start > dynamic_data_len {
+            log::error!(
+                "the start position of subnet_url as {} is too big ",
+                subnet_url_start
+            );
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+
+        buf.copy_from_slice(get_slice(data, 188, 192)?);
+        let discord_start: usize = u32::from_be_bytes(buf) as usize;
+        if discord_start > dynamic_data_len {
+            log::error!(
+                "the start position of discord as {} is too big ",
+                discord_start
+            );
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+
+        buf.copy_from_slice(get_slice(data, 220, 224)?);
+        let description_start: usize = u32::from_be_bytes(buf) as usize;
+        if description_start > dynamic_data_len {
+            log::error!(
+                "the start position of description as {} is too big ",
+                description_start
+            );
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+
+        buf.copy_from_slice(get_slice(data, 252, 256)?);
+        let additional_start: usize = u32::from_be_bytes(buf) as usize;
+        if additional_start > dynamic_data_len {
+            log::error!(
+                "the start position of additional as {} is too big ",
+                additional_start
+            );
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+
         // get name
         buf.copy_from_slice(get_slice(
             data,
@@ -149,7 +221,10 @@ impl SubnetPrecompile {
         let subnet_name_len: usize = u32::from_be_bytes(buf) as usize;
 
         if subnet_name_len > MAX_SINGLE_PARAMETER_SIZE {
-            log::error!("the length of subnet nae as {} is too big", subnet_name_len);
+            log::error!(
+                "the length of subnet name as {} is too big",
+                subnet_name_len
+            );
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
             });
@@ -210,6 +285,94 @@ impl SubnetPrecompile {
             subnet_contact_start + subnet_contact_len + 32,
         )?);
 
-        Ok((pubkey, name_vec, repo_vec, contact_vec))
+        // get subnet_url
+        buf.copy_from_slice(get_slice(
+            data,
+            subnet_url_start + 28,
+            subnet_url_start + 32,
+        )?);
+        let subnet_url_len: usize = u32::from_be_bytes(buf) as usize;
+        if subnet_url_len > MAX_SINGLE_PARAMETER_SIZE {
+            log::error!("the length of subnet_url as {} is too big", subnet_url_len);
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+        let mut url_vec = vec![0; subnet_url_len];
+        url_vec.copy_from_slice(get_slice(
+            data,
+            subnet_url_start + 32,
+            subnet_url_start + subnet_url_len + 32,
+        )?);
+
+        // get discord
+        buf.copy_from_slice(get_slice(data, discord_start + 28, discord_start + 32)?);
+        let discord_len: usize = u32::from_be_bytes(buf) as usize;
+        if discord_len > MAX_SINGLE_PARAMETER_SIZE {
+            log::error!("the length of discord as {} is too big", discord_len);
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+        let mut discord_vec = vec![0; discord_len];
+        discord_vec.copy_from_slice(get_slice(
+            data,
+            discord_start + 32,
+            discord_start + discord_len + 32,
+        )?);
+
+        // get description
+        buf.copy_from_slice(get_slice(
+            data,
+            description_start + 28,
+            description_start + 32,
+        )?);
+        let description_len: usize = u32::from_be_bytes(buf) as usize;
+        if description_len > MAX_SINGLE_PARAMETER_SIZE {
+            log::error!(
+                "the length of description as {} is too big",
+                description_len
+            );
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+        let mut description_vec = vec![0; description_len];
+        description_vec.copy_from_slice(get_slice(
+            data,
+            description_start + 32,
+            description_start + description_len + 32,
+        )?);
+
+        // get additional
+        buf.copy_from_slice(get_slice(
+            data,
+            additional_start + 28,
+            additional_start + 32,
+        )?);
+        let additional_len: usize = u32::from_be_bytes(buf) as usize;
+        if additional_len > MAX_SINGLE_PARAMETER_SIZE {
+            log::error!("the length of additional as {} is too big", additional_len);
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+        let mut additional_vec = vec![0; additional_len];
+        additional_vec.copy_from_slice(get_slice(
+            data,
+            additional_start + 32,
+            additional_start + additional_len + 32,
+        )?);
+
+        Ok((
+            pubkey,
+            name_vec,
+            repo_vec,
+            contact_vec,
+            url_vec,
+            discord_vec,
+            description_vec,
+            additional_vec,
+        ))
     }
 }
