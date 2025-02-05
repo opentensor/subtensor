@@ -270,4 +270,13 @@ impl<T: Config> Pallet<T> {
 
         Self::deposit_event(Event::RootClaimTypeSet(coldkey.clone(), new_type));
     }
+
+    pub fn change_root_claim_frequency(
+        coldkey: &T::AccountId,
+        new_frequency: RootClaimFrequencyEnum,
+    ) {
+        RootClaimFrequency::<T>::insert(coldkey.clone(), new_frequency.clone());
+
+        Self::deposit_event(Event::RootClaimFrequencySet(coldkey.clone(), new_frequency));
+    }
 }

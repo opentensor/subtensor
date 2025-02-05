@@ -158,7 +158,8 @@ fn test_claim_keep() {
 
             // Check that debt catches up claimable
             assert_abs_diff_eq!(
-                SubtensorModule::get_root_owed_for_hotkey_coldkey(&hotkey, &coldkey, netuid).to_num::<u64>(),
+                SubtensorModule::get_root_owed_for_hotkey_coldkey(&hotkey, &coldkey, netuid)
+                    .to_num::<u64>(),
                 0,
                 epsilon = tolerance
             );
