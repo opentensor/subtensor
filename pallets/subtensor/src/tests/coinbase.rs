@@ -300,19 +300,25 @@ fn test_coinbase_alpha_issuance_with_cap_trigger() {
         SubnetAlphaIn::<Test>::insert(netuid1, initial_alpha); // Make price extremely low.
         SubnetTAO::<Test>::insert(netuid2, initial);
         SubnetAlphaIn::<Test>::insert(netuid2, initial_alpha); // Make price extremely low.
-        // Set subnet prices.
-        SubnetMovingPrice::<Test>::insert( netuid1, I96F32::from_num(1) );
-        SubnetMovingPrice::<Test>::insert( netuid2, I96F32::from_num(2) );
+                                                               // Set subnet prices.
+        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
+        SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
         // Run coinbase
-        SubtensorModule::run_coinbase( I96F32::from_num( emission ) );
+        SubtensorModule::run_coinbase(I96F32::from_num(emission));
         // tao_in = 333_333
         // alpha_in = 333_333/price > 1_000_000_000 --> 1_000_000_000 + initial_alpha
-        assert_eq!( SubnetAlphaIn::<Test>::get( netuid1 ), initial_alpha + 1_000_000_000 );
-        assert_eq!( SubnetAlphaOut::<Test>::get( netuid2 ), 1_000_000_000 );
+        assert_eq!(
+            SubnetAlphaIn::<Test>::get(netuid1),
+            initial_alpha + 1_000_000_000
+        );
+        assert_eq!(SubnetAlphaOut::<Test>::get(netuid2), 1_000_000_000);
         // tao_in = 666_666
         // alpha_in = 666_666/price > 1_000_000_000 --> 1_000_000_000 + initial_alpha
-        assert_eq!( SubnetAlphaIn::<Test>::get( netuid2 ), initial_alpha + 1_000_000_000 );
-        assert_eq!( SubnetAlphaOut::<Test>::get( netuid2 ), 1_000_000_000 ); // Gets full block emission.
+        assert_eq!(
+            SubnetAlphaIn::<Test>::get(netuid2),
+            initial_alpha + 1_000_000_000
+        );
+        assert_eq!(SubnetAlphaOut::<Test>::get(netuid2), 1_000_000_000); // Gets full block emission.
     });
 }
 
@@ -335,22 +341,22 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         SubnetAlphaIn::<Test>::insert(netuid1, initial_alpha); // Make price extremely low.
         SubnetTAO::<Test>::insert(netuid2, initial);
         SubnetAlphaIn::<Test>::insert(netuid2, initial_alpha); // Make price extremely low.
-        // Set issuance to greater than 21M
-        SubnetAlphaOut::<Test>::insert(netuid1, 22_000_000_000_000_000 ); // Set issuance above 21M
-        SubnetAlphaOut::<Test>::insert(netuid2, 22_000_000_000_000_000 ); // Set issuance above 21M
-        // Set subnet prices.
-        SubnetMovingPrice::<Test>::insert( netuid1, I96F32::from_num(1) );
-        SubnetMovingPrice::<Test>::insert( netuid2, I96F32::from_num(2) );
+                                                               // Set issuance to greater than 21M
+        SubnetAlphaOut::<Test>::insert(netuid1, 22_000_000_000_000_000); // Set issuance above 21M
+        SubnetAlphaOut::<Test>::insert(netuid2, 22_000_000_000_000_000); // Set issuance above 21M
+                                                                         // Set subnet prices.
+        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
+        SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
         // Run coinbase
-        SubtensorModule::run_coinbase( I96F32::from_num( emission ) );
+        SubtensorModule::run_coinbase(I96F32::from_num(emission));
         // tao_in = 333_333
         // alpha_in = 333_333/price > 1_000_000_000 --> 0 + initial_alpha
-        assert_eq!( SubnetAlphaIn::<Test>::get( netuid1 ), initial_alpha  );
-        assert_eq!( SubnetAlphaOut::<Test>::get( netuid2 ), 22_000_000_000_000_000 );
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid1), initial_alpha);
+        assert_eq!(SubnetAlphaOut::<Test>::get(netuid2), 22_000_000_000_000_000);
         // tao_in = 666_666
         // alpha_in = 666_666/price > 1_000_000_000 --> 0 + initial_alpha
-        assert_eq!( SubnetAlphaIn::<Test>::get( netuid2 ), initial_alpha  );
-        assert_eq!( SubnetAlphaOut::<Test>::get( netuid2 ), 22_000_000_000_000_000 ); // No emission.
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid2), initial_alpha);
+        assert_eq!(SubnetAlphaOut::<Test>::get(netuid2), 22_000_000_000_000_000);
+        // No emission.
     });
 }
-
