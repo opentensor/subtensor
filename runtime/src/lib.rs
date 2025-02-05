@@ -1052,7 +1052,7 @@ parameter_types! {
     pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64, this make the make stake infinity
     pub const InitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
-    pub const SubtensorInitialTaoWeight: u64 = 332_041_393_326_771_929; // 18% global weigh.
+    pub const SubtensorInitialTaoWeight: u64 = 971_718_665_099_567_868; // 0.05267697438728329% tao weight.
 }
 
 impl pallet_subtensor::Config for Runtime {

@@ -80,6 +80,21 @@ fn test_coinbase_tao_issuance_base() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_tao_issuance_base_low --exact --show-output --nocapture
+#[test]
+fn test_coinbase_tao_issuance_base_low() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let emission: u64 = 1;
+        add_network(netuid, 1, 0);
+        assert_eq!(SubnetTAO::<Test>::get(netuid), 0);
+        SubtensorModule::run_coinbase(I96F32::from_num(emission));
+        assert_eq!(SubnetTAO::<Test>::get(netuid), emission);
+        assert_eq!(TotalIssuance::<Test>::get(), emission);
+        assert_eq!(TotalStake::<Test>::get(), emission);
+    });
+}
+
 // Test emission distribution across multiple subnets.
 // This test verifies that:
 // - Multiple subnets receive equal portions of the total emission
