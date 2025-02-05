@@ -27,7 +27,7 @@ pub struct SubnetInfo<AccountId: TypeInfo + Encode + Decode> {
     owner: AccountId,
 }
 
-#[freeze_struct("ae2cf407a8d95ef6")]
+#[freeze_struct("a86ee623525247cc")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetInfov2<AccountId: TypeInfo + Encode + Decode> {
     netuid: Compact<u16>,
@@ -45,13 +45,13 @@ pub struct SubnetInfov2<AccountId: TypeInfo + Encode + Decode> {
     tempo: Compact<u16>,
     network_modality: Compact<u16>,
     network_connect: Vec<[u16; 2]>,
-    emission_values: Compact<u64>,
+    emission_value: Compact<u64>,
     burn: Compact<u64>,
     owner: AccountId,
-    identity: Option<SubnetIdentity>,
+    identity: Option<SubnetIdentityV2>,
 }
 
-#[freeze_struct("4714b5e2336f7b19")]
+#[freeze_struct("7b506df55bd44646")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetHyperparams {
     rho: Compact<u16>,
@@ -76,7 +76,7 @@ pub struct SubnetHyperparams {
     max_validators: Compact<u16>,
     adjustment_alpha: Compact<u64>,
     difficulty: Compact<u64>,
-    commit_reveal_weights_interval: Compact<u64>,
+    commit_reveal_period: Compact<u64>,
     commit_reveal_weights_enabled: bool,
     alpha_high: Compact<u16>,
     alpha_low: Compact<u16>,
@@ -172,9 +172,9 @@ impl<T: Config> Pallet<T> {
         let blocks_since_last_step = Self::get_blocks_since_last_step(netuid);
         let tempo = Self::get_tempo(netuid);
         let network_modality = <NetworkModality<T>>::get(netuid);
-        let emission_values = Self::get_emission_value(netuid);
+        let emission_value = Self::get_emission_value(netuid);
         let burn: Compact<u64> = Self::get_burn_as_u64(netuid).into();
-        let identity: Option<SubnetIdentity> = SubnetIdentities::<T>::get(netuid);
+        let identity: Option<SubnetIdentityV2> = SubnetIdentitiesV2::<T>::get(netuid);
 
         // DEPRECATED
         let network_connect: Vec<[u16; 2]> = Vec::<[u16; 2]>::new();
@@ -198,7 +198,7 @@ impl<T: Config> Pallet<T> {
             tempo: tempo.into(),
             network_modality: network_modality.into(),
             network_connect,
-            emission_values: emission_values.into(),
+            emission_value: emission_value.into(),
             burn,
             owner: Self::get_subnet_owner(netuid),
             identity,
@@ -282,7 +282,7 @@ impl<T: Config> Pallet<T> {
             max_validators: max_validators.into(),
             adjustment_alpha: adjustment_alpha.into(),
             difficulty: difficulty.into(),
-            commit_reveal_weights_interval: commit_reveal_periods.into(),
+            commit_reveal_period: commit_reveal_periods.into(),
             commit_reveal_weights_enabled,
             alpha_high: alpha_high.into(),
             alpha_low: alpha_low.into(),

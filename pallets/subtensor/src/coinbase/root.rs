@@ -479,7 +479,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 4. Remove the subnet identity if it exists.
-        if SubnetIdentities::<T>::take(netuid).is_some() {
+        if SubnetIdentitiesV2::<T>::take(netuid).is_some() {
             Self::deposit_event(Event::SubnetIdentityRemoved(netuid));
         }
 
@@ -590,8 +590,8 @@ impl<T: Config> Pallet<T> {
         SubnetOwner::<T>::remove(netuid);
 
         // --- 13. Remove subnet identity if it exists.
-        if SubnetIdentities::<T>::contains_key(netuid) {
-            SubnetIdentities::<T>::remove(netuid);
+        if SubnetIdentitiesV2::<T>::contains_key(netuid) {
+            SubnetIdentitiesV2::<T>::remove(netuid);
             Self::deposit_event(Event::SubnetIdentityRemoved(netuid));
         }
     }
