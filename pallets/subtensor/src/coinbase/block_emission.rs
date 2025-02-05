@@ -52,7 +52,7 @@ impl<T: Config> Pallet<T> {
                 float_alpha_block_emission
             );
 
-            // // Scale down tao_in
+            // Scale down tao_in
             // tao_in_emission = alpha_price.saturating_mul(float_alpha_block_emission);
 
             // Set to max alpha_block_emission
