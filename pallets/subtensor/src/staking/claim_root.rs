@@ -110,8 +110,12 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         root_claim_type: RootClaimTypeEnum,
     ) {
+
+        println!("============== claiming for coldkey {:?}, hotkey {:?}, on subnet {:?}", coldkey, hotkey, netuid);
+
         // Substract the debt.
         let owed: U96F32 = Self::get_root_owed_for_hotkey_coldkey(hotkey, coldkey, netuid);
+        println!("============== owed = {:?}", owed);
 
         if owed == 0 || owed < U96F32::saturating_from_num(DefaultMinRootClaimAmount::<T>::get()) {
             return; // no-op
@@ -246,20 +250,24 @@ impl<T: Config> Pallet<T> {
     pub fn run_auto_claim_root_divs(last_block_hash: T::Hash) -> Weight {
         let mut weight: Weight = Weight::default();
 
-        let n = NumColdkeys::<T>::get();
-        let k = NumRootClaim::<T>::get();
-        weight.saturating_accrue(T::DbWeight::get().reads(2));
+        // let n = NumColdkeys::<T>::get();
+        // let k = NumRootClaim::<T>::get();
+        // weight.saturating_accrue(T::DbWeight::get().reads(2));
 
-        let coldkeys_to_claim: Vec<u64> = Self::block_hash_to_indices(last_block_hash, k, n);
-        weight.saturating_accrue(<T as Config>::WeightInfo::block_hash_to_indices(k, n));
+        // let coldkeys_to_claim: Vec<u64> = Self::block_hash_to_indices(last_block_hash, k, n);
+        // weight.saturating_accrue(<T as Config>::WeightInfo::block_hash_to_indices(k, n));
 
-        for i in coldkeys_to_claim.iter() {
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
-            if let Ok(coldkey) = ColdkeysIndex::<T>::try_get(i) {
-                weight.saturating_accrue(Self::do_root_claim(coldkey.clone()));
-            }
+        // for i in coldkeys_to_claim.iter() {
+        //     weight.saturating_accrue(T::DbWeight::get().reads(1));
+        //     if let Ok(coldkey) = ColdkeysIndex::<T>::try_get(i) {
+        //         weight.saturating_accrue(Self::do_root_claim(coldkey.clone()));
+        //     }
 
-            continue;
+        //     continue;
+        // }
+
+        if let Ok(coldkey) = ColdkeysIndex::<T>::try_get(1) {
+            weight.saturating_accrue(Self::do_root_claim(coldkey.clone()));
         }
 
         weight
