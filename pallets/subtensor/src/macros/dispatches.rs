@@ -1853,6 +1853,27 @@ mod dispatches {
             Ok(())
         }
 
+        /// --- Sets the root claim frequency for the coldkey.
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the caller's coldkey.
+        ///
+        /// # Event:
+        /// * RootClaimFrequencySet;
+        /// 	- On the successfully setting the root claim frequency for the coldkey.
+        ///
+        #[pallet::call_index(93)]
+        #[pallet::weight((Weight::from_parts(45_000_000, 0).saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::Yes))]
+        pub fn set_root_claim_frequency(
+            origin: OriginFor<T>,
+            new_root_claim_frequency: RootClaimFrequencyEnum,
+        ) -> DispatchResult {
+            let coldkey: T::AccountId = ensure_signed(origin)?;
+
+            Self::change_root_claim_frequency(&coldkey, new_root_claim_frequency);
+            Ok(())
+        }
+
         /// Swaps a specified amount of stake from one subnet to another, while keeping the same coldkey and hotkey.
         ///
         /// # Arguments

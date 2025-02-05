@@ -279,6 +279,6 @@ mod events {
         /// Root claim frequency for a coldkey has been set.
         /// Parameters:
         /// (coldkey, u8)
-        RootClaimFrequencySet(T::AccountId, RootClaimTypeEnum),
+        RootClaimFrequencySet(T::AccountId, RootClaimFrequencyEnum),
     }
 }
