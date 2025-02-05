@@ -25,12 +25,15 @@ pub mod migrate_rao {
         traits::GetStorageVersion,
         weights::WeightMeter,
     };
+    use substrate_fixed::types::U64F64;
 
     #[derive(Decode, Encode, MaxEncodedLen, Eq, PartialEq)]
     pub enum MigrationState<S, C> {
         DynamicBlockSet,
         Stake(S),
+        FinishedStake,
         ConvertSubnets(C),
+        Finished,
     }
 
     pub struct Migration<T: Config>(PhantomData<T>);
@@ -55,9 +58,10 @@ pub mod migrate_rao {
                 return Ok(None);
             }
 
-            let next = match cursor {
+            let next = match &cursor {
                 None => Self::dynamic_block_step(),
-                Some(MigrationState::DynamicBlockSet) => todo!(),
+                Some(MigrationState::DynamicBlockSet) => Self::stake_step(None),
+                Some(MigrationState::Stake(key)) => Self::stake_step(Some(key)),
                 _ => todo!(),
             };
 
@@ -69,6 +73,42 @@ pub mod migrate_rao {
         fn dynamic_block_step() -> MigrationState<(T::AccountId, T::AccountId), u16> {
             DynamicBlock::<T>::set(Pallet::<T>::get_current_block_as_u64());
             MigrationState::DynamicBlockSet
+        }
+
+        fn stake_step(maybe_last_key: Option<&(T::AccountId, T::AccountId)>) -> MigrationState<(T::AccountId, T::AccountId), u16> {
+            let mut iter = if let Some((last_key1, last_key2)) = maybe_last_key {
+                deprecated_stake_format::Stake::<T>::iter_from(
+                    deprecated_stake_format::Stake::<T>::hashed_key_for(last_key1, last_key2)
+                )
+            } else {
+                deprecated_stake_format::Stake::<T>::iter()
+            };
+
+            if let Some((hotkey, coldkey, stake)) = iter.next() {
+                // Increase SubnetTAO on root.
+                SubnetTAO::<T>::mutate(0, |total| {
+                    *total = total.saturating_add(stake);
+                });
+                // Increase SubnetAlphaOut on root.
+                SubnetAlphaOut::<T>::mutate(0, |total| {
+                    *total = total.saturating_add(stake);
+                });
+                // Set all the stake on root 0 subnet.
+                Alpha::<T>::mutate((hotkey.clone(), coldkey.clone(), 0), |total| {
+                    *total = total.saturating_add(U64F64::from_num(stake))
+                });
+                TotalHotkeyShares::<T>::mutate(hotkey.clone(), 0, |total| {
+                    *total = total.saturating_add(U64F64::from_num(stake))
+                });
+                // Set the total stake on the hotkey
+                TotalHotkeyAlpha::<T>::mutate(hotkey.clone(), 0, |total| {
+                    *total = total.saturating_add(stake)
+                });
+
+                MigrationState::Stake((hotkey, coldkey))
+            } else {
+                MigrationState::FinishedStake
+            }
         }
     }
 }
