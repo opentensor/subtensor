@@ -44,12 +44,13 @@ impl<T: Config> Pallet<T> {
         log::debug!("All subnet netuids: {:?}", subnets);
 
         // --- 2. Get sum of tao reserves ( in a later version we will switch to prices. )
-        let mut tao_sum: I96F32 = I96F32::from_num(0.0);
+        let mut total_moving_prices: I96F32 = I96F32::from_num(0.0);
         for netuid_i in subnets.iter() {
-            // Get and add subnet TAO in reserve.
-            tao_sum = tao_sum.saturating_add( asfloat!( SubnetTAO::<T>::get(netuid_i)) );
+            // Get and update the moving price of each subnet adding the total together.
+            Self::update_moving_price( *netuid_i );
+            total_moving_prices = total_moving_prices.saturating_add( Self::get_moving_alpha_price( *netuid_i ) );
         }
-        log::debug!("tao_sum: {:?}", tao_sum);
+        log::debug!("total_moving_prices: {:?}", total_moving_prices);
 
         // --- 3. Get subnet terms (tao_in, alpha_in, and alpha_out)
         // Computation is described in detail in the dtao whitepaper.
@@ -61,10 +62,10 @@ impl<T: Config> Pallet<T> {
             let price_i: I96F32 = Self::get_alpha_price(*netuid_i);
             log::debug!("price_i: {:?}", price_i);
             // Get subnet TAO.
-            let subnet_tao_i: I96F32 = asfloat!( SubnetTAO::<T>::get(netuid_i) );
-            log::debug!("subnet_tao_i: {:?}", subnet_tao_i);
+            let moving_price_i: I96F32 = Self::get_moving_alpha_price( *netuid_i );
+            log::debug!("moving_price_i: {:?}", moving_price_i);
             // Emission is price over total.
-            let tao_in_i: I96F32 = block_emission.saturating_mul(subnet_tao_i).checked_div(tao_sum).unwrap_or(asfloat!(0.0));
+            let mut tao_in_i: I96F32 = block_emission.saturating_mul(moving_price_i).checked_div(total_moving_prices).unwrap_or(asfloat!(0.0));
             log::debug!("tao_in_i: {:?}", tao_in_i);
             // Get alpha_emission total
             let alpha_emission_i: I96F32 = asfloat!(Self::get_block_emission_for_issuance(Self::get_alpha_issuance(*netuid_i)).unwrap_or(0));
@@ -75,8 +76,8 @@ impl<T: Config> Pallet<T> {
             // Get alpha_out.
             let alpha_out_i = alpha_emission_i;
             // Only emit TAO if the subnetwork allows registration.
-            if !Self::get_network_registration_allowed(*netuid)
-                && Self::get_network_pow_registration_allowed(*netuid)
+            if !Self::get_network_registration_allowed(*netuid_i)
+                && Self::get_network_pow_registration_allowed(*netuid_i)
             {
                 tao_in_i = asfloat!( 0.0 );
             }

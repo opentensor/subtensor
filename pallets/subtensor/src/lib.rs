@@ -733,6 +733,16 @@ pub mod pallet {
     }
 
     #[pallet::type_value]
+    /// Default moving alpha for the moving price.
+    pub fn DefaultMovingAlpha<T: Config>() -> I96F32 {
+        I96F32::saturating_from_num(0.0001)
+    }
+    #[pallet::type_value]
+    /// Default subnet moving price.
+    pub fn DefaultMovingPrice<T: Config>() -> I96F32 {
+        I96F32::saturating_from_num(0.0)
+    }
+    #[pallet::type_value]
     /// Default value for Share Pool variables
     pub fn DefaultSharePoolZero<T: Config>() -> U64F64 {
         U64F64::saturating_from_num(0)
@@ -904,14 +914,16 @@ pub mod pallet {
     ///
     /// Eventually, Bittensor should migrate to using Holds afterwhich time we will not require this
     /// separate accounting.
-    #[pallet::storage] // --- ITEM ( paused_coinbase )
-    pub type PendingBlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- ITEM ( total_issuance )
     pub type TotalIssuance<T> = StorageValue<_, u64, ValueQuery, DefaultTotalIssuance<T>>;
     #[pallet::storage] // --- ITEM ( total_stake )
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
     #[pallet::storage] // --- ITEM ( dynamic_block ) -- block when dynamic was turned on.
     pub type DynamicBlock<T> = StorageValue<_, u64, ValueQuery>;
+    #[pallet::storage] // --- ITEM ( moving_alpha ) -- subnet moving alpha.
+    pub type SubnetMovingAlpha<T> = StorageValue<_, I96F32, ValueQuery, DefaultMovingAlpha<T>>;
+    #[pallet::storage] // --- MAP ( netuid ) --> moving_price | The subnet moving price.
+    pub type SubnetMovingPrice<T: Config> = StorageMap<_, Identity, u16, I96F32, ValueQuery, DefaultMovingPrice<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> total_volume | The total amount of TAO bought and sold since the start of the network.
     pub type SubnetVolume<T: Config> =
         StorageMap<_, Identity, u16, u128, ValueQuery, DefaultZeroU128<T>>;

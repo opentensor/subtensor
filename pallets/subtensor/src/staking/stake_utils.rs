@@ -45,6 +45,25 @@ impl<T: Config> Pallet<T> {
                 .unwrap_or(I96F32::saturating_from_num(0))
         }
     }
+    pub fn get_moving_alpha_price(netuid: u16) -> I96F32 {
+        if netuid == Self::get_root_netuid() {
+            return I96F32::saturating_from_num(1.0); // Root.
+        }
+        else if SubnetMechanism::<T>::get(netuid) == 0 {
+            return I96F32::saturating_from_num(1.0); // Stable
+        }
+        else {
+            return SubnetMovingPrice::<T>::get( netuid );
+        }
+    }
+    pub fn update_moving_price( netuid: u16 ) {
+        let alpha: I96F32 = SubnetMovingAlpha::<T>::get();
+        let minus_alpha: I96F32 = I96F32::saturating_from_num(1.0).saturating_sub(alpha);
+        let current_price: I96F32 = alpha.saturating_mul( Self::get_alpha_price(netuid) );
+        let current_moving: I96F32 = minus_alpha.saturating_mul( Self::get_moving_alpha_price(netuid) );
+        let new_moving: I96F32 = current_price.saturating_add( current_moving );
+        SubnetMovingPrice::<T>::insert( netuid, new_moving);
+    }
 
     /// Retrieves the global global weight as a normalized value between 0 and 1.
     ///
