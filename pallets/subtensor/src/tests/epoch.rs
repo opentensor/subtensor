@@ -3331,7 +3331,7 @@ fn setup_yuma_4_scenario(netuid: u16, n: u16, max_stake: u64, stakes: Vec<u64>) 
     assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
 
     // Enable Liquid Alpha
-    SubtensorModule::set_kappa(netuid, 0);
+    SubtensorModule::set_kappa(netuid, u16::MAX / 2);
     SubtensorModule::set_liquid_alpha_enabled(netuid, true);
 
     SubtensorModule::set_alpha_values_32(netuid, I32F32::from_num(0.9), I32F32::from_num(0.99));
@@ -3388,7 +3388,7 @@ fn test_yuma_4_kappa_moves_last() {
                 0
             ));
         }
-        let target = vec![vec![65535, 0], vec![65535, 0], vec![65535, 0]];
+        let target = vec![vec![656, 0], vec![656, 0], vec![656, 0]];
         run_epoch_check_bonds(netuid, sparse, target);
 
         // Validator A -> Server 1
@@ -3406,7 +3406,7 @@ fn test_yuma_4_kappa_moves_last() {
                 0
             ));
         }
-        let target = vec![vec![65535, 0], vec![220, 65535], vec![65535, 0]];
+        let target = vec![vec![1305, 0], vec![649, 6553], vec![1305, 0]];
         run_epoch_check_bonds(netuid, sparse, target);
 
         // Validator A -> Server 1
@@ -3424,7 +3424,7 @@ fn test_yuma_4_kappa_moves_last() {
                 0
             ));
         }
-        let target = vec![vec![65535, 0], vec![1, 65535], vec![329, 64878]];
+        let target = vec![vec![1947, 0], vec![642, 12451], vec![1291, 6553]];
         run_epoch_check_bonds(netuid, sparse, target);
 
         // Subsequent epochs All validators -> Server 2
@@ -3437,7 +3437,7 @@ fn test_yuma_4_kappa_moves_last() {
                 0
             ));
         }
-        let target = vec![vec![65535, 11866], vec![0, 65535], vec![328, 64996]];
+        let target = vec![vec![1752, 656], vec![577, 12982], vec![1161, 7143]];
         run_epoch_check_bonds(netuid, sparse, target);
     })
 }

@@ -56,6 +56,11 @@ pub fn u16_proportion_to_fixed(x: u16) -> I32F32 {
 }
 
 #[allow(dead_code)]
+pub fn fixed_proportion_to_fixed(x: I32F32) -> I32F32 {
+    x.safe_div(I32F32::saturating_from_num(u16::MAX))
+}
+
+#[allow(dead_code)]
 pub fn fixed_proportion_to_u16(x: I32F32) -> u16 {
     fixed_to_u16(x.saturating_mul(I32F32::saturating_from_num(u16::MAX)))
 }
@@ -78,6 +83,11 @@ pub fn vec_fixed32_to_fixed64(vec: Vec<I32F32>) -> Vec<I64F64> {
 #[allow(dead_code)]
 pub fn vec_fixed64_to_u64(vec: Vec<I64F64>) -> Vec<u64> {
     vec.into_iter().map(fixed64_to_u64).collect()
+}
+
+#[allow(dead_code)]
+pub fn vec_fixed_proportions_to_fixed(vec: Vec<I32F32>) -> Vec<I32F32> {
+    vec.into_iter().map(fixed_proportion_to_fixed).collect()
 }
 
 #[allow(dead_code)]

@@ -11,8 +11,8 @@ use frame_support::assert_ok;
 use rand::{distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
 use sp_core::U256;
 use std::time::Instant;
-use substrate_fixed::types::{I32F32, I64F64};
 use substrate_fixed::transcendental::{cos, ln, sqrt, PI};
+use substrate_fixed::types::{I32F32, I64F64};
 
 pub fn fixed(val: f32) -> I32F32 {
     I32F32::from_num(val)
@@ -61,7 +61,7 @@ fn non_extreme_fixed_ratio(ratio: I32F32, total: usize) -> usize {
     } else if subset == total {
         subset = total - 1;
     }
-    return subset;
+    subset
 }
 
 // Box-Muller Transform converting two uniform random samples to a normal random sample.
@@ -71,12 +71,12 @@ fn normal(size: usize, rng: &mut StdRng, dist: &Uniform<u16>) -> Vec<I32F32> {
     let eps: I32F32 = I32F32::from_num(0.000001);
     let pi: I32F32 = I32F32::from_num(PI);
 
-    let uniform_u16: Vec<u16> = (0..(2 * size)).map(|_| rng.sample(&dist)).collect();
+    let uniform_u16: Vec<u16> = (0..(2 * size)).map(|_| rng.sample(dist)).collect();
     let uniform: Vec<I32F32> = uniform_u16
         .iter()
         .map(|&x| I32F32::from_num(x) / max)
         .collect();
-    let mut normal: Vec<I32F32> = vec![I32F32::from_num(0); size as usize];
+    let mut normal: Vec<I32F32> = vec![I32F32::from_num(0); size];
 
     for i in 0..size {
         let u1: I32F32 = uniform[i] + eps;
@@ -263,7 +263,7 @@ fn init_run_epochs(
     );
 
     // let bonds = SubtensorModule::get_bonds( netuid );
-    // for (uid, node) in vec![ (validators[0], "validator"), (servers[0], "server") ] {
+    // for (uid, node) in [ (validators[0], "validator"), (servers[0], "server") ] {
     // 	log::info!("\n{node}" );
     // 	uid_stats(netuid, uid);
     // 	log::info!("bonds: {:?} (on validator), {:?} (on server)", bonds[uid as usize][0], bonds[uid as usize][servers[0] as usize]);
@@ -294,7 +294,7 @@ fn split_graph(
     let major_servers_n: usize = non_extreme_fixed_ratio(major_stake, servers_n);
     let major_validators_n: usize = non_extreme_fixed_ratio(major_stake, validators_n);
 
-    let (validators, servers) = distribute_nodes(validators_n, network_n, interleave as usize);
+    let (validators, servers) = distribute_nodes(validators_n, network_n, interleave);
     let major_validators: Vec<u16> = (0..major_validators_n).map(|i| validators[i]).collect();
     let minor_validators: Vec<u16> = (major_validators_n..validators_n)
         .map(|i| validators[i])
@@ -305,13 +305,13 @@ fn split_graph(
     let zero: I32F32 = I32F32::from_num(0);
     let one: I32F32 = I32F32::from_num(1);
     let stddev: I32F32 = I32F32::from_num(0.3);
-    let total_stake: I64F64 = I64F64::from_num(21_000_000_000_000_000 as u64);
+    let total_stake: I64F64 = I64F64::from_num(21_000_000_000_000_000_u64);
     let mut rng = StdRng::seed_from_u64(0); // constant seed so weights over multiple runs are equal
     let dist = Uniform::new(0, u16::MAX);
 
     let mut stake: Vec<u64> = vec![0; network_n];
     let mut stake_fixed: Vec<I32F32> = vec![zero; network_n];
-    for (ratio, vals) in vec![
+    for (ratio, vals) in [
         (major_stake, &major_validators),
         (one - major_stake, &minor_validators),
     ] {
@@ -336,14 +336,14 @@ fn split_graph(
         }
     }
 
-    let mut weights: Vec<Vec<(u16, u16)>> = vec![vec![]; network_n as usize];
+    let mut weights: Vec<Vec<(u16, u16)>> = vec![vec![]; network_n];
     let mut weights_fixed: Vec<Vec<I32F32>> = vec![vec![zero; network_n]; network_n];
-    for (first, second, vals) in vec![
+    for (first, second, vals) in [
         (major_weight, one - major_weight, &major_validators),
         (one - minor_weight, minor_weight, &minor_validators),
     ] {
         for &val in vals {
-            for (weight, srvs) in vec![(first, &major_servers), (second, &minor_servers)] {
+            for (weight, srvs) in [(first, &major_servers), (second, &minor_servers)] {
                 let mut sample: Vec<I32F32> = normal(srvs.len(), &mut rng, &dist)
                     .iter()
                     .map(|x: &I32F32| {
@@ -372,8 +372,8 @@ fn split_graph(
     let mut weight_mean: Vec<I32F32> = vec![zero; network_n];
     for val in 0..network_n {
         if stake_fixed[val] > zero {
-            for srv in 0..network_n {
-                weight_mean[srv] += stake_fixed[val] * weights_fixed[val][srv];
+            for (srv, weight_mean_row) in weight_mean.iter_mut().enumerate().take(network_n) {
+                *weight_mean_row += stake_fixed[val] * weights_fixed[val][srv];
             }
         }
     }
@@ -415,7 +415,7 @@ fn split_graph(
 //     let epochs: u16 = 1;
 //     let interleave = 2;
 //     log::info!("test_consensus_guarantees ({network_n:?}, {validators_n:?} validators)");
-//     for (major_stake, major_weight, minor_weight, weight_stddev) in vec![
+//     for (major_stake, major_weight, minor_weight, weight_stddev) in [
 //         (0.51, 1., 1., 0.001),
 //         (0.51, 0.03, 0., 0.001),
 //         (0.51, 0.51, 0.49, 0.001),
@@ -471,13 +471,13 @@ fn split_graph(
 
 //             let mut major_emission: I64F64 = I64F64::from_num(0);
 //             let mut minor_emission: I64F64 = I64F64::from_num(0);
-//             for set in vec![major_validators, major_servers] {
+//             for set in [major_validators, major_servers] {
 //                 for uid in set {
 //                     major_emission +=
 //                         I64F64::from_num(SubtensorModule::get_emission_for_uid(netuid, uid));
 //                 }
 //             }
-//             for set in vec![minor_validators, minor_servers] {
+//             for set in [minor_validators, minor_servers] {
 //                 for uid in set {
 //                     minor_emission +=
 //                         I64F64::from_num(SubtensorModule::get_emission_for_uid(netuid, uid));
@@ -499,9 +499,10 @@ fn map_consensus_guarantees() {
     let epochs: u16 = 1;
     let interleave = 0;
     let weight_stddev: I32F32 = fixed(0.4);
-    let bonds_penalty: u16 = (std::env::args().nth(2).unwrap().parse::<f32>().unwrap() * f32::from(u16::MAX - 1)) as u16;
+    let bonds_penalty: u16 =
+        (std::env::args().nth(2).unwrap().parse::<f32>().unwrap() * f32::from(u16::MAX - 1)) as u16;
     println!("[");
-    for _major_stake in vec![0.51, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.99] {
+    for _major_stake in [0.51, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.99] {
         let major_stake: I32F32 = I32F32::from_num(_major_stake);
         for _major_weight in 0..51 {
             let major_weight: I32F32 = I32F32::from_num(50 - _major_weight) / I32F32::from_num(50);
@@ -533,12 +534,12 @@ fn map_consensus_guarantees() {
 
 					let mut major_emission: I64F64 = I64F64::from_num(0);
 					let mut minor_emission: I64F64 = I64F64::from_num(0);
-					for set in vec![major_validators, major_servers] {
+					for set in [major_validators, major_servers] {
 						for uid in set {
 							major_emission += I64F64::from_num(SubtensorModule::get_emission_for_uid( netuid, uid ));
 						}
 					}
-					for set in vec![minor_validators, minor_servers] {
+					for set in [minor_validators, minor_servers] {
 						for uid in set {
 							minor_emission += I64F64::from_num(SubtensorModule::get_emission_for_uid( netuid, uid ));
 						}
