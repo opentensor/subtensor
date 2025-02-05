@@ -735,17 +735,19 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default moving alpha for the moving price.
     pub fn DefaultMovingAlpha<T: Config>() -> I96F32 {
-        I96F32::saturating_from_num(0.00001)
+        // Moving average take 30 days to reach 50% of the price
+        // and 3.5 months to reach 90%. 
+        I96F32::saturating_from_num( 0.000003 )
     }
     #[pallet::type_value]
     /// Default subnet moving price.
     pub fn DefaultMovingPrice<T: Config>() -> I96F32 {
-        I96F32::saturating_from_num(0.0)
+        I96F32::saturating_from_num( 0.0 )
     }
     #[pallet::type_value]
     /// Default value for Share Pool variables
     pub fn DefaultSharePoolZero<T: Config>() -> U64F64 {
-        U64F64::saturating_from_num(0)
+        U64F64::saturating_from_num( 0 )
     }
 
     #[pallet::type_value]
