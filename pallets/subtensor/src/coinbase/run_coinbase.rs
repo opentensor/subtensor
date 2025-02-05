@@ -138,8 +138,10 @@ impl<T: Config> Pallet<T> {
         for netuid_i in subnets.iter() {
             // Get alpha out.
             let alpha_out_i: I96F32 = *alpha_out.get(netuid_i).unwrap_or(&asfloat!(0));
+            log::debug!("alpha_out_i: {:?}", alpha_out_i);
             // Calculate the owner cut.
             let owner_cut_i: I96F32 = alpha_out_i.saturating_mul(cut_percent);
+            log::debug!("owner_cut_i: {:?}", owner_cut_i);
             // Save owner cut.
             *owner_cuts.entry(*netuid_i).or_insert(asfloat!(0)) = owner_cut_i;
             // Save new alpha_out.
@@ -155,24 +157,33 @@ impl<T: Config> Pallet<T> {
         for netuid_i in subnets.iter() {
             // Get remaining alpha out.
             let alpha_out_i: I96F32 = *alpha_out.get(netuid_i).unwrap_or(&asfloat!(0.0));
+            log::debug!("alpha_out_i: {:?}", alpha_out_i);
             // Get total TAO on root.
             let root_tao: I96F32 = asfloat!(SubnetTAO::<T>::get(0));
+            log::debug!("root_tao: {:?}", root_tao);
             // Get total ALPHA on subnet.
             let alpha_issuance: I96F32 = asfloat!(Self::get_alpha_issuance(*netuid_i));
+            log::debug!("alpha_issuance: {:?}", alpha_issuance);
             // Get tao_weight
             let tao_weight: I96F32 = root_tao.saturating_mul(Self::get_tao_weight());
+            log::debug!("tao_weight: {:?}", tao_weight);
             // Get root proportional dividends.
             let root_proportion: I96F32 = tao_weight
                 .checked_div(tao_weight.saturating_add(alpha_issuance))
                 .unwrap_or(asfloat!(0.0));
+            log::debug!("root_proportion: {:?}", root_proportion);
             // Get root proportion of alpha_out dividends.
             let root_alpha: I96F32 = root_proportion
                 .saturating_mul(alpha_out_i) // Total alpha emission per block remaining.
                 .saturating_mul(asfloat!(0.5)); // 50% to validators.
                                                 // Remove root alpha from alpha_out.
+            log::debug!("root_alpha: {:?}", root_alpha);
+            // Get pending alpha as original alpha_out - root_alpha.
             let pending_alpha: I96F32 = alpha_out_i.saturating_sub(root_alpha);
+            log::debug!("pending_alpha: {:?}", pending_alpha);
             // Sell root emission through the pool.
             let root_tao: u64 = Self::swap_alpha_for_tao(*netuid_i, tou64!(root_alpha));
+            log::debug!("root_tao: {:?}", root_tao);
             // Accumulate alpha emission in pending.
             PendingAlphaSwapped::<T>::mutate(*netuid_i, |total| {
                 *total = total.saturating_add(tou64!(root_alpha));

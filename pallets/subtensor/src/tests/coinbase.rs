@@ -360,3 +360,41 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         // No emission.
     });
 }
+
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_owner_cut_base --exact --show-output --nocapture
+#[test]
+fn test_owner_cut_base() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+        SubtensorModule::set_tempo(netuid, 10000);// Large number (dont drain)
+        SubtensorModule::set_subnet_owner_cut( 0 );
+        SubtensorModule::run_coinbase(I96F32::from_num(0));
+        assert_eq!( PendingOwnerCut::<Test>::get(netuid), 0 ); // No cut 
+        SubtensorModule::set_subnet_owner_cut( u16::MAX );
+        SubtensorModule::run_coinbase(I96F32::from_num(0));
+        assert_eq!( PendingOwnerCut::<Test>::get(netuid), 1_000_000_000 ); // Full cut.
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_pending_swapped --exact --show-output --nocapture
+#[test]
+fn test_pending_swapped() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let emission: u64 = 1_000_000;
+        add_network(netuid, 1, 0);
+        SubtensorModule::run_coinbase(I96F32::from_num(0));
+        assert_eq!( PendingAlphaSwapped::<Test>::get(netuid), 0 ); // Zero tao weight and no root.
+        SubnetTAO::<Test>::insert( 0, 1_000_000_000); // Add root weight.
+        SubtensorModule::run_coinbase(I96F32::from_num(0));
+        assert_eq!( PendingAlphaSwapped::<Test>::get(netuid), 0 ); // Zero tao weight with 1 root.
+        SubtensorModule::set_tempo(netuid, 10000);// Large number (dont drain)
+        SubtensorModule::set_tao_weight( u64::MAX ); // Set TAO weight to 1.0
+        SubtensorModule::run_coinbase(I96F32::from_num(0));
+        assert_eq!( PendingAlphaSwapped::<Test>::get(netuid), 125000000 ); // 1 TAO / ( 1 + 3 ) = 0.25 * 1 / 2 = 125000000
+        assert_eq!( PendingEmission::<Test>::get(netuid), 1_000_000_000 - 125000000 ); // 1 - swapped.
+        assert_eq!( PendingRootDivs::<Test>::get(netuid), 125000000 ); // swapped * (price = 1)
+    });
+}
