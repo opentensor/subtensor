@@ -79,7 +79,9 @@ mod hooks {
 				.saturating_add(migrations::migrate_fix_is_network_member::migrate_fix_is_network_member::<T>())
 				.saturating_add(migrations::migrate_subnet_volume::migrate_subnet_volume::<T>())
                 // Upgrade identities to V2
-                .saturating_add(migrations::migrate_identities_v2::migrate_identities_to_v2::<T>());
+                .saturating_add(migrations::migrate_identities_v2::migrate_identities_to_v2::<T>())
+				// Set the min burn across all subnets to a new minimum
+				.saturating_add(migrations::migrate_set_min_burn::migrate_set_min_burn::<T>());
             weight
         }
 
