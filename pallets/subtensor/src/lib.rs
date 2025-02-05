@@ -735,7 +735,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default moving alpha for the moving price.
     pub fn DefaultMovingAlpha<T: Config>() -> I96F32 {
-        I96F32::saturating_from_num(0.0001)
+        I96F32::saturating_from_num(0.00001)
     }
     #[pallet::type_value]
     /// Default subnet moving price.
