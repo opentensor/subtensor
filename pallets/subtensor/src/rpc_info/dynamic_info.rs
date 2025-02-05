@@ -4,12 +4,12 @@ use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
 use subtensor_macros::freeze_struct;
 
-#[freeze_struct("a5cdc80d655398e9")]
-#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
-pub struct DynamicInfo<T: Config> {
+#[freeze_struct("f728ab9f6ffbf7f2")]
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
+pub struct DynamicInfo<AccountId: TypeInfo + Encode + Decode> {
     netuid: Compact<u16>,
-    owner_hotkey: T::AccountId,
-    owner_coldkey: T::AccountId,
+    owner_hotkey: AccountId,
+    owner_coldkey: AccountId,
     subnet_name: Vec<Compact<u8>>,
     token_symbol: Vec<Compact<u8>>,
     tempo: Compact<u16>,
@@ -26,11 +26,11 @@ pub struct DynamicInfo<T: Config> {
     pending_root_emission: Compact<u64>,
     subnet_volume: Compact<u128>,
     network_registered_at: Compact<u64>,
-    subnet_identity: Option<SubnetIdentity>,
+    subnet_identity: Option<SubnetIdentityV2>,
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn get_dynamic_info(netuid: u16) -> Option<DynamicInfo<T>> {
+    pub fn get_dynamic_info(netuid: u16) -> Option<DynamicInfo<T::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }
@@ -63,12 +63,12 @@ impl<T: Config> Pallet<T> {
             pending_root_emission: PendingRootDivs::<T>::get(netuid).into(),
             subnet_volume: SubnetVolume::<T>::get(netuid).into(),
             network_registered_at: NetworkRegisteredAt::<T>::get(netuid).into(),
-            subnet_identity: SubnetIdentities::<T>::get(netuid),
+            subnet_identity: SubnetIdentitiesV2::<T>::get(netuid),
         })
     }
-    pub fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<T>>> {
+    pub fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<T::AccountId>>> {
         let netuids: Vec<u16> = Self::get_all_subnet_netuids();
-        let mut dynamic_info = Vec::<Option<DynamicInfo<T>>>::new();
+        let mut dynamic_info = Vec::<Option<DynamicInfo<T::AccountId>>>::new();
         for netuid in netuids.clone().iter() {
             dynamic_info.push(Self::get_dynamic_info(*netuid));
         }

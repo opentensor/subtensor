@@ -6,21 +6,21 @@ use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I64F64;
 use subtensor_macros::freeze_struct;
 
-#[freeze_struct("7c5fe907490c5d5e")]
-#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
-pub struct Metagraph<T: Config> {
+#[freeze_struct("4fc6eea3706b9c0c")]
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
+pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     // Subnet index
     netuid: Compact<u16>,
 
     // Name and symbol
     name: Vec<Compact<u8>>,              // name
     symbol: Vec<Compact<u8>>,            // token symbol
-    identity: Option<SubnetIdentity>,    // identity information.
+    identity: Option<SubnetIdentityV2>,  // identity information.
     network_registered_at: Compact<u64>, // block at registration
 
     // Keys for owner.
-    owner_hotkey: T::AccountId,  // hotkey
-    owner_coldkey: T::AccountId, // coldkey.
+    owner_hotkey: AccountId,  // hotkey
+    owner_coldkey: AccountId, // coldkey.
 
     // Tempo terms.
     block: Compact<u64>,                  // block at call.
@@ -81,32 +81,32 @@ pub struct Metagraph<T: Config> {
     bonds_moving_avg: Compact<u64>, // Bonds moving avg
 
     // Metagraph info.
-    hotkeys: Vec<T::AccountId>,               // hotkey per UID
-    coldkeys: Vec<T::AccountId>,              // coldkey per UID
-    identities: Vec<Option<ChainIdentityOf>>, // coldkeys identities
-    axons: Vec<AxonInfo>,                     // UID axons.
-    active: Vec<bool>,                        // Avtive per UID
-    validator_permit: Vec<bool>,              // Val permit per UID
-    pruning_score: Vec<Compact<u16>>,         // Pruning per UID
-    last_update: Vec<Compact<u64>>,           // Last update per UID
-    emission: Vec<Compact<u64>>,              // Emission per UID
-    dividends: Vec<Compact<u16>>,             // Dividends per UID
-    incentives: Vec<Compact<u16>>,            // Mining incentives per UID
-    consensus: Vec<Compact<u16>>,             // Consensus per UID
-    trust: Vec<Compact<u16>>,                 // Trust per UID
-    rank: Vec<Compact<u16>>,                  // Rank per UID
-    block_at_registration: Vec<Compact<u64>>, // Reg block per UID
-    alpha_stake: Vec<Compact<u64>>,           // Alpha staked per UID
-    tao_stake: Vec<Compact<u64>>,             // TAO staked per UID
-    total_stake: Vec<Compact<u64>>,           // Total stake per UID
+    hotkeys: Vec<AccountId>,                    // hotkey per UID
+    coldkeys: Vec<AccountId>,                   // coldkey per UID
+    identities: Vec<Option<ChainIdentityOfV2>>, // coldkeys identities
+    axons: Vec<AxonInfo>,                       // UID axons.
+    active: Vec<bool>,                          // Avtive per UID
+    validator_permit: Vec<bool>,                // Val permit per UID
+    pruning_score: Vec<Compact<u16>>,           // Pruning per UID
+    last_update: Vec<Compact<u64>>,             // Last update per UID
+    emission: Vec<Compact<u64>>,                // Emission per UID
+    dividends: Vec<Compact<u16>>,               // Dividends per UID
+    incentives: Vec<Compact<u16>>,              // Mining incentives per UID
+    consensus: Vec<Compact<u16>>,               // Consensus per UID
+    trust: Vec<Compact<u16>>,                   // Trust per UID
+    rank: Vec<Compact<u16>>,                    // Rank per UID
+    block_at_registration: Vec<Compact<u64>>,   // Reg block per UID
+    alpha_stake: Vec<Compact<u64>>,             // Alpha staked per UID
+    tao_stake: Vec<Compact<u64>>,               // TAO staked per UID
+    total_stake: Vec<Compact<u64>>,             // Total stake per UID
 
     // Dividend break down.
-    tao_dividends_per_hotkey: Vec<(T::AccountId, Compact<u64>)>, // List of dividend payouts in tao via root.
-    alpha_dividends_per_hotkey: Vec<(T::AccountId, Compact<u64>)>, // List of dividend payout in alpha via subnet.
+    tao_dividends_per_hotkey: Vec<(AccountId, Compact<u64>)>, // List of dividend payouts in tao via root.
+    alpha_dividends_per_hotkey: Vec<(AccountId, Compact<u64>)>, // List of dividend payout in alpha via subnet.
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn get_metagraph(netuid: u16) -> Option<Metagraph<T>> {
+    pub fn get_metagraph(netuid: u16) -> Option<Metagraph<T::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }
@@ -115,7 +115,7 @@ impl<T: Config> Pallet<T> {
         let mut hotkeys: Vec<T::AccountId> = vec![];
         let mut coldkeys: Vec<T::AccountId> = vec![];
         let mut block_at_registration: Vec<Compact<u64>> = vec![];
-        let mut identities: Vec<Option<ChainIdentityOf>> = vec![];
+        let mut identities: Vec<Option<ChainIdentityOfV2>> = vec![];
         let mut axons: Vec<AxonInfo> = vec![];
         for uid in 0..n {
             let hotkey = Keys::<T>::get(netuid, uid);
@@ -123,7 +123,7 @@ impl<T: Config> Pallet<T> {
             hotkeys.push(hotkey.clone());
             coldkeys.push(coldkey.clone());
             block_at_registration.push(BlockAtRegistration::<T>::get(netuid, uid).into());
-            identities.push(Identities::<T>::get(coldkey.clone()));
+            identities.push(IdentitiesV2::<T>::get(coldkey.clone()));
             axons.push(Self::get_axon_info(netuid, &hotkey));
         }
         let mut tao_dividends_per_hotkey: Vec<(T::AccountId, Compact<u64>)> = vec![];
@@ -157,7 +157,7 @@ impl<T: Config> Pallet<T> {
                 .into_iter()
                 .map(Compact)
                 .collect(), // Symbol.
-            identity: SubnetIdentities::<T>::get(netuid), // identity information.
+            identity: SubnetIdentitiesV2::<T>::get(netuid), // identity information.
             network_registered_at: NetworkRegisteredAt::<T>::get(netuid).into(), // block at registration
 
             // Keys for owner.
@@ -280,9 +280,9 @@ impl<T: Config> Pallet<T> {
             alpha_dividends_per_hotkey,
         })
     }
-    pub fn get_all_metagraphs() -> Vec<Option<Metagraph<T>>> {
+    pub fn get_all_metagraphs() -> Vec<Option<Metagraph<T::AccountId>>> {
         let netuids: Vec<u16> = Self::get_all_subnet_netuids();
-        let mut metagraphs = Vec::<Option<Metagraph<T>>>::new();
+        let mut metagraphs = Vec::<Option<Metagraph<T::AccountId>>>::new();
         for netuid in netuids.clone().iter() {
             metagraphs.push(Self::get_metagraph(*netuid));
         }
