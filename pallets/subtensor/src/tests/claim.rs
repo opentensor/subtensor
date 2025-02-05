@@ -158,7 +158,8 @@ fn test_claim_keep() {
 
             // Check that debt catches up claimable
             assert_abs_diff_eq!(
-                SubtensorModule::get_root_owed_for_hotkey_coldkey(&hotkey, &coldkey, netuid).to_num::<u64>(),
+                SubtensorModule::get_root_owed_for_hotkey_coldkey(&hotkey, &coldkey, netuid)
+                    .to_num::<u64>(),
                 0,
                 epsilon = tolerance
             );
@@ -174,6 +175,91 @@ fn test_claim_keep() {
                 root_stake_amount,
             );
         });
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::claim::test_auto_claim --exact --show-output
+#[test]
+fn test_auto_claim() {
+    new_test_ext(1).execute_with(|| {
+        let amount = 1_000_000_000_000;
+        let own_validator_stake = 1_000_000_000_000;
+        let root_stake_amount = 1_000_000_000_000;
+        let nominator_stake = 1_000_000_000_000;
+        let (netuid, _coldkey, hotkey) = setup_network_with_stake(amount);
+
+        // Add another validator (with stake)
+        let validator_coldkey = U256::from(3);
+        let validator_hotkey = U256::from(4);
+        let nominator = U256::from(5);
+        register_ok_neuron(netuid, validator_hotkey, validator_coldkey, 0);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &validator_coldkey,
+            own_validator_stake + ExistentialDeposit::get(),
+        );
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(validator_coldkey),
+            validator_hotkey,
+            netuid,
+            own_validator_stake
+        ));
+
+        // Add nominator stake
+        SubtensorModule::add_balance_to_coldkey_account(
+            &nominator,
+            nominator_stake + ExistentialDeposit::get(),
+        );
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(nominator),
+            validator_hotkey,
+            netuid,
+            nominator_stake
+        ));
+        ColdkeysIndex::<Test>::insert(1, validator_coldkey);
+        RootClaimType::<Test>::insert(nominator, RootClaimTypeEnum::Keep);
+
+        println!("RootClaimable::<T>::get(nominator, netuid) = {:?}", RootClaimable::<Test>::get(nominator, netuid));
+
+        // Set YUMA up for emissions
+        Weights::<Test>::insert(netuid, 0, vec![(1, 0xFFFF)]);
+        Weights::<Test>::insert(netuid, 1, vec![(2, 0xFFFF)]);
+        BlockAtRegistration::<Test>::set(netuid, 0, 1);
+        BlockAtRegistration::<Test>::set(netuid, 1, 1);
+        LastUpdate::<Test>::set(netuid, vec![2, 2, 2]);
+        Kappa::<Test>::set(netuid, u16::MAX / 5);
+        Tempo::<Test>::insert(netuid, 100);
+
+        let alpha_stake_before =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &nominator, netuid);
+
+        // Run an epoch
+        step_epochs(1, netuid);
+
+        let alpha_stake_after =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &nominator, netuid);
+
+        println!("alpha_stake_after = {:?}", alpha_stake_after);
+        println!("alpha_stake_before = {:?}", alpha_stake_before);
+
+
+        // Add root nominator stake
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &nominator,
+            SubtensorModule::get_root_netuid(),
+            root_stake_amount,
+        );
+
+        // Run an epoch
+        step_epochs(1, netuid);
+
+        let alpha_stake_after2 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &nominator, netuid);
+
+        println!("alpha_stake_after2 = {:?}", alpha_stake_after2);
+        println!("alpha_stake_after = {:?}", alpha_stake_after);
+        println!("alpha_stake_before = {:?}", alpha_stake_before);
+
     });
 }
 
