@@ -48,9 +48,7 @@ impl<T: Config> Pallet<T> {
         let mut total_moving_prices: I96F32 = I96F32::from_num(0.0);
         for netuid_i in subnets.iter() {
             // Get and update the moving price of each subnet adding the total together.
-            Self::update_moving_price(*netuid_i);
-            total_moving_prices =
-                total_moving_prices.saturating_add(Self::get_moving_alpha_price(*netuid_i));
+            total_moving_prices = total_moving_prices.saturating_add( Self::get_moving_alpha_price( *netuid_i ) );
         }
         log::debug!("total_moving_prices: {:?}", total_moving_prices);
 
@@ -186,6 +184,12 @@ impl<T: Config> Pallet<T> {
             PendingRootDivs::<T>::mutate(*netuid_i, |total| {
                 *total = total.saturating_add(root_tao);
             });
+        }
+
+        // --- 7 Update moving prices after using them in the emission calculation.
+        for netuid_i in subnets.iter() {
+            // Update moving prices after using them above.
+            Self::update_moving_price( *netuid_i );
         }
 
         // --- 7. Drain pending emission through the subnet based on tempo.
