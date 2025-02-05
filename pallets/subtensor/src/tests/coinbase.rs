@@ -48,4 +48,3 @@ fn test_dynamic_function_various_values() {
         }
     });
 }
-

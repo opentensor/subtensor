@@ -1841,7 +1841,10 @@ fn test_get_stake_for_hotkey_on_subnet_single_parent_child() {
         register_ok_neuron(netuid, child, coldkey, 0);
 
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &parent, &coldkey, netuid, 1_000_000_000,
+            &parent,
+            &coldkey,
+            netuid,
+            1_000_000_000,
         );
 
         mock_set_children_no_epochs(netuid, &parent, &[(u64::MAX, child)]);
@@ -2013,11 +2016,7 @@ fn test_get_stake_for_hotkey_on_subnet_edge_cases() {
         );
 
         // Test with 0% and 100% stake allocation
-        mock_set_children_no_epochs(
-            netuid,
-            &parent,
-            &[(0, child1), (u64::MAX, child2)],
-        );
+        mock_set_children_no_epochs(netuid, &parent, &[(0, child1), (u64::MAX, child2)]);
 
         let parent_stake = SubtensorModule::get_inherited_for_hotkey_on_subnet(&parent, netuid);
         let child1_stake = SubtensorModule::get_inherited_for_hotkey_on_subnet(&child1, netuid);
@@ -2709,8 +2708,10 @@ fn test_set_children_rate_limit_fail_then_succeed() {
 #[test]
 fn test_childkey_set_weights_single_parent() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
-        add_network(netuid, 1, 0);
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        Tempo::<Test>::insert(netuid, 1);
 
         // Define hotkeys
         let parent: U256 = U256::from(1);
@@ -2750,14 +2751,14 @@ fn test_childkey_set_weights_single_parent() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         // Set parent-child relationship
-        mock_set_children(&coldkey_parent, &parent, netuid, &[(u64::MAX, child)]);
+        mock_set_children_no_epochs(netuid, &parent, &[(u64::MAX, child)]);
 
-        step_block(7200 + 1);
         // Set weights on the child using the weight_setter account
         let origin = RuntimeOrigin::signed(weight_setter);
         let uids: Vec<u16> = vec![1]; // Only set weight for the child (UID 1)
         let values: Vec<u16> = vec![u16::MAX]; // Use maximum value for u16
         let version_key = SubtensorModule::get_weights_version_key(netuid);
+        ValidatorPermit::<Test>::insert(netuid, vec![true, true, true, true]);
         assert_ok!(SubtensorModule::set_weights(
             origin,
             netuid,
@@ -3191,15 +3192,9 @@ fn test_parent_child_chain_emission() {
         log::info!("rel_stake_a: {:?}", rel_stake_a); // 0.6666 -> 2/3
         log::info!("rel_stake_b: {:?}", rel_stake_b); // 0.2222 -> 2/9
         log::info!("rel_stake_c: {:?}", rel_stake_c); // 0.1111 -> 1/9
-        assert!(
-            (rel_stake_a - I96F32::from_num(stake_a) / total_tao).abs() < 0.001
-        );
-        assert!(
-            (rel_stake_b - I96F32::from_num(stake_b) / total_tao).abs() < 0.001
-        );
-        assert!(
-            (rel_stake_c - I96F32::from_num(stake_c) / total_tao).abs() < 0.001
-        );
+        assert!((rel_stake_a - I96F32::from_num(stake_a) / total_tao).abs() < 0.001);
+        assert!((rel_stake_b - I96F32::from_num(stake_b) / total_tao).abs() < 0.001);
+        assert!((rel_stake_c - I96F32::from_num(stake_c) / total_tao).abs() < 0.001);
 
         // Set parent-child relationships
         // A -> B (50% of A's stake)
@@ -3228,13 +3223,13 @@ fn test_parent_child_chain_emission() {
         // Set the weight of root TAO to be 0%, so only alpha is effective.
         SubtensorModule::set_tao_weight(0);
 
-        let hardcoded_emission: I96F32 = I96F32::from_num(1_000_000); // 1 million (adjust as needed)
+        let emission: I96F32 = I96F32::from_num(SubtensorModule::get_block_emission().unwrap_or(0));
 
         // Set pending emission to 0
         PendingEmission::<Test>::insert(netuid, 0);
 
-        // Run epoch with a hardcoded emission value
-        SubtensorModule::run_coinbase(hardcoded_emission);
+        // Run epoch with emission value
+        SubtensorModule::run_coinbase(emission);
 
         // Log new stake
         let stake_a_new: u64 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_a);
@@ -3262,7 +3257,7 @@ fn test_parent_child_chain_emission() {
 
         // Verify the final stake distribution
         let stake_inc_eps: I96F32 = I96F32::from_num(1e-4); // 4 decimal places
-                                                            
+
         // Each child has chk_take take
         let expected_a = I96F32::from_num(2_f64 / 3_f64)
             * (I96F32::from_num(1_f64) - (I96F32::from_num(1_f64 / 2_f64) * chk_take));
@@ -3315,8 +3310,8 @@ fn test_parent_child_chain_emission() {
 
         assert_abs_diff_eq!(
             total_stake_inc.to_num::<u64>(),
-            hardcoded_emission.to_num::<u64>(),
-            epsilon = 10_000,
+            emission.to_num::<u64>(),
+            epsilon = emission.to_num::<u64>() / 1000,
         );
     });
 }

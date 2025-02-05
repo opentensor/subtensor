@@ -736,18 +736,18 @@ pub mod pallet {
     /// Default moving alpha for the moving price.
     pub fn DefaultMovingAlpha<T: Config>() -> I96F32 {
         // Moving average take 30 days to reach 50% of the price
-        // and 3.5 months to reach 90%. 
-        I96F32::saturating_from_num( 0.000003 )
+        // and 3.5 months to reach 90%.
+        I96F32::saturating_from_num(0.000003)
     }
     #[pallet::type_value]
     /// Default subnet moving price.
     pub fn DefaultMovingPrice<T: Config>() -> I96F32 {
-        I96F32::saturating_from_num( 0.0 )
+        I96F32::saturating_from_num(0.0)
     }
     #[pallet::type_value]
     /// Default value for Share Pool variables
     pub fn DefaultSharePoolZero<T: Config>() -> U64F64 {
-        U64F64::saturating_from_num( 0 )
+        U64F64::saturating_from_num(0)
     }
 
     #[pallet::type_value]
@@ -925,7 +925,8 @@ pub mod pallet {
     #[pallet::storage] // --- ITEM ( moving_alpha ) -- subnet moving alpha.
     pub type SubnetMovingAlpha<T> = StorageValue<_, I96F32, ValueQuery, DefaultMovingAlpha<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> moving_price | The subnet moving price.
-    pub type SubnetMovingPrice<T: Config> = StorageMap<_, Identity, u16, I96F32, ValueQuery, DefaultMovingPrice<T>>;
+    pub type SubnetMovingPrice<T: Config> =
+        StorageMap<_, Identity, u16, I96F32, ValueQuery, DefaultMovingPrice<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> total_volume | The total amount of TAO bought and sold since the start of the network.
     pub type SubnetVolume<T: Config> =
         StorageMap<_, Identity, u16, u128, ValueQuery, DefaultZeroU128<T>>;
