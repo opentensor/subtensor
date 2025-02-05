@@ -49,7 +49,6 @@ fn test_dynamic_function_various_values() {
     });
 }
 
-
 // Test the base case of running coinbase with zero emission.
 // This test verifies that the coinbase mechanism can handle the edge case
 // of zero emission without errors or unexpected behavior.
@@ -57,7 +56,7 @@ fn test_dynamic_function_various_values() {
 #[test]
 fn test_coinbase_basecase() {
     new_test_ext(1).execute_with(|| {
-        SubtensorModule::run_coinbase( I96F32::from_num(0.0) );
+        SubtensorModule::run_coinbase(I96F32::from_num(0.0));
     });
 }
 
@@ -73,11 +72,11 @@ fn test_coinbase_tao_issuance_base() {
         let netuid: u16 = 1;
         let emission: u64 = 1_234_567;
         add_network(netuid, 1, 0);
-        assert_eq!( SubnetTAO::<Test>::get( netuid ), 0);
-        SubtensorModule::run_coinbase( I96F32::from_num( emission ) );
-        assert_eq!( SubnetTAO::<Test>::get( netuid ), emission);
-        assert_eq!( TotalIssuance::<Test>::get(), emission);
-        assert_eq!( TotalStake::<Test>::get(), emission);
+        assert_eq!(SubnetTAO::<Test>::get(netuid), 0);
+        SubtensorModule::run_coinbase(I96F32::from_num(emission));
+        assert_eq!(SubnetTAO::<Test>::get(netuid), emission);
+        assert_eq!(TotalIssuance::<Test>::get(), emission);
+        assert_eq!(TotalStake::<Test>::get(), emission);
     });
 }
 
@@ -98,15 +97,15 @@ fn test_coinbase_tao_issuance_multiple() {
         add_network(netuid1, 1, 0);
         add_network(netuid2, 1, 0);
         add_network(netuid3, 1, 0);
-        assert_eq!( SubnetTAO::<Test>::get( netuid1 ), 0);
-        assert_eq!( SubnetTAO::<Test>::get( netuid2 ), 0);
-        assert_eq!( SubnetTAO::<Test>::get( netuid3 ), 0);
-        SubtensorModule::run_coinbase( I96F32::from_num( emission ) );
-        assert_eq!( SubnetTAO::<Test>::get( netuid1 ), emission/3);
-        assert_eq!( SubnetTAO::<Test>::get( netuid2 ), emission/3);
-        assert_eq!( SubnetTAO::<Test>::get( netuid3 ), emission/3);
-        assert_eq!( TotalIssuance::<Test>::get(), emission);
-        assert_eq!( TotalStake::<Test>::get(), emission);
+        assert_eq!(SubnetTAO::<Test>::get(netuid1), 0);
+        assert_eq!(SubnetTAO::<Test>::get(netuid2), 0);
+        assert_eq!(SubnetTAO::<Test>::get(netuid3), 0);
+        SubtensorModule::run_coinbase(I96F32::from_num(emission));
+        assert_eq!(SubnetTAO::<Test>::get(netuid1), emission / 3);
+        assert_eq!(SubnetTAO::<Test>::get(netuid2), emission / 3);
+        assert_eq!(SubnetTAO::<Test>::get(netuid3), emission / 3);
+        assert_eq!(TotalIssuance::<Test>::get(), emission);
+        assert_eq!(TotalStake::<Test>::get(), emission);
     });
 }
 
@@ -128,18 +127,18 @@ fn test_coinbase_tao_issuance_different_prices() {
         SubnetMechanism::<Test>::insert(netuid1, 1);
         SubnetMechanism::<Test>::insert(netuid2, 1);
         // Set subnet prices.
-        SubnetMovingPrice::<Test>::insert( netuid1, I96F32::from_num(1) );
-        SubnetMovingPrice::<Test>::insert( netuid2, I96F32::from_num(2) );
+        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
+        SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
         // Assert initial TAO reserves.
-        assert_eq!( SubnetTAO::<Test>::get( netuid1 ), 0);
-        assert_eq!( SubnetTAO::<Test>::get( netuid2 ), 0);
+        assert_eq!(SubnetTAO::<Test>::get(netuid1), 0);
+        assert_eq!(SubnetTAO::<Test>::get(netuid2), 0);
         // Run the coinbase with the emission amount.
-        SubtensorModule::run_coinbase( I96F32::from_num( emission ) );
+        SubtensorModule::run_coinbase(I96F32::from_num(emission));
         // Assert tao emission is split evenly.
-        assert_eq!( SubnetTAO::<Test>::get( netuid1 ), emission/3 );
-        assert_eq!( SubnetTAO::<Test>::get( netuid2 ), emission/3 + emission/3);
-        close( TotalIssuance::<Test>::get(), emission, 2);
-        close( TotalStake::<Test>::get(), emission, 2);
+        assert_eq!(SubnetTAO::<Test>::get(netuid1), emission / 3);
+        assert_eq!(SubnetTAO::<Test>::get(netuid2), emission / 3 + emission / 3);
+        close(TotalIssuance::<Test>::get(), emission, 2);
+        close(TotalStake::<Test>::get(), emission, 2);
     });
 }
 
@@ -158,31 +157,43 @@ fn test_coinbase_moving_prices() {
         SubnetTAO::<Test>::insert(netuid, 1_000_000);
         SubnetAlphaIn::<Test>::insert(netuid, 1_000_000);
         SubnetMechanism::<Test>::insert(netuid, 1);
-        SubnetMovingPrice::<Test>::insert( netuid, I96F32::from_num(1) );
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(1));
         // Updating the moving price keeps it the same.
-        assert_eq!( SubtensorModule::get_moving_alpha_price(netuid), I96F32::from_num(1) );
-        SubtensorModule::update_moving_price( netuid );
-        assert_eq!( SubtensorModule::get_moving_alpha_price(netuid), I96F32::from_num(1) );
+        assert_eq!(
+            SubtensorModule::get_moving_alpha_price(netuid),
+            I96F32::from_num(1)
+        );
+        SubtensorModule::update_moving_price(netuid);
+        assert_eq!(
+            SubtensorModule::get_moving_alpha_price(netuid),
+            I96F32::from_num(1)
+        );
         // Check alpha of 1.
         // Set price to zero.
-        SubnetMovingPrice::<Test>::insert( netuid, I96F32::from_num(0) );
-        SubnetMovingAlpha::<Test>::set( I96F32::from_num(1.0) );
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0));
+        SubnetMovingAlpha::<Test>::set(I96F32::from_num(1.0));
         // Run moving 1 times.
-        SubtensorModule::update_moving_price( netuid );
+        SubtensorModule::update_moving_price(netuid);
         // Assert price is == 100% of the real price.
-        assert_eq!( SubtensorModule::get_moving_alpha_price(netuid), I96F32::from_num(1.0) );
+        assert_eq!(
+            SubtensorModule::get_moving_alpha_price(netuid),
+            I96F32::from_num(1.0)
+        );
         // Set price to zero.
-        SubnetMovingPrice::<Test>::insert( netuid, I96F32::from_num(0) );
-        SubnetMovingAlpha::<Test>::set( I96F32::from_num(0.1) );
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0));
+        SubnetMovingAlpha::<Test>::set(I96F32::from_num(0.1));
         // Run moving 6 times.
-        SubtensorModule::update_moving_price( netuid );
-        SubtensorModule::update_moving_price( netuid );
-        SubtensorModule::update_moving_price( netuid );
-        SubtensorModule::update_moving_price( netuid );
-        SubtensorModule::update_moving_price( netuid );
-        SubtensorModule::update_moving_price( netuid );
+        SubtensorModule::update_moving_price(netuid);
+        SubtensorModule::update_moving_price(netuid);
+        SubtensorModule::update_moving_price(netuid);
+        SubtensorModule::update_moving_price(netuid);
+        SubtensorModule::update_moving_price(netuid);
+        SubtensorModule::update_moving_price(netuid);
         // Assert price is > 50% of the real price.
-        assert_eq!( SubtensorModule::get_moving_alpha_price(netuid), I96F32::from_num(0.468559) );
+        assert_eq!(
+            SubtensorModule::get_moving_alpha_price(netuid),
+            I96F32::from_num(0.468559)
+        );
     });
 }
 
@@ -191,7 +202,7 @@ fn test_coinbase_moving_prices() {
 // - Alpha issuance is initialized to 0 for new subnets
 // - Alpha issuance is split evenly between subnets during coinbase
 // - Each subnet receives the expected fraction of total emission
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_alpha_issuance --exact --show-output --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_alpha_issuance_base --exact --show-output --nocapture
 #[test]
 fn test_coinbase_alpha_issuance_base() {
     new_test_ext(1).execute_with(|| {
@@ -201,18 +212,17 @@ fn test_coinbase_alpha_issuance_base() {
         add_network(netuid1, 1, 0);
         add_network(netuid2, 1, 0);
         // Set up prices 1 and 1
-        SubnetTAO::<Test>::insert(netuid1, 1_000_000);
-        SubnetAlphaIn::<Test>::insert(netuid1, 1_000_000);
-        SubnetTAO::<Test>::insert(netuid2, 1_000_000);
-        SubnetAlphaIn::<Test>::insert(netuid2, 1_000_000);
+        let initial: u64 = 1_000_000;
+        SubnetTAO::<Test>::insert(netuid1, initial);
+        SubnetAlphaIn::<Test>::insert(netuid1, initial);
+        SubnetTAO::<Test>::insert(netuid2, initial);
+        SubnetAlphaIn::<Test>::insert(netuid2, initial);
         // Check initial
-        assert_eq!( SubnetAlphaIn::<Test>::get( netuid1 ), 0);
-        assert_eq!( SubnetAlphaIn::<Test>::get( netuid2 ), 0);
-        SubtensorModule::run_coinbase( I96F32::from_num( emission ) );
+        SubtensorModule::run_coinbase(I96F32::from_num(emission));
         // tao_in = 500_000
         // alpha_in = 500_000/price = 500_000
-        assert_eq!( SubnetAlphaIn::<Test>::get( netuid1 ), emission/2);
-        assert_eq!( SubnetAlphaIn::<Test>::get( netuid2 ), emission/2);
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid1), initial + emission / 2);
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid2), initial + emission / 2);
     });
 }
 
@@ -240,19 +250,21 @@ fn test_coinbase_alpha_issuance_different() {
         SubnetTAO::<Test>::insert(netuid2, initial);
         SubnetAlphaIn::<Test>::insert(netuid2, initial);
         // Set subnet prices.
-        SubnetMovingPrice::<Test>::insert( netuid1, I96F32::from_num(1) );
-        SubnetMovingPrice::<Test>::insert( netuid2, I96F32::from_num(2) );
+        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
+        SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
         // Run coinbase
-        SubtensorModule::run_coinbase( I96F32::from_num( emission ) );
+        SubtensorModule::run_coinbase(I96F32::from_num(emission));
         // tao_in = 333_333
         // alpha_in = 333_333/price = 333_333 + initial
-        assert_eq!( SubnetAlphaIn::<Test>::get( netuid1 ), initial + emission/3);
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid1), initial + emission / 3);
         // tao_in = 666_666
         // alpha_in = 666_666/price = 666_666 + initial
-        assert_eq!( SubnetAlphaIn::<Test>::get( netuid2 ), initial + emission/3 + emission/3);
+        assert_eq!(
+            SubnetAlphaIn::<Test>::get(netuid2),
+            initial + emission / 3 + emission / 3
+        );
     });
 }
-
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_alpha_issuance_with_cap_trigger --exact --show-output --nocapture
 #[test]
