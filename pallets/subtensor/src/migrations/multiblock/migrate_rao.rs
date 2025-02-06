@@ -74,7 +74,9 @@ pub mod migrate_rao {
                         TaoWeight::<T>::set(332_041_393_326_771_929);
                         Self::convert_subnet_step(None)
                     }
-                    Some(MigrationState::ConvertSubnet(key)) => Self::convert_subnet_step(Some(key)),
+                    Some(MigrationState::ConvertSubnet(key)) => {
+                        Self::convert_subnet_step(Some(key))
+                    }
                     Some(MigrationState::Finished) => {
                         HasMigrationRun::<T>::insert(migration_name.as_ref(), true);
 
@@ -100,7 +102,9 @@ pub mod migrate_rao {
         ) -> Weight {
             match step {
                 None => T::DbWeight::get().writes(1),
-                Some(MigrationState::DynamicBlockSet | MigrationState::Stake(_)) => T::DbWeight::get().reads_writes(6, 6),
+                Some(MigrationState::DynamicBlockSet | MigrationState::Stake(_)) => {
+                    T::DbWeight::get().reads_writes(6, 6)
+                }
                 Some(MigrationState::FinishedStake) => T::DbWeight::get().reads_writes(1, 4),
                 Some(MigrationState::ConvertSubnet(_)) => T::DbWeight::get().reads_writes(22, 30),
                 Some(MigrationState::Finished) => T::DbWeight::get().writes(1),
@@ -117,7 +121,7 @@ pub mod migrate_rao {
         ) -> MigrationState<(T::AccountId, T::AccountId), u16> {
             let mut iter = if let Some((last_key1, last_key2)) = maybe_last_key {
                 deprecated_stake_format::Stake::<T>::iter_from(
-                    deprecated_stake_format::Stake::<T>::hashed_key_for(last_key1, last_key2)
+                    deprecated_stake_format::Stake::<T>::hashed_key_for(last_key1, last_key2),
                 )
             } else {
                 deprecated_stake_format::Stake::<T>::iter()
@@ -158,7 +162,7 @@ pub mod migrate_rao {
             } else {
                 NetworksAdded::<T>::iter()
             };
-            
+
             if let Some((netuid, _)) = iter.next() {
                 if netuid == 0 {
                     // Give root a single RAO in pool to avoid any catestrophic division by zero.
@@ -181,7 +185,7 @@ pub mod migrate_rao {
                 TokenSymbol::<T>::insert(netuid, Pallet::<T>::get_symbol_for_subnet(netuid));
                 SubnetTAO::<T>::insert(netuid, initial_liquidity); // Set TAO to the lock.
                 TotalStakeAtDynamic::<T>::insert(netuid, 0);
-        
+
                 if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
                     // Set Owner as the coldkey.
                     SubnetOwnerHotkey::<T>::insert(netuid, owner_coldkey.clone());
