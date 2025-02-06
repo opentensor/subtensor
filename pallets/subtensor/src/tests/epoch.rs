@@ -3288,7 +3288,7 @@ fn assert_approx_eq_vec_of_vec(
 }
 
 // test Yuma 4 scenarios over a sequence of epochs.
-fn setup_yuma_4_scenario(netuid: u16, n: u16, max_stake: u64, stakes: Vec<u64>) {
+fn setup_yuma_4_scenario(netuid: u16, n: u16, sparse: bool, max_stake: u64, stakes: Vec<u64>) {
     let block_number = System::block_number();
     let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
     add_network(netuid, tempo, 0);
@@ -3339,17 +3339,23 @@ fn setup_yuma_4_scenario(netuid: u16, n: u16, max_stake: u64, stakes: Vec<u64>) 
     // === Issue validator permits
     SubtensorModule::set_max_allowed_validators(netuid, 3);
     assert_eq!(SubtensorModule::get_max_allowed_validators(netuid), 3);
-    SubtensorModule::epoch(netuid, 1_000_000_000); // run first epoch to set allowed validators
-    next_block(); // run to next block to ensure weights are set on nodes after their registration block
+
+    // run first epoch to set allowed validators
+    // run to next block to ensure weights are set on nodes after their registration block
+    run_epoch(netuid, sparse);
 }
 
-fn run_epoch_check_bonds(netuid: u16, sparse: bool, target_bonds: Vec<Vec<u64>>) {
+fn run_epoch(netuid: u16, sparse: bool) {
     next_block();
     if sparse {
         SubtensorModule::epoch(netuid, 1_000_000_000);
     } else {
         SubtensorModule::epoch_dense(netuid, 1_000_000_000);
     }
+}
+
+fn run_epoch_check_bonds(netuid: u16, sparse: bool, target_bonds: Vec<Vec<u64>>) {
+    run_epoch(netuid, sparse);
     let bonds = SubtensorModule::get_bonds(netuid);
 
     // server 1
@@ -3376,7 +3382,7 @@ fn test_yuma_4_kappa_moves_last() {
         // Validator C: Small lazy validator (0.1) - moves second
         let stakes: Vec<u64> = vec![8, 1, 1, 0, 0];
 
-        setup_yuma_4_scenario(netuid, n, max_stake, stakes);
+        setup_yuma_4_scenario(netuid, n, sparse, max_stake, stakes);
 
         // Initially, consensus is achieved by all Validators
         for uid in [0, 1, 2] {

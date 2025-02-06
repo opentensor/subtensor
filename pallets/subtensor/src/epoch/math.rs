@@ -1226,6 +1226,17 @@ pub fn vec_mul(a: &[I32F32], b: &[I32F32]) -> Vec<I32F32> {
         .collect()
 }
 
+// Element-wise product of matrix and vector
+pub fn mat_vec_mul(matrix: &[Vec<I32F32>], vector: &[I32F32]) -> Vec<Vec<I32F32>> {
+    let Some(first_row) = matrix.first() else {
+        return vec![vec![]];
+    };
+    if first_row.is_empty() {
+        return vec![vec![]];
+    }
+    matrix.iter().map(|row| vec_mul(row, vector)).collect()
+}
+
 // Element-wise product of two matrices.
 #[allow(dead_code)]
 pub fn hadamard(mat1: &[Vec<I32F32>], mat2: &[Vec<I32F32>]) -> Vec<Vec<I32F32>> {

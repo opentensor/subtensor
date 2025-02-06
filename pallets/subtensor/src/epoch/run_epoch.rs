@@ -220,9 +220,9 @@ impl<T: Config> Pallet<T> {
         log::trace!("emaB norm: {:?}", &ema_bonds_norm);
 
         // # === Dividend Calculation===
-        let total_bonds_per_validator: Vec<I32F32> = matmul_transpose(&ema_bonds, &incentive);
-        let mut dividends: Vec<I32F32> = vec_mul(&total_bonds_per_validator, &active_stake);
-        inplace_normalize(&mut dividends);
+        let total_bonds_per_validator: Vec<I32F32> =
+            row_sum(&mat_vec_mul(&ema_bonds_norm, &incentive));
+        let dividends: Vec<I32F32> = vec_mul(&total_bonds_per_validator, &active_stake);
         log::trace!("D: {:?}", &dividends);
 
         // =================================
@@ -593,7 +593,7 @@ impl<T: Config> Pallet<T> {
 
         // Compute the Exponential Moving Average (EMA) of bonds.
         let mut ema_bonds =
-            Self::compute_ema_bonds_sparse(&weights_for_bonds.clone(), &bonds, alpha);
+            Self::compute_ema_bonds_sparse(&weights_for_bonds.clone(), &bonds, alphas);
         // Normalize EMA bonds.
         inplace_col_normalize_sparse(&mut ema_bonds, n); // sum_i b_ij = 1
         log::trace!("emaB norm: {:?}", &ema_bonds);

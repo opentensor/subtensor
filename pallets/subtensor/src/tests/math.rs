@@ -1237,6 +1237,26 @@ fn test_math_vec_mul() {
 }
 
 #[test]
+fn test_math_mat_vec_mul() {
+    let matrix: Vec<f32> = vec![1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11., 12.];
+    let matrix = vec_to_mat_fixed(&matrix, 4, false);
+    let vector: Vec<I32F32> = vec_to_fixed(&[1., 2., 3.]);
+    let target: Vec<f32> = vec![1., 4., 9., 4., 10., 18., 7., 16., 27., 10., 22., 36.];
+    let target = vec_to_mat_fixed(&target, 4, false);
+    let result = mat_vec_mul(&matrix, &vector);
+    assert_mat_compare(&result, &target, I32F32::from_num(0));
+    let vector_one: Vec<I32F32> = vec_to_fixed(&[1., 0., 0.]);
+    let target: Vec<f32> = vec![1., 0., 0., 4., 0., 0., 7., 0., 0., 10., 0., 0.];
+    let target = vec_to_mat_fixed(&target, 4, false);
+    let result = mat_vec_mul(&matrix, &vector_one);
+    assert_mat_compare(&result, &target, I32F32::from_num(0));
+    let vector_empty: Vec<I32F32> = vec_to_fixed(&[]);
+    let result = mat_vec_mul(&matrix, &vector_empty);
+    let target: Vec<Vec<I32F32>> = vec![vec![]; 4];
+    assert_mat_compare(&result, &target, I32F32::from_num(0));
+}
+
+#[test]
 fn test_math_row_hadamard() {
     let vector: Vec<I32F32> = vec_to_fixed(&[1., 2., 3., 4.]);
     let matrix: Vec<f32> = vec![1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11., 12.];
