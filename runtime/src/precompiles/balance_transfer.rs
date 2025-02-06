@@ -48,8 +48,6 @@ impl BalanceTransferPrecompile {
             value: amount_sub.unique_saturated_into(),
         };
 
-        try_dispatch_runtime_call(handle, call, contract_to_origin(&CONTRACT_ADDRESS_SS58)?)?;
-
-        Ok(())
+        try_dispatch_runtime_call(handle, call, contract_to_origin(&CONTRACT_ADDRESS_SS58)?)
     }
 }

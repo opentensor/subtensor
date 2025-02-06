@@ -12,7 +12,8 @@ use pallet_evm::{
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;
 use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripemd160, Sha256};
-use sp_core::{hashing::keccak_256, H160};
+use precompile_utils::EvmResult;
+use sp_core::{hashing::keccak_256, H160, U256};
 use sp_runtime::{traits::Dispatchable, AccountId32};
 use sp_std::vec;
 
@@ -151,6 +152,12 @@ pub fn get_pubkey(data: &[u8]) -> Result<(AccountId32, vec::Vec<u8>), Precompile
     ))
 }
 
+fn try_u16_from_u256(value: U256) -> Result<u16, PrecompileFailure> {
+    u16::try_from(value.as_u32()).map_err(|_| PrecompileFailure::Error {
+        exit_status: ExitError::Other("the value is outside of u16 bounds".into()),
+    })
+}
+
 fn parse_netuid(data: &[u8], offset: usize) -> Result<u16, PrecompileFailure> {
     if data.len() < offset + 2 {
         return Err(PrecompileFailure::Error {
@@ -175,7 +182,7 @@ fn try_dispatch_runtime_call(
     handle: &mut impl PrecompileHandle,
     call: impl Into<RuntimeCall>,
     origin: RawOrigin<AccountId32>,
-) -> PrecompileResult {
+) -> EvmResult<()> {
     let call = Into::<RuntimeCall>::into(call);
     let info = call.get_dispatch_info();
 
@@ -220,10 +227,7 @@ fn try_dispatch_runtime_call(
 
             log::info!("Dispatch succeeded. Post info: {:?}", post_info);
 
-            Ok(PrecompileOutput {
-                exit_status: ExitSucceed::Returned,
-                output: Default::default(),
-            })
+            Ok(())
         }
         Err(e) => {
             log::error!("Dispatch failed. Error: {:?}", e);
