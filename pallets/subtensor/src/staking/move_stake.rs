@@ -47,6 +47,7 @@ impl<T: Config> Pallet<T> {
             alpha_amount,
             None,
             None,
+            false,
         )?;
 
         // Log the event.
@@ -96,6 +97,16 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Events
     /// Emits a `StakeTransferred` event upon successful completion of the transfer.
+    pub fn toggle_transfer(netuid: u16, toggle: bool) -> dispatch::DispatchResult {
+        TransferToggle::<T>::insert(netuid, toggle);
+        log::debug!(
+            "TransferToggle( netuid: {:?}, toggle: {:?} ) ",
+            netuid,
+            toggle
+        );
+        Self::deposit_event(Event::TransferToggle(netuid, toggle));
+        Ok(())
+    }
     pub fn do_transfer_stake(
         origin: T::RuntimeOrigin,
         destination_coldkey: T::AccountId,
@@ -118,6 +129,7 @@ impl<T: Config> Pallet<T> {
             alpha_amount,
             None,
             None,
+            true,
         )?;
 
         // 9. Emit an event for logging/monitoring.
@@ -187,6 +199,7 @@ impl<T: Config> Pallet<T> {
             alpha_amount,
             None,
             None,
+            false,
         )?;
 
         // Emit an event for logging.
@@ -258,6 +271,7 @@ impl<T: Config> Pallet<T> {
             alpha_amount,
             Some(limit_price),
             Some(allow_partial),
+            false,
         )?;
 
         // Emit an event for logging.
@@ -293,6 +307,7 @@ impl<T: Config> Pallet<T> {
         alpha_amount: u64,
         maybe_limit_price: Option<u64>,
         maybe_allow_partial: Option<bool>,
+        check_transfer_toggle: bool,
     ) -> Result<u64, Error<T>> {
         // Calculate the maximum amount that can be executed
         let max_amount = if let Some(limit_price) = maybe_limit_price {
@@ -312,6 +327,7 @@ impl<T: Config> Pallet<T> {
             alpha_amount,
             max_amount,
             maybe_allow_partial,
+            check_transfer_toggle,
         )?;
 
         // Unstake from the origin subnet, returning TAO (or a 1:1 equivalent).
