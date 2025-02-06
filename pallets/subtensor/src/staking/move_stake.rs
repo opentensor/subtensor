@@ -96,6 +96,22 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Events
     /// Emits a `StakeTransferred` event upon successful completion of the transfer.
+    pub fn toggle_transfer( 
+        netuid: u16, 
+        toggle: bool
+    ) -> dispatch::DispatchResult {
+        TransferToggle::<T>::insert( netuid, toggle );
+        log::debug!(
+            "TransferToggle( netuid: {:?}, toggle: {:?} ) ",
+            netuid,
+            toggle
+        );
+        Self::deposit_event(Event::TransferToggle(
+            netuid,
+            toggle
+        ));
+        Ok(())
+    }
     pub fn do_transfer_stake(
         origin: T::RuntimeOrigin,
         destination_coldkey: T::AccountId,
@@ -106,6 +122,16 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // Ensure the extrinsic is signed by the origin_coldkey.
         let coldkey = ensure_signed(origin)?;
+
+        // Ensure transfer is toggled.
+        ensure!(
+            TransferToggle::<T>::get( origin_netuid ),
+            Error::<T>::TransferDisallowed
+        );
+        ensure!(
+            TransferToggle::<T>::get( destination_netuid ),
+            Error::<T>::TransferDisallowed
+        );
 
         // Validate input and move stake
         let tao_moved = Self::transition_stake_internal(

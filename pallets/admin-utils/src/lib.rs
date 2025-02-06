@@ -1287,6 +1287,27 @@ pub mod pallet {
             ensure_root(origin)?;
             T::Grandpa::schedule_change(next_authorities, in_blocks, forced)
         }
+
+        /// Enables or disables Liquid Alpha for a given subnet.
+        ///
+        /// # Parameters
+        /// - `origin`: The origin of the call, which must be the root account or subnet owner.
+        /// - `netuid`: The unique identifier for the subnet.
+        /// - `enabled`: A boolean flag to enable or disable Liquid Alpha.
+        ///
+        /// # Weight
+        /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
+        #[pallet::call_index(61)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_toggle_transfer(
+            origin: OriginFor<T>,
+            netuid: u16,
+            toggle: bool,
+        ) -> DispatchResult {
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            pallet_subtensor::Pallet::<T>::toggle_transfer(netuid, toggle)
+        }
+
     }
 }
 

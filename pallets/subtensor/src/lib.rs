@@ -1069,6 +1069,9 @@ pub mod pallet {
     /// ============================
     /// ==== Subnet Locks =====
     /// ============================
+    #[pallet::storage] // --- MAP ( netuid ) --> transfer_toggle
+    pub type TransferToggle<T: Config> =
+        StorageMap<_, Identity, u16, bool, ValueQuery, DefaultTrue<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> total_subnet_locked
     pub type SubnetLocked<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;

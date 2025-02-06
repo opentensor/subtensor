@@ -265,5 +265,12 @@ mod events {
         /// Parameters:
         /// (coldkey, hotkey, origin_netuid, destination_netuid, amount)
         StakeSwapped(T::AccountId, T::AccountId, u16, u16, u64),
+
+        /// Event called when transfer is toggled on a subnet.
+        ///
+        /// Parameters:
+        /// (netuid, bool)
+        TransferToggle(u16, bool),
+
     }
 }
