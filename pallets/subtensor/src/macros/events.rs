@@ -271,6 +271,5 @@ mod events {
         /// Parameters:
         /// (netuid, bool)
         TransferToggle(u16, bool),
-
     }
 }

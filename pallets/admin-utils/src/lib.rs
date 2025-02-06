@@ -1307,7 +1307,6 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
             pallet_subtensor::Pallet::<T>::toggle_transfer(netuid, toggle)
         }
-
     }
 }
 

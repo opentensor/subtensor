@@ -845,6 +845,7 @@ impl<T: Config> Pallet<T> {
         alpha_amount: u64,
         max_amount: u64,
         maybe_allow_partial: Option<bool>,
+        check_transfer_toggle: bool,
     ) -> Result<(), Error<T>> {
         // Ensure that both subnets exist.
         ensure!(
@@ -897,6 +898,18 @@ impl<T: Config> Pallet<T> {
             if !allow_partial {
                 ensure!(alpha_amount <= max_amount, Error::<T>::SlippageTooHigh);
             }
+        }
+
+        if check_transfer_toggle {
+            // Ensure transfer is toggled.
+            ensure!(
+                TransferToggle::<T>::get(origin_netuid),
+                Error::<T>::TransferDisallowed
+            );
+            ensure!(
+                TransferToggle::<T>::get(destination_netuid),
+                Error::<T>::TransferDisallowed
+            );
         }
 
         Ok(())

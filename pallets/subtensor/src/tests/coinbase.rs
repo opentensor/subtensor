@@ -361,20 +361,19 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
     });
 }
 
-
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_owner_cut_base --exact --show-output --nocapture
 #[test]
 fn test_owner_cut_base() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         add_network(netuid, 1, 0);
-        SubtensorModule::set_tempo(netuid, 10000);// Large number (dont drain)
-        SubtensorModule::set_subnet_owner_cut( 0 );
+        SubtensorModule::set_tempo(netuid, 10000); // Large number (dont drain)
+        SubtensorModule::set_subnet_owner_cut(0);
         SubtensorModule::run_coinbase(I96F32::from_num(0));
-        assert_eq!( PendingOwnerCut::<Test>::get(netuid), 0 ); // No cut 
-        SubtensorModule::set_subnet_owner_cut( u16::MAX );
+        assert_eq!(PendingOwnerCut::<Test>::get(netuid), 0); // No cut
+        SubtensorModule::set_subnet_owner_cut(u16::MAX);
         SubtensorModule::run_coinbase(I96F32::from_num(0));
-        assert_eq!( PendingOwnerCut::<Test>::get(netuid), 1_000_000_000 ); // Full cut.
+        assert_eq!(PendingOwnerCut::<Test>::get(netuid), 1_000_000_000); // Full cut.
     });
 }
 
@@ -386,32 +385,26 @@ fn test_pending_swapped() {
         let emission: u64 = 1_000_000;
         add_network(netuid, 1, 0);
         SubtensorModule::run_coinbase(I96F32::from_num(0));
-        assert_eq!( PendingAlphaSwapped::<Test>::get(netuid), 0 ); // Zero tao weight and no root.
-        SubnetTAO::<Test>::insert( 0, 1_000_000_000); // Add root weight.
+        assert_eq!(PendingAlphaSwapped::<Test>::get(netuid), 0); // Zero tao weight and no root.
+        SubnetTAO::<Test>::insert(0, 1_000_000_000); // Add root weight.
         SubtensorModule::run_coinbase(I96F32::from_num(0));
-        assert_eq!( PendingAlphaSwapped::<Test>::get(netuid), 0 ); // Zero tao weight with 1 root.
-        SubtensorModule::set_tempo(netuid, 10000);// Large number (dont drain)
-        SubtensorModule::set_tao_weight( u64::MAX ); // Set TAO weight to 1.0
+        assert_eq!(PendingAlphaSwapped::<Test>::get(netuid), 0); // Zero tao weight with 1 root.
+        SubtensorModule::set_tempo(netuid, 10000); // Large number (dont drain)
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
         SubtensorModule::run_coinbase(I96F32::from_num(0));
-        assert_eq!( PendingAlphaSwapped::<Test>::get(netuid), 125000000 ); // 1 TAO / ( 1 + 3 ) = 0.25 * 1 / 2 = 125000000
-        assert_eq!( PendingEmission::<Test>::get(netuid), 1_000_000_000 - 125000000 ); // 1 - swapped.
-        assert_eq!( PendingRootDivs::<Test>::get(netuid), 125000000 ); // swapped * (price = 1)
+        assert_eq!(PendingAlphaSwapped::<Test>::get(netuid), 125000000); // 1 TAO / ( 1 + 3 ) = 0.25 * 1 / 2 = 125000000
+        assert_eq!(
+            PendingEmission::<Test>::get(netuid),
+            1_000_000_000 - 125000000
+        ); // 1 - swapped.
+        assert_eq!(PendingRootDivs::<Test>::get(netuid), 125000000); // swapped * (price = 1)
     });
 }
-
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_base --exact --show-output --nocapture
 #[test]
 fn test_drain_base() {
-    new_test_ext(1).execute_with(|| {
-        SubtensorModule::drain_pending_emission(
-            0,
-            0,
-            0,
-            0,
-            0,
-        )
-    });
+    new_test_ext(1).execute_with(|| SubtensorModule::drain_pending_emission(0, 0, 0, 0, 0));
 }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_base_with_subnet --exact --show-output --nocapture
@@ -420,13 +413,7 @@ fn test_drain_base_with_subnet() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         add_network(netuid, 1, 0);
-        SubtensorModule::drain_pending_emission(
-            netuid,
-            0,
-            0,
-            0,
-            0,
-        )
+        SubtensorModule::drain_pending_emission(netuid, 0, 0, 0, 0)
     });
 }
 
@@ -445,18 +432,11 @@ fn test_drain_base_with_subnet_with_single_staker_not_registered() {
             netuid,
             stake_before,
         );
-        let pending_alpha: u64  = 1_000_000_000;
-        SubtensorModule::drain_pending_emission(
-            netuid,
-            pending_alpha,
-            0,
-            0,
-            0,
-        );
-        let stake_after = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey, &coldkey, netuid,
-        );
-        assert_eq!( stake_before, stake_after ); // Not registered.
+        let pending_alpha: u64 = 1_000_000_000;
+        SubtensorModule::drain_pending_emission(netuid, pending_alpha, 0, 0, 0);
+        let stake_after =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        assert_eq!(stake_before, stake_after); // Not registered.
     });
 }
 
@@ -476,18 +456,11 @@ fn test_drain_base_with_subnet_with_single_staker_registered() {
             netuid,
             stake_before,
         );
-        let pending_alpha: u64  = 1_000_000_000;
-        SubtensorModule::drain_pending_emission(
-            netuid,
-            pending_alpha,
-            0,
-            0,
-            0,
-        );
-        let stake_after = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey, &coldkey, netuid,
-        );
-        close( stake_before  + pending_alpha, stake_after, 10 ); // Registered gets all emission.
+        let pending_alpha: u64 = 1_000_000_000;
+        SubtensorModule::drain_pending_emission(netuid, pending_alpha, 0, 0, 0);
+        let stake_after =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        close(stake_before + pending_alpha, stake_after, 10); // Registered gets all emission.
     });
 }
 
@@ -503,7 +476,7 @@ fn test_drain_base_with_subnet_with_single_staker_registered_root_weight() {
         let stake_before: u64 = 1_000_000_000;
         // register_ok_neuron(root, hotkey, coldkey, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
-        SubtensorModule::set_tao_weight( u64::MAX ); // Set TAO weight to 1.0
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey,
@@ -518,21 +491,13 @@ fn test_drain_base_with_subnet_with_single_staker_registered_root_weight() {
         );
         let pending_tao: u64 = 1_000_000_000;
         let pending_alpha: u64 = 1_000_000_000;
-        SubtensorModule::drain_pending_emission(
-            netuid,
-            pending_alpha,
-            pending_tao,
-            0,
-            0,
-        );
-        let stake_after = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey, &coldkey, netuid,
-        );
-        let root_after = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey, &coldkey, root,
-        );
-        close( stake_before + pending_alpha, stake_after, 10 ); // Registered gets all alpha emission.
-        close( stake_before + pending_tao, root_after, 10 ); // Registered gets all tao emission
+        SubtensorModule::drain_pending_emission(netuid, pending_alpha, pending_tao, 0, 0);
+        let stake_after =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        let root_after =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, root);
+        close(stake_before + pending_alpha, stake_after, 10); // Registered gets all alpha emission.
+        close(stake_before + pending_tao, root_after, 10); // Registered gets all tao emission
     });
 }
 
@@ -560,22 +525,14 @@ fn test_drain_base_with_subnet_with_two_stakers_registered() {
             netuid,
             stake_before,
         );
-        let pending_alpha: u64  = 1_000_000_000;
-        SubtensorModule::drain_pending_emission(
-            netuid,
-            pending_alpha,
-            0,
-            0,
-            0,
-        );
-        let stake_after1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey1, &coldkey, netuid,
-        );
-        let stake_after2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey2, &coldkey, netuid,
-        );
-        close( stake_before + pending_alpha/2, stake_after1, 10 ); // Registered gets 1/2 emission
-        close( stake_before + pending_alpha/2, stake_after2, 10 ); // Registered gets 1/2 emission.
+        let pending_alpha: u64 = 1_000_000_000;
+        SubtensorModule::drain_pending_emission(netuid, pending_alpha, 0, 0, 0);
+        let stake_after1 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &coldkey, netuid);
+        let stake_after2 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, netuid);
+        close(stake_before + pending_alpha / 2, stake_after1, 10); // Registered gets 1/2 emission
+        close(stake_before + pending_alpha / 2, stake_after2, 10); // Registered gets 1/2 emission.
     });
 }
 
@@ -592,7 +549,7 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root() {
         let stake_before: u64 = 1_000_000_000;
         register_ok_neuron(netuid, hotkey1, coldkey, 0);
         register_ok_neuron(netuid, hotkey2, coldkey, 0);
-        SubtensorModule::set_tao_weight( u64::MAX ); // Set TAO weight to 1.0
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey1,
             &coldkey,
@@ -619,29 +576,19 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root() {
         );
         let pending_tao: u64 = 1_000_000_000;
         let pending_alpha: u64 = 1_000_000_000;
-        SubtensorModule::drain_pending_emission(
-            netuid,
-            pending_alpha,
-            pending_tao,
-            0,
-            0,
-        );
-        let stake_after1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey1, &coldkey, netuid,
-        );
-        let root_after1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey1, &coldkey, root,
-        );
-        let stake_after2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey2, &coldkey, netuid,
-        );
-        let root_after2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey2, &coldkey, root,
-        );
-        close( stake_before + pending_alpha/2, stake_after1, 10 ); // Registered gets 1/2 emission
-        close( stake_before + pending_alpha/2, stake_after2, 10 ); // Registered gets 1/2 emission.
-        close( stake_before + pending_tao/2, root_after1, 10 ); // Registered gets 1/2 tao emission
-        close( stake_before + pending_tao/2, root_after2, 10 ); // Registered gets 1/2 tao emission
+        SubtensorModule::drain_pending_emission(netuid, pending_alpha, pending_tao, 0, 0);
+        let stake_after1 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &coldkey, netuid);
+        let root_after1 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &coldkey, root);
+        let stake_after2 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, netuid);
+        let root_after2 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, root);
+        close(stake_before + pending_alpha / 2, stake_after1, 10); // Registered gets 1/2 emission
+        close(stake_before + pending_alpha / 2, stake_after2, 10); // Registered gets 1/2 emission.
+        close(stake_before + pending_tao / 2, root_after1, 10); // Registered gets 1/2 tao emission
+        close(stake_before + pending_tao / 2, root_after2, 10); // Registered gets 1/2 tao emission
     });
 }
 
@@ -658,7 +605,7 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         let stake_before: u64 = 1_000_000_000;
         register_ok_neuron(netuid, hotkey1, coldkey, 0);
         register_ok_neuron(netuid, hotkey2, coldkey, 0);
-        SubtensorModule::set_tao_weight( u64::MAX ); // Set TAO weight to 1.0
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey1,
             &coldkey,
@@ -685,39 +632,34 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         );
         let pending_tao: u64 = 1_000_000_000;
         let pending_alpha: u64 = 1_000_000_000;
-        SubtensorModule::drain_pending_emission(
-            netuid,
-            pending_alpha,
-            pending_tao,
-            0,
-            0,
-        );
-        let stake_after1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey1, &coldkey, netuid,
-        );
-        let root_after1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey1, &coldkey, root,
-        );
-        let stake_after2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey2, &coldkey, netuid,
-        );
-        let root_after2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey2, &coldkey, root,
-        );
-        let expected_stake = I96F32::from_num(stake_before) + I96F32::from_num(pending_alpha) * I96F32::from_num(3.0/5.0);
+        SubtensorModule::drain_pending_emission(netuid, pending_alpha, pending_tao, 0, 0);
+        let stake_after1 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &coldkey, netuid);
+        let root_after1 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &coldkey, root);
+        let stake_after2 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, netuid);
+        let root_after2 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, root);
+        let expected_stake = I96F32::from_num(stake_before)
+            + I96F32::from_num(pending_alpha) * I96F32::from_num(3.0 / 5.0);
         close(expected_stake.to_num::<u64>(), stake_after1, 10); // Registered gets 60% of emission
-        let expected_stake2 = I96F32::from_num(stake_before) + I96F32::from_num(pending_alpha) * I96F32::from_num(2.0/5.0);
+        let expected_stake2 = I96F32::from_num(stake_before)
+            + I96F32::from_num(pending_alpha) * I96F32::from_num(2.0 / 5.0);
         close(expected_stake2.to_num::<u64>(), stake_after2, 10); // Registered gets 40% emission
-        let expected_root1 = I96F32::from_num(2 * stake_before) + I96F32::from_num(pending_tao) * I96F32::from_num(2.0/3.0);
+        let expected_root1 = I96F32::from_num(2 * stake_before)
+            + I96F32::from_num(pending_tao) * I96F32::from_num(2.0 / 3.0);
         close(expected_root1.to_num::<u64>(), root_after1, 10); // Registered gets 2/3 tao emission
-        let expected_root2 = I96F32::from_num(stake_before) + I96F32::from_num(pending_tao) * I96F32::from_num(1.0/3.0);
+        let expected_root2 = I96F32::from_num(stake_before)
+            + I96F32::from_num(pending_tao) * I96F32::from_num(1.0 / 3.0);
         close(expected_root2.to_num::<u64>(), root_after2, 10); // Registered gets 1/3 tao emission
     });
 }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_amounts_half_tao_weight --exact --show-output --nocapture
 #[test]
-fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_amounts_half_tao_weight() {
+fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_amounts_half_tao_weight(
+) {
     new_test_ext(1).execute_with(|| {
         let root: u16 = 0;
         let netuid: u16 = 1;
@@ -728,7 +670,7 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         let stake_before: u64 = 1_000_000_000;
         register_ok_neuron(netuid, hotkey1, coldkey, 0);
         register_ok_neuron(netuid, hotkey2, coldkey, 0);
-        SubtensorModule::set_tao_weight( u64::MAX/2 ); // Set TAO weight to 0.5
+        SubtensorModule::set_tao_weight(u64::MAX / 2); // Set TAO weight to 0.5
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey1,
             &coldkey,
@@ -755,36 +697,30 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         );
         let pending_tao: u64 = 1_000_000_000;
         let pending_alpha: u64 = 1_000_000_000;
-        SubtensorModule::drain_pending_emission(
-            netuid,
-            pending_alpha,
-            pending_tao,
-            0,
-            0,
-        );
-        let stake_after1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey1, &coldkey, netuid,
-        );
-        let root_after1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey1, &coldkey, root,
-        );
-        let stake_after2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey2, &coldkey, netuid,
-        );
-        let root_after2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey2, &coldkey, root,
-        );
+        SubtensorModule::drain_pending_emission(netuid, pending_alpha, pending_tao, 0, 0);
+        let stake_after1 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &coldkey, netuid);
+        let root_after1 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &coldkey, root);
+        let stake_after2 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, netuid);
+        let root_after2 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, root);
         // hotkey 1 has (1 + (2 * 0.5))/( 1 + 1*0.5 + 1 + (2 * 0.5)) = 0.5714285714 of the hotkey emission.
-        let expected_stake = I96F32::from_num(stake_before) + I96F32::from_num(pending_alpha) * I96F32::from_num(0.5714285714);
+        let expected_stake = I96F32::from_num(stake_before)
+            + I96F32::from_num(pending_alpha) * I96F32::from_num(0.5714285714);
         close(expected_stake.to_num::<u64>(), stake_after1, 10);
         // hotkey 2 has (1 + 1*0.5)/( 1 + 1*0.5 + 1 + (2 * 0.5)) = 0.4285714286 of the hotkey emission.
-        let expected_stake2 = I96F32::from_num(stake_before) + I96F32::from_num(pending_alpha) * I96F32::from_num(0.4285714286);
-        close(expected_stake2.to_num::<u64>(), stake_after2, 10); 
+        let expected_stake2 = I96F32::from_num(stake_before)
+            + I96F32::from_num(pending_alpha) * I96F32::from_num(0.4285714286);
+        close(expected_stake2.to_num::<u64>(), stake_after2, 10);
         // hotkey 1 has 2 / 3 root tao
-        let expected_root1 = I96F32::from_num(2 * stake_before) + I96F32::from_num(pending_tao) * I96F32::from_num(2.0/3.0);
-        close(expected_root1.to_num::<u64>(), root_after1, 10); 
+        let expected_root1 = I96F32::from_num(2 * stake_before)
+            + I96F32::from_num(pending_tao) * I96F32::from_num(2.0 / 3.0);
+        close(expected_root1.to_num::<u64>(), root_after1, 10);
         // hotkey 1 has 1 / 3 root tao
-        let expected_root2 = I96F32::from_num(stake_before) + I96F32::from_num(pending_tao) * I96F32::from_num(1.0/3.0);
+        let expected_root2 = I96F32::from_num(stake_before)
+            + I96F32::from_num(pending_tao) * I96F32::from_num(1.0 / 3.0);
         close(expected_root2.to_num::<u64>(), root_after2, 10);
     });
 }
