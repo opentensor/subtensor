@@ -250,3 +250,88 @@ fn test_neuron_certificate() {
         assert_err!(NeuronCertificate::try_from(data), ());
     });
 }
+
+#[test]
+fn test_replace_neuron_subnet_owner_not_replaced() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(100);
+        let owner_coldkey = U256::from(999);
+        let new_hotkey_account_id = U256::from(2);
+
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &owner_hotkey)
+            .expect("Owner neuron should be registered by add_dynamic_network");
+
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        SubtensorModule::replace_neuron(netuid, neuron_uid, &new_hotkey_account_id, current_block);
+
+        let still_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &owner_hotkey);
+        assert_ok!(still_uid);
+        assert_eq!(
+            still_uid.unwrap(),
+            neuron_uid,
+            "UID should remain unchanged for subnet owner"
+        );
+
+        let new_key_uid =
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &new_hotkey_account_id);
+        assert_err!(new_key_uid, Error::<Test>::HotKeyNotRegisteredInSubNet,);
+    });
+}
+
+#[test]
+fn test_get_neuron_to_prune_owner_not_pruned() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(123);
+        let owner_coldkey = U256::from(999);
+
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        SubtensorModule::set_max_registrations_per_block(netuid, 100);
+        SubtensorModule::set_target_registrations_per_interval(netuid, 100);
+        SubnetOwner::<Test>::insert(netuid, owner_coldkey);
+
+        let owner_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &owner_hotkey)
+            .expect("Owner neuron should already be registered by add_dynamic_network");
+
+        let additional_hotkey_1 = U256::from(1000);
+        let additional_coldkey_1 = U256::from(2000);
+
+        let additional_hotkey_2 = U256::from(1001);
+        let additional_coldkey_2 = U256::from(2001);
+
+        register_ok_neuron(netuid, additional_hotkey_1, additional_coldkey_1, 0);
+        let uid_1 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &additional_hotkey_1)
+            .expect("Should be registered");
+
+        register_ok_neuron(netuid, additional_hotkey_2, additional_coldkey_2, 1);
+        let uid_2 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &additional_hotkey_2)
+            .expect("Should be registered");
+
+        SubtensorModule::set_pruning_score_for_uid(netuid, owner_uid, 0);
+        SubtensorModule::set_pruning_score_for_uid(netuid, uid_1, 1);
+        SubtensorModule::set_pruning_score_for_uid(netuid, uid_2, 2);
+
+        let pruned_uid = SubtensorModule::get_neuron_to_prune(netuid);
+
+        // - The pruned UID must be `uid_1` (score=1).
+        // - The owner's UID remains unpruned.
+        assert_eq!(
+            pruned_uid, uid_1,
+            "Should prune the neuron with pruning score=1, not the owner (score=0)."
+        );
+
+        let pruned_score = SubtensorModule::get_pruning_score_for_uid(netuid, uid_1);
+        assert_eq!(
+            pruned_score,
+            u16::MAX,
+            "Pruned neuron's score should be set to u16::MAX"
+        );
+
+        let owner_score = SubtensorModule::get_pruning_score_for_uid(netuid, owner_uid);
+        assert_eq!(
+            owner_score, 0,
+            "Owner's pruning score remains 0, indicating it was skipped"
+        );
+    });
+}
