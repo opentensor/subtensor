@@ -299,14 +299,8 @@ fn test_register_subnet_low_lock_cost() {
         assert!(SubtensorModule::if_subnet_exist(netuid));
 
         // Ensure that both Subnet TAO and Subnet Alpha In equal to (actual) lock_cost
-        assert_eq!(
-            SubnetTAO::<Test>::get(netuid),
-            lock_cost,
-        );
-        assert_eq!(
-            SubnetAlphaIn::<Test>::get(netuid),
-            lock_cost,
-        );
+        assert_eq!(SubnetTAO::<Test>::get(netuid), lock_cost,);
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid), lock_cost,);
     })
 }
 
