@@ -3923,3 +3923,108 @@ fn test_dynamic_parent_child_relationships() {
         // Child2 stake (874,826) > Child1 stake (778,446)
     });
 }
+
+// Test that revoking childkeys does not require minimum stake
+#[test]
+fn test_revoke_child_no_min_stake_check() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let parent = U256::from(2);
+        let child = U256::from(3);
+        let netuid: u16 = 1;
+        let proportion: u64 = 1000;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, parent, coldkey, 0);
+
+        // Set minimum stake for setting children
+        let parent_total_stake_original = TotalHotkeyStake::<Test>::get(parent);
+        StakeThreshold::<Test>::put(1_000_000_000_000);
+        TotalHotkeyStake::<Test>::insert(parent, StakeThreshold::<Test>::get());
+
+        // Schedule parent-child relationship
+        assert_ok!(SubtensorModule::do_schedule_children(
+            RuntimeOrigin::signed(coldkey),
+            parent,
+            netuid,
+            vec![(proportion, child)],
+        ));
+
+        // Ensure the childkeys are not yet applied
+        let children_before = SubtensorModule::get_children(&parent, netuid);
+        assert_eq!(children_before, vec![]);
+
+        wait_and_set_pending_children(netuid);
+        TotalHotkeyStake::<Test>::insert(parent, parent_total_stake_original);
+
+        // Ensure the childkeys are applied
+        let children_after = SubtensorModule::get_children(&parent, netuid);
+        assert_eq!(children_after, vec![(proportion, child)]);
+
+        // Reduce the stake below required threshold
+        TotalHotkeyStake::<Test>::insert(parent, StakeThreshold::<Test>::get() - 1);
+
+        // Bypass tx rate limit
+        SubtensorModule::set_last_transaction_block_on_subnet(
+            &parent,
+            netuid,
+            &TransactionType::SetChildren,
+            0,
+        );
+
+        // Schedule parent-child relationship revokation
+        assert_ok!(SubtensorModule::do_schedule_children(
+            RuntimeOrigin::signed(coldkey),
+            parent,
+            netuid,
+            vec![],
+        ));
+
+        wait_and_set_pending_children(netuid);
+        TotalHotkeyStake::<Test>::insert(parent, parent_total_stake_original);
+
+        // Ensure the childkeys are revoked
+        let children_after = SubtensorModule::get_children(&parent, netuid);
+        assert_eq!(children_after, vec![]);
+    });
+}
+
+// Test that setting childkeys works even if subnet registration is disabled
+#[test]
+fn test_do_set_child_registration_disabled() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let parent = U256::from(2);
+        let child = U256::from(3);
+        let netuid: u16 = 1;
+        let proportion: u64 = 1000;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, parent, coldkey, 0);
+
+        // Set minimum stake for setting children
+        let parent_total_stake_original = TotalHotkeyStake::<Test>::get(parent);
+        StakeThreshold::<Test>::put(1_000_000_000_000);
+        TotalHotkeyStake::<Test>::insert(parent, StakeThreshold::<Test>::get());
+
+        // Disable subnet registrations
+        NetworkRegistrationAllowed::<Test>::insert(netuid, false);
+
+        // Schedule parent-child relationship
+        assert_ok!(SubtensorModule::do_schedule_children(
+            RuntimeOrigin::signed(coldkey),
+            parent,
+            netuid,
+            vec![(proportion, child)],
+        ));
+
+        wait_and_set_pending_children(netuid);
+        TotalHotkeyStake::<Test>::insert(parent, parent_total_stake_original);
+
+        // Ensure the childkeys are applied
+        let children_after = SubtensorModule::get_children(&parent, netuid);
+        assert_eq!(children_after, vec![(proportion, child)]);
+    });
+}
