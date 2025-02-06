@@ -146,7 +146,7 @@ pub fn get_pubkey(data: &[u8]) -> Result<(AccountId32, vec::Vec<u8>), Precompile
 
     Ok((
         pubkey.into(),
-        data.get(4..)
+        data.get(32..)
             .map_or_else(vec::Vec::new, |slice| slice.to_vec()),
     ))
 }
