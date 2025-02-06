@@ -272,6 +272,7 @@ impl<T: Config> Pallet<T> {
         // Run the epoch.
         let hotkey_emission: Vec<(T::AccountId, u64, u64)> =
             Self::epoch(netuid, pending_alpha.saturating_add(pending_swapped));
+        log::debug!("hotkey_emission: {:?}", hotkey_emission);
 
         // Accumulate emission of dividends and incentive per hotkey.
         let mut incentives: BTreeMap<T::AccountId, u64> = BTreeMap::new();
@@ -293,8 +294,10 @@ impl<T: Config> Pallet<T> {
                     .or_insert(asfloat!(parent_div));
             }
         }
+        log::debug!("incentives: {:?}", incentives);
+        log::debug!("dividends: {:?}", dividends);
 
-        // Accumulate root divs and alpha_divs. For each hotkye we compute their
+        // Accumulate root divs and alpha_divs. For each hotkey we compute their
         // local and root dividend proportion based on their alpha_stake/root_stake
         let mut total_root_divs: I96F32 = asfloat!(0);
         let mut root_dividends: BTreeMap<T::AccountId, I96F32> = BTreeMap::new();
@@ -311,19 +314,15 @@ impl<T: Config> Pallet<T> {
             let root_alpha: I96F32 = root_stake.saturating_mul(Self::get_tao_weight());
             // Get total from root and local
             let total_alpha: I96F32 = alpha_stake.saturating_add(root_alpha);
-            // Compute alpha prop.
-            let alpha_prop: I96F32 = alpha_stake.checked_div(total_alpha).unwrap_or(zero);
             // Copmute root prop.
             let root_prop: I96F32 = root_alpha.checked_div(total_alpha).unwrap_or(zero);
-            // Compute alpha dividends
-            let alpha_divs: I96F32 = dividend.saturating_mul(alpha_prop);
             // Compute root dividends
             let root_divs: I96F32 = dividend.saturating_mul(root_prop);
             // Record the root dividends.
             alpha_dividends
                 .entry(hotkey.clone())
-                .and_modify(|e| *e = e.saturating_add(alpha_divs))
-                .or_insert(alpha_divs);
+                .and_modify(|e| *e = e.saturating_add(dividend))
+                .or_insert(dividend);
             // Record the alpha_dividends.
             root_dividends
                 .entry(hotkey.clone())
@@ -332,6 +331,8 @@ impl<T: Config> Pallet<T> {
             // Accumulate total root divs.
             total_root_divs = total_root_divs.saturating_add(root_divs);
         }
+        log::debug!("alpha_dividends: {:?}", alpha_dividends);
+        log::debug!("root_dividends: {:?}", root_dividends);
 
         // Compute root divs as TAO. Here we take
         let mut tao_dividends: BTreeMap<T::AccountId, I96F32> = BTreeMap::new();
@@ -346,6 +347,7 @@ impl<T: Config> Pallet<T> {
                 .and_modify(|e| *e = root_tao)
                 .or_insert(root_tao);
         }
+        log::debug!("tao_dividends: {:?}", tao_dividends);
 
         // Distribute the owner cut.
         if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
@@ -374,6 +376,8 @@ impl<T: Config> Pallet<T> {
         // Distribute alpha divs.
         let _ = AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
         for (hotkey, mut alpha_divs) in alpha_dividends {
+            log::debug!("hotkey: {:?} alpha_divs: {:?}", hotkey, alpha_divs);
+
             // Get take prop
             let alpha_take: I96F32 =
                 Self::get_hotkey_take_float(&hotkey).saturating_mul(alpha_divs);
@@ -397,6 +401,7 @@ impl<T: Config> Pallet<T> {
         // Distribute root tao divs.
         let _ = TaoDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
         for (hotkey, mut root_tao) in tao_dividends {
+            log::debug!("hotkey: {:?} root_tao: {:?}", hotkey, root_tao);
             // Get take prop
             let tao_take: I96F32 = Self::get_hotkey_take_float(&hotkey).saturating_mul(root_tao);
             // Remove take prop from root_tao
