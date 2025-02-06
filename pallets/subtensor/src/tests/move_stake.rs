@@ -1539,3 +1539,73 @@ fn test_swap_stake_limit_validate() {
         );
     });
 }
+
+#[test]
+fn test_stake_transfers_disabled_validate() {
+    // Testing the signed extension validate function
+    // correctly filters the `transfer_stake` transaction.
+
+    new_test_ext(0).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let origin_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let destination_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let destination_coldkey = U256::from(3);
+        let stake_amount = 100_000_000_000;
+
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        let unstake_amount =
+            SubtensorModule::stake_into_subnet(&hotkey, &coldkey, origin_netuid, stake_amount, 0);
+
+        // Swap stake limit call
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::transfer_stake {
+            destination_coldkey,
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            alpha_amount: unstake_amount,
+        });
+
+        let info: crate::DispatchInfo =
+            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+
+        let extension = crate::SubtensorSignedExtension::<Test>::new();
+
+        // Disable transfers in origin subnet
+        TransferToggle::<Test>::insert(origin_netuid, false);
+        TransferToggle::<Test>::insert(destination_netuid, true);
+
+        // Submit to the signed extension validate function
+        let result1 = extension.validate(&coldkey, &call.clone(), &info, 10);
+        assert_err!(
+            result1,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::TransferDisallowed.into()
+            ))
+        );
+
+        // Disable transfers in destination subnet
+        TransferToggle::<Test>::insert(origin_netuid, true);
+        TransferToggle::<Test>::insert(destination_netuid, false);
+
+        // Submit to the signed extension validate function
+        let result2 = extension.validate(&coldkey, &call.clone(), &info, 10);
+        assert_err!(
+            result2,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::TransferDisallowed.into()
+            ))
+        );
+
+        // Enable transfers
+        TransferToggle::<Test>::insert(origin_netuid, true);
+        TransferToggle::<Test>::insert(destination_netuid, true);
+
+        // Submit to the signed extension validate function
+        let result3 = extension.validate(&coldkey, &call.clone(), &info, 10);
+        assert_ok!(result3);
+    });
+}

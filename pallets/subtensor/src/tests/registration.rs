@@ -1560,6 +1560,12 @@ fn test_full_pass_through() {
         add_network(netuid1, tempo1, 0);
         add_network(netuid2, tempo2, 0);
 
+        // owners are not deregisterd
+        let dummy_owner = U256::from(99999);
+        crate::SubnetOwner::<Test>::insert(netuid0, dummy_owner);
+        crate::SubnetOwner::<Test>::insert(netuid1, dummy_owner);
+        crate::SubnetOwner::<Test>::insert(netuid2, dummy_owner);
+
         // Check their tempo.
         assert_eq!(SubtensorModule::get_tempo(netuid0), tempo0);
         assert_eq!(SubtensorModule::get_tempo(netuid1), tempo1);
