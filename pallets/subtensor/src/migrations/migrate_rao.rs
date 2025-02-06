@@ -77,7 +77,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
         // The initial TAO is the locked amount, with a minimum of 1 RAO and a cap of 100 TAO.
         let pool_initial_tao = Pallet::<T>::get_network_min_lock();
         if lock < pool_initial_tao {
-            let difference: u64 = pool_initial_tao.saturating_sub( lock );
+            let difference: u64 = pool_initial_tao.saturating_sub(lock);
             TotalIssuance::<T>::mutate(|total| {
                 *total = total.saturating_add(difference);
             });
@@ -86,15 +86,12 @@ pub fn migrate_rao<T: Config>() -> Weight {
         let remaining_lock = lock.saturating_sub(pool_initial_tao);
         // Refund the owner for the remaining lock.
         Pallet::<T>::add_balance_to_coldkey_account(&owner, remaining_lock);
-        SubnetLocked::<T>::insert( netuid, 0 ); // Clear lock amount.
-        SubnetTAO::<T>::insert( netuid, pool_initial_tao); 
+        SubnetLocked::<T>::insert(netuid, 0); // Clear lock amount.
+        SubnetTAO::<T>::insert(netuid, pool_initial_tao);
         TotalStake::<T>::mutate(|total| {
-            *total = total.saturating_add( pool_initial_tao);
+            *total = total.saturating_add(pool_initial_tao);
         }); // Increase total stake.
-        SubnetAlphaIn::<T>::insert(
-            netuid,
-            pool_initial_tao
-        ); // Set initial alpha to pool initial tao.
+        SubnetAlphaIn::<T>::insert(netuid, pool_initial_tao); // Set initial alpha to pool initial tao.
         SubnetAlphaOut::<T>::insert(netuid, 0); // Set zero subnet alpha out.
         SubnetMechanism::<T>::insert(netuid, 1); // Convert to dynamic immediately with initialization.
         Tempo::<T>::insert(netuid, DefaultTempo::<T>::get());
