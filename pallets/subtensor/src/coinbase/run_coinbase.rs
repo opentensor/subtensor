@@ -249,6 +249,11 @@ impl<T: Config> Pallet<T> {
                 BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));
             }
         }
+
+        // --- 8. Apply pending childkeys of this subnet for the next epoch
+        for netuid in subnets.iter() {
+            Self::do_set_pending_children(*netuid);
+        }
     }
 
     pub fn drain_pending_emission(
