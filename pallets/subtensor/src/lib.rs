@@ -1114,6 +1114,9 @@ pub mod pallet {
     /// ============================
     /// ==== Subnet Locks =====
     /// ============================
+    #[pallet::storage] // --- MAP ( netuid ) --> transfer_toggle
+    pub type TransferToggle<T: Config> =
+        StorageMap<_, Identity, u16, bool, ValueQuery, DefaultTrue<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> total_subnet_locked
     pub type SubnetLocked<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
@@ -1645,6 +1648,7 @@ pub enum CustomTransactionError {
     RateLimitExceeded,
     InsufficientLiquidity,
     SlippageTooHigh,
+    TransferDisallowed,
     BadRequest,
 }
 
@@ -1660,6 +1664,7 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::RateLimitExceeded => 6,
             CustomTransactionError::InsufficientLiquidity => 7,
             CustomTransactionError::SlippageTooHigh => 8,
+            CustomTransactionError::TransferDisallowed => 9,
             CustomTransactionError::BadRequest => 255,
         }
     }
@@ -1733,6 +1738,10 @@ where
                 .into()),
                 Error::<T>::SlippageTooHigh => Err(InvalidTransaction::Custom(
                     CustomTransactionError::SlippageTooHigh.into(),
+                )
+                .into()),
+                Error::<T>::TransferDisallowed => Err(InvalidTransaction::Custom(
+                    CustomTransactionError::TransferDisallowed.into(),
                 )
                 .into()),
                 _ => Err(
@@ -1959,6 +1968,7 @@ where
                     *alpha_amount,
                     *alpha_amount,
                     None,
+                    false,
                 ))
             }
             Some(Call::transfer_stake {
@@ -1979,6 +1989,7 @@ where
                     *alpha_amount,
                     *alpha_amount,
                     None,
+                    true,
                 ))
             }
             Some(Call::swap_stake {
@@ -1998,6 +2009,7 @@ where
                     *alpha_amount,
                     *alpha_amount,
                     None,
+                    false,
                 ))
             }
             Some(Call::swap_stake_limit {
@@ -2026,6 +2038,7 @@ where
                     *alpha_amount,
                     max_amount,
                     Some(*allow_partial),
+                    false,
                 ))
             }
             Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {

@@ -42,6 +42,20 @@ impl<T: Config> Pallet<T> {
         // 1. Get the old hotkey under this position.
         let old_hotkey: T::AccountId = Keys::<T>::get(netuid, uid_to_replace);
 
+        // Do not deregister the owner
+        let coldkey = Self::get_owning_coldkey_for_hotkey(&old_hotkey);
+        if Self::get_subnet_owner(netuid) == coldkey {
+            log::warn!(
+                "replace_neuron: Skipped replacement because neuron belongs to the subnet owner. \
+                 netuid: {:?}, uid_to_replace: {:?}, new_hotkey: {:?}, owner_coldkey: {:?}",
+                netuid,
+                uid_to_replace,
+                new_hotkey,
+                coldkey
+            );
+            return;
+        }
+
         // 2. Remove previous set memberships.
         Uids::<T>::remove(netuid, old_hotkey.clone());
         IsNetworkMember::<T>::remove(old_hotkey.clone(), netuid);

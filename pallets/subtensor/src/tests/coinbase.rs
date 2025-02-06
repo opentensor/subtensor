@@ -360,3 +360,408 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         // No emission.
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_owner_cut_base --exact --show-output --nocapture
+#[test]
+fn test_owner_cut_base() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+        SubtensorModule::set_tempo(netuid, 10000); // Large number (dont drain)
+        SubtensorModule::set_subnet_owner_cut(0);
+        SubtensorModule::run_coinbase(I96F32::from_num(0));
+        assert_eq!(PendingOwnerCut::<Test>::get(netuid), 0); // No cut
+        SubtensorModule::set_subnet_owner_cut(u16::MAX);
+        SubtensorModule::run_coinbase(I96F32::from_num(0));
+        assert_eq!(PendingOwnerCut::<Test>::get(netuid), 1_000_000_000); // Full cut.
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_pending_swapped --exact --show-output --nocapture
+#[test]
+fn test_pending_swapped() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let emission: u64 = 1_000_000;
+        add_network(netuid, 1, 0);
+        SubtensorModule::run_coinbase(I96F32::from_num(0));
+        assert_eq!(PendingAlphaSwapped::<Test>::get(netuid), 0); // Zero tao weight and no root.
+        SubnetTAO::<Test>::insert(0, 1_000_000_000); // Add root weight.
+        SubtensorModule::run_coinbase(I96F32::from_num(0));
+        assert_eq!(PendingAlphaSwapped::<Test>::get(netuid), 0); // Zero tao weight with 1 root.
+        SubtensorModule::set_tempo(netuid, 10000); // Large number (dont drain)
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
+        SubtensorModule::run_coinbase(I96F32::from_num(0));
+        assert_eq!(PendingAlphaSwapped::<Test>::get(netuid), 125000000); // 1 TAO / ( 1 + 3 ) = 0.25 * 1 / 2 = 125000000
+        assert_eq!(
+            PendingEmission::<Test>::get(netuid),
+            1_000_000_000 - 125000000
+        ); // 1 - swapped.
+        assert_eq!(PendingRootDivs::<Test>::get(netuid), 125000000); // swapped * (price = 1)
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_base --exact --show-output --nocapture
+#[test]
+fn test_drain_base() {
+    new_test_ext(1).execute_with(|| SubtensorModule::drain_pending_emission(0, 0, 0, 0, 0));
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_base_with_subnet --exact --show-output --nocapture
+#[test]
+fn test_drain_base_with_subnet() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+        SubtensorModule::drain_pending_emission(netuid, 0, 0, 0, 0)
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_base_with_subnet_with_single_staker_not_registered --exact --show-output --nocapture
+#[test]
+fn test_drain_base_with_subnet_with_single_staker_not_registered() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        let stake_before: u64 = 1_000_000_000;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            stake_before,
+        );
+        let pending_alpha: u64 = 1_000_000_000;
+        SubtensorModule::drain_pending_emission(netuid, pending_alpha, 0, 0, 0);
+        let stake_after =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        assert_eq!(stake_before, stake_after); // Not registered.
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_base_with_subnet_with_single_staker_registered --exact --show-output --nocapture
+#[test]
+fn test_drain_base_with_subnet_with_single_staker_registered() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        let stake_before: u64 = 1_000_000_000;
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            stake_before,
+        );
+        let pending_alpha: u64 = 1_000_000_000;
+        SubtensorModule::drain_pending_emission(netuid, pending_alpha, 0, 0, 0);
+        let stake_after =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        close(stake_before + pending_alpha, stake_after, 10); // Registered gets all emission.
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_base_with_subnet_with_single_staker_registered_root_weight --exact --show-output --nocapture
+#[test]
+fn test_drain_base_with_subnet_with_single_staker_registered_root_weight() {
+    new_test_ext(1).execute_with(|| {
+        let root: u16 = 0;
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        let stake_before: u64 = 1_000_000_000;
+        // register_ok_neuron(root, hotkey, coldkey, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            root,
+            stake_before,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            stake_before,
+        );
+        let pending_tao: u64 = 1_000_000_000;
+        let pending_alpha: u64 = 1_000_000_000;
+        SubtensorModule::drain_pending_emission(netuid, pending_alpha, pending_tao, 0, 0);
+        let stake_after =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        let root_after =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, root);
+        close(stake_before + pending_alpha, stake_after, 10); // Registered gets all alpha emission.
+        close(stake_before + pending_tao, root_after, 10); // Registered gets all tao emission
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_base_with_subnet_with_two_stakers_registered --exact --show-output --nocapture
+#[test]
+fn test_drain_base_with_subnet_with_two_stakers_registered() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+        let hotkey1 = U256::from(1);
+        let hotkey2 = U256::from(2);
+        let coldkey = U256::from(3);
+        let stake_before: u64 = 1_000_000_000;
+        register_ok_neuron(netuid, hotkey1, coldkey, 0);
+        register_ok_neuron(netuid, hotkey2, coldkey, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1,
+            &coldkey,
+            netuid,
+            stake_before,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2,
+            &coldkey,
+            netuid,
+            stake_before,
+        );
+        let pending_alpha: u64 = 1_000_000_000;
+        SubtensorModule::drain_pending_emission(netuid, pending_alpha, 0, 0, 0);
+        let stake_after1 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &coldkey, netuid);
+        let stake_after2 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, netuid);
+        close(stake_before + pending_alpha / 2, stake_after1, 10); // Registered gets 1/2 emission
+        close(stake_before + pending_alpha / 2, stake_after2, 10); // Registered gets 1/2 emission.
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_base_with_subnet_with_two_stakers_registered_and_root --exact --show-output --nocapture
+#[test]
+fn test_drain_base_with_subnet_with_two_stakers_registered_and_root() {
+    new_test_ext(1).execute_with(|| {
+        let root: u16 = 0;
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+        let hotkey1 = U256::from(1);
+        let hotkey2 = U256::from(2);
+        let coldkey = U256::from(3);
+        let stake_before: u64 = 1_000_000_000;
+        register_ok_neuron(netuid, hotkey1, coldkey, 0);
+        register_ok_neuron(netuid, hotkey2, coldkey, 0);
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1,
+            &coldkey,
+            netuid,
+            stake_before,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1,
+            &coldkey,
+            root,
+            stake_before,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2,
+            &coldkey,
+            netuid,
+            stake_before,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2,
+            &coldkey,
+            root,
+            stake_before,
+        );
+        let pending_tao: u64 = 1_000_000_000;
+        let pending_alpha: u64 = 1_000_000_000;
+        SubtensorModule::drain_pending_emission(netuid, pending_alpha, pending_tao, 0, 0);
+        let stake_after1 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &coldkey, netuid);
+        let root_after1 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &coldkey, root);
+        let stake_after2 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, netuid);
+        let root_after2 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, root);
+        close(stake_before + pending_alpha / 2, stake_after1, 10); // Registered gets 1/2 emission
+        close(stake_before + pending_alpha / 2, stake_after2, 10); // Registered gets 1/2 emission.
+        close(stake_before + pending_tao / 2, root_after1, 10); // Registered gets 1/2 tao emission
+        close(stake_before + pending_tao / 2, root_after2, 10); // Registered gets 1/2 tao emission
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_amounts --exact --show-output --nocapture
+#[test]
+fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_amounts() {
+    new_test_ext(1).execute_with(|| {
+        let root: u16 = 0;
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+        let hotkey1 = U256::from(1);
+        let hotkey2 = U256::from(2);
+        let coldkey = U256::from(3);
+        let stake_before: u64 = 1_000_000_000;
+        register_ok_neuron(netuid, hotkey1, coldkey, 0);
+        register_ok_neuron(netuid, hotkey2, coldkey, 0);
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1,
+            &coldkey,
+            netuid,
+            stake_before,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1,
+            &coldkey,
+            root,
+            2 * stake_before, // Hotkey 1 has twice as much root weight.
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2,
+            &coldkey,
+            netuid,
+            stake_before,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2,
+            &coldkey,
+            root,
+            stake_before,
+        );
+        let pending_tao: u64 = 1_000_000_000;
+        let pending_alpha: u64 = 1_000_000_000;
+        SubtensorModule::drain_pending_emission(netuid, pending_alpha, pending_tao, 0, 0);
+        let stake_after1 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &coldkey, netuid);
+        let root_after1 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &coldkey, root);
+        let stake_after2 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, netuid);
+        let root_after2 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, root);
+        let expected_stake = I96F32::from_num(stake_before)
+            + I96F32::from_num(pending_alpha) * I96F32::from_num(3.0 / 5.0);
+        close(expected_stake.to_num::<u64>(), stake_after1, 10); // Registered gets 60% of emission
+        let expected_stake2 = I96F32::from_num(stake_before)
+            + I96F32::from_num(pending_alpha) * I96F32::from_num(2.0 / 5.0);
+        close(expected_stake2.to_num::<u64>(), stake_after2, 10); // Registered gets 40% emission
+        let expected_root1 = I96F32::from_num(2 * stake_before)
+            + I96F32::from_num(pending_tao) * I96F32::from_num(2.0 / 3.0);
+        close(expected_root1.to_num::<u64>(), root_after1, 10); // Registered gets 2/3 tao emission
+        let expected_root2 = I96F32::from_num(stake_before)
+            + I96F32::from_num(pending_tao) * I96F32::from_num(1.0 / 3.0);
+        close(expected_root2.to_num::<u64>(), root_after2, 10); // Registered gets 1/3 tao emission
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_amounts_half_tao_weight --exact --show-output --nocapture
+#[test]
+fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_amounts_half_tao_weight(
+) {
+    new_test_ext(1).execute_with(|| {
+        let root: u16 = 0;
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+        let hotkey1 = U256::from(1);
+        let hotkey2 = U256::from(2);
+        let coldkey = U256::from(3);
+        let stake_before: u64 = 1_000_000_000;
+        register_ok_neuron(netuid, hotkey1, coldkey, 0);
+        register_ok_neuron(netuid, hotkey2, coldkey, 0);
+        SubtensorModule::set_tao_weight(u64::MAX / 2); // Set TAO weight to 0.5
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1,
+            &coldkey,
+            netuid,
+            stake_before,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1,
+            &coldkey,
+            root,
+            2 * stake_before, // Hotkey 1 has twice as much root weight.
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2,
+            &coldkey,
+            netuid,
+            stake_before,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2,
+            &coldkey,
+            root,
+            stake_before,
+        );
+        let pending_tao: u64 = 1_000_000_000;
+        let pending_alpha: u64 = 1_000_000_000;
+        SubtensorModule::drain_pending_emission(netuid, pending_alpha, pending_tao, 0, 0);
+        let stake_after1 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &coldkey, netuid);
+        let root_after1 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &coldkey, root);
+        let stake_after2 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, netuid);
+        let root_after2 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, root);
+        // hotkey 1 has (1 + (2 * 0.5))/( 1 + 1*0.5 + 1 + (2 * 0.5)) = 0.5714285714 of the hotkey emission.
+        let expected_stake = I96F32::from_num(stake_before)
+            + I96F32::from_num(pending_alpha) * I96F32::from_num(0.5714285714);
+        close(expected_stake.to_num::<u64>(), stake_after1, 10);
+        // hotkey 2 has (1 + 1*0.5)/( 1 + 1*0.5 + 1 + (2 * 0.5)) = 0.4285714286 of the hotkey emission.
+        let expected_stake2 = I96F32::from_num(stake_before)
+            + I96F32::from_num(pending_alpha) * I96F32::from_num(0.4285714286);
+        close(expected_stake2.to_num::<u64>(), stake_after2, 10);
+        // hotkey 1 has 2 / 3 root tao
+        let expected_root1 = I96F32::from_num(2 * stake_before)
+            + I96F32::from_num(pending_tao) * I96F32::from_num(2.0 / 3.0);
+        close(expected_root1.to_num::<u64>(), root_after1, 10);
+        // hotkey 1 has 1 / 3 root tao
+        let expected_root2 = I96F32::from_num(stake_before)
+            + I96F32::from_num(pending_tao) * I96F32::from_num(1.0 / 3.0);
+        close(expected_root2.to_num::<u64>(), root_after2, 10);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_alpha_childkey_parentkey --exact --show-output --nocapture
+#[test]
+fn test_drain_alpha_childkey_parentkey() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+        let parent = U256::from(1);
+        let child = U256::from(2);
+        let coldkey = U256::from(3);
+        let stake_before: u64 = 1_000_000_000;
+        register_ok_neuron(netuid, child, coldkey, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &parent,
+            &coldkey,
+            netuid,
+            stake_before,
+        );
+        mock_set_children_no_epochs(netuid, &parent, &[(u64::MAX, child)]);
+
+        // Childkey take is 10%
+        ChildkeyTake::<Test>::insert(child, netuid, u16::MAX / 10);
+
+        let pending_alpha: u64 = 1_000_000_000;
+        SubtensorModule::drain_pending_emission(netuid, pending_alpha, 0, 0, 0);
+        let parent_stake_after = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
+        let child_stake_after = SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid);
+
+        // Child gets 10%, parent gets 90%
+        let expected = I96F32::from_num(stake_before)
+            + I96F32::from_num(pending_alpha) * I96F32::from_num(9.0 / 10.0);
+        log::info!(
+            "expected: {:?}, parent_stake_after: {:?}",
+            expected.to_num::<u64>(),
+            parent_stake_after
+        );
+        close(expected.to_num::<u64>(), parent_stake_after, 10_000);
+        let expected = I96F32::from_num(pending_alpha) / I96F32::from_num(10);
+        close(expected.to_num::<u64>(), child_stake_after, 10_000);
+    });
+}
