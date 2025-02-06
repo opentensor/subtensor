@@ -724,3 +724,44 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         close(expected_root2.to_num::<u64>(), root_after2, 10);
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_alpha_childkey_parentkey --exact --show-output --nocapture
+#[test]
+fn test_drain_alpha_childkey_parentkey() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+        let parent = U256::from(1);
+        let child = U256::from(2);
+        let coldkey = U256::from(3);
+        let stake_before: u64 = 1_000_000_000;
+        register_ok_neuron(netuid, child, coldkey, 0);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &parent,
+            &coldkey,
+            netuid,
+            stake_before,
+        );
+        mock_set_children_no_epochs(netuid, &parent, &[(u64::MAX, child)]);
+
+        // Childkey take is 10%
+        ChildkeyTake::<Test>::insert(child, netuid, u16::MAX / 10);
+
+        let pending_alpha: u64 = 1_000_000_000;
+        SubtensorModule::drain_pending_emission(netuid, pending_alpha, 0, 0, 0);
+        let parent_stake_after = SubtensorModule::get_stake_for_hotkey_on_subnet(&parent, netuid);
+        let child_stake_after = SubtensorModule::get_stake_for_hotkey_on_subnet(&child, netuid);
+
+        // Child gets 10%, parent gets 90%
+        let expected = I96F32::from_num(stake_before)
+            + I96F32::from_num(pending_alpha) * I96F32::from_num(9.0 / 10.0);
+        log::info!(
+            "expected: {:?}, parent_stake_after: {:?}",
+            expected.to_num::<u64>(),
+            parent_stake_after
+        );
+        close(expected.to_num::<u64>(), parent_stake_after, 10_000);
+        let expected = I96F32::from_num(pending_alpha) / I96F32::from_num(10);
+        close(expected.to_num::<u64>(), child_stake_after, 10_000);
+    });
+}
