@@ -722,6 +722,10 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::NetworkLockCostReductionIntervalSet(interval));
     }
     pub fn get_lock_reduction_interval() -> u64 {
-        NetworkLockReductionInterval::<T>::get()
+        let interval: I64F64 = I64F64::saturating_from_num( NetworkLockReductionInterval::<T>::get() );
+        let block_emission: I64F64 = I64F64::saturating_from_num( Self::get_block_emission().unwrap_or( 1_000_000_000 ) ); 
+        let halving: I64F64 = block_emission.checked_div( I64F64::saturating_from_num( 1_000_000_000 ) ).unwrap_or( I64F64::saturating_from_num(0.0) );
+        let halved_interval: I64F64 = interval.saturating_mul( halving );
+        halved_interval.saturating_to_num::<u64>()
     }
 }

@@ -704,9 +704,9 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         let root_after2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey2, &coldkey, root,
         );
-        let expected_stake = I96F32::from_num(stake_before) + I96F32::from_num(pending_alpha) * I96F32::from_num(3/5);
+        let expected_stake = I96F32::from_num(stake_before) + I96F32::from_num(pending_alpha) * I96F32::from_num(3.0/5.0);
         close(expected_stake.to_num::<u64>(), stake_after1, 10); // Registered gets 60% of emission
-        let expected_stake2 = I96F32::from_num(stake_before) + I96F32::from_num(pending_alpha) * I96F32::from_num(2/5);
+        let expected_stake2 = I96F32::from_num(stake_before) + I96F32::from_num(pending_alpha) * I96F32::from_num(2.0/5.0);
         close(expected_stake2.to_num::<u64>(), stake_after2, 10); // Registered gets 40% emission
         let expected_root1 = I96F32::from_num(2 * stake_before) + I96F32::from_num(pending_tao) * I96F32::from_num(2.0/3.0);
         close(expected_root1.to_num::<u64>(), root_after1, 10); // Registered gets 2/3 tao emission
