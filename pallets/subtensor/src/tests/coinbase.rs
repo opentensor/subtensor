@@ -578,3 +578,139 @@ fn test_drain_base_with_subnet_with_two_stakers_registered() {
         close( stake_before + pending_alpha/2, stake_after2, 10 ); // Registered gets 1/2 emission.
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_base_with_subnet_with_two_stakers_registered_and_root --exact --show-output --nocapture
+#[test]
+fn test_drain_base_with_subnet_with_two_stakers_registered_and_root() {
+    new_test_ext(1).execute_with(|| {
+        let root: u16 = 0;
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+        let hotkey1 = U256::from(1);
+        let hotkey2 = U256::from(2);
+        let coldkey = U256::from(3);
+        let stake_before: u64 = 1_000_000_000;
+        register_ok_neuron(netuid, hotkey1, coldkey, 0);
+        register_ok_neuron(netuid, hotkey2, coldkey, 0);
+        SubtensorModule::set_tao_weight( u64::MAX ); // Set TAO weight to 1.0
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1,
+            &coldkey,
+            netuid,
+            stake_before,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1,
+            &coldkey,
+            root,
+            stake_before,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2,
+            &coldkey,
+            netuid,
+            stake_before,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2,
+            &coldkey,
+            root,
+            stake_before,
+        );
+        let pending_tao: u64 = 1_000_000_000;
+        let pending_alpha: u64 = 1_000_000_000;
+        SubtensorModule::drain_pending_emission(
+            netuid,
+            pending_alpha,
+            pending_tao,
+            0,
+            0,
+        );
+        let stake_after1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1, &coldkey, netuid,
+        );
+        let root_after1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1, &coldkey, root,
+        );
+        let stake_after2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2, &coldkey, netuid,
+        );
+        let root_after2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2, &coldkey, root,
+        );
+        close( stake_before + pending_alpha/2, stake_after1, 10 ); // Registered gets 1/2 emission
+        close( stake_before + pending_alpha/2, stake_after2, 10 ); // Registered gets 1/2 emission.
+        close( stake_before + pending_tao/2, root_after1, 10 ); // Registered gets 1/2 tao emission
+        close( stake_before + pending_tao/2, root_after2, 10 ); // Registered gets 1/2 tao emission
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_amounts --exact --show-output --nocapture
+#[test]
+fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_amounts() {
+    new_test_ext(1).execute_with(|| {
+        let root: u16 = 0;
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+        let hotkey1 = U256::from(1);
+        let hotkey2 = U256::from(2);
+        let coldkey = U256::from(3);
+        let stake_before: u64 = 1_000_000_000;
+        register_ok_neuron(netuid, hotkey1, coldkey, 0);
+        register_ok_neuron(netuid, hotkey2, coldkey, 0);
+        SubtensorModule::set_tao_weight( u64::MAX ); // Set TAO weight to 1.0
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1,
+            &coldkey,
+            netuid,
+            stake_before,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1,
+            &coldkey,
+            root,
+            2 * stake_before, // Hotkey 1 has twice as much root weight.
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2,
+            &coldkey,
+            netuid,
+            stake_before,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2,
+            &coldkey,
+            root,
+            stake_before,
+        );
+        let pending_tao: u64 = 1_000_000_000;
+        let pending_alpha: u64 = 1_000_000_000;
+        SubtensorModule::drain_pending_emission(
+            netuid,
+            pending_alpha,
+            pending_tao,
+            0,
+            0,
+        );
+        let stake_after1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1, &coldkey, netuid,
+        );
+        let root_after1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1, &coldkey, root,
+        );
+        let stake_after2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2, &coldkey, netuid,
+        );
+        let root_after2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2, &coldkey, root,
+        );
+        let expected_stake = I96F32::from_num(stake_before) + I96F32::from_num(pending_alpha) * I96F32::from_num(0.6);
+        close(expected_stake.to_num::<u64>(), stake_after1, 10); // Registered gets 60% of emission
+        let expected_stake2 = I96F32::from_num(stake_before) + I96F32::from_num(pending_alpha) * I96F32::from_num(0.4);
+        close(expected_stake2.to_num::<u64>(), stake_after2, 10); // Registered gets 40% emission
+        let expected_root1 = I96F32::from_num(2 * stake_before) + I96F32::from_num(pending_tao) * I96F32::from_num(2.0/3.0);
+        close(expected_root1.to_num::<u64>(), root_after1, 10); // Registered gets 2/3 tao emission
+        let expected_root2 = I96F32::from_num(stake_before) + I96F32::from_num(pending_tao) * I96F32::from_num(1.0/3.0);
+        close(expected_root2.to_num::<u64>(), root_after2, 10); // Registered gets 1/3 tao emission
+    });
+}
