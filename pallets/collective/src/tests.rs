@@ -299,7 +299,7 @@ fn close_works() {
         System::set_block_number(3);
         assert_noop!(
             Collective::close(
-                RuntimeOrigin::signed(4),
+                RuntimeOrigin::root(),
                 hash,
                 0,
                 proposal_weight,
@@ -310,7 +310,7 @@ fn close_works() {
 
         System::set_block_number(4);
         assert_ok!(Collective::close(
-            RuntimeOrigin::signed(4),
+            RuntimeOrigin::root(),
             hash,
             0,
             proposal_weight,
@@ -370,7 +370,7 @@ fn proposal_weight_limit_works_on_approve() {
         System::set_block_number(4);
         assert_noop!(
             Collective::close(
-                RuntimeOrigin::signed(4),
+                RuntimeOrigin::root(),
                 hash,
                 0,
                 proposal_weight - Weight::from_parts(100, 0),
@@ -379,7 +379,7 @@ fn proposal_weight_limit_works_on_approve() {
             Error::<Test, Instance1>::ProposalWeightLessThanDispatchCallWeight
         );
         assert_ok!(Collective::close(
-            RuntimeOrigin::signed(4),
+            RuntimeOrigin::root(),
             hash,
             0,
             proposal_weight,
@@ -409,7 +409,7 @@ fn proposal_weight_limit_ignored_on_disapprove() {
         // No votes, this proposal wont pass
         System::set_block_number(4);
         assert_ok!(Collective::close(
-            RuntimeOrigin::signed(4),
+            RuntimeOrigin::root(),
             hash,
             0,
             proposal_weight - Weight::from_parts(100, 0),
@@ -442,7 +442,7 @@ fn close_with_prime_works() {
 
         System::set_block_number(4);
         assert_ok!(Collective::close(
-            RuntimeOrigin::signed(4),
+            RuntimeOrigin::root(),
             hash,
             0,
             proposal_weight,
@@ -502,7 +502,7 @@ fn close_with_voting_prime_works() {
 
         System::set_block_number(4);
         assert_ok!(Collective::close(
-            RuntimeOrigin::signed(4),
+            RuntimeOrigin::root(),
             hash,
             0,
             proposal_weight,
@@ -583,7 +583,7 @@ fn close_with_no_prime_but_majority_works() {
 
         System::set_block_number(4);
         assert_ok!(CollectiveMajority::close(
-            RuntimeOrigin::signed(4),
+            RuntimeOrigin::root(),
             hash,
             0,
             proposal_weight,
@@ -1109,7 +1109,7 @@ fn motions_all_first_vote_free_works() {
 
         let proposal_weight = proposal.get_dispatch_info().weight;
         let close_rval: DispatchResultWithPostInfo = Collective::close(
-            RuntimeOrigin::signed(2),
+            RuntimeOrigin::root(),
             hash,
             0,
             proposal_weight,
@@ -1120,7 +1120,7 @@ fn motions_all_first_vote_free_works() {
         // Trying to close the proposal, which is already closed
         // Error: "ProposalNotExists" with Pays::Yes.
         let close_rval: DispatchResultWithPostInfo = Collective::close(
-            RuntimeOrigin::signed(2),
+            RuntimeOrigin::root(),
             hash,
             0,
             proposal_weight,
@@ -1148,7 +1148,7 @@ fn motions_reproposing_disapproved_works() {
         assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 0, false));
 
         assert_ok!(Collective::close(
-            RuntimeOrigin::signed(2),
+            RuntimeOrigin::root(),
             hash,
             0,
             proposal_weight,
@@ -1186,7 +1186,7 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
         assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, true));
         assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 0, true));
         assert_ok!(Collective::close(
-            RuntimeOrigin::signed(2),
+            RuntimeOrigin::root(),
             hash,
             0,
             proposal_weight,
@@ -1243,7 +1243,7 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
         assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 1, true));
         assert_ok!(Collective::vote(RuntimeOrigin::signed(3), hash, 1, true));
         assert_ok!(Collective::close(
-            RuntimeOrigin::signed(2),
+            RuntimeOrigin::root(),
             hash,
             1,
             proposal_weight,
@@ -1315,7 +1315,7 @@ fn motions_disapproval_works() {
         assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, false));
         assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 0, false));
         assert_ok!(Collective::close(
-            RuntimeOrigin::signed(2),
+            RuntimeOrigin::root(),
             hash,
             0,
             proposal_weight,
@@ -1374,7 +1374,7 @@ fn motions_approval_works() {
         assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, true));
         assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 0, true));
         assert_ok!(Collective::close(
-            RuntimeOrigin::signed(2),
+            RuntimeOrigin::root(),
             hash,
             0,
             proposal_weight,
@@ -1448,7 +1448,7 @@ fn motion_with_no_votes_closes_with_disapproval() {
         // an approving or disapproving simple majority due to the lack of votes.
         assert_noop!(
             Collective::close(
-                RuntimeOrigin::signed(2),
+                RuntimeOrigin::root(),
                 hash,
                 0,
                 proposal_weight,
@@ -1462,7 +1462,7 @@ fn motion_with_no_votes_closes_with_disapproval() {
         System::set_block_number(closing_block);
         // we can successfully close the motion.
         assert_ok!(Collective::close(
-            RuntimeOrigin::signed(2),
+            RuntimeOrigin::root(),
             hash,
             0,
             proposal_weight,
@@ -1507,17 +1507,11 @@ fn close_disapprove_does_not_care_about_weight_or_len() {
         assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 0, true));
         // It will not close with bad weight/len information
         assert_noop!(
-            Collective::close(RuntimeOrigin::signed(2), hash, 0, Weight::zero(), 0),
+            Collective::close(RuntimeOrigin::root(), hash, 0, Weight::zero(), 0),
             Error::<Test, Instance1>::ProposalLengthBoundLessThanProposalLength,
         );
         assert_noop!(
-            Collective::close(
-                RuntimeOrigin::signed(2),
-                hash,
-                0,
-                Weight::zero(),
-                proposal_len
-            ),
+            Collective::close(RuntimeOrigin::root(), hash, 0, Weight::zero(), proposal_len),
             Error::<Test, Instance1>::ProposalWeightLessThanDispatchCallWeight,
         );
         // Now we make the proposal fail
@@ -1525,7 +1519,7 @@ fn close_disapprove_does_not_care_about_weight_or_len() {
         assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 0, false));
         // It can close even if the weight/len information is bad
         assert_ok!(Collective::close(
-            RuntimeOrigin::signed(2),
+            RuntimeOrigin::root(),
             hash,
             0,
             Weight::zero(),
