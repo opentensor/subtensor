@@ -3354,7 +3354,7 @@ fn run_epoch(netuid: u16, sparse: bool) {
     }
 }
 
-fn run_epoch_check_bonds(netuid: u16, sparse: bool, target_bonds: Vec<Vec<u64>>) {
+fn run_epoch_check_bonds(netuid: u16, sparse: bool, target_bonds: &Vec<Vec<u64>>) {
     run_epoch(netuid, sparse);
     let bonds = SubtensorModule::get_bonds(netuid);
 
@@ -3370,9 +3370,247 @@ fn run_epoch_check_bonds(netuid: u16, sparse: bool, target_bonds: Vec<Vec<u64>>)
 }
 
 #[test]
+fn test_yuma_4_kappa_moves_first() {
+    new_test_ext(1).execute_with(|| {
+        let sparse: bool = true;
+        let n: u16 = 5; // 3 validators, 2 servers
+        let netuid: u16 = 1;
+        let max_stake: u64 = 8;
+
+        // Validator A: kappa / Big validator (0.8) - moves first
+        // Validator B: Small eager validator (0.1) - moves second
+        // Validator C: Small lazy validator (0.1) - moves last
+        let stakes: Vec<u64> = vec![8, 1, 1, 0, 0];
+
+        setup_yuma_4_scenario(netuid, n, sparse, max_stake, stakes);
+        let targets_bonds = vec![
+            vec![
+                vec![656, 0],
+                vec![656, 0],
+                vec![656, 0],
+                vec![0, 0],
+                vec![0, 0],
+            ],
+            vec![
+                vec![590, 656],
+                vec![7144, 0],
+                vec![7144, 0],
+                vec![0, 0],
+                vec![0, 0],
+            ],
+            vec![
+                vec![530, 1305],
+                vec![6429, 656],
+                vec![12983, 0],
+                vec![0, 0],
+                vec![0, 0],
+            ],
+            vec![
+                vec![476, 1947],
+                vec![5786, 1305],
+                vec![11684, 656],
+                vec![0, 0],
+                vec![0, 0],
+            ],
+            vec![
+                vec![428, 2583],
+                vec![5207, 1947],
+                vec![10515, 1305],
+                vec![0, 0],
+                vec![0, 0],
+            ],
+        ];
+
+        for epoch in 0..5 {
+            match epoch {
+                0 => {
+                    // Initially, consensus is achieved by all Validators
+                    for uid in [0, 1, 2] {
+                        assert_ok!(SubtensorModule::set_weights(
+                            RuntimeOrigin::signed(U256::from(uid)),
+                            netuid,
+                            vec![3, 4],
+                            vec![u16::MAX, 0],
+                            0
+                        ));
+                    }
+                }
+                1 => {
+                    // Validator A -> Server 2
+                    // Validator B -> Server 1
+                    // Validator C -> Server 1
+                    for (uid, weights) in [vec![0, u16::MAX], vec![u16::MAX, 0], vec![u16::MAX, 0]]
+                        .iter()
+                        .enumerate()
+                    {
+                        assert_ok!(SubtensorModule::set_weights(
+                            RuntimeOrigin::signed(U256::from(uid)),
+                            netuid,
+                            vec![3, 4],
+                            weights.to_vec(),
+                            0
+                        ));
+                    }
+                }
+                2 => {
+                    // Validator A -> Server 2
+                    // Validator B -> Server 2
+                    // Validator C -> Server 1
+                    for (uid, weights) in [vec![0, u16::MAX], vec![0, u16::MAX], vec![u16::MAX, 0]]
+                        .iter()
+                        .enumerate()
+                    {
+                        assert_ok!(SubtensorModule::set_weights(
+                            RuntimeOrigin::signed(U256::from(uid)),
+                            netuid,
+                            vec![3, 4],
+                            weights.to_vec(),
+                            0
+                        ));
+                    }
+                }
+                3 => {
+                    // Subsequent epochs All validators -> Server 2
+                    for uid in [0, 1, 2] {
+                        assert_ok!(SubtensorModule::set_weights(
+                            RuntimeOrigin::signed(U256::from(uid)),
+                            netuid,
+                            vec![3, 4],
+                            vec![0, u16::MAX],
+                            0
+                        ));
+                    }
+                }
+                _ => {}
+            };
+            run_epoch_check_bonds(netuid, sparse, &targets_bonds[epoch]);
+        }
+    })
+}
+
+#[test]
+fn test_yuma_4_kappa_moves_second() {
+    new_test_ext(1).execute_with(|| {
+        let sparse: bool = true;
+        let n: u16 = 5; // 3 validators, 2 servers
+        let netuid: u16 = 1;
+        let max_stake: u64 = 8;
+
+        // Validator A: kappa / Big validator (0.8) - moves second
+        // Validator B: Small eager validator (0.1) - moves first
+        // Validator C: Small lazy validator (0.1) - moves last
+        let stakes: Vec<u64> = vec![8, 1, 1, 0, 0];
+
+        setup_yuma_4_scenario(netuid, n, sparse, max_stake, stakes);
+        let targets_bonds = vec![
+            vec![
+                vec![656, 0],
+                vec![656, 0],
+                vec![656, 0],
+                vec![0, 0],
+                vec![0, 0],
+            ],
+            vec![
+                vec![1305, 0],
+                vec![649, 6553],
+                vec![1305, 0],
+                vec![0, 0],
+                vec![0, 0],
+            ],
+            vec![
+                vec![1174, 656],
+                vec![584, 7143],
+                vec![7728, 0],
+                vec![0, 0],
+                vec![0, 0],
+            ],
+            vec![
+                vec![1056, 1305],
+                vec![525, 7727],
+                vec![6955, 656],
+                vec![0, 0],
+                vec![0, 0],
+            ],
+            vec![
+                vec![950, 1947],
+                vec![472, 8305],
+                vec![6259, 1305],
+                vec![0, 0],
+                vec![0, 0],
+            ],
+        ];
+
+        for epoch in 0..5 {
+            match epoch {
+                0 => {
+                    // Initially, consensus is achieved by all Validators
+                    for uid in [0, 1, 2] {
+                        assert_ok!(SubtensorModule::set_weights(
+                            RuntimeOrigin::signed(U256::from(uid)),
+                            netuid,
+                            vec![3, 4],
+                            vec![u16::MAX, 0],
+                            0
+                        ));
+                    }
+                }
+                1 => {
+                    // Validator A -> Server 1
+                    // Validator B -> Server 2
+                    // Validator C -> Server 1
+                    for (uid, weights) in [vec![u16::MAX, 0], vec![0, u16::MAX], vec![u16::MAX, 0]]
+                        .iter()
+                        .enumerate()
+                    {
+                        assert_ok!(SubtensorModule::set_weights(
+                            RuntimeOrigin::signed(U256::from(uid)),
+                            netuid,
+                            vec![3, 4],
+                            weights.to_vec(),
+                            0
+                        ));
+                    }
+                }
+                2 => {
+                    // Validator A -> Server 2
+                    // Validator B -> Server 2
+                    // Validator C -> Server 1
+                    for (uid, weights) in [vec![0, u16::MAX], vec![0, u16::MAX], vec![u16::MAX, 0]]
+                        .iter()
+                        .enumerate()
+                    {
+                        assert_ok!(SubtensorModule::set_weights(
+                            RuntimeOrigin::signed(U256::from(uid)),
+                            netuid,
+                            vec![3, 4],
+                            weights.to_vec(),
+                            0
+                        ));
+                    }
+                }
+                3 => {
+                    // Subsequent epochs All validators -> Server 2
+                    for uid in [0, 1, 2] {
+                        assert_ok!(SubtensorModule::set_weights(
+                            RuntimeOrigin::signed(U256::from(uid)),
+                            netuid,
+                            vec![3, 4],
+                            vec![0, u16::MAX],
+                            0
+                        ));
+                    }
+                }
+                _ => {}
+            };
+            run_epoch_check_bonds(netuid, sparse, &targets_bonds[epoch]);
+        }
+    })
+}
+
+#[test]
 fn test_yuma_4_kappa_moves_last() {
     new_test_ext(1).execute_with(|| {
-        let sparse: bool = false;
+        let sparse: bool = true;
         let n: u16 = 5; // 3 validators, 2 servers
         let netuid: u16 = 1;
         let max_stake: u64 = 8;
@@ -3383,67 +3621,77 @@ fn test_yuma_4_kappa_moves_last() {
         let stakes: Vec<u64> = vec![8, 1, 1, 0, 0];
 
         setup_yuma_4_scenario(netuid, n, sparse, max_stake, stakes);
+        let targets_bonds = vec![
+            vec![vec![656, 0], vec![656, 0], vec![656, 0]],
+            vec![vec![1305, 0], vec![649, 6553], vec![1305, 0]],
+            vec![vec![1947, 0], vec![642, 12451], vec![1291, 6553]],
+            vec![vec![1752, 656], vec![577, 12982], vec![1161, 7143]],
+            vec![vec![1576, 1305], vec![519, 13508], vec![1044, 7727]],
+        ];
 
-        // Initially, consensus is achieved by all Validators
-        for uid in [0, 1, 2] {
-            assert_ok!(SubtensorModule::set_weights(
-                RuntimeOrigin::signed(U256::from(uid)),
-                netuid,
-                vec![3, 4],
-                vec![u16::MAX, 0],
-                0
-            ));
+        for epoch in 0..5 {
+            match epoch {
+                0 => {
+                    // Initially, consensus is achieved by all Validators
+                    for uid in [0, 1, 2] {
+                        assert_ok!(SubtensorModule::set_weights(
+                            RuntimeOrigin::signed(U256::from(uid)),
+                            netuid,
+                            vec![3, 4],
+                            vec![u16::MAX, 0],
+                            0
+                        ));
+                    }
+                }
+                1 => {
+                    // Validator A -> Server 1
+                    // Validator B -> Server 2
+                    // Validator C -> Server 1
+                    for (uid, weights) in [vec![u16::MAX, 0], vec![0, u16::MAX], vec![u16::MAX, 0]]
+                        .iter()
+                        .enumerate()
+                    {
+                        assert_ok!(SubtensorModule::set_weights(
+                            RuntimeOrigin::signed(U256::from(uid)),
+                            netuid,
+                            vec![3, 4],
+                            weights.to_vec(),
+                            0
+                        ));
+                    }
+                }
+                2 => {
+                    // Validator A -> Server 1
+                    // Validator B -> Server 2
+                    // Validator C -> Server 2
+                    for (uid, weights) in [vec![u16::MAX, 0], vec![0, u16::MAX], vec![0, u16::MAX]]
+                        .iter()
+                        .enumerate()
+                    {
+                        assert_ok!(SubtensorModule::set_weights(
+                            RuntimeOrigin::signed(U256::from(uid)),
+                            netuid,
+                            vec![3, 4],
+                            weights.to_vec(),
+                            0
+                        ));
+                    }
+                }
+                3 => {
+                    // Subsequent epochs All validators -> Server 2
+                    for uid in [0, 1, 2] {
+                        assert_ok!(SubtensorModule::set_weights(
+                            RuntimeOrigin::signed(U256::from(uid)),
+                            netuid,
+                            vec![3, 4],
+                            vec![0, u16::MAX],
+                            0
+                        ));
+                    }
+                }
+                _ => {}
+            };
+            run_epoch_check_bonds(netuid, sparse, &targets_bonds[epoch]);
         }
-        let target = vec![vec![656, 0], vec![656, 0], vec![656, 0]];
-        run_epoch_check_bonds(netuid, sparse, target);
-
-        // Validator A -> Server 1
-        // Validator B -> Server 2
-        // Validator C -> Server 1
-        for (uid, weights) in [vec![u16::MAX, 0], vec![0, u16::MAX], vec![u16::MAX, 0]]
-            .iter()
-            .enumerate()
-        {
-            assert_ok!(SubtensorModule::set_weights(
-                RuntimeOrigin::signed(U256::from(uid)),
-                netuid,
-                vec![3, 4],
-                weights.to_vec(),
-                0
-            ));
-        }
-        let target = vec![vec![1305, 0], vec![649, 6553], vec![1305, 0]];
-        run_epoch_check_bonds(netuid, sparse, target);
-
-        // Validator A -> Server 1
-        // Validator B -> Server 2
-        // Validator C -> Server 2
-        for (uid, weights) in [vec![u16::MAX, 0], vec![0, u16::MAX], vec![0, u16::MAX]]
-            .iter()
-            .enumerate()
-        {
-            assert_ok!(SubtensorModule::set_weights(
-                RuntimeOrigin::signed(U256::from(uid)),
-                netuid,
-                vec![3, 4],
-                weights.to_vec(),
-                0
-            ));
-        }
-        let target = vec![vec![1947, 0], vec![642, 12451], vec![1291, 6553]];
-        run_epoch_check_bonds(netuid, sparse, target);
-
-        // Subsequent epochs All validators -> Server 2
-        for uid in [0, 1, 2] {
-            assert_ok!(SubtensorModule::set_weights(
-                RuntimeOrigin::signed(U256::from(uid)),
-                netuid,
-                vec![3, 4],
-                vec![0, u16::MAX],
-                0
-            ));
-        }
-        let target = vec![vec![1752, 656], vec![577, 12982], vec![1161, 7143]];
-        run_epoch_check_bonds(netuid, sparse, target);
     })
 }
