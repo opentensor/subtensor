@@ -602,7 +602,7 @@ fn test_migrate_rao() {
         assert_eq!(SubnetTAO::<Test>::get(netuid_1), 1_000_000_000); // Always 1000000000
         assert_eq!(SubnetAlphaIn::<Test>::get(netuid_0), 1_000_000_000); // Always 1_000_000_000
         assert_eq!(SubnetAlphaIn::<Test>::get(netuid_1), 1_000_000_000); // Always 1_000_000_000
-        assert_eq!(SubnetAlphaOut::<Test>::get(netuid_0),4 * stake_amount); // Root has everything.
+        assert_eq!(SubnetAlphaOut::<Test>::get(netuid_0), 4 * stake_amount); // Root has everything.
         assert_eq!(SubnetAlphaOut::<Test>::get(netuid_1), 0); // No stake outstanding.
 
         // Assert share information for hotkey1 on netuid_0
