@@ -373,7 +373,7 @@ fn test_migrate_rao() {
         // Run the coinbase
         let emission: u64 = 1_000_000_000;
         SubtensorModule::run_coinbase(I96F32::from_num(emission));
-        close(SubnetTaoInEmission::<Test>::get(netuid_1), 1*(emission/6), 100);
+        close(SubnetTaoInEmission::<Test>::get(netuid_1), emission/6, 100);
         close(SubnetTaoInEmission::<Test>::get(netuid_2), 2*(emission/6), 100);
         close(SubnetTaoInEmission::<Test>::get(netuid_3), 3*(emission/6), 100);
     });
