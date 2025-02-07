@@ -66,7 +66,7 @@ impl<T: Config> Pallet<T> {
             subnet_volume: SubnetVolume::<T>::get(netuid).into(),
             network_registered_at: NetworkRegisteredAt::<T>::get(netuid).into(),
             subnet_identity: SubnetIdentitiesV2::<T>::get(netuid),
-            moving_price: SubnetMovingPrice::<T>::get(netuid).into(),
+            moving_price: SubnetMovingPrice::<T>::get(netuid),
         })
     }
     pub fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<T::AccountId>>> {
