@@ -1511,13 +1511,7 @@ fn close_disapprove_does_not_care_about_weight_or_len() {
             Error::<Test, Instance1>::ProposalLengthBoundLessThanProposalLength,
         );
         assert_noop!(
-            Collective::close(
-                RuntimeOrigin::root(),
-                hash,
-                0,
-                Weight::zero(),
-                proposal_len
-            ),
+            Collective::close(RuntimeOrigin::root(), hash, 0, Weight::zero(), proposal_len),
             Error::<Test, Instance1>::ProposalWeightLessThanDispatchCallWeight,
         );
         // Now we make the proposal fail
