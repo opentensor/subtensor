@@ -1,10 +1,12 @@
 use super::*;
+use alloc::string::String;
 use codec::MaxEncodedLen;
 use frame_support::{
     migrations::{SteppedMigration, SteppedMigrationError},
     traits::Get,
     weights::{Weight, WeightMeter},
 };
+use sp_runtime::format;
 use substrate_fixed::types::U64F64;
 
 /// Module containing deprecated storage format for Stake
