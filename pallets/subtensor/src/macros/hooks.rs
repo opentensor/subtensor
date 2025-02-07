@@ -73,6 +73,8 @@ mod hooks {
                 .saturating_add(migrations::migrate_chain_identity::migrate_set_hotkey_identities::<T>())
                 // Migrate Commit-Reval 2.0
                 .saturating_add(migrations::migrate_commit_reveal_v2::migrate_commit_reveal_2::<T>())
+				// Set the min lock cost to 1 TAO; importantly, *before* migrating to RAO
+				.saturating_add(migrations::migrate_set_min_lock_cost::migrate_set_min_lock_cost::<T>())
                 // Migrate to RAO
                 .saturating_add(migrations::migrate_rao::migrate_rao::<T>())
 				// Fix the IsNetworkMember map to be consistent with other storage maps
