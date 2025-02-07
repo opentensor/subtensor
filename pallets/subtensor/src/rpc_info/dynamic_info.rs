@@ -2,9 +2,10 @@ use super::*;
 extern crate alloc;
 use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
+use substrate_fixed::types::I96F32;
 use subtensor_macros::freeze_struct;
 
-#[freeze_struct("f728ab9f6ffbf7f2")]
+#[freeze_struct("7fbd2013e8262885")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct DynamicInfo<AccountId: TypeInfo + Encode + Decode> {
     netuid: Compact<u16>,
@@ -27,6 +28,8 @@ pub struct DynamicInfo<AccountId: TypeInfo + Encode + Decode> {
     subnet_volume: Compact<u128>,
     network_registered_at: Compact<u64>,
     subnet_identity: Option<SubnetIdentityV2>,
+    moving_price: I96F32,
+
 }
 
 impl<T: Config> Pallet<T> {
@@ -64,6 +67,7 @@ impl<T: Config> Pallet<T> {
             subnet_volume: SubnetVolume::<T>::get(netuid).into(),
             network_registered_at: NetworkRegisteredAt::<T>::get(netuid).into(),
             subnet_identity: SubnetIdentitiesV2::<T>::get(netuid),
+            moving_price: SubnetMovingPrice::<T>::get( netuid ).into(),
         })
     }
     pub fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<T::AccountId>>> {

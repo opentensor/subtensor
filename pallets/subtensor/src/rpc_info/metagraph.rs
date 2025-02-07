@@ -4,9 +4,10 @@ use crate::epoch::math::*;
 use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
 use substrate_fixed::types::I64F64;
+use substrate_fixed::types::I96F32;
 use subtensor_macros::freeze_struct;
 
-#[freeze_struct("4fc6eea3706b9c0c")]
+#[freeze_struct("cb3ff125c0c35c9e")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     // Subnet index
@@ -39,6 +40,7 @@ pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     pending_alpha_emission: Compact<u64>, // pending alpha to be distributed
     pending_root_emission: Compact<u64>,  // panding tao for root divs to be distributed
     subnet_volume: Compact<u128>,         // volume of the subnet in TAO
+    moving_price: I96F32,        // subnet moving price.
 
     // Hparams for epoch
     rho: Compact<u16>,   // subnet rho param
@@ -181,6 +183,7 @@ impl<T: Config> Pallet<T> {
             pending_alpha_emission: PendingEmission::<T>::get(netuid).into(), // pending alpha to be distributed
             pending_root_emission: PendingRootDivs::<T>::get(netuid).into(), // panding tao for root divs to be distributed
             subnet_volume: subnet_volume.into(),
+            moving_price: SubnetMovingPrice::<T>::get(netuid).into(),
 
             // Hparams for epoch
             rho: Self::get_rho(netuid).into(), // subnet rho param
