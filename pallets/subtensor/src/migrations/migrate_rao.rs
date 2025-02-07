@@ -104,7 +104,7 @@ pub fn migrate_rao<T: Config>() -> Weight {
         SubnetAlphaIn::<T>::insert(netuid, pool_initial_tao); // Set initial alpha to pool initial tao.
         SubnetAlphaOut::<T>::insert(netuid, 0); // Set zero subnet alpha out.
         SubnetMechanism::<T>::insert(netuid, 1); // Convert to dynamic immediately with initialization.
-        Tempo::<T>::insert(netuid, DefaultTempo::<T>::get());
+
         // Set the token symbol for this subnet using Self instead of Pallet::<T>
         TokenSymbol::<T>::insert(netuid, Pallet::<T>::get_symbol_for_subnet(*netuid));
         TotalStakeAtDynamic::<T>::insert(netuid, 0);
