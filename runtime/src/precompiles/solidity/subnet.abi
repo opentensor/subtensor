@@ -7,6 +7,25 @@
 				"type": "uint16"
 			}
 		],
+		"name": "getActivityCutoff",
+		"outputs": [
+			{
+				"internalType": "uint16",
+				"name": "",
+				"type": "uint16"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint16",
+				"name": "netuid",
+				"type": "uint16"
+			}
+		],
 		"name": "getAdjustmentAlpha",
 		"outputs": [
 			{
@@ -88,6 +107,25 @@
 				"type": "uint16"
 			}
 		],
+		"name": "getCommitRevealWeightsInterval",
+		"outputs": [
+			{
+				"internalType": "uint64",
+				"name": "",
+				"type": "uint64"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint16",
+				"name": "netuid",
+				"type": "uint16"
+			}
+		],
 		"name": "getDifficulty",
 		"outputs": [
 			{
@@ -132,6 +170,25 @@
 				"internalType": "uint16",
 				"name": "",
 				"type": "uint16"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint16",
+				"name": "netuid",
+				"type": "uint16"
+			}
+		],
+		"name": "getLiquidAlphaEnabled",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
 			}
 		],
 		"stateMutability": "view",
@@ -259,6 +316,25 @@
 				"type": "uint16"
 			}
 		],
+		"name": "getNetworkPowRegistrationAllowed",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint16",
+				"name": "netuid",
+				"type": "uint16"
+			}
+		],
 		"name": "getNetworkRegistrationAllowed",
 		"outputs": [
 			{
@@ -349,6 +425,24 @@
 	{
 		"inputs": [
 			{
+				"internalType": "bytes32",
+				"name": "hotkey",
+				"type": "bytes32"
+			}
+		],
+		"name": "registerNetwork",
+		"outputs": [],
+		"stateMutability": "payable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "hotkey",
+				"type": "bytes32"
+			},
+			{
 				"internalType": "bytes",
 				"name": "subnetName",
 				"type": "bytes"
@@ -362,15 +456,28 @@
 				"internalType": "bytes",
 				"name": "subnetContact",
 				"type": "bytes"
+			},
+			{
+				"internalType": "bytes",
+				"name": "subnetUrl",
+				"type": "bytes"
+			},
+			{
+				"internalType": "bytes",
+				"name": "discord",
+				"type": "bytes"
+			},
+			{
+				"internalType": "bytes",
+				"name": "description",
+				"type": "bytes"
+			},
+			{
+				"internalType": "bytes",
+				"name": "additional",
+				"type": "bytes"
 			}
 		],
-		"name": "registerNetwork",
-		"outputs": [],
-		"stateMutability": "payable",
-		"type": "function"
-	},
-	{
-		"inputs": [],
 		"name": "registerNetwork",
 		"outputs": [],
 		"stateMutability": "payable",
@@ -392,25 +499,6 @@
 		"name": "setActivityCutoff",
 		"outputs": [],
 		"stateMutability": "payable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint16",
-				"name": "netuid",
-				"type": "uint16"
-			}
-		],
-		"name": "getActivityCutoff",
-		"outputs": [
-			{
-				"internalType": "uint16",
-				"name": "",
-				"type": "uint16"
-			}
-		],
-		"stateMutability": "view",
 		"type": "function"
 	},
 	{
@@ -496,25 +584,6 @@
 				"internalType": "uint16",
 				"name": "netuid",
 				"type": "uint16"
-			}
-		],
-		"name": "getCommitRevealWeightsInterval",
-		"outputs": [
-			{
-				"internalType": "uint64",
-				"name": "",
-				"type": "uint64"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint16",
-				"name": "netuid",
-				"type": "uint16"
 			},
 			{
 				"internalType": "uint64",
@@ -579,25 +648,6 @@
 		"name": "setKappa",
 		"outputs": [],
 		"stateMutability": "payable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint16",
-				"name": "netuid",
-				"type": "uint16"
-			}
-		],
-		"name": "getLiquidAlphaEnabled",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
 		"type": "function"
 	},
 	{
@@ -732,25 +782,6 @@
 				"internalType": "uint16",
 				"name": "netuid",
 				"type": "uint16"
-			}
-		],
-		"name": "getNetworkPowRegistrationAllowed",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint16",
-				"name": "netuid",
-				"type": "uint16"
 			},
 			{
 				"internalType": "bool",
@@ -852,46 +883,5 @@
 		"outputs": [],
 		"stateMutability": "payable",
 		"type": "function"
-	},
-    {
-        "inputs": [
-            {
-                "internalType": "bytes32",
-                "name": "hotkey",
-                "type": "bytes32"
-            }
-        ],
-        "name": "registerNetwork",
-        "outputs": [],
-        "stateMutability": "payable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "bytes32",
-                "name": "hotkey",
-                "type": "bytes32"
-            },
-            {
-                "internalType": "bytes",
-                "name": "subnetName",
-                "type": "bytes"
-            },
-            {
-                "internalType": "bytes",
-                "name": "githubRepo",
-                "type": "bytes"
-            },
-            {
-                "internalType": "bytes",
-                "name": "subnetContact",
-                "type": "bytes"
-            }
-        ],
-        "name": "registerNetwork",
-        "outputs": [],
-        "stateMutability": "payable",
-        "type": "function"
-    }
+	}
 ]

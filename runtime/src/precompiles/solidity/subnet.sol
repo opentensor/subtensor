@@ -4,9 +4,10 @@ address constant ISUBNET_ADDRESS = 0x0000000000000000000000000000000000000803;
 
 interface ISubnet {
     /// Registers a new network without specifying details.
-    function registerNetwork() external payable;
+    function registerNetwork(bytes32 hotkey) external payable;
     /// Registers a new network with specified subnet name, GitHub repository, and contact information.
     function registerNetwork(
+        bytes32 hotkey,
         bytes memory subnetName,
         bytes memory githubRepo,
         bytes memory subnetContact,
