@@ -40,7 +40,7 @@ pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     pending_alpha_emission: Compact<u64>, // pending alpha to be distributed
     pending_root_emission: Compact<u64>,  // panding tao for root divs to be distributed
     subnet_volume: Compact<u128>,         // volume of the subnet in TAO
-    moving_price: I96F32,        // subnet moving price.
+    moving_price: I96F32,                 // subnet moving price.
 
     // Hparams for epoch
     rho: Compact<u16>,   // subnet rho param
