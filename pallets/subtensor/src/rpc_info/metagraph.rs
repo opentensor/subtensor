@@ -40,7 +40,7 @@ pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     pending_alpha_emission: Compact<u64>, // pending alpha to be distributed
     pending_root_emission: Compact<u64>,  // panding tao for root divs to be distributed
     subnet_volume: Compact<u128>,         // volume of the subnet in TAO
-    moving_price: I96F32,        // subnet moving price.
+    moving_price: I96F32,                 // subnet moving price.
 
     // Hparams for epoch
     rho: Compact<u16>,   // subnet rho param
@@ -183,7 +183,7 @@ impl<T: Config> Pallet<T> {
             pending_alpha_emission: PendingEmission::<T>::get(netuid).into(), // pending alpha to be distributed
             pending_root_emission: PendingRootDivs::<T>::get(netuid).into(), // panding tao for root divs to be distributed
             subnet_volume: subnet_volume.into(),
-            moving_price: SubnetMovingPrice::<T>::get(netuid).into(),
+            moving_price: SubnetMovingPrice::<T>::get(netuid),
 
             // Hparams for epoch
             rho: Self::get_rho(netuid).into(), // subnet rho param
