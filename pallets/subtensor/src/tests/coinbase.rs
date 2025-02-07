@@ -765,3 +765,489 @@ fn test_drain_alpha_childkey_parentkey() {
         close(expected.to_num::<u64>(), child_stake_after, 10_000);
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_get_root_children --exact --show-output --nocapture
+#[test]
+fn test_get_root_children() {
+    new_test_ext(1).execute_with(|| {
+        // Init netuid 1
+        let root: u16 = 0;
+        let alpha: u16 = 1;
+        add_network(root, 1, 0);
+        add_network(alpha, 1, 0);
+
+        // Set TAO weight to 1.
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
+
+        // Create keys.
+        let cold = U256::from(0);
+        let alice = U256::from(1);
+        let bob = U256::from(2);
+
+        // Register Alice and Bob to the root network and alpha subnet.
+        register_ok_neuron(alpha, alice, cold, 0);
+        register_ok_neuron(alpha, bob, cold, 0);
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(cold).clone(),
+            alice,
+        ));
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(cold).clone(),
+            bob,
+        ));
+
+        // Add stake for Alice and Bob on root.
+        let alice_root_stake: u64 = 1_000_000_000;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &alice,
+            &cold,
+            root,
+            alice_root_stake,
+        );
+        let bob_root_stake: u64 = 1_000_000_000;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &bob,
+            &cold,
+            root,
+            alice_root_stake,
+        );
+
+        // Add stake for Alice and Bob on netuid.
+        let alice_alpha_stake: u64 = 1_000_000_000;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &alice,
+            &cold,
+            alpha,
+            alice_alpha_stake,
+        );
+        let bob_alpha_stake: u64 = 1_000_000_000;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &bob,
+            &cold,
+            alpha,
+            bob_alpha_stake,
+        );
+
+        // Set Bob as 100% child of Alice on root.
+        // mock_set_children_no_epochs( root, &alice, &[(u64::MAX, bob)]);
+        mock_set_children_no_epochs(alpha, &alice, &[(u64::MAX, bob)]);
+
+        // Assert Alice and Bob stake on root and netuid
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&alice, root),
+            alice_root_stake
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&bob, root),
+            bob_root_stake
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&alice, alpha),
+            alice_alpha_stake
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&bob, alpha),
+            bob_alpha_stake
+        );
+
+        // Assert Alice and Bob inherited stakes
+        assert_eq!(
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&alice, root),
+            alice_root_stake
+        );
+        assert_eq!(
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&alice, alpha),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&bob, root),
+            bob_root_stake
+        );
+        assert_eq!(
+            SubtensorModule::get_inherited_for_hotkey_on_subnet(&bob, alpha),
+            bob_alpha_stake + alice_alpha_stake
+        );
+
+        // Assert Alice and Bob TAO inherited stakes
+        assert_eq!(
+            SubtensorModule::get_tao_inherited_for_hotkey_on_subnet(&alice, alpha),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_tao_inherited_for_hotkey_on_subnet(&bob, alpha),
+            bob_root_stake + alice_root_stake
+        );
+
+        // Get Alice stake amounts on subnet alpha.
+        let (alice_total, alice_alpha, alice_tao): (I64F64, I64F64, I64F64) =
+            SubtensorModule::get_stake_weights_for_hotkey_on_subnet(&alice, alpha);
+        assert_eq!(alice_total, I64F64::from_num(0));
+
+        // Get Bob stake amounts on subnet alpha.
+        let (bob_total, bob_alpha, bob_tao): (I64F64, I64F64, I64F64) =
+            SubtensorModule::get_stake_weights_for_hotkey_on_subnet(&bob, alpha);
+        assert_eq!(bob_total, I64F64::from_num(4 * bob_root_stake));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_get_root_children_drain --exact --show-output --nocapture
+#[test]
+fn test_get_root_children_drain() {
+    new_test_ext(1).execute_with(|| {
+        // Init netuid 1
+        let root: u16 = 0;
+        let alpha: u16 = 1;
+        add_network(root, 1, 0);
+        add_network(alpha, 1, 0);
+        // Set TAO weight to 1.
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
+                                                   // Create keys.
+        let cold = U256::from(0);
+        let alice = U256::from(1);
+        let bob = U256::from(2);
+        // Register Alice and Bob to the root network and alpha subnet.
+        register_ok_neuron(alpha, alice, cold, 0);
+        register_ok_neuron(alpha, bob, cold, 0);
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(cold).clone(),
+            alice,
+        ));
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(cold).clone(),
+            bob,
+        ));
+        // Add stake for Alice and Bob on root.
+        let alice_root_stake: u64 = 1_000_000_000;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &alice,
+            &cold,
+            root,
+            alice_root_stake,
+        );
+        let bob_root_stake: u64 = 1_000_000_000;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &bob,
+            &cold,
+            root,
+            alice_root_stake,
+        );
+        // Add stake for Alice and Bob on netuid.
+        let alice_alpha_stake: u64 = 1_000_000_000;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &alice,
+            &cold,
+            alpha,
+            alice_alpha_stake,
+        );
+        let bob_alpha_stake: u64 = 1_000_000_000;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &bob,
+            &cold,
+            alpha,
+            bob_alpha_stake,
+        );
+        // Set Bob as 100% child of Alice on root.
+        mock_set_children_no_epochs(alpha, &alice, &[(u64::MAX, bob)]);
+        // Set Bob childkey take to zero.
+        ChildkeyTake::<Test>::insert(bob, alpha, 0);
+        Delegates::<Test>::insert(alice, 0);
+        Delegates::<Test>::insert(bob, 0);
+
+        // Get Alice stake amounts on subnet alpha.
+        let (alice_total, alice_alpha, alice_tao): (I64F64, I64F64, I64F64) =
+            SubtensorModule::get_stake_weights_for_hotkey_on_subnet(&alice, alpha);
+        assert_eq!(alice_total, I64F64::from_num(0));
+
+        // Get Bob stake amounts on subnet alpha.
+        let (bob_total, bob_alpha, bob_tao): (I64F64, I64F64, I64F64) =
+            SubtensorModule::get_stake_weights_for_hotkey_on_subnet(&bob, alpha);
+        assert_eq!(bob_total, I64F64::from_num(4 * bob_root_stake));
+
+        // Lets drain
+        let pending_alpha: u64 = 1_000_000_000;
+        SubtensorModule::drain_pending_emission(alpha, pending_alpha, 0, 0, 0);
+
+        // Alice and Bob both made half of the dividends.
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&alice, alpha),
+            alice_alpha_stake + pending_alpha / 2
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&bob, alpha),
+            bob_alpha_stake + pending_alpha / 2
+        );
+
+        // Lets drain
+        let pending_alpha: u64 = 1_000_000_000;
+        let pending_root: u64 = 1_000_000_000;
+        SubtensorModule::drain_pending_emission(alpha, pending_alpha, pending_root, 0, 0);
+
+        // Alice and Bob both made half of the dividends.
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&alice, root),
+            alice_root_stake + pending_root / 2
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&bob, root),
+            bob_root_stake + pending_root / 2
+        );
+
+        // Lets change the take value. (Bob is greedy.)
+        ChildkeyTake::<Test>::insert(bob, alpha, u16::MAX);
+
+        // Lets drain
+        let pending_alpha: u64 = 1_000_000_000;
+        let pending_root: u64 = 1_000_000_000;
+        SubtensorModule::drain_pending_emission(alpha, pending_alpha, pending_root, 0, 0);
+
+        // Alice makes nothing
+        assert_eq!(AlphaDividendsPerSubnet::<Test>::get(alpha, alice), 0);
+        assert_eq!(TaoDividendsPerSubnet::<Test>::get(alpha, alice), 0);
+        // Bob makes it all.
+        assert_eq!(
+            AlphaDividendsPerSubnet::<Test>::get(alpha, bob),
+            pending_alpha
+        );
+        assert_eq!(TaoDividendsPerSubnet::<Test>::get(alpha, bob), pending_root);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_get_root_children_drain_half_proportion --exact --show-output --nocapture
+#[test]
+fn test_get_root_children_drain_half_proportion() {
+    new_test_ext(1).execute_with(|| {
+        // Init netuid 1
+        let root: u16 = 0;
+        let alpha: u16 = 1;
+        add_network(root, 1, 0);
+        add_network(alpha, 1, 0);
+        // Set TAO weight to 1.
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
+                                                   // Create keys.
+        let cold = U256::from(0);
+        let alice = U256::from(1);
+        let bob = U256::from(2);
+        // Register Alice and Bob to the root network and alpha subnet.
+        register_ok_neuron(alpha, alice, cold, 0);
+        register_ok_neuron(alpha, bob, cold, 0);
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(cold).clone(),
+            alice,
+        ));
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(cold).clone(),
+            bob,
+        ));
+        // Add stake for Alice and Bob on root.
+        let alice_root_stake: u64 = 1_000_000_000;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &alice,
+            &cold,
+            root,
+            alice_root_stake,
+        );
+        let bob_root_stake: u64 = 1_000_000_000;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &bob,
+            &cold,
+            root,
+            alice_root_stake,
+        );
+        // Add stake for Alice and Bob on netuid.
+        let alice_alpha_stake: u64 = 1_000_000_000;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &alice,
+            &cold,
+            alpha,
+            alice_alpha_stake,
+        );
+        let bob_alpha_stake: u64 = 1_000_000_000;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &bob,
+            &cold,
+            alpha,
+            bob_alpha_stake,
+        );
+        // Set Bob as 100% child of Alice on root.
+        mock_set_children_no_epochs(alpha, &alice, &[(u64::MAX / 2, bob)]);
+
+        // Set Bob childkey take to zero.
+        ChildkeyTake::<Test>::insert(bob, alpha, 0);
+        Delegates::<Test>::insert(alice, 0);
+        Delegates::<Test>::insert(bob, 0);
+
+        // Lets drain!
+        let pending_alpha: u64 = 1_000_000_000;
+        SubtensorModule::drain_pending_emission(alpha, pending_alpha, 0, 0, 0);
+
+        // Alice and Bob make the same amount.
+        close(
+            AlphaDividendsPerSubnet::<Test>::get(alpha, alice),
+            pending_alpha / 2,
+            10,
+        );
+        close(
+            AlphaDividendsPerSubnet::<Test>::get(alpha, bob),
+            pending_alpha / 2,
+            10,
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_get_root_children_drain_with_take --exact --show-output --nocapture
+#[test]
+fn test_get_root_children_drain_with_take() {
+    new_test_ext(1).execute_with(|| {
+        // Init netuid 1
+        let root: u16 = 0;
+        let alpha: u16 = 1;
+        add_network(root, 1, 0);
+        add_network(alpha, 1, 0);
+        // Set TAO weight to 1.
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
+                                                   // Create keys.
+        let cold = U256::from(0);
+        let alice = U256::from(1);
+        let bob = U256::from(2);
+        // Register Alice and Bob to the root network and alpha subnet.
+        register_ok_neuron(alpha, alice, cold, 0);
+        register_ok_neuron(alpha, bob, cold, 0);
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(cold).clone(),
+            alice,
+        ));
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(cold).clone(),
+            bob,
+        ));
+        // Add stake for Alice and Bob on root.
+        let alice_root_stake: u64 = 1_000_000_000;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &alice,
+            &cold,
+            root,
+            alice_root_stake,
+        );
+        let bob_root_stake: u64 = 1_000_000_000;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &bob,
+            &cold,
+            root,
+            alice_root_stake,
+        );
+        // Add stake for Alice and Bob on netuid.
+        let alice_alpha_stake: u64 = 1_000_000_000;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &alice,
+            &cold,
+            alpha,
+            alice_alpha_stake,
+        );
+        let bob_alpha_stake: u64 = 1_000_000_000;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &bob,
+            &cold,
+            alpha,
+            bob_alpha_stake,
+        );
+        // Set Bob as 100% child of Alice on root.
+        ChildkeyTake::<Test>::insert(bob, alpha, u16::MAX);
+        mock_set_children_no_epochs(alpha, &alice, &[(u64::MAX, bob)]);
+        // Set Bob childkey take to zero.
+        Delegates::<Test>::insert(alice, 0);
+        Delegates::<Test>::insert(bob, 0);
+
+        // Lets drain!
+        let pending_alpha: u64 = 1_000_000_000;
+        SubtensorModule::drain_pending_emission(alpha, pending_alpha, 0, 0, 0);
+
+        // Alice and Bob make the same amount.
+        close(AlphaDividendsPerSubnet::<Test>::get(alpha, alice), 0, 10);
+        close(
+            AlphaDividendsPerSubnet::<Test>::get(alpha, bob),
+            pending_alpha,
+            10,
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_get_root_children_drain_with_half_take --exact --show-output --nocapture
+#[test]
+fn test_get_root_children_drain_with_half_take() {
+    new_test_ext(1).execute_with(|| {
+        // Init netuid 1
+        let root: u16 = 0;
+        let alpha: u16 = 1;
+        add_network(root, 1, 0);
+        add_network(alpha, 1, 0);
+        // Set TAO weight to 1.
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
+                                                   // Create keys.
+        let cold = U256::from(0);
+        let alice = U256::from(1);
+        let bob = U256::from(2);
+        // Register Alice and Bob to the root network and alpha subnet.
+        register_ok_neuron(alpha, alice, cold, 0);
+        register_ok_neuron(alpha, bob, cold, 0);
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(cold).clone(),
+            alice,
+        ));
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(cold).clone(),
+            bob,
+        ));
+        // Add stake for Alice and Bob on root.
+        let alice_root_stake: u64 = 1_000_000_000;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &alice,
+            &cold,
+            root,
+            alice_root_stake,
+        );
+        let bob_root_stake: u64 = 1_000_000_000;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &bob,
+            &cold,
+            root,
+            alice_root_stake,
+        );
+        // Add stake for Alice and Bob on netuid.
+        let alice_alpha_stake: u64 = 1_000_000_000;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &alice,
+            &cold,
+            alpha,
+            alice_alpha_stake,
+        );
+        let bob_alpha_stake: u64 = 1_000_000_000;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &bob,
+            &cold,
+            alpha,
+            bob_alpha_stake,
+        );
+        // Set Bob as 100% child of Alice on root.
+        ChildkeyTake::<Test>::insert(bob, alpha, u16::MAX / 2);
+        mock_set_children_no_epochs(alpha, &alice, &[(u64::MAX, bob)]);
+        // Set Bob childkey take to zero.
+        Delegates::<Test>::insert(alice, 0);
+        Delegates::<Test>::insert(bob, 0);
+
+        // Lets drain!
+        let pending_alpha: u64 = 1_000_000_000;
+        SubtensorModule::drain_pending_emission(alpha, pending_alpha, 0, 0, 0);
+
+        // Alice and Bob make the same amount.
+        close(
+            AlphaDividendsPerSubnet::<Test>::get(alpha, alice),
+            pending_alpha / 4,
+            10000,
+        );
+        close(
+            AlphaDividendsPerSubnet::<Test>::get(alpha, bob),
+            3 * (pending_alpha / 4),
+            10000,
+        );
+    });
+}
