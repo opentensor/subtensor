@@ -584,23 +584,37 @@ impl<T: Config> Pallet<T> {
         );
         log::trace!("B (outdatedmask): {:?}", &bonds);
 
-        // Normalize remaining bonds: sum_i b_ij = 1.
-        inplace_col_normalize_sparse(&mut bonds, n);
-        log::trace!("B (mask+norm): {:?}", &bonds);
+        let mut result: Vec<Vec<(u16, I32F32)>> = vec![vec![]; bonds.len()];
+        for (i, sparse_row) in bonds.iter().enumerate() {
+            for (j, value) in sparse_row {
+                result[i].push((*j, fixed_proportion_to_fixed(*value)));
+            }
+        }
+        let bonds = result;
+        log::trace!("B: (mask+norm) {:?}", &bonds);
 
         // Get alpha values
         let alphas = Self::compute_liquid_alpha(netuid, consensus.clone());
+        log::trace!("alphas: {:?}", &alphas);
 
         // Compute the Exponential Moving Average (EMA) of bonds.
-        let mut ema_bonds =
-            Self::compute_ema_bonds_sparse(&weights_for_bonds.clone(), &bonds, alphas);
+        log::trace!("weights_for_bonds: {:?}", &weights_for_bonds);
+        let ema_bonds = Self::compute_ema_bonds_sparse(&weights_for_bonds.clone(), &bonds, alphas);
+        log::trace!("emaB: {:?}", &ema_bonds);
+
         // Normalize EMA bonds.
-        inplace_col_normalize_sparse(&mut ema_bonds, n); // sum_i b_ij = 1
-        log::trace!("emaB norm: {:?}", &ema_bonds);
+        let mut ema_bonds_norm = ema_bonds.clone();
+        inplace_col_normalize_sparse(&mut ema_bonds_norm, n); // sum_i b_ij = 1
+        log::trace!("emaB norm: {:?}", &ema_bonds_norm);
 
         // # === Dividend Calculation===
         let total_bonds_per_validator: Vec<I32F32> =
-            matmul_transpose_sparse(&ema_bonds, &incentive);
+            row_sum_sparse(&mat_vec_mul_sparse(&ema_bonds_norm, &incentive));
+        log::trace!(
+            "total_bonds_per_validator: {:?}",
+            &total_bonds_per_validator
+        );
+
         let mut dividends: Vec<I32F32> = vec_mul(&total_bonds_per_validator, &active_stake);
         inplace_normalize(&mut dividends);
         log::trace!("Dividends: {:?}", &dividends);
@@ -734,8 +748,6 @@ impl<T: Config> Pallet<T> {
         ValidatorTrust::<T>::insert(netuid, cloned_validator_trust);
         ValidatorPermit::<T>::insert(netuid, new_validator_permits.clone());
 
-        // Column max-upscale EMA bonds for storage: max_i w_ij = 1.
-        inplace_col_max_upscale_sparse(&mut ema_bonds, n);
         new_validator_permits
             .iter()
             .zip(validator_permits)

@@ -1237,6 +1237,21 @@ pub fn mat_vec_mul(matrix: &[Vec<I32F32>], vector: &[I32F32]) -> Vec<Vec<I32F32>
     matrix.iter().map(|row| vec_mul(row, vector)).collect()
 }
 
+// Element-wise product of matrix and vector
+pub fn mat_vec_mul_sparse(
+    matrix: &[Vec<(u16, I32F32)>],
+    vector: &[I32F32],
+) -> Vec<Vec<(u16, I32F32)>> {
+    let rows = matrix.len();
+    let mut result: Vec<Vec<(u16, I32F32)>> = vec![vec![]; rows];
+    for i in 0..rows {
+        for (j, value) in matrix[i].iter() {
+            result[i].push((*j, value.saturating_mul(vector[*j as usize])));
+        }
+    }
+    result
+}
+
 // Element-wise product of two matrices.
 #[allow(dead_code)]
 pub fn hadamard(mat1: &[Vec<I32F32>], mat2: &[Vec<I32F32>]) -> Vec<Vec<I32F32>> {
@@ -1325,57 +1340,39 @@ pub fn mat_ema_alpha_vec_sparse(
         let mut row: Vec<I32F32> = vec![zero; n];
 
         // Process the new matrix values.
-        for (j, value) in new_row.iter() {
+        for (j, new_val) in new_row.iter() {
             // Retrieve the alpha value for the current column.
             let alpha_val: I32F32 = alpha.get(*j as usize).copied().unwrap_or(zero);
             // Compute the EMA component for the new value using saturating multiplication.
             if let Some(row_val) = row.get_mut(*j as usize) {
-                *row_val = alpha_val.saturating_mul(*value);
+                // Each validator can increase bonds by at most clamped_alpha per epoch towards the cap
+                // Validators allocate their purchase across miners based on weights
+                *row_val = alpha_val.saturating_mul(*new_val);
             }
-            log::trace!(
-                "new[{}][{}] * alpha[{}] = {} * {} = {}",
-                i,
-                j,
-                j,
-                value,
-                alpha_val,
-                row.get(*j as usize).unwrap_or(&zero)
-            );
         }
 
         // Process the old matrix values.
-        for (j, value) in old_row.iter() {
+        for (j, old_val) in old_row.iter() {
             // Retrieve the alpha value for the current column.
             let alpha_val: I32F32 = alpha.get(*j as usize).copied().unwrap_or(zero);
             // Calculate the complement of the alpha value using saturating subtraction.
             let one_minus_alpha: I32F32 =
                 I32F32::saturating_from_num(1.0).saturating_sub(alpha_val);
             // Compute the EMA component for the old value and add it to the row using saturating operations.
-            if let Some(row_val) = row.get_mut(*j as usize) {
-                let decayed_val = one_minus_alpha.saturating_mul(*value);
+            if let Some(purchase_increment) = row.get_mut(*j as usize) {
+                // *row_val = row_val.saturating_add(one_minus_alpha.saturating_mul(*value));
+                let decayed_val = one_minus_alpha.saturating_mul(*old_val);
                 let remaining_capacity = I32F32::from_num(1.0)
                     .saturating_sub(decayed_val)
                     .max(I32F32::from_num(0.0));
-                // Each validator can increase bonds by at most clamped_alpha per epoch towards the cap
-                // Validators allocate their purchase across miners based on weights
-                let purchase_increment = alpha_val.saturating_mul(*row_val);
 
                 // Ensure that purchase does not exceed remaining capacity
-                let purchase = purchase_increment.min(remaining_capacity);
+                let purchase = purchase_increment.clone().min(remaining_capacity);
 
-                *row_val = decayed_val
+                *purchase_increment = decayed_val
                     .saturating_add(purchase)
                     .min(I32F32::from_num(1.0));
             }
-            log::trace!(
-                "old[{}][{}] * (1 - alpha[{}]) = {} * {} = {}",
-                i,
-                j,
-                j,
-                value,
-                one_minus_alpha,
-                one_minus_alpha.saturating_mul(*value)
-            );
         }
 
         // Collect the non-zero values into the result matrix.
