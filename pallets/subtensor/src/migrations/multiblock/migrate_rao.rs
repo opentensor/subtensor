@@ -106,7 +106,7 @@ pub mod migrate_rao {
                     T::DbWeight::get().reads_writes(6, 6)
                 }
                 Some(MigrationState::FinishedStake) => T::DbWeight::get().reads_writes(1, 4),
-                Some(MigrationState::ConvertSubnet(_)) => T::DbWeight::get().reads_writes(22, 30),
+                Some(MigrationState::ConvertSubnet(_)) => T::DbWeight::get().reads_writes(25, 33),
                 Some(MigrationState::Finished) => T::DbWeight::get().writes(1),
             }
         }
@@ -171,19 +171,33 @@ pub mod migrate_rao {
                     TokenSymbol::<T>::insert(netuid, Pallet::<T>::get_symbol_for_subnet(0));
                     return MigrationState::ConvertSubnet(0);
                 }
-                let owner: T::AccountId = SubnetOwner::<T>::get(netuid);
-                let lock: u64 = SubnetLocked::<T>::get(netuid);
-                let initial_liquidity: u64 = 100_000_000_000; // 100 TAO.
-                let remaining_lock: u64 = lock.saturating_sub(initial_liquidity);
+                let owner = SubnetOwner::<T>::get(netuid);
+                let lock = SubnetLocked::<T>::get(netuid);
+
+                // Put initial TAO from lock into subnet TAO and produce numerically equal amount of Alpha
+                // The initial TAO is the locked amount, with a minimum of 1 RAO and a cap of 100 TAO.
+                let pool_initial_tao = Pallet::<T>::get_network_min_lock();
+                if lock < pool_initial_tao {
+                    let difference: u64 = pool_initial_tao.saturating_sub(lock);
+                    TotalIssuance::<T>::mutate(|total| {
+                        *total = total.saturating_add(difference);
+                    });
+                }
+
+                let remaining_lock = lock.saturating_sub(pool_initial_tao);
+                // Refund the owner for the remaining lock.
                 Pallet::<T>::add_balance_to_coldkey_account(&owner, remaining_lock);
-                SubnetTAO::<T>::insert(netuid, initial_liquidity); // Set TAO to the lock.
-                SubnetAlphaIn::<T>::insert(netuid, initial_liquidity); // Set AlphaIn to the initial alpha distribution.
+                SubnetLocked::<T>::insert(netuid, 0); // Clear lock amount.
+                SubnetTAO::<T>::insert(netuid, pool_initial_tao);
+                TotalStake::<T>::mutate(|total| {
+                    *total = total.saturating_add(pool_initial_tao);
+                }); // Increase total stake.
+                SubnetAlphaIn::<T>::insert(netuid, pool_initial_tao); // Set initial alpha to pool initial tao.
                 SubnetAlphaOut::<T>::insert(netuid, 0); // Set zero subnet alpha out.
                 SubnetMechanism::<T>::insert(netuid, 1); // Convert to dynamic immediately with initialization.
                 Tempo::<T>::insert(netuid, DefaultTempo::<T>::get());
                 // Set the token symbol for this subnet using Self instead of Pallet::<T>
                 TokenSymbol::<T>::insert(netuid, Pallet::<T>::get_symbol_for_subnet(netuid));
-                SubnetTAO::<T>::insert(netuid, initial_liquidity); // Set TAO to the lock.
                 TotalStakeAtDynamic::<T>::insert(netuid, 0);
 
                 if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
@@ -191,22 +205,27 @@ pub mod migrate_rao {
                     SubnetOwnerHotkey::<T>::insert(netuid, owner_coldkey.clone());
                     // Associate the coldkey to coldkey.
                     Pallet::<T>::create_account_if_non_existent(&owner_coldkey, &owner_coldkey);
-                    // Register the owner_coldkey as neuron to the network.
-                    let _neuron_uid: u16 = Pallet::<T>::register_neuron(netuid, &owner_coldkey);
+
+                    // Only register the owner coldkey if it's not already a hotkey on the subnet.
+                    if !Uids::<T>::contains_key(netuid, &owner_coldkey) {
+                        // Register the owner_coldkey as neuron to the network.
+                        let _neuron_uid: u16 = Pallet::<T>::register_neuron(netuid, &owner_coldkey);
+                    }
                     // Register the neuron immediately.
-                    if !Identities::<T>::contains_key(owner_coldkey.clone()) {
+                    if !IdentitiesV2::<T>::contains_key(owner_coldkey.clone()) {
                         // Set the identitiy for the Owner coldkey if non existent.
-                        let identity = ChainIdentityOf {
+                        let identity = ChainIdentityOfV2 {
                             name: format!("Owner{}", netuid).as_bytes().to_vec(),
                             url: Vec::new(),
                             image: Vec::new(),
+                            github_repo: Vec::new(),
                             discord: Vec::new(),
                             description: Vec::new(),
                             additional: Vec::new(),
                         };
                         // Validate the created identity and set it.
                         if Pallet::<T>::is_valid_identity(&identity) {
-                            Identities::<T>::insert(owner_coldkey.clone(), identity.clone());
+                            IdentitiesV2::<T>::insert(owner_coldkey.clone(), identity.clone());
                         }
                     }
                 }
