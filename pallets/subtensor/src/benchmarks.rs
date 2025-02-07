@@ -515,7 +515,7 @@ reveal_weights {
     Identities::<T>::insert(&old_coldkey, identity);
 
     // Benchmark setup complete, now execute the extrinsic
-}: swap_coldkey(RawOrigin::Root, old_coldkey.clone(), new_coldkey.clone())
+}: swap_coldkey(RawOrigin::Root, old_coldkey.clone(), new_coldkey.clone(), swap_cost)
 
 batch_reveal_weights {
   let tempo: u16 = 0;

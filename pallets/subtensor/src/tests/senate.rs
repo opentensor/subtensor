@@ -67,6 +67,7 @@ fn test_senate_join_works() {
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
         let stake = DefaultMinStake::<Test>::get() * 100;
+        let fee = DefaultStakingFee::<Test>::get();
 
         //add network
         SubtensorModule::set_burn(netuid, burn_cost);
@@ -112,12 +113,12 @@ fn test_senate_join_works() {
                 &staker_coldkey,
                 netuid
             ),
-            stake,
+            stake - fee,
             epsilon = 10
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
-            stake,
+            stake - fee,
             epsilon = 10
         );
 
@@ -140,6 +141,7 @@ fn test_senate_vote_works() {
         let hotkey_account_id = U256::from(6);
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
+        let fee = DefaultStakingFee::<Test>::get();
 
         //add network
         SubtensorModule::set_burn(netuid, burn_cost);
@@ -185,12 +187,12 @@ fn test_senate_vote_works() {
                 &staker_coldkey,
                 netuid
             ),
-            stake,
+            stake - fee,
             epsilon = stake / 1000
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
-            stake,
+            stake - fee,
             epsilon = stake / 1000
         );
 
@@ -313,6 +315,7 @@ fn test_senate_leave_works() {
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
         let stake = DefaultMinStake::<Test>::get() * 10;
+        let fee = DefaultStakingFee::<Test>::get();
 
         //add network
         SubtensorModule::set_burn(netuid, burn_cost);
@@ -357,12 +360,12 @@ fn test_senate_leave_works() {
                 &staker_coldkey,
                 netuid
             ),
-            stake,
+            stake - fee,
             epsilon = stake / 1000
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
-            stake,
+            stake - fee,
             epsilon = stake / 1000
         );
 
@@ -387,6 +390,7 @@ fn test_senate_leave_vote_removal() {
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
         let coldkey_origin = <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id);
         let stake = DefaultMinStake::<Test>::get() * 10;
+        let fee = DefaultStakingFee::<Test>::get();
 
         //add network
         SubtensorModule::set_burn(netuid, burn_cost);
@@ -431,12 +435,12 @@ fn test_senate_leave_vote_removal() {
                 &staker_coldkey,
                 netuid
             ),
-            stake,
+            stake - fee,
             epsilon = 10
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
-            stake,
+            stake - fee,
             epsilon = 10
         );
 
@@ -469,7 +473,7 @@ fn test_senate_leave_vote_removal() {
         // Add two networks.
         let root_netuid: u16 = 0;
         let other_netuid: u16 = 5;
-        add_network(other_netuid, 0, 0);
+        add_network(other_netuid, 1, 0);
         SubtensorModule::set_burn(other_netuid, 0);
         SubtensorModule::set_max_registrations_per_block(other_netuid, 1000);
         SubtensorModule::set_target_registrations_per_interval(other_netuid, 1000);
@@ -528,6 +532,7 @@ fn test_senate_not_leave_when_stake_removed() {
         let hotkey_account_id = U256::from(6);
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
+        let fee = DefaultStakingFee::<Test>::get();
 
         //add network
         SubtensorModule::set_burn(netuid, burn_cost);
@@ -573,12 +578,12 @@ fn test_senate_not_leave_when_stake_removed() {
                 &staker_coldkey,
                 netuid
             ),
-            stake_amount,
+            stake_amount - fee,
             epsilon = stake_amount / 1000
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey_account_id, netuid),
-            stake_amount,
+            stake_amount - fee,
             epsilon = stake_amount / 1000
         );
 
@@ -686,9 +691,11 @@ fn test_adjust_senate_events() {
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667);
         let root_netuid = SubtensorModule::get_root_netuid();
+        let fee = DefaultStakingFee::<Test>::get();
 
         let max_senate_size: u16 = SenateMaxMembers::get() as u16;
-        let stake_threshold: u64 = DefaultMinStake::<Test>::get(); // Give this much to every senator
+        let stake_threshold: u64 =
+            DefaultMinStake::<Test>::get() + DefaultStakingFee::<Test>::get(); // Give this much to every senator
 
         // We will be registering MaxMembers hotkeys and two more to try a replace
         let balance_to_add = DefaultMinStake::<Test>::get() * 10
@@ -755,13 +762,14 @@ fn test_adjust_senate_events() {
                 coldkey_account_id
             );
             // Add/delegate enough stake to join the senate
+            // +1 to be above hotkey_account_id
             assert_ok!(SubtensorModule::add_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 new_hotkey_account_id,
                 netuid,
                 stake_threshold + 1 + i as u64 // Increasing with i to make them ordered
-            )); // +1 to be above hotkey_account_id
-                // Join senate
+            ));
+            // Join senate
             assert_ok!(SubtensorModule::root_register(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 new_hotkey_account_id
@@ -806,7 +814,7 @@ fn test_adjust_senate_events() {
                 &coldkey_account_id,
                 root_netuid
             ),
-            stake,
+            stake - fee,
             epsilon = stake / 1000
         );
         assert_abs_diff_eq!(
@@ -814,7 +822,7 @@ fn test_adjust_senate_events() {
                 &replacement_hotkey_account_id,
                 root_netuid
             ),
-            stake,
+            stake - fee,
             epsilon = stake / 1000
         );
 

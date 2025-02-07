@@ -2719,16 +2719,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fp-dynamic-fee"
-version = "1.0.0"
-source = "git+https://github.com/opentensor/frontier?rev=635bdac882#635bdac882333afed827053f31ef56ab739f7a2e"
-dependencies = [
- "async-trait",
- "sp-core",
- "sp-inherents",
-]
-
-[[package]]
 name = "fp-ethereum"
 version = "1.0.0-dev"
 source = "git+https://github.com/opentensor/frontier?rev=635bdac882#635bdac882333afed827053f31ef56ab739f7a2e"
@@ -5537,7 +5527,6 @@ dependencies = [
  "fc-rpc-core",
  "fc-storage",
  "fp-consensus",
- "fp-dynamic-fee",
  "fp-rpc",
  "frame-benchmarking",
  "frame-benchmarking-cli",
@@ -5634,7 +5623,6 @@ dependencies = [
  "pallet-collective",
  "pallet-commitments",
  "pallet-drand",
- "pallet-dynamic-fee",
  "pallet-ethereum",
  "pallet-evm",
  "pallet-evm-chain-id",
@@ -6141,21 +6129,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-dynamic-fee"
-version = "4.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=635bdac882#635bdac882333afed827053f31ef56ab739f7a2e"
-dependencies = [
- "fp-dynamic-fee",
- "fp-evm",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "sp-core",
- "sp-inherents",
-]
-
-[[package]]
 name = "pallet-ethereum"
 version = "4.0.0-dev"
 source = "git+https://github.com/opentensor/frontier?rev=635bdac882#635bdac882333afed827053f31ef56ab739f7a2e"
@@ -6466,6 +6439,7 @@ dependencies = [
  "parity-util-mem",
  "rand",
  "rand_chacha",
+ "safe-math",
  "scale-info",
  "serde",
  "serde-tuple-vec-map",
@@ -8005,6 +7979,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3cb5ba0dc43242ce17de99c180e96db90b235b8a9fdc9543c96d2209116bd9f"
 
 [[package]]
+name = "safe-math"
+version = "0.1.0"
+dependencies = [
+ "num-traits",
+ "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409)",
+ "substrate-fixed",
+]
+
+[[package]]
 name = "safe-mix"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9540,6 +9523,7 @@ dependencies = [
 name = "share-pool"
 version = "0.1.0"
 dependencies = [
+ "safe-math",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409)",
  "substrate-fixed",
 ]
@@ -10925,8 +10909,10 @@ version = "0.0.2"
 dependencies = [
  "frame-support",
  "pallet-subtensor",
+ "parity-scale-codec",
  "serde",
  "sp-api",
+ "sp-runtime",
 ]
 
 [[package]]

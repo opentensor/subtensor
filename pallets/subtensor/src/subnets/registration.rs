@@ -119,28 +119,28 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotEnoughBalanceToStake
         );
 
-        // --- 8. Ensure the remove operation from the coldkey is a success.
+        // If the network account does not exist we will create it here.
+        Self::create_account_if_non_existent(&coldkey, &hotkey);
+
+        // --- 8. Ensure that the pairing is correct.
+        ensure!(
+            Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+            Error::<T>::NonAssociatedColdKey
+        );
+
+        // --- 9. Possibly there are no neuron slots at all.
+        ensure!(
+            Self::get_max_allowed_uids(netuid) != 0,
+            Error::<T>::NoNeuronIdAvailable
+        );
+
+        // --- 10. Ensure the remove operation from the coldkey is a success.
         let actual_burn_amount =
             Self::remove_balance_from_coldkey_account(&coldkey, registration_cost)?;
 
         // Tokens are swapped and then burned.
         let burned_alpha: u64 = Self::swap_tao_for_alpha(netuid, actual_burn_amount);
         SubnetAlphaOut::<T>::mutate(netuid, |total| *total = total.saturating_sub(burned_alpha));
-
-        // --- 9. If the network account does not exist we will create it here.
-        Self::create_account_if_non_existent(&coldkey, &hotkey);
-
-        // --- 10. Ensure that the pairing is correct.
-        ensure!(
-            Self::coldkey_owns_hotkey(&coldkey, &hotkey),
-            Error::<T>::NonAssociatedColdKey
-        );
-
-        // Possibly there is no neuron slots at all.
-        ensure!(
-            Self::get_max_allowed_uids(netuid) != 0,
-            Error::<T>::NoNeuronIdAvailable
-        );
 
         // Actually perform the registration.
         let neuron_uid: u16 = Self::register_neuron(netuid, &hotkey);
@@ -425,6 +425,14 @@ impl<T: Config> Pallet<T> {
         }
 
         for neuron_uid in 0..neurons_n {
+            // Do not deregister the owner
+            if let Ok(hotkey) = Self::get_hotkey_for_net_and_uid(netuid, neuron_uid) {
+                let coldkey = Self::get_owning_coldkey_for_hotkey(&hotkey);
+                if Self::get_subnet_owner(netuid) == coldkey {
+                    continue;
+                }
+            }
+
             let pruning_score: u16 = Self::get_pruning_score_for_uid(netuid, neuron_uid);
             let block_at_registration: u64 =
                 Self::get_neuron_block_at_registration(netuid, neuron_uid);

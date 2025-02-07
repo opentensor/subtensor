@@ -554,7 +554,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the minimum burn for a subnet.
-        /// It is only callable by the root account or subnet owner.
+        /// It is only callable by the root account.
         /// The extrinsic will call the Subtensor pallet to set the minimum burn.
         #[pallet::call_index(22)]
         #[pallet::weight(<T as Config>::WeightInfo::sudo_set_min_burn())]
@@ -563,7 +563,7 @@ pub mod pallet {
             netuid: u16,
             min_burn: u64,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            ensure_root(origin)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -681,6 +681,31 @@ pub mod pallet {
                 "BondsMovingAverageSet( netuid: {:?} bonds_moving_average: {:?} ) ",
                 netuid,
                 bonds_moving_average
+            );
+            Ok(())
+        }
+
+        /// The extrinsic sets the bonds penalty for a subnet.
+        /// It is only callable by the root account or subnet owner.
+        /// The extrinsic will call the Subtensor pallet to set the bonds penalty.
+        #[pallet::call_index(60)]
+        #[pallet::weight(<T as Config>::WeightInfo::sudo_set_bonds_penalty())]
+        pub fn sudo_set_bonds_penalty(
+            origin: OriginFor<T>,
+            netuid: u16,
+            bonds_penalty: u16,
+        ) -> DispatchResult {
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+            pallet_subtensor::Pallet::<T>::set_bonds_penalty(netuid, bonds_penalty);
+            log::debug!(
+                "BondsPenalty( netuid: {:?} bonds_penalty: {:?} ) ",
+                netuid,
+                bonds_penalty
             );
             Ok(())
         }
@@ -1261,6 +1286,26 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
             T::Grandpa::schedule_change(next_authorities, in_blocks, forced)
+        }
+
+        /// Enables or disables Liquid Alpha for a given subnet.
+        ///
+        /// # Parameters
+        /// - `origin`: The origin of the call, which must be the root account or subnet owner.
+        /// - `netuid`: The unique identifier for the subnet.
+        /// - `enabled`: A boolean flag to enable or disable Liquid Alpha.
+        ///
+        /// # Weight
+        /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
+        #[pallet::call_index(61)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_toggle_transfer(
+            origin: OriginFor<T>,
+            netuid: u16,
+            toggle: bool,
+        ) -> DispatchResult {
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            pallet_subtensor::Pallet::<T>::toggle_transfer(netuid, toggle)
         }
     }
 }

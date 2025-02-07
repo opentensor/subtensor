@@ -19,6 +19,7 @@ use super::*;
 use frame_support::dispatch::Pays;
 use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::weights::Weight;
+use safe_math::*;
 use sp_core::Get;
 use sp_std::vec;
 use substrate_fixed::types::I64F64;
@@ -112,7 +113,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Initialize a 2D vector with zeros to store the weights. The dimensions are determined
         // by `n` (number of validators) and `k` (total number of subnets).
-        let mut weights: Vec<Vec<I64F64>> = vec![vec![I64F64::from_num(0.0); k]; n];
+        let mut weights: Vec<Vec<I64F64>> = vec![vec![I64F64::saturating_from_num(0.0); k]; n];
         log::debug!("weights:\n{:?}\n", weights);
 
         let subnet_list = Self::get_all_subnet_netuids();
@@ -134,7 +135,7 @@ impl<T: Config> Pallet<T> {
                         .zip(&subnet_list)
                         .find(|(_, subnet)| *subnet == netuid)
                     {
-                        *w = I64F64::from_num(*weight_ij);
+                        *w = I64F64::saturating_from_num(*weight_ij);
                     }
                 }
             }
@@ -478,7 +479,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 4. Remove the subnet identity if it exists.
-        if SubnetIdentities::<T>::take(netuid).is_some() {
+        if SubnetIdentitiesV2::<T>::take(netuid).is_some() {
             Self::deposit_event(Event::SubnetIdentityRemoved(netuid));
         }
 
@@ -527,6 +528,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 7. Remove incentive mechanism memory.
         let _ = Uids::<T>::clear_prefix(netuid, u32::MAX, None);
+        let keys = Keys::<T>::iter_prefix(netuid).collect::<Vec<_>>();
         let _ = Keys::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = Bonds::<T>::clear_prefix(netuid, u32::MAX, None);
 
@@ -564,6 +566,10 @@ impl<T: Config> Pallet<T> {
         ValidatorPermit::<T>::remove(netuid);
         ValidatorTrust::<T>::remove(netuid);
 
+        for (_uid, key) in keys {
+            IsNetworkMember::<T>::remove(key, netuid);
+        }
+
         // --- 11. Erase network parameters.
         Tempo::<T>::remove(netuid);
         Kappa::<T>::remove(netuid);
@@ -584,8 +590,8 @@ impl<T: Config> Pallet<T> {
         SubnetOwner::<T>::remove(netuid);
 
         // --- 13. Remove subnet identity if it exists.
-        if SubnetIdentities::<T>::contains_key(netuid) {
-            SubnetIdentities::<T>::remove(netuid);
+        if SubnetIdentitiesV2::<T>::contains_key(netuid) {
+            SubnetIdentitiesV2::<T>::remove(netuid);
             Self::deposit_event(Event::SubnetIdentityRemoved(netuid));
         }
     }
@@ -619,7 +625,7 @@ impl<T: Config> Pallet<T> {
 
         let mut lock_cost = last_lock.saturating_mul(mult).saturating_sub(
             last_lock
-                .saturating_div(lock_reduction_interval)
+                .safe_div(lock_reduction_interval)
                 .saturating_mul(current_block.saturating_sub(last_lock_block)),
         );
 
@@ -716,6 +722,14 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::NetworkLockCostReductionIntervalSet(interval));
     }
     pub fn get_lock_reduction_interval() -> u64 {
-        NetworkLockReductionInterval::<T>::get()
+        let interval: I64F64 =
+            I64F64::saturating_from_num(NetworkLockReductionInterval::<T>::get());
+        let block_emission: I64F64 =
+            I64F64::saturating_from_num(Self::get_block_emission().unwrap_or(1_000_000_000));
+        let halving: I64F64 = block_emission
+            .checked_div(I64F64::saturating_from_num(1_000_000_000))
+            .unwrap_or(I64F64::saturating_from_num(0.0));
+        let halved_interval: I64F64 = interval.saturating_mul(halving);
+        halved_interval.saturating_to_num::<u64>()
     }
 }
