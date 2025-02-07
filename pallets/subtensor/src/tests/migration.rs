@@ -14,8 +14,8 @@ use frame_system::Config;
 use sp_core::{crypto::Ss58Codec, H256, U256};
 use sp_io::hashing::twox_128;
 use sp_runtime::traits::Zero;
-use substrate_fixed::types::I96F32;
 use substrate_fixed::types::extra::U2;
+use substrate_fixed::types::I96F32;
 
 #[allow(clippy::arithmetic_side_effects)]
 fn close(value: u64, target: u64, eps: u64) {
@@ -98,7 +98,6 @@ fn test_migration_delete_subnet_21() {
         assert!(!SubtensorModule::if_subnet_exist(21));
     })
 }
-
 
 fn run_migration_and_check(migration_name: &'static str) -> frame_support::weights::Weight {
     // Execute the migration and store its weight
@@ -230,9 +229,9 @@ fn test_migrate_rao() {
         SubnetLocked::<Test>::insert(netuid_1, lock_amount);
 
         // Add some initial stake
-        EmissionValues::<Test>::insert(netuid_1, 1_000_000_000 );
-        EmissionValues::<Test>::insert(netuid_2, 2_000_000_000 );
-        EmissionValues::<Test>::insert(netuid_3, 3_000_000_000 );
+        EmissionValues::<Test>::insert(netuid_1, 1_000_000_000);
+        EmissionValues::<Test>::insert(netuid_2, 2_000_000_000);
+        EmissionValues::<Test>::insert(netuid_3, 3_000_000_000);
 
         Owner::<Test>::insert(hotkey1, coldkey1);
         Owner::<Test>::insert(hotkey2, coldkey2);
@@ -373,9 +372,21 @@ fn test_migrate_rao() {
         // Run the coinbase
         let emission: u64 = 1_000_000_000;
         SubtensorModule::run_coinbase(I96F32::from_num(emission));
-        close(SubnetTaoInEmission::<Test>::get(netuid_1), emission/6, 100);
-        close(SubnetTaoInEmission::<Test>::get(netuid_2), 2*(emission/6), 100);
-        close(SubnetTaoInEmission::<Test>::get(netuid_3), 3*(emission/6), 100);
+        close(
+            SubnetTaoInEmission::<Test>::get(netuid_1),
+            emission / 6,
+            100,
+        );
+        close(
+            SubnetTaoInEmission::<Test>::get(netuid_2),
+            2 * (emission / 6),
+            100,
+        );
+        close(
+            SubnetTaoInEmission::<Test>::get(netuid_3),
+            3 * (emission / 6),
+            100,
+        );
     });
 }
 

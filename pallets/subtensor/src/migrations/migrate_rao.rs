@@ -89,7 +89,12 @@ pub fn migrate_rao<T: Config>() -> Weight {
 
         let remaining_lock = lock.saturating_sub(pool_initial_tao);
         // Refund the owner for the remaining lock.
-        SubnetMovingPrice::<T>::insert(netuid, I96F32::from_num(EmissionValues::<T>::get(netuid)).checked_div( I96F32::from_num(1_000_000_000) ).unwrap_or( I96F32::from_num(0.0) ) );
+        SubnetMovingPrice::<T>::insert(
+            netuid,
+            I96F32::from_num(EmissionValues::<T>::get(netuid))
+                .checked_div(I96F32::from_num(1_000_000_000))
+                .unwrap_or(I96F32::from_num(0.0)),
+        );
         Pallet::<T>::add_balance_to_coldkey_account(&owner, remaining_lock);
         SubnetLocked::<T>::insert(netuid, 0); // Clear lock amount.
         SubnetTAO::<T>::insert(netuid, pool_initial_tao);
