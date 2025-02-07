@@ -361,7 +361,12 @@ impl<T: Config> Pallet<T> {
         if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
             if let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
                 // Increase stake for owner hotkey and coldkey.
-                log::debug!("owner_hotkey: {:?} owner_coldkey: {:?}, owner_cut: {:?}", owner_hotkey, owner_coldkey, owner_cut);
+                log::debug!(
+                    "owner_hotkey: {:?} owner_coldkey: {:?}, owner_cut: {:?}",
+                    owner_hotkey,
+                    owner_coldkey,
+                    owner_cut
+                );
                 Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                     &owner_hotkey,
                     &owner_coldkey,

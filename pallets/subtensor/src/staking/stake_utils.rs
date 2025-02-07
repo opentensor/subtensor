@@ -131,8 +131,9 @@ impl<T: Config> Pallet<T> {
         log::debug!("alpha_stake: {:?}", alpha_stake);
 
         // Step 2: Get the global tao stake for the hotkey
-        let tao_stake =
-            I64F64::saturating_from_num(Self::get_tao_inherited_for_hotkey_on_subnet(hotkey, netuid));
+        let tao_stake = I64F64::saturating_from_num(Self::get_tao_inherited_for_hotkey_on_subnet(
+            hotkey, netuid,
+        ));
         log::debug!("tao_stake: {:?}", tao_stake);
 
         // Step 3: Combine alpha and tao stakes
@@ -223,99 +224,97 @@ impl<T: Config> Pallet<T> {
     /// # Note
     /// This function uses saturating arithmetic to prevent overflows.
     pub fn get_tao_inherited_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
+        let initial_tao: I96F32 = I96F32::saturating_from_num(
+            Self::get_stake_for_hotkey_on_subnet(hotkey, Self::get_root_netuid()),
+        );
 
-        let initial_tao: I96F32 =
-        I96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, Self::get_root_netuid()));
+        // Initialize variables to track alpha allocated to children and inherited from parents.
+        let mut tao_to_children: I96F32 = I96F32::saturating_from_num(0);
+        let mut tao_from_parents: I96F32 = I96F32::saturating_from_num(0);
 
-         // Initialize variables to track alpha allocated to children and inherited from parents.
-         let mut tao_to_children: I96F32 = I96F32::saturating_from_num(0);
-         let mut tao_from_parents: I96F32 = I96F32::saturating_from_num(0);
- 
-         // Step 2: Retrieve the lists of parents and children for the hotkey on the subnet.
-         let parents: Vec<(u64, T::AccountId)> = Self::get_parents(hotkey, netuid);
-         let children: Vec<(u64, T::AccountId)> = Self::get_children(hotkey, netuid);
-         log::trace!(
-             "Parents for hotkey {:?} on subnet {}: {:?}",
-             hotkey,
-             netuid,
-             parents
-         );
-         log::trace!(
-             "Children for hotkey {:?} on subnet {}: {:?}",
-             hotkey,
-             netuid,
-             children
-         );
- 
-         // Step 3: Calculate the total tao allocated to children.
-         for (proportion, _) in children {
-             // Convert the proportion to a normalized value between 0 and 1.
-             let normalized_proportion: I96F32 = I96F32::saturating_from_num(proportion)
-                 .safe_div(I96F32::saturating_from_num(u64::MAX));
-             log::trace!(
-                 "Normalized proportion for child: {:?}",
-                 normalized_proportion
-             );
- 
-             // Calculate the amount of tao to be allocated to this child.
-             let tao_proportion_to_child: I96F32 =
-                 I96F32::saturating_from_num(initial_tao).saturating_mul(normalized_proportion);
-             log::trace!("Tao proportion to child: {:?}", tao_proportion_to_child);
- 
-             // Add this child's allocation to the total tao allocated to children.
-             tao_to_children = tao_to_children.saturating_add(tao_proportion_to_child);
-         }
-         log::trace!("Total tao allocated to children: {:?}", tao_to_children);
- 
-         // Step 4: Calculate the total tao inherited from parents.
-         for (proportion, parent) in parents {
-             // Retrieve the parent's total stake on this subnet.
-             let parent_tao: I96F32 =
-                 I96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(&parent, Self::get_root_netuid()));
-             log::trace!(
-                 "Parent tao for parent {:?} on subnet {}: {:?}",
-                 parent,
-                 netuid,
-                 parent_tao
-             );
- 
-             // Convert the proportion to a normalized value between 0 and 1.
-             let normalized_proportion: I96F32 = I96F32::saturating_from_num(proportion)
-                 .safe_div(I96F32::saturating_from_num(u64::MAX));
-             log::trace!(
-                 "Normalized proportion from parent: {:?}",
-                 normalized_proportion
-             );
- 
-             // Calculate the amount of tao to be inherited from this parent.
-             let tao_proportion_from_parent: I96F32 =
-                 I96F32::saturating_from_num(parent_tao).saturating_mul(normalized_proportion);
-             log::trace!(
-                 "Tao proportion from parent: {:?}",
+        // Step 2: Retrieve the lists of parents and children for the hotkey on the subnet.
+        let parents: Vec<(u64, T::AccountId)> = Self::get_parents(hotkey, netuid);
+        let children: Vec<(u64, T::AccountId)> = Self::get_children(hotkey, netuid);
+        log::trace!(
+            "Parents for hotkey {:?} on subnet {}: {:?}",
+            hotkey,
+            netuid,
+            parents
+        );
+        log::trace!(
+            "Children for hotkey {:?} on subnet {}: {:?}",
+            hotkey,
+            netuid,
+            children
+        );
+
+        // Step 3: Calculate the total tao allocated to children.
+        for (proportion, _) in children {
+            // Convert the proportion to a normalized value between 0 and 1.
+            let normalized_proportion: I96F32 = I96F32::saturating_from_num(proportion)
+                .safe_div(I96F32::saturating_from_num(u64::MAX));
+            log::trace!(
+                "Normalized proportion for child: {:?}",
+                normalized_proportion
+            );
+
+            // Calculate the amount of tao to be allocated to this child.
+            let tao_proportion_to_child: I96F32 =
+                I96F32::saturating_from_num(initial_tao).saturating_mul(normalized_proportion);
+            log::trace!("Tao proportion to child: {:?}", tao_proportion_to_child);
+
+            // Add this child's allocation to the total tao allocated to children.
+            tao_to_children = tao_to_children.saturating_add(tao_proportion_to_child);
+        }
+        log::trace!("Total tao allocated to children: {:?}", tao_to_children);
+
+        // Step 4: Calculate the total tao inherited from parents.
+        for (proportion, parent) in parents {
+            // Retrieve the parent's total stake on this subnet.
+            let parent_tao: I96F32 = I96F32::saturating_from_num(
+                Self::get_stake_for_hotkey_on_subnet(&parent, Self::get_root_netuid()),
+            );
+            log::trace!(
+                "Parent tao for parent {:?} on subnet {}: {:?}",
+                parent,
+                netuid,
+                parent_tao
+            );
+
+            // Convert the proportion to a normalized value between 0 and 1.
+            let normalized_proportion: I96F32 = I96F32::saturating_from_num(proportion)
+                .safe_div(I96F32::saturating_from_num(u64::MAX));
+            log::trace!(
+                "Normalized proportion from parent: {:?}",
+                normalized_proportion
+            );
+
+            // Calculate the amount of tao to be inherited from this parent.
+            let tao_proportion_from_parent: I96F32 =
+                I96F32::saturating_from_num(parent_tao).saturating_mul(normalized_proportion);
+            log::trace!(
+                "Tao proportion from parent: {:?}",
                 tao_proportion_from_parent
-             );
- 
-             // Add this parent's contribution to the total tao inherited from parents.
-             tao_from_parents = tao_from_parents.saturating_add(tao_proportion_from_parent);
-         }
-         log::trace!(
-             "Total tao inherited from parents: {:?}",
-             tao_from_parents
-         );
- 
-         // Step 5: Calculate the final inherited tao for the hotkey.
-         let finalized_tao: I96F32 = initial_tao
-             .saturating_sub(tao_to_children) // Subtract tao allocated to children
-             .saturating_add(tao_from_parents); // Add tao inherited from parents
-         log::trace!(
-             "Finalized tao for hotkey {:?} on subnet {}: {:?}",
-             hotkey,
-             netuid,
-             finalized_tao
-         );
- 
-         // Step 6: Return the final inherited tao value.
-         finalized_tao.saturating_to_num::<u64>()
+            );
+
+            // Add this parent's contribution to the total tao inherited from parents.
+            tao_from_parents = tao_from_parents.saturating_add(tao_proportion_from_parent);
+        }
+        log::trace!("Total tao inherited from parents: {:?}", tao_from_parents);
+
+        // Step 5: Calculate the final inherited tao for the hotkey.
+        let finalized_tao: I96F32 = initial_tao
+            .saturating_sub(tao_to_children) // Subtract tao allocated to children
+            .saturating_add(tao_from_parents); // Add tao inherited from parents
+        log::trace!(
+            "Finalized tao for hotkey {:?} on subnet {}: {:?}",
+            hotkey,
+            netuid,
+            finalized_tao
+        );
+
+        // Step 6: Return the final inherited tao value.
+        finalized_tao.saturating_to_num::<u64>()
     }
 
     pub fn get_inherited_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
