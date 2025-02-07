@@ -70,6 +70,7 @@ jobs:
           python3 -m pip install -e .
           python3 -m pip install torch
           python3 -m pip install pytest
+          python3 -m pip install -r requirements/dev.txt
 
       - name: Run tests
         working-directory: ${{ github.workspace }}/bittensor

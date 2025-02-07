@@ -1,4 +1,5 @@
 use super::mock::*;
+use crate::*;
 use crate::{ColdkeySwapScheduleDuration, DissolveNetworkScheduleDuration, Event};
 use frame_support::assert_ok;
 use frame_system::Config;
@@ -278,5 +279,50 @@ fn test_schedule_dissolve_network_execution_with_coldkey_swap() {
         run_to_block(execution_block);
         // network exists since the caller is no the network owner
         assert!(!SubtensorModule::if_subnet_exist(netuid));
+    })
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::networks::test_register_subnet_low_lock_cost --exact --show-output --nocapture
+#[test]
+fn test_register_subnet_low_lock_cost() {
+    new_test_ext(1).execute_with(|| {
+        NetworkMinLockCost::<Test>::set(1_000);
+        NetworkLastLockCost::<Test>::set(1_000);
+
+        // Make sure lock cost is lower than 100 TAO
+        let lock_cost = SubtensorModule::get_network_lock_cost();
+        assert!(lock_cost < 100_000_000_000);
+
+        let subnet_owner_coldkey = U256::from(1);
+        let subnet_owner_hotkey = U256::from(2);
+        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        assert!(SubtensorModule::if_subnet_exist(netuid));
+
+        // Ensure that both Subnet TAO and Subnet Alpha In equal to (actual) lock_cost
+        assert_eq!(SubnetTAO::<Test>::get(netuid), lock_cost,);
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid), lock_cost,);
+    })
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::networks::test_register_subnet_high_lock_cost --exact --show-output --nocapture
+#[test]
+fn test_register_subnet_high_lock_cost() {
+    new_test_ext(1).execute_with(|| {
+        let lock_cost: u64 = 1_000_000_000_000;
+        NetworkMinLockCost::<Test>::set(lock_cost);
+        NetworkLastLockCost::<Test>::set(lock_cost);
+
+        // Make sure lock cost is higher than 100 TAO
+        let lock_cost = SubtensorModule::get_network_lock_cost();
+        assert!(lock_cost >= 1_000_000_000_000);
+
+        let subnet_owner_coldkey = U256::from(1);
+        let subnet_owner_hotkey = U256::from(2);
+        let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        assert!(SubtensorModule::if_subnet_exist(netuid));
+
+        // Ensure that both Subnet TAO and Subnet Alpha In equal to 100 TAO
+        assert_eq!(SubnetTAO::<Test>::get(netuid), lock_cost);
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid), lock_cost);
     })
 }

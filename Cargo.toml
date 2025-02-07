@@ -29,6 +29,7 @@ members = [
     "pallets/admin-utils",
     "pallets/collective",
     "pallets/registry",
+    "primitives/*",
     "runtime",
     "support/tools",
     "support/macros",
@@ -82,6 +83,7 @@ quote = "1"
 proc-macro2 = { version = "1", features = ["span-locations"] }
 thiserror = "1.0"
 walkdir = "2"
+approx = "0.5"
 
 subtensor-macros = { path = "support/macros" }
 
@@ -178,9 +180,10 @@ fc-consensus = { git = "https://github.com/opentensor/frontier", rev = "635bdac8
 fp-consensus = { git = "https://github.com/opentensor/frontier", rev = "635bdac882", default-features = false }
 fp-dynamic-fee = { git = "https://github.com/opentensor/frontier", rev = "635bdac882", default-features = false }
 fc-api = { git = "https://github.com/opentensor/frontier", rev = "635bdac882", default-features = false }
-fc-rpc = { git = "https://github.com/opentensor/frontier", rev = "635bdac882", default-features = false }
+fc-rpc = { git = "https://github.com/opentensor/frontier", rev = "635bdac882", default-features = false, features = ["rpc-binary-search-estimate"]}
 fc-rpc-core = { git = "https://github.com/opentensor/frontier", rev = "635bdac882", default-features = false }
 fc-mapping-sync = { git = "https://github.com/opentensor/frontier", rev = "635bdac882", default-features = false }
+precompile-utils = { git = "https://github.com/opentensor/frontier", rev = "635bdac882", default-features = false }
 
 # Frontier FRAME
 pallet-base-fee = { git = "https://github.com/opentensor/frontier", rev = "635bdac882", default-features = false }

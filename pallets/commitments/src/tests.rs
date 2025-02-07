@@ -86,7 +86,7 @@ impl pallet_commitments::Config for Test {
     type CanCommit = ();
     type FieldDeposit = frame_support::traits::ConstU64<0>;
     type InitialDeposit = frame_support::traits::ConstU64<0>;
-    type RateLimit = frame_support::traits::ConstU64<0>;
+    type DefaultRateLimit = frame_support::traits::ConstU64<0>;
 }
 
 // // Build genesis storage according to the mock runtime.

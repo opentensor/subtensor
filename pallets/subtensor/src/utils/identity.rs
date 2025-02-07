@@ -27,6 +27,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         name: Vec<u8>,
         url: Vec<u8>,
+        github_repo: Vec<u8>,
         image: Vec<u8>,
         discord: Vec<u8>,
         description: Vec<u8>,
@@ -47,9 +48,10 @@ impl<T: Config> Pallet<T> {
         );
 
         // Create the identity struct with the provided information
-        let identity = ChainIdentityOf {
+        let identity = ChainIdentityOfV2 {
             name,
             url,
+            github_repo,
             image,
             discord,
             description,
@@ -63,7 +65,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Store the validated identity in the blockchain state
-        Identities::<T>::insert(coldkey.clone(), identity.clone());
+        IdentitiesV2::<T>::insert(coldkey.clone(), identity.clone());
 
         // Log the identity set event
         log::debug!("ChainIdentitySet( coldkey:{:?} ) ", coldkey.clone());
@@ -98,6 +100,10 @@ impl<T: Config> Pallet<T> {
         subnet_name: Vec<u8>,
         github_repo: Vec<u8>,
         subnet_contact: Vec<u8>,
+        subnet_url: Vec<u8>,
+        discord: Vec<u8>,
+        description: Vec<u8>,
+        additional: Vec<u8>,
     ) -> dispatch::DispatchResult {
         // Ensure the call is signed and get the signer's (coldkey) account
         let coldkey = ensure_signed(origin)?;
@@ -109,10 +115,14 @@ impl<T: Config> Pallet<T> {
         );
 
         // Create the identity struct with the provided information
-        let identity: SubnetIdentityOf = SubnetIdentityOf {
+        let identity: SubnetIdentityOfV2 = SubnetIdentityOfV2 {
             subnet_name,
             github_repo,
             subnet_contact,
+            subnet_url,
+            discord,
+            description,
+            additional,
         };
 
         // Validate the created identity
@@ -122,7 +132,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Store the validated identity in the blockchain state
-        SubnetIdentities::<T>::insert(netuid, identity.clone());
+        SubnetIdentitiesV2::<T>::insert(netuid, identity.clone());
 
         // Log the identity set event
         log::info!("SubnetIdentitySet( netuid:{:?} ) ", netuid);
@@ -147,7 +157,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     ///
     /// * `bool` - Returns true if the Identity is valid, false otherwise.
-    pub fn is_valid_identity(identity: &ChainIdentityOf) -> bool {
+    pub fn is_valid_identity(identity: &ChainIdentityOfV2) -> bool {
         let total_length = identity
             .name
             .len()
@@ -157,9 +167,18 @@ impl<T: Config> Pallet<T> {
             .saturating_add(identity.description.len())
             .saturating_add(identity.additional.len());
 
-        total_length <= 256 + 256 + 1024 + 256 + 1024 + 1024
+        let max_length: usize = 256_usize
+            .saturating_add(256)
+            .saturating_add(256)
+            .saturating_add(1024)
+            .saturating_add(256)
+            .saturating_add(1024)
+            .saturating_add(1024);
+
+        total_length <= max_length
             && identity.name.len() <= 256
             && identity.url.len() <= 256
+            && identity.github_repo.len() <= 256
             && identity.image.len() <= 1024
             && identity.discord.len() <= 256
             && identity.description.len() <= 1024
@@ -179,16 +198,28 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     ///
     /// * `bool` - Returns true if the SubnetIdentity is valid, false otherwise.
-    pub fn is_valid_subnet_identity(identity: &SubnetIdentityOf) -> bool {
+    pub fn is_valid_subnet_identity(identity: &SubnetIdentityOfV2) -> bool {
         let total_length = identity
             .subnet_name
             .len()
             .saturating_add(identity.github_repo.len())
             .saturating_add(identity.subnet_contact.len());
 
-        total_length <= 256 + 1024 + 1024
+        let max_length: usize = 256_usize
+            .saturating_add(1024)
+            .saturating_add(1024)
+            .saturating_add(1024)
+            .saturating_add(256)
+            .saturating_add(1024)
+            .saturating_add(1024);
+
+        total_length <= max_length
             && identity.subnet_name.len() <= 256
             && identity.github_repo.len() <= 1024
             && identity.subnet_contact.len() <= 1024
+            && identity.subnet_url.len() <= 1024
+            && identity.discord.len() <= 256
+            && identity.description.len() <= 1024
+            && identity.additional.len() <= 1024
     }
 }

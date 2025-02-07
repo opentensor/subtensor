@@ -554,7 +554,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the minimum burn for a subnet.
-        /// It is only callable by the root account or subnet owner.
+        /// It is only callable by the root account.
         /// The extrinsic will call the Subtensor pallet to set the minimum burn.
         #[pallet::call_index(22)]
         #[pallet::weight(<T as Config>::WeightInfo::sudo_set_min_burn())]
@@ -563,7 +563,7 @@ pub mod pallet {
             netuid: u16,
             min_burn: u64,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            ensure_root(origin)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -681,6 +681,31 @@ pub mod pallet {
                 "BondsMovingAverageSet( netuid: {:?} bonds_moving_average: {:?} ) ",
                 netuid,
                 bonds_moving_average
+            );
+            Ok(())
+        }
+
+        /// The extrinsic sets the bonds penalty for a subnet.
+        /// It is only callable by the root account or subnet owner.
+        /// The extrinsic will call the Subtensor pallet to set the bonds penalty.
+        #[pallet::call_index(60)]
+        #[pallet::weight(<T as Config>::WeightInfo::sudo_set_bonds_penalty())]
+        pub fn sudo_set_bonds_penalty(
+            origin: OriginFor<T>,
+            netuid: u16,
+            bonds_penalty: u16,
+        ) -> DispatchResult {
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+            pallet_subtensor::Pallet::<T>::set_bonds_penalty(netuid, bonds_penalty);
+            log::debug!(
+                "BondsPenalty( netuid: {:?} bonds_penalty: {:?} ) ",
+                netuid,
+                bonds_penalty
             );
             Ok(())
         }
@@ -958,25 +983,25 @@ pub mod pallet {
             Ok(())
         }
 
-        /// The extrinsic sets the target stake per interval.
-        /// It is only callable by the root account.
-        /// The extrinsic will call the Subtensor pallet to set target stake per interval.
-        #[pallet::call_index(47)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_target_stakes_per_interval(
-            origin: OriginFor<T>,
-            target_stakes_per_interval: u64,
-        ) -> DispatchResult {
-            ensure_root(origin)?;
-            pallet_subtensor::Pallet::<T>::set_target_stakes_per_interval(
-                target_stakes_per_interval,
-            );
-            log::debug!(
-                "TxTargetStakesPerIntervalSet( set_target_stakes_per_interval: {:?} ) ",
-                target_stakes_per_interval
-            );
-            Ok(())
-        }
+        // The extrinsic sets the target stake per interval.
+        // It is only callable by the root account.
+        // The extrinsic will call the Subtensor pallet to set target stake per interval.
+        // #[pallet::call_index(47)]
+        // #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        // pub fn sudo_set_target_stakes_per_interval(
+        //     origin: OriginFor<T>,
+        //     target_stakes_per_interval: u64,
+        // ) -> DispatchResult {
+        //     ensure_root(origin)?;
+        //     pallet_subtensor::Pallet::<T>::set_target_stakes_per_interval(
+        //         target_stakes_per_interval,
+        //     );
+        //     log::debug!(
+        //         "TxTargetStakesPerIntervalSet( set_target_stakes_per_interval: {:?} ) ",
+        //         target_stakes_per_interval
+        //     ); (DEPRECATED)
+        //     Ok(())
+        // } (DEPRECATED)
 
         /// The extrinsic enabled/disables commit/reaveal for a given subnet.
         /// It is only callable by the root account or subnet owner.
@@ -1041,35 +1066,21 @@ pub mod pallet {
             )
         }
 
-        /// Sets the hotkey emission tempo.
-        ///
-        /// This extrinsic allows the root account to set the hotkey emission tempo, which determines
-        /// the number of blocks before a hotkey drains accumulated emissions through to nominator staking accounts.
-        ///
-        /// # Arguments
-        /// * `origin` - The origin of the call, which must be the root account.
-        /// * `emission_tempo` - The new emission tempo value to set.
-        ///
-        /// # Emits
-        /// * `Event::HotkeyEmissionTempoSet` - When the hotkey emission tempo is successfully set.
-        ///
-        /// # Errors
-        /// * `DispatchError::BadOrigin` - If the origin is not the root account.
-        // #[pallet::weight(<T as Config>::WeightInfo::sudo_set_hotkey_emission_tempo())]
-        #[pallet::call_index(52)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_hotkey_emission_tempo(
-            origin: OriginFor<T>,
-            emission_tempo: u64,
-        ) -> DispatchResult {
-            ensure_root(origin)?;
-            pallet_subtensor::Pallet::<T>::set_hotkey_emission_tempo(emission_tempo);
-            log::debug!(
-                "HotkeyEmissionTempoSet( emission_tempo: {:?} )",
-                emission_tempo
-            );
-            Ok(())
-        }
+        // DEPRECATED
+        // #[pallet::call_index(52)]
+        // #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        // pub fn sudo_set_hotkey_emission_tempo(
+        //     origin: OriginFor<T>,
+        //     emission_tempo: u64,
+        // ) -> DispatchResult {
+        //     ensure_root(origin)?;
+        //     pallet_subtensor::Pallet::<T>::set_hotkey_emission_tempo(emission_tempo);
+        //     log::debug!(
+        //         "HotkeyEmissionTempoSet( emission_tempo: {:?} )",
+        //         emission_tempo
+        //     );
+        //     Ok(())
+        // }
 
         /// Sets the maximum stake allowed for a specific network.
         ///
@@ -1275,6 +1286,26 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
             T::Grandpa::schedule_change(next_authorities, in_blocks, forced)
+        }
+
+        /// Enables or disables Liquid Alpha for a given subnet.
+        ///
+        /// # Parameters
+        /// - `origin`: The origin of the call, which must be the root account or subnet owner.
+        /// - `netuid`: The unique identifier for the subnet.
+        /// - `enabled`: A boolean flag to enable or disable Liquid Alpha.
+        ///
+        /// # Weight
+        /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
+        #[pallet::call_index(61)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_toggle_transfer(
+            origin: OriginFor<T>,
+            netuid: u16,
+            toggle: bool,
+        ) -> DispatchResult {
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            pallet_subtensor::Pallet::<T>::toggle_transfer(netuid, toggle)
         }
     }
 }

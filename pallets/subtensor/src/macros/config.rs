@@ -93,6 +93,9 @@ mod config {
         /// Initial bonds moving average.
         #[pallet::constant]
         type InitialBondsMovingAverage: Get<u64>;
+        /// Initial bonds penalty.
+        #[pallet::constant]
+        type InitialBondsPenalty: Get<u16>;
         /// Initial target registrations per interval.
         #[pallet::constant]
         type InitialTargetRegistrationsPerInterval: Get<u16>;
@@ -183,9 +186,6 @@ mod config {
         /// Initial network creation rate limit
         #[pallet::constant]
         type InitialNetworkRateLimit: Get<u64>;
-        /// Initial target stakes per interval issuance.
-        #[pallet::constant]
-        type InitialTargetStakesPerInterval: Get<u64>;
         /// Cost of swapping a hotkey.
         #[pallet::constant]
         type KeySwapCost: Get<u64>;
@@ -201,14 +201,17 @@ mod config {
         /// Initial network max stake.
         #[pallet::constant]
         type InitialNetworkMaxStake: Get<u64>;
-        /// Initial hotkey emission tempo.
-        #[pallet::constant]
-        type InitialHotkeyEmissionTempo: Get<u64>;
+        // /// Initial hotkey emission tempo.
+        // #[pallet::constant]
+        // type InitialHotkeyEmissionTempo: Get<u64>;
         /// Coldkey swap schedule duartion.
         #[pallet::constant]
         type InitialColdkeySwapScheduleDuration: Get<BlockNumberFor<Self>>;
         /// Dissolve network schedule duration
         #[pallet::constant]
         type InitialDissolveNetworkScheduleDuration: Get<BlockNumberFor<Self>>;
+        /// Initial TAO weight.
+        #[pallet::constant]
+        type InitialTaoWeight: Get<u64>;
     }
 }

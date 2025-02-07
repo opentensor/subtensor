@@ -4,6 +4,7 @@ use sp_core::U256;
 
 use super::mock::*;
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::difficulty::test_registration_difficulty_adjustment --exact --show-output --nocapture
 #[test]
 fn test_registration_difficulty_adjustment() {
     new_test_ext(1).execute_with(|| {
@@ -12,6 +13,10 @@ fn test_registration_difficulty_adjustment() {
         let tempo: u16 = 1;
         let modality: u16 = 1;
         add_network(netuid, tempo, modality);
+
+        // owners are not deregistered
+        crate::SubnetOwner::<Test>::insert(netuid, U256::from(99999));
+
         SubtensorModule::set_min_difficulty(netuid, 10000);
         assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 10000); // Check initial difficulty.
         assert_eq!(SubtensorModule::get_last_adjustment_block(netuid), 0); // Last adjustment block starts at 0.
