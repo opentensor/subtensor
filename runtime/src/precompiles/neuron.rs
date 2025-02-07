@@ -4,7 +4,7 @@ use pallet_evm::{
 };
 
 use crate::precompiles::{
-    get_method_id, get_pubkey, get_slice, parse_netuid, try_dispatch_runtime_call,
+    get_method_id, get_pubkey, get_single_u8, get_slice, parse_netuid, try_dispatch_runtime_call,
 };
 use crate::{Runtime, RuntimeCall};
 use frame_system::RawOrigin;
@@ -59,6 +59,23 @@ impl NeuronPrecompile {
 
             id if id == get_method_id("burnedRegister(uint16,bytes32)") => {
                 Self::burned_register(handle, &method_input)
+            }
+            id if id
+                == get_method_id(
+                    "serveAxon(uint16,uint32,uint128,uint16,uint8,uint8,uint8,uint8)",
+                ) =>
+            {
+                Self::serve_axon(handle, &method_input)
+            }
+            id if id
+                == get_method_id(
+                    "serveAxonTls(uint16,uint32,uint128,uint16,uint8,uint8,uint8,uint8,bytes)",
+                ) =>
+            {
+                Self::serve_axon_tls(handle, &method_input)
+            }
+            id if id == get_method_id("servePrometheus(uint16,uint32,uint128,uint16,uint8)") => {
+                Self::serve_prometheus(handle, &method_input)
             }
 
             _ => Err(PrecompileFailure::Error {
@@ -123,11 +140,74 @@ impl NeuronPrecompile {
                 netuid,
                 hotkey,
             });
-
         let account_id =
             <HashedAddressMapping<BlakeTwo256> as AddressMapping<AccountId32>>::into_account_id(
                 handle.context().caller,
             );
+
+        try_dispatch_runtime_call(handle, call, RawOrigin::Signed(account_id))
+    }
+
+    pub fn serve_axon(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
+        let (netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2) =
+            Self::parse_serve_axon_parameters(data)?;
+        let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::<Runtime>::serve_axon {
+            netuid,
+            version,
+            ip,
+            port,
+            ip_type,
+            protocol,
+            placeholder1,
+            placeholder2,
+        });
+        let account_id =
+            <HashedAddressMapping<BlakeTwo256> as AddressMapping<AccountId32>>::into_account_id(
+                handle.context().caller,
+            );
+
+        try_dispatch_runtime_call(handle, call, RawOrigin::Signed(account_id))
+    }
+
+    pub fn serve_axon_tls(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
+        let (netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2, certificate) =
+            Self::parse_serve_axon_tls_parameters(data)?;
+        let call =
+            RuntimeCall::SubtensorModule(pallet_subtensor::Call::<Runtime>::serve_axon_tls {
+                netuid,
+                version,
+                ip,
+                port,
+                ip_type,
+                protocol,
+                placeholder1,
+                placeholder2,
+                certificate,
+            });
+        let account_id =
+            <HashedAddressMapping<BlakeTwo256> as AddressMapping<AccountId32>>::into_account_id(
+                handle.context().caller,
+            );
+
+        try_dispatch_runtime_call(handle, call, RawOrigin::Signed(account_id))
+    }
+
+    pub fn serve_prometheus(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
+        let (netuid, version, ip, port, ip_type) = Self::parse_serve_prometheus_parameters(data)?;
+        let call =
+            RuntimeCall::SubtensorModule(pallet_subtensor::Call::<Runtime>::serve_prometheus {
+                netuid,
+                version,
+                ip,
+                port,
+                ip_type,
+            });
+        let account_id =
+            <HashedAddressMapping<BlakeTwo256> as AddressMapping<AccountId32>>::into_account_id(
+                handle.context().caller,
+            );
+
+        // Dispatch the register_network call
         try_dispatch_runtime_call(handle, call, RawOrigin::Signed(account_id))
     }
 
@@ -411,5 +491,139 @@ impl NeuronPrecompile {
         }
 
         Ok((netuid, uids, values, salt, version_key))
+    }
+
+    fn parse_serve_axon_parameters(
+        data: &[u8],
+    ) -> Result<(u16, u32, u128, u16, u8, u8, u8, u8), PrecompileFailure> {
+        if data.len() < 256 {
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+
+        let netuid = parse_netuid(data, 30)?;
+
+        let mut version_vec = [0u8; 4];
+        version_vec.copy_from_slice(get_slice(data, 60, 64)?);
+        let version = u32::from_be_bytes(version_vec);
+
+        let mut ip_vec = [0u8; 16];
+        ip_vec.copy_from_slice(get_slice(data, 80, 96)?);
+        let ip = u128::from_be_bytes(ip_vec);
+
+        let mut port_vec = [0u8; 2];
+        port_vec.copy_from_slice(get_slice(data, 126, 128)?);
+        let port = u16::from_be_bytes(port_vec);
+
+        let ip_type = get_single_u8(data, 159)?;
+        let protocol = get_single_u8(data, 191)?;
+        let placeholder1 = get_single_u8(data, 223)?;
+        let placeholder2 = get_single_u8(data, 255)?;
+        Ok((
+            netuid,
+            version,
+            ip,
+            port,
+            ip_type,
+            protocol,
+            placeholder1,
+            placeholder2,
+        ))
+    }
+
+    fn parse_serve_axon_tls_parameters(
+        data: &[u8],
+    ) -> Result<(u16, u32, u128, u16, u8, u8, u8, u8, vec::Vec<u8>), PrecompileFailure> {
+        let data_len = data.len();
+        if data_len < 288 {
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+
+        let netuid = parse_netuid(data, 30)?;
+
+        let mut version_vec = [0u8; 4];
+        version_vec.copy_from_slice(get_slice(data, 60, 64)?);
+        let version = u32::from_be_bytes(version_vec);
+
+        let mut ip_vec = [0u8; 16];
+        ip_vec.copy_from_slice(get_slice(data, 80, 96)?);
+        let ip = u128::from_be_bytes(ip_vec);
+
+        let mut port_vec = [0u8; 2];
+        port_vec.copy_from_slice(get_slice(data, 126, 128)?);
+        let port = u16::from_be_bytes(port_vec);
+
+        let ip_type = get_single_u8(data, 159)?;
+        let protocol = get_single_u8(data, 191)?;
+        let placeholder1 = get_single_u8(data, 223)?;
+        let placeholder2 = get_single_u8(data, 255)?;
+
+        let mut len_position_vec = [0u8; 2];
+        len_position_vec.copy_from_slice(get_slice(data, 286, 288)?);
+        let len_position = u16::from_be_bytes(len_position_vec) as usize;
+
+        if len_position > data_len {
+            log::error!(
+                "the start position of certificate as {} is bigger than whole data len {}",
+                len_position,
+                data_len
+            );
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+
+        let mut len_vec = [0u8; 2];
+        len_vec.copy_from_slice(get_slice(data, len_position + 30, len_position + 32)?);
+        let vec_len = u16::from_be_bytes(len_vec) as usize;
+
+        let vec_result = get_slice(
+            data,
+            len_position + 32,
+            len_position.saturating_add(32).saturating_add(vec_len),
+        )?
+        .to_vec();
+
+        Ok((
+            netuid,
+            version,
+            ip,
+            port,
+            ip_type,
+            protocol,
+            placeholder1,
+            placeholder2,
+            vec_result,
+        ))
+    }
+
+    fn parse_serve_prometheus_parameters(
+        data: &[u8],
+    ) -> Result<(u16, u32, u128, u16, u8), PrecompileFailure> {
+        if data.len() < 160 {
+            return Err(PrecompileFailure::Error {
+                exit_status: ExitError::InvalidRange,
+            });
+        }
+
+        let netuid = parse_netuid(data, 30)?;
+
+        let mut version_vec = [0u8; 4];
+        version_vec.copy_from_slice(get_slice(data, 60, 64)?);
+        let version = u32::from_be_bytes(version_vec);
+
+        let mut ip_vec = [0u8; 16];
+        ip_vec.copy_from_slice(get_slice(data, 80, 96)?);
+        let ip = u128::from_be_bytes(ip_vec);
+
+        let mut port_vec = [0u8; 2];
+        port_vec.copy_from_slice(get_slice(data, 126, 128)?);
+        let port = u16::from_be_bytes(port_vec);
+
+        let ip_type = get_single_u8(data, 159)?;
+        Ok((netuid, version, ip, port, ip_type))
     }
 }
