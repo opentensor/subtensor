@@ -338,14 +338,17 @@ impl<T: Config> Pallet<T> {
         }
         log::debug!("alpha_dividends: {:?}", alpha_dividends);
         log::debug!("root_dividends: {:?}", root_dividends);
+        log::debug!("total_root_divs: {:?}", total_root_divs);
 
         // Compute root divs as TAO. Here we take
         let mut tao_dividends: BTreeMap<T::AccountId, I96F32> = BTreeMap::new();
         for (hotkey, root_divs) in root_dividends {
             // Root proportion.
             let root_share: I96F32 = root_divs.checked_div(total_root_divs).unwrap_or(zero);
+            log::debug!("hotkey: {:?}, root_share: {:?}", hotkey, root_share);
             // Root proportion in TAO
             let root_tao: I96F32 = asfloat!(pending_tao).saturating_mul(root_share);
+            log::debug!("hotkey: {:?}, root_tao: {:?}", hotkey, root_tao);
             // Record root dividends as TAO.
             tao_dividends
                 .entry(hotkey)
@@ -583,10 +586,18 @@ impl<T: Config> Pallet<T> {
                 (remaining_emission.saturating_mul(emission_factor)).saturating_to_num::<u64>();
 
             // Add the parent's emission to the distribution list
-            dividend_tuples.push((parent, parent_emission));
+            dividend_tuples.push((parent.clone(), parent_emission));
 
             // Keep track of total emission distributed to parents
             to_parents = to_parents.saturating_add(parent_emission);
+            log::debug!(
+                "Parent contribution for parent {:?} with contribution: {:?}, of total: {:?} of emission: {:?} gets: {:?}",
+                parent,
+                contribution,
+                total_contribution,
+                remaining_emission,
+                parent_emission
+            );
         }
         // Calculate the final emission for the hotkey itself.
         // This includes the take left from the parents and the self contribution.
