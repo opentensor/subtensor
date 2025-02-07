@@ -183,7 +183,7 @@ impl<T: Config> Pallet<T> {
             pending_alpha_emission: PendingEmission::<T>::get(netuid).into(), // pending alpha to be distributed
             pending_root_emission: PendingRootDivs::<T>::get(netuid).into(), // panding tao for root divs to be distributed
             subnet_volume: subnet_volume.into(),
-            moving_price: SubnetMovingPrice::<T>::get(netuid).into(),
+            moving_price: SubnetMovingPrice::<T>::get(netuid),
 
             // Hparams for epoch
             rho: Self::get_rho(netuid).into(), // subnet rho param
