@@ -1155,3 +1155,10 @@ fn test_get_root_children_drain_with_half_take() {
  
     });
 }
+
+
+
+
+yuma --> hotkey --> dividends 
+
+dividends --> take --> parents (including myself)
