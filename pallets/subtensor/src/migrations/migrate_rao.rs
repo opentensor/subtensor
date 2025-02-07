@@ -62,9 +62,9 @@ pub fn migrate_rao<T: Config>() -> Weight {
     // Convert subnets and give them lock.
     // Set global weight to 18% from the start
     // Set min lock
-    NetworkMinLockCost::<T>::set( 1_000_000_000 );
+    NetworkMinLockCost::<T>::set(1_000_000_000);
     // Set tao weight.
-    TaoWeight::<T>::set( 3_320_413_933_267_719_290 );
+    TaoWeight::<T>::set(3_320_413_933_267_719_290);
 
     for netuid in netuids.iter().clone() {
         if *netuid == 0 {
