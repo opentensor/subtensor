@@ -337,11 +337,6 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
-    /// Default value for max tempo
-    pub fn DefaultMaxTempo<T: Config>() -> u16 {
-        30 // 1 hour.
-    }
-    #[pallet::type_value]
     /// Default value for global weight.
     pub fn DefaultTaoWeight<T: Config>() -> u64 {
         T::InitialTaoWeight::get()
@@ -753,14 +748,12 @@ pub mod pallet {
 
     #[pallet::type_value]
     /// Default minimum stake.
-    /// 500k rao matches $0.25 at $500/TAO
     pub fn DefaultMinStake<T: Config>() -> u64 {
         500_000
     }
 
     #[pallet::type_value]
     /// Default staking fee.
-    /// 500k rao matches $0.25 at $500/TAO
     pub fn DefaultStakingFee<T: Config>() -> u64 {
         50_000
     }
@@ -1127,10 +1120,6 @@ pub mod pallet {
     /// =================
     /// ==== Tempos =====
     /// =================
-    #[pallet::storage] // --- ITEM( max_tempo )
-    pub type AvgTempo<T> = StorageValue<_, u16, ValueQuery, DefaultTempo<T>>;
-    #[pallet::storage] // --- ITEM( max_tempo )
-    pub type MaxTempo<T> = StorageValue<_, u16, ValueQuery, DefaultMaxTempo<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> tempo
     pub type Tempo<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultTempo<T>>;
 
