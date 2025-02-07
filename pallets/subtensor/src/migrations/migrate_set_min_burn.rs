@@ -6,7 +6,7 @@ use frame_support::{traits::Get, weights::Weight};
 use super::*;
 
 pub fn migrate_set_min_burn<T: Config>() -> Weight {
-    let migration_name = b"migrate_set_min_burn".to_vec();
+    let migration_name = b"migrate_set_min_burn_1".to_vec();
 
     // Initialize the weight with one read operation.
     let mut weight = T::DbWeight::get().reads(1);

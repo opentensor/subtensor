@@ -1031,7 +1031,7 @@ parameter_types! {
     pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX / 4;
     pub const SubtensorInitialServingRateLimit: u64 = 50;
     pub const SubtensorInitialBurn: u64 = 1_000_000_000; // 1 tao
-    pub const SubtensorInitialMinBurn: u64 = 1_000_000_000; // 1 tao
+    pub const SubtensorInitialMinBurn: u64 = 500_000; // 500k RAO
     pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
     pub const SubtensorInitialTxDelegateTakeRateLimit: u64 = 216000; // 30 days at 12 seconds per block
