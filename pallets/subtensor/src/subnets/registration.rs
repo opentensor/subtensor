@@ -425,6 +425,14 @@ impl<T: Config> Pallet<T> {
         }
 
         for neuron_uid in 0..neurons_n {
+            // Do not deregister the owner
+            if let Ok(hotkey) = Self::get_hotkey_for_net_and_uid(netuid, neuron_uid) {
+                let coldkey = Self::get_owning_coldkey_for_hotkey(&hotkey);
+                if Self::get_subnet_owner(netuid) == coldkey {
+                    continue;
+                }
+            }
+
             let pruning_score: u16 = Self::get_pruning_score_for_uid(netuid, neuron_uid);
             let block_at_registration: u64 =
                 Self::get_neuron_block_at_registration(netuid, neuron_uid);

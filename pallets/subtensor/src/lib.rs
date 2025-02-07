@@ -189,10 +189,10 @@ pub mod pallet {
         pub ip_type: u8,
     }
 
-    ///  Struct for ChainIdentities.
+    ///  Struct for ChainIdentities. (DEPRECATED for V2)
     pub type ChainIdentityOf = ChainIdentity;
 
-    /// Data structure for Chain Identities.
+    /// Data structure for Chain Identities. (DEPRECATED for V2)
     #[crate::freeze_struct("bbfd00438dbe2b58")]
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct ChainIdentity {
@@ -210,9 +210,32 @@ pub mod pallet {
         pub additional: Vec<u8>,
     }
 
-    ///  Struct for SubnetIdentities.
+    ///  Struct for ChainIdentities.
+    pub type ChainIdentityOfV2 = ChainIdentityV2;
+
+    /// Data structure for Chain Identities.
+    #[crate::freeze_struct("ad72a270be7b59d7")]
+    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    pub struct ChainIdentityV2 {
+        /// The name of the chain identity
+        pub name: Vec<u8>,
+        /// The URL associated with the chain identity
+        pub url: Vec<u8>,
+        /// The github repository associated with the identity
+        pub github_repo: Vec<u8>,
+        /// The image representation of the chain identity
+        pub image: Vec<u8>,
+        /// The Discord information for the chain identity
+        pub discord: Vec<u8>,
+        /// A description of the chain identity
+        pub description: Vec<u8>,
+        /// Additional information about the chain identity
+        pub additional: Vec<u8>,
+    }
+
+    ///  Struct for SubnetIdentities. (DEPRECATED for V2)
     pub type SubnetIdentityOf = SubnetIdentity;
-    /// Data structure for Subnet Identities
+    /// Data structure for Subnet Identities. (DEPRECATED for V2)
     #[crate::freeze_struct("f448dc3dad763108")]
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct SubnetIdentity {
@@ -222,6 +245,28 @@ pub mod pallet {
         pub github_repo: Vec<u8>,
         /// The subnet's contact
         pub subnet_contact: Vec<u8>,
+    }
+
+    ///  Struct for SubnetIdentitiesV2.
+    pub type SubnetIdentityOfV2 = SubnetIdentityV2;
+    /// Data structure for Subnet Identities
+    #[crate::freeze_struct("e002be4cd05d7b3e")]
+    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    pub struct SubnetIdentityV2 {
+        /// The name of the subnet
+        pub subnet_name: Vec<u8>,
+        /// The github repository associated with the subnet
+        pub github_repo: Vec<u8>,
+        /// The subnet's contact
+        pub subnet_contact: Vec<u8>,
+        /// The subnet's website
+        pub subnet_url: Vec<u8>,
+        /// The subnet's discord
+        pub discord: Vec<u8>,
+        /// The subnet's description
+        pub description: Vec<u8>,
+        /// Additional information about the subnet
+        pub additional: Vec<u8>,
     }
     /// ============================
     /// ==== Staking + Accounts ====
@@ -703,7 +748,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for applying pending items (e.g. childkeys).
     pub fn DefaultPendingCooldown<T: Config>() -> u64 {
-        7200
+        1
     }
 
     #[pallet::type_value]
@@ -717,7 +762,7 @@ pub mod pallet {
     /// Default staking fee.
     /// 500k rao matches $0.25 at $500/TAO
     pub fn DefaultStakingFee<T: Config>() -> u64 {
-        500_000
+        50_000
     }
 
     #[pallet::type_value]
@@ -732,6 +777,18 @@ pub mod pallet {
         T::InitialDissolveNetworkScheduleDuration::get()
     }
 
+    #[pallet::type_value]
+    /// Default moving alpha for the moving price.
+    pub fn DefaultMovingAlpha<T: Config>() -> I96F32 {
+        // Moving average take 30 days to reach 50% of the price
+        // and 3.5 months to reach 90%.
+        I96F32::saturating_from_num(0.000003)
+    }
+    #[pallet::type_value]
+    /// Default subnet moving price.
+    pub fn DefaultMovingPrice<T: Config>() -> I96F32 {
+        I96F32::saturating_from_num(0.0)
+    }
     #[pallet::type_value]
     /// Default value for Share Pool variables
     pub fn DefaultSharePoolZero<T: Config>() -> U64F64 {
@@ -910,6 +967,11 @@ pub mod pallet {
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
     #[pallet::storage] // --- ITEM ( dynamic_block ) -- block when dynamic was turned on.
     pub type DynamicBlock<T> = StorageValue<_, u64, ValueQuery>;
+    #[pallet::storage] // --- ITEM ( moving_alpha ) -- subnet moving alpha.
+    pub type SubnetMovingAlpha<T> = StorageValue<_, I96F32, ValueQuery, DefaultMovingAlpha<T>>;
+    #[pallet::storage] // --- MAP ( netuid ) --> moving_price | The subnet moving price.
+    pub type SubnetMovingPrice<T: Config> =
+        StorageMap<_, Identity, u16, I96F32, ValueQuery, DefaultMovingPrice<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> total_volume | The total amount of TAO bought and sold since the start of the network.
     pub type SubnetVolume<T: Config> =
         StorageMap<_, Identity, u16, u128, ValueQuery, DefaultZeroU128<T>>;
@@ -1052,6 +1114,9 @@ pub mod pallet {
     /// ============================
     /// ==== Subnet Locks =====
     /// ============================
+    #[pallet::storage] // --- MAP ( netuid ) --> transfer_toggle
+    pub type TransferToggle<T: Config> =
+        StorageMap<_, Identity, u16, bool, ValueQuery, DefaultTrue<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> total_subnet_locked
     pub type SubnetLocked<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
@@ -1409,13 +1474,21 @@ pub mod pallet {
         PrometheusInfoOf,
         OptionQuery,
     >;
-    #[pallet::storage] // --- MAP ( coldkey ) --> identity
+    #[pallet::storage] // --- MAP ( coldkey ) --> identity. (DEPRECATED for V2)
     pub type Identities<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, ChainIdentityOf, OptionQuery>;
 
-    #[pallet::storage] // --- MAP ( netuid ) --> identity
+    #[pallet::storage] // --- MAP ( coldkey ) --> identity
+    pub type IdentitiesV2<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, ChainIdentityOfV2, OptionQuery>;
+
+    #[pallet::storage] // --- MAP ( netuid ) --> identity. (DEPRECATED for V2)
     pub type SubnetIdentities<T: Config> =
         StorageMap<_, Blake2_128Concat, u16, SubnetIdentityOf, OptionQuery>;
+
+    #[pallet::storage] // --- MAP ( netuid ) --> identityV2
+    pub type SubnetIdentitiesV2<T: Config> =
+        StorageMap<_, Blake2_128Concat, u16, SubnetIdentityOfV2, OptionQuery>;
 
     /// =================================
     /// ==== Axon / Promo Endpoints =====
@@ -1575,6 +1648,7 @@ pub enum CustomTransactionError {
     RateLimitExceeded,
     InsufficientLiquidity,
     SlippageTooHigh,
+    TransferDisallowed,
     BadRequest,
 }
 
@@ -1590,6 +1664,7 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::RateLimitExceeded => 6,
             CustomTransactionError::InsufficientLiquidity => 7,
             CustomTransactionError::SlippageTooHigh => 8,
+            CustomTransactionError::TransferDisallowed => 9,
             CustomTransactionError::BadRequest => 255,
         }
     }
@@ -1663,6 +1738,10 @@ where
                 .into()),
                 Error::<T>::SlippageTooHigh => Err(InvalidTransaction::Custom(
                     CustomTransactionError::SlippageTooHigh.into(),
+                )
+                .into()),
+                Error::<T>::TransferDisallowed => Err(InvalidTransaction::Custom(
+                    CustomTransactionError::TransferDisallowed.into(),
                 )
                 .into()),
                 _ => Err(
@@ -1889,6 +1968,7 @@ where
                     *alpha_amount,
                     *alpha_amount,
                     None,
+                    false,
                 ))
             }
             Some(Call::transfer_stake {
@@ -1909,6 +1989,7 @@ where
                     *alpha_amount,
                     *alpha_amount,
                     None,
+                    true,
                 ))
             }
             Some(Call::swap_stake {
@@ -1928,6 +2009,7 @@ where
                     *alpha_amount,
                     *alpha_amount,
                     None,
+                    false,
                 ))
             }
             Some(Call::swap_stake_limit {
@@ -1956,6 +2038,7 @@ where
                     *alpha_amount,
                     max_amount,
                     Some(*allow_partial),
+                    false,
                 ))
             }
             Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {

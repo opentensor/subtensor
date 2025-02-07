@@ -9,7 +9,11 @@ interface ISubnet {
     function registerNetwork(
         bytes memory subnetName,
         bytes memory githubRepo,
-        bytes memory subnetContact
+        bytes memory subnetContact,
+        bytes memory subnetUrl,
+        bytes memory discord,
+        bytes memory description,
+        bytes memory additional
     ) external payable;
 
     function getServingRateLimit(uint16 netuid) external view returns (uint64);
