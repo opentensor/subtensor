@@ -665,7 +665,7 @@ pub mod pallet {
             proposal_weight_bound: Weight,
             #[pallet::compact] length_bound: u32,
         ) -> DispatchResultWithPostInfo {
-            let _ = ensure_signed(origin)?;
+            ensure_root(origin)?;
 
             Self::do_close(proposal_hash, index, proposal_weight_bound, length_bound)
         }
