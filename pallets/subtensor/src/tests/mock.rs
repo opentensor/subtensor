@@ -727,6 +727,15 @@ pub fn mock_set_children(coldkey: &U256, parent: &U256, netuid: u16, child_vec: 
     wait_and_set_pending_children(netuid);
 }
 
+#[allow(dead_code)]
+pub fn mock_set_children_no_epochs(netuid: u16, parent: &U256, child_vec: &[(u64, U256)]) {
+    let backup_block = SubtensorModule::get_current_block_as_u64();
+    PendingChildKeys::<Test>::insert(netuid, parent, (child_vec, 0));
+    System::set_block_number(1);
+    SubtensorModule::do_set_pending_children(netuid);
+    System::set_block_number(backup_block);
+}
+
 // Helper function to wait for the rate limit
 #[allow(dead_code)]
 pub fn step_rate_limit(transaction_type: &TransactionType, netuid: u16) {
