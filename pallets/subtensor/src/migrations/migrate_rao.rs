@@ -65,7 +65,6 @@ pub fn migrate_rao<T: Config>() -> Weight {
     NetworkMinLockCost::<T>::set( 1_000_000_000 );
     // Set tao weight.
     TaoWeight::<T>::set( 3_320_413_933_267_719_290 );
-
     for netuid in netuids.iter().clone() {
         if *netuid == 0 {
             // Give root a single RAO in pool to avoid any catestrophic division by zero.
