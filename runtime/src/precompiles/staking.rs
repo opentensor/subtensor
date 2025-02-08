@@ -64,6 +64,10 @@ impl StakingPrecompile {
             Self::remove_stake(handle, &method_input)
         } else if method_id == get_method_id("getStake(bytes32,bytes32,uint256)") {
             Self::get_stake(&method_input)
+        } else if method_id == get_method_id("getTotalColdkeyStake(bytes32)") {
+            Self::get_total_coldkey_stake(&method_input)
+        } else if method_id == get_method_id("getTotalHotkeyStake(bytes32)") {
+            Self::get_total_hotkey_stake(&method_input)
         } else if method_id == get_method_id("addProxy(bytes32)") {
             Self::add_proxy(handle, &method_input)
         } else if method_id == get_method_id("removeProxy(bytes32)") {
@@ -127,6 +131,49 @@ impl StakingPrecompile {
             amount_unstaked: amount_sub.unique_saturated_into(),
         });
         try_dispatch_runtime_call(handle, call, RawOrigin::Signed(account_id))
+    }
+
+    fn get_total_coldkey_stake(data: &[u8]) -> PrecompileResult {
+        let( coldkey, _) = get_pubkey(data)?;
+
+        // get total stake of coldkey
+        let total_stake =
+            pallet_subtensor::Pallet::<Runtime>::get_total_stake_for_coldkey(&coldkey);
+        // Convert to EVM decimals
+        let stake_u256 = U256::from(total_stake);
+        let stake_eth =
+            <Runtime as pallet_evm::Config>::BalanceConverter::into_evm_balance(stake_u256)
+                .ok_or(ExitError::InvalidRange)?;
+
+        // Format output
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&stake_eth, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
+    }
+
+    fn get_total_hotkey_stake(data: &[u8]) -> PrecompileResult {
+        let (hotkey, _) = get_pubkey(data)?;
+
+        // get total stake of hotkey
+        let total_stake = pallet_subtensor::Pallet::<Runtime>::get_total_stake_for_hotkey(&hotkey);
+        // Convert to EVM decimals
+        let stake_u256 = U256::from(total_stake);
+        let stake_eth =
+            <Runtime as pallet_evm::Config>::BalanceConverter::into_evm_balance(stake_u256)
+                .ok_or(ExitError::InvalidRange)?;
+
+        // Format output
+        let mut result = [0_u8; 32];
+        U256::to_big_endian(&stake_eth, &mut result);
+
+        Ok(PrecompileOutput {
+            exit_status: ExitSucceed::Returned,
+            output: result.into(),
+        })
     }
 
     fn add_proxy(handle: &mut impl PrecompileHandle, data: &[u8]) -> PrecompileResult {
