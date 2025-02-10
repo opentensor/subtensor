@@ -98,6 +98,7 @@ pallet-commitments = { default-features = false, path = "../pallets/commitments"
 fp-evm = { workspace = true }
 fp-rpc = { workspace = true }
 fp-self-contained = { workspace = true }
+precompile-utils = { workspace = true }
 
 # Frontier FRAME
 pallet-base-fee = { workspace = true }
@@ -191,6 +192,7 @@ std = [
 	"fp-evm/std",
 	"fp-rpc/std",
 	"fp-self-contained/std",
+	"precompile-utils/std",
 	# Frontier FRAME
 	"pallet-base-fee/std",
 	"pallet-dynamic-fee/std",
