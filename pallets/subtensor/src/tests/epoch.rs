@@ -3262,16 +3262,39 @@ fn run_epoch_check_bonds(netuid: u16, sparse: bool, target_bonds: Vec<Vec<u64>>)
         SubtensorModule::epoch_dense(netuid, 1_000_000_000);
     }
     let bonds = SubtensorModule::get_bonds(netuid);
+    let dividends = SubtensorModule::get_dividends(netuid);
 
+    // Check the bonds
     // server 1
     assert_eq!(bonds[0][3], target_bonds[0][0]);
     assert_eq!(bonds[1][3], target_bonds[1][0]);
     assert_eq!(bonds[2][3], target_bonds[2][0]);
-
     // server 2
     assert_eq!(bonds[0][4], target_bonds[0][1]);
     assert_eq!(bonds[1][4], target_bonds[1][1]);
     assert_eq!(bonds[2][4], target_bonds[2][1]);
+
+    // Check the dividends
+    let epsilon = I32F32::from_num(1e-3);
+    for (dividend, target_dividend) in dividends.iter().zip(target_dividends.iter()) {
+        assert_approx_eq(
+            u16_proportion_to_fixed(*dividend),
+            fixed(*target_dividend),
+            epsilon,
+        );
+    }
+}
+
+fn set_yuma_4_weights(netuid: u16, weights: Vec<Vec<u16>>) {
+    for (uid, weight) in weights.iter().enumerate() {
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(U256::from(uid as u64)),
+            netuid,
+            vec![3, 4],
+            weight.to_vec(),
+            0
+        ));
+    }
 }
 
 #[test]
