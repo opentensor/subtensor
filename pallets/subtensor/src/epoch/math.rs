@@ -1238,15 +1238,20 @@ pub fn mat_vec_mul(matrix: &[Vec<I32F32>], vector: &[I32F32]) -> Vec<Vec<I32F32>
 }
 
 // Element-wise product of matrix and vector
+#[allow(dead_code, clippy::indexing_slicing)]
 pub fn mat_vec_mul_sparse(
     matrix: &[Vec<(u16, I32F32)>],
     vector: &[I32F32],
 ) -> Vec<Vec<(u16, I32F32)>> {
-    let rows = matrix.len();
-    let mut result: Vec<Vec<(u16, I32F32)>> = vec![vec![]; rows];
-    for i in 0..rows {
-        for (j, value) in matrix[i].iter() {
-            result[i].push((*j, value.saturating_mul(vector[*j as usize])));
+    let mut result: Vec<Vec<(u16, I32F32)>> = vec![vec![]; matrix.len()];
+    for (i, matrix_row) in matrix.iter().enumerate() {
+        for (j, value) in matrix_row.iter() {
+            if let Some(vector_value) = vector.get(*j as usize) {
+                let new_value = value.saturating_mul(*vector_value);
+                if new_value != I32F32::saturating_from_num(0.0) {
+                    result[i].push((*j, new_value));
+                }
+            }
         }
     }
     result
@@ -1367,7 +1372,7 @@ pub fn mat_ema_alpha_vec_sparse(
                     .max(I32F32::from_num(0.0));
 
                 // Ensure that purchase does not exceed remaining capacity
-                let purchase = purchase_increment.clone().min(remaining_capacity);
+                let purchase = (*purchase_increment).min(remaining_capacity);
 
                 *purchase_increment = decayed_val
                     .saturating_add(purchase)

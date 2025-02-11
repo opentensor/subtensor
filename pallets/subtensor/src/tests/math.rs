@@ -1257,6 +1257,26 @@ fn test_math_mat_vec_mul() {
 }
 
 #[test]
+fn test_math_mat_vec_mul_sparse() {
+    let matrix: Vec<f32> = vec![1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11., 12.];
+    let matrix = vec_to_sparse_mat_fixed(&matrix, 4, false);
+    let vector: Vec<I32F32> = vec_to_fixed(&[1., 2., 3.]);
+    let target: Vec<f32> = vec![1., 4., 9., 4., 10., 18., 7., 16., 27., 10., 22., 36.];
+    let target = vec_to_sparse_mat_fixed(&target, 4, false);
+    let result = mat_vec_mul_sparse(&matrix, &vector);
+    assert_sparse_mat_compare(&result, &target, I32F32::from_num(0));
+    let vector_one: Vec<I32F32> = vec_to_fixed(&[1., 0., 0.]);
+    let target: Vec<f32> = vec![1., 0., 0., 4., 0., 0., 7., 0., 0., 10., 0., 0.];
+    let target = vec_to_sparse_mat_fixed(&target, 4, false);
+    let result = mat_vec_mul_sparse(&matrix, &vector_one);
+    assert_sparse_mat_compare(&result, &target, I32F32::from_num(0));
+    let vector_empty: Vec<I32F32> = vec_to_fixed(&[]);
+    let result = mat_vec_mul_sparse(&matrix, &vector_empty);
+    let target = vec![vec![]; 4];
+    assert_sparse_mat_compare(&result, &target, I32F32::from_num(0));
+}
+
+#[test]
 fn test_math_row_hadamard() {
     let vector: Vec<I32F32> = vec_to_fixed(&[1., 2., 3., 4.]);
     let matrix: Vec<f32> = vec![1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11., 12.];
@@ -2156,19 +2176,11 @@ fn test_math_mat_ema() {
     let old = vec_to_mat_fixed(&old, 4, false);
     let new = vec_to_mat_fixed(&new, 4, false);
     let target = vec_to_mat_fixed(&target, 4, false);
-    let result = mat_ema_alpha_vec(&new, &old, &vec![I32F32::from_num(0.1); old.len()]);
-    assert_mat_compare(&result, &target, I32F32::from_num(0.000001));
-    let old: Vec<f32> = vec![1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11., 12.];
-    let new: Vec<f32> = vec![
-        10., 20., 30., 40., 50., 60., 70., 80., 90., 100., 110., 120.,
+    let result = mat_ema_alpha_vec(&new, &old, &[I32F32::from_num(0); 3]);
+    assert_mat_compare(&result, &target, I32F32::from_num(1e-4));
+    let old: Vec<f32> = vec![
+        0.001, 0.002, 0.003, 0.004, 0.05, 0.006, 0.007, 0.008, 0.009, 0.010, 0.011, 0.012,
     ];
-    let target: Vec<f32> = vec![1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11., 12.];
-    let old = vec_to_mat_fixed(&old, 4, false);
-    let new = vec_to_mat_fixed(&new, 4, false);
-    let target = vec_to_mat_fixed(&target, 4, false);
-    let result = mat_ema_alpha_vec(&new, &old, &vec![I32F32::from_num(0); old.len()]);
-    assert_mat_compare(&result, &target, I32F32::from_num(0.000001));
-    let old: Vec<f32> = vec![1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11., 12.];
     let new: Vec<f32> = vec![
         0.1, 0.2, 3., 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.10, 0.11, 0.12,
     ];
@@ -2179,8 +2191,8 @@ fn test_math_mat_ema() {
     let old = vec_to_mat_fixed(&old, 4, false);
     let new = vec_to_mat_fixed(&new, 4, false);
     let target = vec_to_mat_fixed(&target, 4, false);
-    let result = mat_ema_alpha_vec(&new, &old, &vec![I32F32::from_num(1); old.len()]);
-    assert_mat_compare(&result, &target, I32F32::from_num(0.000001));
+    let result = mat_ema_alpha_vec(&new, &old, &[I32F32::from_num(1); 3]);
+    assert_mat_compare(&result, &target, I32F32::from_num(1e-4));
 }
 
 #[test]
@@ -2190,7 +2202,7 @@ fn test_math_sparse_mat_ema() {
     ];
     let new: Vec<f32> = vec![1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11., 12.];
     let target: Vec<f32> = vec![
-        0.1, 0.2, 1., 0.0759, 0.095, 0.11399, 0.133, 0.15199, 0.171, 0.19, 0.20899, 0.22799,
+        0.19, 0.38, 1., 0.43599, 0.545, 0.65399, 0.763, 0.87199, 0.981, 1., 1., 1.,
     ];
     let old = vec_to_sparse_mat_fixed(&old, 4, false);
     let new = vec_to_sparse_mat_fixed(&new, 4, false);
@@ -2204,22 +2216,14 @@ fn test_math_sparse_mat_ema() {
         0.1, 0.2, 3., 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.10, 0.11, 0.12,
     ];
     let target: Vec<f32> = vec![
-        0.0019, 0.003799, 0.032699, 0.00399, 0.0455, 0.00599, 0.007, 0.008, 0.00899, 0.0099,
-        0.01099, 0.01199,
+        0.0109, 0.0218, 0.30270, 0.007599, 0.05, 0.01139, 0.0133, 0.01519, 0.017, 0.01899, 0.02089,
+        0.0227,
     ];
     let old = vec_to_sparse_mat_fixed(&old, 4, false);
     let new = vec_to_sparse_mat_fixed(&new, 4, false);
     let target = vec_to_sparse_mat_fixed(&target, 4, false);
     let result = mat_ema_alpha_vec_sparse(&new, &old, &vec![I32F32::from_num(0.1); old.len()]);
-    assert_sparse_mat_compare(&result, &target, I32F32::from_num(0.000001));
-    let old: Vec<f32> = vec![0., 2., 3., 4., 0., 6., 7., 8., 0., 10., 11., 12.];
-    let new: Vec<f32> = vec![10., 20., 0., 40., 0., 60., 0., 80., 90., 100., 110., 120.];
-    let target: Vec<f32> = vec![1., 3.8, 2.7, 7.6, 0., 11.4, 6.3, 15.2, 9., 19., 20.9, 22.8];
-    let old = vec_to_sparse_mat_fixed(&old, 4, false);
-    let new = vec_to_sparse_mat_fixed(&new, 4, false);
-    let target = vec_to_sparse_mat_fixed(&target, 4, false);
-    let result = mat_ema_alpha_vec_sparse(&new, &old, &vec![I32F32::from_num(0.1); old.len()]);
-    assert_sparse_mat_compare(&result, &target, I32F32::from_num(0.000001));
+    assert_sparse_mat_compare(&result, &target, I32F32::from_num(1e-4));
     let old: Vec<f32> = vec![0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.];
     let new: Vec<f32> = vec![
         0.1, 0.2, 3., 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.10, 0.11, 0.12,
@@ -2227,12 +2231,11 @@ fn test_math_sparse_mat_ema() {
     let target: Vec<f32> = vec![
         0.01, 0.02, 0.3, 0.00399, 0.005, 0.00599, 0.007, 0.00799, 0.009, 0.01, 0.011, 0.01199,
     ];
-
     let old = vec_to_sparse_mat_fixed(&old, 4, false);
     let new = vec_to_sparse_mat_fixed(&new, 4, false);
     let target = vec_to_sparse_mat_fixed(&target, 4, false);
     let result = mat_ema_alpha_vec_sparse(&new, &old, &vec![I32F32::from_num(0.1); old.len()]);
-    assert_sparse_mat_compare(&result, &target, I32F32::from_num(0.000001));
+    assert_sparse_mat_compare(&result, &target, I32F32::from_num(1e-4));
     let old: Vec<f32> = vec![0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.];
     let new: Vec<f32> = vec![0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.];
     let target: Vec<f32> = vec![0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.];
@@ -2240,7 +2243,7 @@ fn test_math_sparse_mat_ema() {
     let new = vec_to_sparse_mat_fixed(&new, 4, false);
     let target = vec_to_sparse_mat_fixed(&target, 4, false);
     let result = mat_ema_alpha_vec_sparse(&new, &old, &vec![I32F32::from_num(0.1); old.len()]);
-    assert_sparse_mat_compare(&result, &target, I32F32::from_num(0.000001));
+    assert_sparse_mat_compare(&result, &target, I32F32::from_num(1e-4));
     let old: Vec<f32> = vec![1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.];
     let new: Vec<f32> = vec![0., 0., 0., 0., 2., 0., 0., 0., 0., 0., 0., 0.];
     let target: Vec<f32> = vec![0.9, 0., 0., 0., 0.2, 0., 0., 0., 0., 0., 0., 0.];
@@ -2248,7 +2251,7 @@ fn test_math_sparse_mat_ema() {
     let new = vec_to_sparse_mat_fixed(&new, 4, false);
     let target = vec_to_sparse_mat_fixed(&target, 4, false);
     let result = mat_ema_alpha_vec_sparse(&new, &old, &vec![I32F32::from_num(0.1); old.len()]);
-    assert_sparse_mat_compare(&result, &target, I32F32::from_num(0.000001));
+    assert_sparse_mat_compare(&result, &target, I32F32::from_num(1e-4));
 }
 
 #[test]

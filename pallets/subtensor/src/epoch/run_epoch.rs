@@ -222,7 +222,13 @@ impl<T: Config> Pallet<T> {
         // # === Dividend Calculation===
         let total_bonds_per_validator: Vec<I32F32> =
             row_sum(&mat_vec_mul(&ema_bonds_norm, &incentive));
-        let dividends: Vec<I32F32> = vec_mul(&total_bonds_per_validator, &active_stake);
+        log::trace!(
+            "total_bonds_per_validator: {:?}",
+            &total_bonds_per_validator
+        );
+
+        let mut dividends: Vec<I32F32> = vec_mul(&total_bonds_per_validator, &active_stake);
+        inplace_normalize(&mut dividends);
         log::trace!("D: {:?}", &dividends);
 
         // =================================
@@ -550,7 +556,7 @@ impl<T: Config> Pallet<T> {
 
         // Compute server trust: ratio of rank after vs. rank before.
         let trust: Vec<I32F32> = vecdiv(&ranks, &preranks); // range: I32F32(0, 1)
-        log::trace!("T: {:?}", &trust);
+        log::trace!("Trust: {:?}", &trust);
 
         inplace_normalize(&mut ranks); // range: I32F32(0, 1)
         let incentive: Vec<I32F32> = ranks.clone();
@@ -570,7 +576,7 @@ impl<T: Config> Pallet<T> {
 
         // Access network bonds.
         let mut bonds: Vec<Vec<(u16, I32F32)>> = Self::get_bonds_sparse(netuid);
-        log::trace!("B: {:?}", &bonds);
+        log::trace!("Bonds: {:?}", &bonds);
 
         // Remove bonds referring to neurons that have registered since last tempo.
         // Mask if: the last tempo block happened *before* the registration block
@@ -582,7 +588,7 @@ impl<T: Config> Pallet<T> {
             &block_at_registration,
             &|last_tempo, registered| last_tempo <= registered,
         );
-        log::trace!("B (outdatedmask): {:?}", &bonds);
+        log::trace!("Bonds (outdatedmask): {:?}", &bonds);
 
         let mut result: Vec<Vec<(u16, I32F32)>> = vec![vec![]; bonds.len()];
         for (i, sparse_row) in bonds.iter().enumerate() {
@@ -591,11 +597,11 @@ impl<T: Config> Pallet<T> {
             }
         }
         let bonds = result;
-        log::trace!("B: (mask+norm) {:?}", &bonds);
+        log::trace!("Bonds: (mask+norm) {:?}", &bonds);
 
         // Get alpha values
         let alphas = Self::compute_liquid_alpha(netuid, consensus.clone());
-        log::trace!("alphas: {:?}", &alphas);
+        log::trace!("Alphas: {:?}", &alphas);
 
         // Compute the Exponential Moving Average (EMA) of bonds.
         log::trace!("weights_for_bonds: {:?}", &weights_for_bonds);
