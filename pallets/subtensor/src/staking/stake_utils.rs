@@ -45,6 +45,26 @@ impl<T: Config> Pallet<T> {
                 .unwrap_or(I96F32::saturating_from_num(0))
         }
     }
+    pub fn get_moving_alpha_price(netuid: u16) -> I96F32 {
+        if netuid == Self::get_root_netuid() {
+            // Root.
+            I96F32::saturating_from_num(1.0)
+        } else if SubnetMechanism::<T>::get(netuid) == 0 {
+            // Stable
+            I96F32::saturating_from_num(1.0)
+        } else {
+            SubnetMovingPrice::<T>::get(netuid)
+        }
+    }
+    pub fn update_moving_price(netuid: u16) {
+        let alpha: I96F32 = SubnetMovingAlpha::<T>::get();
+        let minus_alpha: I96F32 = I96F32::saturating_from_num(1.0).saturating_sub(alpha);
+        let current_price: I96F32 = alpha.saturating_mul(Self::get_alpha_price(netuid));
+        let current_moving: I96F32 =
+            minus_alpha.saturating_mul(Self::get_moving_alpha_price(netuid));
+        let new_moving: I96F32 = current_price.saturating_add(current_moving);
+        SubnetMovingPrice::<T>::insert(netuid, new_moving);
+    }
 
     /// Retrieves the global global weight as a normalized value between 0 and 1.
     ///
@@ -108,16 +128,17 @@ impl<T: Config> Pallet<T> {
         // Step 1: Get stake of hotkey (neuron)
         let alpha_stake =
             I64F64::saturating_from_num(Self::get_inherited_for_hotkey_on_subnet(hotkey, netuid));
-        log::trace!("alpha_stake: {:?}", alpha_stake);
+        log::debug!("alpha_stake: {:?}", alpha_stake);
 
         // Step 2: Get the global tao stake for the hotkey
-        let tao_stake =
-            I64F64::saturating_from_num(Self::get_inherited_for_hotkey_on_subnet(hotkey, 0));
-        log::trace!("tao_stake: {:?}", tao_stake);
+        let tao_stake = I64F64::saturating_from_num(Self::get_tao_inherited_for_hotkey_on_subnet(
+            hotkey, netuid,
+        ));
+        log::debug!("tao_stake: {:?}", tao_stake);
 
         // Step 3: Combine alpha and tao stakes
         let total_stake = alpha_stake.saturating_add(tao_stake.saturating_mul(tao_weight));
-        log::trace!("total_stake: {:?}", total_stake);
+        log::debug!("total_stake: {:?}", total_stake);
 
         (total_stake, alpha_stake, tao_stake)
     }
@@ -153,8 +174,8 @@ impl<T: Config> Pallet<T> {
             .map(|uid| {
                 if Keys::<T>::contains_key(netuid, uid) {
                     let hotkey: T::AccountId = Keys::<T>::get(netuid, uid);
-                    I64F64::saturating_from_num(Self::get_inherited_for_hotkey_on_subnet(
-                        &hotkey, 0,
+                    I64F64::saturating_from_num(Self::get_tao_inherited_for_hotkey_on_subnet(
+                        &hotkey, netuid,
                     ))
                 } else {
                     I64F64::saturating_from_num(0)
@@ -202,6 +223,100 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Note
     /// This function uses saturating arithmetic to prevent overflows.
+    pub fn get_tao_inherited_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
+        let initial_tao: I96F32 = I96F32::saturating_from_num(
+            Self::get_stake_for_hotkey_on_subnet(hotkey, Self::get_root_netuid()),
+        );
+
+        // Initialize variables to track alpha allocated to children and inherited from parents.
+        let mut tao_to_children: I96F32 = I96F32::saturating_from_num(0);
+        let mut tao_from_parents: I96F32 = I96F32::saturating_from_num(0);
+
+        // Step 2: Retrieve the lists of parents and children for the hotkey on the subnet.
+        let parents: Vec<(u64, T::AccountId)> = Self::get_parents(hotkey, netuid);
+        let children: Vec<(u64, T::AccountId)> = Self::get_children(hotkey, netuid);
+        log::trace!(
+            "Parents for hotkey {:?} on subnet {}: {:?}",
+            hotkey,
+            netuid,
+            parents
+        );
+        log::trace!(
+            "Children for hotkey {:?} on subnet {}: {:?}",
+            hotkey,
+            netuid,
+            children
+        );
+
+        // Step 3: Calculate the total tao allocated to children.
+        for (proportion, _) in children {
+            // Convert the proportion to a normalized value between 0 and 1.
+            let normalized_proportion: I96F32 = I96F32::saturating_from_num(proportion)
+                .safe_div(I96F32::saturating_from_num(u64::MAX));
+            log::trace!(
+                "Normalized proportion for child: {:?}",
+                normalized_proportion
+            );
+
+            // Calculate the amount of tao to be allocated to this child.
+            let tao_proportion_to_child: I96F32 =
+                I96F32::saturating_from_num(initial_tao).saturating_mul(normalized_proportion);
+            log::trace!("Tao proportion to child: {:?}", tao_proportion_to_child);
+
+            // Add this child's allocation to the total tao allocated to children.
+            tao_to_children = tao_to_children.saturating_add(tao_proportion_to_child);
+        }
+        log::trace!("Total tao allocated to children: {:?}", tao_to_children);
+
+        // Step 4: Calculate the total tao inherited from parents.
+        for (proportion, parent) in parents {
+            // Retrieve the parent's total stake on this subnet.
+            let parent_tao: I96F32 = I96F32::saturating_from_num(
+                Self::get_stake_for_hotkey_on_subnet(&parent, Self::get_root_netuid()),
+            );
+            log::trace!(
+                "Parent tao for parent {:?} on subnet {}: {:?}",
+                parent,
+                netuid,
+                parent_tao
+            );
+
+            // Convert the proportion to a normalized value between 0 and 1.
+            let normalized_proportion: I96F32 = I96F32::saturating_from_num(proportion)
+                .safe_div(I96F32::saturating_from_num(u64::MAX));
+            log::trace!(
+                "Normalized proportion from parent: {:?}",
+                normalized_proportion
+            );
+
+            // Calculate the amount of tao to be inherited from this parent.
+            let tao_proportion_from_parent: I96F32 =
+                I96F32::saturating_from_num(parent_tao).saturating_mul(normalized_proportion);
+            log::trace!(
+                "Tao proportion from parent: {:?}",
+                tao_proportion_from_parent
+            );
+
+            // Add this parent's contribution to the total tao inherited from parents.
+            tao_from_parents = tao_from_parents.saturating_add(tao_proportion_from_parent);
+        }
+        log::trace!("Total tao inherited from parents: {:?}", tao_from_parents);
+
+        // Step 5: Calculate the final inherited tao for the hotkey.
+        let finalized_tao: I96F32 = initial_tao
+            .saturating_sub(tao_to_children) // Subtract tao allocated to children
+            .saturating_add(tao_from_parents); // Add tao inherited from parents
+        log::trace!(
+            "Finalized tao for hotkey {:?} on subnet {}: {:?}",
+            hotkey,
+            netuid,
+            finalized_tao
+        );
+
+        // Step 6: Return the final inherited tao value.
+        finalized_tao.saturating_to_num::<u64>()
+    }
+
     pub fn get_inherited_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
         // Step 1: Retrieve the initial total stake (alpha) for the hotkey on the specified subnet.
         let initial_alpha: I96F32 =
@@ -825,6 +940,7 @@ impl<T: Config> Pallet<T> {
         alpha_amount: u64,
         max_amount: u64,
         maybe_allow_partial: Option<bool>,
+        check_transfer_toggle: bool,
     ) -> Result<(), Error<T>> {
         // Ensure that both subnets exist.
         ensure!(
@@ -877,6 +993,18 @@ impl<T: Config> Pallet<T> {
             if !allow_partial {
                 ensure!(alpha_amount <= max_amount, Error::<T>::SlippageTooHigh);
             }
+        }
+
+        if check_transfer_toggle {
+            // Ensure transfer is toggled.
+            ensure!(
+                TransferToggle::<T>::get(origin_netuid),
+                Error::<T>::TransferDisallowed
+            );
+            ensure!(
+                TransferToggle::<T>::get(destination_netuid),
+                Error::<T>::TransferDisallowed
+            );
         }
 
         Ok(())
