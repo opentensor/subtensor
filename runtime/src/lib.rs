@@ -739,12 +739,25 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 c,
                 RuntimeCall::Balances(..)
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake_limit { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::remove_stake_limit { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::unstake_all { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::unstake_all_alpha { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake_limit { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::move_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
                     | RuntimeCall::SubtensorModule(
                         pallet_subtensor::Call::schedule_swap_coldkey { .. }
                     )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_coldkey { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey { .. })
             ),
             ProxyType::Transfer => matches!(
@@ -752,6 +765,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive { .. })
                     | RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death { .. })
                     | RuntimeCall::Balances(pallet_balances::Call::transfer_all { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake { .. })
             ),
             ProxyType::SmallTransfer => match c {
                 RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
@@ -761,6 +775,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     value,
                     ..
                 }) => *value < SMALL_TRANSFER_LIMIT,
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake {
+                    alpha_amount,
+                    ..
+                }) => *alpha_amount < SMALL_TRANSFER_LIMIT,
                 _ => false,
             },
             ProxyType::Owner => matches!(c, RuntimeCall::AdminUtils(..)),
@@ -788,6 +806,17 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::unstake_all { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::unstake_all_alpha { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake_limit { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::move_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake_limit { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::remove_stake_limit { .. }
+                    )
             ),
             ProxyType::Registration => matches!(
                 c,
