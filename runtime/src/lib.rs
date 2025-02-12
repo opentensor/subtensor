@@ -726,7 +726,15 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
     fn filter(&self, c: &RuntimeCall) -> bool {
         match self {
             ProxyType::Any => true,
-            ProxyType::NonTransfer => !matches!(c, RuntimeCall::Balances(..)),
+            ProxyType::NonTransfer => !matches!(
+                c,
+                RuntimeCall::Balances(..)
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::schedule_swap_coldkey { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_coldkey { .. })
+            ),
             ProxyType::NonFungibile => !matches!(
                 c,
                 RuntimeCall::Balances(..)
