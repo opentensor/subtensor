@@ -1885,6 +1885,12 @@ where
                 netuid,
                 amount_staked,
             }) => {
+                if ColdkeySwapScheduled::<T>::contains_key(who) {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
+                    )
+                    .into();
+                }
                 // Fully validate the user input
                 Self::result_to_validity(Pallet::<T>::validate_add_stake(
                     who,
@@ -1902,6 +1908,13 @@ where
                 limit_price,
                 allow_partial,
             }) => {
+                if ColdkeySwapScheduled::<T>::contains_key(who) {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
+                    )
+                    .into();
+                }
+
                 // Calcaulate the maximum amount that can be executed with price limit
                 let max_amount = Pallet::<T>::get_max_amount_add(*netuid, *limit_price);
 
@@ -1957,6 +1970,13 @@ where
                 destination_netuid,
                 alpha_amount,
             }) => {
+                if ColdkeySwapScheduled::<T>::contains_key(who) {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
+                    )
+                    .into();
+                }
+
                 // Fully validate the user input
                 Self::result_to_validity(Pallet::<T>::validate_stake_transition(
                     who,
@@ -1978,6 +1998,13 @@ where
                 destination_netuid,
                 alpha_amount,
             }) => {
+                if ColdkeySwapScheduled::<T>::contains_key(who) {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
+                    )
+                    .into();
+                }
+
                 // Fully validate the user input
                 Self::result_to_validity(Pallet::<T>::validate_stake_transition(
                     who,
@@ -1998,6 +2025,13 @@ where
                 destination_netuid,
                 alpha_amount,
             }) => {
+                if ColdkeySwapScheduled::<T>::contains_key(who) {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
+                    )
+                    .into();
+                }
+
                 // Fully validate the user input
                 Self::result_to_validity(Pallet::<T>::validate_stake_transition(
                     who,
@@ -2020,6 +2054,13 @@ where
                 limit_price,
                 allow_partial,
             }) => {
+                if ColdkeySwapScheduled::<T>::contains_key(who) {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
+                    )
+                    .into();
+                }
+
                 // Get the max amount possible to exchange
                 let max_amount = Pallet::<T>::get_max_amount_move(
                     *origin_netuid,
@@ -2042,6 +2083,13 @@ where
                 ))
             }
             Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {
+                if ColdkeySwapScheduled::<T>::contains_key(who) {
+                    return InvalidTransaction::Custom(
+                        CustomTransactionError::ColdkeyInSwapSchedule.into(),
+                    )
+                    .into();
+                }
+
                 let registrations_this_interval =
                     Pallet::<T>::get_registrations_this_interval(*netuid);
                 let max_registrations_per_interval =
