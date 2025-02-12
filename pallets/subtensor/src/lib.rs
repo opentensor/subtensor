@@ -1779,7 +1779,7 @@ where
             }
         } else {
             Ok(ValidTransaction {
-                priority: priority,
+                priority,
                 ..Default::default()
             })
         }
