@@ -52,8 +52,8 @@ impl<T: Config> Pallet<T> {
         weight = weight.saturating_add(T::DbWeight::get().reads(1));
 
         // 5. Swap the identity if the old coldkey has one
-        if let Some(identity) = Identities::<T>::take(old_coldkey) {
-            Identities::<T>::insert(new_coldkey, identity);
+        if let Some(identity) = IdentitiesV2::<T>::take(old_coldkey) {
+            IdentitiesV2::<T>::insert(new_coldkey, identity);
         }
 
         // 6. Ensure sufficient balance for the swap cost

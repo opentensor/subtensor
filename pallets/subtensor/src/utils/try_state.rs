@@ -1,7 +1,6 @@
 use frame_support::traits::fungible::Inspect;
 
 use super::*;
-use crate::subnets::subnet::POOL_INITIAL_TAO;
 
 impl<T: Config> Pallet<T> {
     /// Checks [`TotalIssuance`] equals the sum of currency issuance, total stake, and total subnet
@@ -51,7 +50,7 @@ impl<T: Config> Pallet<T> {
                 // root network doesn't have initial pool TAO
                 acc
             } else {
-                acc.saturating_sub(POOL_INITIAL_TAO)
+                acc.saturating_sub(Self::get_network_min_lock())
             }
         });
 

@@ -2,8 +2,6 @@ use super::*;
 use frame_support::IterableStorageMap;
 use sp_core::Get;
 
-pub(crate) const POOL_INITIAL_TAO: u64 = 100_000_000_000;
-
 impl<T: Config> Pallet<T> {
     /// Retrieves the unique identifier (UID) for the root network.
     ///
@@ -162,7 +160,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: &T::AccountId,
         mechid: u16,
-        identity: Option<SubnetIdentityOf>,
+        identity: Option<SubnetIdentityOfV2>,
     ) -> DispatchResult {
         // --- 1. Ensure the caller is a signed user.
         let coldkey = ensure_signed(origin)?;
@@ -237,16 +235,11 @@ impl<T: Config> Pallet<T> {
 
         // Put initial TAO from lock into subnet TAO and produce numerically equal amount of Alpha
         // The initial TAO is the locked amount, with a minimum of 1 RAO and a cap of 100 TAO.
-        let pool_initial_tao = POOL_INITIAL_TAO.min(actual_tao_lock_amount.max(1));
-
+        let pool_initial_tao = Self::get_network_min_lock();
         let actual_tao_lock_amount_less_pool_tao =
             actual_tao_lock_amount.saturating_sub(pool_initial_tao);
         SubnetTAO::<T>::insert(netuid_to_register, pool_initial_tao);
-        SubnetAlphaIn::<T>::insert(
-            netuid_to_register,
-            pool_initial_tao.saturating_mul(Self::get_all_subnet_netuids().len() as u64),
-        ); // Set AlphaIn to the initial alpha distribution.
-
+        SubnetAlphaIn::<T>::insert(netuid_to_register, pool_initial_tao);
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
         SubnetOwnerHotkey::<T>::insert(netuid_to_register, hotkey.clone());
         TotalStakeAtDynamic::<T>::insert(netuid_to_register, TotalStake::<T>::get());
@@ -262,7 +255,7 @@ impl<T: Config> Pallet<T> {
                 Error::<T>::InvalidIdentity
             );
 
-            SubnetIdentities::<T>::insert(netuid_to_register, identity_value);
+            SubnetIdentitiesV2::<T>::insert(netuid_to_register, identity_value);
             Self::deposit_event(Event::SubnetIdentitySet(netuid_to_register));
         }
 
