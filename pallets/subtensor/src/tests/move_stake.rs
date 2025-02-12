@@ -541,7 +541,7 @@ fn test_do_move_wrong_origin() {
                 netuid,
                 alpha,
             ),
-            Error::<Test>::NonAssociatedColdKey
+            Error::<Test>::NotEnoughStakeToWithdraw
         );
 
         // Check that no stake was moved
@@ -981,7 +981,7 @@ fn test_do_transfer_wrong_origin() {
                 netuid,
                 stake_amount
             ),
-            Error::<Test>::NonAssociatedColdKey
+            Error::<Test>::NotEnoughStakeToWithdraw
         );
     });
 }
@@ -1245,7 +1245,7 @@ fn test_do_swap_wrong_origin() {
                 netuid2,
                 stake_amount
             ),
-            Error::<Test>::NonAssociatedColdKey
+            Error::<Test>::NotEnoughStakeToWithdraw
         );
     });
 }
@@ -1483,6 +1483,38 @@ fn test_do_swap_multiple_times() {
             epsilon = initial_stake / 10000
         );
         assert_eq!(final_stake_netuid2, 0);
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::move_stake::test_do_swap_allows_non_owned_hotkey --exact --show-output
+#[test]
+fn test_do_swap_allows_non_owned_hotkey() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let origin_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let destination_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let foreign_coldkey = U256::from(3);
+        let stake_amount = DefaultMinStake::<Test>::get() * 10;
+
+        SubtensorModule::create_account_if_non_existent(&foreign_coldkey, &hotkey);
+        SubtensorModule::stake_into_subnet(&hotkey, &coldkey, origin_netuid, stake_amount, 0);
+        let alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            origin_netuid,
+        );
+
+        assert_ok!(SubtensorModule::do_swap_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            alpha_before,
+        ));
     });
 }
 
