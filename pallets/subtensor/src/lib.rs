@@ -1947,7 +1947,7 @@ where
                         max_amount,
                         *allow_partial,
                     ),
-                    Self::get_priority_vanilla(),
+                    Self::get_priority_staking(who, hotkey),
                 )
             }
             Some(Call::remove_stake {
@@ -1988,7 +1988,7 @@ where
                         max_amount,
                         *allow_partial,
                     ),
-                    Self::get_priority_vanilla(),
+                    Self::get_priority_staking(who, hotkey),
                 )
             }
             Some(Call::move_stake {
@@ -2012,7 +2012,7 @@ where
                         None,
                         false,
                     ),
-                    Self::get_priority_vanilla(),
+                    Self::get_priority_staking(who, origin_hotkey),
                 )
             }
             Some(Call::transfer_stake {
@@ -2036,7 +2036,7 @@ where
                         None,
                         true,
                     ),
-                    Self::get_priority_vanilla(),
+                    Self::get_priority_staking(who, hotkey),
                 )
             }
             Some(Call::swap_stake {
@@ -2059,7 +2059,7 @@ where
                         None,
                         false,
                     ),
-                    Self::get_priority_vanilla(),
+                    Self::get_priority_staking(who, hotkey),
                 )
             }
             Some(Call::swap_stake_limit {
@@ -2091,7 +2091,7 @@ where
                         Some(*allow_partial),
                         false,
                     ),
-                    Self::get_priority_vanilla(),
+                    Self::get_priority_staking(who, hotkey),
                 )
             }
             Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {
