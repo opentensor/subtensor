@@ -158,7 +158,7 @@ pub mod pallet {
             netuid: u16,
             min_difficulty: u64,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_root(origin, netuid)?;
+            ensure_root(origin)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
