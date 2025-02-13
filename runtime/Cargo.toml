@@ -20,7 +20,9 @@ name = "spec_version"
 path = "src/spec_version.rs"
 
 [dependencies]
-ed25519-dalek = { workspace = true, default-features = false, features = ["alloc"] }
+ed25519-dalek = { workspace = true, default-features = false, features = [
+	"alloc",
+] }
 subtensor-macros.workspace = true
 subtensor-custom-rpc-runtime-api = { path = "../pallets/subtensor/runtime-api", default-features = false }
 smallvec = { workspace = true }
@@ -101,7 +103,6 @@ fp-self-contained = { workspace = true }
 
 # Frontier FRAME
 pallet-base-fee = { workspace = true }
-pallet-dynamic-fee = { workspace = true }
 pallet-ethereum = { workspace = true }
 pallet-evm = { workspace = true }
 pallet-evm-chain-id = { workspace = true }
@@ -132,9 +133,7 @@ substrate-wasm-builder = { workspace = true, optional = true }
 [features]
 default = ["std"]
 pow-faucet = ["pallet-subtensor/pow-faucet"]
-fast-blocks = [
-	"pallet-subtensor/fast-blocks"
-]
+fast-blocks = ["pallet-subtensor/fast-blocks"]
 std = [
 	"frame-try-runtime?/std",
 	"frame-system-benchmarking?/std",
@@ -193,7 +192,6 @@ std = [
 	"fp-self-contained/std",
 	# Frontier FRAME
 	"pallet-base-fee/std",
-	"pallet-dynamic-fee/std",
 	"pallet-ethereum/std",
 	"pallet-evm/std",
 	"pallet-evm-chain-id/std",
@@ -209,7 +207,7 @@ std = [
 	"hex/std",
 	"rand_chacha/std",
 	"sha2/std",
-	"w3f-bls/std"
+	"w3f-bls/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -238,7 +236,7 @@ runtime-benchmarks = [
 	"pallet-ethereum/runtime-benchmarks",
 	"pallet-evm/runtime-benchmarks",
 	"pallet-hotfix-sufficients/runtime-benchmarks",
-	"pallet-drand/runtime-benchmarks"
+	"pallet-drand/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
@@ -270,10 +268,9 @@ try-runtime = [
 	# EVM + Frontier
 	"fp-self-contained/try-runtime",
 	"pallet-base-fee/try-runtime",
-	"pallet-dynamic-fee/try-runtime",
 	"pallet-ethereum/try-runtime",
 	"pallet-evm/try-runtime",
 	"pallet-evm-chain-id/try-runtime",
-	"pallet-drand/try-runtime"
+	"pallet-drand/try-runtime",
 ]
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]

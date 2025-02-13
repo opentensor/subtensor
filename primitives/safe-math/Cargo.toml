@@ -1,0 +1,20 @@
+[package]
+name = "safe-math"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+substrate-fixed = { workspace = true }
+sp-std = { workspace = true }
+num-traits = { version = "0.2.19", default-features = false, features = ["libm"] }
+
+[lints]
+workspace = true
+
+[features]
+default = ["std"]
+std = [
+	"substrate-fixed/std",
+	"sp-std/std",
+	"num-traits/std",
+]

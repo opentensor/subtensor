@@ -549,7 +549,8 @@ pub mod pallet {
             );
 
             let threshold = T::GetVotingMembers::get_count()
-                .saturating_div(2)
+                .checked_div(2)
+                .unwrap_or(0)
                 .saturating_add(1);
 
             let members = Self::members();

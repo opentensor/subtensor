@@ -1,6 +1,7 @@
 use super::*;
 use crate::epoch::math::*;
 use codec::Compact;
+use safe_math::*;
 use sp_core::{ConstU32, H256};
 use sp_runtime::{
     traits::{BlakeTwo256, Hash},
@@ -740,7 +741,6 @@ impl<T: Config> Pallet<T> {
                 Error::<T>::SettingWeightsTooFast
             );
         }
-
         // --- 10. Check that the neuron uid is an allowed validator permitted to set non-self weights.
         ensure!(
             Self::check_validator_permit(netuid, neuron_uid, &uids, &values),
@@ -1002,9 +1002,7 @@ impl<T: Config> Pallet<T> {
             return weights;
         }
         weights.iter_mut().for_each(|x| {
-            *x = (*x as u64)
-                .saturating_mul(u16::MAX as u64)
-                .saturating_div(sum) as u16;
+            *x = (*x as u64).saturating_mul(u16::MAX as u64).safe_div(sum) as u16;
         });
         weights
     }
