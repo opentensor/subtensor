@@ -87,7 +87,7 @@ impl<T: Config> Pallet<T> {
             let alpha_out_i = alpha_emission_i;
             // Only emit TAO if the subnetwork allows registration.
             if !Self::get_network_registration_allowed(*netuid_i)
-                && Self::get_network_pow_registration_allowed(*netuid_i)
+                && !Self::get_network_pow_registration_allowed(*netuid_i)
             {
                 tao_in_i = asfloat!(0.0);
             }
@@ -248,11 +248,6 @@ impl<T: Config> Pallet<T> {
                 // Increment
                 BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));
             }
-        }
-
-        // --- 8. Apply pending childkeys of this subnet for the next epoch
-        for netuid in subnets.iter() {
-            Self::do_set_pending_children(*netuid);
         }
     }
 
