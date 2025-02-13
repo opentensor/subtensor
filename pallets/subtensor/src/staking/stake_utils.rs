@@ -962,12 +962,6 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyAccountNotExists
         );
 
-        // Ensure origin coldkey owns the origin hotkey.
-        ensure!(
-            Self::coldkey_owns_hotkey(origin_coldkey, origin_hotkey),
-            Error::<T>::NonAssociatedColdKey
-        );
-
         // Ensure there is enough stake in the origin subnet.
         let origin_alpha = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
             origin_hotkey,
