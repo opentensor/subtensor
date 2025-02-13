@@ -87,7 +87,7 @@ impl<T: Config> Pallet<T> {
             let alpha_out_i = alpha_emission_i;
             // Only emit TAO if the subnetwork allows registration.
             if !Self::get_network_registration_allowed(*netuid_i)
-                && Self::get_network_pow_registration_allowed(*netuid_i)
+                && !Self::get_network_pow_registration_allowed(*netuid_i)
             {
                 tao_in_i = asfloat!(0.0);
             }

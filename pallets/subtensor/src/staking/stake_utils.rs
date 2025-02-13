@@ -748,6 +748,7 @@ impl<T: Config> Pallet<T> {
         TotalStake::<T>::mutate(|total| {
             *total = total.saturating_add(actual_fee);
         });
+        LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
         // Step 5. Deposit and log the unstaking event.
         Self::deposit_event(Event::StakeRemoved(
@@ -807,6 +808,7 @@ impl<T: Config> Pallet<T> {
         TotalStake::<T>::mutate(|total| {
             *total = total.saturating_add(actual_fee);
         });
+        LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
         // Step 6. Deposit and log the staking event.
         Self::deposit_event(Event::StakeAdded(
