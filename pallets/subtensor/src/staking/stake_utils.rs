@@ -59,7 +59,8 @@ impl<T: Config> Pallet<T> {
     pub fn update_moving_price(netuid: u16) {
         let alpha: I96F32 = SubnetMovingAlpha::<T>::get();
         let minus_alpha: I96F32 = I96F32::saturating_from_num(1.0).saturating_sub(alpha);
-        let current_price: I96F32 = alpha.saturating_mul(Self::get_alpha_price(netuid));
+        let current_price: I96F32 = alpha
+            .saturating_mul(Self::get_alpha_price(netuid).min(I96F32::saturating_from_num(1.0)));
         let current_moving: I96F32 =
             minus_alpha.saturating_mul(Self::get_moving_alpha_price(netuid));
         let new_moving: I96F32 = current_price.saturating_add(current_moving);
