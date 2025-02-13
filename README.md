@@ -22,8 +22,11 @@ This repository contains Bittensor's substrate-chain. Subtensor contains the tru
 
 * The binaries in ./bin/release are x86_64 binaries to be used with the Linux kernel.
 * Subtensor needs ~286 MiB to run.
-* Architectures other than x86_64 are currently not supported.
+*	Supported Architectures:
+	-	Linux: x86_64
+	-	MacOS: x86_64 and ARM64 (M series Macs)
 * OSs other than Linux and MacOS are currently not supported.
+
 
 ## Architectures
 Subtensor support the following architectures:
@@ -34,9 +37,10 @@ Requirements:
 * glibc 2.11+
 A fresh FRAME-based [Substrate](https://www.substrate.io/) node, ready for hacking :rocket:
 
-## MacOS x86_64
+## MacOS x86_64 & arm64 (Apple Silicon)
 Requirements:
-* MacOS 10.7+ (Lion+)
+*	macOS 10.7+ (Lion+) for x86_64
+*	macOS 11+ (Big Sur+) for Apple Silicon (M1, M2, and later) with arm64 architecture support.
 
 ## Network requirements
 * Subtensor needs access to the public internet
@@ -49,7 +53,7 @@ Requirements:
 
 ---
 
-## For Subnet Development 
+## For Subnet Development
 
 If you are developing and testing subnet incentive mechanism, you will need to run a local subtensor node. Follow the detailed step-by-step instructions provided in the [**Subtensor Nodes** section in Bittensor Developer Documentation](https://docs.bittensor.com/subtensor-nodes).
 
@@ -216,7 +220,7 @@ If you want to see the multi-node consensus algorithm in action, refer to our
 A Substrate project such as this consists of a number of components that are spread across a few
 directories.
 
-### Node Capabilities 
+### Node Capabilities
 
 A blockchain node is an application that allows users to participate in a blockchain network.
 Substrate-based blockchain nodes expose a number of capabilities:
@@ -232,7 +236,7 @@ Substrate-based blockchain nodes expose a number of capabilities:
 
 **Directory structure**
 
-There are several files in the [`node`](./node/) directory. Make a note of the following important files: 
+There are several files in the [`node`](./node/) directory. Make a note of the following important files:
 
 - [`chain_spec.rs`](./node/src/chain_spec.rs): A
   [chain specification](https://docs.substrate.io/main-docs/build/chain-spec/) is a
