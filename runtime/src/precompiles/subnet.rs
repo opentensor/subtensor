@@ -25,6 +25,7 @@ const CONTRACT_ADDRESS_SS58: [u8; 32] = [
 
 pub struct SubnetPrecompile;
 
+#[precompile_utils::precompile]
 impl SubnetPrecompile {
     // pub fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
     //     let txdata = handle.input();

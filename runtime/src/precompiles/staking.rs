@@ -71,7 +71,11 @@ impl StakingPrecompile {
 
         let amount_sub =
             <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
-                .ok_or(ExitError::OutOfFund)?;
+                .ok_or(PrecompileFailure::Error {
+                    exit_status: ExitError::Other(
+                        "error converting balance from ETH to subtensor".into(),
+                    ),
+                })?;
 
         let (hotkey, _) = get_pubkey(address.as_bytes())?;
         let netuid = try_u16_from_u256(netuid)?;
@@ -96,16 +100,13 @@ impl StakingPrecompile {
                 handle.context().caller,
             );
 
-        let amount_sub =
-            <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
-                .ok_or(ExitError::OutOfFund)?;
-
         let (hotkey, _) = get_pubkey(address.as_bytes())?;
         let netuid = try_u16_from_u256(netuid)?;
+        let amount_unstaked = amount.unique_saturated_into();
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::<Runtime>::remove_stake {
             hotkey,
             netuid,
-            amount_unstaked: amount_sub.unique_saturated_into(),
+            amount_unstaked,
         });
 
         try_dispatch_runtime_call(handle, call, RawOrigin::Signed(account_id))
@@ -161,9 +162,7 @@ impl StakingPrecompile {
             &hotkey, &coldkey, netuid,
         );
 
-        // Convert to EVM decimals
-        <Runtime as pallet_evm::Config>::BalanceConverter::into_evm_balance(stake.into())
-            .ok_or(ExitError::InvalidRange.into())
+        Ok(stake.into())
     }
 
     fn transfer_back_to_caller(

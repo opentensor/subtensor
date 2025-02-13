@@ -12,7 +12,6 @@ use sp_std::vec::Vec;
 
 use crate::precompiles::{
     get_method_id, get_pubkey, get_slice, parse_netuid, try_dispatch_runtime_call,
-    try_dispatch_runtime_call,
 };
 use crate::{Runtime, RuntimeCall};
 
