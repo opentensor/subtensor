@@ -1550,6 +1550,18 @@ pub mod pallet {
     pub type RevealPeriodEpochs<T: Config> =
         StorageMap<_, Twox64Concat, u16, u64, ValueQuery, DefaultRevealPeriodEpochs<T>>;
 
+    #[pallet::storage]
+    /// --- Map (coldkey, hotkey) --> u64 the last block at which stake was added/removed.
+    pub type LastColdkeyHotkeyStakeBlock<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        T::AccountId,
+        Twox64Concat,
+        T::AccountId,
+        u64,
+        OptionQuery,
+    >;
+
     /// ==================
     /// ==== Genesis =====
     /// ==================
@@ -1586,6 +1598,19 @@ pub mod pallet {
                 return default_priority.saturating_add(u32::MAX as u64);
             }
             0
+        }
+
+        /// Returns the transaction priority for stake operations.
+        pub fn get_priority_staking(coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
+            match LastColdkeyHotkeyStakeBlock::<T>::get(coldkey, hotkey) {
+                Some(last_stake_block) => {
+                    let current_block_number = Self::get_current_block_as_u64();
+                    let default_priority = current_block_number.saturating_sub(last_stake_block);
+
+                    default_priority.saturating_add(u32::MAX as u64)
+                }
+                None => 0,
+            }
         }
 
         /// Is the caller allowed to set weights
@@ -1705,11 +1730,15 @@ where
         Pallet::<T>::get_priority_set_weights(who, netuid)
     }
 
+    pub fn get_priority_staking(coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
+        Pallet::<T>::get_priority_staking(coldkey, hotkey)
+    }
+
     pub fn check_weights_min_stake(who: &T::AccountId, netuid: u16) -> bool {
         Pallet::<T>::check_weights_min_stake(who, netuid)
     }
 
-    pub fn result_to_validity(result: Result<(), Error<T>>) -> TransactionValidity {
+    pub fn result_to_validity(result: Result<(), Error<T>>, priority: u64) -> TransactionValidity {
         if let Err(err) = result {
             match err {
                 Error::<T>::AmountTooLow => Err(InvalidTransaction::Custom(
@@ -1750,7 +1779,7 @@ where
             }
         } else {
             Ok(ValidTransaction {
-                priority: Self::get_priority_vanilla(),
+                priority,
                 ..Default::default()
             })
         }
@@ -1892,14 +1921,17 @@ where
                     .into();
                 }
                 // Fully validate the user input
-                Self::result_to_validity(Pallet::<T>::validate_add_stake(
-                    who,
-                    hotkey,
-                    *netuid,
-                    *amount_staked,
-                    *amount_staked,
-                    false,
-                ))
+                Self::result_to_validity(
+                    Pallet::<T>::validate_add_stake(
+                        who,
+                        hotkey,
+                        *netuid,
+                        *amount_staked,
+                        *amount_staked,
+                        false,
+                    ),
+                    Self::get_priority_staking(who, hotkey),
+                )
             }
             Some(Call::add_stake_limit {
                 hotkey,
@@ -1919,14 +1951,17 @@ where
                 let max_amount = Pallet::<T>::get_max_amount_add(*netuid, *limit_price);
 
                 // Fully validate the user input
-                Self::result_to_validity(Pallet::<T>::validate_add_stake(
-                    who,
-                    hotkey,
-                    *netuid,
-                    *amount_staked,
-                    max_amount,
-                    *allow_partial,
-                ))
+                Self::result_to_validity(
+                    Pallet::<T>::validate_add_stake(
+                        who,
+                        hotkey,
+                        *netuid,
+                        *amount_staked,
+                        max_amount,
+                        *allow_partial,
+                    ),
+                    Self::get_priority_staking(who, hotkey),
+                )
             }
             Some(Call::remove_stake {
                 hotkey,
@@ -1934,14 +1969,17 @@ where
                 amount_unstaked,
             }) => {
                 // Fully validate the user input
-                Self::result_to_validity(Pallet::<T>::validate_remove_stake(
-                    who,
-                    hotkey,
-                    *netuid,
-                    *amount_unstaked,
-                    *amount_unstaked,
-                    false,
-                ))
+                Self::result_to_validity(
+                    Pallet::<T>::validate_remove_stake(
+                        who,
+                        hotkey,
+                        *netuid,
+                        *amount_unstaked,
+                        *amount_unstaked,
+                        false,
+                    ),
+                    Self::get_priority_staking(who, hotkey),
+                )
             }
             Some(Call::remove_stake_limit {
                 hotkey,
@@ -1954,14 +1992,17 @@ where
                 let max_amount = Pallet::<T>::get_max_amount_remove(*netuid, *limit_price);
 
                 // Fully validate the user input
-                Self::result_to_validity(Pallet::<T>::validate_remove_stake(
-                    who,
-                    hotkey,
-                    *netuid,
-                    *amount_unstaked,
-                    max_amount,
-                    *allow_partial,
-                ))
+                Self::result_to_validity(
+                    Pallet::<T>::validate_remove_stake(
+                        who,
+                        hotkey,
+                        *netuid,
+                        *amount_unstaked,
+                        max_amount,
+                        *allow_partial,
+                    ),
+                    Self::get_priority_staking(who, hotkey),
+                )
             }
             Some(Call::move_stake {
                 origin_hotkey,
@@ -1978,18 +2019,21 @@ where
                 }
 
                 // Fully validate the user input
-                Self::result_to_validity(Pallet::<T>::validate_stake_transition(
-                    who,
-                    who,
-                    origin_hotkey,
-                    destination_hotkey,
-                    *origin_netuid,
-                    *destination_netuid,
-                    *alpha_amount,
-                    *alpha_amount,
-                    None,
-                    false,
-                ))
+                Self::result_to_validity(
+                    Pallet::<T>::validate_stake_transition(
+                        who,
+                        who,
+                        origin_hotkey,
+                        destination_hotkey,
+                        *origin_netuid,
+                        *destination_netuid,
+                        *alpha_amount,
+                        *alpha_amount,
+                        None,
+                        false,
+                    ),
+                    Self::get_priority_staking(who, origin_hotkey),
+                )
             }
             Some(Call::transfer_stake {
                 destination_coldkey,
@@ -2006,18 +2050,21 @@ where
                 }
 
                 // Fully validate the user input
-                Self::result_to_validity(Pallet::<T>::validate_stake_transition(
-                    who,
-                    destination_coldkey,
-                    hotkey,
-                    hotkey,
-                    *origin_netuid,
-                    *destination_netuid,
-                    *alpha_amount,
-                    *alpha_amount,
-                    None,
-                    true,
-                ))
+                Self::result_to_validity(
+                    Pallet::<T>::validate_stake_transition(
+                        who,
+                        destination_coldkey,
+                        hotkey,
+                        hotkey,
+                        *origin_netuid,
+                        *destination_netuid,
+                        *alpha_amount,
+                        *alpha_amount,
+                        None,
+                        true,
+                    ),
+                    Self::get_priority_staking(who, hotkey),
+                )
             }
             Some(Call::swap_stake {
                 hotkey,
@@ -2033,18 +2080,21 @@ where
                 }
 
                 // Fully validate the user input
-                Self::result_to_validity(Pallet::<T>::validate_stake_transition(
-                    who,
-                    who,
-                    hotkey,
-                    hotkey,
-                    *origin_netuid,
-                    *destination_netuid,
-                    *alpha_amount,
-                    *alpha_amount,
-                    None,
-                    false,
-                ))
+                Self::result_to_validity(
+                    Pallet::<T>::validate_stake_transition(
+                        who,
+                        who,
+                        hotkey,
+                        hotkey,
+                        *origin_netuid,
+                        *destination_netuid,
+                        *alpha_amount,
+                        *alpha_amount,
+                        None,
+                        false,
+                    ),
+                    Self::get_priority_staking(who, hotkey),
+                )
             }
             Some(Call::swap_stake_limit {
                 hotkey,
@@ -2069,18 +2119,21 @@ where
                 );
 
                 // Fully validate the user input
-                Self::result_to_validity(Pallet::<T>::validate_stake_transition(
-                    who,
-                    who,
-                    hotkey,
-                    hotkey,
-                    *origin_netuid,
-                    *destination_netuid,
-                    *alpha_amount,
-                    max_amount,
-                    Some(*allow_partial),
-                    false,
-                ))
+                Self::result_to_validity(
+                    Pallet::<T>::validate_stake_transition(
+                        who,
+                        who,
+                        hotkey,
+                        hotkey,
+                        *origin_netuid,
+                        *destination_netuid,
+                        *alpha_amount,
+                        max_amount,
+                        Some(*allow_partial),
+                        false,
+                    ),
+                    Self::get_priority_staking(who, hotkey),
+                )
             }
             Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {
                 if ColdkeySwapScheduled::<T>::contains_key(who) {
