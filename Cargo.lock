@@ -8228,6 +8228,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "safe-math"
+version = "0.1.0"
+dependencies = [
+ "num-traits",
+ "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409)",
+ "substrate-fixed",
+]
+
+[[package]]
 name = "safe-mix"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
