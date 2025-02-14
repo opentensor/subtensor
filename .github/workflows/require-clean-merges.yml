@@ -29,7 +29,7 @@ jobs:
           elif [[ "$TARGET_BRANCH" == "main" ]]; then
             echo "MERGE_BRANCHES=main" >> $GITHUB_ENV
           else
-            echo "MERGE_BRANCHES=devnet-ready devnet testnet main" >> $GITHUB_ENV"
+            echo "MERGE_BRANCHES=devnet-ready devnet testnet main" >> $GITHUB_ENV
           fi
 
       - name: Check Merge Cleanliness
