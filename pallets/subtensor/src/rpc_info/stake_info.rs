@@ -3,7 +3,7 @@ use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
 use codec::Compact;
 
-#[freeze_struct("4f16c654467bc8b6")]
+#[freeze_struct("5cfb3c84c3af3116")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct StakeInfo<AccountId: TypeInfo + Encode + Decode> {
     hotkey: AccountId,
@@ -12,6 +12,7 @@ pub struct StakeInfo<AccountId: TypeInfo + Encode + Decode> {
     stake: Compact<u64>,
     locked: Compact<u64>,
     emission: Compact<u64>,
+    tao_emission: Compact<u64>,
     drain: Compact<u64>,
     is_registered: bool,
 }
@@ -38,6 +39,7 @@ impl<T: Config> Pallet<T> {
                         continue;
                     }
                     let emission: u64 = AlphaDividendsPerSubnet::<T>::get(*netuid_i, &hotkey_i);
+                    let tao_emission: u64 = TaoDividendsPerSubnet::<T>::get(*netuid_i, &hotkey_i);
                     let is_registered: bool =
                         Self::is_hotkey_registered_on_network(*netuid_i, hotkey_i);
                     stake_info_for_coldkey.push(StakeInfo {
@@ -47,6 +49,7 @@ impl<T: Config> Pallet<T> {
                         stake: alpha.into(),
                         locked: 0.into(),
                         emission: emission.into(),
+                        tao_emission: tao_emission.into(),
                         drain: 0.into(),
                         is_registered,
                     });
@@ -94,6 +97,7 @@ impl<T: Config> Pallet<T> {
             netuid,
         );
         let emission: u64 = AlphaDividendsPerSubnet::<T>::get(netuid, &hotkey_account);
+        let tao_emission: u64 = TaoDividendsPerSubnet::<T>::get(netuid, &hotkey_account);
         let is_registered: bool = Self::is_hotkey_registered_on_network(netuid, &hotkey_account);
 
         Some(StakeInfo {
@@ -103,6 +107,7 @@ impl<T: Config> Pallet<T> {
             stake: alpha.into(),
             locked: 0.into(),
             emission: emission.into(),
+            tao_emission: tao_emission.into(),
             drain: 0.into(),
             is_registered,
         })
