@@ -46,6 +46,10 @@ jobs:
           git checkout $PR_BRANCH
           git reset --hard origin/$PR_BRANCH
 
+          # Configure a temporary Git identity to allow merging
+          git config --local user.email "github-actions@github.com"
+          git config --local user.name "GitHub Actions"
+
           for branch in $MERGE_BRANCHES; do
             echo "Checking merge from $branch into $PR_BRANCH..."
             
