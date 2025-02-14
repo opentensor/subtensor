@@ -169,17 +169,17 @@ impl<T: Config> Pallet<T> {
         // We check the callers (hotkey) signature.
         let hotkey_id = ensure_signed(origin)?;
 
-        // Ensure the hotkey is registered somewhere.
-        ensure!(
-            Self::is_hotkey_registered_on_any_network(&hotkey_id),
-            Error::<T>::HotKeyNotRegisteredInNetwork
-        );
-
         // Check the ip signature validity.
         ensure!(Self::is_valid_ip_type(ip_type), Error::<T>::InvalidIpType);
         ensure!(
             Self::is_valid_ip_address(ip_type, ip),
             Error::<T>::InvalidIpAddress
+        );
+
+        // Ensure the hotkey is registered somewhere.
+        ensure!(
+            Self::is_hotkey_registered_on_any_network(&hotkey_id),
+            Error::<T>::HotKeyNotRegisteredInNetwork
         );
 
         // We get the previous axon info assoicated with this ( netuid, uid )
