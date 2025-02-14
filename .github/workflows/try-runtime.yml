@@ -24,6 +24,7 @@ jobs:
 
   check-testnet:
     name: check testnet
+    if: contains(github.base_ref, 'testnet') || contains(github.base_ref, 'devnet') || contains(github.base_ref, 'main')
     runs-on: SubtensorCI
     steps:
       - name: Checkout sources
@@ -33,16 +34,18 @@ jobs:
         uses: "paritytech/try-runtime-gha@v0.1.0"
         with:
           runtime-package: "node-subtensor-runtime"
-          node-uri: "wss://wss://test-archive.dev.opentensor.ai:443"
+          node-uri: "wss://test-archive.dev.opentensor.ai:443"
           checks: "all"
           extra-args: "--disable-spec-version-check --no-weight-warnings"
 
   check-finney:
     name: check finney
+    if: contains(github.base_ref, 'testnet') || contains(github.base_ref, 'devnet') || contains(github.base_ref, 'main')
     runs-on: SubtensorCI
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+
       - name: Run Try Runtime Checks
         uses: "paritytech/try-runtime-gha@v0.1.0"
         with:
