@@ -2,11 +2,10 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-use crate::precompiles::get_slice;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use fp_evm::{ExitError, ExitSucceed, LinearCostPrecompile, PrecompileFailure};
 
-pub const EDVERIFY_PRECOMPILE_INDEX: u64 = 1026;
+use crate::precompiles::{parse_slice, PrecompileExt};
 
 pub struct Ed25519Verify;
 
@@ -23,13 +22,13 @@ impl LinearCostPrecompile for Ed25519Verify {
 
         let mut buf = [0u8; 32];
 
-        let msg = get_slice(input, 4, 36)?;
-        let pk = VerifyingKey::try_from(get_slice(input, 36, 68)?).map_err(|_| {
+        let msg = parse_slice(input, 4, 36)?;
+        let pk = VerifyingKey::try_from(parse_slice(input, 36, 68)?).map_err(|_| {
             PrecompileFailure::Error {
                 exit_status: ExitError::Other("Public key recover failed".into()),
             }
         })?;
-        let sig = Signature::try_from(get_slice(input, 68, 132)?).map_err(|_| {
+        let sig = Signature::try_from(parse_slice(input, 68, 132)?).map_err(|_| {
             PrecompileFailure::Error {
                 exit_status: ExitError::Other("Signature recover failed".into()),
             }
@@ -41,4 +40,9 @@ impl LinearCostPrecompile for Ed25519Verify {
 
         Ok((ExitSucceed::Returned, buf.to_vec()))
     }
+}
+
+impl PrecompileExt for Ed25519Verify {
+    const INDEX: u64 = 1026;
+    const ADDRESS_SS58: [u8; 32] = [0; 32];
 }
