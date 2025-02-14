@@ -33,7 +33,7 @@ jobs:
         uses: "paritytech/try-runtime-gha@v0.1.0"
         with:
           runtime-package: "node-subtensor-runtime"
-          node-uri: "wss://wss://archive.test.opentensor.ai:443"
+          node-uri: "wss://wss://test-archive.dev.opentensor.ai:443"
           checks: "all"
           extra-args: "--disable-spec-version-check --no-weight-warnings"
 
