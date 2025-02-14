@@ -17,6 +17,8 @@ use frame_support::dispatch::{GetDispatchInfo, Pays};
 use frame_system::RawOrigin;
 use sp_core::{hashing::keccak_256, H160};
 use sp_runtime::{traits::Dispatchable, AccountId32};
+
+use pallet_admin_utils::{PrecompileEnable, PrecompileEnum};
 use sp_std::vec;
 
 // Include custom precompiles
@@ -83,17 +85,59 @@ where
             // Non-Frontier specific nor Ethereum precompiles :
             a if a == hash(1024) => Some(Sha3FIPS256::execute(handle)),
             a if a == hash(1025) => Some(ECRecoverPublicKey::execute(handle)),
+
             a if a == hash(EDVERIFY_PRECOMPILE_INDEX) => Some(Ed25519Verify::execute(handle)),
             // Subtensor specific precompiles :
             a if a == hash(BALANCE_TRANSFER_INDEX) => {
-                Some(BalanceTransferPrecompile::execute(handle))
+                if PrecompileEnable::<Runtime>::get(PrecompileEnum::BalanceTransfer) {
+                    Some(BalanceTransferPrecompile::execute(handle))
+                } else {
+                    Some(Err(PrecompileFailure::Error {
+                        exit_status: ExitError::Other(
+                            "Precompile Balance Transfer is disabled".into(),
+                        ),
+                    }))
+                }
             }
-            a if a == hash(STAKING_PRECOMPILE_INDEX) => Some(StakingPrecompile::execute(handle)),
-            a if a == hash(SUBNET_PRECOMPILE_INDEX) => Some(SubnetPrecompile::execute(handle)),
+            a if a == hash(STAKING_PRECOMPILE_INDEX) => {
+                if PrecompileEnable::<Runtime>::get(PrecompileEnum::Staking) {
+                    Some(StakingPrecompile::execute(handle))
+                } else {
+                    Some(Err(PrecompileFailure::Error {
+                        exit_status: ExitError::Other(
+                            "Precompile Balance Transfer is disabled".into(),
+                        ),
+                    }))
+                }
+            }
+
+            a if a == hash(SUBNET_PRECOMPILE_INDEX) => {
+                if PrecompileEnable::<Runtime>::get(PrecompileEnum::Subnet) {
+                    Some(SubnetPrecompile::execute(handle))
+                } else {
+                    Some(Err(PrecompileFailure::Error {
+                        exit_status: ExitError::Other("Precompile Subnet is disabled".into()),
+                    }))
+                }
+            }
             a if a == hash(METAGRAPH_PRECOMPILE_INDEX) => {
-                Some(MetagraphPrecompile::execute(handle))
+                if PrecompileEnable::<Runtime>::get(PrecompileEnum::Metagraph) {
+                    Some(MetagraphPrecompile::execute(handle))
+                } else {
+                    Some(Err(PrecompileFailure::Error {
+                        exit_status: ExitError::Other("Precompile Metagrah is disabled".into()),
+                    }))
+                }
             }
-            a if a == hash(NEURON_PRECOMPILE_INDEX) => Some(NeuronPrecompile::execute(handle)),
+            a if a == hash(NEURON_PRECOMPILE_INDEX) => {
+                if PrecompileEnable::<Runtime>::get(PrecompileEnum::Neuron) {
+                    Some(NeuronPrecompile::execute(handle))
+                } else {
+                    Some(Err(PrecompileFailure::Error {
+                        exit_status: ExitError::Other("Precompile Neuron is disabled".into()),
+                    }))
+                }
+            }
 
             _ => None,
         }
