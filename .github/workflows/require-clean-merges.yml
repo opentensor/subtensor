@@ -21,15 +21,15 @@ jobs:
         run: |
           TARGET_BRANCH="${{ github.event.pull_request.base.ref }}"
           if [[ "$TARGET_BRANCH" == "devnet-ready" ]]; then
-            echo "MERGE_BRANCHES='devnet testnet main'" >> $GITHUB_ENV
+            echo "MERGE_BRANCHES=devnet testnet main" >> $GITHUB_ENV
           elif [[ "$TARGET_BRANCH" == "devnet" ]]; then
-            echo "MERGE_BRANCHES='testnet main'" >> $GITHUB_ENV
+            echo "MERGE_BRANCHES=testnet main" >> $GITHUB_ENV
           elif [[ "$TARGET_BRANCH" == "testnet" ]]; then
-            echo "MERGE_BRANCHES='main'" >> $GITHUB_ENV
+            echo "MERGE_BRANCHES=main" >> $GITHUB_ENV
           elif [[ "$TARGET_BRANCH" == "main" ]]; then
-            echo "MERGE_BRANCHES=''" >> $GITHUB_ENV  # No need to merge anything into main
+            echo "MERGE_BRANCHES=" >> $GITHUB_ENV  # No need to merge anything into main
           else
-            echo "MERGE_BRANCHES='devnet-ready devnet testnet main'" >> $GITHUB_ENV
+            echo "MERGE_BRANCHES=devnet-ready devnet testnet main" >> $GITHUB_ENV
           fi
 
       - name: Check Merge Cleanliness
