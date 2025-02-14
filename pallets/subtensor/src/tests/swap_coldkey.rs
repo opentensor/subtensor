@@ -1726,7 +1726,7 @@ fn test_schedule_swap_coldkey_duplicate() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap_coldkey -- test_schedule_swap_coldkey_execution --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_schedule_swap_coldkey_execution --exact --show-output --nocapture
 #[test]
 fn test_schedule_swap_coldkey_execution() {
     new_test_ext(1).execute_with(|| {
@@ -2019,6 +2019,331 @@ fn test_cant_schedule_swap_without_enough_to_burn() {
                 new_coldkey
             ),
             Error::<Test>::NotEnoughBalanceToPaySwapColdKey
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_coldkey_in_swap_schedule_prevents_funds_usage --exact --show-output --nocapture
+#[test]
+fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
+    // Testing the signed extension validate function
+    // correctly filters transactions that attempt to use funds
+    // while a coldkey swap is scheduled.
+
+    new_test_ext(0).execute_with(|| {
+        let netuid: u16 = 1;
+        let version_key: u64 = 0;
+        let coldkey = U256::from(0);
+        let new_coldkey = U256::from(1);
+        let hotkey: U256 = U256::from(2); // Add the hotkey field
+        assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
+        let fee = DefaultStakingFee::<Test>::get();
+
+        let who = coldkey; // The coldkey signs this transaction
+
+        // Disallowed transactions are
+        // - add_stake
+        // - add_stake_limit
+        // - swap_stake
+        // - swap_stake_limit
+        // - move_stake
+        // - transfer_stake
+        // - balances.transfer_all
+        // - balances.transfer_allow_death
+        // - balances.transfer_keep_alive
+
+        // Allowed transactions are:
+        // - remove_stake
+        // - remove_stake_limit
+        // others...
+
+        // Create netuid
+        add_network(netuid, 1, 0);
+        // Register the hotkey
+        SubtensorModule::append_neuron(netuid, &hotkey, 0);
+        crate::Owner::<Test>::insert(hotkey, coldkey);
+
+        SubtensorModule::add_balance_to_coldkey_account(&who, u64::MAX);
+
+        // Set the minimum stake to 0.
+        SubtensorModule::set_stake_threshold(0);
+        // Add stake to the hotkey
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(who),
+            hotkey,
+            netuid,
+            100_000_000_000
+        ));
+
+        // Schedule the coldkey for a swap
+        assert_ok!(SubtensorModule::schedule_swap_coldkey(
+            <<Test as Config>::RuntimeOrigin>::signed(who),
+            new_coldkey
+        ));
+
+        assert!(ColdkeySwapScheduled::<Test>::contains_key(who));
+
+        // Setup the extension
+        let info: crate::DispatchInfo =
+            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = crate::SubtensorSignedExtension::<Test>::new();
+
+        // Try each call
+
+        // Add stake
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::add_stake {
+            hotkey,
+            netuid,
+            amount_staked: 100_000_000_000,
+        });
+        let result: Result<ValidTransaction, TransactionValidityError> =
+            extension.validate(&who, &call.clone(), &info, 10);
+        // Should fail
+        assert_err!(
+            // Should get an invalid transaction error
+            result,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::ColdkeyInSwapSchedule.into()
+            ))
+        );
+
+        // Add stake limit
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::add_stake_limit {
+            hotkey,
+            netuid,
+            amount_staked: 100_000_000_000,
+            limit_price: 100_000_000_000,
+            allow_partial: false,
+        });
+        let result = extension.validate(&who, &call.clone(), &info, 10);
+        // Should fail
+        assert_err!(
+            // Should get an invalid transaction error
+            result,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::ColdkeyInSwapSchedule.into()
+            ))
+        );
+
+        // Swap stake
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::swap_stake {
+            hotkey,
+            origin_netuid: netuid,
+            destination_netuid: netuid,
+            alpha_amount: 100_000_000_000,
+        });
+        let result = extension.validate(&who, &call.clone(), &info, 10);
+        // Should fail
+        assert_err!(
+            // Should get an invalid transaction error
+            result,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::ColdkeyInSwapSchedule.into()
+            ))
+        );
+
+        // Swap stake limit
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::swap_stake_limit {
+            hotkey,
+            origin_netuid: netuid,
+            destination_netuid: netuid,
+            alpha_amount: 100_000_000_000,
+            limit_price: 100_000_000_000,
+            allow_partial: false,
+        });
+        let result = extension.validate(&who, &call.clone(), &info, 10);
+        // Should fail
+        assert_err!(
+            // Should get an invalid transaction error
+            result,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::ColdkeyInSwapSchedule.into()
+            ))
+        );
+
+        // Move stake
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::move_stake {
+            origin_hotkey: hotkey,
+            destination_hotkey: hotkey,
+            origin_netuid: netuid,
+            destination_netuid: netuid,
+            alpha_amount: 100_000_000_000,
+        });
+        let result = extension.validate(&who, &call.clone(), &info, 10);
+        // Should fail
+        assert_err!(
+            // Should get an invalid transaction error
+            result,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::ColdkeyInSwapSchedule.into()
+            ))
+        );
+
+        // Transfer stake
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::transfer_stake {
+            destination_coldkey: new_coldkey,
+            hotkey,
+            origin_netuid: netuid,
+            destination_netuid: netuid,
+            alpha_amount: 100_000_000_000,
+        });
+        let result = extension.validate(&who, &call.clone(), &info, 10);
+        // Should fail
+        assert_err!(
+            // Should get an invalid transaction error
+            result,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::ColdkeyInSwapSchedule.into()
+            ))
+        );
+
+        // Transfer all
+        let call = RuntimeCall::Balances(BalancesCall::transfer_all {
+            dest: new_coldkey,
+            keep_alive: false,
+        });
+        let result = extension.validate(&who, &call.clone(), &info, 10);
+        // Should fail
+        assert_err!(
+            // Should get an invalid transaction error
+            result,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::ColdkeyInSwapSchedule.into()
+            ))
+        );
+
+        // Transfer keep alive
+        let call = RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
+            dest: new_coldkey,
+            value: 100_000_000_000,
+        });
+        let result = extension.validate(&who, &call.clone(), &info, 10);
+        // Should fail
+        assert_err!(
+            // Should get an invalid transaction error
+            result,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::ColdkeyInSwapSchedule.into()
+            ))
+        );
+
+        // Transfer allow death
+        let call = RuntimeCall::Balances(BalancesCall::transfer_allow_death {
+            dest: new_coldkey,
+            value: 100_000_000_000,
+        });
+        let result = extension.validate(&who, &call.clone(), &info, 10);
+        // Should fail
+        assert_err!(
+            // Should get an invalid transaction error
+            result,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::ColdkeyInSwapSchedule.into()
+            ))
+        );
+
+        // Burned register
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::burned_register { netuid, hotkey });
+        let result = extension.validate(&who, &call.clone(), &info, 10);
+        // Should fail
+        assert_err!(
+            // Should get an invalid transaction error
+            result,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::ColdkeyInSwapSchedule.into()
+            ))
+        );
+
+        // Remove stake
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::remove_stake {
+            hotkey,
+            netuid,
+            amount_unstaked: 1_000_000,
+        });
+        let result = extension.validate(&who, &call.clone(), &info, 10);
+        // Should pass, not in list.
+        assert_ok!(result);
+
+        // Remove stake limit
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::remove_stake_limit {
+            hotkey,
+            netuid,
+            amount_unstaked: 1_000_000,
+            limit_price: 123456789, // should be low enough
+            allow_partial: true,
+        });
+        let result = extension.validate(&who, &call.clone(), &info, 10);
+        // Should pass, not in list.
+        assert_ok!(result);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_coldkey_in_swap_schedule_prevents_critical_calls --exact --show-output --nocapture
+#[test]
+fn test_coldkey_in_swap_schedule_prevents_critical_calls() {
+    // Testing the signed extension validate function
+    // correctly filters transactions that are critical
+    // while a coldkey swap is scheduled.
+
+    new_test_ext(0).execute_with(|| {
+        let netuid: u16 = 1;
+        let version_key: u64 = 0;
+        let coldkey = U256::from(0);
+        let new_coldkey = U256::from(1);
+        let hotkey: U256 = U256::from(2); // Add the hotkey field
+        assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
+        let fee = DefaultStakingFee::<Test>::get();
+
+        let who = coldkey; // The coldkey signs this transaction
+
+        // Disallowed transactions are
+        // - dissolve_network
+
+        // Create netuid
+        add_network(netuid, 1, 0);
+        // Register the hotkey
+        SubtensorModule::append_neuron(netuid, &hotkey, 0);
+        crate::Owner::<Test>::insert(hotkey, coldkey);
+
+        SubtensorModule::add_balance_to_coldkey_account(&who, u64::MAX);
+
+        // Set the minimum stake to 0.
+        SubtensorModule::set_stake_threshold(0);
+        // Add stake to the hotkey
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(who),
+            hotkey,
+            netuid,
+            100_000_000_000
+        ));
+
+        // Schedule the coldkey for a swap
+        assert_ok!(SubtensorModule::schedule_swap_coldkey(
+            <<Test as Config>::RuntimeOrigin>::signed(who),
+            new_coldkey
+        ));
+
+        assert!(ColdkeySwapScheduled::<Test>::contains_key(who));
+
+        // Setup the extension
+        let info: crate::DispatchInfo =
+            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = crate::SubtensorSignedExtension::<Test>::new();
+
+        // Try each call
+
+        // Dissolve network
+        let call =
+            RuntimeCall::SubtensorModule(SubtensorCall::dissolve_network { netuid, coldkey });
+        let result: Result<ValidTransaction, TransactionValidityError> =
+            extension.validate(&who, &call.clone(), &info, 10);
+        // Should fail
+        assert_err!(
+            // Should get an invalid transaction error
+            result,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::ColdkeyInSwapSchedule.into()
+            ))
         );
     });
 }
