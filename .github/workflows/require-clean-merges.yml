@@ -21,15 +21,15 @@ jobs:
         run: |
           TARGET_BRANCH="${{ github.event.pull_request.base.ref }}"
           if [[ "$TARGET_BRANCH" == "devnet-ready" ]]; then
-            echo "MERGE_BRANCHES='devnet testnet main'" >> $GITHUB_ENV
+            echo "MERGE_BRANCHES=devnet testnet main" >> $GITHUB_ENV
           elif [[ "$TARGET_BRANCH" == "devnet" ]]; then
-            echo "MERGE_BRANCHES='testnet main'" >> $GITHUB_ENV
+            echo "MERGE_BRANCHES=testnet main" >> $GITHUB_ENV
           elif [[ "$TARGET_BRANCH" == "testnet" ]]; then
-            echo "MERGE_BRANCHES='main'" >> $GITHUB_ENV
+            echo "MERGE_BRANCHES=main" >> $GITHUB_ENV
           elif [[ "$TARGET_BRANCH" == "main" ]]; then
-            echo "MERGE_BRANCHES=''" >> $GITHUB_ENV
+            echo "MERGE_BRANCHES=" >> $GITHUB_ENV  # No need to merge anything into main
           else
-            echo "MERGE_BRANCHES='devnet-ready devnet testnet main'" >> $GITHUB_ENV
+            echo "MERGE_BRANCHES=devnet-ready devnet testnet main" >> $GITHUB_ENV
           fi
 
       - name: Check Merge Cleanliness
@@ -41,9 +41,15 @@ jobs:
           for branch in $MERGE_BRANCHES; do
             echo "Checking merge from $branch into $TARGET_BRANCH..."
             
-            # Ensure we are on the target branch
+            # Ensure we are on the target branch and reset to its latest state
             git checkout $TARGET_BRANCH
             git reset --hard origin/$TARGET_BRANCH
+
+            # Ensure branch exists before attempting a merge
+            if ! git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+              echo "❌ Branch $branch does not exist on remote, skipping..."
+              continue
+            fi
 
             # Merge without committing to check for conflicts
             if ! git merge --no-commit --no-ff origin/$branch; then
