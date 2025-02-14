@@ -21,15 +21,15 @@ jobs:
         run: |
           TARGET_BRANCH="${{ github.event.pull_request.base.ref }}"
           if [[ "$TARGET_BRANCH" == "devnet-ready" ]]; then
-            echo "MERGE_BRANCHES=devnet testnet main" >> $GITHUB_ENV
+            echo "MERGE_BRANCHES='devnet testnet main'" >> $GITHUB_ENV
           elif [[ "$TARGET_BRANCH" == "devnet" ]]; then
-            echo "MERGE_BRANCHES=testnet main" >> $GITHUB_ENV
+            echo "MERGE_BRANCHES='testnet main'" >> $GITHUB_ENV
           elif [[ "$TARGET_BRANCH" == "testnet" ]]; then
-            echo "MERGE_BRANCHES=main" >> $GITHUB_ENV
+            echo "MERGE_BRANCHES='main'" >> $GITHUB_ENV
           elif [[ "$TARGET_BRANCH" == "main" ]]; then
-            echo "MERGE_BRANCHES=" >> $GITHUB_ENV  # No need to merge anything into main
+            echo "MERGE_BRANCHES=''" >> $GITHUB_ENV  # No need to merge anything into main
           else
-            echo "MERGE_BRANCHES=devnet-ready devnet testnet main" >> $GITHUB_ENV
+            echo "MERGE_BRANCHES='devnet-ready devnet testnet main'" >> $GITHUB_ENV
           fi
 
       - name: Check Merge Cleanliness
@@ -41,22 +41,18 @@ jobs:
           for branch in $MERGE_BRANCHES; do
             echo "Checking merge from $branch into $TARGET_BRANCH..."
             
-            # Ensure we are on the target branch and reset to its latest state
+            # Ensure we are on the target branch and reset to its latest remote state
             git checkout $TARGET_BRANCH
             git reset --hard origin/$TARGET_BRANCH
 
-            # Ensure branch exists before attempting a merge
-            if ! git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
-              echo "❌ Branch $branch does not exist on remote, skipping..."
-              continue
-            fi
-
             # Merge without committing to check for conflicts
-            if ! git merge --no-commit --no-ff origin/$branch; then
+            if git merge --no-commit --no-ff origin/$branch; then
+              echo "✅ Merge from $branch into $TARGET_BRANCH is clean."
+            else
               echo "❌ Merge conflict detected when merging $branch into $TARGET_BRANCH"
               exit 1
             fi
             
-            # Abort the merge since we are only testing
-            git merge --abort || true
+            # Abort merge if one was started, suppressing errors if no merge happened
+            git merge --abort 2>/dev/null || true
           done
