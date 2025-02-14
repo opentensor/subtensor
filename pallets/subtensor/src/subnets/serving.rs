@@ -69,28 +69,20 @@ impl<T: Config> Pallet<T> {
         // We check the callers (hotkey) signature.
         let hotkey_id = ensure_signed(origin)?;
 
-        // Ensure the hotkey is registered somewhere.
-        ensure!(
-            Self::is_hotkey_registered_on_any_network(&hotkey_id),
-            Error::<T>::HotKeyNotRegisteredInNetwork
-        );
+        // Validate user input
+        Self::validate_serve_axon(
+            &hotkey_id,
+            netuid,
+            version,
+            ip,
+            port,
+            ip_type,
+            protocol,
+            placeholder1,
+            placeholder2,
+        )?;
 
-        // Check the ip signature validity.
-        ensure!(Self::is_valid_ip_type(ip_type), Error::<T>::InvalidIpType);
-        ensure!(
-            Self::is_valid_ip_address(ip_type, ip),
-            Error::<T>::InvalidIpAddress
-        );
-
-        // Get the previous axon information.
-        let mut prev_axon = Self::get_axon_info(netuid, &hotkey_id);
-        let current_block: u64 = Self::get_current_block_as_u64();
-        ensure!(
-            Self::axon_passes_rate_limit(netuid, &prev_axon, current_block),
-            Error::<T>::ServingRateLimitExceeded
-        );
-
-        // Check certificate
+        // Check+insert certificate
         if let Some(certificate) = certificate {
             if let Ok(certificate) = NeuronCertificateOf::try_from(certificate) {
                 NeuronCertificates::<T>::insert(netuid, hotkey_id.clone(), certificate)
@@ -98,6 +90,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // We insert the axon meta.
+        let mut prev_axon = Self::get_axon_info(netuid, &hotkey_id);
         prev_axon.block = Self::get_current_block_as_u64();
         prev_axon.version = version;
         prev_axon.ip = ip;
@@ -176,17 +169,17 @@ impl<T: Config> Pallet<T> {
         // We check the callers (hotkey) signature.
         let hotkey_id = ensure_signed(origin)?;
 
-        // Ensure the hotkey is registered somewhere.
-        ensure!(
-            Self::is_hotkey_registered_on_any_network(&hotkey_id),
-            Error::<T>::HotKeyNotRegisteredInNetwork
-        );
-
         // Check the ip signature validity.
         ensure!(Self::is_valid_ip_type(ip_type), Error::<T>::InvalidIpType);
         ensure!(
             Self::is_valid_ip_address(ip_type, ip),
             Error::<T>::InvalidIpAddress
+        );
+
+        // Ensure the hotkey is registered somewhere.
+        ensure!(
+            Self::is_hotkey_registered_on_any_network(&hotkey_id),
+            Error::<T>::HotKeyNotRegisteredInNetwork
         );
 
         // We get the previous axon info assoicated with this ( netuid, uid )
@@ -331,5 +324,56 @@ impl<T: Config> Pallet<T> {
         }
 
         Ok(true)
+    }
+
+    pub fn validate_serve_axon(
+        hotkey_id: &T::AccountId,
+        netuid: u16,
+        version: u32,
+        ip: u128,
+        port: u16,
+        ip_type: u8,
+        protocol: u8,
+        placeholder1: u8,
+        placeholder2: u8,
+    ) -> Result<(), Error<T>> {
+        // Ensure the hotkey is registered somewhere.
+        ensure!(
+            Self::is_hotkey_registered_on_any_network(hotkey_id),
+            Error::<T>::HotKeyNotRegisteredInNetwork
+        );
+
+        // Check the ip signature validity.
+        ensure!(Self::is_valid_ip_type(ip_type), Error::<T>::InvalidIpType);
+        ensure!(
+            Self::is_valid_ip_address(ip_type, ip),
+            Error::<T>::InvalidIpAddress
+        );
+
+        // Get the previous axon information.
+        let mut prev_axon = Self::get_axon_info(netuid, hotkey_id);
+        let current_block: u64 = Self::get_current_block_as_u64();
+        ensure!(
+            Self::axon_passes_rate_limit(netuid, &prev_axon, current_block),
+            Error::<T>::ServingRateLimitExceeded
+        );
+
+        // Validate axon data with delegate func
+        prev_axon.block = Self::get_current_block_as_u64();
+        prev_axon.version = version;
+        prev_axon.ip = ip;
+        prev_axon.port = port;
+        prev_axon.ip_type = ip_type;
+        prev_axon.protocol = protocol;
+        prev_axon.placeholder1 = placeholder1;
+        prev_axon.placeholder2 = placeholder2;
+
+        let axon_validated = Self::validate_axon_data(&prev_axon);
+        ensure!(
+            axon_validated.is_ok(),
+            axon_validated.err().unwrap_or(Error::<T>::InvalidPort)
+        );
+
+        Ok(())
     }
 }
