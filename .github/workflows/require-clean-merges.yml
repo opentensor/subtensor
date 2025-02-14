@@ -21,26 +21,36 @@ jobs:
         run: |
           TARGET_BRANCH="${{ github.event.pull_request.base.ref }}"
           if [[ "$TARGET_BRANCH" == "devnet-ready" ]]; then
-            echo "MERGE_BRANCHES=devnet-ready devnet testnet main" >> $GITHUB_ENV
+            echo "MERGE_BRANCHES='devnet testnet main'" >> $GITHUB_ENV
           elif [[ "$TARGET_BRANCH" == "devnet" ]]; then
-            echo "MERGE_BRANCHES=devnet testnet main" >> $GITHUB_ENV
+            echo "MERGE_BRANCHES='testnet main'" >> $GITHUB_ENV
           elif [[ "$TARGET_BRANCH" == "testnet" ]]; then
-            echo "MERGE_BRANCHES=testnet main" >> $GITHUB_ENV
+            echo "MERGE_BRANCHES='main'" >> $GITHUB_ENV
           elif [[ "$TARGET_BRANCH" == "main" ]]; then
-            echo "MERGE_BRANCHES=main" >> $GITHUB_ENV
+            echo "MERGE_BRANCHES=''" >> $GITHUB_ENV
           else
-            echo "MERGE_BRANCHES=devnet-ready devnet testnet main" >> $GITHUB_ENV
+            echo "MERGE_BRANCHES='devnet-ready devnet testnet main'" >> $GITHUB_ENV
           fi
 
       - name: Check Merge Cleanliness
         run: |
+          TARGET_BRANCH="${{ github.event.pull_request.base.ref }}"
+          echo "Fetching all branches..."
+          git fetch --all --prune
+
           for branch in $MERGE_BRANCHES; do
-            echo "Checking merge from $branch into ${{ github.event.pull_request.base.ref }}..."
-            git fetch origin $branch
-            git checkout ${{ github.event.pull_request.base.ref }}
+            echo "Checking merge from $branch into $TARGET_BRANCH..."
+            
+            # Ensure we are on the target branch
+            git checkout $TARGET_BRANCH
+            git reset --hard origin/$TARGET_BRANCH
+
+            # Merge without committing to check for conflicts
             if ! git merge --no-commit --no-ff origin/$branch; then
-              echo "Merge conflict detected when merging $branch into ${{ github.event.pull_request.base.ref }}"
+              echo "❌ Merge conflict detected when merging $branch into $TARGET_BRANCH"
               exit 1
             fi
-            git merge --abort
+            
+            # Abort the merge since we are only testing
+            git merge --abort || true
           done
