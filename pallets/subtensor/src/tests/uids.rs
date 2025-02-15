@@ -5,6 +5,7 @@ use crate::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
+use substrate_fixed::types::I64F64;
 
 /********************************************
     tests for uids.rs file
@@ -332,6 +333,175 @@ fn test_get_neuron_to_prune_owner_not_pruned() {
         assert_eq!(
             owner_score, 0,
             "Owner's pruning score remains 0, indicating it was skipped"
+        );
+    });
+}
+
+#[test]
+fn test_get_neuron_to_prune_owner_pruned_if_not_top_stake_owner_hotkey() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(123);
+        let owner_coldkey = U256::from(999);
+        let other_owner_hotkey = U256::from(456);
+
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        SubtensorModule::set_max_registrations_per_block(netuid, 100);
+        SubtensorModule::set_target_registrations_per_interval(netuid, 100);
+        SubnetOwner::<Test>::insert(netuid, owner_coldkey);
+
+        let owner_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &owner_hotkey)
+            .expect("Owner neuron should already be registered by add_dynamic_network");
+
+        // Register another hotkey for the owner
+        register_ok_neuron(netuid, other_owner_hotkey, owner_coldkey, 0);
+        let other_owner_uid =
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &other_owner_hotkey)
+                .expect("Should be registered");
+
+        let additional_hotkey_1 = U256::from(1000);
+        let additional_coldkey_1 = U256::from(2000);
+
+        let additional_hotkey_2 = U256::from(1001);
+        let additional_coldkey_2 = U256::from(2001);
+
+        register_ok_neuron(netuid, additional_hotkey_1, additional_coldkey_1, 1);
+        let uid_2 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &additional_hotkey_1)
+            .expect("Should be registered");
+
+        register_ok_neuron(netuid, additional_hotkey_2, additional_coldkey_2, 2);
+        let uid_3 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &additional_hotkey_2)
+            .expect("Should be registered");
+
+        SubtensorModule::set_pruning_score_for_uid(netuid, owner_uid, 0);
+        // Other owner key has pruning score not worse than the owner's first hotkey, but worse than the additional hotkeys
+        SubtensorModule::set_pruning_score_for_uid(netuid, other_owner_uid, 1);
+        SubtensorModule::set_pruning_score_for_uid(netuid, uid_2, 2);
+        SubtensorModule::set_pruning_score_for_uid(netuid, uid_3, 3);
+
+        let pruned_uid = SubtensorModule::get_neuron_to_prune(netuid);
+        assert_eq!(pruned_uid, other_owner_uid, "Should prune the owner");
+
+        // Give the owner's other hotkey some stake
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &other_owner_hotkey,
+            &owner_coldkey,
+            netuid,
+            1000,
+        );
+
+        // Reset pruning scores
+        SubtensorModule::set_pruning_score_for_uid(netuid, owner_uid, 0);
+        SubtensorModule::set_pruning_score_for_uid(netuid, other_owner_uid, 1);
+        SubtensorModule::set_pruning_score_for_uid(netuid, uid_2, 2);
+        SubtensorModule::set_pruning_score_for_uid(netuid, uid_3, 3);
+
+        let pruned_uid = SubtensorModule::get_neuron_to_prune(netuid);
+
+        // - The pruned UID must be `uid_1` (score=1).
+        // - The owner's UID remains unpruned.
+        assert_eq!(
+            pruned_uid, owner_uid,
+            "Should prune the owner, not the top-stake owner hotkey and not the additional hotkeys"
+        );
+    });
+}
+
+#[test]
+fn test_get_neuron_to_prune_owner_pruned_if_not_top_stake_owner_hotkey_chk() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(123);
+        let owner_coldkey = U256::from(999);
+        let other_owner_hotkey = U256::from(456);
+        let parent_hotkey = U256::from(4567);
+        let parent_coldkey = U256::from(4568);
+
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        SubtensorModule::set_max_registrations_per_block(netuid, 100);
+        SubtensorModule::set_target_registrations_per_interval(netuid, 100);
+        SubnetOwner::<Test>::insert(netuid, owner_coldkey);
+
+        let owner_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &owner_hotkey)
+            .expect("Owner neuron should already be registered by add_dynamic_network");
+
+        // Register another hotkey for the owner
+        register_ok_neuron(netuid, other_owner_hotkey, owner_coldkey, 0);
+        let other_owner_uid =
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &other_owner_hotkey)
+                .expect("Should be registered");
+
+        let additional_hotkey_1 = U256::from(1000);
+        let additional_coldkey_1 = U256::from(2000);
+
+        let additional_hotkey_2 = U256::from(1001);
+        let additional_coldkey_2 = U256::from(2001);
+
+        register_ok_neuron(netuid, additional_hotkey_1, additional_coldkey_1, 1);
+        let uid_2 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &additional_hotkey_1)
+            .expect("Should be registered");
+
+        register_ok_neuron(netuid, additional_hotkey_2, additional_coldkey_2, 2);
+        let uid_3 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &additional_hotkey_2)
+            .expect("Should be registered");
+
+        register_ok_neuron(netuid, parent_hotkey, parent_coldkey, 3);
+        let uid_4: u16 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &parent_hotkey)
+            .expect("Should be registered");
+
+        // Give parent key some stake
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &parent_hotkey,
+            &parent_coldkey,
+            netuid,
+            10_000_000,
+        );
+
+        SubtensorModule::set_pruning_score_for_uid(netuid, owner_uid, 0);
+        // Other owner key has pruning score not worse than the owner's first hotkey, but worse than the additional hotkeys
+        SubtensorModule::set_pruning_score_for_uid(netuid, other_owner_uid, 1);
+        SubtensorModule::set_pruning_score_for_uid(netuid, uid_2, 2);
+        SubtensorModule::set_pruning_score_for_uid(netuid, uid_3, 3);
+
+        // Ensure parent key is not pruned
+        SubtensorModule::set_pruning_score_for_uid(netuid, uid_4, 10_000);
+
+        let pruned_uid = SubtensorModule::get_neuron_to_prune(netuid);
+        assert_eq!(
+            pruned_uid, other_owner_uid,
+            "Should prune the owner's other hotkey"
+        );
+
+        // Give the owner's other hotkey some CHK stake; Doesn't need to be much
+        mock_set_children_no_epochs(
+            netuid,
+            &parent_hotkey,
+            &[(
+                I64F64::saturating_from_num(0.1)
+                    .saturating_mul(I64F64::saturating_from_num(u64::MAX))
+                    .saturating_to_num::<u64>(),
+                other_owner_hotkey,
+            )],
+        );
+        // Check stake weight of other_owner_hotkey
+        let stake_weight =
+            SubtensorModule::get_stake_weights_for_hotkey_on_subnet(&other_owner_hotkey, netuid);
+        assert!(stake_weight.0 > 0);
+
+        // Reset pruning scores
+        SubtensorModule::set_pruning_score_for_uid(netuid, owner_uid, 0);
+        SubtensorModule::set_pruning_score_for_uid(netuid, other_owner_uid, 1);
+        SubtensorModule::set_pruning_score_for_uid(netuid, uid_2, 2);
+        SubtensorModule::set_pruning_score_for_uid(netuid, uid_3, 3);
+        SubtensorModule::set_pruning_score_for_uid(netuid, uid_4, 10_000);
+
+        let pruned_uid = SubtensorModule::get_neuron_to_prune(netuid);
+
+        // - The pruned UID must be `uid_1` (score=1).
+        // - The owner's UID remains unpruned.
+        assert_eq!(
+            pruned_uid, owner_uid,
+            "Should prune the owner, not the top-stake owner hotkey and not the additional hotkeys"
         );
     });
 }
