@@ -281,6 +281,175 @@ fn test_replace_neuron_subnet_owner_not_replaced() {
 }
 
 #[test]
+fn test_replace_neuron_subnet_owner_not_replaced_if_top_stake_owner_hotkey() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(123);
+        let owner_coldkey = U256::from(999);
+        let other_owner_hotkey = U256::from(456);
+
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        SubtensorModule::set_max_registrations_per_block(netuid, 100);
+        SubtensorModule::set_target_registrations_per_interval(netuid, 100);
+        SubnetOwner::<Test>::insert(netuid, owner_coldkey);
+
+        let owner_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &owner_hotkey)
+            .expect("Owner neuron should already be registered by add_dynamic_network");
+
+        // Register another hotkey for the owner
+        register_ok_neuron(netuid, other_owner_hotkey, owner_coldkey, 0);
+        let other_owner_uid =
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &other_owner_hotkey)
+                .expect("Should be registered");
+
+        let additional_hotkey_1 = U256::from(1000);
+        let additional_hotkey_2 = U256::from(1001);
+
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        SubtensorModule::replace_neuron(netuid, owner_uid, &additional_hotkey_1, current_block);
+
+        let still_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &owner_hotkey);
+        assert_ok!(still_uid);
+        assert_eq!(
+            still_uid.unwrap(),
+            owner_uid,
+            "Owner's first hotkey should remain registered"
+        );
+
+        let new_key_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &additional_hotkey_1);
+        assert_err!(new_key_uid, Error::<Test>::HotKeyNotRegisteredInSubNet,);
+
+        // Try to replace the other owner hotkey
+        SubtensorModule::replace_neuron(
+            netuid,
+            other_owner_uid,
+            &additional_hotkey_1,
+            current_block,
+        );
+        let still_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &other_owner_hotkey);
+        assert_err!(still_uid, Error::<Test>::HotKeyNotRegisteredInSubNet,); // Was replaced
+
+        // Re-register this hotkey
+        register_ok_neuron(netuid, other_owner_hotkey, owner_coldkey, 0);
+        let _other_owner_uid =
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &other_owner_hotkey)
+                .expect("Should be registered");
+
+        // Give the owner's other hotkey some stake
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &other_owner_hotkey,
+            &owner_coldkey,
+            netuid,
+            1000,
+        );
+
+        SubtensorModule::replace_neuron(netuid, owner_uid, &additional_hotkey_2, current_block);
+
+        // The owner's first hotkey should be replaceable; it's not the top-stake owner hotkey
+        let still_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &owner_hotkey);
+        assert_err!(still_uid, Error::<Test>::HotKeyNotRegisteredInSubNet,);
+
+        let new_key_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &additional_hotkey_2);
+        assert_ok!(new_key_uid);
+    });
+}
+
+#[test]
+fn test_replace_neuron_subnet_owner_not_replaced_if_top_stake_owner_hotkey_chk() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(123);
+        let owner_coldkey = U256::from(999);
+        let other_owner_hotkey = U256::from(456);
+        let parent_hotkey = U256::from(4567);
+        let parent_coldkey = U256::from(4568);
+
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        SubtensorModule::set_max_registrations_per_block(netuid, 100);
+        SubtensorModule::set_target_registrations_per_interval(netuid, 100);
+        SubnetOwner::<Test>::insert(netuid, owner_coldkey);
+
+        let owner_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &owner_hotkey)
+            .expect("Owner neuron should already be registered by add_dynamic_network");
+
+        // Register another hotkey for the owner
+        register_ok_neuron(netuid, other_owner_hotkey, owner_coldkey, 0);
+        let other_owner_uid =
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &other_owner_hotkey)
+                .expect("Should be registered");
+
+        register_ok_neuron(netuid, parent_hotkey, parent_coldkey, 3);
+        let _uid_4: u16 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &parent_hotkey)
+            .expect("Should be registered");
+
+        // Give parent key some stake
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &parent_hotkey,
+            &parent_coldkey,
+            netuid,
+            10_000_000,
+        );
+
+        let additional_hotkey_1 = U256::from(1000);
+        let additional_hotkey_2 = U256::from(1001);
+
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        SubtensorModule::replace_neuron(netuid, owner_uid, &additional_hotkey_1, current_block);
+
+        let still_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &owner_hotkey);
+        assert_ok!(still_uid);
+        assert_eq!(
+            still_uid.unwrap(),
+            owner_uid,
+            "Owner's first hotkey should remain registered"
+        );
+
+        let new_key_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &additional_hotkey_1);
+        assert_err!(new_key_uid, Error::<Test>::HotKeyNotRegisteredInSubNet,);
+
+        SubtensorModule::replace_neuron(
+            netuid,
+            other_owner_uid,
+            &additional_hotkey_1,
+            current_block,
+        );
+        let still_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &other_owner_hotkey);
+        assert_err!(still_uid, Error::<Test>::HotKeyNotRegisteredInSubNet,); // Was replaced
+
+        // Re-register this hotkey
+        register_ok_neuron(netuid, other_owner_hotkey, owner_coldkey, 0);
+        let _other_owner_uid =
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &other_owner_hotkey)
+                .expect("Should be registered");
+
+        // Give the owner's other hotkey some CHK stake; Doesn't need to be much
+        mock_set_children_no_epochs(
+            netuid,
+            &parent_hotkey,
+            &[(
+                I64F64::saturating_from_num(0.1)
+                    .saturating_mul(I64F64::saturating_from_num(u64::MAX))
+                    .saturating_to_num::<u64>(),
+                other_owner_hotkey,
+            )],
+        );
+        // Check stake weight of other_owner_hotkey
+        let stake_weight =
+            SubtensorModule::get_stake_weights_for_hotkey_on_subnet(&other_owner_hotkey, netuid);
+        assert!(stake_weight.0 > 0);
+
+        SubtensorModule::replace_neuron(netuid, owner_uid, &additional_hotkey_2, current_block);
+
+        // The owner's first hotkey should be replaceable; it's not the top-stake owner hotkey
+        let still_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &owner_hotkey);
+        assert_err!(still_uid, Error::<Test>::HotKeyNotRegisteredInSubNet,);
+
+        let new_key_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &additional_hotkey_2);
+        assert_ok!(new_key_uid);
+    });
+}
+
+#[test]
 fn test_get_neuron_to_prune_owner_not_pruned() {
     new_test_ext(1).execute_with(|| {
         let owner_hotkey = U256::from(123);
