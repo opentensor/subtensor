@@ -43,29 +43,11 @@ impl<T: Config> Pallet<T> {
         // 1. Get the old hotkey under this position.
         let old_hotkey: T::AccountId = Keys::<T>::get(netuid, uid_to_replace);
 
-        // Do not deregister the owner's top-stake hotkey
-        let mut top_stake_sn_owner_hotkey: Option<T::AccountId> = None;
-        let mut max_stake_weight: I64F64 = I64F64::from_num(-1);
-        for neuron_uid in 0..Self::get_subnetwork_n(netuid) {
-            if let Ok(hotkey) = Self::get_hotkey_for_net_and_uid(netuid, neuron_uid) {
-                let coldkey = Self::get_owning_coldkey_for_hotkey(&hotkey);
-                if Self::get_subnet_owner(netuid) != coldkey {
-                    continue;
-                }
-
-                let stake_weights = Self::get_stake_weights_for_hotkey_on_subnet(&hotkey, netuid);
-                if stake_weights.0 > max_stake_weight {
-                    max_stake_weight = stake_weights.0;
-                    top_stake_sn_owner_hotkey = Some(hotkey);
-                }
-            }
-        }
-
-        if let Some(ref sn_owner_hotkey) = top_stake_sn_owner_hotkey {
-            if sn_owner_hotkey == &old_hotkey {
+        // Do not replace owner hotkey from `SubnetOwnerHotkey`
+        if let Ok(sn_owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
+            if sn_owner_hotkey == old_hotkey.clone() {
                 log::warn!(
-                    "replace_neuron: Skipped replacement because neuron belongs to the subnet owner. \
-                    And this hotkey has the highest stake weight of all the owner's hotkeys. \
+                    "replace_neuron: Skipped replacement because neuron is the subnet owner hotkey. \
                     netuid: {:?}, uid_to_replace: {:?}, new_hotkey: {:?}, owner_hotkey: {:?}",
                     netuid,
                     uid_to_replace,
