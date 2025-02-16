@@ -1370,14 +1370,14 @@ fn test_swap_hotkey_is_sn_owner_hotkey() {
         let mut weight = Weight::zero();
 
         // Create dynamic network
-		let netuid = add_dynamic_network(&old_hotkey, &coldkey);
-		// Check for SubnetOwnerHotkey
-		assert_eq!(SubnetOwnerHotkey::<Test>::get(netuid), old_hotkey);
+        let netuid = add_dynamic_network(&old_hotkey, &coldkey);
+        // Check for SubnetOwnerHotkey
+        assert_eq!(SubnetOwnerHotkey::<Test>::get(netuid), old_hotkey);
 
         // Perform the swap
         SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
 
-		// Check for SubnetOwnerHotkey
-		assert_eq!(SubnetOwnerHotkey::<Test>::get(netuid), new_hotkey);
+        // Check for SubnetOwnerHotkey
+        assert_eq!(SubnetOwnerHotkey::<Test>::get(netuid), new_hotkey);
     });
 }
