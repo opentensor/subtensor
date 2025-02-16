@@ -1,7 +1,6 @@
 use super::*;
 use frame_support::storage::IterableStorageDoubleMap;
 use sp_std::vec;
-use substrate_fixed::types::I64F64;
 
 impl<T: Config> Pallet<T> {
     /// Returns the number of filled slots on a network.

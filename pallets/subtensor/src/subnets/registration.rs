@@ -2,7 +2,6 @@ use super::*;
 use sp_core::{H256, U256};
 use sp_io::hashing::{keccak_256, sha2_256};
 use sp_runtime::Saturating;
-use substrate_fixed::types::I64F64;
 use system::pallet_prelude::BlockNumberFor;
 
 const LOG_TARGET: &str = "runtime::subtensor::registration";

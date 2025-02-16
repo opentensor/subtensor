@@ -5,7 +5,6 @@ use crate::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
-use substrate_fixed::types::I64F64;
 
 /********************************************
     tests for uids.rs file
