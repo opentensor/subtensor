@@ -643,6 +643,18 @@ fn test_sudo_set_difficulty() {
             to_be_set
         ));
         assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), to_be_set);
+
+        // Test that SN owner can't set difficulty
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, U256::from(1));
+        assert_eq!(
+            AdminUtils::sudo_set_difficulty(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                netuid,
+                init_value
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), to_be_set); // no change
     });
 }
 
