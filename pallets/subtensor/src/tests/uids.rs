@@ -451,7 +451,7 @@ fn test_get_neuron_to_prune_owner_pruned_if_not_in_sn_owner_hotkey_map() {
         assert_eq!(pruned_uid, other_owner_uid, "Should prune the owner");
 
         // Set the owner's other hotkey as the SubnetOwnerHotkey
-        SubnetOwnerHotkey::<Test>::insert(netuid, owner_hotkey);
+        SubnetOwnerHotkey::<Test>::insert(netuid, other_owner_hotkey);
 
         // Reset pruning scores
         SubtensorModule::set_pruning_score_for_uid(netuid, owner_uid, 0);
@@ -461,8 +461,6 @@ fn test_get_neuron_to_prune_owner_pruned_if_not_in_sn_owner_hotkey_map() {
 
         let pruned_uid = SubtensorModule::get_neuron_to_prune(netuid);
 
-        // - The pruned UID must be `uid_1` (score=1).
-        // - The owner's UID remains unpruned.
         assert_eq!(
             pruned_uid, owner_uid,
             "Should prune the owner, not the top-stake owner hotkey and not the additional hotkeys"
