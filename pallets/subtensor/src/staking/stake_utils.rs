@@ -749,6 +749,7 @@ impl<T: Config> Pallet<T> {
         TotalStake::<T>::mutate(|total| {
             *total = total.saturating_add(actual_fee);
         });
+        LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
         // Step 5. Deposit and log the unstaking event.
         Self::deposit_event(Event::StakeRemoved(
@@ -808,6 +809,7 @@ impl<T: Config> Pallet<T> {
         TotalStake::<T>::mutate(|total| {
             *total = total.saturating_add(actual_fee);
         });
+        LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
         // Step 6. Deposit and log the staking event.
         Self::deposit_event(Event::StakeAdded(
@@ -959,12 +961,6 @@ impl<T: Config> Pallet<T> {
         ensure!(
             Self::hotkey_account_exists(origin_hotkey),
             Error::<T>::HotKeyAccountNotExists
-        );
-
-        // Ensure origin coldkey owns the origin hotkey.
-        ensure!(
-            Self::coldkey_owns_hotkey(origin_coldkey, origin_hotkey),
-            Error::<T>::NonAssociatedColdKey
         );
 
         // Ensure there is enough stake in the origin subnet.
