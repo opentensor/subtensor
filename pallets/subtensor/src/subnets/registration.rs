@@ -2,7 +2,6 @@ use super::*;
 use sp_core::{H256, U256};
 use sp_io::hashing::{keccak_256, sha2_256};
 use sp_runtime::Saturating;
-use substrate_fixed::types::I64F64;
 use system::pallet_prelude::BlockNumberFor;
 
 const LOG_TARGET: &str = "runtime::subtensor::registration";
@@ -425,29 +424,11 @@ impl<T: Config> Pallet<T> {
             return 0; // If there are no neurons in this network.
         }
 
-        // Get SN owner top stake hotkey
-        let mut top_stake_sn_owner_hotkey: Option<T::AccountId> = None;
-        let mut max_stake_weight: I64F64 = I64F64::from_num(-1);
         for neuron_uid in 0..neurons_n {
+            // Do not deregister the owner's hotkey from the `SubnetOwnerHotkey` map
             if let Ok(hotkey) = Self::get_hotkey_for_net_and_uid(netuid, neuron_uid) {
-                let coldkey = Self::get_owning_coldkey_for_hotkey(&hotkey);
-                if Self::get_subnet_owner(netuid) != coldkey {
-                    continue;
-                }
-
-                let stake_weights = Self::get_stake_weights_for_hotkey_on_subnet(&hotkey, netuid);
-                if stake_weights.0 > max_stake_weight {
-                    max_stake_weight = stake_weights.0;
-                    top_stake_sn_owner_hotkey = Some(hotkey);
-                }
-            }
-        }
-
-        for neuron_uid in 0..neurons_n {
-            // Do not deregister the owner's top-stake hotkey
-            if let Ok(hotkey) = Self::get_hotkey_for_net_and_uid(netuid, neuron_uid) {
-                if let Some(ref top_sn_owner_hotkey) = top_stake_sn_owner_hotkey {
-                    if top_sn_owner_hotkey == &hotkey {
+                if let Ok(top_sn_owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
+                    if top_sn_owner_hotkey == hotkey {
                         continue;
                     }
                 }
