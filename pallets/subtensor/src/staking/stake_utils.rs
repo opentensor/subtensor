@@ -933,6 +933,14 @@ impl<T: Config> Pallet<T> {
         // Ensure that the subnet exists.
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
+        // Ensure that the destination hotkey has enough precision for unstake.
+        let try_unstake_result = Self::try_decrease_stake_for_hotkey_and_coldkey_on_subnet(
+            hotkey,
+            netuid,
+            alpha_unstaked,
+        );
+        ensure!(try_unstake_result, Error::<T>::InsufficientLiquidity);
+
         // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
         if let Some(tao_equivalent) = Self::sim_swap_alpha_for_tao(netuid, alpha_unstaked) {
             ensure!(
