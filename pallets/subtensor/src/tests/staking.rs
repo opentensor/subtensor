@@ -3695,9 +3695,6 @@ fn test_add_stake_specific_stake_into_subnet_fail() {
 // cargo test --package pallet-subtensor --lib -- tests::staking::test_remove_99_999_per_cent_stake_removes_all --exact --show-output
 #[test]
 fn test_remove_99_9991_per_cent_stake_removes_all() {
-    // When we remove stake, the total issuance of the balances pallet should not change
-    //    this is because the stake should be part of the coldkey account balance (reserved/locked)
-    //    then the removed stake just becomes free balance
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1);
         let subnet_owner_hotkey = U256::from(2);
