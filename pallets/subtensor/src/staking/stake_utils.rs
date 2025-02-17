@@ -559,15 +559,6 @@ impl<T: Config> Pallet<T> {
         alpha_share_pool.sim_update_value_for_one(amount as i64)
     }
 
-    pub fn try_increase_stake_for_hotkey_and_coldkey_on_subnet(
-        hotkey: &T::AccountId,
-        netuid: u16,
-        amount: u64,
-    ) -> bool {
-        let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
-        alpha_share_pool.sim_update_value_for_one(amount as i64)
-    }
-
     /// Sell shares in the hotkey on a given subnet
     ///
     /// The function updates share totals given current prices.
