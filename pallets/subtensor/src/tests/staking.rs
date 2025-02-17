@@ -3669,14 +3669,25 @@ fn test_add_stake_specific_stake_into_subnet_fail() {
         );
 
         // Add stake as new hotkey
-        assert_noop!(
-            SubtensorModule::add_stake(
-                RuntimeOrigin::signed(coldkey_account_id),
-                hotkey_account_id,
-                netuid,
-                tao_staked,
+        let expected_alpha =
+            SubtensorModule::sim_swap_tao_for_alpha(netuid, tao_staked).unwrap_or(0);
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            tao_staked,
+        ));
+
+        // Check we have non-zero staked
+        assert!(expected_alpha > 0);
+        assert_abs_diff_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey_account_id,
+                &coldkey_account_id,
+                netuid
             ),
-            Error::<Test>::InsufficientLiquidity
+            expected_alpha,
+            epsilon = expected_alpha / 1000
         );
     });
 }
@@ -3755,16 +3766,37 @@ fn test_move_stake_specific_stake_into_subnet_fail() {
         );
 
         // Move stake to destination subnet
-        assert_noop!(
-            SubtensorModule::move_stake(
-                RuntimeOrigin::signed(coldkey_account_id),
-                hotkey_account_id,
-                hotkey_account_id,
-                origin_netuid,
-                netuid,
-                alpha_to_move,
+        assert_ok!(SubtensorModule::move_stake(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            hotkey_account_id,
+            origin_netuid,
+            netuid,
+            alpha_to_move,
+        ));
+
+        // Check that the stake has been moved
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey_account_id,
+                &coldkey_account_id,
+                origin_netuid
             ),
-            Error::<Test>::InsufficientLiquidity
+            0
+        );
+        let fee = DefaultStakingFee::<Test>::get();
+        let alpha_fee: I96F32 = I96F32::from_num(fee) / SubtensorModule::get_alpha_price(netuid);
+        let expected_value = I96F32::from_num(alpha_to_move)
+            * SubtensorModule::get_alpha_price(origin_netuid)
+            / SubtensorModule::get_alpha_price(netuid);
+        assert_abs_diff_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey_account_id,
+                &coldkey_account_id,
+                netuid
+            ),
+            (expected_value - alpha_fee).to_num::<u64>(),
+            epsilon = (expected_value / 1000).to_num::<u64>()
         );
     });
 }
