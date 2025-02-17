@@ -56,6 +56,9 @@ pub mod pallet {
         /// Interface to access-limit metadata commitments
         type CanCommit: CanCommit<Self::AccountId>;
 
+        /// Interface to trigger other pallets when metadata is committed
+        type OnMetadataCommitment: OnMetadataCommitment<Self::AccountId>;
+
         /// The maximum number of additional fields that can be added to a commitment
         #[pallet::constant]
         type MaxFields: Get<u32> + TypeInfo + 'static;
@@ -193,7 +196,7 @@ pub mod pallet {
             netuid: u16,
             info: Box<CommitmentInfo<T::MaxFields>>,
         ) -> DispatchResult {
-            let who = ensure_signed(origin)?;
+            let who = ensure_signed(origin.clone())?;
             ensure!(
                 T::CanCommit::can_commit(netuid, &who),
                 Error::<T>::AccountNotAllowedCommit
@@ -347,6 +350,14 @@ impl<A> CanCommit<A> for () {
     fn can_commit(_: u16, _: &A) -> bool {
         false
     }
+}
+
+pub trait OnMetadataCommitment<AccountId> {
+    fn on_metadata_commitment(netuid: u16, account: &AccountId);
+}
+
+impl<A> OnMetadataCommitment<A> for () {
+    fn on_metadata_commitment(_: u16, _: &A) {}
 }
 
 /************************************************************

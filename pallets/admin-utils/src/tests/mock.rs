@@ -87,7 +87,7 @@ parameter_types! {
     pub const InitialMaxAllowedUids: u16 = 2;
     pub const InitialBondsMovingAverage: u64 = 900_000;
     pub const InitialBondsPenalty: u16 = u16::MAX;
-    pub const InitialBondsResetOn: bool = 0;
+    pub const InitialBondsResetOn: bool = false;
     pub const InitialStakePruningMin: u16 = 0;
     pub const InitialFoundationDistribution: u64 = 0;
     pub const InitialDefaultDelegateTake: u16 = 11_796; // 18% honest number.

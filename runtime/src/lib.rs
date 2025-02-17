@@ -26,7 +26,7 @@ use frame_support::{
     },
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
-use pallet_commitments::CanCommit;
+use pallet_commitments::{CanCommit, OnMetadataCommitment};
 use pallet_grandpa::{
     AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList, fg_primitives,
 };
@@ -980,12 +980,24 @@ impl CanCommit<AccountId> for AllowCommitments {
     }
 }
 
+pub struct ResetBondsOnCommit;
+impl OnMetadataCommitment<AccountId> for ResetBondsOnCommit {
+    #[cfg(not(feature = "runtime-benchmarks"))]
+    fn on_metadata_commitment(netuid: u16, address: &AccountId) {
+        SubtensorModule::do_reset_bonds(netuid, address);
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn on_metadata_commitment(_: u16, _: &AccountId) {}
+}
+
 impl pallet_commitments::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type WeightInfo = pallet_commitments::weights::SubstrateWeight<Runtime>;
 
     type CanCommit = AllowCommitments;
+    type OnMetadataCommitment = ResetBondsOnCommit;
 
     type MaxFields = MaxCommitFields;
     type InitialDeposit = CommitmentInitialDeposit;

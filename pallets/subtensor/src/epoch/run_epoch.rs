@@ -1294,4 +1294,13 @@ impl<T: Config> Pallet<T> {
         );
         Ok(())
     }
+
+    pub fn do_reset_bonds(netuid: u16, account_id: T::AccountId) -> Result<(), DispatchError> {
+        // check bonds reset enabled for this subnet
+        let bonds_reset_enabled: bool = Self::get_bonds_reset(netuid);
+        if !bonds_reset_enabled {
+            return Ok(());
+        }
+        Ok(())
+    }
 }
