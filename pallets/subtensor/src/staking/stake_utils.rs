@@ -587,7 +587,7 @@ impl<T: Config> Pallet<T> {
                 return amount;
             }
         }
-        return 0;
+        0
     }
 
     pub fn try_decrease_stake_for_hotkey_and_coldkey_on_subnet(
