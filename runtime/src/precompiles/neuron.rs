@@ -1,19 +1,11 @@
 use frame_system::RawOrigin;
-use pallet_evm::{
-    AddressMapping, ExitError, HashedAddressMapping, PrecompileFailure, PrecompileHandle,
-    PrecompileResult,
-};
+use pallet_evm::PrecompileHandle;
 use precompile_utils::EvmResult;
 use sp_core::H256;
-use sp_runtime::traits::BlakeTwo256;
-use sp_runtime::AccountId32;
-use sp_std::vec;
 use sp_std::vec::Vec;
 
-use crate::precompiles::{
-    get_method_id, parse_netuid, parse_pubkey, parse_slice, PrecompileExt, PrecompileHandleExt,
-};
-use crate::{Runtime, RuntimeCall};
+use crate::precompiles::{parse_pubkey, PrecompileExt, PrecompileHandleExt};
+use crate::Runtime;
 
 pub struct NeuronPrecompile;
 

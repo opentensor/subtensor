@@ -1,18 +1,9 @@
-use core::marker::PhantomData;
-
-use pallet_evm::{
-    BalanceConverter, ExitError, ExitSucceed, PrecompileFailure, PrecompileHandle,
-    PrecompileOutput, PrecompileResult,
-};
+use pallet_evm::PrecompileHandle;
 use precompile_utils::EvmResult;
 use sp_core::H256;
 use sp_runtime::traits::UniqueSaturatedInto;
-use sp_runtime::AccountId32;
-use sp_std::vec::Vec;
 
-use crate::precompiles::{
-    contract_to_origin, get_method_id, parse_slice, parse_pubkey, PrecompileExt, PrecompileHandleExt,
-};
+use crate::precompiles::{contract_to_origin, parse_pubkey, PrecompileExt, PrecompileHandleExt};
 use crate::Runtime;
 
 pub struct BalanceTransferPrecompile;

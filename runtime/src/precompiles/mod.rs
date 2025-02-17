@@ -6,15 +6,15 @@ use core::marker::PhantomData;
 use frame_support::dispatch::{GetDispatchInfo, Pays};
 use frame_system::RawOrigin;
 use pallet_evm::{
-    AddressMapping, BalanceConverter, ExitError, ExitSucceed, GasWeightMapping,
-    HashedAddressMapping, IsPrecompileResult, Precompile, PrecompileFailure, PrecompileHandle,
-    PrecompileOutput, PrecompileResult, PrecompileSet,
+    AddressMapping, BalanceConverter, ExitError, GasWeightMapping, HashedAddressMapping,
+    IsPrecompileResult, Precompile, PrecompileFailure, PrecompileHandle, PrecompileResult,
+    PrecompileSet,
 };
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;
 use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripemd160, Sha256};
 use precompile_utils::EvmResult;
-use sp_core::{hashing::keccak_256, H160, U256};
+use sp_core::{H160, U256};
 use sp_runtime::traits::BlakeTwo256;
 use sp_runtime::{traits::Dispatchable, AccountId32};
 use sp_std::vec;
@@ -114,19 +114,8 @@ fn hash(a: u64) -> H160 {
     H160::from_low_u64_be(a)
 }
 
-/// Returns Ethereum method ID from an str method signature
-///
-pub fn get_method_id(method_signature: &str) -> [u8; 4] {
-    // Calculate the full Keccak-256 hash of the method signature
-    let hash = keccak_256(method_signature.as_bytes());
-
-    // Extract the first 4 bytes to get the method ID
-    [hash[0], hash[1], hash[2], hash[3]]
-}
-
 /// Takes a slice from bytes with PrecompileFailure as Error
-///
-pub fn parse_slice(data: &[u8], from: usize, to: usize) -> Result<&[u8], PrecompileFailure> {
+fn parse_slice(data: &[u8], from: usize, to: usize) -> Result<&[u8], PrecompileFailure> {
     let maybe_slice = data.get(from..to);
     if let Some(slice) = maybe_slice {
         Ok(slice)
@@ -143,7 +132,7 @@ pub fn parse_slice(data: &[u8], from: usize, to: usize) -> Result<&[u8], Precomp
     }
 }
 
-pub fn parse_pubkey(data: &[u8]) -> Result<(AccountId32, vec::Vec<u8>), PrecompileFailure> {
+fn parse_pubkey(data: &[u8]) -> Result<(AccountId32, vec::Vec<u8>), PrecompileFailure> {
     let mut pubkey = [0u8; 32];
     pubkey.copy_from_slice(parse_slice(data, 0, 32)?);
 
@@ -155,23 +144,9 @@ pub fn parse_pubkey(data: &[u8]) -> Result<(AccountId32, vec::Vec<u8>), Precompi
 }
 
 fn try_u16_from_u256(value: U256) -> Result<u16, PrecompileFailure> {
-    u16::try_from(value.as_u32()).map_err(|_| PrecompileFailure::Error {
+    value.try_into().map_err(|_| PrecompileFailure::Error {
         exit_status: ExitError::Other("the value is outside of u16 bounds".into()),
     })
-}
-
-fn parse_netuid(data: &[u8], offset: usize) -> Result<u16, PrecompileFailure> {
-    if data.len() < offset + 2 {
-        return Err(PrecompileFailure::Error {
-            exit_status: ExitError::InvalidRange,
-        });
-    }
-
-    let mut netuid_bytes = [0u8; 2];
-    netuid_bytes.copy_from_slice(parse_slice(data, offset, offset + 2)?);
-    let netuid: u16 = netuid_bytes[1] as u16 | ((netuid_bytes[0] as u16) << 8u16);
-
-    Ok(netuid)
 }
 
 fn contract_to_origin(contract: &[u8; 32]) -> Result<RawOrigin<AccountId32>, PrecompileFailure> {
@@ -179,7 +154,7 @@ fn contract_to_origin(contract: &[u8; 32]) -> Result<RawOrigin<AccountId32>, Pre
     Ok(RawOrigin::Signed(account_id))
 }
 
-pub(crate) trait PrecompileHandleExt: PrecompileHandle {
+trait PrecompileHandleExt: PrecompileHandle {
     fn caller_account_id(&self) -> AccountId32 {
         <HashedAddressMapping<BlakeTwo256> as AddressMapping<AccountId32>>::into_account_id(
             self.context().caller,
@@ -266,7 +241,7 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
 
 impl<T> PrecompileHandleExt for T where T: PrecompileHandle {}
 
-pub(crate) trait PrecompileExt: Precompile {
+trait PrecompileExt: Precompile {
     const INDEX: u64;
     // ss58 public key i.e., the contract sends funds it received to the destination address from
     // the method parameter.

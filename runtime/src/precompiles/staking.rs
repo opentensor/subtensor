@@ -26,20 +26,13 @@
 //
 
 use frame_system::RawOrigin;
-use pallet_evm::{
-    AddressMapping, BalanceConverter, ExitError, ExitSucceed, HashedAddressMapping,
-    PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult,
-};
+use pallet_evm::{BalanceConverter, ExitError, PrecompileFailure, PrecompileHandle};
 use precompile_utils::EvmResult;
 use sp_core::{H256, U256};
-use sp_runtime::traits::{BlakeTwo256, Dispatchable, StaticLookup, UniqueSaturatedInto};
+use sp_runtime::traits::{Dispatchable, StaticLookup, UniqueSaturatedInto};
 use sp_runtime::AccountId32;
-use sp_std::vec;
 
-use crate::precompiles::{
-    get_method_id, parse_slice, parse_netuid, parse_pubkey, try_u16_from_u256, PrecompileExt,
-    PrecompileHandleExt,
-};
+use crate::precompiles::{parse_pubkey, try_u16_from_u256, PrecompileExt, PrecompileHandleExt};
 use crate::{ProxyType, Runtime, RuntimeCall};
 
 pub struct StakingPrecompile;
