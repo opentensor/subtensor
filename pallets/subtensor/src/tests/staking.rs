@@ -3635,7 +3635,6 @@ fn test_add_stake_specific_stake_into_subnet_fail() {
         let alpha_in = 15_358_708_513_716;
 
         let tao_staked = 200_000_000;
-        let fee = DefaultStakingFee::<Test>::get();
 
         //add network
         let netuid: u16 = add_dynamic_network(&sn_owner_coldkey, &sn_owner_coldkey);
@@ -3663,21 +3662,21 @@ fn test_add_stake_specific_stake_into_subnet_fail() {
         SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
         SubnetTAO::<Test>::insert(netuid, tao_in);
 
-        // Add stake as new hotkey
-        let result = SubtensorModule::stake_into_subnet(
-            &hotkey_account_id,
+        // Give TAO balance to coldkey
+        SubtensorModule::add_balance_to_coldkey_account(
             &coldkey_account_id,
-            netuid,
-            tao_staked,
-            fee,
+            tao_staked + 1_000_000_000,
         );
 
-        assert_eq!(result, 0); // No stake was done
-
-        // Check the LastColdkeyHotkeyStakeBlock is not set
-        assert_eq!(
-            LastColdkeyHotkeyStakeBlock::<Test>::get(coldkey_account_id, hotkey_account_id),
-            None
+        // Add stake as new hotkey
+        assert_noop!(
+            SubtensorModule::add_stake(
+                RuntimeOrigin::signed(coldkey_account_id),
+                hotkey_account_id,
+                netuid,
+                tao_staked,
+            ),
+            Error::<Test>::InsufficientLiquidity
         );
     });
 }
