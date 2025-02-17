@@ -1056,6 +1056,39 @@ pub mod pallet {
         U64F64, // Shares
         ValueQuery,
     >;
+
+    #[pallet::storage]
+    /// MAP ( netuid ) --> total_alpha_liquidity_shares | Returns the number of alpha liquidity shares for a subnet.    
+    pub type TotalAlphaLiquidityShares<T: Config> = StorageMap<_, Identity, u16, U64F64, ValueQuery, DefaultSharePoolZero<T>>;
+    #[pallet::storage] 
+    /// DMAP ( cold, netuid ) --> alpha | Returns the alpha liquidity shares for a coldkey, netuid tuple.
+    pub type AlphaLiquidityShares<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        u16,
+        U64F64,
+        ValueQuery,
+        DefaultSharePoolZero<T>,
+    >;
+
+    #[pallet::storage]
+    /// MAP ( netuid ) --> total_tao_liquidity_shares | Returns the TAO liquidity shares for a subnet.    
+    pub type TotalTAOLiquidityShares<T: Config> = StorageMap<_, Identity, u16, U64F64, ValueQuery, DefaultSharePoolZero<T>>;
+    #[pallet::storage] 
+    /// DMAP ( cold, netuid ) --> tao | Returns the TAO liquidity shares for a coldkey, netuid tuple.
+    pub type TAOLiquidityShares<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        u16,
+        U64F64,
+        ValueQuery,
+        DefaultSharePoolZero<T>,
+    >;
+
     #[pallet::storage] // --- MAP ( netuid ) --> token_symbol | Returns the token symbol for a subnet.
     pub type TokenSymbol<T: Config> =
         StorageMap<_, Identity, u16, Vec<u8>, ValueQuery, DefaultUnicodeVecU8<T>>;

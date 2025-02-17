@@ -3,6 +3,10 @@ use safe_math::*;
 use share_pool::{SharePool, SharePoolDataOperations};
 use sp_std::ops::Neg;
 use substrate_fixed::types::{I110F18, I64F64, I96F32, U64F64};
+use frame_support::PalletId;
+use sp_runtime::traits::AccountIdConversion;
+
+const TREASURY_PALLET_ID: PalletId = PalletId(*b"py/trsry");
 
 impl<T: Config> Pallet<T> {
     /// Retrieves the total alpha issuance for a given subnet.
@@ -841,6 +845,143 @@ impl<T: Config> Pallet<T> {
         alpha
     }
 
+    fn get_treasury_account_id() -> T::AccountId {
+        TREASURY_PALLET_ID.into_account_truncating()
+    }
+
+    /// Adds TAO liquidity into a subnet for a given coldkey pair.
+    /// We update the pools associated with a subnet as well as update TAO liquidity shares.
+    /// 
+    /// - Coldkey balance is decreased by the provided TAO amount
+    /// - SubnetTAO is increased by the provided TAO amount
+    /// - TotalTAOLiquidityShares and TAOLiquidityShares are updated to reflect liquidity
+    ///   added by the calling coldkey to the liquidity pool
+    /// - Lazy initialization: If prior to this call TotalTAOLiquidityShares is zero, 
+    ///   it is set to the current value of SubnetTAO and TAOLiquidityShares is set to
+    ///   the current value of SubnetTAO for the pallet account ID (a well known coldkey 
+    ///   with no private key) to reflect protocol owned liquidity.
+    /// 
+    pub fn util_add_tao_liquidity(
+        coldkey: &T::AccountId,
+        netuid: u16,
+        tao: u64,
+    ) -> u64 {
+        // Ensure the remove operation from the coldkey is a success.
+        let actual_tao_amount: u64 =
+            Self::remove_balance_from_coldkey_account(&coldkey, tao).unwrap_or(0);
+
+        // Lazy-initialize TAO LP
+        let mut alpha_lp = Self::get_alpha_liquidity_share_pool(netuid);
+        let treasury_account_id = Self::get_treasury_account_id();
+        if TotalTAOLiquidityShares::<T>::get(netuid) == U64F64::saturating_from_num(0) {
+            alpha_lp.update_value_for_one(&treasury_account_id, SubnetTAO::<T>::get(netuid) as i64);
+        }
+
+        // Update SubnetTAO
+        SubnetTAO::<T>::mutate(netuid, |total| {
+            *total = total.saturating_add(actual_tao_amount);
+        });
+
+        // Update TAO liquidity share pool
+        alpha_lp.update_value_for_one(coldkey, actual_tao_amount as i64);
+
+        // Deposit and log the event.
+        Self::deposit_event(Event::TAOLiquidityAdded(
+            coldkey.clone(),
+            actual_tao_amount,
+            netuid
+        ));
+        log::info!(
+            "TAOLiquidityAdded( coldkey: {:?}, TAO amount:{:?}, netuid: {:?} )",
+            coldkey.clone(),
+            actual_tao_amount,
+            netuid
+        );
+
+        // Return the actual amount
+        actual_tao_amount
+    }
+
+    /// Adds Alpha liquidity into a subnet for a given coldkey pair.
+    /// We update the pools associated with a subnet as well as update Alpha liquidity shares.
+    /// 
+    /// - (Coldkey, hotkey) stake is decreased by the provided alpha amount (with no unstaking,
+    ///   so no TAO equivalent is relevant here)
+    /// - SubnetAlphaIn is increased by the provided alpha amount
+    /// - TotalAlphaLiquidityShares and AlphaLiquidityShares are updated to reflect liquidity
+    ///   added by the calling coldkey to the liquidity pool
+    /// - Lazy initialization: If prior to this call TotalAlphaLiquidityShares is zero, 
+    ///   it is set to the current value of SubnetAlphaIn and AlphaLiquidityShares is set to
+    ///   the current value of SubnetAlphaIn for the pallet account ID (a well known coldkey 
+    ///   with no private key) to reflect protocol owned liquidity.
+    /// 
+    pub fn util_add_alpha_liquidity(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+        netuid: u16,
+        alpha: u64,
+    ) -> u64 {
+        // Ensure the remove stake operation is a success.
+        let actual_alpha_amount: u64 = Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+            hotkey,
+            coldkey,
+            netuid,
+            alpha,
+        );
+
+        if alpha > 0 {
+            // Lazy-initialize Alpha LP
+            let mut tao_lp = Self::get_tao_liquidity_share_pool(netuid);
+            let treasury_account_id = Self::get_treasury_account_id();
+            if TotalAlphaLiquidityShares::<T>::get(netuid) == U64F64::saturating_from_num(0) {
+                tao_lp.update_value_for_one(&treasury_account_id, SubnetAlphaIn::<T>::get(netuid) as i64);
+            }
+
+            // Update SubnetAlphaIn
+            SubnetAlphaIn::<T>::mutate(netuid, |total| {
+                *total = total.saturating_add(actual_alpha_amount);
+            });
+
+            // Update TAO liquidity share pool
+            tao_lp.update_value_for_one(coldkey, actual_alpha_amount as i64);
+
+            // Deposit and log the event.
+            Self::deposit_event(Event::AlphaLiquidityAdded(
+                coldkey.clone(),
+                hotkey.clone(),
+                actual_alpha_amount,
+                netuid
+            ));
+            log::info!(
+                "AlphaLiquidityAdded( coldkey: {:?}, hotkey: {:?}, TAO amount:{:?}, netuid: {:?} )",
+                coldkey.clone(),
+                hotkey.clone(),
+                actual_alpha_amount,
+                netuid
+            );
+        }
+
+        // Return the actual amount
+        actual_alpha_amount
+    }
+    
+    pub fn util_remove_tao_liquidity(
+        _coldkey: &T::AccountId,
+        _netuid: u16,
+        _tao: u64,
+    ) -> u64 {
+        0
+    }
+
+    pub fn util_remove_alpha_liquidity(
+        _coldkey: &T::AccountId,
+        _hotkey: &T::AccountId,
+        _netuid: u16,
+        _alpha: u64,
+    ) -> u64 {
+        0
+    }
+    
     pub fn get_alpha_share_pool(
         hotkey: <T as frame_system::Config>::AccountId,
         netuid: u16,
@@ -849,6 +990,20 @@ impl<T: Config> Pallet<T> {
         SharePool::<AlphaShareKey<T>, HotkeyAlphaSharePoolDataOperations<T>>::new(ops)
     }
 
+    pub fn get_alpha_liquidity_share_pool(
+        netuid: u16,
+    ) -> SharePool<AlphaShareKey<T>, AlphaLiquiditySharePoolDataOperations<T>> {
+        let ops = AlphaLiquiditySharePoolDataOperations::new(netuid);
+        SharePool::<AlphaShareKey<T>, AlphaLiquiditySharePoolDataOperations<T>>::new(ops)
+    }
+
+    pub fn get_tao_liquidity_share_pool(
+        netuid: u16,
+    ) -> SharePool<AlphaShareKey<T>, TaoLiquiditySharePoolDataOperations<T>> {
+        let ops = TaoLiquiditySharePoolDataOperations::new(netuid);
+        SharePool::<AlphaShareKey<T>, TaoLiquiditySharePoolDataOperations<T>>::new(ops)
+    }
+    
     /// Validate add_stake user input
     ///
     pub fn validate_add_stake(
@@ -1104,6 +1259,126 @@ impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>>
             crate::TotalHotkeyShares::<T>::insert(&self.hotkey, self.netuid, update);
         } else {
             crate::TotalHotkeyShares::<T>::remove(&self.hotkey, self.netuid);
+        }
+    }
+}
+
+///////////////////////////////////////////
+// Alpha liquidity share pool chain data layer
+
+#[derive(Debug)]
+pub struct AlphaLiquiditySharePoolDataOperations<T: frame_system::Config> {
+    netuid: u16,
+    _marker: sp_std::marker::PhantomData<T>,
+}
+
+impl<T: Config> AlphaLiquiditySharePoolDataOperations<T> {
+    fn new(netuid: u16) -> Self {
+        AlphaLiquiditySharePoolDataOperations {
+            netuid,
+            _marker: sp_std::marker::PhantomData,
+        }
+    }
+}
+
+impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>>
+    for AlphaLiquiditySharePoolDataOperations<T>
+{
+    fn get_shared_value(&self) -> U64F64 {
+        U64F64::saturating_from_num(TotalAlphaLiquidityShares::<T>::get(self.netuid))
+    }
+
+    fn get_share(&self, key: &AlphaShareKey<T>) -> U64F64 {
+        AlphaLiquidityShares::<T>::get(key, self.netuid)
+    }
+
+    fn try_get_share(&self, key: &AlphaShareKey<T>) -> Result<U64F64, ()> {
+        AlphaLiquidityShares::<T>::try_get(key, self.netuid)
+    }
+
+    fn get_denominator(&self) -> U64F64 {
+        TotalAlphaLiquidityShares::<T>::get(self.netuid)
+    }
+
+    fn set_shared_value(&mut self, _value: U64F64) {
+        // SubnetAlphaIn is updated directly, so update_value_for_all is not 
+        // used by LPs, so for the sake of fool proofing let's not implement 
+        // this method
+    }
+
+    fn set_share(&mut self, key: &AlphaShareKey<T>, share: U64F64) {
+        if share != 0 {
+            AlphaLiquidityShares::<T>::insert(key, self.netuid, share);
+        } else {
+            AlphaLiquidityShares::<T>::remove(key, self.netuid);
+        }
+    }
+
+    fn set_denominator(&mut self, update: U64F64) {
+        if update != 0 {
+            TotalAlphaLiquidityShares::<T>::insert(self.netuid, update);
+        } else {
+            TotalAlphaLiquidityShares::<T>::remove(self.netuid);
+        }
+    }
+}
+
+///////////////////////////////////////////
+// TAO liquidity share pool chain data layer
+
+#[derive(Debug)]
+pub struct TaoLiquiditySharePoolDataOperations<T: frame_system::Config> {
+    netuid: u16,
+    _marker: sp_std::marker::PhantomData<T>,
+}
+
+impl<T: Config> TaoLiquiditySharePoolDataOperations<T> {
+    fn new(netuid: u16) -> Self {
+        TaoLiquiditySharePoolDataOperations {
+            netuid,
+            _marker: sp_std::marker::PhantomData,
+        }
+    }
+}
+
+impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>>
+    for TaoLiquiditySharePoolDataOperations<T>
+{
+    fn get_shared_value(&self) -> U64F64 {
+        U64F64::saturating_from_num(TotalTAOLiquidityShares::<T>::get(self.netuid))
+    }
+
+    fn get_share(&self, key: &AlphaShareKey<T>) -> U64F64 {
+        TAOLiquidityShares::<T>::get(key, self.netuid)
+    }
+
+    fn try_get_share(&self, key: &AlphaShareKey<T>) -> Result<U64F64, ()> {
+        TAOLiquidityShares::<T>::try_get(key, self.netuid)
+    }
+
+    fn get_denominator(&self) -> U64F64 {
+        TotalTAOLiquidityShares::<T>::get(self.netuid)
+    }
+
+    fn set_shared_value(&mut self, _value: U64F64) {
+        // SubnetTAO is updated directly, so update_value_for_all is not 
+        // used by LPs, so for the sake of fool proofing let's not implement 
+        // this method
+    }
+
+    fn set_share(&mut self, key: &AlphaShareKey<T>, share: U64F64) {
+        if share != 0 {
+            TAOLiquidityShares::<T>::insert(key, self.netuid, share);
+        } else {
+            TAOLiquidityShares::<T>::remove(key, self.netuid);
+        }
+    }
+
+    fn set_denominator(&mut self, update: U64F64) {
+        if update != 0 {
+            TotalTAOLiquidityShares::<T>::insert(self.netuid, update);
+        } else {
+            TotalTAOLiquidityShares::<T>::remove(self.netuid);
         }
     }
 }

@@ -271,5 +271,14 @@ mod events {
         /// Parameters:
         /// (netuid, bool)
         TransferToggle(u16, bool),
+
+        /// Added TAO liquidity to subnet liquidity pool
+        TAOLiquidityAdded(T::AccountId, u64, u16),
+        /// Added Alpha liquidity to subnet liquidity pool
+        AlphaLiquidityAdded(T::AccountId, T::AccountId, u64, u16),
+        /// Removed TAO liquidity to subnet liquidity pool
+        TAOLiquidityRemoved(T::AccountId, u64, u16),
+        /// Removed Alpha liquidity to subnet liquidity pool
+        AlphaLiquidityRemoved(T::AccountId, T::AccountId, u64, u16),
     }
 }
