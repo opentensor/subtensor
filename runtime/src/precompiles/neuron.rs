@@ -1,6 +1,6 @@
 use frame_system::RawOrigin;
 use pallet_evm::PrecompileHandle;
-use precompile_utils::EvmResult;
+use precompile_utils::{prelude::UnboundedBytes, EvmResult};
 use sp_core::H256;
 use sp_std::vec::Vec;
 
@@ -87,5 +87,87 @@ impl NeuronPrecompile {
         let call = pallet_subtensor::Call::<Runtime>::burned_register { netuid, hotkey };
 
         handle.try_dispatch_runtime_call(call, RawOrigin::Signed(coldkey))
+    }
+
+    #[precompile::public("serveAxon(uint16,uint32,uint128,uint16,uint8,uint8,uint8,uint8)")]
+    #[precompile::payable]
+    #[allow(clippy::too_many_arguments)]
+    fn serve_axon(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+        version: u32,
+        ip: u128,
+        port: u16,
+        ip_type: u8,
+        protocol: u8,
+        placeholder1: u8,
+        placeholder2: u8,
+    ) -> EvmResult<()> {
+        let call = pallet_subtensor::Call::<Runtime>::serve_axon {
+            netuid,
+            version,
+            ip,
+            port,
+            ip_type,
+            protocol,
+            placeholder1,
+            placeholder2,
+        };
+
+        handle.try_dispatch_runtime_call(call, RawOrigin::Signed(handle.caller_account_id()))
+    }
+
+    #[precompile::public(
+        "serveAxonTls(uint16,uint32,uint128,uint16,uint8,uint8,uint8,uint8,bytes)"
+    )]
+    #[precompile::payable]
+    #[allow(clippy::too_many_arguments)]
+    fn serve_axon_tls(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+        version: u32,
+        ip: u128,
+        port: u16,
+        ip_type: u8,
+        protocol: u8,
+        placeholder1: u8,
+        placeholder2: u8,
+        certificate: UnboundedBytes,
+    ) -> EvmResult<()> {
+        let call = pallet_subtensor::Call::<Runtime>::serve_axon_tls {
+            netuid,
+            version,
+            ip,
+            port,
+            ip_type,
+            protocol,
+            placeholder1,
+            placeholder2,
+            certificate: certificate.into(),
+        };
+
+        handle.try_dispatch_runtime_call(call, RawOrigin::Signed(handle.caller_account_id()))
+    }
+
+    #[precompile::public("servePrometheus(uint16,uint32,uint128,uint16,uint8)")]
+    #[precompile::payable]
+    #[allow(clippy::too_many_arguments)]
+    fn serve_prometheus(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+        version: u32,
+        ip: u128,
+        port: u16,
+        ip_type: u8,
+    ) -> EvmResult<()> {
+        let call = pallet_subtensor::Call::<Runtime>::serve_prometheus {
+            netuid,
+            version,
+            ip,
+            port,
+            ip_type,
+        };
+
+        handle.try_dispatch_runtime_call(call, RawOrigin::Signed(handle.caller_account_id()))
     }
 }

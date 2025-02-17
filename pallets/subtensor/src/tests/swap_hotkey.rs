@@ -1359,3 +1359,25 @@ fn test_swap_child_hotkey_childkey_maps() {
         );
     })
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_hotkey_is_sn_owner_hotkey --exact --nocapture
+#[test]
+fn test_swap_hotkey_is_sn_owner_hotkey() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let mut weight = Weight::zero();
+
+        // Create dynamic network
+        let netuid = add_dynamic_network(&old_hotkey, &coldkey);
+        // Check for SubnetOwnerHotkey
+        assert_eq!(SubnetOwnerHotkey::<Test>::get(netuid), old_hotkey);
+
+        // Perform the swap
+        SubtensorModule::perform_hotkey_swap(&old_hotkey, &new_hotkey, &coldkey, &mut weight);
+
+        // Check for SubnetOwnerHotkey
+        assert_eq!(SubnetOwnerHotkey::<Test>::get(netuid), new_hotkey);
+    });
+}

@@ -1,4 +1,3 @@
-
 [
     {
         "inputs": [
@@ -65,6 +64,140 @@
             }
         ],
         "name": "revealWeights",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint16",
+                "name": "netuid",
+                "type": "uint16"
+            },
+            {
+                "internalType": "uint32",
+                "name": "version",
+                "type": "uint32"
+            },
+            {
+                "internalType": "uint128",
+                "name": "ip",
+                "type": "uint128"
+            },
+            {
+                "internalType": "uint16",
+                "name": "port",
+                "type": "uint16"
+            },
+            {
+                "internalType": "uint8",
+                "name": "ipType",
+                "type": "uint8"
+            },
+            {
+                "internalType": "uint8",
+                "name": "protocol",
+                "type": "uint8"
+            },
+            {
+                "internalType": "uint8",
+                "name": "placeholder1",
+                "type": "uint8"
+            },
+            {
+                "internalType": "uint8",
+                "name": "placeholder2",
+                "type": "uint8"
+            }
+        ],
+        "name": "serveAxon",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint16",
+                "name": "netuid",
+                "type": "uint16"
+            },
+            {
+                "internalType": "uint32",
+                "name": "version",
+                "type": "uint32"
+            },
+            {
+                "internalType": "uint128",
+                "name": "ip",
+                "type": "uint128"
+            },
+            {
+                "internalType": "uint16",
+                "name": "port",
+                "type": "uint16"
+            },
+            {
+                "internalType": "uint8",
+                "name": "ipType",
+                "type": "uint8"
+            },
+            {
+                "internalType": "uint8",
+                "name": "protocol",
+                "type": "uint8"
+            },
+            {
+                "internalType": "uint8",
+                "name": "placeholder1",
+                "type": "uint8"
+            },
+            {
+                "internalType": "uint8",
+                "name": "placeholder2",
+                "type": "uint8"
+            },
+            {
+                "internalType": "bytes",
+                "name": "certificate",
+                "type": "bytes"
+            }
+        ],
+        "name": "serveAxonTls",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint16",
+                "name": "netuid",
+                "type": "uint16"
+            },
+            {
+                "internalType": "uint32",
+                "name": "version",
+                "type": "uint32"
+            },
+            {
+                "internalType": "uint128",
+                "name": "ip",
+                "type": "uint128"
+            },
+            {
+                "internalType": "uint16",
+                "name": "port",
+                "type": "uint16"
+            },
+            {
+                "internalType": "uint8",
+                "name": "ipType",
+                "type": "uint8"
+            }
+        ],
+        "name": "servePrometheus",
         "outputs": [],
         "stateMutability": "payable",
         "type": "function"

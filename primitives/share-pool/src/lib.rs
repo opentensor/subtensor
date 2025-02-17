@@ -75,6 +75,29 @@ where
         });
     }
 
+    pub fn sim_update_value_for_one(&mut self, update: i64) -> bool {
+        let shared_value: U64F64 = self.state_ops.get_shared_value();
+        let denominator: U64F64 = self.state_ops.get_denominator();
+
+        // Then, update this key's share
+        if denominator == 0 {
+            true
+        } else {
+            // There are already keys in the pool, set or update this key
+            let value_per_share: I64F64 = I64F64::saturating_from_num(
+                shared_value
+                    .checked_div(denominator) // denominator is never 0 here
+                    .unwrap_or(U64F64::saturating_from_num(0)),
+            );
+
+            let shares_per_update: I64F64 = I64F64::saturating_from_num(update)
+                .checked_div(value_per_share)
+                .unwrap_or(I64F64::saturating_from_num(0));
+
+            shares_per_update != 0
+        }
+    }
+
     /// Update the value associated with an item identified by the Key
     pub fn update_value_for_one(&mut self, key: &K, update: i64) {
         let shared_value: U64F64 = self.state_ops.get_shared_value();
