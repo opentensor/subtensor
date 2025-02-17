@@ -3808,7 +3808,10 @@ fn test_remove_stake_specific_unstake_from_subnet_fail() {
         TotalHotkeyAlpha::<Test>::insert(hotkey_account_id, netuid, existing_stake);
 
         // Give the coldkey some shares enough to unstake
-        Alpha::<Test>::insert((hotkey_account_id, coldkey_account_id, netuid), existing_shares.saturating_div(U64F64::from_num(10)));
+        Alpha::<Test>::insert(
+            (hotkey_account_id, coldkey_account_id, netuid),
+            existing_shares.saturating_div(U64F64::from_num(10)),
+        );
 
         // Make the hotkey a delegate
         Delegates::<Test>::insert(hotkey_account_id, 0);
@@ -3818,10 +3821,7 @@ fn test_remove_stake_specific_unstake_from_subnet_fail() {
         SubnetTAO::<Test>::insert(netuid, tao_in);
 
         // Give TAO balance to coldkey
-        SubtensorModule::add_balance_to_coldkey_account(
-            &coldkey_account_id,
-            1_000_000_000,
-        );
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1_000_000_000);
 
         // Check the coldkey has enough shares to unstake
         let alpha_staked = existing_stake / 10;
@@ -3861,7 +3861,7 @@ fn test_move_stake_specific_unstake_from_subnet_fail() {
 
         let tao_in = 2_409_892_148_947;
         let alpha_in = 15_358_708_513_716;
-    
+
         let alpha_to_move = 1_000;
 
         //add network
@@ -3889,7 +3889,10 @@ fn test_move_stake_specific_unstake_from_subnet_fail() {
         TotalHotkeyAlpha::<Test>::insert(hotkey_account_id, netuid, existing_stake);
 
         // Give the coldkey some shares enough to unstake
-        Alpha::<Test>::insert((hotkey_account_id, coldkey_account_id, netuid), existing_shares.saturating_div(U64F64::from_num(10)));
+        Alpha::<Test>::insert(
+            (hotkey_account_id, coldkey_account_id, netuid),
+            existing_shares.saturating_div(U64F64::from_num(10)),
+        );
 
         // Make the hotkey a delegate
         Delegates::<Test>::insert(hotkey_account_id, 0);
@@ -3899,17 +3902,19 @@ fn test_move_stake_specific_unstake_from_subnet_fail() {
         SubnetTAO::<Test>::insert(origin_netuid, tao_in);
 
         // Give TAO balance to coldkey
-        SubtensorModule::add_balance_to_coldkey_account(
-            &coldkey_account_id,
-            1_000_000_000,
-        );
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1_000_000_000);
 
         // Setup Subnet pool for destination netuid
         SubnetAlphaIn::<Test>::insert(netuid, alpha_in + 10_000_000);
         SubnetTAO::<Test>::insert(netuid, tao_in + 10_000_000);
 
         let alpha_staked = existing_stake / 10;
-        assert!(alpha_staked > alpha_to_move, "alpha_staked: {}, alpha_to_move: {}", alpha_staked, alpha_to_move);
+        assert!(
+            alpha_staked > alpha_to_move,
+            "alpha_staked: {}, alpha_to_move: {}",
+            alpha_staked,
+            alpha_to_move
+        );
 
         // Move stake to destination subnet
         assert_noop!(
@@ -3923,7 +3928,7 @@ fn test_move_stake_specific_unstake_from_subnet_fail() {
             ),
             Error::<Test>::InsufficientLiquidity
         );
-        
+
         // Check the subnetTAO is unchanged
         assert_eq!(SubnetTAO::<Test>::get(netuid), tao_in + 10_000_000);
         // Check the subnetAlphaIn is unchanged
