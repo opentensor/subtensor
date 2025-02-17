@@ -3786,7 +3786,7 @@ fn test_remove_stake_specific_unstake_from_subnet_fail() {
         let tao_in = 2_409_892_148_947;
         let alpha_in = 15_358_708_513_716;
 
-        let alpha_unstaked = 1_000;
+        let alpha_unstaked = 3_000_000_000;
 
         //add network
         let netuid: u16 = add_dynamic_network(&sn_owner_coldkey, &sn_owner_coldkey);
