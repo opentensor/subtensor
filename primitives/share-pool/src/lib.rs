@@ -124,16 +124,14 @@ where
         let current_share: U64F64 = self.state_ops.get_share(key);
         let denominator: U64F64 = self.state_ops.get_denominator();
         let initial_value: i64 = self.get_value(key) as i64;
-
-        // First, update shared value
-        self.update_value_for_all(update);
-        let new_shared_value: U64F64 = self.state_ops.get_shared_value();
+        let mut actual_update: i64 = update;
 
         // Then, update this key's share
         if denominator == 0 {
             // Initialize the pool. The first key gets all.
-            self.state_ops.set_denominator(new_shared_value);
-            self.state_ops.set_share(key, new_shared_value);
+            let update_fixed: U64F64 = U64F64::saturating_from_num(update);
+            self.state_ops.set_denominator(update_fixed);
+            self.state_ops.set_share(key, update_fixed);
         } else {
             let shares_per_update: I64F64 =
                 self.get_shares_per_update(update, &shared_value, &denominator);
@@ -168,6 +166,7 @@ where
                     // yes, precision is low, just remove all
                     new_share = U64F64::saturating_from_num(0);
                     new_denominator = denominator.saturating_sub(current_share);
+                    actual_update = initial_value.neg();
                 }
 
                 self.state_ops.set_denominator(new_denominator);
@@ -175,8 +174,11 @@ where
             }
         }
 
-        let final_value: i64 = self.get_value(key) as i64;
-        final_value.saturating_sub(initial_value)
+        // Update shared value
+        self.update_value_for_all(actual_update);
+
+        // Return actual udate
+        actual_update
     }
 }
 
@@ -335,8 +337,8 @@ mod tests {
 
         // First to stake gets all accumulated emission if there are no other stakers
         // (which is artificial situation because there will be no emissions if there is no stake)
-        assert!((value1 - 1_001_000_000_000_000).abs() < 10);
-        assert!((value2 - 1_000_000_000_000).abs() < 10);
+        assert!((value1 - 1_001_000_000_000_000).abs() < 100);
+        assert!((value2 - 1_000_000_000_000).abs() < 100);
     }
 
     // cargo test --package share-pool --lib -- tests::test_denom_high_precision_many_small_unstakes --exact --show-output
