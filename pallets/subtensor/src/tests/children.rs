@@ -3923,3 +3923,57 @@ fn test_dynamic_parent_child_relationships() {
         // Child2 stake (874,826) > Child1 stake (778,446)
     });
 }
+
+#[test]
+fn test_do_set_child_as_sn_owner_not_enough_stake() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let sn_owner_hotkey = U256::from(4);
+
+        let child_coldkey = U256::from(2);
+        let child_hotkey = U256::from(5);
+
+        let threshold = 10_000;
+        SubtensorModule::set_stake_threshold(threshold);
+
+        let proportion: u64 = 1000;
+
+        let netuid: u16 = add_dynamic_network(&sn_owner_hotkey, &coldkey);
+        register_ok_neuron(netuid, child_hotkey, child_coldkey, 0);
+
+        // Verify stake of sn_owner_hotkey is NOT enough
+        assert!(
+            SubtensorModule::get_total_stake_for_hotkey(&sn_owner_hotkey)
+                < StakeThreshold::<Test>::get()
+        );
+
+        // Verify that we can set child as sn owner, even though sn_owner_hotkey has insufficient stake
+        assert_ok!(SubtensorModule::do_schedule_children(
+            RuntimeOrigin::signed(coldkey),
+            sn_owner_hotkey,
+            netuid,
+            vec![(proportion, child_hotkey)]
+        ));
+
+        // Make new hotkey from owner coldkey
+        let other_sn_owner_hotkey = U256::from(6);
+        register_ok_neuron(netuid, other_sn_owner_hotkey, coldkey, 1234);
+
+        // Verify stake of other_sn_owner_hotkey is NOT enough
+        assert!(
+            SubtensorModule::get_total_stake_for_hotkey(&other_sn_owner_hotkey)
+                < StakeThreshold::<Test>::get()
+        );
+
+        // Can't set child as sn owner, because it is not in SubnetOwnerHotkey map
+        assert_noop!(
+            SubtensorModule::do_schedule_children(
+                RuntimeOrigin::signed(coldkey),
+                other_sn_owner_hotkey,
+                netuid,
+                vec![(proportion, child_hotkey)]
+            ),
+            Error::<Test>::NotEnoughStakeToSetChildkeys
+        );
+    });
+}
