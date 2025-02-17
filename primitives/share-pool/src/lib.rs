@@ -154,8 +154,7 @@ where
 
                 // The condition here is either the share remainder is too little OR
                 // the new_denominator is too low compared to what shared_value + year worth of emissions would be
-                if (current_share
-                    .saturating_sub(shares_per_update_u64f64)
+                if (new_share
                     .safe_div(current_share)
                     < U64F64::saturating_from_num(0.00001))
                     || shared_value
