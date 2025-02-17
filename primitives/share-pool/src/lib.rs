@@ -81,7 +81,7 @@ where
 
         // Then, update this key's share
         if denominator == 0 {
-            return Ok(());
+            Ok(())
         } else {
             // There are already keys in the pool, set or update this key
             let value_per_share: I64F64 = I64F64::saturating_from_num(
@@ -95,9 +95,9 @@ where
                 .unwrap_or(I64F64::saturating_from_num(0));
 
             if shares_per_update != 0 {
-                return Ok(());
+                Ok(())
             } else {
-                return Err(());
+                Err(())
             }
         }
     }
