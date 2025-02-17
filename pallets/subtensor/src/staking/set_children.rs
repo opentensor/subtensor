@@ -59,15 +59,6 @@ impl<T: Config> Pallet<T> {
             Error::<T>::TxRateLimitExceeded
         );
 
-        // Set last transaction block
-        let current_block = Self::get_current_block_as_u64();
-        Self::set_last_transaction_block_on_subnet(
-            &hotkey,
-            netuid,
-            &TransactionType::SetChildren,
-            current_block,
-        );
-
         // Check that this delegation is not on the root network. Child hotkeys are not valid on root.
         ensure!(
             netuid != Self::get_root_netuid(),
@@ -117,6 +108,15 @@ impl<T: Config> Pallet<T> {
             children.is_empty()
                 || Self::get_total_stake_for_hotkey(&hotkey) >= StakeThreshold::<T>::get(),
             Error::<T>::NotEnoughStakeToSetChildkeys
+        );
+
+        // Set last transaction block
+        let current_block = Self::get_current_block_as_u64();
+        Self::set_last_transaction_block_on_subnet(
+            &hotkey,
+            netuid,
+            &TransactionType::SetChildren,
+            current_block,
         );
 
         // Calculate cool-down block
