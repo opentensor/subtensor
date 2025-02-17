@@ -770,7 +770,7 @@ impl<T: Config> Pallet<T> {
             coldkey.clone(),
             hotkey.clone(),
             tao_unstaked,
-            alpha,
+            actual_alpha_decrease,
             netuid,
         ));
         log::info!(
@@ -778,7 +778,7 @@ impl<T: Config> Pallet<T> {
             coldkey.clone(),
             hotkey.clone(),
             tao_unstaked,
-            alpha,
+            actual_alpha_decrease,
             netuid
         );
 
