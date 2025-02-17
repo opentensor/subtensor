@@ -573,13 +573,30 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         netuid: u16,
         amount: u64,
-    ) {
+    ) -> u64 {
+        let unstake_result =
+            Self::try_decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, netuid, amount);
+        if !unstake_result {
+            return 0;
+        }
+
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
         if let Ok(value) = alpha_share_pool.try_get_value(coldkey) {
             if value >= amount {
                 alpha_share_pool.update_value_for_one(coldkey, (amount as i64).neg());
+                return amount;
             }
         }
+        return 0;
+    }
+
+    pub fn try_decrease_stake_for_hotkey_and_coldkey_on_subnet(
+        hotkey: &T::AccountId,
+        netuid: u16,
+        amount: u64,
+    ) -> bool {
+        let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
+        alpha_share_pool.sim_update_value_for_one((amount as i64).neg())
     }
 
     /// Calculates Some(Alpha) returned from pool by staking operation
@@ -735,11 +752,12 @@ impl<T: Config> Pallet<T> {
         alpha: u64,
         fee: u64,
     ) -> u64 {
-        // Step 1: Swap the alpha for TAO.
-        let tao: u64 = Self::swap_alpha_for_tao(netuid, alpha);
+        // Step 1: Decrease alpha on subneet
+        let actual_alpha =
+            Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
 
-        // Step 2: Decrease alpha on subneet
-        Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
+        // Step 2. Swap the alpha for TAO.
+        let tao: u64 = Self::swap_alpha_for_tao(netuid, actual_alpha);
 
         // Step 3: Update StakingHotkeys if the hotkey's total alpha, across all subnets, is zero
         // TODO const: fix.
@@ -765,7 +783,7 @@ impl<T: Config> Pallet<T> {
             coldkey.clone(),
             hotkey.clone(),
             tao_unstaked,
-            alpha,
+            actual_alpha,
             netuid,
         ));
         log::info!(
@@ -773,7 +791,7 @@ impl<T: Config> Pallet<T> {
             coldkey.clone(),
             hotkey.clone(),
             tao_unstaked,
-            alpha,
+            actual_alpha,
             netuid
         );
 
