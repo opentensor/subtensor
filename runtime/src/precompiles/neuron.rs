@@ -39,7 +39,7 @@ impl NeuronPrecompile {
         handle.try_dispatch_runtime_call(call, RawOrigin::Signed(handle.caller_account_id()))
     }
 
-    #[precompile::public("commitWeights(uint16,uint256)")]
+    #[precompile::public("commitWeights(uint16,bytes32)")]
     #[precompile::payable]
     pub fn commit_weights(
         handle: &mut impl PrecompileHandle,
