@@ -3680,3 +3680,87 @@ fn test_add_stake_specific_stake_into_subnet_fail() {
         );
     });
 }
+
+#[test]
+// RUST_LOG=info cargo test --package pallet-subtensor --lib -- tests::staking::test_move_stake_specific_stake_into_subnet_fail --exact --show-output
+fn test_move_stake_specific_stake_into_subnet_fail() {
+    new_test_ext(1).execute_with(|| {
+        let sn_owner_coldkey = U256::from(55453);
+
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55454);
+        let hotkey_owner_account_id = U256::from(533454);
+
+        let existing_shares: U64F64 =
+            U64F64::from_num(161_986_254).saturating_div(U64F64::from_num(u64::MAX));
+        let existing_stake = 36_711_495_953;
+
+        let tao_in = 2_409_892_148_947;
+        let alpha_in = 15_358_708_513_716;
+
+        let tao_staked = 200_000_000;
+
+        //add network
+        let netuid: u16 = add_dynamic_network(&sn_owner_coldkey, &sn_owner_coldkey);
+
+        let origin_netuid: u16 = add_dynamic_network(&sn_owner_coldkey, &sn_owner_coldkey);
+
+        // Register hotkey on netuid
+        register_ok_neuron(netuid, hotkey_account_id, hotkey_owner_account_id, 0);
+        // Register hotkey on origin netuid
+        register_ok_neuron(origin_netuid, hotkey_account_id, hotkey_owner_account_id, 0);
+
+        // Check we have zero staked
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            0
+        );
+
+        // Set a hotkey pool for the hotkey on destination subnet
+        let mut hotkey_pool = SubtensorModule::get_alpha_share_pool(hotkey_account_id, netuid);
+        hotkey_pool.update_value_for_one(&hotkey_owner_account_id, 1234); // Doesn't matter, will be overridden
+
+        // Adjust the total hotkey stake and shares to match the existing values
+        TotalHotkeyShares::<Test>::insert(hotkey_account_id, netuid, existing_shares);
+        TotalHotkeyAlpha::<Test>::insert(hotkey_account_id, netuid, existing_stake);
+
+        // Make the hotkey a delegate
+        Delegates::<Test>::insert(hotkey_account_id, 0);
+
+        // Setup Subnet pool
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
+        SubnetTAO::<Test>::insert(netuid, tao_in);
+
+        // Give TAO balance to coldkey
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey_account_id,
+            tao_staked + 1_000_000_000,
+        );
+
+        // Add stake as new hotkey
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            origin_netuid,
+            tao_staked,
+        ),);
+        let alpha_to_move = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            origin_netuid,
+        );
+
+        // Move stake to destination subnet
+        assert_noop!(
+            SubtensorModule::move_stake(
+                RuntimeOrigin::signed(coldkey_account_id),
+                hotkey_account_id,
+                hotkey_account_id,
+                origin_netuid,
+                netuid,
+                alpha_to_move,
+            ),
+            Error::<Test>::InsufficientLiquidity
+        );
+    });
+}
