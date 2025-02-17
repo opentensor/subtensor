@@ -553,7 +553,7 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         netuid: u16,
         amount: u64,
-    ) -> Result<(), ()> {
+    ) -> bool {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
         alpha_share_pool.sim_update_value_for_one(amount as i64)
     }
@@ -895,9 +895,9 @@ impl<T: Config> Pallet<T> {
         let try_stake_result = Self::try_increase_stake_for_hotkey_and_coldkey_on_subnet(
             hotkey,
             netuid,
-            expected_alpha.unwrap(),
+            expected_alpha.unwrap_or(0),
         );
-        ensure!(try_stake_result.is_ok(), Error::<T>::InsufficientLiquidity);
+        ensure!(try_stake_result, Error::<T>::InsufficientLiquidity);
 
         Ok(())
     }
@@ -1019,7 +1019,7 @@ impl<T: Config> Pallet<T> {
             destination_netuid,
             expected_alpha,
         );
-        ensure!(try_stake_result.is_ok(), Error::<T>::InsufficientLiquidity);
+        ensure!(try_stake_result, Error::<T>::InsufficientLiquidity);
 
         if check_transfer_toggle {
             // Ensure transfer is toggled.

@@ -75,13 +75,13 @@ where
         });
     }
 
-    pub fn sim_update_value_for_one(&mut self, update: i64) -> Result<(), ()> {
+    pub fn sim_update_value_for_one(&mut self, update: i64) -> bool {
         let shared_value: U64F64 = self.state_ops.get_shared_value();
         let denominator: U64F64 = self.state_ops.get_denominator();
 
         // Then, update this key's share
         if denominator == 0 {
-            Ok(())
+            true
         } else {
             // There are already keys in the pool, set or update this key
             let value_per_share: I64F64 = I64F64::saturating_from_num(
@@ -95,9 +95,9 @@ where
                 .unwrap_or(I64F64::saturating_from_num(0));
 
             if shares_per_update != 0 {
-                Ok(())
+                true
             } else {
-                Err(())
+                false
             }
         }
     }
