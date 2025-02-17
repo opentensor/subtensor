@@ -150,13 +150,10 @@ where
                     .saturating_sub(U64F64::saturating_from_num(shares_per_update.neg()));
                 let mut new_share = current_share
                     .saturating_sub(U64F64::saturating_from_num(shares_per_update.neg()));
-                let shares_per_update_u64f64 = U64F64::saturating_from_num(shares_per_update.neg());
 
                 // The condition here is either the share remainder is too little OR
                 // the new_denominator is too low compared to what shared_value + year worth of emissions would be
-                if (new_share
-                    .safe_div(current_share)
-                    < U64F64::saturating_from_num(0.00001))
+                if (new_share.safe_div(current_share) < U64F64::saturating_from_num(0.00001))
                     || shared_value
                         .saturating_add(U64F64::saturating_from_num(2_628_000_000_000_000_u64))
                         .checked_div(new_denominator)
