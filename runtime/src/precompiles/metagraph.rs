@@ -14,6 +14,11 @@ use crate::Runtime;
 
 pub struct MetagraphPrecompile;
 
+impl PrecompileExt for MetagraphPrecompile {
+    const INDEX: u64 = 2050;
+    const ADDRESS_SS58: [u8; 32] = [0; 32];
+}
+
 #[precompile_utils::precompile]
 impl MetagraphPrecompile {
     #[precompile::public("getUidCount(uint16)")]
@@ -147,11 +152,6 @@ impl MetagraphPrecompile {
 
         Ok(H256::from_slice(coldkey.as_slice()))
     }
-}
-
-impl PrecompileExt for MetagraphPrecompile {
-    const INDEX: u64 = 2050;
-    const ADDRESS_SS58: [u8; 32] = [0; 32];
 }
 
 #[derive(Codec)]

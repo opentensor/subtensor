@@ -9,6 +9,11 @@ use crate::precompiles::{parse_slice, PrecompileExt};
 
 pub struct Ed25519Verify;
 
+impl PrecompileExt for Ed25519Verify {
+    const INDEX: u64 = 1026;
+    const ADDRESS_SS58: [u8; 32] = [0; 32];
+}
+
 impl LinearCostPrecompile for Ed25519Verify {
     const BASE: u64 = 15;
     const WORD: u64 = 3;
@@ -40,9 +45,4 @@ impl LinearCostPrecompile for Ed25519Verify {
 
         Ok((ExitSucceed::Returned, buf.to_vec()))
     }
-}
-
-impl PrecompileExt for Ed25519Verify {
-    const INDEX: u64 = 1026;
-    const ADDRESS_SS58: [u8; 32] = [0; 32];
 }
