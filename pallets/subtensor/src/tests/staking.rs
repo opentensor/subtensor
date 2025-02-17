@@ -3737,6 +3737,10 @@ fn test_move_stake_specific_stake_into_subnet_fail() {
             tao_staked + 1_000_000_000,
         );
 
+        // Setup Subnet pool for origin netuid
+        SubnetAlphaIn::<Test>::insert(origin_netuid, alpha_in + 10_000_000);
+        SubnetTAO::<Test>::insert(origin_netuid, tao_in + 10_000_000);
+
         // Add stake as new hotkey
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey_account_id),
