@@ -94,11 +94,7 @@ where
                 .checked_div(value_per_share)
                 .unwrap_or(I64F64::saturating_from_num(0));
 
-            if shares_per_update != 0 {
-                true
-            } else {
-                false
-            }
+            shares_per_update != 0
         }
     }
 
