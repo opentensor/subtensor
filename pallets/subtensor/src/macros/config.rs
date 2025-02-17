@@ -96,6 +96,9 @@ mod config {
         /// Initial bonds penalty.
         #[pallet::constant]
         type InitialBondsPenalty: Get<u16>;
+        /// Initial bonds reset.
+        #[pallet::constant]
+        type InitialBondsResetOn: Get<bool>;
         /// Initial target registrations per interval.
         #[pallet::constant]
         type InitialTargetRegistrationsPerInterval: Get<u16>;

@@ -695,8 +695,13 @@ pub mod pallet {
     pub fn DefaultBondsPenalty<T: Config>() -> u16 {
         T::InitialBondsPenalty::get()
     }
+    /// Default value for bonds reset - will not reset bonds
     #[pallet::type_value]
+    pub fn DefaultBondsResetOn<T: Config>() -> bool {
+        T::InitialBondsResetOn::get()
+    }
     /// Default validator prune length.
+    #[pallet::type_value]
     pub fn DefaultValidatorPruneLen<T: Config>() -> u64 {
         T::InitialValidatorPruneLen::get()
     }
@@ -804,7 +809,11 @@ pub mod pallet {
     pub fn DefaultAlphaValues<T: Config>() -> (u16, u16) {
         (45875, 58982)
     }
-
+    #[pallet::type_value]
+    /// Default value for network max stake.
+    pub fn DefaultNetworkMaxStake<T: Config>() -> u64 {
+        T::InitialNetworkMaxStake::get()
+    }
     #[pallet::type_value]
     /// Default value for coldkey swap schedule duration
     pub fn DefaultColdkeySwapScheduleDuration<T: Config>() -> BlockNumberFor<T> {
@@ -1370,6 +1379,10 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> bonds_penalty
     pub type BondsPenalty<T> =
         StorageMap<_, Identity, u16, u16, ValueQuery, DefaultBondsPenalty<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> bonds_reset
+    pub type BondsResetOn<T> =
+        StorageMap<_, Identity, u16, bool, ValueQuery, DefaultBondsResetOn<T>>;
     /// --- MAP ( netuid ) --> weights_set_rate_limit
     #[pallet::storage]
     pub type WeightsSetRateLimit<T> =
