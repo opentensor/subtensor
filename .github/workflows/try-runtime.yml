@@ -24,7 +24,7 @@ jobs:
 
   check-testnet:
     name: check testnet
-    if: github.base_ref == 'testnet' || github.base_ref == 'devnet' || github.base_ref == 'main'
+    # if: github.base_ref == 'testnet' || github.base_ref == 'devnet' || github.base_ref == 'main'
     runs-on: SubtensorCI
     steps:
       - name: Checkout sources
