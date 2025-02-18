@@ -24,6 +24,11 @@ jobs:
           sudo apt-get update &&
           sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
 
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: "cargo-audit"
+
       - name: Install cargo-audit
         run: cargo install --force cargo-audit
 

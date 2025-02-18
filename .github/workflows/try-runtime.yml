@@ -16,6 +16,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: "try-runtime"
+
       - name: Run Try Runtime Checks
         uses: "paritytech/try-runtime-gha@v0.1.0"
         with:
@@ -31,6 +36,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: "try-runtime"
+
       - name: Run Try Runtime Checks
         uses: "paritytech/try-runtime-gha@v0.1.0"
         with:
@@ -45,6 +55,12 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: "try-runtime"
+
       - name: Run Try Runtime Checks
         uses: "paritytech/try-runtime-gha@v0.1.0"
         with:
