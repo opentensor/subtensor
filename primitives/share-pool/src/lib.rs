@@ -387,4 +387,50 @@ mod tests {
             U64F64::saturating_from_num(1000)
         );
     }
+
+    // cargo test --package share-pool --lib -- tests::test_get_shares_per_update --exact --show-output
+    #[test]
+    fn test_get_shares_per_update() {
+        [
+            (1_i64, 1_u64, 1.0, 1.0),
+            (
+                1_000,
+                21_000_000_000_000_000,
+                0.00001,
+                0.00000000000000000043,
+            ),
+            (
+                21_000_000_000_000_000,
+                21_000_000_000_000_000,
+                0.00001,
+                0.00001,
+            ),
+            (
+                210_000_000_000_000_000,
+                21_000_000_000_000_000,
+                0.00001,
+                0.0001,
+            ),
+            (
+                1_000,
+                1_000,
+                21_000_000_000_000_000_f64,
+                21_000_000_000_000_000_f64,
+            ),
+        ]
+        .iter()
+        .for_each(|(update, shared_value, denominator, expected)| {
+            let mock_ops = MockSharePoolDataOperations::new();
+            let pool = SharePool::<u16, MockSharePoolDataOperations>::new(mock_ops);
+
+            let shared_fixed = U64F64::from_num(*shared_value);
+            let denominator_fixed = U64F64::from_num(*denominator);
+            let expected_fixed = I64F64::from_num(*expected);
+
+            let spu: I64F64 =
+                pool.get_shares_per_update(*update, &shared_fixed, &denominator_fixed);
+            let precision: I64F64 = I64F64::from_num(1000.);
+            assert!((spu - expected_fixed).abs() <= expected_fixed / precision,);
+        });
+    }
 }
