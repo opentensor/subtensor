@@ -93,7 +93,7 @@ jobs:
           sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
 
       - name: Utilize Shared Rust Cache
-        uses: Swatinem/rust-cache@v2.2.1
+        uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
 
@@ -137,7 +137,7 @@ jobs:
           profile: minimal
 
       - name: Utilize Shared Rust Cache
-        uses: Swatinem/rust-cache@v2.2.1
+        uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
 
@@ -178,7 +178,7 @@ jobs:
           sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
 
       - name: Utilize Shared Rust Cache
-        uses: Swatinem/rust-cache@v2.2.1
+        uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
 
@@ -217,7 +217,7 @@ jobs:
           sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
 
       - name: Utilize Rust shared cached
-        uses: Swatinem/rust-cache@v2.2.1
+        uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
 
@@ -258,7 +258,7 @@ jobs:
           sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
 
       - name: Utilize Rust shared cached
-        uses: Swatinem/rust-cache@v2.2.1
+        uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
 
