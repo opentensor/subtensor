@@ -99,9 +99,9 @@ interface INeuron {
      * @dev Commits the weights for a neuron.
      *
      * @param netuid The subnet to commit the weights for (uint16).
-     * @param commitHash The commit hash for the weights (uint256).
+     * @param commitHash The commit hash for the weights (bytes32).
      */
-    function commitWeights(uint16 netuid, uint256 commitHash) external payable;
+    function commitWeights(uint16 netuid, bytes32 commitHash) external payable;
 
     /**
      * @dev Reveals the weights for a neuron.
