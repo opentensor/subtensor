@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::result_unit_err)]
 
+use safe_math::*;
 use sp_std::marker;
 use sp_std::ops::Neg;
 use substrate_fixed::types::{I64F64, U64F64};
@@ -50,11 +51,16 @@ where
         let current_share: U64F64 = self.state_ops.get_share(key);
         let denominator: U64F64 = self.state_ops.get_denominator();
 
-        shared_value
-            .checked_div(denominator)
-            .unwrap_or(U64F64::saturating_from_num(0))
-            .saturating_mul(current_share)
-            .saturating_to_num::<u64>()
+        let maybe_value_per_share = shared_value.checked_div(denominator);
+        (if let Some(value_per_share) = maybe_value_per_share {
+            value_per_share.saturating_mul(current_share)
+        } else {
+            shared_value
+                .saturating_mul(current_share)
+                .checked_div(denominator)
+                .unwrap_or(U64F64::saturating_from_num(0))
+        })
+        .saturating_to_num::<u64>()
     }
 
     pub fn try_get_value(&self, key: &K) -> Result<u64, ()> {
@@ -84,46 +90,51 @@ where
             true
         } else {
             // There are already keys in the pool, set or update this key
-            let value_per_share: I64F64 = I64F64::saturating_from_num(
-                shared_value
-                    .checked_div(denominator) // denominator is never 0 here
-                    .unwrap_or(U64F64::saturating_from_num(0)),
-            );
-
-            let shares_per_update: I64F64 = I64F64::saturating_from_num(update)
-                .checked_div(value_per_share)
-                .unwrap_or(I64F64::saturating_from_num(0));
+            let shares_per_update: I64F64 =
+                self.get_shares_per_update(update, &shared_value, &denominator);
 
             shares_per_update != 0
         }
     }
 
+    fn get_shares_per_update(
+        &self,
+        update: i64,
+        shared_value: &U64F64,
+        denominator: &U64F64,
+    ) -> I64F64 {
+        let maybe_value_per_share = shared_value.checked_div(*denominator);
+        if let Some(value_per_share) = maybe_value_per_share {
+            I64F64::saturating_from_num(update)
+                .checked_div(I64F64::saturating_from_num(value_per_share))
+                .unwrap_or(I64F64::saturating_from_num(0))
+        } else {
+            I64F64::saturating_from_num(update)
+                .checked_div(I64F64::saturating_from_num(*shared_value))
+                .unwrap_or(I64F64::saturating_from_num(0))
+                .saturating_mul(I64F64::saturating_from_num(*denominator))
+        }
+    }
+
     /// Update the value associated with an item identified by the Key
-    pub fn update_value_for_one(&mut self, key: &K, update: i64) {
+    /// Returns actual update
+    ///
+    pub fn update_value_for_one(&mut self, key: &K, update: i64) -> i64 {
         let shared_value: U64F64 = self.state_ops.get_shared_value();
         let current_share: U64F64 = self.state_ops.get_share(key);
         let denominator: U64F64 = self.state_ops.get_denominator();
-
-        // First, update shared value
-        self.update_value_for_all(update);
-        let new_shared_value: U64F64 = self.state_ops.get_shared_value();
+        let initial_value: i64 = self.get_value(key) as i64;
+        let mut actual_update: i64 = update;
 
         // Then, update this key's share
         if denominator == 0 {
             // Initialize the pool. The first key gets all.
-            self.state_ops.set_denominator(new_shared_value);
-            self.state_ops.set_share(key, new_shared_value);
+            let update_fixed: U64F64 = U64F64::saturating_from_num(update);
+            self.state_ops.set_denominator(update_fixed);
+            self.state_ops.set_share(key, update_fixed);
         } else {
-            // There are already keys in the pool, set or update this key
-            let value_per_share: I64F64 = I64F64::saturating_from_num(
-                shared_value
-                    .checked_div(denominator) // denominator is never 0 here
-                    .unwrap_or(U64F64::saturating_from_num(0)),
-            );
-
-            let shares_per_update: I64F64 = I64F64::saturating_from_num(update)
-                .checked_div(value_per_share)
-                .unwrap_or(I64F64::saturating_from_num(0));
+            let shares_per_update: I64F64 =
+                self.get_shares_per_update(update, &shared_value, &denominator);
 
             if shares_per_update >= 0 {
                 self.state_ops.set_denominator(
@@ -134,17 +145,36 @@ where
                     current_share.saturating_add(U64F64::saturating_from_num(shares_per_update)),
                 );
             } else {
-                self.state_ops.set_denominator(
-                    denominator
-                        .saturating_sub(U64F64::saturating_from_num(shares_per_update.neg())),
-                );
-                self.state_ops.set_share(
-                    key,
-                    current_share
-                        .saturating_sub(U64F64::saturating_from_num(shares_per_update.neg())),
-                );
+                // Check if this entry is about to break precision
+                let mut new_denominator = denominator
+                    .saturating_sub(U64F64::saturating_from_num(shares_per_update.neg()));
+                let mut new_share = current_share
+                    .saturating_sub(U64F64::saturating_from_num(shares_per_update.neg()));
+
+                // The condition here is either the share remainder is too little OR
+                // the new_denominator is too low compared to what shared_value + year worth of emissions would be
+                if (new_share.safe_div(current_share) < U64F64::saturating_from_num(0.00001))
+                    || shared_value
+                        .saturating_add(U64F64::saturating_from_num(2_628_000_000_000_000_u64))
+                        .checked_div(new_denominator)
+                        .is_none()
+                {
+                    // yes, precision is low, just remove all
+                    new_share = U64F64::saturating_from_num(0);
+                    new_denominator = denominator.saturating_sub(current_share);
+                    actual_update = initial_value.neg();
+                }
+
+                self.state_ops.set_denominator(new_denominator);
+                self.state_ops.set_share(key, new_share);
             }
         }
+
+        // Update shared value
+        self.update_value_for_all(actual_update);
+
+        // Return actual udate
+        actual_update
     }
 }
 
@@ -279,6 +309,62 @@ mod tests {
         assert_eq!(value2, 10);
     }
 
+    // cargo test --package share-pool --lib -- tests::test_denom_high_precision --exact --show-output
+    #[test]
+    fn test_denom_high_precision() {
+        let mock_ops = MockSharePoolDataOperations::new();
+        let mut pool = SharePool::<u16, MockSharePoolDataOperations>::new(mock_ops);
+
+        pool.update_value_for_one(&1, 1);
+        pool.update_value_for_one(&2, 1);
+
+        pool.update_value_for_all(999_999_999_999_998);
+
+        pool.update_value_for_one(&1, -499_999_999_999_990);
+        pool.update_value_for_one(&2, -499_999_999_999_990);
+
+        pool.update_value_for_all(999_999_999_999_980);
+
+        pool.update_value_for_one(&1, 1_000_000_000_000);
+        pool.update_value_for_one(&2, 1_000_000_000_000);
+
+        let value1 = pool.get_value(&1) as i128;
+        let value2 = pool.get_value(&2) as i128;
+
+        // First to stake gets all accumulated emission if there are no other stakers
+        // (which is artificial situation because there will be no emissions if there is no stake)
+        assert!((value1 - 1_001_000_000_000_000).abs() < 100);
+        assert!((value2 - 1_000_000_000_000).abs() < 100);
+    }
+
+    // cargo test --package share-pool --lib -- tests::test_denom_high_precision_many_small_unstakes --exact --show-output
+    #[test]
+    fn test_denom_high_precision_many_small_unstakes() {
+        let mock_ops = MockSharePoolDataOperations::new();
+        let mut pool = SharePool::<u16, MockSharePoolDataOperations>::new(mock_ops);
+
+        pool.update_value_for_one(&1, 1);
+        pool.update_value_for_one(&2, 1);
+
+        pool.update_value_for_all(1_000_000_000_000_000);
+
+        for _ in 0..1_000_000 {
+            pool.update_value_for_one(&1, -500_000_000);
+            pool.update_value_for_one(&2, -500_000_000);
+        }
+
+        pool.update_value_for_all(1_000_000_000_000_000);
+
+        pool.update_value_for_one(&1, 1_000_000_000_000);
+        pool.update_value_for_one(&2, 1_000_000_000_000);
+
+        let value1 = pool.get_value(&1) as i128;
+        let value2 = pool.get_value(&2) as i128;
+
+        assert!((value1 - 1_001_000_000_000_000).abs() < 10);
+        assert!((value2 - 1_000_000_000_000).abs() < 10);
+    }
+
     #[test]
     fn test_update_value_for_one() {
         let mock_ops = MockSharePoolDataOperations::new();
@@ -300,5 +386,51 @@ mod tests {
             pool.state_ops.shared_value,
             U64F64::saturating_from_num(1000)
         );
+    }
+
+    // cargo test --package share-pool --lib -- tests::test_get_shares_per_update --exact --show-output
+    #[test]
+    fn test_get_shares_per_update() {
+        [
+            (1_i64, 1_u64, 1.0, 1.0),
+            (
+                1_000,
+                21_000_000_000_000_000,
+                0.00001,
+                0.00000000000000000043,
+            ),
+            (
+                21_000_000_000_000_000,
+                21_000_000_000_000_000,
+                0.00001,
+                0.00001,
+            ),
+            (
+                210_000_000_000_000_000,
+                21_000_000_000_000_000,
+                0.00001,
+                0.0001,
+            ),
+            (
+                1_000,
+                1_000,
+                21_000_000_000_000_000_f64,
+                21_000_000_000_000_000_f64,
+            ),
+        ]
+        .iter()
+        .for_each(|(update, shared_value, denominator, expected)| {
+            let mock_ops = MockSharePoolDataOperations::new();
+            let pool = SharePool::<u16, MockSharePoolDataOperations>::new(mock_ops);
+
+            let shared_fixed = U64F64::from_num(*shared_value);
+            let denominator_fixed = U64F64::from_num(*denominator);
+            let expected_fixed = I64F64::from_num(*expected);
+
+            let spu: I64F64 =
+                pool.get_shares_per_update(*update, &shared_fixed, &denominator_fixed);
+            let precision: I64F64 = I64F64::from_num(1000.);
+            assert!((spu - expected_fixed).abs() <= expected_fixed / precision,);
+        });
     }
 }

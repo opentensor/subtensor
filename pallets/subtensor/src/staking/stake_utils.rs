@@ -544,9 +544,10 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         netuid: u16,
         amount: u64,
-    ) {
+    ) -> u64 {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
-        alpha_share_pool.update_value_for_one(coldkey, amount as i64);
+        let actual_alpha = alpha_share_pool.update_value_for_one(coldkey, amount as i64);
+        actual_alpha.unsigned_abs()
     }
 
     pub fn try_increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -573,13 +574,16 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         netuid: u16,
         amount: u64,
-    ) {
+    ) -> u64 {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
+        let mut actual_alpha = 0;
         if let Ok(value) = alpha_share_pool.try_get_value(coldkey) {
             if value >= amount {
-                alpha_share_pool.update_value_for_one(coldkey, (amount as i64).neg());
+                actual_alpha =
+                    alpha_share_pool.update_value_for_one(coldkey, (amount as i64).neg());
             }
         }
+        actual_alpha.unsigned_abs()
     }
 
     /// Calculates Some(Alpha) returned from pool by staking operation
@@ -735,11 +739,12 @@ impl<T: Config> Pallet<T> {
         alpha: u64,
         fee: u64,
     ) -> u64 {
-        // Step 1: Swap the alpha for TAO.
-        let tao: u64 = Self::swap_alpha_for_tao(netuid, alpha);
+        // Step 1: Decrease alpha on subneet
+        let actual_alpha_decrease =
+            Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
 
-        // Step 2: Decrease alpha on subneet
-        Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
+        // Step 2: Swap the alpha for TAO.
+        let tao: u64 = Self::swap_alpha_for_tao(netuid, actual_alpha_decrease);
 
         // Step 3: Update StakingHotkeys if the hotkey's total alpha, across all subnets, is zero
         // TODO const: fix.
@@ -765,7 +770,7 @@ impl<T: Config> Pallet<T> {
             coldkey.clone(),
             hotkey.clone(),
             tao_unstaked,
-            alpha,
+            actual_alpha_decrease,
             netuid,
         ));
         log::info!(
@@ -773,7 +778,7 @@ impl<T: Config> Pallet<T> {
             coldkey.clone(),
             hotkey.clone(),
             tao_unstaked,
-            alpha,
+            actual_alpha_decrease,
             netuid
         );
 
@@ -799,9 +804,12 @@ impl<T: Config> Pallet<T> {
 
         // Step 2. Swap the tao to alpha.
         let alpha: u64 = Self::swap_tao_for_alpha(netuid, tao_staked);
+        let mut actual_alpha = 0;
         if (tao_staked > 0) && (alpha > 0) {
             // Step 3: Increase the alpha on the hotkey account.
-            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
+            actual_alpha = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                hotkey, coldkey, netuid, alpha,
+            );
 
             // Step 4: Update the list of hotkeys staking for this coldkey
             let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
@@ -825,7 +833,7 @@ impl<T: Config> Pallet<T> {
             coldkey.clone(),
             hotkey.clone(),
             tao_staked,
-            alpha,
+            actual_alpha,
             netuid,
         ));
         log::info!(
@@ -833,12 +841,12 @@ impl<T: Config> Pallet<T> {
             coldkey.clone(),
             hotkey.clone(),
             tao_staked,
-            alpha,
+            actual_alpha,
             netuid
         );
 
         // Step 7: Return the amount of alpha staked
-        alpha
+        actual_alpha
     }
 
     pub fn get_alpha_share_pool(
