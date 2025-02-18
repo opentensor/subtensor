@@ -2,8 +2,6 @@ name: Try Runtime
 
 on:
   pull_request:
-    branches: [main, devnet-ready, devnet, testnet, finney]
-    types: [labeled, unlabeled, synchronize]
 
 env:
   CARGO_TERM_COLOR: always
@@ -26,6 +24,7 @@ jobs:
 
   check-testnet:
     name: check testnet
+    # if: github.base_ref == 'testnet' || github.base_ref == 'devnet' || github.base_ref == 'main'
     runs-on: SubtensorCI
     steps:
       - name: Checkout sources
@@ -35,16 +34,18 @@ jobs:
         uses: "paritytech/try-runtime-gha@v0.1.0"
         with:
           runtime-package: "node-subtensor-runtime"
-          node-uri: "wss://test.chain.opentensor.ai:443"
+          node-uri: "wss://test-archive.dev.opentensor.ai:443"
           checks: "all"
           extra-args: "--disable-spec-version-check --no-weight-warnings"
 
   check-finney:
     name: check finney
+    if: github.base_ref == 'testnet' || github.base_ref == 'devnet' || github.base_ref == 'main'
     runs-on: SubtensorCI
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+
       - name: Run Try Runtime Checks
         uses: "paritytech/try-runtime-gha@v0.1.0"
         with:
