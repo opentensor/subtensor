@@ -5,8 +5,8 @@ use frame_support::{traits::Get, weights::Weight};
 
 use super::*;
 
-pub fn migrate_set_min_burn<T: Config>() -> Weight {
-    let migration_name = b"migrate_set_min_burn_1".to_vec();
+pub fn migrate_set_min_difficulty<T: Config>() -> Weight {
+    let migration_name = b"migrate_set_min_difficulty".to_vec();
 
     // Initialize the weight with one read operation.
     let mut weight = T::DbWeight::get().reads(1);
@@ -33,8 +33,8 @@ pub fn migrate_set_min_burn<T: Config>() -> Weight {
         if *netuid == 0 {
             continue;
         }
-        // Set min burn to the newest initial min burn
-        Pallet::<T>::set_min_burn(*netuid, T::InitialMinBurn::get());
+        // Set min difficulty to 10 million for all subnets
+        Pallet::<T>::set_min_difficulty(*netuid, 10_000_000);
         weight = weight.saturating_add(T::DbWeight::get().writes(1));
     }
 

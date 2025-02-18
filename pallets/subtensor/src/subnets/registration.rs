@@ -425,11 +425,12 @@ impl<T: Config> Pallet<T> {
         }
 
         for neuron_uid in 0..neurons_n {
-            // Do not deregister the owner
+            // Do not deregister the owner's hotkey from the `SubnetOwnerHotkey` map
             if let Ok(hotkey) = Self::get_hotkey_for_net_and_uid(netuid, neuron_uid) {
-                let coldkey = Self::get_owning_coldkey_for_hotkey(&hotkey);
-                if Self::get_subnet_owner(netuid) == coldkey {
-                    continue;
+                if let Ok(top_sn_owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
+                    if top_sn_owner_hotkey == hotkey {
+                        continue;
+                    }
                 }
             }
 

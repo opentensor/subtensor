@@ -87,7 +87,7 @@ impl<T: Config> Pallet<T> {
             let alpha_out_i = alpha_emission_i;
             // Only emit TAO if the subnetwork allows registration.
             if !Self::get_network_registration_allowed(*netuid_i)
-                && Self::get_network_pow_registration_allowed(*netuid_i)
+                && !Self::get_network_pow_registration_allowed(*netuid_i)
             {
                 tao_in_i = asfloat!(0.0);
             }
@@ -249,11 +249,6 @@ impl<T: Config> Pallet<T> {
                 BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));
             }
         }
-
-        // --- 8. Apply pending childkeys of this subnet for the next epoch
-        for netuid in subnets.iter() {
-            Self::do_set_pending_children(*netuid);
-        }
     }
 
     pub fn drain_pending_emission(
@@ -338,14 +333,17 @@ impl<T: Config> Pallet<T> {
         }
         log::debug!("alpha_dividends: {:?}", alpha_dividends);
         log::debug!("root_dividends: {:?}", root_dividends);
+        log::debug!("total_root_divs: {:?}", total_root_divs);
 
         // Compute root divs as TAO. Here we take
         let mut tao_dividends: BTreeMap<T::AccountId, I96F32> = BTreeMap::new();
         for (hotkey, root_divs) in root_dividends {
             // Root proportion.
             let root_share: I96F32 = root_divs.checked_div(total_root_divs).unwrap_or(zero);
+            log::debug!("hotkey: {:?}, root_share: {:?}", hotkey, root_share);
             // Root proportion in TAO
             let root_tao: I96F32 = asfloat!(pending_tao).saturating_mul(root_share);
+            log::debug!("hotkey: {:?}, root_tao: {:?}", hotkey, root_tao);
             // Record root dividends as TAO.
             tao_dividends
                 .entry(hotkey)
@@ -358,6 +356,12 @@ impl<T: Config> Pallet<T> {
         if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
             if let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
                 // Increase stake for owner hotkey and coldkey.
+                log::debug!(
+                    "owner_hotkey: {:?} owner_coldkey: {:?}, owner_cut: {:?}",
+                    owner_hotkey,
+                    owner_coldkey,
+                    owner_cut
+                );
                 Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                     &owner_hotkey,
                     &owner_coldkey,
@@ -370,6 +374,7 @@ impl<T: Config> Pallet<T> {
         // Distribute mining incentives.
         for (hotkey, incentive) in incentives {
             // Increase stake for miner.
+            log::debug!("incentives: hotkey: {:?}", incentive);
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey.clone(),
                 &Owner::<T>::get(hotkey.clone()),
@@ -381,14 +386,13 @@ impl<T: Config> Pallet<T> {
         // Distribute alpha divs.
         let _ = AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
         for (hotkey, mut alpha_divs) in alpha_dividends {
-            log::debug!("hotkey: {:?} alpha_divs: {:?}", hotkey, alpha_divs);
-
             // Get take prop
             let alpha_take: I96F32 =
                 Self::get_hotkey_take_float(&hotkey).saturating_mul(alpha_divs);
             // Remove take prop from alpha_divs
             alpha_divs = alpha_divs.saturating_sub(alpha_take);
             // Give the validator their take.
+            log::debug!("hotkey: {:?} alpha_take: {:?}", hotkey, alpha_take);
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey,
                 &Owner::<T>::get(hotkey.clone()),
@@ -396,6 +400,7 @@ impl<T: Config> Pallet<T> {
                 tou64!(alpha_take),
             );
             // Give all other nominators.
+            log::debug!("hotkey: {:?} alpha_divs: {:?}", hotkey, alpha_divs);
             Self::increase_stake_for_hotkey_on_subnet(&hotkey.clone(), netuid, tou64!(alpha_divs));
             // Record dividends for this hotkey.
             AlphaDividendsPerSubnet::<T>::mutate(netuid, hotkey.clone(), |divs| {
@@ -406,12 +411,12 @@ impl<T: Config> Pallet<T> {
         // Distribute root tao divs.
         let _ = TaoDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
         for (hotkey, mut root_tao) in tao_dividends {
-            log::debug!("hotkey: {:?} root_tao: {:?}", hotkey, root_tao);
             // Get take prop
             let tao_take: I96F32 = Self::get_hotkey_take_float(&hotkey).saturating_mul(root_tao);
             // Remove take prop from root_tao
             root_tao = root_tao.saturating_sub(tao_take);
             // Give the validator their take.
+            log::debug!("hotkey: {:?} tao_take: {:?}", hotkey, tao_take);
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey,
                 &Owner::<T>::get(hotkey.clone()),
@@ -419,6 +424,7 @@ impl<T: Config> Pallet<T> {
                 tou64!(tao_take),
             );
             // Give rest to nominators.
+            log::debug!("hotkey: {:?} root_tao: {:?}", hotkey, root_tao);
             Self::increase_stake_for_hotkey_on_subnet(
                 &hotkey,
                 Self::get_root_netuid(),
@@ -580,10 +586,18 @@ impl<T: Config> Pallet<T> {
                 (remaining_emission.saturating_mul(emission_factor)).saturating_to_num::<u64>();
 
             // Add the parent's emission to the distribution list
-            dividend_tuples.push((parent, parent_emission));
+            dividend_tuples.push((parent.clone(), parent_emission));
 
             // Keep track of total emission distributed to parents
             to_parents = to_parents.saturating_add(parent_emission);
+            log::debug!(
+                "Parent contribution for parent {:?} with contribution: {:?}, of total: {:?} of emission: {:?} gets: {:?}",
+                parent,
+                contribution,
+                total_contribution,
+                remaining_emission,
+                parent_emission
+            );
         }
         // Calculate the final emission for the hotkey itself.
         // This includes the take left from the parents and the self contribution.

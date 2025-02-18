@@ -229,7 +229,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 229,
+    spec_version: 240,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -726,17 +726,38 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
     fn filter(&self, c: &RuntimeCall) -> bool {
         match self {
             ProxyType::Any => true,
-            ProxyType::NonTransfer => !matches!(c, RuntimeCall::Balances(..)),
+            ProxyType::NonTransfer => !matches!(
+                c,
+                RuntimeCall::Balances(..)
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::schedule_swap_coldkey { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_coldkey { .. })
+            ),
             ProxyType::NonFungibile => !matches!(
                 c,
                 RuntimeCall::Balances(..)
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake_limit { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::remove_stake_limit { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::unstake_all { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::unstake_all_alpha { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake_limit { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::move_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
                     | RuntimeCall::SubtensorModule(
                         pallet_subtensor::Call::schedule_swap_coldkey { .. }
                     )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_coldkey { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey { .. })
             ),
             ProxyType::Transfer => matches!(
@@ -744,6 +765,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive { .. })
                     | RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death { .. })
                     | RuntimeCall::Balances(pallet_balances::Call::transfer_all { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake { .. })
             ),
             ProxyType::SmallTransfer => match c {
                 RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
@@ -753,6 +775,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     value,
                     ..
                 }) => *value < SMALL_TRANSFER_LIMIT,
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake {
+                    alpha_amount,
+                    ..
+                }) => *alpha_amount < SMALL_TRANSFER_LIMIT,
                 _ => false,
             },
             ProxyType::Owner => matches!(c, RuntimeCall::AdminUtils(..)),
@@ -780,6 +806,17 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::unstake_all { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::unstake_all_alpha { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake_limit { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::move_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake_limit { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::remove_stake_limit { .. }
+                    )
             ),
             ProxyType::Registration => matches!(
                 c,
@@ -1031,7 +1068,7 @@ parameter_types! {
     pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX / 4;
     pub const SubtensorInitialServingRateLimit: u64 = 50;
     pub const SubtensorInitialBurn: u64 = 1_000_000_000; // 1 tao
-    pub const SubtensorInitialMinBurn: u64 = 1_000_000_000; // 1 tao
+    pub const SubtensorInitialMinBurn: u64 = 500_000; // 500k RAO
     pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
     pub const SubtensorInitialTxDelegateTakeRateLimit: u64 = 216000; // 30 days at 12 seconds per block

@@ -1,0 +1,69 @@
+name: Require Clean Merges
+
+on:
+  pull_request:
+    branches:
+      - devnet-ready
+      - devnet
+      - testnet
+
+jobs:
+  assert-clean-merges:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Ensures we get all branches for merging
+
+      - name: Determine Target Branch and Set Merge List
+        id: set-merge-branches
+        run: |
+          TARGET_BRANCH="${{ github.event.pull_request.base.ref }}"
+          PR_BRANCH="${{ github.event.pull_request.head.ref }}"
+          echo "PR_BRANCH=$PR_BRANCH" >> $GITHUB_ENV
+
+          if [[ "$TARGET_BRANCH" == "devnet-ready" ]]; then
+            echo "MERGE_BRANCHES=devnet testnet main" >> $GITHUB_ENV
+          elif [[ "$TARGET_BRANCH" == "devnet" ]]; then
+            echo "MERGE_BRANCHES=testnet main" >> $GITHUB_ENV
+          elif [[ "$TARGET_BRANCH" == "testnet" ]]; then
+            echo "MERGE_BRANCHES=main" >> $GITHUB_ENV
+          elif [[ "$TARGET_BRANCH" == "main" ]]; then
+            echo "MERGE_BRANCHES=" >> $GITHUB_ENV  # No need to merge anything into main
+          else
+            echo "MERGE_BRANCHES=devnet-ready devnet testnet main" >> $GITHUB_ENV
+          fi
+
+      - name: Check Merge Cleanliness
+        run: |
+          TARGET_BRANCH="${{ github.event.pull_request.base.ref }}"
+          PR_BRANCH="${{ github.event.pull_request.head.ref }}"
+          echo "Fetching all branches..."
+          git fetch --all --prune
+
+          echo "Checking out PR branch: $PR_BRANCH"
+          git checkout $PR_BRANCH
+          git reset --hard origin/$PR_BRANCH
+
+          # Configure a temporary Git identity to allow merging
+          git config --local user.email "github-actions@github.com"
+          git config --local user.name "GitHub Actions"
+
+          for branch in $MERGE_BRANCHES; do
+            echo "Checking merge from $branch into $PR_BRANCH..."
+            
+            # Ensure PR branch is up to date
+            git reset --hard origin/$PR_BRANCH
+
+            # Merge without committing to check for conflicts
+            if git merge --no-commit --no-ff origin/$branch; then
+              echo "✅ Merge from $branch into $PR_BRANCH is clean."
+            else
+              echo "❌ Merge conflict detected when merging $branch into $PR_BRANCH"
+              exit 1
+            fi
+            
+            # Abort merge if one was started, suppressing errors if no merge happened
+            git merge --abort 2>/dev/null || true
+          done
