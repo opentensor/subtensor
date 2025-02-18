@@ -1674,6 +1674,10 @@ pub enum CustomTransactionError {
     InsufficientLiquidity,
     SlippageTooHigh,
     TransferDisallowed,
+    HotKeyNotRegisteredInNetwork,
+    InvalidIpAddress,
+    ServingRateLimitExceeded,
+    InvalidPort,
     BadRequest,
 }
 
@@ -1690,6 +1694,10 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::InsufficientLiquidity => 7,
             CustomTransactionError::SlippageTooHigh => 8,
             CustomTransactionError::TransferDisallowed => 9,
+            CustomTransactionError::HotKeyNotRegisteredInNetwork => 10,
+            CustomTransactionError::InvalidIpAddress => 11,
+            CustomTransactionError::ServingRateLimitExceeded => 12,
+            CustomTransactionError::InvalidPort => 13,
             CustomTransactionError::BadRequest => 255,
         }
     }
@@ -1771,6 +1779,22 @@ where
                 .into()),
                 Error::<T>::TransferDisallowed => Err(InvalidTransaction::Custom(
                     CustomTransactionError::TransferDisallowed.into(),
+                )
+                .into()),
+                Error::<T>::HotKeyNotRegisteredInNetwork => Err(InvalidTransaction::Custom(
+                    CustomTransactionError::HotKeyNotRegisteredInNetwork.into(),
+                )
+                .into()),
+                Error::<T>::InvalidIpAddress => Err(InvalidTransaction::Custom(
+                    CustomTransactionError::InvalidIpAddress.into(),
+                )
+                .into()),
+                Error::<T>::ServingRateLimitExceeded => Err(InvalidTransaction::Custom(
+                    CustomTransactionError::ServingRateLimitExceeded.into(),
+                )
+                .into()),
+                Error::<T>::InvalidPort => Err(InvalidTransaction::Custom(
+                    CustomTransactionError::InvalidPort.into(),
                 )
                 .into()),
                 _ => Err(
@@ -2174,6 +2198,32 @@ where
                         ..Default::default()
                     })
                 }
+            }
+            Some(Call::serve_axon {
+                netuid,
+                version,
+                ip,
+                port,
+                ip_type,
+                protocol,
+                placeholder1,
+                placeholder2,
+            }) => {
+                // Fully validate the user input
+                Self::result_to_validity(
+                    Pallet::<T>::validate_serve_axon(
+                        who,
+                        *netuid,
+                        *version,
+                        *ip,
+                        *port,
+                        *ip_type,
+                        *protocol,
+                        *placeholder1,
+                        *placeholder2,
+                    ),
+                    Self::get_priority_vanilla(),
+                )
             }
             _ => {
                 if let Some(

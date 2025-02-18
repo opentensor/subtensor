@@ -437,6 +437,18 @@ impl<T: Config> Pallet<T> {
             }
         }
 
+        // 15. Swap SubnetOwnerHotkey
+        // SubnetOwnerHotkey( netuid ) --> hotkey -- the hotkey that is the owner of the subnet.
+        for netuid in Self::get_all_subnet_netuids() {
+            if let Ok(old_subnet_owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
+                weight.saturating_accrue(T::DbWeight::get().reads(1));
+                if old_subnet_owner_hotkey == *old_hotkey {
+                    SubnetOwnerHotkey::<T>::insert(netuid, new_hotkey);
+                    weight.saturating_accrue(T::DbWeight::get().writes(1));
+                }
+            }
+        }
+
         // Return successful after swapping all the relevant terms.
         Ok(())
     }
