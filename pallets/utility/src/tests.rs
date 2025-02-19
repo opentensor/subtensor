@@ -39,6 +39,7 @@ type BlockNumber = u64;
 
 // example module to test behaviors.
 #[frame_support::pallet(dev_mode)]
+#[allow(clippy::large_enum_variant)]
 pub mod example {
     use frame_support::{dispatch::WithPostDispatchInfo, pallet_prelude::*};
     use frame_system::pallet_prelude::*;
@@ -127,14 +128,14 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
     pub enum Test
     {
-        System: frame_system,
-        Timestamp: pallet_timestamp,
-        Balances: pallet_balances,
-        RootTesting: pallet_root_testing,
-        Council: pallet_collective::<Instance1>,
-        Utility: utility,
-        Example: example,
-        Democracy: mock_democracy,
+        System: frame_system = 1,
+        Timestamp: pallet_timestamp = 2,
+        Balances: pallet_balances = 3,
+        RootTesting: pallet_root_testing = 4,
+        Council: pallet_collective::<Instance1> = 5,
+        Utility: utility = 6,
+        Example: example = 7,
+        Democracy: mock_democracy = 8,
     }
 );
 
@@ -174,7 +175,7 @@ parameter_types! {
     pub const MotionDuration: BlockNumber = MOTION_DURATION_IN_BLOCKS;
     pub const MaxProposals: u32 = 100;
     pub const MaxMembers: u32 = 100;
-    pub MaxProposalWeight: Weight = sp_runtime::Perbill::from_percent(50) * BlockWeights::get().max_block;
+    pub MaxProposalWeight: Weight = BlockWeights::get().max_block.saturating_div(2);
 }
 
 pub struct MemberProposals;
@@ -255,19 +256,19 @@ use pallet_timestamp::Call as TimestampCall;
 pub fn new_test_ext() -> sp_io::TestExternalities {
     let mut t = frame_system::GenesisConfig::<Test>::default()
         .build_storage()
-        .unwrap();
+        .expect("Failed to build storage for test");
     pallet_balances::GenesisConfig::<Test> {
         balances: vec![(1, 10), (2, 10), (3, 10), (4, 10), (5, 2)],
     }
     .assimilate_storage(&mut t)
-    .unwrap();
+    .expect("Failed to build storage for test");
 
     pallet_collective::GenesisConfig::<Test, Instance1> {
         members: vec![1, 2, 3],
         phantom: Default::default(),
     }
     .assimilate_storage(&mut t)
-    .unwrap();
+    .expect("Failed to build storage for test");
 
     let mut ext = sp_io::TestExternalities::new(t);
     ext.execute_with(|| System::set_block_number(1));
@@ -688,7 +689,7 @@ fn batch_all_handles_weight_refund() {
         assert_err_ignore_postinfo!(result, "The cake is a lie.");
         assert_eq!(
             extract_actual_weight(&result, &info),
-            info.weight - diff * batch_len
+            info.weight.saturating_sub(diff.saturating_mul(batch_len))
         );
 
         // Partial batch completion
@@ -702,7 +703,7 @@ fn batch_all_handles_weight_refund() {
         assert_eq!(
             extract_actual_weight(&result, &info),
             // Real weight is 2 calls at end_weight
-            <Test as Config>::WeightInfo::batch_all(2) + end_weight * 2,
+            <Test as Config>::WeightInfo::batch_all(2).saturating_add(end_weight.saturating_mul(2)),
         );
     });
 }

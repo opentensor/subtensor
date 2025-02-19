@@ -21,6 +21,7 @@ frame-system = { workspace = true,  default-features = false }
 sp-core = { workspace = true,  default-features = false }
 sp-io = { workspace = true,  default-features = false}
 sp-runtime = { workspace = true, default-features = false}
+subtensor-macros = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { default-features = true, workspace = true }

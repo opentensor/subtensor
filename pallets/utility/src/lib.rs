@@ -69,6 +69,8 @@ use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{BadOrigin, Dispatchable, TrailingZeroInput};
 pub use weights::WeightInfo;
 
+use subtensor_macros::freeze_struct;
+
 pub use pallet::*;
 
 #[frame_support::pallet]
@@ -133,14 +135,19 @@ pub mod pallet {
         /// The limit on the number of batched calls.
         fn batched_calls_limit() -> u32 {
             let allocator_limit = sp_core::MAX_POSSIBLE_ALLOCATION;
-            let call_size =
-                ((core::mem::size_of::<<T as Config>::RuntimeCall>() as u32 + CALL_ALIGN - 1)
-                    / CALL_ALIGN)
-                    * CALL_ALIGN;
-            // The margin to take into account vec doubling capacity.
-            let margin_factor = 3;
+            let size = core::mem::size_of::<<T as Config>::RuntimeCall>() as u32;
 
-            allocator_limit / margin_factor / call_size
+            let align_up = size.saturating_add(CALL_ALIGN.saturating_sub(1));
+            let call_size = align_up
+                .checked_div(CALL_ALIGN)
+                .unwrap_or(0)
+                .saturating_mul(CALL_ALIGN);
+
+            let margin_factor: u32 = 3;
+
+            let after_margin = allocator_limit.checked_div(margin_factor).unwrap_or(0);
+
+            after_margin.checked_div(call_size).unwrap_or(0)
         }
     }
 
@@ -184,7 +191,7 @@ pub mod pallet {
         /// event is deposited.
         #[pallet::call_index(0)]
         #[pallet::weight({
-			let (dispatch_weight, dispatch_class) = Pallet::<T>::weight_and_dispatch_class(&calls);
+			let (dispatch_weight, dispatch_class) = Pallet::<T>::weight_and_dispatch_class(calls);
 			let dispatch_weight = dispatch_weight.saturating_add(T::WeightInfo::batch(calls.len() as u32));
 			(dispatch_weight, dispatch_class)
 		})]
@@ -296,7 +303,7 @@ pub mod pallet {
         /// - O(C) where C is the number of calls to be batched.
         #[pallet::call_index(2)]
         #[pallet::weight({
-			let (dispatch_weight, dispatch_class) = Pallet::<T>::weight_and_dispatch_class(&calls);
+			let (dispatch_weight, dispatch_class) = Pallet::<T>::weight_and_dispatch_class(calls);
 			let dispatch_weight = dispatch_weight.saturating_add(T::WeightInfo::batch_all(calls.len() as u32));
 			(dispatch_weight, dispatch_class)
 		})]
@@ -395,7 +402,7 @@ pub mod pallet {
         /// - O(C) where C is the number of calls to be batched.
         #[pallet::call_index(4)]
         #[pallet::weight({
-			let (dispatch_weight, dispatch_class) = Pallet::<T>::weight_and_dispatch_class(&calls);
+			let (dispatch_weight, dispatch_class) = Pallet::<T>::weight_and_dispatch_class(calls);
 			let dispatch_weight = dispatch_weight.saturating_add(T::WeightInfo::force_batch(calls.len() as u32));
 			(dispatch_weight, dispatch_class)
 		})]
@@ -496,6 +503,7 @@ pub mod pallet {
 }
 
 /// A pallet identifier. These are per pallet and should be stored in a registry somewhere.
+#[freeze_struct("7e600c53ace0630a")]
 #[derive(Clone, Copy, Eq, PartialEq, Encode, Decode)]
 struct IndexedUtilityPalletId(u16);
 
