@@ -1,18 +1,18 @@
 use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
-use frame_support::storage::IterableStorageMap;
-use frame_support::IterableStorageDoubleMap;
+use frame_support::IterableStorageMap;
 use safe_math::*;
 use substrate_fixed::types::U64F64;
 extern crate alloc;
+use alloc::collections::BTreeMap;
 use codec::Compact;
 
-#[freeze_struct("66105c2cfec0608d")]
+#[freeze_struct("f729f2481d94a1de")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct DelegateInfo<AccountId: TypeInfo + Encode + Decode> {
     delegate_ss58: AccountId,
     take: Compact<u16>,
-    nominators: Vec<(AccountId, Compact<u64>)>, // map of nominator_ss58 to stake amount
+    nominators: Vec<(AccountId, Vec<(Compact<u16>, Compact<u64>)>)>, // map of nominator_ss58 to netuid and stake amount
     owner_ss58: AccountId,
     registrations: Vec<Compact<u16>>, // Vec of netuid this delegate is registered on
     validator_permits: Vec<Compact<u16>>, // Vec of netuid this delegate has validator permit on
@@ -49,19 +49,38 @@ impl<T: Config> Pallet<T> {
         Self::return_per_1000_tao(take, total_stake, emissions_per_day)
     }
 
-    fn get_delegate_by_existing_account(delegate: AccountIdOf<T>) -> DelegateInfo<T::AccountId> {
-        let mut nominators = Vec::<(T::AccountId, Compact<u64>)>::new();
+    fn get_delegate_by_existing_account(
+        delegate: AccountIdOf<T>,
+        skip_nominators: bool,
+    ) -> DelegateInfo<T::AccountId> {
+        let mut nominators = Vec::<(T::AccountId, Vec<(Compact<u16>, Compact<u64>)>)>::new();
+        let mut nominator_map = BTreeMap::<T::AccountId, Vec<(Compact<u16>, Compact<u64>)>>::new();
 
-        for (nominator, stake) in
-            <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(
-                delegate.clone(),
-            )
-        {
-            if stake == 0 {
-                continue;
+        if !skip_nominators {
+            let mut alpha_share_pools = vec![];
+            for netuid in Self::get_all_subnet_netuids() {
+                let alpha_share_pool = Self::get_alpha_share_pool(delegate.clone(), netuid);
+                alpha_share_pools.push(alpha_share_pool);
             }
-            // Only add nominators with stake
-            nominators.push((nominator.clone(), stake.into()));
+
+            for ((nominator, netuid), alpha_stake) in Alpha::<T>::iter_prefix((delegate.clone(),)) {
+                if alpha_stake == 0 {
+                    continue;
+                }
+
+                if let Some(alpha_share_pool) = alpha_share_pools.get(netuid as usize) {
+                    let coldkey_stake = alpha_share_pool.get_value_from_shares(alpha_stake);
+
+                    nominator_map
+                        .entry(nominator.clone())
+                        .or_insert(Vec::new())
+                        .push((netuid.into(), coldkey_stake.into()));
+                }
+            }
+
+            for (nominator, stakes) in nominator_map {
+                nominators.push((nominator, stakes));
+            }
         }
 
         let registrations = Self::get_registered_networks_for_hotkey(&delegate.clone());
@@ -112,7 +131,7 @@ impl<T: Config> Pallet<T> {
             return None;
         }
 
-        let delegate_info = Self::get_delegate_by_existing_account(delegate.clone());
+        let delegate_info = Self::get_delegate_by_existing_account(delegate.clone(), false);
         Some(delegate_info)
     }
 
@@ -121,7 +140,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_delegates() -> Vec<DelegateInfo<T::AccountId>> {
         let mut delegates = Vec::<DelegateInfo<T::AccountId>>::new();
         for delegate in <Delegates<T> as IterableStorageMap<T::AccountId, u16>>::iter_keys() {
-            let delegate_info = Self::get_delegate_by_existing_account(delegate.clone());
+            let delegate_info = Self::get_delegate_by_existing_account(delegate.clone(), false);
             delegates.push(delegate_info);
         }
 
@@ -132,20 +151,24 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn get_delegated(
         delegatee: T::AccountId,
-    ) -> Vec<(DelegateInfo<T::AccountId>, Compact<u64>)> {
-        let mut delegates: Vec<(DelegateInfo<T::AccountId>, Compact<u64>)> = Vec::new();
+    ) -> Vec<(DelegateInfo<T::AccountId>, (Compact<u16>, Compact<u64>))> {
+        let mut delegates: Vec<(DelegateInfo<T::AccountId>, (Compact<u16>, Compact<u64>))> =
+            Vec::new();
         for delegate in <Delegates<T> as IterableStorageMap<T::AccountId, u16>>::iter_keys() {
             // Staked to this delegate, so add to list
-            let delegate_info = Self::get_delegate_by_existing_account(delegate.clone());
-            delegates.push((
-                delegate_info,
-                Self::get_stake_for_hotkey_and_coldkey_on_subnet(
-                    &delegatee,
-                    &delegate,
-                    Self::get_root_netuid(),
-                )
-                .into(),
-            ));
+            for (netuid, _) in Alpha::<T>::iter_prefix((delegate.clone(), delegatee.clone())) {
+                let delegate_info = Self::get_delegate_by_existing_account(delegate.clone(), true);
+                delegates.push((
+                    delegate_info,
+                    (
+                        netuid.into(),
+                        Self::get_stake_for_hotkey_and_coldkey_on_subnet(
+                            &delegate, &delegatee, netuid,
+                        )
+                        .into(),
+                    ),
+                ));
+            }
         }
 
         delegates

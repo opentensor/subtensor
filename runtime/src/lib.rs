@@ -2062,7 +2062,7 @@ impl_runtime_apis! {
             SubtensorModule::get_delegate(delegate_account)
         }
 
-        fn get_delegated(delegatee_account: AccountId32) -> Vec<(DelegateInfo<AccountId32>, Compact<u64>)> {
+        fn get_delegated(delegatee_account: AccountId32) -> Vec<(DelegateInfo<AccountId32>, (Compact<u16>, Compact<u64>))> {
             SubtensorModule::get_delegated(delegatee_account)
         }
     }
