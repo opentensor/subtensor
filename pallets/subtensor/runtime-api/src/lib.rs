@@ -19,7 +19,7 @@ sp_api::decl_runtime_apis! {
     pub trait DelegateInfoRuntimeApi {
         fn get_delegates() -> Vec<DelegateInfo<AccountId32>>;
         fn get_delegate( delegate_account: AccountId32 ) -> Option<DelegateInfo<AccountId32>>;
-        fn get_delegated( delegatee_account: AccountId32 ) -> Vec<(DelegateInfo<AccountId32>, Compact<u64>)>;
+        fn get_delegated( delegatee_account: AccountId32 ) -> Vec<(DelegateInfo<AccountId32>, (Compact<u16>, Compact<u64>))>;
     }
 
     pub trait NeuronInfoRuntimeApi {
