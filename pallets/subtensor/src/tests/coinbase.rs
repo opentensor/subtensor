@@ -31,7 +31,7 @@ fn test_hotkey_take() {
         );
         log::info!(
             "expected: {:?}",
-            SubtensorModule::get_hotkey_take_float(&&hotkey)
+            SubtensorModule::get_hotkey_take_float(&hotkey)
         );
     });
 }
