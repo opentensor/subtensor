@@ -474,10 +474,13 @@ pub mod pallet {
             let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info());
             let (dispatch_weight, dispatch_class) = dispatch_infos.fold(
                 (Weight::zero(), DispatchClass::Operational),
-                |(total_weight, dispatch_class): (Weight, DispatchClass), di| {
+                |(total_weight, dispatch_class), di| {
                     (
-                        total_weight.saturating_add(di.weight),
-                        // If not all are `Operational`, we want to use `DispatchClass::Normal`.
+                        if di.pays_fee == Pays::Yes {
+                            total_weight.saturating_add(di.weight)
+                        } else {
+                            total_weight
+                        },
                         if di.class == DispatchClass::Normal {
                             di.class
                         } else {
