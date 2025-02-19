@@ -318,12 +318,14 @@ impl<T: Config> Pallet<T> {
             let root_prop: I96F32 = root_alpha.checked_div(total_alpha).unwrap_or(zero);
             // Compute root dividends
             let root_divs: I96F32 = dividend.saturating_mul(root_prop);
-            // Record the root dividends.
+            // Compute alpha dividends
+            let alpha_divs: I96F32 = dividend.saturating_sub(root_divs);
+            // Record the alpha dividends.
             alpha_dividends
                 .entry(hotkey.clone())
-                .and_modify(|e| *e = e.saturating_add(dividend))
-                .or_insert(dividend);
-            // Record the alpha_dividends.
+                .and_modify(|e| *e = e.saturating_add(alpha_divs))
+                .or_insert(alpha_divs);
+            // Record the root dividends.
             root_dividends
                 .entry(hotkey.clone())
                 .and_modify(|e| *e = e.saturating_add(root_divs))
