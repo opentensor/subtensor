@@ -177,6 +177,27 @@ parameter_types! {
 	pub MaxProposalWeight: Weight = sp_runtime::Perbill::from_percent(50) * BlockWeights::get().max_block;
 }
 
+pub struct MemberProposals;
+impl pallet_collective::CanPropose<u64> for MemberProposals {
+	fn can_propose(who: &u64) -> bool {
+		[1, 2, 3].contains(who)
+	}
+}
+
+pub struct MemberVotes;
+impl pallet_collective::CanVote<u64> for MemberVotes {
+	fn can_vote(who: &u64) -> bool {
+		[1, 2, 3].contains(who)
+	}
+}
+
+pub struct StoredVotingMembers;
+impl pallet_collective::GetVotingMembers<u32> for StoredVotingMembers {
+	fn get_count() -> u32 {
+		3
+	}
+}
+
 type CouncilCollective = pallet_collective::Instance1;
 impl pallet_collective::Config<CouncilCollective> for Test {
 	type RuntimeOrigin = RuntimeOrigin;
@@ -188,9 +209,9 @@ impl pallet_collective::Config<CouncilCollective> for Test {
 	type DefaultVote = pallet_collective::PrimeDefaultVote;
 	type WeightInfo = ();
 	type SetMembersOrigin = frame_system::EnsureRoot<Self::AccountId>;
-	type CanPropose = ();
-	type CanVote = ();
-	type GetVotingMembers = ();
+	type CanPropose = MemberProposals;
+	type CanVote = MemberVotes;
+	type GetVotingMembers = StoredVotingMembers;
 }
 
 impl example::Config for Test {}
@@ -818,8 +839,9 @@ fn batch_works_with_council_origin() {
 		assert_ok!(Council::vote(RuntimeOrigin::signed(3), hash, 0, true));
 
 		System::set_block_number(4);
+
 		assert_ok!(Council::close(
-			RuntimeOrigin::signed(3),
+			RuntimeOrigin::root(),
 			hash,
 			0,
 			proposal_weight,
@@ -856,7 +878,7 @@ fn force_batch_works_with_council_origin() {
 
 		System::set_block_number(4);
 		assert_ok!(Council::close(
-			RuntimeOrigin::signed(3),
+			RuntimeOrigin::root(),
 			hash,
 			0,
 			proposal_weight,
