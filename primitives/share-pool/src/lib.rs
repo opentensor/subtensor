@@ -63,6 +63,22 @@ where
         .saturating_to_num::<u64>()
     }
 
+    pub fn get_value_from_shares(&self, current_share: U64F64) -> u64 {
+        let shared_value: U64F64 = self.state_ops.get_shared_value();
+        let denominator: U64F64 = self.state_ops.get_denominator();
+
+        let maybe_value_per_share = shared_value.checked_div(denominator);
+        (if let Some(value_per_share) = maybe_value_per_share {
+            value_per_share.saturating_mul(current_share)
+        } else {
+            shared_value
+                .saturating_mul(current_share)
+                .checked_div(denominator)
+                .unwrap_or(U64F64::saturating_from_num(0))
+        })
+        .saturating_to_num::<u64>()
+    }
+
     pub fn try_get_value(&self, key: &K) -> Result<u64, ()> {
         match self.state_ops.try_get_share(key) {
             Ok(_) => Ok(self.get_value(key)),
