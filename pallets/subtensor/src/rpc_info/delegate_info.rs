@@ -151,16 +151,22 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn get_delegated(
         delegatee: T::AccountId,
-    ) -> Vec<(DelegateInfo<T::AccountId>, Compact<u64>)> {
-        let mut delegates: Vec<(DelegateInfo<T::AccountId>, Compact<u64>)> = Vec::new();
+    ) -> Vec<(DelegateInfo<T::AccountId>, (Compact<u16>, Compact<u64>))> {
+        let mut delegates: Vec<(DelegateInfo<T::AccountId>, (Compact<u16>, Compact<u64>))> =
+            Vec::new();
         for delegate in <Delegates<T> as IterableStorageMap<T::AccountId, u16>>::iter_keys() {
             // Staked to this delegate, so add to list
             for (netuid, _) in Alpha::<T>::iter_prefix((delegate.clone(), delegatee.clone())) {
                 let delegate_info = Self::get_delegate_by_existing_account(delegate.clone(), true);
                 delegates.push((
                     delegate_info,
-                    Self::get_stake_for_hotkey_and_coldkey_on_subnet(&delegate, &delegatee, netuid)
+                    (
+                        netuid.into(),
+                        Self::get_stake_for_hotkey_and_coldkey_on_subnet(
+                            &delegate, &delegatee, netuid,
+                        )
                         .into(),
+                    ),
                 ));
             }
         }
