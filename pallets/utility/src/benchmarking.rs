@@ -27,65 +27,65 @@ use frame_system::RawOrigin;
 const SEED: u32 = 0;
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
-	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
+    frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
 benchmarks! {
-	where_clause { where <T::RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin: Clone }
-	batch {
-		let c in 0 .. 1000;
-		let mut calls: Vec<<T as Config>::RuntimeCall> = Vec::new();
-		for i in 0 .. c {
-			let call = frame_system::Call::remark { remark: vec![] }.into();
-			calls.push(call);
-		}
-		let caller = whitelisted_caller();
-	}: _(RawOrigin::Signed(caller), calls)
-	verify {
-		assert_last_event::<T>(Event::BatchCompleted.into())
-	}
+    where_clause { where <T::RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin: Clone }
+    batch {
+        let c in 0 .. 1000;
+        let mut calls: Vec<<T as Config>::RuntimeCall> = Vec::new();
+        for i in 0 .. c {
+            let call = frame_system::Call::remark { remark: vec![] }.into();
+            calls.push(call);
+        }
+        let caller = whitelisted_caller();
+    }: _(RawOrigin::Signed(caller), calls)
+    verify {
+        assert_last_event::<T>(Event::BatchCompleted.into())
+    }
 
-	as_derivative {
-		let caller = account("caller", SEED, SEED);
-		let call = Box::new(frame_system::Call::remark { remark: vec![] }.into());
-		// Whitelist caller account from further DB operations.
-		let caller_key = frame_system::Account::<T>::hashed_key_for(&caller);
-		frame_benchmarking::benchmarking::add_to_whitelist(caller_key.into());
-	}: _(RawOrigin::Signed(caller), SEED as u16, call)
+    as_derivative {
+        let caller = account("caller", SEED, SEED);
+        let call = Box::new(frame_system::Call::remark { remark: vec![] }.into());
+        // Whitelist caller account from further DB operations.
+        let caller_key = frame_system::Account::<T>::hashed_key_for(&caller);
+        frame_benchmarking::benchmarking::add_to_whitelist(caller_key.into());
+    }: _(RawOrigin::Signed(caller), SEED as u16, call)
 
-	batch_all {
-		let c in 0 .. 1000;
-		let mut calls: Vec<<T as Config>::RuntimeCall> = Vec::new();
-		for i in 0 .. c {
-			let call = frame_system::Call::remark { remark: vec![] }.into();
-			calls.push(call);
-		}
-		let caller = whitelisted_caller();
-	}: _(RawOrigin::Signed(caller), calls)
-	verify {
-		assert_last_event::<T>(Event::BatchCompleted.into())
-	}
+    batch_all {
+        let c in 0 .. 1000;
+        let mut calls: Vec<<T as Config>::RuntimeCall> = Vec::new();
+        for i in 0 .. c {
+            let call = frame_system::Call::remark { remark: vec![] }.into();
+            calls.push(call);
+        }
+        let caller = whitelisted_caller();
+    }: _(RawOrigin::Signed(caller), calls)
+    verify {
+        assert_last_event::<T>(Event::BatchCompleted.into())
+    }
 
-	dispatch_as {
-		let caller = account("caller", SEED, SEED);
-		let call = Box::new(frame_system::Call::remark { remark: vec![] }.into());
-		let origin: T::RuntimeOrigin = RawOrigin::Signed(caller).into();
-		let pallets_origin: <T::RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin = origin.caller().clone();
-		let pallets_origin = Into::<T::PalletsOrigin>::into(pallets_origin);
-	}: _(RawOrigin::Root, Box::new(pallets_origin), call)
+    dispatch_as {
+        let caller = account("caller", SEED, SEED);
+        let call = Box::new(frame_system::Call::remark { remark: vec![] }.into());
+        let origin: T::RuntimeOrigin = RawOrigin::Signed(caller).into();
+        let pallets_origin: <T::RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin = origin.caller().clone();
+        let pallets_origin = Into::<T::PalletsOrigin>::into(pallets_origin);
+    }: _(RawOrigin::Root, Box::new(pallets_origin), call)
 
-	force_batch {
-		let c in 0 .. 1000;
-		let mut calls: Vec<<T as Config>::RuntimeCall> = Vec::new();
-		for i in 0 .. c {
-			let call = frame_system::Call::remark { remark: vec![] }.into();
-			calls.push(call);
-		}
-		let caller = whitelisted_caller();
-	}: _(RawOrigin::Signed(caller), calls)
-	verify {
-		assert_last_event::<T>(Event::BatchCompleted.into())
-	}
+    force_batch {
+        let c in 0 .. 1000;
+        let mut calls: Vec<<T as Config>::RuntimeCall> = Vec::new();
+        for i in 0 .. c {
+            let call = frame_system::Call::remark { remark: vec![] }.into();
+            calls.push(call);
+        }
+        let caller = whitelisted_caller();
+    }: _(RawOrigin::Signed(caller), calls)
+    verify {
+        assert_last_event::<T>(Event::BatchCompleted.into())
+    }
 
-	impl_benchmark_test_suite!(Pallet, crate::tests::new_test_ext(), crate::tests::Test);
+    impl_benchmark_test_suite!(Pallet, crate::tests::new_test_ext(), crate::tests::Test);
 }
