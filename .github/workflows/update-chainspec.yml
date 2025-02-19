@@ -29,14 +29,6 @@ jobs:
       github.event.pull_request.head.ref != 'testnet' &&
       github.event.pull_request.head.ref != 'main'
 
-    strategy:
-      matrix:
-        rust-target:
-          - x86_64-unknown-linux-gnu
-        os:
-          - ubuntu-latest
-        include:
-          - os: ubuntu-latest
     env:
       RUST_BACKTRACE: full
     steps:
@@ -49,9 +41,7 @@ jobs:
           sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
 
       - name: Utilize Shared Rust Cache
-        uses: Swatinem/rust-cache@v2.2.1
-        with:
-          key: ubuntu-latest-target/x86_64-unknown-linux-gnu
+        uses: Swatinem/rust-cache@v2
 
       - name: Build chainspecs
         run: ./scripts/build_all_chainspecs.sh
