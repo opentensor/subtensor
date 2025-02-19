@@ -7,17 +7,17 @@ extern crate alloc;
 use alloc::collections::BTreeMap;
 use codec::Compact;
 
-#[freeze_struct("f729f2481d94a1de")]
+#[freeze_struct("7cd21f57627d2d0d")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct DelegateInfo<AccountId: TypeInfo + Encode + Decode> {
-    delegate_ss58: AccountId,
-    take: Compact<u16>,
-    nominators: Vec<(AccountId, Vec<(Compact<u16>, Compact<u64>)>)>, // map of nominator_ss58 to netuid and stake amount
-    owner_ss58: AccountId,
-    registrations: Vec<Compact<u16>>, // Vec of netuid this delegate is registered on
-    validator_permits: Vec<Compact<u16>>, // Vec of netuid this delegate has validator permit on
-    return_per_1000: Compact<u64>, // Delegators current daily return per 1000 TAO staked minus take fee
-    total_daily_return: Compact<u64>, // Delegators current daily return
+    pub delegate_ss58: AccountId,
+    pub take: Compact<u16>,
+    pub nominators: Vec<(AccountId, Vec<(Compact<u16>, Compact<u64>)>)>, // map of nominator_ss58 to netuid and stake amount
+    pub owner_ss58: AccountId,
+    pub registrations: Vec<Compact<u16>>, // Vec of netuid this delegate is registered on
+    pub validator_permits: Vec<Compact<u16>>, // Vec of netuid this delegate has validator permit on
+    pub return_per_1000: Compact<u64>, // Delegators current daily return per 1000 TAO staked minus take fee
+    pub total_daily_return: Compact<u64>, // Delegators current daily return
 }
 
 impl<T: Config> Pallet<T> {
