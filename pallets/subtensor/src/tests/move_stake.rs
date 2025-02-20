@@ -231,64 +231,6 @@ fn test_do_move_nonexistent_origin_hotkey() {
     });
 }
 
-// // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test move -- test_do_move_nonexistent_destination_hotkey --exact --nocapture
-// #[test]
-// fn test_do_move_nonexistent_destination_hotkey() {
-//     new_test_ext(1).execute_with(|| {
-//         let subnet_owner_coldkey = U256::from(1001);
-//         let subnet_owner_hotkey = U256::from(1002);
-//         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-//         let coldkey = U256::from(1);
-//         let origin_hotkey = U256::from(99); // Assuming this hotkey doesn't exist
-//         let nonexistent_destination_hotkey = U256::from(3);
-
-//         // Set up initial stake
-//         SubtensorModule::stake_into_subnet(
-//             &origin_hotkey,
-//             &coldkey,
-//             origin_netuid,
-//             stake_amount,
-//             fee,
-//         );
-//         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-//             &origin_hotkey,
-//             &coldkey,
-//             origin_netuid,
-//         );
-
-//         // Attempt to move stake from a non-existent origin hotkey
-//         assert_noop!(
-//             SubtensorModule::do_move_stake(
-//                 RuntimeOrigin::signed(coldkey),
-//                 origin_hotkey,
-//                 nonexistent_destination_hotkey,
-//                 netuid,
-//                 netuid,
-//                 alpha
-//             ),
-//             Error::<Test>::HotKeyAccountNotExists
-//         );
-
-//         // Check that no stake was moved
-//         assert_eq!(
-//             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-//                 &origin_hotkey,
-//                 &coldkey,
-//                 netuid
-//             ),
-//             alpha
-//         );
-//         assert_eq!(
-//             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-//                 &nonexistent_destination_hotkey,
-//                 &coldkey,
-//                 netuid
-//             ),
-//             0
-//         );
-//     });
-// }
-
 // 6. test_do_move_nonexistent_destination_hotkey
 // Description: Attempt to move stake to a non-existent destination hotkey, which should fail
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test move -- test_do_move_nonexistent_destination_hotkey --exact --nocapture
