@@ -45,6 +45,27 @@ impl<T: Config> Pallet<T> {
                 .unwrap_or(I96F32::saturating_from_num(0))
         }
     }
+    pub fn get_moving_alpha_price(netuid: u16) -> I96F32 {
+        if netuid == Self::get_root_netuid() {
+            // Root.
+            I96F32::saturating_from_num(1.0)
+        } else if SubnetMechanism::<T>::get(netuid) == 0 {
+            // Stable
+            I96F32::saturating_from_num(1.0)
+        } else {
+            SubnetMovingPrice::<T>::get(netuid)
+        }
+    }
+    pub fn update_moving_price(netuid: u16) {
+        let alpha: I96F32 = SubnetMovingAlpha::<T>::get();
+        let minus_alpha: I96F32 = I96F32::saturating_from_num(1.0).saturating_sub(alpha);
+        let current_price: I96F32 = alpha
+            .saturating_mul(Self::get_alpha_price(netuid).min(I96F32::saturating_from_num(1.0)));
+        let current_moving: I96F32 =
+            minus_alpha.saturating_mul(Self::get_moving_alpha_price(netuid));
+        let new_moving: I96F32 = current_price.saturating_add(current_moving);
+        SubnetMovingPrice::<T>::insert(netuid, new_moving);
+    }
 
     /// Retrieves the global global weight as a normalized value between 0 and 1.
     ///
@@ -108,16 +129,17 @@ impl<T: Config> Pallet<T> {
         // Step 1: Get stake of hotkey (neuron)
         let alpha_stake =
             I64F64::saturating_from_num(Self::get_inherited_for_hotkey_on_subnet(hotkey, netuid));
-        log::trace!("alpha_stake: {:?}", alpha_stake);
+        log::debug!("alpha_stake: {:?}", alpha_stake);
 
         // Step 2: Get the global tao stake for the hotkey
-        let tao_stake =
-            I64F64::saturating_from_num(Self::get_inherited_for_hotkey_on_subnet(hotkey, 0));
-        log::trace!("tao_stake: {:?}", tao_stake);
+        let tao_stake = I64F64::saturating_from_num(Self::get_tao_inherited_for_hotkey_on_subnet(
+            hotkey, netuid,
+        ));
+        log::debug!("tao_stake: {:?}", tao_stake);
 
         // Step 3: Combine alpha and tao stakes
         let total_stake = alpha_stake.saturating_add(tao_stake.saturating_mul(tao_weight));
-        log::trace!("total_stake: {:?}", total_stake);
+        log::debug!("total_stake: {:?}", total_stake);
 
         (total_stake, alpha_stake, tao_stake)
     }
@@ -153,8 +175,8 @@ impl<T: Config> Pallet<T> {
             .map(|uid| {
                 if Keys::<T>::contains_key(netuid, uid) {
                     let hotkey: T::AccountId = Keys::<T>::get(netuid, uid);
-                    I64F64::saturating_from_num(Self::get_inherited_for_hotkey_on_subnet(
-                        &hotkey, 0,
+                    I64F64::saturating_from_num(Self::get_tao_inherited_for_hotkey_on_subnet(
+                        &hotkey, netuid,
                     ))
                 } else {
                     I64F64::saturating_from_num(0)
@@ -202,6 +224,100 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Note
     /// This function uses saturating arithmetic to prevent overflows.
+    pub fn get_tao_inherited_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
+        let initial_tao: I96F32 = I96F32::saturating_from_num(
+            Self::get_stake_for_hotkey_on_subnet(hotkey, Self::get_root_netuid()),
+        );
+
+        // Initialize variables to track alpha allocated to children and inherited from parents.
+        let mut tao_to_children: I96F32 = I96F32::saturating_from_num(0);
+        let mut tao_from_parents: I96F32 = I96F32::saturating_from_num(0);
+
+        // Step 2: Retrieve the lists of parents and children for the hotkey on the subnet.
+        let parents: Vec<(u64, T::AccountId)> = Self::get_parents(hotkey, netuid);
+        let children: Vec<(u64, T::AccountId)> = Self::get_children(hotkey, netuid);
+        log::trace!(
+            "Parents for hotkey {:?} on subnet {}: {:?}",
+            hotkey,
+            netuid,
+            parents
+        );
+        log::trace!(
+            "Children for hotkey {:?} on subnet {}: {:?}",
+            hotkey,
+            netuid,
+            children
+        );
+
+        // Step 3: Calculate the total tao allocated to children.
+        for (proportion, _) in children {
+            // Convert the proportion to a normalized value between 0 and 1.
+            let normalized_proportion: I96F32 = I96F32::saturating_from_num(proportion)
+                .safe_div(I96F32::saturating_from_num(u64::MAX));
+            log::trace!(
+                "Normalized proportion for child: {:?}",
+                normalized_proportion
+            );
+
+            // Calculate the amount of tao to be allocated to this child.
+            let tao_proportion_to_child: I96F32 =
+                I96F32::saturating_from_num(initial_tao).saturating_mul(normalized_proportion);
+            log::trace!("Tao proportion to child: {:?}", tao_proportion_to_child);
+
+            // Add this child's allocation to the total tao allocated to children.
+            tao_to_children = tao_to_children.saturating_add(tao_proportion_to_child);
+        }
+        log::trace!("Total tao allocated to children: {:?}", tao_to_children);
+
+        // Step 4: Calculate the total tao inherited from parents.
+        for (proportion, parent) in parents {
+            // Retrieve the parent's total stake on this subnet.
+            let parent_tao: I96F32 = I96F32::saturating_from_num(
+                Self::get_stake_for_hotkey_on_subnet(&parent, Self::get_root_netuid()),
+            );
+            log::trace!(
+                "Parent tao for parent {:?} on subnet {}: {:?}",
+                parent,
+                netuid,
+                parent_tao
+            );
+
+            // Convert the proportion to a normalized value between 0 and 1.
+            let normalized_proportion: I96F32 = I96F32::saturating_from_num(proportion)
+                .safe_div(I96F32::saturating_from_num(u64::MAX));
+            log::trace!(
+                "Normalized proportion from parent: {:?}",
+                normalized_proportion
+            );
+
+            // Calculate the amount of tao to be inherited from this parent.
+            let tao_proportion_from_parent: I96F32 =
+                I96F32::saturating_from_num(parent_tao).saturating_mul(normalized_proportion);
+            log::trace!(
+                "Tao proportion from parent: {:?}",
+                tao_proportion_from_parent
+            );
+
+            // Add this parent's contribution to the total tao inherited from parents.
+            tao_from_parents = tao_from_parents.saturating_add(tao_proportion_from_parent);
+        }
+        log::trace!("Total tao inherited from parents: {:?}", tao_from_parents);
+
+        // Step 5: Calculate the final inherited tao for the hotkey.
+        let finalized_tao: I96F32 = initial_tao
+            .saturating_sub(tao_to_children) // Subtract tao allocated to children
+            .saturating_add(tao_from_parents); // Add tao inherited from parents
+        log::trace!(
+            "Finalized tao for hotkey {:?} on subnet {}: {:?}",
+            hotkey,
+            netuid,
+            finalized_tao
+        );
+
+        // Step 6: Return the final inherited tao value.
+        finalized_tao.saturating_to_num::<u64>()
+    }
+
     pub fn get_inherited_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
         // Step 1: Retrieve the initial total stake (alpha) for the hotkey on the specified subnet.
         let initial_alpha: I96F32 =
@@ -428,9 +544,19 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         netuid: u16,
         amount: u64,
-    ) {
+    ) -> u64 {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
-        alpha_share_pool.update_value_for_one(coldkey, amount as i64);
+        let actual_alpha = alpha_share_pool.update_value_for_one(coldkey, amount as i64);
+        actual_alpha.unsigned_abs()
+    }
+
+    pub fn try_increase_stake_for_hotkey_and_coldkey_on_subnet(
+        hotkey: &T::AccountId,
+        netuid: u16,
+        amount: u64,
+    ) -> bool {
+        let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
+        alpha_share_pool.sim_update_value_for_one(amount as i64)
     }
 
     /// Sell shares in the hotkey on a given subnet
@@ -448,13 +574,16 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         netuid: u16,
         amount: u64,
-    ) {
+    ) -> u64 {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
+        let mut actual_alpha = 0;
         if let Ok(value) = alpha_share_pool.try_get_value(coldkey) {
             if value >= amount {
-                alpha_share_pool.update_value_for_one(coldkey, (amount as i64).neg());
+                actual_alpha =
+                    alpha_share_pool.update_value_for_one(coldkey, (amount as i64).neg());
             }
         }
+        actual_alpha.unsigned_abs()
     }
 
     /// Calculates Some(Alpha) returned from pool by staking operation
@@ -610,11 +739,12 @@ impl<T: Config> Pallet<T> {
         alpha: u64,
         fee: u64,
     ) -> u64 {
-        // Step 1: Swap the alpha for TAO.
-        let tao: u64 = Self::swap_alpha_for_tao(netuid, alpha);
+        // Step 1: Decrease alpha on subneet
+        let actual_alpha_decrease =
+            Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
 
-        // Step 2: Decrease alpha on subneet
-        Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
+        // Step 2: Swap the alpha for TAO.
+        let tao: u64 = Self::swap_alpha_for_tao(netuid, actual_alpha_decrease);
 
         // Step 3: Update StakingHotkeys if the hotkey's total alpha, across all subnets, is zero
         // TODO const: fix.
@@ -633,13 +763,14 @@ impl<T: Config> Pallet<T> {
         TotalStake::<T>::mutate(|total| {
             *total = total.saturating_add(actual_fee);
         });
+        LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
         // Step 5. Deposit and log the unstaking event.
         Self::deposit_event(Event::StakeRemoved(
             coldkey.clone(),
             hotkey.clone(),
             tao_unstaked,
-            alpha,
+            actual_alpha_decrease,
             netuid,
         ));
         log::info!(
@@ -647,7 +778,7 @@ impl<T: Config> Pallet<T> {
             coldkey.clone(),
             hotkey.clone(),
             tao_unstaked,
-            alpha,
+            actual_alpha_decrease,
             netuid
         );
 
@@ -673,9 +804,12 @@ impl<T: Config> Pallet<T> {
 
         // Step 2. Swap the tao to alpha.
         let alpha: u64 = Self::swap_tao_for_alpha(netuid, tao_staked);
+        let mut actual_alpha = 0;
         if (tao_staked > 0) && (alpha > 0) {
             // Step 3: Increase the alpha on the hotkey account.
-            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
+            actual_alpha = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                hotkey, coldkey, netuid, alpha,
+            );
 
             // Step 4: Update the list of hotkeys staking for this coldkey
             let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
@@ -692,13 +826,14 @@ impl<T: Config> Pallet<T> {
         TotalStake::<T>::mutate(|total| {
             *total = total.saturating_add(actual_fee);
         });
+        LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
         // Step 6. Deposit and log the staking event.
         Self::deposit_event(Event::StakeAdded(
             coldkey.clone(),
             hotkey.clone(),
             tao_staked,
-            alpha,
+            actual_alpha,
             netuid,
         ));
         log::info!(
@@ -706,12 +841,12 @@ impl<T: Config> Pallet<T> {
             coldkey.clone(),
             hotkey.clone(),
             tao_staked,
-            alpha,
+            actual_alpha,
             netuid
         );
 
         // Step 7: Return the amount of alpha staked
-        alpha
+        actual_alpha
     }
 
     pub fn get_alpha_share_pool(
@@ -759,11 +894,18 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyAccountNotExists
         );
 
+        let expected_alpha = Self::sim_swap_tao_for_alpha(netuid, stake_to_be_added);
+
         // Ensure that we have adequate liquidity
-        ensure!(
-            Self::sim_swap_tao_for_alpha(netuid, stake_to_be_added).is_some(),
-            Error::<T>::InsufficientLiquidity
+        ensure!(expected_alpha.is_some(), Error::<T>::InsufficientLiquidity);
+
+        // Ensure hotkey pool is precise enough
+        let try_stake_result = Self::try_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            hotkey,
+            netuid,
+            expected_alpha.unwrap_or(0),
         );
+        ensure!(try_stake_result, Error::<T>::InsufficientLiquidity);
 
         Ok(())
     }
@@ -819,10 +961,13 @@ impl<T: Config> Pallet<T> {
         origin_coldkey: &T::AccountId,
         _destination_coldkey: &T::AccountId,
         origin_hotkey: &T::AccountId,
-        _destination_hotkey: &T::AccountId,
+        destination_hotkey: &T::AccountId,
         origin_netuid: u16,
         destination_netuid: u16,
         alpha_amount: u64,
+        max_amount: u64,
+        maybe_allow_partial: Option<bool>,
+        check_transfer_toggle: bool,
     ) -> Result<(), Error<T>> {
         // Ensure that both subnets exist.
         ensure!(
@@ -842,12 +987,6 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyAccountNotExists
         );
 
-        // Ensure origin coldkey owns the origin hotkey.
-        ensure!(
-            Self::coldkey_owns_hotkey(origin_coldkey, origin_hotkey),
-            Error::<T>::NonAssociatedColdKey
-        );
-
         // Ensure there is enough stake in the origin subnet.
         let origin_alpha = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
             origin_hotkey,
@@ -860,13 +999,46 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure that the stake amount to be removed is above the minimum in tao equivalent.
-        if let Some(tao_equivalent) = Self::sim_swap_alpha_for_tao(origin_netuid, alpha_amount) {
+        let tao_equivalent_result = Self::sim_swap_alpha_for_tao(origin_netuid, alpha_amount);
+        if let Some(tao_equivalent) = tao_equivalent_result {
             ensure!(
                 tao_equivalent > DefaultMinStake::<T>::get(),
                 Error::<T>::AmountTooLow
             );
         } else {
             return Err(Error::<T>::InsufficientLiquidity);
+        }
+
+        // Ensure that if partial execution is not allowed, the amount will not cause
+        // slippage over desired
+        if let Some(allow_partial) = maybe_allow_partial {
+            if !allow_partial {
+                ensure!(alpha_amount <= max_amount, Error::<T>::SlippageTooHigh);
+            }
+        }
+
+        let expected_alpha =
+            Self::sim_swap_tao_for_alpha(destination_netuid, tao_equivalent_result.unwrap_or(0))
+                .unwrap_or(0);
+
+        // Ensure that the amount being staked to the new hotkey is precise enough
+        let try_stake_result = Self::try_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            destination_hotkey,
+            destination_netuid,
+            expected_alpha,
+        );
+        ensure!(try_stake_result, Error::<T>::InsufficientLiquidity);
+
+        if check_transfer_toggle {
+            // Ensure transfer is toggled.
+            ensure!(
+                TransferToggle::<T>::get(origin_netuid),
+                Error::<T>::TransferDisallowed
+            );
+            ensure!(
+                TransferToggle::<T>::get(destination_netuid),
+                Error::<T>::TransferDisallowed
+            );
         }
 
         Ok(())

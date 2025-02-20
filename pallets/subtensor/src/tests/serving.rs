@@ -2,8 +2,8 @@ use super::mock::*;
 
 use crate::Error;
 use crate::*;
-use frame_support::assert_noop;
 use frame_support::pallet_prelude::Weight;
+use frame_support::{assert_err, assert_noop};
 use frame_support::{
     assert_ok,
     dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays},
@@ -625,6 +625,7 @@ fn test_do_set_identity() {
         // Prepare identity data
         let name = b"Alice".to_vec();
         let url = b"https://alice.com".to_vec();
+        let git = b"https://github.com".to_vec();
         let image = b"alice.jpg".to_vec();
         let discord = b"alice#1234".to_vec();
         let description = b"Alice's identity".to_vec();
@@ -635,6 +636,7 @@ fn test_do_set_identity() {
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             name.clone(),
             url.clone(),
+            git.clone(),
             image.clone(),
             discord.clone(),
             description.clone(),
@@ -642,7 +644,7 @@ fn test_do_set_identity() {
         ));
 
         // Check if identity is set correctly
-        let stored_identity = Identities::<Test>::get(coldkey).expect("Identity should be set");
+        let stored_identity = IdentitiesV2::<Test>::get(coldkey).expect("Identity should be set");
         assert_eq!(stored_identity.name, name);
         assert_eq!(stored_identity.url, url);
         assert_eq!(stored_identity.image, image);
@@ -657,6 +659,7 @@ fn test_do_set_identity() {
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_without_hotkey),
                 name.clone(),
                 url.clone(),
+                git.clone(),
                 image.clone(),
                 discord.clone(),
                 description.clone(),
@@ -672,6 +675,7 @@ fn test_do_set_identity() {
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             new_name.clone(),
             new_url.clone(),
+            git.clone(),
             image.clone(),
             discord.clone(),
             description.clone(),
@@ -679,7 +683,7 @@ fn test_do_set_identity() {
         ));
 
         let updated_identity =
-            Identities::<Test>::get(coldkey).expect("Updated identity should be set");
+            IdentitiesV2::<Test>::get(coldkey).expect("Updated identity should be set");
         assert_eq!(updated_identity.name, new_name);
         assert_eq!(updated_identity.url, new_url);
 
@@ -688,6 +692,7 @@ fn test_do_set_identity() {
         assert_noop!(
             SubtensorModule::do_set_identity(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                long_data.clone(),
                 long_data.clone(),
                 long_data.clone(),
                 long_data.clone(),
@@ -705,9 +710,10 @@ fn test_do_set_identity() {
 fn test_is_valid_identity() {
     new_test_ext(1).execute_with(|| {
         // Test valid identity
-        let valid_identity = ChainIdentity {
+        let valid_identity = ChainIdentityV2 {
             name: vec![0; 256],
             url: vec![0; 256],
+            github_repo: vec![0; 256],
             image: vec![0; 1024],
             discord: vec![0; 256],
             description: vec![0; 1024],
@@ -716,9 +722,10 @@ fn test_is_valid_identity() {
         assert!(SubtensorModule::is_valid_identity(&valid_identity));
 
         // Test identity with total length exactly at the maximum
-        let max_length_identity = ChainIdentity {
+        let max_length_identity = ChainIdentityV2 {
             name: vec![0; 256],
             url: vec![0; 256],
+            github_repo: vec![0; 256],
             image: vec![0; 1024],
             discord: vec![0; 256],
             description: vec![0; 1024],
@@ -727,9 +734,10 @@ fn test_is_valid_identity() {
         assert!(SubtensorModule::is_valid_identity(&max_length_identity));
 
         // Test identity with total length exceeding the maximum
-        let invalid_length_identity = ChainIdentity {
+        let invalid_length_identity = ChainIdentityV2 {
             name: vec![0; 257],
             url: vec![0; 256],
+            github_repo: vec![0; 256],
             image: vec![0; 1024],
             discord: vec![0; 256],
             description: vec![0; 1024],
@@ -740,9 +748,10 @@ fn test_is_valid_identity() {
         ));
 
         // Test identity with one field exceeding its maximum
-        let invalid_field_identity = ChainIdentity {
+        let invalid_field_identity = ChainIdentityV2 {
             name: vec![0; 257],
             url: vec![0; 256],
+            github_repo: vec![0; 256],
             image: vec![0; 1024],
             discord: vec![0; 256],
             description: vec![0; 1024],
@@ -751,9 +760,10 @@ fn test_is_valid_identity() {
         assert!(!SubtensorModule::is_valid_identity(&invalid_field_identity));
 
         // Test identity with empty fields
-        let empty_identity = ChainIdentity {
+        let empty_identity = ChainIdentityV2 {
             name: vec![],
             url: vec![],
+            github_repo: vec![],
             image: vec![],
             discord: vec![],
             description: vec![],
@@ -762,9 +772,10 @@ fn test_is_valid_identity() {
         assert!(SubtensorModule::is_valid_identity(&empty_identity));
 
         // Test identity with some empty and some filled fields
-        let mixed_identity = ChainIdentity {
+        let mixed_identity = ChainIdentityV2 {
             name: b"Alice".to_vec(),
             url: b"https://alice.com".to_vec(),
+            github_repo: vec![],
             image: vec![],
             discord: b"alice#1234".to_vec(),
             description: vec![],
@@ -773,9 +784,10 @@ fn test_is_valid_identity() {
         assert!(SubtensorModule::is_valid_identity(&mixed_identity));
 
         // Test identity with all fields at maximum allowed length
-        let max_field_identity = ChainIdentity {
+        let max_field_identity = ChainIdentityV2 {
             name: vec![0; 256],
             url: vec![0; 256],
+            github_repo: vec![0; 256],
             image: vec![0; 1024],
             discord: vec![0; 256],
             description: vec![0; 1024],
@@ -800,6 +812,7 @@ fn test_set_and_get_identity() {
         // Prepare identity data
         let name = b"Bob".to_vec();
         let url = b"https://bob.com".to_vec();
+        let git = b"https://github.com".to_vec();
         let image = b"bob.jpg".to_vec();
         let discord = b"bob#5678".to_vec();
         let description = b"Bob's identity".to_vec();
@@ -810,6 +823,7 @@ fn test_set_and_get_identity() {
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             name.clone(),
             url.clone(),
+            git.clone(),
             image.clone(),
             discord.clone(),
             description.clone(),
@@ -817,7 +831,7 @@ fn test_set_and_get_identity() {
         ));
 
         // Get and verify identity
-        let stored_identity = Identities::<Test>::get(coldkey).expect("Identity should be set");
+        let stored_identity = IdentitiesV2::<Test>::get(coldkey).expect("Identity should be set");
         assert_eq!(stored_identity.name, name);
         assert_eq!(stored_identity.url, url);
         assert_eq!(stored_identity.image, image);
@@ -832,6 +846,7 @@ fn test_set_and_get_identity() {
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             new_name.clone(),
             new_url.clone(),
+            git.clone(),
             image.clone(),
             discord.clone(),
             description.clone(),
@@ -840,7 +855,7 @@ fn test_set_and_get_identity() {
 
         // Get and verify updated identity
         let updated_identity =
-            Identities::<Test>::get(coldkey).expect("Updated identity should be set");
+            IdentitiesV2::<Test>::get(coldkey).expect("Updated identity should be set");
         assert_eq!(updated_identity.name, new_name);
         assert_eq!(updated_identity.url, new_url);
         assert_eq!(updated_identity.image, image);
@@ -850,7 +865,7 @@ fn test_set_and_get_identity() {
 
         // Verify non-existent identity
         let non_existent_coldkey = U256::from(999);
-        assert!(Identities::<Test>::get(non_existent_coldkey).is_none());
+        assert!(IdentitiesV2::<Test>::get(non_existent_coldkey).is_none());
     });
 }
 
@@ -884,6 +899,118 @@ fn test_migrate_set_hotkey_identities() {
     });
 }
 
+#[test]
+fn test_migrate_identities_to_v2() {
+    new_test_ext(1).execute_with(|| {
+        let account_id_1 = U256::from(1);
+        let account_id_2 = U256::from(2);
+
+        let chainone_name = b"ChainOne".to_vec();
+        let chainone_url = b"https://chainone.example".to_vec();
+        let chainone_image = b"some_image_data".to_vec();
+        let chainone_discord = b"discord#1".to_vec();
+        let chainone_description = b"Old chain identity".to_vec();
+        let chainone_additional = b"extra-info".to_vec();
+
+        let chaintwo_name = b"ChainTwo".to_vec();
+        let chaintwo_url = b"https://chaintwo.example".to_vec();
+        let chaintwo_description = b"Another chain identity".to_vec();
+
+        Identities::<Test>::insert(
+            account_id_1,
+            ChainIdentity {
+                name: chainone_name.clone(),
+                url: chainone_url.clone(),
+                image: chainone_image.clone(),
+                discord: chainone_discord.clone(),
+                description: chainone_description.clone(),
+                additional: chainone_additional.clone(),
+            },
+        );
+
+        Identities::<Test>::insert(
+            account_id_2,
+            ChainIdentity {
+                name: chaintwo_name.clone(),
+                url: chaintwo_url.clone(),
+                image: b"".to_vec(),
+                discord: b"".to_vec(),
+                description: chaintwo_description.clone(),
+                additional: b"".to_vec(),
+            },
+        );
+
+        let old_subnet_name = b"SubnetExample".to_vec();
+        let old_github_repo = b"https://github.com/org/repo".to_vec();
+        let old_subnet_contact = b"subnet@example".to_vec();
+
+        SubnetIdentities::<Test>::insert(
+            42u16,
+            SubnetIdentity {
+                subnet_name: old_subnet_name.clone(),
+                github_repo: old_github_repo.clone(),
+                subnet_contact: old_subnet_contact.clone(),
+            },
+        );
+
+        assert!(Identities::<Test>::get(account_id_1).is_some());
+        assert!(Identities::<Test>::get(account_id_2).is_some());
+        assert!(SubnetIdentities::<Test>::get(42u16).is_some());
+        assert!(!HasMigrationRun::<Test>::get(
+            b"migrate_identities_to_v2".to_vec()
+        ));
+
+        let weight = crate::migrations::migrate_identities_v2::migrate_identities_to_v2::<Test>();
+
+        assert!(
+            HasMigrationRun::<Test>::get(b"migrate_identities_to_v2".to_vec()),
+            "Expected HasMigrationRun to be true after migration"
+        );
+        assert!(Identities::<Test>::get(account_id_1).is_none());
+        assert!(Identities::<Test>::get(account_id_2).is_none());
+        assert!(SubnetIdentities::<Test>::get(42u16).is_none());
+
+        let new_identity_1 = IdentitiesV2::<Test>::get(account_id_1)
+            .expect("ChainOne should be migrated to IdentitiesV2");
+        let expected_github_repo = b"".to_vec();
+
+        assert_eq!(new_identity_1.name, chainone_name);
+        assert_eq!(new_identity_1.url, chainone_url);
+        assert_eq!(new_identity_1.github_repo, expected_github_repo);
+        assert_eq!(new_identity_1.image, chainone_image);
+        assert_eq!(new_identity_1.discord, chainone_discord);
+        assert_eq!(new_identity_1.description, chainone_description);
+        assert_eq!(new_identity_1.additional, chainone_additional);
+
+        let new_identity_2 = IdentitiesV2::<Test>::get(account_id_2)
+            .expect("ChainTwo should be migrated to IdentitiesV2");
+        assert_eq!(new_identity_2.name, chaintwo_name);
+        assert_eq!(new_identity_2.url, chaintwo_url);
+        assert_eq!(new_identity_2.github_repo, b"".to_vec());
+
+        let new_subnet_identity = SubnetIdentitiesV2::<Test>::get(42u16)
+            .expect("SubnetExample should be migrated to SubnetIdentitiesV2");
+
+        let expected_subnet_url = b"".to_vec();
+        let expected_discord = b"".to_vec();
+        let expected_description = b"".to_vec();
+        let expected_additional = b"".to_vec();
+
+        assert_eq!(new_subnet_identity.subnet_name, old_subnet_name);
+        assert_eq!(new_subnet_identity.github_repo, old_github_repo);
+        assert_eq!(new_subnet_identity.subnet_contact, old_subnet_contact);
+        assert_eq!(new_subnet_identity.subnet_url, expected_subnet_url);
+        assert_eq!(new_subnet_identity.discord, expected_discord);
+        assert_eq!(new_subnet_identity.description, expected_description);
+        assert_eq!(new_subnet_identity.additional, expected_additional);
+
+        assert!(
+            weight != Weight::zero(),
+            "Migration weight should be non-zero"
+        );
+    });
+}
+
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test serving -- test_do_set_subnet_identity --exact --nocapture
 #[test]
 fn test_do_set_subnet_identity() {
@@ -903,6 +1030,10 @@ fn test_do_set_subnet_identity() {
         let subnet_name = b"Test Subnet".to_vec();
         let github_repo = b"https://github.com/test/subnet".to_vec();
         let subnet_contact = b"contact@testsubnet.com".to_vec();
+        let subnet_url = b"subnet.com".to_vec();
+        let discord = b"discord.com".to_vec();
+        let description = b"I am the describer".to_vec();
+        let additional = b"tao foreva".to_vec();
 
         // Set subnet identity
         assert_ok!(SubtensorModule::do_set_subnet_identity(
@@ -910,12 +1041,16 @@ fn test_do_set_subnet_identity() {
             netuid,
             subnet_name.clone(),
             github_repo.clone(),
-            subnet_contact.clone()
+            subnet_contact.clone(),
+            subnet_url.clone(),
+            discord.clone(),
+            description.clone(),
+            additional.clone(),
         ));
 
         // Check if subnet identity is set correctly
         let stored_identity =
-            SubnetIdentities::<Test>::get(netuid).expect("Subnet identity should be set");
+            SubnetIdentitiesV2::<Test>::get(netuid).expect("Subnet identity should be set");
         assert_eq!(stored_identity.subnet_name, subnet_name);
         assert_eq!(stored_identity.github_repo, github_repo);
         assert_eq!(stored_identity.subnet_contact, subnet_contact);
@@ -928,7 +1063,11 @@ fn test_do_set_subnet_identity() {
                 netuid,
                 subnet_name.clone(),
                 github_repo.clone(),
-                subnet_contact.clone()
+                subnet_contact.clone(),
+                subnet_url.clone(),
+                discord.clone(),
+                description.clone(),
+                additional.clone(),
             ),
             Error::<Test>::NotSubnetOwner
         );
@@ -941,11 +1080,15 @@ fn test_do_set_subnet_identity() {
             netuid,
             new_subnet_name.clone(),
             new_github_repo.clone(),
-            subnet_contact.clone()
+            subnet_contact.clone(),
+            subnet_url.clone(),
+            discord.clone(),
+            description.clone(),
+            additional.clone(),
         ));
 
         let updated_identity =
-            SubnetIdentities::<Test>::get(netuid).expect("Updated subnet identity should be set");
+            SubnetIdentitiesV2::<Test>::get(netuid).expect("Updated subnet identity should be set");
         assert_eq!(updated_identity.subnet_name, new_subnet_name);
         assert_eq!(updated_identity.github_repo, new_github_repo);
 
@@ -957,7 +1100,11 @@ fn test_do_set_subnet_identity() {
                 netuid,
                 long_data.clone(),
                 long_data.clone(),
-                long_data.clone()
+                long_data.clone(),
+                long_data.clone(),
+                long_data.clone(),
+                long_data.clone(),
+                long_data.clone(),
             ),
             Error::<Test>::InvalidIdentity
         );
@@ -969,56 +1116,80 @@ fn test_do_set_subnet_identity() {
 fn test_is_valid_subnet_identity() {
     new_test_ext(1).execute_with(|| {
         // Test valid subnet identity
-        let valid_identity = SubnetIdentity {
+        let valid_identity = SubnetIdentityV2 {
             subnet_name: vec![0; 256],
             github_repo: vec![0; 1024],
             subnet_contact: vec![0; 1024],
+            subnet_url: vec![0; 1024],
+            discord: vec![0; 256],
+            description: vec![0; 1024],
+            additional: vec![0; 1024],
         };
         assert!(SubtensorModule::is_valid_subnet_identity(&valid_identity));
 
         // Test subnet identity with total length exactly at the maximum
-        let max_length_identity = SubnetIdentity {
+        let max_length_identity = SubnetIdentityV2 {
             subnet_name: vec![0; 256],
             github_repo: vec![0; 1024],
             subnet_contact: vec![0; 1024],
+            subnet_url: vec![0; 1024],
+            discord: vec![0; 256],
+            description: vec![0; 1024],
+            additional: vec![0; 1024],
         };
         assert!(SubtensorModule::is_valid_subnet_identity(
             &max_length_identity
         ));
 
         // Test subnet identity with total length exceeding the maximum
-        let invalid_length_identity = SubnetIdentity {
+        let invalid_length_identity = SubnetIdentityV2 {
             subnet_name: vec![0; 257],
             github_repo: vec![0; 1024],
             subnet_contact: vec![0; 1024],
+            subnet_url: vec![0; 1024],
+            discord: vec![0; 256],
+            description: vec![0; 1024],
+            additional: vec![0; 1024],
         };
         assert!(!SubtensorModule::is_valid_subnet_identity(
             &invalid_length_identity
         ));
 
         // Test subnet identity with one field exceeding its maximum
-        let invalid_field_identity = SubnetIdentity {
+        let invalid_field_identity = SubnetIdentityV2 {
             subnet_name: vec![0; 257],
             github_repo: vec![0; 1024],
             subnet_contact: vec![0; 1024],
+            subnet_url: vec![0; 1024],
+            discord: vec![0; 256],
+            description: vec![0; 1024],
+            additional: vec![0; 1024],
         };
         assert!(!SubtensorModule::is_valid_subnet_identity(
             &invalid_field_identity
         ));
 
         // Test subnet identity with empty fields
-        let empty_identity = SubnetIdentity {
+        let empty_identity = SubnetIdentityV2 {
             subnet_name: vec![],
             github_repo: vec![],
             subnet_contact: vec![],
+            subnet_url: vec![],
+            discord: vec![],
+            description: vec![],
+            additional: vec![],
         };
         assert!(SubtensorModule::is_valid_subnet_identity(&empty_identity));
 
         // Test subnet identity with some empty and some filled fields
-        let mixed_identity = SubnetIdentity {
+        let mixed_identity = SubnetIdentityV2 {
             subnet_name: b"Test Subnet".to_vec(),
             github_repo: vec![],
             subnet_contact: b"contact@testsubnet.com".to_vec(),
+            subnet_url: b"https://testsubnet.com".to_vec(),
+            discord: vec![],
+            description: b"A description".to_vec(),
+            additional: vec![],
         };
         assert!(SubtensorModule::is_valid_subnet_identity(&mixed_identity));
     });
@@ -1034,6 +1205,10 @@ fn test_set_identity_for_non_existent_subnet() {
         let subnet_name = b"Non-existent Subnet".to_vec();
         let github_repo = b"https://github.com/test/nonexistent".to_vec();
         let subnet_contact = b"contact@nonexistent.com".to_vec();
+        let subnet_url = b"subnet.com".to_vec();
+        let discord = b"discord.com".to_vec();
+        let description = b"I am the describer".to_vec();
+        let additional = b"tao foreva".to_vec();
 
         // Attempt to set identity for a non-existent subnet
         assert_noop!(
@@ -1042,7 +1217,11 @@ fn test_set_identity_for_non_existent_subnet() {
                 netuid,
                 subnet_name.clone(),
                 github_repo.clone(),
-                subnet_contact.clone()
+                subnet_contact.clone(),
+                subnet_url.clone(),
+                discord.clone(),
+                description.clone(),
+                additional.clone(),
             ),
             Error::<Test>::NotSubnetOwner // Since there's no owner, it should fail
         );
@@ -1056,17 +1235,82 @@ fn test_set_subnet_identity_dispatch_info_ok() {
         let subnet_name: Vec<u8> = b"JesusSubnet".to_vec();
         let github_repo: Vec<u8> = b"bible.com".to_vec();
         let subnet_contact: Vec<u8> = b"https://www.vatican.va".to_vec();
+        let subnet_url = b"subnet.com".to_vec();
+        let discord = b"discord.com".to_vec();
+        let description = b"I am the describer".to_vec();
+        let additional = b"tao foreva".to_vec();
 
         let call: RuntimeCall = RuntimeCall::SubtensorModule(SubtensorCall::set_subnet_identity {
             netuid,
             subnet_name,
             github_repo,
             subnet_contact,
+            subnet_url,
+            discord,
+            description,
+            additional,
         });
 
         let dispatch_info: DispatchInfo = call.get_dispatch_info();
 
         assert_eq!(dispatch_info.class, DispatchClass::Normal);
         assert_eq!(dispatch_info.pays_fee, Pays::Yes);
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::serving::test_serve_axon_validate --exact --show-output
+#[test]
+fn test_serve_axon_validate() {
+    // Testing the signed extension validate function
+    // correctly filters the `serve_axon` transaction.
+
+    new_test_ext(0).execute_with(|| {
+        let hotkey = U256::from(1);
+        let netuid: u16 = 1;
+        let version: u32 = 2;
+        let ip: u128 = 1676056785;
+        let port: u16 = 128;
+        let ip_type: u8 = 4;
+        let protocol: u8 = 0;
+        let placeholder1: u8 = 0;
+        let placeholder2: u8 = 0;
+
+        // Serve axon bad call
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::serve_axon {
+            netuid,
+            version,
+            ip,
+            port,
+            ip_type,
+            protocol,
+            placeholder1,
+            placeholder2,
+        });
+
+        let info: crate::DispatchInfo =
+            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+
+        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        // Submit to the signed extension validate function
+        let result_bad = extension.validate(&hotkey, &call.clone(), &info, 10);
+
+        // Should fail due to insufficient stake
+        assert_err!(
+            result_bad,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::HotKeyNotRegisteredInNetwork.into()
+            ))
+        );
+
+        // Register the hotkey in the subnet and try again
+        let coldkey = U256::from(1);
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Submit to the signed extension validate function
+        let result_ok = extension.validate(&hotkey, &call.clone(), &info, 10);
+
+        // Now the call passes
+        assert_ok!(result_ok);
     });
 }

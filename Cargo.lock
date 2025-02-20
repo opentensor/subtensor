@@ -1069,6 +1069,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "case"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd6c0e7b807d60291f42f33f58480c0bfafe28ed08286446f45e463728cf9c1c"
+
+[[package]]
 name = "cc"
 version = "1.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2752,16 +2758,6 @@ dependencies = [
  "parity-scale-codec",
  "sp-core",
  "sp-runtime",
-]
-
-[[package]]
-name = "fp-dynamic-fee"
-version = "1.0.0"
-source = "git+https://github.com/opentensor/frontier?rev=635bdac882#635bdac882333afed827053f31ef56ab739f7a2e"
-dependencies = [
- "async-trait",
- "sp-core",
- "sp-inherents",
 ]
 
 [[package]]
@@ -5745,7 +5741,6 @@ dependencies = [
  "fc-rpc-core",
  "fc-storage",
  "fp-consensus",
- "fp-dynamic-fee",
  "fp-rpc",
  "frame-benchmarking",
  "frame-benchmarking-cli",
@@ -5842,7 +5837,6 @@ dependencies = [
  "pallet-collective",
  "pallet-commitments",
  "pallet-drand",
- "pallet-dynamic-fee",
  "pallet-ethereum",
  "pallet-evm",
  "pallet-evm-chain-id",
@@ -5866,6 +5860,7 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-utility",
  "parity-scale-codec",
+ "precompile-utils",
  "rand_chacha",
  "scale-info",
  "serde_json",
@@ -6126,9 +6121,9 @@ checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
 
 [[package]]
 name = "openssl"
-version = "0.10.69"
+version = "0.10.70"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5e534d133a060a3c19daec1eb3e98ec6f4685978834f2dbadfe2ec215bab64e"
+checksum = "61cfb4e166a8bb8c9b55c500bc2308550148ece889be90f609377e58140f42c6"
 dependencies = [
  "bitflags 2.8.0",
  "cfg-if",
@@ -6167,9 +6162,9 @@ dependencies = [
 
 [[package]]
 name = "openssl-sys"
-version = "0.9.104"
+version = "0.9.105"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45abf306cbf99debc8195b66b7346498d7b10c210de50418b5ccd7ceba08c741"
+checksum = "8b22d5b84be05a8d6947c7cb71f7c849aa0f112acd4bf51c2a7c1c988ac0a9dc"
 dependencies = [
  "cc",
  "libc",
@@ -6342,21 +6337,6 @@ dependencies = [
  "subtensor-macros",
  "tle",
  "w3f-bls",
-]
-
-[[package]]
-name = "pallet-dynamic-fee"
-version = "4.0.0-dev"
-source = "git+https://github.com/opentensor/frontier?rev=635bdac882#635bdac882333afed827053f31ef56ab739f7a2e"
-dependencies = [
- "fp-dynamic-fee",
- "fp-evm",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "sp-core",
- "sp-inherents",
 ]
 
 [[package]]
@@ -7251,6 +7231,44 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77957b295656769bb8ad2b6a6b09d897d94f05c41b069aede1fcdaa675eaea04"
 dependencies = [
  "zerocopy",
+]
+
+[[package]]
+name = "precompile-utils"
+version = "0.1.0"
+source = "git+https://github.com/opentensor/frontier?rev=635bdac882#635bdac882333afed827053f31ef56ab739f7a2e"
+dependencies = [
+ "environmental",
+ "evm",
+ "fp-evm",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "impl-trait-for-tuples",
+ "log",
+ "num_enum",
+ "pallet-evm",
+ "parity-scale-codec",
+ "precompile-utils-macro",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-weights",
+ "staging-xcm",
+]
+
+[[package]]
+name = "precompile-utils-macro"
+version = "0.1.0"
+source = "git+https://github.com/opentensor/frontier?rev=635bdac882#635bdac882333afed827053f31ef56ab739f7a2e"
+dependencies = [
+ "case",
+ "num_enum",
+ "prettyplease 0.2.29",
+ "proc-macro2",
+ "quote",
+ "sp-crypto-hashing 0.1.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409)",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -11160,8 +11178,10 @@ version = "0.0.2"
 dependencies = [
  "frame-support",
  "pallet-subtensor",
+ "parity-scale-codec",
  "serde",
  "sp-api",
+ "sp-runtime",
 ]
 
 [[package]]

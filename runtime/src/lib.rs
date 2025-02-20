@@ -11,7 +11,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 pub mod check_nonce;
 mod migrations;
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Compact, Decode, Encode, MaxEncodedLen};
 use frame_support::traits::Imbalance;
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
@@ -30,6 +30,15 @@ use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
 use pallet_registry::CanRegisterIdentity;
+use pallet_subtensor::rpc_info::{
+    delegate_info::DelegateInfo,
+    dynamic_info::DynamicInfo,
+    metagraph::Metagraph,
+    neuron_info::{NeuronInfo, NeuronInfoLite},
+    show_subnet::SubnetState,
+    stake_info::StakeInfo,
+    subnet_info::{SubnetHyperparams, SubnetInfo, SubnetInfov2},
+};
 use scale_info::TypeInfo;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
@@ -220,7 +229,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 225,
+    spec_version: 241,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -717,17 +726,38 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
     fn filter(&self, c: &RuntimeCall) -> bool {
         match self {
             ProxyType::Any => true,
-            ProxyType::NonTransfer => !matches!(c, RuntimeCall::Balances(..)),
+            ProxyType::NonTransfer => !matches!(
+                c,
+                RuntimeCall::Balances(..)
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::schedule_swap_coldkey { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_coldkey { .. })
+            ),
             ProxyType::NonFungibile => !matches!(
                 c,
                 RuntimeCall::Balances(..)
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake_limit { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::remove_stake_limit { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::unstake_all { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::unstake_all_alpha { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake_limit { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::move_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
                     | RuntimeCall::SubtensorModule(
                         pallet_subtensor::Call::schedule_swap_coldkey { .. }
                     )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_coldkey { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey { .. })
             ),
             ProxyType::Transfer => matches!(
@@ -735,6 +765,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive { .. })
                     | RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death { .. })
                     | RuntimeCall::Balances(pallet_balances::Call::transfer_all { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake { .. })
             ),
             ProxyType::SmallTransfer => match c {
                 RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
@@ -744,6 +775,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     value,
                     ..
                 }) => *value < SMALL_TRANSFER_LIMIT,
+                RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake {
+                    alpha_amount,
+                    ..
+                }) => *alpha_amount < SMALL_TRANSFER_LIMIT,
                 _ => false,
             },
             ProxyType::Owner => matches!(c, RuntimeCall::AdminUtils(..)),
@@ -771,6 +806,17 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::unstake_all { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::unstake_all_alpha { .. }
+                    )
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake_limit { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::move_stake { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake_limit { .. })
+                    | RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::remove_stake_limit { .. }
+                    )
             ),
             ProxyType::Registration => matches!(
                 c,
@@ -1022,7 +1068,7 @@ parameter_types! {
     pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX / 4;
     pub const SubtensorInitialServingRateLimit: u64 = 50;
     pub const SubtensorInitialBurn: u64 = 1_000_000_000; // 1 tao
-    pub const SubtensorInitialMinBurn: u64 = 1_000_000_000; // 1 tao
+    pub const SubtensorInitialMinBurn: u64 = 500_000; // 500k RAO
     pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
     pub const SubtensorInitialTxDelegateTakeRateLimit: u64 = 216000; // 30 days at 12 seconds per block
@@ -1043,7 +1089,7 @@ parameter_types! {
     pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64, this make the make stake infinity
     pub const InitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
-    pub const SubtensorInitialTaoWeight: u64 = 332_041_393_326_771_929; // 18% global weigh.
+    pub const SubtensorInitialTaoWeight: u64 = 971_718_665_099_567_868; // 0.05267697438728329% tao weight.
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1289,10 +1335,6 @@ parameter_types! {
     pub BoundDivision: U256 = U256::from(1024);
 }
 
-impl pallet_dynamic_fee::Config for Runtime {
-    type MinGasPriceBoundDivisor = BoundDivision;
-}
-
 parameter_types! {
     pub DefaultBaseFeePerGas: U256 = U256::from(20_000_000_000_u128);
     pub DefaultElasticity: Permill = Permill::from_parts(125_000);
@@ -1427,7 +1469,7 @@ construct_runtime!(
         Ethereum: pallet_ethereum = 21,
         EVM: pallet_evm = 22,
         EVMChainId: pallet_evm_chain_id = 23,
-        DynamicFee: pallet_dynamic_fee = 24,
+        // pallet_dynamic_fee was 24
         BaseFee: pallet_base_fee = 25,
 
         Drand: pallet_drand = 26,
@@ -2012,155 +2054,90 @@ impl_runtime_apis! {
     }
 
     impl subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi<Block> for Runtime {
-        fn get_delegates() -> Vec<u8> {
-            let result = SubtensorModule::get_delegates();
-            result.encode()
+        fn get_delegates() -> Vec<DelegateInfo<AccountId32>> {
+            SubtensorModule::get_delegates()
         }
 
-        fn get_delegate(delegate_account_vec: Vec<u8>) -> Vec<u8> {
-            let _result = SubtensorModule::get_delegate(delegate_account_vec);
-            if _result.is_some() {
-                let result = _result.expect("Could not get DelegateInfo");
-                result.encode()
-            } else {
-                vec![]
-            }
+        fn get_delegate(delegate_account: AccountId32) -> Option<DelegateInfo<AccountId32>> {
+            SubtensorModule::get_delegate(delegate_account)
         }
 
-        fn get_delegated(delegatee_account_vec: Vec<u8>) -> Vec<u8> {
-            let result = SubtensorModule::get_delegated(delegatee_account_vec);
-            result.encode()
+        fn get_delegated(delegatee_account: AccountId32) -> Vec<(DelegateInfo<AccountId32>, (Compact<u16>, Compact<u64>))> {
+            SubtensorModule::get_delegated(delegatee_account)
         }
     }
 
     impl subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<Block> for Runtime {
-        fn get_neurons_lite(netuid: u16) -> Vec<u8> {
-            let result = SubtensorModule::get_neurons_lite(netuid);
-            result.encode()
+        fn get_neurons_lite(netuid: u16) -> Vec<NeuronInfoLite<AccountId32>> {
+            SubtensorModule::get_neurons_lite(netuid)
         }
 
-        fn get_neuron_lite(netuid: u16, uid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_neuron_lite(netuid, uid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get NeuronInfoLite");
-                result.encode()
-            } else {
-                vec![]
-            }
+        fn get_neuron_lite(netuid: u16, uid: u16) -> Option<NeuronInfoLite<AccountId32>> {
+            SubtensorModule::get_neuron_lite(netuid, uid)
         }
 
-        fn get_neurons(netuid: u16) -> Vec<u8> {
-            let result = SubtensorModule::get_neurons(netuid);
-            result.encode()
+        fn get_neurons(netuid: u16) -> Vec<NeuronInfo<AccountId32>> {
+            SubtensorModule::get_neurons(netuid)
         }
 
-        fn get_neuron(netuid: u16, uid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_neuron(netuid, uid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get NeuronInfo");
-                result.encode()
-            } else {
-                vec![]
-            }
+        fn get_neuron(netuid: u16, uid: u16) -> Option<NeuronInfo<AccountId32>> {
+            SubtensorModule::get_neuron(netuid, uid)
         }
     }
 
     impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
-        fn get_subnet_info(netuid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_subnet_info(netuid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get SubnetInfo");
-                result.encode()
-            } else {
-                vec![]
-            }
+        fn get_subnet_info(netuid: u16) -> Option<SubnetInfo<AccountId32>> {
+            SubtensorModule::get_subnet_info(netuid)
         }
 
-        fn get_subnets_info() -> Vec<u8> {
-            let result = SubtensorModule::get_subnets_info();
-            result.encode()
+        fn get_subnets_info() -> Vec<Option<SubnetInfo<AccountId32>>> {
+            SubtensorModule::get_subnets_info()
         }
 
-        fn get_subnet_info_v2(netuid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_subnet_info_v2(netuid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get SubnetInfo");
-                result.encode()
-            } else {
-                vec![]
-            }
+        fn get_subnet_info_v2(netuid: u16) -> Option<SubnetInfov2<AccountId32>> {
+            SubtensorModule::get_subnet_info_v2(netuid)
         }
 
-        fn get_subnets_info_v2() -> Vec<u8> {
-            let result = SubtensorModule::get_subnets_info_v2();
-            result.encode()
+        fn get_subnets_info_v2() -> Vec<Option<SubnetInfov2<AccountId32>>> {
+            SubtensorModule::get_subnets_info_v2()
         }
 
-        fn get_subnet_hyperparams(netuid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_subnet_hyperparams(netuid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get SubnetHyperparams");
-                result.encode()
-            } else {
-                vec![]
-            }
+        fn get_subnet_hyperparams(netuid: u16) -> Option<SubnetHyperparams> {
+            SubtensorModule::get_subnet_hyperparams(netuid)
         }
 
-        fn get_dynamic_info(netuid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_dynamic_info(netuid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get DynamicInfo.");
-                result.encode()
-            } else {
-                vec![]
-            }
+        fn get_dynamic_info(netuid: u16) -> Option<DynamicInfo<AccountId32>> {
+            SubtensorModule::get_dynamic_info(netuid)
         }
 
-        fn get_metagraph(netuid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_metagraph(netuid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get Metagraph.");
-                result.encode()
-            } else {
-                vec![]
-            }
+        fn get_metagraph(netuid: u16) -> Option<Metagraph<AccountId32>> {
+            SubtensorModule::get_metagraph(netuid)
         }
 
-        fn get_subnet_state(netuid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_subnet_state(netuid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get SubnetState.");
-                result.encode()
-            } else {
-                vec![]
-            }
+        fn get_subnet_state(netuid: u16) -> Option<SubnetState<AccountId32>> {
+            SubtensorModule::get_subnet_state(netuid)
         }
 
-        fn get_all_metagraphs() -> Vec<u8> {
-            let result = SubtensorModule::get_all_metagraphs();
-            result.encode()
+        fn get_all_metagraphs() -> Vec<Option<Metagraph<AccountId32>>> {
+            SubtensorModule::get_all_metagraphs()
         }
 
-        fn get_all_dynamic_info() -> Vec<u8> {
-            let result = SubtensorModule::get_all_dynamic_info();
-            result.encode()
+        fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<AccountId32>>> {
+            SubtensorModule::get_all_dynamic_info()
         }
     }
 
     impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {
-        fn get_stake_info_for_coldkey( coldkey_account_vec: Vec<u8> ) -> Vec<u8> {
-            let result = SubtensorModule::get_stake_info_for_coldkey( coldkey_account_vec );
-            result.encode()
+        fn get_stake_info_for_coldkey( coldkey_account: AccountId32 ) -> Vec<StakeInfo<AccountId32>> {
+            SubtensorModule::get_stake_info_for_coldkey( coldkey_account )
         }
 
-        fn get_stake_info_for_coldkeys( coldkey_account_vecs: Vec<Vec<u8>> ) -> Vec<u8> {
-            let result = SubtensorModule::get_stake_info_for_coldkeys( coldkey_account_vecs );
-            result.encode()
+        fn get_stake_info_for_coldkeys( coldkey_accounts: Vec<AccountId32> ) -> Vec<(AccountId32, Vec<StakeInfo<AccountId32>>)> {
+            SubtensorModule::get_stake_info_for_coldkeys( coldkey_accounts )
         }
 
-        fn get_stake_info_for_hotkey_coldkey_netuid( hotkey_account_vec: Vec<u8>, coldkey_account_vec: Vec<u8>, netuid: u16 ) -> Vec<u8> {
-            let result = SubtensorModule::get_stake_info_for_hotkey_coldkey_netuid( hotkey_account_vec, coldkey_account_vec, netuid );
-            result.encode()
+        fn get_stake_info_for_hotkey_coldkey_netuid( hotkey_account: AccountId32, coldkey_account: AccountId32, netuid: u16 ) -> Option<StakeInfo<AccountId32>> {
+            SubtensorModule::get_stake_info_for_hotkey_coldkey_netuid( hotkey_account, coldkey_account, netuid )
         }
     }
 

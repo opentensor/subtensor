@@ -100,7 +100,7 @@ parameter_types! {
     pub const InitialTxDelegateTakeRateLimit: u64 = 0; // Disable rate limit for testing
     pub const InitialTxChildKeyTakeRateLimit: u64 = 0; // Disable rate limit for testing
     pub const InitialBurn: u64 = 0;
-    pub const InitialMinBurn: u64 = 0;
+    pub const InitialMinBurn: u64 = 500_000;
     pub const InitialMaxBurn: u64 = 1_000_000_000;
     pub const InitialValidatorPruneLen: u64 = 0;
     pub const InitialScalingLawPower: u16 = 50;
@@ -392,6 +392,7 @@ pub(crate) fn run_to_block(n: u64) {
     while System::block_number() < n {
         SubtensorModule::on_finalize(System::block_number());
         System::on_finalize(System::block_number());
+        System::reset_events();
         System::set_block_number(System::block_number() + 1);
         System::on_initialize(System::block_number());
         SubtensorModule::on_initialize(System::block_number());

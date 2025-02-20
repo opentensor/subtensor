@@ -189,5 +189,7 @@ mod errors {
         InsufficientLiquidity,
         /// Slippage is too high for the transaction.
         SlippageTooHigh,
+        /// Subnet disallows transfer.
+        TransferDisallowed,
     }
 }

@@ -3,10 +3,10 @@ use alloc::string::String;
 use frame_support::IterableStorageMap;
 use frame_support::{traits::Get, weights::Weight};
 use sp_runtime::format;
+use substrate_fixed::types::I96F32;
 use substrate_fixed::types::U64F64;
 
 use super::*;
-use crate::subnets::subnet::POOL_INITIAL_TAO;
 
 pub fn migrate_rao<T: Config>() -> Weight {
     let migration_name = b"migrate_rao".to_vec();
@@ -62,11 +62,14 @@ pub fn migrate_rao<T: Config>() -> Weight {
 
     // Convert subnets and give them lock.
     // Set global weight to 18% from the start
-    TaoWeight::<T>::set(332_041_393_326_771_929);
+    // Set min lock
+    NetworkMinLockCost::<T>::set(1_000_000_000);
+    // Set tao weight.
+    TaoWeight::<T>::set(3_320_413_933_267_719_290);
     for netuid in netuids.iter().clone() {
         if *netuid == 0 {
             // Give root a single RAO in pool to avoid any catestrophic division by zero.
-            SubnetAlphaIn::<T>::insert(netuid, 1);
+            SubnetAlphaIn::<T>::insert(netuid, 1_000_000_000);
             SubnetMechanism::<T>::insert(netuid, 0); // Set to zero mechanism.
             TokenSymbol::<T>::insert(netuid, Pallet::<T>::get_symbol_for_subnet(0));
             continue;
@@ -76,21 +79,32 @@ pub fn migrate_rao<T: Config>() -> Weight {
 
         // Put initial TAO from lock into subnet TAO and produce numerically equal amount of Alpha
         // The initial TAO is the locked amount, with a minimum of 1 RAO and a cap of 100 TAO.
-        let pool_initial_tao = POOL_INITIAL_TAO.min(lock.max(1));
+        let pool_initial_tao = Pallet::<T>::get_network_min_lock();
+        if lock < pool_initial_tao {
+            let difference: u64 = pool_initial_tao.saturating_sub(lock);
+            TotalIssuance::<T>::mutate(|total| {
+                *total = total.saturating_add(difference);
+            });
+        }
 
         let remaining_lock = lock.saturating_sub(pool_initial_tao);
         // Refund the owner for the remaining lock.
-        Pallet::<T>::add_balance_to_coldkey_account(&owner, remaining_lock);
-        SubnetTAO::<T>::insert(netuid, pool_initial_tao); // Set TAO to the lock.
-
-        SubnetAlphaIn::<T>::insert(
+        SubnetMovingPrice::<T>::insert(
             netuid,
-            pool_initial_tao.saturating_mul(netuids.len() as u64),
-        ); // Set AlphaIn to the initial alpha distribution.
-
+            I96F32::from_num(EmissionValues::<T>::get(netuid))
+                .checked_div(I96F32::from_num(1_000_000_000))
+                .unwrap_or(I96F32::from_num(0.0)),
+        );
+        Pallet::<T>::add_balance_to_coldkey_account(&owner, remaining_lock);
+        SubnetLocked::<T>::insert(netuid, 0); // Clear lock amount.
+        SubnetTAO::<T>::insert(netuid, pool_initial_tao);
+        TotalStake::<T>::mutate(|total| {
+            *total = total.saturating_add(pool_initial_tao);
+        }); // Increase total stake.
+        SubnetAlphaIn::<T>::insert(netuid, pool_initial_tao); // Set initial alpha to pool initial tao.
         SubnetAlphaOut::<T>::insert(netuid, 0); // Set zero subnet alpha out.
         SubnetMechanism::<T>::insert(netuid, 1); // Convert to dynamic immediately with initialization.
-        Tempo::<T>::insert(netuid, DefaultTempo::<T>::get());
+
         // Set the token symbol for this subnet using Self instead of Pallet::<T>
         TokenSymbol::<T>::insert(netuid, Pallet::<T>::get_symbol_for_subnet(*netuid));
         TotalStakeAtDynamic::<T>::insert(netuid, 0);
@@ -107,19 +121,20 @@ pub fn migrate_rao<T: Config>() -> Weight {
                 let _neuron_uid: u16 = Pallet::<T>::register_neuron(*netuid, &owner_coldkey);
             }
             // Register the neuron immediately.
-            if !Identities::<T>::contains_key(owner_coldkey.clone()) {
+            if !IdentitiesV2::<T>::contains_key(owner_coldkey.clone()) {
                 // Set the identitiy for the Owner coldkey if non existent.
-                let identity = ChainIdentityOf {
+                let identity = ChainIdentityOfV2 {
                     name: format!("Owner{}", netuid).as_bytes().to_vec(),
                     url: Vec::new(),
                     image: Vec::new(),
+                    github_repo: Vec::new(),
                     discord: Vec::new(),
                     description: Vec::new(),
                     additional: Vec::new(),
                 };
                 // Validate the created identity and set it.
                 if Pallet::<T>::is_valid_identity(&identity) {
-                    Identities::<T>::insert(owner_coldkey.clone(), identity.clone());
+                    IdentitiesV2::<T>::insert(owner_coldkey.clone(), identity.clone());
                 }
             }
         }
