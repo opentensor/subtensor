@@ -2,11 +2,11 @@ use super::*;
 use substrate_fixed::types::I96F32;
 
 use frame_support::traits::{
-    tokens::{
-        fungible::{Balanced as _, Inspect as _},
-        Fortitude, Precision, Preservation,
-    },
     Imbalance,
+    tokens::{
+        Fortitude, Precision, Preservation,
+        fungible::{Balanced as _, Inspect as _},
+    },
 };
 
 impl<T: Config> Pallet<T> {

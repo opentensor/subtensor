@@ -2,7 +2,7 @@ use crate::alloc::borrow::ToOwned;
 use codec::Decode;
 use scale_info::prelude::{string::String, vec::Vec};
 use serde::Deserialize;
-use sp_core::{crypto::Ss58Codec, ConstU32};
+use sp_core::{ConstU32, crypto::Ss58Codec};
 use sp_runtime::{AccountId32, BoundedVec};
 
 use super::*;

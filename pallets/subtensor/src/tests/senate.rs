@@ -6,16 +6,16 @@ use approx::assert_abs_diff_eq;
 use codec::Encode;
 use frame_support::{assert_noop, assert_ok};
 use frame_system::{EventRecord, Phase};
-use sp_core::{bounded_vec, Get, H256, U256};
+use sp_core::{Get, H256, U256, bounded_vec};
 use sp_runtime::{
-    traits::{BlakeTwo256, Hash},
     BuildStorage,
+    traits::{BlakeTwo256, Hash},
 };
 
-use crate::migrations;
 use crate::Error;
-use frame_system::pallet_prelude::*;
+use crate::migrations;
 use frame_system::Config;
+use frame_system::pallet_prelude::*;
 use pallet_collective::Event as CollectiveEvent;
 
 use crate::Delegates;
@@ -86,7 +86,7 @@ fn test_senate_join_works() {
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             (10000 - burn_cost)
         ); // funds drained on reg.
-           // Check if neuron has added to the specified network(netuid)
+        // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
         // Check if hotkey is added to the Hotkeys
         assert_eq!(
@@ -160,7 +160,7 @@ fn test_senate_vote_works() {
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             (10000 - burn_cost)
         ); // funds drained on reg.
-           // Check if neuron has added to the specified network(netuid)
+        // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
         // Check if hotkey is added to the Hotkeys
         assert_eq!(
@@ -272,7 +272,7 @@ fn test_senate_vote_not_member() {
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             (10000 - burn_cost)
         ); // funds drained on reg.
-           // Check if neuron has added to the specified network(netuid)
+        // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
         // Check if hotkey is added to the Hotkeys
         assert_eq!(
@@ -334,7 +334,7 @@ fn test_senate_leave_works() {
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             (10000 - burn_cost)
         ); // funds drained on reg.
-           // Check if neuron has added to the specified network(netuid)
+        // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
         // Check if hotkey is added to the Hotkeys
         assert_eq!(
@@ -409,7 +409,7 @@ fn test_senate_leave_vote_removal() {
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             (stake - burn_cost)
         ); // funds drained on reg.
-           // Check if neuron has added to the specified network(netuid)
+        // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
         // Check if hotkey is added to the Hotkeys
         assert_eq!(
@@ -484,7 +484,7 @@ fn test_senate_leave_vote_removal() {
             let cold: U256 = U256::from(i + 100);
             // Add balance
             SubtensorModule::add_balance_to_coldkey_account(&cold, 100_000_000 + (i as u64)); // lots ot stake
-                                                                                              // Register
+            // Register
             assert_ok!(SubtensorModule::burned_register(
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 other_netuid,
@@ -551,7 +551,7 @@ fn test_senate_not_leave_when_stake_removed() {
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             (10000 - burn_cost)
         ); // funds drained on reg.
-           // Check if neuron has added to the specified network(netuid)
+        // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
         // Check if hotkey is added to the Hotkeys
         assert_eq!(
@@ -634,7 +634,7 @@ fn test_senate_join_current_delegate() {
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             (10000 - burn_cost)
         ); // funds drained on reg.
-           // Check if neuron has added to the specified network(netuid)
+        // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
         // Check if hotkey is added to the Hotkeys
         assert_eq!(
@@ -727,7 +727,7 @@ fn test_adjust_senate_events() {
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             (balance_to_add - burn_cost)
         ); // funds drained on reg.
-           // Check if neuron has added to the specified network(netuid)
+        // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
         // Check if hotkey is added to the Hotkeys
         assert_eq!(
