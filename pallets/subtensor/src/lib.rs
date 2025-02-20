@@ -810,11 +810,6 @@ pub mod pallet {
         (45875, 58982)
     }
     #[pallet::type_value]
-    /// Default value for network max stake.
-    pub fn DefaultNetworkMaxStake<T: Config>() -> u64 {
-        T::InitialNetworkMaxStake::get()
-    }
-    #[pallet::type_value]
     /// Default value for coldkey swap schedule duration
     pub fn DefaultColdkeySwapScheduleDuration<T: Config>() -> BlockNumberFor<T> {
         T::InitialColdkeySwapScheduleDuration::get()

@@ -1301,6 +1301,18 @@ impl<T: Config> Pallet<T> {
         if !bonds_reset_enabled {
             return Ok(());
         }
+
+        // Reset all bonds for this subnet
+        log::info!(
+            "Reseting bonds for netuid: {:?} triggered by {:?}",
+            netuid,
+            account_id
+        );
+        let n = Self::get_subnetwork_n(netuid);
+        let new_bonds_row: Vec<(u16, u16)> = (0..n).zip(vec![0; n as usize]).collect();
+        for uid in 0..n {
+            Bonds::<T>::insert(netuid, uid, new_bonds_row.clone());
+        }
         Ok(())
     }
 }
