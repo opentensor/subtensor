@@ -1,11 +1,11 @@
 use frame_system::RawOrigin;
 use pallet_evm::PrecompileHandle;
-use precompile_utils::{prelude::UnboundedBytes, EvmResult};
+use precompile_utils::{EvmResult, prelude::UnboundedBytes};
 use sp_core::H256;
 use sp_std::vec::Vec;
 
-use crate::precompiles::{parse_pubkey, PrecompileExt, PrecompileHandleExt};
 use crate::Runtime;
+use crate::precompiles::{PrecompileExt, PrecompileHandleExt, parse_pubkey};
 
 pub struct NeuronPrecompile;
 

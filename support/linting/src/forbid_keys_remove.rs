@@ -1,7 +1,7 @@
 use super::*;
 use syn::{
-    punctuated::Punctuated, spanned::Spanned, token::Comma, visit::Visit, Expr, ExprCall, ExprPath,
-    File, Path,
+    Expr, ExprCall, ExprPath, File, Path, punctuated::Punctuated, spanned::Spanned, token::Comma,
+    visit::Visit,
 };
 
 pub struct ForbidKeysRemoveCall;

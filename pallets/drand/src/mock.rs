@@ -5,12 +5,12 @@ use frame_support::{
     derive_impl, parameter_types,
     traits::{ConstU16, ConstU64},
 };
-use sp_core::{sr25519::Signature, H256};
-use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
+use sp_core::{H256, sr25519::Signature};
+use sp_keystore::{KeystoreExt, testing::MemoryKeystore};
 use sp_runtime::{
+    BuildStorage,
     testing::TestXt,
     traits::{BlakeTwo256, Extrinsic as ExtrinsicT, IdentifyAccount, IdentityLookup, Verify},
-    BuildStorage,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;

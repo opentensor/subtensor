@@ -2,20 +2,20 @@
 use crate::utils::rate_limiting::TransactionType;
 use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
-use frame_support::weights::constants::RocksDbWeight;
 use frame_support::weights::Weight;
+use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{
     assert_ok, parameter_types,
     traits::{Everything, Hooks, PrivilegeCmp},
 };
 use frame_system as system;
-use frame_system::{limits, EnsureNever, EnsureRoot, RawOrigin};
+use frame_system::{EnsureNever, EnsureRoot, RawOrigin, limits};
 use pallet_collective::MemberCount;
-use sp_core::{offchain::KeyTypeId, ConstU64, Get, H256, U256};
+use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
-    traits::{BlakeTwo256, IdentityLookup},
     BuildStorage,
+    traits::{BlakeTwo256, IdentityLookup},
 };
 use sp_std::cmp::Ordering;
 
@@ -463,8 +463,8 @@ impl pallet_preimage::Config for Test {
 mod test_crypto {
     use super::KEY_TYPE;
     use sp_core::{
-        sr25519::{Public as Sr25519Public, Signature as Sr25519Signature},
         U256,
+        sr25519::{Public as Sr25519Public, Signature as Sr25519Signature},
     };
     use sp_runtime::{
         app_crypto::{app_crypto, sr25519},

@@ -932,7 +932,7 @@ fn test_remove_balance_from_coldkey_account_ok() {
     new_test_ext(1).execute_with(|| {
         let coldkey_account_id = U256::from(434324); // Random
         let ammount = 10000; // Arbitrary
-                             // Put some $$ on the bank
+        // Put some $$ on the bank
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, ammount);
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),

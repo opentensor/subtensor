@@ -3,7 +3,7 @@ use frame_support::pallet_prelude::OptionQuery;
 use frame_support::{
     pallet_prelude::Identity,
     storage_alias,
-    traits::{fungible::Inspect, Get, GetStorageVersion, StorageVersion},
+    traits::{Get, GetStorageVersion, StorageVersion, fungible::Inspect},
     weights::Weight,
 };
 use sp_std::vec::Vec;

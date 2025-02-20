@@ -317,7 +317,7 @@ fn test_coinbase_alpha_issuance_with_cap_trigger() {
         SubnetAlphaIn::<Test>::insert(netuid1, initial_alpha); // Make price extremely low.
         SubnetTAO::<Test>::insert(netuid2, initial);
         SubnetAlphaIn::<Test>::insert(netuid2, initial_alpha); // Make price extremely low.
-                                                               // Set subnet prices.
+        // Set subnet prices.
         SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
         SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
         // Run coinbase
@@ -358,10 +358,10 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         SubnetAlphaIn::<Test>::insert(netuid1, initial_alpha); // Make price extremely low.
         SubnetTAO::<Test>::insert(netuid2, initial);
         SubnetAlphaIn::<Test>::insert(netuid2, initial_alpha); // Make price extremely low.
-                                                               // Set issuance to greater than 21M
+        // Set issuance to greater than 21M
         SubnetAlphaOut::<Test>::insert(netuid1, 22_000_000_000_000_000); // Set issuance above 21M
         SubnetAlphaOut::<Test>::insert(netuid2, 22_000_000_000_000_000); // Set issuance above 21M
-                                                                         // Set subnet prices.
+        // Set subnet prices.
         SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
         SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
         // Run coinbase
@@ -684,8 +684,8 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_amounts_half_tao_weight --exact --show-output --nocapture
 #[test]
-fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_amounts_half_tao_weight(
-) {
+fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_amounts_half_tao_weight()
+ {
     new_test_ext(1).execute_with(|| {
         let root: u16 = 0;
         let netuid: u16 = 1;
@@ -933,7 +933,7 @@ fn test_get_root_children_drain() {
         add_network(alpha, 1, 0);
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
-                                                   // Create keys.
+        // Create keys.
         let cold = U256::from(0);
         let alice = U256::from(1);
         let bob = U256::from(2);
@@ -1055,7 +1055,7 @@ fn test_get_root_children_drain_half_proportion() {
         add_network(alpha, 1, 0);
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
-                                                   // Create keys.
+        // Create keys.
         let cold = U256::from(0);
         let alice = U256::from(1);
         let bob = U256::from(2);
@@ -1137,7 +1137,7 @@ fn test_get_root_children_drain_with_take() {
         add_network(alpha, 1, 0);
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
-                                                   // Create keys.
+        // Create keys.
         let cold = U256::from(0);
         let alice = U256::from(1);
         let bob = U256::from(2);
@@ -1214,7 +1214,7 @@ fn test_get_root_children_drain_with_half_take() {
         add_network(alpha, 1, 0);
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
-                                                   // Create keys.
+        // Create keys.
         let cold = U256::from(0);
         let alice = U256::from(1);
         let bob = U256::from(2);
