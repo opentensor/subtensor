@@ -91,11 +91,6 @@ pub fn vec_fixed_proportions_to_fixed(vec: Vec<I32F32>) -> Vec<I32F32> {
 }
 
 #[allow(dead_code)]
-pub fn vec_u16_proportions_to_fixed(vec: Vec<u16>) -> Vec<I32F32> {
-    vec.into_iter().map(u16_proportion_to_fixed).collect()
-}
-
-#[allow(dead_code)]
 pub fn vec_fixed_proportions_to_u16(vec: Vec<I32F32>) -> Vec<u16> {
     vec.into_iter().map(fixed_proportion_to_u16).collect()
 }
