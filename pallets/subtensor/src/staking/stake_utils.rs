@@ -987,6 +987,12 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyAccountNotExists
         );
 
+        // Ensure that the destination hotkey account exists
+        ensure!(
+            Self::hotkey_account_exists(destination_hotkey),
+            Error::<T>::HotKeyAccountNotExists
+        );
+
         // Ensure there is enough stake in the origin subnet.
         let origin_alpha = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
             origin_hotkey,
