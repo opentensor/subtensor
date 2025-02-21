@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
-    system::{ensure_root, ensure_signed_or_root, pallet_prelude::BlockNumberFor},
     Error,
+    system::{ensure_root, ensure_signed_or_root, pallet_prelude::BlockNumberFor},
 };
 use safe_math::*;
 use sp_core::Get;

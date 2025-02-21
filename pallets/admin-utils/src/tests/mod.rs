@@ -9,10 +9,10 @@ use pallet_subtensor::Error as SubtensorError;
 // use pallet_subtensor::{migrations, Event};
 use pallet_subtensor::Event;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{ed25519, Pair, U256};
+use sp_core::{Pair, U256, ed25519};
 
-use crate::pallet::PrecompileEnable;
 use crate::Error;
+use crate::pallet::PrecompileEnable;
 use mock::*;
 
 mod mock;

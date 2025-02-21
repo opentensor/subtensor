@@ -12,7 +12,7 @@ use frame_system::pallet_prelude::BlockNumberFor;
 // - we could use a type parameter for `AuthorityId`, but there is
 //   no sense for this as GRANDPA's `AuthorityId` is not a parameter -- it's always the same
 use sp_consensus_grandpa::AuthorityList;
-use sp_runtime::{traits::Member, DispatchResult, RuntimeAppPublic};
+use sp_runtime::{DispatchResult, RuntimeAppPublic, traits::Member};
 
 mod benchmarking;
 
@@ -586,10 +586,10 @@ pub mod pallet {
                 target_registrations_per_interval,
             );
             log::debug!(
-            "RegistrationPerIntervalSet( netuid: {:?} target_registrations_per_interval: {:?} ) ",
-            netuid,
-            target_registrations_per_interval
-        );
+                "RegistrationPerIntervalSet( netuid: {:?} target_registrations_per_interval: {:?} ) ",
+                netuid,
+                target_registrations_per_interval
+            );
             Ok(())
         }
 

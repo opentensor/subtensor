@@ -9,9 +9,9 @@ use crate::*;
 use crate::{Call, ColdkeySwapScheduleDuration, Error};
 use approx::assert_abs_diff_eq;
 use frame_support::error::BadOrigin;
-use frame_support::traits::schedule::v3::Named as ScheduleNamed;
-use frame_support::traits::schedule::DispatchTime;
 use frame_support::traits::OnInitialize;
+use frame_support::traits::schedule::DispatchTime;
+use frame_support::traits::schedule::v3::Named as ScheduleNamed;
 use sp_core::{Get, H256, U256};
 use sp_runtime::DispatchError;
 
@@ -316,7 +316,7 @@ fn test_swap_idempotency() {
         // Add a network
         add_network(netuid, 1, 0);
         SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, stake); // Give old coldkey some balance
-                                                                              // Stake to a hotkey
+        // Stake to a hotkey
         register_ok_neuron(netuid, hotkey, old_coldkey, 1001000);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
