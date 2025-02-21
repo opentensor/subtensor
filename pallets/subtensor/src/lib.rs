@@ -12,7 +12,7 @@ use frame_support::{
     dispatch::{self, DispatchInfo, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo},
     ensure,
     pallet_macros::import_section,
-    traits::{tokens::fungible, IsSubType},
+    traits::{IsSubType, tokens::fungible},
 };
 
 use codec::{Decode, Encode};
@@ -23,9 +23,9 @@ use pallet_balances::Call as BalancesCall;
 use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{
+    DispatchError,
     traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
     transaction_validity::{TransactionValidity, TransactionValidityError},
-    DispatchError,
 };
 use sp_std::marker::PhantomData;
 
@@ -68,12 +68,12 @@ pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 pub mod pallet {
     use crate::migrations;
     use frame_support::{
+        BoundedVec,
         dispatch::GetDispatchInfo,
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
         traits::{
-            tokens::fungible, OriginTrait, QueryPreimage, StorePreimage, UnfilteredDispatchable,
+            OriginTrait, QueryPreimage, StorePreimage, UnfilteredDispatchable, tokens::fungible,
         },
-        BoundedVec,
     };
     use frame_system::pallet_prelude::*;
     use pallet_drand::types::RoundNumber;

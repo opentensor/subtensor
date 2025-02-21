@@ -54,7 +54,7 @@ use frame_support::{
 use scale_info::TypeInfo;
 use sp_io::storage;
 use sp_runtime::traits::Dispatchable;
-use sp_runtime::{traits::Hash, RuntimeDebug, Saturating};
+use sp_runtime::{RuntimeDebug, Saturating, traits::Hash};
 use sp_std::{marker::PhantomData, prelude::*, result};
 
 #[cfg(test)]
@@ -1107,10 +1107,10 @@ where
 
 pub struct EnsureMember<AccountId, I: 'static>(PhantomData<(AccountId, I)>);
 impl<
-        O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
-        I,
-        AccountId: Decode,
-    > EnsureOrigin<O> for EnsureMember<AccountId, I>
+    O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
+    I,
+    AccountId: Decode,
+> EnsureOrigin<O> for EnsureMember<AccountId, I>
 {
     type Success = AccountId;
     fn try_origin(o: O) -> Result<Self::Success, O> {
@@ -1131,11 +1131,11 @@ impl<
 
 pub struct EnsureMembers<AccountId, I: 'static, const N: u32>(PhantomData<(AccountId, I)>);
 impl<
-        O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
-        AccountId,
-        I,
-        const N: u32,
-    > EnsureOrigin<O> for EnsureMembers<AccountId, I, N>
+    O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
+    AccountId,
+    I,
+    const N: u32,
+> EnsureOrigin<O> for EnsureMembers<AccountId, I, N>
 {
     type Success = (MemberCount, MemberCount);
     fn try_origin(o: O) -> Result<Self::Success, O> {
@@ -1155,12 +1155,12 @@ pub struct EnsureProportionMoreThan<AccountId, I: 'static, const N: u32, const D
     PhantomData<(AccountId, I)>,
 );
 impl<
-        O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
-        AccountId,
-        I,
-        const N: u32,
-        const D: u32,
-    > EnsureOrigin<O> for EnsureProportionMoreThan<AccountId, I, N, D>
+    O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
+    AccountId,
+    I,
+    const N: u32,
+    const D: u32,
+> EnsureOrigin<O> for EnsureProportionMoreThan<AccountId, I, N, D>
 {
     type Success = ();
     fn try_origin(o: O) -> Result<Self::Success, O> {
@@ -1180,12 +1180,12 @@ pub struct EnsureProportionAtLeast<AccountId, I: 'static, const N: u32, const D:
     PhantomData<(AccountId, I)>,
 );
 impl<
-        O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
-        AccountId,
-        I,
-        const N: u32,
-        const D: u32,
-    > EnsureOrigin<O> for EnsureProportionAtLeast<AccountId, I, N, D>
+    O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
+    AccountId,
+    I,
+    const N: u32,
+    const D: u32,
+> EnsureOrigin<O> for EnsureProportionAtLeast<AccountId, I, N, D>
 {
     type Success = ();
     fn try_origin(o: O) -> Result<Self::Success, O> {

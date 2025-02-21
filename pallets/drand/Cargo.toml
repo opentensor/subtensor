@@ -4,7 +4,7 @@ description = "FRAME pallet for briding to drand."
 authors = ["Tony Riemer <driemworks@idealabs.network>"]
 version = "0.0.1"
 license = "MIT-0"
-edition = "2021"
+edition = "2024"
 homepage = "https://www.idealabs.network"
 publish = false
 

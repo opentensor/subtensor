@@ -5,7 +5,7 @@ use frame_support::traits::Currency;
 use super::mock::*;
 use crate::{AxonInfoOf, CustomTransactionError, Error, SubtensorSignedExtension};
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
-use frame_support::sp_runtime::{transaction_validity::InvalidTransaction, DispatchError};
+use frame_support::sp_runtime::{DispatchError, transaction_validity::InvalidTransaction};
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
@@ -300,7 +300,7 @@ fn test_burned_registration_under_limit() {
         SubtensorModule::set_burn(netuid, burn_cost);
 
         add_network(netuid, 13, 0); // Add the network
-                                    // Give it some TAO to the coldkey balance; more than the burn cost
+        // Give it some TAO to the coldkey balance; more than the burn cost
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, burn_cost + 10_000);
 
         let target_registrants = 2;
@@ -383,7 +383,7 @@ fn test_burned_registration_rate_allows_burn_adjustment() {
         SubtensorModule::set_burn(netuid, burn_cost);
 
         add_network(netuid, 13, 0); // Add the network
-                                    // Give it some TAO to the coldkey balance; more than the burn cost
+        // Give it some TAO to the coldkey balance; more than the burn cost
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, burn_cost + 10_000);
 
         let target_registrants = 1; // Target is 1, but we can register more than that, up to some maximum.
@@ -425,7 +425,7 @@ fn test_burned_registration_ok() {
         let hotkey_account_id = U256::from(1);
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
-                                                  //add network
+        //add network
         SubtensorModule::set_burn(netuid, burn_cost);
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance
@@ -441,7 +441,7 @@ fn test_burned_registration_ok() {
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             10000 - burn_cost
         ); // funds drained on reg.
-           // Check if neuron has added to the specified network(netuid)
+        // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
         //check if hotkey is added to the Hotkeys
         assert_eq!(
@@ -472,7 +472,7 @@ fn test_burn_registration_without_neuron_slot() {
         let hotkey_account_id = U256::from(1);
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
-                                                  //add network
+        //add network
         SubtensorModule::set_burn(netuid, burn_cost);
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance
@@ -1076,7 +1076,7 @@ fn test_registration_too_many_registrations_per_interval() {
 
 #[test]
 fn test_registration_immunity_period() { //impl this test when epoch impl and calculating pruning score is done
-                                         /* TO DO */
+    // TODO: Implement this test
 }
 
 #[test]

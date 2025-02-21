@@ -6,10 +6,10 @@
 use substrate_fixed::types::{I32F32, I64F64};
 
 use crate::epoch::math::*;
-use rand::{seq::SliceRandom, thread_rng, Rng};
+use rand::{Rng, seq::SliceRandom, thread_rng};
 use substrate_fixed::{
     transcendental::exp,
-    types::{I110F18, I96F32},
+    types::{I96F32, I110F18},
 };
 
 fn assert_float_compare(a: I32F32, b: I32F32, epsilon: I32F32) {

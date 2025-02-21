@@ -52,9 +52,9 @@ use scale_info::prelude::cmp;
 use sha2::{Digest, Sha256};
 use sp_core::blake2_256;
 use sp_runtime::{
+    KeyTypeId, Saturating,
     traits::{Hash, One},
     transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
-    KeyTypeId, Saturating,
 };
 
 pub mod bls12_381;
@@ -110,9 +110,9 @@ pub mod crypto {
     use super::KEY_TYPE;
     use sp_core::sr25519::Signature as Sr25519Signature;
     use sp_runtime::{
+        MultiSignature, MultiSigner,
         app_crypto::{app_crypto, sr25519},
         traits::Verify,
-        MultiSignature, MultiSigner,
     };
     app_crypto!(sr25519, KEY_TYPE);
 
@@ -277,8 +277,8 @@ pub mod pallet {
         fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
             match call {
                 Call::set_beacon_config {
-                    config_payload: ref payload,
-                    ref signature,
+                    config_payload: payload,
+                    signature,
                 } => {
                     let signature = signature.as_ref().ok_or(InvalidTransaction::BadSigner)?;
                     Self::validate_signature_and_parameters(
@@ -289,8 +289,8 @@ pub mod pallet {
                     )
                 }
                 Call::write_pulse {
-                    pulses_payload: ref payload,
-                    ref signature,
+                    pulses_payload: payload,
+                    signature,
                 } => {
                     let signature = signature.as_ref().ok_or(InvalidTransaction::BadSigner)?;
                     Self::validate_signature_and_parameters(

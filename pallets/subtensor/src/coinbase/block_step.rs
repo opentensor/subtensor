@@ -1,7 +1,7 @@
 use super::*;
 use frame_support::storage::IterableStorageMap;
 use safe_math::*;
-use substrate_fixed::types::{I110F18, I96F32};
+use substrate_fixed::types::{I96F32, I110F18};
 
 impl<T: Config + pallet_drand::Config> Pallet<T> {
     /// Executes the necessary operations for each block.
@@ -43,7 +43,8 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
             let last_adjustment_block: u64 = Self::get_last_adjustment_block(netuid);
             let adjustment_interval: u16 = Self::get_adjustment_interval(netuid);
             let current_block: u64 = Self::get_current_block_as_u64();
-            log::debug!("netuid: {:?} last_adjustment_block: {:?} adjustment_interval: {:?} current_block: {:?}",
+            log::debug!(
+                "netuid: {:?} last_adjustment_block: {:?} adjustment_interval: {:?} current_block: {:?}",
                 netuid,
                 last_adjustment_block,
                 adjustment_interval,

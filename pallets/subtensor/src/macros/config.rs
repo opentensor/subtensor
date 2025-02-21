@@ -38,11 +38,11 @@ mod config {
 
         /// The scheduler type used for scheduling delayed calls.
         type Scheduler: ScheduleAnon<
-            BlockNumberFor<Self>,
-            LocalCallOf<Self>,
-            PalletsOriginOf<Self>,
-            Hasher = Self::Hashing,
-        >;
+                BlockNumberFor<Self>,
+                LocalCallOf<Self>,
+                PalletsOriginOf<Self>,
+                Hasher = Self::Hashing,
+            >;
 
         /// the preimage to store the call data.
         type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;

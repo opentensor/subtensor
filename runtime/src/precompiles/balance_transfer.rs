@@ -3,8 +3,8 @@ use precompile_utils::EvmResult;
 use sp_core::H256;
 use sp_runtime::traits::UniqueSaturatedInto;
 
-use crate::precompiles::{contract_to_origin, parse_pubkey, PrecompileExt, PrecompileHandleExt};
 use crate::Runtime;
+use crate::precompiles::{PrecompileExt, PrecompileHandleExt, contract_to_origin, parse_pubkey};
 
 pub struct BalanceTransferPrecompile;
 

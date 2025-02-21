@@ -12,10 +12,10 @@ pub use types::*;
 pub use weights::WeightInfo;
 
 use frame_support::traits::tokens::{
-    fungible::{self, MutateHold as _},
     Precision,
+    fungible::{self, MutateHold as _},
 };
-use sp_runtime::{traits::Zero, Saturating};
+use sp_runtime::{Saturating, traits::Zero};
 use sp_std::boxed::Box;
 
 type BalanceOf<T> =

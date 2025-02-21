@@ -4,8 +4,8 @@ use codec::Compact;
 use safe_math::*;
 use sp_core::{ConstU32, H256};
 use sp_runtime::{
-    traits::{BlakeTwo256, Hash},
     BoundedVec,
+    traits::{BlakeTwo256, Hash},
 };
 use sp_std::{collections::vec_deque::VecDeque, vec};
 

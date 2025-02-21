@@ -4,10 +4,10 @@ use codec::{Decode, Encode};
 use jsonrpsee::{
     core::RpcResult,
     proc_macros::rpc,
-    types::{error::ErrorObject, ErrorObjectOwned},
+    types::{ErrorObjectOwned, error::ErrorObject},
 };
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{traits::Block as BlockT, AccountId32};
+use sp_runtime::{AccountId32, traits::Block as BlockT};
 use std::sync::Arc;
 
 use sp_api::ProvideRuntimeApi;
@@ -138,7 +138,7 @@ where
             Err(e) => {
                 return Err(
                     Error::RuntimeError(format!("Unable to get delegates info: {:?}", e)).into(),
-                )
+                );
             }
         };
         match api.get_delegate(at, delegate_account) {
@@ -162,7 +162,7 @@ where
             Err(e) => {
                 return Err(
                     Error::RuntimeError(format!("Unable to get delegates info: {:?}", e)).into(),
-                )
+                );
             }
         };
         match api.get_delegated(at, delegatee_account) {

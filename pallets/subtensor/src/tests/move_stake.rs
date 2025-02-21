@@ -245,7 +245,9 @@ fn test_do_move_nonexistent_destination_hotkey() {
         let fee = 0;
 
         // Set up initial stake
-        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount, fee);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
+        let alpha =
+            SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount, fee);
 
         // Attempt to move stake from a non-existent origin hotkey
         add_network(netuid, 1, 0);
@@ -256,12 +258,12 @@ fn test_do_move_nonexistent_destination_hotkey() {
                 nonexistent_destination_hotkey,
                 netuid,
                 netuid,
-                1234
+                alpha
             ),
             Error::<Test>::HotKeyAccountNotExists
         );
 
-        // Check that the stake was moved successfully
+        // Check that the stake was not moved
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &origin_hotkey,

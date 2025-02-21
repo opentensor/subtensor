@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used)]
 
 use codec::Encode;
-use frame_support::{assert_ok, traits::InstanceFilter, BoundedVec};
+use frame_support::{BoundedVec, assert_ok, traits::InstanceFilter};
 use node_subtensor_runtime::{
     AccountId, BalancesCall, BuildStorage, Proxy, ProxyType, Runtime, RuntimeCall, RuntimeEvent,
     RuntimeGenesisConfig, RuntimeOrigin, SubtensorModule, System, SystemCall,

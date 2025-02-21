@@ -6,8 +6,8 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod dispatches {
-    use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
     use frame_support::traits::schedule::DispatchTime;
+    use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
     use frame_system::pallet_prelude::BlockNumberFor;
     use sp_runtime::traits::Saturating;
 

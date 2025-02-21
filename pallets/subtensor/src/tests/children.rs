@@ -4,7 +4,7 @@
 use super::mock::*;
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_noop, assert_ok};
-use substrate_fixed::types::I96F32;
+use substrate_fixed::types::{I64F64, I96F32};
 
 use crate::{utils::rate_limiting::TransactionType, *};
 use sp_core::U256;
@@ -453,7 +453,7 @@ fn test_do_set_empty_children_network_does_not_exist() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let netuid: u16 = 999; // Non-existent network
-                               // Attempt to revoke child
+        // Attempt to revoke child
         assert_err!(
             SubtensorModule::do_schedule_children(
                 RuntimeOrigin::signed(coldkey),
@@ -1180,7 +1180,7 @@ fn test_do_revoke_children_multiple_network_does_not_exist() {
         let child1 = U256::from(3);
         let child2 = U256::from(4);
         let netuid: u16 = 999; // Non-existent network
-                               // Attempt to revoke children
+        // Attempt to revoke children
         assert_err!(
             SubtensorModule::do_schedule_children(
                 RuntimeOrigin::signed(coldkey),
@@ -2852,13 +2852,23 @@ fn test_set_weights_no_parent() {
         let values: Vec<u16> = vec![u16::MAX]; // Use maximum value for u16
         let version_key = SubtensorModule::get_weights_version_key(netuid);
 
-        // Set the min stake very high
-        SubtensorModule::set_stake_threshold(stake_to_give_child * 5);
+        // Check the stake weight
+        let curr_stake_weight =
+            SubtensorModule::get_stake_weights_for_hotkey_on_subnet(&hotkey, netuid).0;
 
-        // Check the key has less stake than required
+        // Set the min stake very high, above the stake weight of the key
+        SubtensorModule::set_stake_threshold(
+            curr_stake_weight
+                .saturating_mul(I64F64::saturating_from_num(5))
+                .saturating_to_num::<u64>(),
+        );
+
+        let curr_stake_threshold = SubtensorModule::get_stake_threshold();
         assert!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid)
-                < SubtensorModule::get_stake_threshold()
+            curr_stake_weight < curr_stake_threshold,
+            "{:?} is not less than {:?} ",
+            curr_stake_weight,
+            curr_stake_threshold
         );
 
         // Check the hotkey cannot set weights
@@ -2876,12 +2886,21 @@ fn test_set_weights_no_parent() {
         assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
 
         // Set a minimum stake to set weights
-        SubtensorModule::set_stake_threshold(stake_to_give_child - 5);
+        SubtensorModule::set_stake_threshold(
+            curr_stake_weight
+                .saturating_sub(I64F64::saturating_from_num(5))
+                .saturating_to_num::<u64>(),
+        );
 
         // Check if the stake for the hotkey is above
+        let new_stake_weight =
+            SubtensorModule::get_stake_weights_for_hotkey_on_subnet(&hotkey, netuid).0;
+        let new_stake_threshold = SubtensorModule::get_stake_threshold();
         assert!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid)
-                >= SubtensorModule::get_stake_threshold()
+            new_stake_weight >= new_stake_threshold,
+            "{:?} is not greater than or equal to {:?} ",
+            new_stake_weight,
+            new_stake_threshold
         );
 
         // Check the hotkey can set weights
@@ -3423,7 +3442,7 @@ fn test_parent_child_chain_epoch() {
 
         // Verify emissions match expected from CHK arrangements
         let em_eps: I96F32 = I96F32::from_num(1e-4); // 4 decimal places
-                                                     // A's pending emission:
+        // A's pending emission:
         assert!(
             ((I96F32::from_num(hotkey_emission[0].2) / total_emission) -
             I96F32::from_num(2_f64 / 3_f64 * 1_f64 / 2_f64)).abs() // 2/3 * 1/2 = 1/3; 50% -> B
@@ -3554,7 +3573,7 @@ fn test_dividend_distribution_with_children() {
 
         // Verify emissions match expected from CHK arrangements
         let em_eps: I96F32 = I96F32::from_num(1e-4); // 4 decimal places
-                                                     // A's pending emission:
+        // A's pending emission:
         assert!(
             ((I96F32::from_num(hotkey_emission[0].2) / total_emission) -
             I96F32::from_num(2_f64 / 3_f64 * 1_f64 / 2_f64)).abs() // 2/3 * 1/2 = 1/3; 50% -> B
@@ -3921,5 +3940,59 @@ fn test_dynamic_parent_child_relationships() {
             "Child2 should have received more emission than Child1 due to higher proportion"
         );
         // Child2 stake (874,826) > Child1 stake (778,446)
+    });
+}
+
+#[test]
+fn test_do_set_child_as_sn_owner_not_enough_stake() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let sn_owner_hotkey = U256::from(4);
+
+        let child_coldkey = U256::from(2);
+        let child_hotkey = U256::from(5);
+
+        let threshold = 10_000;
+        SubtensorModule::set_stake_threshold(threshold);
+
+        let proportion: u64 = 1000;
+
+        let netuid: u16 = add_dynamic_network(&sn_owner_hotkey, &coldkey);
+        register_ok_neuron(netuid, child_hotkey, child_coldkey, 0);
+
+        // Verify stake of sn_owner_hotkey is NOT enough
+        assert!(
+            SubtensorModule::get_total_stake_for_hotkey(&sn_owner_hotkey)
+                < StakeThreshold::<Test>::get()
+        );
+
+        // Verify that we can set child as sn owner, even though sn_owner_hotkey has insufficient stake
+        assert_ok!(SubtensorModule::do_schedule_children(
+            RuntimeOrigin::signed(coldkey),
+            sn_owner_hotkey,
+            netuid,
+            vec![(proportion, child_hotkey)]
+        ));
+
+        // Make new hotkey from owner coldkey
+        let other_sn_owner_hotkey = U256::from(6);
+        register_ok_neuron(netuid, other_sn_owner_hotkey, coldkey, 1234);
+
+        // Verify stake of other_sn_owner_hotkey is NOT enough
+        assert!(
+            SubtensorModule::get_total_stake_for_hotkey(&other_sn_owner_hotkey)
+                < StakeThreshold::<Test>::get()
+        );
+
+        // Can't set child as sn owner, because it is not in SubnetOwnerHotkey map
+        assert_noop!(
+            SubtensorModule::do_schedule_children(
+                RuntimeOrigin::signed(coldkey),
+                other_sn_owner_hotkey,
+                netuid,
+                vec![(proportion, child_hotkey)]
+            ),
+            Error::<Test>::NotEnoughStakeToSetChildkeys
+        );
     });
 }

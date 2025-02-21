@@ -1,5 +1,5 @@
 use super::*;
-use syn::{visit::Visit, ExprMethodCall, File, Ident};
+use syn::{ExprMethodCall, File, Ident, visit::Visit};
 
 pub struct ForbidAsPrimitiveConversion;
 

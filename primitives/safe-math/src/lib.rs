@@ -5,7 +5,7 @@
 
 use substrate_fixed::{
     traits::Fixed,
-    types::{I110F18, I32F32, I64F64, I96F32, U110F18, U64F64, U96F32},
+    types::{I32F32, I64F64, I96F32, I110F18, U64F64, U96F32, U110F18},
 };
 
 /// Safe division trait
@@ -104,11 +104,7 @@ mod tests {
 
     // Helper function for absolute difference
     fn abs_diff(a: U110F18, b: U110F18) -> U110F18 {
-        if a > b {
-            a - b
-        } else {
-            b - a
-        }
+        if a > b { a - b } else { b - a }
     }
 
     #[test]

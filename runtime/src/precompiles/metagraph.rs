@@ -3,11 +3,11 @@ use alloc::string::String;
 
 use fp_evm::{ExitError, PrecompileFailure, PrecompileHandle};
 use pallet_subtensor::AxonInfo as SubtensorModuleAxonInfo;
-use precompile_utils::{solidity::Codec, EvmResult};
+use precompile_utils::{EvmResult, solidity::Codec};
 use sp_core::{ByteArray, H256};
 
-use crate::precompiles::PrecompileExt;
 use crate::Runtime;
+use crate::precompiles::PrecompileExt;
 
 pub struct MetagraphPrecompile;
 

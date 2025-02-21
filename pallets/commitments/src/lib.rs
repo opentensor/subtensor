@@ -13,7 +13,7 @@ pub use types::*;
 pub use weights::WeightInfo;
 
 use frame_support::traits::Currency;
-use sp_runtime::{traits::Zero, Saturating};
+use sp_runtime::{Saturating, traits::Zero};
 use sp_std::boxed::Box;
 
 type BalanceOf<T> =

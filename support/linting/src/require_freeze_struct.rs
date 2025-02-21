@@ -1,7 +1,7 @@
 use super::*;
 use syn::{
-    parse_quote, punctuated::Punctuated, visit::Visit, Attribute, File, ItemStruct, Meta, MetaList,
-    Path, Token,
+    Attribute, File, ItemStruct, Meta, MetaList, Path, Token, parse_quote, punctuated::Punctuated,
+    visit::Visit,
 };
 
 pub struct RequireFreezeStruct;

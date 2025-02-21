@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Implementation of the bittensor blockchain"
 authors = ["Substrate DevHub <https://github.com/substrate-developer-hub>"]
 homepage = "https://substrate.io/"
-edition = "2021"
+edition = "2024"
 license = "Unlicense"
 publish = false
 repository = "https://github.com/opentensor/subtensor"
@@ -46,6 +46,7 @@ arithmetic-side-effects = "deny"
 type_complexity = "allow"
 unwrap-used = "deny"
 manual_inspect = "allow"
+useless_conversion = "allow" # until polkadot is patched
 
 [workspace.dependencies]
 async-trait = "0.1"

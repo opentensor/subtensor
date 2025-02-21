@@ -17,16 +17,16 @@
 
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
 use frame_support::{
-    traits::{ConstU32, Get},
     BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+    traits::{ConstU32, Get},
 };
 use scale_info::{
-    build::{Fields, Variants},
     Path, Type, TypeInfo,
+    build::{Fields, Variants},
 };
 use sp_runtime::{
-    traits::{AppendZerosInput, AtLeast32BitUnsigned},
     RuntimeDebug,
+    traits::{AppendZerosInput, AtLeast32BitUnsigned},
 };
 use sp_std::{fmt::Debug, iter::once, prelude::*};
 use subtensor_macros::freeze_struct;
@@ -86,16 +86,16 @@ impl Encode for Data {
     fn encode(&self) -> Vec<u8> {
         match self {
             Data::None => vec![0u8; 1],
-            Data::Raw(ref x) => {
+            Data::Raw(x) => {
                 let l = x.len().min(128) as u8;
                 let mut r = vec![l.saturating_add(1)];
                 r.extend_from_slice(&x[..]);
                 r
             }
-            Data::BlakeTwo256(ref h) => once(130).chain(h.iter().cloned()).collect(),
-            Data::Sha256(ref h) => once(131).chain(h.iter().cloned()).collect(),
-            Data::Keccak256(ref h) => once(132).chain(h.iter().cloned()).collect(),
-            Data::ShaThree256(ref h) => once(133).chain(h.iter().cloned()).collect(),
+            Data::BlakeTwo256(h) => once(130).chain(h.iter().cloned()).collect(),
+            Data::Sha256(h) => once(131).chain(h.iter().cloned()).collect(),
+            Data::Keccak256(h) => once(132).chain(h.iter().cloned()).collect(),
+            Data::ShaThree256(h) => once(133).chain(h.iter().cloned()).collect(),
         }
     }
 }
@@ -331,10 +331,10 @@ pub struct Registration<
 // }
 
 impl<
-        Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq,
-        MaxFields: Get<u32>,
-        Block: Codec + Clone + Ord + Eq + AtLeast32BitUnsigned + MaxEncodedLen + Debug,
-    > Decode for Registration<Balance, MaxFields, Block>
+    Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq,
+    MaxFields: Get<u32>,
+    Block: Codec + Clone + Ord + Eq + AtLeast32BitUnsigned + MaxEncodedLen + Debug,
+> Decode for Registration<Balance, MaxFields, Block>
 {
     fn decode<I: codec::Input>(input: &mut I) -> sp_std::result::Result<Self, codec::Error> {
         let (deposit, block, info) = Decode::decode(&mut AppendZerosInput::new(input))?;

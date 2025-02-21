@@ -2,7 +2,7 @@ use super::*;
 use proc_macro2::TokenStream as TokenStream2;
 use procedural_fork::exports::construct_runtime::parse::RuntimeDeclaration;
 use quote::ToTokens;
-use syn::{visit::Visit, File};
+use syn::{File, visit::Visit};
 
 pub struct RequireExplicitPalletIndex;
 

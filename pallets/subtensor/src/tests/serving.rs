@@ -238,7 +238,7 @@ fn test_axon_serving_rate_limit_exceeded() {
         add_network(netuid, tempo, modality);
         register_ok_neuron(netuid, hotkey_account_id, U256::from(66), 0);
         run_to_block(1); // Go to block 1
-                         // No issue on multiple
+        // No issue on multiple
         assert_ok!(SubtensorModule::serve_axon(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid,
@@ -285,7 +285,7 @@ fn test_axon_serving_rate_limit_exceeded() {
         ));
         SubtensorModule::set_serving_rate_limit(netuid, 2);
         run_to_block(2); // Go to block 2
-                         // Needs to be 2 blocks apart, we are only 1 block apart
+        // Needs to be 2 blocks apart, we are only 1 block apart
         assert_eq!(
             SubtensorModule::serve_axon(
                 <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
@@ -452,7 +452,7 @@ fn test_prometheus_serving_rate_limit_exceeded() {
         add_network(netuid, tempo, modality);
         register_ok_neuron(netuid, hotkey_account_id, U256::from(66), 0);
         run_to_block(1); // Go to block 1
-                         // No issue on multiple
+        // No issue on multiple
         assert_ok!(SubtensorModule::serve_prometheus(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid,
@@ -605,7 +605,9 @@ fn test_serving_is_invalid_ipv6_address() {
         ));
         assert!(!SubtensorModule::is_valid_ip_address(
             4,
-            test::ipv6(0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff)
+            test::ipv6(
+                0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff
+            )
         ));
     });
 }

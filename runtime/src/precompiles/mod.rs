@@ -16,7 +16,7 @@ use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripe
 use precompile_utils::EvmResult;
 use sp_core::{H160, U256};
 use sp_runtime::traits::BlakeTwo256;
-use sp_runtime::{traits::Dispatchable, AccountId32};
+use sp_runtime::{AccountId32, traits::Dispatchable};
 
 use pallet_admin_utils::{PrecompileEnable, PrecompileEnum};
 use sp_std::vec;

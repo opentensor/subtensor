@@ -4,14 +4,14 @@ use crate::{
     ethereum::db_config_dir,
     service,
 };
-use fc_db::{kv::frontier_database_dir, DatabaseSource};
+use fc_db::{DatabaseSource, kv::frontier_database_dir};
 
 use futures::TryFutureExt;
 use node_subtensor_runtime::Block;
 use sc_cli::SubstrateCli;
 use sc_service::{
-    config::{ExecutorConfiguration, RpcConfiguration},
     Configuration,
+    config::{ExecutorConfiguration, RpcConfiguration},
 };
 
 impl SubstrateCli for Cli {
@@ -115,7 +115,7 @@ pub fn run() -> sc_cli::Result<()> {
                                     "Cannot purge `{:?}` database",
                                     config.database
                                 )
-                                .into())
+                                .into());
                             }
                         };
                         cmd.run(frontier_database_config)?;
@@ -134,7 +134,7 @@ pub fn run() -> sc_cli::Result<()> {
                                     "Cannot purge `{:?}` database: {:?}",
                                     db_path, err,
                                 )
-                                .into())
+                                .into());
                             }
                         };
                     }
@@ -157,7 +157,7 @@ pub fn run() -> sc_cli::Result<()> {
         #[cfg(feature = "runtime-benchmarks")]
         Some(Subcommand::Benchmark(cmd)) => {
             use crate::benchmarking::{
-                inherent_benchmark_data, RemarkBuilder, TransferKeepAliveBuilder,
+                RemarkBuilder, TransferKeepAliveBuilder, inherent_benchmark_data,
             };
             use frame_benchmarking_cli::{
                 BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE_HARDWARE,

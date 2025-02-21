@@ -568,16 +568,16 @@ impl<T: Config> Pallet<T> {
         let seal_hash: H256 = H256::from_slice(&keccak_256_seal_hash_vec);
 
         log::trace!(
-			"\n hotkey:{:?} \nblock_number: {:?}, \nnonce_u64: {:?}, \nblock_hash: {:?}, \nfull_bytes: {:?}, \nsha256_seal_hash_vec: {:?},  \nkeccak_256_seal_hash_vec: {:?}, \nseal_hash: {:?}",
-			hotkey,
+            "\n hotkey:{:?} \nblock_number: {:?}, \nnonce_u64: {:?}, \nblock_hash: {:?}, \nfull_bytes: {:?}, \nsha256_seal_hash_vec: {:?},  \nkeccak_256_seal_hash_vec: {:?}, \nseal_hash: {:?}",
+            hotkey,
             block_number_u64,
-			nonce_u64,
-			block_hash_at_number,
-			full_bytes,
-			sha256_seal_hash_vec,
+            nonce_u64,
+            block_hash_at_number,
+            full_bytes,
+            sha256_seal_hash_vec,
             keccak_256_seal_hash_vec,
-			seal_hash
-		);
+            seal_hash
+        );
 
         seal_hash
     }
