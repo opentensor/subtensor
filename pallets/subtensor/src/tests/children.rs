@@ -4,7 +4,7 @@
 use super::mock::*;
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_noop, assert_ok};
-use substrate_fixed::types::I96F32;
+use substrate_fixed::types::{I64F64, I96F32};
 
 use crate::{utils::rate_limiting::TransactionType, *};
 use sp_core::U256;
@@ -2852,13 +2852,23 @@ fn test_set_weights_no_parent() {
         let values: Vec<u16> = vec![u16::MAX]; // Use maximum value for u16
         let version_key = SubtensorModule::get_weights_version_key(netuid);
 
-        // Set the min stake very high
-        SubtensorModule::set_stake_threshold(stake_to_give_child * 5);
+        // Check the stake weight
+        let curr_stake_weight =
+            SubtensorModule::get_stake_weights_for_hotkey_on_subnet(&hotkey, netuid).0;
 
-        // Check the key has less stake than required
+        // Set the min stake very high, above the stake weight of the key
+        SubtensorModule::set_stake_threshold(
+            curr_stake_weight
+                .saturating_mul(I64F64::saturating_from_num(5))
+                .saturating_to_num::<u64>(),
+        );
+
+        let curr_stake_threshold = SubtensorModule::get_stake_threshold();
         assert!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid)
-                < SubtensorModule::get_stake_threshold()
+            curr_stake_weight < curr_stake_threshold,
+            "{:?} is not less than {:?} ",
+            curr_stake_weight,
+            curr_stake_threshold
         );
 
         // Check the hotkey cannot set weights
@@ -2876,12 +2886,21 @@ fn test_set_weights_no_parent() {
         assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
 
         // Set a minimum stake to set weights
-        SubtensorModule::set_stake_threshold(stake_to_give_child - 5);
+        SubtensorModule::set_stake_threshold(
+            curr_stake_weight
+                .saturating_sub(I64F64::saturating_from_num(5))
+                .saturating_to_num::<u64>(),
+        );
 
         // Check if the stake for the hotkey is above
+        let new_stake_weight =
+            SubtensorModule::get_stake_weights_for_hotkey_on_subnet(&hotkey, netuid).0;
+        let new_stake_threshold = SubtensorModule::get_stake_threshold();
         assert!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid)
-                >= SubtensorModule::get_stake_threshold()
+            new_stake_weight >= new_stake_threshold,
+            "{:?} is not greater than or equal to {:?} ",
+            new_stake_weight,
+            new_stake_threshold
         );
 
         // Check the hotkey can set weights
