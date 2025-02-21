@@ -1769,7 +1769,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "332d754c0af53bc87c108fed664d121ecf59207ec4196041f04d6ab9002ad33f"
 dependencies = [
  "data-encoding",
- "syn 2.0.96",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -7022,7 +7022,7 @@ source = "git+https://github.com/opentensor/frontier?rev=635bdac882#635bdac88233
 dependencies = [
  "case",
  "num_enum",
- "prettyplease 0.2.29",
+ "prettyplease 0.2.22",
  "proc-macro2",
  "quote",
  "sp-crypto-hashing 0.1.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409)",
