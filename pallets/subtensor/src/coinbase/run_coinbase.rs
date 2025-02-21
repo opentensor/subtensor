@@ -72,10 +72,10 @@ impl<T: Config> Pallet<T> {
                 .unwrap_or(asfloat!(0.0));
             log::debug!("tao_in_i: {:?}", tao_in_i);
             // Get alpha_emission total
-            let alpha_emission_i: I96F32 = asfloat!(Self::get_block_emission_for_issuance(
-                Self::get_alpha_issuance(*netuid_i)
-            )
-            .unwrap_or(0));
+            let alpha_emission_i: I96F32 = asfloat!(
+                Self::get_block_emission_for_issuance(Self::get_alpha_issuance(*netuid_i))
+                    .unwrap_or(0)
+            );
             log::debug!("alpha_emission_i: {:?}", alpha_emission_i);
             // Get initial alpha_in
             let alpha_in_i: I96F32 = tao_in_i
@@ -176,7 +176,7 @@ impl<T: Config> Pallet<T> {
             let root_alpha: I96F32 = root_proportion
                 .saturating_mul(alpha_out_i) // Total alpha emission per block remaining.
                 .saturating_mul(asfloat!(0.5)); // 50% to validators.
-                                                // Remove root alpha from alpha_out.
+            // Remove root alpha from alpha_out.
             log::debug!("root_alpha: {:?}", root_alpha);
             // Get pending alpha as original alpha_out - root_alpha.
             let pending_alpha: I96F32 = alpha_out_i.saturating_sub(root_alpha);
@@ -318,12 +318,14 @@ impl<T: Config> Pallet<T> {
             let root_prop: I96F32 = root_alpha.checked_div(total_alpha).unwrap_or(zero);
             // Compute root dividends
             let root_divs: I96F32 = dividend.saturating_mul(root_prop);
-            // Record the root dividends.
+            // Compute alpha dividends
+            let alpha_divs: I96F32 = dividend.saturating_sub(root_divs);
+            // Record the alpha dividends.
             alpha_dividends
                 .entry(hotkey.clone())
-                .and_modify(|e| *e = e.saturating_add(dividend))
-                .or_insert(dividend);
-            // Record the alpha_dividends.
+                .and_modify(|e| *e = e.saturating_add(alpha_divs))
+                .or_insert(alpha_divs);
+            // Record the root dividends.
             root_dividends
                 .entry(hotkey.clone())
                 .and_modify(|e| *e = e.saturating_add(root_divs))
@@ -682,11 +684,11 @@ impl<T: Config> Pallet<T> {
                 Ok(c) => c,
                 Err(e) => {
                     log::warn!(
-						"Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing the commit: {:?}",
-						netuid,
-						who,
-						e
-					);
+                        "Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing the commit: {:?}",
+                        netuid,
+                        who,
+                        e
+                    );
                     continue;
                 }
             };
@@ -698,8 +700,8 @@ impl<T: Config> Pallet<T> {
                     // Round number used was not found on the chain. Skip this commit.
                     log::warn!(
                         "Failed to reveal commit for subnet {} submitted by {:?} due to missing round number {} at time of reveal.",
-						netuid,
-						who,
+                        netuid,
+                        who,
                         round_number
                     );
                     continue;
@@ -718,11 +720,11 @@ impl<T: Config> Pallet<T> {
                 Ok(s) => s,
                 Err(e) => {
                     log::error!(
-						"Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing signature from drand pallet: {:?}",
-						netuid,
-						who,
-						e
-					);
+                        "Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing signature from drand pallet: {:?}",
+                        netuid,
+                        who,
+                        e
+                    );
                     continue;
                 }
             };
@@ -733,11 +735,11 @@ impl<T: Config> Pallet<T> {
                 Ok(d) => d,
                 Err(e) => {
                     log::warn!(
-							"Failed to reveal commit for subnet {} submitted by {:?} due to error decrypting the commit: {:?}",
-							netuid,
-							who,
-							e
-												);
+                        "Failed to reveal commit for subnet {} submitted by {:?} due to error decrypting the commit: {:?}",
+                        netuid,
+                        who,
+                        e
+                    );
                     continue;
                 }
             };
@@ -747,7 +749,12 @@ impl<T: Config> Pallet<T> {
             let payload: WeightsTlockPayload = match Decode::decode(&mut reader) {
                 Ok(w) => w,
                 Err(e) => {
-                    log::warn!("Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing WeightsPayload: {:?}", netuid, who, e);
+                    log::warn!(
+                        "Failed to reveal commit for subnet {} submitted by {:?} due to error deserializing WeightsPayload: {:?}",
+                        netuid,
+                        who,
+                        e
+                    );
                     continue;
                 }
             };

@@ -2,7 +2,7 @@ use super::*;
 use crate::HasMigrationRun;
 use frame_support::{traits::Get, weights::Weight};
 use scale_info::prelude::string::String;
-use sp_io::{hashing::twox_128, storage::clear_prefix, KillStorageResult};
+use sp_io::{KillStorageResult, hashing::twox_128, storage::clear_prefix};
 
 pub fn migrate_commit_reveal_2<T: Config>() -> Weight {
     let migration_name = b"migrate_commit_reveal_2_v2".to_vec();

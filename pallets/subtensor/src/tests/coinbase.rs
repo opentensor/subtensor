@@ -19,6 +19,23 @@ fn close(value: u64, target: u64, eps: u64) {
     )
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_hotkey_take --exact --show-output --nocapture
+#[test]
+fn test_hotkey_take() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey = U256::from(1);
+        Delegates::<Test>::insert(hotkey, u16::MAX / 2);
+        log::info!(
+            "expected: {:?}",
+            SubtensorModule::get_hotkey_take_float(&hotkey)
+        );
+        log::info!(
+            "expected: {:?}",
+            SubtensorModule::get_hotkey_take_float(&hotkey)
+        );
+    });
+}
+
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_dynamic_function_various_values --exact --show-output --nocapture
 #[test]
 fn test_dynamic_function_various_values() {
@@ -300,7 +317,7 @@ fn test_coinbase_alpha_issuance_with_cap_trigger() {
         SubnetAlphaIn::<Test>::insert(netuid1, initial_alpha); // Make price extremely low.
         SubnetTAO::<Test>::insert(netuid2, initial);
         SubnetAlphaIn::<Test>::insert(netuid2, initial_alpha); // Make price extremely low.
-                                                               // Set subnet prices.
+        // Set subnet prices.
         SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
         SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
         // Run coinbase
@@ -341,10 +358,10 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         SubnetAlphaIn::<Test>::insert(netuid1, initial_alpha); // Make price extremely low.
         SubnetTAO::<Test>::insert(netuid2, initial);
         SubnetAlphaIn::<Test>::insert(netuid2, initial_alpha); // Make price extremely low.
-                                                               // Set issuance to greater than 21M
+        // Set issuance to greater than 21M
         SubnetAlphaOut::<Test>::insert(netuid1, 22_000_000_000_000_000); // Set issuance above 21M
         SubnetAlphaOut::<Test>::insert(netuid2, 22_000_000_000_000_000); // Set issuance above 21M
-                                                                         // Set subnet prices.
+        // Set subnet prices.
         SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
         SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
         // Run coinbase
@@ -476,6 +493,7 @@ fn test_drain_base_with_subnet_with_single_staker_registered_root_weight() {
         let stake_before: u64 = 1_000_000_000;
         // register_ok_neuron(root, hotkey, coldkey, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
+        Delegates::<Test>::insert(hotkey, 0);
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
@@ -496,7 +514,7 @@ fn test_drain_base_with_subnet_with_single_staker_registered_root_weight() {
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
         let root_after =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, root);
-        close(stake_before + pending_alpha, stake_after, 10); // Registered gets all alpha emission.
+        close(stake_before + pending_alpha / 2, stake_after, 10); // Registered gets all alpha emission.
         close(stake_before + pending_tao, root_after, 10); // Registered gets all tao emission
     });
 }
@@ -549,6 +567,8 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root() {
         let stake_before: u64 = 1_000_000_000;
         register_ok_neuron(netuid, hotkey1, coldkey, 0);
         register_ok_neuron(netuid, hotkey2, coldkey, 0);
+        Delegates::<Test>::insert(hotkey1, 0);
+        Delegates::<Test>::insert(hotkey2, 0);
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey1,
@@ -585,8 +605,8 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root() {
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, netuid);
         let root_after2 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, root);
-        close(stake_before + pending_alpha / 2, stake_after1, 10); // Registered gets 1/2 emission
-        close(stake_before + pending_alpha / 2, stake_after2, 10); // Registered gets 1/2 emission.
+        close(stake_before + pending_alpha / 4, stake_after1, 10); // Registered gets 1/2 emission
+        close(stake_before + pending_alpha / 4, stake_after2, 10); // Registered gets 1/2 emission.
         close(stake_before + pending_tao / 2, root_after1, 10); // Registered gets 1/2 tao emission
         close(stake_before + pending_tao / 2, root_after2, 10); // Registered gets 1/2 tao emission
     });
@@ -603,6 +623,8 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         let hotkey2 = U256::from(2);
         let coldkey = U256::from(3);
         let stake_before: u64 = 1_000_000_000;
+        Delegates::<Test>::insert(hotkey1, 0);
+        Delegates::<Test>::insert(hotkey2, 0);
         register_ok_neuron(netuid, hotkey1, coldkey, 0);
         register_ok_neuron(netuid, hotkey2, coldkey, 0);
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
@@ -642,10 +664,14 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         let root_after2 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, root);
         let expected_stake = I96F32::from_num(stake_before)
-            + I96F32::from_num(pending_alpha) * I96F32::from_num(3.0 / 5.0);
+            + (I96F32::from_num(pending_alpha)
+                * I96F32::from_num(3.0 / 5.0)
+                * I96F32::from_num(1.0 / 3.0));
         close(expected_stake.to_num::<u64>(), stake_after1, 10); // Registered gets 60% of emission
         let expected_stake2 = I96F32::from_num(stake_before)
-            + I96F32::from_num(pending_alpha) * I96F32::from_num(2.0 / 5.0);
+            + I96F32::from_num(pending_alpha)
+                * I96F32::from_num(2.0 / 5.0)
+                * I96F32::from_num(1.0 / 2.0);
         close(expected_stake2.to_num::<u64>(), stake_after2, 10); // Registered gets 40% emission
         let expected_root1 = I96F32::from_num(2 * stake_before)
             + I96F32::from_num(pending_tao) * I96F32::from_num(2.0 / 3.0);
@@ -658,8 +684,8 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_amounts_half_tao_weight --exact --show-output --nocapture
 #[test]
-fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_amounts_half_tao_weight(
-) {
+fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_amounts_half_tao_weight()
+ {
     new_test_ext(1).execute_with(|| {
         let root: u16 = 0;
         let netuid: u16 = 1;
@@ -668,6 +694,8 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
         let hotkey2 = U256::from(2);
         let coldkey = U256::from(3);
         let stake_before: u64 = 1_000_000_000;
+        Delegates::<Test>::insert(hotkey1, 0);
+        Delegates::<Test>::insert(hotkey2, 0);
         register_ok_neuron(netuid, hotkey1, coldkey, 0);
         register_ok_neuron(netuid, hotkey2, coldkey, 0);
         SubtensorModule::set_tao_weight(u64::MAX / 2); // Set TAO weight to 0.5
@@ -708,11 +736,15 @@ fn test_drain_base_with_subnet_with_two_stakers_registered_and_root_different_am
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &coldkey, root);
         // hotkey 1 has (1 + (2 * 0.5))/( 1 + 1*0.5 + 1 + (2 * 0.5)) = 0.5714285714 of the hotkey emission.
         let expected_stake = I96F32::from_num(stake_before)
-            + I96F32::from_num(pending_alpha) * I96F32::from_num(0.5714285714);
+            + I96F32::from_num(pending_alpha)
+                * I96F32::from_num(0.5714285714)
+                * I96F32::from_num(1.0 / 2.0);
         close(expected_stake.to_num::<u64>(), stake_after1, 10);
         // hotkey 2 has (1 + 1*0.5)/( 1 + 1*0.5 + 1 + (2 * 0.5)) = 0.4285714286 of the hotkey emission.
         let expected_stake2 = I96F32::from_num(stake_before)
-            + I96F32::from_num(pending_alpha) * I96F32::from_num(0.4285714286);
+            + I96F32::from_num(pending_alpha)
+                * I96F32::from_num(0.4285714286)
+                * I96F32::from_num(2.0 / 3.0);
         close(expected_stake2.to_num::<u64>(), stake_after2, 10);
         // hotkey 1 has 2 / 3 root tao
         let expected_root1 = I96F32::from_num(2 * stake_before)
@@ -901,7 +933,7 @@ fn test_get_root_children_drain() {
         add_network(alpha, 1, 0);
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
-                                                   // Create keys.
+        // Create keys.
         let cold = U256::from(0);
         let alice = U256::from(1);
         let bob = U256::from(2);
@@ -970,11 +1002,11 @@ fn test_get_root_children_drain() {
         // Alice and Bob both made half of the dividends.
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&alice, alpha),
-            alice_alpha_stake + pending_alpha / 2
+            alice_alpha_stake + pending_alpha / 4
         );
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_on_subnet(&bob, alpha),
-            bob_alpha_stake + pending_alpha / 2
+            bob_alpha_stake + pending_alpha / 4
         );
 
         // Lets drain
@@ -1006,7 +1038,7 @@ fn test_get_root_children_drain() {
         // Bob makes it all.
         assert_eq!(
             AlphaDividendsPerSubnet::<Test>::get(alpha, bob),
-            pending_alpha
+            (I96F32::from_num(pending_alpha) * I96F32::from_num(1.0 - 0.495412844)).to_num::<u64>()
         );
         assert_eq!(TaoDividendsPerSubnet::<Test>::get(alpha, bob), pending_root);
     });
@@ -1023,7 +1055,7 @@ fn test_get_root_children_drain_half_proportion() {
         add_network(alpha, 1, 0);
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
-                                                   // Create keys.
+        // Create keys.
         let cold = U256::from(0);
         let alice = U256::from(1);
         let bob = U256::from(2);
@@ -1083,12 +1115,12 @@ fn test_get_root_children_drain_half_proportion() {
         // Alice and Bob make the same amount.
         close(
             AlphaDividendsPerSubnet::<Test>::get(alpha, alice),
-            pending_alpha / 2,
+            pending_alpha / 4,
             10,
         );
         close(
             AlphaDividendsPerSubnet::<Test>::get(alpha, bob),
-            pending_alpha / 2,
+            pending_alpha / 4,
             10,
         );
     });
@@ -1105,7 +1137,7 @@ fn test_get_root_children_drain_with_take() {
         add_network(alpha, 1, 0);
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
-                                                   // Create keys.
+        // Create keys.
         let cold = U256::from(0);
         let alice = U256::from(1);
         let bob = U256::from(2);
@@ -1165,7 +1197,7 @@ fn test_get_root_children_drain_with_take() {
         close(AlphaDividendsPerSubnet::<Test>::get(alpha, alice), 0, 10);
         close(
             AlphaDividendsPerSubnet::<Test>::get(alpha, bob),
-            pending_alpha,
+            pending_alpha / 2,
             10,
         );
     });
@@ -1182,7 +1214,7 @@ fn test_get_root_children_drain_with_half_take() {
         add_network(alpha, 1, 0);
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
-                                                   // Create keys.
+        // Create keys.
         let cold = U256::from(0);
         let alice = U256::from(1);
         let bob = U256::from(2);
@@ -1241,12 +1273,12 @@ fn test_get_root_children_drain_with_half_take() {
         // Alice and Bob make the same amount.
         close(
             AlphaDividendsPerSubnet::<Test>::get(alpha, alice),
-            pending_alpha / 4,
+            pending_alpha / 8,
             10000,
         );
         close(
             AlphaDividendsPerSubnet::<Test>::get(alpha, bob),
-            3 * (pending_alpha / 4),
+            3 * (pending_alpha / 8),
             10000,
         );
     });

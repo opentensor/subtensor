@@ -3,7 +3,7 @@ use crate::*;
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_core::{Get, U256};
-use substrate_fixed::types::I96F32;
+use substrate_fixed::types::{I96F32, U64F64};
 
 // 1. test_do_move_success
 // Description: Test a successful move of stake between two hotkeys in the same subnet
@@ -245,7 +245,9 @@ fn test_do_move_nonexistent_destination_hotkey() {
         let fee = 0;
 
         // Set up initial stake
-        SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount, fee);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
+        let alpha =
+            SubtensorModule::stake_into_subnet(&origin_hotkey, &coldkey, netuid, stake_amount, fee);
 
         // Attempt to move stake from a non-existent origin hotkey
         add_network(netuid, 1, 0);
@@ -256,12 +258,12 @@ fn test_do_move_nonexistent_destination_hotkey() {
                 nonexistent_destination_hotkey,
                 netuid,
                 netuid,
-                1234
+                alpha
             ),
             Error::<Test>::HotKeyAccountNotExists
         );
 
-        // Check that the stake was moved successfully
+        // Check that the stake was not moved
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &origin_hotkey,
@@ -1639,5 +1641,114 @@ fn test_stake_transfers_disabled_validate() {
         // Submit to the signed extension validate function
         let result3 = extension.validate(&coldkey, &call.clone(), &info, 10);
         assert_ok!(result3);
+    });
+}
+
+#[test]
+// RUST_LOG=info cargo test --package pallet-subtensor --lib -- tests::staking::test_move_stake_specific_stake_into_subnet_fail --exact --show-output
+fn test_move_stake_specific_stake_into_subnet_fail() {
+    new_test_ext(1).execute_with(|| {
+        let sn_owner_coldkey = U256::from(55453);
+
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55454);
+        let hotkey_owner_account_id = U256::from(533454);
+
+        let existing_shares: U64F64 =
+            U64F64::from_num(161_986_254).saturating_div(U64F64::from_num(u64::MAX));
+        let existing_stake = 36_711_495_953;
+
+        let tao_in = 2_409_892_148_947;
+        let alpha_in = 15_358_708_513_716;
+
+        let tao_staked = 200_000_000;
+
+        //add network
+        let netuid: u16 = add_dynamic_network(&sn_owner_coldkey, &sn_owner_coldkey);
+
+        let origin_netuid: u16 = add_dynamic_network(&sn_owner_coldkey, &sn_owner_coldkey);
+
+        // Register hotkey on netuid
+        register_ok_neuron(netuid, hotkey_account_id, hotkey_owner_account_id, 0);
+        // Register hotkey on origin netuid
+        register_ok_neuron(origin_netuid, hotkey_account_id, hotkey_owner_account_id, 0);
+
+        // Check we have zero staked
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            0
+        );
+
+        // Set a hotkey pool for the hotkey on destination subnet
+        let mut hotkey_pool = SubtensorModule::get_alpha_share_pool(hotkey_account_id, netuid);
+        hotkey_pool.update_value_for_one(&hotkey_owner_account_id, 1234); // Doesn't matter, will be overridden
+
+        // Adjust the total hotkey stake and shares to match the existing values
+        TotalHotkeyShares::<Test>::insert(hotkey_account_id, netuid, existing_shares);
+        TotalHotkeyAlpha::<Test>::insert(hotkey_account_id, netuid, existing_stake);
+
+        // Make the hotkey a delegate
+        Delegates::<Test>::insert(hotkey_account_id, 0);
+
+        // Setup Subnet pool
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
+        SubnetTAO::<Test>::insert(netuid, tao_in);
+
+        // Give TAO balance to coldkey
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey_account_id,
+            tao_staked + 1_000_000_000,
+        );
+
+        // Setup Subnet pool for origin netuid
+        SubnetAlphaIn::<Test>::insert(origin_netuid, alpha_in + 10_000_000);
+        SubnetTAO::<Test>::insert(origin_netuid, tao_in + 10_000_000);
+
+        // Add stake as new hotkey
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            origin_netuid,
+            tao_staked,
+        ),);
+        let alpha_to_move = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            origin_netuid,
+        );
+
+        // Move stake to destination subnet
+        assert_ok!(SubtensorModule::move_stake(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            hotkey_account_id,
+            origin_netuid,
+            netuid,
+            alpha_to_move,
+        ));
+
+        // Check that the stake has been moved
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey_account_id,
+                &coldkey_account_id,
+                origin_netuid
+            ),
+            0
+        );
+        let fee = DefaultStakingFee::<Test>::get();
+        let alpha_fee: I96F32 = I96F32::from_num(fee) / SubtensorModule::get_alpha_price(netuid);
+        let expected_value = I96F32::from_num(alpha_to_move)
+            * SubtensorModule::get_alpha_price(origin_netuid)
+            / SubtensorModule::get_alpha_price(netuid);
+        assert_abs_diff_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey_account_id,
+                &coldkey_account_id,
+                netuid
+            ),
+            (expected_value - alpha_fee).to_num::<u64>(),
+            epsilon = (expected_value / 1000).to_num::<u64>()
+        );
     });
 }

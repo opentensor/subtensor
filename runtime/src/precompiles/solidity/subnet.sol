@@ -8,13 +8,13 @@ interface ISubnet {
     /// Registers a new network with specified subnet name, GitHub repository, and contact information.
     function registerNetwork(
         bytes32 hotkey,
-        bytes memory subnetName,
-        bytes memory githubRepo,
-        bytes memory subnetContact,
-        bytes memory subnetUrl,
-        bytes memory discord,
-        bytes memory description,
-        bytes memory additional
+        string memory subnetName,
+        string memory githubRepo,
+        string memory subnetContact,
+        string memory subnetUrl,
+        string memory discord,
+        string memory description,
+        string memory additional
     ) external payable;
 
     function getServingRateLimit(uint16 netuid) external view returns (uint64);
@@ -61,14 +61,14 @@ interface ISubnet {
         uint64 adjustmentAlpha
     ) external payable;
 
-    function getMaxWeightLimit(uint16 netuid) external view returns (uint64);
+    function getMaxWeightLimit(uint16 netuid) external view returns (uint16);
 
     function setMaxWeightLimit(
         uint16 netuid,
-        uint64 maxWeightLimit
+        uint16 maxWeightLimit
     ) external payable;
 
-    function getImmunityPeriod(uint16) external view returns (uint64);
+    function getImmunityPeriod(uint16) external view returns (uint16);
 
     function setImmunityPeriod(
         uint16 netuid,

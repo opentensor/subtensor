@@ -4,18 +4,17 @@ use super::mock::*;
 use crate::*;
 use codec::{Decode, Encode};
 use frame_support::{
-    assert_ok,
+    StorageHasher, Twox64Concat, assert_ok,
     storage::unhashed::{get, get_raw, put, put_raw},
     traits::{StorageInstance, StoredMap},
     weights::Weight,
-    StorageHasher, Twox64Concat,
 };
 use frame_system::Config;
-use sp_core::{crypto::Ss58Codec, H256, U256};
+use sp_core::{H256, U256, crypto::Ss58Codec};
 use sp_io::hashing::twox_128;
 use sp_runtime::traits::Zero;
-use substrate_fixed::types::extra::U2;
 use substrate_fixed::types::I96F32;
+use substrate_fixed::types::extra::U2;
 
 #[allow(clippy::arithmetic_side_effects)]
 fn close(value: u64, target: u64, eps: u64) {
@@ -268,28 +267,28 @@ fn test_migrate_rao() {
             TotalHotkeyShares::<Test>::get(hotkey1, netuid_0),
             2 * stake_amount
         ); // Shares
-           // Assert no shares for hotkey1 on netuid_1
+        // Assert no shares for hotkey1 on netuid_1
         assert_eq!(TotalHotkeyShares::<Test>::get(hotkey1, netuid_1), 0); // No shares
-                                                                          // Assert alpha for hotkey1 on netuid_0
+        // Assert alpha for hotkey1 on netuid_0
         assert_eq!(
             TotalHotkeyAlpha::<Test>::get(hotkey1, netuid_0),
             2 * stake_amount
         ); // Alpha
-           // Assert no alpha for hotkey1 on netuid_1
+        // Assert no alpha for hotkey1 on netuid_1
         assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey1, netuid_1), 0); // No alpha.
-                                                                         // Assert share information for hotkey2 on netuid_0
+        // Assert share information for hotkey2 on netuid_0
         assert_eq!(
             TotalHotkeyShares::<Test>::get(hotkey2, netuid_0),
             2 * stake_amount
         ); // Shares
-           // Assert no shares for hotkey2 on netuid_1
+        // Assert no shares for hotkey2 on netuid_1
         assert_eq!(TotalHotkeyShares::<Test>::get(hotkey2, netuid_1), 0); // No shares
-                                                                          // Assert alpha for hotkey2 on netuid_0
+        // Assert alpha for hotkey2 on netuid_0
         assert_eq!(
             TotalHotkeyAlpha::<Test>::get(hotkey2, netuid_0),
             2 * stake_amount
         ); // Alpha
-           // Assert no alpha for hotkey2 on netuid_1
+        // Assert no alpha for hotkey2 on netuid_1
         assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey2, netuid_1), 0); // No alpha.
 
         // Assert stake balances for hotkey1 and coldkey1 on netuid_0
