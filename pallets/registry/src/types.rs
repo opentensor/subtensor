@@ -16,18 +16,19 @@
 // limitations under the License.
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use enumflags2::{bitflags, BitFlags};
+use enumflags2::{BitFlags, bitflags};
 use frame_support::{
-    traits::{ConstU32, Get},
     BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+    traits::{ConstU32, Get},
 };
 use scale_info::{
+    Path, Type, TypeInfo, TypeParameter,
     build::{Fields, Variants},
-    meta_type, Path, Type, TypeInfo, TypeParameter,
+    meta_type,
 };
 use sp_runtime::{
-    traits::{AppendZerosInput, Zero},
     RuntimeDebug,
+    traits::{AppendZerosInput, Zero},
 };
 use sp_std::{fmt::Debug, iter::once, ops::Add, prelude::*};
 use subtensor_macros::freeze_struct;
@@ -87,16 +88,16 @@ impl Encode for Data {
     fn encode(&self) -> Vec<u8> {
         match self {
             Data::None => vec![0u8; 1],
-            Data::Raw(ref x) => {
+            Data::Raw(x) => {
                 let l = x.len().min(64) as u8;
                 let mut r = vec![l.saturating_add(1)];
                 r.extend_from_slice(&x[..]);
                 r
             }
-            Data::BlakeTwo256(ref h) => once(66u8).chain(h.iter().cloned()).collect(),
-            Data::Sha256(ref h) => once(67u8).chain(h.iter().cloned()).collect(),
-            Data::Keccak256(ref h) => once(68u8).chain(h.iter().cloned()).collect(),
-            Data::ShaThree256(ref h) => once(69u8).chain(h.iter().cloned()).collect(),
+            Data::BlakeTwo256(h) => once(66u8).chain(h.iter().cloned()).collect(),
+            Data::Sha256(h) => once(67u8).chain(h.iter().cloned()).collect(),
+            Data::Keccak256(h) => once(68u8).chain(h.iter().cloned()).collect(),
+            Data::ShaThree256(h) => once(69u8).chain(h.iter().cloned()).collect(),
         }
     }
 }
@@ -385,9 +386,9 @@ pub struct Registration<
 }
 
 impl<
-        Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq + Zero + Add,
-        MaxAdditionalFields: Get<u32>,
-    > Registration<Balance, MaxAdditionalFields>
+    Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq + Zero + Add,
+    MaxAdditionalFields: Get<u32>,
+> Registration<Balance, MaxAdditionalFields>
 {
     pub(crate) fn total_deposit(&self) -> Balance {
         self.deposit
@@ -395,9 +396,9 @@ impl<
 }
 
 impl<
-        Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq,
-        MaxAdditionalFields: Get<u32>,
-    > Decode for Registration<Balance, MaxAdditionalFields>
+    Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq,
+    MaxAdditionalFields: Get<u32>,
+> Decode for Registration<Balance, MaxAdditionalFields>
 {
     fn decode<I: codec::Input>(input: &mut I) -> sp_std::result::Result<Self, codec::Error> {
         let (deposit, info) = Decode::decode(&mut AppendZerosInput::new(input))?;

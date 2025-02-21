@@ -15,8 +15,8 @@
  */
 
 use crate::{
-    mock::*, BeaconConfig, BeaconConfigurationPayload, BeaconInfoResponse, Call, DrandResponseBody,
-    Error, Pulse, Pulses, PulsesPayload, ENDPOINTS, QUICKNET_CHAIN_HASH,
+    BeaconConfig, BeaconConfigurationPayload, BeaconInfoResponse, Call, DrandResponseBody,
+    ENDPOINTS, Error, Pulse, Pulses, PulsesPayload, QUICKNET_CHAIN_HASH, mock::*,
 };
 use codec::Encode;
 use frame_support::{
@@ -26,8 +26,8 @@ use frame_support::{
 use frame_system::RawOrigin;
 use sp_runtime::{
     offchain::{
-        testing::{PendingRequest, TestOffchainExt},
         OffchainWorkerExt,
+        testing::{PendingRequest, TestOffchainExt},
     },
     traits::ValidateUnsigned,
 };

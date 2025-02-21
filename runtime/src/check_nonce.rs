@@ -3,12 +3,12 @@ use frame_support::dispatch::{DispatchInfo, Pays};
 use frame_system::Config;
 use scale_info::TypeInfo;
 use sp_runtime::{
+    Saturating,
     traits::{DispatchInfoOf, Dispatchable, One, SignedExtension, Zero},
     transaction_validity::{
         InvalidTransaction, TransactionLongevity, TransactionValidity, TransactionValidityError,
         ValidTransaction,
     },
-    Saturating,
 };
 use sp_std::vec;
 use subtensor_macros::freeze_struct;

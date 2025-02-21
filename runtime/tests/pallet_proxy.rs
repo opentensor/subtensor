@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used)]
 
 use codec::Encode;
-use frame_support::{assert_ok, traits::InstanceFilter, BoundedVec};
+use frame_support::{BoundedVec, assert_ok, traits::InstanceFilter};
 use node_subtensor_runtime::{
     AccountId, BalancesCall, BuildStorage, Proxy, ProxyType, Runtime, RuntimeCall, RuntimeEvent,
     RuntimeGenesisConfig, RuntimeOrigin, SubtensorModule, System, SystemCall,
@@ -102,9 +102,11 @@ fn call_senate() -> RuntimeCall {
 
 // staking call
 fn call_add_stake() -> RuntimeCall {
+    let netuid = 1;
     let amount_staked = 100;
     RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake {
         hotkey: AccountId::from(DELEGATE),
+        netuid,
         amount_staked,
     })
 }

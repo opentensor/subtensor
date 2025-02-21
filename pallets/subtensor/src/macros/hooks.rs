@@ -72,13 +72,26 @@ mod hooks {
                 // Migrate Delegate Ids on chain
                 .saturating_add(migrations::migrate_chain_identity::migrate_set_hotkey_identities::<T>())
                 // Migrate Commit-Reval 2.0
-                .saturating_add(migrations::migrate_commit_reveal_v2::migrate_commit_reveal_2::<T>());
+                .saturating_add(migrations::migrate_commit_reveal_v2::migrate_commit_reveal_2::<T>())
+                // Migrate to RAO
+                .saturating_add(migrations::migrate_rao::migrate_rao::<T>())
+				// Fix the IsNetworkMember map to be consistent with other storage maps
+				.saturating_add(migrations::migrate_fix_is_network_member::migrate_fix_is_network_member::<T>())
+				.saturating_add(migrations::migrate_subnet_volume::migrate_subnet_volume::<T>())
+                // Upgrade identities to V2
+                .saturating_add(migrations::migrate_identities_v2::migrate_identities_to_v2::<T>())
+				// Set the min burn across all subnets to a new minimum
+				.saturating_add(migrations::migrate_set_min_burn::migrate_set_min_burn::<T>())
+				// Set the min difficulty across all subnets to a new minimum
+				.saturating_add(migrations::migrate_set_min_difficulty::migrate_set_min_difficulty::<T>());
             weight
         }
 
         #[cfg(feature = "try-runtime")]
         fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
-            Self::check_accounting_invariants()?;
+            Self::check_total_issuance()?;
+            // Disabled: https://github.com/opentensor/subtensor/pull/1166
+            // Self::check_total_stake()?;
             Ok(())
         }
     }

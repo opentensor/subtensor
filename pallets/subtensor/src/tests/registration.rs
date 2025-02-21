@@ -3,9 +3,9 @@
 use frame_support::traits::Currency;
 
 use super::mock::*;
-use crate::{AxonInfoOf, Error, SubtensorSignedExtension};
+use crate::{AxonInfoOf, CustomTransactionError, Error, SubtensorSignedExtension};
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
-use frame_support::sp_runtime::{transaction_validity::InvalidTransaction, DispatchError};
+use frame_support::sp_runtime::{DispatchError, transaction_validity::InvalidTransaction};
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
@@ -274,7 +274,10 @@ fn test_registration_rate_limit_exceeded() {
         let result = extension.validate(&who, &call.into(), &info, 10);
 
         // Expectation: The transaction should be rejected
-        assert_err!(result, InvalidTransaction::Custom(5));
+        assert_err!(
+            result,
+            InvalidTransaction::Custom(CustomTransactionError::RateLimitExceeded.into())
+        );
 
         let current_registrants = SubtensorModule::get_registrations_this_interval(netuid);
         assert!(current_registrants <= max_registrants);
@@ -297,7 +300,7 @@ fn test_burned_registration_under_limit() {
         SubtensorModule::set_burn(netuid, burn_cost);
 
         add_network(netuid, 13, 0); // Add the network
-                                    // Give it some TAO to the coldkey balance; more than the burn cost
+        // Give it some TAO to the coldkey balance; more than the burn cost
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, burn_cost + 10_000);
 
         let target_registrants = 2;
@@ -356,7 +359,10 @@ fn test_burned_registration_rate_limit_exceeded() {
             extension.validate(&who, &call_burned_register.into(), &info, 10);
 
         // Expectation: The transaction should be rejected
-        assert_err!(burned_register_result, InvalidTransaction::Custom(5));
+        assert_err!(
+            burned_register_result,
+            InvalidTransaction::Custom(CustomTransactionError::RateLimitExceeded.into())
+        );
 
         let current_registrants = SubtensorModule::get_registrations_this_interval(netuid);
         assert!(current_registrants <= max_registrants);
@@ -377,7 +383,7 @@ fn test_burned_registration_rate_allows_burn_adjustment() {
         SubtensorModule::set_burn(netuid, burn_cost);
 
         add_network(netuid, 13, 0); // Add the network
-                                    // Give it some TAO to the coldkey balance; more than the burn cost
+        // Give it some TAO to the coldkey balance; more than the burn cost
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, burn_cost + 10_000);
 
         let target_registrants = 1; // Target is 1, but we can register more than that, up to some maximum.
@@ -419,7 +425,7 @@ fn test_burned_registration_ok() {
         let hotkey_account_id = U256::from(1);
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
-                                                  //add network
+        //add network
         SubtensorModule::set_burn(netuid, burn_cost);
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance
@@ -435,7 +441,7 @@ fn test_burned_registration_ok() {
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             10000 - burn_cost
         ); // funds drained on reg.
-           // Check if neuron has added to the specified network(netuid)
+        // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
         //check if hotkey is added to the Hotkeys
         assert_eq!(
@@ -466,7 +472,7 @@ fn test_burn_registration_without_neuron_slot() {
         let hotkey_account_id = U256::from(1);
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
-                                                  //add network
+        //add network
         SubtensorModule::set_burn(netuid, burn_cost);
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance
@@ -481,6 +487,46 @@ fn test_burn_registration_without_neuron_slot() {
             ),
             Error::<Test>::NoNeuronIdAvailable
         );
+    });
+}
+
+#[test]
+fn test_burn_registration_doesnt_write_on_failure() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+        let hotkey_account_id = U256::from(1);
+        let burn_cost = 1000;
+        let initial_balance = burn_cost * 10;
+        let coldkey_account_id = U256::from(987);
+
+        // Add network and set burn cost
+        add_network(netuid, tempo, 0);
+        SubtensorModule::set_burn(netuid, burn_cost);
+        // Give coldkey balance to pay for registration
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, initial_balance);
+        // Set max allowed uids to 0 so registration will fail, but only on last check.
+        SubtensorModule::set_max_allowed_uids(netuid, 0);
+
+        // We expect this to fail at the last ensure check.
+        assert_err!(
+            SubtensorModule::burned_register(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                netuid,
+                hotkey_account_id
+            ),
+            Error::<Test>::NoNeuronIdAvailable
+        );
+
+        // Make sure the coldkey balance is unchanged.
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id),
+            initial_balance
+        );
+        // Make sure the neuron is not registered.
+        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 0);
+        // Make sure the hotkey is not registered.
+        assert!(SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).is_err());
     });
 }
 
@@ -1030,7 +1076,7 @@ fn test_registration_too_many_registrations_per_interval() {
 
 #[test]
 fn test_registration_immunity_period() { //impl this test when epoch impl and calculating pruning score is done
-                                         /* TO DO */
+    // TODO: Implement this test
 }
 
 #[test]
@@ -1211,7 +1257,7 @@ fn test_registration_get_uid_to_prune_all_in_immunity_period() {
     new_test_ext(1).execute_with(|| {
         System::set_block_number(0);
         let netuid: u16 = 1;
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         log::info!("add network");
         register_ok_neuron(netuid, U256::from(0), U256::from(0), 39420842);
         register_ok_neuron(netuid, U256::from(1), U256::from(1), 12412392);
@@ -1235,7 +1281,7 @@ fn test_registration_get_uid_to_prune_none_in_immunity_period() {
     new_test_ext(1).execute_with(|| {
         System::set_block_number(0);
         let netuid: u16 = 1;
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         log::info!("add network");
         register_ok_neuron(netuid, U256::from(0), U256::from(0), 39420842);
         register_ok_neuron(netuid, U256::from(1), U256::from(1), 12412392);
@@ -1513,6 +1559,12 @@ fn test_full_pass_through() {
         add_network(netuid0, tempo0, 0);
         add_network(netuid1, tempo1, 0);
         add_network(netuid2, tempo2, 0);
+
+        // owners are not deregisterd
+        let dummy_owner = U256::from(99999);
+        crate::SubnetOwner::<Test>::insert(netuid0, dummy_owner);
+        crate::SubnetOwner::<Test>::insert(netuid1, dummy_owner);
+        crate::SubnetOwner::<Test>::insert(netuid2, dummy_owner);
 
         // Check their tempo.
         assert_eq!(SubtensorModule::get_tempo(netuid0), tempo0);

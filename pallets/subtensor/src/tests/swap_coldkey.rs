@@ -7,44 +7,44 @@ use frame_system::{Config, RawOrigin};
 use super::mock::*;
 use crate::*;
 use crate::{Call, ColdkeySwapScheduleDuration, Error};
+use approx::assert_abs_diff_eq;
 use frame_support::error::BadOrigin;
-use frame_support::traits::schedule::v3::Named as ScheduleNamed;
-use frame_support::traits::schedule::DispatchTime;
 use frame_support::traits::OnInitialize;
-use sp_core::H256;
-use sp_core::U256;
+use frame_support::traits::schedule::DispatchTime;
+use frame_support::traits::schedule::v3::Named as ScheduleNamed;
+use sp_core::{Get, H256, U256};
 use sp_runtime::DispatchError;
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_total_hotkey_coldkey_stakes_this_interval --exact --nocapture
-#[test]
-fn test_swap_total_hotkey_coldkey_stakes_this_interval() {
-    new_test_ext(1).execute_with(|| {
-        let old_coldkey = U256::from(1);
-        let new_coldkey = U256::from(2);
-        let hotkey = U256::from(3);
-        let stake = 100;
-        let block = 42;
+// // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_total_hotkey_coldkey_stakes_this_interval --exact --nocapture
+// #[test]
+// fn test_swap_total_hotkey_coldkey_stakes_this_interval() {
+//     new_test_ext(1).execute_with(|| {
+//         let old_coldkey = U256::from(1);
+//         let new_coldkey = U256::from(2);
+//         let hotkey = U256::from(3);
+//         let stake = 100;
+//         let block = 42;
 
-        OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
-        TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(hotkey, old_coldkey, (stake, block));
+//         OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
+//         TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(hotkey, old_coldkey, (stake, block));
 
-        let mut weight = Weight::zero();
-        assert_ok!(SubtensorModule::perform_swap_coldkey(
-            &old_coldkey,
-            &new_coldkey,
-            &mut weight
-        ));
+//         let mut weight = Weight::zero();
+//         assert_ok!(SubtensorModule::perform_swap_coldkey(
+//             &old_coldkey,
+//             &new_coldkey,
+//             &mut weight
+//         ));
 
-        assert!(!TotalHotkeyColdkeyStakesThisInterval::<Test>::contains_key(
-            hotkey,
-            old_coldkey
-        ));
-        assert_eq!(
-            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(hotkey, new_coldkey),
-            (stake, block)
-        );
-    });
-}
+//         assert!(!TotalHotkeyColdkeyStakesThisInterval::<Test>::contains_key(
+//             hotkey,
+//             old_coldkey
+//         ));
+//         assert_eq!(
+//             TotalHotkeyColdkeyStakesThisInterval::<Test>::get(hotkey, new_coldkey),
+//             (stake, block)
+//         );
+//     });
+// }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_subnet_owner --exact --nocapture
 #[test]
@@ -91,15 +91,36 @@ fn test_swap_stake() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_total_coldkey_stake --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_swap_total_coldkey_stake --exact --show-output
 #[test]
 fn test_swap_total_coldkey_stake() {
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
-        let stake = 100;
+        let other_coldkey = U256::from(3);
+        let hotkey = U256::from(4);
+        let other_hotkey = U256::from(5);
+        let stake = DefaultMinStake::<Test>::get() * 10;
 
-        TotalColdkeyStake::<Test>::insert(old_coldkey, stake);
+        let netuid = 1u16;
+        add_network(netuid, 1, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, stake * 2 + 1_000);
+        register_ok_neuron(netuid, hotkey, old_coldkey, 1001000);
+        register_ok_neuron(netuid, other_hotkey, other_coldkey, 1001000);
+
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+            hotkey,
+            netuid,
+            stake
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+            other_hotkey,
+            netuid,
+            stake
+        ));
+        let total_stake_before_swap = SubtensorModule::get_total_stake_for_coldkey(&old_coldkey);
 
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
@@ -108,8 +129,14 @@ fn test_swap_total_coldkey_stake() {
             &mut weight
         ));
 
-        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
-        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), stake);
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
+            total_stake_before_swap
+        );
     });
 }
 
@@ -180,7 +207,7 @@ fn test_transfer_remaining_balance() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_with_no_stake --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_swap_with_no_stake --exact --show-output
 #[test]
 fn test_swap_with_no_stake() {
     new_test_ext(1).execute_with(|| {
@@ -194,8 +221,14 @@ fn test_swap_with_no_stake() {
             &mut weight
         ));
 
-        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
-        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), 0);
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
+            0
+        );
     });
 }
 
@@ -270,15 +303,30 @@ fn test_swap_with_zero_balance() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_idempotency --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_swap_idempotency --exact --show-output
 #[test]
 fn test_swap_idempotency() {
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
-        let stake = 100;
+        let hotkey = U256::from(3);
+        let netuid = 1u16;
+        let stake = DefaultMinStake::<Test>::get() * 10;
 
-        TotalColdkeyStake::<Test>::insert(old_coldkey, stake);
+        // Add a network
+        add_network(netuid, 1, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, stake); // Give old coldkey some balance
+        // Stake to a hotkey
+        register_ok_neuron(netuid, hotkey, old_coldkey, 1001000);
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+            hotkey,
+            netuid,
+            stake
+        ));
+
+        // Get stake before swap
+        let stake_before_swap = SubtensorModule::get_total_stake_for_coldkey(&old_coldkey);
 
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
@@ -292,20 +340,60 @@ fn test_swap_idempotency() {
             &mut weight
         ));
 
-        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
-        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), stake);
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
+            stake_before_swap
+        );
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_with_max_values --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_swap_with_max_values --exact --show-output
 #[test]
 fn test_swap_with_max_values() {
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
-        let max_stake = u64::MAX;
+        let old_coldkey2 = U256::from(3);
+        let new_coldkey2 = U256::from(4);
+        let hotkey = U256::from(5);
+        let hotkey2 = U256::from(6);
+        let other_coldkey = U256::from(7);
+        let netuid = 1u16;
+        let netuid2 = 2u16;
+        let stake = 10_000;
+        let max_stake = 21_000_000_000_000_000; // 21 Million TAO; max possible balance.
+        let fee = DefaultStakingFee::<Test>::get();
 
-        TotalColdkeyStake::<Test>::insert(old_coldkey, max_stake);
+        // Add a network
+        add_network(netuid, 1, 0);
+        add_network(netuid2, 1, 0);
+
+        // Register hotkey on each subnet.
+        // hotkey2 is owned by other_coldkey.
+        register_ok_neuron(netuid, hotkey, old_coldkey, 1001000);
+        register_ok_neuron(netuid2, hotkey2, other_coldkey, 1001000);
+
+        // Give balance to old_coldkey and old_coldkey2.
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, max_stake + 1_000);
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey2, max_stake + 1_000);
+
+        // Stake to hotkey on each subnet.
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+            hotkey,
+            netuid,
+            max_stake
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(old_coldkey2),
+            hotkey2,
+            netuid2,
+            max_stake
+        ));
 
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
@@ -313,21 +401,53 @@ fn test_swap_with_max_values() {
             &new_coldkey,
             &mut weight
         ));
+        assert_ok!(SubtensorModule::perform_swap_coldkey(
+            &old_coldkey2,
+            &new_coldkey2,
+            &mut weight
+        ));
 
-        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
-        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), max_stake);
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
+            max_stake - fee
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey2),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey2),
+            max_stake - fee
+        );
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_with_non_existent_new_coldkey --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_swap_with_non_existent_new_coldkey --exact --show-output
 #[test]
 fn test_swap_with_non_existent_new_coldkey() {
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
-        let stake = 100;
+        let hotkey = U256::from(3);
+        let stake = DefaultMinStake::<Test>::get() * 10;
+        let netuid = 1u16;
+        let fee = DefaultStakingFee::<Test>::get();
 
-        TotalColdkeyStake::<Test>::insert(old_coldkey, stake);
+        add_network(netuid, 1, 0);
+        register_ok_neuron(netuid, hotkey, old_coldkey, 1001000);
+        // Give old coldkey some balance.
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, stake + 1_000);
+        // Stake to hotkey.
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+            hotkey,
+            netuid,
+            stake
+        ));
 
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
@@ -336,31 +456,14 @@ fn test_swap_with_non_existent_new_coldkey() {
             &mut weight
         ));
 
-        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
-        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), stake);
-    });
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_with_overflow_in_stake_addition --exact --nocapture
-#[test]
-fn test_swap_with_overflow_in_stake_addition() {
-    new_test_ext(1).execute_with(|| {
-        let old_coldkey = U256::from(1);
-        let new_coldkey = U256::from(2);
-        let max_stake = u64::MAX;
-
-        TotalColdkeyStake::<Test>::insert(old_coldkey, max_stake);
-        TotalColdkeyStake::<Test>::insert(new_coldkey, 1);
-
-        let mut weight = Weight::zero();
-        assert_ok!(SubtensorModule::perform_swap_coldkey(
-            &old_coldkey,
-            &new_coldkey,
-            &mut weight
-        ));
-
-        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
-        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), max_stake);
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
+            stake - fee
+        );
     });
 }
 
@@ -395,7 +498,7 @@ fn test_swap_effect_on_delegated_stake() {
         let new_coldkey = U256::from(2);
         let delegator = U256::from(3);
         let hotkey = U256::from(4);
-        let stake = 100;
+        let stake = 10_000;
 
         StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
         StakingHotkeys::<Test>::insert(delegator, vec![hotkey]);
@@ -415,7 +518,7 @@ fn test_swap_effect_on_delegated_stake() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_concurrent_modifications --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_swap_concurrent_modifications --exact --show-output
 #[test]
 fn test_swap_concurrent_modifications() {
     new_test_ext(1).execute_with(|| {
@@ -423,19 +526,49 @@ fn test_swap_concurrent_modifications() {
         let new_coldkey = U256::from(2);
         let hotkey = U256::from(3);
         let netuid: u16 = 1;
-        let initial_stake = 100;
-        let additional_stake = 50;
+        let initial_stake = 1_000_000_000_000;
+        let additional_stake = 500_000_000_000;
+        let fee = DefaultStakingFee::<Test>::get();
 
-        StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
-        Stake::<Test>::insert(hotkey, old_coldkey, initial_stake);
-
-        // Simulate concurrent stake addition
+        // Setup initial state
         add_network(netuid, 1, 1);
-        SubtensorModule::add_balance_to_coldkey_account(&new_coldkey, additional_stake);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &new_coldkey,
+            initial_stake + additional_stake + 1_000_000,
+        );
         register_ok_neuron(netuid, hotkey, new_coldkey, 1001000);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(new_coldkey),
             hotkey,
+            netuid,
+            initial_stake
+        ));
+
+        // Verify initial stake
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &new_coldkey,
+                netuid
+            ),
+            initial_stake - fee
+        );
+
+        // Wait some blocks
+        step_block(10);
+
+        // Get stake before swap
+        let stake_before_swap = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &new_coldkey,
+            netuid,
+        );
+
+        // Simulate concurrent stake addition
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(new_coldkey),
+            hotkey,
+            netuid,
             additional_stake
         ));
 
@@ -446,11 +579,17 @@ fn test_swap_concurrent_modifications() {
             &mut weight
         ));
 
-        assert_eq!(
-            Stake::<Test>::get(hotkey, new_coldkey),
-            initial_stake + additional_stake - 1
+        let eps = 500; // RAO
+        assert_abs_diff_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &new_coldkey,
+                netuid
+            ),
+            stake_before_swap + additional_stake - fee,
+            epsilon = eps
         );
-        assert!(!Stake::<Test>::contains_key(hotkey, old_coldkey));
+        assert!(!Alpha::<Test>::contains_key((hotkey, old_coldkey, netuid)));
     });
 }
 
@@ -479,6 +618,7 @@ fn test_swap_with_invalid_subnet_ownership() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_do_swap_coldkey_success --exact --show-output
 #[test]
 fn test_do_swap_coldkey_success() {
     new_test_ext(1).execute_with(|| {
@@ -487,8 +627,8 @@ fn test_do_swap_coldkey_success() {
         let hotkey1 = U256::from(3);
         let hotkey2 = U256::from(4);
         let netuid = 1u16;
-        let stake_amount1 = 1000u64;
-        let stake_amount2 = 2000u64;
+        let stake_amount1 = DefaultMinStake::<Test>::get() * 10;
+        let stake_amount2 = DefaultMinStake::<Test>::get() * 20;
         let swap_cost = SubtensorModule::get_key_swap_cost();
         let free_balance_old = 12345u64 + swap_cost;
 
@@ -521,29 +661,32 @@ fn test_do_swap_coldkey_success() {
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
             hotkey1,
+            netuid,
             stake_amount1
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
             hotkey2,
+            netuid,
             stake_amount2
         ));
 
         // Insert an Identity
         let name: Vec<u8> = b"The fourth Coolest Identity".to_vec();
-        let identity: ChainIdentity = ChainIdentity {
+        let identity: ChainIdentityV2 = ChainIdentityV2 {
             name: name.clone(),
             url: vec![],
+            github_repo: vec![],
             image: vec![],
             discord: vec![],
             description: vec![],
             additional: vec![],
         };
 
-        Identities::<Test>::insert(old_coldkey, identity.clone());
+        IdentitiesV2::<Test>::insert(old_coldkey, identity.clone());
 
-        assert!(Identities::<Test>::get(old_coldkey).is_some());
-        assert!(Identities::<Test>::get(new_coldkey).is_none());
+        assert!(IdentitiesV2::<Test>::get(old_coldkey).is_some());
+        assert!(IdentitiesV2::<Test>::get(new_coldkey).is_none());
 
         // Log state after adding stake
         log::info!(
@@ -562,11 +705,16 @@ fn test_do_swap_coldkey_success() {
         // Record total stake before swap
         let total_stake_before_swap = SubtensorModule::get_total_stake();
 
+        let hk1_alpha = Alpha::<Test>::get((hotkey1, old_coldkey, netuid));
+        let hk2_alpha = Alpha::<Test>::get((hotkey2, old_coldkey, netuid));
+        let total_ck_stake = SubtensorModule::get_total_stake_for_coldkey(&old_coldkey);
+
         // Perform the swap
         assert_ok!(SubtensorModule::do_swap_coldkey(
             // <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
             &old_coldkey,
-            &new_coldkey
+            &new_coldkey,
+            swap_cost
         ));
 
         // Log state after swap
@@ -587,14 +735,23 @@ fn test_do_swap_coldkey_success() {
         assert_eq!(Owner::<Test>::get(hotkey1), new_coldkey);
         assert_eq!(Owner::<Test>::get(hotkey2), new_coldkey);
         assert_eq!(
-            TotalColdkeyStake::<Test>::get(new_coldkey),
-            stake_amount1 + stake_amount2
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
+            total_ck_stake
         );
-        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
-        assert_eq!(Stake::<Test>::get(hotkey1, new_coldkey), stake_amount1);
-        assert_eq!(Stake::<Test>::get(hotkey2, new_coldkey), stake_amount2);
-        assert!(!Stake::<Test>::contains_key(hotkey1, old_coldkey));
-        assert!(!Stake::<Test>::contains_key(hotkey2, old_coldkey));
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey),
+            0
+        );
+        assert_eq!(
+            Alpha::<Test>::get((hotkey1, new_coldkey, netuid)),
+            hk1_alpha
+        );
+        assert_eq!(
+            Alpha::<Test>::get((hotkey2, new_coldkey, netuid)),
+            hk2_alpha
+        );
+        assert!(!Alpha::<Test>::contains_key((hotkey1, old_coldkey, netuid)));
+        assert!(!Alpha::<Test>::contains_key((hotkey2, old_coldkey, netuid)));
 
         // Verify OwnedHotkeys
         let new_owned_hotkeys = OwnedHotkeys::<Test>::get(new_coldkey);
@@ -618,10 +775,10 @@ fn test_do_swap_coldkey_success() {
         );
 
         // Verify identities were swapped
-        assert!(Identities::<Test>::get(old_coldkey).is_none());
-        assert!(Identities::<Test>::get(new_coldkey).is_some());
+        assert!(IdentitiesV2::<Test>::get(old_coldkey).is_none());
+        assert!(IdentitiesV2::<Test>::get(new_coldkey).is_some());
         assert_eq!(
-            Identities::<Test>::get(new_coldkey).expect("Expected an Identity"),
+            IdentitiesV2::<Test>::get(new_coldkey).expect("Expected an Identity"),
             identity
         );
 
@@ -630,13 +787,14 @@ fn test_do_swap_coldkey_success() {
             Event::ColdkeySwapped {
                 old_coldkey,
                 new_coldkey,
+                swap_cost,
             }
             .into(),
         );
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_stake_for_coldkey --exact --nocaptur
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_swap_stake_for_coldkey --exact --show-output
 #[test]
 fn test_swap_stake_for_coldkey() {
     new_test_ext(1).execute_with(|| {
@@ -644,43 +802,87 @@ fn test_swap_stake_for_coldkey() {
         let new_coldkey = U256::from(2);
         let hotkey1 = U256::from(3);
         let hotkey2 = U256::from(4);
-        let stake_amount1 = 1000u64;
-        let stake_amount2 = 2000u64;
-        let stake_amount3 = 3000u64;
+        let stake_amount1 = DefaultMinStake::<Test>::get() * 10;
+        let stake_amount2 = DefaultMinStake::<Test>::get() * 20;
+        let stake_amount3 = DefaultMinStake::<Test>::get() * 30;
         let total_stake = stake_amount1 + stake_amount2;
         let mut weight = Weight::zero();
+        let fee = DefaultStakingFee::<Test>::get();
 
         // Setup initial state
-        OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
-        StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
-        Stake::<Test>::insert(hotkey1, old_coldkey, stake_amount1);
-        Stake::<Test>::insert(hotkey2, old_coldkey, stake_amount2);
-        assert_eq!(Stake::<Test>::get(hotkey1, old_coldkey), stake_amount1);
-        assert_eq!(Stake::<Test>::get(hotkey1, old_coldkey), stake_amount1);
+        // Add a network
+        let netuid = 1u16;
+        add_network(netuid, 1, 0);
+
+        // Register hotkeys
+        register_ok_neuron(netuid, hotkey1, old_coldkey, 0);
+        register_ok_neuron(netuid, hotkey2, old_coldkey, 0);
+        // Give some balance to old coldkey
+        SubtensorModule::add_balance_to_coldkey_account(
+            &old_coldkey,
+            stake_amount1 + stake_amount2 + 1_000_000,
+        );
+
+        // Stake to hotkeys
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+            hotkey1,
+            netuid,
+            stake_amount1
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+            hotkey2,
+            netuid,
+            stake_amount2
+        ));
+
+        // Verify stakes
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1,
+                &old_coldkey,
+                netuid
+            ),
+            stake_amount1 - fee
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey2,
+                &old_coldkey,
+                netuid
+            ),
+            stake_amount2 - fee
+        );
 
         // Insert existing for same hotkey1
-        Stake::<Test>::insert(hotkey1, new_coldkey, stake_amount3);
-        StakingHotkeys::<Test>::insert(new_coldkey, vec![hotkey1]);
-
-        TotalHotkeyStake::<Test>::insert(hotkey1, stake_amount1);
-        TotalHotkeyStake::<Test>::insert(hotkey2, stake_amount2);
-        TotalColdkeyStake::<Test>::insert(old_coldkey, total_stake);
-
-        // Set up total issuance
-        TotalIssuance::<Test>::put(total_stake);
-        TotalStake::<Test>::put(total_stake);
+        // give new coldkey some balance
+        SubtensorModule::add_balance_to_coldkey_account(&new_coldkey, stake_amount3 + 1_000_000);
+        // Stake to hotkey1
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(new_coldkey),
+            hotkey1,
+            netuid,
+            stake_amount3
+        ));
 
         // Record initial values
         let initial_total_issuance = SubtensorModule::get_total_issuance();
         let initial_total_stake = SubtensorModule::get_total_stake();
+        let initial_total_stake_for_old_coldkey =
+            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey);
+        let initial_total_stake_for_new_coldkey =
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey);
+        let initial_total_hotkey1_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey1);
+        let initial_total_hotkey2_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey2);
 
         // Perform the swap
         SubtensorModule::perform_swap_coldkey(&old_coldkey, &new_coldkey, &mut weight);
 
         // Verify stake is additive, not replaced
         assert_eq!(
-            Stake::<Test>::get(hotkey1, new_coldkey),
-            stake_amount1 + stake_amount3
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
+            initial_total_stake_for_old_coldkey + initial_total_stake_for_new_coldkey
         );
 
         // Verify ownership transfer
@@ -691,17 +893,48 @@ fn test_swap_stake_for_coldkey() {
         assert_eq!(SubtensorModule::get_owned_hotkeys(&old_coldkey), vec![]);
 
         // Verify stake transfer
-        assert_eq!(Stake::<Test>::get(hotkey2, new_coldkey), stake_amount2);
-        assert_eq!(Stake::<Test>::get(hotkey1, old_coldkey), 0);
-        assert_eq!(Stake::<Test>::get(hotkey2, old_coldkey), 0);
-
-        // Verify TotalColdkeyStake
-        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), total_stake);
-        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1,
+                &new_coldkey,
+                netuid
+            ),
+            stake_amount1 + stake_amount3 - fee * 2
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey2,
+                &new_coldkey,
+                netuid
+            ),
+            stake_amount2 - fee
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1,
+                &old_coldkey,
+                netuid
+            ),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey2,
+                &old_coldkey,
+                netuid
+            ),
+            0
+        );
 
         // Verify TotalHotkeyStake remains unchanged
-        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey1), stake_amount1);
-        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey2), stake_amount2);
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey1),
+            initial_total_hotkey1_stake
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey2),
+            initial_total_hotkey2_stake
+        );
 
         // Verify total stake and issuance remain unchanged
         assert_eq!(
@@ -717,31 +950,65 @@ fn test_swap_stake_for_coldkey() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap_coldkey -- test_swap_staking_hotkeys_for_coldkey --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_swap_staking_hotkeys_for_coldkey --exact --show-output
 #[test]
 fn test_swap_staking_hotkeys_for_coldkey() {
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
-        let hotkey1 = U256::from(3);
-        let hotkey2 = U256::from(4);
-        let stake_amount1 = 1000u64;
-        let stake_amount2 = 2000u64;
+        let other_coldkey = U256::from(3);
+        let hotkey1 = U256::from(4);
+        let hotkey2 = U256::from(5);
+        let stake_amount1 = DefaultMinStake::<Test>::get() * 10;
+        let stake_amount2 = DefaultMinStake::<Test>::get() * 20;
         let total_stake = stake_amount1 + stake_amount2;
         let mut weight = Weight::zero();
+        let fee = DefaultStakingFee::<Test>::get();
 
         // Setup initial state
-        OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
-        Stake::<Test>::insert(hotkey1, old_coldkey, stake_amount1);
-        Stake::<Test>::insert(hotkey2, old_coldkey, stake_amount2);
-        StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
-        TotalHotkeyStake::<Test>::insert(hotkey1, stake_amount1);
-        TotalHotkeyStake::<Test>::insert(hotkey2, stake_amount2);
-        TotalColdkeyStake::<Test>::insert(old_coldkey, total_stake);
+        // Add a network
+        let netuid = 1u16;
+        add_network(netuid, 1, 0);
+        // Give some balance to old coldkey
+        SubtensorModule::add_balance_to_coldkey_account(
+            &old_coldkey,
+            stake_amount1 + stake_amount2 + 1_000_000,
+        );
+        // Register hotkeys
+        register_ok_neuron(netuid, hotkey1, old_coldkey, 0);
+        register_ok_neuron(netuid, hotkey2, other_coldkey, 0);
 
-        // Set up total issuance
-        TotalIssuance::<Test>::put(total_stake);
-        TotalStake::<Test>::put(total_stake);
+        // Stake to hotkeys
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+            hotkey1,
+            netuid,
+            stake_amount1
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+            hotkey2,
+            netuid,
+            stake_amount2
+        ));
+
+        // Verify stakes
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1,
+                &old_coldkey,
+                netuid
+            ),
+            stake_amount1 - fee
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey2,
+                &old_coldkey,
+                netuid
+            ),
+            stake_amount2 - fee
+        );
 
         // Perform the swap
         SubtensorModule::perform_swap_coldkey(&old_coldkey, &new_coldkey, &mut weight);
@@ -755,54 +1022,120 @@ fn test_swap_staking_hotkeys_for_coldkey() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap_coldkey -- test_swap_delegated_stake_for_coldkey --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_swap_delegated_stake_for_coldkey --exact --show-output
 #[test]
 fn test_swap_delegated_stake_for_coldkey() {
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
-        let hotkey1 = U256::from(3);
-        let hotkey2 = U256::from(4);
-        let stake_amount1 = 1000u64;
-        let stake_amount2 = 2000u64;
-        let total_stake = stake_amount1 + stake_amount2;
+        let other_coldkey = U256::from(3);
+        let hotkey1 = U256::from(4);
+        let hotkey2 = U256::from(5);
+        let stake_amount1 = DefaultMinStake::<Test>::get() * 10;
+        let stake_amount2 = DefaultMinStake::<Test>::get() * 20;
         let mut weight = Weight::zero();
-
-        // Notice hotkey1 and hotkey2 are not in OwnedHotkeys
-        // coldkey therefore delegates stake to them
+        let netuid = 1u16;
+        let fee = DefaultStakingFee::<Test>::get();
 
         // Setup initial state
-        StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
-        Stake::<Test>::insert(hotkey1, old_coldkey, stake_amount1);
-        Stake::<Test>::insert(hotkey2, old_coldkey, stake_amount2);
-        TotalHotkeyStake::<Test>::insert(hotkey1, stake_amount1);
-        TotalHotkeyStake::<Test>::insert(hotkey2, stake_amount2);
-        TotalColdkeyStake::<Test>::insert(old_coldkey, total_stake);
+        add_network(netuid, 1, 0);
+        register_ok_neuron(netuid, hotkey1, other_coldkey, 0);
+        register_ok_neuron(netuid, hotkey2, other_coldkey, 0);
 
-        // Set up total issuance
-        TotalIssuance::<Test>::put(total_stake);
-        TotalStake::<Test>::put(total_stake);
+        // Notice hotkey1 and hotkey2 are Owned by other_coldkey
+        // old_coldkey and new_coldkey therefore delegates stake to them
+        // === Give old_coldkey some balance ===
+        SubtensorModule::add_balance_to_coldkey_account(
+            &old_coldkey,
+            stake_amount1 + stake_amount2 + 1_000_000,
+        );
+        // === Stake to hotkeys ===
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+            hotkey1,
+            netuid,
+            stake_amount1
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+            hotkey2,
+            netuid,
+            stake_amount2
+        ));
 
         // Record initial values
         let initial_total_issuance = SubtensorModule::get_total_issuance();
         let initial_total_stake = SubtensorModule::get_total_stake();
+        let coldkey_stake = SubtensorModule::get_total_stake_for_coldkey(&old_coldkey);
+        let stake_coldkey_hotkey1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey1,
+            &old_coldkey,
+            netuid,
+        );
+        let stake_coldkey_hotkey2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey2,
+            &old_coldkey,
+            netuid,
+        );
+        let total_hotkey1_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey1);
+        let total_hotkey2_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey2);
 
         // Perform the swap
         SubtensorModule::perform_swap_coldkey(&old_coldkey, &new_coldkey, &mut weight);
 
         // Verify stake transfer
-        assert_eq!(Stake::<Test>::get(hotkey1, new_coldkey), stake_amount1);
-        assert_eq!(Stake::<Test>::get(hotkey2, new_coldkey), stake_amount2);
-        assert_eq!(Stake::<Test>::get(hotkey1, old_coldkey), 0);
-        assert_eq!(Stake::<Test>::get(hotkey2, old_coldkey), 0);
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1,
+                &new_coldkey,
+                netuid
+            ),
+            stake_amount1 - fee
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey2,
+                &new_coldkey,
+                netuid
+            ),
+            stake_amount2 - fee
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey1,
+                &old_coldkey,
+                netuid
+            ),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey2,
+                &old_coldkey,
+                netuid
+            ),
+            0
+        );
 
         // Verify TotalColdkeyStake
-        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), total_stake);
-        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
+            coldkey_stake
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey),
+            0
+        );
 
         // Verify TotalHotkeyStake remains unchanged
-        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey1), stake_amount1);
-        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey2), stake_amount2);
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey1),
+            total_hotkey1_stake
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey2),
+            total_hotkey2_stake
+        );
 
         // Verify total stake and issuance remain unchanged
         assert_eq!(
@@ -815,48 +1148,6 @@ fn test_swap_delegated_stake_for_coldkey() {
             initial_total_issuance,
             "Total issuance changed unexpectedly"
         );
-    });
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap_coldkey -- test_swap_total_hotkey_coldkey_stakes_this_interval_for_coldkey --exact --nocapture
-#[test]
-fn test_swap_total_hotkey_coldkey_stakes_this_interval_for_coldkey() {
-    new_test_ext(1).execute_with(|| {
-        let old_coldkey = U256::from(1);
-        let new_coldkey = U256::from(2);
-        let hotkey1 = U256::from(3);
-        let hotkey2 = U256::from(4);
-        let stake1 = (1000u64, 100u64);
-        let stake2 = (2000u64, 200u64);
-        let mut weight = Weight::zero();
-
-        // Initialize TotalHotkeyColdkeyStakesThisInterval for old_coldkey
-        TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(hotkey1, old_coldkey, stake1);
-        TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(hotkey2, old_coldkey, stake2);
-
-        // Populate OwnedHotkeys map
-        OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
-
-        // Perform the swap
-        SubtensorModule::perform_swap_coldkey(&old_coldkey, &new_coldkey, &mut weight);
-
-        // Verify the swap
-        assert_eq!(
-            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(hotkey1, new_coldkey),
-            stake1
-        );
-        assert_eq!(
-            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(hotkey2, new_coldkey),
-            stake2
-        );
-        assert!(!TotalHotkeyColdkeyStakesThisInterval::<Test>::contains_key(
-            old_coldkey,
-            hotkey1
-        ));
-        assert!(!TotalHotkeyColdkeyStakesThisInterval::<Test>::contains_key(
-            old_coldkey,
-            hotkey2
-        ));
     });
 }
 
@@ -913,7 +1204,11 @@ fn test_do_swap_coldkey_with_subnet_ownership() {
         OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
 
         // Perform the swap
-        assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey));
+        assert_ok!(SubtensorModule::do_swap_coldkey(
+            &old_coldkey,
+            &new_coldkey,
+            swap_cost
+        ));
 
         // Verify subnet ownership transfer
         assert_eq!(SubnetOwner::<Test>::get(netuid), new_coldkey);
@@ -934,7 +1229,7 @@ fn test_coldkey_has_associated_hotkeys() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap_coldkey -- test_coldkey_swap_total --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_coldkey_swap_total --exact --show-output
 #[test]
 fn test_coldkey_swap_total() {
     new_test_ext(1).execute_with(|| {
@@ -951,13 +1246,14 @@ fn test_coldkey_swap_total() {
         let netuid1 = 1u16;
         let netuid2 = 2u16;
         let netuid3 = 3u16;
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1000);
-        SubtensorModule::add_balance_to_coldkey_account(&delegate1, 1000);
-        SubtensorModule::add_balance_to_coldkey_account(&delegate2, 1000);
-        SubtensorModule::add_balance_to_coldkey_account(&delegate3, 1000);
-        SubtensorModule::add_balance_to_coldkey_account(&nominator1, 1000);
-        SubtensorModule::add_balance_to_coldkey_account(&nominator2, 1000);
-        SubtensorModule::add_balance_to_coldkey_account(&nominator3, 1000);
+        let stake = DefaultMinStake::<Test>::get() * 10;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake * 6);
+        SubtensorModule::add_balance_to_coldkey_account(&delegate1, stake * 2);
+        SubtensorModule::add_balance_to_coldkey_account(&delegate2, stake * 2);
+        SubtensorModule::add_balance_to_coldkey_account(&delegate3, stake * 2);
+        SubtensorModule::add_balance_to_coldkey_account(&nominator1, stake * 2);
+        SubtensorModule::add_balance_to_coldkey_account(&nominator2, stake * 2);
+        SubtensorModule::add_balance_to_coldkey_account(&nominator3, stake * 2);
 
         // Setup initial state
         add_network(netuid1, 13, 0);
@@ -969,130 +1265,124 @@ fn test_coldkey_swap_total() {
         register_ok_neuron(netuid1, delegate1, delegate1, 0);
         register_ok_neuron(netuid2, delegate2, delegate2, 0);
         register_ok_neuron(netuid3, delegate3, delegate3, 0);
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            hotkey1,
-            u16::MAX / 10
-        ));
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            hotkey2,
-            u16::MAX / 10
-        ));
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            hotkey3,
-            u16::MAX / 10
-        ));
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(delegate1),
-            delegate1,
-            u16::MAX / 10
-        ));
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(delegate2),
-            delegate2,
-            u16::MAX / 10
-        ));
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(delegate3),
-            delegate3,
-            u16::MAX / 10
-        ));
+        Delegates::<Test>::insert(hotkey1, u16::MAX / 10);
+        Delegates::<Test>::insert(hotkey2, u16::MAX / 10);
+        Delegates::<Test>::insert(hotkey3, u16::MAX / 10);
+        Delegates::<Test>::insert(delegate1, u16::MAX / 10);
+        Delegates::<Test>::insert(delegate2, u16::MAX / 10);
+        Delegates::<Test>::insert(delegate3, u16::MAX / 10);
 
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             hotkey1,
-            100
+            netuid1,
+            stake
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             hotkey2,
-            100
+            netuid1,
+            stake
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             hotkey3,
-            100
+            netuid1,
+            stake
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             delegate1,
-            100
+            netuid1,
+            stake
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             delegate2,
-            100
+            netuid1,
+            stake
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             delegate3,
-            100
+            netuid1,
+            stake
         ));
 
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(delegate1),
             hotkey1,
-            100
+            netuid1,
+            stake
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(delegate2),
             hotkey2,
-            100
+            netuid1,
+            stake
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(delegate3),
             hotkey3,
-            100
+            netuid1,
+            stake
         ));
 
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(delegate1),
             delegate1,
-            100
+            netuid1,
+            stake
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(delegate2),
             delegate2,
-            100
+            netuid1,
+            stake
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(delegate3),
             delegate3,
-            100
+            netuid1,
+            stake
         ));
 
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(nominator1),
             hotkey1,
-            100
+            netuid1,
+            stake
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(nominator2),
             hotkey2,
-            100
+            netuid1,
+            stake
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(nominator3),
             hotkey3,
-            100
+            netuid1,
+            stake
         ));
 
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(nominator1),
             delegate1,
-            100
+            netuid1,
+            stake
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(nominator2),
             delegate2,
-            100
+            netuid1,
+            stake
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(nominator3),
             delegate3,
-            100
+            netuid1,
+            stake
         ));
 
         assert_eq!(
@@ -1103,13 +1393,13 @@ fn test_coldkey_swap_total() {
             SubtensorModule::get_all_staked_hotkeys(&coldkey),
             vec![hotkey1, hotkey2, hotkey3, delegate1, delegate2, delegate3]
         );
-        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey), 600);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 300);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey2), 300);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey3), 300);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate1), 300);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate2), 300);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate3), 300);
+        let ck_stake = SubtensorModule::get_total_stake_for_coldkey(&coldkey);
+        let hk1_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey1);
+        let hk2_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey2);
+        let hk3_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey3);
+        let d1_stake = SubtensorModule::get_total_stake_for_hotkey(&delegate1);
+        let d2_stake = SubtensorModule::get_total_stake_for_hotkey(&delegate2);
+        let d3_stake = SubtensorModule::get_total_stake_for_hotkey(&delegate3);
 
         assert_eq!(
             SubtensorModule::get_owned_hotkeys(&delegate1),
@@ -1155,7 +1445,10 @@ fn test_coldkey_swap_total() {
 
         // Perform the swap
         let new_coldkey = U256::from(1100);
-        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey), 600);
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&coldkey),
+            ck_stake
+        );
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &coldkey,
@@ -1164,8 +1457,9 @@ fn test_coldkey_swap_total() {
         ));
         assert_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
-            600
+            ck_stake
         );
+        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey), 0);
 
         // Check everything is swapped.
         assert_eq!(
@@ -1176,16 +1470,31 @@ fn test_coldkey_swap_total() {
             SubtensorModule::get_all_staked_hotkeys(&new_coldkey),
             vec![hotkey1, hotkey2, hotkey3, delegate1, delegate2, delegate3]
         );
+        // Shouldn't change.
         assert_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
-            600
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey1),
+            hk1_stake
         );
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 300);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey2), 300);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey3), 300);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate1), 300);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate2), 300);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate3), 300);
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey2),
+            hk2_stake
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey3),
+            hk3_stake
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&delegate1),
+            d1_stake
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&delegate2),
+            d2_stake
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&delegate3),
+            d3_stake
+        );
 
         assert_eq!(
             SubtensorModule::get_owned_hotkeys(&delegate1),
@@ -1276,7 +1585,7 @@ fn test_swap_senate_member() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap_coldkey -- test_coldkey_delegations --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_coldkey_delegations --exact --show-output
 #[test]
 fn test_coldkey_delegations() {
     new_test_ext(1).execute_with(|| {
@@ -1284,34 +1593,69 @@ fn test_coldkey_delegations() {
         let owner = U256::from(1);
         let coldkey = U256::from(4);
         let delegate = U256::from(2);
-        let netuid = 1u16;
-        add_network(netuid, 13, 0);
-        register_ok_neuron(netuid, delegate, owner, 0);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1000);
-        assert_ok!(SubtensorModule::do_become_delegate(
+        let netuid = 0u16; // Stake to 0
+        let netuid2 = 1u16; // Stake to 1
+        let stake = DefaultMinStake::<Test>::get() * 10;
+        let fee = DefaultStakingFee::<Test>::get();
+
+        add_network(netuid, 13, 0); // root
+        add_network(netuid2, 13, 0);
+
+        assert_ok!(SubtensorModule::root_register(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
-            delegate,
-            u16::MAX / 10
-        ));
+            delegate
+        )); // register on root
+        register_ok_neuron(netuid2, delegate, owner, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake * 10);
+
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             delegate,
-            100
+            netuid,
+            stake
         ));
+
+        // Add stake to netuid2
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            delegate,
+            netuid2,
+            stake
+        ));
+
+        // Perform the swap
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
             &coldkey,
             &new_coldkey,
             &mut weight
         ));
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate), 100);
-        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey), 0);
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
-            100
+
+        // Verify stake was moved for the delegate
+        assert_abs_diff_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&delegate),
+            stake * 2 - fee * 2,
+            epsilon = stake / 1000
         );
-        assert_eq!(Stake::<Test>::get(delegate, new_coldkey), 100);
-        assert_eq!(Stake::<Test>::get(delegate, coldkey), 0);
+        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey), 0);
+        assert_abs_diff_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
+            stake * 2 - fee * 2,
+            epsilon = stake / 1000
+        );
+        assert_abs_diff_eq!(
+            Alpha::<Test>::get((delegate, new_coldkey, netuid)).to_num::<u64>(),
+            stake - fee,
+            epsilon = stake / 1000
+        );
+        assert_eq!(Alpha::<Test>::get((delegate, coldkey, netuid)), 0);
+
+        assert_abs_diff_eq!(
+            Alpha::<Test>::get((delegate, new_coldkey, netuid2)).to_num::<u64>(),
+            stake - fee,
+            epsilon = stake / 1000
+        );
+        assert_eq!(Alpha::<Test>::get((delegate, coldkey, netuid2)), 0);
     });
 }
 
@@ -1322,8 +1666,10 @@ fn test_schedule_swap_coldkey_success() {
         let old_coldkey: U256 = U256::from(1);
         let new_coldkey: U256 = U256::from(2);
 
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+
         // Add balance to the old coldkey account
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 1000);
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, swap_cost + 1_000);
 
         // Schedule the coldkey swap
         assert_ok!(SubtensorModule::schedule_swap_coldkey(
@@ -1343,6 +1689,7 @@ fn test_schedule_swap_coldkey_success() {
                 old_coldkey,
                 new_coldkey,
                 execution_block: expected_execution_block,
+                swap_cost,
             }
             .into(),
         );
@@ -1359,7 +1706,9 @@ fn test_schedule_swap_coldkey_duplicate() {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
 
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 2000);
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, swap_cost + 2_000);
 
         assert_ok!(SubtensorModule::schedule_swap_coldkey(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
@@ -1377,7 +1726,7 @@ fn test_schedule_swap_coldkey_duplicate() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap_coldkey -- test_schedule_swap_coldkey_execution --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_schedule_swap_coldkey_execution --exact --show-output --nocapture
 #[test]
 fn test_schedule_swap_coldkey_execution() {
     new_test_ext(1).execute_with(|| {
@@ -1385,7 +1734,7 @@ fn test_schedule_swap_coldkey_execution() {
         let new_coldkey = U256::from(2);
         let hotkey = U256::from(3);
         let netuid = 1u16;
-        let stake_amount = 100;
+        let stake_amount = DefaultMinStake::<Test>::get() * 10;
 
         add_network(netuid, 13, 0);
         register_ok_neuron(netuid, hotkey, old_coldkey, 0);
@@ -1393,6 +1742,7 @@ fn test_schedule_swap_coldkey_execution() {
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
             hotkey,
+            netuid,
             stake_amount
         ));
 
@@ -1402,6 +1752,8 @@ fn test_schedule_swap_coldkey_execution() {
             old_coldkey,
             "Initial ownership check failed"
         );
+
+        let swap_cost = SubtensorModule::get_key_swap_cost();
 
         // Schedule the swap
         assert_ok!(SubtensorModule::schedule_swap_coldkey(
@@ -1418,9 +1770,14 @@ fn test_schedule_swap_coldkey_execution() {
                 old_coldkey,
                 new_coldkey,
                 execution_block,
+                swap_cost,
             }
             .into(),
         );
+
+        run_to_block(execution_block - 1);
+
+        let stake_before_swap = SubtensorModule::get_total_stake_for_coldkey(&old_coldkey);
 
         run_to_block(execution_block);
 
@@ -1440,12 +1797,12 @@ fn test_schedule_swap_coldkey_execution() {
         );
 
         assert_eq!(
-            Stake::<Test>::get(hotkey, new_coldkey),
-            stake_amount,
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
+            stake_before_swap,
             "Stake was not transferred to new coldkey"
         );
         assert_eq!(
-            Stake::<Test>::get(hotkey, old_coldkey),
+            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey),
             0,
             "Old coldkey still has stake"
         );
@@ -1455,6 +1812,7 @@ fn test_schedule_swap_coldkey_execution() {
             Event::ColdkeySwapped {
                 old_coldkey,
                 new_coldkey,
+                swap_cost,
             }
             .into(),
         );
@@ -1472,7 +1830,8 @@ fn test_direct_swap_coldkey_call_fails() {
             SubtensorModule::swap_coldkey(
                 <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
                 old_coldkey,
-                new_coldkey
+                new_coldkey,
+                0
             ),
             BadOrigin
         );
@@ -1487,7 +1846,9 @@ fn test_schedule_swap_coldkey_with_pending_swap() {
         let new_coldkey1 = U256::from(2);
         let new_coldkey2 = U256::from(3);
 
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 2000);
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, swap_cost + 1_000);
 
         assert_ok!(SubtensorModule::schedule_swap_coldkey(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
@@ -1527,26 +1888,31 @@ fn test_coldkey_swap_delegate_identity_updated() {
         ));
 
         let name: Vec<u8> = b"The Third Coolest Identity".to_vec();
-        let identity: ChainIdentity = ChainIdentity {
+        let identity: ChainIdentityV2 = ChainIdentityV2 {
             name: name.clone(),
             url: vec![],
             image: vec![],
+            github_repo: vec![],
             discord: vec![],
             description: vec![],
             additional: vec![],
         };
 
-        Identities::<Test>::insert(old_coldkey, identity.clone());
+        IdentitiesV2::<Test>::insert(old_coldkey, identity.clone());
 
-        assert!(Identities::<Test>::get(old_coldkey).is_some());
-        assert!(Identities::<Test>::get(new_coldkey).is_none());
+        assert!(IdentitiesV2::<Test>::get(old_coldkey).is_some());
+        assert!(IdentitiesV2::<Test>::get(new_coldkey).is_none());
 
-        assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey));
+        assert_ok!(SubtensorModule::do_swap_coldkey(
+            &old_coldkey,
+            &new_coldkey,
+            burn_cost
+        ));
 
-        assert!(Identities::<Test>::get(old_coldkey).is_none());
-        assert!(Identities::<Test>::get(new_coldkey).is_some());
+        assert!(IdentitiesV2::<Test>::get(old_coldkey).is_none());
+        assert!(IdentitiesV2::<Test>::get(new_coldkey).is_some());
         assert_eq!(
-            Identities::<Test>::get(new_coldkey).expect("Expected an Identity"),
+            IdentitiesV2::<Test>::get(new_coldkey).expect("Expected an Identity"),
             identity
         );
     });
@@ -1574,14 +1940,18 @@ fn test_coldkey_swap_no_identity_no_changes() {
         ));
 
         // Ensure the old coldkey does not have an identity before the swap
-        assert!(Identities::<Test>::get(old_coldkey).is_none());
+        assert!(IdentitiesV2::<Test>::get(old_coldkey).is_none());
 
         // Perform the coldkey swap
-        assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey));
+        assert_ok!(SubtensorModule::do_swap_coldkey(
+            &old_coldkey,
+            &new_coldkey,
+            burn_cost
+        ));
 
         // Ensure no identities have been changed
-        assert!(Identities::<Test>::get(old_coldkey).is_none());
-        assert!(Identities::<Test>::get(new_coldkey).is_none());
+        assert!(IdentitiesV2::<Test>::get(old_coldkey).is_none());
+        assert!(IdentitiesV2::<Test>::get(new_coldkey).is_none());
     });
 }
 
@@ -1606,63 +1976,374 @@ fn test_coldkey_swap_no_identity_no_changes_newcoldkey_exists() {
         ));
 
         let name: Vec<u8> = b"The Coolest Identity".to_vec();
-        let identity: ChainIdentity = ChainIdentity {
+        let identity: ChainIdentityV2 = ChainIdentityV2 {
             name: name.clone(),
             url: vec![],
+            github_repo: vec![],
             image: vec![],
             discord: vec![],
             description: vec![],
             additional: vec![],
         };
 
-        Identities::<Test>::insert(new_coldkey, identity.clone());
+        IdentitiesV2::<Test>::insert(new_coldkey, identity.clone());
         // Ensure the new coldkey does have an identity before the swap
-        assert!(Identities::<Test>::get(new_coldkey).is_some());
-        assert!(Identities::<Test>::get(old_coldkey).is_none());
+        assert!(IdentitiesV2::<Test>::get(new_coldkey).is_some());
+        assert!(IdentitiesV2::<Test>::get(old_coldkey).is_none());
 
         // Perform the coldkey swap
-        assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey));
+        assert_ok!(SubtensorModule::do_swap_coldkey(
+            &old_coldkey,
+            &new_coldkey,
+            burn_cost
+        ));
 
         // Ensure no identities have been changed
-        assert!(Identities::<Test>::get(old_coldkey).is_none());
-        assert!(Identities::<Test>::get(new_coldkey).is_some());
+        assert!(IdentitiesV2::<Test>::get(old_coldkey).is_none());
+        assert!(IdentitiesV2::<Test>::get(new_coldkey).is_some());
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap_coldkey -- test_coldkey_swap_stake_delta --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap_coldkey -- test_cant_schedule_swap_without_enough_to_burn --exact --nocapture
 #[test]
-fn test_coldkey_swap_stake_delta() {
+fn test_cant_schedule_swap_without_enough_to_burn() {
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(3);
         let new_coldkey = U256::from(4);
         let hotkey = U256::from(5);
 
-        let netuid = 1;
-        let burn_cost = 10;
-        let tempo = 1;
-
-        // Give the old coldkey a stake delta on hotkey
-        StakeDeltaSinceLastEmissionDrain::<Test>::insert(hotkey, old_coldkey, 123);
-        // Give the new coldkey a stake delta on hotkey
-        StakeDeltaSinceLastEmissionDrain::<Test>::insert(hotkey, new_coldkey, 456);
-        let expected_stake_delta = 123 + 456;
-        // Add StakingHotkeys entry
-        StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
-
-        // Give balance for the swap fees
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, 100e9 as u64);
-
-        // Perform the coldkey swap
-        assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey));
-
-        // Ensure the stake delta is correctly transferred
-        assert_eq!(
-            StakeDeltaSinceLastEmissionDrain::<Test>::get(hotkey, new_coldkey),
-            expected_stake_delta
+        let burn_cost = SubtensorModule::get_key_swap_cost();
+        assert_noop!(
+            SubtensorModule::schedule_swap_coldkey(
+                <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+                new_coldkey
+            ),
+            Error::<Test>::NotEnoughBalanceToPaySwapColdKey
         );
-        assert_eq!(
-            StakeDeltaSinceLastEmissionDrain::<Test>::get(hotkey, old_coldkey),
-            0
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_coldkey_in_swap_schedule_prevents_funds_usage --exact --show-output --nocapture
+#[test]
+fn test_coldkey_in_swap_schedule_prevents_funds_usage() {
+    // Testing the signed extension validate function
+    // correctly filters transactions that attempt to use funds
+    // while a coldkey swap is scheduled.
+
+    new_test_ext(0).execute_with(|| {
+        let netuid: u16 = 1;
+        let version_key: u64 = 0;
+        let coldkey = U256::from(0);
+        let new_coldkey = U256::from(1);
+        let hotkey: U256 = U256::from(2); // Add the hotkey field
+        assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
+        let fee = DefaultStakingFee::<Test>::get();
+
+        let who = coldkey; // The coldkey signs this transaction
+
+        // Disallowed transactions are
+        // - add_stake
+        // - add_stake_limit
+        // - swap_stake
+        // - swap_stake_limit
+        // - move_stake
+        // - transfer_stake
+        // - balances.transfer_all
+        // - balances.transfer_allow_death
+        // - balances.transfer_keep_alive
+
+        // Allowed transactions are:
+        // - remove_stake
+        // - remove_stake_limit
+        // others...
+
+        // Create netuid
+        add_network(netuid, 1, 0);
+        // Register the hotkey
+        SubtensorModule::append_neuron(netuid, &hotkey, 0);
+        crate::Owner::<Test>::insert(hotkey, coldkey);
+
+        SubtensorModule::add_balance_to_coldkey_account(&who, u64::MAX);
+
+        // Set the minimum stake to 0.
+        SubtensorModule::set_stake_threshold(0);
+        // Add stake to the hotkey
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(who),
+            hotkey,
+            netuid,
+            100_000_000_000
+        ));
+
+        // Schedule the coldkey for a swap
+        assert_ok!(SubtensorModule::schedule_swap_coldkey(
+            <<Test as Config>::RuntimeOrigin>::signed(who),
+            new_coldkey
+        ));
+
+        assert!(ColdkeySwapScheduled::<Test>::contains_key(who));
+
+        // Setup the extension
+        let info: crate::DispatchInfo =
+            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = crate::SubtensorSignedExtension::<Test>::new();
+
+        // Try each call
+
+        // Add stake
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::add_stake {
+            hotkey,
+            netuid,
+            amount_staked: 100_000_000_000,
+        });
+        let result: Result<ValidTransaction, TransactionValidityError> =
+            extension.validate(&who, &call.clone(), &info, 10);
+        // Should fail
+        assert_err!(
+            // Should get an invalid transaction error
+            result,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::ColdkeyInSwapSchedule.into()
+            ))
+        );
+
+        // Add stake limit
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::add_stake_limit {
+            hotkey,
+            netuid,
+            amount_staked: 100_000_000_000,
+            limit_price: 100_000_000_000,
+            allow_partial: false,
+        });
+        let result = extension.validate(&who, &call.clone(), &info, 10);
+        // Should fail
+        assert_err!(
+            // Should get an invalid transaction error
+            result,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::ColdkeyInSwapSchedule.into()
+            ))
+        );
+
+        // Swap stake
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::swap_stake {
+            hotkey,
+            origin_netuid: netuid,
+            destination_netuid: netuid,
+            alpha_amount: 100_000_000_000,
+        });
+        let result = extension.validate(&who, &call.clone(), &info, 10);
+        // Should fail
+        assert_err!(
+            // Should get an invalid transaction error
+            result,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::ColdkeyInSwapSchedule.into()
+            ))
+        );
+
+        // Swap stake limit
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::swap_stake_limit {
+            hotkey,
+            origin_netuid: netuid,
+            destination_netuid: netuid,
+            alpha_amount: 100_000_000_000,
+            limit_price: 100_000_000_000,
+            allow_partial: false,
+        });
+        let result = extension.validate(&who, &call.clone(), &info, 10);
+        // Should fail
+        assert_err!(
+            // Should get an invalid transaction error
+            result,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::ColdkeyInSwapSchedule.into()
+            ))
+        );
+
+        // Move stake
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::move_stake {
+            origin_hotkey: hotkey,
+            destination_hotkey: hotkey,
+            origin_netuid: netuid,
+            destination_netuid: netuid,
+            alpha_amount: 100_000_000_000,
+        });
+        let result = extension.validate(&who, &call.clone(), &info, 10);
+        // Should fail
+        assert_err!(
+            // Should get an invalid transaction error
+            result,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::ColdkeyInSwapSchedule.into()
+            ))
+        );
+
+        // Transfer stake
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::transfer_stake {
+            destination_coldkey: new_coldkey,
+            hotkey,
+            origin_netuid: netuid,
+            destination_netuid: netuid,
+            alpha_amount: 100_000_000_000,
+        });
+        let result = extension.validate(&who, &call.clone(), &info, 10);
+        // Should fail
+        assert_err!(
+            // Should get an invalid transaction error
+            result,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::ColdkeyInSwapSchedule.into()
+            ))
+        );
+
+        // Transfer all
+        let call = RuntimeCall::Balances(BalancesCall::transfer_all {
+            dest: new_coldkey,
+            keep_alive: false,
+        });
+        let result = extension.validate(&who, &call.clone(), &info, 10);
+        // Should fail
+        assert_err!(
+            // Should get an invalid transaction error
+            result,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::ColdkeyInSwapSchedule.into()
+            ))
+        );
+
+        // Transfer keep alive
+        let call = RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
+            dest: new_coldkey,
+            value: 100_000_000_000,
+        });
+        let result = extension.validate(&who, &call.clone(), &info, 10);
+        // Should fail
+        assert_err!(
+            // Should get an invalid transaction error
+            result,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::ColdkeyInSwapSchedule.into()
+            ))
+        );
+
+        // Transfer allow death
+        let call = RuntimeCall::Balances(BalancesCall::transfer_allow_death {
+            dest: new_coldkey,
+            value: 100_000_000_000,
+        });
+        let result = extension.validate(&who, &call.clone(), &info, 10);
+        // Should fail
+        assert_err!(
+            // Should get an invalid transaction error
+            result,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::ColdkeyInSwapSchedule.into()
+            ))
+        );
+
+        // Burned register
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::burned_register { netuid, hotkey });
+        let result = extension.validate(&who, &call.clone(), &info, 10);
+        // Should fail
+        assert_err!(
+            // Should get an invalid transaction error
+            result,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::ColdkeyInSwapSchedule.into()
+            ))
+        );
+
+        // Remove stake
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::remove_stake {
+            hotkey,
+            netuid,
+            amount_unstaked: 1_000_000,
+        });
+        let result = extension.validate(&who, &call.clone(), &info, 10);
+        // Should pass, not in list.
+        assert_ok!(result);
+
+        // Remove stake limit
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::remove_stake_limit {
+            hotkey,
+            netuid,
+            amount_unstaked: 1_000_000,
+            limit_price: 123456789, // should be low enough
+            allow_partial: true,
+        });
+        let result = extension.validate(&who, &call.clone(), &info, 10);
+        // Should pass, not in list.
+        assert_ok!(result);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_coldkey_in_swap_schedule_prevents_critical_calls --exact --show-output --nocapture
+#[test]
+fn test_coldkey_in_swap_schedule_prevents_critical_calls() {
+    // Testing the signed extension validate function
+    // correctly filters transactions that are critical
+    // while a coldkey swap is scheduled.
+
+    new_test_ext(0).execute_with(|| {
+        let netuid: u16 = 1;
+        let version_key: u64 = 0;
+        let coldkey = U256::from(0);
+        let new_coldkey = U256::from(1);
+        let hotkey: U256 = U256::from(2); // Add the hotkey field
+        assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
+        let fee = DefaultStakingFee::<Test>::get();
+
+        let who = coldkey; // The coldkey signs this transaction
+
+        // Disallowed transactions are
+        // - dissolve_network
+
+        // Create netuid
+        add_network(netuid, 1, 0);
+        // Register the hotkey
+        SubtensorModule::append_neuron(netuid, &hotkey, 0);
+        crate::Owner::<Test>::insert(hotkey, coldkey);
+
+        SubtensorModule::add_balance_to_coldkey_account(&who, u64::MAX);
+
+        // Set the minimum stake to 0.
+        SubtensorModule::set_stake_threshold(0);
+        // Add stake to the hotkey
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(who),
+            hotkey,
+            netuid,
+            100_000_000_000
+        ));
+
+        // Schedule the coldkey for a swap
+        assert_ok!(SubtensorModule::schedule_swap_coldkey(
+            <<Test as Config>::RuntimeOrigin>::signed(who),
+            new_coldkey
+        ));
+
+        assert!(ColdkeySwapScheduled::<Test>::contains_key(who));
+
+        // Setup the extension
+        let info: crate::DispatchInfo =
+            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = crate::SubtensorSignedExtension::<Test>::new();
+
+        // Try each call
+
+        // Dissolve network
+        let call =
+            RuntimeCall::SubtensorModule(SubtensorCall::dissolve_network { netuid, coldkey });
+        let result: Result<ValidTransaction, TransactionValidityError> =
+            extension.validate(&who, &call.clone(), &info, 10);
+        // Should fail
+        assert_err!(
+            // Should get an invalid transaction error
+            result,
+            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+                CustomTransactionError::ColdkeyInSwapSchedule.into()
+            ))
         );
     });
 }

@@ -8,6 +8,23 @@ impl<T: Config> Pallet<T> {
         SubnetworkN::<T>::get(netuid)
     }
 
+    /// Sets value for the element at the given position if it exists.
+    pub fn set_element_at<N>(vec: &mut [N], position: usize, value: N) {
+        if let Some(element) = vec.get_mut(position) {
+            *element = value;
+        }
+    }
+
+    /// Resets the trust, emission, consensus, incentive, dividends of the neuron to default
+    pub fn clear_neuron(netuid: u16, neuron_uid: u16) {
+        let neuron_index: usize = neuron_uid.into();
+        Emission::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
+        Trust::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
+        Consensus::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
+        Incentive::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
+        Dividends::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
+    }
+
     /// Replace the neuron under this uid.
     pub fn replace_neuron(
         netuid: u16,
@@ -25,19 +42,26 @@ impl<T: Config> Pallet<T> {
         // 1. Get the old hotkey under this position.
         let old_hotkey: T::AccountId = Keys::<T>::get(netuid, uid_to_replace);
 
+        // Do not replace owner hotkey from `SubnetOwnerHotkey`
+        if let Ok(sn_owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
+            if sn_owner_hotkey == old_hotkey.clone() {
+                log::warn!(
+                    "replace_neuron: Skipped replacement because neuron is the subnet owner hotkey. \
+                    netuid: {:?}, uid_to_replace: {:?}, new_hotkey: {:?}, owner_hotkey: {:?}",
+                    netuid,
+                    uid_to_replace,
+                    new_hotkey,
+                    sn_owner_hotkey
+                );
+                return;
+            }
+        }
+
         // 2. Remove previous set memberships.
         Uids::<T>::remove(netuid, old_hotkey.clone());
         IsNetworkMember::<T>::remove(old_hotkey.clone(), netuid);
         #[allow(unknown_lints)]
         Keys::<T>::remove(netuid, uid_to_replace);
-
-        // 2a. Check if the uid is registered in any other subnetworks.
-        let hotkey_is_registered_on_any_network: bool =
-            Self::is_hotkey_registered_on_any_network(&old_hotkey.clone());
-        if !hotkey_is_registered_on_any_network {
-            // If not, unstake all coldkeys under this hotkey.
-            Self::unstake_all_coldkeys_from_hotkey_account(&old_hotkey.clone());
-        }
 
         // 3. Create new set memberships.
         Self::set_active_for_uid(netuid, uid_to_replace, true); // Set to active by default.
@@ -48,6 +72,12 @@ impl<T: Config> Pallet<T> {
 
         // 4. Clear neuron certificates
         NeuronCertificates::<T>::remove(netuid, old_hotkey.clone());
+
+        // 5. Reset new neuron's values.
+        Self::clear_neuron(netuid, uid_to_replace);
+
+        // 5a. reset axon info for the new uid.
+        Axons::<T>::remove(netuid, old_hotkey);
     }
 
     /// Appends the uid to the network.
