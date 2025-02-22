@@ -479,7 +479,7 @@ fn test_swap_effect_on_delegated_stake() {
         let new_coldkey = U256::from(2);
         let delegator = U256::from(3);
         let hotkey = U256::from(4);
-        let stake = 10_000;
+        let stake = 100_000_000_000;
 
         StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
         StakingHotkeys::<Test>::insert(delegator, vec![hotkey]);
@@ -499,6 +499,8 @@ fn test_swap_effect_on_delegated_stake() {
             netuid,
             stake
         ));
+        let coldkey_stake_before = SubtensorModule::get_total_stake_for_coldkey(&old_coldkey);
+        let delegator_stake_before = SubtensorModule::get_total_stake_for_coldkey(&delegator);
 
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
@@ -509,12 +511,12 @@ fn test_swap_effect_on_delegated_stake() {
 
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
-            stake,
+            coldkey_stake_before,
             epsilon = 500
         );
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&delegator),
-            stake,
+            delegator_stake_before,
             epsilon = 500
         );
         assert_abs_diff_eq!(

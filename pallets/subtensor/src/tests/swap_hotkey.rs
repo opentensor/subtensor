@@ -445,7 +445,7 @@ fn test_swap_staking_hotkeys() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_hotkey_with_multiple_coldkeys --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey::test_swap_hotkey_with_multiple_coldkeys --exact --show-output --nocapture
 #[test]
 fn test_swap_hotkey_with_multiple_coldkeys() {
     new_test_ext(1).execute_with(|| {
@@ -484,6 +484,8 @@ fn test_swap_hotkey_with_multiple_coldkeys() {
             netuid,
             stake / 2
         ));
+        let stake1_before = SubtensorModule::get_total_stake_for_coldkey(&coldkey1);
+        let stake2_before = SubtensorModule::get_total_stake_for_coldkey(&coldkey2);
 
         assert_ok!(SubtensorModule::perform_hotkey_swap(
             &old_hotkey,
@@ -492,15 +494,13 @@ fn test_swap_hotkey_with_multiple_coldkeys() {
             &mut weight
         ));
 
-        assert_abs_diff_eq!(
+        assert_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&coldkey1),
-            stake,
-            epsilon = 500
+            stake1_before
         );
-        assert_abs_diff_eq!(
+        assert_eq!(
             SubtensorModule::get_total_stake_for_coldkey(&coldkey2),
-            stake / 2,
-            epsilon = 500
+            stake2_before
         );
         assert!(StakingHotkeys::<Test>::get(coldkey1).contains(&new_hotkey));
         assert!(StakingHotkeys::<Test>::get(coldkey2).contains(&new_hotkey));

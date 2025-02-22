@@ -63,10 +63,12 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|hotkey| {
                 let mut total_stake: u64 = 0;
-                for (netuid, alpha) in Alpha::<T>::iter_prefix((hotkey, coldkey)) {
+                for (netuid, _) in Alpha::<T>::iter_prefix((hotkey, coldkey)) {
+                    let alpha_stake =
+                        Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
                     let tao_price: I96F32 = Self::get_alpha_price(netuid);
                     total_stake = total_stake.saturating_add(
-                        I96F32::saturating_from_num(alpha)
+                        I96F32::saturating_from_num(alpha_stake)
                             .saturating_mul(tao_price)
                             .saturating_to_num::<u64>(),
                     );

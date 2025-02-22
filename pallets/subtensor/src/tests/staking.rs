@@ -1939,31 +1939,36 @@ fn test_get_total_delegated_stake_exclude_owner_stake() {
 #[test]
 fn test_mining_emission_distribution_validator_valiminer_miner() {
     new_test_ext(1).execute_with(|| {
-        let coldkey = U256::from(1);
-        let validator = 2;
-        let validator_miner = 3;
-        let miner = U256::from(4);
+        let validator_coldkey = U256::from(1);
+        let validator_hotkey = U256::from(2);
+        let validator_miner_coldkey = U256::from(3);
+        let validator_miner_hotkey = U256::from(4);
+        let miner_coldkey = U256::from(5);
+        let miner_hotkey = U256::from(6);
         let netuid: u16 = 1;
-        let root_id: u16 = 0;
-        let root_tempo = 9; // neet root epoch to happen before subnet tempo
         let subnet_tempo = 10;
         let stake = 100_000_000_000;
 
         // Add network, register hotkeys, and setup network parameters
-        add_network(root_id, root_tempo, 0);
         add_network(netuid, subnet_tempo, 0);
-        register_ok_neuron(netuid, validator.into(), coldkey, 0);
-        register_ok_neuron(netuid, validator_miner.into(), coldkey, 1);
-        register_ok_neuron(netuid, miner, coldkey, 2);
+        register_ok_neuron(netuid, validator_hotkey, validator_coldkey, 0);
+        register_ok_neuron(netuid, validator_miner_hotkey, validator_miner_coldkey, 1);
+        register_ok_neuron(netuid, miner_hotkey, miner_coldkey, 2);
         SubtensorModule::add_balance_to_coldkey_account(
-            &coldkey,
-            3 * stake + ExistentialDeposit::get(),
+            &validator_coldkey,
+            stake + ExistentialDeposit::get(),
+        );
+        SubtensorModule::add_balance_to_coldkey_account(
+            &validator_miner_coldkey,
+            stake + ExistentialDeposit::get(),
+        );
+        SubtensorModule::add_balance_to_coldkey_account(
+            &miner_coldkey,
+            stake + ExistentialDeposit::get(),
         );
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         step_block(subnet_tempo);
         SubnetOwnerCut::<Test>::set(0);
-        // All stake is active
-        ActivityCutoff::<Test>::set(netuid, u16::MAX);
         // There are two validators and three neurons
         MaxAllowedUids::<Test>::set(netuid, 3);
         SubtensorModule::set_max_allowed_validators(netuid, 2);
@@ -1972,47 +1977,55 @@ fn test_mining_emission_distribution_validator_valiminer_miner() {
         //   Stake from validator
         //   Stake from valiminer
         assert_ok!(SubtensorModule::add_stake(
-            RuntimeOrigin::signed(coldkey),
-            validator.into(),
+            RuntimeOrigin::signed(validator_coldkey),
+            validator_hotkey,
             netuid,
             stake
         ));
         assert_ok!(SubtensorModule::add_stake(
-            RuntimeOrigin::signed(coldkey),
-            validator_miner.into(),
+            RuntimeOrigin::signed(validator_miner_coldkey),
+            validator_miner_hotkey,
             netuid,
             stake
         ));
 
-        // Setup YUMA so that it creates emissions:
-        //   Validator 1 sets weight for valiminer       |- to achieve equal incentive for both miners
-        //   Valiminer sets weights for the second miner |
-        //   Last weight update is after block at registration
+        // Setup YUMA so that it creates emissions
         Weights::<Test>::insert(netuid, 0, vec![(1, 0xFFFF)]);
         Weights::<Test>::insert(netuid, 1, vec![(2, 0xFFFF)]);
         BlockAtRegistration::<Test>::set(netuid, 0, 1);
         BlockAtRegistration::<Test>::set(netuid, 1, 1);
+        BlockAtRegistration::<Test>::set(netuid, 2, 1);
         LastUpdate::<Test>::set(netuid, vec![2, 2, 2]);
         Kappa::<Test>::set(netuid, u16::MAX / 5);
+        ActivityCutoff::<Test>::set(netuid, u16::MAX); // makes all stake active
+        ValidatorPermit::<Test>::insert(netuid, vec![true, true, false]);
 
         // Run run_coinbase until emissions are drained
-        step_block(subnet_tempo * 4);
+        let validator_stake_before =
+            SubtensorModule::get_total_stake_for_coldkey(&validator_coldkey);
+        let valiminer_stake_before =
+            SubtensorModule::get_total_stake_for_coldkey(&validator_miner_coldkey);
+        let miner_stake_before = SubtensorModule::get_total_stake_for_coldkey(&miner_coldkey);
+
+        step_block(subnet_tempo);
 
         // Verify how emission is split between keys
-        //   - 50% goes to miners and 50% goes to validators
+        //   - Owner cut is zero => 50% goes to miners and 50% goes to validators
         //   - Validator gets 25% because there are two validators
         //   - Valiminer gets 25% as a validator and 25% as miner
         //   - Miner gets 25% as miner
-        let validator_emission =
-            SubtensorModule::get_total_stake_for_hotkey(&validator.into()) - stake;
+        let validator_emission = SubtensorModule::get_total_stake_for_coldkey(&validator_coldkey)
+            - validator_stake_before;
         let valiminer_emission =
-            SubtensorModule::get_total_stake_for_hotkey(&validator_miner.into()) - stake;
-        let miner_emission = SubtensorModule::get_total_stake_for_hotkey(&miner.into());
+            SubtensorModule::get_total_stake_for_coldkey(&validator_miner_coldkey)
+                - valiminer_stake_before;
+        let miner_emission =
+            SubtensorModule::get_total_stake_for_coldkey(&miner_coldkey) - miner_stake_before;
         let total_emission = validator_emission + valiminer_emission + miner_emission;
 
-        assert_eq!(validator_emission, total_emission / 4);
-        assert_eq!(valiminer_emission, total_emission / 2);
-        assert_eq!(miner_emission, total_emission / 4);
+        assert_abs_diff_eq!(validator_emission, total_emission / 4, epsilon = 10);
+        assert_abs_diff_eq!(valiminer_emission, total_emission / 2, epsilon = 10);
+        assert_abs_diff_eq!(miner_emission, total_emission / 4, epsilon = 10);
     });
 }
 
