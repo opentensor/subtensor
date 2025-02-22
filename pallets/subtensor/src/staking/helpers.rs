@@ -99,6 +99,13 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    //// If the hotkey is not a delegate, make it a delegate.
+    pub fn maybe_become_delegate(hotkey: &T::AccountId) {
+        if !Self::hotkey_is_delegate(hotkey) {
+            Self::delegate_hotkey(hotkey, Self::get_hotkey_take(hotkey));
+        }
+    }
+
     /// Returns the coldkey owning this hotkey. This function should only be called for active accounts.
     ///
     /// # Arguments
