@@ -68,29 +68,6 @@ fn test_swap_subnet_owner() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_stake --exact --nocapture
-#[test]
-fn test_swap_stake() {
-    new_test_ext(1).execute_with(|| {
-        let old_coldkey = U256::from(1);
-        let new_coldkey = U256::from(2);
-        let hotkey = U256::from(3);
-        let stake = 100;
-
-        StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
-        Stake::<Test>::insert(hotkey, old_coldkey, stake);
-        let mut weight = Weight::zero();
-        assert_ok!(SubtensorModule::perform_swap_coldkey(
-            &old_coldkey,
-            &new_coldkey,
-            &mut weight
-        ));
-
-        assert!(!Stake::<Test>::contains_key(hotkey, old_coldkey));
-        assert_eq!(Stake::<Test>::get(hotkey, new_coldkey), stake);
-    });
-}
-
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_swap_total_coldkey_stake --exact --show-output
 #[test]
 fn test_swap_total_coldkey_stake() {
@@ -494,6 +471,10 @@ fn test_swap_with_max_hotkeys() {
 #[test]
 fn test_swap_effect_on_delegated_stake() {
     new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
         let delegator = U256::from(3);
@@ -502,8 +483,22 @@ fn test_swap_effect_on_delegated_stake() {
 
         StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
         StakingHotkeys::<Test>::insert(delegator, vec![hotkey]);
-        Stake::<Test>::insert(hotkey, old_coldkey, stake);
-        Stake::<Test>::insert(hotkey, delegator, stake);
+        SubtensorModule::create_account_if_non_existent(&old_coldkey, &hotkey);
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, stake);
+        SubtensorModule::add_balance_to_coldkey_account(&delegator, stake);
+
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(old_coldkey),
+            hotkey,
+            netuid,
+            stake
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(delegator),
+            hotkey,
+            netuid,
+            stake
+        ));
 
         let mut weight = Weight::zero();
         assert_ok!(SubtensorModule::perform_swap_coldkey(
@@ -512,9 +507,21 @@ fn test_swap_effect_on_delegated_stake() {
             &mut weight
         ));
 
-        assert_eq!(Stake::<Test>::get(hotkey, new_coldkey), stake);
-        assert_eq!(Stake::<Test>::get(hotkey, delegator), stake);
-        assert_eq!(Stake::<Test>::get(hotkey, old_coldkey), 0);
+        assert_abs_diff_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
+            stake,
+            epsilon = 500
+        );
+        assert_abs_diff_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&delegator),
+            stake,
+            epsilon = 500
+        );
+        assert_abs_diff_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey),
+            0,
+            epsilon = 500
+        );
     });
 }
 

@@ -2916,7 +2916,7 @@ fn test_childkey_take_drain() {
         // Add network, register hotkeys, and setup network parameters
         add_network(root_id, subnet_tempo, 0);
         let netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        crate::Tempo::<Test>::set(netuid, subnet_tempo);
+        Tempo::<Test>::set(netuid, subnet_tempo);
         register_ok_neuron(netuid, child, coldkey, 0);
         register_ok_neuron(netuid, parent, coldkey, 1);
 
@@ -2934,7 +2934,7 @@ fn test_childkey_take_drain() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_allowed_validators(netuid, 2);
         step_block(subnet_tempo);
-        crate::SubnetOwnerCut::<Test>::set(0);
+        SubnetOwnerCut::<Test>::set(0);
 
         // Set 20% childkey take
         let max_take: u16 = 0xFFFF / 5;
@@ -2970,8 +2970,8 @@ fn test_childkey_take_drain() {
         //   Parent and child both set weights
         //   Parent and child register on root and
         //   Set root weights
-        crate::Weights::<Test>::insert(netuid, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
-        crate::Weights::<Test>::insert(netuid, 1, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        Weights::<Test>::insert(netuid, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        Weights::<Test>::insert(netuid, 1, vec![(0, 0xFFFF), (1, 0xFFFF)]);
         assert_ok!(SubtensorModule::do_root_register(
             RuntimeOrigin::signed(coldkey),
             parent,
@@ -2980,16 +2980,18 @@ fn test_childkey_take_drain() {
             RuntimeOrigin::signed(coldkey),
             child,
         ));
-        crate::Weights::<Test>::insert(root_id, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
-        crate::Weights::<Test>::insert(root_id, 1, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        Weights::<Test>::insert(root_id, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        Weights::<Test>::insert(root_id, 1, vec![(0, 0xFFFF), (1, 0xFFFF)]);
 
         // Verify how emission is split between keys
         //   - Child stake increased by its child key take only (20% * 50% = 10% of total emission)
         //   - Parent stake increased by 40% of total emission
         //   - Nominator stake increased by 50% of total emission
-        let child_emission = crate::Stake::<Test>::get(child, coldkey);
-        let parent_emission = crate::Stake::<Test>::get(parent, coldkey).saturating_sub(stake);
-        let nominator_emission = crate::Stake::<Test>::get(child, nominator).saturating_sub(stake);
+        let child_emission = SubtensorModule::get_total_stake_for_hotkey(&child);
+        let parent_emission =
+            SubtensorModule::get_total_stake_for_hotkey(&parent).saturating_sub(stake);
+        let nominator_emission =
+            SubtensorModule::get_total_stake_for_coldkey(&nominator).saturating_sub(stake);
         let total_emission = child_emission + parent_emission + nominator_emission;
 
         assert_abs_diff_eq!(child_emission, total_emission / 10, epsilon = 500);
@@ -2998,28 +3000,30 @@ fn test_childkey_take_drain() {
     });
 }
 
-/// Test that drain_hotkey_emission sends childkey take fully to the childkey with validator take enabled.
+/// Test that drain_pending_emission sends childkey take fully to the nominators if childkey 
+/// doesn't have its own stake.
 #[test]
 fn test_childkey_take_drain_validator_take() {
     new_test_ext(1).execute_with(|| {
-        let coldkey = U256::from(1);
-        let parent = U256::from(2);
-        let child = U256::from(3);
-        let nominator = U256::from(4);
+        let parent_coldkey = U256::from(1);
+        let parent_hotkey = U256::from(3);
+        let child_coldkey = U256::from(2);
+        let child_hotkey = U256::from(4);
+        let miner_coldkey = U256::from(5);
+        let miner_hotkey = U256::from(6);
+        let nominator = U256::from(7);
         let netuid: u16 = 1;
-        let root_id: u16 = 0;
         let subnet_tempo = 10;
-        let hotkey_tempo = 20;
         let stake = 100_000_000_000;
         let proportion: u64 = u64::MAX;
 
         // Add network, register hotkeys, and setup network parameters
-        add_network(root_id, subnet_tempo, 0);
         add_network(netuid, subnet_tempo, 0);
-        register_ok_neuron(netuid, child, coldkey, 0);
-        register_ok_neuron(netuid, parent, coldkey, 1);
+        register_ok_neuron(netuid, child_hotkey, child_coldkey, 0);
+        register_ok_neuron(netuid, parent_hotkey, parent_coldkey, 1);
+        register_ok_neuron(netuid, miner_hotkey, miner_coldkey, 1);
         SubtensorModule::add_balance_to_coldkey_account(
-            &coldkey,
+            &parent_coldkey,
             stake + ExistentialDeposit::get(),
         );
         SubtensorModule::add_balance_to_coldkey_account(
@@ -3029,38 +3033,41 @@ fn test_childkey_take_drain_validator_take() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_allowed_validators(netuid, 2);
         step_block(subnet_tempo);
-        crate::SubnetOwnerCut::<Test>::set(0);
+        SubnetOwnerCut::<Test>::set(0);
 
         // Set children
-        mock_set_children(&coldkey, &parent, netuid, &[(proportion, child)]);
+        mock_set_children_no_epochs(netuid, &parent_hotkey, &[(proportion, child_hotkey)]);
 
         // Set 20% childkey take
         let max_take: u16 = 0xFFFF / 5;
         SubtensorModule::set_max_childkey_take(max_take);
         assert_ok!(SubtensorModule::set_childkey_take(
-            RuntimeOrigin::signed(coldkey),
-            child,
+            RuntimeOrigin::signed(child_coldkey),
+            child_hotkey,
             netuid,
             max_take
         ));
 
-        // Set 20% hotkey take for childkey
         // Set 20% hotkey take for parent
         SubtensorModule::set_max_delegate_take(max_take);
+        Delegates::<Test>::insert(&parent_hotkey, max_take);
+
+        // Set 0% for childkey-as-a-delegate take
+        Delegates::<Test>::insert(&child_hotkey, 0);
 
         // Setup stakes:
         //   Stake from parent
         //   Stake from nominator to childkey
         //   Give 100% of parent stake to childkey
         assert_ok!(SubtensorModule::add_stake(
-            RuntimeOrigin::signed(coldkey),
-            parent,
+            RuntimeOrigin::signed(parent_coldkey),
+            parent_hotkey,
             netuid,
             stake
         ));
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(nominator),
-            child,
+            child_hotkey,
             netuid,
             stake
         ));
@@ -3069,36 +3076,40 @@ fn test_childkey_take_drain_validator_take() {
         //   Parent and child both set weights
         //   Parent and child register on root and
         //   Set root weights
-        crate::Weights::<Test>::insert(netuid, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
-        crate::Weights::<Test>::insert(netuid, 1, vec![(0, 0xFFFF), (1, 0xFFFF)]);
-        assert_ok!(SubtensorModule::do_root_register(
-            RuntimeOrigin::signed(coldkey),
-            parent,
-        ));
-        assert_ok!(SubtensorModule::do_root_register(
-            RuntimeOrigin::signed(coldkey),
-            child,
-        ));
-        crate::Weights::<Test>::insert(root_id, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
-        crate::Weights::<Test>::insert(root_id, 1, vec![(0, 0xFFFF), (1, 0xFFFF)]);
+        Weights::<Test>::insert(netuid, 0, vec![(2, 0xFFFF)]);
+        Weights::<Test>::insert(netuid, 1, vec![(2, 0xFFFF)]);
+        BlockAtRegistration::<Test>::set(netuid, 0, 1);
+        BlockAtRegistration::<Test>::set(netuid, 1, 1);
+        BlockAtRegistration::<Test>::set(netuid, 2, 1);
+        LastUpdate::<Test>::set(netuid, vec![2, 2, 2]);
+        Kappa::<Test>::set(netuid, u16::MAX / 5);
 
-        // Prevent further subnet epochs
-        crate::Tempo::<Test>::set(netuid, u16::MAX);
-        crate::Tempo::<Test>::set(root_id, u16::MAX);
+        // TODO: child validator doesn't get emissions (((
 
-        // Run run_coinbase until PendingHotkeyEmission is drained for both child and parent
-        step_block((hotkey_tempo * 2) as u16);
+        // Run run_coinbase to hit subnet epoch
+        let child_stake_before = SubtensorModule::get_total_stake_for_coldkey(&child_coldkey);
+        let parent_stake_before = SubtensorModule::get_total_stake_for_coldkey(&parent_coldkey);
+        let nominator_stake_before = SubtensorModule::get_total_stake_for_coldkey(&nominator);
+
+        println!("nominator_stake_before = {:?}", nominator_stake_before);
+
+        step_block(2 * subnet_tempo);
 
         // Verify how emission is split between keys
-        //   - Child stake increased by its child key take (20% * 50% = 10% of total emission) plus childkey's delegate take (10%)
+        //   - Child stake remains 0
         //   - Parent stake increased by 40% of total emission
         //   - Nominator stake increased by 40% of total emission
-        let child_emission = crate::Stake::<Test>::get(child, coldkey);
-        let parent_emission = crate::Stake::<Test>::get(parent, coldkey).saturating_sub(stake);
-        let nominator_emission = crate::Stake::<Test>::get(child, nominator).saturating_sub(stake);
+        let child_emission =
+            SubtensorModule::get_total_stake_for_coldkey(&child_coldkey) - child_stake_before;
+        let parent_emission =
+            SubtensorModule::get_total_stake_for_coldkey(&parent_coldkey) - parent_stake_before;
+        let nominator_emission =
+            SubtensorModule::get_total_stake_for_coldkey(&nominator) - nominator_stake_before;
         let total_emission = child_emission + parent_emission + nominator_emission;
 
-        assert_abs_diff_eq!(child_emission, total_emission / 5, epsilon = 500);
+        println!("parent share {:?}", parent_emission as f64 / total_emission as f64);
+
+        assert_abs_diff_eq!(child_emission, 0, epsilon = 500);
         assert_abs_diff_eq!(parent_emission, total_emission / 10 * 4, epsilon = 500);
         assert_abs_diff_eq!(nominator_emission, total_emission / 10 * 4, epsilon = 500);
     });

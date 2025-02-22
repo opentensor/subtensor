@@ -80,7 +80,6 @@ impl<T: Config> Pallet<T> {
     //
     pub fn create_account_if_non_existent(coldkey: &T::AccountId, hotkey: &T::AccountId) {
         if !Self::hotkey_account_exists(hotkey) {
-            Stake::<T>::insert(hotkey, coldkey, 0); // This is the way to index coldkeys by a hotkey
             Owner::<T>::insert(hotkey, coldkey);
 
             // Update OwnedHotkeys map

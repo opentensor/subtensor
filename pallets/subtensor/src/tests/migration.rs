@@ -98,21 +98,6 @@ fn test_migration_delete_subnet_21() {
     })
 }
 
-fn run_migration_and_check(migration_name: &'static str) -> frame_support::weights::Weight {
-    // Execute the migration and store its weight
-    let weight: frame_support::weights::Weight =
-        crate::migrations::migrate_fix_total_coldkey_stake::migrate_fix_total_coldkey_stake::<Test>(
-        );
-
-    // Check if the migration has been marked as completed
-    assert!(HasMigrationRun::<Test>::get(
-        migration_name.as_bytes().to_vec()
-    ));
-
-    // Return the weight of the executed migration
-    weight
-}
-
 #[test]
 fn test_migrate_commit_reveal_2() {
     new_test_ext(1).execute_with(|| {
@@ -234,10 +219,10 @@ fn test_migrate_rao() {
 
         Owner::<Test>::insert(hotkey1, coldkey1);
         Owner::<Test>::insert(hotkey2, coldkey2);
-        Stake::<Test>::insert(hotkey1, coldkey1, stake_amount);
-        Stake::<Test>::insert(hotkey1, coldkey2, stake_amount);
-        Stake::<Test>::insert(hotkey2, coldkey2, stake_amount);
-        Stake::<Test>::insert(hotkey2, coldkey3, stake_amount);
+        // Stake::<Test>::insert(hotkey1, coldkey1, stake_amount);
+        // Stake::<Test>::insert(hotkey1, coldkey2, stake_amount);
+        // Stake::<Test>::insert(hotkey2, coldkey2, stake_amount);
+        // Stake::<Test>::insert(hotkey2, coldkey3, stake_amount);
 
         // Verify initial conditions
         assert_eq!(SubnetTAO::<Test>::get(netuid_0), 0);

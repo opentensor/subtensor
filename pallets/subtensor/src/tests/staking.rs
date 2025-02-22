@@ -1961,36 +1961,39 @@ fn test_mining_emission_distribution_validator_valiminer_miner() {
         );
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         step_block(subnet_tempo);
-        crate::SubnetOwnerCut::<Test>::set(0);
+        SubnetOwnerCut::<Test>::set(0);
         // All stake is active
-        crate::ActivityCutoff::<Test>::set(netuid, u16::MAX);
+        ActivityCutoff::<Test>::set(netuid, u16::MAX);
         // There are two validators and three neurons
-        crate::MaxAllowedUids::<Test>::set(netuid, 3);
+        MaxAllowedUids::<Test>::set(netuid, 3);
         SubtensorModule::set_max_allowed_validators(netuid, 2);
 
         // Setup stakes:
         //   Stake from validator
         //   Stake from valiminer
-        crate::Stake::<Test>::set(U256::from(validator), coldkey, stake);
-        crate::Stake::<Test>::set(U256::from(validator_miner), coldkey, stake);
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            validator.into(),
+            netuid,
+            stake
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            validator_miner.into(),
+            netuid,
+            stake
+        ));
 
         // Setup YUMA so that it creates emissions:
         //   Validator 1 sets weight for valiminer       |- to achieve equal incentive for both miners
         //   Valiminer sets weights for the second miner |
-        //   Validator registers on root and
-        //   Sets root weights
         //   Last weight update is after block at registration
-        crate::Weights::<Test>::insert(netuid, 0, vec![(1, 0xFFFF)]);
-        crate::Weights::<Test>::insert(netuid, 1, vec![(2, 0xFFFF)]);
-        assert_ok!(SubtensorModule::do_root_register(
-            RuntimeOrigin::signed(coldkey),
-            U256::from(validator),
-        ));
-        crate::Weights::<Test>::insert(root_id, 0, vec![(0, 0xFFFF), (1, 0xFFFF)]);
-        crate::BlockAtRegistration::<Test>::set(netuid, 0, 1);
-        crate::BlockAtRegistration::<Test>::set(netuid, 1, 1);
-        crate::LastUpdate::<Test>::set(netuid, vec![2, 2, 2]);
-        crate::Kappa::<Test>::set(netuid, u16::MAX / 5);
+        Weights::<Test>::insert(netuid, 0, vec![(1, 0xFFFF)]);
+        Weights::<Test>::insert(netuid, 1, vec![(2, 0xFFFF)]);
+        BlockAtRegistration::<Test>::set(netuid, 0, 1);
+        BlockAtRegistration::<Test>::set(netuid, 1, 1);
+        LastUpdate::<Test>::set(netuid, vec![2, 2, 2]);
+        Kappa::<Test>::set(netuid, u16::MAX / 5);
 
         // Run run_coinbase until emissions are drained
         step_block(subnet_tempo * 4);
@@ -2000,10 +2003,11 @@ fn test_mining_emission_distribution_validator_valiminer_miner() {
         //   - Validator gets 25% because there are two validators
         //   - Valiminer gets 25% as a validator and 25% as miner
         //   - Miner gets 25% as miner
-        let validator_emission = crate::Stake::<Test>::get(U256::from(validator), coldkey) - stake;
+        let validator_emission =
+            SubtensorModule::get_total_stake_for_hotkey(&validator.into()) - stake;
         let valiminer_emission =
-            crate::Stake::<Test>::get(U256::from(validator_miner), coldkey) - stake;
-        let miner_emission = crate::Stake::<Test>::get(miner, coldkey);
+            SubtensorModule::get_total_stake_for_hotkey(&validator_miner.into()) - stake;
+        let miner_emission = SubtensorModule::get_total_stake_for_hotkey(&miner.into());
         let total_emission = validator_emission + valiminer_emission + miner_emission;
 
         assert_eq!(validator_emission, total_emission / 4);
@@ -2161,17 +2165,17 @@ fn test_stake_below_min_validate() {
             amount_staked,
         });
 
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        let extension = SubtensorSignedExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(&coldkey, &call.clone(), &info, 10);
 
         // Should fail due to insufficient stake
         assert_err!(
             result_no_stake,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+            TransactionValidityError::Invalid(InvalidTransaction::Custom(
                 CustomTransactionError::StakeAmountTooLow.into()
             ))
         );
@@ -2190,7 +2194,7 @@ fn test_stake_below_min_validate() {
         // Still doesn't pass, but with a different reason (balance too low)
         assert_err!(
             result_low_balance,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+            TransactionValidityError::Invalid(InvalidTransaction::Custom(
                 CustomTransactionError::BalanceTooLow.into()
             ))
         );
@@ -2244,17 +2248,17 @@ fn test_add_stake_limit_validate() {
             allow_partial: false,
         });
 
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        let extension = SubtensorSignedExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(&coldkey, &call.clone(), &info, 10);
 
         // Should fail due to slippage
         assert_err!(
             result_no_stake,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+            TransactionValidityError::Invalid(InvalidTransaction::Custom(
                 CustomTransactionError::SlippageTooHigh.into()
             ))
         );
@@ -2304,17 +2308,17 @@ fn test_remove_stake_limit_validate() {
             allow_partial: false,
         });
 
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        let extension = SubtensorSignedExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(&coldkey, &call.clone(), &info, 10);
 
         // Should fail due to slippage
         assert_err!(
             result_no_stake,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+            TransactionValidityError::Invalid(InvalidTransaction::Custom(
                 CustomTransactionError::SlippageTooHigh.into()
             ))
         );
@@ -2393,17 +2397,17 @@ fn test_stake_low_liquidity_validate() {
             amount_staked,
         });
 
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        let extension = SubtensorSignedExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(&coldkey, &call.clone(), &info, 10);
 
         // Should fail due to insufficient stake
         assert_err!(
             result_no_stake,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+            TransactionValidityError::Invalid(InvalidTransaction::Custom(
                 CustomTransactionError::InsufficientLiquidity.into()
             ))
         );
@@ -2448,17 +2452,17 @@ fn test_unstake_low_liquidity_validate() {
             amount_unstaked: alpha,
         });
 
-        let info: crate::DispatchInfo =
-            crate::DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
 
-        let extension = crate::SubtensorSignedExtension::<Test>::new();
+        let extension = SubtensorSignedExtension::<Test>::new();
         // Submit to the signed extension validate function
         let result_no_stake = extension.validate(&coldkey, &call.clone(), &info, 10);
 
         // Should fail due to insufficient stake
         assert_err!(
             result_no_stake,
-            crate::TransactionValidityError::Invalid(crate::InvalidTransaction::Custom(
+            TransactionValidityError::Invalid(InvalidTransaction::Custom(
                 CustomTransactionError::InsufficientLiquidity.into()
             ))
         );
