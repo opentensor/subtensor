@@ -2950,10 +2950,10 @@ fn test_childkey_take_drain() {
 
             // Set hotkey take for parent
             SubtensorModule::set_max_delegate_take(*parent_hotkey_take);
-            Delegates::<Test>::insert(&parent_hotkey, *parent_hotkey_take);
+            Delegates::<Test>::insert(parent_hotkey, *parent_hotkey_take);
 
             // Set 0% for childkey-as-a-delegate take
-            Delegates::<Test>::insert(&child_hotkey, 0);
+            Delegates::<Test>::insert(child_hotkey, 0);
 
             // Setup stakes:
             //   Stake from parent
