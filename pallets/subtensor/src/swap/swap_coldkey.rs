@@ -157,16 +157,8 @@ impl<T: Config> Pallet<T> {
         }
 
         // 3. Swap Stake.
-        // Stake: MAP ( hotkey, coldkey ) --> u64 | Stake of the hotkey for the coldkey.
+        // StakingHotkeys: MAP ( coldkey ) --> Vec( hotkey )
         for hotkey in StakingHotkeys::<T>::get(old_coldkey) {
-            // Get the stake on the old (hot,coldkey) account.
-            let old_stake: u64 = Stake::<T>::get(&hotkey, old_coldkey);
-            // Get the stake on the new (hot,coldkey) account.
-            let new_stake: u64 = Stake::<T>::get(&hotkey, new_coldkey);
-            // Add the stake to new account.
-            Stake::<T>::insert(&hotkey, new_coldkey, new_stake.saturating_add(old_stake));
-            // Remove the value from the old account.
-            Stake::<T>::remove(&hotkey, old_coldkey);
             // 3.1 Swap Alpha
             for netuid in Self::get_all_subnet_netuids() {
                 // Get the stake on the old (hot,coldkey) account.
