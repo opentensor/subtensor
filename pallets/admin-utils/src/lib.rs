@@ -1395,7 +1395,6 @@ pub mod pallet {
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_subnet_moving_alpha(origin: OriginFor<T>, alpha: I96F32) -> DispatchResult {
             ensure_root(origin)?;
-            let alpha: I96F32 = I96F32::saturating_from_num(alpha);
             pallet_subtensor::SubnetMovingAlpha::<T>::set(alpha);
 
             log::debug!("SubnetMovingAlphaSet( alpha: {:?} )", alpha);

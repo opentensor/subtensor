@@ -1455,7 +1455,8 @@ fn test_sudo_toggle_evm_precompile() {
 fn test_sudo_root_sets_subnet_moving_alpha() {
     new_test_ext().execute_with(|| {
         let alpha: I96F32 = I96F32::saturating_from_num(0.5);
-        assert_eq!(pallet_subtensor::SubnetMovingAlpha::<Test>::get(), 0);
+        let initial = pallet_subtensor::SubnetMovingAlpha::<Test>::get();
+        assert!(initial != alpha);
 
         assert_ok!(AdminUtils::sudo_set_subnet_moving_alpha(
             <<Test as Config>::RuntimeOrigin>::root(),
