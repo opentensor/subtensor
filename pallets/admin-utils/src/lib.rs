@@ -28,8 +28,8 @@ pub mod pallet {
     use frame_support::{dispatch::DispatchResult, pallet_prelude::StorageMap};
     use frame_system::pallet_prelude::*;
     use pallet_evm_chain_id::{self, ChainId};
-	use substrate_fixed::types::I96F32;
     use sp_runtime::BoundedVec;
+    use substrate_fixed::types::I96F32;
 
     /// The main data structure of the module.
     #[pallet::pallet]
@@ -1379,7 +1379,7 @@ pub mod pallet {
             Ok(())
         }
 
-		///
+        ///
         ///
         /// # Arguments
         /// * `origin` - The origin of the call, which must be the root account.
@@ -1393,15 +1393,12 @@ pub mod pallet {
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(63)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_subnet_moving_alpha(
-            origin: OriginFor<T>,
-			alpha: I96F32,
-        ) -> DispatchResult {
+        pub fn sudo_set_subnet_moving_alpha(origin: OriginFor<T>, alpha: I96F32) -> DispatchResult {
             ensure_root(origin)?;
-			let alpha: I96F32 = I96F32::saturating_from_num(alpha);
+            let alpha: I96F32 = I96F32::saturating_from_num(alpha);
             pallet_subtensor::SubnetMovingAlpha::<T>::set(alpha);
 
-			log::debug!("SubnetMovingAlphaSet( alpha: {:?} )", alpha);
+            log::debug!("SubnetMovingAlphaSet( alpha: {:?} )", alpha);
             Ok(())
         }
     }
