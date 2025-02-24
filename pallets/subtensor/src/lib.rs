@@ -998,18 +998,6 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Returns the vector of hotkeys controlled by this coldkey.
     pub type OwnedHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
-    #[pallet::storage]
-    /// (DEPRECATED) DMAP ( hot, cold ) --> stake | Returns the stake under a coldkey prefixed by hotkey.
-    pub type Stake<T: Config> = StorageDoubleMap<
-        _,
-        Blake2_128Concat,
-        T::AccountId,
-        Identity,
-        T::AccountId,
-        u64,
-        ValueQuery,
-        DefaultZeroU64<T>,
-    >;
 
     #[pallet::storage] // --- DMAP ( cold ) --> () | Maps coldkey to if a coldkey swap is scheduled.
     pub type ColdkeySwapScheduled<T: Config> =
