@@ -1383,8 +1383,7 @@ pub mod pallet {
         ///
         /// # Arguments
         /// * `origin` - The origin of the call, which must be the root account.
-        /// * `precompile_id` - The identifier of the EVM precompile to toggle.
-        /// * `enabled` - The new enablement state of the precompile.
+        /// * `alpha` - The new moving alpha value for the SubnetMovingAlpha.
         ///
         /// # Errors
         /// * `BadOrigin` - If the caller is not the root account.
