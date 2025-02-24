@@ -73,18 +73,20 @@ fn test_replace_neuron() {
         let ip: u128 = 1676056785;
         let port: u16 = 9999;
         let ip_type: u8 = 4;
-        assert!(SubtensorModule::serve_axon(
-            <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
-            netuid,
-            0,
-            ip,
-            port,
-            ip_type,
-            0,
-            0,
-            0
-        )
-        .is_ok());
+        assert!(
+            SubtensorModule::serve_axon(
+                <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
+                netuid,
+                0,
+                ip,
+                port,
+                ip_type,
+                0,
+                0,
+                0
+            )
+            .is_ok()
+        );
 
         // Set a neuron certificate for it
         NeuronCertificates::<Test>::insert(netuid, hotkey_account_id, certificate);

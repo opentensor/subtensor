@@ -8,13 +8,13 @@ use frame_support::{
     assert_err, assert_ok,
     dispatch::{DispatchClass, DispatchResult, GetDispatchInfo, Pays},
 };
-use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
+use rand_chacha::{ChaCha20Rng, rand_core::SeedableRng};
 use scale_info::prelude::collections::HashMap;
 use sha2::Digest;
 use sp_core::{Get, H256, U256};
 use sp_runtime::{
-    traits::{BlakeTwo256, ConstU32, Hash, SignedExtension},
     BoundedVec, DispatchError,
+    traits::{BlakeTwo256, ConstU32, Hash, SignedExtension},
 };
 use sp_std::collections::vec_deque::VecDeque;
 use substrate_fixed::types::I32F32;
@@ -756,7 +756,7 @@ fn test_weights_err_has_duplicate_ids() {
         SubtensorModule::set_max_allowed_uids(netuid, 100); // Allow many registrations per block.
         SubtensorModule::set_max_registrations_per_block(netuid, 100); // Allow many registrations per block.
         SubtensorModule::set_target_registrations_per_interval(netuid, 100); // Allow many registrations per block.
-                                                                             // uid 0
+        // uid 0
         register_ok_neuron(netuid, hotkey_account_id, U256::from(77), 0);
         let neuron_uid: u16 =
             SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id)

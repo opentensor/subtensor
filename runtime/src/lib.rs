@@ -18,16 +18,16 @@ use frame_support::{
     genesis_builder_helper::{build_state, get_preset},
     pallet_prelude::Get,
     traits::{
+        Contains, LinearStoragePrice, OnUnbalanced,
         fungible::{
             DecreaseIssuance, HoldConsideration, Imbalance as FungibleImbalance, IncreaseIssuance,
         },
-        Contains, LinearStoragePrice, OnUnbalanced,
     },
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
 use pallet_commitments::CanCommit;
 use pallet_grandpa::{
-    fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
+    AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList, fg_primitives,
 };
 use pallet_registry::CanRegisterIdentity;
 use pallet_subtensor::rpc_info::{
@@ -44,18 +44,18 @@ use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{
+    H160, H256, OpaqueMetadata, U256,
     crypto::{ByteArray, KeyTypeId},
-    OpaqueMetadata, H160, H256, U256,
 };
 use sp_runtime::generic::Era;
 use sp_runtime::{
-    create_runtime_str, generic, impl_opaque_keys,
+    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, MultiSignature, create_runtime_str,
+    generic, impl_opaque_keys,
     traits::{
         AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable,
         IdentifyAccount, NumberFor, One, PostDispatchInfoOf, UniqueSaturatedInto, Verify,
     },
     transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
-    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, MultiSignature,
 };
 use sp_std::cmp::Ordering;
 use sp_std::prelude::*;
@@ -65,19 +65,18 @@ use sp_version::RuntimeVersion;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
-    construct_runtime, parameter_types,
+    StorageValue, construct_runtime, parameter_types,
     traits::{
-        ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, FindAuthor, InstanceFilter,
+        ConstBool, ConstU8, ConstU32, ConstU64, ConstU128, FindAuthor, InstanceFilter,
         KeyOwnerProofSystem, OnFinalize, OnTimestampSet, PrivilegeCmp, Randomness, StorageInfo,
     },
     weights::{
+        IdentityFee, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
+        WeightToFeePolynomial,
         constants::{
             BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND,
         },
-        IdentityFee, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
-        WeightToFeePolynomial,
     },
-    StorageValue,
 };
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
@@ -229,7 +228,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 241,
+    spec_version: 244,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1024,7 +1023,7 @@ impl pallet_commitments::Config for Runtime {
 }
 
 #[cfg(not(feature = "fast-blocks"))]
-pub const INITIAL_SUBNET_TEMPO: u16 = 99;
+pub const INITIAL_SUBNET_TEMPO: u16 = 360;
 
 #[cfg(feature = "fast-blocks")]
 pub const INITIAL_SUBNET_TEMPO: u16 = 10;

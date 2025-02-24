@@ -12,7 +12,7 @@ use frame_support::{
     dispatch::{self, DispatchInfo, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo},
     ensure,
     pallet_macros::import_section,
-    traits::{tokens::fungible, IsSubType},
+    traits::{IsSubType, tokens::fungible},
 };
 
 use codec::{Decode, Encode};
@@ -23,9 +23,9 @@ use pallet_balances::Call as BalancesCall;
 use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{
+    DispatchError,
     traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
     transaction_validity::{TransactionValidity, TransactionValidityError},
-    DispatchError,
 };
 use sp_std::marker::PhantomData;
 
@@ -68,12 +68,12 @@ pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 pub mod pallet {
     use crate::migrations;
     use frame_support::{
+        BoundedVec,
         dispatch::GetDispatchInfo,
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
         traits::{
-            tokens::fungible, OriginTrait, QueryPreimage, StorePreimage, UnfilteredDispatchable,
+            OriginTrait, QueryPreimage, StorePreimage, UnfilteredDispatchable, tokens::fungible,
         },
-        BoundedVec,
     };
     use frame_system::pallet_prelude::*;
     use pallet_drand::types::RoundNumber;
@@ -998,18 +998,6 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Returns the vector of hotkeys controlled by this coldkey.
     pub type OwnedHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
-    #[pallet::storage]
-    /// (DEPRECATED) DMAP ( hot, cold ) --> stake | Returns the stake under a coldkey prefixed by hotkey.
-    pub type Stake<T: Config> = StorageDoubleMap<
-        _,
-        Blake2_128Concat,
-        T::AccountId,
-        Identity,
-        T::AccountId,
-        u64,
-        ValueQuery,
-        DefaultZeroU64<T>,
-    >;
 
     #[pallet::storage] // --- DMAP ( cold ) --> () | Maps coldkey to if a coldkey swap is scheduled.
     pub type ColdkeySwapScheduled<T: Config> =

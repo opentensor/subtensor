@@ -61,14 +61,14 @@ impl<T: Config> Pallet<T> {
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
             !Self::exceeds_tx_delegate_take_rate_limit(
-                Self::get_last_tx_block_delegate_take(&coldkey),
+                Self::get_last_tx_block_delegate_take(&hotkey),
                 block
             ),
             Error::<T>::DelegateTxRateLimitExceeded
         );
 
         // Set last block for rate limiting
-        Self::set_last_tx_block_delegate_take(&coldkey, block);
+        Self::set_last_tx_block_delegate_take(&hotkey, block);
 
         // --- 6. Set the new take value.
         Delegates::<T>::insert(hotkey.clone(), take);

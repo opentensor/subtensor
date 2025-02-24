@@ -6,8 +6,8 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod dispatches {
-    use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
     use frame_support::traits::schedule::DispatchTime;
+    use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
     use frame_system::pallet_prelude::BlockNumberFor;
     use sp_runtime::traits::Saturating;
 
@@ -1881,6 +1881,31 @@ mod dispatches {
                 limit_price,
                 allow_partial,
             )
+        }
+
+        /// Attempts to associate a hotkey with a coldkey.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the transaction, which must be signed by the coldkey that owns the `hotkey`.
+        /// * `hotkey` - The hotkey to associate with the coldkey.
+        ///
+        /// # Note
+        /// Will charge based on the weight even if the hotkey is already associated with a coldkey.
+        #[pallet::call_index(91)]
+        #[pallet::weight((
+            Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().reads_writes(3, 3)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn try_associate_hotkey(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+        ) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+
+            let _ = Self::do_try_associate_hotkey(&coldkey, &hotkey);
+
+            Ok(())
         }
     }
 }
