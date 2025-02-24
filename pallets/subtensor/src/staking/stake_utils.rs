@@ -2,7 +2,7 @@ use super::*;
 use safe_math::*;
 use share_pool::{SharePool, SharePoolDataOperations};
 use sp_std::ops::Neg;
-use substrate_fixed::types::{I110F18, I64F64, I96F32, U64F64};
+use substrate_fixed::types::{I64F64, I96F32, I110F18, U64F64};
 
 impl<T: Config> Pallet<T> {
     /// Retrieves the total alpha issuance for a given subnet.
@@ -167,7 +167,7 @@ impl<T: Config> Pallet<T> {
                 }
             })
             .collect();
-        log::trace!("alpha_stake: {:?}", alpha_stake);
+        log::debug!("alpha_stake: {:?}", alpha_stake);
 
         // Step 3: Calculate the global tao stake vector.
         // Initialize a vector to store global tao stakes for each neuron.
@@ -322,7 +322,7 @@ impl<T: Config> Pallet<T> {
         // Step 1: Retrieve the initial total stake (alpha) for the hotkey on the specified subnet.
         let initial_alpha: I96F32 =
             I96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
-        log::trace!(
+        log::debug!(
             "Initial alpha for hotkey {:?} on subnet {}: {:?}",
             hotkey,
             netuid,
@@ -339,13 +339,13 @@ impl<T: Config> Pallet<T> {
         // Step 2: Retrieve the lists of parents and children for the hotkey on the subnet.
         let parents: Vec<(u64, T::AccountId)> = Self::get_parents(hotkey, netuid);
         let children: Vec<(u64, T::AccountId)> = Self::get_children(hotkey, netuid);
-        log::trace!(
+        log::debug!(
             "Parents for hotkey {:?} on subnet {}: {:?}",
             hotkey,
             netuid,
             parents
         );
-        log::trace!(
+        log::debug!(
             "Children for hotkey {:?} on subnet {}: {:?}",
             hotkey,
             netuid,
@@ -370,7 +370,7 @@ impl<T: Config> Pallet<T> {
             // Add this child's allocation to the total alpha allocated to children.
             alpha_to_children = alpha_to_children.saturating_add(alpha_proportion_to_child);
         }
-        log::trace!("Total alpha allocated to children: {:?}", alpha_to_children);
+        log::debug!("Total alpha allocated to children: {:?}", alpha_to_children);
 
         // Step 4: Calculate the total alpha inherited from parents.
         for (proportion, parent) in parents {
@@ -403,7 +403,7 @@ impl<T: Config> Pallet<T> {
             // Add this parent's contribution to the total alpha inherited from parents.
             alpha_from_parents = alpha_from_parents.saturating_add(alpha_proportion_from_parent);
         }
-        log::trace!(
+        log::debug!(
             "Total alpha inherited from parents: {:?}",
             alpha_from_parents
         );
@@ -544,9 +544,10 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         netuid: u16,
         amount: u64,
-    ) {
+    ) -> u64 {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
-        alpha_share_pool.update_value_for_one(coldkey, amount as i64);
+        let actual_alpha = alpha_share_pool.update_value_for_one(coldkey, amount as i64);
+        actual_alpha.unsigned_abs()
     }
 
     pub fn try_increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -573,13 +574,16 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         netuid: u16,
         amount: u64,
-    ) {
+    ) -> u64 {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
+        let mut actual_alpha = 0;
         if let Ok(value) = alpha_share_pool.try_get_value(coldkey) {
             if value >= amount {
-                alpha_share_pool.update_value_for_one(coldkey, (amount as i64).neg());
+                actual_alpha =
+                    alpha_share_pool.update_value_for_one(coldkey, (amount as i64).neg());
             }
         }
+        actual_alpha.unsigned_abs()
     }
 
     /// Calculates Some(Alpha) returned from pool by staking operation
@@ -735,11 +739,12 @@ impl<T: Config> Pallet<T> {
         alpha: u64,
         fee: u64,
     ) -> u64 {
-        // Step 1: Swap the alpha for TAO.
-        let tao: u64 = Self::swap_alpha_for_tao(netuid, alpha);
+        // Step 1: Decrease alpha on subneet
+        let actual_alpha_decrease =
+            Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
 
-        // Step 2: Decrease alpha on subneet
-        Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
+        // Step 2: Swap the alpha for TAO.
+        let tao: u64 = Self::swap_alpha_for_tao(netuid, actual_alpha_decrease);
 
         // Step 3: Update StakingHotkeys if the hotkey's total alpha, across all subnets, is zero
         // TODO const: fix.
@@ -765,7 +770,7 @@ impl<T: Config> Pallet<T> {
             coldkey.clone(),
             hotkey.clone(),
             tao_unstaked,
-            alpha,
+            actual_alpha_decrease,
             netuid,
         ));
         log::info!(
@@ -773,7 +778,7 @@ impl<T: Config> Pallet<T> {
             coldkey.clone(),
             hotkey.clone(),
             tao_unstaked,
-            alpha,
+            actual_alpha_decrease,
             netuid
         );
 
@@ -799,9 +804,12 @@ impl<T: Config> Pallet<T> {
 
         // Step 2. Swap the tao to alpha.
         let alpha: u64 = Self::swap_tao_for_alpha(netuid, tao_staked);
+        let mut actual_alpha = 0;
         if (tao_staked > 0) && (alpha > 0) {
             // Step 3: Increase the alpha on the hotkey account.
-            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
+            actual_alpha = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                hotkey, coldkey, netuid, alpha,
+            );
 
             // Step 4: Update the list of hotkeys staking for this coldkey
             let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
@@ -825,7 +833,7 @@ impl<T: Config> Pallet<T> {
             coldkey.clone(),
             hotkey.clone(),
             tao_staked,
-            alpha,
+            actual_alpha,
             netuid,
         ));
         log::info!(
@@ -833,12 +841,12 @@ impl<T: Config> Pallet<T> {
             coldkey.clone(),
             hotkey.clone(),
             tao_staked,
-            alpha,
+            actual_alpha,
             netuid
         );
 
         // Step 7: Return the amount of alpha staked
-        alpha
+        actual_alpha
     }
 
     pub fn get_alpha_share_pool(
@@ -976,6 +984,12 @@ impl<T: Config> Pallet<T> {
         // Ensure that the origin hotkey account exists
         ensure!(
             Self::hotkey_account_exists(origin_hotkey),
+            Error::<T>::HotKeyAccountNotExists
+        );
+
+        // Ensure that the destination hotkey account exists
+        ensure!(
+            Self::hotkey_account_exists(destination_hotkey),
             Error::<T>::HotKeyAccountNotExists
         );
 

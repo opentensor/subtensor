@@ -633,8 +633,16 @@ impl<T: Config> Pallet<T> {
             lock_cost = min_lock;
         }
 
-        log::debug!( "last_lock: {:?}, min_lock: {:?}, last_lock_block: {:?}, lock_reduction_interval: {:?}, current_block: {:?}, mult: {:?} lock_cost: {:?}",
-        last_lock, min_lock, last_lock_block, lock_reduction_interval, current_block, mult, lock_cost);
+        log::debug!(
+            "last_lock: {:?}, min_lock: {:?}, last_lock_block: {:?}, lock_reduction_interval: {:?}, current_block: {:?}, mult: {:?} lock_cost: {:?}",
+            last_lock,
+            min_lock,
+            last_lock_block,
+            lock_reduction_interval,
+            current_block,
+            mult,
+            lock_cost
+        );
 
         lock_cost
     }

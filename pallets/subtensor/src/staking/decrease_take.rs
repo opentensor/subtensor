@@ -57,7 +57,11 @@ impl<T: Config> Pallet<T> {
         // --- 4. Set the new take value.
         Delegates::<T>::insert(hotkey.clone(), take);
 
-        // --- 5. Emit the take value.
+        // --- 5. Set last block for rate limiting
+        let block: u64 = Self::get_current_block_as_u64();
+        Self::set_last_tx_block_delegate_take(&hotkey, block);
+
+        // --- 6. Emit the take value.
         log::debug!(
             "TakeDecreased( coldkey:{:?}, hotkey:{:?}, take:{:?} )",
             coldkey,

@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::ToTokens;
-use syn::{parse2, visit_mut::visit_item_struct_mut, Error, ItemStruct, LitStr, Result};
+use syn::{Error, ItemStruct, LitStr, Result, parse2, visit_mut::visit_item_struct_mut};
 
 mod visitor;
 use visitor::*;
@@ -44,9 +44,12 @@ fn freeze_struct_impl(
     let calculated_hash_hex = format!("{:x}", calculated_hash);
 
     if attr.is_empty() {
-        return Err(Error::new_spanned(item,
-            format!("You must provide a hashcode in the `freeze_struct` attribute to freeze this struct.\n\n\
-            expected hashcode: `#[freeze_struct(\"{calculated_hash_hex}\")]`"),
+        return Err(Error::new_spanned(
+            item,
+            format!(
+                "You must provide a hashcode in the `freeze_struct` attribute to freeze this struct.\n\n\
+            expected hashcode: `#[freeze_struct(\"{calculated_hash_hex}\")]`"
+            ),
         ));
     }
 
@@ -54,7 +57,8 @@ fn freeze_struct_impl(
     let provided_hash_hex = parsed_attr.value().to_lowercase();
 
     if provided_hash_hex != calculated_hash_hex {
-        return Err(Error::new_spanned(item,
+        return Err(Error::new_spanned(
+            item,
             format!(
                 "You have made a non-trivial change to this struct and the provided hashcode no longer matches:\n{} != {}\n\n\
                 If this was intentional, please update the hashcode in the `freeze_struct` attribute to:\n\

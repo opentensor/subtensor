@@ -11,7 +11,7 @@ use crate::*;
 use frame_support::{assert_err, assert_ok};
 
 // use frame_system::Config;
-use rand::{distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng, distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng};
 use sp_core::{Get, U256};
 // use sp_runtime::DispatchError;
 use std::time::Instant;

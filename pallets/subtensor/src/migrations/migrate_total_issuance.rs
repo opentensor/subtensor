@@ -3,7 +3,7 @@ use frame_support::pallet_prelude::OptionQuery;
 use frame_support::{
     pallet_prelude::Identity,
     storage_alias,
-    traits::{fungible::Inspect, Get, GetStorageVersion, StorageVersion},
+    traits::{Get, GetStorageVersion, StorageVersion, fungible::Inspect},
     weights::Weight,
 };
 use sp_std::vec::Vec;
@@ -43,10 +43,13 @@ pub fn migrate_total_issuance<T: Config>(test: bool) -> Weight {
     // Execute migration if the current storage version is 5 or if in test mode
     if Pallet::<T>::on_chain_storage_version() == StorageVersion::new(5) || test {
         // Calculate the sum of all stake values
-        let stake_sum: u64 =
-            Stake::<T>::iter().fold(0, |acc, (_, _, stake)| acc.saturating_add(stake));
-        // Add weight for reading all stake entries
-        weight = weight.saturating_add(T::DbWeight::get().reads(Stake::<T>::iter().count() as u64));
+        let stake_sum: u64 = Owner::<T>::iter()
+            .map(|(hotkey, _coldkey)| Pallet::<T>::get_total_stake_for_hotkey(&hotkey))
+            .fold(0, |acc, stake| acc.saturating_add(stake));
+        // Add weight for reading all Owner and TotalHotkeyStake entries
+        weight = weight.saturating_add(
+            T::DbWeight::get().reads((Owner::<T>::iter().count() as u64).saturating_mul(2)),
+        );
 
         // Calculate the sum of all locked subnet values
         let locked_sum: u64 =
