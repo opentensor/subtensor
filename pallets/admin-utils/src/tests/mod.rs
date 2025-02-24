@@ -10,6 +10,7 @@ use pallet_subtensor::Error as SubtensorError;
 use pallet_subtensor::Event;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{Pair, U256, ed25519};
+use substrate_fixed::types::I96F32;
 
 use crate::Error;
 use crate::pallet::PrecompileEnable;
@@ -1447,5 +1448,20 @@ fn test_sudo_toggle_evm_precompile() {
 
         let final_enabled = PrecompileEnable::<Test>::get(precompile_id);
         assert!(final_enabled);
+    });
+}
+
+#[test]
+fn test_sudo_root_sets_subnet_moving_alpha() {
+    new_test_ext().execute_with(|| {
+        let alpha: I96F32 = I96F32::saturating_from_num(0.5);
+        assert_eq!(pallet_subtensor::SubnetMovingAlpha::<Test>::get(), 0);
+
+        assert_ok!(AdminUtils::sudo_set_subnet_moving_alpha(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            alpha
+        ));
+
+        assert_eq!(pallet_subtensor::SubnetMovingAlpha::<Test>::get(), alpha);
     });
 }

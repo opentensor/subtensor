@@ -28,6 +28,7 @@ pub mod pallet {
     use frame_support::{dispatch::DispatchResult, pallet_prelude::StorageMap};
     use frame_system::pallet_prelude::*;
     use pallet_evm_chain_id::{self, ChainId};
+	use substrate_fixed::types::I96F32;
     use sp_runtime::BoundedVec;
 
     /// The main data structure of the module.
@@ -1375,6 +1376,32 @@ pub mod pallet {
                     enabled,
                 });
             }
+            Ok(())
+        }
+
+		///
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the root account.
+        /// * `precompile_id` - The identifier of the EVM precompile to toggle.
+        /// * `enabled` - The new enablement state of the precompile.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the caller is not the root account.
+        ///
+        /// # Weight
+        /// Weight is handled by the `#[pallet::weight]` attribute.
+        #[pallet::call_index(63)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_subnet_moving_alpha(
+            origin: OriginFor<T>,
+			alpha: I96F32,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+			let alpha: I96F32 = I96F32::saturating_from_num(alpha);
+            pallet_subtensor::SubnetMovingAlpha::<T>::set(alpha);
+
+			log::debug!("SubnetMovingAlphaSet( alpha: {:?} )", alpha);
             Ok(())
         }
     }
