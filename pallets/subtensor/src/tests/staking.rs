@@ -1671,6 +1671,70 @@ fn test_rate_limits_enforced_on_increase_take() {
     });
 }
 
+// Test rate-limiting on an increase take just after a decrease take
+// Prevents a Validator from decreasing take and then increasing it immediately after.
+#[test]
+fn test_rate_limits_enforced_on_decrease_before_increase_take() {
+    new_test_ext(1).execute_with(|| {
+        // Make account
+        let hotkey0 = U256::from(1);
+        let coldkey0 = U256::from(3);
+
+        // Add balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 100000);
+
+        // Register the neuron to a new network
+        let netuid = 1;
+        add_network(netuid, 1, 0);
+        register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
+
+        // Coldkey / hotkey 0 become delegates with 9% take
+        Delegates::<Test>::insert(hotkey0, SubtensorModule::get_min_delegate_take() + 1);
+        assert_eq!(
+            SubtensorModule::get_hotkey_take(&hotkey0),
+            SubtensorModule::get_min_delegate_take() + 1
+        );
+
+        // Decrease take
+        assert_ok!(SubtensorModule::do_decrease_take(
+            RuntimeOrigin::signed(coldkey0),
+            hotkey0,
+            SubtensorModule::get_min_delegate_take()
+        )); // Verify decrease
+        assert_eq!(
+            SubtensorModule::get_hotkey_take(&hotkey0),
+            SubtensorModule::get_min_delegate_take()
+        );
+
+        // Increase take immediately after
+        assert_eq!(
+            SubtensorModule::do_increase_take(
+                RuntimeOrigin::signed(coldkey0),
+                hotkey0,
+                SubtensorModule::get_min_delegate_take() + 1
+            ),
+            Err(Error::<Test>::DelegateTxRateLimitExceeded.into())
+        ); // Verify no change
+        assert_eq!(
+            SubtensorModule::get_hotkey_take(&hotkey0),
+            SubtensorModule::get_min_delegate_take()
+        );
+
+        step_block(1 + InitialTxDelegateTakeRateLimit::get() as u16);
+
+        // Can increase after waiting
+        assert_ok!(SubtensorModule::do_increase_take(
+            RuntimeOrigin::signed(coldkey0),
+            hotkey0,
+            SubtensorModule::get_min_delegate_take() + 1
+        )); // Verify increase
+        assert_eq!(
+            SubtensorModule::get_hotkey_take(&hotkey0),
+            SubtensorModule::get_min_delegate_take() + 1
+        );
+    });
+}
+
 #[test]
 fn test_get_total_delegated_stake_after_unstaking() {
     new_test_ext(1).execute_with(|| {
