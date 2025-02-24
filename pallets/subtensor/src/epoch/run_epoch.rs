@@ -390,7 +390,7 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|updated| updated.saturating_add(activity_cutoff) < current_block)
             .collect();
-        log::trace!("Inactive: {:?}", inactive.clone());
+        log::debug!("Inactive: {:?}", inactive.clone());
 
         // Logical negation of inactive.
         let active: Vec<bool> = inactive.iter().map(|&b| !b).collect();
@@ -406,14 +406,14 @@ impl<T: Config> Pallet<T> {
         let hotkeys: Vec<(u16, T::AccountId)> =
             <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(netuid)
                 .collect();
-        log::trace!("hotkeys: {:?}", &hotkeys);
+        log::debug!("hotkeys: {:?}", &hotkeys);
 
         // Access network stake as normalized vector.
         let (mut total_stake, _alpha_stake, _tao_stake): (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) =
             Self::get_stake_weights_for_network(netuid);
         inplace_normalize_64(&mut total_stake);
         let stake: Vec<I32F32> = vec_fixed64_to_fixed32(total_stake);
-        log::trace!("Normalised Stake: {:?}", &stake);
+        log::debug!("Normalised Stake: {:?}", &stake);
 
         // =======================
         // == Validator permits ==
@@ -448,7 +448,7 @@ impl<T: Config> Pallet<T> {
 
         // Normalize active stake.
         inplace_normalize(&mut active_stake);
-        log::trace!("Active Stake:\n{:?}\n", &active_stake);
+        log::debug!("Active Stake:\n{:?}\n", &active_stake);
 
         // =============
         // == Weights ==

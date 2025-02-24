@@ -333,28 +333,6 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // 11. Swap Stake.
-        // Stake( hotkey, coldkey ) -> stake -- the stake that the hotkey controls on behalf of the coldkey.
-        let stakes: Vec<(T::AccountId, u64)> = Stake::<T>::iter_prefix(old_hotkey).collect();
-        // Clear the entire old prefix here.
-        let _ = Stake::<T>::clear_prefix(old_hotkey, stakes.len() as u32, None);
-        // Iterate over all the staking rows and insert them into the new hotkey.
-        for (coldkey, old_stake_amount) in stakes {
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
-
-            // Swap Stake value
-            // Stake( hotkey, coldkey ) -> stake -- the stake that the hotkey controls on behalf of the coldkey.
-            // Get the new stake value.
-            let new_stake_value: u64 = Stake::<T>::get(new_hotkey, &coldkey);
-            // Insert the new stake value.
-            Stake::<T>::insert(
-                new_hotkey,
-                &coldkey,
-                new_stake_value.saturating_add(old_stake_amount),
-            );
-            weight.saturating_accrue(T::DbWeight::get().writes(1));
-        }
-
         // 12. Swap ChildKeys.
         // ChildKeys( parent, netuid ) --> Vec<(proportion,child)> -- the child keys of the parent.
         for netuid in Self::get_all_subnet_netuids() {
