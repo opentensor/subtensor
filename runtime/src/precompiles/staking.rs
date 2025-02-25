@@ -29,10 +29,10 @@ use frame_system::RawOrigin;
 use pallet_evm::{BalanceConverter, ExitError, PrecompileFailure, PrecompileHandle};
 use precompile_utils::EvmResult;
 use sp_core::{H256, U256};
-use sp_runtime::traits::{Dispatchable, StaticLookup, UniqueSaturatedInto};
 use sp_runtime::AccountId32;
+use sp_runtime::traits::{Dispatchable, StaticLookup, UniqueSaturatedInto};
 
-use crate::precompiles::{parse_pubkey, try_u16_from_u256, PrecompileExt, PrecompileHandleExt};
+use crate::precompiles::{PrecompileExt, PrecompileHandleExt, parse_pubkey, try_u16_from_u256};
 use crate::{ProxyType, Runtime, RuntimeCall};
 
 pub struct StakingPrecompile;

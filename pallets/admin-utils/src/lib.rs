@@ -12,7 +12,7 @@ use frame_system::pallet_prelude::BlockNumberFor;
 // - we could use a type parameter for `AuthorityId`, but there is
 //   no sense for this as GRANDPA's `AuthorityId` is not a parameter -- it's always the same
 use sp_consensus_grandpa::AuthorityList;
-use sp_runtime::{traits::Member, DispatchResult, RuntimeAppPublic};
+use sp_runtime::{DispatchResult, RuntimeAppPublic, traits::Member};
 
 mod benchmarking;
 
@@ -29,6 +29,7 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
     use pallet_evm_chain_id::{self, ChainId};
     use sp_runtime::BoundedVec;
+    use substrate_fixed::types::I96F32;
 
     /// The main data structure of the module.
     #[pallet::pallet]
@@ -586,10 +587,10 @@ pub mod pallet {
                 target_registrations_per_interval,
             );
             log::debug!(
-            "RegistrationPerIntervalSet( netuid: {:?} target_registrations_per_interval: {:?} ) ",
-            netuid,
-            target_registrations_per_interval
-        );
+                "RegistrationPerIntervalSet( netuid: {:?} target_registrations_per_interval: {:?} ) ",
+                netuid,
+                target_registrations_per_interval
+            );
             Ok(())
         }
 
@@ -1375,6 +1376,27 @@ pub mod pallet {
                     enabled,
                 });
             }
+            Ok(())
+        }
+
+        ///
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the root account.
+        /// * `alpha` - The new moving alpha value for the SubnetMovingAlpha.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the caller is not the root account.
+        ///
+        /// # Weight
+        /// Weight is handled by the `#[pallet::weight]` attribute.
+        #[pallet::call_index(63)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_subnet_moving_alpha(origin: OriginFor<T>, alpha: I96F32) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::SubnetMovingAlpha::<T>::set(alpha);
+
+            log::debug!("SubnetMovingAlphaSet( alpha: {:?} )", alpha);
             Ok(())
         }
     }

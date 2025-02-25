@@ -20,14 +20,14 @@
 use super::{Event as CollectiveEvent, *};
 use crate as pallet_collective;
 use frame_support::{
-    assert_noop, assert_ok, derive_impl, parameter_types, traits::ConstU64, Hashable,
+    Hashable, assert_noop, assert_ok, derive_impl, parameter_types, traits::ConstU64,
 };
 use frame_system::{EnsureRoot, EventRecord, Phase};
 use sp_core::H256;
 use sp_runtime::{
+    BuildStorage,
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
-    BuildStorage,
 };
 
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
