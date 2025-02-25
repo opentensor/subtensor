@@ -91,7 +91,10 @@ impl StakingPrecompile {
     }
 
     #[precompile::public("getTotalColdkeyStake(bytes32)")]
-    fn get_total_coldkey_stake(_handle: &mut impl PrecompileHandle, coldkey_h256: H256) -> EvmResult<U256> {
+    fn get_total_coldkey_stake(
+        _handle: &mut impl PrecompileHandle,
+        coldkey_h256: H256,
+    ) -> EvmResult<U256> {
         let (coldkey, _) = parse_pubkey(coldkey_h256.as_bytes())?;
 
         // get total stake of coldkey
@@ -107,7 +110,10 @@ impl StakingPrecompile {
     }
 
     #[precompile::public("getTotalHotkeyStake(bytes32)")]
-    fn get_total_hotkey_stake(_handle: &mut impl PrecompileHandle, hotkey_h256: H256) -> EvmResult<U256> {
+    fn get_total_hotkey_stake(
+        _handle: &mut impl PrecompileHandle,
+        hotkey_h256: H256,
+    ) -> EvmResult<U256> {
         let (hotkey, _) = parse_pubkey(hotkey_h256.as_bytes())?;
 
         // get total stake of hotkey
