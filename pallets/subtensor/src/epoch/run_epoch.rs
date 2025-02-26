@@ -357,14 +357,14 @@ impl<T: Config> Pallet<T> {
     ///  * 'netuid': ( u16 ):
     ///     - The network to distribute the emission onto.
     ///
-    ///  * 'rao_emission': ( u64 ):
+    ///  * 'alpha_emission': ( u64 ):
     ///     - The total emission for the epoch.
     ///
     ///  * 'debug' ( bool ):
     ///     - Print debugging outputs.
     ///
     #[allow(clippy::indexing_slicing)]
-    pub fn epoch(netuid: u16, rao_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
+    pub fn epoch(netuid: u16, alpha_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
         // Get subnetwork size.
         let n: u16 = Self::get_subnetwork_n(netuid);
         log::trace!("Number of Neurons in Network: {:?}", n);
@@ -601,12 +601,12 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // Compute rao based emission scores. range: I96F32(0, rao_emission)
-        let float_rao_emission: I96F32 = I96F32::saturating_from_num(rao_emission);
+        // Compute rao based emission scores. range: I96F32(0, alpha_emission)
+        let float_alpha_emission: I96F32 = I96F32::saturating_from_num(alpha_emission);
 
         let server_emission: Vec<I96F32> = normalized_server_emission
             .iter()
-            .map(|se: &I32F32| I96F32::saturating_from_num(*se).saturating_mul(float_rao_emission))
+            .map(|se: &I32F32| I96F32::saturating_from_num(*se).saturating_mul(float_alpha_emission))
             .collect();
         let server_emission: Vec<u64> = server_emission
             .iter()
@@ -615,7 +615,7 @@ impl<T: Config> Pallet<T> {
 
         let validator_emission: Vec<I96F32> = normalized_validator_emission
             .iter()
-            .map(|ve: &I32F32| I96F32::saturating_from_num(*ve).saturating_mul(float_rao_emission))
+            .map(|ve: &I32F32| I96F32::saturating_from_num(*ve).saturating_mul(float_alpha_emission))
             .collect();
         let validator_emission: Vec<u64> = validator_emission
             .iter()
@@ -625,7 +625,7 @@ impl<T: Config> Pallet<T> {
         // Only used to track emission in storage.
         let combined_emission: Vec<I96F32> = normalized_combined_emission
             .iter()
-            .map(|ce: &I32F32| I96F32::saturating_from_num(*ce).saturating_mul(float_rao_emission))
+            .map(|ce: &I32F32| I96F32::saturating_from_num(*ce).saturating_mul(float_alpha_emission))
             .collect();
         let combined_emission: Vec<u64> = combined_emission
             .iter()
