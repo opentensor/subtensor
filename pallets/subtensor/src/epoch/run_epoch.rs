@@ -360,9 +360,6 @@ impl<T: Config> Pallet<T> {
     ///  * 'alpha_emission': ( u64 ):
     ///     - The total emission for the epoch.
     ///
-    ///  * 'debug' ( bool ):
-    ///     - Print debugging outputs.
-    ///
     #[allow(clippy::indexing_slicing)]
     pub fn epoch(netuid: u16, alpha_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
         // Get subnetwork size.
