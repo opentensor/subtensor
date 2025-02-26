@@ -81,7 +81,7 @@ pub mod pallet {
             reveal_round: u64,
         },
         /// A timelock-encrypted commitment was auto-revealed
-        CommitmentRevealed { 
+        CommitmentRevealed {
             /// The netuid of the commitment
             netuid: u16,
             /// The account
@@ -255,7 +255,9 @@ pub mod pallet {
             let blocks_per_round = 12_u64.checked_div(3).unwrap_or(0); // 4 blocks per round (12s blocktime / 3s round)
             let rounds_since_last = reveal_round.saturating_sub(last_drand_round);
             let blocks_to_reveal = rounds_since_last.saturating_mul(blocks_per_round);
-            let blocks_to_reveal: BlockNumberFor<T> = blocks_to_reveal.try_into().map_err(|_| "Block number conversion failed")?;
+            let blocks_to_reveal: BlockNumberFor<T> = blocks_to_reveal
+                .try_into()
+                .map_err(|_| "Block number conversion failed")?;
             let reveal_block = cur_block.saturating_add(blocks_to_reveal);
 
             // Construct the TimelockCommitment
