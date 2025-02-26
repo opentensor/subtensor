@@ -2,7 +2,7 @@
 
 use crate as pallet_commitments;
 use frame_support::derive_impl;
-use frame_support::traits::ConstU64;
+use frame_support::traits::{ConstU32, ConstU64};
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -10,7 +10,8 @@ use sp_runtime::{
 };
 
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
-pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, u64, RuntimeCall, ()>;
+pub type UncheckedExtrinsic =
+    sp_runtime::generic::UncheckedExtrinsic<AccountId, RuntimeCall, test_crypto::Signature, ()>;
 
 frame_support::construct_runtime!(
     pub enum Test
@@ -18,38 +19,11 @@ frame_support::construct_runtime!(
         System: frame_system = 1,
         Balances: pallet_balances = 2,
         Commitments: pallet_commitments = 3,
+        Drand: pallet_drand = 4,
     }
 );
 
-#[allow(dead_code)]
 pub type AccountId = u64;
-
-// The address format for describing accounts.
-#[allow(dead_code)]
-pub type Address = AccountId;
-
-// Balance of an account.
-#[allow(dead_code)]
-pub type Balance = u64;
-
-// An index to a block.
-#[allow(dead_code)]
-pub type BlockNumber = u64;
-
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
-impl pallet_balances::Config for Test {
-    type MaxLocks = ();
-    type MaxReserves = ();
-    type ReserveIdentifier = [u8; 8];
-    type Balance = u64;
-    type RuntimeEvent = RuntimeEvent;
-    type DustRemoval = ();
-    type ExistentialDeposit = ConstU64<1>;
-    type AccountStore = System;
-    type WeightInfo = ();
-    type FreezeIdentifier = ();
-    type MaxFreezes = ();
-}
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
@@ -73,23 +47,107 @@ impl frame_system::Config for Test {
     type SystemWeightInfo = ();
     type SS58Prefix = ConstU16<42>;
     type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
+    type MaxConsumers = ConstU32<16>;
     type Block = Block;
-    type Nonce = u64;
+    type Nonce = u32;
+}
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+impl pallet_balances::Config for Test {
+    type MaxLocks = ();
+    type MaxReserves = ();
+    type ReserveIdentifier = [u8; 8];
+    type Balance = u64;
+    type RuntimeEvent = RuntimeEvent;
+    type DustRemoval = ();
+    type ExistentialDeposit = ConstU64<1>;
+    type AccountStore = System;
+    type WeightInfo = ();
+    type FreezeIdentifier = ();
+    type MaxFreezes = ();
 }
 
 impl pallet_commitments::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type WeightInfo = ();
-    type MaxFields = frame_support::traits::ConstU32<16>;
+    type MaxFields = ConstU32<16>;
     type CanCommit = ();
-    type FieldDeposit = frame_support::traits::ConstU64<0>;
-    type InitialDeposit = frame_support::traits::ConstU64<0>;
-    type DefaultRateLimit = frame_support::traits::ConstU64<0>;
+    type FieldDeposit = ConstU64<0>;
+    type InitialDeposit = ConstU64<0>;
+    type DefaultRateLimit = ConstU64<0>;
 }
 
-// // Build genesis storage according to the mock runtime.
+impl pallet_drand::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = pallet_drand::weights::SubstrateWeight<Test>;
+    type AuthorityId = test_crypto::TestAuthId;
+    type Verifier = pallet_drand::verifier::QuicknetVerifier;
+    type UnsignedPriority = ConstU64<{ 1 << 20 }>;
+    type HttpFetchTimeout = ConstU64<1_000>;
+}
+
+pub mod test_crypto {
+    use sp_core::sr25519::{Public as Sr25519Public, Signature as Sr25519Signature};
+    use sp_runtime::{
+        app_crypto::{app_crypto, sr25519},
+        traits::IdentifyAccount,
+    };
+
+    pub const KEY_TYPE: sp_runtime::KeyTypeId = sp_runtime::KeyTypeId(*b"test");
+
+    app_crypto!(sr25519, KEY_TYPE);
+
+    pub struct TestAuthId;
+
+    impl frame_system::offchain::AppCrypto<Public, Signature> for TestAuthId {
+        type RuntimeAppPublic = Public;
+        type GenericSignature = Sr25519Signature;
+        type GenericPublic = Sr25519Public;
+    }
+
+    impl IdentifyAccount for Public {
+        type AccountId = u64;
+
+        fn into_account(self) -> u64 {
+            let mut bytes = [0u8; 32];
+            bytes.copy_from_slice(self.as_ref());
+            u64::from_le_bytes(bytes[..8].try_into().unwrap())
+        }
+    }
+}
+
+impl frame_system::offchain::SigningTypes for Test {
+    type Public = test_crypto::Public;
+    type Signature = test_crypto::Signature;
+}
+
+impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Test>> for Test {
+    fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+        call: RuntimeCall,
+        _public: Self::Public,
+        account: Self::AccountId,
+        _nonce: u32,
+    ) -> Option<(
+        RuntimeCall,
+        <UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
+    )> {
+        // Create a dummy sr25519 signature from a raw byte array
+        let dummy_raw = [0u8; 64];
+        let dummy_signature = sp_core::sr25519::Signature::from(dummy_raw);
+        let signature = test_crypto::Signature::from(dummy_signature);
+        Some((call, (account, signature, ())))
+    }
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+where
+    RuntimeCall: From<C>,
+{
+    type Extrinsic = UncheckedExtrinsic;
+    type OverarchingCall = RuntimeCall;
+}
+
 // pub fn new_test_ext() -> sp_io::TestExternalities {
 //     let t = frame_system::GenesisConfig::<Test>::default()
 //         .build_storage()
