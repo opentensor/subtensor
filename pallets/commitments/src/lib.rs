@@ -75,7 +75,7 @@ pub mod pallet {
         type TempoInterface: GetTempoInterface;
     }
 
-    /// Used to retreive the given subnet's tempo  
+    /// Used to retreive the given subnet's tempo
     pub trait GetTempoInterface {
         /// Used to retreive the epoch index for the given subnet.
         fn get_epoch_index(netuid: u16, cur_block: u64) -> u64;
@@ -225,6 +225,14 @@ pub mod pallet {
             if usage.last_epoch != current_epoch {
                 usage.last_epoch = current_epoch;
                 usage.used_space = 0;
+            }
+
+            // check if ResetBondsFlag is set in the fields
+            for field in info.fields.iter() {
+                if let Data::ResetBondsFlag = field {
+                    T::OnMetadataCommitment::on_metadata_commitment(netuid, &who);
+                    break;
+                }
             }
 
             let max_allowed = MaxSpace::<T>::get() as u64;
