@@ -219,7 +219,7 @@ pub mod pallet {
     pub type Pulses<T: Config> = StorageMap<_, Blake2_128Concat, RoundNumber, Pulse, OptionQuery>;
 
     #[pallet::storage]
-    pub(super) type LastStoredRound<T: Config> = StorageValue<_, RoundNumber, ValueQuery>;
+    pub type LastStoredRound<T: Config> = StorageValue<_, RoundNumber, ValueQuery>;
 
     /// Defines the block when next unsigned transaction will be accepted.
     ///

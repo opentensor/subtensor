@@ -31,6 +31,10 @@ use sp_runtime::{
 use sp_std::{fmt::Debug, iter::once, prelude::*};
 use subtensor_macros::freeze_struct;
 
+use crate::Config;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use tle::curves::drand::TinyBLS381;
+
 /// Either underlying data blob if it is at most 32 bytes, or a hash of it. If the data is greater
 /// than 32-bytes then it will be truncated when encoding.
 ///
@@ -293,6 +297,60 @@ impl Default for Data {
 #[scale_info(skip_type_params(FieldLimit))]
 pub struct CommitmentInfo<FieldLimit: Get<u32>> {
     pub fields: BoundedVec<Data, FieldLimit>,
+}
+
+/// Maximum size of the serialized timelock commitment in bytes
+pub const MAX_TIMELOCK_COMMITMENT_SIZE_BYTES: u32 = 1024;
+
+/// Represents a timelock-encrypted commitment with reveal metadata
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, Debug)]
+pub struct TimelockCommitment<BlockNumber> {
+    /// The timelock-encrypted commitment data
+    pub encrypted_commitment: BoundedVec<u8, ConstU32<MAX_TIMELOCK_COMMITMENT_SIZE_BYTES>>,
+    /// The drand round number when this commitment can be revealed
+    pub reveal_round: u64,
+    /// The block number when the commitment should be revealed
+    pub reveal_block: BlockNumber,
+}
+/// Represents a revealed commitment after decryption
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, Debug)]
+pub struct RevealedCommitment<Balance, MaxFields: Get<u32>, BlockNumber> {
+    /// The decrypted commitment info
+    pub info: CommitmentInfo<MaxFields>,
+    /// The block it was revealed
+    pub revealed_block: BlockNumber,
+    /// The deposit held for the commitment
+    pub deposit: Balance,
+}
+
+impl<BlockNumber: Clone + From<u64>> TimelockCommitment<BlockNumber> {
+    /// Create a new TimelockCommitment from a TLECiphertext and reveal round
+    pub fn from_tle_ciphertext<T: Config>(
+        ciphertext: tle::tlock::TLECiphertext<TinyBLS381>,
+        reveal_round: u64,
+        reveal_block: BlockNumber,
+    ) -> Result<Self, &'static str> {
+        let mut encrypted_data = Vec::new();
+        ciphertext
+            .serialize_compressed(&mut encrypted_data)
+            .map_err(|_| "Failed to serialize TLECiphertext")?;
+
+        let bounded_encrypted = BoundedVec::try_from(encrypted_data)
+            .map_err(|_| "Encrypted commitment exceeds max size")?;
+
+        Ok(TimelockCommitment {
+            encrypted_commitment: bounded_encrypted,
+            reveal_round,
+            reveal_block,
+        })
+    }
+
+    /// Attempt to deserialize the encrypted commitment back into a TLECiphertext
+    pub fn to_tle_ciphertext(&self) -> Result<tle::tlock::TLECiphertext<TinyBLS381>, &'static str> {
+        let mut reader = &self.encrypted_commitment[..];
+        tle::tlock::TLECiphertext::<TinyBLS381>::deserialize_compressed(&mut reader)
+            .map_err(|_| "Failed to deserialize TLECiphertext")
+    }
 }
 
 /// Information concerning the identity of the controller of an account.

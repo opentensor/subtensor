@@ -14,6 +14,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system = 1,
         Commitments: pallet_commitments = 2,
+        SubtensorModule: pallet_subtensor = 3,
     }
 );
 

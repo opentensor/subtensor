@@ -31,7 +31,7 @@ pub mod pallet {
 
     // Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
-    pub trait Config: frame_system::Config {
+    pub trait Config: frame_system::Config + pallet_drand::Config {
         /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -66,6 +66,22 @@ pub mod pallet {
     pub enum Event<T: Config> {
         /// A commitment was set
         Commitment {
+            /// The netuid of the commitment
+            netuid: u16,
+            /// The account
+            who: T::AccountId,
+        },
+        /// A timelock-encrypted commitment was set
+        TimelockCommitment {
+            /// The netuid of the commitment
+            netuid: u16,
+            /// The account
+            who: T::AccountId,
+            /// The drand round to reveal
+            reveal_round: u64,
+        },
+        /// A timelock-encrypted commitment was auto-revealed
+        CommitmentRevealed { 
             /// The netuid of the commitment
             netuid: u16,
             /// The account
@@ -117,13 +133,24 @@ pub mod pallet {
         BlockNumberFor<T>,
         OptionQuery,
     >;
+    #[pallet::storage]
+    #[pallet::getter(fn timelock_commitment_of)]
+    pub(super) type TimelockCommitmentOf<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        u16, // netuid
+        Twox64Concat,
+        T::AccountId,
+        TimelockCommitment<BlockNumberFor<T>>,
+        OptionQuery,
+    >;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Set the commitment for a given netuid
         #[pallet::call_index(0)]
         #[pallet::weight((
-			T::WeightInfo::set_commitment(),
+			<T as pallet::Config>::WeightInfo::set_commitment(),
 			DispatchClass::Operational,
 			Pays::No
 		))]
@@ -187,13 +214,68 @@ pub mod pallet {
         /// Sudo-set the commitment rate limit
         #[pallet::call_index(1)]
         #[pallet::weight((
-			T::WeightInfo::set_rate_limit(),
+            <T as pallet::Config>::WeightInfo::set_rate_limit(),
 			DispatchClass::Operational,
 			Pays::No
 		))]
         pub fn set_rate_limit(origin: OriginFor<T>, rate_limit_blocks: u32) -> DispatchResult {
             ensure_root(origin)?;
             RateLimit::<T>::set(rate_limit_blocks.into());
+            Ok(())
+        }
+        /// Set a timelock-encrypted commitment for a given netuid
+        #[pallet::call_index(2)]
+        #[pallet::weight((
+            <T as pallet::Config>::WeightInfo::set_commitment(),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
+        pub fn set_timelock_commitment(
+            origin: OriginFor<T>,
+            netuid: u16,
+            encrypted_commitment: BoundedVec<u8, ConstU32<MAX_TIMELOCK_COMMITMENT_SIZE_BYTES>>,
+            reveal_round: u64,
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+            ensure!(
+                T::CanCommit::can_commit(netuid, &who),
+                Error::<T>::AccountNotAllowedCommit
+            );
+
+            let cur_block = <frame_system::Pallet<T>>::block_number();
+            if let Some(last_commit) = <LastCommitment<T>>::get(netuid, &who) {
+                ensure!(
+                    cur_block >= last_commit.saturating_add(RateLimit::<T>::get()),
+                    Error::<T>::CommitmentSetRateLimitExceeded
+                );
+            }
+
+            // Calculate reveal block
+            let last_drand_round = pallet_drand::LastStoredRound::<T>::get();
+            let blocks_per_round = 12_u64.checked_div(3).unwrap_or(0); // 4 blocks per round (12s blocktime / 3s round)
+            let rounds_since_last = reveal_round.saturating_sub(last_drand_round);
+            let blocks_to_reveal = rounds_since_last.saturating_mul(blocks_per_round);
+            let blocks_to_reveal: BlockNumberFor<T> = blocks_to_reveal.try_into().map_err(|_| "Block number conversion failed")?;
+            let reveal_block = cur_block.saturating_add(blocks_to_reveal);
+
+            // Construct the TimelockCommitment
+            let timelock_commitment = TimelockCommitment {
+                encrypted_commitment,
+                reveal_round,
+                reveal_block,
+            };
+
+            // Store the timelock commitment
+            <TimelockCommitmentOf<T>>::insert(netuid, &who, timelock_commitment.clone());
+            <LastCommitment<T>>::insert(netuid, &who, cur_block);
+
+            // Emit event with hash computed on-demand
+            Self::deposit_event(Event::TimelockCommitment {
+                netuid,
+                who,
+                reveal_round,
+            });
+
             Ok(())
         }
     }
