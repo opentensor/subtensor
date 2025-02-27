@@ -986,7 +986,7 @@ pub mod pallet {
             let prev_min_stake = pallet_subtensor::Pallet::<T>::get_nominator_min_required_stake();
             log::trace!("Setting minimum stake to: {}", min_stake);
             pallet_subtensor::Pallet::<T>::set_nominator_min_required_stake(min_stake);
-            if min_stake < prev_min_stake {
+            if min_stake > prev_min_stake {
                 log::trace!("Clearing small nominations");
                 pallet_subtensor::Pallet::<T>::clear_small_nominations();
                 log::trace!("Small nominations cleared");
