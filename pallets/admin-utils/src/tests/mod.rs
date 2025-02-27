@@ -1469,58 +1469,83 @@ fn test_sudo_root_sets_subnet_moving_alpha() {
 
 #[test]
 fn test_sets_a_lower_value_clears_small_nominations() {
-	new_test_ext().execute_with(|| {
-		let hotkey: U256 = U256::from(3);
-		let owner_coldkey: U256 = U256::from(1);
-		let staker_coldkey: U256 = U256::from(2);
+    new_test_ext().execute_with(|| {
+        let hotkey: U256 = U256::from(3);
+        let owner_coldkey: U256 = U256::from(1);
+        let staker_coldkey: U256 = U256::from(2);
 
-		let initial_nominator_min_required_stake = 10u64;
-		let nominator_min_required_stake_0 = 5u64;
-		let nominator_min_required_stake_1 = 20u64;
+        let initial_nominator_min_required_stake = 10u64;
+        let nominator_min_required_stake_0 = 5u64;
+        let nominator_min_required_stake_1 = 20u64;
 
-		assert!(nominator_min_required_stake_0 < nominator_min_required_stake_1);
-		assert!(nominator_min_required_stake_0 < initial_nominator_min_required_stake);
+        assert!(nominator_min_required_stake_0 < nominator_min_required_stake_1);
+        assert!(nominator_min_required_stake_0 < initial_nominator_min_required_stake);
 
-		let to_stake = initial_nominator_min_required_stake + 1;
+        let to_stake = initial_nominator_min_required_stake + 1;
 
-		assert!(to_stake > initial_nominator_min_required_stake);
-		assert!(to_stake > nominator_min_required_stake_0); // Should stay when set
-		assert!(to_stake < nominator_min_required_stake_1); // Should be removed when set
+        assert!(to_stake > initial_nominator_min_required_stake);
+        assert!(to_stake > nominator_min_required_stake_0); // Should stay when set
+        assert!(to_stake < nominator_min_required_stake_1); // Should be removed when set
 
-		// Create network
-		let netuid = 2;
-		add_network(netuid, 10);
+        // Create network
+        let netuid = 2;
+        add_network(netuid, 10);
 
-		// Register a neuron
-		register_ok_neuron(netuid, hotkey, owner_coldkey, 0);
+        // Register a neuron
+        register_ok_neuron(netuid, hotkey, owner_coldkey, 0);
 
-		assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
-			RuntimeOrigin::root(),
-			initial_nominator_min_required_stake
-		));
-		assert_eq!(SubtensorModule::get_nominator_min_required_stake(), initial_nominator_min_required_stake);
+        assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
+            RuntimeOrigin::root(),
+            initial_nominator_min_required_stake
+        ));
+        assert_eq!(
+            SubtensorModule::get_nominator_min_required_stake(),
+            initial_nominator_min_required_stake
+        );
 
+        // Stake to the hotkey as staker_coldkey
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &staker_coldkey,
+            netuid,
+            to_stake,
+        );
 
-		// Stake to the hotkey as staker_coldkey
-		SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &staker_coldkey, netuid, to_stake);
+        assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
+            RuntimeOrigin::root(),
+            nominator_min_required_stake_0
+        ));
+        assert_eq!(
+            SubtensorModule::get_nominator_min_required_stake(),
+            nominator_min_required_stake_0
+        );
 
+        // Check this nomination is not cleared
+        assert!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &staker_coldkey,
+                netuid
+            ) > 0
+        );
 
-		assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
-			RuntimeOrigin::root(),
-			nominator_min_required_stake_0
-		));
-		assert_eq!(SubtensorModule::get_nominator_min_required_stake(), nominator_min_required_stake_0);
+        assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
+            RuntimeOrigin::root(),
+            nominator_min_required_stake_1
+        ));
+        assert_eq!(
+            SubtensorModule::get_nominator_min_required_stake(),
+            nominator_min_required_stake_1
+        );
 
-		// Check this nomination is not cleared
-		assert!(SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &staker_coldkey, netuid) > 0);
-
-		assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
-			RuntimeOrigin::root(),
-			nominator_min_required_stake_1
-		));
-		assert_eq!(SubtensorModule::get_nominator_min_required_stake(), nominator_min_required_stake_1);
-
-		// Check this nomination is cleared
-		assert_eq!(SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &staker_coldkey, netuid), 0);
-	});
+        // Check this nomination is cleared
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &staker_coldkey,
+                netuid
+            ),
+            0
+        );
+    });
 }
