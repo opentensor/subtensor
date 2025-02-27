@@ -1420,7 +1420,7 @@ pub mod pallet {
             hotkey: T::AccountId,
         ) -> DispatchResult {
             pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
-            pallet_subtensor::Pallet::<T>::set_subnet_owner_hotkey(netuid, hotkey);
+            pallet_subtensor::Pallet::<T>::set_subnet_owner_hotkey(netuid, &hotkey);
 
             log::debug!(
                 "SubnetOwnerHotkeySet( netuid: {:?}, hotkey: {:?} )",

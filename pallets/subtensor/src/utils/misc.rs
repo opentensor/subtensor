@@ -744,8 +744,19 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::DissolveNetworkScheduleDurationSet(duration));
     }
 
-    pub fn set_subnet_owner_hotkey(netuid: u16, hotkey: T::AccountId) {
-        SubnetOwnerHotkey::<T>::insert(netuid, hotkey);
-        Self::deposit_event(Event::SubnetOwnerHotkeySet(netuid, hotkey));
+    /// Set the owner hotkey for a subnet.
+    ///
+    /// # Arguments
+    ///
+    /// * `netuid` - The unique identifier for the subnet.
+    /// * `hotkey` - The new hotkey for the subnet owner.
+    ///
+    /// # Effects
+    ///
+    /// * Update the SubnetOwnerHotkey storage.
+    /// * Emits a SubnetOwnerHotkeySet event.
+    pub fn set_subnet_owner_hotkey(netuid: u16, hotkey: &T::AccountId) {
+        SubnetOwnerHotkey::<T>::insert(netuid, hotkey.clone());
+        Self::deposit_event(Event::SubnetOwnerHotkeySet(netuid, hotkey.clone()));
     }
 }
