@@ -1549,3 +1549,46 @@ fn test_sets_a_lower_value_clears_small_nominations() {
         );
     });
 }
+
+#[test]
+fn test_sudo_set_subnet_owner_hotkey() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+
+        let coldkey: U256 = U256::from(1);
+        let hotkey: U256 = U256::from(2);
+        let new_hotkey: U256 = U256::from(3);
+
+        let coldkey_origin = <<Test as Config>::RuntimeOrigin>::signed(coldkey);
+        let root = RuntimeOrigin::root();
+        let random_account = RuntimeOrigin::signed(U256::from(123456));
+
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, coldkey);
+        pallet_subtensor::SubnetOwnerHotkey::<Test>::insert(netuid, hotkey);
+        assert_eq!(
+            pallet_subtensor::SubnetOwnerHotkey::<Test>::get(netuid),
+            hotkey
+        );
+
+        assert_ok!(AdminUtils::sudo_set_subnet_owner_hotkey(
+            coldkey_origin,
+            netuid,
+            new_hotkey
+        ));
+
+        assert_eq!(
+            pallet_subtensor::SubnetOwnerHotkey::<Test>::get(netuid),
+            new_hotkey
+        );
+
+        assert_noop!(
+            AdminUtils::sudo_set_subnet_owner_hotkey(random_account, netuid, new_hotkey),
+            DispatchError::BadOrigin
+        );
+
+        assert_noop!(
+            AdminUtils::sudo_set_subnet_owner_hotkey(root, netuid, new_hotkey),
+            DispatchError::BadOrigin
+        );
+    });
+}
