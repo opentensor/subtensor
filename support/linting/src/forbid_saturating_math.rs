@@ -50,9 +50,8 @@ fn is_saturating_math_call(func: &Expr) -> bool {
         return false;
     };
 
-    path.last().is_some_and(|seg| {
-        seg.ident.to_string().starts_with("saturating_")
-    })
+    path.last()
+        .is_some_and(|seg| seg.ident.to_string().starts_with("saturating_"))
 }
 
 #[cfg(test)]
