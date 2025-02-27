@@ -1403,7 +1403,7 @@ pub mod pallet {
         /// Change the SubnetOwnerHotkey for a given subnet.
         ///
         /// # Arguments
-        /// * `origin` - The origin of the call, which must be the root account.
+        /// * `origin` - The origin of the call, which must be the subnet owner.
         /// * `netuid` - The unique identifier for the subnet.
         /// * `hotkey` - The new hotkey for the subnet owner.
         ///
@@ -1419,7 +1419,7 @@ pub mod pallet {
             netuid: u16,
             hotkey: T::AccountId,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner(origin.clone(), netuid)?;
             pallet_subtensor::Pallet::<T>::set_subnet_owner_hotkey(netuid, &hotkey);
 
             log::debug!(

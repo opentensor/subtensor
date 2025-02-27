@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
     Error,
-    system::{ensure_root, ensure_signed_or_root, pallet_prelude::BlockNumberFor},
+    system::{ensure_root, ensure_signed, ensure_signed_or_root, pallet_prelude::BlockNumberFor},
 };
 use safe_math::*;
 use sp_core::Get;
@@ -19,6 +19,15 @@ impl<T: Config> Pallet<T> {
             Ok(Some(who)) if SubnetOwner::<T>::get(netuid) == who => Ok(()),
             Ok(Some(_)) => Err(DispatchError::BadOrigin),
             Ok(None) => Ok(()),
+            Err(x) => Err(x.into()),
+        }
+    }
+
+    pub fn ensure_subnet_owner(o: T::RuntimeOrigin, netuid: u16) -> Result<(), DispatchError> {
+        let coldkey = ensure_signed(o);
+        match coldkey {
+            Ok(who) if SubnetOwner::<T>::get(netuid) == who => Ok(()),
+            Ok(_) => Err(DispatchError::BadOrigin),
             Err(x) => Err(x.into()),
         }
     }
