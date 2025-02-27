@@ -57,11 +57,21 @@ pub enum Data {
     /// Only the SHA3-256 hash of the data is stored. The preimage of the hash may be retrieved
     /// through some hash-lookup service.
     ShaThree256([u8; 32]),
+    /// A timelock-encrypted commitment with a reveal round.
+    TimelockEncrypted {
+        encrypted: BoundedVec<u8, ConstU32<MAX_TIMELOCK_COMMITMENT_SIZE_BYTES>>,
+        reveal_round: u64,
+    },
 }
 
 impl Data {
     pub fn is_none(&self) -> bool {
         self == &Data::None
+    }
+
+    /// Check if this is a timelock-encrypted commitment.
+    pub fn is_timelock_encrypted(&self) -> bool {
+        matches!(self, Data::TimelockEncrypted { .. })
     }
 }
 
@@ -81,6 +91,15 @@ impl Decode for Data {
             131 => Data::Sha256(<[u8; 32]>::decode(input)?),
             132 => Data::Keccak256(<[u8; 32]>::decode(input)?),
             133 => Data::ShaThree256(<[u8; 32]>::decode(input)?),
+            134 => {
+                let encrypted =
+                    BoundedVec::<u8, ConstU32<MAX_TIMELOCK_COMMITMENT_SIZE_BYTES>>::decode(input)?;
+                let reveal_round = u64::decode(input)?;
+                Data::TimelockEncrypted {
+                    encrypted,
+                    reveal_round,
+                }
+            }
             _ => return Err(codec::Error::from("invalid leading byte")),
         })
     }
@@ -100,6 +119,15 @@ impl Encode for Data {
             Data::Sha256(h) => once(131).chain(h.iter().cloned()).collect(),
             Data::Keccak256(h) => once(132).chain(h.iter().cloned()).collect(),
             Data::ShaThree256(h) => once(133).chain(h.iter().cloned()).collect(),
+            Data::TimelockEncrypted {
+                encrypted,
+                reveal_round,
+            } => {
+                let mut r = vec![134];
+                r.extend_from_slice(&encrypted.encode());
+                r.extend_from_slice(&reveal_round.encode());
+                r
+            }
         }
     }
 }
@@ -274,6 +302,17 @@ impl TypeInfo for Data {
             .variant("ShaThree256", |v| {
                 v.index(133)
                     .fields(Fields::unnamed().field(|f| f.ty::<[u8; 32]>()))
+            })
+            .variant("TimelockEncrypted", |v| {
+                v.index(134).fields(
+                    Fields::named()
+                        .field(|f| {
+                            f.name("encrypted")
+                                .ty::<BoundedVec<u8, ConstU32<MAX_TIMELOCK_COMMITMENT_SIZE_BYTES>>>(
+                                )
+                        })
+                        .field(|f| f.name("reveal_round").ty::<u64>()),
+                )
             });
 
         Type::builder()
@@ -302,29 +341,26 @@ pub struct CommitmentInfo<FieldLimit: Get<u32>> {
 /// Maximum size of the serialized timelock commitment in bytes
 pub const MAX_TIMELOCK_COMMITMENT_SIZE_BYTES: u32 = 1024;
 
-/// Represents a timelock-encrypted commitment with reveal metadata
+/// Represents a commitment that can be either unrevealed (timelock-encrypted) or revealed.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, Debug)]
-pub struct TimelockCommitment<BlockNumber> {
-    /// The timelock-encrypted commitment data
+pub struct CommitmentState<Balance, MaxFields: Get<u32>, BlockNumber> {
     pub encrypted_commitment: BoundedVec<u8, ConstU32<MAX_TIMELOCK_COMMITMENT_SIZE_BYTES>>,
-    /// The drand round number when this commitment can be revealed
     pub reveal_round: u64,
-    /// The block number when the commitment should be revealed
     pub reveal_block: BlockNumber,
+    pub revealed: Option<RevealedData<Balance, MaxFields, BlockNumber>>,
 }
-/// Represents a revealed commitment after decryption
+
+/// Contains the decrypted data of a revealed commitment.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, Debug)]
-pub struct RevealedCommitment<Balance, MaxFields: Get<u32>, BlockNumber> {
-    /// The decrypted commitment info
+pub struct RevealedData<Balance, MaxFields: Get<u32>, BlockNumber> {
     pub info: CommitmentInfo<MaxFields>,
-    /// The block it was revealed
     pub revealed_block: BlockNumber,
-    /// The deposit held for the commitment
     pub deposit: Balance,
 }
 
-impl<BlockNumber: Clone + From<u64>> TimelockCommitment<BlockNumber> {
-    /// Create a new TimelockCommitment from a TLECiphertext and reveal round
+impl<Balance, MaxFields: Get<u32>, BlockNumber: Clone + From<u64>>
+    CommitmentState<Balance, MaxFields, BlockNumber>
+{
     pub fn from_tle_ciphertext<T: Config>(
         ciphertext: tle::tlock::TLECiphertext<TinyBLS381>,
         reveal_round: u64,
@@ -334,18 +370,16 @@ impl<BlockNumber: Clone + From<u64>> TimelockCommitment<BlockNumber> {
         ciphertext
             .serialize_compressed(&mut encrypted_data)
             .map_err(|_| "Failed to serialize TLECiphertext")?;
-
         let bounded_encrypted = BoundedVec::try_from(encrypted_data)
             .map_err(|_| "Encrypted commitment exceeds max size")?;
-
-        Ok(TimelockCommitment {
+        Ok(CommitmentState {
             encrypted_commitment: bounded_encrypted,
             reveal_round,
             reveal_block,
+            revealed: None,
         })
     }
 
-    /// Attempt to deserialize the encrypted commitment back into a TLECiphertext
     pub fn to_tle_ciphertext(&self) -> Result<tle::tlock::TLECiphertext<TinyBLS381>, &'static str> {
         let mut reader = &self.encrypted_commitment[..];
         tle::tlock::TLECiphertext::<TinyBLS381>::deserialize_compressed(&mut reader)
@@ -424,6 +458,7 @@ mod tests {
                 Data::Keccak256(_) => "Keccak256".to_string(),
                 Data::ShaThree256(_) => "ShaThree256".to_string(),
                 Data::Raw(bytes) => format!("Raw{}", bytes.len()),
+                Data::TimelockEncrypted { .. } => "TimelockEncrypted".to_string(),
             };
             if let scale_info::TypeDef::Variant(variant) = &type_info.type_def {
                 let variant = variant
@@ -432,25 +467,45 @@ mod tests {
                     .find(|v| v.name == variant_name)
                     .unwrap_or_else(|| panic!("Expected to find variant {}", variant_name));
 
-                let field_arr_len = variant
-                    .fields
-                    .first()
-                    .and_then(|f| registry.resolve(f.ty.id))
-                    .map(|ty| {
-                        if let scale_info::TypeDef::Array(arr) = &ty.type_def {
-                            arr.len
-                        } else {
-                            panic!("Should be an array type")
-                        }
-                    })
-                    .unwrap_or(0);
-
                 let encoded = data.encode();
                 assert_eq!(encoded[0], variant.index);
-                assert_eq!(encoded.len() as u32 - 1, field_arr_len);
+
+                // For variants with fields, check the encoded length matches expected field lengths
+                if !variant.fields.is_empty() {
+                    let expected_len = match data {
+                        Data::None => 0,
+                        Data::Raw(bytes) => bytes.len() as u32,
+                        Data::BlakeTwo256(_)
+                        | Data::Sha256(_)
+                        | Data::Keccak256(_)
+                        | Data::ShaThree256(_) => 32,
+                        Data::TimelockEncrypted {
+                            encrypted,
+                            reveal_round,
+                        } => {
+                            // Calculate length: encrypted (length prefixed) + reveal_round (u64)
+                            let encrypted_len = encrypted.encode().len() as u32; // Includes length prefix
+                            let reveal_round_len = reveal_round.encode().len() as u32; // Typically 8 bytes
+                            encrypted_len + reveal_round_len
+                        }
+                    };
+                    assert_eq!(
+                        encoded.len() as u32 - 1, // Subtract variant byte
+                        expected_len,
+                        "Encoded length mismatch for variant {}",
+                        variant_name
+                    );
+                } else {
+                    assert_eq!(
+                        encoded.len() as u32 - 1,
+                        0,
+                        "Expected no fields for {}",
+                        variant_name
+                    );
+                }
             } else {
-                panic!("Should be a variant type")
-            };
+                panic!("Should be a variant type");
+            }
         };
 
         let mut data = vec![
@@ -461,10 +516,16 @@ mod tests {
             Data::ShaThree256(Default::default()),
         ];
 
-        // A Raw instance for all possible sizes of the Raw data
+        // Add Raw instances for all possible sizes
         for n in 0..128 {
-            data.push(Data::Raw(vec![0u8; n as usize].try_into().unwrap()))
+            data.push(Data::Raw(vec![0u8; n as usize].try_into().unwrap()));
         }
+
+        // Add a TimelockEncrypted instance
+        data.push(Data::TimelockEncrypted {
+            encrypted: vec![0u8; 64].try_into().unwrap(), // Example encrypted data
+            reveal_round: 12345,
+        });
 
         for d in data.iter() {
             check_type_info(d);

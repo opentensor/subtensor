@@ -1,8 +1,11 @@
 #![allow(non_camel_case_types)]
 
 use crate as pallet_commitments;
-use frame_support::derive_impl;
-use frame_support::traits::{ConstU32, ConstU64};
+use frame_support::{
+    derive_impl,
+    pallet_prelude::{Get, TypeInfo},
+    traits::{ConstU32, ConstU64},
+};
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -67,11 +70,27 @@ impl pallet_balances::Config for Test {
     type MaxFreezes = ();
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct TestMaxFields;
+impl Get<u32> for TestMaxFields {
+    fn get() -> u32 {
+        16
+    }
+}
+impl TypeInfo for TestMaxFields {
+    type Identity = Self;
+    fn type_info() -> scale_info::Type {
+        scale_info::Type::builder()
+            .path(scale_info::Path::new("TestMaxFields", module_path!()))
+            .composite(scale_info::build::Fields::unit())
+    }
+}
+
 impl pallet_commitments::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type WeightInfo = ();
-    type MaxFields = ConstU32<16>;
+    type MaxFields = TestMaxFields;
     type CanCommit = ();
     type FieldDeposit = ConstU64<0>;
     type InitialDeposit = ConstU64<0>;

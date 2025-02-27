@@ -46,7 +46,7 @@ pub mod pallet {
 
         /// The maximum number of additional fields that can be added to a commitment
         #[pallet::constant]
-        type MaxFields: Get<u32>;
+        type MaxFields: Get<u32> + TypeInfo + 'static;
 
         /// The amount held on deposit for a registered identity
         #[pallet::constant]
@@ -141,7 +141,7 @@ pub mod pallet {
         u16, // netuid
         Twox64Concat,
         T::AccountId,
-        TimelockCommitment<BlockNumberFor<T>>,
+        CommitmentState<BalanceOf<T>, T::MaxFields, BlockNumberFor<T>>,
         OptionQuery,
     >;
 
@@ -179,36 +179,81 @@ pub mod pallet {
                 );
             }
 
-            let fd = <BalanceOf<T>>::from(extra_fields).saturating_mul(T::FieldDeposit::get());
-            let mut id = match <CommitmentOf<T>>::get(netuid, &who) {
-                Some(mut id) => {
-                    id.info = *info;
-                    id.block = cur_block;
-                    id
+            let is_timelock = info.fields.iter().any(|data| data.is_timelock_encrypted());
+
+            if !is_timelock {
+                let fd = <BalanceOf<T>>::from(extra_fields).saturating_mul(T::FieldDeposit::get());
+                let mut id = match <CommitmentOf<T>>::get(netuid, &who) {
+                    Some(mut id) => {
+                        id.info = *info;
+                        id.block = cur_block;
+                        id
+                    }
+                    None => Registration {
+                        info: *info,
+                        block: cur_block,
+                        deposit: Zero::zero(),
+                    },
+                };
+
+                let old_deposit = id.deposit;
+                id.deposit = T::InitialDeposit::get().saturating_add(fd);
+                if id.deposit > old_deposit {
+                    T::Currency::reserve(&who, id.deposit.saturating_sub(old_deposit))?;
                 }
-                None => Registration {
-                    info: *info,
-                    block: cur_block,
-                    deposit: Zero::zero(),
-                },
-            };
+                if old_deposit > id.deposit {
+                    let err_amount =
+                        T::Currency::unreserve(&who, old_deposit.saturating_sub(id.deposit));
+                    debug_assert!(err_amount.is_zero());
+                }
 
-            let old_deposit = id.deposit;
-            id.deposit = T::InitialDeposit::get().saturating_add(fd);
-            if id.deposit > old_deposit {
-                T::Currency::reserve(&who, id.deposit.saturating_sub(old_deposit))?;
+                <CommitmentOf<T>>::insert(netuid, &who, id);
+                <LastCommitment<T>>::insert(netuid, &who, cur_block);
+                Self::deposit_event(Event::Commitment { netuid, who });
+
+                Ok(())
+            } else {
+                ensure!(
+                    info.fields.len() == 1,
+                    Error::<T>::TooManyFieldsInCommitmentInfo,
+                );
+
+                if let Data::TimelockEncrypted {
+                    encrypted,
+                    reveal_round,
+                } = &info.fields[0]
+                {
+                    // Calculate reveal block
+                    let last_drand_round = pallet_drand::LastStoredRound::<T>::get();
+                    let blocks_per_round = 12_u64.checked_div(3).unwrap_or(0);
+                    let rounds_since_last = reveal_round.saturating_sub(last_drand_round);
+                    let blocks_to_reveal = rounds_since_last.saturating_mul(blocks_per_round);
+                    let blocks_to_reveal: BlockNumberFor<T> = blocks_to_reveal
+                        .try_into()
+                        .map_err(|_| "Block number conversion failed")?;
+                    let reveal_block = cur_block.saturating_add(blocks_to_reveal);
+
+                    // Construct CommitmentState for timelock commitment
+                    let commitment_state = CommitmentState {
+                        encrypted_commitment: encrypted.clone(),
+                        reveal_round: *reveal_round,
+                        reveal_block,
+                        revealed: None,
+                    };
+
+                    // Store in TimelockCommitmentOf
+                    <TimelockCommitmentOf<T>>::insert(netuid, &who, commitment_state);
+                    <LastCommitment<T>>::insert(netuid, &who, cur_block);
+
+                    // Emit timelock-specific event
+                    Self::deposit_event(Event::TimelockCommitment {
+                        netuid,
+                        who,
+                        reveal_round: *reveal_round,
+                    });
+                }
+                Ok(())
             }
-            if old_deposit > id.deposit {
-                let err_amount =
-                    T::Currency::unreserve(&who, old_deposit.saturating_sub(id.deposit));
-                debug_assert!(err_amount.is_zero());
-            }
-
-            <CommitmentOf<T>>::insert(netuid, &who, id);
-            <LastCommitment<T>>::insert(netuid, &who, cur_block);
-            Self::deposit_event(Event::Commitment { netuid, who });
-
-            Ok(())
         }
 
         /// Sudo-set the commitment rate limit
@@ -221,63 +266,6 @@ pub mod pallet {
         pub fn set_rate_limit(origin: OriginFor<T>, rate_limit_blocks: u32) -> DispatchResult {
             ensure_root(origin)?;
             RateLimit::<T>::set(rate_limit_blocks.into());
-            Ok(())
-        }
-        /// Set a timelock-encrypted commitment for a given netuid
-        #[pallet::call_index(2)]
-        #[pallet::weight((
-            <T as pallet::Config>::WeightInfo::set_commitment(),
-            DispatchClass::Operational,
-            Pays::No
-        ))]
-        pub fn set_timelock_commitment(
-            origin: OriginFor<T>,
-            netuid: u16,
-            encrypted_commitment: BoundedVec<u8, ConstU32<MAX_TIMELOCK_COMMITMENT_SIZE_BYTES>>,
-            reveal_round: u64,
-        ) -> DispatchResult {
-            let who = ensure_signed(origin)?;
-            ensure!(
-                T::CanCommit::can_commit(netuid, &who),
-                Error::<T>::AccountNotAllowedCommit
-            );
-
-            let cur_block = <frame_system::Pallet<T>>::block_number();
-            if let Some(last_commit) = <LastCommitment<T>>::get(netuid, &who) {
-                ensure!(
-                    cur_block >= last_commit.saturating_add(RateLimit::<T>::get()),
-                    Error::<T>::CommitmentSetRateLimitExceeded
-                );
-            }
-
-            // Calculate reveal block
-            let last_drand_round = pallet_drand::LastStoredRound::<T>::get();
-            let blocks_per_round = 12_u64.checked_div(3).unwrap_or(0); // 4 blocks per round (12s blocktime / 3s round)
-            let rounds_since_last = reveal_round.saturating_sub(last_drand_round);
-            let blocks_to_reveal = rounds_since_last.saturating_mul(blocks_per_round);
-            let blocks_to_reveal: BlockNumberFor<T> = blocks_to_reveal
-                .try_into()
-                .map_err(|_| "Block number conversion failed")?;
-            let reveal_block = cur_block.saturating_add(blocks_to_reveal);
-
-            // Construct the TimelockCommitment
-            let timelock_commitment = TimelockCommitment {
-                encrypted_commitment,
-                reveal_round,
-                reveal_block,
-            };
-
-            // Store the timelock commitment
-            <TimelockCommitmentOf<T>>::insert(netuid, &who, timelock_commitment.clone());
-            <LastCommitment<T>>::insert(netuid, &who, cur_block);
-
-            // Emit event with hash computed on-demand
-            Self::deposit_event(Event::TimelockCommitment {
-                netuid,
-                who,
-                reveal_round,
-            });
-
             Ok(())
         }
     }

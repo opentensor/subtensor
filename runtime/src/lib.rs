@@ -990,10 +990,18 @@ impl pallet_registry::Config for Runtime {
 }
 
 parameter_types! {
-    pub const MaxCommitFields: u32 = 1;
+    pub const MaxCommitFieldsInner: u32 = 1;
     pub const CommitmentInitialDeposit: Balance = 0; // Free
     pub const CommitmentFieldDeposit: Balance = 0; // Free
     pub const CommitmentRateLimit: BlockNumber = 100; // Allow commitment every 100 blocks
+}
+
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
+pub struct MaxCommitFields;
+impl Get<u32> for MaxCommitFields {
+    fn get() -> u32 {
+        MaxCommitFieldsInner::get()
+    }
 }
 
 pub struct AllowCommitments;
