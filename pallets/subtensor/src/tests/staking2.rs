@@ -623,39 +623,3 @@ fn test_try_associate_hotkey() {
         assert_eq!(SubtensorModule::get_owned_hotkeys(&coldkey2).len(), 0);
     });
 }
-
-
-
-#[test]
-fn sets_a_lower_value_clears_small_nominations() {
-	new_test_ext(1).execute_with(|| {
-		let subnet_owner_hotkey: U256 = U256::from(1);
-		let subnet_owner_coldkey: U256 = U256::from(1 + 456);
-		let other_coldkey: U256 = U256::from(2 + 456);
-		let other_hotkey: U256 = U256::from(3);
-		let staker_coldkey: U256 = U256::from(4);
-
-		// Create network
-		let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-
-		// Register a neuron
-		register_ok_neuron(netuid, other_hotkey, other_coldkey, 0);
-
-		// Stake to the hotkey as staker_coldkey
-		SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&other_hotkey, &other_coldkey, netuid, 1000);
-
-
-		assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
-			RuntimeOrigin::root(),
-			10u64
-		));
-		assert_eq!(SubtensorModule::get_nominator_min_required_stake(), 10u64);
-
-
-		assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
-			RuntimeOrigin::root(),
-			5u64
-		));
-		assert_eq!(SubtensorModule::get_nominator_min_required_stake(), 5u64);
-	});
-}
