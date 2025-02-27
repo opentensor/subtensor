@@ -743,4 +743,9 @@ impl<T: Config> Pallet<T> {
         DissolveNetworkScheduleDuration::<T>::set(duration);
         Self::deposit_event(Event::DissolveNetworkScheduleDurationSet(duration));
     }
+
+    pub fn set_subnet_owner_hotkey(netuid: u16, hotkey: T::AccountId) {
+        SubnetOwnerHotkey::<T>::insert(netuid, hotkey);
+        Self::deposit_event(Event::SubnetOwnerHotkeySet(netuid, hotkey));
+    }
 }
