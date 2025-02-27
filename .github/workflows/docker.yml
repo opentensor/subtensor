@@ -9,7 +9,6 @@ on:
         description: "Branch or tag to use for the Docker image tag and ref to checkout (optional)"
         required: false
         default: ""
-
   push:
     branches:
       - devnet-ready
@@ -34,6 +33,13 @@ jobs:
           echo "Determined branch or tag: $branch_or_tag"
           echo "tag=$branch_or_tag" >> $GITHUB_ENV
           echo "ref=$branch_or_tag" >> $GITHUB_ENV
+
+          # Check if this is a tagged release (not devnet-ready/devnet/testnet)
+          if [[ "${{ github.event_name }}" == "release" && "$branch_or_tag" != "devnet-ready" && "$branch_or_tag" != "devnet" && "$branch_or_tag" != "testnet" ]]; then
+            echo "latest_tag=true" >> $GITHUB_ENV
+          else
+            echo "latest_tag=false" >> $GITHUB_ENV
+          fi
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -60,3 +66,4 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ github.repository }}:${{ env.tag }}
+            ${{ env.latest_tag == 'true' && format('ghcr.io/{0}:latest', github.repository) || '' }}
