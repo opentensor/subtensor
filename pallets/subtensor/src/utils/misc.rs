@@ -743,4 +743,10 @@ impl<T: Config> Pallet<T> {
         DissolveNetworkScheduleDuration::<T>::set(duration);
         Self::deposit_event(Event::DissolveNetworkScheduleDurationSet(duration));
     }
+
+    pub fn reveal_timelocked_commitments(block_number: u64) -> DispatchResult {
+        pallet_commitments::Pallet::<T::CommitmentRuntime>::reveal_timelocked_commitments(
+            block_number,
+        )
+    }
 }

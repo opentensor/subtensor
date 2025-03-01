@@ -5989,6 +5989,7 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
+ "pallet-commitments",
  "pallet-drand",
  "pallet-evm-chain-id",
  "pallet-grandpa",
@@ -6087,15 +6088,14 @@ dependencies = [
 name = "pallet-commitments"
 version = "4.0.0-dev"
 dependencies = [
- "ark-bls12-381",
  "ark-serialize",
  "enumflags2",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-balances",
  "pallet-drand",
- "pallet-subtensor",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
@@ -6104,6 +6104,7 @@ dependencies = [
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409)",
  "subtensor-macros",
  "tle",
+ "w3f-bls",
 ]
 
 [[package]]
@@ -6424,6 +6425,7 @@ dependencies = [
  "num-traits",
  "pallet-balances",
  "pallet-collective",
+ "pallet-commitments",
  "pallet-drand",
  "pallet-membership",
  "pallet-preimage",

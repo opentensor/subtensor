@@ -12,9 +12,17 @@ use subtensor_macros::freeze_struct;
 pub use types::*;
 pub use weights::WeightInfo;
 
-use frame_support::traits::Currency;
+use ark_serialize::CanonicalDeserialize;
+use frame_support::{BoundedVec, traits::Currency};
+use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{Saturating, traits::Zero};
-use sp_std::boxed::Box;
+use sp_std::{boxed::Box, vec::Vec};
+use tle::{
+    curves::drand::TinyBLS381,
+    stream_ciphers::AESGCMStreamCipherProvider,
+    tlock::{TLECiphertext, tld},
+};
+use w3f_bls::EngineBLS;
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -134,14 +142,14 @@ pub mod pallet {
         OptionQuery,
     >;
     #[pallet::storage]
-    #[pallet::getter(fn timelock_commitment_of)]
-    pub(super) type TimelockCommitmentOf<T: Config> = StorageDoubleMap<
+    #[pallet::getter(fn revealed_commitments)]
+    pub(super) type RevealedCommitments<T: Config> = StorageDoubleMap<
         _,
         Identity,
-        u16, // netuid
+        u16,
         Twox64Concat,
         T::AccountId,
-        CommitmentState<BalanceOf<T>, T::MaxFields, BlockNumberFor<T>>,
+        RevealedData<BalanceOf<T>, T::MaxFields, BlockNumberFor<T>>,
         OptionQuery,
     >;
 
@@ -179,81 +187,49 @@ pub mod pallet {
                 );
             }
 
-            let is_timelock = info.fields.iter().any(|data| data.is_timelock_encrypted());
-
-            if !is_timelock {
-                let fd = <BalanceOf<T>>::from(extra_fields).saturating_mul(T::FieldDeposit::get());
-                let mut id = match <CommitmentOf<T>>::get(netuid, &who) {
-                    Some(mut id) => {
-                        id.info = *info;
-                        id.block = cur_block;
-                        id
-                    }
-                    None => Registration {
-                        info: *info,
-                        block: cur_block,
-                        deposit: Zero::zero(),
-                    },
-                };
-
-                let old_deposit = id.deposit;
-                id.deposit = T::InitialDeposit::get().saturating_add(fd);
-                if id.deposit > old_deposit {
-                    T::Currency::reserve(&who, id.deposit.saturating_sub(old_deposit))?;
+            let fd = <BalanceOf<T>>::from(extra_fields).saturating_mul(T::FieldDeposit::get());
+            let mut id = match <CommitmentOf<T>>::get(netuid, &who) {
+                Some(mut id) => {
+                    id.info = *info.clone();
+                    id.block = cur_block;
+                    id
                 }
-                if old_deposit > id.deposit {
-                    let err_amount =
-                        T::Currency::unreserve(&who, old_deposit.saturating_sub(id.deposit));
-                    debug_assert!(err_amount.is_zero());
-                }
+                None => Registration {
+                    info: *info.clone(),
+                    block: cur_block,
+                    deposit: Zero::zero(),
+                },
+            };
 
-                <CommitmentOf<T>>::insert(netuid, &who, id);
-                <LastCommitment<T>>::insert(netuid, &who, cur_block);
-                Self::deposit_event(Event::Commitment { netuid, who });
-
-                Ok(())
-            } else {
-                ensure!(
-                    info.fields.len() == 1,
-                    Error::<T>::TooManyFieldsInCommitmentInfo,
-                );
-
-                if let Data::TimelockEncrypted {
-                    encrypted,
-                    reveal_round,
-                } = &info.fields[0]
-                {
-                    // Calculate reveal block
-                    let last_drand_round = pallet_drand::LastStoredRound::<T>::get();
-                    let blocks_per_round = 12_u64.checked_div(3).unwrap_or(0);
-                    let rounds_since_last = reveal_round.saturating_sub(last_drand_round);
-                    let blocks_to_reveal = rounds_since_last.saturating_mul(blocks_per_round);
-                    let blocks_to_reveal: BlockNumberFor<T> = blocks_to_reveal
-                        .try_into()
-                        .map_err(|_| "Block number conversion failed")?;
-                    let reveal_block = cur_block.saturating_add(blocks_to_reveal);
-
-                    // Construct CommitmentState for timelock commitment
-                    let commitment_state = CommitmentState {
-                        encrypted_commitment: encrypted.clone(),
-                        reveal_round: *reveal_round,
-                        reveal_block,
-                        revealed: None,
-                    };
-
-                    // Store in TimelockCommitmentOf
-                    <TimelockCommitmentOf<T>>::insert(netuid, &who, commitment_state);
-                    <LastCommitment<T>>::insert(netuid, &who, cur_block);
-
-                    // Emit timelock-specific event
-                    Self::deposit_event(Event::TimelockCommitment {
-                        netuid,
-                        who,
-                        reveal_round: *reveal_round,
-                    });
-                }
-                Ok(())
+            let old_deposit = id.deposit;
+            id.deposit = T::InitialDeposit::get().saturating_add(fd);
+            if id.deposit > old_deposit {
+                T::Currency::reserve(&who, id.deposit.saturating_sub(old_deposit))?;
             }
+            if old_deposit > id.deposit {
+                let err_amount =
+                    T::Currency::unreserve(&who, old_deposit.saturating_sub(id.deposit));
+                debug_assert!(err_amount.is_zero());
+            }
+
+            <CommitmentOf<T>>::insert(netuid, &who, id);
+            <LastCommitment<T>>::insert(netuid, &who, cur_block);
+
+            if let Some(Data::TimelockEncrypted { reveal_round, .. }) = info
+                .fields
+                .iter()
+                .find(|data| matches!(data, Data::TimelockEncrypted { .. }))
+            {
+                Self::deposit_event(Event::TimelockCommitment {
+                    netuid,
+                    who,
+                    reveal_round: *reveal_round,
+                });
+            } else {
+                Self::deposit_event(Event::Commitment { netuid, who });
+            }
+
+            Ok(())
         }
 
         /// Sudo-set the commitment rate limit
@@ -398,5 +374,144 @@ where
         _result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
         Ok(())
+    }
+}
+
+impl<T: Config> Pallet<T> {
+    pub fn reveal_timelocked_commitments(current_block: u64) -> DispatchResult {
+        let current_block = current_block
+            .try_into()
+            .map_err(|_| "Failed to convert u64 to BlockNumberFor<T>")?;
+
+        for (netuid, who, mut registration) in <CommitmentOf<T>>::iter() {
+            if let Some(Data::TimelockEncrypted {
+                encrypted,
+                reveal_round,
+                ..
+            }) = registration
+                .info
+                .fields
+                .clone()
+                .iter()
+                .find(|data| matches!(data, Data::TimelockEncrypted { .. }))
+            {
+                // Calculate reveal block
+                let reveal_block = Self::calculate_reveal_block(*reveal_round, registration.block)?;
+
+                // Check if the current block has reached or exceeded the reveal block
+                if current_block >= reveal_block {
+                    // Deserialize the encrypted commitment into a TLECiphertext
+                    let reader = &mut &encrypted[..];
+                    let commit = TLECiphertext::<TinyBLS381>::deserialize_compressed(reader)
+                        .map_err(|e| {
+                            log::warn!("Failed to deserialize TLECiphertext for {:?}: {:?}", who, e)
+                        })
+                        .ok();
+
+                    let commit = match commit {
+                        Some(c) => c,
+                        None => continue,
+                    };
+
+                    // Get the drand pulse for the reveal round
+                    let pulse = match pallet_drand::Pulses::<T>::get(*reveal_round) {
+                        Some(p) => p,
+                        None => {
+                            log::warn!(
+                                "Failed to reveal commit for subnet {} by {:?}: missing drand round {}",
+                                netuid,
+                                who,
+                                reveal_round
+                            );
+                            continue;
+                        }
+                    };
+
+                    // Prepare the signature bytes
+                    let signature_bytes = pulse
+                        .signature
+                        .strip_prefix(b"0x")
+                        .unwrap_or(&pulse.signature);
+                    let sig_reader = &mut &signature_bytes[..];
+                    let sig = <TinyBLS381 as EngineBLS>::SignatureGroup::deserialize_compressed(
+                        sig_reader,
+                    )
+                    .map_err(|e| {
+                        log::warn!(
+                            "Failed to deserialize drand signature for {:?}: {:?}",
+                            who,
+                            e
+                        )
+                    })
+                    .ok();
+
+                    let sig = match sig {
+                        Some(s) => s,
+                        None => continue,
+                    };
+
+                    // Decrypt the timelock commitment
+                    let decrypted_bytes: Vec<u8> =
+                        tld::<TinyBLS381, AESGCMStreamCipherProvider>(commit, sig)
+                            .map_err(|e| {
+                                log::warn!("Failed to decrypt timelock for {:?}: {:?}", who, e)
+                            })
+                            .ok()
+                            .unwrap_or_default();
+
+                    if decrypted_bytes.is_empty() {
+                        continue;
+                    }
+
+                    // Decode the decrypted bytes into CommitmentInfo (assuming it’s SCALE-encoded CommitmentInfo)
+                    let mut reader = &decrypted_bytes[..];
+                    let revealed_info: CommitmentInfo<T::MaxFields> = Decode::decode(&mut reader)
+                        .map_err(|e| {
+                            log::warn!("Failed to decode decrypted data for {:?}: {:?}", who, e)
+                        })
+                        .ok()
+                        .unwrap_or_else(|| CommitmentInfo {
+                            fields: BoundedVec::default(),
+                        });
+
+                    // Create RevealedData for storage
+                    let revealed_data = RevealedData {
+                        info: revealed_info,
+                        revealed_block: current_block,
+                        deposit: registration.deposit,
+                    };
+
+                    // Store the revealed data in RevealedCommitments
+                    <RevealedCommitments<T>>::insert(netuid, &who, revealed_data);
+
+                    // Remove the TimelockEncrypted field from the original commitment
+                    let filtered_fields: Vec<Data> = registration.info.fields.into_iter()
+                        .filter(|data| !matches!(data, Data::TimelockEncrypted { reveal_round: r, .. } if r == reveal_round))
+                        .collect();
+                    registration.info.fields = BoundedVec::try_from(filtered_fields)
+                        .map_err(|_| "Failed to filter timelock fields")?;
+
+                    Self::deposit_event(Event::CommitmentRevealed { netuid, who });
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn calculate_reveal_block(
+        reveal_round: u64,
+        commit_block: BlockNumberFor<T>,
+    ) -> Result<BlockNumberFor<T>, &'static str> {
+        let last_drand_round = pallet_drand::LastStoredRound::<T>::get();
+        let blocks_per_round = 12_u64.checked_div(3).unwrap_or(0); // 4 blocks per round (12s blocktime / 3s round)
+        let rounds_since_last = reveal_round.saturating_sub(last_drand_round);
+        let blocks_to_reveal = rounds_since_last.saturating_mul(blocks_per_round);
+        let reveal_block = commit_block.saturating_add(
+            blocks_to_reveal
+                .try_into()
+                .map_err(|_| "Block number conversion failed")?,
+        );
+        Ok(reveal_block)
     }
 }

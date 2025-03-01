@@ -32,6 +32,7 @@ substrate-fixed = { workspace = true }
 pallet-evm-chain-id = { workspace = true }
 pallet-drand = { workspace = true, default-features = false }
 sp-consensus-grandpa = { workspace = true }
+pallet-commitments = { default-features = false, path = "../commitments" }
 
 [dev-dependencies]
 sp-core = { workspace = true }

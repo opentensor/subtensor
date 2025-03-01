@@ -10,7 +10,7 @@ use frame_system::{EnsureNever, EnsureRoot, limits};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityList as GrandpaAuthorityList;
 use sp_core::U256;
-use sp_core::{ConstU64, H256};
+use sp_core::{ConstU64, H256, Encode, Decode, Get};
 use sp_runtime::{
     BuildStorage, KeyTypeId, Perbill,
     testing::TestXt,
@@ -18,6 +18,7 @@ use sp_runtime::{
 };
 use sp_std::cmp::Ordering;
 use sp_weights::Weight;
+use scale_info::TypeInfo;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -32,6 +33,7 @@ frame_support::construct_runtime!(
         Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 6,
         Grandpa: pallet_grandpa = 7,
         EVMChainId: pallet_evm_chain_id = 8,
+        Commitments: pallet_commitments::{Pallet, Call, Storage, Event<T>} = 9,
     }
 );
 
@@ -200,6 +202,7 @@ impl pallet_subtensor::Config for Test {
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialTaoWeight = InitialTaoWeight;
+    type CommitmentRuntime = Test;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -376,6 +379,38 @@ where
     type OverarchingCall = RuntimeCall;
 }
 
+parameter_types! {
+    pub const MaxCommitFieldsInner: u32 = 1;
+    pub const CommitmentInitialDeposit: Balance = 0;
+    pub const CommitmentFieldDeposit: Balance = 0;
+    pub const CommitmentRateLimit: BlockNumber = 100;
+}
+
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
+pub struct MaxCommitFields;
+impl Get<u32> for MaxCommitFields {
+    fn get() -> u32 {
+        MaxCommitFieldsInner::get()
+    }
+}
+
+pub struct AllowCommitments;
+impl pallet_commitments::CanCommit<AccountId> for AllowCommitments {
+    fn can_commit(_netuid: u16, _address: &AccountId) -> bool {
+        true
+    }
+}
+
+impl pallet_commitments::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
+    type WeightInfo = pallet_commitments::weights::SubstrateWeight<Test>;
+    type CanCommit = AllowCommitments;
+    type MaxFields = MaxCommitFields;
+    type InitialDeposit = CommitmentInitialDeposit;
+    type FieldDeposit = CommitmentFieldDeposit;
+    type DefaultRateLimit = CommitmentRateLimit;
+}
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();

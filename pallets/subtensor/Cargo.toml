@@ -56,6 +56,8 @@ w3f-bls = { workspace = true, default-features = false }
 sha2 = { workspace = true }
 rand_chacha = { workspace = true }
 
+pallet-commitments = { default-features = false, path = "../commitments" }
+
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
 pallet-scheduler = { workspace = true }

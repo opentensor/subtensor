@@ -18,6 +18,16 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         Self::run_coinbase(block_emission);
         // --- 4. Set pending children on the epoch; but only after the coinbase has been run.
         Self::try_set_pending_children(block_number);
+
+        // --- 5. Unveil all matured timelocked entries
+        if let Err(e) = Self::reveal_timelocked_commitments(block_number) {
+            log::debug!(
+                "Failed to unveil matured commitments on block {} due to error: {:?}",
+                block_number,
+                e
+            );
+        }
+
         // Return ok.
         Ok(())
     }

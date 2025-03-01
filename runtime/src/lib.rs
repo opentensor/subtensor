@@ -1162,6 +1162,7 @@ impl pallet_subtensor::Config for Runtime {
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
+    type CommitmentRuntime = Runtime;
 }
 
 use sp_runtime::BoundedVec;

@@ -31,10 +31,6 @@ use sp_runtime::{
 use sp_std::{fmt::Debug, iter::once, prelude::*};
 use subtensor_macros::freeze_struct;
 
-use crate::Config;
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use tle::curves::drand::TinyBLS381;
-
 /// Either underlying data blob if it is at most 32 bytes, or a hash of it. If the data is greater
 /// than 32-bytes then it will be truncated when encoding.
 ///
@@ -341,50 +337,12 @@ pub struct CommitmentInfo<FieldLimit: Get<u32>> {
 /// Maximum size of the serialized timelock commitment in bytes
 pub const MAX_TIMELOCK_COMMITMENT_SIZE_BYTES: u32 = 1024;
 
-/// Represents a commitment that can be either unrevealed (timelock-encrypted) or revealed.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, Debug)]
-pub struct CommitmentState<Balance, MaxFields: Get<u32>, BlockNumber> {
-    pub encrypted_commitment: BoundedVec<u8, ConstU32<MAX_TIMELOCK_COMMITMENT_SIZE_BYTES>>,
-    pub reveal_round: u64,
-    pub reveal_block: BlockNumber,
-    pub revealed: Option<RevealedData<Balance, MaxFields, BlockNumber>>,
-}
-
 /// Contains the decrypted data of a revealed commitment.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, Debug)]
 pub struct RevealedData<Balance, MaxFields: Get<u32>, BlockNumber> {
     pub info: CommitmentInfo<MaxFields>,
     pub revealed_block: BlockNumber,
     pub deposit: Balance,
-}
-
-impl<Balance, MaxFields: Get<u32>, BlockNumber: Clone + From<u64>>
-    CommitmentState<Balance, MaxFields, BlockNumber>
-{
-    pub fn from_tle_ciphertext<T: Config>(
-        ciphertext: tle::tlock::TLECiphertext<TinyBLS381>,
-        reveal_round: u64,
-        reveal_block: BlockNumber,
-    ) -> Result<Self, &'static str> {
-        let mut encrypted_data = Vec::new();
-        ciphertext
-            .serialize_compressed(&mut encrypted_data)
-            .map_err(|_| "Failed to serialize TLECiphertext")?;
-        let bounded_encrypted = BoundedVec::try_from(encrypted_data)
-            .map_err(|_| "Encrypted commitment exceeds max size")?;
-        Ok(CommitmentState {
-            encrypted_commitment: bounded_encrypted,
-            reveal_round,
-            reveal_block,
-            revealed: None,
-        })
-    }
-
-    pub fn to_tle_ciphertext(&self) -> Result<tle::tlock::TLECiphertext<TinyBLS381>, &'static str> {
-        let mut reader = &self.encrypted_commitment[..];
-        tle::tlock::TLECiphertext::<TinyBLS381>::deserialize_compressed(&mut reader)
-            .map_err(|_| "Failed to deserialize TLECiphertext")
-    }
 }
 
 /// Information concerning the identity of the controller of an account.
