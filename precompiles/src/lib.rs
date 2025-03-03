@@ -1,60 +1,91 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 extern crate alloc;
 
 use alloc::format;
 use core::marker::PhantomData;
 
-use frame_support::dispatch::{GetDispatchInfo, Pays};
+use frame_support::dispatch::{GetDispatchInfo, Pays, PostDispatchInfo};
 use frame_system::RawOrigin;
 use pallet_evm::{
-    AddressMapping, BalanceConverter, ExitError, GasWeightMapping, HashedAddressMapping,
-    IsPrecompileResult, Precompile, PrecompileFailure, PrecompileHandle, PrecompileResult,
-    PrecompileSet,
+    AddressMapping, BalanceConverter, ExitError, GasWeightMapping, IsPrecompileResult, Precompile,
+    PrecompileFailure, PrecompileHandle, PrecompileResult, PrecompileSet,
 };
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;
 use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripemd160, Sha256};
 use precompile_utils::EvmResult;
-use sp_core::{H160, U256};
-use sp_runtime::traits::BlakeTwo256;
-use sp_runtime::{AccountId32, traits::Dispatchable};
+use sp_core::{H160, U256, crypto::ByteArray};
+use sp_runtime::traits::Dispatchable;
+use sp_runtime::traits::StaticLookup;
+use subtensor_runtime_common::ProxyType;
 
 use pallet_admin_utils::{PrecompileEnable, PrecompileEnum};
-use sp_std::vec;
 
-use crate::{Runtime, RuntimeCall};
+use crate::balance_transfer::*;
+use crate::ed25519::*;
+use crate::metagraph::*;
+use crate::neuron::*;
+use crate::staking::*;
+use crate::subnet::*;
 
-// Include custom precompiles
 mod balance_transfer;
 mod ed25519;
 mod metagraph;
 mod neuron;
+mod parser;
 mod staking;
 mod subnet;
 
-use balance_transfer::*;
-use ed25519::*;
-use metagraph::*;
-use neuron::*;
-use staking::*;
-use subnet::*;
+pub struct Precompiles<R>(PhantomData<R>);
 
-pub struct FrontierPrecompiles<R>(PhantomData<R>);
-impl<R> Default for FrontierPrecompiles<R>
+impl<R> Default for Precompiles<R>
 where
-    R: pallet_evm::Config,
+    R: frame_system::Config
+        + pallet_evm::Config
+        + pallet_balances::Config
+        + pallet_admin_utils::Config
+        + pallet_subtensor::Config
+        + pallet_proxy::Config<ProxyType = ProxyType>,
+    R::AccountId: From<[u8; 32]> + ByteArray,
+    <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
+        + From<pallet_proxy::Call<R>>
+        + From<pallet_balances::Call<R>>
+        + From<pallet_admin_utils::Call<R>>
+        + GetDispatchInfo
+        + Dispatchable<PostInfo = PostDispatchInfo>,
+    <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
+    <R as pallet_balances::Config>::Balance: TryFrom<U256>,
+    <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<R> FrontierPrecompiles<R>
+impl<R> Precompiles<R>
 where
-    R: pallet_evm::Config,
+    R: frame_system::Config
+        + pallet_evm::Config
+        + pallet_balances::Config
+        + pallet_admin_utils::Config
+        + pallet_subtensor::Config
+        + pallet_proxy::Config<ProxyType = ProxyType>,
+    R::AccountId: From<[u8; 32]> + ByteArray,
+    <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
+        + From<pallet_proxy::Call<R>>
+        + From<pallet_balances::Call<R>>
+        + From<pallet_admin_utils::Call<R>>
+        + GetDispatchInfo
+        + Dispatchable<PostInfo = PostDispatchInfo>,
+    <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
+    <R as pallet_balances::Config>::Balance: TryFrom<U256>,
+    <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
     pub fn new() -> Self {
         Self(Default::default())
     }
+
     pub fn used_addresses() -> [H160; 13] {
         [
             hash(1),
@@ -65,17 +96,32 @@ where
             hash(1024),
             hash(1025),
             hash(Ed25519Verify::INDEX),
-            hash(BalanceTransferPrecompile::INDEX),
-            hash(StakingPrecompile::INDEX),
-            hash(SubnetPrecompile::INDEX),
-            hash(MetagraphPrecompile::INDEX),
-            hash(NeuronPrecompile::INDEX),
+            hash(BalanceTransferPrecompile::<R>::INDEX),
+            hash(StakingPrecompile::<R>::INDEX),
+            hash(SubnetPrecompile::<R>::INDEX),
+            hash(MetagraphPrecompile::<R>::INDEX),
+            hash(NeuronPrecompile::<R>::INDEX),
         ]
     }
 }
-impl<R> PrecompileSet for FrontierPrecompiles<R>
+impl<R> PrecompileSet for Precompiles<R>
 where
-    R: pallet_evm::Config,
+    R: frame_system::Config
+        + pallet_evm::Config
+        + pallet_balances::Config
+        + pallet_admin_utils::Config
+        + pallet_subtensor::Config
+        + pallet_proxy::Config<ProxyType = ProxyType>,
+    R::AccountId: From<[u8; 32]> + ByteArray,
+    <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
+        + From<pallet_proxy::Call<R>>
+        + From<pallet_balances::Call<R>>
+        + From<pallet_admin_utils::Call<R>>
+        + GetDispatchInfo
+        + Dispatchable<PostInfo = PostDispatchInfo>,
+    <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
+    <R as pallet_balances::Config>::Balance: TryFrom<U256>,
+    <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
     fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<PrecompileResult> {
         match handle.code_address() {
@@ -90,9 +136,9 @@ where
             a if a == hash(1025) => Some(ECRecoverPublicKey::execute(handle)),
             a if a == hash(Ed25519Verify::INDEX) => Some(Ed25519Verify::execute(handle)),
             // Subtensor specific precompiles :
-            a if a == hash(BalanceTransferPrecompile::INDEX) => {
-                if PrecompileEnable::<Runtime>::get(PrecompileEnum::BalanceTransfer) {
-                    Some(BalanceTransferPrecompile::execute(handle))
+            a if a == hash(BalanceTransferPrecompile::<R>::INDEX) => {
+                if PrecompileEnable::<R>::get(PrecompileEnum::BalanceTransfer) {
+                    Some(BalanceTransferPrecompile::<R>::execute(handle))
                 } else {
                     Some(Err(PrecompileFailure::Error {
                         exit_status: ExitError::Other(
@@ -101,9 +147,9 @@ where
                     }))
                 }
             }
-            a if a == hash(StakingPrecompile::INDEX) => {
-                if PrecompileEnable::<Runtime>::get(PrecompileEnum::Staking) {
-                    Some(StakingPrecompile::execute(handle))
+            a if a == hash(StakingPrecompile::<R>::INDEX) => {
+                if PrecompileEnable::<R>::get(PrecompileEnum::Staking) {
+                    Some(StakingPrecompile::<R>::execute(handle))
                 } else {
                     Some(Err(PrecompileFailure::Error {
                         exit_status: ExitError::Other(
@@ -113,34 +159,33 @@ where
                 }
             }
 
-            a if a == hash(SubnetPrecompile::INDEX) => {
-                if PrecompileEnable::<Runtime>::get(PrecompileEnum::Subnet) {
-                    Some(SubnetPrecompile::execute(handle))
+            a if a == hash(SubnetPrecompile::<R>::INDEX) => {
+                if PrecompileEnable::<R>::get(PrecompileEnum::Subnet) {
+                    Some(SubnetPrecompile::<R>::execute(handle))
                 } else {
                     Some(Err(PrecompileFailure::Error {
                         exit_status: ExitError::Other("Precompile Subnet is disabled".into()),
                     }))
                 }
             }
-            a if a == hash(MetagraphPrecompile::INDEX) => {
-                if PrecompileEnable::<Runtime>::get(PrecompileEnum::Metagraph) {
-                    Some(MetagraphPrecompile::execute(handle))
+            a if a == hash(MetagraphPrecompile::<R>::INDEX) => {
+                if PrecompileEnable::<R>::get(PrecompileEnum::Metagraph) {
+                    Some(MetagraphPrecompile::<R>::execute(handle))
                 } else {
                     Some(Err(PrecompileFailure::Error {
                         exit_status: ExitError::Other("Precompile Metagrah is disabled".into()),
                     }))
                 }
             }
-            a if a == hash(NeuronPrecompile::INDEX) => {
-                if PrecompileEnable::<Runtime>::get(PrecompileEnum::Neuron) {
-                    Some(NeuronPrecompile::execute(handle))
+            a if a == hash(NeuronPrecompile::<R>::INDEX) => {
+                if PrecompileEnable::<R>::get(PrecompileEnum::Neuron) {
+                    Some(NeuronPrecompile::<R>::execute(handle))
                 } else {
                     Some(Err(PrecompileFailure::Error {
                         exit_status: ExitError::Other("Precompile Neuron is disabled".into()),
                     }))
                 }
             }
-
             _ => None,
         }
     }
@@ -157,56 +202,21 @@ fn hash(a: u64) -> H160 {
     H160::from_low_u64_be(a)
 }
 
-/// Takes a slice from bytes with PrecompileFailure as Error
-fn parse_slice(data: &[u8], from: usize, to: usize) -> Result<&[u8], PrecompileFailure> {
-    let maybe_slice = data.get(from..to);
-    if let Some(slice) = maybe_slice {
-        Ok(slice)
-    } else {
-        log::error!(
-            "fail to get slice from data, {:?}, from {}, to {}",
-            &data,
-            from,
-            to
-        );
-        Err(PrecompileFailure::Error {
-            exit_status: ExitError::InvalidRange,
-        })
-    }
-}
-
-fn parse_pubkey(data: &[u8]) -> Result<(AccountId32, vec::Vec<u8>), PrecompileFailure> {
-    let mut pubkey = [0u8; 32];
-    pubkey.copy_from_slice(parse_slice(data, 0, 32)?);
-
-    Ok((
-        pubkey.into(),
-        data.get(32..)
-            .map_or_else(vec::Vec::new, |slice| slice.to_vec()),
-    ))
-}
-
-fn try_u16_from_u256(value: U256) -> Result<u16, PrecompileFailure> {
-    value.try_into().map_err(|_| PrecompileFailure::Error {
-        exit_status: ExitError::Other("the value is outside of u16 bounds".into()),
-    })
-}
-
-fn contract_to_origin(contract: &[u8; 32]) -> Result<RawOrigin<AccountId32>, PrecompileFailure> {
-    let (account_id, _) = parse_pubkey(contract)?;
-    Ok(RawOrigin::Signed(account_id))
-}
-
 trait PrecompileHandleExt: PrecompileHandle {
-    fn caller_account_id(&self) -> AccountId32 {
-        <HashedAddressMapping<BlakeTwo256> as AddressMapping<AccountId32>>::into_account_id(
-            self.context().caller,
-        )
+    fn caller_account_id<R>(&self) -> R::AccountId
+    where
+        R: frame_system::Config + pallet_evm::Config,
+        <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
+    {
+        <R as pallet_evm::Config>::AddressMapping::into_account_id(self.context().caller)
     }
 
-    fn try_convert_apparent_value(&self) -> EvmResult<U256> {
+    fn try_convert_apparent_value<R>(&self) -> EvmResult<U256>
+    where
+        R: pallet_evm::Config,
+    {
         let amount = self.context().apparent_value;
-        <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount).ok_or(
+        <R as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount).ok_or(
             PrecompileFailure::Error {
                 exit_status: ExitError::Other(
                     "error converting balance from ETH to subtensor".into(),
@@ -216,19 +226,24 @@ trait PrecompileHandleExt: PrecompileHandle {
     }
 
     /// Dispatches a runtime call, but also checks and records the gas costs.
-    fn try_dispatch_runtime_call(
+    fn try_dispatch_runtime_call<R, Call>(
         &mut self,
-        call: impl Into<RuntimeCall>,
-        origin: RawOrigin<AccountId32>,
-    ) -> EvmResult<()> {
-        let call = Into::<RuntimeCall>::into(call);
-        let info = call.get_dispatch_info();
+        call: Call,
+        origin: RawOrigin<R::AccountId>,
+    ) -> EvmResult<()>
+    where
+        R: frame_system::Config + pallet_evm::Config,
+        R::RuntimeCall: From<Call>,
+        R::RuntimeCall: GetDispatchInfo + Dispatchable<PostInfo = PostDispatchInfo>,
+        R::RuntimeOrigin: From<RawOrigin<R::AccountId>>,
+    {
+        let call = R::RuntimeCall::from(call);
+        let info = GetDispatchInfo::get_dispatch_info(&call);
 
         let target_gas = self.gas_limit();
         if let Some(gas) = target_gas {
             let valid_weight =
-                <Runtime as pallet_evm::Config>::GasWeightMapping::gas_to_weight(gas, false)
-                    .ref_time();
+                <R as pallet_evm::Config>::GasWeightMapping::gas_to_weight(gas, false).ref_time();
             if info.weight.ref_time() > valid_weight {
                 return Err(PrecompileFailure::Error {
                     exit_status: ExitError::OutOfGas,
@@ -242,13 +257,12 @@ trait PrecompileHandleExt: PrecompileHandle {
             None,
         )?;
 
-        match call.dispatch(origin.into()) {
+        match call.dispatch(R::RuntimeOrigin::from(origin)) {
             Ok(post_info) => {
                 if post_info.pays_fee(&info) == Pays::Yes {
                     let actual_weight = post_info.actual_weight.unwrap_or(info.weight);
-                    let cost = <Runtime as pallet_evm::Config>::GasWeightMapping::weight_to_gas(
-                        actual_weight,
-                    );
+                    let cost =
+                        <R as pallet_evm::Config>::GasWeightMapping::weight_to_gas(actual_weight);
                     self.record_cost(cost)?;
 
                     self.refund_external_cost(

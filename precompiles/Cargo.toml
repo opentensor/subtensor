@@ -1,0 +1,58 @@
+[package]
+name = "subtensor-precompiles"
+version = "0.1.0"
+edition = "2024"
+authors = ["Opentensor Foundation <https://github.com/opentensor/>"]
+homepage = "https://opentensor.ai/"
+publish = false
+repository = "https://github.com/opentensor/subtensor/"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+ed25519-dalek = { workspace = true }
+fp-evm = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+log = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-evm = { workspace = true }
+pallet-evm-precompile-modexp = { workspace = true }
+pallet-evm-precompile-sha3fips = { workspace = true }
+pallet-evm-precompile-simple = { workspace = true }
+pallet-proxy = { workspace = true }
+precompile-utils = { workspace = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+subtensor-runtime-common = { workspace = true }
+
+pallet-subtensor = { workspace = true }
+pallet-admin-utils = { workspace = true }
+
+[lints]
+workspace = true
+
+[features]
+default = ["std"]
+std = [
+	"ed25519-dalek/std",
+	"fp-evm/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"pallet-admin-utils/std",
+	"pallet-balances/std",
+	"pallet-evm-precompile-modexp/std",
+	"pallet-evm-precompile-sha3fips/std",
+	"pallet-evm-precompile-simple/std",
+	"pallet-evm/std",
+	"pallet-proxy/std",
+	"pallet-subtensor/std",
+	"precompile-utils/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"subtensor-runtime-common/std",
+]
