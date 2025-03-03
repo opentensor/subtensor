@@ -47,6 +47,9 @@ mod config {
         /// the preimage to store the call data.
         type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 
+        /// The commitment pallet's runtime
+        type CommitmentRuntime: pallet_commitments::Config;
+
         /// =================================
         /// ==== Initial Value Constants ====
         /// =================================

@@ -768,4 +768,10 @@ impl<T: Config> Pallet<T> {
         SubnetOwnerHotkey::<T>::insert(netuid, hotkey.clone());
         Self::deposit_event(Event::SubnetOwnerHotkeySet(netuid, hotkey.clone()));
     }
+
+    pub fn reveal_timelocked_commitments(block_number: u64) -> DispatchResult {
+        pallet_commitments::Pallet::<T::CommitmentRuntime>::reveal_timelocked_commitments(
+            block_number,
+        )
+    }
 }
