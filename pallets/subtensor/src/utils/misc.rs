@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
     Error,
-    system::{ensure_root, ensure_signed_or_root, pallet_prelude::BlockNumberFor},
+    system::{ensure_root, ensure_signed, ensure_signed_or_root, pallet_prelude::BlockNumberFor},
 };
 use safe_math::*;
 use sp_core::Get;
@@ -19,6 +19,15 @@ impl<T: Config> Pallet<T> {
             Ok(Some(who)) if SubnetOwner::<T>::get(netuid) == who => Ok(()),
             Ok(Some(_)) => Err(DispatchError::BadOrigin),
             Ok(None) => Ok(()),
+            Err(x) => Err(x.into()),
+        }
+    }
+
+    pub fn ensure_subnet_owner(o: T::RuntimeOrigin, netuid: u16) -> Result<(), DispatchError> {
+        let coldkey = ensure_signed(o);
+        match coldkey {
+            Ok(who) if SubnetOwner::<T>::get(netuid) == who => Ok(()),
+            Ok(_) => Err(DispatchError::BadOrigin),
             Err(x) => Err(x.into()),
         }
     }
@@ -742,6 +751,22 @@ impl<T: Config> Pallet<T> {
     pub fn set_dissolve_network_schedule_duration(duration: BlockNumberFor<T>) {
         DissolveNetworkScheduleDuration::<T>::set(duration);
         Self::deposit_event(Event::DissolveNetworkScheduleDurationSet(duration));
+    }
+
+    /// Set the owner hotkey for a subnet.
+    ///
+    /// # Arguments
+    ///
+    /// * `netuid` - The unique identifier for the subnet.
+    /// * `hotkey` - The new hotkey for the subnet owner.
+    ///
+    /// # Effects
+    ///
+    /// * Update the SubnetOwnerHotkey storage.
+    /// * Emits a SubnetOwnerHotkeySet event.
+    pub fn set_subnet_owner_hotkey(netuid: u16, hotkey: &T::AccountId) {
+        SubnetOwnerHotkey::<T>::insert(netuid, hotkey.clone());
+        Self::deposit_event(Event::SubnetOwnerHotkeySet(netuid, hotkey.clone()));
     }
 
     pub fn reveal_timelocked_commitments(block_number: u64) -> DispatchResult {
