@@ -127,6 +127,43 @@ where
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
     }
 
+    #[precompile::public("getTotalColdkeyStake(bytes32)")]
+    fn get_total_coldkey_stake(
+        _handle: &mut impl PrecompileHandle,
+        coldkey_h256: H256,
+    ) -> EvmResult<U256> {
+        let (coldkey, _) = parse_pubkey(coldkey_h256.as_bytes())?;
+
+        // get total stake of coldkey
+        let total_stake =
+            pallet_subtensor::Pallet::<R>::get_total_stake_for_coldkey(&coldkey);
+        // Convert to EVM decimals
+        let stake_u256 = U256::from(total_stake);
+        let stake_eth =
+            <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(stake_u256)
+                .ok_or(ExitError::InvalidRange)?;
+
+        Ok(stake_eth)
+    }
+
+    #[precompile::public("getTotalHotkeyStake(bytes32)")]
+    fn get_total_hotkey_stake(
+        _handle: &mut impl PrecompileHandle,
+        hotkey_h256: H256,
+    ) -> EvmResult<U256> {
+        let (hotkey, _) = parse_pubkey(hotkey_h256.as_bytes())?;
+
+        // get total stake of hotkey
+        let total_stake = pallet_subtensor::Pallet::<R>::get_total_stake_for_hotkey(&hotkey);
+        // Convert to EVM decimals
+        let stake_u256 = U256::from(total_stake);
+        let stake_eth =
+            <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(stake_u256)
+                .ok_or(ExitError::InvalidRange)?;
+
+        Ok(stake_eth)
+    }
+
     #[precompile::public("addProxy(bytes32)")]
     fn add_proxy(handle: &mut impl PrecompileHandle, delegate: H256) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();

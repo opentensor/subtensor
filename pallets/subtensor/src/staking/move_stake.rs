@@ -344,6 +344,11 @@ impl<T: Config> Pallet<T> {
         // Because of the fee, the tao_unstaked may be too low if initial stake is low. In that case,
         // do not restake.
         if tao_unstaked >= DefaultMinStake::<T>::get().saturating_add(fee) {
+            // If the coldkey is not the owner, make the hotkey a delegate.
+            if Self::get_owning_coldkey_for_hotkey(destination_hotkey) != *destination_coldkey {
+                Self::maybe_become_delegate(destination_hotkey);
+            }
+
             Self::stake_into_subnet(
                 destination_hotkey,
                 destination_coldkey,

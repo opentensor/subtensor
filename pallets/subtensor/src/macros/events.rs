@@ -271,5 +271,11 @@ mod events {
         /// Parameters:
         /// (netuid, bool)
         TransferToggle(u16, bool),
+
+        /// The owner hotkey for a subnet has been set.
+        ///
+        /// Parameters:
+        /// (netuid, new_hotkey)
+        SubnetOwnerHotkeySet(u16, T::AccountId),
     }
 }

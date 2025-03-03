@@ -142,10 +142,15 @@ impl<T: Config> Pallet<T> {
             allow_partial,
         )?;
 
-        // 4. Ensure the remove operation from the coldkey is a success.
+        // 4. If the coldkey is not the owner, make the hotkey a delegate.
+        if Self::get_owning_coldkey_for_hotkey(&hotkey) != coldkey {
+            Self::maybe_become_delegate(&hotkey);
+        }
+
+        // 5. Ensure the remove operation from the coldkey is a success.
         let tao_staked: u64 = Self::remove_balance_from_coldkey_account(&coldkey, possible_stake)?;
 
-        // 5. Swap the stake into alpha on the subnet and increase counters.
+        // 6. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
         let fee = DefaultStakingFee::<T>::get();
         Self::stake_into_subnet(&hotkey, &coldkey, netuid, tao_staked, fee);

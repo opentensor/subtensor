@@ -205,7 +205,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 242,
+    spec_version: 245,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -951,7 +951,7 @@ impl pallet_commitments::Config for Runtime {
 }
 
 #[cfg(not(feature = "fast-blocks"))]
-pub const INITIAL_SUBNET_TEMPO: u16 = 99;
+pub const INITIAL_SUBNET_TEMPO: u16 = 360;
 
 #[cfg(feature = "fast-blocks")]
 pub const INITIAL_SUBNET_TEMPO: u16 = 10;
