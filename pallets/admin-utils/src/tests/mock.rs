@@ -7,10 +7,11 @@ use frame_support::{
 };
 use frame_system as system;
 use frame_system::{EnsureNever, EnsureRoot, limits};
+use scale_info::TypeInfo;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityList as GrandpaAuthorityList;
 use sp_core::U256;
-use sp_core::{ConstU64, H256, Encode, Decode, Get};
+use sp_core::{ConstU64, Decode, Encode, Get, H256};
 use sp_runtime::{
     BuildStorage, KeyTypeId, Perbill,
     testing::TestXt,
@@ -18,7 +19,6 @@ use sp_runtime::{
 };
 use sp_std::cmp::Ordering;
 use sp_weights::Weight;
-use scale_info::TypeInfo;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

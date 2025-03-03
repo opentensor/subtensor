@@ -413,7 +413,6 @@ impl crate::Config for Test {
     type CommitmentRuntime = Test;
 }
 
-
 parameter_types! {
     pub const MaxCommitFieldsInner: u32 = 1;
     pub const CommitmentInitialDeposit: Balance = 0;
@@ -553,7 +552,7 @@ impl Get<u32> for MaxCommitFields {
 pub struct AllowCommitments;
 impl pallet_commitments::CanCommit<AccountId> for AllowCommitments {
     fn can_commit(_netuid: u16, _address: &AccountId) -> bool {
-        true 
+        true
     }
 }
 

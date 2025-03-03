@@ -8,6 +8,7 @@ use frame_support::{
 };
 use sp_core::H256;
 use sp_runtime::{
+    BuildStorage,
     testing::Header,
     traits::{BlakeTwo256, ConstU16, IdentityLookup},
 };
@@ -86,12 +87,19 @@ impl TypeInfo for TestMaxFields {
     }
 }
 
+pub struct TestCanCommit;
+impl pallet_commitments::CanCommit<u64> for TestCanCommit {
+    fn can_commit(_netuid: u16, _who: &u64) -> bool {
+        true
+    }
+}
+
 impl pallet_commitments::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type WeightInfo = ();
     type MaxFields = TestMaxFields;
-    type CanCommit = ();
+    type CanCommit = TestCanCommit;
     type FieldDeposit = ConstU64<0>;
     type InitialDeposit = ConstU64<0>;
     type DefaultRateLimit = ConstU64<0>;
@@ -167,11 +175,11 @@ where
     type OverarchingCall = RuntimeCall;
 }
 
-// pub fn new_test_ext() -> sp_io::TestExternalities {
-//     let t = frame_system::GenesisConfig::<Test>::default()
-//         .build_storage()
-//         .unwrap();
-//     let mut ext = sp_io::TestExternalities::new(t);
-//     ext.execute_with(|| System::set_block_number(1));
-//     ext
-// }
+pub fn new_test_ext() -> sp_io::TestExternalities {
+    let t = frame_system::GenesisConfig::<Test>::default()
+        .build_storage()
+        .unwrap();
+    let mut ext = sp_io::TestExternalities::new(t);
+    ext.execute_with(|| System::set_block_number(1));
+    ext
+}
