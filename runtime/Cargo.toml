@@ -189,6 +189,7 @@ std = [
 	"log/std",
 	"sp-storage/std",
 	"sp-genesis-builder/std",
+	"subtensor-precompiles/std",
 	"subtensor-runtime-common/std",
 	# Frontier
 	"fp-evm/std",

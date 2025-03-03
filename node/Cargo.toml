@@ -105,10 +105,10 @@ thiserror = { workspace = true }
 num-traits = { version = "0.2", features = ["std"] }
 
 # Local Dependencies
-node-subtensor-runtime = { workspace = true }
-subtensor-runtime-common = { workspace = true }
-subtensor-custom-rpc = { workspace = true }
-subtensor-custom-rpc-runtime-api = { workspace = true }
+node-subtensor-runtime = { workspace = true, features = ["std"] }
+subtensor-runtime-common = { workspace = true, features = ["std"] }
+subtensor-custom-rpc = { workspace = true, features = ["std"] }
+subtensor-custom-rpc-runtime-api = { workspace = true, features = ["std"] }
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true }
