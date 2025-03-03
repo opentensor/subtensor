@@ -5805,6 +5805,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "subtensor-custom-rpc",
  "subtensor-custom-rpc-runtime-api",
+ "subtensor-runtime-common",
  "thiserror 1.0.69",
 ]
 
@@ -5883,6 +5884,7 @@ dependencies = [
  "substrate-wasm-builder",
  "subtensor-custom-rpc-runtime-api",
  "subtensor-macros",
+ "subtensor-precompiles",
  "subtensor-runtime-common",
  "tle",
  "w3f-bls",

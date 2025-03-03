@@ -29,7 +29,6 @@ members = [
 	"precompiles",
 	"primitives/*",
 	"runtime",
-	"common",
 	"support/*",
 ]
 resolver = "2"
@@ -48,9 +47,11 @@ pallet-collective = { default-features = false, path = "pallets/collective" }
 pallet-commitments = { default-features = false, path = "pallets/commitments" }
 pallet-registry = { default-features = false, path = "pallets/registry" }
 pallet-subtensor = { default-features = false, path = "pallets/subtensor" }
+subtensor-custom-rpc = { default-features = false, path = "pallets/subtensor/rpc" }
 subtensor-custom-rpc-runtime-api = { default-features = false, path = "pallets/subtensor/runtime-api" }
 subtensor-precompiles = { default-features = false, path = "precompiles" }
 subtensor-runtime-common = { default-features = false, path = "common" }
+node-subtensor-runtime = { default-features = false, path = "runtime" }
 
 async-trait = "0.1"
 cargo-husky = { version = "1", default-features = false }

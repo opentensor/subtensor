@@ -20,7 +20,7 @@ where
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
-    <R as pallet_balances::Config>::Balance: From<U256>,
+    <R as pallet_balances::Config>::Balance: TryFrom<U256>,
 {
     const INDEX: u64 = 2048;
     const ADDRESS_SS58: [u8; 32] = [
@@ -41,7 +41,7 @@ where
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
-    <R as pallet_balances::Config>::Balance: From<U256>,
+    <R as pallet_balances::Config>::Balance: TryFrom<U256>,
 {
     #[precompile::public("transfer(bytes32)")]
     #[precompile::payable]

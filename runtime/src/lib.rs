@@ -39,7 +39,6 @@ use pallet_subtensor::rpc_info::{
     stake_info::StakeInfo,
     subnet_info::{SubnetHyperparams, SubnetInfo, SubnetInfov2},
 };
-use scale_info::TypeInfo;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -49,11 +48,10 @@ use sp_core::{
 };
 use sp_runtime::generic::Era;
 use sp_runtime::{
-    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, MultiSignature, create_runtime_str,
+    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, create_runtime_str,
     generic, impl_opaque_keys,
     traits::{
-        AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable,
-        IdentifyAccount, NumberFor, One, PostDispatchInfoOf, UniqueSaturatedInto, Verify,
+        AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, NumberFor, One, PostDispatchInfoOf, UniqueSaturatedInto, Verify,
     },
     transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
 };
@@ -62,6 +60,7 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
+use subtensor_precompiles::Precompiles;
 use subtensor_runtime_common::{time::*, *};
 
 // A few exports that help ease life for downstream crates.
@@ -88,9 +87,6 @@ pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
 use core::marker::PhantomData;
-
-mod precompiles;
-use precompiles::FrontierPrecompiles;
 
 // Frontier
 use fp_rpc::TransactionStatus;
@@ -1163,7 +1159,7 @@ fn weight_per_gas() -> Weight {
 parameter_types! {
     pub BlockGasLimit: U256 = U256::from(BLOCK_GAS_LIMIT);
     pub const GasLimitPovSizeRatio: u64 = 0;
-    pub PrecompilesValue: FrontierPrecompiles<Runtime> = FrontierPrecompiles::<_>::new();
+    pub PrecompilesValue: Precompiles<Runtime> = Precompiles::<_>::new();
     pub WeightPerGas: Weight = weight_per_gas();
     pub SuicideQuickClearLimit: u32 = 0;
 }
@@ -1235,7 +1231,7 @@ impl pallet_evm::Config for Runtime {
     type AddressMapping = pallet_evm::HashedAddressMapping<BlakeTwo256>;
     type Currency = Balances;
     type RuntimeEvent = RuntimeEvent;
-    type PrecompilesType = FrontierPrecompiles<Self>;
+    type PrecompilesType = Precompiles<Self>;
     type PrecompilesValue = PrecompilesValue;
     type ChainId = ConfigurableChainId;
     type BlockGasLimit = BlockGasLimit;

@@ -55,7 +55,7 @@ where
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
-    <R as pallet_balances::Config>::Balance: From<U256>,
+    <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
     const INDEX: u64 = 2049;
@@ -81,7 +81,7 @@ where
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
-    <R as pallet_balances::Config>::Balance: From<U256>,
+    <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
     #[precompile::public("addStake(bytes32,uint256)")]

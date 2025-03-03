@@ -56,6 +56,7 @@ sp-std = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
 subtensor-runtime-common = { workspace = true }
+subtensor-precompiles = { workspace = true }
 
 # Temporary sudo
 pallet-sudo = { workspace = true }

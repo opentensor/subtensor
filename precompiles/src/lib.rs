@@ -55,7 +55,7 @@ where
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
-    <R as pallet_balances::Config>::Balance: From<U256>,
+    <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
     fn default() -> Self {
@@ -79,7 +79,7 @@ where
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
-    <R as pallet_balances::Config>::Balance: From<U256>,
+    <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
     pub fn new() -> Self {
@@ -120,7 +120,7 @@ where
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
-    <R as pallet_balances::Config>::Balance: From<U256>,
+    <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
     fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<PrecompileResult> {
