@@ -1,185 +1,258 @@
-#![allow(non_camel_case_types)]
+use crate::{CommitmentInfo, Data};
+use codec::Encode;
+use frame_support::traits::Get;
+use sp_std::prelude::*;
 
-use crate as pallet_commitments;
-use frame_support::{
-    derive_impl,
-    pallet_prelude::{Get, TypeInfo},
-    traits::{ConstU32, ConstU64},
-};
-use sp_core::H256;
-use sp_runtime::{
-    BuildStorage,
-    testing::Header,
-    traits::{BlakeTwo256, ConstU16, IdentityLookup},
-};
-
-pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
-pub type UncheckedExtrinsic =
-    sp_runtime::generic::UncheckedExtrinsic<AccountId, RuntimeCall, test_crypto::Signature, ()>;
-
-frame_support::construct_runtime!(
-    pub enum Test
-    {
-        System: frame_system = 1,
-        Balances: pallet_balances = 2,
-        Commitments: pallet_commitments = 3,
-        Drand: pallet_drand = 4,
-    }
-);
-
-pub type AccountId = u64;
-
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
-impl frame_system::Config for Test {
-    type BaseCallFilter = frame_support::traits::Everything;
-    type BlockWeights = ();
-    type BlockLength = ();
-    type DbWeight = ();
-    type RuntimeOrigin = RuntimeOrigin;
-    type RuntimeCall = RuntimeCall;
-    type Hash = H256;
-    type Hashing = BlakeTwo256;
-    type AccountId = u64;
-    type Lookup = IdentityLookup<Self::AccountId>;
-    type RuntimeEvent = RuntimeEvent;
-    type BlockHashCount = ConstU64<250>;
-    type Version = ();
-    type PalletInfo = PalletInfo;
-    type AccountData = pallet_balances::AccountData<u64>;
-    type OnNewAccount = ();
-    type OnKilledAccount = ();
-    type SystemWeightInfo = ();
-    type SS58Prefix = ConstU16<42>;
-    type OnSetCode = ();
-    type MaxConsumers = ConstU32<16>;
-    type Block = Block;
-    type Nonce = u32;
-}
-
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
-impl pallet_balances::Config for Test {
-    type MaxLocks = ();
-    type MaxReserves = ();
-    type ReserveIdentifier = [u8; 8];
-    type Balance = u64;
-    type RuntimeEvent = RuntimeEvent;
-    type DustRemoval = ();
-    type ExistentialDeposit = ConstU64<1>;
-    type AccountStore = System;
-    type WeightInfo = ();
-    type FreezeIdentifier = ();
-    type MaxFreezes = ();
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct TestMaxFields;
-impl Get<u32> for TestMaxFields {
-    fn get() -> u32 {
-        16
-    }
-}
-impl TypeInfo for TestMaxFields {
-    type Identity = Self;
-    fn type_info() -> scale_info::Type {
-        scale_info::Type::builder()
-            .path(scale_info::Path::new("TestMaxFields", module_path!()))
-            .composite(scale_info::build::Fields::unit())
-    }
-}
-
-pub struct TestCanCommit;
-impl pallet_commitments::CanCommit<u64> for TestCanCommit {
-    fn can_commit(_netuid: u16, _who: &u64) -> bool {
-        true
-    }
-}
-
-impl pallet_commitments::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
-    type Currency = Balances;
-    type WeightInfo = ();
-    type MaxFields = TestMaxFields;
-    type CanCommit = TestCanCommit;
-    type FieldDeposit = ConstU64<0>;
-    type InitialDeposit = ConstU64<0>;
-    type DefaultRateLimit = ConstU64<0>;
-}
-
-impl pallet_drand::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = pallet_drand::weights::SubstrateWeight<Test>;
-    type AuthorityId = test_crypto::TestAuthId;
-    type Verifier = pallet_drand::verifier::QuicknetVerifier;
-    type UnsignedPriority = ConstU64<{ 1 << 20 }>;
-    type HttpFetchTimeout = ConstU64<1_000>;
-}
-
-pub mod test_crypto {
-    use sp_core::sr25519::{Public as Sr25519Public, Signature as Sr25519Signature};
-    use sp_runtime::{
-        app_crypto::{app_crypto, sr25519},
-        traits::IdentifyAccount,
+#[cfg(test)]
+#[allow(clippy::indexing_slicing, clippy::unwrap_used)]
+mod tests {
+    use super::*;
+    use crate::{
+        Config, Error, Event, Pallet, RateLimit,
+        mock::{RuntimeEvent, RuntimeOrigin, Test, new_test_ext},
     };
+    use frame_support::{BoundedVec, assert_noop, assert_ok};
+    use frame_system::Pallet as System;
 
-    pub const KEY_TYPE: sp_runtime::KeyTypeId = sp_runtime::KeyTypeId(*b"test");
+    #[test]
+    fn manual_data_type_info() {
+        let mut registry = scale_info::Registry::new();
+        let type_id = registry.register_type(&scale_info::meta_type::<Data>());
+        let registry: scale_info::PortableRegistry = registry.into();
+        let type_info = registry.resolve(type_id.id).unwrap();
 
-    app_crypto!(sr25519, KEY_TYPE);
+        let check_type_info = |data: &Data| {
+            let variant_name = match data {
+                Data::None => "None".to_string(),
+                Data::BlakeTwo256(_) => "BlakeTwo256".to_string(),
+                Data::Sha256(_) => "Sha256".to_string(),
+                Data::Keccak256(_) => "Keccak256".to_string(),
+                Data::ShaThree256(_) => "ShaThree256".to_string(),
+                Data::Raw(bytes) => format!("Raw{}", bytes.len()),
+                Data::TimelockEncrypted { .. } => "TimelockEncrypted".to_string(),
+            };
+            if let scale_info::TypeDef::Variant(variant) = &type_info.type_def {
+                let variant = variant
+                    .variants
+                    .iter()
+                    .find(|v| v.name == variant_name)
+                    .unwrap_or_else(|| panic!("Expected to find variant {}", variant_name));
 
-    pub struct TestAuthId;
+                let encoded = data.encode();
+                assert_eq!(encoded[0], variant.index);
 
-    impl frame_system::offchain::AppCrypto<Public, Signature> for TestAuthId {
-        type RuntimeAppPublic = Public;
-        type GenericSignature = Sr25519Signature;
-        type GenericPublic = Sr25519Public;
-    }
+                // For variants with fields, check the encoded length matches expected field lengths
+                if !variant.fields.is_empty() {
+                    let expected_len = match data {
+                        Data::None => 0,
+                        Data::Raw(bytes) => bytes.len() as u32,
+                        Data::BlakeTwo256(_)
+                        | Data::Sha256(_)
+                        | Data::Keccak256(_)
+                        | Data::ShaThree256(_) => 32,
+                        Data::TimelockEncrypted {
+                            encrypted,
+                            reveal_round,
+                        } => {
+                            // Calculate length: encrypted (length prefixed) + reveal_round (u64)
+                            let encrypted_len = encrypted.encode().len() as u32; // Includes length prefix
+                            let reveal_round_len = reveal_round.encode().len() as u32; // Typically 8 bytes
+                            encrypted_len + reveal_round_len
+                        }
+                    };
+                    assert_eq!(
+                        encoded.len() as u32 - 1, // Subtract variant byte
+                        expected_len,
+                        "Encoded length mismatch for variant {}",
+                        variant_name
+                    );
+                } else {
+                    assert_eq!(
+                        encoded.len() as u32 - 1,
+                        0,
+                        "Expected no fields for {}",
+                        variant_name
+                    );
+                }
+            } else {
+                panic!("Should be a variant type");
+            }
+        };
 
-    impl IdentifyAccount for Public {
-        type AccountId = u64;
+        let mut data = vec![
+            Data::None,
+            Data::BlakeTwo256(Default::default()),
+            Data::Sha256(Default::default()),
+            Data::Keccak256(Default::default()),
+            Data::ShaThree256(Default::default()),
+        ];
 
-        fn into_account(self) -> u64 {
-            let mut bytes = [0u8; 32];
-            bytes.copy_from_slice(self.as_ref());
-            u64::from_le_bytes(bytes[..8].try_into().unwrap())
+        // Add Raw instances for all possible sizes
+        for n in 0..128 {
+            data.push(Data::Raw(vec![0u8; n as usize].try_into().unwrap()));
+        }
+
+        // Add a TimelockEncrypted instance
+        data.push(Data::TimelockEncrypted {
+            encrypted: vec![0u8; 64].try_into().unwrap(),
+            reveal_round: 12345,
+        });
+
+        for d in data.iter() {
+            check_type_info(d);
         }
     }
-}
 
-impl frame_system::offchain::SigningTypes for Test {
-    type Public = test_crypto::Public;
-    type Signature = test_crypto::Signature;
-}
+    #[test]
+    fn set_commitment_works() {
+        new_test_ext().execute_with(|| {
+            System::<Test>::set_block_number(1);
+            let info = Box::new(CommitmentInfo {
+                fields: BoundedVec::try_from(vec![]).unwrap(),
+                ..Default::default()
+            });
 
-impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Test>> for Test {
-    fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
-        call: RuntimeCall,
-        _public: Self::Public,
-        account: Self::AccountId,
-        _nonce: u32,
-    ) -> Option<(
-        RuntimeCall,
-        <UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
-    )> {
-        // Create a dummy sr25519 signature from a raw byte array
-        let dummy_raw = [0u8; 64];
-        let dummy_signature = sp_core::sr25519::Signature::from(dummy_raw);
-        let signature = test_crypto::Signature::from(dummy_signature);
-        Some((call, (account, signature, ())))
+            assert_ok!(Pallet::<Test>::set_commitment(
+                RuntimeOrigin::signed(1),
+                1,
+                info.clone()
+            ));
+
+            let commitment = Pallet::<Test>::commitment_of(1, &1).unwrap();
+            let initial_deposit: u64 = <Test as Config>::InitialDeposit::get();
+            assert_eq!(commitment.deposit, initial_deposit);
+            assert_eq!(commitment.block, 1);
+            assert_eq!(Pallet::<Test>::last_commitment(1, &1), Some(1));
+        });
     }
-}
 
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
-where
-    RuntimeCall: From<C>,
-{
-    type Extrinsic = UncheckedExtrinsic;
-    type OverarchingCall = RuntimeCall;
-}
+    #[test]
+    #[should_panic(expected = "BoundedVec::try_from failed")]
+    fn set_commitment_too_many_fields_panics() {
+        new_test_ext().execute_with(|| {
+            let max_fields: u32 = <Test as Config>::MaxFields::get();
+            let fields = vec![Data::None; (max_fields + 1) as usize];
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
-    let t = frame_system::GenesisConfig::<Test>::default()
-        .build_storage()
-        .unwrap();
-    let mut ext = sp_io::TestExternalities::new(t);
-    ext.execute_with(|| System::set_block_number(1));
-    ext
+            // This line will panic when 'BoundedVec::try_from(...)' sees too many items.
+            let info = Box::new(CommitmentInfo {
+                fields: BoundedVec::try_from(fields).expect("BoundedVec::try_from failed"),
+                ..Default::default()
+            });
+
+            // We never get here, because the constructor panics above.
+            let _ =
+                Pallet::<Test>::set_commitment(frame_system::RawOrigin::Signed(1).into(), 1, info);
+        });
+    }
+
+    #[test]
+    fn set_commitment_rate_limit_exceeded() {
+        new_test_ext().execute_with(|| {
+            let rate_limit = <Test as Config>::DefaultRateLimit::get();
+            System::<Test>::set_block_number(1);
+            let info = Box::new(CommitmentInfo {
+                fields: BoundedVec::try_from(vec![]).unwrap(),
+                ..Default::default()
+            });
+
+            assert_ok!(Pallet::<Test>::set_commitment(
+                RuntimeOrigin::signed(1),
+                1,
+                info.clone()
+            ));
+
+            // Set block number to just before rate limit expires
+            System::<Test>::set_block_number(rate_limit);
+            assert_noop!(
+                Pallet::<Test>::set_commitment(RuntimeOrigin::signed(1), 1, info.clone()),
+                Error::<Test>::CommitmentSetRateLimitExceeded
+            );
+
+            // Set block number to after rate limit
+            System::<Test>::set_block_number(rate_limit + 1);
+            assert_ok!(Pallet::<Test>::set_commitment(
+                RuntimeOrigin::signed(1),
+                1,
+                info
+            ));
+        });
+    }
+
+    #[test]
+    fn set_commitment_updates_deposit() {
+        new_test_ext().execute_with(|| {
+            System::<Test>::set_block_number(1);
+            let info1 = Box::new(CommitmentInfo {
+                fields: BoundedVec::try_from(vec![Default::default(); 2]).unwrap(),
+                ..Default::default()
+            });
+            let info2 = Box::new(CommitmentInfo {
+                fields: BoundedVec::try_from(vec![Default::default(); 3]).unwrap(),
+                ..Default::default()
+            });
+
+            assert_ok!(Pallet::<Test>::set_commitment(
+                RuntimeOrigin::signed(1),
+                1,
+                info1
+            ));
+            let initial_deposit: u64 = <Test as Config>::InitialDeposit::get();
+            let field_deposit: u64 = <Test as Config>::FieldDeposit::get();
+            let expected_deposit1: u64 = initial_deposit + 2u64 * field_deposit;
+            assert_eq!(
+                Pallet::<Test>::commitment_of(1, &1).unwrap().deposit,
+                expected_deposit1
+            );
+
+            assert_ok!(Pallet::<Test>::set_commitment(
+                RuntimeOrigin::signed(1),
+                1,
+                info2
+            ));
+            let expected_deposit2: u64 = initial_deposit + 3u64 * field_deposit;
+            assert_eq!(
+                Pallet::<Test>::commitment_of(1, &1).unwrap().deposit,
+                expected_deposit2
+            );
+        });
+    }
+
+    #[test]
+    fn set_rate_limit_works() {
+        new_test_ext().execute_with(|| {
+            let default_rate_limit: u64 = <Test as Config>::DefaultRateLimit::get();
+            assert_eq!(RateLimit::<Test>::get(), default_rate_limit);
+
+            assert_ok!(Pallet::<Test>::set_rate_limit(RuntimeOrigin::root(), 200));
+            assert_eq!(RateLimit::<Test>::get(), 200);
+
+            assert_noop!(
+                Pallet::<Test>::set_rate_limit(RuntimeOrigin::signed(1), 300),
+                sp_runtime::DispatchError::BadOrigin
+            );
+        });
+    }
+
+    #[test]
+    fn event_emission_works() {
+        new_test_ext().execute_with(|| {
+            System::<Test>::set_block_number(1);
+            let info = Box::new(CommitmentInfo {
+                fields: BoundedVec::try_from(vec![]).unwrap(),
+                ..Default::default()
+            });
+
+            assert_ok!(Pallet::<Test>::set_commitment(
+                RuntimeOrigin::signed(1),
+                1,
+                info
+            ));
+
+            let events = System::<Test>::events();
+            assert!(events.iter().any(|e| matches!(
+                &e.event,
+                RuntimeEvent::Commitments(Event::Commitment { netuid: 1, who: 1 })
+            )));
+        });
+    }
 }

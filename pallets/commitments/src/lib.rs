@@ -4,6 +4,9 @@ mod benchmarking;
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+mod mock;
+
 pub mod types;
 pub mod weights;
 
