@@ -29,7 +29,9 @@ use core::marker::PhantomData;
 
 use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 use frame_system::RawOrigin;
-use pallet_evm::{BalanceConverter, AddressMapping, ExitError, PrecompileFailure, PrecompileHandle};
+use pallet_evm::{
+    AddressMapping, BalanceConverter, ExitError, PrecompileFailure, PrecompileHandle,
+};
 use precompile_utils::EvmResult;
 use sp_core::{H256, U256};
 use sp_runtime::traits::{Dispatchable, StaticLookup, UniqueSaturatedInto};

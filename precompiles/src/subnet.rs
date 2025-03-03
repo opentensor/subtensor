@@ -6,7 +6,7 @@ use frame_system::RawOrigin;
 use pallet_evm::{AddressMapping, PrecompileHandle};
 use precompile_utils::{EvmResult, prelude::BoundedString};
 use sp_core::H256;
-use sp_runtime::{AccountId32, traits::Dispatchable};
+use sp_runtime::traits::Dispatchable;
 
 use crate::{PrecompileExt, PrecompileHandleExt, parse_pubkey};
 
