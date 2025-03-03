@@ -20,11 +20,8 @@ name = "spec_version"
 path = "src/spec_version.rs"
 
 [dependencies]
-ed25519-dalek = { workspace = true, default-features = false, features = [
-	"alloc",
-] }
 subtensor-macros.workspace = true
-subtensor-custom-rpc-runtime-api = { path = "../pallets/subtensor/runtime-api", default-features = false }
+subtensor-custom-rpc-runtime-api = { workspace = true }
 smallvec = { workspace = true }
 log = { workspace = true }
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
@@ -34,7 +31,7 @@ scale-info = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["alloc"] }
 pallet-aura = { workspace = true }
 pallet-balances = { workspace = true }
-pallet-subtensor = { default-features = false, path = "../pallets/subtensor" }
+pallet-subtensor = { workspace = true }
 frame-support = { workspace = true }
 pallet-grandpa = { workspace = true }
 pallet-insecure-randomness-collective-flip = { workspace = true }
@@ -58,14 +55,15 @@ sp-session = { workspace = true }
 sp-std = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
+subtensor-runtime-common = { workspace = true }
 
 # Temporary sudo
 pallet-sudo = { workspace = true }
 
-pallet-admin-utils = { default-features = false, path = "../pallets/admin-utils" }
+pallet-admin-utils = { workspace = true }
 
 # Used for sudo decentralization
-pallet-collective = { default-features = false, path = "../pallets/collective" }
+pallet-collective = { workspace = true }
 pallet-membership = { workspace = true }
 
 # Multisig
@@ -91,10 +89,10 @@ frame-benchmarking = { workspace = true, optional = true }
 frame-system-benchmarking = { workspace = true, optional = true }
 
 # Identity registry pallet for registering project info
-pallet-registry = { default-features = false, path = "../pallets/registry" }
+pallet-registry = { workspace = true }
 
 # Metadata commitment pallet
-pallet-commitments = { default-features = false, path = "../pallets/commitments" }
+pallet-commitments = { workspace = true }
 
 # Frontier
 fp-evm = { workspace = true }
@@ -134,13 +132,15 @@ substrate-wasm-builder = { workspace = true, optional = true }
 [features]
 default = ["std"]
 pow-faucet = ["pallet-subtensor/pow-faucet"]
-fast-blocks = ["pallet-subtensor/fast-blocks"]
+fast-blocks = [
+	"pallet-subtensor/fast-blocks",
+	"subtensor-runtime-common/fast-blocks",
+]
 std = [
 	"frame-try-runtime?/std",
 	"frame-system-benchmarking?/std",
 	"frame-benchmarking/std",
 	"codec/std",
-	"ed25519-dalek/std",
 	"scale-info/std",
 	"frame-executive/std",
 	"frame-metadata-hash-extension/std",
@@ -188,6 +188,7 @@ std = [
 	"log/std",
 	"sp-storage/std",
 	"sp-genesis-builder/std",
+	"subtensor-runtime-common/std",
 	# Frontier
 	"fp-evm/std",
 	"fp-rpc/std",
