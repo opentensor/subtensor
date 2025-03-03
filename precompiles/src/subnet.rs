@@ -8,7 +8,8 @@ use precompile_utils::{EvmResult, prelude::BoundedString};
 use sp_core::H256;
 use sp_runtime::traits::Dispatchable;
 
-use crate::{PrecompileExt, PrecompileHandleExt, parse_pubkey};
+use crate::parser::parse_pubkey;
+use crate::{PrecompileExt, PrecompileHandleExt};
 
 pub struct SubnetPrecompile<R>(PhantomData<R>);
 

@@ -37,7 +37,8 @@ use sp_core::{H256, U256};
 use sp_runtime::traits::{Dispatchable, StaticLookup, UniqueSaturatedInto};
 use subtensor_runtime_common::ProxyType;
 
-use crate::{PrecompileExt, PrecompileHandleExt, parse_pubkey, try_u16_from_u256};
+use crate::parser::{parse_pubkey, try_u16_from_u256};
+use crate::{PrecompileExt, PrecompileHandleExt};
 
 pub(crate) struct StakingPrecompile<R>(PhantomData<R>);
 

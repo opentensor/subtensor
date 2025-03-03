@@ -6,7 +6,8 @@ use precompile_utils::EvmResult;
 use sp_core::{H256, U256};
 use sp_runtime::traits::{Dispatchable, StaticLookup, UniqueSaturatedInto};
 
-use crate::{PrecompileExt, PrecompileHandleExt, contract_to_origin, parse_pubkey};
+use crate::parser::{contract_to_origin, parse_pubkey};
+use crate::{PrecompileExt, PrecompileHandleExt};
 
 pub(crate) struct BalanceTransferPrecompile<R>(PhantomData<R>);
 

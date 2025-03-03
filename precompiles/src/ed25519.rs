@@ -5,7 +5,8 @@ use alloc::vec::Vec;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use fp_evm::{ExitError, ExitSucceed, LinearCostPrecompile, PrecompileFailure};
 
-use crate::{PrecompileExt, parse_slice};
+use crate::PrecompileExt;
+use crate::parser::parse_slice;
 
 pub(crate) struct Ed25519Verify;
 
