@@ -7,13 +7,14 @@ use crate::client::FullClient;
 use node_subtensor_runtime as runtime;
 use node_subtensor_runtime::check_nonce;
 use node_subtensor_runtime::pallet_subtensor;
-use runtime::{AccountId, Balance, BalancesCall, SystemCall};
+use runtime::{BalancesCall, SystemCall};
 use sc_cli::Result;
 use sc_client_api::BlockBackend;
 use sp_core::{Encode, Pair};
 use sp_inherents::{InherentData, InherentDataProvider};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{OpaqueExtrinsic, SaturatedConversion};
+use subtensor_runtime_common::{AccountId, Balance, Signature};
 
 use std::{sync::Arc, time::Duration};
 
@@ -161,7 +162,7 @@ pub fn create_benchmark_extrinsic(
     runtime::UncheckedExtrinsic::new_signed(
         call.clone(),
         sp_runtime::AccountId32::from(sender.public()).into(),
-        runtime::Signature::Sr25519(signature),
+        Signature::Sr25519(signature),
         extra.clone(),
     )
 }
