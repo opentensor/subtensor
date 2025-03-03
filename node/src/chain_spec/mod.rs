@@ -6,7 +6,7 @@ pub mod finney;
 pub mod localnet;
 pub mod testnet;
 
-use node_subtensor_runtime::{AccountId, Block, Signature, WASM_BINARY};
+use node_subtensor_runtime::{Block, WASM_BINARY};
 use sc_chain_spec_derive::ChainSpecExtension;
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -18,6 +18,7 @@ use sp_runtime::traits::{IdentifyAccount, Verify};
 use std::collections::HashSet;
 use std::env;
 use std::str::FromStr;
+use subtensor_runtime_common::{AccountId, Signature};
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";

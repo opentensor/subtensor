@@ -5597,6 +5597,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "subtensor-custom-rpc",
  "subtensor-custom-rpc-runtime-api",
+ "subtensor-runtime-common",
  "thiserror",
 ]
 
@@ -5605,7 +5606,6 @@ name = "node-subtensor-runtime"
 version = "4.0.0-dev"
 dependencies = [
  "ark-serialize",
- "ed25519-dalek",
  "fp-account",
  "fp-evm",
  "fp-rpc",
@@ -5676,6 +5676,8 @@ dependencies = [
  "substrate-wasm-builder",
  "subtensor-custom-rpc-runtime-api",
  "subtensor-macros",
+ "subtensor-precompiles",
+ "subtensor-runtime-common",
  "tle",
  "w3f-bls",
 ]
@@ -10961,6 +10963,41 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.90",
+]
+
+[[package]]
+name = "subtensor-precompiles"
+version = "0.1.0"
+dependencies = [
+ "ed25519-dalek",
+ "fp-evm",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-admin-utils",
+ "pallet-balances",
+ "pallet-evm",
+ "pallet-evm-precompile-modexp",
+ "pallet-evm-precompile-sha3fips",
+ "pallet-evm-precompile-simple",
+ "pallet-proxy",
+ "pallet-subtensor",
+ "precompile-utils",
+ "sp-core",
+ "sp-runtime",
+ "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409)",
+ "subtensor-runtime-common",
+]
+
+[[package]]
+name = "subtensor-runtime-common"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-runtime",
 ]
 
 [[package]]
