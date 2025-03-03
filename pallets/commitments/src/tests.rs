@@ -1,6 +1,4 @@
-use crate::{CommitmentInfo, Data};
 use codec::Encode;
-use frame_support::traits::Get;
 use sp_std::prelude::*;
 
 #[cfg(test)]
@@ -8,10 +6,13 @@ use sp_std::prelude::*;
 mod tests {
     use super::*;
     use crate::{
-        Config, Error, Event, Pallet, RateLimit,
-        mock::{RuntimeEvent, RuntimeOrigin, Test, new_test_ext},
+        CommitmentInfo, Config, Data, Error, Event, Pallet, RateLimit, RevealedCommitments,
+        mock::{
+            DRAND_QUICKNET_SIG_HEX, RuntimeEvent, RuntimeOrigin, Test, insert_drand_pulse,
+            new_test_ext, produce_ciphertext,
+        },
     };
-    use frame_support::{BoundedVec, assert_noop, assert_ok};
+    use frame_support::{BoundedVec, assert_noop, assert_ok, traits::Get};
     use frame_system::Pallet as System;
 
     #[test]
@@ -253,6 +254,219 @@ mod tests {
                 &e.event,
                 RuntimeEvent::Commitments(Event::Commitment { netuid: 1, who: 1 })
             )));
+        });
+    }
+
+    #[test]
+    fn happy_path_timelock_commitments() {
+        new_test_ext().execute_with(|| {
+            let message_text = b"Hello timelock only!";
+            let data_raw = Data::Raw(
+                message_text
+                    .to_vec()
+                    .try_into()
+                    .expect("<= 128 bytes for Raw variant"),
+            );
+            let fields_vec = vec![data_raw];
+            let fields_bounded: BoundedVec<Data, <Test as Config>::MaxFields> =
+                BoundedVec::try_from(fields_vec).expect("Too many fields");
+
+            let inner_info: CommitmentInfo<<Test as Config>::MaxFields> = CommitmentInfo {
+                fields: fields_bounded,
+            };
+
+            let plaintext = inner_info.encode();
+
+            let reveal_round = 1000;
+            let encrypted = produce_ciphertext(&plaintext, reveal_round);
+
+            let data = Data::TimelockEncrypted {
+                encrypted: encrypted.clone(),
+                reveal_round,
+            };
+
+            let fields_outer: BoundedVec<Data, <Test as Config>::MaxFields> =
+                BoundedVec::try_from(vec![data]).expect("Too many fields");
+            let info_outer = CommitmentInfo {
+                fields: fields_outer,
+            };
+
+            let who = 123;
+            let netuid = 42;
+            System::<Test>::set_block_number(1);
+
+            assert_ok!(Pallet::<Test>::set_commitment(
+                RuntimeOrigin::signed(who),
+                netuid,
+                Box::new(info_outer)
+            ));
+
+            let drand_signature_bytes = hex::decode(DRAND_QUICKNET_SIG_HEX).unwrap();
+            insert_drand_pulse(reveal_round, &drand_signature_bytes);
+
+            System::<Test>::set_block_number(9999);
+            assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(9999));
+
+            let revealed =
+                RevealedCommitments::<Test>::get(netuid, &who).expect("Should have revealed data");
+
+            let revealed_inner = &revealed.info;
+            assert_eq!(revealed_inner.fields.len(), 1);
+            match &revealed_inner.fields[0] {
+                Data::Raw(bounded_bytes) => {
+                    assert_eq!(
+                        bounded_bytes.as_slice(),
+                        message_text,
+                        "Decrypted text from on-chain storage must match the original message"
+                    );
+                }
+                other => panic!("Expected Data::Raw(...) in revealed, got {:?}", other),
+            }
+        });
+    }
+
+    #[test]
+    fn reveal_timelocked_commitment_missing_round_does_nothing() {
+        new_test_ext().execute_with(|| {
+            let who = 1;
+            let netuid = 2;
+            System::<Test>::set_block_number(5);
+            let ciphertext = produce_ciphertext(b"My plaintext", 1000);
+            let data = Data::TimelockEncrypted {
+                encrypted: ciphertext,
+                reveal_round: 1000,
+            };
+            let fields: BoundedVec<_, <Test as Config>::MaxFields> =
+                BoundedVec::try_from(vec![data]).unwrap();
+            let info = CommitmentInfo { fields };
+            let origin = RuntimeOrigin::signed(who);
+            assert_ok!(Pallet::<Test>::set_commitment(
+                origin,
+                netuid,
+                Box::new(info)
+            ));
+            System::<Test>::set_block_number(100_000);
+            assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(100_000));
+            assert!(RevealedCommitments::<Test>::get(netuid, &who).is_none());
+        });
+    }
+
+    #[test]
+    fn reveal_timelocked_commitment_cant_deserialize_ciphertext() {
+        new_test_ext().execute_with(|| {
+            let who = 42;
+            let netuid = 9;
+            System::<Test>::set_block_number(10);
+            let good_ct = produce_ciphertext(b"Some data", 1000);
+            let mut corrupted = good_ct.into_inner();
+            if !corrupted.is_empty() {
+                corrupted[0] = 0xFF;
+            }
+            let corrupted_ct = BoundedVec::try_from(corrupted).unwrap();
+            let data = Data::TimelockEncrypted {
+                encrypted: corrupted_ct,
+                reveal_round: 1000,
+            };
+            let fields = BoundedVec::try_from(vec![data]).unwrap();
+            let info = CommitmentInfo { fields };
+            let origin = RuntimeOrigin::signed(who);
+            assert_ok!(Pallet::<Test>::set_commitment(
+                origin,
+                netuid,
+                Box::new(info)
+            ));
+            let sig_bytes = hex::decode(DRAND_QUICKNET_SIG_HEX).unwrap();
+            insert_drand_pulse(1000, &sig_bytes);
+            System::<Test>::set_block_number(99999);
+            assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(99999));
+            assert!(RevealedCommitments::<Test>::get(netuid, &who).is_none());
+        });
+    }
+
+    #[test]
+    fn reveal_timelocked_commitment_bad_signature_skips_decryption() {
+        new_test_ext().execute_with(|| {
+            let who = 10;
+            let netuid = 11;
+            System::<Test>::set_block_number(15);
+            let real_ct = produce_ciphertext(b"A valid plaintext", 1000);
+            let data = Data::TimelockEncrypted {
+                encrypted: real_ct,
+                reveal_round: 1000,
+            };
+            let fields: BoundedVec<_, <Test as Config>::MaxFields> =
+                BoundedVec::try_from(vec![data]).unwrap();
+            let info = CommitmentInfo { fields };
+            let origin = RuntimeOrigin::signed(who);
+            assert_ok!(Pallet::<Test>::set_commitment(
+                origin,
+                netuid,
+                Box::new(info)
+            ));
+            let bad_signature = [0x33u8; 10];
+            insert_drand_pulse(1000, &bad_signature);
+            System::<Test>::set_block_number(10_000);
+            assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(10_000));
+            assert!(RevealedCommitments::<Test>::get(netuid, &who).is_none());
+        });
+    }
+
+    #[test]
+    fn reveal_timelocked_commitment_empty_decrypted_data_is_skipped() {
+        new_test_ext().execute_with(|| {
+            let who = 2;
+            let netuid = 3;
+            let commit_block = 100u64;
+            System::<Test>::set_block_number(commit_block);
+            let reveal_round = 1000;
+            let empty_ct = produce_ciphertext(&[], reveal_round);
+            let data = Data::TimelockEncrypted {
+                encrypted: empty_ct,
+                reveal_round,
+            };
+            let fields = BoundedVec::try_from(vec![data]).unwrap();
+            let info = CommitmentInfo { fields };
+            let origin = RuntimeOrigin::signed(who);
+            assert_ok!(Pallet::<Test>::set_commitment(
+                origin,
+                netuid,
+                Box::new(info)
+            ));
+            let sig_bytes = hex::decode(DRAND_QUICKNET_SIG_HEX).unwrap();
+            insert_drand_pulse(reveal_round, &sig_bytes);
+            System::<Test>::set_block_number(10_000);
+            assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(10_000));
+            assert!(RevealedCommitments::<Test>::get(netuid, &who).is_none());
+        });
+    }
+
+    #[test]
+    fn reveal_timelocked_commitment_decode_failure_is_skipped() {
+        new_test_ext().execute_with(|| {
+            let who = 999;
+            let netuid = 8;
+            let commit_block = 42u64;
+            System::<Test>::set_block_number(commit_block);
+            let plaintext = vec![0xAA, 0xBB, 0xCC, 0xDD, 0xEE];
+            let reveal_round = 1000;
+            let real_ct = produce_ciphertext(&plaintext, reveal_round);
+            let data = Data::TimelockEncrypted {
+                encrypted: real_ct,
+                reveal_round,
+            };
+            let fields = BoundedVec::try_from(vec![data]).unwrap();
+            let info = CommitmentInfo { fields };
+            let origin = RuntimeOrigin::signed(who);
+            assert_ok!(Pallet::<Test>::set_commitment(
+                origin,
+                netuid,
+                Box::new(info)
+            ));
+            let sig_bytes = hex::decode(DRAND_QUICKNET_SIG_HEX.as_bytes()).unwrap();
+            insert_drand_pulse(reveal_round, &sig_bytes);
+            System::<Test>::set_block_number(9999);
+            assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(9999));
+            assert!(RevealedCommitments::<Test>::get(netuid, &who).is_none());
         });
     }
 }

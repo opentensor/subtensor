@@ -181,3 +181,79 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     ext.execute_with(|| System::set_block_number(1));
     ext
 }
+
+use super::*;
+use crate::{EngineBLS, MAX_TIMELOCK_COMMITMENT_SIZE_BYTES, TinyBLS381};
+use ark_serialize::CanonicalSerialize;
+use frame_support::BoundedVec;
+use rand_chacha::{ChaCha20Rng, rand_core::SeedableRng};
+use sha2::Digest;
+use tle::{ibe::fullident::Identity, stream_ciphers::AESGCMStreamCipherProvider, tlock::tle};
+
+// Drand Quicknet public key and signature for round=1000:
+pub const DRAND_QUICKNET_PUBKEY_HEX: &str = "83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c8c4b450b6\
+     a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809b\
+     d274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a";
+pub const DRAND_QUICKNET_SIG_HEX: &str = "b44679b9a59af2ec876b1a6b1ad52ea9b1615fc3982b19576350f93447cb1125e342b73a8dd2bacbe47e4b6b63ed5e39";
+
+/// Inserts a Drand pulse for `round` with the given `signature_bytes`.
+pub fn insert_drand_pulse(round: u64, signature_bytes: &[u8]) {
+    let sig_bounded: BoundedVec<u8, ConstU32<144>> = signature_bytes
+        .to_vec()
+        .try_into()
+        .expect("Signature within 144 bytes");
+
+    let randomness_bounded: BoundedVec<u8, ConstU32<32>> = vec![0u8; 32]
+        .try_into()
+        .expect("Randomness must be exactly 32 bytes");
+
+    pallet_drand::Pulses::<Test>::insert(
+        round,
+        pallet_drand::types::Pulse {
+            round,
+            randomness: randomness_bounded,
+            signature: sig_bounded,
+        },
+    );
+}
+
+/// Produces a **real** ciphertext by TLE-encrypting `plaintext` for Drand Quicknet `round`.
+///
+/// The returned `BoundedVec<u8, ConstU32<MAX_TIMELOCK_COMMITMENT_SIZE_BYTES>>`
+/// will decrypt if you pass in the valid signature for the same round.
+pub fn produce_ciphertext(
+    plaintext: &[u8],
+    round: u64,
+) -> BoundedVec<u8, ConstU32<MAX_TIMELOCK_COMMITMENT_SIZE_BYTES>> {
+    // 1) Deserialize the known Drand Quicknet public key:
+    let pub_key_bytes = hex::decode(DRAND_QUICKNET_PUBKEY_HEX).expect("decode pubkey");
+    let pub_key =
+        <TinyBLS381 as EngineBLS>::PublicKeyGroup::deserialize_compressed(&pub_key_bytes[..])
+            .expect("bad pubkey bytes");
+
+    // 2) Prepare the identity for that round
+    //    by hashing round.to_be_bytes() with SHA256:
+    let msg = {
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(round.to_be_bytes());
+        hasher.finalize().to_vec()
+    };
+    let identity = Identity::new(b"", vec![msg]);
+
+    // 3) Actually encrypt
+    //    (just an example ephemeral secret key & RNG seed)
+    let esk = [2u8; 32];
+    let rng = ChaCha20Rng::seed_from_u64(0);
+
+    let ct = tle::<TinyBLS381, AESGCMStreamCipherProvider, ChaCha20Rng>(
+        pub_key, esk, plaintext, identity, rng,
+    )
+    .expect("Encryption failed in produce_real_ciphertext");
+
+    // 4) Serialize the ciphertext to BoundedVec
+    let mut ct_bytes = Vec::new();
+    ct.serialize_compressed(&mut ct_bytes)
+        .expect("serialize TLECiphertext");
+
+    ct_bytes.try_into().expect("Ciphertext is within max size")
+}

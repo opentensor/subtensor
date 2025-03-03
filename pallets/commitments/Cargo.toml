@@ -33,6 +33,10 @@ pallet-drand = { path = "../drand", default-features = false }
 tle = { workspace = true, default-features = false }
 ark-serialize = { workspace = true, default-features = false }
 w3f-bls = { workspace = true, default-features = false }
+rand_chacha = { workspace = true }
+hex = { workspace = true }
+sha2 = { workspace = true }
+
 log = { workspace = true }
 
 [dev-dependencies]
