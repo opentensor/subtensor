@@ -338,6 +338,7 @@ pub struct CommitmentInfo<FieldLimit: Get<u32>> {
 pub const MAX_TIMELOCK_COMMITMENT_SIZE_BYTES: u32 = 1024;
 
 /// Contains the decrypted data of a revealed commitment.
+#[freeze_struct("bf575857b57f9bef")]
 #[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, Debug)]
 pub struct RevealedData<Balance, MaxFields: Get<u32>, BlockNumber> {
     pub info: CommitmentInfo<MaxFields>,

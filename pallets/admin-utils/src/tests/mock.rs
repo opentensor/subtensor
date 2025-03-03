@@ -386,6 +386,7 @@ parameter_types! {
     pub const CommitmentRateLimit: BlockNumber = 100;
 }
 
+#[subtensor_macros::freeze_struct("7c76bd954afbb54e")]
 #[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub struct MaxCommitFields;
 impl Get<u32> for MaxCommitFields {

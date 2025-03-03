@@ -541,6 +541,7 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Test>> f
     }
 }
 
+#[freeze_struct("7c76bd954afbb54e")]
 #[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub struct MaxCommitFields;
 impl Get<u32> for MaxCommitFields {
