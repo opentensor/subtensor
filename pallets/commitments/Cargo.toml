@@ -62,7 +62,10 @@ std = [
 	"log/std",
 	"pallet-drand/std",
 	"tle/std",
-	"w3f-bls/std"
+	"w3f-bls/std",
+	"hex/std",
+	"rand_chacha/std",
+	"sha2/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
