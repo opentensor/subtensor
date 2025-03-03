@@ -135,13 +135,11 @@ where
         let (coldkey, _) = parse_pubkey(coldkey_h256.as_bytes())?;
 
         // get total stake of coldkey
-        let total_stake =
-            pallet_subtensor::Pallet::<R>::get_total_stake_for_coldkey(&coldkey);
+        let total_stake = pallet_subtensor::Pallet::<R>::get_total_stake_for_coldkey(&coldkey);
         // Convert to EVM decimals
         let stake_u256 = U256::from(total_stake);
-        let stake_eth =
-            <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(stake_u256)
-                .ok_or(ExitError::InvalidRange)?;
+        let stake_eth = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(stake_u256)
+            .ok_or(ExitError::InvalidRange)?;
 
         Ok(stake_eth)
     }
@@ -157,9 +155,8 @@ where
         let total_stake = pallet_subtensor::Pallet::<R>::get_total_stake_for_hotkey(&hotkey);
         // Convert to EVM decimals
         let stake_u256 = U256::from(total_stake);
-        let stake_eth =
-            <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(stake_u256)
-                .ok_or(ExitError::InvalidRange)?;
+        let stake_eth = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(stake_u256)
+            .ok_or(ExitError::InvalidRange)?;
 
         Ok(stake_eth)
     }
