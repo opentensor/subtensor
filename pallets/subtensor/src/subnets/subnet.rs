@@ -25,26 +25,6 @@ impl<T: Config> Pallet<T> {
         TotalNetworks::<T>::get()
     }
 
-    /// Fetches the max number of subnet
-    ///
-    /// This function retrieves the max number of subnet.
-    ///
-    /// # Returns:
-    /// * 'u16': The max number of subnet
-    ///
-    pub fn get_max_subnets() -> u16 {
-        SubnetLimit::<T>::get()
-    }
-
-    /// Sets the max number of subnet
-    ///
-    /// This function sets the max number of subnet.
-    ///
-    pub fn set_max_subnets(limit: u16) {
-        SubnetLimit::<T>::put(limit);
-        Self::deposit_event(Event::SubnetLimitSet(limit));
-    }
-
     /// Returns true if the subnetwork exists.
     ///
     /// This function checks if a subnetwork with the given UID exists.

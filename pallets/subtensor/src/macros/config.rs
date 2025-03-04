@@ -180,9 +180,6 @@ mod config {
         /// Initial lock reduction interval.
         #[pallet::constant]
         type InitialNetworkLockReductionInterval: Get<u64>;
-        /// Initial max allowed subnets
-        #[pallet::constant]
-        type InitialSubnetLimit: Get<u16>;
         /// Initial network creation rate limit
         #[pallet::constant]
         type InitialNetworkRateLimit: Get<u64>;

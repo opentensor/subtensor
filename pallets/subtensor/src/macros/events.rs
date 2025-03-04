@@ -122,7 +122,7 @@ mod events {
         /// the network minimum locking cost is set.
         NetworkMinLockCostSet(u64),
         /// the maximum number of subnets is set
-        SubnetLimitSet(u16),
+        // SubnetLimitSet(u16),
         /// the lock cost reduction is set
         NetworkLockCostReductionIntervalSet(u64),
         /// the take for a delegate is decreased.

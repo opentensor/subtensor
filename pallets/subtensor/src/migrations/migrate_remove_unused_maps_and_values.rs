@@ -2,7 +2,7 @@ use super::*;
 use crate::HasMigrationRun;
 use frame_support::{traits::Get, weights::Weight};
 use scale_info::prelude::string::String;
-use sp_io::{KillStorageResult, hashing::twox_128, storage::clear_prefix};
+use sp_io::{KillStorageResult, hashing::twox_128, storage::{clear, clear_prefix}};
 
 fn remove_prefix<T: Config>(old_map: &str, weight: &mut Weight) {
     let mut prefix = Vec::new();
@@ -28,8 +28,8 @@ fn remove_prefix<T: Config>(old_map: &str, weight: &mut Weight) {
     *weight = (*weight).saturating_add(T::DbWeight::get().writes(removed_entries_count));
 }
 
-pub fn migrate_remove_unused_maps<T: Config>() -> Weight {
-    let migration_name = b"migrate_remove_unused_maps".to_vec();
+pub fn migrate_remove_unused_maps_and_values<T: Config>() -> Weight {
+    let migration_name = b"migrate_remove_unused_maps_and_values".to_vec();
     let mut weight = T::DbWeight::get().reads(1);
 
     if HasMigrationRun::<T>::get(&migration_name) {
@@ -50,6 +50,9 @@ pub fn migrate_remove_unused_maps<T: Config>() -> Weight {
 
     // Remove NetworkMaxStake
     remove_prefix::<T>("NetworkMaxStake", &mut weight);
+
+    // Remove SubnetLimit
+    clear(b"SubtensorModule::SubnetLimit");
 
     // Mark Migration as Completed
     HasMigrationRun::<T>::insert(&migration_name, true);

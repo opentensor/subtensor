@@ -851,30 +851,6 @@ fn test_sudo_set_rao_recycled() {
 }
 
 #[test]
-fn test_sudo_set_subnet_limit() {
-    new_test_ext().execute_with(|| {
-        let netuid: u16 = 1;
-        let to_be_set: u16 = 10;
-        add_network(netuid, 10);
-
-        let init_value: u16 = SubtensorModule::get_max_subnets();
-        assert_eq!(
-            AdminUtils::sudo_set_subnet_limit(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
-                to_be_set
-            ),
-            Err(DispatchError::BadOrigin)
-        );
-        assert_eq!(SubtensorModule::get_max_subnets(), init_value);
-        assert_ok!(AdminUtils::sudo_set_subnet_limit(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            to_be_set
-        ));
-        assert_eq!(SubtensorModule::get_max_subnets(), to_be_set);
-    });
-}
-
-#[test]
 fn test_sudo_set_network_lock_reduction_interval() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
