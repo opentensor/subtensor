@@ -474,3 +474,197 @@ fn reveal_timelocked_commitment_decode_failure_is_skipped() {
         assert!(RevealedCommitments::<Test>::get(netuid, who).is_none());
     });
 }
+
+#[test]
+fn reveal_timelocked_commitment_single_field_entry_is_removed_after_reveal() {
+    new_test_ext().execute_with(|| {
+        let message_text = b"Single field timelock test!";
+        let data_raw = Data::Raw(
+            message_text
+                .to_vec()
+                .try_into()
+                .expect("Message must be <=128 bytes for Raw variant"),
+        );
+
+        let fields_bounded: BoundedVec<Data, <Test as Config>::MaxFields> =
+            BoundedVec::try_from(vec![data_raw]).expect("BoundedVec creation must not fail");
+
+        let inner_info: CommitmentInfo<<Test as Config>::MaxFields> = CommitmentInfo {
+            fields: fields_bounded,
+        };
+
+        let plaintext = inner_info.encode();
+        let reveal_round = 1000;
+        let encrypted = produce_ciphertext(&plaintext, reveal_round);
+
+        let timelock_data = Data::TimelockEncrypted {
+            encrypted,
+            reveal_round,
+        };
+        let fields_outer: BoundedVec<Data, <Test as Config>::MaxFields> =
+            BoundedVec::try_from(vec![timelock_data]).expect("Too many fields");
+        let info_outer: CommitmentInfo<<Test as Config>::MaxFields> = CommitmentInfo {
+            fields: fields_outer,
+        };
+
+        let who = 555;
+        let netuid = 777;
+        System::<Test>::set_block_number(1);
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(who),
+            netuid,
+            Box::new(info_outer)
+        ));
+
+        let drand_signature_bytes = hex::decode(DRAND_QUICKNET_SIG_HEX)
+            .expect("Must decode DRAND_QUICKNET_SIG_HEX successfully");
+        insert_drand_pulse(reveal_round, &drand_signature_bytes);
+
+        System::<Test>::set_block_number(9999);
+        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(9999));
+
+        let revealed =
+            RevealedCommitments::<Test>::get(netuid, who).expect("Expected to find revealed data");
+        assert_eq!(
+            revealed.info.fields.len(),
+            1,
+            "Should have exactly 1 revealed field"
+        );
+
+        assert!(
+            crate::CommitmentOf::<Test>::get(netuid, who).is_none(),
+            "Expected CommitmentOf<T> entry to be removed after reveal"
+        );
+    });
+}
+
+#[allow(clippy::indexing_slicing)]
+#[test]
+fn reveal_timelocked_multiple_fields_only_correct_ones_removed() {
+    new_test_ext().execute_with(|| {
+        let round_1000 = 1000;
+
+        // 2) Build two CommitmentInfos, one for each timelock
+        let msg_1 = b"Hello from TLE #1";
+        let inner_1_fields: BoundedVec<Data, <Test as Config>::MaxFields> =
+            BoundedVec::try_from(vec![Data::Raw(
+                msg_1.to_vec().try_into().expect("expected not to panic"),
+            )])
+            .expect("BoundedVec of size 1");
+        let inner_info_1 = CommitmentInfo {
+            fields: inner_1_fields,
+        };
+        let encoded_1 = inner_info_1.encode();
+        let ciphertext_1 = produce_ciphertext(&encoded_1, round_1000);
+        let timelock_1 = Data::TimelockEncrypted {
+            encrypted: ciphertext_1,
+            reveal_round: round_1000,
+        };
+
+        let msg_2 = b"Hello from TLE #2";
+        let inner_2_fields: BoundedVec<Data, <Test as Config>::MaxFields> =
+            BoundedVec::try_from(vec![Data::Raw(
+                msg_2.to_vec().try_into().expect("expected not to panic"),
+            )])
+            .expect("BoundedVec of size 1");
+        let inner_info_2 = CommitmentInfo {
+            fields: inner_2_fields,
+        };
+        let encoded_2 = inner_info_2.encode();
+        let ciphertext_2 = produce_ciphertext(&encoded_2, round_1000);
+        let timelock_2 = Data::TimelockEncrypted {
+            encrypted: ciphertext_2,
+            reveal_round: round_1000,
+        };
+
+        // 3) One plain Data::Raw field (non-timelocked)
+        let raw_bytes = b"Plain non-timelocked data";
+        let data_raw = Data::Raw(
+            raw_bytes
+                .to_vec()
+                .try_into()
+                .expect("expected not to panic"),
+        );
+
+        // 4) Outer commitment: 3 fields total => [Raw, TLE #1, TLE #2]
+        let outer_fields = BoundedVec::try_from(vec![
+            data_raw.clone(),
+            timelock_1.clone(),
+            timelock_2.clone(),
+        ])
+        .expect("T::MaxFields >= 3 in the test config, or at least 3 here");
+        let outer_info = CommitmentInfo {
+            fields: outer_fields,
+        };
+
+        // 5) Insert the commitment
+        let who = 123;
+        let netuid = 999;
+        System::<Test>::set_block_number(1);
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(who),
+            netuid,
+            Box::new(outer_info)
+        ));
+        let initial = Pallet::<Test>::commitment_of(netuid, who).expect("Must exist");
+        assert_eq!(initial.info.fields.len(), 3, "3 fields inserted");
+
+        // 6) Insert Drand signature for round=1000
+        let drand_sig_1000 = hex::decode(DRAND_QUICKNET_SIG_HEX).expect("decode DRAND sig");
+        insert_drand_pulse(round_1000, &drand_sig_1000);
+
+        // 7) Reveal once
+        System::<Test>::set_block_number(50);
+        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(50));
+
+        // => The pallet code has removed *both* TLE #1 and TLE #2 in this single call!
+        let after_reveal = Pallet::<Test>::commitment_of(netuid, who)
+            .expect("Should still exist with leftover fields");
+        // Only the raw, non-timelocked field remains
+        assert_eq!(
+            after_reveal.info.fields.len(),
+            1,
+            "Both timelocks referencing round=1000 got removed at once"
+        );
+        assert_eq!(
+            after_reveal.info.fields[0], data_raw,
+            "Only the raw field is left"
+        );
+
+        // 8) Check revealed data
+        let revealed_data = RevealedCommitments::<Test>::get(netuid, who)
+            .expect("Expected revealed data for TLE #1 and #2");
+
+        assert_eq!(
+            revealed_data.info.fields.len(),
+            2,
+            "We revealed both TLE #1 and TLE #2 in the same pass"
+        );
+        let mut found_msg1 = false;
+        let mut found_msg2 = false;
+        for item in &revealed_data.info.fields {
+            if let Data::Raw(bytes) = item {
+                if bytes.as_slice() == msg_1 {
+                    found_msg1 = true;
+                } else if bytes.as_slice() == msg_2 {
+                    found_msg2 = true;
+                }
+            }
+        }
+        assert!(
+            found_msg1 && found_msg2,
+            "Should see both TLE #1 and TLE #2 in the revealed data"
+        );
+
+        // 9) A second reveal call now does nothing, because no timelocks remain
+        System::<Test>::set_block_number(51);
+        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(51));
+
+        let after_second = Pallet::<Test>::commitment_of(netuid, who).expect("Still must exist");
+        assert_eq!(
+            after_second.info.fields.len(),
+            1,
+            "No new fields were removed, because no timelocks remain"
+        );
+    });
+}

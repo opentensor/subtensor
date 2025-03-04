@@ -25,6 +25,7 @@ use tle::{
     tlock::{TLECiphertext, tld},
 };
 use w3f_bls::EngineBLS;
+use scale_info::prelude::collections::BTreeSet;
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -386,109 +387,147 @@ impl<T: Config> Pallet<T> {
             .map_err(|_| "Failed to convert u64 to BlockNumberFor<T>")?;
 
         for (netuid, who, mut registration) in <CommitmentOf<T>>::iter() {
-            if let Some(Data::TimelockEncrypted {
-                encrypted,
-                reveal_round,
-                ..
-            }) = registration
-                .info
-                .fields
-                .clone()
-                .iter()
-                .find(|data| matches!(data, Data::TimelockEncrypted { .. }))
-            {
-                // Check if the corresponding Drand round data exists
-                let pulse = match pallet_drand::Pulses::<T>::get(*reveal_round) {
-                    Some(p) => p,
-                    None => continue,
-                };
+            let original_fields = registration.info.fields.clone();
+            let mut remain_fields = Vec::new();
+            let mut revealed_fields = Vec::new();
 
-                // Prepare the signature bytes
-                let signature_bytes = pulse
-                    .signature
-                    .strip_prefix(b"0x")
-                    .unwrap_or(&pulse.signature);
-                let sig_reader = &mut &signature_bytes[..];
-                let sig =
-                    <TinyBLS381 as EngineBLS>::SignatureGroup::deserialize_compressed(sig_reader)
-                        .map_err(|e| {
-                            log::warn!(
-                                "Failed to deserialize drand signature for {:?}: {:?}",
-                                who,
-                                e
+            for data in original_fields {
+                match data {
+                    Data::TimelockEncrypted {
+                        encrypted,
+                        reveal_round,
+                    } => {
+                        let pulse = match pallet_drand::Pulses::<T>::get(reveal_round) {
+                            Some(p) => p,
+                            None => {
+                                remain_fields.push(Data::TimelockEncrypted {
+                                    encrypted,
+                                    reveal_round,
+                                });
+                                continue;
+                            }
+                        };
+
+                        let signature_bytes = pulse
+                            .signature
+                            .strip_prefix(b"0x")
+                            .unwrap_or(&pulse.signature);
+
+                        let sig_reader = &mut &signature_bytes[..];
+                        let sig =
+                            <TinyBLS381 as EngineBLS>::SignatureGroup::deserialize_compressed(
+                                sig_reader,
                             )
-                        })
-                        .ok();
+                            .map_err(|e| {
+                                log::warn!(
+                                    "Failed to deserialize drand signature for {:?}: {:?}",
+                                    who,
+                                    e
+                                )
+                            })
+                            .ok();
 
-                let sig = match sig {
-                    Some(s) => s,
-                    None => continue,
-                };
+                        let Some(sig) = sig else {
+                            remain_fields.push(Data::TimelockEncrypted {
+                                encrypted,
+                                reveal_round,
+                            });
+                            continue;
+                        };
 
-                // Attempt to deserialize the encrypted commitment
-                let reader = &mut &encrypted[..];
-                let commit = TLECiphertext::<TinyBLS381>::deserialize_compressed(reader)
-                    .map_err(|e| {
-                        log::warn!("Failed to deserialize TLECiphertext for {:?}: {:?}", who, e)
-                    })
-                    .ok();
+                        let reader = &mut &encrypted[..];
+                        let commit = TLECiphertext::<TinyBLS381>::deserialize_compressed(reader)
+                            .map_err(|e| {
+                                log::warn!(
+                                    "Failed to deserialize TLECiphertext for {:?}: {:?}",
+                                    who,
+                                    e
+                                )
+                            })
+                            .ok();
 
-                let commit = match commit {
-                    Some(c) => c,
-                    None => continue,
-                };
+                        let Some(commit) = commit else {
+                            remain_fields.push(Data::TimelockEncrypted {
+                                encrypted,
+                                reveal_round,
+                            });
+                            continue;
+                        };
 
-                // Decrypt the timelock commitment
-                let decrypted_bytes: Vec<u8> =
-                    tld::<TinyBLS381, AESGCMStreamCipherProvider>(commit, sig)
-                        .map_err(|e| {
-                            log::warn!("Failed to decrypt timelock for {:?}: {:?}", who, e)
-                        })
-                        .ok()
-                        .unwrap_or_default();
+                        let decrypted_bytes: Vec<u8> =
+                            tld::<TinyBLS381, AESGCMStreamCipherProvider>(commit, sig)
+                                .map_err(|e| {
+                                    log::warn!("Failed to decrypt timelock for {:?}: {:?}", who, e)
+                                })
+                                .ok()
+                                .unwrap_or_default();
 
-                if decrypted_bytes.is_empty() {
-                    continue;
+                        if decrypted_bytes.is_empty() {
+                            remain_fields.push(Data::TimelockEncrypted {
+                                encrypted,
+                                reveal_round,
+                            });
+                            continue;
+                        }
+
+                        let mut reader = &decrypted_bytes[..];
+                        let revealed_info: CommitmentInfo<T::MaxFields> =
+                            match Decode::decode(&mut reader) {
+                                Ok(info) => info,
+                                Err(e) => {
+                                    log::warn!(
+                                        "Failed to decode decrypted data for {:?}: {:?}",
+                                        who,
+                                        e
+                                    );
+                                    remain_fields.push(Data::TimelockEncrypted {
+                                        encrypted,
+                                        reveal_round,
+                                    });
+                                    continue;
+                                }
+                            };
+
+                        revealed_fields.push(revealed_info);
+                    }
+
+                    other => remain_fields.push(other),
+                }
+            }
+
+            if !revealed_fields.is_empty() {
+                let mut all_revealed_data = Vec::new();
+                for info in revealed_fields {
+                    all_revealed_data.extend(info.fields.into_inner());
                 }
 
-                // Decode the decrypted bytes into CommitmentInfo
-                let mut reader = &decrypted_bytes[..];
-                let revealed_info: CommitmentInfo<T::MaxFields> = match Decode::decode(&mut reader)
-                {
-                    Ok(info) => info,
-                    Err(e) => {
-                        log::warn!("Failed to decode decrypted data for {:?}: {:?}", who, e);
-                        continue;
-                    }
+                let bounded_revealed = BoundedVec::try_from(all_revealed_data)
+                    .map_err(|_| "Could not build BoundedVec for revealed fields")?;
+
+                let combined_revealed_info = CommitmentInfo {
+                    fields: bounded_revealed,
                 };
 
-                // Store the revealed data
                 let revealed_data = RevealedData {
-                    info: revealed_info,
+                    info: combined_revealed_info,
                     revealed_block: current_block,
                     deposit: registration.deposit,
                 };
                 <RevealedCommitments<T>>::insert(netuid, &who, revealed_data);
 
-                // Remove the TimelockEncrypted field from the original commitment
-                let filtered_fields: Vec<Data> = registration
-                    .info
-                    .fields
-                    .into_iter()
-                    .filter(|data| {
-                        !matches!(
-                            data,
-                            Data::TimelockEncrypted {
-                                reveal_round: r, ..
-                            } if r == reveal_round
-                        )
-                    })
-                    .collect();
+                let who_clone = who.clone();
+                Self::deposit_event(Event::CommitmentRevealed {
+                    netuid,
+                    who: who_clone,
+                });
+            }
 
-                registration.info.fields = BoundedVec::try_from(filtered_fields)
-                    .map_err(|_| "Failed to filter timelock fields")?;
+            registration.info.fields = BoundedVec::try_from(remain_fields)
+                .map_err(|_| "Failed to build BoundedVec for remain_fields")?;
 
-                Self::deposit_event(Event::CommitmentRevealed { netuid, who });
+            match registration.info.fields.is_empty() {
+                true => <CommitmentOf<T>>::remove(netuid, &who),
+                false => <CommitmentOf<T>>::insert(netuid, who, registration),
             }
         }
 
