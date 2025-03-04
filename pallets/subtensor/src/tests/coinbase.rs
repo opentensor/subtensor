@@ -934,32 +934,33 @@ fn test_get_root_children_drain() {
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
         // Create keys.
-        let cold = U256::from(0);
-        let alice = U256::from(1);
-        let bob = U256::from(2);
+        let cold_alice = U256::from(0);
+        let cold_bob = U256::from(1);
+        let alice = U256::from(2);
+        let bob = U256::from(3);
         // Register Alice and Bob to the root network and alpha subnet.
-        register_ok_neuron(alpha, alice, cold, 0);
-        register_ok_neuron(alpha, bob, cold, 0);
+        register_ok_neuron(alpha, alice, cold_alice, 0);
+        register_ok_neuron(alpha, bob, cold_bob, 0);
         assert_ok!(SubtensorModule::root_register(
-            RuntimeOrigin::signed(cold).clone(),
+            RuntimeOrigin::signed(cold_alice).clone(),
             alice,
         ));
         assert_ok!(SubtensorModule::root_register(
-            RuntimeOrigin::signed(cold).clone(),
+            RuntimeOrigin::signed(cold_bob).clone(),
             bob,
         ));
         // Add stake for Alice and Bob on root.
         let alice_root_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &alice,
-            &cold,
+            &cold_alice,
             root,
             alice_root_stake,
         );
         let bob_root_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &bob,
-            &cold,
+            &cold_bob,
             root,
             alice_root_stake,
         );
@@ -967,14 +968,14 @@ fn test_get_root_children_drain() {
         let alice_alpha_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &alice,
-            &cold,
+            &cold_alice,
             alpha,
             alice_alpha_stake,
         );
         let bob_alpha_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &bob,
-            &cold,
+            &cold_bob,
             alpha,
             bob_alpha_stake,
         );
@@ -1056,32 +1057,33 @@ fn test_get_root_children_drain_half_proportion() {
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
         // Create keys.
-        let cold = U256::from(0);
-        let alice = U256::from(1);
-        let bob = U256::from(2);
+        let cold_alice = U256::from(0);
+        let cold_bob = U256::from(1);
+        let alice = U256::from(2);
+        let bob = U256::from(3);
         // Register Alice and Bob to the root network and alpha subnet.
-        register_ok_neuron(alpha, alice, cold, 0);
-        register_ok_neuron(alpha, bob, cold, 0);
+        register_ok_neuron(alpha, alice, cold_alice, 0);
+        register_ok_neuron(alpha, bob, cold_bob, 0);
         assert_ok!(SubtensorModule::root_register(
-            RuntimeOrigin::signed(cold).clone(),
+            RuntimeOrigin::signed(cold_alice).clone(),
             alice,
         ));
         assert_ok!(SubtensorModule::root_register(
-            RuntimeOrigin::signed(cold).clone(),
+            RuntimeOrigin::signed(cold_bob).clone(),
             bob,
         ));
         // Add stake for Alice and Bob on root.
         let alice_root_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &alice,
-            &cold,
+            &cold_alice,
             root,
             alice_root_stake,
         );
         let bob_root_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &bob,
-            &cold,
+            &cold_bob,
             root,
             alice_root_stake,
         );
@@ -1089,14 +1091,14 @@ fn test_get_root_children_drain_half_proportion() {
         let alice_alpha_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &alice,
-            &cold,
+            &cold_alice,
             alpha,
             alice_alpha_stake,
         );
         let bob_alpha_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &bob,
-            &cold,
+            &cold_bob,
             alpha,
             bob_alpha_stake,
         );
@@ -1138,32 +1140,33 @@ fn test_get_root_children_drain_with_take() {
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
         // Create keys.
-        let cold = U256::from(0);
-        let alice = U256::from(1);
-        let bob = U256::from(2);
+        let cold_alice = U256::from(0);
+        let cold_bob = U256::from(1);
+        let alice = U256::from(2);
+        let bob = U256::from(3);
         // Register Alice and Bob to the root network and alpha subnet.
-        register_ok_neuron(alpha, alice, cold, 0);
-        register_ok_neuron(alpha, bob, cold, 0);
+        register_ok_neuron(alpha, alice, cold_alice, 0);
+        register_ok_neuron(alpha, bob, cold_bob, 0);
         assert_ok!(SubtensorModule::root_register(
-            RuntimeOrigin::signed(cold).clone(),
+            RuntimeOrigin::signed(cold_alice).clone(),
             alice,
         ));
         assert_ok!(SubtensorModule::root_register(
-            RuntimeOrigin::signed(cold).clone(),
+            RuntimeOrigin::signed(cold_bob).clone(),
             bob,
         ));
         // Add stake for Alice and Bob on root.
         let alice_root_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &alice,
-            &cold,
+            &cold_alice,
             root,
             alice_root_stake,
         );
         let bob_root_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &bob,
-            &cold,
+            &cold_bob,
             root,
             alice_root_stake,
         );
@@ -1171,14 +1174,14 @@ fn test_get_root_children_drain_with_take() {
         let alice_alpha_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &alice,
-            &cold,
+            &cold_alice,
             alpha,
             alice_alpha_stake,
         );
         let bob_alpha_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &bob,
-            &cold,
+            &cold_bob,
             alpha,
             bob_alpha_stake,
         );
@@ -1215,32 +1218,33 @@ fn test_get_root_children_drain_with_half_take() {
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
         // Create keys.
-        let cold = U256::from(0);
-        let alice = U256::from(1);
-        let bob = U256::from(2);
+        let cold_alice = U256::from(0);
+        let cold_bob = U256::from(1);
+        let alice = U256::from(2);
+        let bob = U256::from(3);
         // Register Alice and Bob to the root network and alpha subnet.
-        register_ok_neuron(alpha, alice, cold, 0);
-        register_ok_neuron(alpha, bob, cold, 0);
+        register_ok_neuron(alpha, alice, cold_alice, 0);
+        register_ok_neuron(alpha, bob, cold_bob, 0);
         assert_ok!(SubtensorModule::root_register(
-            RuntimeOrigin::signed(cold).clone(),
+            RuntimeOrigin::signed(cold_alice).clone(),
             alice,
         ));
         assert_ok!(SubtensorModule::root_register(
-            RuntimeOrigin::signed(cold).clone(),
+            RuntimeOrigin::signed(cold_bob).clone(),
             bob,
         ));
         // Add stake for Alice and Bob on root.
         let alice_root_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &alice,
-            &cold,
+            &cold_alice,
             root,
             alice_root_stake,
         );
         let bob_root_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &bob,
-            &cold,
+            &cold_bob,
             root,
             alice_root_stake,
         );
@@ -1248,14 +1252,14 @@ fn test_get_root_children_drain_with_half_take() {
         let alice_alpha_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &alice,
-            &cold,
+            &cold_alice,
             alpha,
             alice_alpha_stake,
         );
         let bob_alpha_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &bob,
-            &cold,
+            &cold_bob,
             alpha,
             bob_alpha_stake,
         );
