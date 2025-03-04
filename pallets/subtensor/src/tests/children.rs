@@ -1882,7 +1882,7 @@ fn test_get_stake_for_hotkey_on_subnet_edge_cases() {
         register_ok_neuron(netuid, child2, coldkey, 0);
 
         // Set above old value of network max stake
-        let network_max_stake: u64 = 600_000_000_000_000; // 500_000 TAO
+        let network_max_stake: u64 = 600_000_000_000_000;
 
         // Increase stake to the network max
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
