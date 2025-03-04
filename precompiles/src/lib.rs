@@ -86,7 +86,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 13] {
+    pub fn used_addresses() -> [H160; 14] {
         [
             hash(1),
             hash(2),
@@ -101,6 +101,7 @@ where
             hash(SubnetPrecompile::<R>::INDEX),
             hash(MetagraphPrecompile::<R>::INDEX),
             hash(NeuronPrecompile::<R>::INDEX),
+            hash(StakingPrecompileV2::<R>::INDEX),
         ]
     }
 }
@@ -152,9 +153,16 @@ where
                     Some(StakingPrecompile::<R>::execute(handle))
                 } else {
                     Some(Err(PrecompileFailure::Error {
-                        exit_status: ExitError::Other(
-                            "Precompile Balance Transfer is disabled".into(),
-                        ),
+                        exit_status: ExitError::Other("Precompile Staking is disabled".into()),
+                    }))
+                }
+            }
+            a if a == hash(StakingPrecompileV2::<R>::INDEX) => {
+                if PrecompileEnable::<R>::get(PrecompileEnum::Staking) {
+                    Some(StakingPrecompileV2::<R>::execute(handle))
+                } else {
+                    Some(Err(PrecompileFailure::Error {
+                        exit_status: ExitError::Other("Precompile Staking is disabled".into()),
                     }))
                 }
             }

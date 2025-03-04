@@ -40,6 +40,157 @@ use subtensor_runtime_common::ProxyType;
 use crate::parser::{parse_pubkey, try_u16_from_u256};
 use crate::{PrecompileExt, PrecompileHandleExt};
 
+// Old StakingPrecompile had ETH-precision in values, which was not alligned with Substrate API. So
+// it's kinda deprecated, but exists for backward compatibility. Eventually, we should remove it
+// to stop supporting both precompiles.
+//
+// All the future extensions should happen in StakingPrecompileV2.
+pub(crate) struct StakingPrecompileV2<R>(PhantomData<R>);
+
+impl<R> PrecompileExt for StakingPrecompileV2<R>
+where
+    R: frame_system::Config
+        + pallet_evm::Config
+        + pallet_subtensor::Config
+        + pallet_proxy::Config<ProxyType = ProxyType>,
+    R::AccountId: From<[u8; 32]>,
+    <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
+        + From<pallet_proxy::Call<R>>
+        + GetDispatchInfo
+        + Dispatchable<PostInfo = PostDispatchInfo>,
+    <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
+    <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
+{
+    const INDEX: u64 = 2053;
+    const ADDRESS_SS58: [u8; 32] = [0; 32];
+}
+
+#[precompile_utils::precompile]
+impl<R> StakingPrecompileV2<R>
+where
+    R: frame_system::Config
+        + pallet_evm::Config
+        + pallet_subtensor::Config
+        + pallet_proxy::Config<ProxyType = ProxyType>,
+    R::AccountId: From<[u8; 32]>,
+    <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
+        + From<pallet_proxy::Call<R>>
+        + GetDispatchInfo
+        + Dispatchable<PostInfo = PostDispatchInfo>,
+    <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
+    <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
+{
+    #[precompile::public("addStake(bytes32,uint256,uint256)")]
+    #[precompile::payable]
+    fn add_stake(
+        handle: &mut impl PrecompileHandle,
+        address: H256,
+        amount_rao: U256,
+        netuid: U256,
+    ) -> EvmResult<()> {
+        let account_id = handle.caller_account_id::<R>();
+        let amount_staked = amount_rao.unique_saturated_into();
+        let (hotkey, _) = parse_pubkey(address.as_bytes())?;
+        let netuid = try_u16_from_u256(netuid)?;
+        let call = pallet_subtensor::Call::<R>::add_stake {
+            hotkey,
+            netuid,
+            amount_staked,
+        };
+
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+    }
+
+    #[precompile::public("removeStake(bytes32,uint256,uint256)")]
+    fn remove_stake(
+        handle: &mut impl PrecompileHandle,
+        address: H256,
+        amount_alpha: U256,
+        netuid: U256,
+    ) -> EvmResult<()> {
+        let account_id = handle.caller_account_id::<R>();
+        let (hotkey, _) = parse_pubkey(address.as_bytes())?;
+        let netuid = try_u16_from_u256(netuid)?;
+        let amount_unstaked = amount_alpha.unique_saturated_into();
+        let call = pallet_subtensor::Call::<R>::remove_stake {
+            hotkey,
+            netuid,
+            amount_unstaked,
+        };
+
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+    }
+
+    #[precompile::public("getTotalColdkeyStake(bytes32)")]
+    fn get_total_coldkey_stake(
+        _handle: &mut impl PrecompileHandle,
+        coldkey: H256,
+    ) -> EvmResult<U256> {
+        let (coldkey, _) = parse_pubkey(coldkey.as_bytes())?;
+        let stake = pallet_subtensor::Pallet::<R>::get_total_stake_for_coldkey(&coldkey);
+
+        Ok(stake.into())
+    }
+
+    #[precompile::public("getTotalHotkeyStake(bytes32)")]
+    fn get_total_hotkey_stake(
+        _handle: &mut impl PrecompileHandle,
+        hotkey_h256: H256,
+    ) -> EvmResult<U256> {
+        let (hotkey, _) = parse_pubkey(hotkey_h256.as_bytes())?;
+        let stake = pallet_subtensor::Pallet::<R>::get_total_stake_for_hotkey(&hotkey);
+
+        Ok(stake.into())
+    }
+
+    #[precompile::public("getStake(bytes32,bytes32,uint256)")]
+    #[precompile::view]
+    fn get_stake(
+        _: &mut impl PrecompileHandle,
+        hotkey: H256,
+        coldkey: H256,
+        netuid: U256,
+    ) -> EvmResult<U256> {
+        let (hotkey, _) = parse_pubkey(hotkey.as_bytes())?;
+        let (coldkey, _) = parse_pubkey(coldkey.as_bytes())?;
+        let netuid = try_u16_from_u256(netuid)?;
+        let stake = pallet_subtensor::Pallet::<R>::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid,
+        );
+
+        Ok(stake.into())
+    }
+
+    #[precompile::public("addProxy(bytes32)")]
+    fn add_proxy(handle: &mut impl PrecompileHandle, delegate: H256) -> EvmResult<()> {
+        let account_id = handle.caller_account_id::<R>();
+        let (delegate, _) = parse_pubkey(delegate.as_bytes())?;
+        let delegate = <R as frame_system::Config>::Lookup::unlookup(delegate);
+        let call = pallet_proxy::Call::<R>::add_proxy {
+            delegate,
+            proxy_type: ProxyType::Staking,
+            delay: 0u32.into(),
+        };
+
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+    }
+
+    #[precompile::public("removeProxy(bytes32)")]
+    fn remove_proxy(handle: &mut impl PrecompileHandle, delegate: H256) -> EvmResult<()> {
+        let account_id = handle.caller_account_id::<R>();
+        let (delegate, _) = parse_pubkey(delegate.as_bytes())?;
+        let delegate = <R as frame_system::Config>::Lookup::unlookup(delegate);
+        let call = pallet_proxy::Call::<R>::remove_proxy {
+            delegate,
+            proxy_type: ProxyType::Staking,
+            delay: 0u32.into(),
+        };
+
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+    }
+}
+
+// Deprecated, exists for backward compatibility.
 pub(crate) struct StakingPrecompile<R>(PhantomData<R>);
 
 impl<R> PrecompileExt for StakingPrecompile<R>
