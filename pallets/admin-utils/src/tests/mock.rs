@@ -130,7 +130,7 @@ parameter_types! {
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     // pub const InitialHotkeyEmissionTempo: u64 = 1; // (DEPRECATED)
-    pub const InitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64, this make the make stake infinity
+    // pub const InitialNetworkMaxStake: u64 = u64::MAX; // (DEPRECATED)
     pub const InitialColdkeySwapScheduleDuration: u64 = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const InitialDissolveNetworkScheduleDuration: u64 = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const InitialTaoWeight: u64 = u64::MAX/10; // 10% global weight.
@@ -195,7 +195,7 @@ impl pallet_subtensor::Config for Test {
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     // type InitialHotkeyEmissionTempo = InitialHotkeyEmissionTempo; // (DEPRECATED)
-    type InitialNetworkMaxStake = InitialNetworkMaxStake;
+    // type InitialNetworkMaxStake = InitialNetworkMaxStake; // (DEPRECATED)
     type Preimages = ();
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;

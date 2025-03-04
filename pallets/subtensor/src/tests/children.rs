@@ -1421,128 +1421,6 @@ fn test_do_revoke_children_multiple_complex_scenario() {
     });
 }
 
-// 35: Test getting network max stake
-// This test verifies the functionality of getting the network max stake:
-// - Checks the default max stake value
-// - Sets a new max stake value
-// - Verifies that the new value is retrieved correctly
-//  SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_get_network_max_stake --exact --show-output --nocapture
-#[test]
-fn test_get_network_max_stake() {
-    new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
-        let default_max_stake = SubtensorModule::get_network_max_stake(netuid);
-
-        // Check that the default value is set correctly
-        assert_eq!(default_max_stake, u64::MAX);
-
-        // Set a new max stake value
-        let new_max_stake: u64 = 1_000_000;
-        SubtensorModule::set_network_max_stake(netuid, new_max_stake);
-
-        // Check that the new value is retrieved correctly
-        assert_eq!(
-            SubtensorModule::get_network_max_stake(netuid),
-            new_max_stake
-        );
-    });
-}
-
-// 36: Test setting network max stake
-// This test verifies the functionality of setting the network max stake:
-// - Checks the initial max stake value
-// - Sets a new max stake value
-// - Verifies that the new value is set correctly
-// - Checks that the appropriate event is emitted
-//  SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_set_network_max_stake --exact --show-output --nocapture
-#[test]
-fn test_set_network_max_stake() {
-    new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
-        let initial_max_stake = SubtensorModule::get_network_max_stake(netuid);
-
-        // Set a new max stake value
-        let new_max_stake: u64 = 500_000;
-        SubtensorModule::set_network_max_stake(netuid, new_max_stake);
-
-        // Check that the new value is set correctly
-        assert_eq!(
-            SubtensorModule::get_network_max_stake(netuid),
-            new_max_stake
-        );
-        assert_ne!(
-            SubtensorModule::get_network_max_stake(netuid),
-            initial_max_stake
-        );
-
-        // Check that the event is emitted
-        System::assert_last_event(Event::NetworkMaxStakeSet(netuid, new_max_stake).into());
-    });
-}
-
-// 37: Test setting network max stake for multiple networks
-// This test verifies the functionality of setting different max stake values for multiple networks:
-// - Sets different max stake values for two networks
-// - Verifies that the values are set correctly for each network
-// - Checks that the values are different between networks
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_set_network_max_stake_multiple_networks --exact --show-output --nocapture
-#[test]
-fn test_set_network_max_stake_multiple_networks() {
-    new_test_ext(1).execute_with(|| {
-        let netuid1: u16 = 1;
-        let netuid2: u16 = 2;
-
-        // Set different max stake values for two networks
-        let max_stake1: u64 = 1_000_000;
-        let max_stake2: u64 = 2_000_000;
-        SubtensorModule::set_network_max_stake(netuid1, max_stake1);
-        SubtensorModule::set_network_max_stake(netuid2, max_stake2);
-
-        // Check that the values are set correctly for each network
-        assert_eq!(SubtensorModule::get_network_max_stake(netuid1), max_stake1);
-        assert_eq!(SubtensorModule::get_network_max_stake(netuid2), max_stake2);
-        assert_ne!(
-            SubtensorModule::get_network_max_stake(netuid1),
-            SubtensorModule::get_network_max_stake(netuid2)
-        );
-    });
-}
-
-// 38: Test updating network max stake
-// This test verifies the functionality of updating an existing network max stake value:
-// - Sets an initial max stake value
-// - Updates the max stake value
-// - Verifies that the value is updated correctly
-// - Checks that the appropriate event is emitted for the update
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_set_network_max_stake_update --exact --show-output --nocapture
-#[test]
-fn test_set_network_max_stake_update() {
-    new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
-
-        // Set an initial max stake value
-        let initial_max_stake: u64 = 1_000_000;
-        SubtensorModule::set_network_max_stake(netuid, initial_max_stake);
-
-        // Update the max stake value
-        let updated_max_stake: u64 = 1_500_000;
-        SubtensorModule::set_network_max_stake(netuid, updated_max_stake);
-
-        // Check that the value is updated correctly
-        assert_eq!(
-            SubtensorModule::get_network_max_stake(netuid),
-            updated_max_stake
-        );
-        assert_ne!(
-            SubtensorModule::get_network_max_stake(netuid),
-            initial_max_stake
-        );
-
-        // Check that the event is emitted for the update
-        System::assert_last_event(Event::NetworkMaxStakeSet(netuid, updated_max_stake).into());
-    });
-}
-
 // 39: Test children stake values
 // This test verifies the correct distribution of stake among parent and child neurons:
 // - Sets up a network with a parent neuron and multiple child neurons
@@ -2003,9 +1881,8 @@ fn test_get_stake_for_hotkey_on_subnet_edge_cases() {
         register_ok_neuron(netuid, child1, coldkey, 0);
         register_ok_neuron(netuid, child2, coldkey, 0);
 
-        // Set network max stake
-        let network_max_stake: u64 = 500_000_000_000_000; // 500_000 TAO
-        SubtensorModule::set_network_max_stake(netuid, network_max_stake);
+        // Set above old value of network max stake
+        let network_max_stake: u64 = 600_000_000_000_000; // 500_000 TAO
 
         // Increase stake to the network max
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(

@@ -1155,22 +1155,11 @@ pub mod pallet {
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_network_max_stake(
             origin: OriginFor<T>,
-            netuid: u16,
-            max_stake: u64,
+            _netuid: u16,
+            _max_stake: u64,
         ) -> DispatchResult {
             // Ensure the call is made by the root account
             ensure_root(origin)?;
-
-            // Set the new maximum stake for the specified network
-            pallet_subtensor::Pallet::<T>::set_network_max_stake(netuid, max_stake);
-
-            // Log the change
-            log::trace!(
-                "NetworkMaxStakeSet( netuid: {:?}, max_stake: {:?} )",
-                netuid,
-                max_stake
-            );
-
             Ok(())
         }
 

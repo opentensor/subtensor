@@ -514,11 +514,6 @@ pub mod pallet {
         T::InitialNetworkRateLimit::get()
     }
     #[pallet::type_value]
-    /// Default value for emission values.
-    pub fn DefaultEmissionValues<T: Config>() -> u64 {
-        0
-    }
-    #[pallet::type_value]
     /// Default value for pending emission.
     pub fn DefaultPendingEmission<T: Config>() -> u64 {
         0
@@ -727,11 +722,6 @@ pub mod pallet {
     /// (alpha_low: 0.7, alpha_high: 0.9)
     pub fn DefaultAlphaValues<T: Config>() -> (u16, u16) {
         (45875, 58982)
-    }
-    #[pallet::type_value]
-    /// Default value for network max stake.
-    pub fn DefaultNetworkMaxStake<T: Config>() -> u64 {
-        T::InitialNetworkMaxStake::get()
     }
 
     #[pallet::type_value]
@@ -1152,10 +1142,6 @@ pub mod pallet {
     pub type NetworkRegisteredAt<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultNetworkRegisteredAt<T>>;
     #[pallet::storage]
-    /// --- MAP ( netuid ) --> emission_values
-    pub type EmissionValues<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultEmissionValues<T>>;
-    #[pallet::storage]
     /// --- MAP ( netuid ) --> pending_emission
     pub type PendingEmission<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultPendingEmission<T>>;
@@ -1324,10 +1310,6 @@ pub mod pallet {
     ///  MAP ( netuid ) --> (alpha_low, alpha_high)
     pub type AlphaValues<T> =
         StorageMap<_, Identity, u16, (u16, u16), ValueQuery, DefaultAlphaValues<T>>;
-    /// MAP ( netuid ) --> max stake allowed on a subnet.
-    #[pallet::storage]
-    pub type NetworkMaxStake<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultNetworkMaxStake<T>>;
 
     /// =======================================
     /// ==== Subnetwork Consensus Storage  ====

@@ -102,7 +102,6 @@ impl<T: Config> Pallet<T> {
         let blocks_since_last_step = Self::get_blocks_since_last_step(netuid);
         let tempo = Self::get_tempo(netuid);
         let network_modality = <NetworkModality<T>>::get(netuid);
-        let emission_values = Self::get_emission_value(netuid);
         let burn: Compact<u64> = Self::get_burn_as_u64(netuid).into();
         // DEPRECATED
         let network_connect: Vec<[u16; 2]> = Vec::<[u16; 2]>::new();
@@ -126,7 +125,7 @@ impl<T: Config> Pallet<T> {
             tempo: tempo.into(),
             network_modality: network_modality.into(),
             network_connect,
-            emission_values: emission_values.into(),
+            emission_values: 0.into(),
             burn,
             owner: Self::get_subnet_owner(netuid),
         })
@@ -172,7 +171,6 @@ impl<T: Config> Pallet<T> {
         let blocks_since_last_step = Self::get_blocks_since_last_step(netuid);
         let tempo = Self::get_tempo(netuid);
         let network_modality = <NetworkModality<T>>::get(netuid);
-        let emission_value = Self::get_emission_value(netuid);
         let burn: Compact<u64> = Self::get_burn_as_u64(netuid).into();
         let identity: Option<SubnetIdentityV2> = SubnetIdentitiesV2::<T>::get(netuid);
 
@@ -198,7 +196,7 @@ impl<T: Config> Pallet<T> {
             tempo: tempo.into(),
             network_modality: network_modality.into(),
             network_connect,
-            emission_value: emission_value.into(),
+            emission_value: 0.into(),
             burn,
             owner: Self::get_subnet_owner(netuid),
             identity,

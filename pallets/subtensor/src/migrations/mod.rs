@@ -10,6 +10,7 @@ pub mod migrate_init_total_issuance;
 pub mod migrate_populate_owned_hotkeys;
 pub mod migrate_rao;
 pub mod migrate_remove_stake_map;
+pub mod migrate_remove_unused_maps;
 pub mod migrate_set_min_burn;
 pub mod migrate_set_min_difficulty;
 pub mod migrate_stake_threshold;

@@ -65,8 +65,6 @@ mod events {
         AxonServed(u16, T::AccountId),
         /// the prometheus server information is added to the network.
         PrometheusServed(u16, T::AccountId),
-        /// emission ratios for all networks is set.
-        EmissionValuesSet(),
         /// a hotkey has become a delegate.
         DelegateAdded(T::AccountId, T::AccountId, u16),
         /// the default take is set.
@@ -193,8 +191,8 @@ mod events {
         SetChildren(T::AccountId, u16, Vec<(u64, T::AccountId)>),
         // /// The hotkey emission tempo has been set
         // HotkeyEmissionTempoSet(u64),
-        /// The network maximum stake has been set
-        NetworkMaxStakeSet(u16, u64),
+        // /// The network maximum stake has been set
+        // NetworkMaxStakeSet(u16, u64),
         /// The identity of a coldkey has been set
         ChainIdentitySet(T::AccountId),
         /// The identity of a subnet has been set

@@ -45,17 +45,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::SubnetLimitSet(limit));
     }
 
-    /// Returns the emission value for the given subnet.
-    ///
-    /// This function retrieves the emission value for the given subnet.
-    ///
-    /// # Returns:
-    /// * 'u64': The emission value for the given subnet.
-    ///
-    pub fn get_subnet_emission_value(netuid: u16) -> u64 {
-        EmissionValues::<T>::get(netuid)
-    }
-
     /// Returns true if the subnetwork exists.
     ///
     /// This function checks if a subnetwork with the given UID exists.
@@ -320,9 +309,6 @@ impl<T: Config> Pallet<T> {
         }
         if !ActivityCutoff::<T>::contains_key(netuid) {
             ActivityCutoff::<T>::insert(netuid, ActivityCutoff::<T>::get(netuid));
-        }
-        if !EmissionValues::<T>::contains_key(netuid) {
-            EmissionValues::<T>::insert(netuid, EmissionValues::<T>::get(netuid));
         }
         if !MaxWeightsLimit::<T>::contains_key(netuid) {
             MaxWeightsLimit::<T>::insert(netuid, MaxWeightsLimit::<T>::get(netuid));
