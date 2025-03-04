@@ -24,11 +24,11 @@ where
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
 {
     const INDEX: u64 = 2048;
-    const ADDRESS_SS58: [u8; 32] = [
+    const ADDRESS_SS58: Option<[u8; 32]> = Some([
         0x07, 0xec, 0x71, 0x2a, 0x5d, 0x38, 0x43, 0x4d, 0xdd, 0x03, 0x3f, 0x8f, 0x02, 0x4e, 0xcd,
         0xfc, 0x4b, 0xb5, 0x95, 0x1c, 0x13, 0xc3, 0x08, 0x5c, 0x39, 0x9c, 0x8a, 0x5f, 0x62, 0x93,
         0x70, 0x5d,
-    ];
+    ]);
 }
 
 #[precompile_utils::precompile]
@@ -60,6 +60,11 @@ where
             value: amount_sub.unique_saturated_into(),
         };
 
-        handle.try_dispatch_runtime_call::<R, _>(call, contract_to_origin(&Self::ADDRESS_SS58)?)
+        handle.try_dispatch_runtime_call::<R, _>(
+            call,
+            contract_to_origin(
+                &Self::ADDRESS_SS58.expect("ADDRESS_SS58 is defined for BalanceTransferPrecompile"),
+            )?,
+        )
     }
 }

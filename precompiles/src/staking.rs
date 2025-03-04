@@ -62,7 +62,7 @@ where
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
     const INDEX: u64 = 2053;
-    const ADDRESS_SS58: [u8; 32] = [0; 32];
+    const ADDRESS_SS58: Option<[u8; 32]> = None;
 }
 
 #[precompile_utils::precompile]
@@ -211,11 +211,11 @@ where
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
     const INDEX: u64 = 2049;
-    const ADDRESS_SS58: [u8; 32] = [
+    const ADDRESS_SS58: Option<[u8; 32]> = Some([
         0x26, 0xf4, 0x10, 0x1e, 0x52, 0xb7, 0x57, 0x34, 0x33, 0x24, 0x5b, 0xc3, 0x0a, 0xe1, 0x8b,
         0x63, 0x99, 0x53, 0xd8, 0x41, 0x79, 0x33, 0x03, 0x61, 0x4d, 0xfa, 0xcf, 0xf0, 0x37, 0xf7,
         0x12, 0x94,
-    ];
+    ]);
 }
 
 #[precompile_utils::precompile]
@@ -368,7 +368,9 @@ where
         account_id: &<R as frame_system::Config>::AccountId,
         amount: U256,
     ) -> Result<(), PrecompileFailure> {
-        let smart_contract_account_id = R::AccountId::from(Self::ADDRESS_SS58);
+        let smart_contract_account_id = R::AccountId::from(
+            Self::ADDRESS_SS58.expect("ADDRESS_SS58 is defined for StakingPrecompile"),
+        );
         let amount_sub =
             <R as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
                 .ok_or(ExitError::OutOfFund)?;

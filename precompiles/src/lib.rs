@@ -310,5 +310,5 @@ trait PrecompileExt: Precompile {
     const INDEX: u64;
     // ss58 public key i.e., the contract sends funds it received to the destination address from
     // the method parameter.
-    const ADDRESS_SS58: [u8; 32];
+    const ADDRESS_SS58: Option<[u8; 32]>;
 }

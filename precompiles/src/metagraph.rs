@@ -16,7 +16,7 @@ where
     R::AccountId: ByteArray,
 {
     const INDEX: u64 = 2050;
-    const ADDRESS_SS58: [u8; 32] = [0; 32];
+    const ADDRESS_SS58: Option<[u8; 32]> = None;
 }
 
 #[precompile_utils::precompile]
