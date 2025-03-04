@@ -17,6 +17,7 @@ pub use weights::WeightInfo;
 
 use ark_serialize::CanonicalDeserialize;
 use frame_support::{BoundedVec, traits::Currency};
+use scale_info::prelude::collections::BTreeSet;
 use sp_runtime::{Saturating, traits::Zero};
 use sp_std::{boxed::Box, vec::Vec};
 use tle::{
@@ -25,7 +26,6 @@ use tle::{
     tlock::{TLECiphertext, tld},
 };
 use w3f_bls::EngineBLS;
-use scale_info::prelude::collections::BTreeSet;
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -119,6 +119,12 @@ pub mod pallet {
     /// The rate limit for commitments
     #[pallet::storage]
     pub type RateLimit<T> = StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultRateLimit<T>>;
+
+    /// Tracks all CommitmentOf that have at least one timelocked field.
+    #[pallet::storage]
+    #[pallet::getter(fn timelocked_index)]
+    pub type TimelockedIndex<T: Config> =
+        StorageValue<_, BTreeSet<(u16, T::AccountId)>, ValueQuery>;
 
     /// Identity data by account
     #[pallet::storage]
@@ -225,11 +231,22 @@ pub mod pallet {
             {
                 Self::deposit_event(Event::TimelockCommitment {
                     netuid,
-                    who,
+                    who: who.clone(),
                     reveal_round: *reveal_round,
                 });
+
+                TimelockedIndex::<T>::mutate(|index| {
+                    index.insert((netuid, who.clone()));
+                });
             } else {
-                Self::deposit_event(Event::Commitment { netuid, who });
+                Self::deposit_event(Event::Commitment {
+                    netuid,
+                    who: who.clone(),
+                });
+
+                TimelockedIndex::<T>::mutate(|index| {
+                    index.remove(&(netuid, who.clone()));
+                });
             }
 
             Ok(())
@@ -386,7 +403,15 @@ impl<T: Config> Pallet<T> {
             .try_into()
             .map_err(|_| "Failed to convert u64 to BlockNumberFor<T>")?;
 
-        for (netuid, who, mut registration) in <CommitmentOf<T>>::iter() {
+        let index = TimelockedIndex::<T>::get();
+        for (netuid, who) in index.clone() {
+            let Some(mut registration) = <CommitmentOf<T>>::get(netuid, &who) else {
+                TimelockedIndex::<T>::mutate(|idx| {
+                    idx.remove(&(netuid, who.clone()));
+                });
+                continue;
+            };
+
             let original_fields = registration.info.fields.clone();
             let mut remain_fields = Vec::new();
             let mut revealed_fields = Vec::new();
@@ -412,7 +437,6 @@ impl<T: Config> Pallet<T> {
                             .signature
                             .strip_prefix(b"0x")
                             .unwrap_or(&pulse.signature);
-
                         let sig_reader = &mut &signature_bytes[..];
                         let sig =
                             <TinyBLS381 as EngineBLS>::SignatureGroup::deserialize_compressed(
@@ -514,11 +538,9 @@ impl<T: Config> Pallet<T> {
                     deposit: registration.deposit,
                 };
                 <RevealedCommitments<T>>::insert(netuid, &who, revealed_data);
-
-                let who_clone = who.clone();
                 Self::deposit_event(Event::CommitmentRevealed {
                     netuid,
-                    who: who_clone,
+                    who: who.clone(),
                 });
             }
 
@@ -526,8 +548,25 @@ impl<T: Config> Pallet<T> {
                 .map_err(|_| "Failed to build BoundedVec for remain_fields")?;
 
             match registration.info.fields.is_empty() {
-                true => <CommitmentOf<T>>::remove(netuid, &who),
-                false => <CommitmentOf<T>>::insert(netuid, who, registration),
+                true => {
+                    <CommitmentOf<T>>::remove(netuid, &who);
+                    TimelockedIndex::<T>::mutate(|idx| {
+                        idx.remove(&(netuid, who.clone()));
+                    });
+                }
+                false => {
+                    <CommitmentOf<T>>::insert(netuid, &who, &registration);
+                    let has_timelock = registration
+                        .info
+                        .fields
+                        .iter()
+                        .any(|f| matches!(f, Data::TimelockEncrypted { .. }));
+                    if !has_timelock {
+                        TimelockedIndex::<T>::mutate(|idx| {
+                            idx.remove(&(netuid, who.clone()));
+                        });
+                    }
+                }
             }
         }
 

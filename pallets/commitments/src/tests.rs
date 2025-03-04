@@ -3,7 +3,8 @@ use sp_std::prelude::*;
 
 #[cfg(test)]
 use crate::{
-    CommitmentInfo, Config, Data, Error, Event, Pallet, RateLimit, RevealedCommitments,
+    CommitmentInfo, CommitmentOf, Config, Data, Error, Event, Pallet, RateLimit,
+    RevealedCommitments, TimelockedIndex,
     mock::{
         DRAND_QUICKNET_SIG_HEX, RuntimeEvent, RuntimeOrigin, Test, insert_drand_pulse,
         new_test_ext, produce_ciphertext,
@@ -665,6 +666,245 @@ fn reveal_timelocked_multiple_fields_only_correct_ones_removed() {
             after_second.info.fields.len(),
             1,
             "No new fields were removed, because no timelocks remain"
+        );
+    });
+}
+
+#[test]
+fn test_index_lifecycle_no_timelocks_updates_in_out() {
+    new_test_ext().execute_with(|| {
+        let netuid = 100;
+        let who = 999;
+
+        //
+        // A) Create a commitment with **no** timelocks => shouldn't be in index
+        //
+        let no_tl_fields: BoundedVec<Data, <Test as Config>::MaxFields> =
+            BoundedVec::try_from(vec![]).expect("Empty is ok");
+        let info_no_tl = CommitmentInfo {
+            fields: no_tl_fields,
+        };
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(who),
+            netuid,
+            Box::new(info_no_tl)
+        ));
+        assert!(
+            !TimelockedIndex::<Test>::get().contains(&(netuid, who)),
+            "User with no timelocks must not appear in index"
+        );
+
+        //
+        // B) Update the commitment to have a timelock => enters index
+        //
+        let tl_fields: BoundedVec<_, <Test as Config>::MaxFields> =
+            BoundedVec::try_from(vec![Data::TimelockEncrypted {
+                encrypted: Default::default(),
+                reveal_round: 1234,
+            }])
+            .expect("Expected success");
+        let info_with_tl = CommitmentInfo { fields: tl_fields };
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(who),
+            netuid,
+            Box::new(info_with_tl)
+        ));
+        assert!(
+            TimelockedIndex::<Test>::get().contains(&(netuid, who)),
+            "User must appear in index after adding a timelock"
+        );
+
+        //
+        // C) Remove the timelock => leaves index
+        //
+        let back_to_no_tl: BoundedVec<_, <Test as Config>::MaxFields> =
+            BoundedVec::try_from(vec![]).expect("Expected success");
+        let info_remove_tl = CommitmentInfo {
+            fields: back_to_no_tl,
+        };
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(who),
+            netuid,
+            Box::new(info_remove_tl)
+        ));
+
+        assert!(
+            !TimelockedIndex::<Test>::get().contains(&(netuid, who)),
+            "User must be removed from index after losing all timelocks"
+        );
+    });
+}
+
+#[test]
+fn two_timelocks_partial_then_full_reveal() {
+    new_test_ext().execute_with(|| {
+        let netuid_a = 1;
+        let who_a = 10;
+        let round_1000 = 1000;
+        let round_2000 = 2000;
+
+        let drand_sig_1000 = hex::decode(DRAND_QUICKNET_SIG_HEX).expect("Expected success");
+        insert_drand_pulse(round_1000, &drand_sig_1000);
+
+        let drand_sig_2000_hex =
+            "b6cb8f482a0b15d45936a4c4ea08e98a087e71787caee3f4d07a8a9843b1bc5423c6b3c22f446488b3137eaca799c77e";
+
+        //
+        // First Timelock => round=1000
+        //
+        let msg_a1 = b"UserA timelock #1 (round=1000)";
+        let inner_1_fields: BoundedVec<Data, <Test as Config>::MaxFields> = BoundedVec::try_from(
+            vec![Data::Raw(msg_a1.to_vec().try_into().expect("Expected success"))],
+        )
+        .expect("MaxFields >= 1");
+        let inner_info_1: CommitmentInfo<<Test as Config>::MaxFields> = CommitmentInfo {
+            fields: inner_1_fields,
+        };
+        let encoded_1 = inner_info_1.encode();
+        let ciphertext_1 = produce_ciphertext(&encoded_1, round_1000);
+        let tle_a1 = Data::TimelockEncrypted {
+            encrypted: ciphertext_1,
+            reveal_round: round_1000,
+        };
+
+        //
+        // Second Timelock => round=2000
+        //
+        let msg_a2 = b"UserA timelock #2 (round=2000)";
+        let inner_2_fields: BoundedVec<Data, <Test as Config>::MaxFields> = BoundedVec::try_from(
+            vec![Data::Raw(msg_a2.to_vec().try_into().expect("Expected success"))],
+        )
+        .expect("MaxFields >= 1");
+        let inner_info_2: CommitmentInfo<<Test as Config>::MaxFields> = CommitmentInfo {
+            fields: inner_2_fields,
+        };
+        let encoded_2 = inner_info_2.encode();
+        let ciphertext_2 = produce_ciphertext(&encoded_2, round_2000);
+        let tle_a2 = Data::TimelockEncrypted {
+            encrypted: ciphertext_2,
+            reveal_round: round_2000,
+        };
+
+        //
+        // Insert outer commitment with both timelocks
+        //
+        let fields_a: BoundedVec<Data, <Test as Config>::MaxFields> =
+            BoundedVec::try_from(vec![tle_a1, tle_a2]).expect("2 fields, must be <= MaxFields");
+        let info_a: CommitmentInfo<<Test as Config>::MaxFields> = CommitmentInfo { fields: fields_a };
+
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(who_a),
+            netuid_a,
+            Box::new(info_a)
+        ));
+        assert!(
+            TimelockedIndex::<Test>::get().contains(&(netuid_a, who_a)),
+            "User A must be in index with 2 timelocks"
+        );
+
+        System::<Test>::set_block_number(10);
+        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(10));
+
+        let leftover_a1 = CommitmentOf::<Test>::get(netuid_a, who_a).expect("still there");
+        assert_eq!(
+            leftover_a1.info.fields.len(),
+            1,
+            "Only the round=1000 timelock removed; round=2000 remains"
+        );
+        assert!(
+            TimelockedIndex::<Test>::get().contains(&(netuid_a, who_a)),
+            "Still in index with leftover timelock"
+        );
+
+        //
+        // Insert signature for round=2000 => final reveal => leftover=none => removed
+        //
+        let drand_sig_2000 = hex::decode(drand_sig_2000_hex).expect("Expected success");
+        insert_drand_pulse(round_2000, &drand_sig_2000);
+
+        System::<Test>::set_block_number(11);
+        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(11));
+
+        let leftover_a2 = CommitmentOf::<Test>::get(netuid_a, who_a);
+        assert!(
+            leftover_a2.is_none(),
+            "All timelocks removed => none leftover"
+        );
+        assert!(
+            !TimelockedIndex::<Test>::get().contains(&(netuid_a, who_a)),
+            "User A removed from index after final reveal"
+        );
+    });
+}
+
+#[test]
+fn single_timelock_reveal_later_round() {
+    new_test_ext().execute_with(|| {
+        let netuid_b = 2;
+        let who_b = 20;
+        let round_2000 = 2000;
+
+        let drand_sig_2000_hex =
+            "b6cb8f482a0b15d45936a4c4ea08e98a087e71787caee3f4d07a8a9843b1bc5423c6b3c22f446488b3137eaca799c77e";
+        let drand_sig_2000 = hex::decode(drand_sig_2000_hex).expect("Expected success");
+        insert_drand_pulse(round_2000, &drand_sig_2000);
+
+        let msg_b = b"UserB single timelock (round=2000)";
+
+        let inner_b_fields: BoundedVec<Data, <Test as Config>::MaxFields> =
+            BoundedVec::try_from(vec![Data::Raw(msg_b.to_vec().try_into().expect("Expected success"))])
+                .expect("MaxFields >= 1");
+        let inner_info_b: CommitmentInfo<<Test as Config>::MaxFields> = CommitmentInfo {
+            fields: inner_b_fields,
+        };
+        let encoded_b = inner_info_b.encode();
+        let ciphertext_b = produce_ciphertext(&encoded_b, round_2000);
+        let tle_b = Data::TimelockEncrypted {
+            encrypted: ciphertext_b,
+            reveal_round: round_2000,
+        };
+
+        let fields_b: BoundedVec<Data, <Test as Config>::MaxFields> =
+            BoundedVec::try_from(vec![tle_b]).expect("1 field");
+        let info_b: CommitmentInfo<<Test as Config>::MaxFields> = CommitmentInfo { fields: fields_b };
+
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(who_b),
+            netuid_b,
+            Box::new(info_b)
+        ));
+        assert!(
+            TimelockedIndex::<Test>::get().contains(&(netuid_b, who_b)),
+            "User B in index"
+        );
+
+        // Remove the round=2000 signature so first reveal does nothing
+        pallet_drand::Pulses::<Test>::remove(round_2000);
+
+        System::<Test>::set_block_number(20);
+        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(20));
+
+        let leftover_b1 = CommitmentOf::<Test>::get(netuid_b, who_b).expect("still there");
+        assert_eq!(
+            leftover_b1.info.fields.len(),
+            1,
+            "No signature => timelock remains"
+        );
+        assert!(
+            TimelockedIndex::<Test>::get().contains(&(netuid_b, who_b)),
+            "Still in index with leftover timelock"
+        );
+
+        insert_drand_pulse(round_2000, &drand_sig_2000);
+
+        System::<Test>::set_block_number(21);
+        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(21));
+
+        let leftover_b2 = CommitmentOf::<Test>::get(netuid_b, who_b);
+        assert!(leftover_b2.is_none(), "Timelock removed => leftover=none");
+        assert!(
+            !TimelockedIndex::<Test>::get().contains(&(netuid_b, who_b)),
+            "User B removed from index after final reveal"
         );
     });
 }
