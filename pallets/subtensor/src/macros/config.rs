@@ -180,9 +180,6 @@ mod config {
         /// Initial lock reduction interval.
         #[pallet::constant]
         type InitialNetworkLockReductionInterval: Get<u64>;
-        /// Initial max allowed subnets
-        #[pallet::constant]
-        type InitialSubnetLimit: Get<u16>;
         /// Initial network creation rate limit
         #[pallet::constant]
         type InitialNetworkRateLimit: Get<u64>;
@@ -198,9 +195,6 @@ mod config {
         /// A flag to indicate if Liquid Alpha is enabled.
         #[pallet::constant]
         type LiquidAlphaOn: Get<bool>;
-        /// Initial network max stake.
-        #[pallet::constant]
-        type InitialNetworkMaxStake: Get<u64>;
         // /// Initial hotkey emission tempo.
         // #[pallet::constant]
         // type InitialHotkeyEmissionTempo: Get<u64>;

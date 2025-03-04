@@ -501,22 +501,12 @@ pub mod pallet {
         T::InitialSubnetOwnerCut::get()
     }
     #[pallet::type_value]
-    /// Default value for subnet limit.
-    pub fn DefaultSubnetLimit<T: Config>() -> u16 {
-        T::InitialSubnetLimit::get()
-    }
-    #[pallet::type_value]
     /// Default value for network rate limit.
     pub fn DefaultNetworkRateLimit<T: Config>() -> u64 {
         if cfg!(feature = "pow-faucet") {
             return 0;
         }
         T::InitialNetworkRateLimit::get()
-    }
-    #[pallet::type_value]
-    /// Default value for emission values.
-    pub fn DefaultEmissionValues<T: Config>() -> u64 {
-        0
     }
     #[pallet::type_value]
     /// Default value for pending emission.
@@ -727,11 +717,6 @@ pub mod pallet {
     /// (alpha_low: 0.7, alpha_high: 0.9)
     pub fn DefaultAlphaValues<T: Config>() -> (u16, u16) {
         (45875, 58982)
-    }
-    #[pallet::type_value]
-    /// Default value for network max stake.
-    pub fn DefaultNetworkMaxStake<T: Config>() -> u64 {
-        T::InitialNetworkMaxStake::get()
     }
 
     #[pallet::type_value]
@@ -1055,9 +1040,6 @@ pub mod pallet {
     pub type MaxRegistrationsPerBlock<T> =
         StorageMap<_, Identity, u16, u16, ValueQuery, DefaultMaxRegistrationsPerBlock<T>>;
     #[pallet::storage]
-    /// --- ITEM( maximum_number_of_networks )
-    pub type SubnetLimit<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetLimit<T>>;
-    #[pallet::storage]
     /// --- ITEM( total_number_of_existing_networks )
     pub type TotalNetworks<T> = StorageValue<_, u16, ValueQuery>;
     #[pallet::storage]
@@ -1151,10 +1133,6 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> block_created
     pub type NetworkRegisteredAt<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultNetworkRegisteredAt<T>>;
-    #[pallet::storage]
-    /// --- MAP ( netuid ) --> emission_values
-    pub type EmissionValues<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultEmissionValues<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> pending_emission
     pub type PendingEmission<T> =
@@ -1324,10 +1302,6 @@ pub mod pallet {
     ///  MAP ( netuid ) --> (alpha_low, alpha_high)
     pub type AlphaValues<T> =
         StorageMap<_, Identity, u16, (u16, u16), ValueQuery, DefaultAlphaValues<T>>;
-    /// MAP ( netuid ) --> max stake allowed on a subnet.
-    #[pallet::storage]
-    pub type NetworkMaxStake<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultNetworkMaxStake<T>>;
 
     /// =======================================
     /// ==== Subnetwork Consensus Storage  ====
