@@ -173,10 +173,10 @@ impl<T: Config> Pallet<T> {
             blocks_since_last_step: blocks_since_last_step.into(), // blocks since last epoch.
 
             // Subnet emission terms
-            subnet_emission: 0.into(),                                // DEPRECATED
-            alpha_in: SubnetAlphaIn::<T>::get(netuid).into(),         // amount of alpha in reserve
-            alpha_out: SubnetAlphaOut::<T>::get(netuid).into(),       // amount of alpha outstanding
-            tao_in: SubnetTAO::<T>::get(netuid).into(), // amount of tao injected per block
+            subnet_emission: 0.into(),                        // DEPRECATED
+            alpha_in: SubnetAlphaIn::<T>::get(netuid).into(), // amount of alpha in reserve
+            alpha_out: SubnetAlphaOut::<T>::get(netuid).into(), // amount of alpha outstanding
+            tao_in: SubnetTAO::<T>::get(netuid).into(),       // amount of tao injected per block
             alpha_out_emission: SubnetAlphaOutEmission::<T>::get(netuid).into(), // amount injected in alpha reserves per block
             alpha_in_emission: SubnetAlphaInEmission::<T>::get(netuid).into(), // amount injected outstanding per block
             tao_in_emission: SubnetTaoInEmission::<T>::get(netuid).into(), // amount of tao injected per block

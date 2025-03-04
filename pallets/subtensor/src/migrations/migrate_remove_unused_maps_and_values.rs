@@ -2,7 +2,11 @@ use super::*;
 use crate::HasMigrationRun;
 use frame_support::{traits::Get, weights::Weight};
 use scale_info::prelude::string::String;
-use sp_io::{KillStorageResult, hashing::twox_128, storage::{clear, clear_prefix}};
+use sp_io::{
+    KillStorageResult,
+    hashing::twox_128,
+    storage::{clear, clear_prefix},
+};
 
 fn remove_prefix<T: Config>(old_map: &str, weight: &mut Weight) {
     let mut prefix = Vec::new();
