@@ -117,7 +117,10 @@ where
         let account_id = handle.caller_account_id::<R>();
         let (hotkey, _) = parse_pubkey(address.as_bytes())?;
         let netuid = try_u16_from_u256(netuid)?;
-        let amount_unstaked = amount.unique_saturated_into();
+        let amount_unstaked =
+            <R as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
+                .ok_or(ExitError::OutOfFund)?;
+        let amount_unstaked = amount_unstaked.unique_saturated_into();
         let call = pallet_subtensor::Call::<R>::remove_stake {
             hotkey,
             netuid,
@@ -161,6 +164,27 @@ where
         Ok(stake_eth)
     }
 
+    #[precompile::public("getStake(bytes32,bytes32,uint256)")]
+    #[precompile::view]
+    fn get_stake(
+        _: &mut impl PrecompileHandle,
+        hotkey: H256,
+        coldkey: H256,
+        netuid: U256,
+    ) -> EvmResult<U256> {
+        let (hotkey, _) = parse_pubkey(hotkey.as_bytes())?;
+        let (coldkey, _) = parse_pubkey(coldkey.as_bytes())?;
+        let netuid = try_u16_from_u256(netuid)?;
+        let stake = pallet_subtensor::Pallet::<R>::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid,
+        );
+        let stake = U256::from(stake);
+        let stake = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(stake)
+            .ok_or(ExitError::InvalidRange)?;
+
+        Ok(stake)
+    }
+
     #[precompile::public("addProxy(bytes32)")]
     fn add_proxy(handle: &mut impl PrecompileHandle, delegate: H256) -> EvmResult<()> {
         let account_id = handle.caller_account_id::<R>();
@@ -187,24 +211,6 @@ where
         };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
-    }
-
-    #[precompile::public("getStake(bytes32,bytes32,uint256)")]
-    #[precompile::view]
-    fn get_stake(
-        _: &mut impl PrecompileHandle,
-        hotkey: H256,
-        coldkey: H256,
-        netuid: U256,
-    ) -> EvmResult<U256> {
-        let (hotkey, _) = parse_pubkey(hotkey.as_bytes())?;
-        let (coldkey, _) = parse_pubkey(coldkey.as_bytes())?;
-        let netuid = try_u16_from_u256(netuid)?;
-        let stake = pallet_subtensor::Pallet::<R>::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey, &coldkey, netuid,
-        );
-
-        Ok(stake.into())
     }
 
     fn transfer_back_to_caller(
