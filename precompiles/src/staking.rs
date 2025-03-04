@@ -25,19 +25,40 @@
 //   - Precompile checks the result of do_remove_stake and, in case of a failure, reverts the transaction.
 //
 
+use core::marker::PhantomData;
+
+use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 use frame_system::RawOrigin;
-use pallet_evm::{BalanceConverter, ExitError, PrecompileFailure, PrecompileHandle};
+use pallet_evm::{
+    AddressMapping, BalanceConverter, ExitError, PrecompileFailure, PrecompileHandle,
+};
 use precompile_utils::EvmResult;
 use sp_core::{H256, U256};
-use sp_runtime::AccountId32;
 use sp_runtime::traits::{Dispatchable, StaticLookup, UniqueSaturatedInto};
+use subtensor_runtime_common::ProxyType;
 
-use crate::precompiles::{PrecompileExt, PrecompileHandleExt, parse_pubkey, try_u16_from_u256};
-use crate::{ProxyType, Runtime, RuntimeCall};
+use crate::parser::{parse_pubkey, try_u16_from_u256};
+use crate::{PrecompileExt, PrecompileHandleExt};
 
-pub struct StakingPrecompile;
+pub(crate) struct StakingPrecompile<R>(PhantomData<R>);
 
-impl PrecompileExt for StakingPrecompile {
+impl<R> PrecompileExt for StakingPrecompile<R>
+where
+    R: frame_system::Config
+        + pallet_evm::Config
+        + pallet_subtensor::Config
+        + pallet_proxy::Config<ProxyType = ProxyType>
+        + pallet_balances::Config,
+    R::AccountId: From<[u8; 32]>,
+    <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
+        + From<pallet_proxy::Call<R>>
+        + From<pallet_balances::Call<R>>
+        + GetDispatchInfo
+        + Dispatchable<PostInfo = PostDispatchInfo>,
+    <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
+    <R as pallet_balances::Config>::Balance: TryFrom<U256>,
+    <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
+{
     const INDEX: u64 = 2049;
     const ADDRESS_SS58: [u8; 32] = [
         0x26, 0xf4, 0x10, 0x1e, 0x52, 0xb7, 0x57, 0x34, 0x33, 0x24, 0x5b, 0xc3, 0x0a, 0xe1, 0x8b,
@@ -47,27 +68,43 @@ impl PrecompileExt for StakingPrecompile {
 }
 
 #[precompile_utils::precompile]
-impl StakingPrecompile {
+impl<R> StakingPrecompile<R>
+where
+    R: frame_system::Config
+        + pallet_evm::Config
+        + pallet_subtensor::Config
+        + pallet_proxy::Config<ProxyType = ProxyType>
+        + pallet_balances::Config,
+    R::AccountId: From<[u8; 32]>,
+    <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
+        + From<pallet_proxy::Call<R>>
+        + From<pallet_balances::Call<R>>
+        + GetDispatchInfo
+        + Dispatchable<PostInfo = PostDispatchInfo>,
+    <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
+    <R as pallet_balances::Config>::Balance: TryFrom<U256>,
+    <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
+{
     #[precompile::public("addStake(bytes32,uint256)")]
     #[precompile::payable]
     fn add_stake(handle: &mut impl PrecompileHandle, address: H256, netuid: U256) -> EvmResult<()> {
-        let account_id = handle.caller_account_id();
+        let account_id = handle.caller_account_id::<R>();
         let amount = handle.context().apparent_value;
 
         if !amount.is_zero() {
             Self::transfer_back_to_caller(&account_id, amount)?;
         }
 
-        let amount_sub = handle.try_convert_apparent_value()?;
+        let amount_sub = handle.try_convert_apparent_value::<R>()?;
         let (hotkey, _) = parse_pubkey(address.as_bytes())?;
         let netuid = try_u16_from_u256(netuid)?;
-        let call = pallet_subtensor::Call::<Runtime>::add_stake {
+        let call = pallet_subtensor::Call::<R>::add_stake {
             hotkey,
             netuid,
             amount_staked: amount_sub.unique_saturated_into(),
         };
 
-        handle.try_dispatch_runtime_call(call, RawOrigin::Signed(account_id))
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
     }
 
     #[precompile::public("removeStake(bytes32,uint256,uint256)")]
@@ -77,17 +114,17 @@ impl StakingPrecompile {
         amount: U256,
         netuid: U256,
     ) -> EvmResult<()> {
-        let account_id = handle.caller_account_id();
+        let account_id = handle.caller_account_id::<R>();
         let (hotkey, _) = parse_pubkey(address.as_bytes())?;
         let netuid = try_u16_from_u256(netuid)?;
         let amount_unstaked = amount.unique_saturated_into();
-        let call = pallet_subtensor::Call::<Runtime>::remove_stake {
+        let call = pallet_subtensor::Call::<R>::remove_stake {
             hotkey,
             netuid,
             amount_unstaked,
         };
 
-        handle.try_dispatch_runtime_call(call, RawOrigin::Signed(account_id))
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
     }
 
     #[precompile::public("getTotalColdkeyStake(bytes32)")]
@@ -98,13 +135,11 @@ impl StakingPrecompile {
         let (coldkey, _) = parse_pubkey(coldkey_h256.as_bytes())?;
 
         // get total stake of coldkey
-        let total_stake =
-            pallet_subtensor::Pallet::<Runtime>::get_total_stake_for_coldkey(&coldkey);
+        let total_stake = pallet_subtensor::Pallet::<R>::get_total_stake_for_coldkey(&coldkey);
         // Convert to EVM decimals
         let stake_u256 = U256::from(total_stake);
-        let stake_eth =
-            <Runtime as pallet_evm::Config>::BalanceConverter::into_evm_balance(stake_u256)
-                .ok_or(ExitError::InvalidRange)?;
+        let stake_eth = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(stake_u256)
+            .ok_or(ExitError::InvalidRange)?;
 
         Ok(stake_eth)
     }
@@ -117,42 +152,41 @@ impl StakingPrecompile {
         let (hotkey, _) = parse_pubkey(hotkey_h256.as_bytes())?;
 
         // get total stake of hotkey
-        let total_stake = pallet_subtensor::Pallet::<Runtime>::get_total_stake_for_hotkey(&hotkey);
+        let total_stake = pallet_subtensor::Pallet::<R>::get_total_stake_for_hotkey(&hotkey);
         // Convert to EVM decimals
         let stake_u256 = U256::from(total_stake);
-        let stake_eth =
-            <Runtime as pallet_evm::Config>::BalanceConverter::into_evm_balance(stake_u256)
-                .ok_or(ExitError::InvalidRange)?;
+        let stake_eth = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(stake_u256)
+            .ok_or(ExitError::InvalidRange)?;
 
         Ok(stake_eth)
     }
 
     #[precompile::public("addProxy(bytes32)")]
     fn add_proxy(handle: &mut impl PrecompileHandle, delegate: H256) -> EvmResult<()> {
-        let account_id = handle.caller_account_id();
+        let account_id = handle.caller_account_id::<R>();
         let (delegate, _) = parse_pubkey(delegate.as_bytes())?;
-        let delegate = <Runtime as frame_system::Config>::Lookup::unlookup(delegate);
-        let call = pallet_proxy::Call::<Runtime>::add_proxy {
+        let delegate = <R as frame_system::Config>::Lookup::unlookup(delegate);
+        let call = pallet_proxy::Call::<R>::add_proxy {
             delegate,
             proxy_type: ProxyType::Staking,
-            delay: 0,
+            delay: 0u32.into(),
         };
 
-        handle.try_dispatch_runtime_call(call, RawOrigin::Signed(account_id))
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
     }
 
     #[precompile::public("removeProxy(bytes32)")]
     fn remove_proxy(handle: &mut impl PrecompileHandle, delegate: H256) -> EvmResult<()> {
-        let account_id = handle.caller_account_id();
+        let account_id = handle.caller_account_id::<R>();
         let (delegate, _) = parse_pubkey(delegate.as_bytes())?;
-        let delegate = <Runtime as frame_system::Config>::Lookup::unlookup(delegate);
-        let call = pallet_proxy::Call::<Runtime>::remove_proxy {
+        let delegate = <R as frame_system::Config>::Lookup::unlookup(delegate);
+        let call = pallet_proxy::Call::<R>::remove_proxy {
             delegate,
             proxy_type: ProxyType::Staking,
-            delay: 0,
+            delay: 0u32.into(),
         };
 
-        handle.try_dispatch_runtime_call(call, RawOrigin::Signed(account_id))
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
     }
 
     #[precompile::public("getStake(bytes32,bytes32,uint256)")]
@@ -166,7 +200,7 @@ impl StakingPrecompile {
         let (hotkey, _) = parse_pubkey(hotkey.as_bytes())?;
         let (coldkey, _) = parse_pubkey(coldkey.as_bytes())?;
         let netuid = try_u16_from_u256(netuid)?;
-        let stake = pallet_subtensor::Pallet::<Runtime>::get_stake_for_hotkey_and_coldkey_on_subnet(
+        let stake = pallet_subtensor::Pallet::<R>::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey, &coldkey, netuid,
         );
 
@@ -174,20 +208,21 @@ impl StakingPrecompile {
     }
 
     fn transfer_back_to_caller(
-        account_id: &AccountId32,
+        account_id: &<R as frame_system::Config>::AccountId,
         amount: U256,
     ) -> Result<(), PrecompileFailure> {
-        let smart_contract_account_id: AccountId32 = Self::ADDRESS_SS58.into();
+        let smart_contract_account_id = R::AccountId::from(Self::ADDRESS_SS58);
         let amount_sub =
-            <Runtime as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
+            <R as pallet_evm::Config>::BalanceConverter::into_substrate_balance(amount)
                 .ok_or(ExitError::OutOfFund)?;
 
         // Create a transfer call from the smart contract to the caller
-        let transfer_call =
-            RuntimeCall::Balances(pallet_balances::Call::<Runtime>::transfer_allow_death {
+        let transfer_call = <R as frame_system::Config>::RuntimeCall::from(
+            pallet_balances::Call::<R>::transfer_allow_death {
                 dest: account_id.clone().into(),
                 value: amount_sub.unique_saturated_into(),
-            });
+            },
+        );
 
         // Execute the transfer
         let transfer_result =
