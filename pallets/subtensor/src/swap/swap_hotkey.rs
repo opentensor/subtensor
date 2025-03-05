@@ -158,39 +158,33 @@ impl<T: Config> Pallet<T> {
         OwnedHotkeys::<T>::insert(coldkey, hotkeys);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
-        // 3. Swap total hotkey alpha for all subnets.
+        // 3. Swap total hotkey alpha for all subnets it exists on.
         // TotalHotkeyAlpha( hotkey, netuid ) -> alpha -- the total alpha that the hotkey has on a specific subnet.
-        let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
-        for netuid in all_netuids {
-            if TotalHotkeyAlpha::<T>::contains_key(old_hotkey, netuid) {
-                let old_total_hotkey_alpha = TotalHotkeyAlpha::<T>::get(old_hotkey, netuid);
+        TotalHotkeyAlpha::<T>::iter_prefix(old_hotkey)
+            .drain()
+            .for_each(|(netuid, old_alpha)| {
                 let new_total_hotkey_alpha = TotalHotkeyAlpha::<T>::get(new_hotkey, netuid);
-                TotalHotkeyAlpha::<T>::remove(old_hotkey, netuid);
                 TotalHotkeyAlpha::<T>::insert(
                     new_hotkey,
                     netuid,
-                    old_total_hotkey_alpha.saturating_add(new_total_hotkey_alpha),
+                    old_alpha.saturating_add(new_total_hotkey_alpha),
                 );
                 weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
-            }
-        }
+            });
 
-        // 4. Swap total hotkey shares on all subnets
+        // 4. Swap total hotkey shares on all subnets it exists on.
         // TotalHotkeyShares( hotkey, netuid ) -> alpha -- the total alpha that the hotkey has on a specific subnet.
-        let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
-        for netuid in all_netuids {
-            if TotalHotkeyShares::<T>::contains_key(old_hotkey, netuid) {
-                let old_total_hotkey_shares = TotalHotkeyShares::<T>::get(old_hotkey, netuid);
+        TotalHotkeyShares::<T>::iter_prefix(old_hotkey)
+            .drain()
+            .for_each(|(netuid, old_shares)| {
                 let new_total_hotkey_shares = TotalHotkeyShares::<T>::get(new_hotkey, netuid);
-                TotalHotkeyShares::<T>::remove(old_hotkey, netuid);
                 TotalHotkeyShares::<T>::insert(
                     new_hotkey,
                     netuid,
-                    old_total_hotkey_shares.saturating_add(new_total_hotkey_shares),
+                    old_shares.saturating_add(new_total_hotkey_shares),
                 );
                 weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
-            }
-        }
+            });
 
         // 5. Swap LastTxBlock
         // LastTxBlock( hotkey ) --> u64 -- the last transaction block for the hotkey.
