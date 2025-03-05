@@ -728,7 +728,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for applying pending items (e.g. childkeys).
     pub fn DefaultPendingCooldown<T: Config>() -> u64 {
-        1
+        7_200
     }
 
     #[pallet::type_value]
