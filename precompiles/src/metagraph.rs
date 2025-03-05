@@ -10,13 +10,12 @@ use crate::PrecompileExt;
 
 pub struct MetagraphPrecompile<R>(PhantomData<R>);
 
-impl<R> PrecompileExt for MetagraphPrecompile<R>
+impl<R> PrecompileExt<R::AccountId> for MetagraphPrecompile<R>
 where
     R: frame_system::Config + pallet_subtensor::Config,
-    R::AccountId: ByteArray,
+    R::AccountId: From<[u8; 32]> + ByteArray,
 {
     const INDEX: u64 = 2050;
-    const ADDRESS_SS58: Option<[u8; 32]> = None;
 }
 
 #[precompile_utils::precompile]

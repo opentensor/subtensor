@@ -8,12 +8,11 @@ use precompile_utils::{EvmResult, prelude::BoundedString};
 use sp_core::H256;
 use sp_runtime::traits::Dispatchable;
 
-use crate::parser::parse_pubkey;
 use crate::{PrecompileExt, PrecompileHandleExt};
 
 pub struct SubnetPrecompile<R>(PhantomData<R>);
 
-impl<R> PrecompileExt for SubnetPrecompile<R>
+impl<R> PrecompileExt<R::AccountId> for SubnetPrecompile<R>
 where
     R: frame_system::Config
         + pallet_evm::Config
@@ -25,15 +24,8 @@ where
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
-    // <R as pallet_balances::Config>::Balance: From<U256>,
-    // <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
     const INDEX: u64 = 2051;
-    const ADDRESS_SS58: Option<[u8; 32]> = Some([
-        0x3a, 0x86, 0x18, 0xfb, 0xbb, 0x1b, 0xbc, 0x47, 0x86, 0x64, 0xff, 0x53, 0x46, 0x18, 0x0c,
-        0x35, 0xd0, 0x9f, 0xac, 0x26, 0xf2, 0x02, 0x70, 0x85, 0xb3, 0x1c, 0x56, 0xc1, 0x06, 0x3c,
-        0x1c, 0xd3,
-    ]);
 }
 
 #[precompile_utils::precompile]
@@ -49,13 +41,11 @@ where
         + GetDispatchInfo
         + Dispatchable<PostInfo = PostDispatchInfo>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
-    // <R as pallet_balances::Config>::Balance: From<U256>,
-    // <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
     #[precompile::public("registerNetwork(bytes32)")]
     #[precompile::payable]
     fn register_network(handle: &mut impl PrecompileHandle, hotkey: H256) -> EvmResult<()> {
-        let (hotkey, _) = parse_pubkey(hotkey.as_bytes())?;
+        let hotkey = R::AccountId::from(hotkey.0);
         let call = pallet_subtensor::Call::<R>::register_network_with_identity {
             hotkey,
             identity: None,
@@ -83,7 +73,7 @@ where
         description: BoundedString<ConstU32<1024>>,
         additional: BoundedString<ConstU32<1024>>,
     ) -> EvmResult<()> {
-        let (hotkey, _) = parse_pubkey(hotkey.as_bytes())?;
+        let hotkey = R::AccountId::from(hotkey.0);
         let identity = pallet_subtensor::SubnetIdentityOfV2 {
             subnet_name: subnet_name.into(),
             github_repo: github_repo.into(),
