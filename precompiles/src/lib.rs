@@ -2,20 +2,17 @@
 
 extern crate alloc;
 
-use alloc::format;
 use core::marker::PhantomData;
 
-use frame_support::dispatch::{GetDispatchInfo, Pays, PostDispatchInfo};
-use frame_system::RawOrigin;
+use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 use pallet_evm::{
-    AddressMapping, BalanceConverter, ExitError, GasWeightMapping, IsPrecompileResult, Precompile,
-    PrecompileFailure, PrecompileHandle, PrecompileResult, PrecompileSet,
+    AddressMapping, ExitError, IsPrecompileResult, Precompile, PrecompileFailure, PrecompileHandle,
+    PrecompileResult, PrecompileSet,
 };
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;
 use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripemd160, Sha256};
-use precompile_utils::EvmResult;
-use sp_core::{H160, U256, blake2_256, crypto::ByteArray};
+use sp_core::{H160, U256, crypto::ByteArray};
 use sp_runtime::traits::Dispatchable;
 use sp_runtime::traits::StaticLookup;
 use subtensor_runtime_common::ProxyType;
