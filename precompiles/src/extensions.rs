@@ -116,14 +116,12 @@ pub(crate) trait PrecompileExt<AccountId: From<[u8; 32]>> {
     // the method parameter.
     fn account_id() -> AccountId {
         let hash = H160::from_low_u64_be(Self::INDEX);
-        let address_bytes: [u8; 20] = hash.into();
-
         let prefix = b"evm:";
 
         // Concatenate prefix and ethereum address
-        let mut combined = Vec::with_capacity(prefix.len().saturating_add(address_bytes.len()));
+        let mut combined = Vec::new();
         combined.extend_from_slice(prefix);
-        combined.extend_from_slice(&address_bytes);
+        combined.extend_from_slice(hash.as_bytes());
 
         let hash = blake2_256(&combined);
 
