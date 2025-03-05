@@ -11,6 +11,7 @@ use pallet_evm::{
 use precompile_utils::EvmResult;
 use sp_core::{H160, U256, blake2_256};
 use sp_runtime::traits::Dispatchable;
+use sp_std::vec::Vec;
 
 pub(crate) trait PrecompileHandleExt: PrecompileHandle {
     fn caller_account_id<R>(&self) -> R::AccountId
