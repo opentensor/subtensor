@@ -12,7 +12,7 @@ pub(crate) struct Ed25519Verify;
 
 impl PrecompileExt for Ed25519Verify {
     const INDEX: u64 = 1026;
-    const ADDRESS_SS58: [u8; 32] = [0; 32];
+    const ADDRESS_SS58: Option<[u8; 32]> = None;
 }
 
 impl LinearCostPrecompile for Ed25519Verify {
