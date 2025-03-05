@@ -114,7 +114,7 @@ pub(crate) trait PrecompileExt<AccountId: From<[u8; 32]>> {
 
     // ss58 public key i.e., the contract sends funds it received to the destination address from
     // the method parameter.
-    fn address_ss58() -> AccountId {
+    fn account_id() -> AccountId {
         let hash = H160::from_low_u64_be(Self::INDEX);
         let address_bytes: [u8; 20] = hash.into();
 
@@ -140,7 +140,7 @@ mod test {
     #[test]
     fn ss58_address_from_index_works() {
         assert_eq!(
-            TestPrecompile::address_ss58(),
+            TestPrecompile::account_id(),
             AccountId32::from([
                 0x3a, 0x86, 0x18, 0xfb, 0xbb, 0x1b, 0xbc, 0x47, 0x86, 0x64, 0xff, 0x53, 0x46, 0x18,
                 0x0c, 0x35, 0xd0, 0x9f, 0xac, 0x26, 0xf2, 0x02, 0x70, 0x85, 0xb3, 0x1c, 0x56, 0xc1,

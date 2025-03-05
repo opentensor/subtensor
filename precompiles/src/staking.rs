@@ -374,8 +374,7 @@ where
         );
 
         // Execute the transfer
-        let transfer_result =
-            transfer_call.dispatch(RawOrigin::Signed(Self::address_ss58()).into());
+        let transfer_result = transfer_call.dispatch(RawOrigin::Signed(Self::account_id()).into());
 
         if let Err(dispatch_error) = transfer_result {
             log::error!(

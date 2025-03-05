@@ -55,6 +55,6 @@ where
             value: amount_sub.unique_saturated_into(),
         };
 
-        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(Self::address_ss58()))
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(Self::account_id()))
     }
 }
