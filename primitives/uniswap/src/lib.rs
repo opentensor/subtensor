@@ -10,10 +10,11 @@
 /// fees_alpha - fees accrued by the position in base currency (Alpha)
 /// 
 struct Position {
-    price_low: u64,
-    price_high: u64,
-    liquidity: u128, // ???
+    tick_low: u64,
+    tick_high: u64,
+    liquidity: u64,
     fees_tao: u64,
     fees_alpha: u64,
 }
 
+struct 
