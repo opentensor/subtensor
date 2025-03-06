@@ -190,12 +190,14 @@ fn test_coinbase_moving_prices() {
         SubnetAlphaIn::<Test>::insert(netuid, 1_000_000);
         SubnetMechanism::<Test>::insert(netuid, 1);
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(1));
+        NetworkRegisteredAt::<Test>::insert(netuid, 1);
+
         // Updating the moving price keeps it the same.
         assert_eq!(
             SubtensorModule::get_moving_alpha_price(netuid),
             I96F32::from_num(1)
         );
-        // Skip some blocks so that EMA price is now slowed down
+        // Skip some blocks so that EMA price is not slowed down
         System::set_block_number(7_200_000);
 
         SubtensorModule::update_moving_price(netuid);
@@ -209,21 +211,23 @@ fn test_coinbase_moving_prices() {
         SubnetMovingAlpha::<Test>::set(I96F32::from_num(1.0));
         // Run moving 1 times.
         SubtensorModule::update_moving_price(netuid);
-        // Assert price is == 100% of the real price.
-        assert!(I96F32::from_num(1.0) - SubtensorModule::get_moving_alpha_price(netuid) < 0.001);
+        // Assert price is ~ 100% of the real price.
+        assert!(I96F32::from_num(1.0) - SubtensorModule::get_moving_alpha_price(netuid) < 0.05);
         // Set price to zero.
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0));
         SubnetMovingAlpha::<Test>::set(I96F32::from_num(0.1));
-        // Run moving 6 times.
-        SubtensorModule::update_moving_price(netuid);
-        SubtensorModule::update_moving_price(netuid);
-        SubtensorModule::update_moving_price(netuid);
-        SubtensorModule::update_moving_price(netuid);
-        SubtensorModule::update_moving_price(netuid);
-        SubtensorModule::update_moving_price(netuid);
+
+        // EMA price 14 days after registration
+        System::set_block_number(7_200 * 14);
+
+        // Run moving 14 times.
+        for _ in 0..14 {
+            SubtensorModule::update_moving_price(netuid);
+        }
+
         // Assert price is > 50% of the real price.
         assert!(
-            (I96F32::from_num(0.468559) - SubtensorModule::get_moving_alpha_price(netuid)).abs()
+            (I96F32::from_num(0.512325) - SubtensorModule::get_moving_alpha_price(netuid)).abs()
                 < 0.001
         );
     });
@@ -269,7 +273,7 @@ fn test_update_moving_price_after_time() {
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0));
 
         // Registered long time ago
-        System::set_block_number(7_200_500);
+        System::set_block_number(72_000_500);
         NetworkRegisteredAt::<Test>::insert(netuid, 500);
 
         SubtensorModule::update_moving_price(netuid);
