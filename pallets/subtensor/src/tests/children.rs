@@ -3953,6 +3953,13 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
 #[test]
 fn test_pending_cooldown_one_day() {
     let curr_block = 1;
+
+    let expected_cooldown = if cfg!(feature = "fast-blocks") {
+        15
+    } else {
+        7_200
+    };
+
     new_test_ext(curr_block).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -3980,6 +3987,6 @@ fn test_pending_cooldown_one_day() {
             pending_children.0,
             vec![(proportion1, child1), (proportion2, child2)]
         );
-        assert_eq!(pending_children.1, curr_block + 7_200);
+        assert_eq!(pending_children.1, curr_block + expected_cooldown);
     });
 }
