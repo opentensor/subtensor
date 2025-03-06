@@ -3949,3 +3949,29 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
         );
     });
 }
+
+#[test]
+fn test_pending_cooldown_one_day() {
+	let curr_block = 1;
+    new_test_ext(curr_block).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let child1 = U256::from(3);
+        let child2 = U256::from(4);
+        let netuid: u16 = 1;
+        let proportion1: u64 = 1000;
+        let proportion2: u64 = 2000;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Set multiple children
+        mock_schedule_children(&coldkey, &hotkey, netuid, &[(proportion1, child1), (proportion2, child2)]);
+
+        // Verify pending map
+		let pending_children = PendingChildKeys::<Test>::get(netuid, hotkey);
+		assert_eq!(pending_children.0, vec![(proportion1, child1), (proportion2, child2)]);
+		assert_eq!(pending_children.1, curr_block + 7_200);
+    });
+}
