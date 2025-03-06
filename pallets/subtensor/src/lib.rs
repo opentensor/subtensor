@@ -728,6 +728,10 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for applying pending items (e.g. childkeys).
     pub fn DefaultPendingCooldown<T: Config>() -> u64 {
+        if cfg!(feature = "fast-blocks") {
+            return 15;
+        }
+
         7_200
     }
 
