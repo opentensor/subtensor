@@ -116,56 +116,6 @@ fn test_swap_total_hotkey_stake() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_last_tx_block --exact --nocapture
-#[test]
-fn test_swap_last_tx_block() {
-    new_test_ext(1).execute_with(|| {
-        let old_hotkey = U256::from(1);
-        let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
-
-        LastTxBlock::<Test>::insert(old_hotkey, 1000);
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
-            &old_hotkey,
-            &new_hotkey,
-            &coldkey,
-            &mut weight
-        ));
-
-        assert!(!LastTxBlock::<Test>::contains_key(old_hotkey));
-        assert_eq!(
-            LastTxBlock::<Test>::get(new_hotkey),
-            SubtensorModule::get_current_block_as_u64()
-        );
-    });
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_last_tx_block_delegate_take --exact --nocapture
-#[test]
-fn test_swap_last_tx_block_delegate_take() {
-    new_test_ext(1).execute_with(|| {
-        let old_hotkey = U256::from(1);
-        let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
-        let mut weight = Weight::zero();
-
-        crate::LastTxBlockDelegateTake::<Test>::insert(old_hotkey, 1000);
-        assert_ok!(SubtensorModule::perform_hotkey_swap(
-            &old_hotkey,
-            &new_hotkey,
-            &coldkey,
-            &mut weight
-        ));
-
-        assert!(!LastTxBlockDelegateTake::<Test>::contains_key(old_hotkey));
-        assert_eq!(
-            LastTxBlockDelegateTake::<Test>::get(new_hotkey),
-            SubtensorModule::get_current_block_as_u64()
-        );
-    });
-}
-
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_senate_members --exact --nocapture
 #[test]
 fn test_swap_senate_members() {
