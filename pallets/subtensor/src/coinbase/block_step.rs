@@ -20,7 +20,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         Self::try_set_pending_children(block_number);
 
         // --- 5. Unveil all matured timelocked entries
-        if let Err(e) = Self::reveal_timelocked_commitments(block_number) {
+        if let Err(e) = Self::reveal_timelocked_commitments() {
             log::debug!(
                 "Failed to unveil matured commitments on block {} due to error: {:?}",
                 block_number,

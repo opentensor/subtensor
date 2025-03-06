@@ -398,11 +398,8 @@ where
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn reveal_timelocked_commitments(current_block: u64) -> DispatchResult {
-        let current_block = current_block
-            .try_into()
-            .map_err(|_| "Failed to convert u64 to BlockNumberFor<T>")?;
-
+    pub fn reveal_timelocked_commitments() -> DispatchResult {
+        let current_block = <frame_system::Pallet<T>>::block_number();
         let index = TimelockedIndex::<T>::get();
         for (netuid, who) in index.clone() {
             let Some(mut registration) = <CommitmentOf<T>>::get(netuid, &who) else {

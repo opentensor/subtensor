@@ -309,7 +309,7 @@ fn happy_path_timelock_commitments() {
         insert_drand_pulse(reveal_round, &drand_signature_bytes);
 
         System::<Test>::set_block_number(9999);
-        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(9999));
+        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments());
 
         let revealed =
             RevealedCommitments::<Test>::get(netuid, who).expect("Should have revealed data");
@@ -350,7 +350,7 @@ fn reveal_timelocked_commitment_missing_round_does_nothing() {
             Box::new(info)
         ));
         System::<Test>::set_block_number(100_000);
-        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(100_000));
+        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments());
         assert!(RevealedCommitments::<Test>::get(netuid, who).is_none());
     });
 }
@@ -383,7 +383,7 @@ fn reveal_timelocked_commitment_cant_deserialize_ciphertext() {
         let sig_bytes = hex::decode(DRAND_QUICKNET_SIG_HEX).expect("Expected not to panic");
         insert_drand_pulse(1000, &sig_bytes);
         System::<Test>::set_block_number(99999);
-        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(99999));
+        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments());
         assert!(RevealedCommitments::<Test>::get(netuid, who).is_none());
     });
 }
@@ -411,7 +411,7 @@ fn reveal_timelocked_commitment_bad_signature_skips_decryption() {
         let bad_signature = [0x33u8; 10];
         insert_drand_pulse(1000, &bad_signature);
         System::<Test>::set_block_number(10_000);
-        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(10_000));
+        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments());
         assert!(RevealedCommitments::<Test>::get(netuid, who).is_none());
     });
 }
@@ -440,7 +440,7 @@ fn reveal_timelocked_commitment_empty_decrypted_data_is_skipped() {
         let sig_bytes = hex::decode(DRAND_QUICKNET_SIG_HEX).expect("Expected not to panic");
         insert_drand_pulse(reveal_round, &sig_bytes);
         System::<Test>::set_block_number(10_000);
-        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(10_000));
+        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments());
         assert!(RevealedCommitments::<Test>::get(netuid, who).is_none());
     });
 }
@@ -471,7 +471,7 @@ fn reveal_timelocked_commitment_decode_failure_is_skipped() {
             hex::decode(DRAND_QUICKNET_SIG_HEX.as_bytes()).expect("Expected not to panic");
         insert_drand_pulse(reveal_round, &sig_bytes);
         System::<Test>::set_block_number(9999);
-        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(9999));
+        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments());
         assert!(RevealedCommitments::<Test>::get(netuid, who).is_none());
     });
 }
@@ -522,7 +522,7 @@ fn reveal_timelocked_commitment_single_field_entry_is_removed_after_reveal() {
         insert_drand_pulse(reveal_round, &drand_signature_bytes);
 
         System::<Test>::set_block_number(9999);
-        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(9999));
+        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments());
 
         let revealed =
             RevealedCommitments::<Test>::get(netuid, who).expect("Expected to find revealed data");
@@ -616,7 +616,7 @@ fn reveal_timelocked_multiple_fields_only_correct_ones_removed() {
 
         // 7) Reveal once
         System::<Test>::set_block_number(50);
-        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(50));
+        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments());
 
         // => The pallet code has removed *both* TLE #1 and TLE #2 in this single call!
         let after_reveal = Pallet::<Test>::commitment_of(netuid, who)
@@ -659,7 +659,7 @@ fn reveal_timelocked_multiple_fields_only_correct_ones_removed() {
 
         // 9) A second reveal call now does nothing, because no timelocks remain
         System::<Test>::set_block_number(51);
-        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(51));
+        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments());
 
         let after_second = Pallet::<Test>::commitment_of(netuid, who).expect("Still must exist");
         assert_eq!(
@@ -803,7 +803,7 @@ fn two_timelocks_partial_then_full_reveal() {
         );
 
         System::<Test>::set_block_number(10);
-        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(10));
+        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments());
 
         let leftover_a1 = CommitmentOf::<Test>::get(netuid_a, who_a).expect("still there");
         assert_eq!(
@@ -823,7 +823,7 @@ fn two_timelocks_partial_then_full_reveal() {
         insert_drand_pulse(round_2000, &drand_sig_2000);
 
         System::<Test>::set_block_number(11);
-        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(11));
+        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments());
 
         let leftover_a2 = CommitmentOf::<Test>::get(netuid_a, who_a);
         assert!(
@@ -882,7 +882,7 @@ fn single_timelock_reveal_later_round() {
         pallet_drand::Pulses::<Test>::remove(round_2000);
 
         System::<Test>::set_block_number(20);
-        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(20));
+        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments());
 
         let leftover_b1 = CommitmentOf::<Test>::get(netuid_b, who_b).expect("still there");
         assert_eq!(
@@ -898,7 +898,7 @@ fn single_timelock_reveal_later_round() {
         insert_drand_pulse(round_2000, &drand_sig_2000);
 
         System::<Test>::set_block_number(21);
-        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments(21));
+        assert_ok!(Pallet::<Test>::reveal_timelocked_commitments());
 
         let leftover_b2 = CommitmentOf::<Test>::get(netuid_b, who_b);
         assert!(leftover_b2.is_none(), "Timelock removed => leftover=none");
