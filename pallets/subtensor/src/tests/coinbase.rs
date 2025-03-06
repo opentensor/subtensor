@@ -195,6 +195,9 @@ fn test_coinbase_moving_prices() {
             SubtensorModule::get_moving_alpha_price(netuid),
             I96F32::from_num(1)
         );
+        // Skip some blocks so that EMA price is now slowed down
+        System::set_block_number(7_200_000);
+
         SubtensorModule::update_moving_price(netuid);
         assert_eq!(
             SubtensorModule::get_moving_alpha_price(netuid),
@@ -207,10 +210,7 @@ fn test_coinbase_moving_prices() {
         // Run moving 1 times.
         SubtensorModule::update_moving_price(netuid);
         // Assert price is == 100% of the real price.
-        assert_eq!(
-            SubtensorModule::get_moving_alpha_price(netuid),
-            I96F32::from_num(1.0)
-        );
+        assert!(I96F32::from_num(1.0) - SubtensorModule::get_moving_alpha_price(netuid) < 0.001);
         // Set price to zero.
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0));
         SubnetMovingAlpha::<Test>::set(I96F32::from_num(0.1));
@@ -222,10 +222,60 @@ fn test_coinbase_moving_prices() {
         SubtensorModule::update_moving_price(netuid);
         SubtensorModule::update_moving_price(netuid);
         // Assert price is > 50% of the real price.
-        assert_eq!(
-            SubtensorModule::get_moving_alpha_price(netuid),
-            I96F32::from_num(0.468559)
+        assert!(
+            (I96F32::from_num(0.468559) - SubtensorModule::get_moving_alpha_price(netuid)).abs()
+                < 0.001
         );
+    });
+}
+
+// Test moving price updates slow down at the beginning.
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_update_moving_price_initial --exact --show-output --nocapture
+#[test]
+fn test_update_moving_price_initial() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+        // Set current price to 1.0
+        SubnetTAO::<Test>::insert(netuid, 1_000_000);
+        SubnetAlphaIn::<Test>::insert(netuid, 1_000_000);
+        SubnetMechanism::<Test>::insert(netuid, 1);
+        SubnetMovingAlpha::<Test>::set(I96F32::from_num(0.5));
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0));
+
+        // Registered recently
+        System::set_block_number(510);
+        NetworkRegisteredAt::<Test>::insert(netuid, 500);
+
+        SubtensorModule::update_moving_price(netuid);
+
+        let new_price = SubnetMovingPrice::<Test>::get(netuid);
+        assert!(new_price.to_num::<f64>() < 0.001);
+    });
+}
+
+// Test moving price updates slow down at the beginning.
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_update_moving_price_after_time --exact --show-output --nocapture
+#[test]
+fn test_update_moving_price_after_time() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+        // Set current price to 1.0
+        SubnetTAO::<Test>::insert(netuid, 1_000_000);
+        SubnetAlphaIn::<Test>::insert(netuid, 1_000_000);
+        SubnetMechanism::<Test>::insert(netuid, 1);
+        SubnetMovingAlpha::<Test>::set(I96F32::from_num(0.5));
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0));
+
+        // Registered long time ago
+        System::set_block_number(7_200_500);
+        NetworkRegisteredAt::<Test>::insert(netuid, 500);
+
+        SubtensorModule::update_moving_price(netuid);
+
+        let new_price = SubnetMovingPrice::<Test>::get(netuid);
+        assert!((new_price.to_num::<f64>() - 0.5).abs() < 0.001);
     });
 }
 
