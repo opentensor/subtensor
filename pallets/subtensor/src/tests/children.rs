@@ -3952,7 +3952,7 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
 
 #[test]
 fn test_pending_cooldown_one_day() {
-	let curr_block = 1;
+    let curr_block = 1;
     new_test_ext(curr_block).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -3967,11 +3967,19 @@ fn test_pending_cooldown_one_day() {
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set multiple children
-        mock_schedule_children(&coldkey, &hotkey, netuid, &[(proportion1, child1), (proportion2, child2)]);
+        mock_schedule_children(
+            &coldkey,
+            &hotkey,
+            netuid,
+            &[(proportion1, child1), (proportion2, child2)],
+        );
 
         // Verify pending map
-		let pending_children = PendingChildKeys::<Test>::get(netuid, hotkey);
-		assert_eq!(pending_children.0, vec![(proportion1, child1), (proportion2, child2)]);
-		assert_eq!(pending_children.1, curr_block + 7_200);
+        let pending_children = PendingChildKeys::<Test>::get(netuid, hotkey);
+        assert_eq!(
+            pending_children.0,
+            vec![(proportion1, child1), (proportion2, child2)]
+        );
+        assert_eq!(pending_children.1, curr_block + 7_200);
     });
 }
