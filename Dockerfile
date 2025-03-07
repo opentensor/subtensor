@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ubuntu:24.04
+ARG BASE_IMAGE=ubuntu:latest
 
 FROM $BASE_IMAGE AS builder
 SHELL ["/bin/bash", "-c"]
@@ -18,17 +18,21 @@ RUN apt-get update && \
   apt-get install -y curl build-essential protobuf-compiler clang git pkg-config libssl-dev && \
   rm -rf /var/lib/apt/lists/*
 
-RUN set -o pipefail && curl https://sh.rustup.rs -sSf | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
-RUN rustup update stable
-RUN rustup target add wasm32-unknown-unknown --toolchain stable
-
 # Copy entire repository
 COPY . /build
 WORKDIR /build
 
+# Install Rust
+RUN set -o pipefail && curl https://sh.rustup.rs -sSf | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN rustup toolchain install
+RUN rustup target add wasm32-unknown-unknown
+
 # Build the project
 RUN cargo build -p node-subtensor --profile production  --features="metadata-hash" --locked
+
+# Slim down image
+RUN rm -rf /root/.cargo
 
 # Verify the binary was produced
 RUN test -e /build/target/production/node-subtensor

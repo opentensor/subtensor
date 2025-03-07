@@ -70,31 +70,6 @@ impl<T: Config> Pallet<T> {
         false
     }
 
-    /// Sets the emission values for each netuid
-    ///
-    pub fn set_emission_values(netuids: &[u16], emission: Vec<u64>) -> Result<(), &'static str> {
-        log::debug!(
-            "set_emission_values: netuids: {:?} emission:{:?}",
-            netuids,
-            emission
-        );
-
-        // Be careful this function can fail.
-        if Self::contains_invalid_root_uids(netuids) {
-            log::error!("set_emission_values: contains_invalid_root_uids");
-            return Err("Invalid netuids");
-        }
-        if netuids.len() != emission.len() {
-            log::error!("set_emission_values: netuids.len() != emission.len()");
-            return Err("netuids and emission must have the same length");
-        }
-        for (netuid_i, emission_i) in netuids.iter().zip(emission) {
-            log::debug!("set netuid:{:?} emission:{:?}", netuid_i, emission_i);
-            EmissionValues::<T>::insert(*netuid_i, emission_i);
-        }
-        Ok(())
-    }
-
     /// Retrieves weight matrix associated with the root network.
     ///  Weights represent the preferences for each subnetwork.
     ///
@@ -577,7 +552,6 @@ impl<T: Config> Pallet<T> {
         MaxAllowedUids::<T>::remove(netuid);
         ImmunityPeriod::<T>::remove(netuid);
         ActivityCutoff::<T>::remove(netuid);
-        EmissionValues::<T>::remove(netuid);
         MaxWeightsLimit::<T>::remove(netuid);
         MinAllowedWeights::<T>::remove(netuid);
         RegistrationsThisInterval::<T>::remove(netuid);
@@ -645,55 +619,6 @@ impl<T: Config> Pallet<T> {
         );
 
         lock_cost
-    }
-
-    /// This function is used to determine which subnet to prune when the total number of networks has reached the limit.
-    /// It iterates over all the networks and finds the oldest subnet with the minimum emission value that is not in the immunity period.
-    ///
-    /// # Returns:
-    /// * 'u16':
-    ///     - The uid of the network to be pruned.
-    ///
-    pub fn get_subnet_to_prune() -> u16 {
-        let mut netuids: Vec<u16> = vec![];
-        let current_block = Self::get_current_block_as_u64();
-
-        // Even if we don't have a root subnet, this still works
-        for netuid in NetworksAdded::<T>::iter_keys_from(NetworksAdded::<T>::hashed_key_for(0)) {
-            if current_block.saturating_sub(Self::get_network_registered_block(netuid))
-                < Self::get_network_immunity_period()
-            {
-                continue;
-            }
-
-            // This iterator seems to return them in order anyways, so no need to sort by key
-            netuids.push(netuid);
-        }
-
-        // Now we sort by emission, and then by subnet creation time.
-        netuids.sort_by(|a, b| {
-            use sp_std::cmp::Ordering;
-
-            match Self::get_emission_value(*b).cmp(&Self::get_emission_value(*a)) {
-                Ordering::Equal => {
-                    if Self::get_network_registered_block(*b)
-                        < Self::get_network_registered_block(*a)
-                    {
-                        Ordering::Less
-                    } else {
-                        Ordering::Equal
-                    }
-                }
-                v => v,
-            }
-        });
-
-        log::debug!("Netuids Order: {:?}", netuids);
-
-        match netuids.last() {
-            Some(netuid) => *netuid,
-            None => 0,
-        }
     }
 
     pub fn get_network_registered_block(netuid: u16) -> u64 {

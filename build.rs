@@ -31,6 +31,7 @@ fn main() {
 
     // Parse each rust file with syn and run the linting suite on it in parallel
     rust_files.par_iter().for_each_with(tx.clone(), |tx, file| {
+        let is_test = file.display().to_string().contains("test");
         let Ok(content) = fs::read_to_string(file) else {
             return;
         };
@@ -63,6 +64,10 @@ fn main() {
         track_lint(ForbidKeysRemoveCall::lint(&parsed_file));
         track_lint(RequireFreezeStruct::lint(&parsed_file));
         track_lint(RequireExplicitPalletIndex::lint(&parsed_file));
+
+        if is_test {
+            track_lint(ForbidSaturatingMath::lint(&parsed_file));
+        }
     });
 
     // Collect and print all errors after the parallel processing is done
