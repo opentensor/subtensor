@@ -138,61 +138,25 @@ where
             }
             // Subtensor specific precompiles :
             a if a == hash(BalanceTransferPrecompile::<R>::INDEX) => {
-                if PrecompileEnable::<R>::get(PrecompileEnum::BalanceTransfer) {
-                    Some(BalanceTransferPrecompile::<R>::execute(handle))
-                } else {
-                    Some(Err(PrecompileFailure::Error {
-                        exit_status: ExitError::Other(
-                            "Precompile Balance Transfer is disabled".into(),
-                        ),
-                    }))
-                }
+                BalanceTransferPrecompile::<R>::try_execute::<R>(
+                    handle,
+                    PrecompileEnum::BalanceTransfer,
+                )
             }
             a if a == hash(StakingPrecompile::<R>::INDEX) => {
-                if PrecompileEnable::<R>::get(PrecompileEnum::Staking) {
-                    Some(StakingPrecompile::<R>::execute(handle))
-                } else {
-                    Some(Err(PrecompileFailure::Error {
-                        exit_status: ExitError::Other("Precompile Staking is disabled".into()),
-                    }))
-                }
+                StakingPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Staking)
             }
             a if a == hash(StakingPrecompileV2::<R>::INDEX) => {
-                if PrecompileEnable::<R>::get(PrecompileEnum::Staking) {
-                    Some(StakingPrecompileV2::<R>::execute(handle))
-                } else {
-                    Some(Err(PrecompileFailure::Error {
-                        exit_status: ExitError::Other("Precompile Staking is disabled".into()),
-                    }))
-                }
+                StakingPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Staking)
             }
-
             a if a == hash(SubnetPrecompile::<R>::INDEX) => {
-                if PrecompileEnable::<R>::get(PrecompileEnum::Subnet) {
-                    Some(SubnetPrecompile::<R>::execute(handle))
-                } else {
-                    Some(Err(PrecompileFailure::Error {
-                        exit_status: ExitError::Other("Precompile Subnet is disabled".into()),
-                    }))
-                }
+                SubnetPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Subnet)
             }
             a if a == hash(MetagraphPrecompile::<R>::INDEX) => {
-                if PrecompileEnable::<R>::get(PrecompileEnum::Metagraph) {
-                    Some(MetagraphPrecompile::<R>::execute(handle))
-                } else {
-                    Some(Err(PrecompileFailure::Error {
-                        exit_status: ExitError::Other("Precompile Metagrah is disabled".into()),
-                    }))
-                }
+                MetagraphPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Metagraph)
             }
             a if a == hash(NeuronPrecompile::<R>::INDEX) => {
-                if PrecompileEnable::<R>::get(PrecompileEnum::Neuron) {
-                    Some(NeuronPrecompile::<R>::execute(handle))
-                } else {
-                    Some(Err(PrecompileFailure::Error {
-                        exit_status: ExitError::Other("Precompile Neuron is disabled".into()),
-                    }))
-                }
+                NeuronPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Neuron)
             }
             _ => None,
         }
