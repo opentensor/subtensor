@@ -6,8 +6,8 @@ use core::marker::PhantomData;
 
 use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 use pallet_evm::{
-    AddressMapping, ExitError, IsPrecompileResult, Precompile, PrecompileFailure, PrecompileHandle,
-    PrecompileResult, PrecompileSet,
+    AddressMapping, IsPrecompileResult, Precompile, PrecompileHandle, PrecompileResult,
+    PrecompileSet,
 };
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;
@@ -17,7 +17,7 @@ use sp_runtime::traits::Dispatchable;
 use sp_runtime::traits::StaticLookup;
 use subtensor_runtime_common::ProxyType;
 
-use pallet_admin_utils::{PrecompileEnable, PrecompileEnum};
+use pallet_admin_utils::PrecompileEnum;
 
 use crate::balance_transfer::*;
 use crate::ed25519::*;
