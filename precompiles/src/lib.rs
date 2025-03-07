@@ -147,7 +147,7 @@ where
                 StakingPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Staking)
             }
             a if a == hash(StakingPrecompileV2::<R>::INDEX) => {
-                StakingPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Staking)
+                StakingPrecompileV2::<R>::try_execute::<R>(handle, PrecompileEnum::Staking)
             }
             a if a == hash(SubnetPrecompile::<R>::INDEX) => {
                 SubnetPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Subnet)

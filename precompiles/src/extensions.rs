@@ -148,6 +148,9 @@ pub(crate) trait PrecompileExt<AccountId: From<[u8; 32]>>: Precompile {
     }
 }
 
+// allowing unreachable for the whole module fixes clippy reports about precompile macro
+// implementation for `TestPrecompile`, that couldn't be fixed granularly
+#[allow(unreachable_code)]
 #[cfg(test)]
 mod test {
     use super::*;
@@ -172,7 +175,6 @@ mod test {
         const INDEX: u64 = 2051;
     }
 
-    #[allow(unreachable_code)]
     #[precompile_utils::precompile]
     impl TestPrecompile {}
 }
