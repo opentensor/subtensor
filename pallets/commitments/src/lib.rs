@@ -4,6 +4,9 @@ mod benchmarking;
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+mod mock;
+
 pub mod types;
 pub mod weights;
 
@@ -12,9 +15,17 @@ use subtensor_macros::freeze_struct;
 pub use types::*;
 pub use weights::WeightInfo;
 
-use frame_support::traits::Currency;
+use ark_serialize::CanonicalDeserialize;
+use frame_support::{BoundedVec, traits::Currency};
+use scale_info::prelude::collections::BTreeSet;
 use sp_runtime::{Saturating, traits::Zero};
-use sp_std::boxed::Box;
+use sp_std::{boxed::Box, vec::Vec};
+use tle::{
+    curves::drand::TinyBLS381,
+    stream_ciphers::AESGCMStreamCipherProvider,
+    tlock::{TLECiphertext, tld},
+};
+use w3f_bls::EngineBLS;
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -31,7 +42,7 @@ pub mod pallet {
 
     // Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
-    pub trait Config: frame_system::Config {
+    pub trait Config: frame_system::Config + pallet_drand::Config {
         /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -46,7 +57,7 @@ pub mod pallet {
 
         /// The maximum number of additional fields that can be added to a commitment
         #[pallet::constant]
-        type MaxFields: Get<u32>;
+        type MaxFields: Get<u32> + TypeInfo + 'static;
 
         /// The amount held on deposit for a registered identity
         #[pallet::constant]
@@ -66,6 +77,22 @@ pub mod pallet {
     pub enum Event<T: Config> {
         /// A commitment was set
         Commitment {
+            /// The netuid of the commitment
+            netuid: u16,
+            /// The account
+            who: T::AccountId,
+        },
+        /// A timelock-encrypted commitment was set
+        TimelockCommitment {
+            /// The netuid of the commitment
+            netuid: u16,
+            /// The account
+            who: T::AccountId,
+            /// The drand round to reveal
+            reveal_round: u64,
+        },
+        /// A timelock-encrypted commitment was auto-revealed
+        CommitmentRevealed {
             /// The netuid of the commitment
             netuid: u16,
             /// The account
@@ -93,6 +120,12 @@ pub mod pallet {
     #[pallet::storage]
     pub type RateLimit<T> = StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultRateLimit<T>>;
 
+    /// Tracks all CommitmentOf that have at least one timelocked field.
+    #[pallet::storage]
+    #[pallet::getter(fn timelocked_index)]
+    pub type TimelockedIndex<T: Config> =
+        StorageValue<_, BTreeSet<(u16, T::AccountId)>, ValueQuery>;
+
     /// Identity data by account
     #[pallet::storage]
     #[pallet::getter(fn commitment_of)]
@@ -117,13 +150,24 @@ pub mod pallet {
         BlockNumberFor<T>,
         OptionQuery,
     >;
+    #[pallet::storage]
+    #[pallet::getter(fn revealed_commitments)]
+    pub(super) type RevealedCommitments<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        u16,
+        Twox64Concat,
+        T::AccountId,
+        RevealedData<BalanceOf<T>, T::MaxFields, BlockNumberFor<T>>,
+        OptionQuery,
+    >;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Set the commitment for a given netuid
         #[pallet::call_index(0)]
         #[pallet::weight((
-			T::WeightInfo::set_commitment(),
+			<T as pallet::Config>::WeightInfo::set_commitment(),
 			DispatchClass::Operational,
 			Pays::No
 		))]
@@ -155,12 +199,12 @@ pub mod pallet {
             let fd = <BalanceOf<T>>::from(extra_fields).saturating_mul(T::FieldDeposit::get());
             let mut id = match <CommitmentOf<T>>::get(netuid, &who) {
                 Some(mut id) => {
-                    id.info = *info;
+                    id.info = *info.clone();
                     id.block = cur_block;
                     id
                 }
                 None => Registration {
-                    info: *info,
+                    info: *info.clone(),
                     block: cur_block,
                     deposit: Zero::zero(),
                 },
@@ -179,7 +223,31 @@ pub mod pallet {
 
             <CommitmentOf<T>>::insert(netuid, &who, id);
             <LastCommitment<T>>::insert(netuid, &who, cur_block);
-            Self::deposit_event(Event::Commitment { netuid, who });
+
+            if let Some(Data::TimelockEncrypted { reveal_round, .. }) = info
+                .fields
+                .iter()
+                .find(|data| matches!(data, Data::TimelockEncrypted { .. }))
+            {
+                Self::deposit_event(Event::TimelockCommitment {
+                    netuid,
+                    who: who.clone(),
+                    reveal_round: *reveal_round,
+                });
+
+                TimelockedIndex::<T>::mutate(|index| {
+                    index.insert((netuid, who.clone()));
+                });
+            } else {
+                Self::deposit_event(Event::Commitment {
+                    netuid,
+                    who: who.clone(),
+                });
+
+                TimelockedIndex::<T>::mutate(|index| {
+                    index.remove(&(netuid, who.clone()));
+                });
+            }
 
             Ok(())
         }
@@ -187,7 +255,7 @@ pub mod pallet {
         /// Sudo-set the commitment rate limit
         #[pallet::call_index(1)]
         #[pallet::weight((
-			T::WeightInfo::set_rate_limit(),
+            <T as pallet::Config>::WeightInfo::set_rate_limit(),
 			DispatchClass::Operational,
 			Pays::No
 		))]
@@ -325,6 +393,180 @@ where
         _len: usize,
         _result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
+        Ok(())
+    }
+}
+
+impl<T: Config> Pallet<T> {
+    pub fn reveal_timelocked_commitments() -> DispatchResult {
+        let current_block = <frame_system::Pallet<T>>::block_number();
+        let index = TimelockedIndex::<T>::get();
+        for (netuid, who) in index.clone() {
+            let Some(mut registration) = <CommitmentOf<T>>::get(netuid, &who) else {
+                TimelockedIndex::<T>::mutate(|idx| {
+                    idx.remove(&(netuid, who.clone()));
+                });
+                continue;
+            };
+
+            let original_fields = registration.info.fields.clone();
+            let mut remain_fields = Vec::new();
+            let mut revealed_fields = Vec::new();
+
+            for data in original_fields {
+                match data {
+                    Data::TimelockEncrypted {
+                        encrypted,
+                        reveal_round,
+                    } => {
+                        let pulse = match pallet_drand::Pulses::<T>::get(reveal_round) {
+                            Some(p) => p,
+                            None => {
+                                remain_fields.push(Data::TimelockEncrypted {
+                                    encrypted,
+                                    reveal_round,
+                                });
+                                continue;
+                            }
+                        };
+
+                        let signature_bytes = pulse
+                            .signature
+                            .strip_prefix(b"0x")
+                            .unwrap_or(&pulse.signature);
+                        let sig_reader = &mut &signature_bytes[..];
+                        let sig =
+                            <TinyBLS381 as EngineBLS>::SignatureGroup::deserialize_compressed(
+                                sig_reader,
+                            )
+                            .map_err(|e| {
+                                log::warn!(
+                                    "Failed to deserialize drand signature for {:?}: {:?}",
+                                    who,
+                                    e
+                                )
+                            })
+                            .ok();
+
+                        let Some(sig) = sig else {
+                            remain_fields.push(Data::TimelockEncrypted {
+                                encrypted,
+                                reveal_round,
+                            });
+                            continue;
+                        };
+
+                        let reader = &mut &encrypted[..];
+                        let commit = TLECiphertext::<TinyBLS381>::deserialize_compressed(reader)
+                            .map_err(|e| {
+                                log::warn!(
+                                    "Failed to deserialize TLECiphertext for {:?}: {:?}",
+                                    who,
+                                    e
+                                )
+                            })
+                            .ok();
+
+                        let Some(commit) = commit else {
+                            remain_fields.push(Data::TimelockEncrypted {
+                                encrypted,
+                                reveal_round,
+                            });
+                            continue;
+                        };
+
+                        let decrypted_bytes: Vec<u8> =
+                            tld::<TinyBLS381, AESGCMStreamCipherProvider>(commit, sig)
+                                .map_err(|e| {
+                                    log::warn!("Failed to decrypt timelock for {:?}: {:?}", who, e)
+                                })
+                                .ok()
+                                .unwrap_or_default();
+
+                        if decrypted_bytes.is_empty() {
+                            remain_fields.push(Data::TimelockEncrypted {
+                                encrypted,
+                                reveal_round,
+                            });
+                            continue;
+                        }
+
+                        let mut reader = &decrypted_bytes[..];
+                        let revealed_info: CommitmentInfo<T::MaxFields> =
+                            match Decode::decode(&mut reader) {
+                                Ok(info) => info,
+                                Err(e) => {
+                                    log::warn!(
+                                        "Failed to decode decrypted data for {:?}: {:?}",
+                                        who,
+                                        e
+                                    );
+                                    remain_fields.push(Data::TimelockEncrypted {
+                                        encrypted,
+                                        reveal_round,
+                                    });
+                                    continue;
+                                }
+                            };
+
+                        revealed_fields.push(revealed_info);
+                    }
+
+                    other => remain_fields.push(other),
+                }
+            }
+
+            if !revealed_fields.is_empty() {
+                let mut all_revealed_data = Vec::new();
+                for info in revealed_fields {
+                    all_revealed_data.extend(info.fields.into_inner());
+                }
+
+                let bounded_revealed = BoundedVec::try_from(all_revealed_data)
+                    .map_err(|_| "Could not build BoundedVec for revealed fields")?;
+
+                let combined_revealed_info = CommitmentInfo {
+                    fields: bounded_revealed,
+                };
+
+                let revealed_data = RevealedData {
+                    info: combined_revealed_info,
+                    revealed_block: current_block,
+                    deposit: registration.deposit,
+                };
+                <RevealedCommitments<T>>::insert(netuid, &who, revealed_data);
+                Self::deposit_event(Event::CommitmentRevealed {
+                    netuid,
+                    who: who.clone(),
+                });
+            }
+
+            registration.info.fields = BoundedVec::try_from(remain_fields)
+                .map_err(|_| "Failed to build BoundedVec for remain_fields")?;
+
+            match registration.info.fields.is_empty() {
+                true => {
+                    <CommitmentOf<T>>::remove(netuid, &who);
+                    TimelockedIndex::<T>::mutate(|idx| {
+                        idx.remove(&(netuid, who.clone()));
+                    });
+                }
+                false => {
+                    <CommitmentOf<T>>::insert(netuid, &who, &registration);
+                    let has_timelock = registration
+                        .info
+                        .fields
+                        .iter()
+                        .any(|f| matches!(f, Data::TimelockEncrypted { .. }));
+                    if !has_timelock {
+                        TimelockedIndex::<T>::mutate(|idx| {
+                            idx.remove(&(netuid, who.clone()));
+                        });
+                    }
+                }
+            }
+        }
+
         Ok(())
     }
 }

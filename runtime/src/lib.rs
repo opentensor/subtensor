@@ -89,6 +89,8 @@ pub use sp_runtime::{Perbill, Permill};
 
 use core::marker::PhantomData;
 
+use scale_info::TypeInfo;
+
 // Frontier
 use fp_rpc::TransactionStatus;
 use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
@@ -918,12 +920,22 @@ impl pallet_registry::Config for Runtime {
 }
 
 parameter_types! {
-    pub const MaxCommitFields: u32 = 1;
+    pub const MaxCommitFieldsInner: u32 = 1;
     pub const CommitmentInitialDeposit: Balance = 0; // Free
     pub const CommitmentFieldDeposit: Balance = 0; // Free
     pub const CommitmentRateLimit: BlockNumber = 100; // Allow commitment every 100 blocks
 }
 
+#[subtensor_macros::freeze_struct("7c76bd954afbb54e")]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
+pub struct MaxCommitFields;
+impl Get<u32> for MaxCommitFields {
+    fn get() -> u32 {
+        MaxCommitFieldsInner::get()
+    }
+}
+
+#[subtensor_macros::freeze_struct("c39297f5eb97ee82")]
 pub struct AllowCommitments;
 impl CanCommit<AccountId> for AllowCommitments {
     #[cfg(not(feature = "runtime-benchmarks"))]
@@ -1080,6 +1092,7 @@ impl pallet_subtensor::Config for Runtime {
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
+    type CommitmentRuntime = Runtime;
 }
 
 use sp_runtime::BoundedVec;
