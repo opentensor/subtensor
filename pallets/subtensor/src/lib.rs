@@ -728,7 +728,11 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for applying pending items (e.g. childkeys).
     pub fn DefaultPendingCooldown<T: Config>() -> u64 {
-        1
+        if cfg!(feature = "fast-blocks") {
+            return 15;
+        }
+
+        7_200
     }
 
     #[pallet::type_value]
@@ -2203,9 +2207,13 @@ where
         self,
         who: &Self::AccountId,
         call: &Self::Call,
-        _info: &DispatchInfoOf<Self::Call>,
-        _len: usize,
+        info: &DispatchInfoOf<Self::Call>,
+        len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
+        // We need to perform same checks as Self::validate so that
+        // the validation is performed during Executive::apply_extrinsic as well.
+        // this prevents inclusion of invalid tx in a block by malicious block author.
+        self.validate(who, call, info, len)?;
         match call.is_sub_type() {
             Some(Call::add_stake { .. }) => {
                 let transaction_fee = 100000;

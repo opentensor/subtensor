@@ -8,12 +8,11 @@ use sp_core::H256;
 use sp_runtime::traits::Dispatchable;
 use sp_std::vec::Vec;
 
-use crate::parser::parse_pubkey;
 use crate::{PrecompileExt, PrecompileHandleExt};
 
 pub struct NeuronPrecompile<R>(PhantomData<R>);
 
-impl<R> PrecompileExt for NeuronPrecompile<R>
+impl<R> PrecompileExt<R::AccountId> for NeuronPrecompile<R>
 where
     R: frame_system::Config + pallet_evm::Config + pallet_subtensor::Config,
     R::AccountId: From<[u8; 32]>,
@@ -23,11 +22,6 @@ where
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
 {
     const INDEX: u64 = 2052;
-    const ADDRESS_SS58: Option<[u8; 32]> = Some([
-        0xbc, 0x46, 0x35, 0x79, 0xbc, 0x99, 0xf9, 0xee, 0x7c, 0x59, 0xed, 0xee, 0x20, 0x61, 0xa3,
-        0x09, 0xd2, 0x1e, 0x68, 0xd5, 0x39, 0xb6, 0x40, 0xec, 0x66, 0x46, 0x90, 0x30, 0xab, 0x74,
-        0xc1, 0xdb,
-    ]);
 }
 
 #[precompile_utils::precompile]
@@ -112,7 +106,7 @@ where
         hotkey: H256,
     ) -> EvmResult<()> {
         let coldkey = handle.caller_account_id::<R>();
-        let (hotkey, _) = parse_pubkey(hotkey.as_bytes())?;
+        let hotkey = R::AccountId::from(hotkey.0);
         let call = pallet_subtensor::Call::<R>::burned_register { netuid, hotkey };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(coldkey))
