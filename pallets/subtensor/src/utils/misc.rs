@@ -733,4 +733,14 @@ impl<T: Config> Pallet<T> {
         SubnetOwnerHotkey::<T>::insert(netuid, hotkey.clone());
         Self::deposit_event(Event::SubnetOwnerHotkeySet(netuid, hotkey.clone()));
     }
+
+    // Get the uid of the Owner Hotkey for a subnet.
+    pub fn get_owner_uid(netuid: u16) -> Option<u16> {
+        let owner_hotkey = SubnetOwnerHotkey::<T>::get(netuid);
+        if Uids::<T>::contains_key(netuid, &owner_hotkey) {
+            Some(Uids::<T>::get(netuid, &owner_hotkey))
+        } else {
+            None
+        }
+    }
 }

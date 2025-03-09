@@ -604,6 +604,22 @@ pub fn mask_diag_sparse(sparse_matrix: &[Vec<(u16, I32F32)>]) -> Vec<Vec<(u16, I
         .collect()
 }
 
+// Return a new sparse matrix with a masked out diagonal of input sparse matrix,
+// except for the diagonal entry at except_index.
+#[allow(dead_code)]
+pub fn mask_diag_sparse_except_index(
+    sparse_matrix: &[Vec<(u16, I32F32)>],
+    except_index: u16,
+) -> Vec<Vec<(u16, I32F32)>> {
+    // Store the diagonal entry at except_index
+    let diag_at_index = sparse_matrix[except_index as usize][except_index as usize].clone();
+    // Mask out the diagonal
+    let mut result = mask_diag_sparse(sparse_matrix);
+    // Replace the diagonal entry at except_index
+    result[except_index as usize][except_index as usize] = diag_at_index;
+    result
+}
+
 // Remove cells from sparse matrix where the mask function of two vectors is true.
 #[allow(dead_code, clippy::indexing_slicing)]
 pub fn vec_mask_sparse_matrix(

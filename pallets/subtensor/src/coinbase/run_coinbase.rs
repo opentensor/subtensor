@@ -375,8 +375,19 @@ impl<T: Config> Pallet<T> {
 
         // Distribute mining incentives.
         for (hotkey, incentive) in incentives {
-            // Increase stake for miner.
             log::debug!("incentives: hotkey: {:?}", incentive);
+
+            if let Ok(owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
+                if hotkey == owner_hotkey {
+                    log::debug!(
+                        "incentives: hotkey: {:?} is SN owner hotkey, skipping {:?}",
+                        hotkey,
+                        incentive
+                    );
+                    continue; // Skip/burn miner-emission for SN owner hotkey.
+                }
+            }
+            // Increase stake for miner.
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey.clone(),
                 &Owner::<T>::get(hotkey.clone()),
