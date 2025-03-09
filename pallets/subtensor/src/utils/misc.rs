@@ -736,11 +736,9 @@ impl<T: Config> Pallet<T> {
 
     // Get the uid of the Owner Hotkey for a subnet.
     pub fn get_owner_uid(netuid: u16) -> Option<u16> {
-        let owner_hotkey = SubnetOwnerHotkey::<T>::get(netuid);
-        if Uids::<T>::contains_key(netuid, &owner_hotkey) {
-            Some(Uids::<T>::get(netuid, &owner_hotkey))
-        } else {
-            None
+        match SubnetOwnerHotkey::<T>::try_get(netuid) {
+            Ok(owner_hotkey) => Uids::<T>::get(netuid, &owner_hotkey),
+            Err(_) => None,
         }
     }
 }

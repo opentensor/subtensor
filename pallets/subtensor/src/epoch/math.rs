@@ -612,11 +612,21 @@ pub fn mask_diag_sparse_except_index(
     except_index: u16,
 ) -> Vec<Vec<(u16, I32F32)>> {
     // Store the diagonal entry at except_index
-    let diag_at_index = sparse_matrix[except_index as usize][except_index as usize].clone();
+    let diag_at_index = sparse_matrix
+        .get(except_index as usize)
+        .and_then(|row| row.get(except_index as usize))
+        .cloned();
     // Mask out the diagonal
     let mut result = mask_diag_sparse(sparse_matrix);
-    // Replace the diagonal entry at except_index
-    result[except_index as usize][except_index as usize] = diag_at_index;
+    // Replace the diagonal entry at except_index using only get_mut or map
+    result.get_mut(except_index as usize).map(|row| {
+        row.get_mut(except_index as usize).map(|value| {
+            if let Some(diag_at_index) = diag_at_index {
+                *value = diag_at_index;
+            }
+        })
+    });
+
     result
 }
 
