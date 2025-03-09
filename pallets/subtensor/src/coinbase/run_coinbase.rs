@@ -266,8 +266,6 @@ impl<T: Config> Pallet<T> {
             pending_swapped,
             owner_cut
         );
-        // Setup.
-        let zero: I96F32 = asfloat!(0.0);
 
         // Run the epoch.
         let hotkey_emission: Vec<(T::AccountId, u64, u64)> =
@@ -296,6 +294,25 @@ impl<T: Config> Pallet<T> {
         }
         log::debug!("incentives: {:?}", incentives);
         log::debug!("dividends: {:?}", dividends);
+
+        Self::distribute_dividends_and_incentives(
+            netuid,
+            pending_tao,
+            owner_cut,
+            incentives,
+            dividends,
+        );
+    }
+
+    pub fn distribute_dividends_and_incentives(
+        netuid: u16,
+        pending_tao: u64,
+        owner_cut: u64,
+        incentives: BTreeMap<T::AccountId, u64>,
+        dividends: BTreeMap<T::AccountId, I96F32>,
+    ) {
+        // Setup.
+        let zero: I96F32 = asfloat!(0.0);
 
         // Accumulate root divs and alpha_divs. For each hotkey we compute their
         // local and root dividend proportion based on their alpha_stake/root_stake

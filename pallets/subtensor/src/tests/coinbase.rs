@@ -2,6 +2,7 @@
 use super::mock::*;
 
 use crate::*;
+use alloc::collections::BTreeMap;
 use approx::assert_abs_diff_eq;
 use frame_support::assert_ok;
 use sp_core::U256;
@@ -1439,3 +1440,51 @@ fn test_get_root_children_drain_with_half_take() {
 //         );
 //     });
 // }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_incentive_to_subnet_owner_is_burned --exact --show-output --nocapture
+#[test]
+fn test_incentive_to_subnet_owner_is_burned() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_ck = U256::from(0);
+        let subnet_owner_hk = U256::from(1);
+
+        let other_ck = U256::from(2);
+        let other_hk = U256::from(3);
+
+        let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+
+        let pending_tao: u64 = 1_000_000_000;
+        let owner_cut: u64 = 0;
+        let mut incentives: BTreeMap<U256, u64> = BTreeMap::new();
+        let mut dividends: BTreeMap<U256, I96F32> = BTreeMap::new();
+
+        // Give incentive to other_hk
+        incentives.insert(other_hk, 10_000_000);
+
+        // Give incentives to subnet_owner_hk
+        incentives.insert(subnet_owner_hk, 10_000_000);
+
+        // Verify stake before
+        let subnet_owner_stake_before =
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&subnet_owner_hk, netuid);
+        assert_eq!(subnet_owner_stake_before, 0);
+        let other_stake_before = SubtensorModule::get_stake_for_hotkey_on_subnet(&other_hk, netuid);
+        assert_eq!(other_stake_before, 0);
+
+        // Distribute dividends and incentives
+        SubtensorModule::distribute_dividends_and_incentives(
+            netuid,
+            pending_tao,
+            owner_cut,
+            incentives,
+            dividends,
+        );
+
+        // Verify stake after
+        let subnet_owner_stake_after =
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&subnet_owner_hk, netuid);
+        assert_eq!(subnet_owner_stake_after, 0);
+        let other_stake_after = SubtensorModule::get_stake_for_hotkey_on_subnet(&other_hk, netuid);
+        assert!(other_stake_after > 0);
+    });
+}
