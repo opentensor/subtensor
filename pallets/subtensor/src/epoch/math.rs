@@ -569,6 +569,33 @@ pub fn inplace_mask_diag(matrix: &mut [Vec<I32F32>]) {
     });
 }
 
+// Mask out the diagonal of the input matrix in-place, except for the diagonal entry at except_index.
+#[allow(dead_code)]
+pub fn inplace_mask_diag_except_index(matrix: &mut [Vec<I32F32>], except_index: u16) {
+    let Some(first_row) = matrix.first() else {
+        return;
+    };
+    if first_row.is_empty() {
+        return;
+    }
+    assert_eq!(matrix.len(), first_row.len());
+
+    let diag_at_index = matrix
+        .get(except_index as usize)
+        .and_then(|row| row.get(except_index as usize))
+        .cloned();
+
+    inplace_mask_diag(matrix);
+
+    matrix.get_mut(except_index as usize).map(|row| {
+        row.get_mut(except_index as usize).map(|value| {
+            if let Some(diag_at_index) = diag_at_index {
+                *value = diag_at_index;
+            }
+        })
+    });
+}
+
 // Return a new sparse matrix that replaces masked rows with an empty vector placeholder.
 #[allow(dead_code)]
 pub fn mask_rows_sparse(
@@ -611,23 +638,20 @@ pub fn mask_diag_sparse_except_index(
     sparse_matrix: &[Vec<(u16, I32F32)>],
     except_index: u16,
 ) -> Vec<Vec<(u16, I32F32)>> {
-    // Store the diagonal entry at except_index
-    let diag_at_index = sparse_matrix
-        .get(except_index as usize)
-        .and_then(|row| row.get(except_index as usize))
-        .cloned();
-    // Mask out the diagonal
-    let mut result = mask_diag_sparse(sparse_matrix);
-    // Replace the diagonal entry at except_index using only get_mut or map
-    result.get_mut(except_index as usize).map(|row| {
-        row.get_mut(except_index as usize).map(|value| {
-            if let Some(diag_at_index) = diag_at_index {
-                *value = diag_at_index;
-            }
+    sparse_matrix
+        .iter()
+        .enumerate()
+        .map(|(i, sparse_row)| {
+            sparse_row
+                .iter()
+                .filter(|(j, _)| {
+                    // Is not a diagonal OR is the diagonal at except_index
+                    i != (*j as usize) || (i == except_index as usize && *j == except_index)
+                })
+                .copied()
+                .collect()
         })
-    });
-
-    result
+        .collect()
 }
 
 // Remove cells from sparse matrix where the mask function of two vectors is true.

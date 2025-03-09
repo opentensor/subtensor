@@ -111,6 +111,9 @@ impl<T: Config> Pallet<T> {
         // == Weights ==
         // =============
 
+        // Get owner uid.
+        let owner_uid: Option<u16> = Self::get_owner_uid(netuid);
+
         // Access network weights row unnormalized.
         let mut weights: Vec<Vec<I32F32>> = Self::get_weights(netuid);
         log::trace!("W:\n{:?}\n", &weights);
@@ -119,7 +122,13 @@ impl<T: Config> Pallet<T> {
         inplace_mask_rows(&validator_forbids, &mut weights);
         log::trace!("W (permit): {:?}", &weights);
 
-        // Remove self-weight by masking diagonal.
+        // Remove self-weight by masking diagonal; keep owner_uid self-weight.
+        if let Some(owner_uid) = owner_uid {
+            inplace_mask_diag_except_index(&mut weights, owner_uid);
+        } else {
+            inplace_mask_diag(&mut weights);
+        }
+
         inplace_mask_diag(&mut weights);
         log::trace!("W (permit+diag):\n{:?}\n", &weights);
 
