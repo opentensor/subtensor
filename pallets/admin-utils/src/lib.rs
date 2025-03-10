@@ -260,29 +260,26 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
 
-            match origin.into() {
-                Ok(RawOrigin::Signed(who)) => {
-                    // SN Owner
-                    // Ensure the origin passes the rate limit.
-                    ensure!(
-                        pallet_subtensor::Pallet::<T>::passes_rate_limit_on_subnet(
-                            &TransactionType::SetWeightsVersionKey,
-                            &who,
-                            netuid,
-                        ),
-                        pallet_subtensor::Error::<T>::TxRateLimitExceeded
-                    );
-
-                    // Set last transaction block
-                    let current_block = pallet_subtensor::Pallet::<T>::get_current_block_as_u64();
-                    pallet_subtensor::Pallet::<T>::set_last_transaction_block_on_subnet(
+            if let Ok(RawOrigin::Signed(who)) = origin.into() {
+                // SN Owner
+                // Ensure the origin passes the rate limit.
+                ensure!(
+                    pallet_subtensor::Pallet::<T>::passes_rate_limit_on_subnet(
+                        &TransactionType::SetWeightsVersionKey,
                         &who,
                         netuid,
-                        &TransactionType::SetWeightsVersionKey,
-                        current_block,
-                    );
-                }
-                _ => (),
+                    ),
+                    pallet_subtensor::Error::<T>::TxRateLimitExceeded
+                );
+
+                // Set last transaction block
+                let current_block = pallet_subtensor::Pallet::<T>::get_current_block_as_u64();
+                pallet_subtensor::Pallet::<T>::set_last_transaction_block_on_subnet(
+                    &who,
+                    netuid,
+                    &TransactionType::SetWeightsVersionKey,
+                    current_block,
+                );
             }
 
             pallet_subtensor::Pallet::<T>::set_weights_version_key(netuid, weights_version_key);

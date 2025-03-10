@@ -171,9 +171,8 @@ fn test_sudo_set_weights_version_key_rate_limit() {
         let sn_owner = U256::from(1);
         add_network(netuid, 10);
         // Set the Subnet Owner
-        SubnetOwner::insert(netuid, sn_owner);
+        SubnetOwner::<Test>::insert(netuid, sn_owner);
 
-        let init_value: u64 = SubtensorModule::get_weights_version_key(netuid);
         let rate_limit = WeightsVersionKeyRateLimit::<Test>::get();
         let tempo: u16 = Tempo::<Test>::get(netuid);
 
@@ -189,7 +188,7 @@ fn test_sudo_set_weights_version_key_rate_limit() {
         // Try to set again with
         // Assert rate limit not passed
         assert!(SubtensorModule::passes_rate_limit_on_subnet(
-            &TransactionType::SetWeightsVersionKey,
+            &pallet_subtensor::utils::rate_limiting::TransactionType::SetWeightsVersionKey,
             &sn_owner,
             netuid
         ));
@@ -201,13 +200,13 @@ fn test_sudo_set_weights_version_key_rate_limit() {
                 netuid,
                 to_be_set + 1
             ),
-            Error::<Test>::TxRateLimitExceeded
+            pallet_subtensor::Error::<Test>::TxRateLimitExceeded
         );
 
         // Wait for rate limit to pass
         run_to_block(rate_limit_period + 2);
         assert!(SubtensorModule::passes_rate_limit_on_subnet(
-            &TransactionType::SetWeightsVersionKey,
+            &pallet_subtensor::utils::rate_limiting::TransactionType::SetWeightsVersionKey,
             &sn_owner,
             netuid
         ));
