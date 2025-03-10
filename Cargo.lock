@@ -11270,7 +11270,7 @@ dependencies = [
  "pallet-evm-precompile-modexp",
  "pallet-evm-precompile-sha3fips",
  "pallet-evm-precompile-simple",
- "pallet-proxy",
+ "pallet-proxy 38.0.0",
  "pallet-subtensor",
  "precompile-utils",
  "sp-core",
