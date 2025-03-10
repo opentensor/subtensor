@@ -225,6 +225,45 @@ fn test_sudo_set_weights_version_key_rate_limit() {
 }
 
 #[test]
+fn test_sudo_set_weights_version_key_rate_limit_root() {
+    // root should not be effected by rate limit
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u64 = 10;
+
+        let sn_owner = U256::from(1);
+        add_network(netuid, 10);
+        // Set the Subnet Owner
+        SubnetOwner::<Test>::insert(netuid, sn_owner);
+
+        let rate_limit = WeightsVersionKeyRateLimit::<Test>::get();
+        let tempo: u16 = Tempo::<Test>::get(netuid);
+
+        let rate_limit_period = rate_limit * (tempo as u64);
+        // Verify the rate limit is more than 0 blocks
+        assert!(rate_limit_period > 0);
+
+        assert_ok!(AdminUtils::sudo_set_weights_version_key(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_weights_version_key(netuid), to_be_set);
+
+        // Try transaction
+        assert_ok!(AdminUtils::sudo_set_weights_version_key(
+            <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+            netuid,
+            to_be_set + 1
+        ));
+        assert_eq!(
+            SubtensorModule::get_weights_version_key(netuid),
+            to_be_set + 1
+        );
+    });
+}
+
+#[test]
 fn test_sudo_set_weights_set_rate_limit() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
