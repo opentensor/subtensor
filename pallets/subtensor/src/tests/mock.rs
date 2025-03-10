@@ -184,6 +184,7 @@ parameter_types! {
     pub const InitialColdkeySwapScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
     pub const InitialDissolveNetworkScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
     pub const InitialTaoWeight: u64 = 0; // 100% global weight.
+    pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
 }
 
 // Configure collective pallet for council
@@ -406,6 +407,7 @@ impl crate::Config for Test {
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialTaoWeight = InitialTaoWeight;
+    type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
 }
 
 pub struct OriginPrivilegeCmp;

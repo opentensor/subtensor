@@ -1017,6 +1017,7 @@ parameter_types! {
     pub const InitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const SubtensorInitialTaoWeight: u64 = 971_718_665_099_567_868; // 0.05267697438728329% tao weight.
+    pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1080,6 +1081,7 @@ impl pallet_subtensor::Config for Runtime {
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
+    type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
 }
 
 use sp_runtime::BoundedVec;

@@ -398,7 +398,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default EMA price halving blocks
     pub fn DefaultEMAPriceMovingBlocks<T: Config>() -> u64 {
-        201_600
+        T::InitialEmaPriceHalvingPeriod::get()
     }
     #[pallet::type_value]
     /// Default registrations this block.
