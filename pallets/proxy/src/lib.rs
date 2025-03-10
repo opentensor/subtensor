@@ -836,10 +836,7 @@ impl<T: Config> Pallet<T> {
         force_proxy_type: Option<T::ProxyType>,
     ) -> Result<ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>, DispatchError> {
         let f = |x: &ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>| -> bool {
-            &x.delegate == delegate
-                && force_proxy_type
-                    .as_ref()
-                    .map_or(true, |y| &x.proxy_type == y)
+            &x.delegate == delegate && force_proxy_type.as_ref().is_none_or(|y| &x.proxy_type == y)
         };
         Ok(Proxies::<T>::get(real)
             .0
