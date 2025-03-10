@@ -8,7 +8,7 @@ import { PublicClient } from "viem";
 import { TypedApi, Binary, FixedSizeBinary } from "polkadot-api";
 import { generateRandomEthersWallet } from "../src/utils";
 import { tao, raoToEth, bigintToRao, compareEthBalanceWithTxFee } from "../src/balance-math";
-import { toViemAddress, convertSs58ToMultiAddress, convertPublicKeyToSs58, convertH160ToSS58, ss58ToH160, ss58ToEthAddress, ethAddressToH160 } from "../src/address-utils"
+import { toViemAddress, convertPublicKeyToSs58, convertH160ToSS58, ss58ToH160, ss58ToEthAddress, ethAddressToH160 } from "../src/address-utils"
 import { ethers } from "ethers"
 import { estimateTransactionCost, getContract } from "../src/eth"
 
@@ -65,7 +65,7 @@ describe("Balance transfers between substrate and EVM", () => {
         const receiverBalance = await publicClient.getBalance({ address: toViemAddress(wallet.address) })
         const transferBalance = tao(1)
 
-        const tx = api.tx.Balances.transfer_keep_alive({ value: transferBalance, dest: convertSs58ToMultiAddress(ss58Address) })
+        const tx = api.tx.Balances.transfer_keep_alive({ value: transferBalance, dest: MultiAddress.Id(ss58Address) })
         await waitForTransactionCompletion(api, tx, signer)
             .then(() => { })
             .catch((error) => { console.log(`transaction error ${error}`) });

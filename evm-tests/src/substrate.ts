@@ -8,6 +8,7 @@ import { DEV_PHRASE, entropyToMiniSecret, mnemonicToEntropy, KeyPair } from "@po
 import { getPolkadotSigner } from "polkadot-api/signer"
 import { randomBytes } from 'crypto';
 import { Keyring } from '@polkadot/keyring';
+import { SS58_PREFIX } from "./config";
 
 let api: TypedApi<typeof devnet> | undefined = undefined
 
@@ -115,7 +116,7 @@ export async function getNonceChangePromise(api: TypedApi<typeof devnet>, ss58Ad
     })
 }
 
-export function convertPublicKeyToMultiAddress(publicKey: Uint8Array, ss58Format: number = 42): MultiAddress {
+export function convertPublicKeyToMultiAddress(publicKey: Uint8Array, ss58Format: number = SS58_PREFIX): MultiAddress {
     // Create a keyring instance
     const keyring = new Keyring({ type: 'sr25519', ss58Format });
 

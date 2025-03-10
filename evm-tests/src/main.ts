@@ -1,6 +1,0 @@
-async function main() {
-
-}
-
-main();
-

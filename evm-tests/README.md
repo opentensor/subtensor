@@ -4,20 +4,38 @@ test with ts
 
 ## install papi
 
-npm install polkadot-api
+```bash
+yarn add polkadot-api
+```
 
 ## polkadot api
 
+```bash
 npx papi add devnet -w ws://10.0.0.11:9944
+```
 
 ## get the new metadata
 
-sh get-metadta.sh
+```bash
+sh get-metadata.sh
+```
 
 ## run all tests
 
+```bash
 yarn test
+```
+
+## To run a particular test case, you can pass an argument with the name or part of
+
+the name. For example:
+
+```bash
+yarn run test -- -g "Can set subnet parameter"
+```
 
 ## update dependence for coding
 
-npm update @polkadot-api/descriptors
+```bash
+yarn upgrade @polkadot-api/descriptors
+```

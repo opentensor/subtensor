@@ -12,8 +12,8 @@
     "@polkadot/api": "15.1.1",
     "crypto": "^1.0.1",
     "dotenv": "16.4.7",
-    "polkadot-api": "^1.9.1",
     "ethers": "^6.13.5",
+    "polkadot-api": "^1.9.5",
     "viem": "2.23.4"
   },
   "devDependencies": {

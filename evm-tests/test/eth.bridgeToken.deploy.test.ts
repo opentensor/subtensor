@@ -7,7 +7,7 @@ import { ETH_LOCAL_URL } from "../src/config";
 import { devnet } from "@polkadot-api/descriptors"
 import { PublicClient } from "viem";
 import { TypedApi } from "polkadot-api";
-import { wagmiContract } from "../src/bridgeToken";
+import { BRIDGE_TOKEN_CONTRACT_ABI, BRIDGE_TOKEN_CONTRACT_BYTECODE } from "../src/contracts/bridgeToken";
 import { toViemAddress } from "../src/address-utils";
 import { forceSetBalanceToEthAddress, disableWhiteListCheck } from "../src/subtensor";
 import { ethers } from "ethers"
@@ -29,7 +29,7 @@ describe("bridge token contract deployment", () => {
     });
 
     it("Can deploy bridge token smart contract", async () => {
-        const contractFactory = new ethers.ContractFactory(wagmiContract.abi, wagmiContract.bytecode, wallet)
+        const contractFactory = new ethers.ContractFactory(BRIDGE_TOKEN_CONTRACT_ABI, BRIDGE_TOKEN_CONTRACT_BYTECODE, wallet)
         const contract = await contractFactory.deploy("name",
             "symbol", wallet.address)
         await contract.waitForDeployment()
@@ -46,7 +46,7 @@ describe("bridge token contract deployment", () => {
     });
 
     it("Can deploy bridge token contract with gas limit", async () => {
-        const contractFactory = new ethers.ContractFactory(wagmiContract.abi, wagmiContract.bytecode, wallet)
+        const contractFactory = new ethers.ContractFactory(BRIDGE_TOKEN_CONTRACT_ABI, BRIDGE_TOKEN_CONTRACT_BYTECODE, wallet)
         const successful_gas_limit = "12345678";
         const contract = await contractFactory.deploy("name",
             "symbol", wallet.address,

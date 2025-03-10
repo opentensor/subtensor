@@ -1,7 +1,7 @@
 import assert from "assert"
 
 export const TAO = BigInt(1000000000) // 10^9
-export const ETHPerRAO = BigInt(1000000000) // 10^9
+export const ETH_PER_RAO = BigInt(1000000000) // 10^9
 export const GWEI = BigInt(1000000000) // 10^9
 export const MAX_TX_FEE = BigInt(21000000) * GWEI // 100 times EVM to EVM transfer fee
 
@@ -14,7 +14,7 @@ export function tao(value: number) {
 }
 
 export function raoToEth(value: bigint) {
-    return ETHPerRAO * value
+    return ETH_PER_RAO * value
 }
 
 export function compareEthBalanceWithTxFee(balance1: bigint, balance2: bigint) {

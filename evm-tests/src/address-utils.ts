@@ -1,19 +1,14 @@
 import { Address } from "viem"
 import { encodeAddress } from "@polkadot/util-crypto";
-import { MultiAddress } from '@polkadot-api/descriptors';
-import { ss58Address, KeyPair } from "@polkadot-labs/hdkd-helpers";
+import { ss58Address } from "@polkadot-labs/hdkd-helpers";
 import { hexToU8a } from "@polkadot/util";
 import { blake2AsU8a, decodeAddress } from "@polkadot/util-crypto";
 import { Binary } from "polkadot-api";
+import { SS58_PREFIX } from "./config"
 
 export function toViemAddress(address: string): Address {
     let addressNoPrefix = address.replace("0x", "")
     return `0x${addressNoPrefix}`
-}
-
-export function convertSs58ToMultiAddress(ss58Address: string) {
-    const address = MultiAddress.Id(ss58Address)
-    return address
 }
 
 export function convertH160ToSS58(ethAddress: string) {
@@ -21,12 +16,12 @@ export function convertH160ToSS58(ethAddress: string) {
     const hash = convertH160ToPublicKey(ethAddress);
 
     // Convert the hash to SS58 format
-    const ss58Address = encodeAddress(hash, 42); // Assuming network ID 42
+    const ss58Address = encodeAddress(hash, SS58_PREFIX);
     return ss58Address;
 }
 
 export function convertPublicKeyToSs58(publickey: Uint8Array) {
-    return ss58Address(publickey, 42);
+    return ss58Address(publickey, SS58_PREFIX);
 }
 
 export function convertH160ToPublicKey(ethAddress: string) {
