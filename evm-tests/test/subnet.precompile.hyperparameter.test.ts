@@ -9,7 +9,7 @@ import { ISubnetABI, ISUBNET_ADDRESS } from "../src/contracts/subnet"
 import { ethers } from "ethers"
 import { forceSetBalanceToEthAddress, forceSetBalanceToSs58Address } from "../src/subtensor"
 
-describe("Test the EVM chain ID", () => {
+describe("Test the Subnet precompile contract", () => {
     // init eth part
     const wallet = generateRandomEthersWallet();
     // init substrate part
