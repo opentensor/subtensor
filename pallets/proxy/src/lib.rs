@@ -52,8 +52,8 @@ use sp_runtime::{
     traits::{Dispatchable, Hash, Saturating, StaticLookup, TrailingZeroInput, Zero},
     DispatchError, DispatchResult, RuntimeDebug,
 };
-pub use weights::WeightInfo;
 use subtensor_macros::freeze_struct;
+pub use weights::WeightInfo;
 
 type CallHashOf<T> = <<T as Config>::CallHasher as Hash>::Output;
 
@@ -77,7 +77,6 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
     MaxEncodedLen,
     TypeInfo,
 )]
-
 #[freeze_struct("a37bb67fe5520678")]
 pub struct ProxyDefinition<AccountId, ProxyType, BlockNumber> {
     /// The account which may act on behalf of another.
