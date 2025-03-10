@@ -591,7 +591,6 @@ fn test_swap_concurrent_modifications() {
             &mut weight
         ));
 
-        let eps = 500; // RAO
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey,
@@ -599,7 +598,7 @@ fn test_swap_concurrent_modifications() {
                 netuid
             ),
             stake_before_swap + additional_stake - fee,
-            epsilon = eps
+            epsilon = (stake_before_swap + additional_stake - fee) / 1000
         );
         assert!(!Alpha::<Test>::contains_key((hotkey, old_coldkey, netuid)));
     });

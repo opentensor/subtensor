@@ -1,5 +1,4 @@
 use super::*;
-use sp_core::Get;
 use substrate_fixed::types::I96F32;
 
 impl<T: Config> Pallet<T> {
