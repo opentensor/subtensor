@@ -14,7 +14,6 @@ pub use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
 use fc_storage::StorageOverride;
 use jsonrpsee::RpcModule;
 use node_subtensor_runtime::opaque::Block;
-use node_subtensor_runtime::Hash;
 use sc_consensus_manual_seal::EngineCommand;
 use sc_network::service::traits::NetworkService;
 use sc_network_sync::SyncingService;
@@ -24,6 +23,7 @@ use sc_transaction_pool_api::TransactionPool;
 use sp_core::H256;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::Block as BlockT;
+use subtensor_runtime_common::Hash;
 
 use crate::{
     client::{FullBackend, FullClient},

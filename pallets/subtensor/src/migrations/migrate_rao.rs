@@ -3,8 +3,6 @@ use alloc::string::String;
 use frame_support::IterableStorageMap;
 use frame_support::{traits::Get, weights::Weight};
 use sp_runtime::format;
-use substrate_fixed::types::I96F32;
-use substrate_fixed::types::U64F64;
 
 use super::*;
 
@@ -36,29 +34,30 @@ pub fn migrate_rao<T: Config>() -> Weight {
     DynamicBlock::<T>::set(Pallet::<T>::get_current_block_as_u64());
 
     // Migrate all TAO to root.
-    Stake::<T>::iter().for_each(|(hotkey, coldkey, stake)| {
-        // Increase SubnetTAO on root.
-        SubnetTAO::<T>::mutate(0, |total| {
-            *total = total.saturating_add(stake);
-        });
-        // Increase SubnetAlphaOut on root.
-        SubnetAlphaOut::<T>::mutate(0, |total| {
-            *total = total.saturating_add(stake);
-        });
-        // Set all the stake on root 0 subnet.
-        Alpha::<T>::mutate((hotkey.clone(), coldkey.clone(), 0), |total| {
-            *total = total.saturating_add(U64F64::saturating_from_num(stake))
-        });
-        TotalHotkeyShares::<T>::mutate(hotkey.clone(), 0, |total| {
-            *total = total.saturating_add(U64F64::saturating_from_num(stake))
-        });
-        // Set the total stake on the hotkey
-        TotalHotkeyAlpha::<T>::mutate(hotkey.clone(), 0, |total| {
-            *total = total.saturating_add(stake)
-        });
-        // 6 reads and 6 writes.
-        weight = weight.saturating_add(T::DbWeight::get().reads_writes(6, 6));
-    });
+    // This migration has already run, leaving this only for reference for now, since this is a recent migration
+    // Stake::<T>::iter().for_each(|(hotkey, coldkey, stake)| {
+    //     // Increase SubnetTAO on root.
+    //     SubnetTAO::<T>::mutate(0, |total| {
+    //         *total = total.saturating_add(stake);
+    //     });
+    //     // Increase SubnetAlphaOut on root.
+    //     SubnetAlphaOut::<T>::mutate(0, |total| {
+    //         *total = total.saturating_add(stake);
+    //     });
+    //     // Set all the stake on root 0 subnet.
+    //     Alpha::<T>::mutate((hotkey.clone(), coldkey.clone(), 0), |total| {
+    //         *total = total.saturating_add(U64F64::saturating_from_num(stake))
+    //     });
+    //     TotalHotkeyShares::<T>::mutate(hotkey.clone(), 0, |total| {
+    //         *total = total.saturating_add(U64F64::saturating_from_num(stake))
+    //     });
+    //     // Set the total stake on the hotkey
+    //     TotalHotkeyAlpha::<T>::mutate(hotkey.clone(), 0, |total| {
+    //         *total = total.saturating_add(stake)
+    //     });
+    //     // 6 reads and 6 writes.
+    //     weight = weight.saturating_add(T::DbWeight::get().reads_writes(6, 6));
+    // });
 
     // Convert subnets and give them lock.
     // Set global weight to 18% from the start
@@ -89,12 +88,12 @@ pub fn migrate_rao<T: Config>() -> Weight {
 
         let remaining_lock = lock.saturating_sub(pool_initial_tao);
         // Refund the owner for the remaining lock.
-        SubnetMovingPrice::<T>::insert(
-            netuid,
-            I96F32::from_num(EmissionValues::<T>::get(netuid))
-                .checked_div(I96F32::from_num(1_000_000_000))
-                .unwrap_or(I96F32::from_num(0.0)),
-        );
+        // SubnetMovingPrice::<T>::insert(
+        //     netuid,
+        //     I96F32::from_num(EmissionValues::<T>::get(netuid))
+        //         .checked_div(I96F32::from_num(1_000_000_000))
+        //         .unwrap_or(I96F32::from_num(0.0)),
+        // );
         Pallet::<T>::add_balance_to_coldkey_account(&owner, remaining_lock);
         SubnetLocked::<T>::insert(netuid, 0); // Clear lock amount.
         SubnetTAO::<T>::insert(netuid, pool_initial_tao);

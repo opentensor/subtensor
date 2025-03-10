@@ -6,10 +6,10 @@
 use substrate_fixed::types::{I32F32, I64F64};
 
 use crate::epoch::math::*;
-use rand::{seq::SliceRandom, thread_rng, Rng};
+use rand::{Rng, seq::SliceRandom, thread_rng};
 use substrate_fixed::{
     transcendental::exp,
-    types::{I110F18, I96F32},
+    types::{I96F32, I110F18},
 };
 
 fn assert_float_compare(a: I32F32, b: I32F32, epsilon: I32F32) {
@@ -58,7 +58,13 @@ fn assert_sparse_mat_compare(
 ) {
     assert!(ma.len() == mb.len());
     for row in 0..ma.len() {
-        assert!(ma[row].len() == mb[row].len());
+        assert!(
+            ma[row].len() == mb[row].len(),
+            "row: {}, ma: {:?}, mb: {:?}",
+            row,
+            ma[row],
+            mb[row]
+        );
         for j in 0..ma[row].len() {
             assert!(ma[row][j].0 == mb[row][j].0); // u16
             assert_float_compare(ma[row][j].1, mb[row][j].1, epsilon) // I32F32
@@ -1035,6 +1041,27 @@ fn test_math_inplace_mask_diag() {
 }
 
 #[test]
+fn test_math_inplace_mask_diag_except_index() {
+    let vector: Vec<f32> = vec![1., 2., 3., 4., 5., 6., 7., 8., 9.];
+    let rows = 3;
+
+    for i in 0..rows {
+        let mut target: Vec<f32> = vec![0., 2., 3., 4., 0., 6., 7., 8., 0.];
+        let row = i * rows;
+        let col = i;
+        target[row + col] = vector[row + col];
+
+        let mut mat = vec_to_mat_fixed(&vector, rows, false);
+        inplace_mask_diag_except_index(&mut mat, i as u16);
+        assert_mat_compare(
+            &mat,
+            &vec_to_mat_fixed(&target, rows, false),
+            I32F32::from_num(0),
+        );
+    }
+}
+
+#[test]
 fn test_math_mask_rows_sparse() {
     let input: Vec<f32> = vec![1., 2., 3., 4., 5., 6., 7., 8., 9.];
     let mat = vec_to_sparse_mat_fixed(&input, 3, false);
@@ -1103,6 +1130,58 @@ fn test_math_mask_diag_sparse() {
         &vec_to_sparse_mat_fixed(&target, 3, false),
         I32F32::from_num(0),
     );
+}
+
+#[test]
+fn test_math_mask_diag_sparse_except_index() {
+    let rows = 3;
+
+    let vector: Vec<f32> = vec![1., 2., 3., 4., 5., 6., 7., 8., 9.];
+    let mat = vec_to_sparse_mat_fixed(&vector, rows, false);
+
+    for i in 0..rows {
+        let mut target: Vec<f32> = vec![0., 2., 3., 4., 0., 6., 7., 8., 0.];
+        let row = i * rows;
+        let col = i;
+        target[row + col] = vector[row + col];
+
+        let result = mask_diag_sparse_except_index(&mat, i as u16);
+        let target_as_mat = vec_to_sparse_mat_fixed(&target, rows, false);
+
+        assert_sparse_mat_compare(&result, &target_as_mat, I32F32::from_num(0));
+    }
+
+    let vector: Vec<f32> = vec![1., 0., 0., 0., 5., 0., 0., 0., 9.];
+    let mat = vec_to_sparse_mat_fixed(&vector, rows, false);
+
+    for i in 0..rows {
+        let mut target: Vec<f32> = vec![0., 0., 0., 0., 0., 0., 0., 0., 0.];
+        let row = i * rows;
+        let col = i;
+        target[row + col] = vector[row + col];
+
+        let result = mask_diag_sparse_except_index(&mat, i as u16);
+        let target_as_mat = vec_to_sparse_mat_fixed(&target, rows, false);
+        assert_eq!(result.len(), target_as_mat.len());
+
+        assert_sparse_mat_compare(&result, &target_as_mat, I32F32::from_num(0));
+    }
+
+    for i in 0..rows {
+        let vector: Vec<f32> = vec![0., 0., 0., 0., 0., 0., 0., 0., 0.];
+        let mat = vec_to_sparse_mat_fixed(&vector, rows, false);
+
+        let mut target: Vec<f32> = vec![0., 0., 0., 0., 0., 0., 0., 0., 0.];
+        let row = i * rows;
+        let col = i;
+        target[row + col] = vector[row + col];
+
+        let result = mask_diag_sparse_except_index(&mat, i as u16);
+        let target_as_mat = vec_to_sparse_mat_fixed(&target, rows, false);
+        assert_eq!(result.len(), target_as_mat.len());
+
+        assert_sparse_mat_compare(&result, &target_as_mat, I32F32::from_num(0));
+    }
 }
 
 #[test]

@@ -1,5 +1,10 @@
 use super::mock::*;
 use crate::*;
+use frame_support::{
+    assert_ok,
+    dispatch::{GetDispatchInfo, Pays},
+    weights::Weight,
+};
 use sp_core::U256;
 use substrate_fixed::types::I96F32;
 
@@ -555,5 +560,66 @@ fn test_share_based_staking_stake_inject_stake_new() {
             assert!((stake1 as i64 - (stake_amount + inject_amount) as i64).abs() <= tolerance);
             assert!((stake2 as i64 - stake_amount_2 as i64).abs() <= tolerance);
         });
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::staking2::test_try_associate_hotkey --exact --show-output --nocapture
+#[test]
+fn test_try_associate_hotkey() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey1 = U256::from(1);
+        let coldkey1 = U256::from(2);
+        let coldkey2 = U256::from(3);
+
+        // Check initial association
+        assert!(!SubtensorModule::hotkey_account_exists(&hotkey1));
+
+        // Associate hotkey1 with coldkey1
+        assert_ok!(SubtensorModule::try_associate_hotkey(
+            RuntimeOrigin::signed(coldkey1),
+            hotkey1
+        ));
+
+        // Check that hotkey1 is associated with coldkey1
+        assert!(SubtensorModule::hotkey_account_exists(&hotkey1));
+        assert_eq!(
+            SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey1),
+            coldkey1
+        );
+        assert_ne!(SubtensorModule::get_owned_hotkeys(&coldkey1).len(), 0);
+        assert!(SubtensorModule::get_owned_hotkeys(&coldkey1).contains(&hotkey1));
+
+        // Verify this tx requires a fee
+        let call =
+            RuntimeCall::SubtensorModule(crate::Call::try_associate_hotkey { hotkey: hotkey1 });
+        let dispatch_info = call.get_dispatch_info();
+        // Verify tx weight > 0
+        assert!(dispatch_info.weight.all_gte(Weight::from_all(0)));
+        // Verify pays Yes is set
+        assert_eq!(dispatch_info.pays_fee, Pays::Yes);
+
+        // Check that coldkey2 is not associated with any hotkey
+        assert!(!SubtensorModule::get_owned_hotkeys(&coldkey2).contains(&hotkey1));
+        assert_eq!(SubtensorModule::get_owned_hotkeys(&coldkey2).len(), 0);
+
+        // Try to associate hotkey1 with coldkey2
+        // Should have no effect because coldkey1 is already associated with hotkey1
+        assert_ok!(SubtensorModule::try_associate_hotkey(
+            RuntimeOrigin::signed(coldkey2),
+            hotkey1
+        ));
+
+        // Check that hotkey1 is still associated with coldkey1
+        assert!(SubtensorModule::hotkey_account_exists(&hotkey1));
+        assert_eq!(
+            SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey1),
+            coldkey1
+        );
+        assert_ne!(SubtensorModule::get_owned_hotkeys(&coldkey1).len(), 0);
+        assert!(SubtensorModule::get_owned_hotkeys(&coldkey1).contains(&hotkey1));
+
+        // Check that coldkey2 is still not associated with any hotkey
+        assert!(!SubtensorModule::get_owned_hotkeys(&coldkey2).contains(&hotkey1));
+        assert_eq!(SubtensorModule::get_owned_hotkeys(&coldkey2).len(), 0);
     });
 }

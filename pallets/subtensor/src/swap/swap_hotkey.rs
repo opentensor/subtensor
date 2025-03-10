@@ -190,24 +190,33 @@ impl<T: Config> Pallet<T> {
 
         // 5. Swap LastTxBlock
         // LastTxBlock( hotkey ) --> u64 -- the last transaction block for the hotkey.
+        let last_tx_block: u64 = LastTxBlock::<T>::get(old_hotkey);
         LastTxBlock::<T>::remove(old_hotkey);
-        LastTxBlock::<T>::insert(new_hotkey, Self::get_current_block_as_u64());
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 2));
+        LastTxBlock::<T>::insert(new_hotkey, last_tx_block);
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
         // 6. Swap LastTxBlockDelegateTake
         // LastTxBlockDelegateTake( hotkey ) --> u64 -- the last transaction block for the hotkey delegate take.
+        let last_tx_block_delegate_take: u64 = LastTxBlockDelegateTake::<T>::get(old_hotkey);
         LastTxBlockDelegateTake::<T>::remove(old_hotkey);
-        LastTxBlockDelegateTake::<T>::insert(new_hotkey, Self::get_current_block_as_u64());
+        LastTxBlockDelegateTake::<T>::insert(new_hotkey, last_tx_block_delegate_take);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
-        // 7. Swap Senate members.
+        // 7. Swap LastTxBlockChildKeyTake
+        // LastTxBlockChildKeyTake( hotkey ) --> u64 -- the last transaction block for the hotkey child key take.
+        let last_tx_block_child_key_take: u64 = LastTxBlockChildKeyTake::<T>::get(old_hotkey);
+        LastTxBlockChildKeyTake::<T>::remove(old_hotkey);
+        LastTxBlockChildKeyTake::<T>::insert(new_hotkey, last_tx_block_child_key_take);
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+
+        // 8. Swap Senate members.
         // Senate( hotkey ) --> ?
         if T::SenateMembers::is_member(old_hotkey) {
             T::SenateMembers::swap_member(old_hotkey, new_hotkey).map_err(|e| e.error)?;
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
         }
 
-        // 8. Swap delegates.
+        // 9. Swap delegates.
         // Delegates( hotkey ) -> take value -- the hotkey delegate take value.
         if Delegates::<T>::contains_key(old_hotkey) {
             let old_delegate_take = Delegates::<T>::get(old_hotkey);
@@ -331,28 +340,6 @@ impl<T: Config> Pallet<T> {
                 StakingHotkeys::<T>::insert(&coldkey, staking_hotkeys);
                 weight.saturating_accrue(T::DbWeight::get().writes(1));
             }
-        }
-
-        // 11. Swap Stake.
-        // Stake( hotkey, coldkey ) -> stake -- the stake that the hotkey controls on behalf of the coldkey.
-        let stakes: Vec<(T::AccountId, u64)> = Stake::<T>::iter_prefix(old_hotkey).collect();
-        // Clear the entire old prefix here.
-        let _ = Stake::<T>::clear_prefix(old_hotkey, stakes.len() as u32, None);
-        // Iterate over all the staking rows and insert them into the new hotkey.
-        for (coldkey, old_stake_amount) in stakes {
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
-
-            // Swap Stake value
-            // Stake( hotkey, coldkey ) -> stake -- the stake that the hotkey controls on behalf of the coldkey.
-            // Get the new stake value.
-            let new_stake_value: u64 = Stake::<T>::get(new_hotkey, &coldkey);
-            // Insert the new stake value.
-            Stake::<T>::insert(
-                new_hotkey,
-                &coldkey,
-                new_stake_value.saturating_add(old_stake_amount),
-            );
-            weight.saturating_accrue(T::DbWeight::get().writes(1));
         }
 
         // 12. Swap ChildKeys.

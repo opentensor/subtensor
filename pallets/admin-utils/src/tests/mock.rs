@@ -6,15 +6,15 @@ use frame_support::{
     weights,
 };
 use frame_system as system;
-use frame_system::{limits, EnsureNever, EnsureRoot};
+use frame_system::{EnsureNever, EnsureRoot, limits};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityList as GrandpaAuthorityList;
 use sp_core::U256;
 use sp_core::{ConstU64, H256};
 use sp_runtime::{
+    BuildStorage, KeyTypeId, Perbill,
     testing::TestXt,
     traits::{BlakeTwo256, ConstU32, IdentityLookup},
-    BuildStorage, KeyTypeId, Perbill,
 };
 use sp_std::cmp::Ordering;
 use sp_weights::Weight;
@@ -123,14 +123,14 @@ parameter_types! {
     pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
     pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
-    pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
+    // pub const InitialSubnetLimit: u16 = 10; // (DEPRECATED)
     pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialKeySwapCost: u64 = 1_000_000_000;
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     // pub const InitialHotkeyEmissionTempo: u64 = 1; // (DEPRECATED)
-    pub const InitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64, this make the make stake infinity
+    // pub const InitialNetworkMaxStake: u64 = u64::MAX; // (DEPRECATED)
     pub const InitialColdkeySwapScheduleDuration: u64 = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const InitialDissolveNetworkScheduleDuration: u64 = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const InitialTaoWeight: u64 = u64::MAX/10; // 10% global weight.
@@ -188,14 +188,11 @@ impl pallet_subtensor::Config for Test {
     type InitialNetworkMinLockCost = InitialNetworkMinLockCost;
     type InitialSubnetOwnerCut = InitialSubnetOwnerCut;
     type InitialNetworkLockReductionInterval = InitialNetworkLockReductionInterval;
-    type InitialSubnetLimit = InitialSubnetLimit;
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
     type KeySwapCost = InitialKeySwapCost;
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;
-    // type InitialHotkeyEmissionTempo = InitialHotkeyEmissionTempo; // (DEPRECATED)
-    type InitialNetworkMaxStake = InitialNetworkMaxStake;
     type Preimages = ();
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
@@ -326,8 +323,8 @@ pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"test");
 
 mod test_crypto {
     use super::KEY_TYPE;
-    use sp_core::sr25519::{Public as Sr25519Public, Signature as Sr25519Signature};
     use sp_core::U256;
+    use sp_core::sr25519::{Public as Sr25519Public, Signature as Sr25519Signature};
     use sp_runtime::{
         app_crypto::{app_crypto, sr25519},
         traits::IdentifyAccount,

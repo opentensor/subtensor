@@ -11,7 +11,7 @@ use crate::*;
 use frame_support::{assert_err, assert_ok};
 
 // use frame_system::Config;
-use rand::{distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng, distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng};
 use sp_core::{Get, U256};
 // use sp_runtime::DispatchError;
 use std::time::Instant;
@@ -582,11 +582,6 @@ fn test_1_graph() {
         ));
         // SubtensorModule::set_weights_for_testing( netuid, i as u16, vec![ ( 0, u16::MAX )]); // doesn't set update status
         // SubtensorModule::set_bonds_for_testing( netuid, uid, vec![ ( 0, u16::MAX )]); // rather, bonds are calculated in epoch
-        SubtensorModule::set_emission_values(&[netuid], vec![1_000_000_000]).unwrap();
-        assert_eq!(
-            SubtensorModule::get_subnet_emission_value(netuid),
-            1_000_000_000
-        );
         SubtensorModule::epoch(netuid, 1_000_000_000);
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey),
@@ -597,10 +592,6 @@ fn test_1_graph() {
         assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, uid), 0);
         assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, uid), 0);
         assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, uid), 0);
-        assert_eq!(
-            SubtensorModule::get_emission_for_uid(netuid, uid),
-            1_000_000_000
-        );
     });
 }
 
@@ -2285,19 +2276,19 @@ fn test_compute_alpha_values() {
     // exp_val = exp(0.0 - 1.0 * 0.1) = exp(-0.1)
     // alpha[0] = 1 / (1 + exp(-0.1)) ~ 0.9048374180359595
     let exp_val_0 = I32F32::from_num(0.9048374180359595);
-    let expected_alpha_0 = I32F32::from_num(1.0) / I32F32::from_num(1.0).saturating_add(exp_val_0);
+    let expected_alpha_0 = I32F32::from_num(1.0) / (I32F32::from_num(1.0) + exp_val_0);
 
     // For consensus[1] = 0.5:
     // exp_val = exp(0.0 - 1.0 * 0.5) = exp(-0.5)
     // alpha[1] = 1 / (1 + exp(-0.5)) ~ 0.6065306597126334
     let exp_val_1 = I32F32::from_num(0.6065306597126334);
-    let expected_alpha_1 = I32F32::from_num(1.0) / I32F32::from_num(1.0).saturating_add(exp_val_1);
+    let expected_alpha_1 = I32F32::from_num(1.0) / (I32F32::from_num(1.0) + exp_val_1);
 
     // For consensus[2] = 0.9:
     // exp_val = exp(0.0 - 1.0 * 0.9) = exp(-0.9)
     // alpha[2] = 1 / (1 + exp(-0.9)) ~ 0.4065696597405991
     let exp_val_2 = I32F32::from_num(0.4065696597405991);
-    let expected_alpha_2 = I32F32::from_num(1.0) / I32F32::from_num(1.0).saturating_add(exp_val_2);
+    let expected_alpha_2 = I32F32::from_num(1.0) / (I32F32::from_num(1.0) + exp_val_2);
 
     // Define an epsilon for approximate equality checks.
     let epsilon = I32F32::from_num(1e-6);
@@ -2329,13 +2320,13 @@ fn test_compute_alpha_values_256_miners() {
 
     for (i, &c) in consensus.iter().enumerate() {
         // Use saturating subtraction and multiplication
-        let exponent = b.saturating_sub(a.saturating_mul(c));
+        let exponent = b - (a * c);
 
         // Use safe_exp instead of exp
         let exp_val = safe_exp(exponent);
 
         // Use saturating addition and division
-        let expected_alpha = I32F32::from_num(1.0) / I32F32::from_num(1.0).saturating_add(exp_val);
+        let expected_alpha = I32F32::from_num(1.0) / (I32F32::from_num(1.0) + exp_val);
 
         // Assert that the computed alpha values match the expected values within the epsilon.
         assert_approx_eq(alpha[i], expected_alpha, epsilon);

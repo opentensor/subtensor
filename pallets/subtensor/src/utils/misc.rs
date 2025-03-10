@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
-    system::{ensure_root, ensure_signed_or_root, pallet_prelude::BlockNumberFor},
     Error,
+    system::{ensure_root, ensure_signed, ensure_signed_or_root, pallet_prelude::BlockNumberFor},
 };
 use safe_math::*;
 use sp_core::Get;
@@ -19,6 +19,15 @@ impl<T: Config> Pallet<T> {
             Ok(Some(who)) if SubnetOwner::<T>::get(netuid) == who => Ok(()),
             Ok(Some(_)) => Err(DispatchError::BadOrigin),
             Ok(None) => Ok(()),
+            Err(x) => Err(x.into()),
+        }
+    }
+
+    pub fn ensure_subnet_owner(o: T::RuntimeOrigin, netuid: u16) -> Result<(), DispatchError> {
+        let coldkey = ensure_signed(o);
+        match coldkey {
+            Ok(who) if SubnetOwner::<T>::get(netuid) == who => Ok(()),
+            Ok(_) => Err(DispatchError::BadOrigin),
             Err(x) => Err(x.into()),
         }
     }
@@ -203,9 +212,6 @@ impl<T: Config> Pallet<T> {
     // ============================
     pub fn get_tempo(netuid: u16) -> u16 {
         Tempo::<T>::get(netuid)
-    }
-    pub fn get_emission_value(netuid: u16) -> u64 {
-        EmissionValues::<T>::get(netuid)
     }
     pub fn get_pending_emission(netuid: u16) -> u64 {
         PendingEmission::<T>::get(netuid)
@@ -682,38 +688,6 @@ impl<T: Config> Pallet<T> {
         LiquidAlphaOn::<T>::get(netuid)
     }
 
-    /// Retrieves the maximum stake allowed for a given network.
-    ///
-    /// # Arguments
-    ///
-    /// * `netuid` - The unique identifier of the network.
-    ///
-    /// # Returns
-    ///
-    /// * `u64` - The maximum stake allowed for the specified network.
-    pub fn get_network_max_stake(netuid: u16) -> u64 {
-        NetworkMaxStake::<T>::get(netuid)
-    }
-
-    /// Sets the maximum stake allowed for a given network.
-    ///
-    /// # Arguments
-    ///
-    /// * `netuid` - The unique identifier of the network.
-    /// * `max_stake` - The new maximum stake value to set.
-    ///
-    /// # Effects
-    ///
-    /// * Updates the NetworkMaxStake storage.
-    /// * Emits a NetworkMaxStakeSet event.
-    pub fn set_network_max_stake(netuid: u16, max_stake: u64) {
-        // Update the NetworkMaxStake storage with the new max_stake value
-        NetworkMaxStake::<T>::insert(netuid, max_stake);
-
-        // Emit an event to notify listeners about the change
-        Self::deposit_event(Event::NetworkMaxStakeSet(netuid, max_stake));
-    }
-
     /// Set the duration for coldkey swap
     ///
     /// # Arguments
@@ -742,5 +716,29 @@ impl<T: Config> Pallet<T> {
     pub fn set_dissolve_network_schedule_duration(duration: BlockNumberFor<T>) {
         DissolveNetworkScheduleDuration::<T>::set(duration);
         Self::deposit_event(Event::DissolveNetworkScheduleDurationSet(duration));
+    }
+
+    /// Set the owner hotkey for a subnet.
+    ///
+    /// # Arguments
+    ///
+    /// * `netuid` - The unique identifier for the subnet.
+    /// * `hotkey` - The new hotkey for the subnet owner.
+    ///
+    /// # Effects
+    ///
+    /// * Update the SubnetOwnerHotkey storage.
+    /// * Emits a SubnetOwnerHotkeySet event.
+    pub fn set_subnet_owner_hotkey(netuid: u16, hotkey: &T::AccountId) {
+        SubnetOwnerHotkey::<T>::insert(netuid, hotkey.clone());
+        Self::deposit_event(Event::SubnetOwnerHotkeySet(netuid, hotkey.clone()));
+    }
+
+    // Get the uid of the Owner Hotkey for a subnet.
+    pub fn get_owner_uid(netuid: u16) -> Option<u16> {
+        match SubnetOwnerHotkey::<T>::try_get(netuid) {
+            Ok(owner_hotkey) => Uids::<T>::get(netuid, &owner_hotkey),
+            Err(_) => None,
+        }
     }
 }

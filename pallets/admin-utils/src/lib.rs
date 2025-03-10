@@ -12,7 +12,7 @@ use frame_system::pallet_prelude::BlockNumberFor;
 // - we could use a type parameter for `AuthorityId`, but there is
 //   no sense for this as GRANDPA's `AuthorityId` is not a parameter -- it's always the same
 use sp_consensus_grandpa::AuthorityList;
-use sp_runtime::{traits::Member, DispatchResult, RuntimeAppPublic};
+use sp_runtime::{DispatchResult, RuntimeAppPublic, traits::Member};
 
 mod benchmarking;
 
@@ -25,10 +25,15 @@ pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
     use frame_support::traits::tokens::Balance;
-    use frame_support::{dispatch::DispatchResult, pallet_prelude::StorageMap};
+    use frame_support::{
+        dispatch::{DispatchResult, RawOrigin},
+        pallet_prelude::StorageMap,
+    };
     use frame_system::pallet_prelude::*;
     use pallet_evm_chain_id::{self, ChainId};
+    use pallet_subtensor::utils::rate_limiting::TransactionType;
     use sp_runtime::BoundedVec;
+    use substrate_fixed::types::I96F32;
 
     /// The main data structure of the module.
     #[pallet::pallet]
@@ -248,12 +253,35 @@ pub mod pallet {
             netuid: u16,
             weights_version_key: u64,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
+
+            if let Ok(RawOrigin::Signed(who)) = origin.into() {
+                // SN Owner
+                // Ensure the origin passes the rate limit.
+                ensure!(
+                    pallet_subtensor::Pallet::<T>::passes_rate_limit_on_subnet(
+                        &TransactionType::SetWeightsVersionKey,
+                        &who,
+                        netuid,
+                    ),
+                    pallet_subtensor::Error::<T>::TxRateLimitExceeded
+                );
+
+                // Set last transaction block
+                let current_block = pallet_subtensor::Pallet::<T>::get_current_block_as_u64();
+                pallet_subtensor::Pallet::<T>::set_last_transaction_block_on_subnet(
+                    &who,
+                    netuid,
+                    &TransactionType::SetWeightsVersionKey,
+                    current_block,
+                );
+            }
+
             pallet_subtensor::Pallet::<T>::set_weights_version_key(netuid, weights_version_key);
             log::debug!(
                 "WeightsVersionKeySet( netuid: {:?} weights_version_key: {:?} ) ",
@@ -586,10 +614,10 @@ pub mod pallet {
                 target_registrations_per_interval,
             );
             log::debug!(
-            "RegistrationPerIntervalSet( netuid: {:?} target_registrations_per_interval: {:?} ) ",
-            netuid,
-            target_registrations_per_interval
-        );
+                "RegistrationPerIntervalSet( netuid: {:?} target_registrations_per_interval: {:?} ) ",
+                netuid,
+                target_registrations_per_interval
+            );
             Ok(())
         }
 
@@ -909,12 +937,8 @@ pub mod pallet {
 			DispatchClass::Operational,
 			Pays::No
 		))]
-        pub fn sudo_set_subnet_limit(origin: OriginFor<T>, max_subnets: u16) -> DispatchResult {
+        pub fn sudo_set_subnet_limit(origin: OriginFor<T>, _max_subnets: u16) -> DispatchResult {
             ensure_root(origin)?;
-            pallet_subtensor::Pallet::<T>::set_max_subnets(max_subnets);
-
-            log::debug!("SubnetLimit( max_subnets: {:?} ) ", max_subnets);
-
             Ok(())
         }
 
@@ -1154,22 +1178,11 @@ pub mod pallet {
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_network_max_stake(
             origin: OriginFor<T>,
-            netuid: u16,
-            max_stake: u64,
+            _netuid: u16,
+            _max_stake: u64,
         ) -> DispatchResult {
             // Ensure the call is made by the root account
             ensure_root(origin)?;
-
-            // Set the new maximum stake for the specified network
-            pallet_subtensor::Pallet::<T>::set_network_max_stake(netuid, max_stake);
-
-            // Log the change
-            log::trace!(
-                "NetworkMaxStakeSet( netuid: {:?}, max_stake: {:?} )",
-                netuid,
-                max_stake
-            );
-
             Ok(())
         }
 
@@ -1375,6 +1388,57 @@ pub mod pallet {
                     enabled,
                 });
             }
+            Ok(())
+        }
+
+        ///
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the root account.
+        /// * `alpha` - The new moving alpha value for the SubnetMovingAlpha.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the caller is not the root account.
+        ///
+        /// # Weight
+        /// Weight is handled by the `#[pallet::weight]` attribute.
+        #[pallet::call_index(63)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_subnet_moving_alpha(origin: OriginFor<T>, alpha: I96F32) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::SubnetMovingAlpha::<T>::set(alpha);
+
+            log::debug!("SubnetMovingAlphaSet( alpha: {:?} )", alpha);
+            Ok(())
+        }
+
+        /// Change the SubnetOwnerHotkey for a given subnet.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the subnet owner.
+        /// * `netuid` - The unique identifier for the subnet.
+        /// * `hotkey` - The new hotkey for the subnet owner.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the caller is not the subnet owner or root account.
+        ///
+        /// # Weight
+        /// Weight is handled by the `#[pallet::weight]` attribute.
+        #[pallet::call_index(64)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_subnet_owner_hotkey(
+            origin: OriginFor<T>,
+            netuid: u16,
+            hotkey: T::AccountId,
+        ) -> DispatchResult {
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner(origin.clone(), netuid)?;
+            pallet_subtensor::Pallet::<T>::set_subnet_owner_hotkey(netuid, &hotkey);
+
+            log::debug!(
+                "SubnetOwnerHotkeySet( netuid: {:?}, hotkey: {:?} )",
+                netuid,
+                hotkey
+            );
             Ok(())
         }
     }

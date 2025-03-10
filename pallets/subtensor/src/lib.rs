@@ -12,7 +12,7 @@ use frame_support::{
     dispatch::{self, DispatchInfo, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo},
     ensure,
     pallet_macros::import_section,
-    traits::{tokens::fungible, IsSubType},
+    traits::{IsSubType, tokens::fungible},
 };
 
 use codec::{Decode, Encode};
@@ -23,9 +23,9 @@ use pallet_balances::Call as BalancesCall;
 use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{
+    DispatchError,
     traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
     transaction_validity::{TransactionValidity, TransactionValidityError},
-    DispatchError,
 };
 use sp_std::marker::PhantomData;
 
@@ -68,12 +68,12 @@ pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 pub mod pallet {
     use crate::migrations;
     use frame_support::{
+        BoundedVec,
         dispatch::GetDispatchInfo,
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
         traits::{
-            tokens::fungible, OriginTrait, QueryPreimage, StorePreimage, UnfilteredDispatchable,
+            OriginTrait, QueryPreimage, StorePreimage, UnfilteredDispatchable, tokens::fungible,
         },
-        BoundedVec,
     };
     use frame_system::pallet_prelude::*;
     use pallet_drand::types::RoundNumber;
@@ -501,11 +501,6 @@ pub mod pallet {
         T::InitialSubnetOwnerCut::get()
     }
     #[pallet::type_value]
-    /// Default value for subnet limit.
-    pub fn DefaultSubnetLimit<T: Config>() -> u16 {
-        T::InitialSubnetLimit::get()
-    }
-    #[pallet::type_value]
     /// Default value for network rate limit.
     pub fn DefaultNetworkRateLimit<T: Config>() -> u64 {
         if cfg!(feature = "pow-faucet") {
@@ -514,9 +509,10 @@ pub mod pallet {
         T::InitialNetworkRateLimit::get()
     }
     #[pallet::type_value]
-    /// Default value for emission values.
-    pub fn DefaultEmissionValues<T: Config>() -> u64 {
-        0
+    /// Default value for weights version key rate limit.
+    /// In units of tempos.
+    pub fn DefaultWeightsVersionKeyRateLimit<T: Config>() -> u64 {
+        5 // 5 tempos
     }
     #[pallet::type_value]
     /// Default value for pending emission.
@@ -728,11 +724,6 @@ pub mod pallet {
     pub fn DefaultAlphaValues<T: Config>() -> (u16, u16) {
         (45875, 58982)
     }
-    #[pallet::type_value]
-    /// Default value for network max stake.
-    pub fn DefaultNetworkMaxStake<T: Config>() -> u64 {
-        T::InitialNetworkMaxStake::get()
-    }
 
     #[pallet::type_value]
     /// Default value for coldkey swap schedule duration
@@ -743,7 +734,11 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for applying pending items (e.g. childkeys).
     pub fn DefaultPendingCooldown<T: Config>() -> u64 {
-        1
+        if cfg!(feature = "fast-blocks") {
+            return 15;
+        }
+
+        7_200
     }
 
     #[pallet::type_value]
@@ -998,18 +993,6 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Returns the vector of hotkeys controlled by this coldkey.
     pub type OwnedHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
-    #[pallet::storage]
-    /// (DEPRECATED) DMAP ( hot, cold ) --> stake | Returns the stake under a coldkey prefixed by hotkey.
-    pub type Stake<T: Config> = StorageDoubleMap<
-        _,
-        Blake2_128Concat,
-        T::AccountId,
-        Identity,
-        T::AccountId,
-        u64,
-        ValueQuery,
-        DefaultZeroU64<T>,
-    >;
 
     #[pallet::storage] // --- DMAP ( cold ) --> () | Maps coldkey to if a coldkey swap is scheduled.
     pub type ColdkeySwapScheduled<T: Config> =
@@ -1067,9 +1050,6 @@ pub mod pallet {
     pub type MaxRegistrationsPerBlock<T> =
         StorageMap<_, Identity, u16, u16, ValueQuery, DefaultMaxRegistrationsPerBlock<T>>;
     #[pallet::storage]
-    /// --- ITEM( maximum_number_of_networks )
-    pub type SubnetLimit<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetLimit<T>>;
-    #[pallet::storage]
     /// --- ITEM( total_number_of_existing_networks )
     pub type TotalNetworks<T> = StorageValue<_, u16, ValueQuery>;
     #[pallet::storage]
@@ -1103,6 +1083,10 @@ pub mod pallet {
     pub type NetworkRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkRateLimit<T>>;
     #[pallet::storage] // --- ITEM( nominator_min_required_stake )
     pub type NominatorMinRequiredStake<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage]
+    /// ITEM( weights_version_key_rate_limit ) --- Rate limit in tempos.
+    pub type WeightsVersionKeyRateLimit<T> =
+        StorageValue<_, u64, ValueQuery, DefaultWeightsVersionKeyRateLimit<T>>;
 
     /// ============================
     /// ==== Subnet Locks =====
@@ -1163,10 +1147,6 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> block_created
     pub type NetworkRegisteredAt<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultNetworkRegisteredAt<T>>;
-    #[pallet::storage]
-    /// --- MAP ( netuid ) --> emission_values
-    pub type EmissionValues<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultEmissionValues<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> pending_emission
     pub type PendingEmission<T> =
@@ -1336,10 +1316,6 @@ pub mod pallet {
     ///  MAP ( netuid ) --> (alpha_low, alpha_high)
     pub type AlphaValues<T> =
         StorageMap<_, Identity, u16, (u16, u16), ValueQuery, DefaultAlphaValues<T>>;
-    /// MAP ( netuid ) --> max stake allowed on a subnet.
-    #[pallet::storage]
-    pub type NetworkMaxStake<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultNetworkMaxStake<T>>;
 
     /// =======================================
     /// ==== Subnetwork Consensus Storage  ====
@@ -2241,9 +2217,13 @@ where
         self,
         who: &Self::AccountId,
         call: &Self::Call,
-        _info: &DispatchInfoOf<Self::Call>,
-        _len: usize,
+        info: &DispatchInfoOf<Self::Call>,
+        len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
+        // We need to perform same checks as Self::validate so that
+        // the validation is performed during Executive::apply_extrinsic as well.
+        // this prevents inclusion of invalid tx in a block by malicious block author.
+        self.validate(who, call, info, len)?;
         match call.is_sub_type() {
             Some(Call::add_stake { .. }) => {
                 let transaction_fee = 100000;

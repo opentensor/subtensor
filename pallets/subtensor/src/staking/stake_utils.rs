@@ -2,7 +2,7 @@ use super::*;
 use safe_math::*;
 use share_pool::{SharePool, SharePoolDataOperations};
 use sp_std::ops::Neg;
-use substrate_fixed::types::{I110F18, I64F64, I96F32, U64F64};
+use substrate_fixed::types::{I64F64, I96F32, I110F18, U64F64};
 
 impl<T: Config> Pallet<T> {
     /// Retrieves the total alpha issuance for a given subnet.
@@ -57,7 +57,14 @@ impl<T: Config> Pallet<T> {
         }
     }
     pub fn update_moving_price(netuid: u16) {
-        let alpha: I96F32 = SubnetMovingAlpha::<T>::get();
+        let blocks_since_registration = I96F32::saturating_from_num(
+            Self::get_current_block_as_u64().saturating_sub(NetworkRegisteredAt::<T>::get(netuid)),
+        );
+        // 7200 * 14 = 100_800 is the halving time
+        let alpha: I96F32 =
+            SubnetMovingAlpha::<T>::get().saturating_mul(blocks_since_registration.safe_div(
+                blocks_since_registration.saturating_add(I96F32::saturating_from_num(100_800)),
+            ));
         let minus_alpha: I96F32 = I96F32::saturating_from_num(1.0).saturating_sub(alpha);
         let current_price: I96F32 = alpha
             .saturating_mul(Self::get_alpha_price(netuid).min(I96F32::saturating_from_num(1.0)));
@@ -167,7 +174,7 @@ impl<T: Config> Pallet<T> {
                 }
             })
             .collect();
-        log::trace!("alpha_stake: {:?}", alpha_stake);
+        log::debug!("alpha_stake: {:?}", alpha_stake);
 
         // Step 3: Calculate the global tao stake vector.
         // Initialize a vector to store global tao stakes for each neuron.
@@ -322,7 +329,7 @@ impl<T: Config> Pallet<T> {
         // Step 1: Retrieve the initial total stake (alpha) for the hotkey on the specified subnet.
         let initial_alpha: I96F32 =
             I96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
-        log::trace!(
+        log::debug!(
             "Initial alpha for hotkey {:?} on subnet {}: {:?}",
             hotkey,
             netuid,
@@ -339,13 +346,13 @@ impl<T: Config> Pallet<T> {
         // Step 2: Retrieve the lists of parents and children for the hotkey on the subnet.
         let parents: Vec<(u64, T::AccountId)> = Self::get_parents(hotkey, netuid);
         let children: Vec<(u64, T::AccountId)> = Self::get_children(hotkey, netuid);
-        log::trace!(
+        log::debug!(
             "Parents for hotkey {:?} on subnet {}: {:?}",
             hotkey,
             netuid,
             parents
         );
-        log::trace!(
+        log::debug!(
             "Children for hotkey {:?} on subnet {}: {:?}",
             hotkey,
             netuid,
@@ -370,7 +377,7 @@ impl<T: Config> Pallet<T> {
             // Add this child's allocation to the total alpha allocated to children.
             alpha_to_children = alpha_to_children.saturating_add(alpha_proportion_to_child);
         }
-        log::trace!("Total alpha allocated to children: {:?}", alpha_to_children);
+        log::debug!("Total alpha allocated to children: {:?}", alpha_to_children);
 
         // Step 4: Calculate the total alpha inherited from parents.
         for (proportion, parent) in parents {
@@ -403,7 +410,7 @@ impl<T: Config> Pallet<T> {
             // Add this parent's contribution to the total alpha inherited from parents.
             alpha_from_parents = alpha_from_parents.saturating_add(alpha_proportion_from_parent);
         }
-        log::trace!(
+        log::debug!(
             "Total alpha inherited from parents: {:?}",
             alpha_from_parents
         );
@@ -546,8 +553,12 @@ impl<T: Config> Pallet<T> {
         amount: u64,
     ) -> u64 {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
+        // We expect to add a positive amount here.
         let actual_alpha = alpha_share_pool.update_value_for_one(coldkey, amount as i64);
-        actual_alpha.unsigned_abs()
+
+        // We should return a positive amount, or 0 if the operation failed.
+        // e.g. the stake was removed due to precision issues.
+        actual_alpha.max(0).unsigned_abs()
     }
 
     pub fn try_increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -576,6 +587,8 @@ impl<T: Config> Pallet<T> {
         amount: u64,
     ) -> u64 {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
+
+        // We expect a negative value here
         let mut actual_alpha = 0;
         if let Ok(value) = alpha_share_pool.try_get_value(coldkey) {
             if value >= amount {
@@ -583,7 +596,11 @@ impl<T: Config> Pallet<T> {
                     alpha_share_pool.update_value_for_one(coldkey, (amount as i64).neg());
             }
         }
-        actual_alpha.unsigned_abs()
+
+        // Get the negation of the removed alpha, and clamp at 0.
+        // This ensures we return a positive value, but only if
+        // `actual_alpha` was negative (i.e. a decrease in stake).
+        actual_alpha.neg().max(0).unsigned_abs()
     }
 
     /// Calculates Some(Alpha) returned from pool by staking operation
@@ -984,6 +1001,12 @@ impl<T: Config> Pallet<T> {
         // Ensure that the origin hotkey account exists
         ensure!(
             Self::hotkey_account_exists(origin_hotkey),
+            Error::<T>::HotKeyAccountNotExists
+        );
+
+        // Ensure that the destination hotkey account exists
+        ensure!(
+            Self::hotkey_account_exists(destination_hotkey),
             Error::<T>::HotKeyAccountNotExists
         );
 

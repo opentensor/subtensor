@@ -63,12 +63,6 @@ mod hooks {
                 // Populate OwnedHotkeys map for coldkey swap. Doesn't update storage vesion.
                 // Storage version v6 -> v7
                 .saturating_add(migrations::migrate_populate_owned_hotkeys::migrate_populate_owned::<T>())
-                // Populate StakingHotkeys map for coldkey swap. Doesn't update storage vesion.
-                // Storage version v7 -> v8
-                .saturating_add(migrations::migrate_populate_staking_hotkeys::migrate_populate_staking_hotkeys::<T>())
-                // Fix total coldkey stake.
-                // Storage version v8 -> v9
-                .saturating_add(migrations::migrate_fix_total_coldkey_stake::migrate_fix_total_coldkey_stake::<T>())
                 // Migrate Delegate Ids on chain
                 .saturating_add(migrations::migrate_chain_identity::migrate_set_hotkey_identities::<T>())
                 // Migrate Commit-Reval 2.0
@@ -83,7 +77,11 @@ mod hooks {
 				// Set the min burn across all subnets to a new minimum
 				.saturating_add(migrations::migrate_set_min_burn::migrate_set_min_burn::<T>())
 				// Set the min difficulty across all subnets to a new minimum
-				.saturating_add(migrations::migrate_set_min_difficulty::migrate_set_min_difficulty::<T>());
+				.saturating_add(migrations::migrate_set_min_difficulty::migrate_set_min_difficulty::<T>())
+                // Remove Stake map entries
+				.saturating_add(migrations::migrate_remove_stake_map::migrate_remove_stake_map::<T>())
+                // Remove unused maps entries
+				.saturating_add(migrations::migrate_remove_unused_maps_and_values::migrate_remove_unused_maps_and_values::<T>());
             weight
         }
 

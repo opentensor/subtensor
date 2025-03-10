@@ -330,13 +330,20 @@ impl<T: Config> Pallet<T> {
             check_transfer_toggle,
         )?;
 
+        // Calculate the amount that should be moved in this operation
+        let move_amount = if alpha_amount < max_amount {
+            alpha_amount
+        } else {
+            max_amount
+        };
+
         // Unstake from the origin subnet, returning TAO (or a 1:1 equivalent).
         let fee = DefaultStakingFee::<T>::get().safe_div(2);
         let tao_unstaked = Self::unstake_from_subnet(
             origin_hotkey,
             origin_coldkey,
             origin_netuid,
-            alpha_amount,
+            move_amount,
             fee,
         );
 
@@ -344,6 +351,11 @@ impl<T: Config> Pallet<T> {
         // Because of the fee, the tao_unstaked may be too low if initial stake is low. In that case,
         // do not restake.
         if tao_unstaked >= DefaultMinStake::<T>::get().saturating_add(fee) {
+            // If the coldkey is not the owner, make the hotkey a delegate.
+            if Self::get_owning_coldkey_for_hotkey(destination_hotkey) != *destination_coldkey {
+                Self::maybe_become_delegate(destination_hotkey);
+            }
+
             Self::stake_into_subnet(
                 destination_hotkey,
                 destination_coldkey,
