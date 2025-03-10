@@ -330,13 +330,20 @@ impl<T: Config> Pallet<T> {
             check_transfer_toggle,
         )?;
 
+        // Calculate the amount that should be moved in this operation
+        let move_amount = if alpha_amount < max_amount {
+            alpha_amount
+        } else {
+            max_amount
+        };
+
         // Unstake from the origin subnet, returning TAO (or a 1:1 equivalent).
         let fee = DefaultStakingFee::<T>::get().safe_div(2);
         let tao_unstaked = Self::unstake_from_subnet(
             origin_hotkey,
             origin_coldkey,
             origin_netuid,
-            alpha_amount,
+            move_amount,
             fee,
         );
 
