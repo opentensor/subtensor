@@ -5,7 +5,7 @@ use frame_support::{
     traits::Hooks,
 };
 use frame_system::Config;
-use pallet_subtensor::Error as SubtensorError;
+use pallet_subtensor::{Error as SubtensorError, SubnetOwner, Tempo, WeightsVersionKeyRateLimit};
 // use pallet_subtensor::{migrations, Event};
 use pallet_subtensor::Event;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
@@ -159,6 +159,69 @@ fn test_sudo_set_weights_version_key() {
             to_be_set
         ));
         assert_eq!(SubtensorModule::get_weights_version_key(netuid), to_be_set);
+    });
+}
+
+#[test]
+fn test_sudo_set_weights_version_key_rate_limit() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u64 = 10;
+
+        let sn_owner = U256::from(1);
+        add_network(netuid, 10);
+        // Set the Subnet Owner
+        SubnetOwner::insert(netuid, sn_owner);
+
+        let init_value: u64 = SubtensorModule::get_weights_version_key(netuid);
+        let rate_limit = WeightsVersionKeyRateLimit::<Test>::get();
+        let tempo: u16 = Tempo::<Test>::get(netuid);
+
+        let rate_limit_period = rate_limit * (tempo as u64);
+
+        assert_ok!(AdminUtils::sudo_set_weights_version_key(
+            <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+            netuid,
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_weights_version_key(netuid), to_be_set);
+
+        // Try to set again with
+        // Assert rate limit not passed
+        assert!(SubtensorModule::passes_rate_limit_on_subnet(
+            &TransactionType::SetWeightsVersionKey,
+            &sn_owner,
+            netuid
+        ));
+
+        // Try transaction
+        assert_noop!(
+            AdminUtils::sudo_set_weights_version_key(
+                <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+                netuid,
+                to_be_set + 1
+            ),
+            Error::<Test>::TxRateLimitExceeded
+        );
+
+        // Wait for rate limit to pass
+        run_to_block(rate_limit_period + 2);
+        assert!(SubtensorModule::passes_rate_limit_on_subnet(
+            &TransactionType::SetWeightsVersionKey,
+            &sn_owner,
+            netuid
+        ));
+
+        // Try transaction
+        assert_ok!(AdminUtils::sudo_set_weights_version_key(
+            <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+            netuid,
+            to_be_set + 1
+        ));
+        assert_eq!(
+            SubtensorModule::get_weights_version_key(netuid),
+            to_be_set + 1
+        );
     });
 }
 

@@ -25,9 +25,13 @@ pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
     use frame_support::traits::tokens::Balance;
-    use frame_support::{dispatch::DispatchResult, pallet_prelude::StorageMap};
+    use frame_support::{
+        dispatch::{DispatchResult, RawOrigin},
+        pallet_prelude::StorageMap,
+    };
     use frame_system::pallet_prelude::*;
     use pallet_evm_chain_id::{self, ChainId};
+    use pallet_subtensor::utils::rate_limiting::TransactionType;
     use sp_runtime::BoundedVec;
     use substrate_fixed::types::I96F32;
 
@@ -249,12 +253,38 @@ pub mod pallet {
             netuid: u16,
             weights_version_key: u64,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
+
+            match origin.into() {
+                Ok(RawOrigin::Signed(who)) => {
+                    // SN Owner
+                    // Ensure the origin passes the rate limit.
+                    ensure!(
+                        pallet_subtensor::Pallet::<T>::passes_rate_limit_on_subnet(
+                            &TransactionType::SetWeightsVersionKey,
+                            &who,
+                            netuid,
+                        ),
+                        pallet_subtensor::Error::<T>::TxRateLimitExceeded
+                    );
+
+                    // Set last transaction block
+                    let current_block = pallet_subtensor::Pallet::<T>::get_current_block_as_u64();
+                    pallet_subtensor::Pallet::<T>::set_last_transaction_block_on_subnet(
+                        &who,
+                        netuid,
+                        &TransactionType::SetWeightsVersionKey,
+                        current_block,
+                    );
+                }
+                _ => (),
+            }
+
             pallet_subtensor::Pallet::<T>::set_weights_version_key(netuid, weights_version_key);
             log::debug!(
                 "WeightsVersionKeySet( netuid: {:?} weights_version_key: {:?} ) ",
