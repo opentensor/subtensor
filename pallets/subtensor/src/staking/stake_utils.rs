@@ -552,6 +552,12 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         amount: u64,
     ) -> u64 {
+        let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
+        if !staking_hotkeys.contains(hotkey) {
+            staking_hotkeys.push(hotkey.clone());
+            StakingHotkeys::<T>::insert(coldkey, staking_hotkeys.clone());
+        }
+
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
         // We expect to add a positive amount here.
         let actual_alpha = alpha_share_pool.update_value_for_one(coldkey, amount as i64);
