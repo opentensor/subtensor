@@ -6534,6 +6534,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "subtensor-macros",
 ]
 
 [[package]]

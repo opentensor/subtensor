@@ -1,13 +1,13 @@
 // This file is part of Substrate.
-
+//
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
-
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// 	http://www.apache.org/licenses/LICENSE-2.0
+// 	http://www.apache.org/licenses/LICENSE-2.0/
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -46,13 +46,14 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed, pallet_prelude::BlockNumberFor};
 pub use pallet::*;
-use scale_info::TypeInfo;
+use scale_info::{prelude::cmp::Ordering, TypeInfo};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
     traits::{Dispatchable, Hash, Saturating, StaticLookup, TrailingZeroInput, Zero},
     DispatchError, DispatchResult, RuntimeDebug,
 };
 pub use weights::WeightInfo;
+use subtensor_macros::freeze_struct;
 
 type CallHashOf<T> = <<T as Config>::CallHasher as Hash>::Output;
 
@@ -76,6 +77,8 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
     MaxEncodedLen,
     TypeInfo,
 )]
+
+#[freeze_struct("a37bb67fe5520678")]
 pub struct ProxyDefinition<AccountId, ProxyType, BlockNumber> {
     /// The account which may act on behalf of another.
     pub delegate: AccountId,
@@ -88,6 +91,7 @@ pub struct ProxyDefinition<AccountId, ProxyType, BlockNumber> {
 
 /// Details surrounding a specific instance of an announcement to make a call.
 #[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[freeze_struct("4c1b5c8c3bc489ad")]
 pub struct Announcement<AccountId, Hash, BlockNumber> {
     /// The account which made the announcement.
     real: AccountId,
@@ -280,12 +284,12 @@ pub mod pallet {
         ///
         /// - `proxy_type`: The type of the proxy that the sender will be registered as over the
         /// new account. This will almost always be the most permissive `ProxyType` possible to
-        /// allow for maximum flexibility.
+        ///   allow for maximum flexibility.
         /// - `index`: A disambiguation index, in case this is called multiple times in the same
-        /// transaction (e.g. with `utility::batch`). Unless you're using `batch` you probably just
-        /// want to use `0`.
+        ///   transaction (e.g. with `utility::batch`). Unless you're using `batch` you probably just
+        ///   want to use `0`.
         /// - `delay`: The announcement period required of the initial proxy. Will generally be
-        /// zero.
+        ///   zero.
         ///
         /// Fails with `Duplicate` if this has already been called in this transaction, from the
         /// same sender, with the same parameters.
@@ -313,7 +317,7 @@ pub mod pallet {
                 .try_into()
                 .map_err(|_| Error::<T>::TooMany)?;
 
-            let deposit = T::ProxyDepositBase::get() + T::ProxyDepositFactor::get();
+            let deposit = T::ProxyDepositBase::get().saturating_add(T::ProxyDepositFactor::get());
             T::Currency::reserve(&who, deposit)?;
 
             Proxies::<T>::insert(&pure, (bounded_proxies, deposit));
@@ -641,13 +645,13 @@ impl<T: Config> Pallet<T> {
     ///
     /// - `who`: The spawner account.
     /// - `proxy_type`: The type of the proxy that the sender will be registered as over the
-    /// new account. This will almost always be the most permissive `ProxyType` possible to
-    /// allow for maximum flexibility.
+    ///   new account. This will almost always be the most permissive `ProxyType` possible to
+    ///   allow for maximum flexibility.
     /// - `index`: A disambiguation index, in case this is called multiple times in the same
-    /// transaction (e.g. with `utility::batch`). Unless you're using `batch` you probably just
-    /// want to use `0`.
+    ///   transaction (e.g. with `utility::batch`). Unless you're using `batch` you probably just
+    ///   want to use `0`.
     /// - `maybe_when`: The block height and extrinsic index of when the pure account was
-    /// created. None to use current block height and extrinsic index.
+    ///   created. None to use current block height and extrinsic index.
     pub fn pure_account(
         who: &T::AccountId,
         proxy_type: &T::ProxyType,
@@ -680,7 +684,7 @@ impl<T: Config> Pallet<T> {
     /// - `delegatee`: The account that the `delegator` would like to make a proxy.
     /// - `proxy_type`: The permissions allowed for this proxy account.
     /// - `delay`: The announcement period required of the initial proxy. Will generally be
-    /// zero.
+    ///   zero.
     pub fn add_proxy_delegate(
         delegator: &T::AccountId,
         delegatee: T::AccountId,
@@ -702,10 +706,14 @@ impl<T: Config> Pallet<T> {
                 .try_insert(i, proxy_def)
                 .map_err(|_| Error::<T>::TooMany)?;
             let new_deposit = Self::deposit(proxies.len() as u32);
-            if new_deposit > *deposit {
-                T::Currency::reserve(delegator, new_deposit - *deposit)?;
-            } else if new_deposit < *deposit {
-                T::Currency::unreserve(delegator, *deposit - new_deposit);
+            match new_deposit.cmp(deposit) {
+                Ordering::Greater => {
+                    T::Currency::reserve(delegator, new_deposit.saturating_sub(*deposit))?;
+                }
+                Ordering::Less => {
+                    T::Currency::unreserve(delegator, deposit.saturating_sub(new_deposit));
+                }
+                Ordering::Equal => (),
             }
             *deposit = new_deposit;
             Self::deposit_event(Event::<T>::ProxyAdded {
@@ -725,7 +733,7 @@ impl<T: Config> Pallet<T> {
     /// - `delegatee`: The account that the `delegator` would like to make a proxy.
     /// - `proxy_type`: The permissions allowed for this proxy account.
     /// - `delay`: The announcement period required of the initial proxy. Will generally be
-    /// zero.
+    ///   zero.
     pub fn remove_proxy_delegate(
         delegator: &T::AccountId,
         delegatee: T::AccountId,
@@ -745,10 +753,14 @@ impl<T: Config> Pallet<T> {
                 .ok_or(Error::<T>::NotFound)?;
             proxies.remove(i);
             let new_deposit = Self::deposit(proxies.len() as u32);
-            if new_deposit > old_deposit {
-                T::Currency::reserve(delegator, new_deposit - old_deposit)?;
-            } else if new_deposit < old_deposit {
-                T::Currency::unreserve(delegator, old_deposit - new_deposit);
+            match new_deposit.cmp(&old_deposit) {
+                Ordering::Greater => {
+                    T::Currency::reserve(delegator, new_deposit.saturating_sub(old_deposit))?;
+                }
+                Ordering::Less => {
+                    T::Currency::unreserve(delegator, old_deposit.saturating_sub(new_deposit));
+                }
+                Ordering::Equal => (),
             }
             if !proxies.is_empty() {
                 *x = Some((proxies, new_deposit))
@@ -767,7 +779,8 @@ impl<T: Config> Pallet<T> {
         if num_proxies == 0 {
             Zero::zero()
         } else {
-            T::ProxyDepositBase::get() + T::ProxyDepositFactor::get() * num_proxies.into()
+            T::ProxyDepositBase::get()
+                .saturating_add(T::ProxyDepositFactor::get().saturating_mul(num_proxies.into()))
         }
     }
 
@@ -781,12 +794,16 @@ impl<T: Config> Pallet<T> {
         let new_deposit = if len == 0 {
             BalanceOf::<T>::zero()
         } else {
-            base + factor * (len as u32).into()
+            base.saturating_add(factor.saturating_mul((len as u32).into()))
         };
-        if new_deposit > old_deposit {
-            T::Currency::reserve(who, new_deposit - old_deposit)?;
-        } else if new_deposit < old_deposit {
-            T::Currency::unreserve(who, old_deposit - new_deposit);
+        match new_deposit.cmp(&old_deposit) {
+            Ordering::Greater => {
+                T::Currency::reserve(who, new_deposit.saturating_sub(old_deposit))?;
+            }
+            Ordering::Less => {
+                T::Currency::unreserve(who, old_deposit.saturating_sub(new_deposit));
+            }
+            Ordering::Equal => (),
         }
         Ok(if len == 0 { None } else { Some(new_deposit) })
     }
@@ -795,12 +812,12 @@ impl<T: Config> Pallet<T> {
         F: FnMut(&Announcement<T::AccountId, CallHashOf<T>, BlockNumberFor<T>>) -> bool,
     >(
         delegate: &T::AccountId,
-        f: F,
+        mut f: F,
     ) -> DispatchResult {
         Announcements::<T>::try_mutate_exists(delegate, |x| {
             let (mut pending, old_deposit) = x.take().ok_or(Error::<T>::NotFound)?;
             let orig_pending_len = pending.len();
-            pending.retain(f);
+            pending.retain(&mut f);
             ensure!(orig_pending_len > pending.len(), Error::<T>::NotFound);
             *x = Self::rejig_deposit(
                 delegate,

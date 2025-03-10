@@ -36,10 +36,10 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
     pub enum Test
     {
-        System: frame_system,
-        Balances: pallet_balances,
-        Proxy: proxy,
-        Utility: pallet_utility,
+        System: frame_system = 1,
+        Balances: pallet_balances = 2,
+        Proxy: proxy = 3,
+        Utility: pallet_utility = 4,
     }
 );
 
@@ -139,12 +139,12 @@ type SystemError = frame_system::Error<Test>;
 pub fn new_test_ext() -> sp_io::TestExternalities {
     let mut t = frame_system::GenesisConfig::<Test>::default()
         .build_storage()
-        .unwrap();
+        .expect("Expected to not panic");
     pallet_balances::GenesisConfig::<Test> {
         balances: vec![(1, 10), (2, 10), (3, 10), (4, 10), (5, 3)],
     }
     .assimilate_storage(&mut t)
-    .unwrap();
+    .expect("Expected to not panic");
     let mut ext = sp_io::TestExternalities::new(t);
     ext.execute_with(|| System::set_block_number(1));
     ext

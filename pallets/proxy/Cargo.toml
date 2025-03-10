@@ -22,6 +22,7 @@ frame-support.workspace = true
 frame-system.workspace = true
 sp-io.workspace = true
 sp-runtime.workspace = true
+subtensor-macros.workspace = true
 
 [dev-dependencies]
 pallet-balances = { default-features = true, workspace = true }

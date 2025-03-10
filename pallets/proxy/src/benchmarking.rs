@@ -1,13 +1,13 @@
 // This file is part of Substrate.
-
+//
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
-
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// 	http://www.apache.org/licenses/LICENSE-2.0
+// 	http://www.apache.org/licenses/LICENSE-2.0/
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,7 +24,7 @@ use crate::Pallet as Proxy;
 use alloc::{boxed::Box, vec};
 use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller};
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-use sp_runtime::traits::Bounded;
+use sp_runtime::traits::{Bounded, CheckedDiv};
 
 const SEED: u32 = 0;
 
@@ -32,9 +32,15 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
     frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
+fn half_max_balance<T: Config>() -> BalanceOf<T> {
+    BalanceOf::<T>::max_value()
+        .checked_div(&BalanceOf::<T>::from(2_u32))
+        .unwrap_or_else(BalanceOf::<T>::max_value)
+}
+
 fn add_proxies<T: Config>(n: u32, maybe_who: Option<T::AccountId>) -> Result<(), &'static str> {
     let caller = maybe_who.unwrap_or_else(whitelisted_caller);
-    T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value() / 2u32.into());
+    T::Currency::make_free_balance_be(&caller, half_max_balance::<T>());
     for i in 0..n {
         let real = T::Lookup::unlookup(account("target", i, SEED));
 
@@ -55,12 +61,12 @@ fn add_announcements<T: Config>(
 ) -> Result<(), &'static str> {
     let caller = maybe_who.unwrap_or_else(|| account("caller", 0, SEED));
     let caller_lookup = T::Lookup::unlookup(caller.clone());
-    T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value() / 2u32.into());
+    T::Currency::make_free_balance_be(&caller, half_max_balance::<T>());
     let real = if let Some(real) = maybe_real {
         real
     } else {
         let real = account("real", 0, SEED);
-        T::Currency::make_free_balance_be(&real, BalanceOf::<T>::max_value() / 2u32.into());
+        T::Currency::make_free_balance_be(&real, half_max_balance::<T>());
         Proxy::<T>::add_proxy(
             RawOrigin::Signed(real.clone()).into(),
             caller_lookup,
@@ -82,11 +88,9 @@ fn add_announcements<T: Config>(
 
 benchmarks! {
     proxy {
-        let p in 1 .. (T::MaxProxies::get() - 1) => add_proxies::<T>(p, None)?;
-        // In this case the caller is the "target" proxy
-        let caller: T::AccountId = account("target", p - 1, SEED);
-        T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value() / 2u32.into());
-        // ... and "real" is the traditional caller. This is not a typo.
+        let p in 1 .. (T::MaxProxies::get().saturating_sub(1)) => add_proxies::<T>(p, None)?;
+        let caller: T::AccountId = account("target", p.saturating_sub(1), SEED);
+        T::Currency::make_free_balance_be(&caller, half_max_balance::<T>());
         let real: T::AccountId = whitelisted_caller();
         let real_lookup = T::Lookup::unlookup(real);
         let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: vec![] }.into();
@@ -96,14 +100,12 @@ benchmarks! {
     }
 
     proxy_announced {
-        let a in 0 .. T::MaxPending::get() - 1;
-        let p in 1 .. (T::MaxProxies::get() - 1) => add_proxies::<T>(p, None)?;
-        // In this case the caller is the "target" proxy
+        let a in 0 .. T::MaxPending::get().saturating_sub(1);
+        let p in 1 .. (T::MaxProxies::get().saturating_sub(1)) => add_proxies::<T>(p, None)?;
         let caller: T::AccountId = account("pure", 0, SEED);
-        let delegate: T::AccountId = account("target", p - 1, SEED);
+        let delegate: T::AccountId = account("target", p.saturating_sub(1), SEED);
         let delegate_lookup = T::Lookup::unlookup(delegate.clone());
-        T::Currency::make_free_balance_be(&delegate, BalanceOf::<T>::max_value() / 2u32.into());
-        // ... and "real" is the traditional caller. This is not a typo.
+        T::Currency::make_free_balance_be(&delegate, half_max_balance::<T>());
         let real: T::AccountId = whitelisted_caller();
         let real_lookup = T::Lookup::unlookup(real);
         let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: vec![] }.into();
@@ -119,12 +121,10 @@ benchmarks! {
     }
 
     remove_announcement {
-        let a in 0 .. T::MaxPending::get() - 1;
-        let p in 1 .. (T::MaxProxies::get() - 1) => add_proxies::<T>(p, None)?;
-        // In this case the caller is the "target" proxy
-        let caller: T::AccountId = account("target", p - 1, SEED);
-        T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value() / 2u32.into());
-        // ... and "real" is the traditional caller. This is not a typo.
+        let a in 0 .. T::MaxPending::get().saturating_sub(1);
+        let p in 1 .. (T::MaxProxies::get().saturating_sub(1)) => add_proxies::<T>(p, None)?;
+        let caller: T::AccountId = account("target", p.saturating_sub(1), SEED);
+        T::Currency::make_free_balance_be(&caller, half_max_balance::<T>());
         let real: T::AccountId = whitelisted_caller();
         let real_lookup = T::Lookup::unlookup(real);
         let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: vec![] }.into();
@@ -141,13 +141,11 @@ benchmarks! {
     }
 
     reject_announcement {
-        let a in 0 .. T::MaxPending::get() - 1;
-        let p in 1 .. (T::MaxProxies::get() - 1) => add_proxies::<T>(p, None)?;
-        // In this case the caller is the "target" proxy
-        let caller: T::AccountId = account("target", p - 1, SEED);
+        let a in 0 .. T::MaxPending::get().saturating_sub(1);
+        let p in 1 .. (T::MaxProxies::get().saturating_sub(1)) => add_proxies::<T>(p, None)?;
+        let caller: T::AccountId = account("target", p.saturating_sub(1), SEED);
         let caller_lookup = T::Lookup::unlookup(caller.clone());
-        T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value() / 2u32.into());
-        // ... and "real" is the traditional caller. This is not a typo.
+        T::Currency::make_free_balance_be(&caller, half_max_balance::<T>());
         let real: T::AccountId = whitelisted_caller();
         let real_lookup = T::Lookup::unlookup(real.clone());
         let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: vec![] }.into();
@@ -164,12 +162,10 @@ benchmarks! {
     }
 
     announce {
-        let a in 0 .. T::MaxPending::get() - 1;
-        let p in 1 .. (T::MaxProxies::get() - 1) => add_proxies::<T>(p, None)?;
-        // In this case the caller is the "target" proxy
-        let caller: T::AccountId = account("target", p - 1, SEED);
-        T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value() / 2u32.into());
-        // ... and "real" is the traditional caller. This is not a typo.
+        let a in 0 .. T::MaxPending::get().saturating_sub(1);
+        let p in 1 .. (T::MaxProxies::get().saturating_sub(1)) => add_proxies::<T>(p, None)?;
+        let caller: T::AccountId = account("target", p.saturating_sub(1), SEED);
+        T::Currency::make_free_balance_be(&caller, half_max_balance::<T>());
         let real: T::AccountId = whitelisted_caller();
         let real_lookup = T::Lookup::unlookup(real.clone());
         add_announcements::<T>(a, Some(caller.clone()), None)?;
@@ -181,7 +177,7 @@ benchmarks! {
     }
 
     add_proxy {
-        let p in 1 .. (T::MaxProxies::get() - 1) => add_proxies::<T>(p, None)?;
+        let p in 1 .. (T::MaxProxies::get().saturating_sub(1)) => add_proxies::<T>(p, None)?;
         let caller: T::AccountId = whitelisted_caller();
         let real = T::Lookup::unlookup(account("target", T::MaxProxies::get(), SEED));
     }: _(
@@ -192,11 +188,11 @@ benchmarks! {
     )
     verify {
         let (proxies, _) = Proxies::<T>::get(caller);
-        assert_eq!(proxies.len() as u32, p + 1);
+        assert_eq!(proxies.len() as u32, p.saturating_add(1));
     }
 
     remove_proxy {
-        let p in 1 .. (T::MaxProxies::get() - 1) => add_proxies::<T>(p, None)?;
+        let p in 1 .. (T::MaxProxies::get().saturating_sub(1)) => add_proxies::<T>(p, None)?;
         let caller: T::AccountId = whitelisted_caller();
         let delegate = T::Lookup::unlookup(account("target", 0, SEED));
     }: _(
@@ -207,11 +203,11 @@ benchmarks! {
     )
     verify {
         let (proxies, _) = Proxies::<T>::get(caller);
-        assert_eq!(proxies.len() as u32, p - 1);
+        assert_eq!(proxies.len() as u32, p.saturating_sub(1));
     }
 
     remove_proxies {
-        let p in 1 .. (T::MaxProxies::get() - 1) => add_proxies::<T>(p, None)?;
+        let p in 1 .. (T::MaxProxies::get().saturating_sub(1)) => add_proxies::<T>(p, None)?;
         let caller: T::AccountId = whitelisted_caller();
     }: _(RawOrigin::Signed(caller.clone()))
     verify {
@@ -220,7 +216,7 @@ benchmarks! {
     }
 
     create_pure {
-        let p in 1 .. (T::MaxProxies::get() - 1) => add_proxies::<T>(p, None)?;
+        let p in 1 .. (T::MaxProxies::get().saturating_sub(1)) => add_proxies::<T>(p, None)?;
         let caller: T::AccountId = whitelisted_caller();
     }: _(
         RawOrigin::Signed(caller.clone()),
@@ -239,7 +235,7 @@ benchmarks! {
     }
 
     kill_pure {
-        let p in 0 .. (T::MaxProxies::get() - 2);
+        let p in 0 .. (T::MaxProxies::get().saturating_sub(2));
 
         let caller: T::AccountId = whitelisted_caller();
         let caller_lookup = T::Lookup::unlookup(caller.clone());
