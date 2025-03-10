@@ -1414,6 +1414,35 @@ pub mod pallet {
             );
             Ok(())
         }
+
+        ///
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the root account.
+        /// * `ema_alpha_period` - Number of blocks for EMA price to halve
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the caller is not the root account.
+        ///
+        /// # Weight
+        /// Weight is handled by the `#[pallet::weight]` attribute.
+        #[pallet::call_index(65)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_ema_price_halving_period(
+            origin: OriginFor<T>,
+            netuid: u16,
+            ema_halving: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::EMAPriceHalvingBlocks::<T>::set(netuid, ema_halving);
+
+            log::debug!(
+                "EMAPriceHalvingBlocks( netuid: {:?}, ema_halving: {:?} )",
+                netuid,
+                ema_halving
+            );
+            Ok(())
+        }
     }
 }
 
