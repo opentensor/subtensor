@@ -60,17 +60,16 @@ impl<T: Config> Pallet<T> {
         // 3. Ensure the remove operation from the coldkey is a success.
         let tao_staked: I96F32 =
             Self::remove_balance_from_coldkey_account(&coldkey, stake_to_be_added)?.into();
-        let alpha_estimate = tao_staked.saturating_mul(Self::get_alpha_price(netuid));
 
         // 4. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
-
+        let fee = DefaultStakingFee::<T>::get();
         Self::stake_into_subnet(
             &hotkey,
             &coldkey,
             netuid,
             tao_staked.saturating_to_num::<u64>(),
-            Self::calculate_staking_fee(netuid, &hotkey, alpha_estimate),
+            fee,
         );
 
         // Ok and return.
@@ -157,16 +156,16 @@ impl<T: Config> Pallet<T> {
         // 5. Ensure the remove operation from the coldkey is a success.
         let tao_staked: I96F32 =
             Self::remove_balance_from_coldkey_account(&coldkey, possible_stake)?.into();
-        let alpha_estimate = tao_staked.saturating_mul(Self::get_alpha_price(netuid));
 
         // 6. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
+        let fee = DefaultStakingFee::<T>::get();
         Self::stake_into_subnet(
             &hotkey,
             &coldkey,
             netuid,
             tao_staked.saturating_to_num::<u64>(),
-            Self::calculate_staking_fee(netuid, &hotkey, alpha_estimate),
+            fee,
         );
 
         // Ok and return.

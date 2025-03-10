@@ -1072,17 +1072,21 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         alpha_estimate: I96F32,
     ) -> u64 {
-        let fee = alpha_estimate
-            .saturating_mul(
-                I96F32::saturating_from_num(AlphaDividendsPerSubnet::<T>::get(netuid, &hotkey))
-                    .safe_div(I96F32::saturating_from_num(TotalHotkeyAlpha::<T>::get(
-                        &hotkey, netuid,
-                    ))),
-            )
-            .saturating_mul(I96F32::saturating_from_num(Tempo::<T>::get(netuid)))
-            .saturating_to_num::<u64>();
+        if (netuid == Self::get_root_netuid()) || (SubnetMechanism::<T>::get(netuid)) == 0 {
+            DefaultStakingFee::<T>::get()
+        } else {
+            let fee = alpha_estimate
+                .saturating_mul(
+                    I96F32::saturating_from_num(AlphaDividendsPerSubnet::<T>::get(netuid, &hotkey))
+                        .safe_div(I96F32::saturating_from_num(TotalHotkeyAlpha::<T>::get(
+                            &hotkey, netuid,
+                        ))),
+                )
+                .saturating_mul(Self::get_alpha_price(netuid)) // fee needs to be in TAO
+                .saturating_to_num::<u64>();
 
-        fee.max(DefaultStakingFee::<T>::get())
+            fee.max(DefaultStakingFee::<T>::get())
+        }
     }
 }
 
