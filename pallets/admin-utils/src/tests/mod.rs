@@ -187,7 +187,7 @@ fn test_sudo_set_weights_version_key_rate_limit() {
 
         // Try to set again with
         // Assert rate limit not passed
-        assert!(SubtensorModule::passes_rate_limit_on_subnet(
+        assert!(!SubtensorModule::passes_rate_limit_on_subnet(
             &pallet_subtensor::utils::rate_limiting::TransactionType::SetWeightsVersionKey,
             &sn_owner,
             netuid
