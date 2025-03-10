@@ -23,7 +23,7 @@ sh get-metadata.sh
 ## run all tests
 
 ```bash
-yarn test
+yarn run test
 ```
 
 ## To run a particular test case, you can pass an argument with the name or part of

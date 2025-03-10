@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "test": "mocha --timeout 999999 --require ts-node/register test/eth.sub*test.ts"
+    "test": "mocha --timeout 999999 --require ts-node/register test/*test.ts"
   },
   "keywords": [],
   "author": "",
