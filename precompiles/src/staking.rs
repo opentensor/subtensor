@@ -120,6 +120,7 @@ where
     }
 
     #[precompile::public("getTotalColdkeyStake(bytes32)")]
+	#[precompile::view]
     fn get_total_coldkey_stake(
         _handle: &mut impl PrecompileHandle,
         coldkey: H256,
@@ -131,6 +132,7 @@ where
     }
 
     #[precompile::public("getTotalHotkeyStake(bytes32)")]
+	#[precompile::view]
     fn get_total_hotkey_stake(
         _handle: &mut impl PrecompileHandle,
         hotkey: H256,
@@ -275,6 +277,7 @@ where
     }
 
     #[precompile::public("getTotalColdkeyStake(bytes32)")]
+	#[precompile::view]
     fn get_total_coldkey_stake(
         _handle: &mut impl PrecompileHandle,
         coldkey: H256,
@@ -292,6 +295,7 @@ where
     }
 
     #[precompile::public("getTotalHotkeyStake(bytes32)")]
+	#[precompile::view]
     fn get_total_hotkey_stake(
         _handle: &mut impl PrecompileHandle,
         hotkey: H256,
