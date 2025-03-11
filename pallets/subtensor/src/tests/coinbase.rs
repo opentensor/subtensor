@@ -2,6 +2,7 @@
 use super::mock::*;
 
 use crate::*;
+use alloc::collections::BTreeMap;
 use approx::assert_abs_diff_eq;
 use frame_support::assert_ok;
 use sp_core::U256;
@@ -190,11 +191,16 @@ fn test_coinbase_moving_prices() {
         SubnetAlphaIn::<Test>::insert(netuid, 1_000_000);
         SubnetMechanism::<Test>::insert(netuid, 1);
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(1));
+        NetworkRegisteredAt::<Test>::insert(netuid, 1);
+
         // Updating the moving price keeps it the same.
         assert_eq!(
             SubtensorModule::get_moving_alpha_price(netuid),
             I96F32::from_num(1)
         );
+        // Skip some blocks so that EMA price is not slowed down
+        System::set_block_number(7_200_000);
+
         SubtensorModule::update_moving_price(netuid);
         assert_eq!(
             SubtensorModule::get_moving_alpha_price(netuid),
@@ -206,26 +212,75 @@ fn test_coinbase_moving_prices() {
         SubnetMovingAlpha::<Test>::set(I96F32::from_num(1.0));
         // Run moving 1 times.
         SubtensorModule::update_moving_price(netuid);
-        // Assert price is == 100% of the real price.
-        assert_eq!(
-            SubtensorModule::get_moving_alpha_price(netuid),
-            I96F32::from_num(1.0)
-        );
+        // Assert price is ~ 100% of the real price.
+        assert!(I96F32::from_num(1.0) - SubtensorModule::get_moving_alpha_price(netuid) < 0.05);
         // Set price to zero.
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0));
         SubnetMovingAlpha::<Test>::set(I96F32::from_num(0.1));
-        // Run moving 6 times.
-        SubtensorModule::update_moving_price(netuid);
-        SubtensorModule::update_moving_price(netuid);
-        SubtensorModule::update_moving_price(netuid);
-        SubtensorModule::update_moving_price(netuid);
-        SubtensorModule::update_moving_price(netuid);
-        SubtensorModule::update_moving_price(netuid);
+
+        // EMA price 14 days after registration
+        System::set_block_number(7_200 * 14);
+
+        // Run moving 14 times.
+        for _ in 0..14 {
+            SubtensorModule::update_moving_price(netuid);
+        }
+
         // Assert price is > 50% of the real price.
-        assert_eq!(
-            SubtensorModule::get_moving_alpha_price(netuid),
-            I96F32::from_num(0.468559)
+        assert!(
+            (I96F32::from_num(0.512325) - SubtensorModule::get_moving_alpha_price(netuid)).abs()
+                < 0.001
         );
+    });
+}
+
+// Test moving price updates slow down at the beginning.
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_update_moving_price_initial --exact --show-output --nocapture
+#[test]
+fn test_update_moving_price_initial() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+        // Set current price to 1.0
+        SubnetTAO::<Test>::insert(netuid, 1_000_000);
+        SubnetAlphaIn::<Test>::insert(netuid, 1_000_000);
+        SubnetMechanism::<Test>::insert(netuid, 1);
+        SubnetMovingAlpha::<Test>::set(I96F32::from_num(0.5));
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0));
+
+        // Registered recently
+        System::set_block_number(510);
+        NetworkRegisteredAt::<Test>::insert(netuid, 500);
+
+        SubtensorModule::update_moving_price(netuid);
+
+        let new_price = SubnetMovingPrice::<Test>::get(netuid);
+        assert!(new_price.to_num::<f64>() < 0.001);
+    });
+}
+
+// Test moving price updates slow down at the beginning.
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_update_moving_price_after_time --exact --show-output --nocapture
+#[test]
+fn test_update_moving_price_after_time() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 1, 0);
+        // Set current price to 1.0
+        SubnetTAO::<Test>::insert(netuid, 1_000_000);
+        SubnetAlphaIn::<Test>::insert(netuid, 1_000_000);
+        SubnetMechanism::<Test>::insert(netuid, 1);
+        SubnetMovingAlpha::<Test>::set(I96F32::from_num(0.5));
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0));
+
+        // Registered long time ago
+        System::set_block_number(72_000_500);
+        NetworkRegisteredAt::<Test>::insert(netuid, 500);
+
+        SubtensorModule::update_moving_price(netuid);
+
+        let new_price = SubnetMovingPrice::<Test>::get(netuid);
+        assert!((new_price.to_num::<f64>() - 0.5).abs() < 0.001);
     });
 }
 
@@ -934,32 +989,33 @@ fn test_get_root_children_drain() {
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
         // Create keys.
-        let cold = U256::from(0);
-        let alice = U256::from(1);
-        let bob = U256::from(2);
+        let cold_alice = U256::from(0);
+        let cold_bob = U256::from(1);
+        let alice = U256::from(2);
+        let bob = U256::from(3);
         // Register Alice and Bob to the root network and alpha subnet.
-        register_ok_neuron(alpha, alice, cold, 0);
-        register_ok_neuron(alpha, bob, cold, 0);
+        register_ok_neuron(alpha, alice, cold_alice, 0);
+        register_ok_neuron(alpha, bob, cold_bob, 0);
         assert_ok!(SubtensorModule::root_register(
-            RuntimeOrigin::signed(cold).clone(),
+            RuntimeOrigin::signed(cold_alice).clone(),
             alice,
         ));
         assert_ok!(SubtensorModule::root_register(
-            RuntimeOrigin::signed(cold).clone(),
+            RuntimeOrigin::signed(cold_bob).clone(),
             bob,
         ));
         // Add stake for Alice and Bob on root.
         let alice_root_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &alice,
-            &cold,
+            &cold_alice,
             root,
             alice_root_stake,
         );
         let bob_root_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &bob,
-            &cold,
+            &cold_bob,
             root,
             alice_root_stake,
         );
@@ -967,14 +1023,14 @@ fn test_get_root_children_drain() {
         let alice_alpha_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &alice,
-            &cold,
+            &cold_alice,
             alpha,
             alice_alpha_stake,
         );
         let bob_alpha_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &bob,
-            &cold,
+            &cold_bob,
             alpha,
             bob_alpha_stake,
         );
@@ -1056,32 +1112,33 @@ fn test_get_root_children_drain_half_proportion() {
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
         // Create keys.
-        let cold = U256::from(0);
-        let alice = U256::from(1);
-        let bob = U256::from(2);
+        let cold_alice = U256::from(0);
+        let cold_bob = U256::from(1);
+        let alice = U256::from(2);
+        let bob = U256::from(3);
         // Register Alice and Bob to the root network and alpha subnet.
-        register_ok_neuron(alpha, alice, cold, 0);
-        register_ok_neuron(alpha, bob, cold, 0);
+        register_ok_neuron(alpha, alice, cold_alice, 0);
+        register_ok_neuron(alpha, bob, cold_bob, 0);
         assert_ok!(SubtensorModule::root_register(
-            RuntimeOrigin::signed(cold).clone(),
+            RuntimeOrigin::signed(cold_alice).clone(),
             alice,
         ));
         assert_ok!(SubtensorModule::root_register(
-            RuntimeOrigin::signed(cold).clone(),
+            RuntimeOrigin::signed(cold_bob).clone(),
             bob,
         ));
         // Add stake for Alice and Bob on root.
         let alice_root_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &alice,
-            &cold,
+            &cold_alice,
             root,
             alice_root_stake,
         );
         let bob_root_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &bob,
-            &cold,
+            &cold_bob,
             root,
             alice_root_stake,
         );
@@ -1089,14 +1146,14 @@ fn test_get_root_children_drain_half_proportion() {
         let alice_alpha_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &alice,
-            &cold,
+            &cold_alice,
             alpha,
             alice_alpha_stake,
         );
         let bob_alpha_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &bob,
-            &cold,
+            &cold_bob,
             alpha,
             bob_alpha_stake,
         );
@@ -1138,32 +1195,33 @@ fn test_get_root_children_drain_with_take() {
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
         // Create keys.
-        let cold = U256::from(0);
-        let alice = U256::from(1);
-        let bob = U256::from(2);
+        let cold_alice = U256::from(0);
+        let cold_bob = U256::from(1);
+        let alice = U256::from(2);
+        let bob = U256::from(3);
         // Register Alice and Bob to the root network and alpha subnet.
-        register_ok_neuron(alpha, alice, cold, 0);
-        register_ok_neuron(alpha, bob, cold, 0);
+        register_ok_neuron(alpha, alice, cold_alice, 0);
+        register_ok_neuron(alpha, bob, cold_bob, 0);
         assert_ok!(SubtensorModule::root_register(
-            RuntimeOrigin::signed(cold).clone(),
+            RuntimeOrigin::signed(cold_alice).clone(),
             alice,
         ));
         assert_ok!(SubtensorModule::root_register(
-            RuntimeOrigin::signed(cold).clone(),
+            RuntimeOrigin::signed(cold_bob).clone(),
             bob,
         ));
         // Add stake for Alice and Bob on root.
         let alice_root_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &alice,
-            &cold,
+            &cold_alice,
             root,
             alice_root_stake,
         );
         let bob_root_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &bob,
-            &cold,
+            &cold_bob,
             root,
             alice_root_stake,
         );
@@ -1171,14 +1229,14 @@ fn test_get_root_children_drain_with_take() {
         let alice_alpha_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &alice,
-            &cold,
+            &cold_alice,
             alpha,
             alice_alpha_stake,
         );
         let bob_alpha_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &bob,
-            &cold,
+            &cold_bob,
             alpha,
             bob_alpha_stake,
         );
@@ -1215,32 +1273,33 @@ fn test_get_root_children_drain_with_half_take() {
         // Set TAO weight to 1.
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.
         // Create keys.
-        let cold = U256::from(0);
-        let alice = U256::from(1);
-        let bob = U256::from(2);
+        let cold_alice = U256::from(0);
+        let cold_bob = U256::from(1);
+        let alice = U256::from(2);
+        let bob = U256::from(3);
         // Register Alice and Bob to the root network and alpha subnet.
-        register_ok_neuron(alpha, alice, cold, 0);
-        register_ok_neuron(alpha, bob, cold, 0);
+        register_ok_neuron(alpha, alice, cold_alice, 0);
+        register_ok_neuron(alpha, bob, cold_bob, 0);
         assert_ok!(SubtensorModule::root_register(
-            RuntimeOrigin::signed(cold).clone(),
+            RuntimeOrigin::signed(cold_alice).clone(),
             alice,
         ));
         assert_ok!(SubtensorModule::root_register(
-            RuntimeOrigin::signed(cold).clone(),
+            RuntimeOrigin::signed(cold_bob).clone(),
             bob,
         ));
         // Add stake for Alice and Bob on root.
         let alice_root_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &alice,
-            &cold,
+            &cold_alice,
             root,
             alice_root_stake,
         );
         let bob_root_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &bob,
-            &cold,
+            &cold_bob,
             root,
             alice_root_stake,
         );
@@ -1248,14 +1307,14 @@ fn test_get_root_children_drain_with_half_take() {
         let alice_alpha_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &alice,
-            &cold,
+            &cold_alice,
             alpha,
             alice_alpha_stake,
         );
         let bob_alpha_stake: u64 = 1_000_000_000;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &bob,
-            &cold,
+            &cold_bob,
             alpha,
             bob_alpha_stake,
         );
@@ -1381,3 +1440,51 @@ fn test_get_root_children_drain_with_half_take() {
 //         );
 //     });
 // }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_incentive_to_subnet_owner_is_burned --exact --show-output --nocapture
+#[test]
+fn test_incentive_to_subnet_owner_is_burned() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_ck = U256::from(0);
+        let subnet_owner_hk = U256::from(1);
+
+        let other_ck = U256::from(2);
+        let other_hk = U256::from(3);
+
+        let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+
+        let pending_tao: u64 = 1_000_000_000;
+        let owner_cut: u64 = 0;
+        let mut incentives: BTreeMap<U256, u64> = BTreeMap::new();
+        let mut dividends: BTreeMap<U256, I96F32> = BTreeMap::new();
+
+        // Give incentive to other_hk
+        incentives.insert(other_hk, 10_000_000);
+
+        // Give incentives to subnet_owner_hk
+        incentives.insert(subnet_owner_hk, 10_000_000);
+
+        // Verify stake before
+        let subnet_owner_stake_before =
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&subnet_owner_hk, netuid);
+        assert_eq!(subnet_owner_stake_before, 0);
+        let other_stake_before = SubtensorModule::get_stake_for_hotkey_on_subnet(&other_hk, netuid);
+        assert_eq!(other_stake_before, 0);
+
+        // Distribute dividends and incentives
+        SubtensorModule::distribute_dividends_and_incentives(
+            netuid,
+            pending_tao,
+            owner_cut,
+            incentives,
+            dividends,
+        );
+
+        // Verify stake after
+        let subnet_owner_stake_after =
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&subnet_owner_hk, netuid);
+        assert_eq!(subnet_owner_stake_after, 0);
+        let other_stake_after = SubtensorModule::get_stake_for_hotkey_on_subnet(&other_hk, netuid);
+        assert!(other_stake_after > 0);
+    });
+}

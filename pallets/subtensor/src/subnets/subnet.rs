@@ -25,37 +25,6 @@ impl<T: Config> Pallet<T> {
         TotalNetworks::<T>::get()
     }
 
-    /// Fetches the max number of subnet
-    ///
-    /// This function retrieves the max number of subnet.
-    ///
-    /// # Returns:
-    /// * 'u16': The max number of subnet
-    ///
-    pub fn get_max_subnets() -> u16 {
-        SubnetLimit::<T>::get()
-    }
-
-    /// Sets the max number of subnet
-    ///
-    /// This function sets the max number of subnet.
-    ///
-    pub fn set_max_subnets(limit: u16) {
-        SubnetLimit::<T>::put(limit);
-        Self::deposit_event(Event::SubnetLimitSet(limit));
-    }
-
-    /// Returns the emission value for the given subnet.
-    ///
-    /// This function retrieves the emission value for the given subnet.
-    ///
-    /// # Returns:
-    /// * 'u64': The emission value for the given subnet.
-    ///
-    pub fn get_subnet_emission_value(netuid: u16) -> u64 {
-        EmissionValues::<T>::get(netuid)
-    }
-
     /// Returns true if the subnetwork exists.
     ///
     /// This function checks if a subnetwork with the given UID exists.
@@ -320,9 +289,6 @@ impl<T: Config> Pallet<T> {
         }
         if !ActivityCutoff::<T>::contains_key(netuid) {
             ActivityCutoff::<T>::insert(netuid, ActivityCutoff::<T>::get(netuid));
-        }
-        if !EmissionValues::<T>::contains_key(netuid) {
-            EmissionValues::<T>::insert(netuid, EmissionValues::<T>::get(netuid));
         }
         if !MaxWeightsLimit::<T>::contains_key(netuid) {
             MaxWeightsLimit::<T>::insert(netuid, MaxWeightsLimit::<T>::get(netuid));

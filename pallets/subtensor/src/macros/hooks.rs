@@ -79,7 +79,9 @@ mod hooks {
 				// Set the min difficulty across all subnets to a new minimum
 				.saturating_add(migrations::migrate_set_min_difficulty::migrate_set_min_difficulty::<T>())
                 // Remove Stake map entries
-				.saturating_add(migrations::migrate_remove_stake_map::migrate_remove_stake_map::<T>());
+				.saturating_add(migrations::migrate_remove_stake_map::migrate_remove_stake_map::<T>())
+                // Remove unused maps entries
+				.saturating_add(migrations::migrate_remove_unused_maps_and_values::migrate_remove_unused_maps_and_values::<T>());
             weight
         }
 
