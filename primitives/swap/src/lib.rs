@@ -1,3 +1,4 @@
+use safe_math::*;
 
 /// The width of a single price tick. Expressed in rao units.
 pub const TICK_SPACING: u64 = 10_000;
@@ -19,6 +20,53 @@ struct Position {
     liquidity: u64,
     fees_tao: u64,
     fees_alpha: u64,
+}
+
+impl Position {
+    /// Converts tick index into SQRT of price
+    /// 
+    /// python: (1 + self.tick_spacing) ** (i / 2)
+    /// 
+    pub fn tick_index_to_sqrt_price(tick_idx: u64) -> U64F64 {
+        // TODO: implement
+    }
+
+    /// Converts SQRT price to tick index
+    /// 
+    /// python: math.floor(math.log(sqrt_p) / math.log(1 + self.tick_spacing)) * 2
+    /// 
+    pub fn sqrt_price_to_tick_index(sqrt_price: U64F64) -> u64 {
+        // TODO: implement
+    }
+
+    /// Converts position to token amounts
+    /// 
+    /// returns tuple of (TAO, Alpha)
+    /// 
+    pub fn to_token_amounts(self, current_tick: u64) -> (u64, u64) {
+        let one = U64F64::saturating_from_num(1);
+
+        let sqrt_price_curr = self.tick_index_to_sqrt_price(current_tick);
+        let sqrt_pa = self.tick_index_to_sqrt_price(self.tick_low);
+        let sqrt_pb = self.tick_index_to_sqrt_price(self.tick_high);
+
+        if sqrt_price_curr < sqrt_pa {
+            (
+                liquidity.saturating_mul(one.safe_div(sqrt_pa).saturating_sub(one.safe_div(sqrt_pb))),
+                0
+            )
+        } else if sqrt_price_curr > sqrt_pb {
+            (
+                0,
+                liquidity.saturating_mul(sqrt_pb.saturating_sub(sqrt_pa))
+            )
+        } else {
+            (
+                liquidity.saturating_mul(one.save_div(sqrt_price_curr).saturating_sub(one.safe_div(sqrt_pb))),
+                liquidity.saturating_mul(sqrt_price_curr.saturating_sub(sqrt_pa))
+            )
+        }
+    }
 }
 
 /// Tick is the price range determined by tick index (not part of this struct, 
@@ -84,6 +132,24 @@ where
         Swap {
             state_ops: ops,
         }
+    }
+
+    /// Auxiliary method to calculate Alpha amount to match given TAO 
+    /// amount at the current price for liquidity.
+    /// 
+    /// Returns (Alpha, Liquidity) tuple
+    /// 
+    pub fn get_tao_based_liquidity(tao: u64) -> (u64, u64) {
+        // TODO
+    }
+
+    /// Auxiliary method to calculate TAO amount to match given Alpha 
+    /// amount at the current price for liquidity.
+    /// 
+    /// Returns (TAO, Liquidity) tuple
+    /// 
+    pub fn get_alpha_based_liquidity(alpha: u64) -> (u64, u64) {
+        // TODO
     }
 
     /// Add 
