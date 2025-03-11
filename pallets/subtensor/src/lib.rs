@@ -1566,15 +1566,21 @@ pub mod pallet {
         }
 
         /// Returns the transaction priority for stake operations.
-        pub fn get_priority_staking(coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
+        pub fn get_priority_staking(
+            coldkey: &T::AccountId,
+            hotkey: &T::AccountId,
+            stake_amount: u64,
+        ) -> u64 {
             match LastColdkeyHotkeyStakeBlock::<T>::get(coldkey, hotkey) {
                 Some(last_stake_block) => {
                     let current_block_number = Self::get_current_block_as_u64();
                     let default_priority = current_block_number.saturating_sub(last_stake_block);
 
-                    default_priority.saturating_add(u32::MAX as u64)
+                    default_priority
+                        .saturating_add(u32::MAX as u64)
+                        .saturating_add(stake_amount)
                 }
-                None => 0,
+                None => stake_amount,
             }
         }
 
@@ -1703,8 +1709,12 @@ where
         Pallet::<T>::get_priority_set_weights(who, netuid)
     }
 
-    pub fn get_priority_staking(coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
-        Pallet::<T>::get_priority_staking(coldkey, hotkey)
+    pub fn get_priority_staking(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+        stake_amount: u64,
+    ) -> u64 {
+        Pallet::<T>::get_priority_staking(coldkey, hotkey, stake_amount)
     }
 
     pub fn check_weights_min_stake(who: &T::AccountId, netuid: u16) -> bool {
@@ -1919,7 +1929,7 @@ where
                         *amount_staked,
                         false,
                     ),
-                    Self::get_priority_staking(who, hotkey),
+                    Self::get_priority_staking(who, hotkey, *amount_staked),
                 )
             }
             Some(Call::add_stake_limit {
@@ -1949,7 +1959,7 @@ where
                         max_amount,
                         *allow_partial,
                     ),
-                    Self::get_priority_staking(who, hotkey),
+                    Self::get_priority_staking(who, hotkey, *amount_staked),
                 )
             }
             Some(Call::remove_stake {
@@ -1967,7 +1977,7 @@ where
                         *amount_unstaked,
                         false,
                     ),
-                    Self::get_priority_staking(who, hotkey),
+                    Self::get_priority_staking(who, hotkey, *amount_unstaked),
                 )
             }
             Some(Call::remove_stake_limit {
@@ -1990,7 +2000,7 @@ where
                         max_amount,
                         *allow_partial,
                     ),
-                    Self::get_priority_staking(who, hotkey),
+                    Self::get_priority_staking(who, hotkey, *amount_unstaked),
                 )
             }
             Some(Call::move_stake {
@@ -2021,7 +2031,7 @@ where
                         None,
                         false,
                     ),
-                    Self::get_priority_staking(who, origin_hotkey),
+                    Self::get_priority_staking(who, origin_hotkey, *alpha_amount),
                 )
             }
             Some(Call::transfer_stake {
@@ -2052,7 +2062,7 @@ where
                         None,
                         true,
                     ),
-                    Self::get_priority_staking(who, hotkey),
+                    Self::get_priority_staking(who, hotkey, *alpha_amount),
                 )
             }
             Some(Call::swap_stake {
@@ -2082,7 +2092,7 @@ where
                         None,
                         false,
                     ),
-                    Self::get_priority_staking(who, hotkey),
+                    Self::get_priority_staking(who, hotkey, *alpha_amount),
                 )
             }
             Some(Call::swap_stake_limit {
@@ -2121,7 +2131,7 @@ where
                         Some(*allow_partial),
                         false,
                     ),
-                    Self::get_priority_staking(who, hotkey),
+                    Self::get_priority_staking(who, hotkey, *alpha_amount),
                 )
             }
             Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {
