@@ -514,6 +514,12 @@ pub mod pallet {
         T::InitialNetworkRateLimit::get()
     }
     #[pallet::type_value]
+    /// Default value for weights version key rate limit.
+    /// In units of tempos.
+    pub fn DefaultWeightsVersionKeyRateLimit<T: Config>() -> u64 {
+        5 // 5 tempos
+    }
+    #[pallet::type_value]
     /// Default value for pending emission.
     pub fn DefaultPendingEmission<T: Config>() -> u64 {
         0
@@ -1082,6 +1088,10 @@ pub mod pallet {
     pub type NetworkRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkRateLimit<T>>;
     #[pallet::storage] // --- ITEM( nominator_min_required_stake )
     pub type NominatorMinRequiredStake<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage]
+    /// ITEM( weights_version_key_rate_limit ) --- Rate limit in tempos.
+    pub type WeightsVersionKeyRateLimit<T> =
+        StorageValue<_, u64, ValueQuery, DefaultWeightsVersionKeyRateLimit<T>>;
 
     /// ============================
     /// ==== Subnet Locks =====

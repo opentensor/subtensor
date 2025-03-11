@@ -2219,11 +2219,71 @@ fn test_remove_stake_fee_goes_to_subnet_tao() {
     });
 }
 
+// cargo test --package pallet-subtensor --lib -- tests::staking::test_remove_stake_fee_realistic_values --exact --show-output --nocapture
+#[test]
+fn test_remove_stake_fee_realistic_values() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let alpha_to_unstake = 111_180_000_000;
+        let alpha_divs = 2_816_190;
+
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+
+        // Mock a realistic scenario:
+        //   Subnet 1 has 3896 TAO and 128_011 Alpha in reserves, which
+        //   makes its price ~0.03.
+        //   A hotkey has 111 Alpha stake and is unstaking all Alpha.
+        //   Alpha dividends of this hotkey are ~0.0028
+        //   This makes fee be equal ~0.0028 Alpha ~= 84000 rao
+        let tao_reserve: U96F32 = U96F32::from_num(3_896_056_559_708_u64);
+        let alpha_in: U96F32 = U96F32::from_num(128_011_331_299_964_u64);
+        SubnetTAO::<Test>::insert(netuid, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in.to_num::<u64>());
+        AlphaDividendsPerSubnet::<Test>::insert(netuid, hotkey, alpha_divs);
+        let current_price = SubtensorModule::get_alpha_price(netuid).to_num::<f64>();
+
+        // Add stake first time to init TotalHotkeyAlpha
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            alpha_to_unstake,
+        );
+
+        // Estimate fees
+        let expected_fee: f64 = current_price * alpha_divs as f64;
+
+        // Remove stake to measure fee
+        let balance_before = SubtensorModule::get_coldkey_balance(&coldkey);
+        let expected_tao_no_fee =
+            SubtensorModule::sim_swap_alpha_for_tao(netuid, alpha_to_unstake).unwrap();
+
+        assert_ok!(SubtensorModule::remove_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            alpha_to_unstake
+        ));
+
+        // Calculate expected fee
+        let balance_after = SubtensorModule::get_coldkey_balance(&coldkey);
+        let actual_fee = expected_tao_no_fee as f64 - (balance_after - balance_before) as f64;
+        log::info!("Actual fee: {:?}", actual_fee);
+
+        assert_abs_diff_eq!(
+            actual_fee as u64,
+            expected_fee as u64,
+            epsilon = expected_fee as u64 / 1000
+        );
+    });
+}
+
 #[test]
 fn test_stake_below_min_validate() {
-    // Testing the signed extension validate function
-    // correctly filters the `add_stake` transaction.
-
     new_test_ext(0).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
