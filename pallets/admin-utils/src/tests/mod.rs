@@ -1687,6 +1687,19 @@ fn test_sudo_set_ema_halving() {
             ),
             Err(DispatchError::BadOrigin)
         );
+        let value_after_0: u64 = pallet_subtensor::EMAPriceHalvingBlocks::<Test>::get(netuid);
+        assert_eq!(value_after_0, value_before);
+
+        let owner = U256::from(10);
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, owner);
+        assert_eq!(
+            AdminUtils::sudo_set_ema_price_halving_period(
+                <<Test as Config>::RuntimeOrigin>::signed(owner),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
         let value_after_1: u64 = pallet_subtensor::EMAPriceHalvingBlocks::<Test>::get(netuid);
         assert_eq!(value_after_1, value_before);
         assert_ok!(AdminUtils::sudo_set_ema_price_halving_period(
