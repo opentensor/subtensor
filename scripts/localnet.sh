@@ -2,10 +2,15 @@
 
 # Check if `--no-purge` passed as a parameter
 NO_PURGE=0
+
+# Check if `--build-only` passed as parameter
+BUILD_ONLY=0
+
 for arg in "$@"; do
   if [ "$arg" = "--no-purge" ]; then
     NO_PURGE=1
-    break
+  elif [ "$arg" = "--build-only" ]; then
+    BUILD_ONLY=1
   fi
 done
 
@@ -72,39 +77,41 @@ else
   echo "*** Previous chainstate purged"
 fi
 
-echo "*** Starting localnet nodes..."
-alice_start=(
-  "$BUILD_DIR/release/node-subtensor"
-  --base-path /tmp/alice
-  --chain="$FULL_PATH"
-  --alice
-  --port 30334
-  --rpc-port 9944
-  --validator
-  --rpc-cors=all
-  --allow-private-ipv4
-  --discover-local
-  --unsafe-force-node-key-generation
-)
+if [ $BUILD_ONLY -eq 0 ]; then
+  echo "*** Starting localnet nodes..."
+  alice_start=(
+    "$BUILD_DIR/release/node-subtensor"
+    --base-path /tmp/alice
+    --chain="$FULL_PATH"
+    --alice
+    --port 30334
+    --rpc-port 9944
+    --validator
+    --rpc-cors=all
+    --allow-private-ipv4
+    --discover-local
+    --unsafe-force-node-key-generation
+  )
 
-bob_start=(
-  "$BUILD_DIR/release/node-subtensor"
-  --base-path /tmp/bob
-  --chain="$FULL_PATH"
-  --bob
-  --port 30335
-  --rpc-port 9945
-  --validator
-  --rpc-cors=all
-  --allow-private-ipv4
-  --discover-local
-  --unsafe-force-node-key-generation
-)
+  bob_start=(
+    "$BUILD_DIR/release/node-subtensor"
+    --base-path /tmp/bob
+    --chain="$FULL_PATH"
+    --bob
+    --port 30335
+    --rpc-port 9945
+    --validator
+    --rpc-cors=all
+    --allow-private-ipv4
+    --discover-local
+    --unsafe-force-node-key-generation
+  )
 
-trap 'pkill -P $$' EXIT SIGINT SIGTERM
+  trap 'pkill -P $$' EXIT SIGINT SIGTERM
 
-(
-  ("${alice_start[@]}" 2>&1) &
-  ("${bob_start[@]}" 2>&1)
-  wait
-)
+  (
+    ("${alice_start[@]}" 2>&1) &
+    ("${bob_start[@]}" 2>&1)
+    wait
+  )
+fi
