@@ -3885,3 +3885,65 @@ fn test_remove_99_9989_per_cent_stake_leaves_a_little() {
         assert_abs_diff_eq!(new_alpha, (alpha as f64 * 0.01) as u64, epsilon = 10);
     });
 }
+
+#[test]
+fn test_move_stake_limit_partial() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let stake_amount = 150_000_000_000;
+        let move_amount = 150_000_000_000;
+
+        // add network
+        let origin_netuid: u16 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let destination_netuid: u16 =
+            add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(origin_netuid, hotkey, coldkey, 192213123);
+        register_ok_neuron(destination_netuid, hotkey, coldkey, 192213123);
+
+        // Give the neuron some stake to remove
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            origin_netuid,
+            stake_amount,
+        );
+
+        // Forse-set alpha in and tao reserve to make price equal 1.5 on both origin and destination,
+        // but there's much more liquidity on destination, so its price wouldn't go up when restaked
+        let tao_reserve: U96F32 = U96F32::from_num(150_000_000_000_u64);
+        let alpha_in: U96F32 = U96F32::from_num(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(origin_netuid, tao_reserve.to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(origin_netuid, alpha_in.to_num::<u64>());
+        SubnetTAO::<Test>::insert(destination_netuid, (tao_reserve * 100_000).to_num::<u64>());
+        SubnetAlphaIn::<Test>::insert(destination_netuid, (alpha_in * 100_000).to_num::<u64>());
+        let current_price: U96F32 =
+            U96F32::from_num(SubtensorModule::get_alpha_price(origin_netuid));
+        assert_eq!(current_price, U96F32::from_num(1.5));
+
+        // The relative price between origin and destination subnets is 1.
+        // Setup limit relative price so that it doesn't drop by more than 1% from current price
+        let limit_price = 990_000_000;
+
+        // Move stake with slippage safety - executes partially
+        assert_ok!(SubtensorModule::swap_stake_limit(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            move_amount,
+            limit_price,
+            true,
+        ));
+
+        let new_alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            origin_netuid,
+        );
+
+        assert_abs_diff_eq!(new_alpha, 149_000_000_000, epsilon = 100_000_000,);
+    });
+}
