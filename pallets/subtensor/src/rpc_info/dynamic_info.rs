@@ -54,7 +54,7 @@ impl<T: Config> Pallet<T> {
             tempo: Tempo::<T>::get(netuid).into(),
             last_step: last_step.into(),
             blocks_since_last_step: blocks_since_last_step.into(),
-            emission: EmissionValues::<T>::get(netuid).into(),
+            emission: 0.into(),
             alpha_in: SubnetAlphaIn::<T>::get(netuid).into(),
             alpha_out: SubnetAlphaOut::<T>::get(netuid).into(),
             tao_in: SubnetTAO::<T>::get(netuid).into(),

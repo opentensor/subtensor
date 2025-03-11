@@ -11,7 +11,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 pub mod check_nonce;
 mod migrations;
 
-use codec::{Compact, Decode, Encode, MaxEncodedLen};
+use codec::{Compact, Decode, Encode};
 use frame_support::traits::Imbalance;
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
@@ -39,7 +39,6 @@ use pallet_subtensor::rpc_info::{
     stake_info::StakeInfo,
     subnet_info::{SubnetHyperparams, SubnetInfo, SubnetInfov2},
 };
-use scale_info::TypeInfo;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -49,11 +48,11 @@ use sp_core::{
 };
 use sp_runtime::generic::Era;
 use sp_runtime::{
-    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, MultiSignature, create_runtime_str,
-    generic, impl_opaque_keys,
+    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, create_runtime_str, generic,
+    impl_opaque_keys,
     traits::{
-        AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable,
-        IdentifyAccount, NumberFor, One, PostDispatchInfoOf, UniqueSaturatedInto, Verify,
+        AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, NumberFor,
+        One, PostDispatchInfoOf, UniqueSaturatedInto, Verify,
     },
     transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
 };
@@ -62,6 +61,8 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
+use subtensor_precompiles::Precompiles;
+use subtensor_runtime_common::{time::*, *};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -87,9 +88,6 @@ pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
 use core::marker::PhantomData;
-
-mod precompiles;
-use precompiles::FrontierPrecompiles;
 
 // Frontier
 use fp_rpc::TransactionStatus;
@@ -159,29 +157,8 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
 pub use pallet_scheduler;
 pub use pallet_subtensor;
 
-// An index to a block.
-pub type BlockNumber = u32;
-
-// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
-pub type Signature = MultiSignature;
-
-// Some way of identifying an account on the chain. We intentionally make it equivalent
-// to the public key of our transaction signing scheme.
-pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
-
-// Balance of an account.
-pub type Balance = u64;
-
-// Index of a transaction in the chain.
-pub type Index = u32;
-
-// A hash of some data used by the chain.
-pub type Hash = sp_core::H256;
-
 // Member type for membership
 type MemberCount = u32;
-
-pub type Nonce = u32;
 
 // Method used to calculate the fee of an extrinsic
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
@@ -228,34 +205,12 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 244,
+    spec_version: 247,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
     state_version: 1,
 };
-
-/// This determines the average expected block time that we are targeting.
-/// Blocks will be produced at a minimum duration defined by `SLOT_DURATION`.
-/// `SLOT_DURATION` is picked up by `pallet_timestamp` which is in turn picked
-/// up by `pallet_aura` to implement `fn slot_duration()`.
-///
-/// Change this to adjust the block time.
-#[cfg(not(feature = "fast-blocks"))]
-pub const MILLISECS_PER_BLOCK: u64 = 12000;
-
-/// Fast blocks for development
-#[cfg(feature = "fast-blocks")]
-pub const MILLISECS_PER_BLOCK: u64 = 250;
-
-// NOTE: Currently it is not possible to change the slot duration after the chain has started.
-//       Attempting to do so will brick block production.
-pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
-
-// Time is measured by number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-pub const HOURS: BlockNumber = MINUTES * 60;
-pub const DAYS: BlockNumber = HOURS * 24;
 
 pub const MAXIMUM_BLOCK_WEIGHT: Weight =
     Weight::from_parts(4u64 * WEIGHT_REF_TIME_PER_SECOND, u64::MAX);
@@ -694,33 +649,6 @@ parameter_types! {
     pub const AnnouncementDepositFactor: Balance = deposit(0, 68);
 }
 
-#[derive(
-    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, MaxEncodedLen, TypeInfo,
-)]
-pub enum ProxyType {
-    Any,
-    Owner, // Subnet owner Calls
-    NonCritical,
-    NonTransfer,
-    Senate,
-    NonFungibile, // Nothing involving moving TAO
-    Triumvirate,
-    Governance, // Both above governance
-    Staking,
-    Registration,
-    Transfer,
-    SmallTransfer,
-    RootWeights,
-    ChildKeys,
-    SudoUncheckedSetCode,
-}
-// Transfers below SMALL_TRANSFER_LIMIT are considered small transfers
-pub const SMALL_TRANSFER_LIMIT: Balance = 500_000_000; // 0.5 TAO
-impl Default for ProxyType {
-    fn default() -> Self {
-        Self::Any
-    }
-} // allow all Calls; required to be most permissive
 impl InstanceFilter<RuntimeCall> for ProxyType {
     fn filter(&self, c: &RuntimeCall) -> bool {
         match self {
@@ -1078,17 +1006,18 @@ parameter_types! {
     pub const SubtensorInitialMinAllowedUids: u16 = 128;
     pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
-    pub const SubtensorInitialSubnetLimit: u16 = 12;
+    // pub const SubtensorInitialSubnetLimit: u16 = 12; // (DEPRECATED)
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
     pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
     pub const SubtensorInitialKeySwapCost: u64 = 100_000_000; // 0.1 TAO
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
-    pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // Maximum possible value for u64, this make the make stake infinity
+    // pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // (DEPRECATED)
     pub const InitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const SubtensorInitialTaoWeight: u64 = 971_718_665_099_567_868; // 0.05267697438728329% tao weight.
+    pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1143,17 +1072,16 @@ impl pallet_subtensor::Config for Runtime {
     type InitialNetworkMinLockCost = SubtensorInitialMinLockCost;
     type InitialNetworkLockReductionInterval = SubtensorInitialNetworkLockReductionInterval;
     type InitialSubnetOwnerCut = SubtensorInitialSubnetOwnerCut;
-    type InitialSubnetLimit = SubtensorInitialSubnetLimit;
     type InitialNetworkRateLimit = SubtensorInitialNetworkRateLimit;
     type KeySwapCost = SubtensorInitialKeySwapCost;
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;
-    type InitialNetworkMaxStake = SubtensorInitialNetworkMaxStake;
     type InitialTaoWeight = SubtensorInitialTaoWeight;
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
+    type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
 }
 
 use sp_runtime::BoundedVec;
@@ -1232,7 +1160,7 @@ fn weight_per_gas() -> Weight {
 parameter_types! {
     pub BlockGasLimit: U256 = U256::from(BLOCK_GAS_LIMIT);
     pub const GasLimitPovSizeRatio: u64 = 0;
-    pub PrecompilesValue: FrontierPrecompiles<Runtime> = FrontierPrecompiles::<_>::new();
+    pub PrecompilesValue: Precompiles<Runtime> = Precompiles::<_>::new();
     pub WeightPerGas: Weight = weight_per_gas();
     pub SuicideQuickClearLimit: u32 = 0;
 }
@@ -1304,7 +1232,7 @@ impl pallet_evm::Config for Runtime {
     type AddressMapping = pallet_evm::HashedAddressMapping<BlakeTwo256>;
     type Currency = Balances;
     type RuntimeEvent = RuntimeEvent;
-    type PrecompilesType = FrontierPrecompiles<Self>;
+    type PrecompilesType = Precompiles<Self>;
     type PrecompilesValue = PrecompilesValue;
     type ChainId = ConfigurableChainId;
     type BlockGasLimit = BlockGasLimit;

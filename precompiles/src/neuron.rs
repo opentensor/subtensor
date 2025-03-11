@@ -1,25 +1,39 @@
+use core::marker::PhantomData;
+
+use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
 use frame_system::RawOrigin;
-use pallet_evm::PrecompileHandle;
+use pallet_evm::{AddressMapping, PrecompileHandle};
 use precompile_utils::{EvmResult, prelude::UnboundedBytes};
 use sp_core::H256;
+use sp_runtime::traits::Dispatchable;
 use sp_std::vec::Vec;
 
-use crate::Runtime;
-use crate::precompiles::{PrecompileExt, PrecompileHandleExt, parse_pubkey};
+use crate::{PrecompileExt, PrecompileHandleExt};
 
-pub struct NeuronPrecompile;
+pub struct NeuronPrecompile<R>(PhantomData<R>);
 
-impl PrecompileExt for NeuronPrecompile {
+impl<R> PrecompileExt<R::AccountId> for NeuronPrecompile<R>
+where
+    R: frame_system::Config + pallet_evm::Config + pallet_subtensor::Config,
+    R::AccountId: From<[u8; 32]>,
+    <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
+        + GetDispatchInfo
+        + Dispatchable<PostInfo = PostDispatchInfo>,
+    <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
+{
     const INDEX: u64 = 2052;
-    const ADDRESS_SS58: [u8; 32] = [
-        0xbc, 0x46, 0x35, 0x79, 0xbc, 0x99, 0xf9, 0xee, 0x7c, 0x59, 0xed, 0xee, 0x20, 0x61, 0xa3,
-        0x09, 0xd2, 0x1e, 0x68, 0xd5, 0x39, 0xb6, 0x40, 0xec, 0x66, 0x46, 0x90, 0x30, 0xab, 0x74,
-        0xc1, 0xdb,
-    ];
 }
 
 #[precompile_utils::precompile]
-impl NeuronPrecompile {
+impl<R> NeuronPrecompile<R>
+where
+    R: frame_system::Config + pallet_evm::Config + pallet_subtensor::Config,
+    R::AccountId: From<[u8; 32]>,
+    <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
+        + GetDispatchInfo
+        + Dispatchable<PostInfo = PostDispatchInfo>,
+    <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
+{
     #[precompile::public("setWeights(uint16,uint16[],uint16[],uint64)")]
     #[precompile::payable]
     pub fn set_weights(
@@ -29,14 +43,17 @@ impl NeuronPrecompile {
         weights: Vec<u16>,
         version_key: u64,
     ) -> EvmResult<()> {
-        let call = pallet_subtensor::Call::<Runtime>::set_weights {
+        let call = pallet_subtensor::Call::<R>::set_weights {
             netuid,
             dests,
             weights,
             version_key,
         };
 
-        handle.try_dispatch_runtime_call(call, RawOrigin::Signed(handle.caller_account_id()))
+        handle.try_dispatch_runtime_call::<R, _>(
+            call,
+            RawOrigin::Signed(handle.caller_account_id::<R>()),
+        )
     }
 
     #[precompile::public("commitWeights(uint16,bytes32)")]
@@ -46,12 +63,15 @@ impl NeuronPrecompile {
         netuid: u16,
         commit_hash: H256,
     ) -> EvmResult<()> {
-        let call = pallet_subtensor::Call::<Runtime>::commit_weights {
+        let call = pallet_subtensor::Call::<R>::commit_weights {
             netuid,
             commit_hash,
         };
 
-        handle.try_dispatch_runtime_call(call, RawOrigin::Signed(handle.caller_account_id()))
+        handle.try_dispatch_runtime_call::<R, _>(
+            call,
+            RawOrigin::Signed(handle.caller_account_id::<R>()),
+        )
     }
 
     #[precompile::public("revealWeights(uint16,uint16[],uint16[],uint16[],uint64)")]
@@ -64,7 +84,7 @@ impl NeuronPrecompile {
         salt: Vec<u16>,
         version_key: u64,
     ) -> EvmResult<()> {
-        let call = pallet_subtensor::Call::<Runtime>::reveal_weights {
+        let call = pallet_subtensor::Call::<R>::reveal_weights {
             netuid,
             uids,
             values,
@@ -72,7 +92,10 @@ impl NeuronPrecompile {
             version_key,
         };
 
-        handle.try_dispatch_runtime_call(call, RawOrigin::Signed(handle.caller_account_id()))
+        handle.try_dispatch_runtime_call::<R, _>(
+            call,
+            RawOrigin::Signed(handle.caller_account_id::<R>()),
+        )
     }
 
     #[precompile::public("burnedRegister(uint16,bytes32)")]
@@ -82,11 +105,11 @@ impl NeuronPrecompile {
         netuid: u16,
         hotkey: H256,
     ) -> EvmResult<()> {
-        let coldkey = handle.caller_account_id();
-        let (hotkey, _) = parse_pubkey(hotkey.as_bytes())?;
-        let call = pallet_subtensor::Call::<Runtime>::burned_register { netuid, hotkey };
+        let coldkey = handle.caller_account_id::<R>();
+        let hotkey = R::AccountId::from(hotkey.0);
+        let call = pallet_subtensor::Call::<R>::burned_register { netuid, hotkey };
 
-        handle.try_dispatch_runtime_call(call, RawOrigin::Signed(coldkey))
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(coldkey))
     }
 
     #[precompile::public("serveAxon(uint16,uint32,uint128,uint16,uint8,uint8,uint8,uint8)")]
@@ -103,7 +126,7 @@ impl NeuronPrecompile {
         placeholder1: u8,
         placeholder2: u8,
     ) -> EvmResult<()> {
-        let call = pallet_subtensor::Call::<Runtime>::serve_axon {
+        let call = pallet_subtensor::Call::<R>::serve_axon {
             netuid,
             version,
             ip,
@@ -114,7 +137,10 @@ impl NeuronPrecompile {
             placeholder2,
         };
 
-        handle.try_dispatch_runtime_call(call, RawOrigin::Signed(handle.caller_account_id()))
+        handle.try_dispatch_runtime_call::<R, _>(
+            call,
+            RawOrigin::Signed(handle.caller_account_id::<R>()),
+        )
     }
 
     #[precompile::public(
@@ -134,7 +160,7 @@ impl NeuronPrecompile {
         placeholder2: u8,
         certificate: UnboundedBytes,
     ) -> EvmResult<()> {
-        let call = pallet_subtensor::Call::<Runtime>::serve_axon_tls {
+        let call = pallet_subtensor::Call::<R>::serve_axon_tls {
             netuid,
             version,
             ip,
@@ -146,7 +172,10 @@ impl NeuronPrecompile {
             certificate: certificate.into(),
         };
 
-        handle.try_dispatch_runtime_call(call, RawOrigin::Signed(handle.caller_account_id()))
+        handle.try_dispatch_runtime_call::<R, _>(
+            call,
+            RawOrigin::Signed(handle.caller_account_id::<R>()),
+        )
     }
 
     #[precompile::public("servePrometheus(uint16,uint32,uint128,uint16,uint8)")]
@@ -160,7 +189,7 @@ impl NeuronPrecompile {
         port: u16,
         ip_type: u8,
     ) -> EvmResult<()> {
-        let call = pallet_subtensor::Call::<Runtime>::serve_prometheus {
+        let call = pallet_subtensor::Call::<R>::serve_prometheus {
             netuid,
             version,
             ip,
@@ -168,6 +197,9 @@ impl NeuronPrecompile {
             ip_type,
         };
 
-        handle.try_dispatch_runtime_call(call, RawOrigin::Signed(handle.caller_account_id()))
+        handle.try_dispatch_runtime_call::<R, _>(
+            call,
+            RawOrigin::Signed(handle.caller_account_id::<R>()),
+        )
     }
 }
