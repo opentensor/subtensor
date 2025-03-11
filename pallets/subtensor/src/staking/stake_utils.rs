@@ -806,7 +806,7 @@ impl<T: Config> Pallet<T> {
     /// Stakes TAO into a subnet for a given hotkey and coldkey pair.
     ///
     /// We update the pools associated with a subnet as well as update hotkey alpha shares.
-    pub fn stake_into_subnet(
+    pub(crate) fn stake_into_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: u16,
@@ -1065,6 +1065,28 @@ impl<T: Config> Pallet<T> {
         }
 
         Ok(())
+    }
+
+    pub(crate) fn calculate_staking_fee(
+        netuid: u16,
+        hotkey: &T::AccountId,
+        alpha_estimate: I96F32,
+    ) -> u64 {
+        if (netuid == Self::get_root_netuid()) || (SubnetMechanism::<T>::get(netuid)) == 0 {
+            DefaultStakingFee::<T>::get()
+        } else {
+            let fee = alpha_estimate
+                .saturating_mul(
+                    I96F32::saturating_from_num(AlphaDividendsPerSubnet::<T>::get(netuid, &hotkey))
+                        .safe_div(I96F32::saturating_from_num(TotalHotkeyAlpha::<T>::get(
+                            &hotkey, netuid,
+                        ))),
+                )
+                .saturating_mul(Self::get_alpha_price(netuid)) // fee needs to be in TAO
+                .saturating_to_num::<u64>();
+
+            fee.max(DefaultStakingFee::<T>::get())
+        }
     }
 }
 
