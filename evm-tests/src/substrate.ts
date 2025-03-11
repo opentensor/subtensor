@@ -8,7 +8,7 @@ import { DEV_PHRASE, entropyToMiniSecret, mnemonicToEntropy, KeyPair } from "@po
 import { getPolkadotSigner } from "polkadot-api/signer"
 import { randomBytes } from 'crypto';
 import { Keyring } from '@polkadot/keyring';
-import { SS58_PREFIX } from "./config";
+import { SS58_PREFIX, TX_TIMEOUT } from "./config";
 
 let api: TypedApi<typeof devnet> | undefined = undefined
 
@@ -111,7 +111,7 @@ export async function getNonceChangePromise(api: TypedApi<typeof devnet>, ss58Ad
             subscription.unsubscribe();
             console.log('unsubscribed!');
             resolve()
-        }, 2000);
+        }, TX_TIMEOUT);
 
     })
 }
@@ -129,21 +129,28 @@ export function convertPublicKeyToMultiAddress(publicKey: Uint8Array, ss58Format
 
 export async function waitForTransactionCompletion(api: TypedApi<typeof devnet>, tx: Transaction<{}, string, string, void>, signer: PolkadotSigner,) {
     const transactionPromise = await getTransactionWatchPromise(tx, signer)
-    const ss58Address = convertPublicKeyToSs58(signer.publicKey)
-    const noncePromise = await getNonceChangePromise(api, ss58Address)
+    return transactionPromise
 
-    return new Promise<void>((resolve, reject) => {
-        Promise.race([transactionPromise, noncePromise])
-            .then(resolve)
-            .catch(reject);
-    })
+    // If we can't always get the finalized event, then add nonce subscribe as other evidence for tx is finalized.
+    // Don't need it based on current testing.
+    // const ss58Address = convertPublicKeyToSs58(signer.publicKey)
+    // const noncePromise = await getNonceChangePromise(api, ss58Address)
+
+    // return new Promise<void>((resolve, reject) => {
+    //     Promise.race([transactionPromise, noncePromise])
+    //         .then(resolve)
+    //         .catch(reject);
+    // })
 }
 
 export async function getTransactionWatchPromise(tx: Transaction<{}, string, string, void>, signer: PolkadotSigner,) {
     return new Promise<void>((resolve, reject) => {
+        // store the txHash, then use it in timeout. easier to know which tx is not finalized in time
+        let txHash = ""
         const subscription = tx.signSubmitAndWatch(signer).subscribe({
             next(value) {
                 console.log("Event:", value);
+                txHash = value.txHash
 
                 // TODO investigate why finalized not for each extrinsic
                 if (value.type === "finalized") {
@@ -168,9 +175,9 @@ export async function getTransactionWatchPromise(tx: Transaction<{}, string, str
 
         setTimeout(() => {
             subscription.unsubscribe();
-            console.log('unsubscribed!');
-            resolve()
-        }, 2000);
+            console.log('unsubscribed because of timeout for tx {}', txHash);
+            reject()
+        }, TX_TIMEOUT);
     });
 }
 
