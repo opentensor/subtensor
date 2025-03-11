@@ -1669,3 +1669,45 @@ fn test_sudo_set_subnet_owner_hotkey() {
         );
     });
 }
+
+// cargo test --package pallet-admin-utils --lib -- tests::test_sudo_set_ema_halving --exact --show-output
+#[test]
+fn test_sudo_set_ema_halving() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u64 = 10;
+        add_network(netuid, 10);
+
+        let value_before: u64 = pallet_subtensor::EMAPriceHalvingBlocks::<Test>::get(netuid);
+        assert_eq!(
+            AdminUtils::sudo_set_ema_price_halving_period(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        let value_after_0: u64 = pallet_subtensor::EMAPriceHalvingBlocks::<Test>::get(netuid);
+        assert_eq!(value_after_0, value_before);
+
+        let owner = U256::from(10);
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, owner);
+        assert_eq!(
+            AdminUtils::sudo_set_ema_price_halving_period(
+                <<Test as Config>::RuntimeOrigin>::signed(owner),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        let value_after_1: u64 = pallet_subtensor::EMAPriceHalvingBlocks::<Test>::get(netuid);
+        assert_eq!(value_after_1, value_before);
+        assert_ok!(AdminUtils::sudo_set_ema_price_halving_period(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+        let value_after_2: u64 = pallet_subtensor::EMAPriceHalvingBlocks::<Test>::get(netuid);
+        assert_eq!(value_after_2, to_be_set);
+    });
+}

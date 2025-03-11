@@ -396,6 +396,11 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
+    /// Default EMA price halving blocks
+    pub fn DefaultEMAPriceMovingBlocks<T: Config>() -> u64 {
+        T::InitialEmaPriceHalvingPeriod::get()
+    }
+    #[pallet::type_value]
     /// Default registrations this block.
     pub fn DefaultBurn<T: Config>() -> u64 {
         T::InitialBurn::get()
@@ -1293,6 +1298,10 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> Registrations of this Block.
     pub type RegistrationsThisBlock<T> =
         StorageMap<_, Identity, u16, u16, ValueQuery, DefaultRegistrationsThisBlock<T>>;
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> Halving time of average moving price.
+    pub type EMAPriceHalvingBlocks<T> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultEMAPriceMovingBlocks<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> global_RAO_recycled_for_registration
     pub type RAORecycledForRegistration<T> =

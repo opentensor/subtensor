@@ -218,8 +218,8 @@ fn test_coinbase_moving_prices() {
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0));
         SubnetMovingAlpha::<Test>::set(I96F32::from_num(0.1));
 
-        // EMA price 14 days after registration
-        System::set_block_number(7_200 * 14);
+        // EMA price 28 days after registration
+        System::set_block_number(7_200 * 28);
 
         // Run moving 14 times.
         for _ in 0..14 {
@@ -274,7 +274,7 @@ fn test_update_moving_price_after_time() {
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0));
 
         // Registered long time ago
-        System::set_block_number(72_000_500);
+        System::set_block_number(144_000_500);
         NetworkRegisteredAt::<Test>::insert(netuid, 500);
 
         SubtensorModule::update_moving_price(netuid);
