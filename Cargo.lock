@@ -5849,7 +5849,7 @@ dependencies = [
  "pallet-membership",
  "pallet-multisig",
  "pallet-preimage",
- "pallet-proxy",
+ "pallet-proxy 38.0.0",
  "pallet-registry",
  "pallet-safe-mode",
  "pallet-scheduler",
@@ -5858,7 +5858,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
- "pallet-utility",
+ "pallet-utility 38.0.0",
  "parity-scale-codec",
  "precompile-utils",
  "rand_chacha",
@@ -6525,6 +6525,23 @@ dependencies = [
 [[package]]
 name = "pallet-proxy"
 version = "38.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-utility 38.0.0",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "subtensor-macros",
+]
+
+[[package]]
+name = "pallet-proxy"
+version = "38.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409#87971b3e92721bdf10bf40b410eaae779d494ca0"
 dependencies = [
  "frame-benchmarking",
@@ -6554,6 +6571,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-root-testing"
+version = "14.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409#87971b3e92721bdf10bf40b410eaae779d494ca0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-safe-mode"
 version = "19.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409#87971b3e92721bdf10bf40b410eaae779d494ca0"
@@ -6563,8 +6594,8 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-balances",
- "pallet-proxy",
- "pallet-utility",
+ "pallet-proxy 38.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409)",
+ "pallet-utility 38.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409)",
  "parity-scale-codec",
  "scale-info",
  "sp-arithmetic",
@@ -6631,7 +6662,7 @@ dependencies = [
  "pallet-preimage",
  "pallet-scheduler",
  "pallet-transaction-payment",
- "pallet-utility",
+ "pallet-utility 38.0.0",
  "parity-scale-codec",
  "parity-util-mem",
  "rand",
@@ -6732,6 +6763,25 @@ dependencies = [
  "sp-api",
  "sp-runtime",
  "sp-weights",
+]
+
+[[package]]
+name = "pallet-utility"
+version = "38.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-collective",
+ "pallet-root-testing",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "subtensor-macros",
 ]
 
 [[package]]
@@ -8011,9 +8061,9 @@ dependencies = [
 
 [[package]]
 name = "ring"
-version = "0.17.12"
+version = "0.17.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed9b823fa29b721a59671b41d6b06e66b29e0628e207e8b1c3ceeda701ec928d"
+checksum = "70ac5d832aa16abd7d1def883a8545280c20a60f523a370aa3a9617c2b8550ee"
 dependencies = [
  "cc",
  "cfg-if",
@@ -8205,7 +8255,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f56a14d1f48b391359b22f731fd4bd7e43c97f3c50eee276f3aa09c94784d3e"
 dependencies = [
  "log",
- "ring 0.17.12",
+ "ring 0.17.13",
  "rustls-webpki",
  "sct",
 ]
@@ -8237,7 +8287,7 @@ version = "0.101.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b6275d1ee7a1cd780b64aca7726599a1dbc893b1e64144529e55c3c2f745765"
 dependencies = [
- "ring 0.17.12",
+ "ring 0.17.13",
  "untrusted 0.9.0",
 ]
 
@@ -9488,7 +9538,7 @@ version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da046153aa2352493d6cb7da4b6e5c0c057d8a1d0a9aa8560baffdd945acd414"
 dependencies = [
- "ring 0.17.12",
+ "ring 0.17.13",
  "untrusted 0.9.0",
 ]
 
@@ -9911,7 +9961,7 @@ dependencies = [
  "chacha20poly1305",
  "curve25519-dalek",
  "rand_core",
- "ring 0.17.12",
+ "ring 0.17.13",
  "rustc_version 0.4.1",
  "sha2 0.10.8",
  "subtle 2.6.1",
@@ -11220,7 +11270,7 @@ dependencies = [
  "pallet-evm-precompile-modexp",
  "pallet-evm-precompile-sha3fips",
  "pallet-evm-precompile-simple",
- "pallet-proxy",
+ "pallet-proxy 38.0.0",
  "pallet-subtensor",
  "precompile-utils",
  "sp-core",
@@ -12534,7 +12584,7 @@ version = "0.22.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed63aea5ce73d0ff405984102c42de94fc55a6b75765d621c65262469b3c9b53"
 dependencies = [
- "ring 0.17.12",
+ "ring 0.17.13",
  "untrusted 0.9.0",
 ]
 

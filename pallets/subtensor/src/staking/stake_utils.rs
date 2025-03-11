@@ -60,10 +60,15 @@ impl<T: Config> Pallet<T> {
         let blocks_since_registration = I96F32::saturating_from_num(
             Self::get_current_block_as_u64().saturating_sub(NetworkRegisteredAt::<T>::get(netuid)),
         );
-        // 7200 * 14 = 100_800 is the halving time
+
+        // Use halving time hyperparameter. The meaning of this parameter can be best explained under
+        // the assumption of a constant price and SubnetMovingAlpha == 0.5: It is how many blocks it
+        // will take in order for the distance between current EMA of price and current price to shorten
+        // by half.
+        let halving_time = EMAPriceHalvingBlocks::<T>::get(netuid);
         let alpha: I96F32 =
             SubnetMovingAlpha::<T>::get().saturating_mul(blocks_since_registration.safe_div(
-                blocks_since_registration.saturating_add(I96F32::saturating_from_num(100_800)),
+                blocks_since_registration.saturating_add(I96F32::saturating_from_num(halving_time)),
             ));
         let minus_alpha: I96F32 = I96F32::saturating_from_num(1.0).saturating_sub(alpha);
         let current_price: I96F32 = alpha
