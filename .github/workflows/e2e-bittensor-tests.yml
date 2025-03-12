@@ -42,7 +42,7 @@ jobs:
       - name: Setup bittensor repo
         working-directory: ${{ github.workspace }}/bittensor
         run: |
-          git checkout staging
+          git checkout fix-no-sudo-set
           python3 -m pip install -e .
           python3 -m pip install torch
           python3 -m pip install pytest
