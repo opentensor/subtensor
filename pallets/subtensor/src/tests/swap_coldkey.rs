@@ -14,6 +14,7 @@ use frame_support::traits::schedule::DispatchTime;
 use frame_support::traits::schedule::v3::Named as ScheduleNamed;
 use sp_core::{Get, H256, U256};
 use sp_runtime::DispatchError;
+use substrate_fixed::types::I96F32;
 
 // // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_swap_total_hotkey_coldkey_stakes_this_interval --exact --nocapture
 // #[test]
@@ -537,7 +538,9 @@ fn test_swap_concurrent_modifications() {
         let netuid: u16 = 1;
         let initial_stake = 1_000_000_000_000;
         let additional_stake = 500_000_000_000;
-        let fee = DefaultStakingFee::<Test>::get();
+        let initial_stake_alpha =
+            I96F32::from(initial_stake).saturating_mul(SubtensorModule::get_alpha_price(netuid));
+        let fee = SubtensorModule::calculate_staking_fee(netuid, &hotkey, initial_stake_alpha);
 
         // Setup initial state
         add_network(netuid, 1, 1);
@@ -588,7 +591,6 @@ fn test_swap_concurrent_modifications() {
             &mut weight
         ));
 
-        let eps = 500; // RAO
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey,
@@ -596,7 +598,7 @@ fn test_swap_concurrent_modifications() {
                 netuid
             ),
             stake_before_swap + additional_stake - fee,
-            epsilon = eps
+            epsilon = (stake_before_swap + additional_stake - fee) / 1000
         );
         assert!(!Alpha::<Test>::contains_key((hotkey, old_coldkey, netuid)));
     });

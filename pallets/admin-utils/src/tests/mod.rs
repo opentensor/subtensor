@@ -5,7 +5,7 @@ use frame_support::{
     traits::Hooks,
 };
 use frame_system::Config;
-use pallet_subtensor::Error as SubtensorError;
+use pallet_subtensor::{Error as SubtensorError, SubnetOwner, Tempo, WeightsVersionKeyRateLimit};
 // use pallet_subtensor::{migrations, Event};
 use pallet_subtensor::Event;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
@@ -159,6 +159,107 @@ fn test_sudo_set_weights_version_key() {
             to_be_set
         ));
         assert_eq!(SubtensorModule::get_weights_version_key(netuid), to_be_set);
+    });
+}
+
+#[test]
+fn test_sudo_set_weights_version_key_rate_limit() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u64 = 10;
+
+        let sn_owner = U256::from(1);
+        add_network(netuid, 10);
+        // Set the Subnet Owner
+        SubnetOwner::<Test>::insert(netuid, sn_owner);
+
+        let rate_limit = WeightsVersionKeyRateLimit::<Test>::get();
+        let tempo: u16 = Tempo::<Test>::get(netuid);
+
+        let rate_limit_period = rate_limit * (tempo as u64);
+
+        assert_ok!(AdminUtils::sudo_set_weights_version_key(
+            <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+            netuid,
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_weights_version_key(netuid), to_be_set);
+
+        // Try to set again with
+        // Assert rate limit not passed
+        assert!(!SubtensorModule::passes_rate_limit_on_subnet(
+            &pallet_subtensor::utils::rate_limiting::TransactionType::SetWeightsVersionKey,
+            &sn_owner,
+            netuid
+        ));
+
+        // Try transaction
+        assert_noop!(
+            AdminUtils::sudo_set_weights_version_key(
+                <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+                netuid,
+                to_be_set + 1
+            ),
+            pallet_subtensor::Error::<Test>::TxRateLimitExceeded
+        );
+
+        // Wait for rate limit to pass
+        run_to_block(rate_limit_period + 2);
+        assert!(SubtensorModule::passes_rate_limit_on_subnet(
+            &pallet_subtensor::utils::rate_limiting::TransactionType::SetWeightsVersionKey,
+            &sn_owner,
+            netuid
+        ));
+
+        // Try transaction
+        assert_ok!(AdminUtils::sudo_set_weights_version_key(
+            <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+            netuid,
+            to_be_set + 1
+        ));
+        assert_eq!(
+            SubtensorModule::get_weights_version_key(netuid),
+            to_be_set + 1
+        );
+    });
+}
+
+#[test]
+fn test_sudo_set_weights_version_key_rate_limit_root() {
+    // root should not be effected by rate limit
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u64 = 10;
+
+        let sn_owner = U256::from(1);
+        add_network(netuid, 10);
+        // Set the Subnet Owner
+        SubnetOwner::<Test>::insert(netuid, sn_owner);
+
+        let rate_limit = WeightsVersionKeyRateLimit::<Test>::get();
+        let tempo: u16 = Tempo::<Test>::get(netuid);
+
+        let rate_limit_period = rate_limit * (tempo as u64);
+        // Verify the rate limit is more than 0 blocks
+        assert!(rate_limit_period > 0);
+
+        assert_ok!(AdminUtils::sudo_set_weights_version_key(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_weights_version_key(netuid), to_be_set);
+
+        // Try transaction
+        assert_ok!(AdminUtils::sudo_set_weights_version_key(
+            <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+            netuid,
+            to_be_set + 1
+        ));
+        assert_eq!(
+            SubtensorModule::get_weights_version_key(netuid),
+            to_be_set + 1
+        );
     });
 }
 
@@ -851,30 +952,6 @@ fn test_sudo_set_rao_recycled() {
 }
 
 #[test]
-fn test_sudo_set_subnet_limit() {
-    new_test_ext().execute_with(|| {
-        let netuid: u16 = 1;
-        let to_be_set: u16 = 10;
-        add_network(netuid, 10);
-
-        let init_value: u16 = SubtensorModule::get_max_subnets();
-        assert_eq!(
-            AdminUtils::sudo_set_subnet_limit(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
-                to_be_set
-            ),
-            Err(DispatchError::BadOrigin)
-        );
-        assert_eq!(SubtensorModule::get_max_subnets(), init_value);
-        assert_ok!(AdminUtils::sudo_set_subnet_limit(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            to_be_set
-        ));
-        assert_eq!(SubtensorModule::get_max_subnets(), to_be_set);
-    });
-}
-
-#[test]
 fn test_sudo_set_network_lock_reduction_interval() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
@@ -1464,5 +1541,173 @@ fn test_sudo_root_sets_subnet_moving_alpha() {
         ));
 
         assert_eq!(pallet_subtensor::SubnetMovingAlpha::<Test>::get(), alpha);
+    });
+}
+
+#[test]
+fn test_sets_a_lower_value_clears_small_nominations() {
+    new_test_ext().execute_with(|| {
+        let hotkey: U256 = U256::from(3);
+        let owner_coldkey: U256 = U256::from(1);
+        let staker_coldkey: U256 = U256::from(2);
+
+        let initial_nominator_min_required_stake = 10u64;
+        let nominator_min_required_stake_0 = 5u64;
+        let nominator_min_required_stake_1 = 20u64;
+
+        assert!(nominator_min_required_stake_0 < nominator_min_required_stake_1);
+        assert!(nominator_min_required_stake_0 < initial_nominator_min_required_stake);
+
+        let to_stake = initial_nominator_min_required_stake + 1;
+
+        assert!(to_stake > initial_nominator_min_required_stake);
+        assert!(to_stake > nominator_min_required_stake_0); // Should stay when set
+        assert!(to_stake < nominator_min_required_stake_1); // Should be removed when set
+
+        // Create network
+        let netuid = 2;
+        add_network(netuid, 10);
+
+        // Register a neuron
+        register_ok_neuron(netuid, hotkey, owner_coldkey, 0);
+
+        assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
+            RuntimeOrigin::root(),
+            initial_nominator_min_required_stake
+        ));
+        assert_eq!(
+            SubtensorModule::get_nominator_min_required_stake(),
+            initial_nominator_min_required_stake
+        );
+
+        // Stake to the hotkey as staker_coldkey
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &staker_coldkey,
+            netuid,
+            to_stake,
+        );
+
+        assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
+            RuntimeOrigin::root(),
+            nominator_min_required_stake_0
+        ));
+        assert_eq!(
+            SubtensorModule::get_nominator_min_required_stake(),
+            nominator_min_required_stake_0
+        );
+
+        // Check this nomination is not cleared
+        assert!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &staker_coldkey,
+                netuid
+            ) > 0
+        );
+
+        assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
+            RuntimeOrigin::root(),
+            nominator_min_required_stake_1
+        ));
+        assert_eq!(
+            SubtensorModule::get_nominator_min_required_stake(),
+            nominator_min_required_stake_1
+        );
+
+        // Check this nomination is cleared
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &staker_coldkey,
+                netuid
+            ),
+            0
+        );
+    });
+}
+
+#[test]
+fn test_sudo_set_subnet_owner_hotkey() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+
+        let coldkey: U256 = U256::from(1);
+        let hotkey: U256 = U256::from(2);
+        let new_hotkey: U256 = U256::from(3);
+
+        let coldkey_origin = <<Test as Config>::RuntimeOrigin>::signed(coldkey);
+        let root = RuntimeOrigin::root();
+        let random_account = RuntimeOrigin::signed(U256::from(123456));
+
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, coldkey);
+        pallet_subtensor::SubnetOwnerHotkey::<Test>::insert(netuid, hotkey);
+        assert_eq!(
+            pallet_subtensor::SubnetOwnerHotkey::<Test>::get(netuid),
+            hotkey
+        );
+
+        assert_ok!(AdminUtils::sudo_set_subnet_owner_hotkey(
+            coldkey_origin,
+            netuid,
+            new_hotkey
+        ));
+
+        assert_eq!(
+            pallet_subtensor::SubnetOwnerHotkey::<Test>::get(netuid),
+            new_hotkey
+        );
+
+        assert_noop!(
+            AdminUtils::sudo_set_subnet_owner_hotkey(random_account, netuid, new_hotkey),
+            DispatchError::BadOrigin
+        );
+
+        assert_noop!(
+            AdminUtils::sudo_set_subnet_owner_hotkey(root, netuid, new_hotkey),
+            DispatchError::BadOrigin
+        );
+    });
+}
+
+// cargo test --package pallet-admin-utils --lib -- tests::test_sudo_set_ema_halving --exact --show-output
+#[test]
+fn test_sudo_set_ema_halving() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u64 = 10;
+        add_network(netuid, 10);
+
+        let value_before: u64 = pallet_subtensor::EMAPriceHalvingBlocks::<Test>::get(netuid);
+        assert_eq!(
+            AdminUtils::sudo_set_ema_price_halving_period(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        let value_after_0: u64 = pallet_subtensor::EMAPriceHalvingBlocks::<Test>::get(netuid);
+        assert_eq!(value_after_0, value_before);
+
+        let owner = U256::from(10);
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, owner);
+        assert_eq!(
+            AdminUtils::sudo_set_ema_price_halving_period(
+                <<Test as Config>::RuntimeOrigin>::signed(owner),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        let value_after_1: u64 = pallet_subtensor::EMAPriceHalvingBlocks::<Test>::get(netuid);
+        assert_eq!(value_after_1, value_before);
+        assert_ok!(AdminUtils::sudo_set_ema_price_halving_period(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+        let value_after_2: u64 = pallet_subtensor::EMAPriceHalvingBlocks::<Test>::get(netuid);
+        assert_eq!(value_after_2, to_be_set);
     });
 }

@@ -1,7 +1,7 @@
 use super::*;
 use safe_math::*;
 use sp_core::Get;
-use substrate_fixed::types::U64F64;
+use substrate_fixed::types::{I96F32, U64F64};
 
 impl<T: Config> Pallet<T> {
     /// Moves stake from one hotkey to another across subnets.
@@ -330,13 +330,26 @@ impl<T: Config> Pallet<T> {
             check_transfer_toggle,
         )?;
 
+        // Calculate the amount that should be moved in this operation
+        let move_amount = if alpha_amount < max_amount {
+            alpha_amount
+        } else {
+            max_amount
+        };
+
         // Unstake from the origin subnet, returning TAO (or a 1:1 equivalent).
-        let fee = DefaultStakingFee::<T>::get().safe_div(2);
+        let fee = Self::calculate_staking_fee(
+            origin_netuid,
+            origin_hotkey,
+            I96F32::saturating_from_num(alpha_amount),
+        )
+        .safe_div(2);
+
         let tao_unstaked = Self::unstake_from_subnet(
             origin_hotkey,
             origin_coldkey,
             origin_netuid,
-            alpha_amount,
+            move_amount,
             fee,
         );
 
