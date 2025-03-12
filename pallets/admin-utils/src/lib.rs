@@ -500,6 +500,12 @@ pub mod pallet {
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
+
+            ensure!(
+                activity_cutoff >= pallet_subtensor::MinActivityCutoff::<T>::get(),
+                pallet_subtensor::Error::<T>::ActivityCutoffTooLow
+            );
+
             pallet_subtensor::Pallet::<T>::set_activity_cutoff(netuid, activity_cutoff);
             log::debug!(
                 "ActivityCutoffSet( netuid: {:?} activity_cutoff: {:?} ) ",
