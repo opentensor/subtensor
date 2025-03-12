@@ -1,5 +1,4 @@
 use safe_math::*;
-use sp_arithmetic::traits::UniqueSaturatedInto;
 use substrate_fixed::types::U64F64;
 
 /// The width of a single price tick. Expressed in rao units.
@@ -34,10 +33,10 @@ struct Position {
 
 impl Position {
     /// Converts tick index into SQRT of price
-    pub fn tick_index_to_sqrt_price(tick_idx: u64) -> U64F64 {
+    pub fn tick_index_to_sqrt_price(tick_idx: u64) -> SqrtPrice {
         // python: (1 + self.tick_spacing) ** (i / 2)
-        let tick_spacing_tao = U64F64::from_num(TICK_SPACING).saturating_div(U64F64::from_num(1e9))
-            + U64F64::from_num(1.0);
+        let tick_spacing_tao = SqrtPrice::from_num(TICK_SPACING).saturating_div(SqrtPrice::from_num(1e9))
+            + SqrtPrice::from_num(1.0);
 
         tick_spacing_tao
             .checked_pow(tick_idx / 2)
@@ -45,9 +44,9 @@ impl Position {
     }
 
     /// Converts SQRT price to tick index
-    pub fn sqrt_price_to_tick_index(sqrt_price: U64F64) -> u64 {
-        let tick_spacing_tao = U64F64::from_num(TICK_SPACING).saturating_div(U64F64::from_num(1e9))
-            + U64F64::from_num(1.0);
+    pub fn sqrt_price_to_tick_index(sqrt_price: SqrtPrice) -> u64 {
+        let tick_spacing_tao = SqrtPrice::from_num(TICK_SPACING).saturating_div(SqrtPrice::from_num(1e9))
+            + SqrtPrice::from_num(1.0);
         // python: math.floor(math.log(sqrt_p) / math.log(1 + self.tick_spacing)) * 2
         todo!()
     }
