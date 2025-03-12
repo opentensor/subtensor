@@ -1075,9 +1075,9 @@ checksum = "fd6c0e7b807d60291f42f33f58480c0bfafe28ed08286446f45e463728cf9c1c"
 
 [[package]]
 name = "cc"
-version = "1.1.24"
+version = "1.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "812acba72f0a070b003d3697490d2b55b837230ae7c6c6497f05cc2ddbb8d938"
+checksum = "be714c154be609ec7f5dad223a33bf1482fff90472de28f7362806e6d4832b8c"
 dependencies = [
  "jobserver",
  "libc",
@@ -4247,7 +4247,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -5597,6 +5597,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "subtensor-custom-rpc",
  "subtensor-custom-rpc-runtime-api",
+ "subtensor-runtime-common",
  "thiserror",
 ]
 
@@ -5605,7 +5606,6 @@ name = "node-subtensor-runtime"
 version = "4.0.0-dev"
 dependencies = [
  "ark-serialize",
- "ed25519-dalek",
  "fp-account",
  "fp-evm",
  "fp-rpc",
@@ -5641,7 +5641,7 @@ dependencies = [
  "pallet-membership",
  "pallet-multisig",
  "pallet-preimage",
- "pallet-proxy",
+ "pallet-proxy 38.0.0",
  "pallet-registry",
  "pallet-safe-mode",
  "pallet-scheduler",
@@ -5650,7 +5650,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
- "pallet-utility",
+ "pallet-utility 38.0.0",
  "parity-scale-codec",
  "precompile-utils",
  "rand_chacha",
@@ -5676,6 +5676,8 @@ dependencies = [
  "substrate-wasm-builder",
  "subtensor-custom-rpc-runtime-api",
  "subtensor-macros",
+ "subtensor-precompiles",
+ "subtensor-runtime-common",
  "tle",
  "w3f-bls",
 ]
@@ -6318,6 +6320,23 @@ dependencies = [
 [[package]]
 name = "pallet-proxy"
 version = "38.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-utility 38.0.0",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "subtensor-macros",
+]
+
+[[package]]
+name = "pallet-proxy"
+version = "38.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409#87971b3e92721bdf10bf40b410eaae779d494ca0"
 dependencies = [
  "frame-benchmarking",
@@ -6347,6 +6366,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-root-testing"
+version = "14.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409#87971b3e92721bdf10bf40b410eaae779d494ca0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-safe-mode"
 version = "19.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409#87971b3e92721bdf10bf40b410eaae779d494ca0"
@@ -6356,8 +6389,8 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-balances",
- "pallet-proxy",
- "pallet-utility",
+ "pallet-proxy 38.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409)",
+ "pallet-utility 38.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409)",
  "parity-scale-codec",
  "scale-info",
  "sp-arithmetic",
@@ -6424,7 +6457,7 @@ dependencies = [
  "pallet-preimage",
  "pallet-scheduler",
  "pallet-transaction-payment",
- "pallet-utility",
+ "pallet-utility 38.0.0",
  "parity-scale-codec",
  "parity-util-mem",
  "rand",
@@ -6525,6 +6558,25 @@ dependencies = [
  "sp-api",
  "sp-runtime",
  "sp-weights",
+]
+
+[[package]]
+name = "pallet-utility"
+version = "38.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-collective",
+ "pallet-root-testing",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "subtensor-macros",
 ]
 
 [[package]]
@@ -7755,15 +7807,14 @@ dependencies = [
 
 [[package]]
 name = "ring"
-version = "0.17.8"
+version = "0.17.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c17fa4cb658e3583423e915b9f3acc01cceaee1860e33d59ebae66adc3a2dc0d"
+checksum = "70ac5d832aa16abd7d1def883a8545280c20a60f523a370aa3a9617c2b8550ee"
 dependencies = [
  "cc",
  "cfg-if",
  "getrandom",
  "libc",
- "spin 0.9.8",
  "untrusted 0.9.0",
  "windows-sys 0.52.0",
 ]
@@ -7947,7 +7998,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f56a14d1f48b391359b22f731fd4bd7e43c97f3c50eee276f3aa09c94784d3e"
 dependencies = [
  "log",
- "ring 0.17.8",
+ "ring 0.17.13",
  "rustls-webpki",
  "sct",
 ]
@@ -7979,7 +8030,7 @@ version = "0.101.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b6275d1ee7a1cd780b64aca7726599a1dbc893b1e64144529e55c3c2f745765"
 dependencies = [
- "ring 0.17.8",
+ "ring 0.17.13",
  "untrusted 0.9.0",
 ]
 
@@ -9230,7 +9281,7 @@ version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da046153aa2352493d6cb7da4b6e5c0c057d8a1d0a9aa8560baffdd945acd414"
 dependencies = [
- "ring 0.17.8",
+ "ring 0.17.13",
  "untrusted 0.9.0",
 ]
 
@@ -9653,7 +9704,7 @@ dependencies = [
  "chacha20poly1305",
  "curve25519-dalek",
  "rand_core",
- "ring 0.17.8",
+ "ring 0.17.13",
  "rustc_version 0.4.1",
  "sha2 0.10.8",
  "subtle 2.6.1",
@@ -10964,6 +11015,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "subtensor-precompiles"
+version = "0.1.0"
+dependencies = [
+ "ed25519-dalek",
+ "fp-evm",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-admin-utils",
+ "pallet-balances",
+ "pallet-evm",
+ "pallet-evm-precompile-modexp",
+ "pallet-evm-precompile-sha3fips",
+ "pallet-evm-precompile-simple",
+ "pallet-proxy 38.0.0",
+ "pallet-subtensor",
+ "precompile-utils",
+ "sp-core",
+ "sp-runtime",
+ "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409)",
+ "subtensor-runtime-common",
+]
+
+[[package]]
+name = "subtensor-runtime-common"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-runtime",
+]
+
+[[package]]
 name = "subtensor-tools"
 version = "0.1.0"
 dependencies = [
@@ -12189,7 +12275,7 @@ version = "0.22.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed63aea5ce73d0ff405984102c42de94fc55a6b75765d621c65262469b3c9b53"
 dependencies = [
- "ring 0.17.8",
+ "ring 0.17.13",
  "untrusted 0.9.0",
 ]
 

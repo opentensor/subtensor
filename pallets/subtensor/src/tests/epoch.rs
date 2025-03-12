@@ -582,11 +582,6 @@ fn test_1_graph() {
         ));
         // SubtensorModule::set_weights_for_testing( netuid, i as u16, vec![ ( 0, u16::MAX )]); // doesn't set update status
         // SubtensorModule::set_bonds_for_testing( netuid, uid, vec![ ( 0, u16::MAX )]); // rather, bonds are calculated in epoch
-        SubtensorModule::set_emission_values(&[netuid], vec![1_000_000_000]).unwrap();
-        assert_eq!(
-            SubtensorModule::get_subnet_emission_value(netuid),
-            1_000_000_000
-        );
         SubtensorModule::epoch(netuid, 1_000_000_000);
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey),
@@ -597,10 +592,6 @@ fn test_1_graph() {
         assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, uid), 0);
         assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, uid), 0);
         assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, uid), 0);
-        assert_eq!(
-            SubtensorModule::get_emission_for_uid(netuid, uid),
-            1_000_000_000
-        );
     });
 }
 
@@ -2285,19 +2276,19 @@ fn test_compute_alpha_values() {
     // exp_val = exp(0.0 - 1.0 * 0.1) = exp(-0.1)
     // alpha[0] = 1 / (1 + exp(-0.1)) ~ 0.9048374180359595
     let exp_val_0 = I32F32::from_num(0.9048374180359595);
-    let expected_alpha_0 = I32F32::from_num(1.0) / I32F32::from_num(1.0).saturating_add(exp_val_0);
+    let expected_alpha_0 = I32F32::from_num(1.0) / (I32F32::from_num(1.0) + exp_val_0);
 
     // For consensus[1] = 0.5:
     // exp_val = exp(0.0 - 1.0 * 0.5) = exp(-0.5)
     // alpha[1] = 1 / (1 + exp(-0.5)) ~ 0.6065306597126334
     let exp_val_1 = I32F32::from_num(0.6065306597126334);
-    let expected_alpha_1 = I32F32::from_num(1.0) / I32F32::from_num(1.0).saturating_add(exp_val_1);
+    let expected_alpha_1 = I32F32::from_num(1.0) / (I32F32::from_num(1.0) + exp_val_1);
 
     // For consensus[2] = 0.9:
     // exp_val = exp(0.0 - 1.0 * 0.9) = exp(-0.9)
     // alpha[2] = 1 / (1 + exp(-0.9)) ~ 0.4065696597405991
     let exp_val_2 = I32F32::from_num(0.4065696597405991);
-    let expected_alpha_2 = I32F32::from_num(1.0) / I32F32::from_num(1.0).saturating_add(exp_val_2);
+    let expected_alpha_2 = I32F32::from_num(1.0) / (I32F32::from_num(1.0) + exp_val_2);
 
     // Define an epsilon for approximate equality checks.
     let epsilon = I32F32::from_num(1e-6);
@@ -2329,13 +2320,13 @@ fn test_compute_alpha_values_256_miners() {
 
     for (i, &c) in consensus.iter().enumerate() {
         // Use saturating subtraction and multiplication
-        let exponent = b.saturating_sub(a.saturating_mul(c));
+        let exponent = b - (a * c);
 
         // Use safe_exp instead of exp
         let exp_val = safe_exp(exponent);
 
         // Use saturating addition and division
-        let expected_alpha = I32F32::from_num(1.0) / I32F32::from_num(1.0).saturating_add(exp_val);
+        let expected_alpha = I32F32::from_num(1.0) / (I32F32::from_num(1.0) + exp_val);
 
         // Assert that the computed alpha values match the expected values within the epsilon.
         assert_approx_eq(alpha[i], expected_alpha, epsilon);
@@ -2779,6 +2770,61 @@ fn test_blocks_since_last_step() {
         step_block(7);
 
         assert_eq!(SubtensorModule::get_blocks_since_last_step(netuid), 27);
+    });
+}
+
+#[test]
+fn test_can_set_self_weight_as_subnet_owner() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey: U256 = U256::from(1);
+        let subnet_owner_hotkey: U256 = U256::from(1 + 456);
+
+        let other_hotkey: U256 = U256::from(2);
+
+        let stake = 5_000_000_000_000; // 5k TAO
+        let to_emit: u64 = 1_000_000_000; // 1 TAO
+
+        // Create subnet
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        // Register the other hotkey
+        register_ok_neuron(netuid, other_hotkey, subnet_owner_coldkey, 0);
+
+        // Add stake to owner hotkey.
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &subnet_owner_hotkey,
+            &subnet_owner_coldkey,
+            netuid,
+            stake,
+        );
+
+        // Give vpermits to owner hotkey ONLY
+        ValidatorPermit::<Test>::insert(netuid, vec![true, false]);
+
+        // Set weight of 50% to each hotkey.
+        // This includes a self-weight
+        let fifty_percent: u16 = u16::MAX / 2;
+        Weights::<Test>::insert(netuid, 0, vec![(0, fifty_percent), (1, fifty_percent)]);
+
+        step_block(1);
+        // Set updated so weights are valid
+        LastUpdate::<Test>::insert(netuid, vec![2, 0]);
+
+        // Run epoch
+        let hotkey_emission: Vec<(U256, u64, u64)> = SubtensorModule::epoch(netuid, to_emit);
+
+        // hotkey_emission is [(hotkey, incentive, dividend)]
+        assert_eq!(hotkey_emission.len(), 2);
+        assert_eq!(hotkey_emission[0].0, subnet_owner_hotkey);
+        assert_eq!(hotkey_emission[1].0, other_hotkey);
+
+        log::debug!("hotkey_emission: {:?}", hotkey_emission);
+        // Both should have received incentive emission
+        assert!(hotkey_emission[0].1 > 0);
+        assert!(hotkey_emission[1].1 > 0);
+
+        // Their incentive should be equal
+        assert_eq!(hotkey_emission[0].1, hotkey_emission[1].1);
     });
 }
 

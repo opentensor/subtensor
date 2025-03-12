@@ -1571,11 +1571,6 @@ fn test_full_pass_through() {
         assert_eq!(SubtensorModule::get_tempo(netuid1), tempo1);
         assert_eq!(SubtensorModule::get_tempo(netuid2), tempo2);
 
-        // Check their emission value.
-        assert_eq!(SubtensorModule::get_emission_value(netuid0), 0);
-        assert_eq!(SubtensorModule::get_emission_value(netuid1), 0);
-        assert_eq!(SubtensorModule::get_emission_value(netuid2), 0);
-
         // Set their max allowed uids.
         SubtensorModule::set_max_allowed_uids(netuid0, 2);
         SubtensorModule::set_max_allowed_uids(netuid1, 2);

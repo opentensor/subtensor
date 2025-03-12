@@ -396,6 +396,11 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
+    /// Default EMA price halving blocks
+    pub fn DefaultEMAPriceMovingBlocks<T: Config>() -> u64 {
+        T::InitialEmaPriceHalvingPeriod::get()
+    }
+    #[pallet::type_value]
     /// Default registrations this block.
     pub fn DefaultBurn<T: Config>() -> u64 {
         T::InitialBurn::get()
@@ -501,11 +506,6 @@ pub mod pallet {
         T::InitialSubnetOwnerCut::get()
     }
     #[pallet::type_value]
-    /// Default value for subnet limit.
-    pub fn DefaultSubnetLimit<T: Config>() -> u16 {
-        T::InitialSubnetLimit::get()
-    }
-    #[pallet::type_value]
     /// Default value for network rate limit.
     pub fn DefaultNetworkRateLimit<T: Config>() -> u64 {
         if cfg!(feature = "pow-faucet") {
@@ -514,9 +514,10 @@ pub mod pallet {
         T::InitialNetworkRateLimit::get()
     }
     #[pallet::type_value]
-    /// Default value for emission values.
-    pub fn DefaultEmissionValues<T: Config>() -> u64 {
-        0
+    /// Default value for weights version key rate limit.
+    /// In units of tempos.
+    pub fn DefaultWeightsVersionKeyRateLimit<T: Config>() -> u64 {
+        5 // 5 tempos
     }
     #[pallet::type_value]
     /// Default value for pending emission.
@@ -728,11 +729,6 @@ pub mod pallet {
     pub fn DefaultAlphaValues<T: Config>() -> (u16, u16) {
         (45875, 58982)
     }
-    #[pallet::type_value]
-    /// Default value for network max stake.
-    pub fn DefaultNetworkMaxStake<T: Config>() -> u64 {
-        T::InitialNetworkMaxStake::get()
-    }
 
     #[pallet::type_value]
     /// Default value for coldkey swap schedule duration
@@ -743,6 +739,10 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for applying pending items (e.g. childkeys).
     pub fn DefaultPendingCooldown<T: Config>() -> u64 {
+        if cfg!(feature = "fast-blocks") {
+            return 15;
+        }
+
         7_200
     }
 
@@ -1065,9 +1065,6 @@ pub mod pallet {
     pub type MaxRegistrationsPerBlock<T> =
         StorageMap<_, Identity, u16, u16, ValueQuery, DefaultMaxRegistrationsPerBlock<T>>;
     #[pallet::storage]
-    /// --- ITEM( maximum_number_of_networks )
-    pub type SubnetLimit<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetLimit<T>>;
-    #[pallet::storage]
     /// --- ITEM( total_number_of_existing_networks )
     pub type TotalNetworks<T> = StorageValue<_, u16, ValueQuery>;
     #[pallet::storage]
@@ -1101,6 +1098,10 @@ pub mod pallet {
     pub type NetworkRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkRateLimit<T>>;
     #[pallet::storage] // --- ITEM( nominator_min_required_stake )
     pub type NominatorMinRequiredStake<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage]
+    /// ITEM( weights_version_key_rate_limit ) --- Rate limit in tempos.
+    pub type WeightsVersionKeyRateLimit<T> =
+        StorageValue<_, u64, ValueQuery, DefaultWeightsVersionKeyRateLimit<T>>;
 
     /// ============================
     /// ==== Subnet Locks =====
@@ -1161,10 +1162,6 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> block_created
     pub type NetworkRegisteredAt<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultNetworkRegisteredAt<T>>;
-    #[pallet::storage]
-    /// --- MAP ( netuid ) --> emission_values
-    pub type EmissionValues<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultEmissionValues<T>>;
     #[pallet::storage]
     /// --- MAP ( netuid ) --> pending_emission
     pub type PendingEmission<T> =
@@ -1312,6 +1309,10 @@ pub mod pallet {
     pub type RegistrationsThisBlock<T> =
         StorageMap<_, Identity, u16, u16, ValueQuery, DefaultRegistrationsThisBlock<T>>;
     #[pallet::storage]
+    /// --- MAP ( netuid ) --> Halving time of average moving price.
+    pub type EMAPriceHalvingBlocks<T> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultEMAPriceMovingBlocks<T>>;
+    #[pallet::storage]
     /// --- MAP ( netuid ) --> global_RAO_recycled_for_registration
     pub type RAORecycledForRegistration<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultRAORecycledForRegistration<T>>;
@@ -1334,10 +1335,6 @@ pub mod pallet {
     ///  MAP ( netuid ) --> (alpha_low, alpha_high)
     pub type AlphaValues<T> =
         StorageMap<_, Identity, u16, (u16, u16), ValueQuery, DefaultAlphaValues<T>>;
-    /// MAP ( netuid ) --> max stake allowed on a subnet.
-    #[pallet::storage]
-    pub type NetworkMaxStake<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultNetworkMaxStake<T>>;
 
     /// =======================================
     /// ==== Subnetwork Consensus Storage  ====
@@ -1588,15 +1585,21 @@ pub mod pallet {
         }
 
         /// Returns the transaction priority for stake operations.
-        pub fn get_priority_staking(coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
+        pub fn get_priority_staking(
+            coldkey: &T::AccountId,
+            hotkey: &T::AccountId,
+            stake_amount: u64,
+        ) -> u64 {
             match LastColdkeyHotkeyStakeBlock::<T>::get(coldkey, hotkey) {
                 Some(last_stake_block) => {
                     let current_block_number = Self::get_current_block_as_u64();
                     let default_priority = current_block_number.saturating_sub(last_stake_block);
 
-                    default_priority.saturating_add(u32::MAX as u64)
+                    default_priority
+                        .saturating_add(u32::MAX as u64)
+                        .saturating_add(stake_amount)
                 }
-                None => 0,
+                None => stake_amount,
             }
         }
 
@@ -1725,8 +1728,12 @@ where
         Pallet::<T>::get_priority_set_weights(who, netuid)
     }
 
-    pub fn get_priority_staking(coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
-        Pallet::<T>::get_priority_staking(coldkey, hotkey)
+    pub fn get_priority_staking(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+        stake_amount: u64,
+    ) -> u64 {
+        Pallet::<T>::get_priority_staking(coldkey, hotkey, stake_amount)
     }
 
     pub fn check_weights_min_stake(who: &T::AccountId, netuid: u16) -> bool {
@@ -1941,7 +1948,7 @@ where
                         *amount_staked,
                         false,
                     ),
-                    Self::get_priority_staking(who, hotkey),
+                    Self::get_priority_staking(who, hotkey, *amount_staked),
                 )
             }
             Some(Call::add_stake_limit {
@@ -1971,7 +1978,7 @@ where
                         max_amount,
                         *allow_partial,
                     ),
-                    Self::get_priority_staking(who, hotkey),
+                    Self::get_priority_staking(who, hotkey, *amount_staked),
                 )
             }
             Some(Call::remove_stake {
@@ -1989,7 +1996,7 @@ where
                         *amount_unstaked,
                         false,
                     ),
-                    Self::get_priority_staking(who, hotkey),
+                    Self::get_priority_staking(who, hotkey, *amount_unstaked),
                 )
             }
             Some(Call::remove_stake_limit {
@@ -2012,7 +2019,7 @@ where
                         max_amount,
                         *allow_partial,
                     ),
-                    Self::get_priority_staking(who, hotkey),
+                    Self::get_priority_staking(who, hotkey, *amount_unstaked),
                 )
             }
             Some(Call::move_stake {
@@ -2043,7 +2050,7 @@ where
                         None,
                         false,
                     ),
-                    Self::get_priority_staking(who, origin_hotkey),
+                    Self::get_priority_staking(who, origin_hotkey, *alpha_amount),
                 )
             }
             Some(Call::transfer_stake {
@@ -2074,7 +2081,7 @@ where
                         None,
                         true,
                     ),
-                    Self::get_priority_staking(who, hotkey),
+                    Self::get_priority_staking(who, hotkey, *alpha_amount),
                 )
             }
             Some(Call::swap_stake {
@@ -2104,7 +2111,7 @@ where
                         None,
                         false,
                     ),
-                    Self::get_priority_staking(who, hotkey),
+                    Self::get_priority_staking(who, hotkey, *alpha_amount),
                 )
             }
             Some(Call::swap_stake_limit {
@@ -2143,7 +2150,7 @@ where
                         Some(*allow_partial),
                         false,
                     ),
-                    Self::get_priority_staking(who, hotkey),
+                    Self::get_priority_staking(who, hotkey, *alpha_amount),
                 )
             }
             Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {
@@ -2239,9 +2246,13 @@ where
         self,
         who: &Self::AccountId,
         call: &Self::Call,
-        _info: &DispatchInfoOf<Self::Call>,
-        _len: usize,
+        info: &DispatchInfoOf<Self::Call>,
+        len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
+        // We need to perform same checks as Self::validate so that
+        // the validation is performed during Executive::apply_extrinsic as well.
+        // this prevents inclusion of invalid tx in a block by malicious block author.
+        self.validate(who, call, info, len)?;
         match call.is_sub_type() {
             Some(Call::add_stake { .. }) => {
                 let transaction_fee = 100000;

@@ -3,9 +3,10 @@
 use codec::Encode;
 use frame_support::{BoundedVec, assert_ok, traits::InstanceFilter};
 use node_subtensor_runtime::{
-    AccountId, BalancesCall, BuildStorage, Proxy, ProxyType, Runtime, RuntimeCall, RuntimeEvent,
-    RuntimeGenesisConfig, RuntimeOrigin, SubtensorModule, System, SystemCall,
+    BalancesCall, BuildStorage, Proxy, Runtime, RuntimeCall, RuntimeEvent, RuntimeGenesisConfig,
+    RuntimeOrigin, SubtensorModule, System, SystemCall,
 };
+use subtensor_runtime_common::{AccountId, ProxyType};
 
 const ACCOUNT: [u8; 32] = [1_u8; 32];
 const DELEGATE: [u8; 32] = [2_u8; 32];

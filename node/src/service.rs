@@ -796,7 +796,7 @@ fn run_manual_seal_authorship(
         ) -> Result<(), sp_inherents::Error> {
             TIMESTAMP.with(|x| {
                 let mut x_ref = x.borrow_mut();
-                *x_ref = x_ref.saturating_add(node_subtensor_runtime::SLOT_DURATION);
+                *x_ref = x_ref.saturating_add(subtensor_runtime_common::time::SLOT_DURATION);
                 inherent_data.put_data(sp_timestamp::INHERENT_IDENTIFIER, &*x.borrow())
             })
         }

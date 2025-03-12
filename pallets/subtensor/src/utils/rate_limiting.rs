@@ -7,6 +7,7 @@ pub enum TransactionType {
     SetChildkeyTake,
     Unknown,
     RegisterNetwork,
+    SetWeightsVersionKey,
 }
 
 /// Implement conversion from TransactionType to u16
@@ -17,6 +18,7 @@ impl From<TransactionType> for u16 {
             TransactionType::SetChildkeyTake => 1,
             TransactionType::Unknown => 2,
             TransactionType::RegisterNetwork => 3,
+            TransactionType::SetWeightsVersionKey => 4,
         }
     }
 }
@@ -28,6 +30,7 @@ impl From<u16> for TransactionType {
             0 => TransactionType::SetChildren,
             1 => TransactionType::SetChildkeyTake,
             3 => TransactionType::RegisterNetwork,
+            4 => TransactionType::SetWeightsVersionKey,
             _ => TransactionType::Unknown,
         }
     }
@@ -41,14 +44,18 @@ impl<T: Config> Pallet<T> {
         match tx_type {
             TransactionType::SetChildren => 150, // 30 minutes
             TransactionType::SetChildkeyTake => TxChildkeyTakeRateLimit::<T>::get(),
-            TransactionType::Unknown => 0, // Default to no limit for unknown types (no limit)
             TransactionType::RegisterNetwork => NetworkRateLimit::<T>::get(),
+
+            TransactionType::Unknown => 0, // Default to no limit for unknown types (no limit)
+            _ => 0,
         }
     }
 
-    pub fn get_rate_limit_on_subnet(tx_type: &TransactionType, _netuid: u16) -> u64 {
+    pub fn get_rate_limit_on_subnet(tx_type: &TransactionType, netuid: u16) -> u64 {
         #[allow(clippy::match_single_binding)]
         match tx_type {
+            TransactionType::SetWeightsVersionKey => (Tempo::<T>::get(netuid) as u64)
+                .saturating_mul(WeightsVersionKeyRateLimit::<T>::get()),
             _ => Self::get_rate_limit(tx_type),
         }
     }
