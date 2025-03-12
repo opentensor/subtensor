@@ -33,6 +33,9 @@ members = [
 ]
 resolver = "2"
 
+[workspace.package]
+edition = "2024"
+
 [workspace.lints.clippy]
 indexing-slicing = "deny"
 arithmetic-side-effects = "deny"

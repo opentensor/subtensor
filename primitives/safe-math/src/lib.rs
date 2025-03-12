@@ -97,6 +97,39 @@ pub fn checked_sqrt<T: SafeDiv + Fixed>(value: T, epsilon: T) -> Option<T> {
     Some(middle)
 }
 
+pub fn checked_pow_fixed<F: Fixed>(base: F, exponent: i32) -> Option<F> {
+    if exponent == 0 {
+        return Some(F::from_num(1));
+    }
+
+    if base == F::from_num(0) {
+        if exponent < 0 {
+            // Cannot raise zero to a negative power (division by zero)
+            return None;
+        }
+        return Some(F::from_num(0)); // 0^(positive number) = 0
+    }
+
+    let mut result = F::from_num(1);
+    let mut base = base;
+    let mut exp = exponent.unsigned_abs();
+
+    // Binary exponentiation algorithm
+    while exp > 0 {
+        if exp & 1 != 0 {
+            result = result.saturating_mul(base);
+        }
+        base = base.saturating_mul(base);
+        exp >>= 1;
+    }
+
+    if exponent < 0 {
+        result = F::from_num(1).checked_div(result).unwrap_or_default();
+    }
+
+    Some(result)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -172,5 +205,20 @@ mod tests {
         let epsilon: U110F18 = U110F18::from_num(1e-30); // Very high precision
         let result: Option<U110F18> = checked_sqrt(value, epsilon);
         assert!(result.is_some()); // Check that it doesn't break, but may not be highly accurate
+    }
+
+    #[test]
+    fn test_checked_pow_fixed() {
+        let base = U64F64::from_num(2.5);
+        let result = checked_pow_fixed(base, 3);
+        assert_eq!(result, Some(U64F64::from_num(15.625)));
+
+        let base = I32F32::from_num(1.5);
+        let result = checked_pow_fixed(base, -2);
+
+        assert!((result.unwrap() - I32F32::from_num(0.44444444)).abs() <= I32F32::from_num(0.0001));
+
+        let result = checked_pow_fixed(I32F32::from_num(0), -1);
+        assert_eq!(result, None);
     }
 }
