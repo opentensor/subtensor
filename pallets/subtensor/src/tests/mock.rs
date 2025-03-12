@@ -409,6 +409,7 @@ impl crate::Config for Test {
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialTaoWeight = InitialTaoWeight;
     type CommitmentRuntime = Test;
+    type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
 }
 
 parameter_types! {
@@ -416,7 +417,6 @@ parameter_types! {
     pub const CommitmentInitialDeposit: Balance = 0;
     pub const CommitmentFieldDeposit: Balance = 0;
     pub const CommitmentRateLimit: BlockNumber = 100;
-    type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
 }
 
 pub struct OriginPrivilegeCmp;
