@@ -1,0 +1,46 @@
+name: PR Build and Merge
+
+on:
+  pull_request:
+    types: [labeled]
+    branches:
+      - devnet-ready-with-nodes
+
+jobs:
+  build-and-merge:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Run localnet.sh False --build-only
+        run: |
+          chmod +x scripts/localnet.sh
+          ./scripts/localnet.sh False --build-only
+
+      - name: Run localnet.sh --build-only
+        run: |
+          chmod +x scripts/localnet.sh
+          ./scripts/localnet.sh --build-only
+
+      - name: Commit changes
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add target/fast-blocks/release/node-subtensor target/non-fast-blocks/release/node-subtensor
+          git commit -m "Update nodes" || echo "No changes to commit"
+
+      - name: Push changes to PR branch
+        run: |
+          git push https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ github.head_ref }}
+
+
+      - name: Merge PR
+        uses: repo-sync/pull-request@v2
+        with:
+          destination_branch: devnet-ready
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          pr_number: ${{ github.event.number }}
