@@ -647,7 +647,7 @@ fn test_sudo_set_rho() {
 fn test_sudo_set_activity_cutoff() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
-        let to_be_set: u16 = 10;
+        let to_be_set: u16 = pallet_subtensor::MinActivityCutoff::<Test>::get();
         add_network(netuid, 10);
         let init_value: u16 = SubtensorModule::get_activity_cutoff(netuid);
         assert_eq!(

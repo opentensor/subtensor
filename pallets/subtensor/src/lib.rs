@@ -794,6 +794,16 @@ pub mod pallet {
         I96F32::saturating_from_num(10_000_000)
     }
 
+    #[pallet::type_value]
+    /// Default value for minimum activity cutoff
+    pub fn DefaultMinActivityCutoff<T: Config>() -> u16 {
+        360
+    }
+
+    #[pallet::storage]
+    pub type MinActivityCutoff<T: Config> =
+        StorageValue<_, u16, ValueQuery, DefaultMinActivityCutoff<T>>;
+
     #[pallet::storage]
     pub type ColdkeySwapScheduleDuration<T: Config> =
         StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapScheduleDuration<T>>;
