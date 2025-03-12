@@ -191,5 +191,7 @@ mod errors {
         SlippageTooHigh,
         /// Subnet disallows transfer.
         TransferDisallowed,
+        /// Activity cutoff is being set too low.
+        ActivityCutoffTooLow,
     }
 }
