@@ -396,6 +396,11 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
+    /// Default EMA price halving blocks
+    pub fn DefaultEMAPriceMovingBlocks<T: Config>() -> u64 {
+        T::InitialEmaPriceHalvingPeriod::get()
+    }
+    #[pallet::type_value]
     /// Default registrations this block.
     pub fn DefaultBurn<T: Config>() -> u64 {
         T::InitialBurn::get()
@@ -788,6 +793,16 @@ pub mod pallet {
     pub fn DefaultMinimumPoolLiquidity<T: Config>() -> I96F32 {
         I96F32::saturating_from_num(10_000_000)
     }
+
+    #[pallet::type_value]
+    /// Default value for minimum activity cutoff
+    pub fn DefaultMinActivityCutoff<T: Config>() -> u16 {
+        360
+    }
+
+    #[pallet::storage]
+    pub type MinActivityCutoff<T: Config> =
+        StorageValue<_, u16, ValueQuery, DefaultMinActivityCutoff<T>>;
 
     #[pallet::storage]
     pub type ColdkeySwapScheduleDuration<T: Config> =
@@ -1294,6 +1309,10 @@ pub mod pallet {
     pub type RegistrationsThisBlock<T> =
         StorageMap<_, Identity, u16, u16, ValueQuery, DefaultRegistrationsThisBlock<T>>;
     #[pallet::storage]
+    /// --- MAP ( netuid ) --> Halving time of average moving price.
+    pub type EMAPriceHalvingBlocks<T> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultEMAPriceMovingBlocks<T>>;
+    #[pallet::storage]
     /// --- MAP ( netuid ) --> global_RAO_recycled_for_registration
     pub type RAORecycledForRegistration<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultRAORecycledForRegistration<T>>;
@@ -1566,15 +1585,21 @@ pub mod pallet {
         }
 
         /// Returns the transaction priority for stake operations.
-        pub fn get_priority_staking(coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
+        pub fn get_priority_staking(
+            coldkey: &T::AccountId,
+            hotkey: &T::AccountId,
+            stake_amount: u64,
+        ) -> u64 {
             match LastColdkeyHotkeyStakeBlock::<T>::get(coldkey, hotkey) {
                 Some(last_stake_block) => {
                     let current_block_number = Self::get_current_block_as_u64();
                     let default_priority = current_block_number.saturating_sub(last_stake_block);
 
-                    default_priority.saturating_add(u32::MAX as u64)
+                    default_priority
+                        .saturating_add(u32::MAX as u64)
+                        .saturating_add(stake_amount)
                 }
-                None => 0,
+                None => stake_amount,
             }
         }
 
@@ -1703,8 +1728,12 @@ where
         Pallet::<T>::get_priority_set_weights(who, netuid)
     }
 
-    pub fn get_priority_staking(coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
-        Pallet::<T>::get_priority_staking(coldkey, hotkey)
+    pub fn get_priority_staking(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+        stake_amount: u64,
+    ) -> u64 {
+        Pallet::<T>::get_priority_staking(coldkey, hotkey, stake_amount)
     }
 
     pub fn check_weights_min_stake(who: &T::AccountId, netuid: u16) -> bool {
@@ -1919,7 +1948,7 @@ where
                         *amount_staked,
                         false,
                     ),
-                    Self::get_priority_staking(who, hotkey),
+                    Self::get_priority_staking(who, hotkey, *amount_staked),
                 )
             }
             Some(Call::add_stake_limit {
@@ -1949,7 +1978,7 @@ where
                         max_amount,
                         *allow_partial,
                     ),
-                    Self::get_priority_staking(who, hotkey),
+                    Self::get_priority_staking(who, hotkey, *amount_staked),
                 )
             }
             Some(Call::remove_stake {
@@ -1967,7 +1996,7 @@ where
                         *amount_unstaked,
                         false,
                     ),
-                    Self::get_priority_staking(who, hotkey),
+                    Self::get_priority_staking(who, hotkey, *amount_unstaked),
                 )
             }
             Some(Call::remove_stake_limit {
@@ -1990,7 +2019,7 @@ where
                         max_amount,
                         *allow_partial,
                     ),
-                    Self::get_priority_staking(who, hotkey),
+                    Self::get_priority_staking(who, hotkey, *amount_unstaked),
                 )
             }
             Some(Call::move_stake {
@@ -2021,7 +2050,7 @@ where
                         None,
                         false,
                     ),
-                    Self::get_priority_staking(who, origin_hotkey),
+                    Self::get_priority_staking(who, origin_hotkey, *alpha_amount),
                 )
             }
             Some(Call::transfer_stake {
@@ -2052,7 +2081,7 @@ where
                         None,
                         true,
                     ),
-                    Self::get_priority_staking(who, hotkey),
+                    Self::get_priority_staking(who, hotkey, *alpha_amount),
                 )
             }
             Some(Call::swap_stake {
@@ -2082,7 +2111,7 @@ where
                         None,
                         false,
                     ),
-                    Self::get_priority_staking(who, hotkey),
+                    Self::get_priority_staking(who, hotkey, *alpha_amount),
                 )
             }
             Some(Call::swap_stake_limit {
@@ -2121,7 +2150,7 @@ where
                         Some(*allow_partial),
                         false,
                     ),
-                    Self::get_priority_staking(who, hotkey),
+                    Self::get_priority_staking(who, hotkey, *alpha_amount),
                 )
             }
             Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {

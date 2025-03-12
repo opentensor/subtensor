@@ -136,6 +136,7 @@ parameter_types! {
     pub const InitialColdkeySwapScheduleDuration: u64 = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const InitialDissolveNetworkScheduleDuration: u64 = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const InitialTaoWeight: u64 = u64::MAX/10; // 10% global weight.
+    pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
 }
 
 impl pallet_subtensor::Config for Test {
@@ -200,6 +201,7 @@ impl pallet_subtensor::Config for Test {
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialTaoWeight = InitialTaoWeight;
     type CommitmentRuntime = Test;
+    type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]

@@ -60,10 +60,15 @@ impl<T: Config> Pallet<T> {
         let blocks_since_registration = I96F32::saturating_from_num(
             Self::get_current_block_as_u64().saturating_sub(NetworkRegisteredAt::<T>::get(netuid)),
         );
-        // 7200 * 14 = 100_800 is the halving time
+
+        // Use halving time hyperparameter. The meaning of this parameter can be best explained under
+        // the assumption of a constant price and SubnetMovingAlpha == 0.5: It is how many blocks it
+        // will take in order for the distance between current EMA of price and current price to shorten
+        // by half.
+        let halving_time = EMAPriceHalvingBlocks::<T>::get(netuid);
         let alpha: I96F32 =
             SubnetMovingAlpha::<T>::get().saturating_mul(blocks_since_registration.safe_div(
-                blocks_since_registration.saturating_add(I96F32::saturating_from_num(100_800)),
+                blocks_since_registration.saturating_add(I96F32::saturating_from_num(halving_time)),
             ));
         let minus_alpha: I96F32 = I96F32::saturating_from_num(1.0).saturating_sub(alpha);
         let current_price: I96F32 = alpha
@@ -806,7 +811,7 @@ impl<T: Config> Pallet<T> {
     /// Stakes TAO into a subnet for a given hotkey and coldkey pair.
     ///
     /// We update the pools associated with a subnet as well as update hotkey alpha shares.
-    pub fn stake_into_subnet(
+    pub(crate) fn stake_into_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: u16,
@@ -1065,6 +1070,28 @@ impl<T: Config> Pallet<T> {
         }
 
         Ok(())
+    }
+
+    pub(crate) fn calculate_staking_fee(
+        netuid: u16,
+        hotkey: &T::AccountId,
+        alpha_estimate: I96F32,
+    ) -> u64 {
+        if (netuid == Self::get_root_netuid()) || (SubnetMechanism::<T>::get(netuid)) == 0 {
+            DefaultStakingFee::<T>::get()
+        } else {
+            let fee = alpha_estimate
+                .saturating_mul(
+                    I96F32::saturating_from_num(AlphaDividendsPerSubnet::<T>::get(netuid, &hotkey))
+                        .safe_div(I96F32::saturating_from_num(TotalHotkeyAlpha::<T>::get(
+                            &hotkey, netuid,
+                        ))),
+                )
+                .saturating_mul(Self::get_alpha_price(netuid)) // fee needs to be in TAO
+                .saturating_to_num::<u64>();
+
+            fee.max(DefaultStakingFee::<T>::get())
+        }
     }
 }
 
