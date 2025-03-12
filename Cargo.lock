@@ -8270,6 +8270,7 @@ name = "safe-math"
 version = "0.1.0"
 dependencies = [
  "num-traits",
+ "sp-arithmetic",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409)",
  "substrate-fixed",
 ]
@@ -11268,6 +11269,7 @@ name = "swap"
 version = "0.1.0"
 dependencies = [
  "safe-math",
+ "sp-arithmetic",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-stable2409)",
  "substrate-fixed",
 ]

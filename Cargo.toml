@@ -45,16 +45,17 @@ manual_inspect = "allow"
 useless_conversion = "allow"     # until polkadot is patched
 
 [workspace.dependencies]
+node-subtensor-runtime = { default-features = false, path = "runtime" }
 pallet-admin-utils = { default-features = false, path = "pallets/admin-utils" }
 pallet-collective = { default-features = false, path = "pallets/collective" }
 pallet-commitments = { default-features = false, path = "pallets/commitments" }
 pallet-registry = { default-features = false, path = "pallets/registry" }
 pallet-subtensor = { default-features = false, path = "pallets/subtensor" }
+safe-math = { default-features = false, path = "primitives/safe-math" }
 subtensor-custom-rpc = { default-features = false, path = "pallets/subtensor/rpc" }
 subtensor-custom-rpc-runtime-api = { default-features = false, path = "pallets/subtensor/runtime-api" }
 subtensor-precompiles = { default-features = false, path = "precompiles" }
 subtensor-runtime-common = { default-features = false, path = "common" }
-node-subtensor-runtime = { default-features = false, path = "runtime" }
 
 async-trait = "0.1"
 cargo-husky = { version = "1", default-features = false }
@@ -150,6 +151,7 @@ sc-transaction-pool = { git = "https://github.com/paritytech/polkadot-sdk.git", 
 sc-transaction-pool-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409" }
 
 sp-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
+sp-arithmetic = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
 sp-block-builder = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
 sp-blockchain = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409", default-features = false }
 sp-consensus = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-stable2409" }
