@@ -292,7 +292,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the weights set rate limit for a subnet.
-        /// It is only callable by the root account or subnet owner.
+        /// It is only callable by the root account.
         /// The extrinsic will call the Subtensor pallet to set the weights set rate limit.
         #[pallet::call_index(7)]
         #[pallet::weight(<T as Config>::WeightInfo::sudo_set_weights_set_rate_limit())]
@@ -301,7 +301,7 @@ pub mod pallet {
             netuid: u16,
             weights_set_rate_limit: u64,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            ensure_root(origin)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -527,6 +527,12 @@ pub mod pallet {
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
+
+            ensure!(
+                activity_cutoff >= pallet_subtensor::MinActivityCutoff::<T>::get(),
+                pallet_subtensor::Error::<T>::ActivityCutoffTooLow
+            );
+
             pallet_subtensor::Pallet::<T>::set_activity_cutoff(netuid, activity_cutoff);
             log::debug!(
                 "ActivityCutoffSet( netuid: {:?} activity_cutoff: {:?} ) ",
