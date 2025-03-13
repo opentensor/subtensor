@@ -17,43 +17,49 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
 
-#      - name: Install dependencies
-#        run: |
-#          sudo apt-get update &&
-#          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler jq
-#
-#      - name: Install Rust stable
-#        uses: actions-rs/toolchain@v1.0.6
-#        with:
-#          toolchain: stable
-#          components: rustfmt
-#          profile: minimal
-#
-#      - name: Add wasm32-unknown-unknown target
-#        run: |
-#          rustup target add wasm32-unknown-unknown --toolchain stable-x86_64-unknown-linux-gnu
-#          rustup component add rust-src --toolchain stable-x86_64-unknown-linux-gnu
-#
-#      - name: Run localnet.sh False --build-only
-#        run: |
-#          chmod +x scripts/localnet.sh
-#          ./scripts/localnet.sh False --build-only
-#
-#      - name: Run localnet.sh --build-only
-#        run: |
-#          chmod +x scripts/localnet.sh
-#          ./scripts/localnet.sh --build-only
-
-      - name: Create a files
-        working-directory: ${{ github.workspace }}
+      - name: Install dependencies
         run: |
-          mkdir -p ${{ github.workspace }}/nodes/fast-blocks/release
-          mkdir -p ${{ github.workspace }}/nodes/non-fast-blocks/release
-          echo "fast-blocks" > ${{ github.workspace }}/nodes/fast-blocks/release/node-subtensor
-          echo "non-fast-blocks" > ${{ github.workspace }}/nodes/non-fast-blocks/release/node-subtensor
+          sudo apt-get update &&
+          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler jq
 
-      - name: Upload artifact
+      - name: Install Rust stable
+        uses: actions-rs/toolchain@v1.0.6
+        with:
+          toolchain: stable
+          components: rustfmt
+          profile: minimal
+
+      - name: Add wasm32-unknown-unknown target
+        run: |
+          rustup target add wasm32-unknown-unknown --toolchain stable-x86_64-unknown-linux-gnu
+          rustup component add rust-src --toolchain stable-x86_64-unknown-linux-gnu
+
+      - name: Run localnet.sh False --build-only
+        run: |
+          chmod +x scripts/localnet.sh
+          ./scripts/localnet.sh False --build-only
+
+      - name: Run localnet.sh --build-only
+        run: |
+          chmod +x scripts/localnet.sh
+          ./scripts/localnet.sh --build-only
+
+#      - name: Create a files
+#        working-directory: ${{ github.workspace }}
+#        run: |
+#          mkdir -p ${{ github.workspace }}/nodes/fast-blocks/release
+#          mkdir -p ${{ github.workspace }}/nodes/non-fast-blocks/release
+#          echo "fast-blocks" > ${{ github.workspace }}/nodes/fast-blocks/release/node-subtensor
+#          echo "non-fast-blocks" > ${{ github.workspace }}/nodes/non-fast-blocks/release/node-subtensor
+
+      - name: Upload fast-blocks
         uses: actions/upload-artifact@v4
         with:
-          name: nodes-artifacts
-          path: ${{ github.workspace }}/nodes
+          name: fast-blocks
+          path: ${{ github.workspace }}/nodes/fast-blocks/release/node-subtensor
+
+      - name: Upload non-fast-blocks
+        uses: actions/upload-artifact@v4
+        with:
+          name: non-fast-blocks
+          path: ${{ github.workspace }}/nodes/non-fast-blocks/release/node-subtensor
