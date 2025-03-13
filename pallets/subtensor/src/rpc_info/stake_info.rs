@@ -2,6 +2,7 @@ use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
 use codec::Compact;
+use substrate_fixed::types::I96F32;
 
 #[freeze_struct("5cfb3c84c3af3116")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
@@ -111,5 +112,25 @@ impl<T: Config> Pallet<T> {
             drain: 0.into(),
             is_registered,
         })
+    }
+
+    pub fn get_stake_fee(
+        origin: Option<(T::AccountId, u16)>,
+        _origin_coldkey_account: T::AccountId,
+        _destination: Option<(T::AccountId, u16)>,
+        _destination_coldkey_account: T::AccountId,
+        amount: u64,
+    ) -> u64 {
+        match origin {
+            Some((origin_hotkey_account, origin_netuid)) => Self::calculate_staking_fee(
+                origin_netuid,
+                &origin_hotkey_account,
+                I96F32::saturating_from_num(amount),
+            ),
+            None => {
+                // Adding stake (comes from no netuid)
+                DefaultStakingFee::<T>::get()
+            }
+        }
     }
 }

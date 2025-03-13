@@ -339,8 +339,10 @@ impl<T: Config> Pallet<T> {
 
         // Unstake from the origin subnet, returning TAO (or a 1:1 equivalent).
         let fee = Self::calculate_staking_fee(
-            origin_netuid,
-            origin_hotkey,
+            Some((origin_hotkey, origin_netuid)),
+            origin_coldkey,
+            Some((destination_hotkey, destination_netuid)),
+            destination_coldkey,
             I96F32::saturating_from_num(alpha_amount),
         )
         .safe_div(2);
