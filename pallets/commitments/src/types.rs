@@ -346,6 +346,16 @@ pub struct RevealedData<Balance, MaxFields: Get<u32>, BlockNumber> {
     pub deposit: Balance,
 }
 
+/// Tracks how much “space” each (netuid, who) has used within the current RateLimit block-window.
+#[freeze_struct("c73c7815f7c51556")]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, TypeInfo)]
+pub struct UsageTracker<BlockNumber> {
+    /// Last Reset block
+    pub last_reset_block: BlockNumber,
+    /// Space used
+    pub used_space: u64,
+}
+
 /// Information concerning the identity of the controller of an account.
 ///
 /// NOTE: This is stored separately primarily to facilitate the addition of extra fields in a

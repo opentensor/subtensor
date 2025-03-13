@@ -38,7 +38,6 @@ frame_support::construct_runtime!(
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 9,
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 10,
         Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 11,
-        Commitments: pallet_commitments::{Pallet, Call, Storage, Event<T>} = 12,
     }
 );
 
@@ -408,15 +407,7 @@ impl crate::Config for Test {
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialTaoWeight = InitialTaoWeight;
-    type CommitmentRuntime = Test;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
-}
-
-parameter_types! {
-    pub const MaxCommitFieldsInner: u32 = 1;
-    pub const CommitmentInitialDeposit: Balance = 0;
-    pub const CommitmentFieldDeposit: Balance = 0;
-    pub const CommitmentRateLimit: BlockNumber = 100;
 }
 
 pub struct OriginPrivilegeCmp;
@@ -538,33 +529,6 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Test>> f
     )> {
         Some((call, (nonce, ())))
     }
-}
-
-#[freeze_struct("7c76bd954afbb54e")]
-#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
-pub struct MaxCommitFields;
-impl Get<u32> for MaxCommitFields {
-    fn get() -> u32 {
-        MaxCommitFieldsInner::get()
-    }
-}
-
-pub struct AllowCommitments;
-impl pallet_commitments::CanCommit<AccountId> for AllowCommitments {
-    fn can_commit(_netuid: u16, _address: &AccountId) -> bool {
-        true
-    }
-}
-
-impl pallet_commitments::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
-    type Currency = Balances;
-    type WeightInfo = pallet_commitments::weights::SubstrateWeight<Test>;
-    type CanCommit = AllowCommitments;
-    type MaxFields = MaxCommitFields;
-    type InitialDeposit = CommitmentInitialDeposit;
-    type FieldDeposit = CommitmentFieldDeposit;
-    type DefaultRateLimit = CommitmentRateLimit;
 }
 
 #[allow(dead_code)]

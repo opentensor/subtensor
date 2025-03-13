@@ -70,6 +70,15 @@ pub mod pallet {
         /// The rate limit for commitments
         #[pallet::constant]
         type DefaultRateLimit: Get<BlockNumberFor<Self>>;
+
+        /// Used to retreive the given subnet's tempo
+        type TempoInterface: GetTempoInterface;
+    }
+
+    /// Used to retreive the given subnet's tempo  
+    pub trait GetTempoInterface {
+        /// Used to retreive the given subnet's tempo
+        fn get_tempo_for_netuid(netuid: u16) -> u16;
     }
 
     #[pallet::event]
@@ -108,6 +117,8 @@ pub mod pallet {
         AccountNotAllowedCommit,
         /// Account is trying to commit data too fast, rate limit exceeded
         CommitmentSetRateLimitExceeded,
+        /// Space Limit Exceeded for the current interval
+        SpaceLimitExceeded,
     }
 
     #[pallet::type_value]
@@ -162,15 +173,39 @@ pub mod pallet {
         OptionQuery,
     >;
 
+    /// Maps (netuid, who) -> usage (how many “bytes” they've committed)
+    /// in the RateLimit window
+    #[pallet::storage]
+    #[pallet::getter(fn used_space_of)]
+    pub type UsedSpaceOf<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        u16,
+        Twox64Concat,
+        T::AccountId,
+        UsageTracker<BlockNumberFor<T>>,
+        OptionQuery,
+    >;
+
+    #[pallet::type_value]
+    /// The default Maximum Space
+    pub fn DefaultMaxSpace() -> u32 {
+        3100
+    }
+
+    #[pallet::storage]
+    #[pallet::getter(fn max_space_per_user_per_rate_limit)]
+    pub type MaxSpace<T> = StorageValue<_, u32, ValueQuery, DefaultMaxSpace>;
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Set the commitment for a given netuid
         #[pallet::call_index(0)]
         #[pallet::weight((
-			<T as pallet::Config>::WeightInfo::set_commitment(),
-			DispatchClass::Operational,
-			Pays::No
-		))]
+            <T as pallet::Config>::WeightInfo::set_commitment(),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
         pub fn set_commitment(
             origin: OriginFor<T>,
             netuid: u16,
@@ -189,14 +224,26 @@ pub mod pallet {
             );
 
             let cur_block = <frame_system::Pallet<T>>::block_number();
-            if let Some(last_commit) = <LastCommitment<T>>::get(netuid, &who) {
-                ensure!(
-                    cur_block >= last_commit.saturating_add(RateLimit::<T>::get()),
-                    Error::<T>::CommitmentSetRateLimitExceeded
-                );
+
+            let required_space = info.using_encoded(|b| b.len()) as u64;
+
+            let mut usage = UsedSpaceOf::<T>::get(netuid, &who).unwrap_or_default();
+            let tempo_length = T::TempoInterface::get_tempo_for_netuid(netuid);
+
+            if cur_block.saturating_sub(usage.last_reset_block) >= tempo_length.into() {
+                usage.last_reset_block = cur_block;
+                usage.used_space = 0;
             }
 
-            let fd = <BalanceOf<T>>::from(extra_fields).saturating_mul(T::FieldDeposit::get());
+            let max_allowed = MaxSpace::<T>::get() as u64;
+            ensure!(
+                usage.used_space + required_space <= max_allowed,
+                Error::<T>::SpaceLimitExceeded
+            );
+
+            usage.used_space += required_space;
+            UsedSpaceOf::<T>::insert(netuid, &who, usage);
+
             let mut id = match <CommitmentOf<T>>::get(netuid, &who) {
                 Some(mut id) => {
                     id.info = *info.clone();
@@ -211,6 +258,7 @@ pub mod pallet {
             };
 
             let old_deposit = id.deposit;
+            let fd = <BalanceOf<T>>::from(extra_fields).saturating_mul(T::FieldDeposit::get());
             id.deposit = T::InitialDeposit::get().saturating_add(fd);
             if id.deposit > old_deposit {
                 T::Currency::reserve(&who, id.deposit.saturating_sub(old_deposit))?;
@@ -263,6 +311,36 @@ pub mod pallet {
             ensure_root(origin)?;
             RateLimit::<T>::set(rate_limit_blocks.into());
             Ok(())
+        }
+
+        /// Sudo-set MaxSpace
+        #[pallet::call_index(2)]
+        #[pallet::weight((
+            <T as pallet::Config>::WeightInfo::set_rate_limit(),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
+        pub fn set_max_space_per_user_per_rate_limit(
+            origin: OriginFor<T>,
+            new_limit: u32,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            MaxSpace::<T>::set(new_limit);
+            Ok(())
+        }
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+            if let Err(e) = Self::reveal_timelocked_commitments() {
+                log::debug!(
+                    "Failed to unveil matured commitments on block {:?}: {:?}",
+                    n,
+                    e
+                );
+            }
+            Weight::from_parts(0, 0)
         }
     }
 }

@@ -56,8 +56,6 @@ w3f-bls = { workspace = true, default-features = false }
 sha2 = { workspace = true }
 rand_chacha = { workspace = true }
 
-pallet-commitments = { default-features = false, path = "../commitments" }
-
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
 pallet-scheduler = { workspace = true }
@@ -109,8 +107,7 @@ std = [
 	"rand_chacha/std",
 	"safe-math/std",
 	"sha2/std",
-	"share-pool/std",
-	"pallet-commitments/std"
+	"share-pool/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -123,8 +120,7 @@ runtime-benchmarks = [
 	"pallet-collective/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
-	"pallet-drand/runtime-benchmarks",
-	"pallet-commitments/runtime-benchmarks"
+	"pallet-drand/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -137,8 +133,7 @@ try-runtime = [
 	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",
 	"pallet-collective/try-runtime",
-	"pallet-drand/try-runtime",
-	"pallet-commitments/try-runtime"
+	"pallet-drand/try-runtime"
 ]
 pow-faucet = []
 fast-blocks = []

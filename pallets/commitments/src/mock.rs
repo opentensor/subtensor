@@ -101,6 +101,14 @@ impl pallet_commitments::Config for Test {
     type FieldDeposit = ConstU64<0>;
     type InitialDeposit = ConstU64<0>;
     type DefaultRateLimit = ConstU64<0>;
+    type TempoInterface = MockTempoInterface;
+}
+
+pub struct MockTempoInterface;
+impl pallet_commitments::GetTempoInterface for MockTempoInterface {
+    fn get_tempo_for_netuid(_netuid: u16) -> u16 {
+        360
+    }
 }
 
 impl pallet_drand::Config for Test {

@@ -960,6 +960,20 @@ impl pallet_commitments::Config for Runtime {
     type InitialDeposit = CommitmentInitialDeposit;
     type FieldDeposit = CommitmentFieldDeposit;
     type DefaultRateLimit = CommitmentRateLimit;
+    type TempoInterface = TempoInterface;
+}
+
+pub struct TempoInterface;
+impl pallet_commitments::GetTempoInterface for TempoInterface {
+    fn get_tempo_for_netuid(_netuid: u16) -> u16 {
+        360
+    }
+}
+
+impl pallet_commitments::GetTempoInterface for Runtime {
+    fn get_tempo_for_netuid(netuid: u16) -> u16 {
+        pallet_subtensor::Tempo::<Self>::get(netuid)
+    }
 }
 
 #[cfg(not(feature = "fast-blocks"))]
@@ -1093,7 +1107,6 @@ impl pallet_subtensor::Config for Runtime {
     type Preimages = Preimage;
     type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
-    type CommitmentRuntime = Runtime;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
 }
 

@@ -734,10 +734,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::SubnetOwnerHotkeySet(netuid, hotkey.clone()));
     }
 
-    pub fn reveal_timelocked_commitments() -> DispatchResult {
-        pallet_commitments::Pallet::<T::CommitmentRuntime>::reveal_timelocked_commitments()
-    }
-
     // Get the uid of the Owner Hotkey for a subnet.
     pub fn get_owner_uid(netuid: u16) -> Option<u16> {
         match SubnetOwnerHotkey::<T>::try_get(netuid) {
