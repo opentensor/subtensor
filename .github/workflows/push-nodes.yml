@@ -45,7 +45,8 @@ jobs:
       - name: Create a files
         working-directory: ${{ github.workspace }}
         run: |
-          mkdir -p ${{ github.workspace }}/nodes
+          mkdir -p ${{ github.workspace }}/nodes/fast-blocks/release
+          mkdir -p ${{ github.workspace }}/nodes/non-fast-blocks/release
           echo "fast-blocks" > ${{ github.workspace }}/nodes/fast-blocks/release/node-subtensor
           echo "non-fast-blocks" > ${{ github.workspace }}/nodes/non-fast-blocks/release/node-subtensor
 
