@@ -12,6 +12,13 @@ pub enum OrderType {
     Buy,
 }
 
+struct RemoveLiquidityResult {
+    tao: u64,
+    alpha: u64,
+    fee_tao: u64,
+    fee_alpha: u64,
+}
+
 /// Position designates one liquidity position.
 ///
 /// Alpha price is expressed in rao units per one 10^9 unit. For example,
@@ -101,7 +108,7 @@ struct Tick {
 /// in the pallet to be able to work with chain state and per subnet. All subnet
 /// swaps are independent and hence netuid is abstracted away from swap implementation.
 ///
-pub trait SwapDataOperations {
+pub trait SwapDataOperations<AccountIdType> {
     /// Tells if v3 swap is initialized in the state. v2 only provides base and quote
     /// reserves, while v3 also stores ticks and positions, which need to be initialized
     /// at the first pool creation.
@@ -110,6 +117,7 @@ pub trait SwapDataOperations {
     fn get_fee_rate() -> u16;
     fn get_tick_by_index(tick_index: u64) -> Option<Tick>;
     fn insert_tick_by_index(tick_index: u64, tick: Tick);
+    fn remove_tick_by_index(tick_index: u64);
     fn get_tao_reserve() -> u64;
     fn set_tao_reserve() -> u64;
     fn get_alpha_reserve() -> u64;
@@ -122,23 +130,33 @@ pub trait SwapDataOperations {
     /// Set current tick liquidity
     fn set_current_liquidity(liquidity: u64);
 
-    fn withdraw_balances(tao: u64, alpha: u64) -> (u64, u64);
-    fn deposit_balances(tao: u64, alpha: u64);
+    // User account operations
+    fn get_max_positions() -> u16;
+    fn withdraw_balances(account_id: &AccountIdType, tao: u64, alpha: u64) -> (u64, u64);
+    fn deposit_balances(account_id: &AccountIdType, tao: u64, alpha: u64);
+    fn get_position_count(account_id: &AccountIdType) -> u16;
+    fn get_position(account_id: &AccountIdType, position_id: u16) -> Option<Position>;
+    fn create_position(account_id: &AccountIdType, positions: Position);
+    fn update_position(account_id: &AccountIdType, position_id: u16, positions: Position);
+    fn remove_position(account_id: &AccountIdType, position_id: u16);
 }
 
 /// All main swapping logic abstracted from Runtime implementation is concentrated
 /// in this struct
 ///
 #[derive(Debug)]
-pub struct Swap<Ops>
+pub struct Swap<AccountIdType, Ops>
 where
+    AccountIdType: Eq,
     Ops: SwapDataOperations,
 {
     state_ops: Ops,
+    phantom_key: marker::PhantomData<AccountIdType>,
 }
 
-impl<Ops> Swap<Ops>
+impl<AccountIdType, Ops> Swap<AccountIdType, Ops>
 where
+    AccountIdType: Eq,
     Ops: SwapDataOperations,
 {
     pub fn new(ops: Ops) -> Self {
@@ -201,6 +219,30 @@ where
         self.state_ops.insert_tick_by_index(tick_index, new_tick);
     }
 
+    /// Remove liquidity at tick index.
+    ///
+    fn remove_liquidity_at_index(tick_index: u64, liquidity: u64, upper: bool) {
+        // Calculate net liquidity addition
+        let net_reduction = if upper {
+            (liquidity as i128).neg()
+        } else {
+            liquidity as i128
+        }
+
+        // Find tick by index
+        let new_tick = if let Some(tick) = self.state_ops.get_tick_by_index(tick_index) {
+            tick.liquidity_net = tick.liquidity_net.saturating_sub(net_reduction);
+            tick.liquidity_gross = tick.liquidity_gross.saturating_sub(liquidity);
+        }
+
+        // If any liquidity is left at the tick, update it, otherwise remove
+        if tick.liquidity_gross == 0 {
+            self.state_ops.remove_tick(tick_index);
+        } else {
+            self.state_ops.insert_tick_by_index(tick_index, new_tick);
+        }
+    }
+    
     /// Add liquidity
     ///
     /// The added liquidity amount can be calculated from TAO and Alpha
@@ -211,10 +253,19 @@ where
     ///
     pub fn add_liquidity(
         &self,
+        account_id: &AccountIdType,
         tick_low: u64,
         tick_high: u64,
         liquidity: u64
-    ) -> u64 {
+    ) -> Result<u64, ()> {
+        // Check if we can add a position
+        let position_count = self.state_ops.get_position_count(account_id);
+        let max_positions = get_max_positions();
+        if position_count >= max_positions {
+            return Err(());
+        }
+
+        // Add liquidity at tick
         self.add_liquidity_at_index(tick_low, liquidity, false);
         self.add_liquidity_at_index(tick_high, liquidity, true);
 
@@ -231,14 +282,7 @@ where
             self.state_ops.set_current_liquidity(new_current_liquidity);
         }
 
-        # Update positions
-        if len(self.user_positions) == 0:
-            self.user_positions = np.array([np.append(user_position, [0, 0])])
-        else:
-            self.user_positions = np.vstack([self.user_positions, np.append(user_position, [0, 0])])
-
-
-        // Update reserves
+        // Update balances
         let position = Position {
             tick_low,
             tick_high,
@@ -247,19 +291,79 @@ where
             fees_alpha: 0_u64,
         }
         let (tao, alpha) = position.to_token_amounts(current_tick_index);
+        self.state_ops.withdraw_balances(account_id, tao, alpha);
+
+        // Update reserves
         let new_tao_reserve = self.state_ops.get_tao_reserve().saturating_add(tao);
         self.state_ops.set_tao_reserve(new_tao_reserve);
         let new_alpha_reserve = self.get_alpha_reserve().saturating_add(alpha);
         self.state_ops.set_alpha_reserve(new_alpha);
+
+        // Update user positions
+        let position_id = position_count.saturating_add(1);
+        self.state_ops.set_position(account_id, position_id, position);
+
+        Ok(liquidity)
     }
 
+    /// Remove liquidity and credit balances back to account_id
+    /// 
+    /// Account ID and Position ID identify position in the storage map
+    /// 
     pub fn remove_liquidity(
         &self,
-        position: &Position,
-    ) {
-        // TODO
-    }
+        account_id: &AccountIdType,
+        position_id: u16,
+    ) -> Result<RemoveLiquidityResult, ()> {
+        // Check if position exists
+        if let Some(pos) = self.state_ops.get_position(account_id, position_id) {
+            // Get current price
+            let current_price = self.state_ops.get_alpha_sqrt_price();
+            let current_tick_index = Position::sqrt_price_to_tick_index(current_price);
 
+            // Collect fees and get tao and alpha amounts
+            let (fee_tao, fee_alpha) = self.collect_fees(pos);
+            let (tao, alpha) = pos.to_token_amounts(current_tick_index);
+
+            // Update liquidity at position ticks
+            self.remove_liquidity_at_index(pos.tick_low, pos.liquidity, false);
+            self.remove_liquidity_at_index(pos.tick_high, pos.liquidity, true);
+
+            // Update current tick liquidity
+            if (pos.tick_low <= current_tick_index) && (current_tick_index <= pos.tick_high) {
+                let new_current_liquidity = self.state_ops.get_current_liquidity()
+                    .saturating_sub(liquidity);
+                self.state_ops.set_current_liquidity(new_current_liquidity);
+            }
+
+            // Remove user position
+            self.state_ops.remove_position(account_id, position_id);
+    
+            // Update current price (why?)
+            // i = self.sqrt_price_to_tick(self.sqrt_price_curr)
+            // k = self.get_tick_index(i)
+            // self.i_curr = self.active_ticks[k]
+            todo!();
+
+            // Update reserves
+            let new_tao_reserve = self.state_ops.get_tao_reserve().saturating_sub(tao);
+            self.state_ops.set_tao_reserve(new_tao_reserve);
+            let new_alpha_reserve = self.get_alpha_reserve().saturating_sub(alpha);
+            self.state_ops.set_alpha_reserve(new_alpha);
+
+            // Return Ok result
+            Ok(RemoveLiquidityResult{
+                tao,
+                alpha,
+                fee_tao,
+                fee_alpha,
+            })
+        } else {
+            // Position doesn't exist
+            Err(())
+        }
+    }
+    
     /// Perform a swap
     ///
     /// Returns a tuple (amount, refund), where amount is the resulting paid out amount
@@ -272,4 +376,27 @@ where
     ) -> (u64, u64) {
         // TODO
     }
+
+    /// Updates position
+    fn collect_fees(&self, position: &mut Position) -> (u64, u64) {
+        // """Collect fees for a position"""
+        // liquidity = self.user_positions[user_idx, 2]
+        // fee0 = self.get_fees_in_range(user_idx, 0)
+        // fee1 = self.get_fees_in_range(user_idx, 1)
+
+        // fee0 = fee0 - self.user_positions[user_idx, 3]
+        // fee1 = fee1 - self.user_positions[user_idx, 4]
+
+        // self.user_positions[user_idx, 3] = fee0
+        // self.user_positions[user_idx, 4] = fee1
+
+        // fee0 = liquidity * fee0
+        // fee1 = liquidity * fee1
+
+
+        // return fee0, fee1
+
+        todo!()
+    }
+
 }
