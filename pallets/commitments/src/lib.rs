@@ -237,11 +237,12 @@ pub mod pallet {
 
             let max_allowed = MaxSpace::<T>::get() as u64;
             ensure!(
-                usage.used_space + required_space <= max_allowed,
+                usage.used_space.saturating_add(required_space) <= max_allowed,
                 Error::<T>::SpaceLimitExceeded
             );
 
-            usage.used_space += required_space;
+            usage.used_space = usage.used_space.saturating_add(required_space);
+
             UsedSpaceOf::<T>::insert(netuid, &who, usage);
 
             let mut id = match <CommitmentOf<T>>::get(netuid, &who) {
