@@ -118,16 +118,17 @@ impl<T: Config> Pallet<T> {
     pub fn get_stake_fee_for_hotkey_coldkey_netuid(
         hotkey_account: T::AccountId,
         _coldkey_account: T::AccountId,
-        origin_netuid: u16,
-        _destination_netuid: u16,
+        origin_netuid: Option<u16>,
+        _destination_netuid: Option<u16>,
         amount: i64,
     ) -> u64 {
-        if amount >= 0 {
+        if amount >= 0 || origin_netuid.is_none() {
+            // Adding stake
             DefaultStakingFee::<T>::get()
         } else {
             // Calculate fee for unstake (negative amount)
             Self::calculate_staking_fee(
-                origin_netuid,
+                origin_netuid.unwrap_or(Self::get_root_netuid()),
                 &hotkey_account,
                 I96F32::saturating_from_num(amount.neg()),
             )
