@@ -5991,7 +5991,6 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
- "pallet-commitments",
  "pallet-drand",
  "pallet-evm-chain-id",
  "pallet-grandpa",
