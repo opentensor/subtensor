@@ -59,8 +59,10 @@ impl<T: Config> Pallet<T> {
 
         // 3. Swap the alpba to tao and update counters for this subnet.
         let fee = Self::calculate_staking_fee(
-            netuid,
-            &hotkey,
+            Some((&hotkey, netuid)),
+            &coldkey,
+            None,
+            &coldkey,
             I96F32::saturating_from_num(alpha_unstaked),
         );
         let tao_unstaked: u64 =
@@ -133,8 +135,10 @@ impl<T: Config> Pallet<T> {
             let alpha_unstaked =
                 Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
             let fee = Self::calculate_staking_fee(
-                netuid,
-                &hotkey,
+                Some((&hotkey, netuid)),
+                &coldkey,
+                None,
+                &coldkey,
                 I96F32::saturating_from_num(alpha_unstaked),
             );
 
@@ -208,8 +212,10 @@ impl<T: Config> Pallet<T> {
                 let alpha_unstaked =
                     Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
                 let fee = Self::calculate_staking_fee(
-                    netuid,
-                    &hotkey,
+                    Some((&hotkey, netuid)),
+                    &coldkey,
+                    None,
+                    &coldkey,
                     I96F32::saturating_from_num(alpha_unstaked),
                 );
 
@@ -315,8 +321,10 @@ impl<T: Config> Pallet<T> {
 
         // 4. Swap the alpha to tao and update counters for this subnet.
         let fee = Self::calculate_staking_fee(
-            netuid,
-            &hotkey,
+            Some((&hotkey, netuid)),
+            &coldkey,
+            None,
+            &coldkey,
             I96F32::saturating_from_num(alpha_unstaked),
         );
         let tao_unstaked =
