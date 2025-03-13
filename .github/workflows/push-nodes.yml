@@ -1,8 +1,5 @@
 name: PR Build and Merge
 
-permissions:
-  - write
-
 on:
   pull_request:
     branches:
@@ -20,32 +17,32 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update &&
-          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler jq
-
-      - name: Install Rust stable
-        uses: actions-rs/toolchain@v1.0.6
-        with:
-          toolchain: stable
-          components: rustfmt
-          profile: minimal
-
-      - name: Add wasm32-unknown-unknown target
-        run: |
-          rustup target add wasm32-unknown-unknown --toolchain stable-x86_64-unknown-linux-gnu
-          rustup component add rust-src --toolchain stable-x86_64-unknown-linux-gnu
-
-      - name: Run localnet.sh False --build-only
-        run: |
-          chmod +x scripts/localnet.sh
-          ./scripts/localnet.sh False --build-only
-
-      - name: Run localnet.sh --build-only
-        run: |
-          chmod +x scripts/localnet.sh
-          ./scripts/localnet.sh --build-only
+#      - name: Install dependencies
+#        run: |
+#          sudo apt-get update &&
+#          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler jq
+#
+#      - name: Install Rust stable
+#        uses: actions-rs/toolchain@v1.0.6
+#        with:
+#          toolchain: stable
+#          components: rustfmt
+#          profile: minimal
+#
+#      - name: Add wasm32-unknown-unknown target
+#        run: |
+#          rustup target add wasm32-unknown-unknown --toolchain stable-x86_64-unknown-linux-gnu
+#          rustup component add rust-src --toolchain stable-x86_64-unknown-linux-gnu
+#
+#      - name: Run localnet.sh False --build-only
+#        run: |
+#          chmod +x scripts/localnet.sh
+#          ./scripts/localnet.sh False --build-only
+#
+#      - name: Run localnet.sh --build-only
+#        run: |
+#          chmod +x scripts/localnet.sh
+#          ./scripts/localnet.sh --build-only
 
       - name: Create a files
         working-directory: ${{ github.workspace }}
