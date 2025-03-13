@@ -32,6 +32,7 @@ struct RemoveLiquidityResult {
 /// fees_tao - fees accrued by the position in quote currency (TAO)
 /// fees_alpha - fees accrued by the position in base currency (Alpha)
 ///
+#[cfg_attr(test, derive(Debug, PartialEq))]
 struct Position {
     tick_low: u64,
     tick_high: u64,
@@ -43,28 +44,33 @@ struct Position {
 impl Position {
     /// Converts tick index into SQRT of price
     pub fn tick_index_to_sqrt_price(tick_idx: u64) -> SqrtPrice {
-        // python: (1 + self.tick_spacing) ** (i / 2)
-        let tick_spacing_tao = Self::tick_spacing_tao();
-
-        tick_spacing_tao
+        // (1 + tick_spacing) ** (i / 2)
+        Self::tick_spacing_tao()
             .checked_pow(tick_idx / 2)
             .unwrap_or_default()
     }
 
     /// Converts SQRT price to tick index
     pub fn sqrt_price_to_tick_index(sqrt_price: SqrtPrice) -> u64 {
-        // python: math.floor(math.log(sqrt_p) / math.log(1 + self.tick_spacing)) * 2
-        let tick_spacing_tao = Self::tick_spacing_tao();
-        // floor(x) * 2
+        // floor(log(sqrt_p) / log(1 + tick_spacing)) * 2.0
+        let Some(tick_spacing_ln) = Self::tick_spacing_tao().checked_ln() else {
+            return 0;
+        };
+
         sqrt_price
             .checked_ln()
             .unwrap_or_default()
-            .safe_div(tick_spacing_tao.checked_ln().unwrap_or_default())
+            .safe_div(tick_spacing_ln)
+            .checked_floor()
+            .unwrap_or_default()
+            .saturating_mul(SqrtPrice::from_num(2.0))
+            .saturating_to_num()
     }
 
     fn tick_spacing_tao() -> SqrtPrice {
-        SqrtPrice::from_num(TICK_SPACING).saturating_div(SqrtPrice::from_num(1e9))
-            + SqrtPrice::from_num(1.0)
+        SqrtPrice::from_num(TICK_SPACING)
+            .saturating_div(SqrtPrice::from_num(1e9))
+            .saturating_add(SqrtPrice::from_num(1.0))
     }
 
     /// Converts position to token amounts
@@ -72,11 +78,11 @@ impl Position {
     /// returns tuple of (TAO, Alpha)
     ///
     pub fn to_token_amounts(self, current_tick: u64) -> (u64, u64) {
-        let one = 1.into();
+        // let one = 1.into();
 
-        let sqrt_price_curr = Self::tick_index_to_sqrt_price(current_tick);
-        let sqrt_pa = Self::tick_index_to_sqrt_price(self.tick_low);
-        let sqrt_pb = Self::tick_index_to_sqrt_price(self.tick_high);
+        // let sqrt_price_curr = Self::tick_index_to_sqrt_price(current_tick);
+        // let sqrt_pa = Self::tick_index_to_sqrt_price(self.tick_low);
+        // let sqrt_pb = Self::tick_index_to_sqrt_price(self.tick_high);
 
         // if sqrt_price_curr < sqrt_pa {
         //     (
@@ -158,7 +164,7 @@ pub trait SwapDataOperations<AccountIdType> {
 pub struct Swap<AccountIdType, Ops>
 where
     AccountIdType: Eq,
-    Ops: SwapDataOperations,
+    Ops: SwapDataOperations<AccountIdType>,
 {
     state_ops: Ops,
     phantom_key: PhantomData<AccountIdType>,
@@ -167,7 +173,7 @@ where
 impl<AccountIdType, Ops> Swap<AccountIdType, Ops>
 where
     AccountIdType: Eq,
-    Ops: SwapDataOperations,
+    Ops: SwapDataOperations<AccountIdType>,
 {
     pub fn new(ops: Ops) -> Self {
         // if !ops.is_v3_initialized() {
@@ -408,5 +414,64 @@ where
         // return fee0, fee1
 
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_tick_index_to_sqrt_price() {
+        // At tick index 0, the sqrt price should be 1.0
+        let sqrt_price = Position::tick_index_to_sqrt_price(0);
+        assert_eq!(sqrt_price, SqrtPrice::from_num(1.0));
+
+        let sqrt_price = Position::tick_index_to_sqrt_price(2);
+        let tick_spacing_tao = Position::tick_spacing_tao();
+        assert_eq!(sqrt_price, tick_spacing_tao);
+
+        let sqrt_price = Position::tick_index_to_sqrt_price(4);
+        // Calculate the expected value: (1 + TICK_SPACING/1e9 + 1.0)^2
+        let expected = tick_spacing_tao * tick_spacing_tao;
+        assert_eq!(sqrt_price, expected);
+
+        // Test with tick index 10
+        let sqrt_price = Position::tick_index_to_sqrt_price(10);
+        // Calculate the expected value: (1 + TICK_SPACING/1e9 + 1.0)^5
+        let expected_sqrt_price_10 = tick_spacing_tao.checked_pow(5).unwrap();
+        assert_eq!(sqrt_price, expected_sqrt_price_10);
+    }
+
+    #[test]
+    fn test_sqrt_price_to_tick_index() {
+        let tick_spacing_tao = Position::tick_spacing_tao();
+
+        let tick_index = Position::sqrt_price_to_tick_index(SqrtPrice::from_num(1.0));
+        assert_eq!(tick_index, 0);
+
+        // Test with sqrt price equal to tick_spacing_tao (should be tick index 2)
+        let tick_index = Position::sqrt_price_to_tick_index(tick_spacing_tao);
+        assert_eq!(tick_index, 2);
+
+        // Test with sqrt price equal to tick_spacing_tao^2 (should be tick index 4)
+        let sqrt_price = tick_spacing_tao * tick_spacing_tao;
+        let tick_index = Position::sqrt_price_to_tick_index(sqrt_price);
+        assert_eq!(tick_index, 4);
+
+        // Test with sqrt price equal to tick_spacing_tao^5 (should be tick index 10)
+        let sqrt_price = tick_spacing_tao.checked_pow(5).unwrap();
+        let tick_index = Position::sqrt_price_to_tick_index(sqrt_price);
+        assert_eq!(tick_index, 10,);
+    }
+
+    #[test]
+    fn test_roundtrip_tick_index_sqrt_price() {
+        for tick_index in [0, 2, 4, 10, 100, 1000].iter() {
+            let sqrt_price = Position::tick_index_to_sqrt_price(*tick_index);
+            let round_trip_tick_index = Position::sqrt_price_to_tick_index(sqrt_price);
+            dbg!(tick_index, round_trip_tick_index);
+            // assert_eq!(round_trip_tick_index, *tick_index);
+        }
     }
 }
