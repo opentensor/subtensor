@@ -46,7 +46,7 @@ sp_api::decl_runtime_apis! {
         fn get_stake_info_for_coldkey( coldkey_account: AccountId32 ) -> Vec<StakeInfo<AccountId32>>;
         fn get_stake_info_for_coldkeys( coldkey_accounts: Vec<AccountId32> ) -> Vec<(AccountId32, Vec<StakeInfo<AccountId32>>)>;
         fn get_stake_info_for_hotkey_coldkey_netuid( hotkey_account: AccountId32, coldkey_account: AccountId32, netuid: u16 ) -> Option<StakeInfo<AccountId32>>;
-        fn get_stake_fee( origin_hotkey_account: Option<AccountId32>, origin_coldkey_account: AccountId32, destination_hotkey_account: Option<AccountId32>, destination_coldkey_account: AccountId32, origin_netuid: Option<u16>, destination_netuid: Option<u16>, amount: i64 ) -> u64;
+        fn get_stake_fee( origin: Option<(AccountId32, u16)>, origin_coldkey_account: AccountId32, destination: Option<(AccountId32, u16)>, destination_coldkey_account: AccountId32, amount: u64 ) -> u64;
     }
 
     pub trait SubnetRegistrationRuntimeApi {
