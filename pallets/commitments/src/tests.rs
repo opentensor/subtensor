@@ -953,8 +953,10 @@ fn tempo_based_space_limit_resets_after_tempo() {
         System::<Test>::set_block_number(1);
 
         let commit_small = Box::new(CommitmentInfo {
-            fields: BoundedVec::try_from(vec![Data::Raw(vec![0u8; 20].try_into().unwrap())])
-                .unwrap(),
+            fields: BoundedVec::try_from(vec![Data::Raw(
+                vec![0u8; 20].try_into().expect("expected ok"),
+            )])
+            .expect("expected ok"),
         });
 
         assert_ok!(Pallet::<Test>::set_commitment(
@@ -1009,12 +1011,16 @@ fn tempo_based_space_limit_does_not_affect_different_netuid() {
         MaxSpace::<Test>::set(space_limit);
 
         let commit_large = Box::new(CommitmentInfo {
-            fields: BoundedVec::try_from(vec![Data::Raw(vec![0u8; 40].try_into().unwrap())])
-                .unwrap(),
+            fields: BoundedVec::try_from(vec![Data::Raw(
+                vec![0u8; 40].try_into().expect("expected ok"),
+            )])
+            .expect("expected ok"),
         });
         let commit_small = Box::new(CommitmentInfo {
-            fields: BoundedVec::try_from(vec![Data::Raw(vec![0u8; 20].try_into().unwrap())])
-                .unwrap(),
+            fields: BoundedVec::try_from(vec![Data::Raw(
+                vec![0u8; 20].try_into().expect("expected ok"),
+            )])
+            .expect("expected ok"),
         });
 
         assert_ok!(Pallet::<Test>::set_commitment(
@@ -1055,12 +1061,16 @@ fn tempo_based_space_limit_does_not_affect_different_user() {
         MaxSpace::<Test>::set(space_limit);
 
         let commit_large = Box::new(CommitmentInfo {
-            fields: BoundedVec::try_from(vec![Data::Raw(vec![0u8; 40].try_into().unwrap())])
-                .unwrap(),
+            fields: BoundedVec::try_from(vec![Data::Raw(
+                vec![0u8; 40].try_into().expect("expected ok"),
+            )])
+            .expect("expected ok"),
         });
         let commit_small = Box::new(CommitmentInfo {
-            fields: BoundedVec::try_from(vec![Data::Raw(vec![0u8; 20].try_into().unwrap())])
-                .unwrap(),
+            fields: BoundedVec::try_from(vec![Data::Raw(
+                vec![0u8; 20].try_into().expect("expected ok"),
+            )])
+            .expect("expected ok"),
         });
 
         assert_ok!(Pallet::<Test>::set_commitment(
@@ -1100,8 +1110,10 @@ fn tempo_based_space_limit_sudo_set_max_space() {
 
         System::<Test>::set_block_number(1);
         let commit_25 = Box::new(CommitmentInfo {
-            fields: BoundedVec::try_from(vec![Data::Raw(vec![0u8; 25].try_into().unwrap())])
-                .unwrap(),
+            fields: BoundedVec::try_from(vec![Data::Raw(
+                vec![0u8; 25].try_into().expect("expected ok"),
+            )])
+            .expect("expected ok"),
         });
 
         assert_ok!(Pallet::<Test>::set_commitment(
