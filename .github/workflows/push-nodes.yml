@@ -1,8 +1,5 @@
 name: PR Build and Merge
 
-permissions:
-  - write
-
 on:
   pull_request:
     branches:
@@ -13,7 +10,7 @@ jobs:
     permissions:
       pull-requests: write
     runs-on: ubuntu-latest
-    if: github.event.pull_request.merged
+#    if: github.event.pull_request.merged
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -47,16 +44,22 @@ jobs:
           chmod +x scripts/localnet.sh
           ./scripts/localnet.sh --build-only
 
-      - name: Create a files
-        working-directory: ${{ github.workspace }}
-        run: |
-          mkdir -p ${{ github.workspace }}/nodes/fast-blocks/release
-          mkdir -p ${{ github.workspace }}/nodes/non-fast-blocks/release
-          echo "fast-blocks" > ${{ github.workspace }}/nodes/fast-blocks/release/node-subtensor
-          echo "non-fast-blocks" > ${{ github.workspace }}/nodes/non-fast-blocks/release/node-subtensor
+#      - name: Create a files
+#        working-directory: ${{ github.workspace }}
+#        run: |
+#          mkdir -p ${{ github.workspace }}/nodes/fast-blocks/release
+#          mkdir -p ${{ github.workspace }}/nodes/non-fast-blocks/release
+#          echo "fast-blocks" > ${{ github.workspace }}/nodes/fast-blocks/release/node-subtensor
+#          echo "non-fast-blocks" > ${{ github.workspace }}/nodes/non-fast-blocks/release/node-subtensor
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v3
+      - name: Upload fast-blocks
+        uses: actions/upload-artifact@v4
         with:
-          name: my-artifact
-          path: ${{ github.workspace }}/nodes
+          name: fast-blocks
+          path: ${{ github.workspace }}/nodes/fast-blocks/release/node-subtensor
+
+      - name: Upload non-fast-blocks
+        uses: actions/upload-artifact@v4
+        with:
+          name: non-fast-blocks
+          path: ${{ github.workspace }}/nodes/non-fast-blocks/release/node-subtensor
