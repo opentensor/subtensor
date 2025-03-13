@@ -3,7 +3,7 @@ use sp_std::prelude::*;
 
 #[cfg(test)]
 use crate::{
-    CommitmentInfo, CommitmentOf, Config, Data, Error, Event, Pallet, RateLimit,
+    CommitmentInfo, CommitmentOf, Config, Data, Error, Event, MaxSpace, Pallet, RateLimit,
     RevealedCommitments, TimelockedIndex,
     mock::{
         DRAND_QUICKNET_SIG_HEX, RuntimeEvent, RuntimeOrigin, Test, insert_drand_pulse,
@@ -146,37 +146,38 @@ fn set_commitment_too_many_fields_panics() {
     });
 }
 
-#[test]
-fn set_commitment_rate_limit_exceeded() {
-    new_test_ext().execute_with(|| {
-        let rate_limit = <Test as Config>::DefaultRateLimit::get();
-        System::<Test>::set_block_number(1);
-        let info = Box::new(CommitmentInfo {
-            fields: BoundedVec::try_from(vec![]).expect("Expected not to panic"),
-        });
+// DEPRECATED
+// #[test]
+// fn set_commitment_rate_limit_exceeded() {
+//     new_test_ext().execute_with(|| {
+//         let rate_limit = <Test as Config>::DefaultRateLimit::get();
+//         System::<Test>::set_block_number(1);
+//         let info = Box::new(CommitmentInfo {
+//             fields: BoundedVec::try_from(vec![]).expect("Expected not to panic"),
+//         });
 
-        assert_ok!(Pallet::<Test>::set_commitment(
-            RuntimeOrigin::signed(1),
-            1,
-            info.clone()
-        ));
+//         assert_ok!(Pallet::<Test>::set_commitment(
+//             RuntimeOrigin::signed(1),
+//             1,
+//             info.clone()
+//         ));
 
-        // Set block number to just before rate limit expires
-        System::<Test>::set_block_number(rate_limit);
-        assert_noop!(
-            Pallet::<Test>::set_commitment(RuntimeOrigin::signed(1), 1, info.clone()),
-            Error::<Test>::CommitmentSetRateLimitExceeded
-        );
+//         // Set block number to just before rate limit expires
+//         System::<Test>::set_block_number(rate_limit);
+//         assert_noop!(
+//             Pallet::<Test>::set_commitment(RuntimeOrigin::signed(1), 1, info.clone()),
+//             Error::<Test>::CommitmentSetRateLimitExceeded
+//         );
 
-        // Set block number to after rate limit
-        System::<Test>::set_block_number(rate_limit + 1);
-        assert_ok!(Pallet::<Test>::set_commitment(
-            RuntimeOrigin::signed(1),
-            1,
-            info
-        ));
-    });
-}
+//         // Set block number to after rate limit
+//         System::<Test>::set_block_number(rate_limit + 1);
+//         assert_ok!(Pallet::<Test>::set_commitment(
+//             RuntimeOrigin::signed(1),
+//             1,
+//             info
+//         ));
+//     });
+// }
 
 #[test]
 fn set_commitment_updates_deposit() {
@@ -906,5 +907,222 @@ fn single_timelock_reveal_later_round() {
             !TimelockedIndex::<Test>::get().contains(&(netuid_b, who_b)),
             "User B removed from index after final reveal"
         );
+    });
+}
+
+#[test]
+fn tempo_based_space_limit_accumulates_in_same_window() {
+    new_test_ext().execute_with(|| {
+        let netuid = 1;
+        let who = 100;
+        let space_limit = 50;
+        MaxSpace::<Test>::set(space_limit);
+        System::<Test>::set_block_number(0);
+
+        // A single commitment that uses some space, e.g. 30 bytes:
+        let data = vec![0u8; 30];
+        let info = Box::new(CommitmentInfo {
+            fields: BoundedVec::try_from(vec![Data::Raw(
+                data.try_into().expect("Data up to 128 bytes OK"),
+            )])
+            .expect("1 field is <= MaxFields"),
+        });
+
+        // 2) First call => usage=0 => usage=30 after. OK.
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(who),
+            netuid,
+            info.clone(),
+        ));
+
+        // 3) Second call => tries another 30 bytes in the SAME block => total=60 => exceeds 50 => should fail.
+        assert_noop!(
+            Pallet::<Test>::set_commitment(RuntimeOrigin::signed(who), netuid, info.clone()),
+            Error::<Test>::SpaceLimitExceeded
+        );
+    });
+}
+
+#[test]
+fn tempo_based_space_limit_resets_after_tempo() {
+    new_test_ext().execute_with(|| {
+        let netuid = 2;
+        let who = 101;
+
+        MaxSpace::<Test>::set(40);
+        System::<Test>::set_block_number(1);
+
+        let commit_small = Box::new(CommitmentInfo {
+            fields: BoundedVec::try_from(vec![Data::Raw(vec![0u8; 20].try_into().unwrap())])
+                .unwrap(),
+        });
+
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(who),
+            netuid,
+            commit_small.clone()
+        ));
+
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(who),
+            netuid,
+            commit_small.clone()
+        ));
+
+        assert_noop!(
+            Pallet::<Test>::set_commitment(
+                RuntimeOrigin::signed(who),
+                netuid,
+                commit_small.clone()
+            ),
+            Error::<Test>::SpaceLimitExceeded
+        );
+
+        System::<Test>::set_block_number(200);
+
+        assert_noop!(
+            Pallet::<Test>::set_commitment(
+                RuntimeOrigin::signed(who),
+                netuid,
+                commit_small.clone()
+            ),
+            Error::<Test>::SpaceLimitExceeded
+        );
+
+        System::<Test>::set_block_number(400);
+
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(who),
+            netuid,
+            commit_small
+        ));
+    });
+}
+
+#[test]
+fn tempo_based_space_limit_does_not_affect_different_netuid() {
+    new_test_ext().execute_with(|| {
+        let netuid_a = 10;
+        let netuid_b = 20;
+        let who = 111;
+        let space_limit = 50;
+        MaxSpace::<Test>::set(space_limit);
+
+        let commit_large = Box::new(CommitmentInfo {
+            fields: BoundedVec::try_from(vec![Data::Raw(vec![0u8; 40].try_into().unwrap())])
+                .unwrap(),
+        });
+        let commit_small = Box::new(CommitmentInfo {
+            fields: BoundedVec::try_from(vec![Data::Raw(vec![0u8; 20].try_into().unwrap())])
+                .unwrap(),
+        });
+
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(who),
+            netuid_a,
+            commit_large.clone()
+        ));
+
+        assert_noop!(
+            Pallet::<Test>::set_commitment(
+                RuntimeOrigin::signed(who),
+                netuid_a,
+                commit_small.clone()
+            ),
+            Error::<Test>::SpaceLimitExceeded
+        );
+
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(who),
+            netuid_b,
+            commit_large
+        ));
+
+        assert_noop!(
+            Pallet::<Test>::set_commitment(RuntimeOrigin::signed(who), netuid_b, commit_small),
+            Error::<Test>::SpaceLimitExceeded
+        );
+    });
+}
+
+#[test]
+fn tempo_based_space_limit_does_not_affect_different_user() {
+    new_test_ext().execute_with(|| {
+        let netuid = 10;
+        let user1 = 123;
+        let user2 = 456;
+        let space_limit = 50;
+        MaxSpace::<Test>::set(space_limit);
+
+        let commit_large = Box::new(CommitmentInfo {
+            fields: BoundedVec::try_from(vec![Data::Raw(vec![0u8; 40].try_into().unwrap())])
+                .unwrap(),
+        });
+        let commit_small = Box::new(CommitmentInfo {
+            fields: BoundedVec::try_from(vec![Data::Raw(vec![0u8; 20].try_into().unwrap())])
+                .unwrap(),
+        });
+
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(user1),
+            netuid,
+            commit_large.clone()
+        ));
+
+        assert_noop!(
+            Pallet::<Test>::set_commitment(
+                RuntimeOrigin::signed(user1),
+                netuid,
+                commit_small.clone()
+            ),
+            Error::<Test>::SpaceLimitExceeded
+        );
+
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(user2),
+            netuid,
+            commit_large
+        ));
+
+        assert_noop!(
+            Pallet::<Test>::set_commitment(RuntimeOrigin::signed(user2), netuid, commit_small),
+            Error::<Test>::SpaceLimitExceeded
+        );
+    });
+}
+
+#[test]
+fn tempo_based_space_limit_sudo_set_max_space() {
+    new_test_ext().execute_with(|| {
+        let netuid = 3;
+        let who = 15;
+        MaxSpace::<Test>::set(30);
+
+        System::<Test>::set_block_number(1);
+        let commit_25 = Box::new(CommitmentInfo {
+            fields: BoundedVec::try_from(vec![Data::Raw(vec![0u8; 25].try_into().unwrap())])
+                .unwrap(),
+        });
+
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(who),
+            netuid,
+            commit_25.clone()
+        ));
+        assert_noop!(
+            Pallet::<Test>::set_commitment(RuntimeOrigin::signed(who), netuid, commit_25.clone()),
+            Error::<Test>::SpaceLimitExceeded
+        );
+
+        assert_ok!(Pallet::<Test>::set_max_space_per_user_per_rate_limit(
+            RuntimeOrigin::root(),
+            100
+        ));
+
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(who),
+            netuid,
+            commit_25
+        ));
     });
 }
