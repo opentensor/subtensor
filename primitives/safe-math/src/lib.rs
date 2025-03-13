@@ -3,6 +3,8 @@
 #![cfg_attr(test, allow(clippy::arithmetic_side_effects))]
 #![cfg_attr(test, allow(clippy::unwrap_used))]
 
+use core::f64::consts::LN_2;
+
 use sp_arithmetic::traits::UniqueSaturatedInto;
 use substrate_fixed::traits::Fixed;
 
@@ -13,6 +15,24 @@ pub trait SafeDiv {
     /// Safe division that returns default value for division by zero
     fn safe_div(self, rhs: Self) -> Self;
 }
+
+/// Implementation of safe division trait for primitive types
+macro_rules! impl_safe_div_for_primitive {
+    ($($t:ty),*) => {
+        $(
+            impl SafeDiv for $t {
+                fn safe_div_or(self, rhs: Self, def: Self) -> Self {
+                    self.checked_div(rhs).unwrap_or(def)
+                }
+
+                fn safe_div(self, rhs: Self) -> Self {
+                    self.checked_div(rhs).unwrap_or_default()
+                }
+            }
+        )*
+    };
+}
+impl_safe_div_for_primitive!(u8, u16, u32, u64, i8, i16, i32, i64, usize);
 
 pub trait FixedExt: Fixed {
     fn checked_pow<E>(&self, exponent: E) -> Option<Self>
@@ -90,6 +110,73 @@ pub trait FixedExt: Fixed {
         Some(middle)
     }
 
+    /// Natural logarithm (base e)
+    fn checked_ln(&self) -> Option<Self> {
+        if *self <= Self::from_num(0) {
+            return None;
+        }
+
+        // Constants
+        let one = Self::from_num(1);
+        let two = Self::from_num(2);
+        let ln2 = Self::from_num(LN_2);
+
+        // Find integer part of log2(x)
+        let mut exp = 0i64;
+        let mut y = *self;
+
+        // Scale y to be between 1 and 2
+        while y >= two {
+            y = y.checked_div(two)?;
+            exp = exp.checked_add(1)?;
+        }
+        while y < one {
+            y = y.checked_mul(two)?;
+            exp = exp.checked_sub(1)?;
+        }
+
+        // At this point, 1 <= y < 2
+        let z = y.checked_sub(one)?;
+
+        // For better accuracy, use more terms in the Taylor series
+        let z2 = z.checked_mul(z)?;
+        let z3 = z2.checked_mul(z)?;
+        let z4 = z3.checked_mul(z)?;
+        let z5 = z4.checked_mul(z)?;
+        let z6 = z5.checked_mul(z)?;
+        let z7 = z6.checked_mul(z)?;
+        let z8 = z7.checked_mul(z)?;
+
+        // More terms in the Taylor series for better accuracy
+        // ln(1+z) = z - z²/2 + z³/3 - z⁴/4 + z⁵/5 - z⁶/6 + z⁷/7 - z⁸/8 + ...
+        let ln_y = z
+            .checked_sub(z2.checked_mul(Self::from_num(0.5))?)?
+            .checked_add(z3.checked_mul(Self::from_num(1.0 / 3.0))?)?
+            .checked_sub(z4.checked_mul(Self::from_num(0.25))?)?
+            .checked_add(z5.checked_mul(Self::from_num(0.2))?)?
+            .checked_sub(z6.checked_mul(Self::from_num(1.0 / 6.0))?)?
+            .checked_add(z7.checked_mul(Self::from_num(1.0 / 7.0))?)?
+            .checked_sub(z8.checked_mul(Self::from_num(0.125))?)?;
+
+        // Final result: ln(x) = ln(y) + exp * ln(2)
+        let exp_ln2 = Self::from_num(exp).checked_mul(ln2)?;
+        ln_y.checked_add(exp_ln2)
+    }
+
+    /// Logarithm with arbitrary base
+    fn checked_log(&self, base: Self) -> Option<Self> {
+        // Check for invalid base
+        if base <= Self::from_num(0) || base == Self::from_num(1) {
+            return None;
+        }
+
+        // Calculate using change of base formula: log_b(x) = ln(x) / ln(b)
+        let ln_x = self.checked_ln()?;
+        let ln_base = base.checked_ln()?;
+
+        ln_x.checked_div(ln_base)
+    }
+
     fn abs_diff(&self, b: Self) -> Self {
         if *self < b {
             b.saturating_sub(*self)
@@ -109,28 +196,12 @@ pub trait FixedExt: Fixed {
 
 impl<T: Fixed> FixedExt for T {}
 
-/// Implementation of safe division trait for primitive types
-macro_rules! impl_safe_div_for_primitive {
-    ($($t:ty),*) => {
-        $(
-            impl SafeDiv for $t {
-                fn safe_div_or(self, rhs: Self, def: Self) -> Self {
-                    self.checked_div(rhs).unwrap_or(def)
-                }
-
-                fn safe_div(self, rhs: Self) -> Self {
-                    self.checked_div(rhs).unwrap_or_default()
-                }
-            }
-        )*
-    };
-}
-impl_safe_div_for_primitive!(u8, u16, u32, u64, i8, i16, i32, i64, usize);
-
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use core::f64::consts::LN_10;
     use substrate_fixed::types::*; // Assuming U110F18 is properly imported
+
+    use super::*;
 
     #[test]
     fn test_checked_sqrt_positive_values() {
@@ -206,9 +277,48 @@ mod tests {
 
         let result = I32F32::from_num(1.5).checked_pow(-2i64);
 
-        assert!((result.unwrap() - I32F32::from_num(0.44444444)).abs() <= I32F32::from_num(0.0001));
+        assert!(
+            (result.unwrap() - I32F32::from_num(0.44444444)).abs() <= I32F32::from_num(0.00001)
+        );
 
         let result = I32F32::from_num(0).checked_pow(-1);
-        assert_eq!(result, None);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_checked_ln() {
+        // Natural logarithm
+        assert!(
+            I64F64::from_num(10.0)
+                .checked_ln()
+                .unwrap()
+                .abs_diff(I64F64::from_num(LN_10))
+                < I64F64::from_num(0.00001)
+        );
+
+        // Log of negative number should return None
+        assert!(I64F64::from_num(-5.0).checked_ln().is_none());
+
+        // Log of zero should return None
+        assert!(I64F64::from_num(0.0).checked_ln().is_none());
+    }
+
+    #[test]
+    fn test_checked_log() {
+        let x = I64F64::from_num(10.0);
+
+        // Log base 10
+        assert!(
+            x.checked_log(I64F64::from_num(10.0))
+                .unwrap()
+                .abs_diff(I64F64::from_num(1.0))
+                < I64F64::from_num(0.00001)
+        );
+
+        // Log with invalid base should return None
+        assert!(x.checked_log(I64F64::from_num(-2.0)).is_none());
+
+        // Log with base 1 should return None
+        assert!(x.checked_log(I64F64::from_num(1.0)).is_none());
     }
 }
