@@ -540,7 +540,13 @@ fn test_swap_concurrent_modifications() {
         let additional_stake = 500_000_000_000;
         let initial_stake_alpha =
             I96F32::from(initial_stake).saturating_mul(SubtensorModule::get_alpha_price(netuid));
-        let fee = SubtensorModule::calculate_staking_fee(netuid, &hotkey, initial_stake_alpha);
+        let fee = SubtensorModule::calculate_staking_fee(
+            None,
+            &new_coldkey,
+            Some((&hotkey, netuid)),
+            &new_coldkey,
+            initial_stake_alpha,
+        );
 
         // Setup initial state
         add_network(netuid, 1, 1);

@@ -1073,24 +1073,48 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn calculate_staking_fee(
-        netuid: u16,
-        hotkey: &T::AccountId,
+        origin: Option<(&T::AccountId, u16)>,
+        _origin_coldkey: &T::AccountId,
+        destination: Option<(&T::AccountId, u16)>,
+        _destination_coldkey: &T::AccountId,
         alpha_estimate: I96F32,
     ) -> u64 {
-        if (netuid == Self::get_root_netuid()) || (SubnetMechanism::<T>::get(netuid)) == 0 {
-            DefaultStakingFee::<T>::get()
-        } else {
-            let fee = alpha_estimate
-                .saturating_mul(
-                    I96F32::saturating_from_num(AlphaDividendsPerSubnet::<T>::get(netuid, &hotkey))
-                        .safe_div(I96F32::saturating_from_num(TotalHotkeyAlpha::<T>::get(
-                            &hotkey, netuid,
-                        ))),
-                )
-                .saturating_mul(Self::get_alpha_price(netuid)) // fee needs to be in TAO
-                .saturating_to_num::<u64>();
+        match origin {
+            // If origin is defined, we are removing/moving stake
+            Some((origin_hotkey, origin_netuid)) => {
+                if let Some((_destination_hotkey, destination_netuid)) = destination {
+                    // This is a stake move/swap/transfer
+                    if destination_netuid == origin_netuid {
+                        // If destination is on the same subnet, use the default fee
+                        return DefaultStakingFee::<T>::get();
+                    }
+                }
 
-            fee.max(DefaultStakingFee::<T>::get())
+                if origin_netuid == Self::get_root_netuid()
+                    || SubnetMechanism::<T>::get(origin_netuid) == 0
+                {
+                    // If the origin netuid is root, or the subnet mechanism is 0, use the default fee
+                    DefaultStakingFee::<T>::get()
+                } else {
+                    // Otherwise, calculate the fee based on the alpha estimate
+                    let fee = alpha_estimate
+                        .saturating_mul(
+                            I96F32::saturating_from_num(AlphaDividendsPerSubnet::<T>::get(
+                                origin_netuid,
+                                &origin_hotkey,
+                            ))
+                            .safe_div(I96F32::saturating_from_num(
+                                TotalHotkeyAlpha::<T>::get(&origin_hotkey, origin_netuid),
+                            )),
+                        )
+                        .saturating_mul(Self::get_alpha_price(origin_netuid)) // fee needs to be in TAO
+                        .saturating_to_num::<u64>();
+
+                    fee.max(DefaultStakingFee::<T>::get())
+                }
+            }
+            // If origin is not defined, we are adding stake; use default fee
+            None => DefaultStakingFee::<T>::get(),
         }
     }
 }
