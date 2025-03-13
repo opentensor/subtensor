@@ -1,7 +1,9 @@
 use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
+use sp_std::ops::Neg;
 extern crate alloc;
 use codec::Compact;
+use substrate_fixed::types::I96F32;
 
 #[freeze_struct("5cfb3c84c3af3116")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
@@ -111,5 +113,24 @@ impl<T: Config> Pallet<T> {
             drain: 0.into(),
             is_registered,
         })
+    }
+
+    pub fn get_stake_fee_for_hotkey_coldkey_netuid(
+        hotkey_account: T::AccountId,
+        _coldkey_account: T::AccountId,
+        origin_netuid: u16,
+        _destination_netuid: u16,
+        amount: i64,
+    ) -> u64 {
+        if amount >= 0 {
+            DefaultStakingFee::<T>::get()
+        } else {
+            // Calculate fee for unstake (negative amount)
+            Self::calculate_staking_fee(
+                origin_netuid,
+                &hotkey_account,
+                I96F32::saturating_from_num(amount.neg()),
+            )
+        }
     }
 }

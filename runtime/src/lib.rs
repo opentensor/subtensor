@@ -2066,6 +2066,10 @@ impl_runtime_apis! {
         fn get_stake_info_for_hotkey_coldkey_netuid( hotkey_account: AccountId32, coldkey_account: AccountId32, netuid: u16 ) -> Option<StakeInfo<AccountId32>> {
             SubtensorModule::get_stake_info_for_hotkey_coldkey_netuid( hotkey_account, coldkey_account, netuid )
         }
+
+        fn get_stake_fee_for_hotkey_coldkey_netuid( hotkey_account: AccountId32, coldkey_account: AccountId32, origin_netuid: u16, destination_netuid: u16, amount: i64 ) -> u64 {
+            SubtensorModule::get_stake_fee_for_hotkey_coldkey_netuid( hotkey_account, coldkey_account, origin_netuid, destination_netuid, amount )
+        }
     }
 
     impl subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block> for Runtime {
