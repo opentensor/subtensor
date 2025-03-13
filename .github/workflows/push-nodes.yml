@@ -20,57 +20,43 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
 
-#      - name: Install dependencies
-#        run: |
-#          sudo apt-get update &&
-#          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler jq
-#
-#      - name: Install Rust stable
-#        uses: actions-rs/toolchain@v1.0.6
-#        with:
-#          toolchain: stable
-#          components: rustfmt
-#          profile: minimal
-#
-#      - name: Add wasm32-unknown-unknown target
-#        run: |
-#          rustup target add wasm32-unknown-unknown --toolchain stable-x86_64-unknown-linux-gnu
-#          rustup component add rust-src --toolchain stable-x86_64-unknown-linux-gnu
-#
-#      - name: Run localnet.sh False --build-only
-#        run: |
-#          chmod +x scripts/localnet.sh
-#          ./scripts/localnet.sh False --build-only
-#
-#      - name: Run localnet.sh --build-only
-#        run: |
-#          chmod +x scripts/localnet.sh
-#          ./scripts/localnet.sh --build-only
-#
-#      - name: Create a files
-#        working-directory: ${{ github.workspace }}
-#        run: |
-#          mkdir -p ${{ github.workspace }}/nodes/fast-blocks/release
-#          mkdir -p ${{ github.workspace }}/nodes/non-fast-blocks/release
-#          echo "fast-blocks" > ${{ github.workspace }}/nodes/fast-blocks/release/node-subtensor
-#          echo "non-fast-blocks" > ${{ github.workspace }}/nodes/non-fast-blocks/release/node-subtensor
-#
-#      - name: Commit changes
-#        working-directory: ${{ github.workspace }}
-#        run: |
-#          git config --global user.name "GitHub Actions"
-#          git config --global user.email "actions@github.com"
-#          git add ${{ github.workspace }}/nodes/fast-blocks/release/node-subtensor ${{ github.workspace }}/nodes/non-fast-blocks/release/node-subtensor
-#          git commit -m "Update nodes" || echo "No changes to commit"
-#
-#      - name: Push changes to PR branch
-#        run: |
-#          git push https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ github.head_ref }}
-#
-#
-#      - name: Merge PR
-#        uses: repo-sync/pull-request@v2
-#        with:
-#          destination_branch: devnet-ready
-#          github_token: ${{ secrets.GITHUB_TOKEN }}
-#          pr_number: ${{ github.event.number }}
+      - name: Install dependencies
+        run: |
+          sudo apt-get update &&
+          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler jq
+
+      - name: Install Rust stable
+        uses: actions-rs/toolchain@v1.0.6
+        with:
+          toolchain: stable
+          components: rustfmt
+          profile: minimal
+
+      - name: Add wasm32-unknown-unknown target
+        run: |
+          rustup target add wasm32-unknown-unknown --toolchain stable-x86_64-unknown-linux-gnu
+          rustup component add rust-src --toolchain stable-x86_64-unknown-linux-gnu
+
+      - name: Run localnet.sh False --build-only
+        run: |
+          chmod +x scripts/localnet.sh
+          ./scripts/localnet.sh False --build-only
+
+      - name: Run localnet.sh --build-only
+        run: |
+          chmod +x scripts/localnet.sh
+          ./scripts/localnet.sh --build-only
+
+      - name: Create a files
+        working-directory: ${{ github.workspace }}
+        run: |
+          mkdir -p ${{ github.workspace }}/nodes/fast-blocks/release
+          mkdir -p ${{ github.workspace }}/nodes/non-fast-blocks/release
+          echo "fast-blocks" > ${{ github.workspace }}/nodes/fast-blocks/release/node-subtensor
+          echo "non-fast-blocks" > ${{ github.workspace }}/nodes/non-fast-blocks/release/node-subtensor
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: my-artifact
+          path: ${{ github.workspace }}/nodes
