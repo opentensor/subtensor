@@ -53,7 +53,7 @@ jobs:
           echo "non-fast-blocks" > ${{ github.workspace }}/nodes/non-fast-blocks/release/node-subtensor
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: my-artifact
+          name: nodes-artifacts
           path: ${{ github.workspace }}/nodes
