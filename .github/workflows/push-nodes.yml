@@ -1,5 +1,8 @@
 name: PR Build and Merge
 
+permissions:
+  - write
+
 on:
   pull_request:
     branches:
@@ -7,8 +10,10 @@ on:
 
 jobs:
   build-and-merge:
+    permissions:
+      pull-requests: write
     runs-on: ubuntu-latest
-#    if: github.event.pull_request.merged
+    if: github.event.pull_request.merged
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
