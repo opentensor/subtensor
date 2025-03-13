@@ -2067,8 +2067,8 @@ impl_runtime_apis! {
             SubtensorModule::get_stake_info_for_hotkey_coldkey_netuid( hotkey_account, coldkey_account, netuid )
         }
 
-        fn get_stake_fee_for_hotkey_coldkey_netuid( hotkey_account: AccountId32, coldkey_account: AccountId32, origin_netuid: Option<u16>, destination_netuid: Option<u16>, amount: i64 ) -> u64 {
-            SubtensorModule::get_stake_fee_for_hotkey_coldkey_netuid( hotkey_account, coldkey_account, origin_netuid, destination_netuid, amount )
+        fn get_stake_fee( origin_hotkey_account: AccountId32, origin_coldkey_account: AccountId32, destination_hotkey_account: AccountId32, destination_coldkey_account: AccountId32, origin_netuid: Option<u16>, destination_netuid: Option<u16>, amount: i64 ) -> u64 {
+            SubtensorModule::get_stake_fee( origin_hotkey_account, origin_coldkey_account, destination_hotkey_account, destination_coldkey_account, origin_netuid, destination_netuid, amount )
         }
     }
 
