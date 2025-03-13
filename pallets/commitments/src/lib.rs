@@ -225,7 +225,11 @@ pub mod pallet {
 
             let cur_block = <frame_system::Pallet<T>>::block_number();
 
-            let required_space = info.using_encoded(|b| b.len()) as u64;
+            let required_space: u64 = info
+                .fields
+                .iter()
+                .map(|field| field.len_for_rate_limit())
+                .sum();
 
             let mut usage = UsedSpaceOf::<T>::get(netuid, &who).unwrap_or_default();
             let tempo_length = T::TempoInterface::get_tempo_for_netuid(netuid);

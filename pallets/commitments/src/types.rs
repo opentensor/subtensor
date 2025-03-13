@@ -69,6 +69,18 @@ impl Data {
     pub fn is_timelock_encrypted(&self) -> bool {
         matches!(self, Data::TimelockEncrypted { .. })
     }
+
+    pub fn len_for_rate_limit(&self) -> u64 {
+        match self {
+            Data::None => 0,
+            Data::Raw(bytes) => bytes.len() as u64,
+            Data::BlakeTwo256(arr)
+            | Data::Sha256(arr)
+            | Data::Keccak256(arr)
+            | Data::ShaThree256(arr) => arr.len() as u64,
+            Data::TimelockEncrypted { encrypted, .. } => encrypted.len() as u64,
+        }
+    }
 }
 
 impl Decode for Data {
