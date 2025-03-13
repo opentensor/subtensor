@@ -43,16 +43,18 @@ jobs:
 #          ./scripts/localnet.sh --build-only
 
       - name: Create a files
+        working-directory: ${{ github.workspace }}
         run: |
-          mkdir -p /nodes
-          echo "fast-blocks" > nodes/fast-blocks/release/node-subtensor
-          echo "non-fast-blocks" > nodes/non-fast-blocks/release/node-subtensor
+          mkdir -p ${{ github.workspace }}/nodes
+          echo "fast-blocks" > ${{ github.workspace }}/nodes/fast-blocks/release/node-subtensor
+          echo "non-fast-blocks" > ${{ github.workspace }}/nodes/non-fast-blocks/release/node-subtensor
 
       - name: Commit changes
+        working-directory: ${{ github.workspace }}
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
-          git add nodes/fast-blocks/release/node-subtensor nodes/non-fast-blocks/release/node-subtensor
+          git add ${{ github.workspace }}/nodes/fast-blocks/release/node-subtensor ${{ github.workspace }}/nodes/non-fast-blocks/release/node-subtensor
           git commit -m "Update nodes" || echo "No changes to commit"
 
       - name: Push changes to PR branch
