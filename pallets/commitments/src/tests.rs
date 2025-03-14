@@ -950,6 +950,8 @@ fn tempo_based_space_limit_resets_after_tempo() {
         let netuid = 2;
         let who = 101;
 
+        //TODO SPIIGOT: make this line work
+        //pallet_subtensor::Tempo::<Test>::insert(netuid, 360);
         MaxSpace::<Test>::set(40);
         System::<Test>::set_block_number(1);
 
@@ -992,7 +994,7 @@ fn tempo_based_space_limit_resets_after_tempo() {
             Error::<Test>::SpaceLimitExceeded
         );
 
-        System::<Test>::set_block_number(400);
+        System::<Test>::set_block_number(363);
 
         assert_ok!(Pallet::<Test>::set_commitment(
             RuntimeOrigin::signed(who),

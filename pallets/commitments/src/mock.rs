@@ -106,8 +106,8 @@ impl pallet_commitments::Config for Test {
 
 pub struct MockTempoInterface;
 impl pallet_commitments::GetTempoInterface for MockTempoInterface {
-    fn get_tempo_for_netuid(_netuid: u16) -> u16 {
-        360
+    fn get_epoch_index(netuid: u16, cur_block: u64) -> u64 {
+        SubtensorModule::get_epoch_index(netuid, cur_block)
     }
 }
 

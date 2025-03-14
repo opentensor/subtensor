@@ -18,6 +18,7 @@ pub use weights::WeightInfo;
 use ark_serialize::CanonicalDeserialize;
 use frame_support::{BoundedVec, traits::Currency};
 use scale_info::prelude::collections::BTreeSet;
+use sp_runtime::SaturatedConversion;
 use sp_runtime::{Saturating, traits::Zero};
 use sp_std::{boxed::Box, vec::Vec};
 use tle::{
@@ -77,8 +78,8 @@ pub mod pallet {
 
     /// Used to retreive the given subnet's tempo  
     pub trait GetTempoInterface {
-        /// Used to retreive the given subnet's tempo
-        fn get_tempo_for_netuid(netuid: u16) -> u16;
+        /// Used to retreive the epoch index for the given subnet.
+        fn get_epoch_index(netuid: u16, cur_block: u64) -> u64;
     }
 
     #[pallet::event]
@@ -177,15 +178,8 @@ pub mod pallet {
     /// in the RateLimit window
     #[pallet::storage]
     #[pallet::getter(fn used_space_of)]
-    pub type UsedSpaceOf<T: Config> = StorageDoubleMap<
-        _,
-        Identity,
-        u16,
-        Twox64Concat,
-        T::AccountId,
-        UsageTracker<BlockNumberFor<T>>,
-        OptionQuery,
-    >;
+    pub type UsedSpaceOf<T: Config> =
+        StorageDoubleMap<_, Identity, u16, Twox64Concat, T::AccountId, UsageTracker, OptionQuery>;
 
     #[pallet::type_value]
     /// The default Maximum Space
@@ -232,10 +226,11 @@ pub mod pallet {
                 .sum();
 
             let mut usage = UsedSpaceOf::<T>::get(netuid, &who).unwrap_or_default();
-            let tempo_length = T::TempoInterface::get_tempo_for_netuid(netuid);
+            let cur_block_u64 = cur_block.saturated_into::<u64>();
+            let current_epoch = T::TempoInterface::get_epoch_index(netuid, cur_block_u64);
 
-            if cur_block.saturating_sub(usage.last_reset_block) >= tempo_length.into() {
-                usage.last_reset_block = cur_block;
+            if usage.last_epoch != current_epoch {
+                usage.last_epoch = current_epoch;
                 usage.used_space = 0;
             }
 

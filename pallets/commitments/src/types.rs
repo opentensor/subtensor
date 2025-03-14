@@ -359,11 +359,11 @@ pub struct RevealedData<Balance, MaxFields: Get<u32>, BlockNumber> {
 }
 
 /// Tracks how much “space” each (netuid, who) has used within the current RateLimit block-window.
-#[freeze_struct("c73c7815f7c51556")]
+#[freeze_struct("1f23fb50f96326e4")]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, TypeInfo)]
-pub struct UsageTracker<BlockNumber> {
-    /// Last Reset block
-    pub last_reset_block: BlockNumber,
+pub struct UsageTracker {
+    /// Last epoch block
+    pub last_epoch: u64,
     /// Space used
     pub used_space: u64,
 }
