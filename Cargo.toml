@@ -99,6 +99,7 @@ proc-macro2 = { version = "1", features = ["span-locations"] }
 thiserror = "1.0"
 walkdir = "2"
 approx = "0.5"
+alloy-primitives = { version = "0.8.23", default-features = false }
 
 subtensor-macros = { path = "support/macros" }
 

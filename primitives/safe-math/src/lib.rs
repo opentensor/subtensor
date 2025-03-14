@@ -177,6 +177,27 @@ pub trait FixedExt: Fixed {
         ln_x.checked_div(ln_base)
     }
 
+    /// Returns the largest integer less than or equal to the fixed-point number.
+    fn checked_floor(&self) -> Option<Self> {
+        // Approach using the integer and fractional parts
+        if *self >= Self::from_num(0) {
+            // For non-negative numbers, simply return the integer part
+            return Some(Self::from_num(self.int()));
+        }
+
+        // For negative numbers
+        let int_part = self.int();
+        let frac_part = self.frac();
+
+        if frac_part == Self::from_num(0) {
+            // No fractional part, return as is
+            return Some(*self);
+        }
+
+        // Has fractional part, we need to round down
+        int_part.checked_sub(Self::from_num(1))
+    }
+
     fn abs_diff(&self, b: Self) -> Self {
         if *self < b {
             b.saturating_sub(*self)
@@ -320,5 +341,34 @@ mod tests {
 
         // Log with base 1 should return None
         assert!(x.checked_log(I64F64::from_num(1.0)).is_none());
+    }
+
+    #[test]
+    fn test_checked_floor() {
+        // Test cases: (input, expected floor result)
+        let test_cases = [
+            // Positive and negative integers (should remain unchanged)
+            (0.0, 0.0),
+            (1.0, 1.0),
+            (5.0, 5.0),
+            (-1.0, -1.0),
+            (-5.0, -5.0),
+            // Positive fractions (should truncate to integer part)
+            (0.5, 0.0),
+            (1.5, 1.0),
+            (3.75, 3.0),
+            (9.999, 9.0),
+            // Negative fractions (should round down to next integer)
+            (-0.1, -1.0),
+            (-1.5, -2.0),
+            (-3.75, -4.0),
+            (-9.999, -10.0),
+        ];
+
+        for &(input, expected) in &test_cases {
+            let x = I64F64::from_num(input);
+            let expected = I64F64::from_num(expected);
+            assert_eq!(x.checked_floor().unwrap(), expected,);
+        }
     }
 }
