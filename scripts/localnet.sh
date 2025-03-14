@@ -30,14 +30,14 @@ if [ "$fast_blocks" == "False" ]; then
   : "${CHAIN:=local}"
   : "${BUILD_BINARY:=1}"
   : "${FEATURES:="pow-faucet"}"
-  BUILD_DIR="$BASE_DIR/nodes/non-fast-blocks"
+  BUILD_DIR="$BASE_DIR/target/non-fast-blocks"
 else
   # Block of code to execute if fast_blocks is not False
   echo "fast_blocks is On"
   : "${CHAIN:=local}"
   : "${BUILD_BINARY:=1}"
   : "${FEATURES:="pow-faucet fast-blocks"}"
-  BUILD_DIR="$BASE_DIR/nodes/fast-blocks"
+  BUILD_DIR="$BASE_DIR/target/fast-blocks"
 fi
 
 # Ensure the build directory exists
