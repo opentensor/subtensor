@@ -720,9 +720,11 @@ fn test_stake_fee_api() {
             stake_amount,
         ); // Charged a dynamic fee
         let dynamic_fee_5 = SubtensorModule::calculate_staking_fee(
-            netuid0,
-            &hotkey1,
-            I96F32::from_num(stake_amount),
+            Some((&hotkey1, netuid0)),
+            &coldkey1,
+            Some((&hotkey1, root_netuid)),
+            &coldkey1,
+            I96F32::saturating_from_num(stake_amount),
         );
         assert_eq!(stake_fee_5, dynamic_fee_5);
 
@@ -735,9 +737,11 @@ fn test_stake_fee_api() {
             stake_amount,
         ); // Charged a dynamic fee
         let dynamic_fee_6 = SubtensorModule::calculate_staking_fee(
-            netuid0,
-            &hotkey1,
-            I96F32::from_num(stake_amount),
+            Some((&hotkey1, netuid0)),
+            &coldkey1,
+            Some((&hotkey2, netuid0)),
+            &coldkey1,
+            I96F32::saturating_from_num(stake_amount),
         );
         assert_eq!(stake_fee_6, dynamic_fee_6);
 
@@ -750,9 +754,11 @@ fn test_stake_fee_api() {
             stake_amount,
         ); // Charged a dynamic fee
         let dynamic_fee_7 = SubtensorModule::calculate_staking_fee(
-            netuid0,
-            &hotkey1,
-            I96F32::from_num(stake_amount),
+            Some((&hotkey1, netuid0)),
+            &coldkey1,
+            Some((&hotkey1, netuid0)),
+            &coldkey2,
+            I96F32::saturating_from_num(stake_amount),
         );
         assert_eq!(stake_fee_7, dynamic_fee_7);
 
@@ -765,9 +771,11 @@ fn test_stake_fee_api() {
             stake_amount,
         ); // Charged a dynamic fee
         let dynamic_fee_8 = SubtensorModule::calculate_staking_fee(
-            netuid0,
-            &hotkey1,
-            I96F32::from_num(stake_amount),
+            Some((&hotkey1, netuid0)),
+            &coldkey1,
+            Some((&hotkey1, netuid1)),
+            &coldkey1,
+            I96F32::saturating_from_num(stake_amount),
         );
         assert_eq!(stake_fee_8, dynamic_fee_8);
     });
