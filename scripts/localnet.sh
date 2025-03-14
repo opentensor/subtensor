@@ -30,14 +30,14 @@ if [ "$fast_blocks" == "False" ]; then
   : "${CHAIN:=local}"
   : "${BUILD_BINARY:=1}"
   : "${FEATURES:="pow-faucet"}"
-  BUILD_DIR="$BASE_DIR/nodes/non-fast-blocks"
+  BUILD_DIR="$BASE_DIR/target/non-fast-blocks"
 else
   # Block of code to execute if fast_blocks is not False
   echo "fast_blocks is On"
   : "${CHAIN:=local}"
   : "${BUILD_BINARY:=1}"
   : "${FEATURES:="pow-faucet fast-blocks"}"
-  BUILD_DIR="$BASE_DIR/nodes/fast-blocks"
+  BUILD_DIR="$BASE_DIR/target/fast-blocks"
 fi
 
 # Ensure the build directory exists
@@ -61,7 +61,7 @@ if [[ $BUILD_BINARY == "1" ]]; then
 fi
 
 echo "*** Building chainspec..."
-"$BUILD_DIR/release/node-subtensor" build-spec --disable-default-bootnode --raw --chain $CHAIN >$FULL_PATH
+"$BUILD_DIR/release/node-subtensor" build-spec --disable-default-bootnode --raw --chain "$CHAIN" >"$FULL_PATH"
 echo "*** Chainspec built and output to file"
 
 # Generate node keys
@@ -79,6 +79,7 @@ fi
 
 if [ $BUILD_ONLY -eq 0 ]; then
   echo "*** Starting localnet nodes..."
+
   alice_start=(
     "$BUILD_DIR/release/node-subtensor"
     --base-path /tmp/alice
@@ -106,6 +107,12 @@ if [ $BUILD_ONLY -eq 0 ]; then
     --discover-local
     --unsafe-force-node-key-generation
   )
+
+  # Provide RUN_IN_DOCKER local environment variable if run script in the docker image
+  if [ "${RUN_IN_DOCKER}" == "1" ]; then
+    alice_start+=(--unsafe-rpc-external)
+    bob_start+=(--unsafe-rpc-external)
+  fi
 
   trap 'pkill -P $$' EXIT SIGINT SIGTERM
 
