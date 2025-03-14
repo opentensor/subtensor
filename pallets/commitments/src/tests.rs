@@ -12,6 +12,7 @@ use crate::{
 };
 use frame_support::{BoundedVec, assert_noop, assert_ok, traits::Get};
 use frame_system::Pallet as System;
+use frame_support::pallet_prelude::Hooks;
 
 #[allow(clippy::indexing_slicing)]
 #[test]
@@ -1133,5 +1134,87 @@ fn tempo_based_space_limit_sudo_set_max_space() {
             netuid,
             commit_25
         ));
+    });
+}
+
+#[allow(clippy::indexing_slicing)]
+#[test]
+fn on_initialize_reveals_matured_timelocks() {
+    new_test_ext().execute_with(|| {
+        let who = 42;
+        let netuid = 7;
+        let reveal_round = 1000;
+
+        let message_text = b"Timelock test via on_initialize";
+
+        let inner_fields: BoundedVec<Data, <Test as Config>::MaxFields> = BoundedVec::try_from(vec![Data::Raw(
+            message_text
+                .to_vec()
+                .try_into()
+                .expect("<= 128 bytes is OK for Data::Raw"),
+        )])
+        .expect("Should not exceed MaxFields");
+        
+        let inner_info: CommitmentInfo<<Test as Config>::MaxFields> = CommitmentInfo {
+            fields: inner_fields,
+        };        
+
+        let plaintext = inner_info.encode();
+        let encrypted = produce_ciphertext(&plaintext, reveal_round);
+
+        let outer_fields = BoundedVec::try_from(vec![Data::TimelockEncrypted {
+            encrypted,
+            reveal_round,
+        }])
+        .expect("One field is well under MaxFields");
+        let info_outer = CommitmentInfo { fields: outer_fields };
+
+        System::<Test>::set_block_number(1);
+        assert_ok!(Pallet::<Test>::set_commitment(
+            RuntimeOrigin::signed(who),
+            netuid,
+            Box::new(info_outer)
+        ));
+
+
+        assert!(CommitmentOf::<Test>::get(netuid, who).is_some());
+        assert!(
+            TimelockedIndex::<Test>::get().contains(&(netuid, who)),
+            "Should appear in TimelockedIndex since it contains a timelock"
+        );
+
+        let drand_sig_hex = hex::decode(DRAND_QUICKNET_SIG_HEX)
+            .expect("Decoding DRAND_QUICKNET_SIG_HEX must not fail");
+        insert_drand_pulse(reveal_round, &drand_sig_hex);
+
+        assert!(RevealedCommitments::<Test>::get(netuid, who).is_none());
+
+        System::<Test>::set_block_number(2);
+        <Pallet<Test> as Hooks<u64>>::on_initialize(2);
+
+        let revealed_opt = RevealedCommitments::<Test>::get(netuid, who);
+        assert!(
+            revealed_opt.is_some(),
+            "Expected that the timelock got revealed at block #2"
+        );
+
+        let leftover = CommitmentOf::<Test>::get(netuid, who);
+        assert!(
+            leftover.is_none(),
+            "After revealing the only timelock, the entire commitment is removed."
+        );
+
+        assert!(
+            !TimelockedIndex::<Test>::get().contains(&(netuid, who)),
+            "No longer in TimelockedIndex after reveal."
+        );
+
+        let revealed_data = revealed_opt.expect("expected to not panic");
+        assert_eq!(revealed_data.info.fields.len(), 1);
+        if let Data::Raw(bound_bytes) = &revealed_data.info.fields[0] {
+            assert_eq!(bound_bytes.as_slice(), message_text);
+        } else {
+            panic!("Expected a Data::Raw variant in revealed data.");
+        }
     });
 }
