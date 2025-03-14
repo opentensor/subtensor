@@ -78,8 +78,10 @@ pallet-scheduler = { workspace = true }
 pallet-preimage = { workspace = true }
 
 # Safe mode pallet
-
 pallet-safe-mode = { workspace = true }
+
+# Multiblock migrations pallet
+pallet-migrations = { workspace = true }
 
 # Used for the node subtensor's RPCs
 frame-system-rpc-runtime-api = { workspace = true }
@@ -160,6 +162,7 @@ std = [
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
 	"pallet-sudo/std",
+	"pallet-migrations/std",
 	"pallet-multisig/std",
 	"pallet-proxy/std",
 	"pallet-scheduler/std",
@@ -228,6 +231,7 @@ runtime-benchmarks = [
 	"pallet-subtensor/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
+	"pallet-migrations/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-registry/runtime-benchmarks",
 	"pallet-commitments/runtime-benchmarks",
@@ -261,6 +265,7 @@ try-runtime = [
 	"pallet-subtensor/try-runtime",
 	"pallet-collective/try-runtime",
 	"pallet-membership/try-runtime",
+	"pallet-migrations/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-scheduler/try-runtime",
