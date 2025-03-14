@@ -325,10 +325,7 @@ pub mod pallet {
             DispatchClass::Operational,
             Pays::No
         ))]
-        pub fn set_max_space_per_user_per_rate_limit(
-            origin: OriginFor<T>,
-            new_limit: u32,
-        ) -> DispatchResult {
+        pub fn set_max_space(origin: OriginFor<T>, new_limit: u32) -> DispatchResult {
             ensure_root(origin)?;
             MaxSpace::<T>::set(new_limit);
             Ok(())

@@ -1126,10 +1126,7 @@ fn tempo_based_space_limit_sudo_set_max_space() {
             Error::<Test>::SpaceLimitExceeded
         );
 
-        assert_ok!(Pallet::<Test>::set_max_space_per_user_per_rate_limit(
-            RuntimeOrigin::root(),
-            100
-        ));
+        assert_ok!(Pallet::<Test>::set_max_space(RuntimeOrigin::root(), 100));
 
         assert_ok!(Pallet::<Test>::set_commitment(
             RuntimeOrigin::signed(who),
