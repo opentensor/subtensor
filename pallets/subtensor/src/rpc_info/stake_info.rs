@@ -116,21 +116,30 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_stake_fee(
         origin: Option<(T::AccountId, u16)>,
-        _origin_coldkey_account: T::AccountId,
-        _destination: Option<(T::AccountId, u16)>,
-        _destination_coldkey_account: T::AccountId,
+        origin_coldkey_account: T::AccountId,
+        destination: Option<(T::AccountId, u16)>,
+        destination_coldkey_account: T::AccountId,
         amount: u64,
     ) -> u64 {
-        match origin {
-            Some((origin_hotkey_account, origin_netuid)) => Self::calculate_staking_fee(
-                origin_netuid,
-                &origin_hotkey_account,
-                I96F32::saturating_from_num(amount),
-            ),
-            None => {
-                // Adding stake (comes from no netuid)
-                DefaultStakingFee::<T>::get()
-            }
-        }
+        let origin_: Option<(&T::AccountId, u16)> =
+            if let Some((ref origin_hotkey, origin_netuid)) = origin {
+                Some((origin_hotkey, origin_netuid))
+            } else {
+                None
+            };
+
+        let destination_ = if let Some((ref destination_hotkey, destination_netuid)) = destination {
+            Some((destination_hotkey, destination_netuid))
+        } else {
+            None
+        };
+
+        Self::calculate_staking_fee(
+            origin_,
+            &origin_coldkey_account,
+            destination_,
+            &destination_coldkey_account,
+            I96F32::saturating_from_num(amount),
+        )
     }
 }
