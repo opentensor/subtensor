@@ -61,7 +61,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
-          file: Docker-localnet
+          file: Dockerfile-localnet
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
