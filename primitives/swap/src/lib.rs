@@ -3,190 +3,14 @@ use core::marker::PhantomData;
 use safe_math::*;
 use substrate_fixed::types::U64F64;
 
-/// The width of a single price tick. Expressed in rao units.
-pub const TICK_SPACING: u64 = 10_000;
-pub const MAX_TICK: i32 = 887272;
-pub const MIN_SQRT_RATIO: u128 = 4295128739;
-pub const MAX_SQRT_RATIO: u128 = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
+use self::tick_math::{
+    TickMathError, get_sqrt_ratio_at_tick, get_tick_at_sqrt_ratio, u64f64_to_u256_q64_96,
+    u256_q64_96_to_u64f64,
+};
+
+mod tick_math;
 
 type SqrtPrice = U64F64;
-
-/// Calculates sqrt(1.0001^tick) * 2^96
-pub fn get_sqrt_ratio_at_tick(tick: i32) -> u128 {
-    // Ensure tick is within bounds
-    let abs_tick = if tick < 0 { -tick } else { tick } as u32;
-    assert!(abs_tick <= MAX_TICK as u32, "Tick outside of allowed range");
-
-    // Initial ratio value
-    let mut ratio: u128 = if abs_tick & 0x1 != 0 {
-        0xfffcb933bd6fad37 << 64 | 0xaa2d162d1a594001
-    } else {
-        0x1 << 96
-    };
-
-    // Safe multiply and shift function
-    fn mul_shr(a: u128, b_hi: u64, b_lo: u64, shift: u8) -> u128 {
-        // Split a into high and low parts
-        let a_hi = a >> 64;
-        let a_lo = a & 0xFFFFFFFFFFFFFFFF;
-
-        // Multiply parts separately to avoid overflow
-        // (a_hi * 2^64 + a_lo) * (b_hi * 2^64 + b_lo)
-        // Only keep the high part since we're shifting by at least 64 anyway
-        let hi_hi = a_hi.checked_mul(b_hi as u128).unwrap_or(0);
-
-        // These parts will be shifted by 64
-        let hi_lo = a_hi.checked_mul(b_lo as u128).unwrap_or(0);
-        let lo_hi = a_lo.checked_mul(b_hi as u128).unwrap_or(0);
-
-        // Combine parts, adding with overflow checking
-        let mut result = hi_hi << 64;
-        result = result.checked_add(hi_lo).unwrap_or(result);
-        result = result.checked_add(lo_hi).unwrap_or(result);
-
-        // Final shift (already accounted for 64 bits)
-        if shift <= 64 {
-            result >> (shift - 64)
-        } else if shift < 128 {
-            result >> (shift - 64)
-        } else {
-            0
-        }
-    }
-
-    // Multiply ratio by appropriate factor based on each bit
-    // Break each constant into high and low 64-bit parts
-    if abs_tick & 0x2 != 0 {
-        ratio = mul_shr(ratio, 0xfff97272373d4132, 0x59a46990580e213a, 128);
-    }
-    if abs_tick & 0x4 != 0 {
-        ratio = mul_shr(ratio, 0xfff2e50f5f656932, 0xef12357cf3c7fdcc, 128);
-    }
-    if abs_tick & 0x8 != 0 {
-        ratio = mul_shr(ratio, 0xffe5caca7e10e4e6, 0x1c3624eaa0941cd0, 128);
-    }
-    if abs_tick & 0x10 != 0 {
-        ratio = mul_shr(ratio, 0xffcb9843d60f6159, 0xc9db58835c926644, 128);
-    }
-    if abs_tick & 0x20 != 0 {
-        ratio = mul_shr(ratio, 0xff973b41fa98c081, 0x472e6896dfb254c0, 128);
-    }
-    if abs_tick & 0x40 != 0 {
-        ratio = mul_shr(ratio, 0xff2ea16466c96a38, 0x43ec78b326b52861, 128);
-    }
-    if abs_tick & 0x80 != 0 {
-        ratio = mul_shr(ratio, 0xfe5dee046a99a2a8, 0x11c461f1969c3053, 128);
-    }
-    if abs_tick & 0x100 != 0 {
-        ratio = mul_shr(ratio, 0xfcbe86c7900a88ae, 0xdcffc83b479aa3a4, 128);
-    }
-    if abs_tick & 0x200 != 0 {
-        ratio = mul_shr(ratio, 0xf987a7253ac41317, 0x6f2b074cf7815e54, 128);
-    }
-    if abs_tick & 0x400 != 0 {
-        ratio = mul_shr(ratio, 0xf3392b0822b70005, 0x940c7a398e4b70f3, 128);
-    }
-    if abs_tick & 0x800 != 0 {
-        ratio = mul_shr(ratio, 0xe7159475a2c29b74, 0x43b29c7fa6e889d9, 128);
-    }
-    if abs_tick & 0x1000 != 0 {
-        ratio = mul_shr(ratio, 0xd097f3bdfd2022b8, 0x845ad8f792aa5825, 128);
-    }
-    if abs_tick & 0x2000 != 0 {
-        ratio = mul_shr(ratio, 0xa9f746462d870fdf, 0x8a65dc1f90e061e5, 128);
-    }
-    if abs_tick & 0x4000 != 0 {
-        ratio = mul_shr(ratio, 0x70d869a156d2a1b8, 0x90bb3df62baf32f7, 128);
-    }
-    if abs_tick & 0x8000 != 0 {
-        ratio = mul_shr(ratio, 0x31be135f97d08fd9, 0x81231505542fcfa6, 128);
-    }
-    if abs_tick & 0x10000 != 0 {
-        ratio = mul_shr(ratio, 0x9aa508b5b7a84e1c, 0x677de54f3e99bc9, 128);
-    }
-    if abs_tick & 0x20000 != 0 {
-        ratio = mul_shr(ratio, 0x5d6af8dedb811966, 0x99c329225ee604, 128);
-    }
-    if abs_tick & 0x40000 != 0 {
-        ratio = mul_shr(ratio, 0x2216e584f5fa1ea9, 0x26041bedfe98, 128);
-    }
-    if abs_tick & 0x80000 != 0 {
-        ratio = mul_shr(ratio, 0x48a170391f7dc424, 0x44e8fa2, 128);
-    }
-
-    // Invert ratio if tick is positive
-    if tick > 0 {
-        if ratio == 0 {
-            return u128::MAX;
-        }
-        ratio = u128::MAX / ratio;
-    }
-
-    // Convert from Q128.128 to Q64.96
-    let sqrt_price_x96 = if ratio >= (1 << 32) {
-        let result = ratio >> 32;
-        if ratio % (1 << 32) != 0 {
-            result + 1
-        } else {
-            result
-        }
-    } else {
-        1
-    };
-
-    sqrt_price_x96
-}
-
-/// A simpler implementation for get_tick_at_sqrt_ratio that avoids complex bit operations
-/// This may not match Uniswap's exact implementation but should be accurate enough
-/// for roundtrip conversions
-/// Calculates the greatest tick value such that get_sqrt_ratio_at_tick(tick) <= sqrt_ratio_x96
-pub fn get_tick_at_sqrt_ratio(sqrt_ratio_x96: u128) -> i32 {
-    // Special case for tick 0 - which is exactly 1.0 * 2^96
-    if sqrt_ratio_x96 == (1 << 96) {
-        return 0;
-    }
-
-    // Ensure ratio is within bounds - relax the upper bound slightly
-    // This solves the "Ratio outside of allowed range" error
-    assert!(
-        sqrt_ratio_x96 >= MIN_SQRT_RATIO && sqrt_ratio_x96 <= MAX_SQRT_RATIO,
-        "Ratio outside of allowed range"
-    );
-
-    // Binary search to find the closest tick
-    let mut lower = -MAX_TICK;
-    let mut upper = MAX_TICK;
-
-    while lower < upper {
-        let mid = (lower + upper) / 2;
-
-        let price = get_sqrt_ratio_at_tick(mid);
-
-        if price <= sqrt_ratio_x96 {
-            lower = mid + 1;
-        } else {
-            upper = mid;
-        }
-    }
-
-    // We need the largest tick such that get_sqrt_ratio_at_tick(tick) <= sqrt_ratio_x96
-    let tick = lower - 1;
-
-    // Double-check our result is correct
-    let lower_price = get_sqrt_ratio_at_tick(tick);
-    let upper_price = get_sqrt_ratio_at_tick(tick + 1);
-
-    if lower_price <= sqrt_ratio_x96 && upper_price > sqrt_ratio_x96 {
-        tick
-    } else if sqrt_ratio_x96.abs_diff(1 << 96) < 1000 {
-        // Very close to tick 0
-        0
-    } else {
-        // Safeguard
-        tick
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OrderType {
@@ -223,51 +47,13 @@ struct Position {
 
 impl Position {
     /// Converts tick index into SQRT of price
-    pub fn tick_index_to_sqrt_price(tick_idx: u64) -> SqrtPrice {
-        // Special case for tick 0
-        if tick_idx == 0 {
-            return SqrtPrice::from_num(1.0);
-        }
-
-        // Convert u64 tick to i32 and handle potential overflows
-        let tick_i32 = if tick_idx > i32::MAX as u64 {
-            i32::MAX
-        } else {
-            tick_idx as i32
-        };
-
-        // Convert the U128 result to your SqrtPrice type
-        let sqrt_price_x96 = get_sqrt_ratio_at_tick(tick_i32);
-        SqrtPrice::from_bits(sqrt_price_x96 as _)
+    pub fn tick_index_to_sqrt_price(tick_idx: i32) -> Result<SqrtPrice, TickMathError> {
+        get_sqrt_ratio_at_tick(tick_idx).and_then(u256_q64_96_to_u64f64)
     }
 
     /// Converts SQRT price to tick index
-    pub fn sqrt_price_to_tick_index(sqrt_price: SqrtPrice) -> u64 {
-        // Special case for price exactly equal to 1.0
-        if sqrt_price == SqrtPrice::from_num(1.0) {
-            return 0;
-        }
-
-        // Special case for prices very close to 1.0
-        if (sqrt_price - SqrtPrice::from_num(1.0)) < SqrtPrice::from_num(0.0000001) {
-            return 0;
-        }
-
-        // Convert your SqrtPrice type to U128
-        let sqrt_price_x96 = sqrt_price.to_bits() as u128;
-
-        // Get the tick and convert back to u64
-        let tick = get_tick_at_sqrt_ratio(sqrt_price_x96);
-
-        // Handle negative ticks (if your system doesn't support negative ticks)
-        if tick < 0 { 0 } else { tick as u64 }
-    }
-
-    fn tick_spacing_tao() -> SqrtPrice {
-        // SqrtPrice::from_num(TICK_SPACING)
-        //     .saturating_div(SqrtPrice::from_num(1e9))
-        //     .saturating_add(SqrtPrice::from_num(1.0))
-        SqrtPrice::from_num(1.0001)
+    pub fn sqrt_price_to_tick_index(sqrt_price: SqrtPrice) -> Result<i32, TickMathError> {
+        get_tick_at_sqrt_ratio(u64f64_to_u256_q64_96(sqrt_price))
     }
 
     /// Converts position to token amounts
@@ -620,55 +406,54 @@ mod tests {
 
     #[test]
     fn test_tick_index_to_sqrt_price() {
+        let tick_spacing = SqrtPrice::from_num(1.0001);
+
         // At tick index 0, the sqrt price should be 1.0
-        let sqrt_price = Position::tick_index_to_sqrt_price(0);
+        let sqrt_price = Position::tick_index_to_sqrt_price(0).unwrap();
         assert_eq!(sqrt_price, SqrtPrice::from_num(1.0));
 
-        let sqrt_price = Position::tick_index_to_sqrt_price(2);
-        let tick_spacing_tao = Position::tick_spacing_tao();
-        assert_eq!(sqrt_price, tick_spacing_tao);
+        let sqrt_price = Position::tick_index_to_sqrt_price(2).unwrap();
+        assert_eq!(sqrt_price, tick_spacing);
 
-        let sqrt_price = Position::tick_index_to_sqrt_price(4);
+        let sqrt_price = Position::tick_index_to_sqrt_price(4).unwrap();
         // Calculate the expected value: (1 + TICK_SPACING/1e9 + 1.0)^2
-        let expected = tick_spacing_tao * tick_spacing_tao;
+        let expected = tick_spacing * tick_spacing;
         assert_eq!(sqrt_price, expected);
 
         // Test with tick index 10
-        let sqrt_price = Position::tick_index_to_sqrt_price(10);
+        let sqrt_price = Position::tick_index_to_sqrt_price(10).unwrap();
         // Calculate the expected value: (1 + TICK_SPACING/1e9 + 1.0)^5
-        let expected_sqrt_price_10 = tick_spacing_tao.checked_pow(5).unwrap();
+        let expected_sqrt_price_10 = tick_spacing.checked_pow(5).unwrap();
         assert_eq!(sqrt_price, expected_sqrt_price_10);
     }
 
     #[test]
     fn test_sqrt_price_to_tick_index() {
-        let tick_spacing_tao = Position::tick_spacing_tao();
-
-        let tick_index = Position::sqrt_price_to_tick_index(SqrtPrice::from_num(1.0));
+        let tick_spacing = SqrtPrice::from_num(1.0001);
+        let tick_index = Position::sqrt_price_to_tick_index(SqrtPrice::from_num(1.0)).unwrap();
         assert_eq!(tick_index, 0);
 
         // Test with sqrt price equal to tick_spacing_tao (should be tick index 2)
-        let tick_index = Position::sqrt_price_to_tick_index(tick_spacing_tao);
+        let tick_index = Position::sqrt_price_to_tick_index(tick_spacing).unwrap();
         assert_eq!(tick_index, 2);
 
         // Test with sqrt price equal to tick_spacing_tao^2 (should be tick index 4)
-        let sqrt_price = tick_spacing_tao * tick_spacing_tao;
-        let tick_index = Position::sqrt_price_to_tick_index(sqrt_price);
+        let sqrt_price = tick_spacing * tick_spacing;
+        let tick_index = Position::sqrt_price_to_tick_index(sqrt_price).unwrap();
         assert_eq!(tick_index, 4);
 
         // Test with sqrt price equal to tick_spacing_tao^5 (should be tick index 10)
-        let sqrt_price = tick_spacing_tao.checked_pow(5).unwrap();
-        let tick_index = Position::sqrt_price_to_tick_index(sqrt_price);
-        assert_eq!(tick_index, 10,);
+        let sqrt_price = tick_spacing.checked_pow(5).unwrap();
+        let tick_index = Position::sqrt_price_to_tick_index(sqrt_price).unwrap();
+        assert_eq!(tick_index, 10);
     }
 
     #[test]
     fn test_roundtrip_tick_index_sqrt_price() {
         for tick_index in [0, 2, 4, 10, 100, 1000].iter() {
-            let sqrt_price = Position::tick_index_to_sqrt_price(*tick_index);
-            let round_trip_tick_index = Position::sqrt_price_to_tick_index(sqrt_price);
-            dbg!(tick_index, round_trip_tick_index);
-            // assert_eq!(round_trip_tick_index, *tick_index);
+            let sqrt_price = Position::tick_index_to_sqrt_price(*tick_index).unwrap();
+            let round_trip_tick_index = Position::sqrt_price_to_tick_index(sqrt_price).unwrap();
+            assert_eq!(round_trip_tick_index, *tick_index);
         }
     }
 }
