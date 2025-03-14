@@ -10,9 +10,9 @@ use crate::{
         new_test_ext, produce_ciphertext,
     },
 };
+use frame_support::pallet_prelude::Hooks;
 use frame_support::{BoundedVec, assert_noop, assert_ok, traits::Get};
 use frame_system::Pallet as System;
-use frame_support::pallet_prelude::Hooks;
 
 #[allow(clippy::indexing_slicing)]
 #[test]
@@ -1147,17 +1147,18 @@ fn on_initialize_reveals_matured_timelocks() {
 
         let message_text = b"Timelock test via on_initialize";
 
-        let inner_fields: BoundedVec<Data, <Test as Config>::MaxFields> = BoundedVec::try_from(vec![Data::Raw(
-            message_text
-                .to_vec()
-                .try_into()
-                .expect("<= 128 bytes is OK for Data::Raw"),
-        )])
-        .expect("Should not exceed MaxFields");
-        
+        let inner_fields: BoundedVec<Data, <Test as Config>::MaxFields> =
+            BoundedVec::try_from(vec![Data::Raw(
+                message_text
+                    .to_vec()
+                    .try_into()
+                    .expect("<= 128 bytes is OK for Data::Raw"),
+            )])
+            .expect("Should not exceed MaxFields");
+
         let inner_info: CommitmentInfo<<Test as Config>::MaxFields> = CommitmentInfo {
             fields: inner_fields,
-        };        
+        };
 
         let plaintext = inner_info.encode();
         let encrypted = produce_ciphertext(&plaintext, reveal_round);
@@ -1167,7 +1168,9 @@ fn on_initialize_reveals_matured_timelocks() {
             reveal_round,
         }])
         .expect("One field is well under MaxFields");
-        let info_outer = CommitmentInfo { fields: outer_fields };
+        let info_outer = CommitmentInfo {
+            fields: outer_fields,
+        };
 
         System::<Test>::set_block_number(1);
         assert_ok!(Pallet::<Test>::set_commitment(
@@ -1175,7 +1178,6 @@ fn on_initialize_reveals_matured_timelocks() {
             netuid,
             Box::new(info_outer)
         ));
-
 
         assert!(CommitmentOf::<Test>::get(netuid, who).is_some());
         assert!(
