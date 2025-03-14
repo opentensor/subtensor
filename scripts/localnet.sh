@@ -61,7 +61,7 @@ if [[ $BUILD_BINARY == "1" ]]; then
 fi
 
 echo "*** Building chainspec..."
-"$BUILD_DIR/release/node-subtensor" build-spec --disable-default-bootnode --raw --chain $CHAIN >$FULL_PATH
+"$BUILD_DIR/release/node-subtensor" build-spec --disable-default-bootnode --raw --chain "$CHAIN" >"$FULL_PATH"
 echo "*** Chainspec built and output to file"
 
 # Generate node keys
@@ -79,6 +79,7 @@ fi
 
 if [ $BUILD_ONLY -eq 0 ]; then
   echo "*** Starting localnet nodes..."
+
   alice_start=(
     "$BUILD_DIR/release/node-subtensor"
     --base-path /tmp/alice
@@ -106,6 +107,12 @@ if [ $BUILD_ONLY -eq 0 ]; then
     --discover-local
     --unsafe-force-node-key-generation
   )
+
+  # Provide RUN_IN_DOCKER local environment variable if run script in the docker image
+  if [ "${RUN_IN_DOCKER}" == "1" ]; then
+    alice_start+=(--unsafe-rpc-external)
+    bob_start+=(--unsafe-rpc-external)
+  fi
 
   trap 'pkill -P $$' EXIT SIGINT SIGTERM
 
