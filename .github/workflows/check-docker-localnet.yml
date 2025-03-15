@@ -1,4 +1,4 @@
-name: Build Docker Image
+name: Build Docker Image Localnet
 
 on:
   pull_request:
