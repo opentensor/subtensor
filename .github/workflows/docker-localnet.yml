@@ -11,7 +11,7 @@ on:
         default: ""
   push:
     branches:
-      - devnet-ready-with-nodes
+      - devnet-ready
 
 permissions:
   contents: read
