@@ -795,7 +795,7 @@ impl<T: Config> Pallet<T> {
             actual_alpha_decrease,
             netuid,
         ));
-        log::info!(
+        log::debug!(
             "StakeRemoved( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?} )",
             coldkey.clone(),
             hotkey.clone(),
@@ -858,7 +858,7 @@ impl<T: Config> Pallet<T> {
             actual_alpha,
             netuid,
         ));
-        log::info!(
+        log::debug!(
             "StakeAdded( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?} )",
             coldkey.clone(),
             hotkey.clone(),

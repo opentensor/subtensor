@@ -51,7 +51,7 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // Log the event.
-        log::info!(
+        log::debug!(
             "StakeMoved( coldkey:{:?}, origin_hotkey:{:?}, origin_netuid:{:?}, destination_hotkey:{:?}, destination_netuid:{:?} )",
             coldkey.clone(),
             origin_hotkey.clone(),
@@ -133,7 +133,7 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // 9. Emit an event for logging/monitoring.
-        log::info!(
+        log::debug!(
             "StakeTransferred(origin_coldkey: {:?}, destination_coldkey: {:?}, hotkey: {:?}, origin_netuid: {:?}, destination_netuid: {:?}, amount: {:?})",
             coldkey,
             destination_coldkey,
@@ -203,7 +203,7 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // Emit an event for logging.
-        log::info!(
+        log::debug!(
             "StakeSwapped(coldkey: {:?}, hotkey: {:?}, origin_netuid: {:?}, destination_netuid: {:?}, amount: {:?})",
             coldkey,
             hotkey,
@@ -275,7 +275,7 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // Emit an event for logging.
-        log::info!(
+        log::debug!(
             "StakeSwapped(coldkey: {:?}, hotkey: {:?}, origin_netuid: {:?}, destination_netuid: {:?}, amount: {:?})",
             coldkey,
             hotkey,
