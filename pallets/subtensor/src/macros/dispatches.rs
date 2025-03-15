@@ -966,7 +966,7 @@ mod dispatches {
         ) -> DispatchResultWithPostInfo {
             // Ensure it's called with root privileges (scheduler has root privileges)
             ensure_root(origin)?;
-            log::info!("swap_coldkey: {:?} -> {:?}", old_coldkey, new_coldkey);
+            log::debug!("swap_coldkey: {:?} -> {:?}", old_coldkey, new_coldkey);
 
             Self::do_swap_coldkey(&old_coldkey, &new_coldkey, swap_cost)
         }
