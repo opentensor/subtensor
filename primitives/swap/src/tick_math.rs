@@ -37,8 +37,8 @@ const U256_524288: U256 = U256::from_limbs([524288, 0, 0, 0]);
 
 const U256_MAX_TICK: U256 = U256::from_limbs([887272, 0, 0, 0]);
 
-const MIN_TICK: i32 = -887272;
-const MAX_TICK: i32 = -MIN_TICK;
+pub const MIN_TICK: i32 = -887272;
+pub const MAX_TICK: i32 = -MIN_TICK;
 
 const MIN_SQRT_RATIO: U256 = U256::from_limbs([4295128739, 0, 0, 0]);
 const MAX_SQRT_RATIO: U256 =
