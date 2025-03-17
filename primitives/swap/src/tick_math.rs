@@ -37,8 +37,8 @@ const U256_524288: U256 = U256::from_limbs([524288, 0, 0, 0]);
 
 const U256_MAX_TICK: U256 = U256::from_limbs([887272, 0, 0, 0]);
 
-pub const MIN_TICK: i32 = -887272;
-pub const MAX_TICK: i32 = -MIN_TICK;
+pub(crate) const MIN_TICK: i32 = -887272;
+pub(crate) const MAX_TICK: i32 = -MIN_TICK;
 
 const MIN_SQRT_RATIO: U256 = U256::from_limbs([4295128739, 0, 0, 0]);
 const MAX_SQRT_RATIO: U256 =
@@ -66,7 +66,7 @@ pub(crate) fn get_sqrt_ratio_at_tick(tick: i32) -> Result<U256, TickMathError> {
     };
 
     if abs_tick > U256_MAX_TICK {
-        return Err(TickMathError::TickTooHigh);
+        return Err(TickMathError::TickOutOfBounds);
     }
 
     let mut ratio = if abs_tick & (U256_1) != U256::ZERO {
@@ -322,9 +322,9 @@ pub(crate) fn u64f64_to_u256_q64_96(value: U64F64) -> U256 {
     u64f64_to_u256(value, 96)
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum TickMathError {
-    TickTooHigh,
+    TickOutOfBounds,
     SqrtPriceOutOfBounds,
     ConversionError,
     Overflow,
@@ -333,7 +333,7 @@ pub enum TickMathError {
 impl fmt::Display for TickMathError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
         match self {
-			Self::TickTooHigh => f.write_str("The given tick must be less than, or equal to, the maximum tick"),
+			Self::TickOutOfBounds => f.write_str("The given tick is outside of the minimum/maximum values."),
 			Self::SqrtPriceOutOfBounds =>f.write_str("Second inequality must be < because the price can never reach the price at the max tick"),
 			Self::ConversionError => f.write_str("Error converting from one number type into another"),
 			Self::Overflow => f.write_str("Number overflow in arithmetic operation")
@@ -352,12 +352,12 @@ mod test {
     fn test_get_sqrt_ratio_at_tick_bounds() {
         // the function should return an error if the tick is out of bounds
         if let Err(err) = get_sqrt_ratio_at_tick(MIN_TICK - 1) {
-            assert!(matches!(err, TickMathError::TickTooHigh));
+            assert!(matches!(err, TickMathError::TickOutOfBounds));
         } else {
             panic!("get_qrt_ratio_at_tick did not respect lower tick bound")
         }
         if let Err(err) = get_sqrt_ratio_at_tick(MAX_TICK + 1) {
-            assert!(matches!(err, TickMathError::TickTooHigh));
+            assert!(matches!(err, TickMathError::TickOutOfBounds));
         } else {
             panic!("get_qrt_ratio_at_tick did not respect upper tick bound")
         }
@@ -486,7 +486,23 @@ mod test {
 
     #[test]
     fn test_roundtrip() {
-        for tick_index in [0, 2, 4, 10, 100, 1000].iter() {
+        for tick_index in [
+            MIN_TICK + 1, // we can't use extremes because of rounding during roundtrip conversion
+            -1000,
+            -100,
+            -10,
+            -4,
+            -2,
+            0,
+            2,
+            4,
+            10,
+            100,
+            1000,
+            MAX_TICK - 1,
+        ]
+        .iter()
+        {
             let sqrt_price = get_sqrt_ratio_at_tick(*tick_index).unwrap();
             let round_trip_tick_index = get_tick_at_sqrt_ratio(sqrt_price).unwrap();
             assert_eq!(round_trip_tick_index, *tick_index);
