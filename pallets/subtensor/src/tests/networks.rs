@@ -1,6 +1,5 @@
 use super::mock::*;
 use crate::*;
-use crate::{ColdkeySwapScheduleDuration, DissolveNetworkScheduleDuration, Event};
 use frame_support::assert_ok;
 use frame_system::Config;
 use sp_core::U256;
@@ -94,7 +93,7 @@ fn test_registration_ok() {
 //     })
 // }
 
-#[test]
+// #[test]
 // fn test_non_owner_schedule_dissolve_network_execution() {
 //     new_test_ext(1).execute_with(|| {
 //         let block_number: u64 = 0;
