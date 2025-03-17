@@ -1389,40 +1389,42 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
         pub fn schedule_dissolve_network(
-            origin: OriginFor<T>,
-            netuid: u16,
+            _origin: OriginFor<T>,
+            _netuid: u16,
         ) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
+            Err(Error::<T>::CallDisabled.into())
 
-            let current_block: BlockNumberFor<T> = <frame_system::Pallet<T>>::block_number();
-            let duration: BlockNumberFor<T> = DissolveNetworkScheduleDuration::<T>::get();
-            let when: BlockNumberFor<T> = current_block.saturating_add(duration);
+            // let who = ensure_signed(origin)?;
 
-            let call = Call::<T>::dissolve_network {
-                coldkey: who.clone(),
-                netuid,
-            };
+            // let current_block: BlockNumberFor<T> = <frame_system::Pallet<T>>::block_number();
+            // let duration: BlockNumberFor<T> = DissolveNetworkScheduleDuration::<T>::get();
+            // let when: BlockNumberFor<T> = current_block.saturating_add(duration);
 
-            let bound_call = T::Preimages::bound(LocalCallOf::<T>::from(call.clone()))
-                .map_err(|_| Error::<T>::FailedToSchedule)?;
+            // let call = Call::<T>::dissolve_network {
+            //     coldkey: who.clone(),
+            //     netuid,
+            // };
 
-            T::Scheduler::schedule(
-                DispatchTime::At(when),
-                None,
-                63,
-                frame_system::RawOrigin::Root.into(),
-                bound_call,
-            )
-            .map_err(|_| Error::<T>::FailedToSchedule)?;
+            // let bound_call = T::Preimages::bound(LocalCallOf::<T>::from(call.clone()))
+            //     .map_err(|_| Error::<T>::FailedToSchedule)?;
 
-            // Emit the SwapScheduled event
-            Self::deposit_event(Event::DissolveNetworkScheduled {
-                account: who.clone(),
-                netuid,
-                execution_block: when,
-            });
+            // T::Scheduler::schedule(
+            //     DispatchTime::At(when),
+            //     None,
+            //     63,
+            //     frame_system::RawOrigin::Root.into(),
+            //     bound_call,
+            // )
+            // .map_err(|_| Error::<T>::FailedToSchedule)?;
 
-            Ok(().into())
+            // // Emit the SwapScheduled event
+            // Self::deposit_event(Event::DissolveNetworkScheduled {
+            //     account: who.clone(),
+            //     netuid,
+            //     execution_block: when,
+            // });
+
+            // Ok(().into())
         }
 
         /// ---- Set prometheus information for the neuron.
