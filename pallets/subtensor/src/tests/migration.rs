@@ -489,6 +489,11 @@ fn test_migrate_dissolve_sn73_removes_entries() {
         // Set sn volume
         SubnetVolume::<Test>::insert(this_netuid, 123);
 
+        // Set alpha out
+        SubnetAlphaOut::<Test>::insert(this_netuid, 100_000_000_000);
+        // Set alpha in
+        SubnetAlphaIn::<Test>::insert(this_netuid, 100_000_000_000);
+
         // Set reg allowed maps
         NetworkRegistrationAllowed::<Test>::insert(this_netuid, true);
         NetworkPowRegistrationAllowed::<Test>::insert(this_netuid, true);
