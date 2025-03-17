@@ -489,6 +489,10 @@ fn test_migrate_dissolve_sn73_removes_entries() {
         // Set sn volume
         SubnetVolume::<Test>::insert(this_netuid, 123);
 
+		// Set reg allowed maps
+		NetworkRegistrationAllowed::<Test>::insert(this_netuid, true);
+		NetworkPowRegistrationAllowed::<Test>::insert(this_netuid, true);
+
         // === All maps are non-default ===
 
         // Run existing remove network dissolve
