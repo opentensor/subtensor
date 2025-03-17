@@ -609,8 +609,9 @@ fn test_migrate_dissolve_sn73_pays_out_subnet_tao() {
             (staker_0_hk, staker_0_ck, 100_000_000_000),
             (staker_1_hk, staker_1_ck, 200_000_000_000),
             (staker_2_hk, staker_2_ck, 123_456_789_000),
-            (staker_2_hk, delegate_0_ck, 100_000_000_000), // delegates to hk 2
-            (staker_2_hk, delegate_1_ck, 200_000_000_000), // delegates to hk 2
+            (staker_2_hk, delegate_0_ck, 400_000_000_000), // delegates to hk 2
+            (staker_2_hk, delegate_1_ck, 500_000_000_000), // delegates to hk 2
+            (staker_1_hk, delegate_0_ck, 456_789_000_000), // delegate 0 also stakes to hk 1
         ];
         let total_alpha = stakes.iter().map(|(_, _, stake)| stake).sum::<u64>();
 
@@ -640,6 +641,9 @@ fn test_migrate_dissolve_sn73_pays_out_subnet_tao() {
         // Calculate expected balances
         let denom = I96F32::from_num(total_alpha);
         let subnet_tao_float = I96F32::from_num(subnet_tao);
+
+        log::debug!("Subnet TAO: {}", subnet_tao);
+        log::debug!("Denom: {}", denom);
         let mut expected_balances: BTreeMap<U256, u64> = BTreeMap::new();
         for (hk, ck, stake) in stakes.iter() {
             // Calculate share of the subnetTAO expected for the coldkey
@@ -647,10 +651,17 @@ fn test_migrate_dissolve_sn73_pays_out_subnet_tao() {
             let hotkey_share = hotkey_alpha.saturating_div(denom);
             let hotkey_tao = hotkey_share.saturating_mul(subnet_tao_float);
 
+            log::debug!(
+                "Expected: hk {}, ck {}, stake {}, hotkey_tao {}",
+                hk,
+                ck,
+                stake,
+                hotkey_tao
+            );
             expected_balances
                 .entry(*ck)
-                .or_insert(0)
-                .saturating_add(hotkey_tao.saturating_to_num::<u64>());
+                .and_modify(|e| *e = e.saturating_add(hotkey_tao.saturating_to_num::<u64>()))
+                .or_insert(hotkey_tao.saturating_to_num::<u64>());
         }
 
         // Verify that each staker has received their share of the subnetTAO
