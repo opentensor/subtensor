@@ -489,9 +489,9 @@ fn test_migrate_dissolve_sn73_removes_entries() {
         // Set sn volume
         SubnetVolume::<Test>::insert(this_netuid, 123);
 
-		// Set reg allowed maps
-		NetworkRegistrationAllowed::<Test>::insert(this_netuid, true);
-		NetworkPowRegistrationAllowed::<Test>::insert(this_netuid, true);
+        // Set reg allowed maps
+        NetworkRegistrationAllowed::<Test>::insert(this_netuid, true);
+        NetworkPowRegistrationAllowed::<Test>::insert(this_netuid, true);
 
         // === All maps are non-default ===
 
@@ -578,9 +578,9 @@ fn test_migrate_dissolve_sn73_removes_entries() {
         // Verify sn volume is removed
         assert!(SubnetVolume::<Test>::try_get(this_netuid).is_err());
 
-		// verify reg allowed maps are removed
-		assert!(NetworkRegistrationAllowed::<Test>::try_get(this_netuid).is_err());
-		assert!(NetworkPowRegistrationAllowed::<Test>::try_get(this_netuid).is_err());
+        // verify reg allowed maps are removed
+        assert!(NetworkRegistrationAllowed::<Test>::try_get(this_netuid).is_err());
+        assert!(NetworkPowRegistrationAllowed::<Test>::try_get(this_netuid).is_err());
     });
 }
 
