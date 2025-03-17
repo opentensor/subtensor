@@ -8,10 +8,10 @@ use super::mock::*;
 use crate::*;
 
 use frame_support::assert_ok;
-use rand::{distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng, distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng};
 use sp_core::U256;
 use std::time::Instant;
-use substrate_fixed::transcendental::{cos, ln, sqrt, PI};
+use substrate_fixed::transcendental::{PI, cos, ln, sqrt};
 use substrate_fixed::types::{I32F32, I64F64};
 
 pub fn fixed(val: f32) -> I32F32 {
@@ -319,11 +319,7 @@ fn split_graph(
             .iter()
             .map(|x: &I32F32| {
                 let v: I32F32 = (stddev * x) + one;
-                if v < zero {
-                    zero
-                } else {
-                    v
-                }
+                if v < zero { zero } else { v }
             })
             .collect();
         inplace_normalize(&mut sample);
@@ -348,11 +344,7 @@ fn split_graph(
                     .iter()
                     .map(|x: &I32F32| {
                         let v: I32F32 = (weight_stddev * x) + one;
-                        if v < zero {
-                            zero
-                        } else {
-                            v
-                        }
+                        if v < zero { zero } else { v }
                     })
                     .collect();
                 inplace_normalize(&mut sample);
