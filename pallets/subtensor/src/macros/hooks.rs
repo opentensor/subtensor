@@ -81,7 +81,9 @@ mod hooks {
                 // Remove Stake map entries
 				.saturating_add(migrations::migrate_remove_stake_map::migrate_remove_stake_map::<T>())
                 // Remove unused maps entries
-				.saturating_add(migrations::migrate_remove_unused_maps_and_values::migrate_remove_unused_maps_and_values::<T>());
+				.saturating_add(migrations::migrate_remove_unused_maps_and_values::migrate_remove_unused_maps_and_values::<T>())
+				// Migrate dissolve sn73
+				.saturating_add(migrations::migrate_dissolve_sn73::migrate_dissolve_sn73::<T>());
             weight
         }
 
