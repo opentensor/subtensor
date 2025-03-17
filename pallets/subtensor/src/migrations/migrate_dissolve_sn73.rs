@@ -72,7 +72,7 @@ pub fn migrate_dissolve_sn73<T: Config>() -> Weight {
                 continue;
             }
 
-            coldkeys_to_remove.push(coldkey);
+            coldkeys_to_remove.push(coldkey.clone());
 
             let alpha = I96F32::from_num(alpha_i);
             let coldkey_share: I96F32 = alpha.saturating_div(total_hotkey_shares);
@@ -108,8 +108,8 @@ pub fn migrate_dissolve_sn73<T: Config>() -> Weight {
 
     // Clear hotkeys
     for hotkey in hotkeys_to_remove {
-        TotalHotkeyAlpha::<T>::remove(hotkey, this_netuid);
-        TotalHotkeyShares::<T>::remove(hotkey, this_netuid);
+        TotalHotkeyAlpha::<T>::remove(hotkey.clone(), this_netuid);
+        TotalHotkeyShares::<T>::remove(hotkey.clone(), this_netuid);
         weight = weight.saturating_add(T::DbWeight::get().writes(2));
     }
 
@@ -133,10 +133,10 @@ pub fn migrate_dissolve_sn73<T: Config>() -> Weight {
     weight = weight.saturating_add(T::DbWeight::get().writes(7));
 
     // Clear trackers
-    AlphaDividendsPerSubnet::<T>::clear_prefix(this_netuid, u32::MAX, None);
-    weight = weight.saturating_add(T::DbWeight::get().writes(1));
-    TaoDividendsPerSubnet::<T>::clear_prefix(this_netuid, u32::MAX, None);
-    weight = weight.saturating_add(T::DbWeight::get().writes(1));
+    let clear_results_0 = AlphaDividendsPerSubnet::<T>::clear_prefix(this_netuid, u32::MAX, None);
+    weight = weight.saturating_add(T::DbWeight::get().writes(clear_results_0.unique.into()));
+    let clear_results_1 = TaoDividendsPerSubnet::<T>::clear_prefix(this_netuid, u32::MAX, None);
+    weight = weight.saturating_add(T::DbWeight::get().writes(clear_results_1.unique.into()));
 
     // Adjust total stake
     TotalStake::<T>::mutate(|total| {
@@ -149,8 +149,8 @@ pub fn migrate_dissolve_sn73<T: Config>() -> Weight {
     weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
     // Clear child keys
-    PendingChildKeys::<T>::clear_prefix(this_netuid, u32::MAX, None);
-    weight = weight.saturating_add(T::DbWeight::get().writes(1));
+    let clear_results_2 = PendingChildKeys::<T>::clear_prefix(this_netuid, u32::MAX, None);
+    weight = weight.saturating_add(T::DbWeight::get().writes(clear_results_2.unique.into()));
 
     let mut childkeys_to_remove: Vec<T::AccountId> = Vec::new();
     for (childkey, netuid_i, _parents) in ParentKeys::<T>::iter() {
