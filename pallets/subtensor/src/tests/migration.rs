@@ -573,6 +573,10 @@ fn test_migrate_dissolve_sn73_removes_entries() {
 
         // Verify sn volume is removed
         assert!(SubnetVolume::<Test>::try_get(this_netuid).is_err());
+
+		// verify reg allowed maps are removed
+		assert!(NetworkRegistrationAllowed::<Test>::try_get(this_netuid).is_err());
+		assert!(NetworkPowRegistrationAllowed::<Test>::try_get(this_netuid).is_err());
     });
 }
 
