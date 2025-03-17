@@ -105,6 +105,10 @@ pub fn migrate_dissolve_sn73<T: Config>() -> Weight {
     }
 
     // === Clear storage entries ===
+    // Clear subnet owner and hotkey
+    SubnetOwner::<T>::remove(this_netuid);
+    SubnetOwnerHotkey::<T>::remove(this_netuid);
+    weight = weight.saturating_add(T::DbWeight::get().writes(2));
 
     // Clear hotkeys
     for hotkey in hotkeys_to_remove {
