@@ -30,6 +30,7 @@ pub fn migrate_dissolve_sn73<T: Config>() -> Weight {
     // Get the subnet TAO
     let subnet_tao = I96F32::from_num(SubnetTAO::<T>::get(this_netuid));
     weight = weight.saturating_add(T::DbWeight::get().reads(1));
+    log::debug!("Subnet TAO: {}", subnet_tao);
 
     let mut total_alpha: I96F32 = I96F32::from_num(0);
     // Iterate over every hotkey and sum up the total alpha
@@ -43,14 +44,14 @@ pub fn migrate_dissolve_sn73<T: Config>() -> Weight {
         hotkeys_to_remove.push(hotkey);
         total_alpha = total_alpha.saturating_add(I96F32::from_num(total_hotkey_alpha));
     }
+    log::debug!("Total alpha: {}", total_alpha);
 
     // Iterate over every hotkey and distribute the TAO from the pool
     // using previous total alpha as the denominator
-    for (hotkey, netuid_i, total_hotkey_alpha_i) in TotalHotkeyAlpha::<T>::iter() {
-        if netuid_i != this_netuid {
-            continue;
-        }
+    for hotkey in hotkeys_to_remove.iter() {
+		log::debug!("Hotkey: {}", hotkey);
 
+        let total_hotkey_alpha_i = TotalHotkeyAlpha::<T>::get(hotkey.clone(), this_netuid);
         let total_hotkey_alpha = I96F32::from_num(total_hotkey_alpha_i);
         weight = weight.saturating_add(T::DbWeight::get().reads(1));
 
@@ -58,11 +59,14 @@ pub fn migrate_dissolve_sn73<T: Config>() -> Weight {
         let total_hotkey_shares =
             I96F32::from_num(TotalHotkeyShares::<T>::get(hotkey.clone(), this_netuid));
         weight = weight.saturating_add(T::DbWeight::get().reads(1));
+        log::debug!("Total hotkey shares: {}", total_hotkey_shares);
 
         // Get the equivalent amount of TAO
         let hotkey_tao: I96F32 = total_hotkey_alpha
             .saturating_div(total_alpha)
             .saturating_mul(subnet_tao);
+        log::debug!("Total hotkey alpha: {}", total_hotkey_alpha);
+        log::debug!("Hotkey TAO: {}", hotkey_tao);
 
         let mut coldkeys_to_remove: Vec<T::AccountId> = Vec::new();
         // Distribute the TAO to each of the stakers to the hotkey
@@ -74,10 +78,13 @@ pub fn migrate_dissolve_sn73<T: Config>() -> Weight {
 
             coldkeys_to_remove.push(coldkey.clone());
 
-            let alpha = I96F32::from_num(alpha_i);
-            let coldkey_share: I96F32 = alpha.saturating_div(total_hotkey_shares);
+            let alpha_shares = I96F32::from_num(alpha_i);
+            let coldkey_share: I96F32 = alpha_shares.saturating_div(total_hotkey_shares);
             let coldkey_tao = coldkey_share.saturating_mul(hotkey_tao);
             let coldkey_alpha = coldkey_share.saturating_mul(total_hotkey_alpha);
+            log::debug!("Alpha shares: {}", alpha_shares);
+            log::debug!("Coldkey share: {}", coldkey_share);
+            log::debug!("Coldkey TAO: {}", coldkey_tao);
 
             // Distribute the TAO to the coldkey
             let as_tao: u64 = coldkey_tao.saturating_to_num::<u64>();
