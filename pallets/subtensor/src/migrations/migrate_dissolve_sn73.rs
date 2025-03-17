@@ -185,6 +185,11 @@ pub fn migrate_dissolve_sn73<T: Config>() -> Weight {
         ChildKeys::<T>::remove(parent_key, this_netuid);
         weight = weight.saturating_add(T::DbWeight::get().writes(1));
     }
+
+	// Clear reg allowed maps
+	NetworkRegistrationAllowed::<T>::remove(this_netuid);
+	NetworkPowRegistrationAllowed::<T>::remove(this_netuid);
+	weight = weight.saturating_add(T::DbWeight::get().writes(2));
     // ======== End Migration Logic ========
 
     // Mark the migration as completed
