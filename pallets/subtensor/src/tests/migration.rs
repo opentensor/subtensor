@@ -2,6 +2,8 @@
 
 use super::mock::*;
 use crate::*;
+use alloc::collections::BTreeMap;
+use approx::assert_abs_diff_eq;
 use codec::{Decode, Encode};
 use frame_support::{
     StorageHasher, Twox64Concat, assert_ok,
@@ -411,5 +413,85 @@ fn test_migrate_subnet_volume() {
         // Verify the value is still stored as `u128`
         let new_value: Option<u128> = get(&old_key);
         assert_eq!(new_value, Some(old_value as u128));
+    });
+}
+
+#[test]
+fn test_migrate_dissolve_sn73() {
+    new_test_ext(1).execute_with(|| {
+        let this_netuid: u16 = 73;
+        let sn_owner_hk: U256 = U256::from(1);
+        let sn_owner_ck: U256 = U256::from(2);
+
+        let subnet_tao: u64 = 678_900_000_000;
+
+        let staker_0_hk: U256 = U256::from(3);
+        let staker_0_ck: U256 = U256::from(4);
+
+        let staker_1_hk: U256 = U256::from(5);
+        let staker_1_ck: U256 = U256::from(6);
+
+        let staker_2_hk: U256 = U256::from(7);
+        let staker_2_ck: U256 = U256::from(8);
+
+        let delegate_0_ck: U256 = U256::from(9);
+        let delegate_1_ck: U256 = U256::from(10);
+
+        let stakes = vec![
+            (staker_0_hk, staker_0_ck, 100_000_000_000),
+            (staker_1_hk, staker_1_ck, 200_000_000_000),
+            (staker_2_hk, staker_2_ck, 123_456_789_000),
+            (staker_2_hk, delegate_0_ck, 100_000_000_000), // delegates to hk 2
+            (staker_2_hk, delegate_1_ck, 200_000_000_000), // delegates to hk 2
+        ];
+        let total_alpha = stakes.iter().map(|(_, _, stake)| stake).sum::<u64>();
+
+        let mut created_netuid = 0;
+        while created_netuid < this_netuid {
+            created_netuid = add_dynamic_network(&sn_owner_hk, &sn_owner_ck);
+        }
+        assert_eq!(created_netuid, this_netuid);
+
+        for (hk, ck, stake) in stakes.iter() {
+            SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                hk,
+                ck,
+                this_netuid,
+                *stake,
+            );
+        }
+        // Set subnetTAO
+        SubnetTAO::<Test>::insert(this_netuid, subnet_tao);
+
+        // Run existing remove network dissolve
+        SubtensorModule::remove_network(this_netuid);
+
+        // Run new dissolve migration code
+        crate::migrations::migrate_dissolve_sn73::migrate_dissolve_sn73::<Test>();
+
+        // Calculate expected balances
+        let denom = I96F32::from_num(total_alpha);
+        let subnet_tao_float = I96F32::from_num(subnet_tao);
+        let mut expected_balances: BTreeMap<U256, u64> = BTreeMap::new();
+        for (hk, ck, stake) in stakes.iter() {
+            // Calculate share of the subnetTAO expected for the coldkey
+            let hotkey_alpha = I96F32::from_num(*stake);
+            let hotkey_share = hotkey_alpha.saturating_div(denom);
+            let hotkey_tao = hotkey_share.saturating_mul(subnet_tao_float);
+
+            expected_balances
+                .entry(*ck)
+                .or_insert(0)
+                .saturating_add(hotkey_tao.saturating_to_num::<u64>());
+        }
+
+        // Verify that each staker has received their share of the subnetTAO
+        for (ck, expected_balance) in expected_balances {
+            assert_abs_diff_eq!(
+                SubtensorModule::get_coldkey_balance(&ck),
+                expected_balance,
+                epsilon = 100
+            );
+        }
     });
 }
