@@ -91,7 +91,7 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
                     );
                 }
 
-                log::info!("Dispatch succeeded. Post info: {:?}", post_info);
+                log::debug!("Dispatch succeeded. Post info: {:?}", post_info);
 
                 Ok(())
             }
