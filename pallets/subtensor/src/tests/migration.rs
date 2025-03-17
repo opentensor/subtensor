@@ -417,7 +417,179 @@ fn test_migrate_subnet_volume() {
 }
 
 #[test]
-fn test_migrate_dissolve_sn73() {
+fn test_migrate_dissolve_sn73_removes_entries() {
+    new_test_ext(1).execute_with(|| {
+        let this_netuid: u16 = 73;
+        let sn_owner_hk: U256 = U256::from(1);
+        let sn_owner_ck: U256 = U256::from(2);
+
+        let subnet_tao: u64 = 678_900_000_000;
+
+        let staker_0_hk: U256 = U256::from(3);
+        let staker_0_ck: U256 = U256::from(4);
+
+        let staker_1_hk: U256 = U256::from(5);
+        let staker_1_ck: U256 = U256::from(6);
+
+        let staker_2_hk: U256 = U256::from(7);
+        let staker_2_ck: U256 = U256::from(8);
+
+        let delegate_0_ck: U256 = U256::from(9);
+        let delegate_1_ck: U256 = U256::from(10);
+
+        let stakes = vec![
+            (staker_0_hk, staker_0_ck, 100_000_000_000),
+            (staker_1_hk, staker_1_ck, 200_000_000_000),
+            (staker_2_hk, staker_2_ck, 123_456_789_000),
+            (staker_2_hk, delegate_0_ck, 100_000_000_000), // delegates to hk 2
+            (staker_2_hk, delegate_1_ck, 200_000_000_000), // delegates to hk 2
+        ];
+        let total_alpha = stakes.iter().map(|(_, _, stake)| stake).sum::<u64>();
+
+        let mut created_netuid = 0;
+        while created_netuid < this_netuid {
+            created_netuid = add_dynamic_network(&sn_owner_hk, &sn_owner_ck);
+        }
+        assert_eq!(created_netuid, this_netuid);
+
+        for (hk, ck, stake) in stakes.iter() {
+            SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                hk,
+                ck,
+                this_netuid,
+                *stake,
+            );
+        }
+        // Set subnetTAO
+        SubnetTAO::<Test>::insert(this_netuid, subnet_tao);
+
+        // ==== Make sure all the maps are set non-default
+
+        // Set some child keys
+        ParentKeys::<Test>::insert(U256::from(1), this_netuid, vec![(1, U256::from(2))]);
+        ChildKeys::<Test>::insert(U256::from(2), this_netuid, vec![(1, U256::from(1))]);
+        PendingChildKeys::<Test>::insert(
+            this_netuid,
+            U256::from(1),
+            (vec![(1, U256::from(2))], 123),
+        );
+
+        // Set some alpha dividends
+        AlphaDividendsPerSubnet::<Test>::insert(this_netuid, U256::from(1), 100_000_000_000);
+        TaoDividendsPerSubnet::<Test>::insert(this_netuid, U256::from(2), 200_000_000_000);
+
+        // Set pending emissions
+        PendingEmission::<Test>::insert(this_netuid, 123);
+        PendingAlphaSwapped::<Test>::insert(this_netuid, 456);
+        PendingOwnerCut::<Test>::insert(this_netuid, 789);
+        SubnetAlphaInEmission::<Test>::insert(this_netuid, 789);
+        SubnetTaoInEmission::<Test>::insert(this_netuid, 101);
+        SubnetAlphaOutEmission::<Test>::insert(this_netuid, 102);
+
+        // Set sn volume
+        SubnetVolume::<Test>::insert(this_netuid, 123);
+
+        // === All maps are non-default ===
+
+        // Run existing remove network dissolve
+        SubtensorModule::remove_network(this_netuid);
+
+        // Run new dissolve migration code
+        crate::migrations::migrate_dissolve_sn73::migrate_dissolve_sn73::<Test>();
+
+        // Verify sn owner is removed
+        assert!(SubnetOwner::<Test>::try_get(this_netuid).is_err());
+        assert!(SubnetOwnerHotkey::<Test>::try_get(this_netuid).is_err());
+
+        // Verify all the maps are now empty
+        assert_eq!(SubnetTAO::<Test>::get(this_netuid), 0);
+        assert_eq!(SubnetVolume::<Test>::get(this_netuid), 0);
+
+        for (childkey, netuid_i) in ParentKeys::<Test>::iter_keys() {
+            if netuid_i != this_netuid {
+                continue;
+            }
+
+            assert!(false, "Child key {} should be removed", childkey);
+        }
+
+        for (parent_key, netuid_i) in ChildKeys::<Test>::iter_keys() {
+            if netuid_i != this_netuid {
+                continue;
+            }
+
+            assert!(false, "Parent key {} should be removed", parent_key);
+        }
+
+        // Verify all the stake entries are removed
+        for (hk, ck, netuid_i) in Alpha::<Test>::iter_keys() {
+            if netuid_i != this_netuid {
+                continue;
+            }
+
+            assert!(
+                false,
+                "Stake entry for {} {} {} should be removed",
+                hk, ck, netuid_i
+            );
+        }
+
+        for (hk, netuid_i) in TotalHotkeyAlpha::<Test>::iter_keys() {
+            if netuid_i != this_netuid {
+                continue;
+            }
+
+            assert!(
+                false,
+                "Total alpha entry for {} {} should be removed",
+                hk, netuid_i
+            );
+        }
+
+        for (ck, netuid_i) in TotalHotkeyShares::<Test>::iter_keys() {
+            if netuid_i != this_netuid {
+                continue;
+            }
+
+            assert!(
+                false,
+                "Total shares entry for {} {} should be removed",
+                ck, netuid_i
+            );
+        }
+
+        // Verify div maps
+        assert!(
+            AlphaDividendsPerSubnet::<Test>::iter_prefix(this_netuid)
+                .collect::<Vec<_>>()
+                .is_empty()
+        );
+        assert!(
+            TaoDividendsPerSubnet::<Test>::iter_prefix(this_netuid)
+                .collect::<Vec<_>>()
+                .is_empty()
+        );
+
+        // Verify all the pending maps are removed
+        assert!(PendingEmission::<Test>::try_get(this_netuid).is_err());
+        assert!(PendingAlphaSwapped::<Test>::try_get(this_netuid).is_err());
+        assert!(PendingOwnerCut::<Test>::try_get(this_netuid).is_err());
+        assert!(SubnetAlphaInEmission::<Test>::try_get(this_netuid).is_err());
+        assert!(SubnetTaoInEmission::<Test>::try_get(this_netuid).is_err());
+        assert!(SubnetAlphaOutEmission::<Test>::try_get(this_netuid).is_err());
+
+        // verify pool is removed
+        assert!(SubnetAlphaIn::<Test>::try_get(this_netuid).is_err());
+        assert!(SubnetAlphaOut::<Test>::try_get(this_netuid).is_err());
+        assert!(SubnetTAO::<Test>::try_get(this_netuid).is_err());
+
+        // Verify sn volume is removed
+        assert!(SubnetVolume::<Test>::try_get(this_netuid).is_err());
+    });
+}
+
+#[test]
+fn test_migrate_dissolve_sn73_pays_out_subnet_tao() {
     new_test_ext(1).execute_with(|| {
         let this_netuid: u16 = 73;
         let sn_owner_hk: U256 = U256::from(1);
