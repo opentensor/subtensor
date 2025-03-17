@@ -506,53 +506,41 @@ fn test_migrate_dissolve_sn73_removes_entries() {
         assert_eq!(SubnetVolume::<Test>::get(this_netuid), 0);
 
         for (childkey, netuid_i) in ParentKeys::<Test>::iter_keys() {
-            if netuid_i != this_netuid {
-                continue;
-            }
-
-            assert!(false, "Child key {} should be removed", childkey);
+            assert_ne!(
+                netuid_i, this_netuid,
+                "Child key {} should be removed",
+                childkey
+            );
         }
 
         for (parent_key, netuid_i) in ChildKeys::<Test>::iter_keys() {
-            if netuid_i != this_netuid {
-                continue;
-            }
-
-            assert!(false, "Parent key {} should be removed", parent_key);
+            assert_ne!(
+                netuid_i, this_netuid,
+                "Parent key {} should be removed",
+                parent_key
+            );
         }
 
         // Verify all the stake entries are removed
         for (hk, ck, netuid_i) in Alpha::<Test>::iter_keys() {
-            if netuid_i != this_netuid {
-                continue;
-            }
-
-            assert!(
-                false,
+            assert_ne!(
+                netuid_i, this_netuid,
                 "Stake entry for {} {} {} should be removed",
                 hk, ck, netuid_i
             );
         }
 
         for (hk, netuid_i) in TotalHotkeyAlpha::<Test>::iter_keys() {
-            if netuid_i != this_netuid {
-                continue;
-            }
-
-            assert!(
-                false,
+            assert_ne!(
+                netuid_i, this_netuid,
                 "Total alpha entry for {} {} should be removed",
                 hk, netuid_i
             );
         }
 
         for (ck, netuid_i) in TotalHotkeyShares::<Test>::iter_keys() {
-            if netuid_i != this_netuid {
-                continue;
-            }
-
-            assert!(
-                false,
+            assert_ne!(
+                netuid_i, this_netuid,
                 "Total shares entry for {} {} should be removed",
                 ck, netuid_i
             );
