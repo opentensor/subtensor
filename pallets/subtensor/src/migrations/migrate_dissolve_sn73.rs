@@ -49,7 +49,7 @@ pub fn migrate_dissolve_sn73<T: Config>() -> Weight {
     // Iterate over every hotkey and distribute the TAO from the pool
     // using previous total alpha as the denominator
     for hotkey in hotkeys_to_remove.iter() {
-		log::debug!("Hotkey: {}", hotkey);
+        log::debug!("Hotkey: {}", hotkey);
 
         let total_hotkey_alpha_i = TotalHotkeyAlpha::<T>::get(hotkey.clone(), this_netuid);
         let total_hotkey_alpha = I96F32::from_num(total_hotkey_alpha_i);
