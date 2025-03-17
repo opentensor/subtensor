@@ -66,8 +66,11 @@ impl Position {
     /// Converts tick index into SQRT of lower price of this tick
     /// In order to find the higher price of this tick, call
     /// tick_index_to_sqrt_price(tick_idx + 1)
-    ///
     pub fn tick_index_to_sqrt_price(tick_idx: i32) -> Result<SqrtPrice, TickMathError> {
+        // because of u256->u128 conversion we have twice less values for min/max ticks
+        if !(MIN_TICK / 2..=MAX_TICK / 2).contains(&tick_idx) {
+            return Err(TickMathError::TickOutOfBounds);
+        }
         get_sqrt_ratio_at_tick(tick_idx).and_then(u256_q64_96_to_u64f64)
     }
 
@@ -75,9 +78,15 @@ impl Position {
     /// Because the tick is the range of prices [sqrt_lower_price, sqrt_higher_price),
     /// the resulting tick index matches the price by the following inequality:
     ///    sqrt_lower_price <= sqrt_price < sqrt_higher_price
-    ///
     pub fn sqrt_price_to_tick_index(sqrt_price: SqrtPrice) -> Result<i32, TickMathError> {
-        get_tick_at_sqrt_ratio(u64f64_to_u256_q64_96(sqrt_price))
+        let tick = get_tick_at_sqrt_ratio(u64f64_to_u256_q64_96(sqrt_price))?;
+
+        // Correct for rounding error during conversions between different fixed-point formats
+        Ok(if tick == 0 {
+            tick
+        } else {
+            tick.saturating_add(1)
+        })
     }
 
     /// Converts position to token amounts
@@ -1007,23 +1016,38 @@ mod tests {
     fn test_tick_index_to_sqrt_price() {
         let tick_spacing = SqrtPrice::from_num(1.0001);
 
+        // check tick bounds
+        assert_eq!(
+            Position::tick_index_to_sqrt_price(MIN_TICK),
+            Err(TickMathError::TickOutOfBounds)
+        );
+
+        assert_eq!(
+            Position::tick_index_to_sqrt_price(MAX_TICK),
+            Err(TickMathError::TickOutOfBounds),
+        );
+
         // At tick index 0, the sqrt price should be 1.0
         let sqrt_price = Position::tick_index_to_sqrt_price(0).unwrap();
         assert_eq!(sqrt_price, SqrtPrice::from_num(1.0));
 
         let sqrt_price = Position::tick_index_to_sqrt_price(2).unwrap();
-        assert_eq!(sqrt_price, tick_spacing);
+        assert!(sqrt_price.abs_diff(tick_spacing) < SqrtPrice::from_num(1e-10));
 
         let sqrt_price = Position::tick_index_to_sqrt_price(4).unwrap();
         // Calculate the expected value: (1 + TICK_SPACING/1e9 + 1.0)^2
         let expected = tick_spacing * tick_spacing;
-        assert_eq!(sqrt_price, expected);
+        assert!(sqrt_price.abs_diff(expected) < SqrtPrice::from_num(1e-10));
 
         // Test with tick index 10
         let sqrt_price = Position::tick_index_to_sqrt_price(10).unwrap();
         // Calculate the expected value: (1 + TICK_SPACING/1e9 + 1.0)^5
-        let expected_sqrt_price_10 = tick_spacing.checked_pow(5).unwrap();
-        assert_eq!(sqrt_price, expected_sqrt_price_10);
+        let expected = tick_spacing.checked_pow(5).unwrap();
+        assert!(
+            sqrt_price.abs_diff(expected) < SqrtPrice::from_num(1e-10),
+            "diff: {}",
+            sqrt_price.abs_diff(expected),
+        );
     }
 
     #[test]
@@ -1049,7 +1073,23 @@ mod tests {
 
     #[test]
     fn test_roundtrip_tick_index_sqrt_price() {
-        for tick_index in [0, 2, 4, 10, 100, 1000].iter() {
+        for tick_index in [
+            MIN_TICK / 2,
+            -1000,
+            -100,
+            -10,
+            -4,
+            -2,
+            0,
+            2,
+            4,
+            10,
+            100,
+            1000,
+            MAX_TICK / 2,
+        ]
+        .iter()
+        {
             let sqrt_price = Position::tick_index_to_sqrt_price(*tick_index).unwrap();
             let round_trip_tick_index = Position::sqrt_price_to_tick_index(sqrt_price).unwrap();
             assert_eq!(round_trip_tick_index, *tick_index);

@@ -62,7 +62,7 @@ pub trait FixedExt: Fixed {
             if exp & 1 != 0 {
                 result = result.saturating_mul(base);
             }
-            base = self.saturating_mul(base);
+            base = base.saturating_mul(base);
             exp >>= 1;
         }
 
