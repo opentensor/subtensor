@@ -1,3 +1,5 @@
+use core::u16;
+
 use super::mock::*;
 use crate::*;
 use crate::{ColdkeySwapScheduleDuration, DissolveNetworkScheduleDuration, Event};
@@ -341,5 +343,402 @@ fn test_tempo_greater_than_weight_set_rate_limit() {
         let weights_set_rate_limit = SubtensorModule::get_weights_set_rate_limit(netuid);
 
         assert!(tempo as u64 >= weights_set_rate_limit);
+    })
+}
+
+#[test]
+fn test_dissolve_then_registration_again_without_stake_ok() {
+    new_test_ext(1).execute_with(|| {
+        let block_number: u64 = 0;
+        let netuid: u16 = 2;
+        let tempo: u16 = 13;
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id = U256::from(0);
+        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+            netuid,
+            block_number,
+            129123813,
+            &hotkey_account_id,
+        );
+
+        //add network
+        add_network(netuid, tempo, 0);
+
+        // register neuron
+        assert_ok!(SubtensorModule::register(
+            <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
+            netuid,
+            block_number,
+            nonce,
+            work.clone(),
+            hotkey_account_id,
+            coldkey_account_id
+        ));
+
+        step_block(tempo + 1);
+
+        SubtensorModule::remove_network(netuid);
+
+        step_block(tempo + 1);
+
+        //add network again
+        add_network(netuid, tempo, 0);
+
+        step_block(tempo + 1);
+    })
+}
+
+#[test]
+fn test_dissolve_then_registration_again_with_stake_ok() {
+    new_test_ext(1).execute_with(|| {
+        let block_number: u64 = 0;
+        let netuid: u16 = 2;
+        let tempo: u16 = 13;
+        let amount_staked = 500_000;
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id = U256::from(0);
+        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+            netuid,
+            block_number,
+            129123813,
+            &hotkey_account_id,
+        );
+
+        //add network
+        add_network(netuid, tempo, 0);
+
+        // register neuron
+        assert_ok!(SubtensorModule::register(
+            <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
+            netuid,
+            block_number,
+            nonce,
+            work.clone(),
+            hotkey_account_id,
+            coldkey_account_id
+        ));
+
+        assert!(
+            SubtensorModule::stake_into_subnet(
+                &coldkey_account_id,
+                &hotkey_account_id,
+                netuid,
+                amount_staked,
+                DefaultStakingFee::<Test>::get(),
+            ) > 0
+        );
+
+        step_block(tempo + 1);
+
+        SubtensorModule::remove_network(netuid);
+
+        step_block(tempo + 1);
+
+        //add network again
+        add_network(netuid, tempo, 0);
+
+        step_block(tempo + 1);
+    })
+}
+
+#[test]
+fn test_dissolve_then_registration_again_with_multiple_stake_ok() {
+    new_test_ext(1).execute_with(|| {
+        let block_number: u64 = 0;
+        let netuid: u16 = 2;
+        let tempo: u16 = 13;
+        let amount_staked = 500_000;
+
+        //add network
+        add_network(netuid, tempo, 0);
+        SubtensorModule::set_max_registrations_per_block(netuid, u16::MAX);
+        SubtensorModule::set_target_registrations_per_interval(netuid, u16::MAX);
+        // register neuron
+        for i in 0..5 {
+            let hotkey_account_id: U256 = U256::from(i * 2 + 1);
+            let coldkey_account_id = U256::from(i * 2); // Neighbour of the beast, har har
+
+            let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+                netuid,
+                block_number,
+                129123813,
+                &hotkey_account_id,
+            );
+
+            assert_ok!(SubtensorModule::register(
+                <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
+                netuid,
+                block_number,
+                nonce,
+                work.clone(),
+                hotkey_account_id,
+                coldkey_account_id
+            ));
+
+            assert!(
+                SubtensorModule::stake_into_subnet(
+                    &coldkey_account_id,
+                    &hotkey_account_id,
+                    netuid,
+                    amount_staked,
+                    DefaultStakingFee::<Test>::get(),
+                ) > 0
+            );
+        }
+
+        step_block(tempo + 1);
+
+        SubtensorModule::remove_network(netuid);
+
+        step_block(tempo + 1);
+
+        //add network again
+        add_network(netuid, tempo, 0);
+
+        step_block(tempo + 1);
+    })
+}
+
+#[test]
+fn test_dissolve_then_registration_again_with_children_ok() {
+    new_test_ext(1).execute_with(|| {
+        let block_number: u64 = 0;
+        let netuid: u16 = 2;
+        let tempo: u16 = 13;
+        let amount_staked = 500_000;
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id = U256::from(0);
+        let child = U256::from(3);
+        let proportion: u64 = 1000;
+        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+            netuid,
+            block_number,
+            129123813,
+            &hotkey_account_id,
+        );
+
+        //add network
+        add_network(netuid, tempo, 0);
+
+        // register neuron
+        assert_ok!(SubtensorModule::register(
+            <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
+            netuid,
+            block_number,
+            nonce,
+            work.clone(),
+            hotkey_account_id,
+            coldkey_account_id
+        ));
+
+        assert!(
+            SubtensorModule::stake_into_subnet(
+                &coldkey_account_id,
+                &hotkey_account_id,
+                netuid,
+                amount_staked,
+                DefaultStakingFee::<Test>::get(),
+            ) > 0
+        );
+
+        mock_set_children(
+            &coldkey_account_id,
+            &hotkey_account_id,
+            netuid,
+            &[(proportion, child)],
+        );
+
+        step_block(tempo + 1);
+
+        SubtensorModule::remove_network(netuid);
+
+        step_block(tempo + 1);
+
+        //add network again
+        add_network(netuid, tempo, 0);
+
+        step_block(tempo + 1);
+    })
+}
+
+#[test]
+fn test_dissolve_then_registration_again_with_parent_ok() {
+    new_test_ext(1).execute_with(|| {
+        let block_number: u64 = 0;
+        let netuid: u16 = 2;
+        let tempo: u16 = 13;
+        let amount_staked = 500_000;
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id = U256::from(0);
+
+        let parent_hotkey_account_id: U256 = U256::from(3);
+        let parent_coldkey_account_id = U256::from(2);
+        let proportion: u64 = 1000;
+
+        //add network
+        add_network(netuid, tempo, 0);
+
+        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+            netuid,
+            block_number,
+            129123813,
+            &parent_hotkey_account_id,
+        );
+
+        // register parent
+        assert_ok!(SubtensorModule::register(
+            <<Test as Config>::RuntimeOrigin>::signed(parent_hotkey_account_id),
+            netuid,
+            block_number,
+            nonce,
+            work.clone(),
+            parent_hotkey_account_id,
+            parent_coldkey_account_id
+        ));
+
+        assert!(
+            SubtensorModule::stake_into_subnet(
+                &parent_coldkey_account_id,
+                &parent_hotkey_account_id,
+                netuid,
+                amount_staked,
+                DefaultStakingFee::<Test>::get(),
+            ) > 0
+        );
+
+        //register neuron
+        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+            netuid,
+            block_number,
+            129123813,
+            &hotkey_account_id,
+        );
+        assert_ok!(SubtensorModule::register(
+            <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
+            netuid,
+            block_number,
+            nonce,
+            work.clone(),
+            hotkey_account_id,
+            coldkey_account_id
+        ));
+
+        assert!(
+            SubtensorModule::stake_into_subnet(
+                &coldkey_account_id,
+                &hotkey_account_id,
+                netuid,
+                amount_staked,
+                DefaultStakingFee::<Test>::get(),
+            ) > 0
+        );
+
+        mock_set_children(
+            &parent_coldkey_account_id,
+            &parent_hotkey_account_id,
+            netuid,
+            &[(proportion, hotkey_account_id)],
+        );
+
+        step_block(tempo + 1);
+
+        SubtensorModule::remove_network(netuid);
+
+        step_block(tempo + 1);
+
+        //add network again
+        add_network(netuid, tempo, 0);
+
+        step_block(tempo + 1);
+    })
+}
+
+#[test]
+fn test_dissolve_then_registration_again_multiple_subnet_ok() {
+    new_test_ext(1).execute_with(|| {
+        let block_number: u64 = 0;
+        let netuid: u16 = 2;
+        let netuid_2: u16 = 3;
+        let tempo: u16 = 13;
+        let amount_staked = 500_000;
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id = U256::from(0); // Neighbour of the beast, har har
+
+        //add network
+        add_network(netuid, tempo, 0);
+        add_network(netuid_2, tempo, 0);
+
+        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+            netuid,
+            block_number,
+            129123813,
+            &hotkey_account_id,
+        );
+
+        // register neuron
+        assert_ok!(SubtensorModule::register(
+            <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
+            netuid,
+            block_number,
+            nonce,
+            work.clone(),
+            hotkey_account_id,
+            coldkey_account_id
+        ));
+
+        assert!(
+            SubtensorModule::stake_into_subnet(
+                &coldkey_account_id,
+                &hotkey_account_id,
+                netuid,
+                amount_staked,
+                DefaultStakingFee::<Test>::get(),
+            ) > 0
+        );
+
+        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+            netuid_2,
+            block_number,
+            129123813,
+            &hotkey_account_id,
+        );
+
+        // register neuron
+        assert_ok!(SubtensorModule::register(
+            <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
+            netuid_2,
+            block_number,
+            nonce,
+            work.clone(),
+            hotkey_account_id,
+            coldkey_account_id
+        ));
+
+        assert!(
+            SubtensorModule::stake_into_subnet(
+                &coldkey_account_id,
+                &hotkey_account_id,
+                netuid_2,
+                amount_staked,
+                DefaultStakingFee::<Test>::get(),
+            ) > 0
+        );
+
+        step_block(tempo + 1);
+
+        let emission = crate::PendingEmission::<Test>::get(netuid);
+        assert!(emission > 0);
+
+        SubtensorModule::remove_network(netuid);
+
+        step_block(tempo + 1);
+
+        let emission = crate::PendingEmission::<Test>::get(netuid);
+        assert!(emission > 0);
+
+        //add network again
+        add_network(netuid, tempo, 0);
+
+        step_block(tempo + 1);
     })
 }
