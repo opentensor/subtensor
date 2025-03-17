@@ -679,3 +679,150 @@ fn test_migrate_dissolve_sn73_pays_out_subnet_tao() {
         }
     });
 }
+
+#[test]
+fn test_migrate_dissolve_sn73_doesnt_affect_other_subnets() {
+    new_test_ext(1).execute_with(|| {
+        let this_netuid: u16 = 73;
+        let other_netuid: u16 = 72; // Also created
+        let sn_owner_hk: U256 = U256::from(1);
+        let sn_owner_ck: U256 = U256::from(2);
+
+        let subnet_tao: u64 = 678_900_000_000;
+
+        let staker_0_hk: U256 = U256::from(3);
+        let staker_0_ck: U256 = U256::from(4);
+
+        let staker_1_hk: U256 = U256::from(5);
+        let staker_1_ck: U256 = U256::from(6);
+
+        let staker_2_hk: U256 = U256::from(7);
+        let staker_2_ck: U256 = U256::from(8);
+
+        let delegate_0_ck: U256 = U256::from(9);
+        let delegate_1_ck: U256 = U256::from(10);
+
+        let stakes = vec![
+            (staker_0_hk, staker_0_ck, 100_000_000_000),
+            (staker_1_hk, staker_1_ck, 200_000_000_000),
+            (staker_2_hk, staker_2_ck, 123_456_789_000),
+            (staker_2_hk, delegate_0_ck, 400_000_000_000), // delegates to hk 2
+            (staker_2_hk, delegate_1_ck, 500_000_000_000), // delegates to hk 2
+            (staker_1_hk, delegate_0_ck, 456_789_000_000), // delegate 0 also stakes to hk 1
+        ];
+        let total_alpha = stakes.iter().map(|(_, _, stake)| stake).sum::<u64>();
+
+        let mut created_netuid = 0;
+        while created_netuid < this_netuid {
+            created_netuid = add_dynamic_network(&sn_owner_hk, &sn_owner_ck);
+        }
+        assert_eq!(created_netuid, this_netuid);
+
+        for netuid in [this_netuid, other_netuid] {
+            // Stake to both subnets same amounts
+            for (hk, ck, stake) in stakes.iter() {
+                SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                    hk, ck, netuid, *stake,
+                );
+            }
+        }
+
+        // Set subnetTAO
+        SubnetTAO::<Test>::insert(this_netuid, subnet_tao);
+
+        // ===== Set some storage maps ====
+
+        // Set some child keys
+        ParentKeys::<Test>::insert(U256::from(1), other_netuid, vec![(1, U256::from(2))]);
+        ChildKeys::<Test>::insert(U256::from(2), other_netuid, vec![(1, U256::from(1))]);
+        PendingChildKeys::<Test>::insert(
+            other_netuid,
+            U256::from(1),
+            (vec![(1, U256::from(2))], 123),
+        );
+
+        // Set some alpha dividends
+        AlphaDividendsPerSubnet::<Test>::insert(other_netuid, U256::from(1), 100_000_000_000);
+        TaoDividendsPerSubnet::<Test>::insert(other_netuid, U256::from(2), 200_000_000_000);
+
+        // Set pending emissions
+        PendingEmission::<Test>::insert(other_netuid, 123);
+        PendingAlphaSwapped::<Test>::insert(other_netuid, 456);
+        PendingOwnerCut::<Test>::insert(other_netuid, 789);
+        SubnetAlphaInEmission::<Test>::insert(other_netuid, 789);
+        SubnetTaoInEmission::<Test>::insert(other_netuid, 101);
+        SubnetAlphaOutEmission::<Test>::insert(other_netuid, 102);
+
+        // Set sn volume
+        SubnetVolume::<Test>::insert(other_netuid, 123);
+
+        // Set alpha out
+        SubnetAlphaOut::<Test>::insert(other_netuid, 100_000_000_000);
+        // Set alpha in
+        SubnetAlphaIn::<Test>::insert(other_netuid, 100_000_000_000);
+
+        // Set reg allowed maps
+        NetworkRegistrationAllowed::<Test>::insert(other_netuid, true);
+        NetworkPowRegistrationAllowed::<Test>::insert(other_netuid, true);
+
+        // ===== End of setting storage maps ====
+
+        // Run existing remove network dissolve
+        SubtensorModule::remove_network(this_netuid);
+
+        // Run new dissolve migration code
+        crate::migrations::migrate_dissolve_sn73::migrate_dissolve_sn73::<Test>();
+
+        // Verify that the other netuid is unaffected
+        for (hk, ck, stake) in stakes.iter() {
+            let stake_on_subnet =
+                SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(hk, ck, other_netuid);
+
+            assert_eq!(stake_on_subnet, *stake);
+        }
+
+        // Check other storages
+        assert!(SubnetOwner::<Test>::try_get(other_netuid).is_ok());
+        assert!(SubnetOwnerHotkey::<Test>::try_get(other_netuid).is_ok());
+
+        // Verify all the maps are not touched
+        assert!(SubnetTAO::<Test>::try_get(other_netuid).is_ok());
+        assert!(SubnetVolume::<Test>::try_get(other_netuid).is_ok());
+
+        assert!(ParentKeys::<Test>::try_get(U256::from(1), other_netuid).is_ok());
+        assert!(ChildKeys::<Test>::try_get(U256::from(2), other_netuid).is_ok());
+        assert!(PendingChildKeys::<Test>::try_get(other_netuid, U256::from(1)).is_ok());
+
+        // Verify div maps
+        assert!(
+            !AlphaDividendsPerSubnet::<Test>::iter_prefix(other_netuid)
+                .collect::<Vec<_>>()
+                .is_empty()
+        );
+        assert!(
+            !TaoDividendsPerSubnet::<Test>::iter_prefix(other_netuid)
+                .collect::<Vec<_>>()
+                .is_empty()
+        );
+
+        // Verify all the pending maps are not touched
+        assert!(PendingEmission::<Test>::try_get(other_netuid).is_ok());
+        assert!(PendingAlphaSwapped::<Test>::try_get(other_netuid).is_ok());
+        assert!(PendingOwnerCut::<Test>::try_get(other_netuid).is_ok());
+        assert!(SubnetAlphaInEmission::<Test>::try_get(other_netuid).is_ok());
+        assert!(SubnetTaoInEmission::<Test>::try_get(other_netuid).is_ok());
+        assert!(SubnetAlphaOutEmission::<Test>::try_get(other_netuid).is_ok());
+
+        // verify pool is present
+        assert!(SubnetAlphaIn::<Test>::try_get(other_netuid).is_ok());
+        assert!(SubnetAlphaOut::<Test>::try_get(other_netuid).is_ok());
+        assert!(SubnetTAO::<Test>::try_get(other_netuid).is_ok());
+
+        // Verify sn volume is present
+        assert!(SubnetVolume::<Test>::try_get(other_netuid).is_ok());
+
+        // verify reg allowed maps are present
+        assert!(NetworkRegistrationAllowed::<Test>::try_get(other_netuid).is_ok());
+        assert!(NetworkPowRegistrationAllowed::<Test>::try_get(other_netuid).is_ok());
+    });
+}
